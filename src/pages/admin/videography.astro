@@ -1489,6 +1489,7 @@ const DELIVER_CATEGORIES = [
         ${renderCloseGate(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
         </div>
+        <div class="vid-cand-card" id="vid-cand-delivery" hidden></div>
         <div class="vid-cand-card" id="vid-cand-invoice"></div>
         <div class="vid-cand-card" id="vid-cand-notes"></div>
         <div class="vid-cand-card" id="vid-cand-docs"></div>
@@ -1535,6 +1536,7 @@ const DELIVER_CATEGORIES = [
       });
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       if (!isStudio) showDistance(b);
+      renderDeliveryCard(b);
       renderInvoiceCard(b);
       loadThread(b);
     }
@@ -1672,6 +1674,147 @@ const DELIVER_CATEGORIES = [
       document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
       document.getElementById("vid-cand-docs")?.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
     }
+    /* ---- Delivery, on the booking ----
+       Follows the stage rather than showing everything at once: in editing the
+       job is Jack's own uploads, and only once the gallery exists is there
+       anything for the client. Fields that mean nothing yet are not shown,
+       because a form full of blanks reads as work outstanding. */
+    async function renderDeliveryCard(b) {
+      const host = document.getElementById("vid-cand-delivery");
+      if (!host) return;
+      if (!["editing", "gallery_ready", "delivered"].includes(b.stage)) { host.hidden = true; return; }
+      host.hidden = false;
+
+      if (b.stage === "editing") {
+        host.innerHTML = `
+          <h4>Deliver work</h4>
+          <p class="vid-hint" style="margin-bottom:14px">
+            Two uploads, and the second isn't optional: Pixieset for the client, and our own
+            storage as the archive. Pixieset only holds a gallery for about three months.
+          </p>
+          <label class="vid-check">
+            <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
+            <span>Archive copy uploaded to our own storage</span>
+          </label>
+          ${b.archived_at ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.archived_at).toLocaleDateString("en-GB"))}.</p>` : ""}
+          <div class="vid-cand-actions" style="margin-top:14px">
+            <button type="button" class="admin-btn admin-btn-ghost" id="vd-goupload">Open Deliver work</button>
+          </div>`;
+        document.getElementById("vd-archived").addEventListener("change", (e) => saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+        document.getElementById("vd-goupload").addEventListener("click", () => showPanel("deliver"));
+        return;
+      }
+
+      // gallery_ready / delivered: what the client actually needs.
+      const pin = await getGalleryPin(b);
+      host.innerHTML = `
+        <h4>The client's gallery</h4>
+        <p class="vid-hint" style="margin-bottom:14px">
+          What the client gets sent. They download from Pixieset with their email address
+          <em>and</em> the PIN, so the email below has to match the gallery.
+        </p>
+        <div class="vid-field"><span>Gallery link</span>
+          <input type="url" id="vd-gallery" value="${escapeHtml(b.gallery_url || "")}" placeholder="https://gallery.tmke.co.uk/…" /></div>
+        <div class="vid-inv-row">
+          <div class="vid-field"><span>Gallery email</span>
+            <input type="email" id="vd-email" value="${escapeHtml(b.gallery_email || b.client_email || "")}" /></div>
+          <div class="vid-field"><span>PIN</span>
+            <input type="text" id="vd-pin" autocomplete="off" value="${escapeHtml(pin)}" /></div>
+        </div>
+        <div class="vid-field"><span>Floor plan link</span>
+          <input type="url" id="vd-floorplan" value="${escapeHtml(b.floorplan_url || "")}" placeholder="Pixieset can't hold these" /></div>
+        <div class="vid-inv-row">
+          <div class="vid-field"><span>Anything else — label</span>
+            <input type="text" id="vd-extra-label" value="${escapeHtml(b.extra_link_label || "")}" placeholder="e.g. 360 tour" /></div>
+          <div class="vid-field"><span>Anything else — link</span>
+            <input type="url" id="vd-extra-url" value="${escapeHtml(b.extra_link_url || "")}" /></div>
+        </div>
+        <label class="vid-check">
+          <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
+          <span>Archive copy uploaded to our own storage</span>
+        </label>
+        <p class="vid-warn" id="vd-msg" hidden></p>
+        <div class="vid-cand-actions" style="margin-top:14px">
+          <button type="button" class="admin-btn admin-btn-primary" id="vd-save">Save</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="vd-send" ${b.gallery_sent_at ? "" : ""}>
+            ${b.gallery_sent_at ? "Send gallery email again" : "Send gallery email"}
+          </button>
+        </div>
+        ${b.gallery_sent_at ? `<p class="vid-hint">Sent ${escapeHtml(new Date(b.gallery_sent_at).toLocaleString("en-GB"))}.</p>` : ""}
+        <p class="vid-hint">${b.paid_at
+          ? "Paid, so the email will include the PIN."
+          : "Not paid, so the email will withhold the PIN and ask for payment. They'll see the watermarked gallery."}</p>`;
+
+      document.getElementById("vd-save").addEventListener("click", () => saveGalleryFields(b));
+      document.getElementById("vd-send").addEventListener("click", () => sendGalleryEmail(b));
+      document.getElementById("vd-archived").addEventListener("change", (e) =>
+        saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+    }
+
+    async function getGalleryPin(b) {
+      const { data } = await supabase.from("videography_gallery_pins").select("pin").eq("booking_id", b.id).maybeSingle();
+      return (data && data.pin) || "";
+    }
+
+    async function saveBookingPatch(b, patch) {
+      Object.assign(b, patch);
+      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
+      if (error) alert("Couldn't save that: " + error.message);
+      else renderCandidate();
+    }
+
+    function vdMsg(text, bad) {
+      const el = document.getElementById("vd-msg");
+      if (!el) return;
+      el.hidden = !text; el.textContent = text || "";
+      el.style.color = bad ? "#8a5a2b" : "var(--english-violet)";
+    }
+
+    async function sendGalleryEmail(b) {
+      // Save first. Otherwise an unsaved link or PIN in the boxes is not what
+      // the Worker reads, and the client gets last-saved rather than on-screen.
+      await saveGalleryFields(b);
+      const paid = !!b.paid_at;
+      const to = (document.getElementById("vd-email")?.value || "").trim();
+      if (!confirm(`Send the gallery email to ${to}?\n\n${paid
+        ? "They've paid, so this includes the PIN and they can download."
+        : "They haven't paid, so this withholds the PIN, asks for payment and attaches the invoice."}`)) return;
+      const btn = document.getElementById("vd-send");
+      const label = btn.textContent; btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/videography/gallery-email`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ booking_id: b.id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { vdMsg(d.error || "Couldn't send.", true); return; }
+        b.gallery_sent_at = new Date().toISOString();
+        await addNote(b, d.included_pin
+          ? `Gallery email sent to ${d.sent_to} with the PIN.`
+          : `Gallery email sent to ${d.sent_to}. PIN withheld - not yet paid.`, "audit");
+        renderCandidate();
+      } catch (err) { vdMsg("Couldn't send: " + err.message, true); }
+      finally { btn.disabled = false; btn.textContent = label; }
+    }
+
+    async function saveGalleryFields(b) {
+      const val = (id) => (document.getElementById(id)?.value || "").trim();
+      const patch = {
+        gallery_url: val("vd-gallery") || null,
+        gallery_email: val("vd-email") || null,
+        floorplan_url: val("vd-floorplan") || null,
+        extra_link_label: val("vd-extra-label") || null,
+        extra_link_url: val("vd-extra-url") || null,
+      };
+      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
+      if (error) { vdMsg("Couldn't save: " + error.message, true); return; }
+      Object.assign(b, patch);
+      await saveGalleryPin(b.id, val("vd-pin"));
+      vdMsg("Saved.");
+    }
+
     /* ---- Invoicing, on the booking ----
        Same Worker endpoints as the standalone Invoicing page and the SMM client
        card. Raising it here rather than there matters for one reason beyond

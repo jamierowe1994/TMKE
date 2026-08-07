@@ -5987,6 +5987,95 @@ export default {
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
 
+      // "Your gallery is ready". Two versions of the same email, decided by
+      // whether the shoot has been paid for - because the PIN is what unlocks
+      // downloading, and it is the only thing being withheld.
+      if (path.endsWith("/videography/gallery-email") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+
+        const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        if (!bk.gallery_url) return json({ error: "Add the gallery link before sending." }, 400, request, env);
+        const to = bk.gallery_email || bk.client_email;
+        if (!to) return json({ error: "No email address to send to." }, 400, request, env);
+
+        const paid = !!bk.paid_at;
+        let pin = "";
+        if (paid) {
+          const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(id)}&select=pin`);
+          pin = (prow && prow[0] && prow[0].pin) || "";
+          if (!pin) return json({ error: "This shoot is paid but has no PIN saved - add it before sending." }, 400, request, env);
+        }
+
+        // Unpaid: attach the invoice and give them a way to pay it.
+        let attachments, payUrl = null, invNumber = null;
+        if (!paid) {
+          const invs = (await sbGet(env, "invoices", `booking_id=eq.${encodeURIComponent(id)}&select=id,number,status,pay_by_card&order=created_at.desc`)) || [];
+          const live = invs.find((iv) => iv.status !== "void" && iv.status !== "paid");
+          if (live) {
+            invNumber = live.number;
+            if (live.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, live.id);
+            try {
+              const obj = await env.BUCKET.get(`invoices/${live.number}.pdf`);
+              if (obj) attachments = [{ filename: `Invoice-${live.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
+            } catch (_) {}
+          }
+        }
+
+        const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const links = [
+          `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View your gallery</a></p>`,
+          bk.floorplan_url ? `<p style="${EM_P}">Floor plan: <a href="${esc(bk.floorplan_url)}">${esc(bk.floorplan_url)}</a></p>` : "",
+          bk.extra_link_url ? `<p style="${EM_P}">${esc(bk.extra_link_label || "Also for you")}: <a href="${esc(bk.extra_link_url)}">${esc(bk.extra_link_url)}</a></p>` : "",
+        ].filter(Boolean).join("");
+
+        const unlock = paid
+          ? `<p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
+               Your download PIN is <strong>${esc(pin)}</strong>.<br>
+               Pixieset asks for your email address and this PIN when you download, so use
+               <strong>${esc(to)}</strong>.</span></p>`
+          : `<p style="${EM_P}">You can view everything now. Downloads unlock once payment reaches us${invNumber ? ` for invoice ${esc(invNumber)}` : ""} - until then the gallery is watermarked, and we'll email your PIN as soon as it clears.</p>
+             ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
+             ${attachments ? `<p style="${EM_SMALL}">Your invoice is attached. You can also pay by bank transfer using the details on it.</p>` : ""}`;
+
+        // The amendments wording is lifted from the agreement they signed rather
+        // than paraphrased, so what the email promises and what the contract
+        // says cannot drift apart.
+        const amends = `<p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>`;
+
+        const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+          <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
+          <p style="${EM_P}">Your ${esc((bk.service || "shoot").toLowerCase())} is ready to view.</p>
+          ${links}
+          ${unlock}
+          ${amends}
+          <p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>
+        </div>`);
+
+        const sent = await sendEmail(env, {
+          to,
+          subject: paid ? `Your gallery is ready` : `Your gallery is ready to view`,
+          html, attachments,
+        });
+        if (!sent.ok) return json({ error: "The email didn't send: " + (sent.error || "unknown") }, 502, request, env);
+
+        await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, { gallery_sent_at: new Date().toISOString() });
+        await logBookingMessage(env, {
+          booking_id: id, booking_source: "videography",
+          account_user_id: bk.account_user_id, client_email: to,
+          channel: "email", kind: "gallery_ready",
+          subject: paid ? "Your gallery is ready" : "Your gallery is ready to view",
+          body: paid ? "Gallery link sent with the PIN." : "Gallery link sent; PIN withheld pending payment.",
+          is_automated: false, created_by: user.email || "admin",
+        });
+        return json({ ok: true, sent_to: to, included_pin: paid }, 200, request, env);
+      }
+
       if (path.endsWith("/booking/thread") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
