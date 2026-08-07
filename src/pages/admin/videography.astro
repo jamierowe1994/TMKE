@@ -1495,7 +1495,7 @@ const DELIVER_CATEGORIES = [
         <div class="vid-cand-card" id="vid-cand-thread"></div>`;
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
       el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
-      if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", () => {
+      if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", async () => {
         // From Booked the button means "go and raise it", not "pretend it is
         // raised" - the stage moves when the invoice actually sends.
         if (f.advance.to === "invoiced") {
@@ -1512,6 +1512,20 @@ const DELIVER_CATEGORIES = [
           if (isBrandInvoiced(b) && !b.brand_fee_confirmed) {
             alert("Before you raise an invoice:\n\nFine & Country haven't confirmed the marketing fee is held. Tick the confirmation above once the office has confirmed it.");
             return;
+          }
+          // An invoice may already exist - someone raised one earlier, or the
+          // booking was moved back a step. Raising a second one should be a
+          // deliberate choice, not the only way past this stage.
+          const raised = (await fetchInvoicesFor(b)).filter((iv) => iv.status !== "void");
+          if (raised.length) {
+            const list = raised.map((iv) => `${iv.number} (${iv.status})`).join(", ");
+            const another = confirm(
+              `An invoice has already been raised for this shoot:\n\n${list}\n\n` +
+              `Do you need to raise another one?\n\n` +
+              `OK — raise another invoice\nCancel — move on to Invoiced`);
+            if (!another) { advanceStage("invoiced"); return; }
+            vivForceOpen = true;
+            await renderInvoiceCard(b);
           }
           document.getElementById("vid-cand-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
           document.getElementById("viv-name")?.focus({ preventScroll: true });
@@ -1910,15 +1924,20 @@ const DELIVER_CATEGORIES = [
       } finally { btn.disabled = false; btn.textContent = label; }
     }
 
-    async function loadInvoices(b) {
-      const host = document.getElementById("viv-list");
-      if (!host) return;
-      let list = [];
+    async function fetchInvoicesFor(b) {
       try {
         const token = await authToken();
         const res = await fetch(`${WORKER_URL}/invoicing/invoices?booking_id=${encodeURIComponent(b.id)}`, { headers: { Authorization: "Bearer " + token } });
-        if (res.ok) list = (await res.json()).invoices || [];
+        if (res.ok) return (await res.json()).invoices || [];
       } catch (_) {}
+      return [];
+    }
+
+    async function loadInvoices(b) {
+      const host = document.getElementById("viv-list");
+      if (!host) return;
+      const list = await fetchInvoicesFor(b);
+      b._invoices = list;
       if (!list.length) { host.innerHTML = `<p class="vid-loading">Nothing raised yet.</p>`; return; }
       host.innerHTML = list.map((iv) => `
         <div class="vid-inv-row-item">
