@@ -34,14 +34,6 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               </div>
               <span class="ci-pay-hint">Adds a &ldquo;Pay by card&rdquo; button to the email. Bank details stay on the invoice either way.</span>
             </div>
-            <div class="ci-tpl">
-              <span class="ci-tpl-lbl">Shoot invoice</span>
-              <div class="ci-tpl-opts" id="ci-release">
-                <button type="button" class="ci-tpl-opt" data-rel="no">No</button>
-                <button type="button" class="ci-tpl-opt" data-rel="yes">Yes</button>
-              </div>
-              <span class="ci-pay-hint">Adds the content-release terms: payment isn&rsquo;t due until the shoot has happened, and the PIN follows payment.</span>
-            </div>
             <h3 class="inv-h">Bill to</h3>
             <label class="inv-field"><span>From the address book</span><select id="ci-recip"><option value="">— Choose a partner, or type below —</option></select></label>
             <label class="inv-field"><span>Name *</span><input id="ci-name" placeholder="e.g. Fine &amp; Country — Rugby" /></label>
@@ -552,8 +544,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     // Off by default - a pay link should be a deliberate choice per invoice,
     // not something that quietly appears on every one.
     let ciPayByCard = false;
-    // Shoot invoices carry extra terms and a longer window. Off by default so a
-    // general invoice never promises anything about content.
+    // Shoot invoices are raised from the videography client file, not here, so
+    // there is no control for this. It is still tracked, because an invoice
+    // EDITED here may have been raised there and must keep its terms rather
+    // than silently losing the content-release wording.
     let ciRelease = false;
     const gbp = (p) => "£" + ((p || 0) / 100).toFixed(2);
     const isoToday = () => new Date().toISOString().slice(0, 10);
@@ -580,7 +574,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     const ciSettings = () => ({ ...currentSettings, template: ciTemplate });
     function syncCiTpl() { document.querySelectorAll("#ci-tpl .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-tpl") === ciTemplate)); }
     function syncCiPay() { document.querySelectorAll("#ci-pay .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-pay") === "yes") === ciPayByCard)); }
-    function syncCiRelease() { document.querySelectorAll("#ci-release .ci-tpl-opt").forEach((b) => b.classList.toggle("is-active", (b.getAttribute("data-rel") === "yes") === ciRelease)); }
+    function syncCiRelease() { /* no control here any more - see ciRelease above */ }
     function ciRenderItems() {
       $("ci-items").innerHTML = ciItems.map((it, i) => `<div class="ci-item"><input class="ci-desc" data-i="${i}" placeholder="Description of the service" value="${esc(it.description)}"/><input class="ci-amt" data-i="${i}" type="number" step="0.01" placeholder="0.00" value="${esc(it.amount)}"/><button type="button" class="ci-del" data-i="${i}" title="Remove">&times;</button></div>`).join("");
     }
@@ -603,14 +597,6 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     }
     $("ci-tpl").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciTemplate = b.getAttribute("data-tpl"); syncCiTpl(); ciPreview(); });
     $("ci-pay").addEventListener("click", (e) => { const b = e.target.closest(".ci-tpl-opt"); if (!b) return; ciPayByCard = b.getAttribute("data-pay") === "yes"; syncCiPay(); ciPreview(); });
-    $("ci-release").addEventListener("click", (e) => {
-      const b = e.target.closest(".ci-tpl-opt"); if (!b) return;
-      ciRelease = b.getAttribute("data-rel") === "yes";
-      // A shoot invoice runs to ten days: it goes out two days before the
-      // shoot, and editing may not finish until around day six.
-      if (ciRelease && !$("ci-terms").value) { $("ci-terms").value = "10"; ciApplyTerms(); }
-      syncCiRelease(); ciPreview();
-    });
     $("ci-terms").addEventListener("input", () => { ciApplyTerms(); ciPreview(); });
 
     // Keep the due date honest: it is what the client actually reads.
@@ -815,7 +801,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         invList = invoices || [];
         if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="paidon">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Mark paid</button>` : ""}${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : ""}<button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button><button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button></span></div>`).join("");
+        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="paidon">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : ""}${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : ""}<button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button><button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button></span></div>`).join("");
       } catch (err) { wrap.innerHTML = `<p class="inv-empty">${esc(err.message)}</p>`; }
     }
     $("inv-list").addEventListener("click", async (e) => {
