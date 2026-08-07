@@ -141,9 +141,10 @@ const DELIVER_CATEGORIES = [
           <input type="url" id="vid-arch-url" placeholder="Paste the Cloudflare folder link" />
         </div>
         <div class="vid-cand-actions">
-          <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Save</button>
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Save folder name</button>
           <a class="admin-btn admin-btn-ghost" id="vid-arch-open" href="#" target="_blank" rel="noopener" hidden>Open folder</a>
         </div>
+        <p class="vid-hint" id="vid-arch-path"></p>
         <p class="vid-hint" id="vid-arch-msg"></p>
       </div>
 
@@ -1698,6 +1699,15 @@ const DELIVER_CATEGORIES = [
       document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
       document.getElementById("vid-cand-docs")?.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
     }
+    /* The folder a booking's files belong in. Uses the saved name if there is
+       one, so a folder that already exists in storage keeps its name even if
+       the booking is edited afterwards. */
+    function archiveFolderFor(bookingId) {
+      const b = bookings.find((x) => x.id === bookingId);
+      if (!b) return "";
+      return (b.archive_folder || archiveFolderName(b) || "").trim();
+    }
+
     /* ---- The internal archive folder ----
        Built from what identifies a shoot at a glance, in the order you'd look
        for it: type, who, when, where. Slashes and colons are stripped because
@@ -1728,6 +1738,17 @@ const DELIVER_CATEGORIES = [
       open.hidden = !b.archive_url;
       if (b.archive_url) open.href = b.archive_url;
       document.getElementById("vid-arch-msg").textContent = "";
+      showArchivePath(b);
+    }
+
+    // Say where files will land, so nobody has to guess what we did with them.
+    function showArchivePath(b) {
+      const el = document.getElementById("vid-arch-path");
+      if (!el) return;
+      const folder = (document.getElementById("vid-arch-folder")?.value || "").trim();
+      el.textContent = folder
+        ? `Files upload to  deliverables / ${folder} / <category> /`
+        : "Give this shoot a folder name and uploads will go there.";
     }
 
     async function saveArchive(b) {
@@ -2933,6 +2954,10 @@ const DELIVER_CATEGORIES = [
         const b = bookings.find((x) => x.id === deliverBooking());
         if (b) saveArchive(b);
       });
+      document.getElementById("vid-arch-folder")?.addEventListener("input", () => {
+        const b = bookings.find((x) => x.id === deliverBooking());
+        if (b) showArchivePath(b);
+      });
       document.getElementById("vid-arch-copy")?.addEventListener("click", async () => {
         const input = document.getElementById("vid-arch-folder");
         try { await navigator.clipboard.writeText(input.value); document.getElementById("vid-arch-msg").textContent = "Folder name copied."; }
@@ -3018,7 +3043,13 @@ const DELIVER_CATEGORIES = [
         const cRes = await fetch(`${WORKER_URL}/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
-          body: JSON.stringify({ bookingId, fileName: file.name, contentType: file.type || "application/octet-stream" }),
+          // Send the folder so the file lands somewhere a person can find,
+          // rather than under a booking id nobody can read.
+          body: JSON.stringify({
+            bookingId, fileName: file.name,
+            contentType: file.type || "application/octet-stream",
+            folder: archiveFolderFor(bookingId), category,
+          }),
         });
         if (!cRes.ok) throw new Error("Create failed (" + cRes.status + ")");
         const { key, uploadId } = await cRes.json();

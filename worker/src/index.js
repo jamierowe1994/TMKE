@@ -782,6 +782,22 @@ async function sbRpc(env, fn, args, onError) {
 const hmToMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + m; };
 const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
 
+// Build a readable object key: <prefix>/<folder>/<category>/<file>. Slashes are
+// stripped from each part first - one inside a name would silently create an
+// extra level of folder, which is how a tidy scheme quietly stops being tidy.
+function safeFolderKey(folder, category, fileName) {
+  const part = (v, max) => String(v || "")
+    .replace(/[\\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[^a-zA-Z0-9._&()' -]/g, "")
+    .slice(0, max || 120);
+  const f = part(folder, 140) || "unfiled";
+  const c = part(category, 40);
+  const name = String(fileName || "file").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
+  return [PART_PREFIX, f, c, name].filter(Boolean).join("/");
+}
+
 // Build a safe object key for a booking's file.
 function safeKey(bookingId, fileName) {
   const id = String(bookingId || "unfiled").replace(/[^a-zA-Z0-9_-]/g, "");
@@ -4637,8 +4653,14 @@ export default {
 
       // ---- Create a multipart upload ----
       if (path.endsWith("/create") && request.method === "POST") {
-        const { bookingId, fileName, contentType } = await request.json();
-        const key = safeKey(bookingId, `${Date.now()}-${fileName}`);
+        const { bookingId, fileName, contentType, folder, category } = await request.json();
+        // A booking id is unique but tells you nothing when you're looking
+        // through storage months later. When the admin centre supplies a folder
+        // name, files land under it - and under their category, so exteriors and
+        // interiors are separate without anyone renaming a thing.
+        const key = folder
+          ? safeFolderKey(folder, category, `${Date.now()}-${fileName}`)
+          : safeKey(bookingId, `${Date.now()}-${fileName}`);
         const mp = await env.BUCKET.createMultipartUpload(key, {
           httpMetadata: contentType ? { contentType } : undefined,
         });
