@@ -3090,11 +3090,16 @@ const DELIVER_CATEGORIES = [
         });
         if (!fRes.ok) throw new Error("Complete failed (" + fRes.status + ")");
 
-        await supabase.from("videography_deliverables").insert({
+        // The file is in R2 by this point; this row is what makes it findable.
+        // The error was previously discarded, so a rejected row - RLS, a missing
+        // column, anything - still reported "done" and then simply never
+        // appeared. An upload that isn't recorded is a lost file, so it says so.
+        const { error: rowErr } = await supabase.from("videography_deliverables").insert({
           booking_id: bookingId, file_name: file.name, r2_key: key,
           size_bytes: file.size, content_type: file.type || null, kind: kindFromType(file.type),
           category: category || null,
         });
+        if (rowErr) throw new Error("Uploaded, but not recorded: " + rowErr.message);
 
         ui.setPct(100); ui.done(); ui.setStat(fmtBytes(file.size) + " · done", "is-done");
         setTimeout(() => ui.remove(), 2500);
@@ -3119,6 +3124,15 @@ const DELIVER_CATEGORIES = [
       ).join("");
     }
 
+    // Distinguishes "nothing uploaded" from "not allowed to see it".
+    let adminReadOk = null;
+    async function canReadDeliverables() {
+      if (adminReadOk !== null) return adminReadOk;
+      const { data } = await supabase.rpc("is_admin");
+      adminReadOk = data === true;
+      return adminReadOk;
+    }
+
     async function loadDeliverFiles() {
       const listEl = document.getElementById("vid-files-list");
       const emptyEl = document.getElementById("vid-files-empty");
@@ -3130,6 +3144,14 @@ const DELIVER_CATEGORIES = [
         .from("videography_deliverables").select("*")
         .eq("booking_id", bookingId).order("created_at", { ascending: false });
       if (error) { if (emptyEl) emptyEl.textContent = "Couldn't load files: " + error.message; listEl.innerHTML = ""; return; }
+      // RLS returns an empty list rather than an error when you're not allowed,
+      // so "none" and "not permitted" look identical. Check which it is.
+      if ((!data || !data.length) && !(await canReadDeliverables())) {
+        setCatCounts({});
+        if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "You don't have permission to read delivered files — your account needs a row in public.admins."; }
+        listEl.innerHTML = "";
+        return;
+      }
       if (!data || !data.length) { setCatCounts({}); if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = "No files delivered for this booking yet."; } listEl.innerHTML = ""; return; }
       if (emptyEl) emptyEl.hidden = true;
 
