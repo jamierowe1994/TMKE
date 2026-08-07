@@ -264,7 +264,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 
     /* Template tab */
     .inv-panel[data-panel="template"] { max-width: 1180px; }
-    .inv-tpl-grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; align-items: start; }
+    .inv-tpl-grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 20px; align-items: start; }
+    /* Grid items refuse to shrink below their content by default, and the
+       preview iframe is a fixed 794px - so the column held itself open at 794
+       and pushed the whole grid off the card. min-width:0 lets it shrink, and
+       ciScaleFit then scales the preview to whatever room is left. */
+    .inv-tpl-grid > * { min-width: 0; }
     @media (max-width: 900px) { .inv-tpl-grid { grid-template-columns: 1fr; } }
     .inv-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
     @media (max-width: 460px) { .inv-styles { grid-template-columns: 1fr; } }
