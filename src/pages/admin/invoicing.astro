@@ -756,12 +756,18 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     async function editInvoice(id) {
       const inv = invList.find((x) => x.id === id);
       if (!inv) return;
-      // The list select is lean and carries no line items, so read the whole
-      // row. Admins can, by the invoices table's own RLS.
-      let full = inv;
-      const { data, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
-      if (error || !data) { ciMsg("Couldn't load that invoice.", true); return; }
-      full = data;
+      // Through the Worker rather than straight from the table: the list select
+      // carries no line items, and a direct read depends on the admin's own RLS
+      // row, which is one more thing that can quietly return nothing.
+      let full;
+      try {
+        full = (await api(`/invoicing/invoice?id=${encodeURIComponent(id)}`)).invoice;
+      } catch (err) {
+        ciMsg("Couldn't load that invoice: " + err.message, true);
+        document.querySelector('[data-tab="create"]')?.click();
+        return;
+      }
+      if (!full) { ciMsg("Couldn't load that invoice.", true); return; }
 
       ciItems = (full.line_items || []).map((it) => ({
         description: it.description || "",

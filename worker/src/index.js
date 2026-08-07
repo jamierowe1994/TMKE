@@ -5238,6 +5238,21 @@ export default {
         return json({ ok: true, status: newStatus, sent_to: inv.bill_to_email }, 200, request, env);
       }
 
+      // One invoice, in full. The list select is lean and carries no line items,
+      // and reading the table straight from the browser depends on the admin's
+      // own RLS row - which is one more thing to be wrong when an editor won't
+      // populate. The service role has no such doubt.
+      if (path.endsWith("/invoicing/invoice") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Missing id" }, 400, request, env);
+        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const inv = rows && rows[0];
+        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
+        return json({ ok: true, invoice: inv }, 200, request, env);
+      }
+
       // ---- Admin: invoices (create draft / list / mark paid) -----------------
       if (path.endsWith("/invoicing/invoices") && request.method === "GET") {
         const user = await getUser(request, env);
