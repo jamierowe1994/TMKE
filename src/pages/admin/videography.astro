@@ -20,6 +20,7 @@ const DELIVER_CATEGORIES = [
   <section class="admin-bar">
     <div class="admin-bar-actions">
       <button type="button" class="admin-btn admin-btn-primary" id="vid-new-booking">+ New booking</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="vid-viewtoggle">Calendar view</button>
       <div class="vid-cog-wrap">
         <button type="button" class="vid-cog" id="vid-cog" aria-label="Studio settings" aria-expanded="false">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -46,9 +47,26 @@ const DELIVER_CATEGORIES = [
       </div>
       <input type="search" id="vid-client-search" class="admin-search" placeholder="Search client, company…" />
     </div>
+    <div class="vid-chips" id="vid-chips" role="tablist">
+      <button type="button" class="vid-chip is-active" data-stagefilter="all">All</button>
+      <button type="button" class="vid-chip" data-stagefilter="booked">Booked</button>
+      <button type="button" class="vid-chip" data-stagefilter="invoiced">Invoiced</button>
+      <button type="button" class="vid-chip" data-stagefilter="shoot_day">Shoot day</button>
+      <button type="button" class="vid-chip" data-stagefilter="editing">Editing</button>
+      <button type="button" class="vid-chip" data-stagefilter="gallery_ready">Gallery ready</button>
+      <button type="button" class="vid-chip" data-stagefilter="delivered">Delivered</button>
+    </div>
     <div class="vid-scrolltop" id="vid-scrolltop" hidden><div id="vid-scrolltop-inner"></div></div>
     <p class="vid-loading" id="vid-clients-loading">Loading clients…</p>
     <div class="vid-clients" id="vid-clients" hidden></div>
+    <div class="vid-cal" id="vid-cal" hidden>
+      <div class="vid-cal-head">
+        <button type="button" class="admin-btn admin-btn-ghost" id="vid-cal-prev">&larr;</button>
+        <span class="vid-cal-month" id="vid-cal-month"></span>
+        <button type="button" class="admin-btn admin-btn-ghost" id="vid-cal-next">&rarr;</button>
+      </div>
+      <div class="vid-cal-grid" id="vid-cal-grid"></div>
+    </div>
     <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet — add a booking to get started.</p>
   </section>
 
@@ -751,7 +769,48 @@ const DELIVER_CATEGORIES = [
     .vid-scrolltop { margin: 14px 0 6px; overflow-x: auto; overflow-y: hidden; }
     .vid-scrolltop[hidden] { display: none; }
     #vid-scrolltop-inner { height: 1px; }
-    .vid-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 14px; align-items: start; overflow-x: auto; padding: 6px 0 120px; }
+    /* macOS hides overlay scrollbars until you scroll, so on a trackpad Mac the
+       board looked like it had no more columns. Forced visible. */
+    .vid-board {
+      display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr);
+      gap: 14px; align-items: start; overflow-x: auto; padding: 6px 0 120px;
+      scrollbar-width: thin; scrollbar-color: rgba(28,29,34,0.28) transparent;
+    }
+    .vid-board::-webkit-scrollbar { height: 10px; -webkit-appearance: none; }
+    .vid-board::-webkit-scrollbar-track { background: rgba(28,29,34,0.05); border-radius: 999px; }
+    .vid-board::-webkit-scrollbar-thumb { background: rgba(28,29,34,0.28); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+    .vid-board::-webkit-scrollbar-thumb:hover { background: rgba(28,29,34,0.42); background-clip: padding-box; }
+
+    /* Stage filter pills, matching the social media page. */
+    .vid-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+    .vid-chip {
+      height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px;
+      background: #fff; border: 1px solid var(--border, rgba(28,29,34,0.14)); border-radius: 999px;
+      font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7);
+      cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+    }
+    .vid-chip:hover { border-color: rgba(var(--violet-rgb),0.4); }
+    .vid-chip.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+
+    /* Calendar view of the diary. */
+    .vid-cal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .vid-cal-month { font-family: var(--serif); font-size: 20px; color: var(--ink); }
+    .vid-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    .vid-cal-dow { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); padding: 0 2px 4px; }
+    .vid-cal-day {
+      min-height: 92px; background: #fff; border: 1px solid var(--border, rgba(28,29,34,0.1));
+      border-radius: 5px; padding: 7px 8px; display: flex; flex-direction: column; gap: 5px;
+    }
+    .vid-cal-day.is-out { background: transparent; border-style: dashed; opacity: 0.5; }
+    .vid-cal-day.is-today { border-color: var(--english-violet); box-shadow: 0 0 0 1px var(--english-violet); }
+    .vid-cal-num { font-family: var(--sans); font-size: 11.5px; font-weight: 700; color: rgba(28,29,34,0.5); }
+    .vid-cal-ev {
+      font-family: var(--sans); font-size: 11px; line-height: 1.35; text-align: left;
+      background: rgba(var(--violet-rgb), 0.09); color: var(--english-violet);
+      border: 0; border-radius: 3px; padding: 4px 6px; cursor: pointer; width: 100%;
+    }
+    .vid-cal-ev:hover { background: rgba(var(--violet-rgb), 0.18); }
+    .vid-cal-ev strong { display: block; font-weight: 700; }
     .vid-col { background: transparent; border: 0; min-width: 0; display: flex; flex-direction: column; }
     .vid-col-head {
       display: flex; align-items: baseline; gap: 8px; padding: 10px 4px 12px; border: 0;
@@ -1212,6 +1271,71 @@ const DELIVER_CATEGORIES = [
         el.addEventListener("click", () => openModal(el.getAttribute("data-id"))));
     }
 
+    /* ---------- Stage filter + calendar view ---------- */
+    let stageFilter = "all";
+    let calMonth = null;   // first of the month being shown
+
+    function wireBoardViews() {
+      document.getElementById("vid-chips")?.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-stagefilter]");
+        if (!btn) return;
+        stageFilter = btn.getAttribute("data-stagefilter");
+        document.querySelectorAll("#vid-chips .vid-chip").forEach((b) => b.classList.toggle("is-active", b === btn));
+        renderClients(document.getElementById("vid-client-search")?.value || "");
+      });
+
+      document.getElementById("vid-viewtoggle")?.addEventListener("click", () => {
+        const cal = document.getElementById("vid-cal");
+        const board = document.getElementById("vid-clients");
+        const chips = document.getElementById("vid-chips");
+        const showCal = cal.hidden;
+        cal.hidden = !showCal;
+        board.hidden = showCal;
+        if (chips) chips.hidden = showCal;   // stage pills mean nothing on a calendar
+        document.getElementById("vid-viewtoggle").textContent = showCal ? "Board view" : "Calendar view";
+        if (showCal) { calMonth = calMonth || startOfMonth(new Date()); renderCalendar(); }
+      });
+
+      document.getElementById("vid-cal-prev")?.addEventListener("click", () => { calMonth.setMonth(calMonth.getMonth() - 1); renderCalendar(); });
+      document.getElementById("vid-cal-next")?.addEventListener("click", () => { calMonth.setMonth(calMonth.getMonth() + 1); renderCalendar(); });
+    }
+
+    const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
+    const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+    function renderCalendar() {
+      const grid = document.getElementById("vid-cal-grid");
+      const label = document.getElementById("vid-cal-month");
+      if (!grid || !calMonth) return;
+      label.textContent = calMonth.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+
+      // Monday-first, and always six rows so the grid doesn't jump height
+      // between months.
+      const first = startOfMonth(calMonth);
+      const offset = (first.getDay() + 6) % 7;
+      const start = new Date(first); start.setDate(first.getDate() - offset);
+      const today = new Date();
+
+      const dows = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      let html = dows.map((d) => `<div class="vid-cal-dow">${d}</div>`).join("");
+
+      for (let i = 0; i < 42; i++) {
+        const day = new Date(start); day.setDate(start.getDate() + i);
+        const out = day.getMonth() !== calMonth.getMonth();
+        const events = bookings.filter((b) => b.shoot_date && sameDay(new Date(b.shoot_date), day) && b.stage !== "cancelled");
+        html += `<div class="vid-cal-day${out ? " is-out" : ""}${sameDay(day, today) ? " is-today" : ""}">
+          <span class="vid-cal-num">${day.getDate()}</span>
+          ${events.map((b) => `<button type="button" class="vid-cal-ev" data-calopen="${escapeHtml(b.id)}">
+            <strong>${escapeHtml(new Date(b.shoot_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}</strong>
+            ${escapeHtml(b.client_name || "Booking")}
+          </button>`).join("")}
+        </div>`;
+      }
+      grid.innerHTML = html;
+      grid.querySelectorAll("[data-calopen]").forEach((btn) =>
+        btn.addEventListener("click", () => openCandidate(btn.getAttribute("data-calopen"))));
+    }
+
     /* ---------- Clients list + candidate file (CRM) ---------- */
     let adminEmail = null;   // who is signed in, for stamping confirmations
     const STAGE_FLOW = {
@@ -1282,7 +1406,10 @@ const DELIVER_CATEGORIES = [
       const q = filter.trim().toLowerCase();
       const rows = bookings.filter((b) => !q || [b.client_name, b.client_company, b.service, b.client_email].filter(Boolean).some((v) => String(v).toLowerCase().includes(q)));
       const stageKey = (b) => (STAGES.some((s) => s.key === b.stage) ? b.stage : STAGES[0].key);
-      wrap.innerHTML = STAGES.map((s) => {
+      // A pill narrows the board to one stage. On a wide board that is the
+      // difference between scrolling to find Editing and just looking at it.
+      const shown = stageFilter === "all" ? STAGES : STAGES.filter((s) => s.key === stageFilter);
+      wrap.innerHTML = shown.map((s) => {
         const cards = rows.filter((b) => stageKey(b) === s.key).sort(clientSort);
         return `
           <div class="vid-col" data-stage="${s.key}">
@@ -2393,6 +2520,25 @@ const DELIVER_CATEGORIES = [
       // Only ever the booking we just saved. Falling back to "the first one in
       // the list" could have deleted a different booking's PIN.
       if (savedId) await saveGalleryPin(savedId, pinValue);
+      // The public booking flow has always written the client into the CRM; a
+      // booking added by hand never did. Same endpoint, same tag rules, and
+      // upsert_contact merges rather than duplicating an existing card.
+      if (savedId && payload.client_email && WORKER_URL) {
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/booking/contact`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ booking_id: savedId }),
+          });
+          if (!res.ok) {
+            const d = await res.json().catch(() => ({}));
+            alert("The booking saved, but the contact card didn't sync: " + (d.error || res.status));
+          }
+        } catch (err) {
+          alert("The booking saved, but the contact card didn't sync: " + err.message);
+        }
+      }
       if (btn) btn.textContent = "Save booking";
       closeModal();
       renderClients(document.getElementById("vid-client-search")?.value || "");
@@ -2990,6 +3136,7 @@ const DELIVER_CATEGORIES = [
         adminEmail = session.user?.email || null;
       }
       initNav();
+      wireBoardViews();
       // The promo codes page is a separate route, so its cog links back here
       // with ?panel=... Honour it so returning lands where you clicked.
       const wanted = new URLSearchParams(location.search).get("panel");

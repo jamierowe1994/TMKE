@@ -5902,6 +5902,47 @@ export default {
         return json({ ok: true, updated: true, location: where }, 200, request, env);
       }
 
+      // Sync a booking's client into the CRM. The public booking flow has always
+      // done this; a booking added by hand in the admin centre never did, so
+      // those clients existed as bookings with no contact card. Same RPC and
+      // the same tag rules, so a manual booking lands identically to a
+      // self-served one - and upsert_contact merges rather than duplicates when
+      // the person is already there.
+      if (path.endsWith("/booking/contact") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings",
+          `id=eq.${encodeURIComponent(id)}&select=client_name,client_email,client_phone,client_company,company,service_type,account_user_id,marketing_opt_in`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+        if (!bk.client_email) return json({ ok: true, synced: false, reason: "no email on the booking" }, 200, request, env);
+
+        const fn = String(bk.client_name || "").trim().split(/\s+/);
+        const tags = crmTags(bk.client_email, ["Videography-Client", videographyProductTag(bk.service_type)], {
+          optIn: !!bk.marketing_opt_in, member: !!bk.account_user_id,
+        });
+        // sbRpc returns null on failure and stays silent unless you ask - which
+        // is how the site-wide contact write once failed unnoticed for days.
+        let rpcError = null;
+        const res = await sbRpc(env, "upsert_contact", {
+          p_email: bk.client_email,
+          p_first_name: fn.shift() || bk.client_name || null,
+          p_last_name: fn.join(" ") || null,
+          p_phone: bk.client_phone || null,
+          p_company: bk.client_company || bk.company || null,
+          p_source: "videography_" + (bk.service_type || "manual"),
+          p_lifecycle: "customer",
+          p_marketing_opt_in: !!bk.marketing_opt_in,
+          p_tags: tags,
+          p_user_id: bk.account_user_id || null,
+        }, (status, body) => { rpcError = `${status} ${String(body || "").slice(0, 200)}`; });
+        if (rpcError) return json({ error: "Couldn't sync the contact: " + rpcError }, 502, request, env);
+        return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
+      }
+
       if (path.endsWith("/booking/thread") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
