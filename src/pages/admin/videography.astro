@@ -124,6 +124,29 @@ const DELIVER_CATEGORIES = [
         </select>
       </div>
 
+      <!-- The internal copy. Uploads are keyed by booking id, which is stable but
+           unreadable in storage, so this generates a human folder name and keeps
+           a link straight to it. Admin only - the client's route is Pixieset. -->
+      <div class="vid-archive" id="vid-archive" hidden>
+        <div class="vid-archive-h">Where this shoot is stored internally</div>
+        <div class="vid-field">
+          <label>Folder name <span class="vid-lbl-note">shoot type · client · date · location</span></label>
+          <div class="vid-archive-row">
+            <input type="text" id="vid-arch-folder" />
+            <button type="button" class="admin-btn admin-btn-ghost" id="vid-arch-copy">Copy</button>
+          </div>
+        </div>
+        <div class="vid-field">
+          <label>Link to the folder <span class="vid-lbl-note">for us, never shown to the client</span></label>
+          <input type="url" id="vid-arch-url" placeholder="Paste the Cloudflare folder link" />
+        </div>
+        <div class="vid-cand-actions">
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Save</button>
+          <a class="admin-btn admin-btn-ghost" id="vid-arch-open" href="#" target="_blank" rel="noopener" hidden>Open folder</a>
+        </div>
+        <p class="vid-hint" id="vid-arch-msg"></p>
+      </div>
+
       <p class="vid-catgrid-intro" id="vid-catgrid-intro">Drag photos &amp; videos into a category — or hit <em>Add</em>. Files go straight to Cloudflare R2 (50&nbsp;MB parts, resumable). The category is how the client's gallery is grouped.</p>
       <div class="vid-catgrid" id="vid-catgrid">
         {DELIVER_CATEGORIES.map((cat) => (
@@ -466,6 +489,18 @@ const DELIVER_CATEGORIES = [
     .vid-panel-title { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); margin: 0; }
     .vid-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.6); margin: 4px 0 0; }
     .vid-loading { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
+
+    /* The internal archive box in Deliver work. */
+    .vid-archive {
+      margin: 0 0 18px; padding: 16px 18px; border-radius: 5px;
+      background: rgba(var(--violet-rgb), 0.045); border: 1px solid rgba(var(--violet-rgb), 0.16);
+    }
+    .vid-archive-h {
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--english-violet); margin-bottom: 12px;
+    }
+    .vid-archive-row { display: flex; gap: 8px; align-items: center; }
+    .vid-archive-row input { flex: 1; }
 
     /* ---- Delivery block in the booking modal ---- */
     .vid-deliver-head {
@@ -1674,6 +1709,53 @@ const DELIVER_CATEGORIES = [
       document.getElementById("vid-doc-up")?.addEventListener("click", () => uploadDoc(b));
       document.getElementById("vid-cand-docs")?.querySelectorAll("[data-doc-del]").forEach((btn) => btn.addEventListener("click", () => deleteDoc(b, btn.getAttribute("data-doc-del"))));
     }
+    /* ---- The internal archive folder ----
+       Built from what identifies a shoot at a glance, in the order you'd look
+       for it: type, who, when, where. Slashes and colons are stripped because
+       a slash in a name becomes a folder boundary in object storage. */
+    function archiveFolderName(b) {
+      if (!b) return "";
+      const clean = (v) => String(v || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+      const when = b.shoot_date ? new Date(b.shoot_date).toISOString().slice(0, 10) : "";
+      const where = clean(b.property_address || b.location || b.postcode).split(",")[0];
+      // The person, not the brand: on a Fine & Country shoot the agent is who
+      // you'd look for, and every F&C folder would otherwise open the same way.
+      return [clean(b.service || b.service_type), clean(b.client_name || b.client_company), when, where]
+        .filter(Boolean).join(" - ");
+    }
+
+    function renderArchiveBox(b) {
+      const box = document.getElementById("vid-archive");
+      if (!box) return;
+      box.hidden = !b;
+      if (!b) return;
+      const folder = document.getElementById("vid-arch-folder");
+      const url = document.getElementById("vid-arch-url");
+      const open = document.getElementById("vid-arch-open");
+      // Generated only when empty - a name that has been used to create a real
+      // folder must not silently change because a booking detail was edited.
+      folder.value = b.archive_folder || archiveFolderName(b);
+      url.value = b.archive_url || "";
+      open.hidden = !b.archive_url;
+      if (b.archive_url) open.href = b.archive_url;
+      document.getElementById("vid-arch-msg").textContent = "";
+    }
+
+    async function saveArchive(b) {
+      const patch = {
+        archive_folder: (document.getElementById("vid-arch-folder")?.value || "").trim() || null,
+        archive_url: (document.getElementById("vid-arch-url")?.value || "").trim() || null,
+      };
+      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
+      const note = document.getElementById("vid-arch-msg");
+      if (error) { note.textContent = "Couldn't save: " + error.message; return; }
+      Object.assign(b, patch);
+      note.textContent = "Saved.";
+      const open = document.getElementById("vid-arch-open");
+      open.hidden = !patch.archive_url;
+      if (patch.archive_url) open.href = patch.archive_url;
+    }
+
     /* ---- Delivery, on the booking ----
        Follows the stage rather than showing everything at once: in editing the
        job is Jack's own uploads, and only once the gallery exists is there
@@ -2847,6 +2929,21 @@ const DELIVER_CATEGORIES = [
       if (connected && r2meta) r2meta.textContent = "Worker connected.";
 
       populateDeliverBookings();
+
+      // The archive box follows the booking picker.
+      const syncArchive = () => renderArchiveBox(bookings.find((x) => x.id === deliverBooking()) || null);
+      sel?.addEventListener("change", syncArchive);
+      syncArchive();
+
+      document.getElementById("vid-arch-save")?.addEventListener("click", () => {
+        const b = bookings.find((x) => x.id === deliverBooking());
+        if (b) saveArchive(b);
+      });
+      document.getElementById("vid-arch-copy")?.addEventListener("click", async () => {
+        const input = document.getElementById("vid-arch-folder");
+        try { await navigator.clipboard.writeText(input.value); document.getElementById("vid-arch-msg").textContent = "Folder name copied."; }
+        catch (_) { input.select(); document.getElementById("vid-arch-msg").textContent = "Selected — press Cmd/Ctrl+C to copy."; }
+      });
 
       function guard() {
         if (!connected) { alert("Upload backend isn't connected yet — deploy the Worker and set PUBLIC_R2_WORKER_URL."); return false; }
