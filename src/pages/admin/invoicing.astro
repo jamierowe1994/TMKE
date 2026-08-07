@@ -237,6 +237,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-ghost { appearance: none; cursor: pointer; background: #fff; color: var(--english-violet); border: 1px solid rgba(55,30,40,0.25); border-radius: 9px; padding: 12px 20px; font-family: var(--sans); font-size: 12px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; transition: background 0.15s; }
     .inv-ghost:hover { background: rgba(55,30,40,0.05); }
     .inv-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+    .invrow-tools button { display: inline-flex; align-items: center; justify-content: center; height: 30px; padding: 0 6px; font-size: 11.5px; white-space: nowrap; }
     .invrow .invsend { appearance: none; cursor: pointer; border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; }
     .invrow .invsend:hover { opacity: 0.9; }
     .invrow .invsend:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -301,9 +302,23 @@ import AdminShell from "../../components/admin/AdminShell.astro";
        fixed width. Before, the date sat inside the tools cluster, so a paid row
        held different content to an unpaid one and every column shifted with it -
        which is why the amount and status stopped lining up down the list. */
-    .invrow { display: grid; grid-template-columns: 110px 1fr 110px 96px 116px 232px; gap: 14px; align-items: center; padding: 12px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 10px; font-family: var(--sans); font-size: 13.5px; }
-    .invrow .paidon { font-size: 11.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
-    @media (max-width: 1100px) { .invrow { grid-template-columns: 100px 1fr 100px 92px; } .invrow .paidon, .invrow .invrow-tools { grid-column: 1 / -1; justify-self: start; } }
+    /* minmax(0, 1fr), not 1fr. A plain 1fr refuses to go below its min-content
+       width, so when the row overflows, the name column stops shrinking and
+       every column after it moves by however wide THAT row's client name
+       happens to be - which is why rows drifted a couple of pixels apart. */
+    .invrow { display: grid; grid-template-columns: 96px minmax(0, 1fr) 92px 74px auto; gap: 12px; align-items: center; padding: 12px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 10px; font-family: var(--sans); font-size: 13.5px; }
+    /* Five fixed action slots. A row keeps every slot whether or not it has a
+       button in it, so Edit sits under Edit and Delete under Delete all the way
+       down - and Send and Resend are the same width despite different words. */
+    /* Fixed width, not auto. Each row is its own grid, so an `auto` tools
+       column is measured per row - which let rows drift a couple of pixels
+       apart depending on their own contents. Pinned, they cannot. */
+    .invrow-tools { display: grid; grid-template-columns: repeat(5, 72px); gap: 6px; width: 384px; align-items: center; justify-self: end; }
+    .invrow-tools > button { width: 100%; justify-content: center; }
+    /* The paid date takes the first slot, so it starts where the first button
+       would have. */
+    .invrow .paidon { grid-column: 1 / span 2; font-size: 11.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
+    @media (max-width: 1100px) { .invrow { grid-template-columns: 100px 1fr 100px 92px; } .invrow .invrow-tools { grid-column: 1 / -1; justify-self: start; } }
     .invrow .num { font-weight: 700; color: var(--ink); }
     .invrow .amt { text-align: right; font-weight: 700; }
     .inv-badge { justify-self: start; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
@@ -311,7 +326,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-badge.sent { background: rgba(55,30,40,0.1); color: var(--english-violet); }
     .inv-badge.paid { background: rgba(60,150,90,0.14); color: #2e6b40; }
     .inv-badge.void { background: rgba(200,70,50,0.1); color: #a3372b; }
-    .invrow-tools { display: inline-flex; align-items: center; gap: 8px; justify-self: end; }
+
     /* Same treatment as Mark paid / Void / Delete - it was inheriting nothing
        and rendering as a bare browser button. */
     .invrow .invedit { appearance: none; cursor: pointer; border: 1px solid rgba(28,29,34,0.16); background: none; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); }
@@ -801,7 +816,15 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         invList = invoices || [];
         if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="paidon">${v.paid_date ? "Paid " + d(v.paid_date) : ""}</span><span class="invrow-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : ""}${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : ""}<button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button><button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button></span></div>`).join("");
+        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">
+            ${v.paid_date
+              ? `<span class="paidon">Paid ${d(v.paid_date)}</span>`
+              : `${v.status !== "void" && v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : "<span></span>"}
+                 ${v.status !== "void" ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : "<span></span>"}`}
+            ${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : "<span></span>"}
+            <button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button>
+            <button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button>
+          </span></div>`).join("");
       } catch (err) { wrap.innerHTML = `<p class="inv-empty">${esc(err.message)}</p>`; }
     }
     $("inv-list").addEventListener("click", async (e) => {
