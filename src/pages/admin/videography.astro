@@ -43,6 +43,7 @@ import "../../styles/admin.css";
       <button type="button" class="vid-chip" data-stagefilter="shoot_day">Shoot day</button>
       <button type="button" class="vid-chip" data-stagefilter="editing">Editing</button>
       <button type="button" class="vid-chip" data-stagefilter="gallery_ready">Gallery ready</button>
+      <button type="button" class="vid-chip" data-stagefilter="sent">Sent</button>
       <button type="button" class="vid-chip" data-stagefilter="delivered">Delivered</button>
     </div>
     <div class="vid-scrolltop" id="vid-scrolltop" hidden><div id="vid-scrolltop-inner"></div></div>
@@ -1099,6 +1100,7 @@ import "../../styles/admin.css";
       { key: "shoot_day",     label: "Shoot day" },
       { key: "editing",       label: "Editing" },
       { key: "gallery_ready", label: "Gallery ready" },
+      { key: "sent",          label: "Sent" },
       { key: "delivered",     label: "Delivered" },
     ];
     const DAYS = [
@@ -1372,8 +1374,9 @@ import "../../styles/admin.css";
       invoiced:      { sub: "Invoiced",      big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Invoice is out. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",     label: "Start shoot day" } },
       shoot_day:     { sub: "Shoot day",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Today",           next: "Shoot the job, then move it into editing.",                              advance: { to: "editing",       label: "Shot — move to editing" } },
       editing:       { sub: "In editing",    big: () => "Editing",                                                next: "Edit the footage, then build the gallery and upload the archive copy.",   advance: { to: "gallery_ready", label: "Gallery built" } },
-      gallery_ready: { sub: "Gallery ready", big: () => "Awaiting payment",                                       next: "Gallery is live and the PIN is held back. Releasing it delivers the job.", advance: { to: "delivered",     label: "Paid — release the PIN" } },
-      delivered:     { sub: "Delivered",     big: () => "Delivered",                                              next: "The client has their PIN and their content — nothing left to do.",        advance: null },
+      gallery_ready: { sub: "Gallery ready", big: () => "Ready to send",                                          next: "Add the gallery link, expiry date and PIN, then send it to the client.",  advance: null },
+      sent:          { sub: "Sent",          big: () => "With the client",                                       next: "They have their content. Waiting on payment and any edits.",              advance: { to: "delivered",     label: "Close this job" } },
+      delivered:     { sub: "Delivered",     big: () => "Delivered",                                              next: "Paid, edits settled, nothing left to do.",                                advance: null },
     };
     function fmtBig(iso) {
       return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -1381,14 +1384,14 @@ import "../../styles/admin.css";
     // Progress timeline. DB stages in order; each display step maps to the stage
     // index it is "reached" at. Content Studio has a Prepped step (prompt pack);
     // Property / Agent don't (no prep element).
-    const STAGE_ORDER = ["booked", "invoiced", "shoot_day", "editing", "gallery_ready", "delivered"];
+    const STAGE_ORDER = ["booked", "invoiced", "shoot_day", "editing", "gallery_ready", "sent", "delivered"];
     function renderTimeline(b) {
       const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
       // Numbers are indices into STAGE_ORDER, so they had to move when the
       // stages were reordered - 'Shoot day' is no longer index 1.
       const steps = isStudio
-        ? [["Booked", 0], ["Prepped", 0.5], ["Invoiced", 1], ["Shoot day", 2], ["Edited", 3], ["Gallery ready", 4], ["Delivered", 5]]
-        : [["Booked", 0], ["Invoiced", 1], ["Shoot day", 2], ["Edited", 3], ["Gallery ready", 4], ["Delivered", 5]];
+        ? [["Booked", 0], ["Prepped", 0.5], ["Invoiced", 1], ["Shoot day", 2], ["Edited", 3], ["Gallery ready", 4], ["Sent", 5], ["Delivered", 6]]
+        : [["Booked", 0], ["Invoiced", 1], ["Shoot day", 2], ["Edited", 3], ["Gallery ready", 4], ["Sent", 5], ["Delivered", 6]];
       const cancelled = b.stage === "cancelled";
       const cur = STAGE_ORDER.indexOf(b.stage);
       const curIdx = cur < 0 ? 0 : cur;
@@ -1594,7 +1597,7 @@ import "../../styles/admin.css";
     /* What has to be true before a job closes. Shown from the point it starts
        to matter, so neither condition is a surprise at the last step. */
     function renderCloseGate(b) {
-      if (!["gallery_ready", "delivered"].includes(b.stage)) return "";
+      if (!["gallery_ready", "sent", "delivered"].includes(b.stage)) return "";
       const paid = !!b.paid_at, edits = !!b.edits_settled_at;
       const done = paid && edits;
       return `<div class="vid-gate ${done ? "is-done" : ""}">
@@ -1823,14 +1826,14 @@ import "../../styles/admin.css";
 
     function stageAction(stage) {
       if (stage === "booked" || stage === "invoiced") return "vid-cand-invoice";
-      if (stage === "editing" || stage === "gallery_ready") return "vid-cand-delivery";
+      if (["editing", "gallery_ready", "sent"].includes(stage)) return "vid-cand-delivery";
       return null;
     }
 
     async function renderDeliveryCard(b) {
       const host = actionHost(b, "vid-cand-delivery");
       if (!host) return;
-      if (!["editing", "gallery_ready", "delivered"].includes(b.stage)) {
+      if (!["editing", "gallery_ready", "sent", "delivered"].includes(b.stage)) {
         const own = document.getElementById("vid-cand-delivery");
         if (own) own.hidden = true;
         return;
@@ -1968,6 +1971,9 @@ import "../../styles/admin.css";
         const d = await res.json().catch(() => ({}));
         if (!res.ok) { vdMsg(d.error || "Couldn't send.", true); return; }
         b.gallery_sent_at = new Date().toISOString();
+        // The stage follows the email actually going, rather than waiting for
+        // someone to remember to move it.
+        if (b.stage === "gallery_ready") await advanceStage("sent");
         await addNote(b, d.included_pin
           ? `Gallery email sent to ${d.sent_to} with the PIN.`
           : `Gallery email sent to ${d.sent_to}. PIN withheld - not yet paid.`, "audit");

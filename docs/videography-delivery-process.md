@@ -130,8 +130,17 @@ PIN is stored but shown nowhere client-facing.
 
 ## Phase 2 — pipeline stages ✅
 
-`booked → invoiced → shoot_day → editing → gallery_ready → delivered`
+`booked → invoiced → shoot_day → editing → gallery_ready → sent → delivered`
 (plus `cancelled`).
+
+`sent` added 7 Aug. `gallery_ready` had been carrying three separate jobs —
+build the gallery, enter the links, send it — so a shoot sitting there might
+need Jack to do something or might be waiting on a client to pay. Each stage
+now asks for exactly one thing, and the action for the stage you are on renders
+inside the stage card rather than as a separate card below it.
+
+Run `supabase/videography_stage_sent.sql`. Additive: it only makes `sent` legal
+and moves no rows.
 
 `invoiced` sits early because the invoice goes out two days before the shoot.
 `gallery_ready` means the gallery exists but the PIN is held; `delivered` means
