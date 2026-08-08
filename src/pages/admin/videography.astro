@@ -2965,8 +2965,14 @@ import "../../styles/admin.css";
 
     // The set of category drop-boxes (also used to build the recategorise
     // dropdowns and to know which file-list groups to show).
-    const DELIVER_CATS = Array.from(document.querySelectorAll(".vid-catbox"))
-      .map((b) => b.getAttribute("data-category"));
+    // The categories for the booking currently open in Deliver work. Read at
+    // the moment it is needed - it used to be captured once at page load from
+    // the category boxes, which are now rendered per booking, so by then there
+    // were none and every dropdown came out empty.
+    function deliverCats() {
+      const b = bookings.find((x) => x.id === deliverBooking());
+      return b ? archiveFoldersFor(b.service_type, b.service) : [];
+    }
 
     function initDeliver() {
       const grid = document.getElementById("vid-catgrid");
@@ -3159,7 +3165,7 @@ import "../../styles/admin.css";
     }
 
     function catOptions(selected) {
-      return DELIVER_CATS.map((c) =>
+      return deliverCats().map((c) =>
         `<option value="${escapeHtml(c)}"${c === selected ? " selected" : ""}>${escapeHtml(c)}</option>`
       ).join("");
     }
@@ -3199,7 +3205,7 @@ import "../../styles/admin.css";
       const counts = {};
       data.forEach((f) => { const c = f.category || "Other"; counts[c] = (counts[c] || 0) + 1; });
       setCatCounts(counts);
-      const order = DELIVER_CATS.slice();
+      const order = deliverCats().slice();
       Object.keys(counts).forEach((c) => { if (!order.includes(c)) order.push(c); });
 
       let html = "";
@@ -3226,7 +3232,12 @@ import "../../styles/admin.css";
 
     async function recategorise(id, category) {
       if (!id) return;
-      await supabase.from("videography_deliverables").update({ category: category || null }).eq("id", id);
+      // Errors were discarded here too, so a refused update reloaded the list
+      // and quietly showed the old value back - which reads as "the dropdown
+      // does nothing".
+      const { error } = await supabase.from("videography_deliverables")
+        .update({ category: category || null }).eq("id", id);
+      if (error) { alert("Couldn't move that file: " + error.message); return; }
       loadDeliverFiles();
     }
 
