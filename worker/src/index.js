@@ -2680,6 +2680,9 @@ export default {
                 await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(iv.booking_id)}&paid_at=is.null`, {
                   paid_at: new Date().toISOString(),
                 });
+                // They may already have the gallery without the PIN. Close that
+                // loop now rather than leaving it to someone noticing.
+                await sendGalleryPinEmail(env, iv.booking_id);
               }
             } catch (_) { /* the invoice is paid either way; don't fail the webhook */ }
             return json({ received: true }, 200, request, env);
@@ -6024,9 +6027,67 @@ export default {
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
 
+// The second email: they were sent their gallery before paying, so they have
+// the links but not the PIN. This is what closes that loop when the money
+// lands - without it, someone who pays after delivery waits for a human to
+// notice. Returns quietly when it does not apply.
+async function sendGalleryPinEmail(env, bookingId) {
+  const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&select=*`);
+  const bk = rows && rows[0];
+  if (!bk) return { ok: false, reason: "no booking" };
+  // Only if they have already had the gallery: otherwise the normal
+  // gallery-ready email will carry the PIN itself, and two emails would be
+  // confusing rather than helpful.
+  if (!bk.gallery_sent_at) return { ok: false, reason: "gallery not sent yet" };
+  if (bk.pin_released_at) return { ok: false, reason: "already released" };
+  const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(bookingId)}&select=pin`);
+  const pin = (prow && prow[0] && prow[0].pin) || "";
+  if (!pin) return { ok: false, reason: "no pin saved" };
+  const to = bk.gallery_email || bk.client_email;
+  if (!to) return { ok: false, reason: "no address" };
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+    <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
+    <p style="${EM_P}">Thank you - your payment has reached us, so your gallery is now unlocked.</p>
+    <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
+      Your download PIN is <strong>${esc(pin)}</strong>.<br>
+      Pixieset asks for your email address and this PIN when you download, so use
+      <strong>${esc(to)}</strong>.</span></p>
+    ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
+    <p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>
+    <p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>
+  </div>`);
+
+  const sent = await sendEmail(env, { to, subject: "Your gallery is unlocked", html });
+  if (!sent.ok) return { ok: false, reason: sent.error || "send failed" };
+
+  await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}`, { pin_released_at: new Date().toISOString() });
+  await logBookingMessage(env, {
+    booking_id: bookingId, booking_source: "videography",
+    account_user_id: bk.account_user_id, client_email: to,
+    channel: "email", kind: "pin_released", subject: "Your gallery is unlocked",
+    body: "Payment received - PIN sent.", is_automated: true, created_by: "system",
+  });
+  return { ok: true, sent_to: to };
+}
+
       // "Your gallery is ready". Two versions of the same email, decided by
       // whether the shoot has been paid for - because the PIN is what unlocks
       // downloading, and it is the only thing being withheld.
+      // Release the PIN by hand - the same email the webhook sends, for payments
+      // that arrive by bank transfer rather than card.
+      if (path.endsWith("/videography/release-pin") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const res = await sendGalleryPinEmail(env, id);
+        if (!res.ok) return json({ error: "Not sent: " + res.reason }, 400, request, env);
+        return json({ ok: true, sent_to: res.sent_to }, 200, request, env);
+      }
+
       if (path.endsWith("/videography/gallery-email") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

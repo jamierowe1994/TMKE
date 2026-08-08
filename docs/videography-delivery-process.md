@@ -7,6 +7,45 @@ Last updated 5 August 2026.
 
 ---
 
+## The process, end to end
+
+James's workflow, 7 August. This is the spec; everything below it is detail.
+
+| # | Step | Where | Built |
+|---|---|---|---|
+| 1 | Booking added — online or manual | Admin | ✅ |
+| 2 | F&C: office confirms the marketing fee is held | Admin | ✅ blocks the invoice |
+| 3 | Invoice raised, two days before the shoot | Admin | ✅ raised by hand |
+| 4 | Shoot day | Off app | ✅ stage auto-advances |
+| 5 | **Payment reminder, day after the shoot, if still unpaid** | Auto | ❌ needs a scheduler |
+| 6 | Editing | Off app | ✅ |
+| 7 | Content uploaded to the archive (Cloudflare) | Admin | ✅ |
+| 8 | Pixieset upload | Off app | ✅ |
+| 9 | Links, expiry date and PIN added | Admin | ✅ |
+| 10 | **Paid:** links + PIN + edit process | Auto | ✅ |
+| 11 | **Unpaid:** links + invoice + payment prompt, no PIN | Auto | ✅ |
+| 12 | Unpaid, then pays: PIN follows in a second email | Auto | ✅ |
+| 13 | **Hub shows the links when the email goes** | Hub | ❌ |
+| 14 | **Hub reveals the PIN when payment lands** | Hub | ❌ |
+| 15 | Edits confirmed | Admin | ✅ |
+| 16 | Delivery complete | Admin | ✅ needs paid + edits settled |
+| 17 | **Expiry warning, a week before Pixieset drops it** | Auto | ❌ needs a scheduler |
+
+Remaining gaps, in the order they are worth doing:
+
+1. **The members hub (13, 14).** Two states of one screen: links on send, PIN
+   on payment.
+2. **The two scheduled emails (5, 17).** Both need something running daily,
+   which is a different kind of build to everything so far - nothing else here
+   runs without a person pressing something.
+
+Step 12 fires from the Stripe webhook when a card payment lands, and from Mark
+paid when it arrives by bank transfer. It only sends when the client already
+has the gallery without the PIN, so it can never duplicate the gallery-ready
+email, and `pin_released_at` stops it sending twice.
+
+---
+
 ## The shape of it
 
 | | Where it lives | Who sees it | How long |

@@ -1838,12 +1838,32 @@ const DELIVER_CATEGORIES = [
           </button>
         </div>
         ${b.gallery_sent_at ? `<p class="vid-hint">Sent ${escapeHtml(new Date(b.gallery_sent_at).toLocaleString("en-GB"))}.</p>` : ""}
-        <p class="vid-hint">${b.paid_at
-          ? "Paid, so the email will include the PIN."
-          : "Not paid, so the email will withhold the PIN and ask for payment. They'll see the watermarked gallery."}</p>`;
+        <p class="vid-hint">${b.pin_released_at
+          ? `PIN released ${escapeHtml(new Date(b.pin_released_at).toLocaleDateString("en-GB"))}.`
+          : b.paid_at
+            ? "Paid, so the email will include the PIN."
+            : "Not paid, so the email will withhold the PIN and ask for payment. They'll see the watermarked gallery — the PIN follows automatically when payment lands."}</p>
+        ${b.gallery_sent_at && b.paid_at && !b.pin_released_at
+          ? `<div class="vid-cand-actions"><button type="button" class="admin-btn admin-btn-primary" id="vd-releasepin">Send the PIN now</button></div>`
+          : ""}`;
 
       document.getElementById("vd-save").addEventListener("click", () => saveGalleryFields(b));
       document.getElementById("vd-send").addEventListener("click", () => sendGalleryEmail(b));
+      document.getElementById("vd-releasepin")?.addEventListener("click", async () => {
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/videography/release-pin`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ booking_id: b.id }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { vdMsg(d.error || "Couldn't send the PIN.", true); return; }
+          b.pin_released_at = new Date().toISOString();
+          await addNote(b, `PIN released to ${d.sent_to}.`, "audit");
+          renderCandidate();
+        } catch (err) { vdMsg("Couldn't send the PIN: " + err.message, true); }
+      });
       document.getElementById("vd-archived").addEventListener("change", (e) =>
         saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
     }
@@ -2268,6 +2288,21 @@ const DELIVER_CATEGORIES = [
           b.paid_at = new Date().toISOString();
           await supabase.from("videography_bookings").update({ paid_at: b.paid_at }).eq("id", b.id);
           await addNote(b, "Payment received — invoice marked paid.", "audit");
+          // If they already have the gallery without the PIN, send it now. The
+          // Worker decides whether it applies, so this is safe to always call.
+          try {
+            const token = await authToken();
+            const res = await fetch(`${WORKER_URL}/videography/release-pin`, {
+              method: "POST",
+              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ booking_id: b.id }),
+            });
+            if (res.ok) {
+              const d = await res.json();
+              b.pin_released_at = new Date().toISOString();
+              await addNote(b, `PIN released to ${d.sent_to} — payment received.`, "audit");
+            }
+          } catch (_) { /* the payment is recorded either way */ }
         }
         loadInvoices(b);
       } catch (err) { vivStatus("Couldn't mark it paid: " + err.message, true); }
