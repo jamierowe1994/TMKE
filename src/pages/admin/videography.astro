@@ -542,6 +542,11 @@ import "../../styles/admin.css";
       background: var(--paper); border: 1px solid rgba(var(--violet-rgb), 0.16); border-radius: 14px;
       padding: clamp(22px, 2.6vw, 32px) clamp(20px, 2.6vw, 32px);
     }
+    /* The stage's own action, inside the stage card. Set apart by a rule rather
+       than a border so it reads as part of the card, not a card within a card. */
+    .vid-cand-action { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border, #eae5e1); }
+    .vid-cand-action[hidden] { display: none; }
+    .vid-cand-action > h4:first-child { margin-top: 0; }
     .vid-cand-card h4 {
       margin: 0 0 14px; font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
@@ -1501,6 +1506,10 @@ import "../../styles/admin.css";
         ${renderBrandGate(b)}
         ${renderCloseGate(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
+        <!-- Whatever this stage asks you to do sits here, inside the stage card,
+             so the action and the stage read as one thing. Once the shoot moves
+             past it, it drops back out into a card of its own below. -->
+        <div class="vid-cand-action" id="vid-cand-action"></div>
         </div>
         <div class="vid-cand-card" id="vid-cand-delivery" hidden></div>
         <div class="vid-cand-card" id="vid-cand-invoice"></div>
@@ -1549,6 +1558,8 @@ import "../../styles/admin.css";
       });
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       if (!isStudio) showDistance(b);
+      const slot = document.getElementById("vid-cand-action");
+      if (slot) { slot.innerHTML = ""; slot.hidden = !stageAction(b.stage); }
       renderDeliveryCard(b);
       renderInvoiceCard(b);
       loadThread(b);
@@ -1799,10 +1810,31 @@ import "../../styles/admin.css";
        job is Jack's own uploads, and only once the gallery exists is there
        anything for the client. Fields that mean nothing yet are not shown,
        because a form full of blanks reads as work outstanding. */
+    // The action for the current stage renders into the stage card; everything
+    // else keeps its own card underneath.
+    function actionHost(b, mine) {
+      const slot = document.getElementById("vid-cand-action");
+      const own = document.getElementById(mine);
+      const isCurrent = stageAction(b.stage) === mine;
+      if (own) own.hidden = isCurrent;
+      if (isCurrent && slot) { slot.hidden = false; return slot; }
+      return own;
+    }
+
+    function stageAction(stage) {
+      if (stage === "booked" || stage === "invoiced") return "vid-cand-invoice";
+      if (stage === "editing" || stage === "gallery_ready") return "vid-cand-delivery";
+      return null;
+    }
+
     async function renderDeliveryCard(b) {
-      const host = document.getElementById("vid-cand-delivery");
+      const host = actionHost(b, "vid-cand-delivery");
       if (!host) return;
-      if (!["editing", "gallery_ready", "delivered"].includes(b.stage)) { host.hidden = true; return; }
+      if (!["editing", "gallery_ready", "delivered"].includes(b.stage)) {
+        const own = document.getElementById("vid-cand-delivery");
+        if (own) own.hidden = true;
+        return;
+      }
       host.hidden = false;
 
       if (b.stage === "editing") {
@@ -2026,7 +2058,7 @@ import "../../styles/admin.css";
     }
 
     async function renderInvoiceCard(b) {
-      const host = document.getElementById("vid-cand-invoice");
+      const host = actionHost(b, "vid-cand-invoice");
       if (!host) return;
       if (!WORKER_URL) { host.innerHTML = `<h4>Invoice</h4><p class="vid-loading">Connect the Worker to raise invoices.</p>`; return; }
       await ensureInvSettings();
