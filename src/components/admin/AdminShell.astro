@@ -116,7 +116,7 @@ const NAV = [
   </div>
 
   <script>
-    import { requireAdmin, signOut } from "../../lib/admin-gate.js";
+    import { requireAdmin, signOut, isManagementUser } from "../../lib/admin-gate.js";
     import { wireInstallButton } from "../../lib/pwa-install.js";
 
     wireInstallButton("ash-install");
@@ -190,8 +190,12 @@ const NAV = [
           avatarEl.textContent = (name[0] || "A").toUpperCase();
         }
       }
+      // Dev preview counts as management too, so the fuller Dashboard view is
+      // what you see by default when building against it locally.
+      const isManagement = import.meta.env.DEV ? true : await isManagementUser(session.user);
+
       // Let pages react once auth + profile are ready.
-      document.dispatchEvent(new CustomEvent("ash:ready", { detail: { session, profile } }));
+      document.dispatchEvent(new CustomEvent("ash:ready", { detail: { session, profile, isManagement } }));
     })();
   </script>
 </BaseLayout>

@@ -3,7 +3,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
 ---
 
-<AdminShell active="social" title="Social media">
+<AdminShell active="social" title="Social media" skin="hub">
   <div class="ash-panel ash-page">
     <section class="smm-bar">
       <div class="smm-bar-top">
@@ -620,6 +620,7 @@ import "../../styles/admin.css";
               <div class="smm-eng">
                 <label class="smm-eng-row"><span>Package</span><input type="text" data-ef="package_name" value="${esc(r.package_name || "")}" placeholder="e.g. Growth"></label>
                 <label class="smm-eng-row"><span>Pricing</span><input type="text" data-ef="price" value="${esc(r.price || "")}" placeholder="e.g. £750 / month"></label>
+                <label class="smm-eng-row"><span>Contracted hours / month</span><input type="number" min="0" step="0.5" data-ef="contracted_hours_per_month" value="${r.contracted_hours_per_month ?? ""}" placeholder="e.g. 6"></label>
                 <label class="smm-eng-row"><span>Start date</span><input type="date" data-ef="start_date" value="${esc(r.start_date || "")}"></label>
                 <label class="smm-eng-row"><span>End date</span><input type="date" data-ef="end_date" value="${esc(r.end_date || "")}"></label>
                 <div class="smm-eng-row"><span>Inter-brand invoice</span>
@@ -833,11 +834,17 @@ import "../../styles/admin.css";
       if (s) s.textContent = isDemo(r) ? "Saved (demo)." : "Saved.";
       renderBoard();
     }
+    // Numeric data-ef fields need a real JSON number, not the trimmed string
+    // every other field sends — PostgREST rejects a JSON string against a
+    // numeric column.
+    const NUMERIC_EF_FIELDS = new Set(["contracted_hours_per_month"]);
     async function saveEngagement(r, field, value) {
-      const v = value.trim(); r[field] = v || null;
+      const raw = value.trim();
+      const v = NUMERIC_EF_FIELDS.has(field) ? (raw === "" ? null : Number(raw)) : (raw || null);
+      r[field] = v;
       const s = $(/_url$/.test(field) ? "smm-chan-status" : "smm-eng-status"); if (s) s.textContent = "Saving…";
       if (isDemo(r)) { if (s) s.textContent = "Saved (demo)."; return; }
-      try { await supabase.from("smm_leads").update({ [field]: v || null }).eq("id", r.id); if (s) s.textContent = "Saved."; }
+      try { await supabase.from("smm_leads").update({ [field]: v }).eq("id", r.id); if (s) s.textContent = "Saved."; }
       catch (_) { if (s) s.textContent = "Couldn't save."; }
     }
     // Inter-brand invoice: this client's work is billed to another TEG brand

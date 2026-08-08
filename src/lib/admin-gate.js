@@ -44,6 +44,29 @@ export async function isAdminUser(user) {
 }
 
 /**
+ * Management check for a signed-in admin (finer-grained than isAdminUser —
+ * every admin can see operational data, but only management sees rolled-up
+ * revenue totals). Deliberately NOT domain/allowlist-based like isAdminUser:
+ * this is a short, manually-curated list (see supabase/admins_management_flag.sql),
+ * so it only ever comes from the admins.is_management column.
+ */
+export async function isManagementUser(user) {
+  if (!user) return false;
+  try {
+    const { data, error } = await supabase
+      .from('admins')
+      .select('is_management')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!error && data) return !!data.is_management;
+  } catch (_) {
+    // admins table / column not set up yet — default to false (safer default
+    // than accidentally showing revenue to everyone).
+  }
+  return false;
+}
+
+/**
  * Client-side admin auth gate. Call once per admin page on DOMContentLoaded.
  *  - No session            → bounce to the admin login (remembering where we were).
  *  - Session but not admin → bounce to the admin login with ?denied=1 (a customer
@@ -52,7 +75,13 @@ export async function isAdminUser(user) {
  */
 export async function requireAdmin(loginPath = '/admin/login') {
   const { data } = await supabase.auth.getSession();
-  const session = data && data.session;
+  let session = data && data.session;
+  // Same dev-only bypass as AdminShell (see its comment) — without this,
+  // any page that calls requireAdmin() itself (rather than only relying on
+  // AdminShell's own session) still bounces to /admin/login in local dev.
+  if (!session && import.meta.env.DEV) {
+    session = { user: { email: 'dev-preview@tmke.co.uk', id: 'dev' } };
+  }
   if (!session) {
     const next = encodeURIComponent(location.pathname + location.search);
     location.replace(`${loginPath}?next=${next}`);

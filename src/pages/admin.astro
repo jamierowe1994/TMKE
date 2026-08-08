@@ -1,178 +1,439 @@
 ---
 import AdminShell from "../components/admin/AdminShell.astro";
-
-const ICO = {
-  revenue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-  orders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>',
-  subs: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>',
-  enquiries: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-};
 ---
 
-<AdminShell active="dashboard" title="Dashboard">
-  <header class="adash-head">
-    <span class="adash-avatar" id="adash-avatar" aria-hidden="true"></span>
-    <div class="adash-head-text">
-      <p class="adash-eyebrow">Dashboard</p>
-      <h1 class="adash-greeting" id="adash-greeting">Welcome back.</h1>
-      <p class="adash-sub">Your studio at a glance.</p>
-    </div>
-  </header>
-
-  <div class="ash-stats">
-    <div class="ash-card ash-stat">
-      <div class="ash-stat-top"><div class="ash-stat-label">Revenue</div><span class="ash-stat-ico"><Fragment set:html={ICO.revenue} /></span></div>
-      <div class="ash-stat-value" data-stat="rev">£0</div>
-      <div class="ash-stat-sub"><strong data-stat="orders-count">0</strong> paid orders</div>
-    </div>
-    <div class="ash-card ash-stat">
-      <div class="ash-stat-top"><div class="ash-stat-label">Bookings</div><span class="ash-stat-ico"><Fragment set:html={ICO.orders} /></span></div>
-      <div class="ash-stat-value" data-stat="vid-active">0</div>
-      <div class="ash-stat-sub"><strong data-stat="vid-total">0</strong> total in the pipeline</div>
-    </div>
-    <div class="ash-card ash-stat">
-      <div class="ash-stat-top"><div class="ash-stat-label">Purchases</div><span class="ash-stat-ico"><Fragment set:html={ICO.subs} /></span></div>
-      <div class="ash-stat-value" data-stat="subs">0</div>
-      <div class="ash-stat-sub">active in the last 60 days</div>
-    </div>
-    <div class="ash-card ash-stat">
-      <div class="ash-stat-top"><div class="ash-stat-label">Enquiries</div><span class="ash-stat-ico"><Fragment set:html={ICO.enquiries} /></span></div>
-      <div class="ash-stat-value" data-stat="enq-new">0</div>
-      <div class="ash-stat-sub"><strong data-stat="enq-total">0</strong> total received</div>
+<AdminShell active="dashboard" title="Dashboard" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Dashboard</div>
+          <div class="page-header-sub" id="dash-date"></div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="ash-row">
-    <div class="ash-card">
-      <div class="ash-card-head"><div class="ash-card-title">At a glance</div></div>
-      <div class="ash-card-body">
-        <ul class="dash-glance">
-          <li><span>Active packs</span><b data-stat="packs">0</b></li>
-          <li><span>Active templates</span><b data-stat="templates">0</b></li>
-          <li><span>Published articles</span><b data-stat="blog-pub">0</b></li>
-          <li><span>Draft articles</span><b data-stat="blog-draft">0</b></li>
-          <li><span>Email templates</span><b data-stat="email">0</b></li>
-          <li><span>Videography total</span><b data-stat="vid-total-2">0</b></li>
-          <li><span>New enquiries</span><b data-stat="enq-new-2">0</b></li>
-        </ul>
-        <div class="dash-links">
-          <a href="/admin/orders">Orders &rarr;</a>
-          <a href="/admin/videography">Videography &rarr;</a>
-          <a href="/admin/subscribers">Purchases &rarr;</a>
-          <a href="/admin/settings">Your settings &rarr;</a>
+  <div class="card mb20 dash-mgmt-only" data-mgmt hidden>
+    <div class="card-head">
+      <div class="card-title">Revenue</div>
+    </div>
+    <div class="dash-rev-top">
+      <div>
+        <div class="dash-rev-label">This month</div>
+        <div class="dash-rev-num" data-stat="rev-month">£0</div>
+      </div>
+      <div>
+        <div class="dash-rev-label">Year to date</div>
+        <div class="dash-rev-num" data-stat="rev-ytd">£0</div>
+      </div>
+    </div>
+    <div class="dash-rev-graph" id="dash-rev-graph"></div>
+  </div>
+
+  <div class="g2 mb20">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">CRM</div>
+        <a href="/admin/contacts" class="icon-btn">View all</a>
+      </div>
+      <ul class="dash-glance">
+        <li><span>Contacts</span><b data-stat="crm-contacts">0</b></li>
+        <li><span>Members</span><b data-stat="crm-members">0</b></li>
+        <li><span>Clients</span><b data-stat="crm-clients">0</b></li>
+      </ul>
+    </div>
+
+    <button type="button" class="card dash-clickable" id="dash-inv-open">
+      <div class="card-head">
+        <div class="card-title">Invoicing — this month</div>
+        <span class="icon-btn">View list</span>
+      </div>
+      <ul class="dash-glance">
+        <li><span>Invoices raised</span><b data-stat="inv-count">0</b></li>
+        <li><span>Outstanding</span><b data-stat="inv-outstanding">0</b></li>
+      </ul>
+      <div class="dash-mgmt-only" data-mgmt hidden>
+        <div class="divider"></div>
+        <div class="dash-revenue-row">
+          <span>Total invoiced this month</span>
+          <b data-stat="inv-total">£0</b>
         </div>
+      </div>
+    </button>
+  </div>
+
+  <div class="g2 mb20">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Edit</div>
+        <a href="/admin/packs" class="icon-btn">View all</a>
+      </div>
+      <ul class="dash-glance">
+        <li><span>Template packs</span><b data-stat="edit-packs">0</b></li>
+        <li><span>Individual templates</span><b data-stat="edit-templates">0</b></li>
+        <li><span>Purchases this month</span><b data-stat="edit-purchases-month">0</b></li>
+        <li><span>Purchases all time</span><b data-stat="edit-purchases-total">0</b></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Emails — active campaigns</div>
+        <a href="/admin/email/automated" class="icon-btn">View all</a>
+      </div>
+      <div id="dash-email-list"><div class="empty"><div class="empty-text">Loading…</div></div></div>
+    </div>
+  </div>
+
+  <div class="g2 mb20">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Videography — this month</div>
+        <a href="/admin/videography?view=calendar" class="icon-btn">Open calendar</a>
+      </div>
+      <ul class="dash-glance">
+        <li><span>Clients this month</span><b data-stat="vid-clients">0</b></li>
+        <li><span>In progress</span><b data-stat="vid-progress">0</b></li>
+        <li><span>Complete</span><b data-stat="vid-complete">0</b></li>
+        <li><span>Filming hours booked</span><b data-stat="vid-hours">0</b></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Social media management</div>
+        <a href="/admin/social" class="icon-btn">View all</a>
+      </div>
+      <ul class="dash-glance">
+        <li><span>Active clients</span><b data-stat="social-clients">0</b></li>
+        <li><span>Contracted hours this month</span><b data-stat="social-hours">0</b></li>
+      </ul>
+      <div class="divider"></div>
+      <div id="dash-social-breakdown"><div class="empty"><div class="empty-text">Loading…</div></div></div>
+    </div>
+  </div>
+
+  <div class="g3 mb20">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Blog</div>
+        <a href="/admin/blog" class="icon-btn">View all</a>
+      </div>
+      <div class="dash-solo-stat">
+        <div class="stat-num" data-stat="blog-pub">0</div>
+        <div class="stat-label">Published articles</div>
       </div>
     </div>
 
-    <div class="ash-card">
-      <div class="ash-card-head"><div class="ash-card-title">Videography pipeline</div></div>
-      <div class="ash-card-body dash-donut-wrap">
-        <svg class="dash-donut" viewBox="0 0 42 42" aria-hidden="true">
-          <circle class="dash-donut-track" cx="21" cy="21" r="15.915" fill="none" stroke-width="5"></circle>
-          <circle class="dash-donut-seg" id="dash-donut-seg" cx="21" cy="21" r="15.915" fill="none" stroke-width="5" stroke-dasharray="0 100" stroke-dashoffset="25" stroke-linecap="round"></circle>
-        </svg>
-        <div class="dash-donut-legend">
-          <div><span class="dot dot--active"></span> In progress <b data-stat="vid-active-3">0</b></div>
-          <div><span class="dot dot--done"></span> Complete <b data-stat="vid-done">0</b></div>
-        </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Inquiries — this month</div>
+        <a href="/admin/enquiries" class="icon-btn">View all</a>
       </div>
+      <div id="dash-inq-breakdown"><div class="empty"><div class="empty-text">Loading…</div></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Website</div>
+      </div>
+      <ul class="dash-glance">
+        <li><span>Views this month</span><b data-stat="site-views-month">0</b></li>
+        <li><span>Visitors this month</span><b data-stat="site-visitors-month">0</b></li>
+        <li><span>Views all time</span><b data-stat="site-views-total">0</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="dash-modal-overlay" id="dash-inv-overlay">
+    <div class="dash-modal">
+      <div class="dash-modal-title-row">
+        <div class="dash-modal-title">Invoices — this month</div>
+        <button type="button" class="dash-modal-close" id="dash-inv-close" aria-label="Close">&times;</button>
+      </div>
+      <div id="dash-inv-modal-list"></div>
     </div>
   </div>
 
   <style>
-    .adash-head { display: flex; align-items: center; gap: 22px; margin: 0 0 26px; }
-    .adash-avatar {
-      width: 88px; height: 88px; flex: none; border-radius: 50%;
-      background: linear-gradient(140deg, color-mix(in srgb, var(--english-violet) 72%, #fff), var(--english-violet) 68%);
-      background-size: cover; background-position: center;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-family: var(--serif); font-size: 34px; font-weight: 600; color: #fff; text-transform: uppercase;
-      box-shadow: 0 12px 28px -12px rgba(55,30,40,0.5), inset 0 0 0 2px rgba(255,255,255,0.5);
-    }
-    .adash-head-text { min-width: 0; }
-    .adash-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 6px; }
-    .adash-greeting { font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 4.2vw, 54px); line-height: 1.02; letter-spacing: -0.025em; color: var(--ink); margin: 0; }
-    .adash-greeting em { font-style: italic; color: var(--english-violet); }
-    .adash-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 8px 0 0; }
-    @media (max-width: 560px) { .adash-avatar { width: 64px; height: 64px; font-size: 26px; } }
     .dash-glance { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 28px; }
-    .dash-glance li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid rgba(28,29,34,0.08); font-family: var(--sans); }
-    .dash-glance span { font-size: 14px; color: rgba(28,29,34,0.6); }
-    .dash-glance b { font-family: var(--serif); font-size: 22px; color: var(--ink); font-weight: 500; }
+    .dash-glance li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
+    .dash-glance span { font-size: 13px; color: var(--muted); }
+    .dash-glance b { font-family: var(--serif); font-size: 22px; color: var(--hub-text); font-weight: 500; }
     @media (max-width: 560px) { .dash-glance { grid-template-columns: 1fr; } }
-    .dash-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; }
-    .dash-links a { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); text-decoration: none; }
-    .dash-links a:hover { color: var(--ink); }
 
-    .dash-donut-wrap { display: flex; align-items: center; gap: 22px; }
-    .dash-donut { width: 140px; height: 140px; flex: none; transform: rotate(-90deg); }
-    .dash-donut-track { stroke: rgba(28,29,34,0.1); }
-    .dash-donut-seg { stroke: var(--english-violet); transition: stroke-dasharray 0.8s cubic-bezier(.2,.7,.2,1); }
-    .dash-donut-legend { font-family: var(--sans); display: flex; flex-direction: column; gap: 14px; }
-    .dash-donut-legend div { display: flex; align-items: center; gap: 10px; font-size: 14px; color: rgba(28,29,34,0.7); }
-    .dash-donut-legend b { font-family: var(--serif); font-size: 20px; color: var(--ink); margin-left: 4px; }
-    .dash-donut-legend .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
-    .dot--active { background: var(--english-violet); }
-    .dot--done { background: rgba(28,29,34,0.2); }
+    .dash-solo-stat { padding: 8px 0; }
+    .dash-solo-stat .stat-num { font-size: 44px; }
+
+    .dash-revenue-row { display: flex; align-items: center; justify-content: space-between; }
+    .dash-revenue-row span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+    .dash-revenue-row b { font-family: var(--serif); font-size: 24px; color: var(--hub-text); font-weight: 500; }
+
+    .dash-clickable { text-align: left; background: var(--surface); cursor: pointer; font: inherit; width: 100%; display: flex; flex-direction: column; }
+    .dash-clickable:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); }
+
+    .dash-rev-top { display: flex; gap: 40px; margin-bottom: 18px; }
+    .dash-rev-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+    .dash-rev-num { font-family: var(--serif); font-size: 34px; color: var(--hub-text); font-weight: 500; }
+    .dash-rev-graph { display: flex; align-items: flex-end; gap: 8px; height: 90px; }
+    .dash-rev-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+    .dash-rev-bar { width: 100%; background: var(--primary-light); border-radius: 3px 3px 0 0; min-height: 3px; transition: height 0.3s; }
+    .dash-rev-bar.is-current { background: var(--primary); }
+    .dash-rev-bar-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+    .dash-email-row, .dash-inq-row, .dash-social-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 9px 0; border-bottom: 1px solid var(--border-subtle); font-size: 13px;
+    }
+    .dash-email-row:last-child, .dash-inq-row:last-child, .dash-social-row:last-child { border-bottom: none; }
+    .dash-email-name { font-weight: 600; color: var(--hub-text); }
+    .dash-inq-row span:first-child, .dash-social-row span:first-child { color: var(--muted); }
+    .dash-inq-row b, .dash-social-row b { font-family: var(--serif); font-size: 17px; color: var(--hub-text); font-weight: 500; }
+
+    .dash-inv-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-subtle); }
+    .dash-inv-row:last-child { border-bottom: none; }
+    .dash-inv-num { font-size: 12px; font-weight: 700; color: var(--muted); width: 100px; flex-shrink: 0; }
+    .dash-inv-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--hub-text); }
+    .dash-inv-dates { font-size: 11.5px; color: var(--muted); width: 190px; flex-shrink: 0; }
+    .dash-inv-amount { font-size: 13px; font-weight: 700; color: var(--hub-text); width: 80px; text-align: right; flex-shrink: 0; }
+
+    /* Dashboard-local modal (deliberately not sharing .modal/.overlay with
+       videography.astro's own page-scoped modal, to avoid two different admin
+       pages fighting over the same class names via the shared hub-tokens.css). */
+    .dash-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(43, 34, 38, 0.35);
+      backdrop-filter: blur(2px); z-index: 500; align-items: center; justify-content: center; padding: 24px;
+    }
+    .dash-modal-overlay.open { display: flex; }
+    .dash-modal {
+      background: var(--surface); border-radius: var(--radius); padding: 28px;
+      width: 100%; max-width: 720px; max-height: 85vh; overflow-y: auto;
+      border: 1px solid var(--border); box-shadow: var(--shadow-lg);
+    }
+    .dash-modal-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+    .dash-modal-title { font-family: var(--serif); font-size: 22px; font-weight: 400; color: var(--hub-text); }
+    .dash-modal-close { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 20px; line-height: 1; padding: 2px 4px; flex-shrink: 0; }
+    .dash-modal-close:hover { color: var(--primary); }
   </style>
 
   <script>
     import { supabase, gbpFromPence } from "../lib/supabase.js";
 
     function setStat(key, value) { document.querySelectorAll(`[data-stat="${key}"]`).forEach((el) => { el.textContent = value; }); }
+    function esc(s) { return String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])); }
+    function fmtDate(d) { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (_) { return "—"; } }
+    const PALETTE = ["var(--primary)", "var(--accent)", "var(--blue)", "var(--green)", "var(--amber)", "var(--accent-light)"];
+
+    // Same marketing/system derivation as /admin/automations (src/pages/admin/automations/index.astro) —
+    // duplicated rather than imported to keep this page's data layer self-contained.
+    function automationKind(a) {
+      const meta = a.graph && a.graph.meta;
+      if (meta && meta.kind === "marketing") return "marketing";
+      const nodes = (a.graph && a.graph.nodes) || [];
+      return nodes.some((n) => n.type === "send_email" && n.config && n.config.send_kind === "marketing") ? "marketing" : "system";
+    }
+
+    function renderBreakdown(el, rows, emptyText) {
+      if (!el) return;
+      if (rows.length === 0) { el.innerHTML = `<div class="empty"><div class="empty-text">${emptyText}</div></div>`; return; }
+      const total = rows.reduce((s, r) => s + r.count, 0) || 1;
+      const bar = rows.map((r, i) => `<div style="width:${(r.count / total) * 100}%;background:${PALETTE[i % PALETTE.length]}"></div>`).join("");
+      const legend = rows.map((r, i) => `<span><span class="tb-legend-dot" style="background:${PALETTE[i % PALETTE.length]}"></span>${esc(r.label)} · ${r.count}</span>`).join("");
+      el.innerHTML = `<div class="tb-bar">${bar}</div><div class="tb-legend">${legend}</div>`;
+    }
+
+    const dateEl = document.getElementById("dash-date");
+    if (dateEl) dateEl.textContent = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+    // Invoice modal open/close (populated once the data lands, see below).
+    const invOverlay = document.getElementById("dash-inv-overlay");
+    document.getElementById("dash-inv-open")?.addEventListener("click", () => invOverlay?.classList.add("open"));
+    document.getElementById("dash-inv-close")?.addEventListener("click", () => invOverlay?.classList.remove("open"));
+    invOverlay?.addEventListener("click", (e) => { if (e.target === invOverlay) invOverlay.classList.remove("open"); });
 
     document.addEventListener("ash:ready", async (e) => {
-      const session = e.detail && e.detail.session;
-      const profile = e.detail && e.detail.profile;
-      const fullName = (profile && profile.full_name) || (session?.user?.email || "").split("@")[0] || "";
-      const first = (fullName.split(" ")[0] || fullName).replace(/[<>&]/g, "");
-      const hr = new Date().getHours();
-      const tod = hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening";
-      const greet = document.getElementById("adash-greeting");
-      if (greet) greet.innerHTML = first ? `${tod}, <em>${first}.</em>` : `${tod}.`;
-      const av = document.getElementById("adash-avatar");
-      if (av) {
-        if (profile && profile.avatar_url) { av.style.backgroundImage = `url('${profile.avatar_url}')`; av.textContent = ""; }
-        else { av.textContent = (first[0] || "A").toUpperCase(); }
-      }
+      const isManagement = !!(e.detail && e.detail.isManagement);
+      if (isManagement) document.querySelectorAll("[data-mgmt]").forEach((el) => { el.hidden = false; });
 
-      const SIXTY = new Date(Date.now() - 60 * 864e5).toISOString();
-      const [packs, templates, enqNew, enqTotal, paid, subs, blogPub, blogDraft, vidTotal, vidActive, emailActive] = await Promise.all([
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthStartISO = monthStart.toISOString();
+      const monthStartDate = monthStartISO.slice(0, 10);
+      const yearStart = new Date(now.getFullYear(), 0, 1).toISOString();
+
+      const [
+        contactsTotal, contactsMembers,
+        smmActiveRows, vidClientRows,
+        invoicesThisMonth,
+        packs, templates, purchasesMonth, purchasesTotal,
+        automationsActive,
+        vidBookingsThisMonth,
+        blogPub,
+        enquiriesThisMonth, smmLeadsThisMonth,
+        pageviewsMonth, pageviewsTotal, visitorsMonth,
+        revenueYTD,
+      ] = await Promise.all([
+        supabase.from("contacts").select("*", { count: "exact", head: true }),
+        supabase.from("contacts").select("*", { count: "exact", head: true }).eq("lifecycle", "member"),
+        supabase.from("smm_leads").select("package_name, contracted_hours_per_month").eq("pipeline_stage", "active_client"),
+        supabase.from("videography_bookings").select("client_email").neq("stage", "cancelled"),
+        supabase.from("invoices").select("number, bill_to_name, status, total_pence, issued_date, due_date").gte("issued_date", monthStartDate).order("issued_date", { ascending: false }),
         supabase.from("packs").select("*", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("templates").select("*", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("enquiries").select("*", { count: "exact", head: true }).eq("status", "new"),
-        supabase.from("enquiries").select("*", { count: "exact", head: true }),
-        supabase.from("orders").select("amount_pence", { count: "exact" }).eq("status", "paid"),
-        supabase.from("orders").select("buyer_email").eq("status", "paid").gte("created_at", SIXTY),
+        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").gte("created_at", monthStartISO),
+        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid"),
+        supabase.from("automations").select("id, name, graph").eq("status", "active"),
+        supabase.from("videography_bookings").select("stage, duration_min, client_email").gte("shoot_date", monthStartISO).lt("shoot_date", new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()),
         supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "published"),
-        supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "draft"),
-        supabase.from("videography_bookings").select("*", { count: "exact", head: true }),
-        supabase.from("videography_bookings").select("*", { count: "exact", head: true }).neq("stage", "complete"),
-        supabase.from("email_templates").select("*", { count: "exact", head: true }).eq("status", "active"),
+        supabase.from("enquiries").select("*", { count: "exact", head: true }).gte("created_at", monthStartISO),
+        supabase.from("smm_leads").select("kind").gte("created_at", monthStartISO),
+        supabase.from("site_events").select("*", { count: "exact", head: true }).eq("name", "pageview").gte("created_at", monthStartISO),
+        supabase.from("site_events").select("*", { count: "exact", head: true }).eq("name", "pageview"),
+        supabase.from("site_events").select("session_id").eq("name", "pageview").gte("created_at", monthStartISO),
+        supabase.from("orders").select("amount_pence, created_at").eq("status", "paid").gte("created_at", yearStart),
       ]);
 
-      if (!packs.error) setStat("packs", String(packs.count ?? 0));
-      if (!templates.error) setStat("templates", String(templates.count ?? 0));
-      if (!enqNew.error) { setStat("enq-new", String(enqNew.count ?? 0)); setStat("enq-new-2", String(enqNew.count ?? 0)); }
-      if (!enqTotal.error) setStat("enq-total", String(enqTotal.count ?? 0));
-      if (!paid.error && Array.isArray(paid.data)) {
-        const rev = paid.data.reduce((s, r) => s + (r.amount_pence || 0), 0);
-        setStat("rev", gbpFromPence(rev) || "£0");
-        setStat("orders-count", String(paid.count ?? paid.data.length));
+      // ---- CRM ----
+      if (!contactsTotal.error) setStat("crm-contacts", String(contactsTotal.count ?? 0));
+      if (!contactsMembers.error) setStat("crm-members", String(contactsMembers.count ?? 0));
+      const smmClientCount = (!smmActiveRows.error && smmActiveRows.data) ? smmActiveRows.data.length : 0;
+      const vidClientCount = (!vidClientRows.error && vidClientRows.data)
+        ? new Set(vidClientRows.data.map((r) => (r.client_email || "").toLowerCase()).filter(Boolean)).size
+        : 0;
+      setStat("crm-clients", String(smmClientCount + vidClientCount));
+      setStat("social-clients", String(smmClientCount));
+      if (!smmActiveRows.error) {
+        const totalHours = (smmActiveRows.data || []).reduce((s, r) => s + (Number(r.contracted_hours_per_month) || 0), 0);
+        setStat("social-hours", totalHours ? String(totalHours) : "0");
       }
-      if (!subs.error && Array.isArray(subs.data)) setStat("subs", String(new Set(subs.data.map((r) => (r.buyer_email || "").toLowerCase()).filter(Boolean)).size));
-      if (!blogPub.error) setStat("blog-pub", String(blogPub.count ?? 0));
-      if (!blogDraft.error) setStat("blog-draft", String(blogDraft.count ?? 0));
-      if (!emailActive.error) setStat("email", String(emailActive.count ?? 0));
 
-      const total = (!vidTotal.error && vidTotal.count) || 0;
-      const active = (!vidActive.error && vidActive.count) || 0;
-      const done = Math.max(0, total - active);
-      setStat("vid-active", String(active)); setStat("vid-active-3", String(active));
-      setStat("vid-total", String(total)); setStat("vid-total-2", String(total));
-      setStat("vid-done", String(done));
-      const seg = document.getElementById("dash-donut-seg");
-      if (seg) { const pct = total ? Math.round((active / total) * 100) : 0; seg.setAttribute("stroke-dasharray", `${pct} ${100 - pct}`); }
+      // ---- Social media package breakdown ----
+      if (!smmActiveRows.error) {
+        const counts = new Map();
+        for (const r of smmActiveRows.data || []) {
+          const label = r.package_name || "No package set";
+          counts.set(label, (counts.get(label) || 0) + 1);
+        }
+        const rows = [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+        renderBreakdown(document.getElementById("dash-social-breakdown"), rows, "No active clients yet.");
+      }
+
+      // ---- Invoicing ----
+      if (!invoicesThisMonth.error && Array.isArray(invoicesThisMonth.data)) {
+        const rows = invoicesThisMonth.data;
+        setStat("inv-count", String(rows.length));
+        setStat("inv-outstanding", String(rows.filter((r) => r.status === "sent").length));
+        const total = rows.reduce((s, r) => s + (r.total_pence || 0), 0);
+        setStat("inv-total", gbpFromPence(total) || "£0");
+
+        const modalListEl = document.getElementById("dash-inv-modal-list");
+        if (modalListEl) {
+          if (rows.length === 0) {
+            modalListEl.innerHTML = `<div class="empty"><div class="empty-text">No invoices raised yet this month.</div></div>`;
+          } else {
+            const badge = { draft: "b-gray", sent: "b-amber", paid: "b-green", void: "b-red" };
+            modalListEl.innerHTML = rows.map((r) => `
+              <div class="dash-inv-row">
+                <span class="dash-inv-num">${esc(r.number || "—")}</span>
+                <span class="dash-inv-name">${esc(r.bill_to_name || "—")}</span>
+                <span class="dash-inv-dates">Issued ${fmtDate(r.issued_date)} · Due ${fmtDate(r.due_date)}</span>
+                <span class="dash-inv-amount">${gbpFromPence(r.total_pence || 0)}</span>
+                <span class="badge ${badge[r.status] || "b-gray"}">${esc(r.status)}</span>
+              </div>
+            `).join("");
+          }
+        }
+      }
+
+      // ---- Edit (packs / templates / purchases) ----
+      if (!packs.error) setStat("edit-packs", String(packs.count ?? 0));
+      if (!templates.error) setStat("edit-templates", String(templates.count ?? 0));
+      if (!purchasesMonth.error) setStat("edit-purchases-month", String(purchasesMonth.count ?? 0));
+      if (!purchasesTotal.error) setStat("edit-purchases-total", String(purchasesTotal.count ?? 0));
+
+      // ---- Emails: active marketing automations ----
+      if (!automationsActive.error) {
+        const marketing = (automationsActive.data || []).filter((a) => automationKind(a) === "marketing");
+        const listEl = document.getElementById("dash-email-list");
+        if (listEl) {
+          if (marketing.length === 0) {
+            listEl.innerHTML = `<div class="empty"><div class="empty-text">No active marketing campaigns.</div></div>`;
+          } else {
+            listEl.innerHTML = marketing.map((a) => `
+              <div class="dash-email-row">
+                <span class="dash-email-name">${esc(a.name)}</span>
+                <a href="/admin/automations/edit?id=${esc(a.id)}" class="icon-btn">Open</a>
+              </div>
+            `).join("");
+          }
+        }
+      }
+
+      // ---- Videography this month ----
+      if (!vidBookingsThisMonth.error) {
+        const rows = vidBookingsThisMonth.data || [];
+        const active = rows.filter((r) => r.stage !== "delivered" && r.stage !== "cancelled");
+        const done = rows.filter((r) => r.stage === "delivered");
+        setStat("vid-progress", String(active.length));
+        setStat("vid-complete", String(done.length));
+        // Clients this month: anyone with a shoot dated anywhere in this month —
+        // already happened (1st–today) or still booked in (today–month end).
+        const clientsThisMonth = new Set(rows.filter((r) => r.stage !== "cancelled").map((r) => (r.client_email || "").toLowerCase()).filter(Boolean)).size;
+        setStat("vid-clients", String(clientsThisMonth));
+        const minutes = rows.filter((r) => r.stage !== "cancelled").reduce((s, r) => s + (r.duration_min || 0), 0);
+        setStat("vid-hours", (minutes / 60).toFixed(1).replace(/\.0$/, ""));
+      }
+
+      // ---- Blog ----
+      if (!blogPub.error) setStat("blog-pub", String(blogPub.count ?? 0));
+
+      // ---- Inquiries breakdown (contact form + SMM leads by kind) ----
+      const inqRows = [];
+      if (!enquiriesThisMonth.error) inqRows.push({ label: "Messages", count: enquiriesThisMonth.count ?? 0 });
+      if (!smmLeadsThisMonth.error) {
+        const KIND_LABEL = { brochure: "Downloads", discovery: "Discovery calls", enquiry: "General enquiries" };
+        const counts = new Map();
+        for (const r of smmLeadsThisMonth.data || []) {
+          const label = KIND_LABEL[r.kind] || r.kind || "Other";
+          counts.set(label, (counts.get(label) || 0) + 1);
+        }
+        for (const [label, count] of counts.entries()) inqRows.push({ label, count });
+      }
+      renderBreakdown(document.getElementById("dash-inq-breakdown"), inqRows.filter((r) => r.count > 0), "No inquiries yet this month.");
+
+      // ---- Website ----
+      if (!pageviewsMonth.error) setStat("site-views-month", String(pageviewsMonth.count ?? 0));
+      if (!pageviewsTotal.error) setStat("site-views-total", String(pageviewsTotal.count ?? 0));
+      if (!visitorsMonth.error && Array.isArray(visitorsMonth.data)) {
+        setStat("site-visitors-month", String(new Set(visitorsMonth.data.map((r) => r.session_id).filter(Boolean)).size));
+      }
+
+      // ---- Revenue (management only — queried regardless, just not rendered) ----
+      if (isManagement && !revenueYTD.error && Array.isArray(revenueYTD.data)) {
+        const rows = revenueYTD.data;
+        const ytdTotal = rows.reduce((s, r) => s + (r.amount_pence || 0), 0);
+        setStat("rev-ytd", gbpFromPence(ytdTotal) || "£0");
+
+        const monthTotals = new Array(now.getMonth() + 1).fill(0);
+        for (const r of rows) {
+          const m = new Date(r.created_at).getMonth();
+          if (m <= now.getMonth()) monthTotals[m] += r.amount_pence || 0;
+        }
+        setStat("rev-month", gbpFromPence(monthTotals[now.getMonth()]) || "£0");
+
+        const max = Math.max(1, ...monthTotals);
+        const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const graphEl = document.getElementById("dash-rev-graph");
+        if (graphEl) {
+          graphEl.innerHTML = monthTotals.map((total, i) => `
+            <div class="dash-rev-bar-wrap">
+              <div class="dash-rev-bar${i === now.getMonth() ? " is-current" : ""}" style="height:${Math.max(3, (total / max) * 100)}%" title="${MONTH_LABELS[i]}: ${gbpFromPence(total)}"></div>
+              <div class="dash-rev-bar-label">${MONTH_LABELS[i]}</div>
+            </div>
+          `).join("");
+        }
+      }
     });
   </script>
 </AdminShell>

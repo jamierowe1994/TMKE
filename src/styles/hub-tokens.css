@@ -289,3 +289,61 @@
 .hub-skin .vid-doc { border-color: var(--border); }
 .hub-skin .vid-card { box-shadow: var(--shadow-xs); }
 .hub-skin .vid-card:hover { border-color: var(--accent-light); box-shadow: var(--shadow-sm); }
+
+/* ---- Dashboard primitives, ported from the Hub verbatim (app/globals.css) --
+   .g2/.g3/.g4 grids, .stat tiles, .card-head/.card-title, .icon-btn, .divider,
+   .empty. Needed by any admin page built to look like the Hub's Dashboard —
+   the earlier port only carried the pieces videography.astro happened to use.
+--------------------------------------------------------------------------- */
+/* align-items: stretch so every card in a row shares the row's tallest
+   height, regardless of how much content is in any one of them — same rule
+   as the Hub (app/globals.css: ".g2,.g3,.g4{align-items:stretch;}"). */
+.hub-skin .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+.hub-skin .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; align-items: stretch; }
+.hub-skin .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; align-items: stretch; }
+.hub-skin .g2 > .card, .hub-skin .g3 > .card, .hub-skin .g4 > .card,
+.hub-skin .g2 > .stat, .hub-skin .g3 > .stat, .hub-skin .g4 > .stat {
+  margin-top: 0; height: 100%; display: flex; flex-direction: column;
+}
+@media (max-width: 720px) {
+  .hub-skin .g2, .hub-skin .g3 { grid-template-columns: 1fr; }
+  .hub-skin .g4 { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+
+.hub-skin .stat {
+  background: var(--surface); border-radius: var(--radius); padding: 24px 20px;
+  border: 1px solid var(--border); box-shadow: var(--shadow-xs);
+  display: block; text-decoration: none; color: inherit; transition: all 0.15s;
+}
+.hub-skin .stat:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.hub-skin .stat-num {
+  font-size: 38px; font-weight: 400; color: var(--primary); line-height: 1;
+  font-family: var(--serif); letter-spacing: -0.01em;
+}
+.hub-skin .stat-label { font-size: 11px; font-weight: 700; color: var(--hub-text); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.07em; }
+.hub-skin .stat-sub { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 400; }
+
+.hub-skin .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.hub-skin .card-title { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+
+.hub-skin .icon-btn {
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  padding: 4px 8px; border-radius: 3px; font-size: 11.5px; font-weight: 700;
+  transition: all 0.12s; font-family: inherit; letter-spacing: 0.02em;
+  text-decoration: none; display: inline-block;
+}
+.hub-skin .icon-btn:hover { background: var(--primary-light); color: var(--primary); }
+
+.hub-skin .divider { height: 1px; background: var(--border); margin: 18px 0; }
+
+.hub-skin .empty { text-align: center; padding: 44px 20px; }
+.hub-skin .empty-text { font-size: 13px; color: var(--muted); font-weight: 500; }
+
+.hub-skin .mb20 { margin-bottom: 20px; }
+
+/* Segmented breakdown bar + legend, ported verbatim from the Hub (used there
+   for Task Breakdown) — reused here for any "N of these, M of those" split. */
+.hub-skin .tb-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--border); }
+.hub-skin .tb-bar > div { transition: width 0.3s; }
+.hub-skin .tb-legend { display: flex; gap: 22px; margin-top: 14px; flex-wrap: wrap; font-size: 12px; color: var(--hub-text); align-items: center; }
+.hub-skin .tb-legend-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }

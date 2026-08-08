@@ -568,3 +568,19 @@ the rendered output checking, not just a build.
   Review. Today it's a manual-posting email.
 - ⬜ Two mailers in play: M365 for Studio test-sends, Resend for the calendar
   reminder. Worth settling on one if bulk deliverability matters.
+- ⬜ **P&L on the Dashboard's management-only Revenue card.** The Revenue card
+  (monthly + YTD + a per-month graph, `src/pages/admin.astro`) shipped
+  2026-08-08 with revenue only. Danielle wants profit calculated there too,
+  once expenses are tracked somewhere queryable — explicitly deferred until
+  everything else on the redesigned Dashboard is finished.
+- ⬜ **No hours-capacity tracking for Videography editing or SMM client work.**
+  Danielle wants the Dashboard to show, for the current month: hours of
+  filming + editing currently in Jack's diary (Videography), and hours of
+  work scheduled per social media client (SMM). Filming hours are queryable
+  today (`videography_bookings.duration_min`, summed by `shoot_date` in the
+  month). Editing hours and SMM per-client hours have **no field to read
+  from at all** — `videography_bookings` has no editing-duration column, and
+  `smm_leads` has no monthly-hours column. Needs new columns + a decision on
+  where that data gets entered (per booking? per client, as a standing
+  monthly allocation?) before this can be built. Raised with Danielle
+  2026-08-08, not yet resolved.
