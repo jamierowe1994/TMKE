@@ -67,7 +67,7 @@ import "../../styles/admin.css";
 
   <!-- ===================== DIARY (weekly availability) ===================== -->
   <section class="vid-panel wrap" data-panel="diary">
-    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; Back</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Diary &amp; availability</h2>
@@ -90,7 +90,7 @@ import "../../styles/admin.css";
 
   <!-- ===================== DELIVER (uploads → client) ===================== -->
   <section class="vid-panel wrap" data-panel="deliver">
-    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; Back</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Deliver work</h2>
@@ -137,7 +137,8 @@ import "../../styles/admin.css";
 
       <div class="vid-uploads" id="vid-uploads"></div>
 
-<h3 class="vid-files-head">Uploaded for this booking</h3>
+      <div class="vid-files">
+        <h3 class="vid-files-head">Uploaded for this booking</h3>
         <p class="vid-loading" id="vid-files-empty">Select a booking to see its delivered files.</p>
         <div class="vid-files-list" id="vid-files-list"></div>
       </div>
@@ -147,7 +148,7 @@ import "../../styles/admin.css";
 
   <!-- ===================== SETTINGS (pricing & travel) ===================== -->
   <section class="vid-panel wrap" data-panel="settings">
-    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; Back</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Pricing &amp; travel settings</h2>
@@ -187,7 +188,7 @@ import "../../styles/admin.css";
 
   <!-- ===================== CONNECTIONS (integrations) ===================== -->
   <section class="vid-panel wrap" data-panel="connections">
-    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; All clients</button>
+    <button type="button" class="vid-cand-back" data-backto="clients" data-smart-back>&larr; Back</button>
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Connections</h2>
@@ -526,6 +527,8 @@ import "../../styles/admin.css";
 
     /* ---- Candidate file (CRM one-pager) ---- */
     .vid-cand-back {
+      font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700;
+      margin-bottom: 18px;
       background: none; border: none; cursor: pointer; font-family: var(--sans);
       font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
       color: var(--english-violet); padding: 0; margin-bottom: 28px;
@@ -875,42 +878,61 @@ import "../../styles/admin.css";
     /* ---- Category drop-boxes ---- */
     .vid-catgrid-intro { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: rgba(28,29,34,0.6); max-width: 640px; margin: 0 0 16px; }
     .vid-catgrid-intro em { font-style: normal; font-weight: 700; color: var(--english-violet); }
+    /* Rebuilt in the Hub's language: hairline borders rather than dashes, 5px
+       corners, small-caps headings, and room to breathe. The dashed outline and
+       18px serif headings were shouting at each other on a screen that is
+       mostly boxes. */
     .vid-catgrid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
     }
     .vid-catbox {
-      display: flex; flex-direction: column; gap: 10px;
-      border: 2px dashed rgba(var(--violet-rgb), 0.28); border-radius: 10px;
-      padding: 16px 16px 14px;
-      background: rgba(255, 255, 255, 0.5);
-      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      display: flex; flex-direction: column; gap: 14px;
+      border: 1px solid var(--border, #eae5e1); border-radius: var(--radius, 5px);
+      padding: 18px;
+      background: var(--surface, #fff);
+      box-shadow: var(--shadow-xs, 0 1px 2px rgba(43,34,38,.05));
+      transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
     }
-    .vid-catbox.is-drag { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.08); transform: translateY(-2px); }
+    .vid-catbox.is-drag {
+      border-color: var(--primary, #371e28);
+      background: var(--primary-light, #f3eeef);
+      box-shadow: var(--shadow-sm, 0 1px 4px rgba(43,34,38,.06));
+    }
     .vid-catgrid.is-disabled { opacity: 0.5; pointer-events: none; }
-    .vid-catbox-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .vid-catbox-name { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--ink); }
+    .vid-catbox-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    /* Normal size, bold - the Hub's card-title treatment. */
+    .vid-catbox-name {
+      font-family: var(--sans); font-size: 13px; font-weight: 700;
+      letter-spacing: 0.01em; color: var(--hub-text, var(--ink)); line-height: 1.35;
+    }
     .vid-catbox-count {
       font-family: var(--sans); font-size: 11px; font-weight: 700;
-      min-width: 22px; text-align: center; padding: 2px 7px; border-radius: 999px;
-      background: rgba(var(--violet-rgb), 0.1); color: var(--english-violet);
+      min-width: 20px; text-align: center; padding: 2px 7px; border-radius: var(--radius-sm, 3px);
+      background: var(--primary-light, #f3eeef); color: var(--primary, #371e28);
     }
     .vid-catbox-drop {
       display: flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 14px 0; color: rgba(28,29,34,0.45);
-      font-family: var(--sans); font-size: 12px; letter-spacing: 0.04em;
+      padding: 18px 0; color: var(--muted, rgba(28,29,34,0.45));
+      font-family: var(--sans); font-size: 12px;
+      border: 1px solid var(--border-subtle, #f0edeb); border-radius: 4px;
+      background: var(--surface-2, #faf8f7);
     }
     .vid-catbox-pick {
       appearance: none; cursor: pointer;
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.06em; color: var(--english-violet);
-      background: rgba(var(--violet-rgb), 0.06); border: 1px solid rgba(var(--violet-rgb), 0.2);
-      border-radius: 8px; padding: 9px 12px; transition: background 0.2s, color 0.2s;
+      font-family: var(--sans); font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--muted, rgba(28,29,34,0.55));
+      background: none; border: 1px solid var(--border, #eae5e1);
+      border-radius: 4px; padding: 8px 12px; transition: all 0.18s;
     }
-    .vid-catbox-pick:hover { background: var(--english-violet); color: var(--paper); }
+    .vid-catbox-pick:hover {
+      border-color: var(--primary, #371e28); color: var(--primary, #371e28);
+      background: var(--primary-light, #f3eeef);
+    }
 
-    .vid-uploads { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+    .vid-uploads { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
     .vid-up {
       border: 1px solid rgba(var(--violet-rgb), 0.18); border-radius: 4px;
       padding: 14px 16px; background: var(--paper);
@@ -925,8 +947,10 @@ import "../../styles/admin.css";
     .vid-up-fill.is-done { background: #2c7a4b; }
     .vid-up-fill.is-error { background: #a05a3c; }
 
-    .vid-files { margin-top: 36px; }
-    .vid-files-head { font-family: var(--sans); font-weight: 700; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.6); margin: 0 0 14px; }
+    /* A clear break between dropping files and the list of what has landed -
+       they are two different jobs and were running into each other. */
+    .vid-files { margin-top: 44px; padding-top: 32px; border-top: 1px solid var(--border, #eae5e1); }
+    .vid-files-head { font-family: var(--sans); font-weight: 700; font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted, rgba(28,29,34,0.6)); margin: 0 0 16px; }
     .vid-files-list { display: flex; flex-direction: column; gap: 1px; background: rgba(var(--violet-rgb),0.18); border: 1px solid rgba(var(--violet-rgb),0.18); border-radius: 3px; overflow: hidden; }
     .vid-fgroup {
       display: flex; align-items: center; gap: 8px;
