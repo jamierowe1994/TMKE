@@ -5959,6 +5959,37 @@ export default {
         return json({ admins: emails }, 200, request, env);
       }
 
+      // Create a shoot's archive folders. R2 has no folders - keys just contain
+      // slashes and the dashboard renders them as a tree - so "creating" one
+      // means writing a placeholder object inside it. Without that there is
+      // nowhere to put anything until the first file lands, which is the
+      // opposite of what Jack needs when he is about to drag files in.
+      if (path.endsWith("/videography/archive-create") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        const folder = String((b && b.folder) || "").trim();
+        const folders = Array.isArray(b && b.folders) ? b.folders : [];
+        if (!id || !folder) return json({ error: "Missing booking or folder name." }, 400, request, env);
+        if (!folders.length) return json({ error: "No subfolders to create." }, 400, request, env);
+
+        const made = [];
+        for (const sub of folders) {
+          const key = safeFolderKey(folder, sub, ".keep");
+          try {
+            await env.BUCKET.put(key, new Uint8Array(0), { httpMetadata: { contentType: "text/plain" } });
+            made.push(key.replace(/\/\.keep$/, ""));
+          } catch (err) {
+            return json({ error: `Couldn't create ${sub}: ${err && err.message ? err.message : err}` }, 502, request, env);
+          }
+        }
+        // Record the name only once the folders actually exist, so the booking
+        // never claims a folder that was never made.
+        await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, { archive_folder: folder });
+        return json({ ok: true, created: made }, 200, request, env);
+      }
+
       // Update the calendar event's location after the booking was made. For
       // agent shoots the meeting point is agreed with the client afterwards -
       // a coffee shop, a studio, somewhere that isn't their office - and it is

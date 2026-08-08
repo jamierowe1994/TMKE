@@ -204,6 +204,42 @@ export const RATE_CARD = {
 // separately. Whether it is rebilled to the client is not yet settled.
 export const STUDIO_HIRE_IS_REBILLED = false;
 
+/* ---------------------------------------------------------------------------
+   Archive folders
+   ---------------------------------------------------------------------------
+   The subfolders created inside a shoot's archive folder, per service. They
+   vary by service on purpose: a Content Studio session has no exteriors or
+   drone, and an agent shoot has no interiors, so giving every job all seven
+   would leave most of them full of empty folders nobody ever opens.
+
+   These names double as the upload categories in Deliver work, so a file
+   dropped into "Drone Footage" lands in the folder of that name. One list, so
+   the boxes on screen and the folders in storage cannot drift apart.
+--------------------------------------------------------------------------- */
+export const ARCHIVE_FOLDERS = {
+  "content-studio": ["Video", "Other"],
+  property: [
+    "Property Photography Exterior",
+    "Property Photography Interior",
+    "Floor Plans",
+    "Twilight",
+    "Drone Footage",
+    "Video",
+    "Other",
+  ],
+  agent: ["Headshots", "Lifestyle Shots", "Video", "Other"],
+};
+
+// Falls back to the property set, which is the superset - better to offer a
+// folder that goes unused than to have nowhere to put something.
+export function archiveFoldersFor(serviceType, serviceText) {
+  if (ARCHIVE_FOLDERS[serviceType]) return ARCHIVE_FOLDERS[serviceType];
+  const t = String(serviceText || "").toLowerCase();
+  if (/content|studio/.test(t)) return ARCHIVE_FOLDERS["content-studio"];
+  if (/agent|location|launch/.test(t)) return ARCHIVE_FOLDERS.agent;
+  return ARCHIVE_FOLDERS.property;
+}
+
 // Pipeline statuses, incl. the lead statuses leads land at (Section 7.4).
 export const PIPELINE_STATUS = {
   BOOKED: "booked",

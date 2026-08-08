@@ -2,17 +2,6 @@
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
 
-// Drop-box categories on the Deliver tab. Jack drags files into the right
-// box so the client gallery can be grouped/filtered. "Other" is the catch-all.
-const DELIVER_CATEGORIES = [
-  "Headshots",
-  "Exteriors",
-  "Interiors",
-  "Twilight",
-  "Drone",
-  "Video",
-  "Other",
-];
 ---
 
 <AdminShell active="videography" title="Videography" skin="hub">
@@ -136,44 +125,17 @@ const DELIVER_CATEGORIES = [
             <button type="button" class="admin-btn admin-btn-ghost" id="vid-arch-copy">Copy</button>
           </div>
         </div>
-        <div class="vid-field">
-          <label>Link to the folder <span class="vid-lbl-note">for us, never shown to the client</span></label>
-          <input type="url" id="vid-arch-url" placeholder="Paste the Cloudflare folder link" />
-        </div>
         <div class="vid-cand-actions">
-          <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Save folder name</button>
-          <a class="admin-btn admin-btn-ghost" id="vid-arch-open" href="#" target="_blank" rel="noopener" hidden>Open folder</a>
+          <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Create these folders</button>
         </div>
         <p class="vid-hint" id="vid-arch-path"></p>
         <p class="vid-hint" id="vid-arch-msg"></p>
       </div>
 
       <p class="vid-catgrid-intro" id="vid-catgrid-intro">Drag photos &amp; videos into a category — or hit <em>Add</em>. Files go straight to Cloudflare R2 (50&nbsp;MB parts, resumable). The category is how the client's gallery is grouped.</p>
-      <div class="vid-catgrid" id="vid-catgrid">
-        {DELIVER_CATEGORIES.map((cat) => (
-          <div class="vid-catbox" data-category={cat}>
-            <div class="vid-catbox-top">
-              <span class="vid-catbox-name">{cat}</span>
-              <span class="vid-catbox-count" data-cat-count>0</span>
-            </div>
-            <div class="vid-catbox-drop">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <span>Drag here</span>
-            </div>
-            <button type="button" class="vid-catbox-pick">+ Add files</button>
-            <input type="file" class="vid-catbox-input" multiple hidden />
-          </div>
-        ))}
-      </div>
+      <div class="vid-catgrid" id="vid-catgrid"></div>
 
-      <div class="vid-uploads" id="vid-uploads"></div>
-
-      <div class="vid-files">
-        <h3 class="vid-files-head">Uploaded for this booking</h3>
+<h3 class="vid-files-head">Uploaded for this booking</h3>
         <p class="vid-loading" id="vid-files-empty">Select a booking to see its delivered files.</p>
         <div class="vid-files-list" id="vid-files-list"></div>
       </div>
@@ -1090,7 +1052,7 @@ const DELIVER_CATEGORIES = [
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, STUDIO_LOCATION } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1723,22 +1685,55 @@ const DELIVER_CATEGORIES = [
         .filter(Boolean).join(" - ");
     }
 
+    let deliverGuard = () => true;
+
+    function wireCatBoxes() {
+      document.querySelectorAll("#vid-catgrid .vid-catbox").forEach((box) => {
+        const category = box.getAttribute("data-category");
+        const input = box.querySelector(".vid-catbox-input");
+        const pick = box.querySelector(".vid-catbox-pick");
+        pick?.addEventListener("click", () => { if (deliverGuard()) input?.click(); });
+        input?.addEventListener("change", () => { handleFiles(input.files, category); input.value = ""; });
+        ["dragenter", "dragover"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.add("is-drag"); }));
+        ["dragleave", "drop"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.remove("is-drag"); }));
+        box.addEventListener("drop", (e) => { if (deliverGuard()) handleFiles(e.dataTransfer.files, category); });
+      });
+    }
+
+    // The drop boxes follow the shoot: a studio session has no drone footage,
+    // an agent shoot has no interiors. Rendered from the same list that names
+    // the folders, so a box and its folder can never disagree.
+    function renderCatBoxes(b) {
+      const grid = document.getElementById("vid-catgrid");
+      if (!grid) return;
+      if (!b) { grid.innerHTML = `<p class="vid-loading">Pick a booking to see where files go.</p>`; return; }
+      const cats = archiveFoldersFor(b.service_type, b.service);
+      grid.innerHTML = cats.map((cat) => `
+        <div class="vid-catbox" data-category="${escapeHtml(cat)}">
+          <div class="vid-catbox-top">
+            <span class="vid-catbox-name">${escapeHtml(cat)}</span>
+            <span class="vid-catbox-count" data-cat-count>0</span>
+          </div>
+          <div class="vid-catbox-drop">
+            <input type="file" class="vid-catbox-input" multiple hidden />
+            <button type="button" class="vid-catbox-pick">+ Add files</button>
+          </div>
+        </div>`).join("");
+      wireCatBoxes();
+    }
+
     function renderArchiveBox(b) {
       const box = document.getElementById("vid-archive");
       if (!box) return;
       box.hidden = !b;
       if (!b) return;
       const folder = document.getElementById("vid-arch-folder");
-      const url = document.getElementById("vid-arch-url");
-      const open = document.getElementById("vid-arch-open");
-      // Generated only when empty - a name that has been used to create a real
-      // folder must not silently change because a booking detail was edited.
+      // Generated only when empty - a name that has been used to create real
+      // folders must not silently change because a booking detail was edited.
       folder.value = b.archive_folder || archiveFolderName(b);
-      url.value = b.archive_url || "";
-      open.hidden = !b.archive_url;
-      if (b.archive_url) open.href = b.archive_url;
       document.getElementById("vid-arch-msg").textContent = "";
       showArchivePath(b);
+      renderCatBoxes(b);
     }
 
     // Say where files will land, so nobody has to guess what we did with them.
@@ -1752,18 +1747,25 @@ const DELIVER_CATEGORIES = [
     }
 
     async function saveArchive(b) {
-      const patch = {
-        archive_folder: (document.getElementById("vid-arch-folder")?.value || "").trim() || null,
-        archive_url: (document.getElementById("vid-arch-url")?.value || "").trim() || null,
-      };
-      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
       const note = document.getElementById("vid-arch-msg");
-      if (error) { note.textContent = "Couldn't save: " + error.message; return; }
-      Object.assign(b, patch);
-      note.textContent = "Saved.";
-      const open = document.getElementById("vid-arch-open");
-      open.hidden = !patch.archive_url;
-      if (patch.archive_url) open.href = patch.archive_url;
+      const folder = (document.getElementById("vid-arch-folder")?.value || "").trim();
+      if (!folder) { note.textContent = "Give the folder a name first."; return; }
+      const folders = archiveFoldersFor(b.service_type, b.service);
+      const btn = document.getElementById("vid-arch-save");
+      const label = btn.textContent; btn.disabled = true; btn.textContent = "Creating…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/videography/archive-create`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ booking_id: b.id, folder, folders }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { note.textContent = d.error || "Couldn't create the folders."; return; }
+        b.archive_folder = folder;
+        note.textContent = `Created ${d.created.length} folders. Files dropped below will go straight into them.`;
+      } catch (err) { note.textContent = "Couldn't reach the Worker: " + err.message; }
+      finally { btn.disabled = false; btn.textContent = label; }
     }
 
     /* ---- Delivery, on the booking ----
@@ -3005,19 +3007,16 @@ const DELIVER_CATEGORIES = [
         return true;
       }
 
-      // Wire each category box: its own drop target + "Add files" button.
-      grid.querySelectorAll(".vid-catbox").forEach((box) => {
-        const category = box.getAttribute("data-category");
-        const input = box.querySelector(".vid-catbox-input");
-        const pick = box.querySelector(".vid-catbox-pick");
-        pick?.addEventListener("click", () => { if (guard()) input?.click(); });
-        input?.addEventListener("change", () => { handleFiles(input.files, category); input.value = ""; });
-        ["dragenter", "dragover"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.add("is-drag"); }));
-        ["dragleave", "drop"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.remove("is-drag"); }));
-        box.addEventListener("drop", (e) => { if (guard()) handleFiles(e.dataTransfer.files, category); });
-      });
+      // Boxes are rebuilt whenever the booking changes, so their wiring lives in
+      // its own function rather than running once at init.
+      deliverGuard = guard;
+      wireCatBoxes();
 
-      sel?.addEventListener("change", () => { loadDeliverFiles(); loadDelivery(deliverBooking()); });
+      sel?.addEventListener("change", () => {
+        const b = bookings.find((x) => x.id === deliverBooking()) || null;
+        renderCatBoxes(b);
+        loadDeliverFiles();
+      });
 
       // Client-delivery panel
       document.getElementById("vid-dlv-base")?.addEventListener("input", recomputeDlvTotal);
