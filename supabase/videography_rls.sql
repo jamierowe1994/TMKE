@@ -8,6 +8,12 @@
 --
 -- Safe to re-run.
 --
+-- NOTE (7 Aug): this file drops policies BY NAME, which was not enough - any
+-- policy named something else survived, and policies are OR'd, so a single
+-- leftover `using (true)` kept the table wide open. supabase/videography_rls_fix.sql
+-- drops every policy on each table regardless of name and recreates them.
+-- Run that one too.
+--
 -- THE PROBLEM
 -- Every videography table was `using (true)` for authenticated users. The
 -- members hub filters to "my bookings" IN THE BROWSER, so the database was
