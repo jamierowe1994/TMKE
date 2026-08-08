@@ -135,6 +135,8 @@ import "../../styles/admin.css";
       <p class="vid-catgrid-intro" id="vid-catgrid-intro">Drag photos &amp; videos into a category — or hit <em>Add</em>. Files go straight to Cloudflare R2 (50&nbsp;MB parts, resumable). The category is how the client's gallery is grouped.</p>
       <div class="vid-catgrid" id="vid-catgrid"></div>
 
+      <div class="vid-uploads" id="vid-uploads"></div>
+
 <h3 class="vid-files-head">Uploaded for this booking</h3>
         <p class="vid-loading" id="vid-files-empty">Select a booking to see its delivered files.</p>
         <div class="vid-files-list" id="vid-files-list"></div>
@@ -3035,6 +3037,10 @@ import "../../styles/admin.css";
 
     function uploadRowUI(file, category) {
       const wrap = document.getElementById("vid-uploads");
+      // This runs before uploadFile's try block, so a missing container threw
+      // where nothing was catching it - the click did nothing at all, with no
+      // row, no error and no clue. Fail loudly instead.
+      if (!wrap) { alert("The uploads area is missing from this page — reload, and tell Claude if it persists."); throw new Error("vid-uploads missing"); }
       const row = document.createElement("div");
       row.className = "vid-up";
       row.innerHTML =
