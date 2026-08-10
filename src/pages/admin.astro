@@ -135,21 +135,18 @@ import AdminShell from "../components/admin/AdminShell.astro";
       <div id="dash-inq-breakdown"><div class="empty"><div class="empty-text">Loading…</div></div></div>
     </div>
 
-    <div class="card">
+    <button type="button" class="card dash-clickable" id="dash-website-card">
       <div class="card-head">
-        <div class="card-title">Website</div>
+        <div class="card-title" id="dash-website-title">Website</div>
+        <span class="icon-btn" id="dash-website-toggle-hint">Daily views &rarr;</span>
       </div>
-      <ul class="dash-glance">
+      <ul class="dash-glance" id="dash-website-stats">
         <li><span>Views this month</span><b data-stat="site-views-month">0</b></li>
         <li><span>Visitors this month</span><b data-stat="site-visitors-month">0</b></li>
         <li><span>Views all time</span><b data-stat="site-views-total">0</b></li>
       </ul>
-      <div class="divider"></div>
-      <div class="dash-spark-row">
-        <span class="dash-spark-label">Daily views, this month</span>
-        <div id="dash-views-spark"></div>
-      </div>
-    </div>
+      <div id="dash-website-chart" class="dash-rev-graph" hidden></div>
+    </button>
   </div>
 
   <div class="dash-modal-overlay" id="dash-inv-overlay">
@@ -162,14 +159,20 @@ import AdminShell from "../components/admin/AdminShell.astro";
     </div>
   </div>
 
-  <style>
-    /* Chart categorical palette — validated (dataviz skill: node scripts/validate_palette.js),
-       not the brand plum/taupe tokens. Those fail CVD + normal-vision separation for
-       data-identity use (too dark, too low-chroma) even though they're right for chrome/text.
-       Fixed order — never cycled past slot 6; a 7th category folds into "Other". */
-    .card { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4; --series-6: #008300; --series-other: #898781; }
+  <style is:global>
+    /* Chart categorical palette — same hue families as the brand tokens
+       (plum/blue/green/amber/red), pushed to a lightness+chroma band that
+       actually passes the accessibility check (dataviz skill:
+       node scripts/validate_palette.js) — the raw brand hex values are too
+       dark/muted to tell apart even with full-color vision. Only 5 slots:
+       a 6th brand-derived hue (rose, sitting between red and amber) couldn't
+       be separated from its neighbours at any lightness/chroma tried, so a
+       6th category folds into "Other" one slot earlier than the general
+       8-hue default. */
+    .card { --series-1: #97355c; --series-2: #3c60aa; --series-3: #268254; --series-4: #b48b2d; --series-5: #a83c38; --series-other: #898781; }
 
     .dash-glance { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 28px; }
+    .dash-glance[hidden] { display: none; }
     .dash-glance li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
     .dash-glance span { font-size: 13px; color: var(--muted); }
     .dash-glance b { font-family: var(--serif); font-size: 22px; color: var(--hub-text); font-weight: 500; }
@@ -189,6 +192,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
     .dash-rev-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
     .dash-rev-num { font-family: var(--serif); font-size: 34px; color: var(--hub-text); font-weight: 500; }
     .dash-rev-graph { display: flex; align-items: flex-end; gap: 8px; height: 90px; }
+    .dash-rev-graph[hidden] { display: none; }
     .dash-rev-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
     .dash-rev-bar { width: 100%; background: var(--primary-light); border-radius: 3px 3px 0 0; min-height: 3px; transition: height 0.3s; }
     .dash-rev-bar.is-current { background: var(--primary); }
@@ -211,21 +215,25 @@ import AdminShell from "../components/admin/AdminShell.astro";
     .dash-inv-amount { font-size: 13px; font-weight: 700; color: var(--hub-text); width: 80px; text-align: right; flex-shrink: 0; }
 
     .dash-donut-title { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 12px; }
-    .dash-donut-wrap-outer { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
-    .dash-pkg-donut { width: 108px; height: 108px; flex: none; }
+    /* Chart fixed-width left, legend grid fills the rest — stays side-by-side
+       even in a half-width dashboard card instead of wrapping to stacked. */
+    .dash-donut-wrap-outer { display: flex; align-items: center; gap: 18px; }
+    .dash-pkg-donut { width: 88px; height: 88px; flex: none; }
     .dash-pkg-donut circle { transition: stroke-dasharray 0.4s cubic-bezier(.2,.7,.2,1); }
-    .dash-pkg-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 140px; }
-    .dash-pkg-legend li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--hub-text); }
+    .dash-pkg-legend {
+      list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px;
+    }
+    .dash-pkg-legend li { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--hub-text); min-width: 0; }
     .dash-pkg-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-    .dash-pkg-legend b { margin-left: auto; font-weight: 700; color: var(--hub-text); }
+    .dash-pkg-legend-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dash-pkg-legend b { font-weight: 700; color: var(--hub-text); margin-left: 6px; flex: none; }
+    @media (max-width: 480px) { .dash-pkg-legend { grid-template-columns: 1fr; } }
 
-    /* Sparkline: 12-point trend, de-emphasis hue per the figure contract —
-       the number above already carries the headline, this is context only. */
-    .dash-spark-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .dash-spark-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-    .dash-spark { display: block; }
-    .dash-spark path.dash-spark-line { fill: none; stroke: var(--accent-light); stroke-width: 1.5; }
-    .dash-spark circle.dash-spark-end { fill: var(--primary); }
+    /* Website card's expanded daily-views chart reuses .dash-rev-bar-wrap/
+       .dash-rev-bar (defined below) so both bar charts look like one system. */
+    #dash-website-chart.dash-rev-graph { height: 120px; gap: 3px; }
+    #dash-website-chart .dash-rev-bar-label { font-size: 8.5px; }
 
     /* Dashboard-local modal (deliberately not sharing .modal/.overlay with
        videography.astro's own page-scoped modal, to avoid two different admin
@@ -252,8 +260,14 @@ import AdminShell from "../components/admin/AdminShell.astro";
     function setStat(key, value) { document.querySelectorAll(`[data-stat="${key}"]`).forEach((el) => { el.textContent = value; }); }
     function esc(s) { return String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])); }
     function fmtDate(d) { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (_) { return "—"; } }
-    const PALETTE = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)", "var(--series-6)"];
-    const OTHER_COLOR = "var(--series-other)";
+    // Fallback hex baked into each var() call — if a custom-property lookup
+    // ever came back empty this is why colors would vanish, so don't rely on
+    // the property resolving.
+    const PALETTE = [
+      "var(--series-1, #97355c)", "var(--series-2, #3c60aa)", "var(--series-3, #268254)",
+      "var(--series-4, #b48b2d)", "var(--series-5, #a83c38)",
+    ];
+    const OTHER_COLOR = "var(--series-other, #898781)";
 
     // Same marketing/system derivation as /admin/automations (src/pages/admin/automations/index.astro) —
     // duplicated rather than imported to keep this page's data layer self-contained.
@@ -273,13 +287,14 @@ import AdminShell from "../components/admin/AdminShell.astro";
       el.innerHTML = `<div class="tb-bar">${bar}</div><div class="tb-legend">${legend}</div>`;
     }
 
-    // Part-to-whole, ≤6 categories, at-a-glance only (not for comparing close
-    // values — see the dataviz skill's anti-patterns). Past 6 slots, the tail
-    // folds into "Other" rather than generating a 7th hue.
+    // Part-to-whole, ≤5 categories, at-a-glance only (not for comparing close
+    // values — see the dataviz skill's anti-patterns). Past 5 slots (this
+    // palette's real limit — see the .card rule above), the tail folds into
+    // "Other" rather than generating another hue.
     function renderDonut(el, rows, emptyText) {
       if (!el) return;
       if (rows.length === 0) { el.innerHTML = `<div class="empty"><div class="empty-text">${emptyText}</div></div>`; return; }
-      const CAP = 6;
+      const CAP = PALETTE.length;
       let slices = rows;
       if (rows.length > CAP) {
         const head = rows.slice(0, CAP - 1);
@@ -287,41 +302,42 @@ import AdminShell from "../components/admin/AdminShell.astro";
         slices = [...head, { label: "Other", count: otherCount, isOther: true }];
       }
       const total = slices.reduce((s, r) => s + r.count, 0) || 1;
-      const R = 46, CIRC = 2 * Math.PI * R, GAP = 3; // px gap between segments
+      const R = 40, CIRC = 2 * Math.PI * R, GAP = 3; // px gap between segments
       let offset = 0;
       const arcs = slices.map((r, i) => {
         const color = r.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length];
         const raw = (r.count / total) * CIRC;
         const len = Math.max(0, raw - GAP);
-        const circle = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${color}" stroke-width="16" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)" />`;
+        const circle = `<circle cx="52" cy="52" r="${R}" fill="none" stroke="${color}" stroke-width="15" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 52 52)" />`;
         offset += raw;
         return circle;
       }).join("");
       el.innerHTML = `
-        <svg class="dash-pkg-donut" viewBox="0 0 120 120" role="img" aria-label="Package mix">${arcs}</svg>
+        <svg class="dash-pkg-donut" viewBox="0 0 104 104" role="img" aria-label="Package mix">${arcs}</svg>
         <ul class="dash-pkg-legend">${slices.map((r, i) => `
-          <li><span class="dash-pkg-legend-dot" style="background:${r.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length]}"></span>${esc(r.label)}<b>${r.count}</b></li>
+          <li>
+            <span class="dash-pkg-legend-dot" style="background:${r.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length]}"></span>
+            <span class="dash-pkg-legend-label">${esc(r.label)}</span>
+            <b>${r.count}</b>
+          </li>
         `).join("")}</ul>
       `;
     }
 
-    // 12-ish point trend line, de-emphasis hue — context beside the headline
-    // number above it, not a chart to read values off precisely.
-    function renderSparkline(el, values) {
+    // One bar per day-so-far this month — same visual language as the
+    // Revenue graph, shown full-size only once the Website card is expanded
+    // (a 31-point version of this was illegible at sparkline size).
+    function renderDayBars(el, values) {
       if (!el) return;
-      if (values.every((v) => v === 0)) { el.innerHTML = `<span style="font-size:11px;color:var(--muted)">No data yet</span>`; return; }
-      const W = 120, H = 28, PAD = 3;
+      if (values.every((v) => v === 0)) { el.innerHTML = `<span style="font-size:11px;color:var(--muted)">No views yet this month.</span>`; return; }
       const max = Math.max(1, ...values);
-      const step = values.length > 1 ? (W - PAD * 2) / (values.length - 1) : 0;
-      const points = values.map((v, i) => [PAD + i * step, H - PAD - (v / max) * (H - PAD * 2)]);
-      const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
-      const last = points[points.length - 1];
-      el.innerHTML = `
-        <svg class="dash-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Trend">
-          <path class="dash-spark-line" d="${d}" />
-          <circle class="dash-spark-end" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" />
-        </svg>
-      `;
+      const today = values.length;
+      el.innerHTML = values.map((v, i) => `
+        <div class="dash-rev-bar-wrap">
+          <div class="dash-rev-bar${i + 1 === today ? " is-current" : ""}" style="height:${Math.max(3, (v / max) * 100)}%" title="${i + 1}: ${v} view${v === 1 ? "" : "s"}"></div>
+          <div class="dash-rev-bar-label">${i + 1}</div>
+        </div>
+      `).join("");
     }
 
     const dateEl = document.getElementById("dash-date");
@@ -332,6 +348,21 @@ import AdminShell from "../components/admin/AdminShell.astro";
     document.getElementById("dash-inv-open")?.addEventListener("click", () => invOverlay?.classList.add("open"));
     document.getElementById("dash-inv-close")?.addEventListener("click", () => invOverlay?.classList.remove("open"));
     invOverlay?.addEventListener("click", (e) => { if (e.target === invOverlay) invOverlay.classList.remove("open"); });
+
+    // Website card: click swaps the stat list for the full-size daily-views
+    // chart, filling the card — same trigger either way (no separate close
+    // button; clicking again swaps back).
+    document.getElementById("dash-website-card")?.addEventListener("click", () => {
+      const stats = document.getElementById("dash-website-stats");
+      const chart = document.getElementById("dash-website-chart");
+      const hint = document.getElementById("dash-website-toggle-hint");
+      const title = document.getElementById("dash-website-title");
+      const showingChart = !chart.hidden;
+      stats.hidden = !showingChart;
+      chart.hidden = showingChart;
+      title.textContent = showingChart ? "Website" : "Website — daily views this month";
+      hint.textContent = showingChart ? "Daily views →" : "← Back";
+    });
 
     document.addEventListener("ash:ready", async (e) => {
       const isManagement = !!(e.detail && e.detail.isManagement);
@@ -497,7 +528,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
           const d = new Date(r.created_at).getDate();
           if (d >= 1 && d <= daysSoFar) byDay[d - 1]++;
         }
-        renderSparkline(document.getElementById("dash-views-spark"), byDay);
+        renderDayBars(document.getElementById("dash-website-chart"), byDay);
       }
 
       // ---- Revenue (management only — queried regardless, just not rendered) ----
