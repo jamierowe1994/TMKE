@@ -2378,7 +2378,10 @@ export default {
       ctx.waitUntil(runDdMonthly(env));
       // Only on the 08:00 run, so the day-after reminder and the expiry warning
       // go out once a day rather than twice.
-      if (event.cron === "0 8 * * *") ctx.waitUntil(runVideographyChasers(env));
+      if (event.cron === "0 8 * * *") {
+        ctx.waitUntil(runVideographyChasers(env));
+        ctx.waitUntil(runInvoiceChasers(env));
+      }
     }
     else {
       ctx.waitUntil(runAutomationsTick(env));
@@ -6086,6 +6089,95 @@ export default {
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
 
+/* ---- Invoice chasing ------------------------------------------------------
+   Two emails on the same daily run:
+
+     on the due date        -> a reminder to the client
+     the day after          -> an alert to Danielle and Jack, who chase it
+                               however the situation deserves
+
+   Deliberately keyed on the INVOICE rather than the booking, so social media
+   management invoices are covered by the same code rather than a second copy
+   of it that drifts.
+
+   Direct Debit invoices are skipped entirely. Those are reminders to our own
+   accounts team about money that collects itself; chasing the client for it
+   would be worse than not chasing at all.
+--------------------------------------------------------------------------- */
+async function runInvoiceChasers(env) {
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const today = new Date();
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+  const niceDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+  // ---- 1. Due today: remind the client -----------------------------------
+  const dueToday = (await sbGet(env, "invoices",
+    `status=eq.sent&due_date=eq.${iso(today)}&due_reminder_sent_at=is.null&select=*`)) || [];
+
+  for (const inv of dueToday) {
+    if (inv.payment_method === "direct_debit") continue;
+    if (!inv.bill_to_email) continue;
+
+    let payUrl = null;
+    if (inv.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, inv.id);
+    let attachments;
+    try {
+      const obj = await env.BUCKET.get(`invoices/${inv.number}.pdf`);
+      if (obj) attachments = [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
+    } catch (_) {}
+
+    const mail = invoiceMailTo(inv.bill_to_email, null);
+    const sent = await sendEmail(env, {
+      to: mail.to,
+      subject: `Invoice ${inv.number} is due today`,
+      attachments,
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Hi ${esc(firstName(inv.bill_to_name))},</p>
+        <p style="${EM_P}">A friendly reminder that invoice ${esc(inv.number)} for ${esc(gbpW(inv.total_pence))} is due today.</p>
+        ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay invoice</a></p>` : ""}
+        <p style="${EM_P}">You can pay by card using the link above, or by bank transfer using the details on your invoice. We've attached another copy so you've got it to hand.</p>
+        <p style="${EM_SMALL}">If you've already paid in the last day or two, thank you - please ignore this.</p>
+        <p style="${EM_P}">Many thanks,<br>TMKE</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+    await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { due_reminder_sent_at: new Date().toISOString() });
+  }
+
+  // ---- 2. A day past due: tell Danielle and Jack --------------------------
+  const overdue = (await sbGet(env, "invoices",
+    `status=eq.sent&due_date=eq.${iso(yesterday)}&overdue_alerted_at=is.null&select=*`)) || [];
+
+  const team = [...new Set([st.accounts_cc_email, env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim())
+    .filter(Boolean))];
+
+  for (const inv of overdue) {
+    if (inv.payment_method === "direct_debit") continue;
+    if (!team.length) break;
+
+    const sent = await sendEmail(env, {
+      to: team,
+      subject: `Overdue: invoice ${inv.number} - ${inv.bill_to_name || "client"}`,
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Invoice <strong>${esc(inv.number)}</strong> passed its due date yesterday and is still unpaid.</p>
+        <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
+          Billed to: ${esc(inv.bill_to_name || "-")}<br>
+          Amount: ${esc(gbpW(inv.total_pence))}<br>
+          Due: ${esc(niceDate(inv.due_date))}<br>
+          Sent to: ${esc(inv.bill_to_email || "-")}</span></p>
+        <p style="${EM_P}">The client had a reminder on the due date. Worth deciding how to chase this one.</p>
+        <p style="${EM_SMALL}">If it has been paid and we simply haven't recorded it, mark it paid in the admin centre and this will stop.</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+    await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { overdue_alerted_at: new Date().toISOString() });
+  }
+}
+
 /* ---- Daily videography chasers ------------------------------------------
    Two jobs that ride the existing 08:00 cron, because both are "look for rows
    matching a date, send once, stamp a column so it never repeats".
@@ -6274,11 +6366,11 @@ async function sendGalleryPinEmail(env, bookingId) {
           subject: `Marketing fee confirmation - ${bk.client_name || "agent"}${where ? ` - ${where}` : ""}`,
           html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
             <p style="${EM_P}">Hello,</p>
-            <p style="${EM_P}">${esc(bk.client_name || "One of your agents")} has booked a ${esc((bk.service || "videography shoot").toLowerCase())} with us${where ? ` at <strong>${esc(where)}</strong>` : ""}, taking place on ${esc(when)}.</p>
-            <p style="${EM_P}">They have told us the seller's marketing fee for this property is being held by ${esc(office)}, and that the shoot should be invoiced to you rather than to the agent directly.</p>
-            <p style="${EM_P}">Could you confirm that is correct before we raise the invoice${amount ? `, which will be for ${esc(amount)}` : ""}? A short reply is all we need.</p>
-            <p style="${EM_SMALL}">If the fee isn't held with you, tell us and we'll invoice the agent instead - no problem either way, we would just rather ask than assume.</p>
-            <p style="${EM_P}">Many thanks,<br>The TMKE Team</p>
+            <p style="${EM_P}">${esc(bk.client_name || "The agent")} has booked a ${esc((bk.service || "videography").toLowerCase())} shoot with us${where ? ` at ${esc(where)}` : ""}, scheduled for ${esc(when)}.</p>
+            <p style="${EM_P}">${esc(firstName(bk.client_name))} has advised that the seller's marketing fee for this property is held by ${esc(office)}, and that the shoot should therefore be invoiced to you rather than to the agent directly.</p>
+            <p style="${EM_P}">Before we raise the invoice${amount ? ` for ${esc(amount)}` : ""}, could you please confirm that this is correct?</p>
+            <p style="${EM_P}">If the marketing fee isn't held by you, just let us know and we'll invoice the agent directly instead.</p>
+            <p style="${EM_P}">Many thanks,<br>TMKE</p>
           </div>`),
         });
         if (!sent.ok) return json({ error: "The email didn't send: " + (sent.error || "unknown") }, 502, request, env);
