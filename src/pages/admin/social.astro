@@ -4,6 +4,16 @@ import "../../styles/admin.css";
 ---
 
 <AdminShell active="social" title="Social media" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Social media</div>
+          <div class="page-header-sub">Every enquiry through to active, managed client.</div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="ash-panel ash-page">
     <section class="smm-bar">
       <div class="smm-bar-top">
@@ -74,7 +84,9 @@ import "../../styles/admin.css";
        a row and that row scrolls on its own past ~3 cards. Same treatment
        as Videography's board. */
     .smm-board { display: flex; flex-direction: column; gap: 22px; max-width: 1440px; margin: 0 auto; padding: 6px 36px 60px; }
-    .smm-stage-row { min-width: 0; }
+    /* One row per stage, a wine hairline between rows (skip before the first). */
+    .smm-stage-row { min-width: 0; padding-top: 18px; border-top: 1px solid var(--english-violet); }
+    .smm-stage-row:first-child { padding-top: 0; border-top: 0; }
     .smm-stage-cards {
       display: flex; gap: 12px; align-items: stretch; overflow-x: auto; padding: 2px 2px 10px;
       scrollbar-width: thin; scrollbar-color: rgba(28,29,34,0.28) transparent;
@@ -87,6 +99,15 @@ import "../../styles/admin.css";
     /* Three ~300px cards + two 12px gaps ≈ 924px — comfortable on a laptop;
        narrower viewports just see fewer per row before the scroll kicks in. */
     .smm-stage-cards .smm-card { flex: 0 0 300px; }
+    /* Clients row: wraps onto a couple of lines instead of scrolling. */
+    .smm-stage-cards.is-wrap { flex-wrap: wrap; overflow-x: visible; padding: 2px; }
+    .smm-see-all {
+      flex: 0 0 300px; appearance: none; cursor: pointer; text-align: center;
+      background: none; border: 1.5px dashed rgba(28,29,34,0.18); border-radius: 10px;
+      padding: 12px; font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+      color: var(--english-violet); transition: background 0.15s, border-color 0.15s;
+    }
+    .smm-see-all:hover { background: rgba(var(--violet-rgb), 0.06); border-color: var(--english-violet); }
     /* Filter active → a single-column line view instead of the board. */
     .smm-board.is-list { display: block; overflow-x: visible; }
     .smm-list { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
@@ -102,7 +123,7 @@ import "../../styles/admin.css";
     @media (max-width: 760px) { .smm-row { grid-template-columns: 1fr auto; } .smm-row-email, .smm-row-stage { display: none; } }
     .smm-col { background: transparent; min-width: 0; }
     .smm-col-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 12px; }
-    .smm-col-name { font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .smm-col-name { font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); }
     .smm-col-count { font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.5); background: rgba(28,29,34,0.06); border-radius: 999px; padding: 1px 8px; }
     .smm-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 4px; border-radius: 12px; transition: background .15s, box-shadow .15s; }
     .smm-col-body.drop-hover { background: rgba(var(--violet-rgb),0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb),0.35); }
@@ -490,14 +511,27 @@ import "../../styles/admin.css";
         // its own past ~3 cards (.smm-stage-cards) — no board-wide horizontal
         // scroll across every stage, and no cap/"see all", the row just scrolls.
         board.classList.remove("is-list");
+        // "Clients" (active_client) is structurally the busiest stage — it
+        // only grows, never clears out like the others — so it wraps onto a
+        // couple of lines instead of one scrolling row, and past 8 clients
+        // a "See all" hands off to the existing Clients list view rather
+        // than growing a 3rd/4th line.
+        const CLIENTS_WRAP_CAP = 8;
         board.innerHTML = STAGES.map((s) => {
-          const cards = rows.filter((r) => stageOf(r) === s.key);
+          const allCards = rows.filter((r) => stageOf(r) === s.key);
+          const isClients = s.key === "active_client";
+          const overCap = isClients && allCards.length > CLIENTS_WRAP_CAP;
+          const cards = overCap ? allCards.slice(0, CLIENTS_WRAP_CAP) : allCards;
+          const seeAll = overCap ? `<button type="button" class="smm-see-all" data-goto-filter="active_client">See all ${allCards.length} &rarr;</button>` : "";
           return `<div class="smm-col smm-stage-row">
-            <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${cards.length}</span></div>
-            <div class="smm-stage-cards" data-stage="${s.key}">${cards.length ? cards.map(cardHtml).join("") : '<div class="smm-col-empty">Drop here</div>'}</div>
+            <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${allCards.length}</span></div>
+            <div class="smm-stage-cards${isClients ? " is-wrap" : ""}" data-stage="${s.key}">${allCards.length ? cards.map(cardHtml).join("") + seeAll : '<div class="smm-col-empty">Drop here</div>'}</div>
           </div>`;
         }).join("");
         wireCards(board);
+        board.querySelectorAll("[data-goto-filter]").forEach((btn) => {
+          btn.addEventListener("click", () => goToFilter(btn.getAttribute("data-goto-filter")));
+        });
         board.querySelectorAll(".smm-stage-cards").forEach((col) => {
           col.addEventListener("dragover", (e) => { e.preventDefault(); col.classList.add("drop-hover"); });
           col.addEventListener("dragleave", () => col.classList.remove("drop-hover"));

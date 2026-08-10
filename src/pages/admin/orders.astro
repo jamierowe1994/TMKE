@@ -4,6 +4,16 @@ import "../../styles/admin.css";
 ---
 
 <AdminShell active="orders" title="Orders" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Orders</div>
+          <div class="page-header-sub">Every purchase, from checkout to fulfilment.</div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="ash-panel ash-page">
   <section class="admin-bar">
     <div class="admin-bar-actions">
@@ -24,22 +34,22 @@ import "../../styles/admin.css";
     </div>
   </section>
 
-  <section class="order-stats wrap" id="order-stats">
-    <div class="order-stat">
-      <div class="order-stat-label">Revenue (paid · last 30 days)</div>
-      <div class="order-stat-value" data-stat="rev30">…</div>
+  <section class="g4 order-stats-grid" id="order-stats">
+    <div class="stat">
+      <div class="stat-num" data-stat="rev30">…</div>
+      <div class="stat-label">Revenue (paid · last 30 days)</div>
     </div>
-    <div class="order-stat">
-      <div class="order-stat-label">Orders (last 30 days)</div>
-      <div class="order-stat-value" data-stat="ord30">…</div>
+    <div class="stat">
+      <div class="stat-num" data-stat="ord30">…</div>
+      <div class="stat-label">Orders (last 30 days)</div>
     </div>
-    <div class="order-stat">
-      <div class="order-stat-label">Lifetime revenue (paid)</div>
-      <div class="order-stat-value" data-stat="revLife">…</div>
+    <div class="stat">
+      <div class="stat-num" data-stat="revLife">…</div>
+      <div class="stat-label">Lifetime revenue (paid)</div>
     </div>
-    <div class="order-stat">
-      <div class="order-stat-label">Lifetime orders</div>
-      <div class="order-stat-value" data-stat="ordLife">…</div>
+    <div class="stat">
+      <div class="stat-num" data-stat="ordLife">…</div>
+      <div class="stat-label">Lifetime orders</div>
     </div>
   </section>
 
@@ -100,38 +110,16 @@ import "../../styles/admin.css";
     }
     .enquiry-chip.is-active .enquiry-chip-count { background: rgba(244, 242, 241, 0.2); }
 
-    .order-stats {
+    /* Reuses the Hub's shared .g4/.stat components (hub-tokens.css) rather
+       than a parallel lookalike — same code path as the Dashboard's stat
+       tiles, so this can't drift out of sync with them again. */
+    .order-stats-grid {
       max-width: 1360px;
-      margin: 24px auto 0;
+      margin: 24px auto 28px;
       padding: 0 36px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-    .order-stat {
-      padding: 16px 18px;
-      background: rgba(var(--violet-rgb), 0.05);
-      border: 1px solid rgba(var(--violet-rgb), 0.15);
-      border-radius: 2px;
-    }
-    .order-stat-label {
-      font-family: var(--sans);
-      font-size: 10px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28, 29, 34, 0.55);
-      margin-bottom: 8px;
-    }
-    .order-stat-value {
-      font-family: var(--serif);
-      font-size: 28px;
-      font-weight: 500;
-      color: var(--ink);
-      line-height: 1;
     }
     @media (max-width: 860px) {
-      .order-stats { grid-template-columns: repeat(2, 1fr); }
+      .order-stats-grid.g4 { grid-template-columns: repeat(2, 1fr); }
     }
 
     .order-list {
