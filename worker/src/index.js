@@ -6211,15 +6211,13 @@ async function sendGalleryPinEmail(env, bookingId) {
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
   const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
     <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
-    <p style="${EM_P}">Thank you for your payment - your gallery is now unlocked.</p>
-    <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
-      Your download PIN is <strong>${esc(pin)}</strong>.<br>
-      Pixieset asks for your email address and this PIN when you download, so use
-      <strong>${esc(to)}</strong>.</span></p>
+    <p style="${EM_P}">Thank you for your payment. Your gallery is now unlocked and your content is ready to download!</p>
+    <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">Your download PIN is <strong>${esc(pin)}</strong>.</span></p>
+    <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(to)}</strong> and the PIN above.</p>
     ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
-    <p style="${EM_P}">Your content stays available for three months. Don't worry about the date - we'll remind you before your gallery is due to expire.</p>
-    <p style="${EM_P}">You can find this shoot, your gallery and everything else to do with your booking under Previous Bookings in <a href="${esc(siteUrl)}/account/bookings">TMKE Studio</a>.</p>
-    <p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>
+    <p style="${EM_P}">Your gallery will remain available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
+    <p style="${EM_P}">You can also find this shoot, your gallery and all of your booking details anytime under Previous Bookings in the <a href="${esc(siteUrl)}/account/bookings">TMKE Studio</a>.</p>
+    <p style="${EM_P}">We hope you love your content!</p>
     <p style="${EM_P}">The TMKE Team</p>
   </div>`);
 
