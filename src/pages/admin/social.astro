@@ -55,9 +55,12 @@ import "../../styles/admin.css";
     .smm-chip { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
     .smm-chip:hover { border-color: rgba(var(--violet-rgb),0.4); }
     .smm-chip.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
-    .smm-search { height: 34px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 0 14px; width: 340px; max-width: 100%; }
+    /* .ash-content.hub-skin prefix beats hub-tokens.css's ".hub-skin label{display:block}"
+       (meant for real form-field captions) — this label is a clickable icon+input
+       wrapper, not a caption, and needs to stay a flex row regardless of cascade order. */
+    .ash-content.hub-skin .smm-search { height: 34px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 0 14px; width: 340px; max-width: 100%; }
     .smm-search svg { width: 15px; height: 15px; color: rgba(28,29,34,0.42); flex: none; }
-    .smm-search input { border: 0; outline: none; background: none; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .smm-search input { border: 0; outline: none; background: none; padding: 0; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .smm-lost-toggle { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
     .smm-loading { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 40px 36px; max-width: 1440px; margin: 0 auto; }
 
@@ -88,6 +91,13 @@ import "../../styles/admin.css";
     .smm-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 4px; border-radius: 12px; transition: background .15s, box-shadow .15s; }
     .smm-col-body.drop-hover { background: rgba(var(--violet-rgb),0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb),0.35); }
     .smm-col-empty { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.32); padding: 14px 6px; }
+    .smm-see-all {
+      appearance: none; cursor: pointer; width: 100%; text-align: center;
+      background: none; border: 1.5px dashed rgba(28,29,34,0.18); border-radius: 10px;
+      padding: 12px; font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+      color: var(--english-violet); transition: background 0.15s, border-color 0.15s;
+    }
+    .smm-see-all:hover { background: rgba(var(--violet-rgb), 0.06); border-color: var(--english-violet); }
     .smm-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 15px 16px; cursor: pointer; transition: border-color .16s, transform .16s, box-shadow .16s; }
     .smm-card:hover { border-color: rgba(var(--violet-rgb),0.45); transform: translateY(-1px); box-shadow: 0 10px 24px -18px rgba(28,29,34,0.4); }
     .smm-card.dragging { opacity: .45; }
@@ -456,20 +466,37 @@ import "../../styles/admin.css";
         })
         .filter((r) => !q || (nameOf(r) + " " + (r.email || "") + " " + (r.business || "")).toLowerCase().includes(q));
     }
+    // Shared by the filter chips and any "See all" card — both just narrow
+    // the board to one kind/stage via the same kindFilter var.
+    function goToFilter(key) {
+      kindFilter = key;
+      document.querySelectorAll(".smm-chip").forEach((c) => c.classList.toggle("is-active", c.getAttribute("data-filter") === key));
+      renderBoard();
+    }
     function renderBoard() {
       const board = $("smm-board");
       const rows = visible();
       if (kindFilter === "all") {
-        // Kanban board — comfortable columns, horizontal scroll.
+        // Kanban board — comfortable columns, horizontal scroll. A column
+        // over the cap gets a "See all" card instead of growing the board —
+        // clicking it reuses the existing single-column list view (below)
+        // rather than adding another scroll axis.
         board.classList.remove("is-list");
+        const CARD_CAP = 6;
         board.innerHTML = STAGES.map((s) => {
-          const cards = rows.filter((r) => stageOf(r) === s.key);
+          const allCards = rows.filter((r) => stageOf(r) === s.key);
+          const overCap = allCards.length > CARD_CAP;
+          const cards = overCap ? allCards.slice(0, CARD_CAP) : allCards;
+          const seeAll = overCap ? `<button type="button" class="smm-see-all" data-goto-filter="${s.key}">See all ${allCards.length} &rarr;</button>` : "";
           return `<div class="smm-col">
-            <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${cards.length}</span></div>
-            <div class="smm-col-body" data-stage="${s.key}">${cards.length ? cards.map(cardHtml).join("") : '<div class="smm-col-empty">Drop here</div>'}</div>
+            <div class="smm-col-head"><span class="smm-col-name">${esc(s.label)}</span><span class="smm-col-count">${allCards.length}</span></div>
+            <div class="smm-col-body" data-stage="${s.key}">${allCards.length ? cards.map(cardHtml).join("") + seeAll : '<div class="smm-col-empty">Drop here</div>'}</div>
           </div>`;
         }).join("");
         wireCards(board);
+        board.querySelectorAll("[data-goto-filter]").forEach((btn) => {
+          btn.addEventListener("click", () => goToFilter(btn.getAttribute("data-goto-filter")));
+        });
         board.querySelectorAll(".smm-col-body").forEach((col) => {
           col.addEventListener("dragover", (e) => { e.preventDefault(); col.classList.add("drop-hover"); });
           col.addEventListener("dragleave", () => col.classList.remove("drop-hover"));
@@ -1820,10 +1847,7 @@ import "../../styles/admin.css";
 
       $("smm-filters").addEventListener("click", (e) => {
         const btn = e.target.closest(".smm-chip"); if (!btn) return;
-        document.querySelectorAll(".smm-chip").forEach((c) => c.classList.remove("is-active"));
-        btn.classList.add("is-active");
-        kindFilter = btn.getAttribute("data-filter") || "all";
-        renderBoard();
+        goToFilter(btn.getAttribute("data-filter") || "all");
       });
       $("smm-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); renderBoard(); });
       $("smm-show-lost").addEventListener("change", (e) => { showLost = e.target.checked; renderBoard(); });

@@ -110,7 +110,8 @@ import AdminShell from "../components/admin/AdminShell.astro";
         <li><span>Contracted hours this month</span><b data-stat="social-hours">0</b></li>
       </ul>
       <div class="divider"></div>
-      <div id="dash-social-breakdown"><div class="empty"><div class="empty-text">Loading…</div></div></div>
+      <div class="dash-donut-title">Package mix</div>
+      <div id="dash-social-breakdown" class="dash-donut-wrap-outer"><div class="empty"><div class="empty-text">Loading…</div></div></div>
     </div>
   </div>
 
@@ -143,6 +144,11 @@ import AdminShell from "../components/admin/AdminShell.astro";
         <li><span>Visitors this month</span><b data-stat="site-visitors-month">0</b></li>
         <li><span>Views all time</span><b data-stat="site-views-total">0</b></li>
       </ul>
+      <div class="divider"></div>
+      <div class="dash-spark-row">
+        <span class="dash-spark-label">Daily views, this month</span>
+        <div id="dash-views-spark"></div>
+      </div>
     </div>
   </div>
 
@@ -157,6 +163,12 @@ import AdminShell from "../components/admin/AdminShell.astro";
   </div>
 
   <style>
+    /* Chart categorical palette — validated (dataviz skill: node scripts/validate_palette.js),
+       not the brand plum/taupe tokens. Those fail CVD + normal-vision separation for
+       data-identity use (too dark, too low-chroma) even though they're right for chrome/text.
+       Fixed order — never cycled past slot 6; a 7th category folds into "Other". */
+    .card { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4; --series-6: #008300; --series-other: #898781; }
+
     .dash-glance { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 28px; }
     .dash-glance li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border-subtle); }
     .dash-glance span { font-size: 13px; color: var(--muted); }
@@ -198,6 +210,23 @@ import AdminShell from "../components/admin/AdminShell.astro";
     .dash-inv-dates { font-size: 11.5px; color: var(--muted); width: 190px; flex-shrink: 0; }
     .dash-inv-amount { font-size: 13px; font-weight: 700; color: var(--hub-text); width: 80px; text-align: right; flex-shrink: 0; }
 
+    .dash-donut-title { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 12px; }
+    .dash-donut-wrap-outer { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+    .dash-pkg-donut { width: 108px; height: 108px; flex: none; }
+    .dash-pkg-donut circle { transition: stroke-dasharray 0.4s cubic-bezier(.2,.7,.2,1); }
+    .dash-pkg-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 140px; }
+    .dash-pkg-legend li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--hub-text); }
+    .dash-pkg-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .dash-pkg-legend b { margin-left: auto; font-weight: 700; color: var(--hub-text); }
+
+    /* Sparkline: 12-point trend, de-emphasis hue per the figure contract —
+       the number above already carries the headline, this is context only. */
+    .dash-spark-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .dash-spark-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .dash-spark { display: block; }
+    .dash-spark path.dash-spark-line { fill: none; stroke: var(--accent-light); stroke-width: 1.5; }
+    .dash-spark circle.dash-spark-end { fill: var(--primary); }
+
     /* Dashboard-local modal (deliberately not sharing .modal/.overlay with
        videography.astro's own page-scoped modal, to avoid two different admin
        pages fighting over the same class names via the shared hub-tokens.css). */
@@ -223,7 +252,8 @@ import AdminShell from "../components/admin/AdminShell.astro";
     function setStat(key, value) { document.querySelectorAll(`[data-stat="${key}"]`).forEach((el) => { el.textContent = value; }); }
     function esc(s) { return String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])); }
     function fmtDate(d) { if (!d) return "—"; try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (_) { return "—"; } }
-    const PALETTE = ["var(--primary)", "var(--accent)", "var(--blue)", "var(--green)", "var(--amber)", "var(--accent-light)"];
+    const PALETTE = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)", "var(--series-6)"];
+    const OTHER_COLOR = "var(--series-other)";
 
     // Same marketing/system derivation as /admin/automations (src/pages/admin/automations/index.astro) —
     // duplicated rather than imported to keep this page's data layer self-contained.
@@ -241,6 +271,57 @@ import AdminShell from "../components/admin/AdminShell.astro";
       const bar = rows.map((r, i) => `<div style="width:${(r.count / total) * 100}%;background:${PALETTE[i % PALETTE.length]}"></div>`).join("");
       const legend = rows.map((r, i) => `<span><span class="tb-legend-dot" style="background:${PALETTE[i % PALETTE.length]}"></span>${esc(r.label)} · ${r.count}</span>`).join("");
       el.innerHTML = `<div class="tb-bar">${bar}</div><div class="tb-legend">${legend}</div>`;
+    }
+
+    // Part-to-whole, ≤6 categories, at-a-glance only (not for comparing close
+    // values — see the dataviz skill's anti-patterns). Past 6 slots, the tail
+    // folds into "Other" rather than generating a 7th hue.
+    function renderDonut(el, rows, emptyText) {
+      if (!el) return;
+      if (rows.length === 0) { el.innerHTML = `<div class="empty"><div class="empty-text">${emptyText}</div></div>`; return; }
+      const CAP = 6;
+      let slices = rows;
+      if (rows.length > CAP) {
+        const head = rows.slice(0, CAP - 1);
+        const otherCount = rows.slice(CAP - 1).reduce((s, r) => s + r.count, 0);
+        slices = [...head, { label: "Other", count: otherCount, isOther: true }];
+      }
+      const total = slices.reduce((s, r) => s + r.count, 0) || 1;
+      const R = 46, CIRC = 2 * Math.PI * R, GAP = 3; // px gap between segments
+      let offset = 0;
+      const arcs = slices.map((r, i) => {
+        const color = r.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length];
+        const raw = (r.count / total) * CIRC;
+        const len = Math.max(0, raw - GAP);
+        const circle = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${color}" stroke-width="16" stroke-dasharray="${len} ${CIRC - len}" stroke-dashoffset="${-offset}" transform="rotate(-90 60 60)" />`;
+        offset += raw;
+        return circle;
+      }).join("");
+      el.innerHTML = `
+        <svg class="dash-pkg-donut" viewBox="0 0 120 120" role="img" aria-label="Package mix">${arcs}</svg>
+        <ul class="dash-pkg-legend">${slices.map((r, i) => `
+          <li><span class="dash-pkg-legend-dot" style="background:${r.isOther ? OTHER_COLOR : PALETTE[i % PALETTE.length]}"></span>${esc(r.label)}<b>${r.count}</b></li>
+        `).join("")}</ul>
+      `;
+    }
+
+    // 12-ish point trend line, de-emphasis hue — context beside the headline
+    // number above it, not a chart to read values off precisely.
+    function renderSparkline(el, values) {
+      if (!el) return;
+      if (values.every((v) => v === 0)) { el.innerHTML = `<span style="font-size:11px;color:var(--muted)">No data yet</span>`; return; }
+      const W = 120, H = 28, PAD = 3;
+      const max = Math.max(1, ...values);
+      const step = values.length > 1 ? (W - PAD * 2) / (values.length - 1) : 0;
+      const points = values.map((v, i) => [PAD + i * step, H - PAD - (v / max) * (H - PAD * 2)]);
+      const d = points.map((p, i) => `${i === 0 ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+      const last = points[points.length - 1];
+      el.innerHTML = `
+        <svg class="dash-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Trend">
+          <path class="dash-spark-line" d="${d}" />
+          <circle class="dash-spark-end" cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3" />
+        </svg>
+      `;
     }
 
     const dateEl = document.getElementById("dash-date");
@@ -271,7 +352,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
         vidBookingsThisMonth,
         blogPub,
         enquiriesThisMonth, smmLeadsThisMonth,
-        pageviewsMonth, pageviewsTotal, visitorsMonth,
+        pageviewsMonth, pageviewsTotal, visitorsMonth, pageviewsDaily,
         revenueYTD,
       ] = await Promise.all([
         supabase.from("contacts").select("*", { count: "exact", head: true }),
@@ -291,6 +372,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
         supabase.from("site_events").select("*", { count: "exact", head: true }).eq("name", "pageview").gte("created_at", monthStartISO),
         supabase.from("site_events").select("*", { count: "exact", head: true }).eq("name", "pageview"),
         supabase.from("site_events").select("session_id").eq("name", "pageview").gte("created_at", monthStartISO),
+        supabase.from("site_events").select("created_at").eq("name", "pageview").gte("created_at", monthStartISO),
         supabase.from("orders").select("amount_pence, created_at").eq("status", "paid").gte("created_at", yearStart),
       ]);
 
@@ -316,7 +398,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
           counts.set(label, (counts.get(label) || 0) + 1);
         }
         const rows = [...counts.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
-        renderBreakdown(document.getElementById("dash-social-breakdown"), rows, "No active clients yet.");
+        renderDonut(document.getElementById("dash-social-breakdown"), rows, "No active clients yet.");
       }
 
       // ---- Invoicing ----
@@ -407,6 +489,15 @@ import AdminShell from "../components/admin/AdminShell.astro";
       if (!pageviewsTotal.error) setStat("site-views-total", String(pageviewsTotal.count ?? 0));
       if (!visitorsMonth.error && Array.isArray(visitorsMonth.data)) {
         setStat("site-visitors-month", String(new Set(visitorsMonth.data.map((r) => r.session_id).filter(Boolean)).size));
+      }
+      if (!pageviewsDaily.error && Array.isArray(pageviewsDaily.data)) {
+        const daysSoFar = now.getDate();
+        const byDay = new Array(daysSoFar).fill(0);
+        for (const r of pageviewsDaily.data) {
+          const d = new Date(r.created_at).getDate();
+          if (d >= 1 && d <= daysSoFar) byDay[d - 1]++;
+        }
+        renderSparkline(document.getElementById("dash-views-spark"), byDay);
       }
 
       // ---- Revenue (management only — queried regardless, just not rendered) ----

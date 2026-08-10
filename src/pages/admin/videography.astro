@@ -827,6 +827,13 @@ import "../../styles/admin.css";
     .vid-col-list { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 4px; border-radius: 12px; transition: background 0.15s, box-shadow 0.15s; }
     .vid-col.is-drop .vid-col-list { background: rgba(var(--violet-rgb), 0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb), 0.35); }
     .vid-col-list:empty::after { content: "Drop a job here"; display: block; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.3); padding: 14px 6px; }
+    .vid-see-all {
+      appearance: none; cursor: pointer; width: 100%; text-align: center;
+      background: none; border: 1.5px dashed rgba(28,29,34,0.18); border-radius: 10px;
+      padding: 12px; font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+      color: var(--english-violet); transition: background 0.15s, border-color 0.15s;
+    }
+    .vid-see-all:hover { background: rgba(var(--violet-rgb), 0.06); border-color: var(--english-violet); }
     .vid-card {
       background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px;
       padding: 15px 16px; cursor: pointer; box-shadow: 0 1px 2px rgba(20, 18, 26, 0.04);
@@ -1316,13 +1323,19 @@ import "../../styles/admin.css";
     let stageFilter = "all";
     let calMonth = null;   // first of the month being shown
 
+    // Shared by the stage pills and any "See all" card (a column that's over
+    // the per-column cap on the "All" view) — both just narrow to one stage.
+    function goToStage(key) {
+      stageFilter = key;
+      document.querySelectorAll("#vid-chips .vid-chip").forEach((b) => b.classList.toggle("is-active", b.getAttribute("data-stagefilter") === key));
+      renderClients(document.getElementById("vid-client-search")?.value || "");
+    }
+
     function wireBoardViews() {
       document.getElementById("vid-chips")?.addEventListener("click", (e) => {
         const btn = e.target.closest("[data-stagefilter]");
         if (!btn) return;
-        stageFilter = btn.getAttribute("data-stagefilter");
-        document.querySelectorAll("#vid-chips .vid-chip").forEach((b) => b.classList.toggle("is-active", b === btn));
-        renderClients(document.getElementById("vid-client-search")?.value || "");
+        goToStage(btn.getAttribute("data-stagefilter"));
       });
 
       document.getElementById("vid-viewtoggle")?.addEventListener("click", () => {
@@ -1456,13 +1469,21 @@ import "../../styles/admin.css";
       const stageKey = (b) => (STAGES.some((s) => s.key === b.stage) ? b.stage : STAGES[0].key);
       // A pill narrows the board to one stage. On a wide board that is the
       // difference between scrolling to find Editing and just looking at it.
-      const shown = stageFilter === "all" ? STAGES : STAGES.filter((s) => s.key === stageFilter);
+      const onAll = stageFilter === "all";
+      const shown = onAll ? STAGES : STAGES.filter((s) => s.key === stageFilter);
+      // On the "All" view, a column over this cap gets a "See all" card
+      // instead of growing the board — clicking it narrows to that one stage
+      // (same as clicking its pill) rather than adding another scroll axis.
+      const CARD_CAP = 6;
       wrap.innerHTML = shown.map((s) => {
-        const cards = rows.filter((b) => stageKey(b) === s.key).sort(clientSort);
+        const allCards = rows.filter((b) => stageKey(b) === s.key).sort(clientSort);
+        const overCap = onAll && allCards.length > CARD_CAP;
+        const cards = overCap ? allCards.slice(0, CARD_CAP) : allCards;
+        const seeAll = overCap ? `<button type="button" class="vid-see-all" data-goto-stage="${s.key}">See all ${allCards.length} &rarr;</button>` : "";
         return `
           <div class="vid-col" data-stage="${s.key}">
-            <div class="vid-col-head"><span>${s.label}</span><span class="vid-col-count">${cards.length}</span></div>
-            <div class="vid-col-list" data-stage="${s.key}">${cards.map(cardHtml).join("")}</div>
+            <div class="vid-col-head"><span>${s.label}</span><span class="vid-col-count">${allCards.length}</span></div>
+            <div class="vid-col-list" data-stage="${s.key}">${cards.map(cardHtml).join("")}${seeAll}</div>
           </div>`;
       }).join("");
       wrap.querySelectorAll(".vid-card").forEach((el) => {
@@ -1474,6 +1495,9 @@ import "../../styles/admin.css";
         col.addEventListener("dragover", onDragOver);
         col.addEventListener("dragleave", onDragLeave);
         col.addEventListener("drop", onDrop);
+      });
+      wrap.querySelectorAll("[data-goto-stage]").forEach((btn) => {
+        btn.addEventListener("click", () => goToStage(btn.getAttribute("data-goto-stage")));
       });
       syncVidTopScroll();
     }
