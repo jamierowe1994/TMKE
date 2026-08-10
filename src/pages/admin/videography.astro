@@ -546,6 +546,12 @@ import "../../styles/admin.css";
     }
     /* The stage's own action, inside the stage card. Set apart by a rule rather
        than a border so it reads as part of the card, not a card within a card. */
+    .vid-pixieset {
+      margin-top: 18px; padding: 16px 18px; border-radius: var(--radius, 5px);
+      background: var(--surface-2, #faf8f7); border: 1px solid var(--border, #eae5e1);
+    }
+    .vid-pixieset.is-done { background: rgba(var(--violet-rgb), 0.05); border-color: rgba(var(--violet-rgb), 0.2); }
+
     .vid-cand-action { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border, #eae5e1); }
     .vid-cand-action[hidden] { display: none; }
     .vid-cand-action > h4:first-child { margin-top: 0; }
@@ -1533,6 +1539,14 @@ import "../../styles/admin.css";
       el.querySelector("#vid-fc-send")?.addEventListener("click", () => sendFcConfirm(b));
       el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", async () => {
+        // Editing -> Gallery ready assumes both uploads are done. Neither is
+        // recoverable later without redoing work, so it asks.
+        if (f.advance.to === "gallery_ready") {
+          const missing = [];
+          if (!b.archived_at) missing.push("• the archive copy in our own storage");
+          if (!b.pixieset_uploaded_at) missing.push("• the Pixieset gallery");
+          if (missing.length && !confirm(`These haven't been ticked yet:\n\n${missing.join("\n")}\n\nMove on anyway?`)) return;
+        }
         // From Booked the button means "go and raise it", not "pretend it is
         // raised" - the stage moves when the invoice actually sends.
         if (f.advance.to === "invoiced") {
@@ -1937,8 +1951,32 @@ import "../../styles/admin.css";
           ${b.archived_at ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.archived_at).toLocaleDateString("en-GB"))}.</p>` : ""}
           <div class="vid-cand-actions" style="margin-top:14px">
             <button type="button" class="admin-btn admin-btn-ghost" id="vd-goupload">Open Deliver work</button>
+          </div>
+
+          <!-- The second upload. Deliberately its own step with its own tick:
+               the archive and the client gallery are different places, and a
+               single tick would hide which had been done. -->
+          <div class="vid-pixieset ${b.pixieset_uploaded_at ? "is-done" : ""}">
+            <div class="vid-gate-h">Then build the client gallery</div>
+            <p class="vid-hint" style="margin-bottom:10px">
+              Create the collection in Pixieset using the TMKE preset, confirm Watermark 3,
+              and name it to the agreed convention. Photography and videography go up as
+              separate sets.
+            </p>
+            <p style="margin:0 0 12px">
+              <a class="admin-btn admin-btn-ghost" href="/guides/TMKE-Guide-to-Pixieset.pdf" target="_blank" rel="noopener">Read the Pixieset guide</a>
+            </p>
+            <label class="vid-check">
+              <input type="checkbox" id="vd-pixieset" ${b.pixieset_uploaded_at ? "checked" : ""} />
+              <span>Content uploaded to the Pixieset gallery</span>
+            </label>
+            ${b.pixieset_uploaded_at
+              ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.pixieset_uploaded_at).toLocaleDateString("en-GB"))}. Move to Gallery ready to add the links.</p>`
+              : `<p class="vid-hint">Tick this once the collection is live, then move the shoot to Gallery ready.</p>`}
           </div>`;
         document.getElementById("vd-archived").addEventListener("change", (e) => saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+        document.getElementById("vd-pixieset")?.addEventListener("change", (e) =>
+          saveBookingPatch(b, { pixieset_uploaded_at: e.target.checked ? (b.pixieset_uploaded_at || new Date().toISOString()) : null }));
         document.getElementById("vd-goupload").addEventListener("click", () => {
         panelFrom.candId = b.id;
         const sel = document.getElementById("vid-deliver-booking");

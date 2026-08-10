@@ -2381,6 +2381,7 @@ export default {
       if (event.cron === "0 8 * * *") {
         ctx.waitUntil(runVideographyChasers(env));
         ctx.waitUntil(runInvoiceChasers(env));
+        ctx.waitUntil(runStallCheck(env));
       }
     }
     else {
@@ -6088,6 +6089,98 @@ export default {
         if (rpcError) return json({ error: "Couldn't sync the contact: " + rpcError }, 502, request, env);
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
+
+/* ---- Stalled shoots -------------------------------------------------------
+   A shoot left in one stage too long looks exactly like one that moved
+   yesterday, so nothing surfaces it. This does.
+
+   Thresholds are per stage because "too long" means different things: a day in
+   Shoot day is normal, a fortnight in Editing is not. They are deliberately
+   generous - an alert that fires early is one people learn to ignore.
+
+   Reported once when it stalls, then weekly while it stays stuck. Recording
+   which STAGE was alerted means a shoot that moves on and stalls somewhere
+   else is reported afresh rather than staying quiet.
+--------------------------------------------------------------------------- */
+const STALL_DAYS = {
+  booked: 30,        // booked far ahead is fine; 30 days without a shoot date is not
+  invoiced: 5,       // invoice goes out 2 days before, so this is 3 days past the shoot
+  shoot_day: 3,      // should be in editing by now
+  editing: 10,       // 1.5 days editing + amendments buffer, generously
+  gallery_ready: 4,  // gallery built but never sent
+  sent: 21,          // with the client, still not paid or edits not settled
+};
+
+async function runStallCheck(env) {
+  const now = Date.now();
+  const days = (ms) => Math.floor((now - ms) / 86400000);
+  const rows = (await sbGet(env, "videography_bookings",
+    `stage=in.(booked,invoiced,shoot_day,editing,gallery_ready,sent)&select=*`)) || [];
+
+  const stalled = [];
+  for (const bk of rows) {
+    const limit = STALL_DAYS[bk.stage];
+    if (!limit) continue;
+    // updated_at is when the row last changed, which for a stage move is the
+    // move itself - so this measures time sitting in the current stage.
+    const since = Date.parse(bk.updated_at || bk.created_at || "");
+    if (!since) continue;
+    const stuckFor = days(since);
+    if (stuckFor < limit) continue;
+
+    // Once per stall, then weekly.
+    const alerted = bk.stalled_alerted_at ? Date.parse(bk.stalled_alerted_at) : 0;
+    const sameStage = bk.stalled_alerted_stage === bk.stage;
+    if (sameStage && alerted && days(alerted) < 7) continue;
+
+    stalled.push({ bk, stuckFor });
+  }
+  if (!stalled.length) return;
+
+  const team = [...new Set([env.ACCOUNTS_NOTIFY, env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim()).filter(Boolean))];
+  if (!team.length) return;
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const STAGE_NAME = {
+    booked: "Booked", invoiced: "Invoiced", shoot_day: "Shoot day",
+    editing: "Editing", gallery_ready: "Gallery ready", sent: "Sent",
+  };
+
+  const rowsHtml = stalled.map(({ bk, stuckFor }) => `
+    <tr>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.service || "-")}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px"><strong>${esc(STAGE_NAME[bk.stage] || bk.stage)}</strong></td>
+      <td style="padding:7px 0;font-size:12px">${stuckFor} days</td>
+    </tr>`).join("");
+
+  const sent = await sendEmail(env, {
+    to: team,
+    subject: `${stalled.length} videography shoot${stalled.length === 1 ? "" : "s"} sitting still`,
+    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+      <p style="${EM_P}">These shoots haven't moved in a while. Most likely the work has happened and the system hasn't been told - worth a quick check, and a note on anything that is genuinely held up.</p>
+      <table style="border-collapse:collapse;margin:0 0 14px">
+        <tr>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Client</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Service</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Stuck at</th>
+          <th style="text-align:left;padding:0 0 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">For</th>
+        </tr>
+        ${rowsHtml}
+      </table>
+      <p style="${EM_SMALL}">You'll get this once when a shoot stalls, then weekly while it stays put. Moving it on stops it.</p>
+    </div>`),
+  });
+  if (!sent.ok) return;
+
+  const stamp = new Date().toISOString();
+  for (const { bk } of stalled) {
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`,
+      { stalled_alerted_at: stamp, stalled_alerted_stage: bk.stage });
+  }
+}
 
 /* ---- Invoice chasing ------------------------------------------------------
    Two emails on the same daily run:
