@@ -6073,6 +6073,13 @@ export default {
    reminder, and a gallery that expires without warning is just a gallery that
    disappeared.
 --------------------------------------------------------------------------- */
+// "Hi ," is worse than no greeting, and a client whose name we only hold as a
+// company should not be addressed as that company.
+function firstName(full) {
+  const first = String(full || "").trim().split(/\s+/)[0];
+  return first || "there";
+}
+
 async function runVideographyChasers(env) {
   const today = new Date();
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -6103,14 +6110,18 @@ async function runVideographyChasers(env) {
 
     const sent = await sendEmail(env, {
       to,
-      subject: `Your shoot is done — invoice ${live.number}`,
+      subject: "Great to see you yesterday - here's what happens next",
       attachments,
       html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-        <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
-        <p style="${EM_P}">Thanks for yesterday — your ${esc((bk.service || "shoot").toLowerCase())} is done and we're editing it now.</p>
-        <p style="${EM_P}">Invoice ${esc(live.number)} is attached, for ${esc(gbpW(live.total_pence))}. Your content will be ready to view shortly, and downloads unlock once payment reaches us.</p>
-        ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
-        <p style="${EM_SMALL}">No rush — this is just so you have it to hand. You can also pay by bank transfer using the details on the invoice.</p>
+        <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
+        <p style="${EM_P}">It was great shooting with you yesterday. We hope you enjoyed the session!</p>
+        <p style="${EM_P}">Now that your shoot is wrapped, Jack will get to work on your edits. This usually takes a few days, and as soon as everything is ready, we'll send you a link to your gallery where you can view your finished content.</p>
+        <p style="${EM_P}">In the meantime, a quick reminder that invoice ${esc(live.number)} for ${esc(gbpW(live.total_pence))} is awaiting payment. We've attached another copy here so you've got it to hand.</p>
+        <p style="${EM_P}">You can pay by card using the link below, or by bank transfer using the details on your invoice.</p>
+        ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay invoice</a></p>` : ""}
+        <p style="${EM_P}">You'll still be able to view your gallery when your edits are ready, but downloads will unlock once payment has been received.</p>
+        <p style="${EM_P}">We'll be back in touch as soon as your content is ready. We can't wait for you to see it!</p>
+        <p style="${EM_P}">The TMKE Team</p>
       </div>`),
     });
     if (!sent.ok) continue;
@@ -6119,7 +6130,7 @@ async function runVideographyChasers(env) {
     await logBookingMessage(env, {
       booking_id: bk.id, booking_source: "videography",
       account_user_id: bk.account_user_id, client_email: to,
-      channel: "email", kind: "payment_reminder", subject: `Your shoot is done — invoice ${live.number}`,
+      channel: "email", kind: "payment_reminder", subject: "Great to see you yesterday - here's what happens next",
       body: "Day-after-shoot reminder sent with the invoice.", is_automated: true, created_by: "system",
     });
   }
@@ -6135,14 +6146,19 @@ async function runVideographyChasers(env) {
     const when = new Date(bk.gallery_expires_on + "T12:00:00")
       .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
+    const shotOn = bk.shoot_date
+      ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+      : "";
     const sent = await sendEmail(env, {
       to,
-      subject: "Your gallery closes in a week",
+      subject: "Your gallery expires in one week",
       html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-        <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
-        <p style="${EM_P}">A quick heads-up: your gallery closes on <strong>${esc(when)}</strong>. Please download anything you'd like to keep before then.</p>
+        <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
+        <p style="${EM_P}">Just a quick heads up that the gallery from your ${esc((bk.service || "shoot").toLowerCase())}${shotOn ? ` on ${esc(shotOn)}` : ""} is due to expire on ${esc(when)}.</p>
         <p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>
-        <p style="${EM_SMALL}">If you've mislaid your PIN, just reply to this email and we'll send it again.</p>
+        <p style="${EM_P}">You can also find the gallery by heading to Previous Bookings in TMKE Studio.</p>
+        <p style="${EM_P}">Once the gallery expires, your content will no longer be available to view or download, so we recommend having a quick check that you've got everything you need.</p>
+        <p style="${EM_P}">The TMKE Team</p>
       </div>`),
     });
     if (!sent.ok) continue;
@@ -6151,7 +6167,7 @@ async function runVideographyChasers(env) {
     await logBookingMessage(env, {
       booking_id: bk.id, booking_source: "videography",
       account_user_id: bk.account_user_id, client_email: to,
-      channel: "email", kind: "gallery_expiring", subject: "Your gallery closes in a week",
+      channel: "email", kind: "gallery_expiring", subject: "Your gallery expires in one week",
       body: `Expiry warning sent - gallery closes ${bk.gallery_expires_on}.`, is_automated: true, created_by: "system",
     });
   }
