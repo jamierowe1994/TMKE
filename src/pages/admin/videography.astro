@@ -2791,10 +2791,18 @@ import "../../styles/admin.css";
     function startOfDay(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); }
     async function autoAdvance() {
       const today = startOfDay(Date.now());
+      // On the day: whatever it was, it is now a shoot day.
       const due = bookings.filter((b) => (b.stage === "booked" || b.stage === "invoiced") && b.shoot_date && startOfDay(b.shoot_date) <= today);
       for (const b of due) {
         b.stage = "shoot_day";
         await supabase.from("videography_bookings").update({ stage: "shoot_day" }).eq("id", b.id);
+      }
+      // The day after: the shoot has happened, so it is being edited. Nobody
+      // needs to drag a card to say the day ended.
+      const shot = bookings.filter((b) => b.stage === "shoot_day" && b.shoot_date && startOfDay(b.shoot_date) < today);
+      for (const b of shot) {
+        b.stage = "editing";
+        await supabase.from("videography_bookings").update({ stage: "editing" }).eq("id", b.id);
       }
     }
 

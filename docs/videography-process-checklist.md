@@ -27,8 +27,8 @@ the process touches, including the automatic emails he didn't list.
 |---|---|---|---|
 | 2.1 | Agent states at booking that the office holds a marketing fee | 🧑‍💼 | ✅ |
 | 2.2 | Which office is recorded, separately from where the invoice is sent | ⚙️ | ✅ |
-| 2.3 | **Email the office to confirm they hold the funds** | 👤 | ❌ **not built** |
-| 2.4 | **A prompt telling Jack to send it** | ⚙️ | ❌ **not built** |
+| 2.3 | Email the office to confirm they hold the funds | 👤 | ✅ |
+| 2.4 | The panel tells Jack to send it, and shows whether he has | ⚙️ | ✅ |
 | 2.5 | Tick that the office confirmed — stamped with who and when | 👤 | ✅ |
 | 2.6 | Raising the invoice is blocked until that tick | ⚙️ | ✅ |
 
@@ -50,7 +50,7 @@ the process touches, including the automatic emails he didn't list.
 | # | Step | Who | Status |
 |---|---|---|---|
 | 4.1 | Moves to Shoot day on the morning of the shoot | ⚙️ | ✅ |
-| 4.2 | **Moves to Editing on its own once the shoot day has passed** | ⚙️ | ❌ **not built** — moved by hand |
+| 4.2 | Moves to Editing on its own the morning after the shoot | ⚙️ | ✅ |
 | 4.3 | Day after the shoot, if unpaid: "great to see you yesterday", invoice attached, card link | ⚙️ | ✅ `vid_payment_reminder` |
 
 ## 5 · Editing and the archive
@@ -63,9 +63,9 @@ the process touches, including the automatic emails he didn't list.
 | 5.4 | Upload into the right category boxes | 👤 | ✅ |
 | 5.5 | Open in Cloudflare to check what landed | 👤 | ✅ |
 | 5.6 | Tick "archive copy uploaded to our own storage" | 👤 | ✅ |
-| 5.7 | **Prompt to go and build the Pixieset gallery** | ⚙️ | ❌ **not built** |
-| 5.8 | **Link to the Pixieset gallery guidelines (PDF)** | ⚙️ | ❌ **not built — PDF needed** |
-| 5.9 | **Tick "content uploaded to Pixieset"** | 👤 | ❌ **not built** |
+| 5.7 | Prompt to go and build the Pixieset gallery | ⚙️ | ✅ |
+| 5.8 | Link to the Pixieset guide | ⚙️ | ✅ `/guides/TMKE-Guide-to-Pixieset.pdf` |
+| 5.9 | Tick "content uploaded to Pixieset" | 👤 | ✅ |
 
 ## 6 · Gallery
 
@@ -113,22 +113,28 @@ the process touches, including the automatic emails he didn't list.
 
 ---
 
-## The five gaps
+## What is left
 
-1. **F&C confirmation email + prompt** (2.3, 2.4) — the tick exists, but nothing
-   tells Jack to send the email, and there is no email to send.
-2. **Two-days-out invoice reminder to Jack and Danielle** (3.1) — the only
-   internal scheduled email in the process, and the one that starts the money.
-3. **Shoot day → Editing automatically** (4.2) — small; the same daily job that
-   moves Booked to Shoot day can do it.
-4. **Pixieset prompt, guidelines link and tick** (5.7–5.9) — needs the PDF.
-5. Nothing else. Everything James described is otherwise built.
+**One gap.** Everything else James described, plus the three he added, is built.
 
-## Two things James did not mention, worth deciding
+| Gap | Note |
+|---|---|
+| Reminder to Jack and Danielle at 08:00, two days before a shoot, to raise the invoice | The only step in the process that still relies on someone remembering |
 
-- **Nothing chases an unpaid invoice after the day-after nudge.** A shoot can
-  sit in Sent indefinitely, unpaid, with the client holding watermarked
-  content. Worth a second reminder at, say, day ten.
-- **Nothing tells Jack a shoot is stuck.** A booking left in Editing for a
-  fortnight looks the same as one edited yesterday. A weekly "these are sitting
-  still" digest would catch it.
+Everything after that point now chases itself: the invoice is reminded on its
+due date, escalated to the team the day after, and a shoot that stops moving is
+reported.
+
+## Stall thresholds
+
+Only the stages where a shoot genuinely waits on us. Booked, Invoiced and Shoot
+day all move themselves - on the shoot date, and again the morning after - so
+nothing can rot in them unseen.
+
+| Stage | Flagged after |
+|---|---|
+| Editing | 10 days |
+| Gallery ready | 5 days |
+| Sent | 10 days |
+
+Reported once when a shoot stalls, then weekly while it stays put.

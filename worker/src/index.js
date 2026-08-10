@@ -6103,19 +6103,19 @@ export default {
    else is reported afresh rather than staying quiet.
 --------------------------------------------------------------------------- */
 const STALL_DAYS = {
-  booked: 30,        // booked far ahead is fine; 30 days without a shoot date is not
-  invoiced: 5,       // invoice goes out 2 days before, so this is 3 days past the shoot
-  shoot_day: 3,      // should be in editing by now
-  editing: 10,       // 1.5 days editing + amendments buffer, generously
-  gallery_ready: 4,  // gallery built but never sent
-  sent: 21,          // with the client, still not paid or edits not settled
+  // Only the stages where a shoot genuinely sits waiting on us. Booked,
+  // Invoiced and Shoot day all move themselves - on the shoot date, and again
+  // the morning after - so a shoot cannot quietly rot in any of them.
+  editing: 10,       // 1.5 days editing + the amendments buffer, generously
+  gallery_ready: 5,  // gallery built but never sent
+  sent: 10,          // with the client, still unpaid or edits unsettled
 };
 
 async function runStallCheck(env) {
   const now = Date.now();
   const days = (ms) => Math.floor((now - ms) / 86400000);
   const rows = (await sbGet(env, "videography_bookings",
-    `stage=in.(booked,invoiced,shoot_day,editing,gallery_ready,sent)&select=*`)) || [];
+    `stage=in.(editing,gallery_ready,sent)&select=*`)) || [];
 
   const stalled = [];
   for (const bk of rows) {
@@ -6143,10 +6143,7 @@ async function runStallCheck(env) {
   if (!team.length) return;
 
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const STAGE_NAME = {
-    booked: "Booked", invoiced: "Invoiced", shoot_day: "Shoot day",
-    editing: "Editing", gallery_ready: "Gallery ready", sent: "Sent",
-  };
+  const STAGE_NAME = { editing: "Editing", gallery_ready: "Gallery ready", sent: "Sent" };
 
   const rowsHtml = stalled.map(({ bk, stuckFor }) => `
     <tr>
