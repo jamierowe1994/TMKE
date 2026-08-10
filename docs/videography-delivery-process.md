@@ -17,7 +17,7 @@ James's workflow, 7 August. This is the spec; everything below it is detail.
 | 2 | F&C: office confirms the marketing fee is held | Admin | ✅ blocks the invoice |
 | 3 | Invoice raised, two days before the shoot | Admin | ✅ raised by hand |
 | 4 | Shoot day | Off app | ✅ stage auto-advances |
-| 5 | **Payment reminder, day after the shoot, if still unpaid** | Auto | ❌ needs a scheduler |
+| 5 | Payment reminder, day after the shoot, if still unpaid | Auto | ✅ daily cron |
 | 6 | Editing | Off app | ✅ |
 | 7 | Content uploaded to the archive (Cloudflare) | Admin | ✅ |
 | 8 | Pixieset upload | Off app | ✅ |
@@ -25,19 +25,20 @@ James's workflow, 7 August. This is the spec; everything below it is detail.
 | 10 | **Paid:** links + PIN + edit process | Auto | ✅ |
 | 11 | **Unpaid:** links + invoice + payment prompt, no PIN | Auto | ✅ |
 | 12 | Unpaid, then pays: PIN follows in a second email | Auto | ✅ |
-| 13 | **Hub shows the links when the email goes** | Hub | ❌ |
-| 14 | **Hub reveals the PIN when payment lands** | Hub | ❌ |
+| 13 | Hub shows the links when the email goes | Hub | ✅ |
+| 14 | Hub reveals the PIN when payment lands | Hub | ✅ |
 | 15 | Edits confirmed | Admin | ✅ |
 | 16 | Delivery complete | Admin | ✅ needs paid + edits settled |
-| 17 | **Expiry warning, a week before Pixieset drops it** | Auto | ❌ needs a scheduler |
+| 17 | Expiry warning, a week before Pixieset drops it | Auto | ✅ daily cron |
 
-Remaining gaps, in the order they are worth doing:
+**All seventeen steps are built.** The two scheduled emails ride the existing
+08:00 cron - both are the same shape: find rows matching a date, send once,
+stamp a column so it never repeats (`reminder_sent_at`, `expiry_warned_at`).
 
-1. **The members hub (13, 14).** Two states of one screen: links on send, PIN
-   on payment.
-2. **The two scheduled emails (5, 17).** Both need something running daily,
-   which is a different kind of build to everything so far - nothing else here
-   runs without a person pressing something.
+The hub shows the gallery links once the email has gone, and the PIN once
+payment lands. The PIN is never in the page's data: it lives in a table members
+cannot read, and is fetched from the Worker only for a booking that is theirs
+and has been paid for.
 
 Step 12 fires from the Stripe webhook when a card payment lands, and from Mark
 paid when it arrives by bank transfer. It only sends when the client already

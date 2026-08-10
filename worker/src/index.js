@@ -2354,7 +2354,13 @@ export default {
   // reminders (runReminders self-gates to 8am UK); every other (frequent) run
   // advances automations + chases any paid-but-no-password orders.
   async scheduled(event, env, ctx) {
-    if (event && (event.cron === "0 7 * * *" || event.cron === "0 8 * * *")) { ctx.waitUntil(runReminders(env)); ctx.waitUntil(runDdMonthly(env)); }
+    if (event && (event.cron === "0 7 * * *" || event.cron === "0 8 * * *")) {
+      ctx.waitUntil(runReminders(env));
+      ctx.waitUntil(runDdMonthly(env));
+      // Only on the 08:00 run, so the day-after reminder and the expiry warning
+      // go out once a day rather than twice.
+      if (event.cron === "0 8 * * *") ctx.waitUntil(runVideographyChasers(env));
+    }
     else {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
@@ -6058,6 +6064,99 @@ export default {
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
 
+/* ---- Daily videography chasers ------------------------------------------
+   Two jobs that ride the existing 08:00 cron, because both are "look for rows
+   matching a date, send once, stamp a column so it never repeats".
+
+   Everything else in this process happens because a person pressed something.
+   These two cannot: a reminder that arrives when someone remembers is not a
+   reminder, and a gallery that expires without warning is just a gallery that
+   disappeared.
+--------------------------------------------------------------------------- */
+async function runVideographyChasers(env) {
+  const today = new Date();
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // ---- 1. Payment reminder, the day after the shoot ----------------------
+  // Deliberately a nudge: it lands on day three of a ten-day term, so they are
+  // not late and should not be told they are.
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const due = (await sbGet(env, "videography_bookings",
+    `shoot_date=gte.${iso(yesterday)}T00:00:00&shoot_date=lte.${iso(yesterday)}T23:59:59`
+    + `&paid_at=is.null&reminder_sent_at=is.null&stage=neq.cancelled&select=*`)) || [];
+
+  for (const bk of due) {
+    const to = bk.client_email;
+    if (!to) continue;
+    const invs = (await sbGet(env, "invoices",
+      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id,number,status,pay_by_card,total_pence&order=created_at.desc`)) || [];
+    const live = invs.find((iv) => iv.status !== "void" && iv.status !== "paid");
+    if (!live) continue;   // nothing outstanding to chase
+
+    let attachments, payUrl = null;
+    if (live.pay_by_card && env.STRIPE_SECRET_KEY) payUrl = await invoicePayUrl(env, live.id);
+    try {
+      const obj = await env.BUCKET.get(`invoices/${live.number}.pdf`);
+      if (obj) attachments = [{ filename: `Invoice-${live.number}.pdf`, content: bufToBase64(await obj.arrayBuffer()), contentType: "application/pdf" }];
+    } catch (_) {}
+
+    const sent = await sendEmail(env, {
+      to,
+      subject: `Your shoot is done — invoice ${live.number}`,
+      attachments,
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
+        <p style="${EM_P}">Thanks for yesterday — your ${esc((bk.service || "shoot").toLowerCase())} is done and we're editing it now.</p>
+        <p style="${EM_P}">Invoice ${esc(live.number)} is attached, for ${esc(gbpW(live.total_pence))}. Your content will be ready to view shortly, and downloads unlock once payment reaches us.</p>
+        ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
+        <p style="${EM_SMALL}">No rush — this is just so you have it to hand. You can also pay by bank transfer using the details on the invoice.</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { reminder_sent_at: new Date().toISOString() });
+    await logBookingMessage(env, {
+      booking_id: bk.id, booking_source: "videography",
+      account_user_id: bk.account_user_id, client_email: to,
+      channel: "email", kind: "payment_reminder", subject: `Your shoot is done — invoice ${live.number}`,
+      body: "Day-after-shoot reminder sent with the invoice.", is_automated: true, created_by: "system",
+    });
+  }
+
+  // ---- 2. Gallery expiry warning, a week out -----------------------------
+  const weekOut = new Date(today); weekOut.setDate(weekOut.getDate() + 7);
+  const expiring = (await sbGet(env, "videography_bookings",
+    `gallery_expires_on=eq.${iso(weekOut)}&expiry_warned_at=is.null&select=*`)) || [];
+
+  for (const bk of expiring) {
+    const to = bk.gallery_email || bk.client_email;
+    if (!to || !bk.gallery_url) continue;
+    const when = new Date(bk.gallery_expires_on + "T12:00:00")
+      .toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+
+    const sent = await sendEmail(env, {
+      to,
+      subject: "Your gallery closes in a week",
+      html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+        <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
+        <p style="${EM_P}">A quick heads-up: your gallery closes on <strong>${esc(when)}</strong>. Please download anything you'd like to keep before then.</p>
+        <p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>
+        <p style="${EM_SMALL}">If you've mislaid your PIN, just reply to this email and we'll send it again.</p>
+      </div>`),
+    });
+    if (!sent.ok) continue;
+
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { expiry_warned_at: new Date().toISOString() });
+    await logBookingMessage(env, {
+      booking_id: bk.id, booking_source: "videography",
+      account_user_id: bk.account_user_id, client_email: to,
+      channel: "email", kind: "gallery_expiring", subject: "Your gallery closes in a week",
+      body: `Expiry warning sent - gallery closes ${bk.gallery_expires_on}.`, is_automated: true, created_by: "system",
+    });
+  }
+}
+
 // The second email: they were sent their gallery before paying, so they have
 // the links but not the PIN. This is what closes that loop when the money
 // lands - without it, someone who pays after delivery waits for a human to
@@ -6203,6 +6302,33 @@ async function sendGalleryPinEmail(env, bookingId) {
           is_automated: false, created_by: user.email || "admin",
         });
         return json({ ok: true, sent_to: to, included_pin: paid }, 200, request, env);
+      }
+
+      // A member's own PIN. Sits behind three checks, because this is the one
+      // secret in the whole flow: signed in, the booking is theirs, and it has
+      // been paid for. The PIN lives in a table members cannot read at all, so
+      // this endpoint is the only way it can reach them - which is the point.
+      if (path.endsWith("/videography/my-pin") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const id = (url.searchParams.get("booking_id") || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+
+        const rows = await sbGet(env, "videography_bookings",
+          `id=eq.${encodeURIComponent(id)}&select=account_user_id,client_email,paid_at`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Not found." }, 404, request, env);
+
+        const mine = (bk.account_user_id && bk.account_user_id === user.id)
+          || (bk.client_email && String(bk.client_email).toLowerCase() === String(user.email || "").toLowerCase());
+        // Deliberately the same answer as "no such booking": telling someone
+        // a booking exists but isn't theirs is information they don't need.
+        if (!mine) return json({ error: "Not found." }, 404, request, env);
+        if (!bk.paid_at) return json({ ok: true, paid: false }, 200, request, env);
+
+        const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(id)}&select=pin`);
+        const pin = (prow && prow[0] && prow[0].pin) || "";
+        return json({ ok: true, paid: true, pin }, 200, request, env);
       }
 
       if (path.endsWith("/booking/thread") && request.method === "GET") {
