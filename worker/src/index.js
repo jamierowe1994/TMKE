@@ -6104,6 +6104,37 @@ export default {
    accounts team about money that collects itself; chasing the client for it
    would be worse than not chasing at all.
 --------------------------------------------------------------------------- */
+/* Every chaser leaves a trace in two places: the contact's email history, and -
+   when the invoice belongs to a shoot - the booking's own record, so the
+   invoice panel can show what was sent and when without anyone going hunting
+   through a mailbox. An automatic email nobody can see having been sent is
+   indistinguishable from one that never went. */
+async function logInvoiceChase(env, inv, subject, to, internal) {
+  try {
+    await logEmailEvent(env, {
+      email: to, event: "sent", provider: "microsoft", subject,
+      detail: internal ? `Overdue alert for invoice ${inv.number}` : `Due-date reminder for invoice ${inv.number}`,
+    });
+  } catch (_) {}
+  if (!inv.booking_id) return;
+  try {
+    await logBookingMessage(env, {
+      booking_id: inv.booking_id,
+      booking_source: inv.booking_source || "videography",
+      client_email: internal ? null : inv.bill_to_email,
+      // Internal alerts are notes, not correspondence - a client must never see
+      // us discussing chasing them.
+      channel: internal ? "note" : "email",
+      kind: internal ? "invoice_overdue_alert" : "invoice_chase",
+      subject,
+      body: internal
+        ? `Overdue alert sent to ${to}.`
+        : `Due-date reminder sent to ${to}.`,
+      is_automated: true, created_by: "system",
+    });
+  } catch (_) {}
+}
+
 async function runInvoiceChasers(env) {
   const iso = (d) => d.toISOString().slice(0, 10);
   const today = new Date();
@@ -6138,19 +6169,21 @@ async function runInvoiceChasers(env) {
         <p style="${EM_P}">A friendly reminder that invoice ${esc(inv.number)} for ${esc(gbpW(inv.total_pence))} is due today.</p>
         ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay invoice</a></p>` : ""}
         <p style="${EM_P}">You can pay by card using the link above, or by bank transfer using the details on your invoice. We've attached another copy so you've got it to hand.</p>
+        <p style="${EM_P}">Until payment has been received you won't be able to download any of your content or request your edits, so getting this settled means everything is ready when you are.</p>
         <p style="${EM_SMALL}">If you've already paid in the last day or two, thank you - please ignore this.</p>
         <p style="${EM_P}">Many thanks,<br>TMKE</p>
       </div>`),
     });
     if (!sent.ok) continue;
     await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { due_reminder_sent_at: new Date().toISOString() });
+    await logInvoiceChase(env, inv, `Invoice ${inv.number} is due today`, inv.bill_to_email, false);
   }
 
   // ---- 2. A day past due: tell Danielle and Jack --------------------------
   const overdue = (await sbGet(env, "invoices",
     `status=eq.sent&due_date=eq.${iso(yesterday)}&overdue_alerted_at=is.null&select=*`)) || [];
 
-  const team = [...new Set([st.accounts_cc_email, env.JACK_NOTIFY || env.JACK_UPN]
+  const team = [...new Set([env.ACCOUNTS_NOTIFY || st.accounts_cc_email, env.JACK_NOTIFY || env.JACK_UPN]
     .flatMap((v) => String(v || "").split(","))
     .map((v) => v.trim())
     .filter(Boolean))];
@@ -6170,11 +6203,12 @@ async function runInvoiceChasers(env) {
           Due: ${esc(niceDate(inv.due_date))}<br>
           Sent to: ${esc(inv.bill_to_email || "-")}</span></p>
         <p style="${EM_P}">The client had a reminder on the due date. Worth deciding how to chase this one.</p>
-        <p style="${EM_SMALL}">If it has been paid and we simply haven't recorded it, mark it paid in the admin centre and this will stop.</p>
+        <p style="${EM_SMALL}">If it has been paid and we simply haven't recorded it, mark it paid in the admin centre - that releases the client's PIN and stops any further chasers.</p>
       </div>`),
     });
     if (!sent.ok) continue;
     await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(inv.id)}`, { overdue_alerted_at: new Date().toISOString() });
+    await logInvoiceChase(env, inv, `Overdue: invoice ${inv.number}`, team.join(", "), true);
   }
 }
 

@@ -589,6 +589,10 @@ import "../../styles/admin.css";
     .vid-inv-num { font-weight: 700; color: var(--english-violet); min-width: 92px; }
     .vid-inv-status { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.55); }
     .vid-inv-status.is-paid { background: rgba(var(--violet-rgb), 0.12); color: var(--english-violet); }
+    .vid-chaselog { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border, #eae5e1); }
+    .vid-chaselog-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted, rgba(28,29,34,0.5)); margin-bottom: 8px; }
+    .vid-chaselog-row { display: flex; gap: 10px; align-items: baseline; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.7); padding: 4px 0; }
+    .vid-chaselog-when { min-width: 92px; color: var(--muted, rgba(28,29,34,0.5)); }
     .vid-inv-status.is-void { background: rgba(28,29,34,0.06); color: rgba(28,29,34,0.4); text-decoration: line-through; }
 
     /* Notes: internal record + audit trail. */
@@ -2366,6 +2370,7 @@ import "../../styles/admin.css";
       host.querySelectorAll("[data-vpaid]").forEach((btn) => btn.addEventListener("click", () => markInvoicePaid(b, btn.getAttribute("data-vpaid"))));
       host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
       host.querySelectorAll("[data-vedit]").forEach((btn) => btn.addEventListener("click", () => editInvoice(b, btn.getAttribute("data-vedit"))));
+      renderChaseLog(b);
     }
 
     async function resendInvoice(b, id, btn) {
@@ -2425,6 +2430,33 @@ import "../../styles/admin.css";
       if (isNaN(from)) return;
       from.setDate(from.getDate() + n);
       dueEl.value = from.toISOString().slice(0, 10);
+    }
+
+    /* What we've sent chasing this invoice, under the invoices themselves. An
+       automatic email nobody can see having been sent is indistinguishable from
+       one that never went - and "did we actually chase them?" is the first
+       question anyone asks about an unpaid invoice. */
+    async function renderChaseLog(b) {
+      const host = document.getElementById("viv-list");
+      if (!host || !WORKER_URL) return;
+      let msgs = [];
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/booking/thread?booking_id=${encodeURIComponent(b.id)}`, { headers: { Authorization: "Bearer " + token } });
+        if (res.ok) msgs = (await res.json()).messages || [];
+      } catch (_) { return; }
+      const chases = msgs.filter((m) => ["invoice_chase", "invoice_overdue_alert", "payment_reminder"].includes(m.kind));
+      if (!chases.length) return;
+      const when = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+      host.insertAdjacentHTML("beforeend", `
+        <div class="vid-chaselog">
+          <div class="vid-chaselog-h">Chasers sent</div>
+          ${chases.map((m) => `<div class="vid-chaselog-row">
+            <span class="vid-chaselog-when">${escapeHtml(when(m.created_at))}</span>
+            <span>${escapeHtml(m.subject || "-")}</span>
+            ${m.kind === "invoice_overdue_alert" ? `<span class="vid-inv-status">internal</span>` : ""}
+          </div>`).join("")}
+        </div>`);
     }
 
     async function markInvoicePaid(b, id) {
