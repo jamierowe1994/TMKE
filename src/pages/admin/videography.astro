@@ -128,6 +128,7 @@ import "../../styles/admin.css";
         </div>
         <div class="vid-cand-actions">
           <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Create these folders</button>
+          <a class="admin-btn admin-btn-ghost" id="vid-arch-open" href="#" target="_blank" rel="noopener" hidden>Open in Cloudflare</a>
         </div>
         <p class="vid-hint" id="vid-arch-path"></p>
         <p class="vid-hint" id="vid-arch-msg"></p>
@@ -1601,23 +1602,54 @@ import "../../styles/admin.css";
 
     /* What has to be true before a job closes. Shown from the point it starts
        to matter, so neither condition is a surprise at the last step. */
+    /* Two different questions at two different moments, which were previously
+       one panel asking both too early.
+
+       At gallery_ready the only question is "can this client have the PIN?" -
+       edits have not happened yet, so asking about them there is premature.
+       At sent, the shoot is with the client and the question becomes "is this
+       job finished?" */
     function renderCloseGate(b) {
-      if (!["gallery_ready", "sent", "delivered"].includes(b.stage)) return "";
-      const paid = !!b.paid_at, edits = !!b.edits_settled_at;
-      const done = paid && edits;
-      return `<div class="vid-gate ${done ? "is-done" : ""}">
-        <div class="vid-gate-h">Before this can be delivered</div>
-        <dl class="vid-gate-list">
-          <div><dt>Invoice paid</dt><dd>${paid ? escapeHtml(new Date(b.paid_at).toLocaleDateString("en-GB")) : "Not yet"}</dd></div>
-        </dl>
-        <label class="vid-check">
-          <input type="checkbox" id="vid-edits-done" ${edits ? "checked" : ""} />
-          <span>The client's round of edits has been settled</span>
-        </label>
-        ${edits && b.edits_settled_at
-          ? `<p class="vid-hint">Settled ${escapeHtml(new Date(b.edits_settled_at).toLocaleDateString("en-GB"))}${b.edits_settled_by ? " by " + escapeHtml(b.edits_settled_by) : ""}.</p>`
-          : `<p class="vid-hint">Their agreement includes a round of edits. Tick this once they are done, or once the client has confirmed they don't want any.</p>`}
-      </div>`;
+      const paid = !!b.paid_at;
+
+      if (b.stage === "gallery_ready") {
+        return `<div class="vid-gate ${paid ? "is-done" : ""}">
+          <div class="vid-gate-h">Before you send</div>
+          <dl class="vid-gate-list">
+            <div><dt>Invoice paid</dt><dd>${paid
+              ? escapeHtml("Yes — " + new Date(b.paid_at).toLocaleDateString("en-GB"))
+              : "Not yet"}</dd></div>
+          </dl>
+          <p class="vid-hint">${paid
+            ? "Paid, so the email will include the PIN and they can download straight away."
+            : "Not paid, so the PIN will be withheld. They'll see the gallery watermarked, and the PIN sends itself the moment the invoice is marked paid. Worth checking with accounts first in case payment has landed and we haven't recorded it."}</p>
+        </div>`;
+      }
+
+      if (b.stage === "sent" || b.stage === "delivered") {
+        const edits = !!b.edits_settled_at;
+        const done = paid && edits;
+        return `<div class="vid-gate ${done ? "is-done" : ""}">
+          <div class="vid-gate-h">Before this can be delivered</div>
+          <dl class="vid-gate-list">
+            <div><dt>Invoice paid</dt><dd>${paid
+              ? escapeHtml(new Date(b.paid_at).toLocaleDateString("en-GB"))
+              : "Not yet"}</dd></div>
+            <div><dt>PIN released</dt><dd>${b.pin_released_at
+              ? escapeHtml(new Date(b.pin_released_at).toLocaleDateString("en-GB"))
+              : (paid ? "Sent with the gallery" : "Held — not paid")}</dd></div>
+          </dl>
+          <label class="vid-check">
+            <input type="checkbox" id="vid-edits-done" ${edits ? "checked" : ""} />
+            <span>The client's round of edits has been settled</span>
+          </label>
+          ${edits && b.edits_settled_at
+            ? `<p class="vid-hint">Settled ${escapeHtml(new Date(b.edits_settled_at).toLocaleDateString("en-GB"))}${b.edits_settled_by ? " by " + escapeHtml(b.edits_settled_by) : ""}.</p>`
+            : `<p class="vid-hint">Their agreement includes a round of edits. Tick this once they are done, or once the client has confirmed they don't want any.</p>`}
+        </div>`;
+      }
+
+      return "";
     }
 
     async function saveEditsSettled(b, checked) {
@@ -1776,6 +1808,8 @@ import "../../styles/admin.css";
       // Generated only when empty - a name that has been used to create real
       // folders must not silently change because a booking detail was edited.
       folder.value = b.archive_folder || archiveFolderName(b);
+      const open = document.getElementById("vid-arch-open");
+      if (open) { open.hidden = !b.archive_url; if (b.archive_url) open.href = b.archive_url; }
       document.getElementById("vid-arch-msg").textContent = "";
       showArchivePath(b);
       renderCatBoxes(b);
@@ -1808,7 +1842,11 @@ import "../../styles/admin.css";
         const d = await res.json().catch(() => ({}));
         if (!res.ok) { note.textContent = d.error || "Couldn't create the folders."; return; }
         b.archive_folder = folder;
-        note.textContent = `Created ${d.created.length} folders. Files dropped below will go straight into them.`;
+        b.archive_url = d.url || null;
+        const open = document.getElementById("vid-arch-open");
+        if (open) { open.hidden = !b.archive_url; if (b.archive_url) open.href = b.archive_url; }
+        note.textContent = `Created ${d.created.length} folders. Files dropped below will go straight into them.`
+          + (d.url ? "" : " (Set CF_ACCOUNT_ID on the Worker for an Open in Cloudflare link.)");
       } catch (err) { note.textContent = "Couldn't reach the Worker: " + err.message; }
       finally { btn.disabled = false; btn.textContent = label; }
     }

@@ -782,6 +782,18 @@ async function sbRpc(env, fn, args, onError) {
 const hmToMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + m; };
 const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
 
+// A link straight to the folder in the Cloudflare dashboard. Needs the account
+// id, which only appears in the dashboard URL - so it is a var rather than
+// something we can work out. Without it we simply don't offer a link, rather
+// than offering one that 404s.
+function r2DashUrl(env, folder) {
+  const acct = env.CF_ACCOUNT_ID;
+  if (!acct || !folder) return null;
+  const bucket = env.R2_BUCKET_NAME || "tmke-deliverables";
+  const prefix = `${PART_PREFIX}/${folder}/`;
+  return `https://dash.cloudflare.com/${acct}/r2/default/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`;
+}
+
 // Build a readable object key: <prefix>/<folder>/<category>/<file>. Slashes are
 // stripped from each part first - one inside a name would silently create an
 // extra level of folder, which is how a tidy scheme quietly stops being tidy.
@@ -5992,8 +6004,11 @@ export default {
         }
         // Record the name only once the folders actually exist, so the booking
         // never claims a folder that was never made.
-        await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, { archive_folder: folder });
-        return json({ ok: true, created: made }, 200, request, env);
+        const dash = r2DashUrl(env, folder);
+        await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, {
+          archive_folder: folder, archive_url: dash || null,
+        });
+        return json({ ok: true, created: made, url: dash }, 200, request, env);
       }
 
       // Update the calendar event's location after the booking was made. For
@@ -6193,16 +6208,19 @@ async function sendGalleryPinEmail(env, bookingId) {
   if (!to) return { ok: false, reason: "no address" };
 
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
   const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
-    <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
-    <p style="${EM_P}">Thank you - your payment has reached us, so your gallery is now unlocked.</p>
+    <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
+    <p style="${EM_P}">Thank you for your payment - your gallery is now unlocked.</p>
     <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
       Your download PIN is <strong>${esc(pin)}</strong>.<br>
       Pixieset asks for your email address and this PIN when you download, so use
       <strong>${esc(to)}</strong>.</span></p>
     ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
+    <p style="${EM_P}">Your content stays available for three months. Don't worry about the date - we'll remind you before your gallery is due to expire.</p>
+    <p style="${EM_P}">You can find this shoot, your gallery and everything else to do with your booking under Previous Bookings in <a href="${esc(siteUrl)}/account/bookings">TMKE Studio</a>.</p>
     <p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>
-    <p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>
+    <p style="${EM_P}">The TMKE Team</p>
   </div>`);
 
   const sent = await sendEmail(env, { to, subject: "Your gallery is unlocked", html });
@@ -6248,6 +6266,11 @@ async function sendGalleryPinEmail(env, bookingId) {
         const to = bk.gallery_email || bk.client_email;
         if (!to) return json({ error: "No email address to send to." }, 400, request, env);
 
+        // THE RULE, in one place: a PIN only ever leaves this building when
+        // paid_at is set. Everything else - which template, what the admin card
+        // says, the toggle on screen - is presentation. This is the check that
+        // actually stops it, and it reads from the database rather than from
+        // anything the sender could have changed on screen.
         const paid = !!bk.paid_at;
         let pin = "";
         if (paid) {

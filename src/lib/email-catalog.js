@@ -272,8 +272,8 @@ export const EMAIL_CATALOG = [
     to: "The gallery email",
     sender: "hello@tmke.co.uk",
     subject: "Your gallery is unlocked",
-    summary: "The second email in the unpaid path. Thanks them for payment, gives the PIN, repeats which address to use with it, and links back to the gallery. Sends once — pin_released_at guards it — and only when the gallery has already gone without the PIN.",
-    fields: ["name", "pin", "gallery_email", "gallery_url"],
+    summary: "The second email in the unpaid path. Thanks them for payment, gives the PIN and repeats which address to use with it, links to the gallery, says content stays available for three months and that we will remind them before it expires, and points them to Previous Bookings in TMKE Studio for anything else about the shoot. Sends once — pin_released_at guards it — and only when the gallery has already gone without the PIN.",
+    fields: ["first_name", "pin", "gallery_email", "gallery_url"],
   },
   {
     id: "vid_payment_reminder",
