@@ -2382,6 +2382,7 @@ export default {
         ctx.waitUntil(runVideographyChasers(env));
         ctx.waitUntil(runInvoiceChasers(env));
         ctx.waitUntil(runStallCheck(env));
+        ctx.waitUntil(runInvoicePrompt(env));
       }
     }
     else {
@@ -6089,6 +6090,84 @@ export default {
         if (rpcError) return json({ error: "Couldn't sync the contact: " + rpcError }, 502, request, env);
         return json({ ok: true, synced: true, email: bk.client_email, tags }, 200, request, env);
       }
+
+/* ---- "Raise this invoice" ------------------------------------------------
+   Two days before a shoot, if nothing has been invoiced yet, tell Jack and
+   Danielle. This is the one step in the process that starts the money, and
+   until now it was the only one that depended on somebody remembering.
+
+   Deliberately looks for an actual invoice rather than trusting the stage: a
+   booking can be nudged along by hand, and the question here is "has anyone
+   billed for this?", which only the invoices table can answer.
+--------------------------------------------------------------------------- */
+async function runInvoicePrompt(env) {
+  const inTwoDays = new Date();
+  inTwoDays.setDate(inTwoDays.getDate() + 2);
+  const day = inTwoDays.toISOString().slice(0, 10);
+
+  const shoots = (await sbGet(env, "videography_bookings",
+    `shoot_date=gte.${day}T00:00:00&shoot_date=lte.${day}T23:59:59`
+    + `&stage=neq.cancelled&invoice_prompt_sent_at=is.null&kind=eq.booking&select=*`)) || [];
+  if (!shoots.length) return;
+
+  const needing = [];
+  for (const bk of shoots) {
+    const invs = (await sbGet(env, "invoices",
+      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id,status`)) || [];
+    // A voided invoice is not an invoice. If the only one was cancelled, this
+    // shoot still needs billing.
+    if (invs.some((iv) => iv.status !== "void")) continue;
+    needing.push(bk);
+  }
+  if (!needing.length) return;
+
+  const team = [...new Set([env.ACCOUNTS_NOTIFY, env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim()).filter(Boolean))];
+  if (!team.length) return;
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const rowsHtml = needing.map((bk) => {
+    const brand = bk.payment_route === "brand_invoice";
+    // A brand invoice cannot go out until the office has confirmed the fee, so
+    // say so here rather than letting someone hit the block and wonder why.
+    const blocked = brand && !bk.brand_fee_confirmed;
+    const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
+    return `<tr>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.service || "-")}${where ? `<br><span style="color:#8a8796">${esc(where)}</span>` : ""}</td>
+      <td style="padding:7px 12px 7px 0;font-size:12px">${brand ? "Brand" : "Client"}</td>
+      <td style="padding:7px 0;font-size:12px">${bk.total_pence != null ? esc(gbpW(bk.total_pence)) : "-"}${
+        blocked ? `<br><span style="color:#8a5a2b">Fee not confirmed yet</span>` : ""}</td>
+    </tr>`;
+  }).join("");
+
+  const niceDay = inTwoDays.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const sent = await sendEmail(env, {
+    to: team,
+    subject: `Invoices to raise — ${needing.length} shoot${needing.length === 1 ? "" : "s"} on ${niceDay}`,
+    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+      <p style="${EM_P}">These shoots are on <strong>${esc(niceDay)}</strong> and haven't been invoiced yet.</p>
+      <table style="border-collapse:collapse;margin:0 0 14px">
+        <tr>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Client</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Shoot</th>
+          <th style="text-align:left;padding:0 12px 6px 0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Billed to</th>
+          <th style="text-align:left;padding:0 0 6px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#8a8796">Amount</th>
+        </tr>
+        ${rowsHtml}
+      </table>
+      <p style="${EM_P}">Raise each from its booking in the admin centre - that links the invoice to the shoot, which is what lets payment release the client's PIN on its own.</p>
+      <p style="${EM_SMALL}">Anything marked "fee not confirmed yet" is a Fine &amp; Country shoot where the office hasn't confirmed they hold the marketing fee. That has to be settled before the invoice can go.</p>
+    </div>`),
+  });
+  if (!sent.ok) return;
+
+  const stamp = new Date().toISOString();
+  for (const bk of needing) {
+    await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}`, { invoice_prompt_sent_at: stamp });
+  }
+}
 
 /* ---- Stalled shoots -------------------------------------------------------
    A shoot left in one stage too long looks exactly like one that moved

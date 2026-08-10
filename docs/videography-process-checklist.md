@@ -36,7 +36,7 @@ the process touches, including the automatic emails he didn't list.
 
 | # | Step | Who | Status |
 |---|---|---|---|
-| 3.1 | **Reminder to Jack and Danielle at 08:00, two days out: raise this invoice** | ⚙️ | ❌ **not built** |
+| 3.1 | Reminder to Jack and Danielle at 08:00, two days out: raise this invoice | ⚙️ | ✅ `vid_invoice_prompt` |
 | 3.2 | Raise the invoice from the booking, seeded from what was booked | 👤 | ✅ |
 | 3.3 | Card payment on for a client, off for a brand — still a toggle | ⚙️ | ✅ |
 | 3.4 | Ten days to pay, and the invoice says payment isn't due until the shoot has happened | ⚙️ | ✅ |
@@ -115,15 +115,26 @@ the process touches, including the automatic emails he didn't list.
 
 ## What is left
 
-**One gap.** Everything else James described, plus the three he added, is built.
+**Nothing.** Every step James walked through, plus the three he added
+afterwards, is built.
 
-| Gap | Note |
-|---|---|
-| Reminder to Jack and Danielle at 08:00, two days before a shoot, to raise the invoice | The only step in the process that still relies on someone remembering |
-
-Everything after that point now chases itself: the invoice is reminded on its
-due date, escalated to the team the day after, and a shoot that stops moving is
+The process now runs on its own from booking to delivery: stages advance
+themselves, the team is told when an invoice needs raising, the client is
+reminded on the due date, the team is told the day after if it is still
+unpaid, the PIN releases itself on payment, and a shoot that stops moving gets
 reported.
+
+What still needs a person, by design:
+
+- Jack confirming the Fine & Country fee is held (asking is a button; believing
+  the answer is a judgement)
+- Raising and sending the invoice
+- The two uploads, and their ticks
+- Adding the gallery links and PIN, and pressing send
+- Marking a bank transfer paid
+- Confirming edits are settled
+
+Everything else happens whether anyone remembers or not.
 
 ## Stall thresholds
 
