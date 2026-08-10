@@ -1526,6 +1526,7 @@ import "../../styles/admin.css";
         <div class="vid-cand-card" id="vid-cand-docs"></div>
         <div class="vid-cand-card" id="vid-cand-thread"></div>`;
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
+      el.querySelector("#vid-fc-send")?.addEventListener("click", () => sendFcConfirm(b));
       el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
       if (f.advance) el.querySelector("[data-advance]")?.addEventListener("click", async () => {
         // From Booked the button means "go and raise it", not "pretend it is
@@ -1590,6 +1591,18 @@ import "../../styles/admin.css";
           <div><dt>Invoiced to</dt><dd>${escapeHtml(officeName || "No office selected — set it on the booking")}</dd></div>
           <div><dt>Agent said a fee was charged</dt><dd>${escapeHtml(claimed)}</dd></div>
         </dl>
+        <div class="vid-field" style="margin-top:12px">
+          <label>Ask the office <span class="vid-lbl-note">their accounts address, not the agent's</span></label>
+          <div class="vid-archive-row">
+            <input type="email" id="vid-fc-to" value="${escapeHtml(b.fc_confirm_email || "")}" placeholder="accounts@fineandcountry..." ${officeName ? "" : "disabled"} />
+            <button type="button" class="admin-btn admin-btn-ghost" id="vid-fc-send" ${officeName ? "" : "disabled"}>
+              ${b.fc_confirm_sent_at ? "Ask again" : "Send request"}
+            </button>
+          </div>
+        </div>
+        ${b.fc_confirm_sent_at
+          ? `<p class="vid-hint">Asked ${escapeHtml(new Date(b.fc_confirm_sent_at).toLocaleDateString("en-GB"))}${b.fc_confirm_email ? " — " + escapeHtml(b.fc_confirm_email) : ""}.${done ? "" : " Waiting on their reply."}</p>`
+          : `<p class="vid-hint">Send this once you've checked the booking details. Tick below only when they've actually replied.</p>`}
         <label class="vid-check">
           <input type="checkbox" id="vid-gate-confirm" ${done ? "checked" : ""} ${officeName ? "" : "disabled"} />
           <span>The office has confirmed the marketing fee has been received</span>
@@ -1662,6 +1675,29 @@ import "../../styles/admin.css";
       if (error) { alert("Couldn't save that: " + error.message); return; }
       await addNote(b, checked ? "Edits settled." : "Edits reopened.", "audit");
       renderCandidate();
+    }
+
+    async function sendFcConfirm(b) {
+      const to = (document.getElementById("vid-fc-to")?.value || "").trim();
+      if (!to) { alert("Who should we ask? Add the office's accounts address."); return; }
+      if (!confirm(`Ask ${to} to confirm they're holding the marketing fee for this shoot?`)) return;
+      const btn = document.getElementById("vid-fc-send");
+      const label = btn.textContent; btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/videography/fc-confirm`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ booking_id: b.id, to }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert(d.error || "Couldn't send that."); return; }
+        b.fc_confirm_email = to;
+        b.fc_confirm_sent_at = new Date().toISOString();
+        await addNote(b, `Asked ${to} to confirm the marketing fee is held.`, "audit");
+        renderCandidate();
+      } catch (err) { alert("Couldn't send that: " + err.message); }
+      finally { btn.disabled = false; btn.textContent = label; }
     }
 
     async function saveBrandConfirm(b, checked) {

@@ -1112,6 +1112,13 @@ async function unsubVerify(env, token) {
   } catch (_) { return null; }
 }
 
+// Mirrors FC_OFFICES in src/lib/videography-config.js. Duplicated because the
+// Worker doesn't import from the site bundle; keep the two in step.
+const FC_OFFICE_LABELS = {
+  fc_midlands: "Fine & Country Midlands",
+  fc_stratford: "Fine & Country Stratford",
+};
+
 // ---- Invoice pay links ---------------------------------------------------
 //
 // The link we email points HERE, not at Stripe. A Stripe Checkout Session
@@ -6237,6 +6244,59 @@ async function sendGalleryPinEmail(env, bookingId) {
       // "Your gallery is ready". Two versions of the same email, decided by
       // whether the shoot has been paid for - because the PIN is what unlocks
       // downloading, and it is the only thing being withheld.
+      // Ask a Fine & Country office to confirm they hold the seller's marketing
+      // fee. Jack sends this himself once he has checked the booking details,
+      // which is why it is a button rather than something automatic - the whole
+      // point is that a person has looked before we ask.
+      if (path.endsWith("/videography/fc-confirm") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        const to = String((b && b.to) || "").trim();
+        if (!id || !to) return json({ error: "Missing booking or recipient." }, 400, request, env);
+
+        const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Booking not found." }, 404, request, env);
+
+        const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const office = (FC_OFFICE_LABELS[bk.fc_office] || "your office");
+        const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
+        const when = bk.shoot_date
+          ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+          : "a date to be confirmed";
+        const amount = bk.total_pence != null ? gbpW(bk.total_pence) : null;
+
+        const sent = await sendEmail(env, {
+          to,
+          cc: (b && b.cc) || null,
+          subject: `Marketing fee confirmation - ${bk.client_name || "agent"}${where ? ` - ${where}` : ""}`,
+          html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+            <p style="${EM_P}">Hello,</p>
+            <p style="${EM_P}">${esc(bk.client_name || "One of your agents")} has booked a ${esc((bk.service || "videography shoot").toLowerCase())} with us${where ? ` at <strong>${esc(where)}</strong>` : ""}, taking place on ${esc(when)}.</p>
+            <p style="${EM_P}">They have told us the seller's marketing fee for this property is being held by ${esc(office)}, and that the shoot should be invoiced to you rather than to the agent directly.</p>
+            <p style="${EM_P}">Could you confirm that is correct before we raise the invoice${amount ? `, which will be for ${esc(amount)}` : ""}? A short reply is all we need.</p>
+            <p style="${EM_SMALL}">If the fee isn't held with you, tell us and we'll invoice the agent instead - no problem either way, we would just rather ask than assume.</p>
+            <p style="${EM_P}">Many thanks,<br>The TMKE Team</p>
+          </div>`),
+        });
+        if (!sent.ok) return json({ error: "The email didn't send: " + (sent.error || "unknown") }, 502, request, env);
+
+        await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, {
+          fc_confirm_email: to, fc_confirm_sent_at: new Date().toISOString(),
+        });
+        await logBookingMessage(env, {
+          booking_id: id, booking_source: "videography",
+          account_user_id: bk.account_user_id, client_email: to,
+          channel: "email", kind: "fc_fee_confirm",
+          subject: `Marketing fee confirmation - ${bk.client_name || "agent"}`,
+          body: `Asked ${to} to confirm the marketing fee is held.`,
+          is_automated: false, created_by: user.email || "admin",
+        });
+        return json({ ok: true, sent_to: to }, 200, request, env);
+      }
+
       // Release the PIN by hand - the same email the webhook sends, for payments
       // that arrive by bank transfer rather than card.
       if (path.endsWith("/videography/release-pin") && request.method === "POST") {
