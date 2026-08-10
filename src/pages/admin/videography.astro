@@ -2011,7 +2011,7 @@ import "../../styles/admin.css";
        about it. */
     let invSettings = null;
     let vivItems = [];
-    let vivPayByCard = true;   // shoots are usually card; still per-invoice
+    let vivPayByCard = true;   // set per booking in renderInvoiceCard
     let vivDraft = null;       // the created invoice awaiting send
     let vivReissueOf = null;   // { id, number } when reissuing a sent invoice
     let vivForceOpen = false;  // "Raise another invoice" on a shoot past invoicing
@@ -2095,6 +2095,11 @@ import "../../styles/admin.css";
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(); due.setDate(due.getDate() + 10);
       const brand = isBrandInvoiced(b);
+      // The client pays by card; a brand settling out of a marketing fee pays
+      // its own way. Offering a card button to an accounts office is noise, and
+      // leaving it off for a client is a slower payment - so it follows the
+      // route rather than defaulting the same for both.
+      vivPayByCard = !brand;
       // Billed to the office that holds the marketing fee, not to the agent.
       const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
       const billTo = brand ? (officeName || b.client_company || b.client_name || "") : (b.client_company || b.client_name || "");
@@ -2130,6 +2135,9 @@ import "../../styles/admin.css";
           <div class="vid-inv-toggle" id="viv-pay">
             <button type="button" data-pay="no">Off</button><button type="button" data-pay="yes">On</button>
           </div>
+          <p class="vid-hint">${brand
+            ? "Off by default — the brand is settling this, not the client. Turn it on if they'd rather pay by card."
+            : "On by default — the client is paying, so the invoice carries a Pay by card button and payment marks the shoot paid on its own."}</p>
         </div>
         <div class="vid-field"><span>Line items</span><div id="viv-items"></div>
           <button type="button" class="admin-btn admin-btn-ghost" id="viv-add">Add line</button></div>
