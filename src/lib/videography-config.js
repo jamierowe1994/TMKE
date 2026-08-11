@@ -395,6 +395,53 @@ export function fcOfficeLabel(key) {
   return (FC_OFFICES.find((o) => o.key === key) || {}).label || key || "";
 }
 
+// ---- The Expert's Group (TEG) brand invoicing -------------------------------
+// Some shoots are settled by a sister TEG brand rather than the client - most
+// commonly a new starter's induction shoot, already paid for as part of their
+// induction package. Unlike Fine & Country there's no seller's fee to confirm,
+// so this is a much simpler "who and why" than the F&C flow: admin-only, never
+// surfaced on the public booking form.
+//
+// One shared accounts contact handles every brand's invoices. The billing
+// address is the same for all of them except The Mortgage Experts, which
+// sits at a different office.
+const TEG_STANDARD_ADDRESS = "5 Regent St, Rugby CV21 2PE";
+export const TEG_ACCOUNTS_EMAIL = "Paula@newman.uk.com";
+export const TEG_BRANDS = [
+  { key: "property_experts",   label: "The Property Experts",        address: TEG_STANDARD_ADDRESS },
+  { key: "lettings_experts",   label: "The Lettings Experts",        address: TEG_STANDARD_ADDRESS },
+  { key: "mortgage_experts",   label: "The Mortgage Experts",        address: "3 Regent Street, Rugby, England, CV21 2PE" },
+  { key: "auction_company",    label: "The Auction Company",         address: TEG_STANDARD_ADDRESS },
+  { key: "prestige_property",  label: "Prestige Property Experts",   address: TEG_STANDARD_ADDRESS },
+  { key: "recruitment_experts",label: "The Recruitment Experts",     address: TEG_STANDARD_ADDRESS },
+  { key: "marketing_experts",  label: "The Marketing Experts",       address: TEG_STANDARD_ADDRESS },
+  { key: "newman",             label: "Newman Property Services",    address: TEG_STANDARD_ADDRESS },
+  { key: "other",              label: "Other",                       address: TEG_STANDARD_ADDRESS },
+];
+export function tegBrandLabel(key) {
+  return (TEG_BRANDS.find((o) => o.key === key) || {}).label || key || "";
+}
+export function tegBrandAddress(key) {
+  return (TEG_BRANDS.find((o) => o.key === key) || {}).address || TEG_STANDARD_ADDRESS;
+}
+export const TEG_REASONS = [
+  { key: "induction", label: "New Starter Induction Shoot - Pro / Academy" },
+  { key: "event",     label: "Brand Event Coverage" },
+  { key: "marketing", label: "Brand Marketing Content" },
+  { key: "other",     label: "Other" },
+];
+export function tegReasonLabel(key) {
+  return (TEG_REASONS.find((o) => o.key === key) || {}).label || key || "";
+}
+
+// ---- Post-payment edit requests ---------------------------------------------
+// Once a client has paid, they can ask for edits and, depending on the shoot
+// type, buy an add-on. Property shoots reuse the faux-twilight price already
+// defined on the "property" service's addOns above (£25+VAT/image) rather
+// than duplicating it here. Agent/induction shoots instead offer a fixed
+// bundle of extra downloadable images - easy to retune, not fixed in stone.
+export const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2000 };
+
 // ---- Fine & Country property agreements -------------------------------------
 // F&C sit a tier above the other TEG brands (Platinum, not Gold) and, more
 // importantly, often charge the seller a marketing fee that the F&C OFFICE

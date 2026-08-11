@@ -51,10 +51,13 @@ function invoiceDueNice(inv) {
 function defaultInvoiceEmailText(settings, inv, bk) {
   const company = settings.company_name || "The Marketing Experts (Nationwide) Ltd";
   const due = invoiceDueNice(inv);
-  // A Fine & Country invoice goes to an office that is settling somebody
-  // else's shoot, so the agent's name rides along with the invoice number
-  // everywhere it appears - otherwise the office cannot tell one from another.
-  const brand = bk && bk.payment_route === "brand_invoice";
+  // A brand invoice - Fine & Country or a TEG sister brand - goes to someone
+  // settling somebody else's shoot, so the agent's name rides along with the
+  // invoice number everywhere it appears - otherwise the recipient cannot
+  // tell one shoot from another.
+  const isFC = bk && bk.payment_route === "brand_invoice";
+  const isTeg = bk && bk.payment_route === "brand_invoice_teg";
+  const brand = isFC || isTeg;
   const agent = (bk && bk.client_name) || "";
   const ref = brand && agent ? `${inv.number} - ${agent}` : inv.number;
   const lines = [
@@ -63,9 +66,12 @@ function defaultInvoiceEmailText(settings, inv, bk) {
     `Amount due: ${money(inv.total_pence)}`,
   ];
   if (due) lines.push(`Due date: ${due}`);
-  if (brand) {
+  if (isFC) {
     const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
     lines.push("", `This invoice is in relation to the ${(bk.service || "property videography").toLowerCase()} shoot with ${agent || "the agent"}${where ? ` at ${where}` : ""}. You are receiving it because we have been informed you are holding the client's marketing fee.`);
+  } else if (isTeg) {
+    const reasonName = bk.teg_reason === "other" ? (bk.teg_reason_other || "an internal brand arrangement") : (TEG_REASON_LABELS[bk.teg_reason] || "an internal brand arrangement");
+    lines.push("", `This invoice is in relation to ${reasonName.toLowerCase()}${agent ? ` for ${agent}` : ""}. You are receiving it as the settling brand rather than the client.`);
   }
   // When the invoice carries a pay link, say so - telling someone to pay by
   // bank transfer while a card button sits above it just reads as contradictory.
@@ -1118,6 +1124,21 @@ const FC_OFFICE_LABELS = {
   fc_midlands: "Fine & Country Midlands",
   fc_stratford: "Fine & Country Stratford",
 };
+
+// Mirrors TEG_REASONS in src/lib/videography-config.js. Same duplication, same
+// reason - keep the two in step.
+const TEG_REASON_LABELS = {
+  induction: "New Starter Induction Shoot - Pro / Academy",
+  event: "Brand Event Coverage",
+  marketing: "Brand Marketing Content",
+};
+
+// Mirrors the "faux-twilight" addOn and EXTRA_IMAGES_BUNDLE in
+// src/lib/videography-config.js. Same duplication, same reason. Prices are
+// re-derived from THESE constants at request time - the public edit-request
+// page never gets to say what anything costs.
+const FAUX_TWILIGHT_PRICE_PENCE = 2500;
+const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2000 };
 
 // ---- Invoice pay links ---------------------------------------------------
 //
@@ -2715,6 +2736,16 @@ export default {
                 await sendGalleryPinEmail(env, iv.booking_id);
               }
             } catch (_) { /* the invoice is paid either way; don't fail the webhook */ }
+            return json({ received: true }, 200, request, env);
+          }
+
+          const editRequestId = s && s.metadata && s.metadata.edit_request_id;
+          if (editRequestId) {
+            // status=neq.paid keeps this idempotent across Stripe's retries.
+            await sbPatch(env, "videography_edit_requests", `id=eq.${encodeURIComponent(editRequestId)}&status=neq.paid`, {
+              status: "paid", paid_at: new Date().toISOString(), stripe_session_id: s.id || null,
+            });
+            await notifyEditRequest(env, editRequestId);
             return json({ received: true }, 200, request, env);
           }
 
@@ -5242,10 +5273,10 @@ export default {
         let bk = null;
         if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
           const brows = await sbGet(env, "videography_bookings",
-            `id=eq.${encodeURIComponent(inv.booking_id)}&select=client_name,service,payment_route,property_address,location`);
+            `id=eq.${encodeURIComponent(inv.booking_id)}&select=client_name,service,payment_route,property_address,location,teg_reason,teg_reason_other`);
           bk = (brows && brows[0]) || null;
         }
-        const forBrand = bk && bk.payment_route === "brand_invoice";
+        const forBrand = bk && (bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg");
         const agentName = (bk && bk.client_name) || "";
 
         let pdf;
@@ -6128,10 +6159,10 @@ async function runInvoicePrompt(env) {
 
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const rowsHtml = needing.map((bk) => {
-    const brand = bk.payment_route === "brand_invoice";
-    // A brand invoice cannot go out until the office has confirmed the fee, so
-    // say so here rather than letting someone hit the block and wonder why.
-    const blocked = brand && !bk.brand_fee_confirmed;
+    const brand = bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg";
+    // Only an F&C invoice needs the office to confirm the fee first - TEG has
+    // no such step, so this must never fire for it.
+    const blocked = bk.payment_route === "brand_invoice" && !bk.brand_fee_confirmed;
     const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
     return `<tr>
       <td style="padding:7px 12px 7px 0;font-size:12px">${esc(bk.client_name || "-")}</td>
@@ -6490,6 +6521,84 @@ async function runVideographyChasers(env) {
   }
 }
 
+// Mints the edit-request page's capability token the first time it's needed
+// (i.e. the first time a paid-path gallery email goes out), so the link
+// always has something to point at. A plain random id, not HMAC - same style
+// as videography_deliveries.token, and it never expires.
+async function ensureEditsToken(env, bk) {
+  if (bk.edits_token) return bk.edits_token;
+  const token = crypto.randomUUID().replace(/-/g, "");
+  await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}&edits_token=is.null`, { edits_token: token });
+  bk.edits_token = token;
+  return token;
+}
+
+// A short "want anything else?" paragraph, added only into the two paid-path
+// gallery emails - never the not-yet-paid one, which keeps its wording as-is
+// until that flow is revisited on purpose.
+function editRequestPromptHtml(env, token) {
+  const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  return `<p style="${EM_SMALL}">Want anything changed, or fancy a twilight shot or a few extra images? <a href="${siteUrl}/edits?token=${encodeURIComponent(token)}">Let us know here</a>.</p>`;
+}
+
+// Emails Jack when a client submits an edit request - a free-text-only one
+// straight away, a paid one once the Stripe webhook confirms it. Idempotent
+// via notified_at, so a Stripe retry (or a resend) can never double-send.
+async function notifyEditRequest(env, requestId) {
+  const rows = await sbGet(env, "videography_edit_requests", `id=eq.${encodeURIComponent(requestId)}&select=*`);
+  const req = rows && rows[0];
+  if (!req) return { ok: false, reason: "no request" };
+  if (req.notified_at) return { ok: false, reason: "already notified" };
+
+  const brows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(req.booking_id)}&select=*`);
+  const bk = brows && brows[0];
+  if (!bk) return { ok: false, reason: "no booking" };
+
+  const team = [...new Set([env.JACK_NOTIFY || env.JACK_UPN]
+    .flatMap((v) => String(v || "").split(","))
+    .map((v) => v.trim()).filter(Boolean))];
+  if (!team.length) return { ok: false, reason: "no recipient configured" };
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  const bookingLink = `${siteUrl}/admin/videography?booking=${encodeURIComponent(bk.id)}`;
+
+  const twilightRows = Array.isArray(req.twilight_items) ? req.twilight_items : [];
+  const twilightTotal = twilightRows.reduce((s, it) => s + (it.price_pence || 0), 0);
+  const paidExtras = twilightRows.length > 0 || !!req.extra_images_qty;
+
+  const parts = [];
+  parts.push(`<p style="${EM_P}"><strong>${esc(bk.client_name || "A client")}</strong> has asked for edits on their ${esc((bk.service || "shoot").toLowerCase())}.</p>`);
+  if (req.notes) parts.push(`<p style="${EM_P}"><strong>What they asked for:</strong><br>${esc(req.notes).replace(/\n/g, "<br>")}</p>`);
+  if (twilightRows.length) {
+    parts.push(`<p style="${EM_P}"><strong>Twilight requested</strong> — ${twilightRows.length} image${twilightRows.length === 1 ? "" : "s"}, paid (${esc(gbpW(twilightTotal))}):</p>
+      <ul style="${EM_P}">${twilightRows.map((it) => `<li>${esc(it.filename || "unnamed")}</li>`).join("")}</ul>`);
+  }
+  if (req.extra_images_qty) {
+    parts.push(`<p style="${EM_P}"><strong>Extra images bought</strong> — ${req.extra_images_qty} more, paid (${esc(gbpW(req.extra_images_price_pence || 0))}). Increase their download cap on the booking.</p>`);
+  }
+  parts.push(`<p style="${EM_P}"><a href="${esc(bookingLink)}" style="${EM_BTN}">Open their booking</a></p>`);
+
+  const sent = await sendEmail(env, {
+    to: team,
+    subject: `Edit request — ${bk.client_name || "a client"}`,
+    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">${parts.join("")}</div>`),
+  });
+  if (!sent.ok) return { ok: false, reason: sent.error || "send failed" };
+
+  await sbPatch(env, "videography_edit_requests", `id=eq.${encodeURIComponent(requestId)}&notified_at=is.null`, {
+    status: "notified", notified_at: new Date().toISOString(),
+  });
+  await logBookingMessage(env, {
+    booking_id: bk.id, booking_source: "videography",
+    channel: "note", kind: "edit_request",
+    subject: `Edit request${paidExtras ? " (paid add-on)" : ""}`,
+    body: req.notes || "(no notes - paid add-on only)",
+    is_automated: true, created_by: "system",
+  });
+  return { ok: true };
+}
+
 // The second email: they were sent their gallery before paying, so they have
 // the links but not the PIN. This is what closes that loop when the money
 // lands - without it, someone who pays after delivery waits for a human to
@@ -6511,6 +6620,7 @@ async function sendGalleryPinEmail(env, bookingId) {
 
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  const editsToken = await ensureEditsToken(env, bk);
   const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
     <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
     <p style="${EM_P}">Thank you for your payment. Your gallery is now unlocked and your content is ready to download!</p>
@@ -6519,6 +6629,7 @@ async function sendGalleryPinEmail(env, bookingId) {
     ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
     <p style="${EM_P}">Your gallery will remain available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
     <p style="${EM_P}">You can also find this shoot, your gallery and all of your booking details anytime under Previous Bookings in the <a href="${esc(siteUrl)}/account/bookings">TMKE Studio</a>.</p>
+    ${editRequestPromptHtml(env, editsToken)}
     <p style="${EM_P}">We hope you love your content!</p>
     <p style="${EM_P}">The TMKE Team</p>
   </div>`);
@@ -6668,12 +6779,17 @@ async function sendGalleryPinEmail(env, bookingId) {
         // says cannot drift apart.
         const amends = `<p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>`;
 
+        // Only on the already-paid send: the not-yet-paid wording is left
+        // alone for now, on purpose, until that flow is revisited.
+        const editsPrompt = paid ? editRequestPromptHtml(env, await ensureEditsToken(env, bk)) : "";
+
         const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
           <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
           <p style="${EM_P}">Your ${esc((bk.service || "shoot").toLowerCase())} is ready to view.</p>
           ${links}
           ${unlock}
           ${amends}
+          ${editsPrompt}
           <p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>
         </div>`);
 
@@ -6694,6 +6810,115 @@ async function sendGalleryPinEmail(env, bookingId) {
           is_automated: false, created_by: user.email || "admin",
         });
         return json({ ok: true, sent_to: to, included_pin: paid }, 200, request, env);
+      }
+
+      // ---- Public: the edit-request page (no login) --------------------------
+      // Reached from a link in the paid-path gallery emails. Token-gated, same
+      // style as the /deliver gallery - the credential IS the (unguessable)
+      // token, checked against edits_token, no session needed.
+      //
+      // Which upsell (if any) the page offers is decided HERE from the
+      // booking's service, not trusted from the client - property shoots get
+      // faux twilight, agent/induction shoots get the extra-images bundle,
+      // everything else (Content Studio) gets the free-text box only.
+      function editRequestUpsellKind(bk) {
+        const hay = `${bk.service_type || ""} ${bk.service || ""}`.toLowerCase();
+        if (/property/.test(hay)) return "twilight";
+        if (/agent/.test(hay)) return "extra_images";
+        return null;
+      }
+
+      if (path.endsWith("/videography/edit-request/context") && request.method === "GET") {
+        const token = (url.searchParams.get("token") || "").trim();
+        if (!token) return json({ error: "Missing token" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings",
+          `edits_token=eq.${encodeURIComponent(token)}&select=id,client_name,service,service_type,paid_at`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "That link isn't valid." }, 404, request, env);
+        // The rule, same as the PIN: read from the database, not from anything
+        // the page itself could claim.
+        if (!bk.paid_at) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
+        return json({
+          ok: true,
+          client_name: bk.client_name || "",
+          upsell: editRequestUpsellKind(bk),
+          twilight_price_pence: FAUX_TWILIGHT_PRICE_PENCE,
+          extra_images: EXTRA_IMAGES_BUNDLE,
+        }, 200, request, env);
+      }
+
+      if (path.endsWith("/videography/edit-request") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const token = String((b && b.token) || "").trim();
+        if (!token) return json({ error: "Missing token" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings", `edits_token=eq.${encodeURIComponent(token)}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "That link isn't valid." }, 404, request, env);
+        if (!bk.paid_at) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
+
+        const notes = String((b && b.notes) || "").trim().slice(0, 4000);
+        const upsell = editRequestUpsellKind(bk);
+
+        // Filenames and a yes/no are all the client gets to say - the price is
+        // always ours, re-derived from the constants above.
+        let twilightItems = [];
+        if (upsell === "twilight" && Array.isArray(b.twilight_filenames)) {
+          twilightItems = b.twilight_filenames
+            .map((f) => String(f || "").trim()).filter(Boolean).slice(0, 100)
+            .map((filename) => ({ filename, price_pence: FAUX_TWILIGHT_PRICE_PENCE }));
+        }
+        const wantsExtraImages = upsell === "extra_images" && !!b.extra_images;
+        const extraQty = wantsExtraImages ? EXTRA_IMAGES_BUNDLE.qty : null;
+        const extraPrice = wantsExtraImages ? EXTRA_IMAGES_BUNDLE.price_pence : null;
+
+        if (!notes && !twilightItems.length && !wantsExtraImages) {
+          return json({ error: "Add a note, or choose something to buy, before sending." }, 400, request, env);
+        }
+
+        const totalPence = twilightItems.reduce((s, it) => s + it.price_pence, 0) + (extraPrice || 0);
+
+        const ins = await sbPost(env, "videography_edit_requests", {
+          booking_id: bk.id, notes: notes || null,
+          twilight_items: twilightItems, extra_images_qty: extraQty, extra_images_price_pence: extraPrice,
+        }, "return=representation");
+        const created = await ins.json().catch(() => null);
+        const reqRow = Array.isArray(created) ? created[0] : created;
+        if (!reqRow || !reqRow.id) return json({ error: "Couldn't save your request. Please try again." }, 500, request, env);
+
+        // Free-text only, nothing to pay - tell Jack straight away rather than
+        // waiting on a payment that was never coming.
+        if (totalPence <= 0) {
+          await notifyEditRequest(env, reqRow.id);
+          return json({ ok: true }, 200, request, env);
+        }
+
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Card payment isn't available yet - please reply to one of our emails and we'll sort it out." }, 503, request, env);
+
+        const origin = request.headers.get("Origin") || "";
+        const allowed = String(env.ALLOWED_ORIGINS || "").split(",").map((s) => s.trim());
+        const base = allowed.includes(origin) ? origin : (env.SITE_URL || "https://tmke.co.uk");
+        const productName = twilightItems.length
+          ? `Faux twilight - ${twilightItems.length} image${twilightItems.length === 1 ? "" : "s"}`
+          : `${EXTRA_IMAGES_BUNDLE.qty} extra images`;
+
+        try {
+          const session = await stripeApi(env, "checkout/sessions", {
+            mode: "payment",
+            "payment_method_types[0]": "card",
+            success_url: `${base}/edits?token=${encodeURIComponent(token)}&paid=1`,
+            cancel_url: `${base}/edits?token=${encodeURIComponent(token)}`,
+            "metadata[edit_request_id]": reqRow.id,
+            "metadata[upsell_type]": twilightItems.length ? "twilight" : "extra_images",
+            "line_items[0][quantity]": 1,
+            "line_items[0][price_data][currency]": "gbp",
+            "line_items[0][price_data][unit_amount]": totalPence,
+            "line_items[0][price_data][product_data][name]": productName,
+          });
+          await sbPatch(env, "videography_edit_requests", `id=eq.${encodeURIComponent(reqRow.id)}`, { stripe_session_id: session.id });
+          return json({ ok: true, checkout_url: session.url }, 200, request, env);
+        } catch (e) {
+          return json({ error: "Couldn't reach the payment provider. Please try again." }, 502, request, env);
+        }
       }
 
       // A member's own PIN. Sits behind three checks, because this is the one

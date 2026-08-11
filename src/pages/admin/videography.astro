@@ -303,7 +303,8 @@ import "../../styles/admin.css";
           <label>Route</label>
           <select data-f="payment_route" id="vid-route">
             <option value="agent_card">Customer pays by card</option>
-            <option value="brand_invoice">Invoice the brand (internal)</option>
+            <option value="brand_invoice">Invoice the brand (F&amp;C)</option>
+            <option value="brand_invoice_teg">Invoice the brand (TEG)</option>
           </select>
         </div>
 
@@ -331,6 +332,33 @@ import "../../styles/admin.css";
           </label>
           <p class="vid-hint" id="vid-fee-meta"></p>
           <p class="vid-warn" id="vid-fee-warn" hidden></p>
+        </div>
+
+        <!-- Only for TEG-invoiced jobs. No fee to confirm and nothing blocks
+             raising the invoice — just who, and why, so it's billed and
+             worded correctly. -->
+        <div id="vid-teg-block" hidden>
+          <div class="vid-field-row">
+            <div class="vid-field">
+              <label>Brand</label>
+              <select data-f="teg_brand" id="vid-teg-brand"><option value="">— Select —</option></select>
+            </div>
+            <div class="vid-field" id="vid-teg-brand-other-wrap" hidden>
+              <label>Which brand?</label>
+              <input type="text" data-f="teg_brand_other" id="vid-teg-brand-other" placeholder="Name it for accounts" />
+            </div>
+          </div>
+          <div class="vid-field-row">
+            <div class="vid-field">
+              <label>Reason</label>
+              <select data-f="teg_reason" id="vid-teg-reason"><option value="">— Select —</option></select>
+            </div>
+            <div class="vid-field" id="vid-teg-reason-other-wrap" hidden>
+              <label>What's the reason?</label>
+              <input type="text" data-f="teg_reason_other" id="vid-teg-reason-other" placeholder="For the invoice notes" />
+            </div>
+          </div>
+          <p class="vid-hint">Goes to Paula at Newman for every TEG brand — the invoice is billed to the brand name, not to Paula.</p>
         </div>
 
         <div id="vid-card-block">
@@ -1117,7 +1145,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1562,6 +1590,7 @@ import "../../styles/admin.css";
         </div>
         <div class="vid-cand-card" id="vid-cand-delivery" hidden></div>
         <div class="vid-cand-card" id="vid-cand-invoice"></div>
+        <div class="vid-cand-card" id="vid-cand-edits" hidden></div>
         <div class="vid-cand-card" id="vid-cand-notes"></div>
         <div class="vid-cand-card" id="vid-cand-docs"></div>
         <div class="vid-cand-card" id="vid-cand-thread"></div>`;
@@ -1620,6 +1649,7 @@ import "../../styles/admin.css";
       if (slot) { slot.innerHTML = ""; slot.hidden = !stageAction(b.stage); }
       renderDeliveryCard(b);
       renderInvoiceCard(b);
+      renderEditsCard(b);
       loadThread(b);
     }
 
@@ -1627,6 +1657,10 @@ import "../../styles/admin.css";
        the office named at booking has to be confirmed as actually holding the
        seller's marketing fee. Everyone else never sees this. */
     function isBrandInvoiced(b) { return b && b.payment_route === "brand_invoice"; }
+    // TEG invoicing is deliberately kept separate from isBrandInvoiced() rather
+    // than folded in - there is no fee to confirm with anyone, so the F&C gate
+    // below must never fire for a TEG booking.
+    function isTegInvoiced(b) { return b && b.payment_route === "brand_invoice_teg"; }
 
     function renderBrandGate(b) {
       if (!isBrandInvoiced(b) || b.stage !== "booked") return "";
@@ -2180,9 +2214,10 @@ import "../../styles/admin.css";
       const items = [];
       const base = (b.total_pence != null ? b.total_pence : b.amount_pence) || 0;
       const surcharge = b.surcharge_pence || 0;
-      // A brand invoice is billed to the office, not the agent, so the line has
-      // to say who the shoot was actually for or the office cannot place it.
-      const forWhom = isBrandInvoiced(b) && b.client_name ? ` — ${b.client_name}` : "";
+      // A brand invoice is billed to the office (or, for TEG, to the brand),
+      // not the agent, so the line has to say who the shoot was actually for
+      // or the recipient cannot place it.
+      const forWhom = (isBrandInvoiced(b) || isTegInvoiced(b)) && b.client_name ? ` — ${b.client_name}` : "";
       const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ") + forWhom;
       items.push({ description: label, amount: base > surcharge ? ((base - surcharge) / 100).toFixed(2) : (base / 100).toFixed(2) });
       if (surcharge) items.push({ description: `Travel — ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, amount: (surcharge / 100).toFixed(2) });
@@ -2214,6 +2249,42 @@ import "../../styles/admin.css";
       };
     }
 
+    /* What a client has asked for via the public edit-request page - notes,
+       any twilight images, any extra-images purchase. Read straight from
+       Supabase like the rest of the admin centre; the public page never
+       touches this table directly, only the Worker does. Hidden entirely
+       when nothing has been requested, same as the delivery card. */
+    async function renderEditsCard(b) {
+      const host = document.getElementById("vid-cand-edits");
+      if (!host) return;
+      const { data, error } = await supabase
+        .from("videography_edit_requests")
+        .select("*")
+        .eq("booking_id", b.id)
+        .order("created_at", { ascending: false });
+      const requests = error ? [] : (data || []);
+      if (!requests.length) { host.hidden = true; host.innerHTML = ""; return; }
+      host.hidden = false;
+
+      const statusLabel = (r) => {
+        if (r.status === "notified") return "Sent to Jack";
+        if (r.status === "paid") return "Paid — notifying Jack";
+        return "Pending";
+      };
+      const rowsHtml = requests.map((r) => {
+        const twilight = Array.isArray(r.twilight_items) ? r.twilight_items : [];
+        const when = new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+        return `<div class="vid-gate" style="margin-bottom:12px">
+          <div class="vid-gate-h">${escapeHtml(when)} — ${escapeHtml(statusLabel(r))}</div>
+          ${r.notes ? `<p class="vid-hint" style="white-space:pre-wrap">${escapeHtml(r.notes)}</p>` : ""}
+          ${twilight.length ? `<p class="vid-hint"><strong>Twilight</strong> — ${twilight.length} image${twilight.length === 1 ? "" : "s"}: ${twilight.map((it) => escapeHtml(it.filename || "")).join(", ")}</p>` : ""}
+          ${r.extra_images_qty ? `<p class="vid-hint"><strong>Extra images</strong> — ${r.extra_images_qty} bought (${gbpFromPence(r.extra_images_price_pence || 0)}). Bump their download cap above once you've actioned it.</p>` : ""}
+        </div>`;
+      }).join("");
+
+      host.innerHTML = `<h4>Edit requests</h4>${rowsHtml}`;
+    }
+
     async function renderInvoiceCard(b) {
       const host = actionHost(b, "vid-cand-invoice");
       if (!host) return;
@@ -2241,34 +2312,53 @@ import "../../styles/admin.css";
       const today = new Date().toISOString().slice(0, 10);
       const due = new Date(); due.setDate(due.getDate() + 10);
       const brand = isBrandInvoiced(b);
-      // The client pays by card; a brand settling out of a marketing fee pays
-      // its own way. Offering a card button to an accounts office is noise, and
-      // leaving it off for a client is a slower payment - so it follows the
-      // route rather than defaulting the same for both.
-      vivPayByCard = !brand;
-      // Billed to the office that holds the marketing fee, not to the agent.
+      const teg = isTegInvoiced(b);
+      // The client pays by card; a brand settling out of a marketing fee (or a
+      // TEG brand settling from its own budget) pays its own way. Offering a
+      // card button to an accounts office is noise, and leaving it off for a
+      // client is a slower payment - so it follows the route rather than
+      // defaulting the same for both.
+      vivPayByCard = !brand && !teg;
+      // Billed to the office that holds the marketing fee, not to the agent -
+      // or, for TEG, to the specific brand rather than to Paula who reads it.
       const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
-      const billTo = brand ? (officeName || b.client_company || b.client_name || "") : (b.client_company || b.client_name || "");
+      const tegBrandName = b.teg_brand === "other" ? (b.teg_brand_other || "") : tegBrandLabel(b.teg_brand);
+      const billTo = brand ? (officeName || b.client_company || b.client_name || "")
+        : teg ? (tegBrandName || b.client_company || b.client_name || "")
+        : (b.client_company || b.client_name || "");
+      const billAddress = teg ? tegBrandAddress(b.teg_brand) : "";
       const shootDate = b.shoot_date
         ? new Date(b.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
         : "";
-      // The office needs to know which job this is: whose shoot, which property,
-      // which day. Editable - this is a starting point, not a fixed string.
+      // The office/brand needs to know which job this is: whose shoot, which
+      // property, which day. Editable - this is a starting point, not a fixed
+      // string. TEG's wording varies by reason rather than by property, since
+      // most TEG shoots (inductions especially) aren't property jobs.
+      const tegReasonName = b.teg_reason === "other" ? (b.teg_reason_other || "the reason given") : tegReasonLabel(b.teg_reason);
+      const tegNotesByReason = {
+        induction: `Invoice raised for ${b.client_name || "the new starter"}'s induction shoot, as part of the induction package.`,
+        event: `Invoice raised for brand event coverage${b.client_name ? ` — ${b.client_name}` : ""}${shootDate ? `, ${shootDate}` : ""}.`,
+        marketing: `Invoice raised for brand marketing content${b.client_name ? ` — ${b.client_name}` : ""}.`,
+      };
       const defaultNotes = brand
         ? [`Invoice raised for ${b.client_name || "the agent"}.`,
            b.property_address || b.location || "",
            shootDate ? `Shoot date: ${shootDate}` : ""].filter(Boolean).join("\n")
+        : teg
+        ? (tegNotesByReason[b.teg_reason] || `Invoice raised for ${tegReasonName}${b.client_name ? ` — ${b.client_name}` : ""}.`)
         : "Thank you for your business - TMKE";
 
       host.innerHTML = `
         <h4>Invoice</h4>
         <p class="vid-hint" style="margin-bottom:14px">
-          ${brand ? "Billed to the brand out of the seller's marketing fee." : "Billed to the client."}
+          ${brand ? "Billed to the brand out of the seller's marketing fee."
+            : teg ? `Billed to ${tegBrandName || "the brand"} — not to the client.`
+            : "Billed to the client."}
           Ten days to pay, and the content terms are included automatically.
         </p>
         <div class="vid-inv-row">
           <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(billTo)}" /></label>
-          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(brand ? "" : (b.client_email || ""))}" placeholder="${brand ? "The office's accounts address" : ""}" /></label>
+          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(brand ? "" : teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || ""))}" placeholder="${brand ? "The office's accounts address" : ""}" /></label>
         </div>
         <label class="vid-field"><span>CC</span><input id="viv-cc" value="${escapeHtml((invSettings && invSettings.accounts_cc_email) || "hello@tmke.co.uk")}" placeholder="Comma-separated" /></label>
         <div class="vid-inv-row">
@@ -2276,12 +2366,14 @@ import "../../styles/admin.css";
           <label class="vid-field"><span>Due</span><input id="viv-due" type="date" value="${due.toISOString().slice(0, 10)}" /></label>
           <label class="vid-field"><span>Terms (days)</span><input id="viv-terms" type="number" min="0" value="10" /></label>
         </div>
-        <label class="vid-field"><span>Billing address</span><textarea id="viv-address" rows="2" placeholder="Optional"></textarea></label>
+        <label class="vid-field"><span>Billing address</span><textarea id="viv-address" rows="2" placeholder="Optional">${escapeHtml(billAddress)}</textarea></label>
         <div class="vid-field"><span>Card payment</span>
           <div class="vid-inv-toggle" id="viv-pay">
             <button type="button" data-pay="no">Off</button><button type="button" data-pay="yes">On</button>
           </div>
           <p class="vid-hint">${brand
+            ? "Off by default — the brand is settling this, not the client. Turn it on if they'd rather pay by card."
+            : teg
             ? "Off by default — the brand is settling this, not the client. Turn it on if they'd rather pay by card."
             : "On by default — the client is paying, so the invoice carries a Pay by card button and payment marks the shoot paid on its own."}</p>
         </div>
@@ -2952,6 +3044,14 @@ import "../../styles/admin.css";
       if (office && office.options.length <= 1) {
         FC_OFFICES.forEach((o) => office.add(new Option(o.label, o.key)));
       }
+      const tegBrand = document.getElementById("vid-teg-brand");
+      if (tegBrand && tegBrand.options.length <= 1) {
+        TEG_BRANDS.forEach((o) => tegBrand.add(new Option(o.label, o.key)));
+      }
+      const tegReason = document.getElementById("vid-teg-reason");
+      if (tegReason && tegReason.options.length <= 1) {
+        TEG_REASONS.forEach((o) => tegReason.add(new Option(o.label, o.key)));
+      }
       set("payment_route", b?.payment_route || "agent_card");
       set("fc_office", b?.fc_office);
       // "Not asked" is right for a booking added by hand - nobody put the
@@ -2965,6 +3065,14 @@ import "../../styles/admin.css";
           ? `Confirmed ${new Date(b.brand_fee_confirmed_at).toLocaleDateString("en-GB")}${b.brand_fee_confirmed_by ? " by " + b.brand_fee_confirmed_by : ""}.`
           : "";
       }
+      set("teg_brand", b?.teg_brand);
+      set("teg_brand_other", b?.teg_brand_other);
+      set("teg_reason", b?.teg_reason);
+      set("teg_reason_other", b?.teg_reason_other);
+      const tegBrandOtherWrap = document.getElementById("vid-teg-brand-other-wrap");
+      if (tegBrandOtherWrap) tegBrandOtherWrap.hidden = (b?.teg_brand || "") !== "other";
+      const tegReasonOtherWrap = document.getElementById("vid-teg-reason-other-wrap");
+      if (tegReasonOtherWrap) tegReasonOtherWrap.hidden = (b?.teg_reason || "") !== "other";
       const paid = document.getElementById("vid-paid");
       if (paid) paid.checked = !!b?.paid_at;
       const payStatus = document.getElementById("vid-pay-status");
@@ -3057,10 +3165,13 @@ import "../../styles/admin.css";
     function syncPaymentRoute() {
       const route = document.querySelector('[data-f="payment_route"]')?.value || "agent_card";
       const brand = route === "brand_invoice";
+      const teg = route === "brand_invoice_teg";
       const bBlock = document.getElementById("vid-brand-block");
+      const tBlock = document.getElementById("vid-teg-block");
       const cBlock = document.getElementById("vid-card-block");
       if (bBlock) bBlock.hidden = !brand;
-      if (cBlock) cBlock.hidden = brand;
+      if (tBlock) tBlock.hidden = !teg;
+      if (cBlock) cBlock.hidden = brand || teg;
       const warn = document.getElementById("vid-fee-warn");
       if (warn) {
         const office = document.querySelector('[data-f="fc_office"]')?.value;
@@ -3073,6 +3184,10 @@ import "../../styles/admin.css";
             : "Not yet confirmed with Fine & Country. Invoicing against an unverified fee is the thing this check exists to stop.";
         }
       }
+      const brandOtherWrap = document.getElementById("vid-teg-brand-other-wrap");
+      if (brandOtherWrap) brandOtherWrap.hidden = document.querySelector('[data-f="teg_brand"]')?.value !== "other";
+      const reasonOtherWrap = document.getElementById("vid-teg-reason-other-wrap");
+      if (reasonOtherWrap) reasonOtherWrap.hidden = document.querySelector('[data-f="teg_reason"]')?.value !== "other";
     }
 
     async function saveBooking() {
@@ -3103,6 +3218,10 @@ import "../../styles/admin.css";
         brand_fee_confirmed_by: document.getElementById("vid-fee-confirmed")?.checked
           ? (bookings.find((x) => x.id === editingId)?.brand_fee_confirmed_by || adminEmail || null)
           : null,
+        teg_brand: get("teg_brand") || null,
+        teg_brand_other: get("teg_brand") === "other" ? (get("teg_brand_other") || null) : null,
+        teg_reason: get("teg_reason") || null,
+        teg_reason_other: get("teg_reason") === "other" ? (get("teg_reason_other") || null) : null,
         paid_at: document.getElementById("vid-paid")?.checked
           ? (bookings.find((x) => x.id === editingId)?.paid_at || new Date().toISOString())
           : null,
@@ -3849,6 +3968,10 @@ import "../../styles/admin.css";
       } else {
         await autoAdvance();
         renderClients();
+        // A "link back to the booking" in an email (e.g. an edit-request
+        // notification) lands here — jump straight to that candidate.
+        const wantedBooking = new URLSearchParams(location.search).get("booking");
+        if (wantedBooking && bookings.some((b) => b.id === wantedBooking)) openCandidate(wantedBooking);
       }
       const dl = document.getElementById("vid-diary-loading");
       if (dl) dl.remove();
@@ -3866,6 +3989,8 @@ import "../../styles/admin.css";
       document.getElementById("vid-route")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-fc-office")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-fee-confirmed")?.addEventListener("change", syncPaymentRoute);
+      document.getElementById("vid-teg-brand")?.addEventListener("change", syncPaymentRoute);
+      document.getElementById("vid-teg-reason")?.addEventListener("change", syncPaymentRoute);
       document.getElementById("vid-delete")?.addEventListener("click", deleteBooking);
       document.getElementById("vid-cancel")?.addEventListener("click", closeModal);
       document.getElementById("vid-modal-close")?.addEventListener("click", closeModal);
