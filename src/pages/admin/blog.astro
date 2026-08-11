@@ -23,13 +23,6 @@ import "../../styles/admin.css";
         <button type="button" class="enquiry-chip" data-aud="public">Front-end</button>
         <button type="button" class="enquiry-chip" data-aud="members">Exclusive</button>
       </div>
-      <!-- Status tabs. -->
-      <div class="enquiry-chips" role="tablist" aria-label="Status">
-        <button type="button" class="enquiry-chip is-active" data-filter="all">All</button>
-        <button type="button" class="enquiry-chip" data-filter="published">Published</button>
-        <button type="button" class="enquiry-chip" data-filter="draft">Drafts</button>
-        <button type="button" class="enquiry-chip" data-filter="archived">Archived</button>
-      </div>
       <input
         type="search"
         id="blog-search"
@@ -44,8 +37,19 @@ import "../../styles/admin.css";
 
   <section class="blog-list wrap" id="blog-list" aria-busy="true">
     <p class="blog-state" id="blog-loading">Loading articles…</p>
-    <p class="blog-state" id="blog-empty" hidden>No articles match this filter.</p>
-    <div class="blog-table" id="blog-table" role="table"></div>
+    <p class="blog-state" id="blog-empty" hidden>No articles match this search.</p>
+    <div class="ash-card blog-status-card">
+      <div class="ash-card-head"><div class="ash-card-title">Published <span id="blog-count-published"></span></div></div>
+      <div class="ash-card-body blog-table" id="blog-table-published" role="table"></div>
+    </div>
+    <div class="ash-card blog-status-card">
+      <div class="ash-card-head"><div class="ash-card-title">Drafts <span id="blog-count-draft"></span></div></div>
+      <div class="ash-card-body blog-table" id="blog-table-draft" role="table"></div>
+    </div>
+    <div class="ash-card blog-status-card" id="blog-archived-card" hidden>
+      <div class="ash-card-head"><div class="ash-card-title">Archived <span id="blog-count-archived"></span></div></div>
+      <div class="ash-card-body blog-table" id="blog-table-archived" role="table"></div>
+    </div>
   </section>
   </div>
 
@@ -147,9 +151,24 @@ import "../../styles/admin.css";
       color: rgba(28,29,34,0.55);
       padding: 32px 0;
     }
+    .blog-status-card {
+      margin-bottom: 24px;
+    }
+    .blog-status-card:last-child {
+      margin-bottom: 0;
+    }
+    .blog-status-card #blog-count-published,
+    .blog-status-card #blog-count-draft,
+    .blog-status-card #blog-count-archived {
+      color: rgba(28,29,34,0.4);
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+    }
     .blog-table {
       display: flex; flex-direction: column;
       border-top: 1px solid rgba(28,29,34,0.1);
+      margin-top: 14px;
     }
     .blog-row {
       display: grid;
@@ -202,24 +221,6 @@ import "../../styles/admin.css";
       font-weight: 700; letter-spacing: 0.18em;
       text-transform: uppercase;
     }
-    .blog-status-pill::before {
-      content: ""; width: 6px; height: 6px; border-radius: 50%;
-    }
-    .blog-status-published {
-      background: rgba(60, 130, 80, 0.12);
-      color: #2d6a44;
-    }
-    .blog-status-published::before { background: #2d6a44; }
-    .blog-status-draft {
-      background: rgba(var(--violet-rgb), 0.1);
-      color: var(--english-violet);
-    }
-    .blog-status-draft::before { background: var(--english-violet); }
-    .blog-status-archived {
-      background: rgba(28, 29, 34, 0.08);
-      color: rgba(28,29,34,0.55);
-    }
-    .blog-status-archived::before { background: rgba(28,29,34,0.55); }
     .blog-row-actions {
       display: flex; gap: 6px; justify-content: flex-end;
     }
@@ -255,13 +256,22 @@ import "../../styles/admin.css";
     const $list = document.getElementById("blog-list");
     const $loading = document.getElementById("blog-loading");
     const $empty = document.getElementById("blog-empty");
-    const $table = document.getElementById("blog-table");
+    const $tables = {
+      published: document.getElementById("blog-table-published"),
+      draft: document.getElementById("blog-table-draft"),
+      archived: document.getElementById("blog-table-archived"),
+    };
+    const $archivedCard = document.getElementById("blog-archived-card");
+    const $counts = {
+      published: document.getElementById("blog-count-published"),
+      draft: document.getElementById("blog-count-draft"),
+      archived: document.getElementById("blog-count-archived"),
+    };
     const $count = document.getElementById("blog-count");
     const $search = document.getElementById("blog-search");
     const chips = document.querySelectorAll(".enquiry-chip");
 
     let all = [];
-    let activeFilter = "all";
     let activeAud = "all";
     let activeSearch = "";
 
@@ -319,30 +329,8 @@ import "../../styles/admin.css";
       } catch (_) { return "—"; }
     }
 
-    function statusPill(status) {
-      const label = (status || "draft").toLowerCase();
-      const txt = label.charAt(0).toUpperCase() + label.slice(1);
-      return `<span class="blog-status-pill blog-status-${label}">${txt}</span>`;
-    }
-
-    function render() {
-      const q = activeSearch.trim().toLowerCase();
-      const filtered = all.filter((p) => {
-        if (activeFilter !== "all" && p.status !== activeFilter) return false;
-        if (activeAud !== "all" && (p.audience || "public") !== activeAud) return false;
-        if (q) {
-          const hay = [p.title, p.category, p.eyebrow, (p.seo_keywords || []).join(" ")]
-            .map((x) => String(x || "").toLowerCase()).join(" ");
-          if (!hay.includes(q)) return false;
-        }
-        return true;
-      });
-
-      $loading.hidden = true;
-      $empty.hidden = filtered.length > 0;
-      $count.textContent = `${filtered.length} of ${all.length}`;
-
-      $table.innerHTML = filtered.map((p) => `
+    function rowHtml(p) {
+      return `
         <div class="blog-row" data-id="${p.id}" role="row">
           <a href="/admin/blog/editor?id=${p.id}" class="blog-row-thumb-link" aria-label="Edit ${escapeHtml(p.title)}">
             <div class="blog-row-thumb" style="background-image:url(${JSON.stringify(p.hero_image_url || "").replace(/^"|"$/g, '')})"></div>
@@ -353,17 +341,48 @@ import "../../styles/admin.css";
           </div>
           <span class="blog-row-cat">${escapeHtml(p.category || "Insights")}</span>
           <span class="blog-row-date">${fmtDate(p.publish_date || p.updated_at)}</span>
-          <span class="blog-row-status">${statusPill(p.status)}${audiencePill(p.audience)}</span>
+          <span class="blog-row-status">${audiencePill(p.audience)}</span>
           <div class="blog-row-actions">
             <a href="/admin/blog/editor?id=${p.id}" class="blog-row-action">Edit</a>
             <button type="button" class="blog-row-action" data-duplicate="${p.id}">Duplicate</button>
             <button type="button" class="blog-row-action danger" data-delete="${p.id}">Delete</button>
           </div>
         </div>
-      `).join("");
+      `;
+    }
 
-      // Wire delete handlers
-      $table.querySelectorAll("[data-delete]").forEach((btn) => {
+    // Published/Drafts/Archived as three separate cards (was one list with a
+    // status filter) — split by status directly rather than filtered, so
+    // status itself no longer needs its own chip or badge on the row.
+    function render() {
+      const q = activeSearch.trim().toLowerCase();
+      const visible = all.filter((p) => {
+        if (activeAud !== "all" && (p.audience || "public") !== activeAud) return false;
+        if (q) {
+          const hay = [p.title, p.category, p.eyebrow, (p.seo_keywords || []).join(" ")]
+            .map((x) => String(x || "").toLowerCase()).join(" ");
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      $loading.hidden = true;
+      $empty.hidden = visible.length > 0;
+      $count.textContent = `${visible.length} of ${all.length}`;
+
+      const groups = { published: [], draft: [], archived: [] };
+      for (const p of visible) (groups[p.status] || groups.draft).push(p);
+
+      $archivedCard.hidden = groups.archived.length === 0;
+      for (const status of ["published", "draft", "archived"]) {
+        $counts[status].textContent = `(${groups[status].length})`;
+        $tables[status].innerHTML = groups[status].length
+          ? groups[status].map(rowHtml).join("")
+          : `<p class="blog-state">None${q || activeAud !== "all" ? " match this search." : " yet."}</p>`;
+      }
+
+      // Wire delete handlers (across all three cards)
+      $list.querySelectorAll("[data-delete]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-delete");
           const row = all.find((p) => p.id === id);
@@ -387,7 +406,7 @@ import "../../styles/admin.css";
       });
 
       // Wire duplicate handlers — clone a post as a fresh draft.
-      $table.querySelectorAll("[data-duplicate]").forEach((btn) => {
+      $list.querySelectorAll("[data-duplicate]").forEach((btn) => {
         btn.addEventListener("click", async () => {
           const id = btn.getAttribute("data-duplicate");
           const src = all.find((p) => p.id === id);
@@ -431,7 +450,6 @@ import "../../styles/admin.css";
         render();
       }));
     }
-    wireChips("[data-filter]", (c) => { activeFilter = c.getAttribute("data-filter"); });
     wireChips("[data-aud]", (c) => { activeAud = c.getAttribute("data-aud"); });
     $search.addEventListener("input", () => {
       activeSearch = $search.value || "";
