@@ -3423,6 +3423,12 @@ export default {
             client_name: name, client_email: em, client_phone: phone || null,
             shoot_date: `${date}T${start}:00`, stage: "booked", notes: notes || null,
             promo_code: code || null, discount_pence: 0, bill_to: "TPE", total_pence: 35400,
+            // Every new-starter Studio Day is paid for out of The Property
+            // Experts' induction package, not by the starter themselves - so
+            // this books straight into the TEG invoicing route rather than
+            // defaulting to card payment. bill_to is kept alongside for
+            // continuity, but this is what actually drives the invoice now.
+            payment_route: "brand_invoice_teg", teg_brand: "property_experts", teg_reason: "induction",
             account_user_id: accountUserId, reschedule_token: rescheduleToken,
             ms_event_id: ev.id || null, duration_min: dur, marketing_opt_in: false,
           }, "return=representation");

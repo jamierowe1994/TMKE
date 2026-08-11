@@ -343,10 +343,6 @@ import "../../styles/admin.css";
               <label>Brand</label>
               <select data-f="teg_brand" id="vid-teg-brand"><option value="">— Select —</option></select>
             </div>
-            <div class="vid-field" id="vid-teg-brand-other-wrap" hidden>
-              <label>Which brand?</label>
-              <input type="text" data-f="teg_brand_other" id="vid-teg-brand-other" placeholder="Name it for accounts" />
-            </div>
           </div>
           <div class="vid-field-row">
             <div class="vid-field">
@@ -358,7 +354,7 @@ import "../../styles/admin.css";
               <input type="text" data-f="teg_reason_other" id="vid-teg-reason-other" placeholder="For the invoice notes" />
             </div>
           </div>
-          <p class="vid-hint">Goes to Paula at Newman for every TEG brand — the invoice is billed to the brand name, not to Paula.</p>
+          <p class="vid-hint">Goes to Paula at Newman for every TEG brand — billed to the brand name selected above, not to Paula.</p>
         </div>
 
         <div id="vid-card-block">
@@ -1102,6 +1098,16 @@ import "../../styles/admin.css";
     .vid-form { padding: 24px 28px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 14px; }
     .vid-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .vid-field { display: flex; flex-direction: column; gap: 5px; }
+    /* .vid-field sets its own `display`, which otherwise wins over the
+       browser's default [hidden] rule at equal specificity - so a hidden
+       .vid-field would still render. Toggling a field's own visibility (the
+       TEG "other" box, and anything else that does this later) needs this. */
+    .vid-field[hidden] { display: none; }
+    /* Two stacked .vid-field-row blocks (e.g. the TEG brand/reason panel)
+       otherwise sit flush against each other - .vid-form's own gap only
+       reaches its direct children, not rows nested a level down inside a
+       block like #vid-teg-block. */
+    #vid-teg-block { display: flex; flex-direction: column; gap: 14px; }
     .vid-field label {
       font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em;
       text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.6);
@@ -1581,6 +1587,7 @@ import "../../styles/admin.css";
         </div>
         ${renderTimeline(b)}
         ${renderBrandGate(b)}
+        <div id="vid-cand-edits-gate"></div>
         ${renderCloseGate(b)}
         <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
         <!-- Whatever this stage asks you to do sits here, inside the stage card,
@@ -1590,7 +1597,6 @@ import "../../styles/admin.css";
         </div>
         <div class="vid-cand-card" id="vid-cand-delivery" hidden></div>
         <div class="vid-cand-card" id="vid-cand-invoice"></div>
-        <div class="vid-cand-card" id="vid-cand-edits" hidden></div>
         <div class="vid-cand-card" id="vid-cand-notes"></div>
         <div class="vid-cand-card" id="vid-cand-docs"></div>
         <div class="vid-cand-card" id="vid-cand-thread"></div>`;
@@ -2252,37 +2258,61 @@ import "../../styles/admin.css";
     /* What a client has asked for via the public edit-request page - notes,
        any twilight images, any extra-images purchase. Read straight from
        Supabase like the rest of the admin centre; the public page never
-       touches this table directly, only the Worker does. Hidden entirely
-       when nothing has been requested, same as the delivery card. */
+       touches this table directly, only the Worker does.
+
+       Sits inline in the stage card, directly above "Before this can be
+       delivered" (#vid-cand-edits-gate, set in the template right before
+       renderCloseGate(b)) - so the gate that blocks delivery on edits being
+       settled always has, right above it, the answer to "have we even asked
+       them yet, and what did they say". Nothing renders until the edits link
+       has actually gone out - there's nothing to be "awaiting" before that. */
     async function renderEditsCard(b) {
-      const host = document.getElementById("vid-cand-edits");
+      const host = document.getElementById("vid-cand-edits-gate");
       if (!host) return;
+
+      // The edits link rides on whichever paid-path email actually fired:
+      // gallery_sent_at if already paid when the gallery went out, or
+      // pin_released_at if payment landed after. Never on the not-yet-paid
+      // send, so no date here means nothing's gone out yet.
+      const editsSentAt = b.pin_released_at || (b.paid_at && b.gallery_sent_at ? b.gallery_sent_at : null);
+      if (!editsSentAt) { host.innerHTML = ""; return; }
+
       const { data, error } = await supabase
         .from("videography_edit_requests")
         .select("*")
         .eq("booking_id", b.id)
         .order("created_at", { ascending: false });
       const requests = error ? [] : (data || []);
-      if (!requests.length) { host.hidden = true; host.innerHTML = ""; return; }
-      host.hidden = false;
+
+      if (!requests.length) {
+        const sentNice = new Date(editsSentAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+        host.innerHTML = `<div class="vid-gate">
+          <div class="vid-gate-h">Edit</div>
+          <p class="vid-hint">Awaiting edits from the client. Sent ${escapeHtml(sentNice)}.</p>
+        </div>`;
+        return;
+      }
 
       const statusLabel = (r) => {
         if (r.status === "notified") return "Sent to Jack";
         if (r.status === "paid") return "Paid — notifying Jack";
         return "Pending";
       };
-      const rowsHtml = requests.map((r) => {
+      const rowsHtml = requests.map((r, i) => {
         const twilight = Array.isArray(r.twilight_items) ? r.twilight_items : [];
         const when = new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-        return `<div class="vid-gate" style="margin-bottom:12px">
-          <div class="vid-gate-h">${escapeHtml(when)} — ${escapeHtml(statusLabel(r))}</div>
+        return `<div${i < requests.length - 1 ? ' style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(28,29,34,0.08)"' : ""}>
+          <p class="vid-hint"><strong>${escapeHtml(when)} — ${escapeHtml(statusLabel(r))}</strong></p>
           ${r.notes ? `<p class="vid-hint" style="white-space:pre-wrap">${escapeHtml(r.notes)}</p>` : ""}
           ${twilight.length ? `<p class="vid-hint"><strong>Twilight</strong> — ${twilight.length} image${twilight.length === 1 ? "" : "s"}: ${twilight.map((it) => escapeHtml(it.filename || "")).join(", ")}</p>` : ""}
           ${r.extra_images_qty ? `<p class="vid-hint"><strong>Extra images</strong> — ${r.extra_images_qty} bought (${gbpFromPence(r.extra_images_price_pence || 0)}). Bump their download cap above once you've actioned it.</p>` : ""}
         </div>`;
       }).join("");
 
-      host.innerHTML = `<h4>Edit requests</h4>${rowsHtml}`;
+      host.innerHTML = `<div class="vid-gate is-done">
+        <div class="vid-gate-h">Edit</div>
+        ${rowsHtml}
+      </div>`;
     }
 
     async function renderInvoiceCard(b) {
@@ -2322,7 +2352,7 @@ import "../../styles/admin.css";
       // Billed to the office that holds the marketing fee, not to the agent -
       // or, for TEG, to the specific brand rather than to Paula who reads it.
       const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
-      const tegBrandName = b.teg_brand === "other" ? (b.teg_brand_other || "") : tegBrandLabel(b.teg_brand);
+      const tegBrandName = tegBrandLabel(b.teg_brand);
       const billTo = brand ? (officeName || b.client_company || b.client_name || "")
         : teg ? (tegBrandName || b.client_company || b.client_name || "")
         : (b.client_company || b.client_name || "");
@@ -3066,11 +3096,8 @@ import "../../styles/admin.css";
           : "";
       }
       set("teg_brand", b?.teg_brand);
-      set("teg_brand_other", b?.teg_brand_other);
       set("teg_reason", b?.teg_reason);
       set("teg_reason_other", b?.teg_reason_other);
-      const tegBrandOtherWrap = document.getElementById("vid-teg-brand-other-wrap");
-      if (tegBrandOtherWrap) tegBrandOtherWrap.hidden = (b?.teg_brand || "") !== "other";
       const tegReasonOtherWrap = document.getElementById("vid-teg-reason-other-wrap");
       if (tegReasonOtherWrap) tegReasonOtherWrap.hidden = (b?.teg_reason || "") !== "other";
       const paid = document.getElementById("vid-paid");
@@ -3184,8 +3211,6 @@ import "../../styles/admin.css";
             : "Not yet confirmed with Fine & Country. Invoicing against an unverified fee is the thing this check exists to stop.";
         }
       }
-      const brandOtherWrap = document.getElementById("vid-teg-brand-other-wrap");
-      if (brandOtherWrap) brandOtherWrap.hidden = document.querySelector('[data-f="teg_brand"]')?.value !== "other";
       const reasonOtherWrap = document.getElementById("vid-teg-reason-other-wrap");
       if (reasonOtherWrap) reasonOtherWrap.hidden = document.querySelector('[data-f="teg_reason"]')?.value !== "other";
     }
@@ -3219,7 +3244,6 @@ import "../../styles/admin.css";
           ? (bookings.find((x) => x.id === editingId)?.brand_fee_confirmed_by || adminEmail || null)
           : null,
         teg_brand: get("teg_brand") || null,
-        teg_brand_other: get("teg_brand") === "other" ? (get("teg_brand_other") || null) : null,
         teg_reason: get("teg_reason") || null,
         teg_reason_other: get("teg_reason") === "other" ? (get("teg_reason_other") || null) : null,
         paid_at: document.getElementById("vid-paid")?.checked
