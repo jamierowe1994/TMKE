@@ -80,7 +80,7 @@ import "../../styles/admin.css";
       </table>
       <div class="ct-pager" id="ct-pager" hidden>
         <span class="ct-pager-range" id="ct-pager-range"></span>
-        <div class="ct-pager-nav">
+        <div class="ct-pager-nav" id="ct-pager-nav">
           <button type="button" class="ct-pager-btn" id="ct-prev">Previous</button>
           <span class="ct-pager-pages" id="ct-pager-pages"></span>
           <button type="button" class="ct-pager-btn" id="ct-next">Next</button>
@@ -307,7 +307,9 @@ import "../../styles/admin.css";
     .ct-chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--sans); font-size: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .ct-chip button { border: 0; background: none; cursor: pointer; color: inherit; font-size: 13px; line-height: 1; }
     .ct-row { display: flex; gap: 8px; }
-    .ct-row input, .ct-row select, .ct-drawer textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); flex: 1; }
+    /* min-width:0 or a long option label holds the select at its min-content
+       width and shoves the Add button off the edge of the column. */
+    .ct-row input, .ct-row select, .ct-drawer textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); flex: 1; min-width: 0; }
     .ct-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
     .ct-field > label { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .ct-field input, .ct-field select { font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
@@ -541,7 +543,6 @@ import "../../styles/admin.css";
       if (page > pages) page = pages;
       const from = (page - 1) * size;
       pageRows = perPage ? list.slice(from, from + size) : list;
-      renderPager(list.length, pages, from);
       $("ct-rows").innerHTML = pageRows.map((c) => `
         <tr data-id="${esc(c.id)}">
           <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
@@ -561,6 +562,9 @@ import "../../styles/admin.css";
         syncSelection(pageRows);
       }));
       syncSelection(pageRows);
+      // Last, and on its own: the rows are what the page is for, and a fault in
+      // the pager used to throw before a single one was written.
+      renderPager(list.length, pages, from);
     }
 
     function renderPager(total, pages, from) {
