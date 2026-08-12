@@ -78,6 +78,23 @@ import "../../styles/admin.css";
         </tr></thead>
         <tbody id="ct-rows"></tbody>
       </table>
+      <div class="ct-pager" id="ct-pager" hidden>
+        <span class="ct-pager-range" id="ct-pager-range"></span>
+        <div class="ct-pager-nav">
+          <button type="button" class="ct-pager-btn" id="ct-prev">Previous</button>
+          <span class="ct-pager-pages" id="ct-pager-pages"></span>
+          <button type="button" class="ct-pager-btn" id="ct-next">Next</button>
+        </div>
+        <label class="ct-pager-size">Show
+          <select id="ct-per">
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="0">All</option>
+          </select>
+          per page
+        </label>
+      </div>
     </section>
   </div>
 
@@ -86,7 +103,6 @@ import "../../styles/admin.css";
   <aside class="ct-drawer" id="ct-drawer" hidden aria-label="Contact detail">
     <header class="ct-drawer-head">
       <div class="ct-drawer-ident">
-        <span class="ct-av ct-av-lg" id="ct-d-av">—</span>
         <div>
           <h2 id="ct-d-name">—</h2>
           <p id="ct-d-email" class="ct-d-sub">—</p>
@@ -237,13 +253,17 @@ import "../../styles/admin.css";
     .ct-table tbody tr:last-child td { border-bottom: 0; }
     .ct-table tr:hover td { background: rgba(55,30,40,0.03); }
     .ct-brand-cell { color: rgba(28,29,34,0.75); }
-    /* Initials, not photographs: contacts have no image anywhere in the system,
-       and a colour keyed off the address gives every row the same mark every
-       time without a field that can sit empty. */
-    .ct-notelist { max-height: 300px; overflow-y: auto; }
-    .ct-av { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; }
-    .ct-av-lg { width: 46px; height: 46px; border-radius: 50%; font-size: 16px; }
-    .ct-name-cell { display: flex; align-items: center; gap: 10px; }
+    .ct-pager { display: flex; align-items: center; gap: 16px; margin-top: 14px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); }
+    .ct-pager[hidden] { display: none; }
+    .ct-pager-range { margin-right: auto; }
+    .ct-pager-nav { display: flex; align-items: center; gap: 8px; }
+    .ct-pager-pages { font-weight: 600; color: var(--ink); }
+    .ct-pager-btn { height: 28px; box-sizing: border-box; padding: 0 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--english-violet); cursor: pointer; }
+    .ct-pager-btn:hover:not(:disabled) { border-color: rgba(var(--violet-rgb),0.45); }
+    .ct-pager-btn:disabled { opacity: 0.4; cursor: default; }
+    .ct-pager-size { display: inline-flex; align-items: center; gap: 6px; }
+    .ct-pager-size select { height: 28px; box-sizing: border-box; padding: 0 6px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; font-family: var(--sans); font-size: 12px; color: var(--ink); cursor: pointer; }
+    .ct-notelist { max-height: 340px; overflow-y: auto; }
     .ct-life { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
     .ct-life.customer, .ct-life.member { color: #2c7a4b; background: rgba(44,122,75,0.12); }
     .ct-life.lead { color: var(--english-violet); background: rgba(var(--violet-rgb),0.1); }
@@ -257,7 +277,11 @@ import "../../styles/admin.css";
     /* Floats clear of all four edges rather than sitting flush to the top: at
        440px the header was tucked under the app bar and the content had to be
        read through a letterbox. Half the screen, and the body scrolls inside so
-       the name and the tabs stay put while you read down. */
+       the name and the tabs stay put while you read down.
+       Both this and the scrim are moved to <body> on boot - see the reparent in
+       the script. Left inside .ash-content they are trapped in its stacking
+       context (position:relative, z-index:2), so the frosted top bar composites
+       straight over the top of them however high their own z-index goes. */
     .ct-drawer { position: fixed; top: 20px; right: 20px; bottom: 20px; height: auto; width: min(52vw, 980px); min-width: 460px; max-width: calc(100vw - 40px); background: #fff; z-index: 61; border-radius: 10px; box-shadow: -24px 0 70px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow: hidden; }
     @media (max-width: 900px) { .ct-drawer { top: 12px; right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
     .ct-drawer[hidden] { display: none; }
@@ -271,7 +295,11 @@ import "../../styles/admin.css";
        on the left, what anyone actually writes about them on the right. */
     .ct-twocol { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 22px; align-items: start; }
     @media (max-width: 900px) { .ct-twocol { grid-template-columns: minmax(0, 1fr); } }
-    .ct-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    .ct-col { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+    /* A rule between each block in a column, so Tags / Notes / Activity read as
+       three separate things rather than one long run of text. */
+    .ct-col > .ct-sec + .ct-sec { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .ct-notebox { width: 100%; box-sizing: border-box; min-height: 110px; resize: vertical; }
     .ct-sec h3 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 10px; }
     .ct-meta { font-family: var(--sans); font-size: 13.5px; color: var(--ink); line-height: 1.55; }
     .ct-meta span { color: rgba(28,29,34,0.5); }
@@ -463,6 +491,15 @@ import "../../styles/admin.css";
       } catch (_) {}
     }
 
+    // Paging state. perPage 0 means "All" - kept as a real option because the
+    // export and a bulk select over everything are both easier with the whole
+    // list on screen.
+    let page = 1, perPage = 25, pageRows = [];
+
+    // Any change to what is being filtered has to go back to page one, or you
+    // land on page 4 of a two-page result and see nothing at all.
+    function refilter() { page = 1; render(); }
+
     function getFiltered() {
       return ALL
         .filter(SEGMENTS[seg] || SEGMENTS.all)
@@ -497,10 +534,18 @@ import "../../styles/admin.css";
       // Drop selections no longer visible so the bulk bar stays accurate.
       const visibleIds = new Set(list.map((c) => c.id));
       Array.from(selectedIds).forEach((id) => { if (!visibleIds.has(id)) selectedIds.delete(id); });
-      $("ct-rows").innerHTML = list.map((c) => `
+      // Selections survive paging - they are pruned against the whole filtered
+      // list above, not just the rows on screen.
+      const size = perPage || list.length || 1;
+      const pages = Math.max(1, Math.ceil(list.length / size));
+      if (page > pages) page = pages;
+      const from = (page - 1) * size;
+      pageRows = perPage ? list.slice(from, from + size) : list;
+      renderPager(list.length, pages, from);
+      $("ct-rows").innerHTML = pageRows.map((c) => `
         <tr data-id="${esc(c.id)}">
           <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
-          <td><span class="ct-name-cell">${avatarHtml(c)}<span>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</span></span></td>
+          <td>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</td>
           <td class="ct-brand-cell">${esc(brandOf(c))}</td>
           <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(lifecycleLabel(deriveLifecycle(c)))}</span></td>
           <td>${(() => { const s = summaryTags(c); return s.picked.map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") + (s.more > 0 ? `<span class="ct-tag ct-tag-more" title="${s.more} more tag${s.more === 1 ? "" : "s"} on the card">+${s.more}</span>` : "") || "—"; })()}</td>
@@ -513,9 +558,25 @@ import "../../styles/admin.css";
       $("ct-rows").querySelectorAll(".ct-row-check").forEach((cb) => cb.addEventListener("change", () => {
         const id = cb.getAttribute("data-check");
         if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
-        syncSelection(list);
+        syncSelection(pageRows);
       }));
-      syncSelection(list);
+      syncSelection(pageRows);
+    }
+
+    function renderPager(total, pages, from) {
+      const pager = $("ct-pager");
+      // One page of everything needs no controls at all.
+      pager.hidden = total <= 25;
+      if (pager.hidden) return;
+      const shown = pageRows.length;
+      $("ct-pager-range").textContent = shown
+        ? `Showing ${from + 1}–${from + shown} of ${total}`
+        : `No contacts on this page`;
+      $("ct-pager-pages").textContent = `Page ${page} of ${pages}`;
+      $("ct-prev").disabled = page <= 1;
+      $("ct-next").disabled = page >= pages;
+      // "All" hides the arrows - there is nowhere to go.
+      $("ct-pager-nav").style.visibility = perPage ? "" : "hidden";
     }
 
     // Keep the bulk bar + "select all" checkbox in step with the selection.
@@ -540,7 +601,6 @@ import "../../styles/admin.css";
       if (!current) return;
       $("ct-d-name").textContent = fullName(current);
       $("ct-d-email").textContent = current.email;
-      paintDrawerAvatar(current);
       $("ct-scrim").hidden = false; $("ct-drawer").hidden = false;
       if (!sameContact) activeTab = "info";  // a new contact opens on Information
       setTab(activeTab);
@@ -622,31 +682,6 @@ import "../../styles/admin.css";
     // signal - a TEG address tells us the brand regardless of what anyone
     // typed into the company field - so it wins, with company as the fallback
     // for everyone outside the group.
-    // Muted, deliberately narrow palette - enough to tell rows apart at a
-    // glance without the list turning into confetti.
-    const AV_COLOURS = ["#5b3a52", "#3c5a5a", "#7a5236", "#4a5d3a", "#6b4a6b", "#3f4a6b", "#7a4444", "#37605b"];
-    function initialsOf(c) {
-      const f = (c.first_name || "").trim(), l = (c.last_name || "").trim();
-      if (f || l) return ((f[0] || "") + (l[0] || "")).toUpperCase();
-      return String(c.email || "?").slice(0, 2).toUpperCase();
-    }
-    // Keyed off the email, so the same person keeps the same colour even after
-    // their name is corrected - the mark is only useful if it doesn't move.
-    function avatarColour(c) {
-      const str = String(c.email || fullName(c) || "?");
-      let h = 0;
-      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-      return AV_COLOURS[h % AV_COLOURS.length];
-    }
-    function paintDrawerAvatar(c) {
-      const el = $("ct-d-av"); if (!el) return;
-      el.style.background = avatarColour(c);
-      el.textContent = initialsOf(c);
-    }
-    function avatarHtml(c, cls) {
-      return `<span class="ct-av ${cls || ""}" style="background:${avatarColour(c)}">${esc(initialsOf(c))}</span>`;
-    }
-
     function brandOf(c) {
       return tegBrandFromEmail(c.email) || c.company || "\u2014";
     }
@@ -871,8 +906,14 @@ import "../../styles/admin.css";
           <div class="ct-sec">
             <h3>Notes</h3>
             <div id="ct-inotes" class="ct-notelist">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
-            <div class="ct-row" style="margin-top:10px"><textarea id="ct-inote-input" rows="2" placeholder="Add a note"></textarea></div>
+            <div class="ct-row" style="margin-top:10px"><textarea id="ct-inote-input" class="ct-notebox" rows="5" placeholder="Add a note"></textarea></div>
             <button class="ct-mini" id="ct-inote-add" style="margin-top:8px">Add note</button>
+          </div>
+          <!-- Activity, mirrored from its own tab. Twelve is as far back as is
+               useful at a glance; the tab has the lot. -->
+          <div class="ct-sec">
+            <h3>Activity</h3>
+            <div class="ct-timeline">${activity && activity.length ? activity.slice(0, 12).map((a) => `<div class="ct-tl-item"><span class="ct-tl-dot"></span><div class="ct-tl-body"><div>${esc(a.label)}</div><div class="ct-item-meta">${fmtDate(a.when)}</div></div></div>`).join("") : '<p class="ct-meta">No activity yet</p>'}</div>
           </div>
           </div>
           </div>
@@ -1028,7 +1069,6 @@ import "../../styles/admin.css";
           const { error } = await supabase.from("contacts").update({ [col]: v }).eq("id", c.id);
           if (error) { alert("Couldn't save that: " + error.message); return; }
           $("ct-d-name").textContent = fullName(c);
-          paintDrawerAvatar(c);
           render();
         });
       });
@@ -1115,7 +1155,23 @@ import "../../styles/admin.css";
       });
     }
 
-    $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); render(); });
+    // .ash-content is position:relative with z-index:2, which makes it a
+    // stacking context the drawer cannot climb out of - the frosted top bar
+    // composited straight over its header however high z-index went. Moving
+    // both to <body> puts them in the root context where z-index means what it
+    // says. Done in script because the markup has to live inside the page's
+    // <AdminShell> slot.
+    document.body.append($("ct-scrim"), $("ct-drawer"));
+
+    $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); refilter(); });
+
+    $("ct-prev").addEventListener("click", () => { if (page > 1) { page--; render(); scrollListTop(); } });
+    $("ct-next").addEventListener("click", () => { page++; render(); scrollListTop(); });
+    $("ct-per").addEventListener("change", (e) => { perPage = Number(e.target.value) || 0; page = 1; render(); });
+    // Paging without this leaves you halfway down the next page.
+    function scrollListTop() {
+      document.querySelector(".ash-content")?.scrollTo({ top: 0, behavior: "smooth" });
+    }
 
     // The search is an icon until you ask for it. Closing clears the term as
     // well as the box - a collapsed search that is still filtering would look
@@ -1126,7 +1182,7 @@ import "../../styles/admin.css";
         wrap.classList.toggle("is-open", open);
         btn.setAttribute("aria-expanded", open ? "true" : "false");
         if (open) { input.focus(); return; }
-        if (q) { input.value = ""; q = ""; render(); }
+        if (q) { input.value = ""; q = ""; refilter(); }
       }
       btn.addEventListener("click", () => setOpen(!wrap.classList.contains("is-open")));
       input.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
@@ -1139,7 +1195,7 @@ import "../../styles/admin.css";
       const b = e.target.closest("[data-seg]"); if (!b) return;
       seg = b.getAttribute("data-seg");
       $("ct-chips").querySelectorAll("[data-seg]").forEach((x) => x.classList.toggle("is-active", x === b));
-      render();
+      refilter();
     });
 
     // ---- Tag filter (multi-select dropdown; matches any selected tag) ----
@@ -1161,10 +1217,10 @@ import "../../styles/admin.css";
         + `<div class="ct-tagfilter-foot"><button type="button" class="ct-tagfilter-clear" id="ct-tagfilter-clear">Clear tags</button></div>`;
       menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => cb.addEventListener("change", () => {
         if (cb.checked) selectedTags.add(cb.value); else selectedTags.delete(cb.value);
-        syncTagPill(); render();
+        syncTagPill(); refilter();
       }));
       const clr = document.getElementById("ct-tagfilter-clear");
-      if (clr) clr.addEventListener("click", () => { selectedTags.clear(); buildTagMenu(); syncTagPill(); render(); });
+      if (clr) clr.addEventListener("click", () => { selectedTags.clear(); buildTagMenu(); syncTagPill(); refilter(); });
     }
     // Position the fixed menu just below the button, capped to the viewport so
     // it's always fully visible and scrolls inside itself.
@@ -1194,8 +1250,11 @@ import "../../styles/admin.css";
     document.querySelector(".ash-content")?.addEventListener("scroll", repositionIfOpen, { passive: true });
 
     // ---- Bulk select + delete ----
+    // Selects the page in front of you, not all 125 - ticking a header box and
+    // silently arming a delete over records you have never seen is the kind of
+    // thing that only goes wrong once.
     $("ct-check-all").addEventListener("change", (e) => {
-      const on = e.target.checked, rows = getFiltered();
+      const on = e.target.checked, rows = pageRows;
       rows.forEach((c) => { if (on) selectedIds.add(c.id); else selectedIds.delete(c.id); });
       $("ct-rows").querySelectorAll(".ct-row-check").forEach((cb) => { cb.checked = on; });
       syncSelection(rows);
