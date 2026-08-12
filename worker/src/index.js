@@ -4650,12 +4650,23 @@ export default {
     // Auth. Hot upload path (part/complete/abort) uses a fast local expiry check
     // — it already requires an unguessable uploadId minted by the fully-authed
     // /create. Everything else does full Supabase validation.
-    const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
-    if (hot) {
-      if (!cheapValid(request)) return json({ error: "Unauthorised" }, 401, request, env);
-    } else {
-      const user = await getUser(request, env);
-      if (!user) return json({ error: "Unauthorised" }, 401, request, env);
+    //
+    // This has no path scoping of its own, so it silently gates EVERY route
+    // defined below it in the file, not just the upload cluster it was
+    // written for - which broke the edit-request page (genuinely public: an
+    // F&C agent or TEG new starter clicking an email link has no TMKE
+    // account to sign in with) the moment those routes landed after this
+    // point. Explicit bypass here rather than reordering the file, so the
+    // next route added below doesn't fall into the same trap silently.
+    const publicNoAuth = path.endsWith("/videography/edit-request/context") || path.endsWith("/videography/edit-request");
+    if (!publicNoAuth) {
+      const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
+      if (hot) {
+        if (!cheapValid(request)) return json({ error: "Unauthorised" }, 401, request, env);
+      } else {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Unauthorised" }, 401, request, env);
+      }
     }
 
     try {
@@ -6561,7 +6572,11 @@ async function ensureEditsToken(env, bk) {
 // the /edits page itself surfaces those, conditionally, once they're there.
 function editRequestPromptHtml(env, token) {
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
-  return `<p style="${EM_P}">Once you've had a chance to look through everything, your package includes one round of edits if there's anything you'd like us to change. Just send us all of your requests using the link below and we'll take care of the rest.</p>
+  // EM_P's own top margin is 0 - fine between two body paragraphs, but this
+  // sits right after the small-print amendments clause (0 bottom margin on
+  // that one too), so without an explicit gap here the two collide with no
+  // breathing room and the size/colour jump reads as a formatting mistake.
+  return `<p style="${EM_P}margin-top:18px;">Once you've had a chance to look through everything, your package includes one round of edits if there's anything you'd like us to change. Just send us all of your requests using the link below and we'll take care of the rest.</p>
     <p style="${EM_P}"><a href="${siteUrl}/edits?token=${encodeURIComponent(token)}" style="${EM_BTN}">Request Edits</a></p>`;
 }
 
