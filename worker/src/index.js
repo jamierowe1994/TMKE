@@ -800,20 +800,19 @@ const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + S
 // id, which only appears in the dashboard URL - so it is a var rather than
 // something we can work out. Without it we simply don't offer a link, rather
 // than offering one that 404s.
-// Straight to the bucket, not the folder inside it. The previous version
-// tried to deep-link into a specific prefix with a `?prefix=` query param -
-// that's the S3 LIST API's convention, not necessarily the dashboard UI's
-// current routing, and it was landing on a "Failed to find Object" page.
-// Cloudflare's dashboard does now support prefix deep-links (May 2025
-// changelog), but the exact URL shape isn't documented anywhere findable,
-// and guessing at it a second time risks shipping the same kind of "looks
-// right, isn't" bug again. The bucket root always loads - the folder name is
-// right there on the booking to paste into the dashboard's own search.
+// Straight to the folder inside the bucket. Confirmed against the dashboard's
+// own address bar (12 Aug 2026) - no /objects segment, prefix directly on the
+// bucket path, encoded the way URLSearchParams does it (+ for spaces, %2F for
+// slashes) rather than encodeURIComponent's %20. An earlier ?prefix= attempt
+// used the S3 LIST API's encoding instead and landed on a "Failed to find
+// Object" page - this is the actual dashboard route, not a guess.
 function r2DashUrl(env, folder) {
   const acct = env.CF_ACCOUNT_ID;
   if (!acct || !folder) return null;
   const bucket = env.R2_BUCKET_NAME || "tmke-deliverables";
-  return `https://dash.cloudflare.com/${acct}/r2/default/buckets/${bucket}`;
+  const prefix = `${PART_PREFIX}/${folder}/`;
+  const qs = new URLSearchParams({ prefix }).toString();
+  return `https://dash.cloudflare.com/${acct}/r2/default/buckets/${bucket}?${qs}`;
 }
 
 // Build a readable object key: <prefix>/<folder>/<category>/<file>. Slashes are
