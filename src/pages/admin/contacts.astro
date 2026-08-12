@@ -85,9 +85,12 @@ import "../../styles/admin.css";
   <div class="ct-drawer-scrim" id="ct-scrim" hidden></div>
   <aside class="ct-drawer" id="ct-drawer" hidden aria-label="Contact detail">
     <header class="ct-drawer-head">
-      <div>
-        <h2 id="ct-d-name">—</h2>
-        <p id="ct-d-email" class="ct-d-sub">—</p>
+      <div class="ct-drawer-ident">
+        <span class="ct-av ct-av-lg" id="ct-d-av">—</span>
+        <div>
+          <h2 id="ct-d-name">—</h2>
+          <p id="ct-d-email" class="ct-d-sub">—</p>
+        </div>
       </div>
       <button type="button" class="ct-drawer-x" id="ct-close" aria-label="Close">&times;</button>
     </header>
@@ -229,11 +232,18 @@ import "../../styles/admin.css";
        them, which is why cells only ever draw right + bottom. */
     .ct-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; border: 1px solid rgba(28,29,34,0.14); }
     .ct-table thead th { text-align: left; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(28,29,34,0.72); background: rgba(28,29,34,0.05); padding: 9px 12px; border-right: 1px solid rgba(28,29,34,0.14); border-bottom: 1px solid rgba(28,29,34,0.14); }
-    .ct-table td { padding: 9px 12px; border-right: 1px solid rgba(28,29,34,0.09); border-bottom: 1px solid rgba(28,29,34,0.09); color: var(--ink); cursor: pointer; }
+    .ct-table td { padding: 11px 12px; border-right: 1px solid rgba(28,29,34,0.09); border-bottom: 1px solid rgba(28,29,34,0.09); color: var(--ink); cursor: pointer; }
     .ct-table th:last-child, .ct-table td:last-child { border-right: 0; }
     .ct-table tbody tr:last-child td { border-bottom: 0; }
     .ct-table tr:hover td { background: rgba(55,30,40,0.03); }
     .ct-brand-cell { color: rgba(28,29,34,0.75); }
+    /* Initials, not photographs: contacts have no image anywhere in the system,
+       and a colour keyed off the address gives every row the same mark every
+       time without a field that can sit empty. */
+    .ct-notelist { max-height: 300px; overflow-y: auto; }
+    .ct-av { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; border-radius: 50%; color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0.03em; }
+    .ct-av-lg { width: 46px; height: 46px; border-radius: 50%; font-size: 16px; }
+    .ct-name-cell { display: flex; align-items: center; gap: 10px; }
     .ct-life { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
     .ct-life.customer, .ct-life.member { color: #2c7a4b; background: rgba(44,122,75,0.12); }
     .ct-life.lead { color: var(--english-violet); background: rgba(var(--violet-rgb),0.1); }
@@ -244,13 +254,24 @@ import "../../styles/admin.css";
 
     .ct-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,26,0.35); z-index: 60; }
     .ct-drawer-scrim[hidden] { display: none; }
-    .ct-drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 440px; max-width: 94vw; background: #fff; z-index: 61; box-shadow: -20px 0 60px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow-y: auto; }
+    /* Floats clear of all four edges rather than sitting flush to the top: at
+       440px the header was tucked under the app bar and the content had to be
+       read through a letterbox. Half the screen, and the body scrolls inside so
+       the name and the tabs stay put while you read down. */
+    .ct-drawer { position: fixed; top: 20px; right: 20px; bottom: 20px; height: auto; width: min(52vw, 980px); min-width: 460px; max-width: calc(100vw - 40px); background: #fff; z-index: 61; border-radius: 10px; box-shadow: -24px 0 70px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow: hidden; }
+    @media (max-width: 900px) { .ct-drawer { top: 12px; right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
     .ct-drawer[hidden] { display: none; }
-    .ct-drawer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 22px 24px 16px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .ct-drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 18px 22px 16px; border-bottom: 1px solid rgba(28,29,34,0.08); background: rgba(55,30,40,0.04); flex: none; }
+    .ct-drawer-ident { display: flex; align-items: center; gap: 14px; min-width: 0; }
     .ct-drawer-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0; }
     .ct-d-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 4px 0 0; }
     .ct-drawer-x { border: 0; background: none; font-size: 24px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
-    .ct-drawer-body { padding: 18px 24px 60px; display: flex; flex-direction: column; gap: 20px; }
+    .ct-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 24px 40px; display: flex; flex-direction: column; gap: 20px; }
+    /* The width bought by the wider drawer goes to a second column: the record
+       on the left, what anyone actually writes about them on the right. */
+    .ct-twocol { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr); gap: 22px; align-items: start; }
+    @media (max-width: 900px) { .ct-twocol { grid-template-columns: minmax(0, 1fr); } }
+    .ct-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
     .ct-sec h3 { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 10px; }
     .ct-meta { font-family: var(--sans); font-size: 13.5px; color: var(--ink); line-height: 1.55; }
     .ct-meta span { color: rgba(28,29,34,0.5); }
@@ -479,7 +500,7 @@ import "../../styles/admin.css";
       $("ct-rows").innerHTML = list.map((c) => `
         <tr data-id="${esc(c.id)}">
           <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
-          <td>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</td>
+          <td><span class="ct-name-cell">${avatarHtml(c)}<span>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</span></span></td>
           <td class="ct-brand-cell">${esc(brandOf(c))}</td>
           <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(lifecycleLabel(deriveLifecycle(c)))}</span></td>
           <td>${(() => { const s = summaryTags(c); return s.picked.map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") + (s.more > 0 ? `<span class="ct-tag ct-tag-more" title="${s.more} more tag${s.more === 1 ? "" : "s"} on the card">+${s.more}</span>` : "") || "—"; })()}</td>
@@ -511,12 +532,18 @@ import "../../styles/admin.css";
     }
 
     async function openDrawer(id) {
+      // Reopening the SAME contact is a refresh - adding a note or a tag calls
+      // this - so hold the tab you were on. A different contact starts on
+      // Information, as it always has.
+      const sameContact = !!(current && current.id === id);
       current = ALL.find((c) => c.id === id);
       if (!current) return;
       $("ct-d-name").textContent = fullName(current);
       $("ct-d-email").textContent = current.email;
+      paintDrawerAvatar(current);
       $("ct-scrim").hidden = false; $("ct-drawer").hidden = false;
-      activeTab = "info"; setTab("info");   // every contact opens on Information
+      if (!sameContact) activeTab = "info";  // a new contact opens on Information
+      setTab(activeTab);
       $("ct-drawer-body").innerHTML = `<p class="ct-meta">Loading…</p>`;
       const email = current.email;
       // Purchases, bookings + activity are derived live by email, always accurate.
@@ -595,6 +622,31 @@ import "../../styles/admin.css";
     // signal - a TEG address tells us the brand regardless of what anyone
     // typed into the company field - so it wins, with company as the fallback
     // for everyone outside the group.
+    // Muted, deliberately narrow palette - enough to tell rows apart at a
+    // glance without the list turning into confetti.
+    const AV_COLOURS = ["#5b3a52", "#3c5a5a", "#7a5236", "#4a5d3a", "#6b4a6b", "#3f4a6b", "#7a4444", "#37605b"];
+    function initialsOf(c) {
+      const f = (c.first_name || "").trim(), l = (c.last_name || "").trim();
+      if (f || l) return ((f[0] || "") + (l[0] || "")).toUpperCase();
+      return String(c.email || "?").slice(0, 2).toUpperCase();
+    }
+    // Keyed off the email, so the same person keeps the same colour even after
+    // their name is corrected - the mark is only useful if it doesn't move.
+    function avatarColour(c) {
+      const str = String(c.email || fullName(c) || "?");
+      let h = 0;
+      for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+      return AV_COLOURS[h % AV_COLOURS.length];
+    }
+    function paintDrawerAvatar(c) {
+      const el = $("ct-d-av"); if (!el) return;
+      el.style.background = avatarColour(c);
+      el.textContent = initialsOf(c);
+    }
+    function avatarHtml(c, cls) {
+      return `<span class="ct-av ${cls || ""}" style="background:${avatarColour(c)}">${esc(initialsOf(c))}</span>`;
+    }
+
     function brandOf(c) {
       return tegBrandFromEmail(c.email) || c.company || "\u2014";
     }
@@ -754,6 +806,8 @@ import "../../styles/admin.css";
       $("ct-drawer-body").innerHTML = `
         <div class="ct-tabpanel" data-panel="info"${activeTab !== "info" ? " hidden" : ""}>
           ${dupPanelHtml(c)}
+          <div class="ct-twocol">
+          <div class="ct-col">
           <div class="ct-sec">
             <h3>Status</h3>
             <div class="ct-badges">
@@ -801,6 +855,8 @@ import "../../styles/admin.css";
             </div>
             <p class="ct-meta" style="margin:6px 0 0">Extra delivery address for funnel emails only — they also go to ${esc(c.email || "their email above")}. Handy for a new starter who can't read their work inbox yet. Never used for marketing: that always uses the email above.</p>
           </div>
+          </div>
+          <div class="ct-col">
           <div class="ct-sec">
             <h3>Tags</h3>
             <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
@@ -808,6 +864,17 @@ import "../../styles/admin.css";
               <select id="ct-tag-input"><option value="">Add a tag…</option>${TAG_GROUPS.map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("")}</select>
               <button class="ct-mini" id="ct-tag-add">Add</button>
             </div>
+          </div>
+          <!-- Notes again, in the space the wider drawer bought. Same records as
+               the Notes tab - written and read here so you don't have to leave
+               the contact's details to jot down what was just said. -->
+          <div class="ct-sec">
+            <h3>Notes</h3>
+            <div id="ct-inotes" class="ct-notelist">${notes.length ? notes.map((n) => `<div class="ct-item">${esc(n.body)}<div class="ct-item-meta">${esc(n.author || "")} · ${fmtDate(n.created_at)}</div></div>`).join("") : '<p class="ct-meta">No notes</p>'}</div>
+            <div class="ct-row" style="margin-top:10px"><textarea id="ct-inote-input" rows="2" placeholder="Add a note"></textarea></div>
+            <button class="ct-mini" id="ct-inote-add" style="margin-top:8px">Add note</button>
+          </div>
+          </div>
           </div>
         </div>
         <div class="ct-tabpanel" data-panel="teg"${activeTab !== "teg" ? " hidden" : ""}>
@@ -961,6 +1028,7 @@ import "../../styles/admin.css";
           const { error } = await supabase.from("contacts").update({ [col]: v }).eq("id", c.id);
           if (error) { alert("Couldn't save that: " + error.message); return; }
           $("ct-d-name").textContent = fullName(c);
+          paintDrawerAvatar(c);
           render();
         });
       });
@@ -1027,10 +1095,23 @@ import "../../styles/admin.css";
         const t = tasks.find((x) => x.id === id);
         fire("task_completed", c, { task: t ? t.title : "" }); openDrawer(c.id);
       }));
+      async function addNote(inputId, btnId) {
+        const input = document.getElementById(inputId); if (!input) return;
+        const v = (input.value || "").trim(); if (!v) return;
+        const btn = document.getElementById(btnId);
+        if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
+        const { error } = await supabase.from("contact_notes").insert({ contact_id: c.id, body: v, author: "Admin" });
+        if (error) {
+          if (btn) { btn.disabled = false; btn.textContent = "Add note"; }
+          alert("Couldn't save that note: " + error.message);
+          return;
+        }
+        fire("note_added", c, {});
+        openDrawer(c.id);
+      }
+      $("ct-inote-add")?.addEventListener("click", () => addNote("ct-inote-input", "ct-inote-add"));
       $("ct-note-add").addEventListener("click", async () => {
-        const v = ($("ct-note-input").value || "").trim(); if (!v) return;
-        await supabase.from("contact_notes").insert({ contact_id: c.id, body: v, author: "Admin" });
-        fire("note_added", c, {}); openDrawer(c.id);
+        await addNote("ct-note-input", "ct-note-add");
       });
     }
 
