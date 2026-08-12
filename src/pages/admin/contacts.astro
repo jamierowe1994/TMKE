@@ -282,8 +282,8 @@ import "../../styles/admin.css";
        the script. Left inside .ash-content they are trapped in its stacking
        context (position:relative, z-index:2), so the frosted top bar composites
        straight over the top of them however high their own z-index goes. */
-    .ct-drawer { position: fixed; top: 20px; right: 20px; bottom: 20px; height: auto; width: min(52vw, 980px); min-width: 460px; max-width: calc(100vw - 40px); background: #fff; z-index: 61; border-radius: 10px; box-shadow: -24px 0 70px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow: hidden; }
-    @media (max-width: 900px) { .ct-drawer { top: 12px; right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
+    .ct-drawer { position: fixed; top: var(--ct-drawer-top, 84px); right: 20px; bottom: 20px; height: auto; width: min(52vw, 980px); min-width: 460px; max-width: calc(100vw - 40px); background: #fff; z-index: 61; border-radius: 10px; box-shadow: -24px 0 70px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow: hidden; }
+    @media (max-width: 900px) { .ct-drawer { right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
     .ct-drawer[hidden] { display: none; }
     .ct-drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 18px 22px 16px; border-bottom: 1px solid rgba(28,29,34,0.08); background: rgba(55,30,40,0.04); flex: none; }
     .ct-drawer-ident { display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -1162,6 +1162,18 @@ import "../../styles/admin.css";
     // says. Done in script because the markup has to live inside the page's
     // <AdminShell> slot.
     document.body.append($("ct-scrim"), $("ct-drawer"));
+
+    // Start the drawer below the app bar rather than under it. Measured from
+    // the bar itself, not typed in as a number: its height comes from padding
+    // and the title's line-height, so any type change would silently put the
+    // drawer's own header back underneath it.
+    function fitDrawerTop() {
+      const bar = document.querySelector(".ash-top");
+      const top = bar ? Math.round(bar.getBoundingClientRect().bottom) + 12 : 84;
+      document.documentElement.style.setProperty("--ct-drawer-top", top + "px");
+    }
+    fitDrawerTop();
+    window.addEventListener("resize", fitDrawerTop);
 
     $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); refilter(); });
 
