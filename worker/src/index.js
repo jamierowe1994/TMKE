@@ -60,8 +60,12 @@ function defaultInvoiceEmailText(settings, inv, bk) {
   const brand = isFC || isTeg;
   const agent = (bk && bk.client_name) || "";
   const ref = brand && agent ? `${inv.number} - ${agent}` : inv.number;
+  // TEG's invoice goes to Paula's inbox regardless of which brand is settling
+  // it, so the greeting addresses her - the brand name still appears on the
+  // invoice itself (bill_to_name), just not in "Dear ...".
+  const greeting = isTeg ? "Paula" : (inv.bill_to_name || "Sir or Madam");
   const lines = [
-    `Dear ${inv.bill_to_name || "Sir or Madam"},`, "",
+    `Dear ${greeting},`, "",
     `Please find attached invoice ${ref} from ${company}.`, "",
     `Amount due: ${money(inv.total_pence)}`,
   ];
@@ -70,13 +74,17 @@ function defaultInvoiceEmailText(settings, inv, bk) {
     const where = (bk.property_address || bk.location || "").replace(/\s*\n\s*/g, ", ").trim();
     lines.push("", `This invoice is in relation to the ${(bk.service || "property videography").toLowerCase()} shoot with ${agent || "the agent"}${where ? ` at ${where}` : ""}. You are receiving it because we have been informed you are holding the client's marketing fee.`);
   } else if (isTeg) {
-    const reasonName = bk.teg_reason === "other" ? (bk.teg_reason_other || "an internal brand arrangement") : (TEG_REASON_LABELS[bk.teg_reason] || "an internal brand arrangement");
-    lines.push("", `This invoice is in relation to ${reasonName.toLowerCase()}${agent ? ` for ${agent}` : ""}. You are receiving it as the settling brand rather than the client.`);
+    if (bk.teg_reason === "induction") {
+      lines.push("", `This invoice is in relation to ${agent || "the new starter"}'s induction shoot. You are receiving it because the shoot cost was included in their joining fee.`);
+    } else {
+      const reasonName = bk.teg_reason === "other" ? (bk.teg_reason_other || "an internal brand arrangement") : (TEG_REASON_LABELS[bk.teg_reason] || "an internal brand arrangement");
+      lines.push("", `This invoice is in relation to ${reasonName.toLowerCase()}${agent ? ` for ${agent}` : ""}. You are receiving it as the settling brand rather than the client.`);
+    }
   }
   // When the invoice carries a pay link, say so - telling someone to pay by
   // bank transfer while a card button sits above it just reads as contradictory.
   lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
-    : `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
+    : `Payment is due${due ? ` by ${due}` : ""} by bank transfer - the account details are on the invoice, please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
   // Shoots only. An SMM invoice must not promise anything about content.
   if (inv.release_on_payment && !brand) {
     lines.splice(lines.length - 2, 0, "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us - once it does we'll email your PIN, which unlocks downloading from your gallery.", "");
@@ -6539,12 +6547,14 @@ async function ensureEditsToken(env, bk) {
   return token;
 }
 
-// A short "want anything else?" paragraph, added only into the two paid-path
-// gallery emails - never the not-yet-paid one, which keeps its wording as-is
-// until that flow is revisited on purpose.
+// The edits invitation, added only into the two paid-path gallery emails -
+// never the not-yet-paid one, which keeps its wording as-is until that flow
+// is revisited on purpose. Doesn't mention twilight/extra images by name -
+// the /edits page itself surfaces those, conditionally, once they're there.
 function editRequestPromptHtml(env, token) {
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
-  return `<p style="${EM_SMALL}">Want anything changed, or fancy a twilight shot or a few extra images? <a href="${siteUrl}/edits?token=${encodeURIComponent(token)}">Let us know here</a>.</p>`;
+  return `<p style="${EM_P}">Once you've had a chance to look through everything, your package includes one round of edits if there's anything you'd like us to change. Just send us all of your requests using the link below and we'll take care of the rest.</p>
+    <p style="${EM_P}"><a href="${siteUrl}/edits?token=${encodeURIComponent(token)}" style="${EM_BTN}">Request Edits</a></p>`;
 }
 
 // Emails Jack when a client submits an edit request - a free-text-only one
@@ -6776,27 +6786,42 @@ async function sendGalleryPinEmail(env, bookingId) {
                Your download PIN is <strong>${esc(pin)}</strong>.<br>
                Pixieset asks for your email address and this PIN when you download, so use
                <strong>${esc(to)}</strong>.</span></p>`
-          : `<p style="${EM_P}">You can view everything now. Downloads unlock once payment reaches us${invNumber ? ` for invoice ${esc(invNumber)}` : ""} - until then the gallery is watermarked, and we'll email your PIN as soon as it clears.</p>
+          : `<p style="${EM_P}">Your gallery will remain watermarked and downloads will stay locked until payment has been received${invNumber ? ` for invoice ${esc(invNumber)}` : ""}.</p>
+             <p style="${EM_P}">As soon as payment comes through, we'll unlock your gallery and send over your download PIN, along with your 360 tour if one is included with your booking.</p>
              ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
-             ${attachments ? `<p style="${EM_SMALL}">Your invoice is attached. You can also pay by bank transfer using the details on it.</p>` : ""}`;
+             ${attachments ? `<p style="${EM_P}">We've attached another copy of your invoice to this email. You can also pay by bank transfer using the details on it.</p>` : ""}`;
 
-        // The amendments wording is lifted from the agreement they signed rather
-        // than paraphrased, so what the email promises and what the contract
-        // says cannot drift apart.
-        const amends = `<p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>`;
+        // Paid: lifted from the agreement they signed rather than paraphrased,
+        // so what the email promises and what the contract says cannot drift
+        // apart - left untouched. Unpaid: softer, forward-looking wording -
+        // there's no live link yet, since edits only unlock once they've paid.
+        const amends = paid
+          ? `<p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>`
+          : `<p style="${EM_P}">Once everything is unlocked, have a look through your finished content. Your package includes one round of edits, so if there's anything you'd like us to change, you can send all of your requests through together using the link we'll provide.</p>`;
 
-        // Only on the already-paid send: the not-yet-paid wording is left
-        // alone for now, on purpose, until that flow is revisited.
+        // Only on the already-paid send: the unpaid email describes what's
+        // coming (above) rather than linking anywhere, since the /edits page
+        // requires payment to have already landed.
         const editsPrompt = paid ? editRequestPromptHtml(env, await ensureEditsToken(env, bk)) : "";
+
+        const openingLine = paid
+          ? `Your ${esc((bk.service || "shoot").toLowerCase())} is ready to view.`
+          : `Your content is ready! You can now view everything from your ${esc((bk.service || "shoot").toLowerCase())} in your gallery using the link below.`;
+
+        const closingLine = paid
+          ? `<p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>`
+          : `<p style="${EM_P}">Your gallery will stay available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
+             <p style="${EM_P}">We hope you love your content!</p>
+             <p style="${EM_P}">The TMKE Team</p>`;
 
         const html = await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
           <p style="${EM_P}">Hi ${esc((bk.client_name || "").split(" ")[0] || "there")},</p>
-          <p style="${EM_P}">Your ${esc((bk.service || "shoot").toLowerCase())} is ready to view.</p>
+          <p style="${EM_P}">${openingLine}</p>
           ${links}
           ${unlock}
           ${amends}
           ${editsPrompt}
-          <p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>
+          ${closingLine}
         </div>`);
 
         const sent = await sendEmail(env, {

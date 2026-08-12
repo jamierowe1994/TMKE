@@ -324,7 +324,7 @@ export const EMAIL_CATALOG = [
     to: "The gallery email",
     sender: "hello@tmke.co.uk",
     subject: "Your gallery is ready to view",
-    summary: "Same links, but NO PIN. Explains the gallery is watermarked until payment clears and that the PIN follows automatically. Includes a Pay by card button when the invoice carries one, and attaches the outstanding invoice PDF.",
+    summary: "Same links, but NO PIN. Says the gallery stays watermarked and locked until payment for the invoice lands, and that the PIN (plus the 360 tour, if included) follows automatically once it does. Includes a Pay by card button when the invoice carries one, re-attaches the outstanding invoice PDF, and previews that one round of edits is included once everything unlocks — no working link yet, since that needs payment first.",
     fields: ["name", "service", "gallery_url", "invoice_number", "pay_url"],
   },
   {
