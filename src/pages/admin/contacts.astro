@@ -17,12 +17,7 @@ import "../../styles/admin.css";
   <div class="ash-panel ash-page">
     <section class="admin-bar">
       <div class="admin-bar-top">
-        <span class="admin-bar-count" id="ct-count">…</span>
         <div class="admin-bar-tools">
-          <label class="ct-search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="search" id="ct-search" placeholder="Search name, email, company…" aria-label="Search contacts" />
-          </label>
           <button type="button" class="ct-tool-btn ct-tool-primary" id="ct-add-btn" title="Add a single contact">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add contact
@@ -35,6 +30,7 @@ import "../../styles/admin.css";
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
             Export CSV
           </button>
+          <span class="admin-bar-count" id="ct-count">…</span>
         </div>
       </div>
       <div class="ct-chips-bar" id="ct-chips">
@@ -45,14 +41,24 @@ import "../../styles/admin.css";
         <button type="button" class="ct-chip-f" data-seg="booked">Booked <b data-n="booked">0</b></button>
         <button type="button" class="ct-chip-f" data-seg="smm">SMM clients <b data-n="smm">0</b></button>
         <button type="button" class="ct-chip-f ct-chip-review" data-seg="review">Review <b data-n="review">0</b></button>
-        <button type="button" class="ct-chip-f ct-chip-issues" data-seg="issues">Email issues <b data-n="issues">0</b></button>
-        <!-- Tag filter — multi-select dropdown, narrows by one or more tags. -->
-        <div class="ct-tagfilter" id="ct-tagfilter">
-          <button type="button" class="ct-chip-f ct-tagfilter-btn" id="ct-tagfilter-btn" aria-expanded="false" aria-haspopup="true">
-            Tags <b id="ct-tagfilter-n" hidden>0</b>
-            <svg class="ct-tagfilter-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div class="ct-tagfilter-menu" id="ct-tagfilter-menu" role="menu" hidden></div>
+
+        <!-- Search and filters sit at the right-hand end of the same row, so the
+             toolbar is one line rather than two stacked ones. -->
+        <div class="ct-chips-right">
+          <div class="ct-search" id="ct-search-wrap">
+            <button type="button" class="ct-search-btn" id="ct-search-btn" aria-label="Search contacts" aria-expanded="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </button>
+            <input type="search" id="ct-search" placeholder="Search name, company…" aria-label="Search contacts" />
+          </div>
+          <!-- Tag filter — multi-select dropdown, narrows by one or more tags. -->
+          <div class="ct-tagfilter" id="ct-tagfilter">
+            <button type="button" class="ct-chip-f ct-tagfilter-btn" id="ct-tagfilter-btn" aria-expanded="false" aria-haspopup="true">
+              Filter <b id="ct-tagfilter-n" hidden>0</b>
+              <svg class="ct-tagfilter-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="ct-tagfilter-menu" id="ct-tagfilter-menu" role="menu" hidden></div>
+          </div>
         </div>
       </div>
     </section>
@@ -68,7 +74,7 @@ import "../../styles/admin.css";
       <table class="ct-table" id="ct-table" hidden>
         <thead><tr>
           <th class="ct-check-col"><input type="checkbox" id="ct-check-all" aria-label="Select all" /></th>
-          <th>Name</th><th>Email</th><th>Lifecycle</th><th>Tags</th><th>Last seen</th>
+          <th>Name</th><th>Brand</th><th>Lifecycle</th><th>Tags</th><th>Last seen</th>
         </tr></thead>
         <tbody id="ct-rows"></tbody>
       </table>
@@ -150,16 +156,23 @@ import "../../styles/admin.css";
   </div>
 
   <style is:global>
-    .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 16px; max-width: 1360px; margin: 0 auto; padding: 40px 0 22px; border-bottom: 1px solid rgba(55,30,40,0.14); }
+    .admin-bar { display: flex; flex-direction: column; align-items: stretch; gap: 12px; max-width: 1360px; margin: 0 auto; padding: 26px 0 14px; }
     .admin-bar-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .admin-bar-tools { display: flex; align-items: center; gap: 10px; }
+    .admin-bar-tools { display: flex; align-items: center; gap: 8px; }
     .admin-bar-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(28,29,34,0.6); font-weight: 600; }
-    /* .ash-content.hub-skin prefix beats hub-tokens.css's ".hub-skin label{display:block}"
-       (meant for real form-field captions) — this label is a clickable icon+input
-       wrapper, not a caption, and needs to stay a flex row regardless of cascade order. */
-    .ash-content.hub-skin .ct-search { display: flex; align-items: center; gap: 8px; height: 28px; box-sizing: border-box; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; padding: 0 14px; min-width: 240px; }
-    .ct-search svg { width: 15px; height: 15px; color: rgba(28,29,34,0.42); flex: none; }
-    .ct-search input { border: 0; outline: none; background: none; padding: 0; width: 100%; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    /* Collapsed it is just the magnifier, at the shared 28px control height.
+       Opening animates the input's width rather than toggling display, so the
+       box grows out of the icon instead of jumping into place.
+       The .ash-content.hub-skin prefix beats hub-tokens.css's
+       ".hub-skin label{display:block}" - kept in case this wrapper goes back to
+       being a label - and the unprefixed rule carries the collapse behaviour. */
+    .ash-content.hub-skin .ct-search, .ct-search { display: flex; align-items: center; height: 28px; box-sizing: border-box; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; overflow: hidden; }
+    .ct-search.is-open { border-color: rgba(var(--violet-rgb),0.45); }
+    .ct-search-btn { display: inline-flex; align-items: center; justify-content: center; border: 0; background: none; cursor: pointer; padding: 0; width: 28px; height: 26px; flex: none; color: rgba(28,29,34,0.5); }
+    .ct-search.is-open .ct-search-btn { color: var(--english-violet); }
+    .ct-search svg { width: 15px; height: 15px; flex: none; }
+    .ct-search input { border: 0; outline: none; background: none; width: 0; padding: 0; font-family: var(--sans); font-size: 13px; color: var(--ink); transition: width 0.18s ease, padding 0.18s ease; }
+    .ct-search.is-open input { width: 190px; padding: 0 12px 0 2px; }
     .ct-filter { appearance: none; -webkit-appearance: none; height: 28px; box-sizing: border-box; background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23371e28' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 12px center; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; padding: 0 32px 0 14px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; color: var(--english-violet); }
     .ct-tool-btn { display: inline-flex; align-items: center; gap: 7px; height: 28px; box-sizing: border-box; background: #fff; border: 1px solid rgba(var(--violet-rgb),0.4); border-radius: 4px; padding: 0 16px; cursor: pointer; font-family: var(--sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); transition: background 0.15s, color 0.15s; }
     .ct-tool-btn:hover { background: var(--english-violet); color: #fff; }
@@ -171,11 +184,13 @@ import "../../styles/admin.css";
     .ct-add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 460px) { .ct-add-grid { grid-template-columns: 1fr; } }
     .ct-add-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
-    .ct-chips-bar { display: flex; flex-wrap: wrap; gap: 8px; }
-    .ct-chip-f { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); transition: background 0.15s, border-color 0.15s, color 0.15s; }
+    .ct-chips-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    /* Search and filter sit hard right on the same row as the segment chips. */
+    .ct-chips-right { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .ct-chip-f { display: inline-flex; align-items: center; gap: 7px; height: 28px; box-sizing: border-box; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; padding: 0 12px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); transition: background 0.15s, border-color 0.15s, color 0.15s; }
     .ct-chip-f:hover { border-color: rgba(var(--violet-rgb),0.4); }
     .ct-chip-f.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
-    .ct-chip-f b { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
+    .ct-chip-f b { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
     .ct-chip-f.is-active b { background: rgba(255,255,255,0.22); color: #fff; }
     .ct-badges { display: flex; flex-wrap: wrap; gap: 8px; }
     .ct-badge { font-family: var(--sans); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.6); }
@@ -206,20 +221,26 @@ import "../../styles/admin.css";
     .ct-import-opt { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
     .ct-import-preview { margin: 8px 0 14px; }
     .ct-import-status { font-family: var(--sans); font-size: 13px; font-weight: 600; margin: 12px 0 0; }
-    .ct-list { max-width: 1360px; margin: 0 auto; padding: 24px 0 140px; }
+    .ct-list { max-width: 1360px; margin: 0 auto; padding: 12px 0 140px; }
     .ct-loading, .ct-empty { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.55); padding: 22px 0; }
     .ct-loading[hidden], .ct-empty[hidden], .ct-table[hidden] { display: none; }
-    .ct-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13.5px; }
-    .ct-table th { text-align: left; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 12px 14px; border-bottom: 1px solid rgba(28,29,34,0.1); }
-    .ct-table td { padding: 13px 14px; border-bottom: 1px solid rgba(28,29,34,0.06); color: var(--ink); cursor: pointer; }
+    /* Ruled both ways, so a wide row still reads across. The outer border sits
+       on the table and the inner lines on the cells - `border-collapse` merges
+       them, which is why cells only ever draw right + bottom. */
+    .ct-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; border: 1px solid rgba(28,29,34,0.14); }
+    .ct-table thead th { text-align: left; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(28,29,34,0.72); background: rgba(28,29,34,0.05); padding: 9px 12px; border-right: 1px solid rgba(28,29,34,0.14); border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .ct-table td { padding: 9px 12px; border-right: 1px solid rgba(28,29,34,0.09); border-bottom: 1px solid rgba(28,29,34,0.09); color: var(--ink); cursor: pointer; }
+    .ct-table th:last-child, .ct-table td:last-child { border-right: 0; }
+    .ct-table tbody tr:last-child td { border-bottom: 0; }
     .ct-table tr:hover td { background: rgba(55,30,40,0.03); }
+    .ct-brand-cell { color: rgba(28,29,34,0.75); }
     .ct-life { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
     .ct-life.customer, .ct-life.member { color: #2c7a4b; background: rgba(44,122,75,0.12); }
     .ct-life.lead { color: var(--english-violet); background: rgba(var(--violet-rgb),0.1); }
     /* TEG — came in via The Experts Group; sits between Lead and Member. */
     .ct-life.teg { color: #7e6765; background: rgba(126,103,101,0.14); }
     .ct-life.dnd { color: #a05a3c; background: rgba(160,90,60,0.12); }
-    .ct-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.7); margin: 0 4px 2px 0; }
+    .ct-tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 3px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.7); margin: 0 4px 2px 0; }
 
     .ct-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,26,0.35); z-index: 60; }
     .ct-drawer-scrim[hidden] { display: none; }
@@ -290,7 +311,7 @@ import "../../styles/admin.css";
     .ct-tagfilter-clear { border: 0; background: none; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer; }
 
     /* Bulk select + delete */
-    .ct-bulkbar { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; padding: 10px 16px; background: rgba(55,30,40,0.06); border: 1px solid rgba(var(--violet-rgb),0.2); border-radius: 12px; }
+    .ct-bulkbar { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; padding: 8px 14px; background: rgba(55,30,40,0.06); border: 1px solid rgba(var(--violet-rgb),0.2); border-radius: 4px; }
     .ct-bulkbar[hidden] { display: none; }
     .ct-bulk-count { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--english-violet); margin-right: auto; }
     .ct-bulk-del { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; border: 1px solid #a5352f; background: #a5352f; color: #fff; border-radius: 8px; padding: 8px 15px; cursor: pointer; transition: background 0.15s; }
@@ -459,7 +480,7 @@ import "../../styles/admin.css";
         <tr data-id="${esc(c.id)}">
           <td class="ct-check-cell"><input type="checkbox" class="ct-row-check" data-check="${esc(c.id)}" ${selectedIds.has(c.id) ? "checked" : ""} aria-label="Select ${esc(fullName(c))}" /></td>
           <td>${esc(fullName(c))}${c.needs_review ? ' <span class="ct-flag" title="Possible duplicate — needs review">⚠</span>' : ""}</td>
-          <td>${esc(c.email)}</td>
+          <td class="ct-brand-cell">${esc(brandOf(c))}</td>
           <td><span class="ct-life ${c.dnd ? "dnd" : esc(deriveLifecycle(c))}">${c.dnd ? "DND" : esc(lifecycleLabel(deriveLifecycle(c)))}</span></td>
           <td>${(() => { const s = summaryTags(c); return s.picked.map((t) => `<span class="ct-tag">${esc(t)}</span>`).join("") + (s.more > 0 ? `<span class="ct-tag ct-tag-more" title="${s.more} more tag${s.more === 1 ? "" : "s"} on the card">+${s.more}</span>` : "") || "—"; })()}</td>
           <td>${esc(fmtDate(c.last_seen_at))}</td>
@@ -570,6 +591,14 @@ import "../../styles/admin.css";
     // for a generic *experts.co.uk we can't pin to one brand, or null if not TEG.
     // (New starters often use personal emails — those are caught via the import's
     // Brand column instead.)
+    // What to show in the Brand column. The email domain is the reliable
+    // signal - a TEG address tells us the brand regardless of what anyone
+    // typed into the company field - so it wins, with company as the fallback
+    // for everyone outside the group.
+    function brandOf(c) {
+      return tegBrandFromEmail(c.email) || c.company || "\u2014";
+    }
+
     function tegBrandFromEmail(email) {
       const dom = String(email || "").toLowerCase().split("@")[1] || "";
       if (!dom) return null;
@@ -1006,6 +1035,25 @@ import "../../styles/admin.css";
     }
 
     $("ct-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); render(); });
+
+    // The search is an icon until you ask for it. Closing clears the term as
+    // well as the box - a collapsed search that is still filtering would look
+    // like the list had simply lost people.
+    (function wireSearch() {
+      const wrap = $("ct-search-wrap"), btn = $("ct-search-btn"), input = $("ct-search");
+      function setOpen(open) {
+        wrap.classList.toggle("is-open", open);
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) { input.focus(); return; }
+        if (q) { input.value = ""; q = ""; render(); }
+      }
+      btn.addEventListener("click", () => setOpen(!wrap.classList.contains("is-open")));
+      input.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
+      // Clicking away tidies it up again, but only while it is empty.
+      document.addEventListener("click", (e) => {
+        if (!wrap.contains(e.target) && wrap.classList.contains("is-open") && !input.value) setOpen(false);
+      });
+    })();
     $("ct-chips").addEventListener("click", (e) => {
       const b = e.target.closest("[data-seg]"); if (!b) return;
       seg = b.getAttribute("data-seg");
@@ -1042,7 +1090,10 @@ import "../../styles/admin.css";
     function positionTagMenu() {
       const menu = $("ct-tagfilter-menu"), r = $("ct-tagfilter-btn").getBoundingClientRect();
       const vh = window.innerHeight || document.documentElement.clientHeight || 800;
-      menu.style.left = Math.round(r.left) + "px";
+      // The button now sits at the right-hand end of the bar, so hang the menu
+      // from its right edge - anchoring the left edge runs it off the screen.
+      const vw = window.innerWidth || document.documentElement.clientWidth || 1280;
+      menu.style.left = Math.round(Math.max(12, Math.min(r.right - menu.offsetWidth, vw - menu.offsetWidth - 12))) + "px";
       menu.style.top = Math.round(r.bottom + 8) + "px";
       menu.style.maxHeight = Math.min(360, Math.max(180, vh - r.bottom - 24)) + "px";
     }
