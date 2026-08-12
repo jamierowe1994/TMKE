@@ -393,7 +393,7 @@ import "../../styles/admin.css";
         </div>
         <div class="vid-field-row">
           <div class="vid-field"><label>Store link</label><input type="url" data-f="store_url" placeholder="Buying extra downloads" /></div>
-          <div class="vid-field"><label>Floor plan link</label><input type="url" data-f="floorplan_url" placeholder="Pixieset can't hold these" /></div>
+          <div class="vid-field"><label>360 Tour <span class="vid-lbl-note">withheld until paid, like the PIN</span></label><input type="url" data-f="tour_360_url" placeholder="Pixieset can't hold these" /></div>
         </div>
         <div class="vid-field-row">
           <div class="vid-field">
@@ -1130,6 +1130,12 @@ import "../../styles/admin.css";
       cursor: pointer; border: 1px solid transparent;
       transition: background 0.2s, color 0.2s, border-color 0.2s; text-decoration: none;
     }
+    /* Same issue as .vid-field: .admin-btn's own `display` otherwise wins over
+       the browser's default [hidden] rule at equal specificity, so a button
+       toggled hidden (e.g. #vid-arch-open before a real archive link exists)
+       stayed visible with a stale href="#" - which is what "Open in
+       Cloudflare" was actually doing when it looked broken. */
+    .admin-btn[hidden] { display: none; }
     .admin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .admin-btn-primary { background: var(--english-violet); color: var(--paper); }
     .admin-btn-primary:hover { background: var(--ink); color: var(--paper); }
@@ -1933,7 +1939,7 @@ import "../../styles/admin.css";
       // folders must not silently change because a booking detail was edited.
       folder.value = b.archive_folder || archiveFolderName(b);
       const open = document.getElementById("vid-arch-open");
-      if (open) { open.hidden = !b.archive_url; if (b.archive_url) open.href = b.archive_url; }
+      if (open) { open.hidden = !b.archive_url; open.href = b.archive_url || "#"; }
       document.getElementById("vid-arch-msg").textContent = "";
       showArchivePath(b);
       renderCatBoxes(b);
@@ -1968,7 +1974,7 @@ import "../../styles/admin.css";
         b.archive_folder = folder;
         b.archive_url = d.url || null;
         const open = document.getElementById("vid-arch-open");
-        if (open) { open.hidden = !b.archive_url; if (b.archive_url) open.href = b.archive_url; }
+        if (open) { open.hidden = !b.archive_url; open.href = b.archive_url || "#"; }
         note.textContent = `Created ${d.created.length} folders. Files dropped below will go straight into them.`
           + (d.url ? "" : " (Set CF_ACCOUNT_ID on the Worker for an Open in Cloudflare link.)");
       } catch (err) { note.textContent = "Couldn't reach the Worker: " + err.message; }
@@ -2058,6 +2064,7 @@ import "../../styles/admin.css";
 
       // gallery_ready / delivered: what the client actually needs.
       const pin = await getGalleryPin(b);
+      const tourUrl = await getTourLink(b);
       host.innerHTML = `
         <h4>The client's gallery</h4>
         <p class="vid-hint" style="margin-bottom:14px">
@@ -2072,11 +2079,11 @@ import "../../styles/admin.css";
           <div class="vid-field"><span>PIN</span>
             <input type="text" id="vd-pin" autocomplete="off" value="${escapeHtml(pin)}" /></div>
         </div>
-        <div class="vid-field"><span>Floor plan link</span>
-          <input type="url" id="vd-floorplan" value="${escapeHtml(b.floorplan_url || "")}" placeholder="Pixieset can't hold these" /></div>
+        <div class="vid-field"><span>360 Tour <em style="text-transform:none;font-weight:400">— withheld until paid, like the PIN</em></span>
+          <input type="url" id="vd-tour360" value="${escapeHtml(tourUrl)}" placeholder="Pixieset can't hold these" /></div>
         <div class="vid-inv-row">
           <div class="vid-field"><span>Anything else — label</span>
-            <input type="text" id="vd-extra-label" value="${escapeHtml(b.extra_link_label || "")}" placeholder="e.g. 360 tour" /></div>
+            <input type="text" id="vd-extra-label" value="${escapeHtml(b.extra_link_label || "")}" placeholder="e.g. drone stills" /></div>
           <div class="vid-field"><span>Anything else — link</span>
             <input type="url" id="vd-extra-url" value="${escapeHtml(b.extra_link_url || "")}" /></div>
         </div>
@@ -2125,6 +2132,11 @@ import "../../styles/admin.css";
     async function getGalleryPin(b) {
       const { data } = await supabase.from("videography_gallery_pins").select("pin").eq("booking_id", b.id).maybeSingle();
       return (data && data.pin) || "";
+    }
+
+    async function getTourLink(b) {
+      const { data } = await supabase.from("videography_tour_links").select("url").eq("booking_id", b.id).maybeSingle();
+      return (data && data.url) || "";
     }
 
     async function saveBookingPatch(b, patch) {
@@ -2178,7 +2190,6 @@ import "../../styles/admin.css";
       const patch = {
         gallery_url: val("vd-gallery") || null,
         gallery_email: val("vd-email") || null,
-        floorplan_url: val("vd-floorplan") || null,
         extra_link_label: val("vd-extra-label") || null,
         extra_link_url: val("vd-extra-url") || null,
       };
@@ -2186,6 +2197,7 @@ import "../../styles/admin.css";
       if (error) { vdMsg("Couldn't save: " + error.message, true); return; }
       Object.assign(b, patch);
       await saveGalleryPin(b.id, val("vd-pin"));
+      await saveTourLink(b.id, val("vd-tour360"));
       vdMsg("Saved.");
     }
 
@@ -3064,7 +3076,8 @@ import "../../styles/admin.css";
       set("gallery_pin", b?._pin || "");
       loadGalleryPin(b);
       set("store_url", b?.store_url);
-      set("floorplan_url", b?.floorplan_url);
+      set("tour_360_url", "");
+      loadTourLink(b);
       set("download_cap", b?.download_cap != null ? String(b.download_cap) : "");
       set("gallery_expires_on", b?.gallery_expires_on ? String(b.gallery_expires_on).slice(0, 10) : "");
       const arch = document.getElementById("vid-archived");
@@ -3162,6 +3175,28 @@ import "../../styles/admin.css";
       if (b) b._pin = value;
     }
 
+    /* The 360 tour link, same reasoning as the PIN just above: it lives in
+       videography_tour_links, not on the booking, so it cannot be read by
+       the client's own row-level access before they've paid. */
+    async function loadTourLink(b) {
+      const el = document.querySelector('[data-f="tour_360_url"]');
+      if (!el || !b) return;
+      const { data } = await supabase.from("videography_tour_links").select("url").eq("booking_id", b.id).maybeSingle();
+      el.value = (data && data.url) || "";
+      b._tour_url = el.value;
+    }
+
+    async function saveTourLink(bookingId, tourUrl) {
+      if (!bookingId) return;
+      const value = (tourUrl || "").trim();
+      const { error } = value
+        ? await supabase.from("videography_tour_links").upsert({ booking_id: bookingId, url: value, updated_at: new Date().toISOString() })
+        : await supabase.from("videography_tour_links").delete().eq("booking_id", bookingId);
+      if (error) alert("The booking saved, but the 360 tour link didn't: " + error.message);
+      const b = bookings.find((x) => x.id === bookingId);
+      if (b) b._tour_url = value;
+    }
+
     function checkGalleryEmail() {
       const warn = document.getElementById("vid-email-warn");
       if (!warn) return;
@@ -3253,7 +3288,6 @@ import "../../styles/admin.css";
         gallery_email: get("gallery_email") || null,
 
         store_url: get("store_url") || null,
-        floorplan_url: get("floorplan_url") || null,
         download_cap: get("download_cap") === "" ? null : Math.max(0, Math.round(Number(get("download_cap")))),
         gallery_expires_on: get("gallery_expires_on") || null,
         // A tick records WHEN the archive went up; unticking clears it again.
@@ -3262,6 +3296,7 @@ import "../../styles/admin.css";
           : null,
       };
       const pinValue = get("gallery_pin");
+      const tourUrlValue = get("tour_360_url");
       let savedId = editingId;
       const btn = document.getElementById("vid-save");
       if (btn) btn.textContent = "Saving…";
@@ -3293,6 +3328,7 @@ import "../../styles/admin.css";
       // Only ever the booking we just saved. Falling back to "the first one in
       // the list" could have deleted a different booking's PIN.
       if (savedId) await saveGalleryPin(savedId, pinValue);
+      if (savedId) await saveTourLink(savedId, tourUrlValue);
       // The public booking flow has always written the client into the CRM; a
       // booking added by hand never did. Same endpoint, same tag rules, and
       // upsert_contact merges rather than duplicating an existing card.

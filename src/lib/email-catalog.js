@@ -311,8 +311,8 @@ export const EMAIL_CATALOG = [
     to: "The gallery email (the address Pixieset gates downloads on)",
     sender: "hello@tmke.co.uk",
     subject: "Your gallery is ready",
-    summary: "Gallery button, plus floor plan and any ad-hoc link. Carries the download PIN in a quote block, and tells them Pixieset will ask for that email address alongside it. Ends with the amendments clause from their agreement, a link to request edits (or, on a property/agent shoot, buy a twilight conversion or extra images), and a note that the gallery lasts about three months.",
-    fields: ["name", "service", "gallery_url", "pin", "gallery_email", "floorplan_url", "extra_link", "edits_url"],
+    summary: "Gallery button, plus any ad-hoc link. Carries the download PIN in a quote block, and tells them Pixieset will ask for that email address alongside it. Includes the 360 tour link if one's set — held back exactly like the PIN, so it's only ever in this email once paid_at is confirmed server-side. Ends with the amendments clause from their agreement, a link to request edits (or, on a property/agent shoot, buy a twilight conversion or extra images), and a note that the gallery lasts about three months.",
+    fields: ["name", "service", "gallery_url", "pin", "gallery_email", "tour_360_url", "extra_link", "edits_url"],
   },
   {
     id: "vid_gallery_ready_unpaid",
@@ -337,8 +337,8 @@ export const EMAIL_CATALOG = [
     to: "The gallery email",
     sender: "hello@tmke.co.uk",
     subject: "Your gallery is unlocked",
-    summary: "The second email in the unpaid path. Thanks them for payment, gives the PIN, explains Pixieset will ask for their email address alongside it, links to the gallery, says it stays available for three months with a reminder before expiry, points to Previous Bookings in TMKE Studio, and links to the edit-request page (edits/twilight/extra images, per service). Sends once — pin_released_at guards it — and only when the gallery has already gone without the PIN.",
-    fields: ["first_name", "pin", "gallery_email", "gallery_url", "edits_url"],
+    summary: "The second email in the unpaid path. Thanks them for payment, gives the PIN, explains Pixieset will ask for their email address alongside it, links to the gallery and (if one's set) the 360 tour, says it stays available for three months with a reminder before expiry, points to Previous Bookings in TMKE Studio, and links to the edit-request page (edits/twilight/extra images, per service). Sends once — pin_released_at guards it — and only when the gallery has already gone without the PIN.",
+    fields: ["first_name", "pin", "gallery_email", "gallery_url", "tour_360_url", "edits_url"],
   },
   {
     id: "vid_edit_request_team",

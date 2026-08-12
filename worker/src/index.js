@@ -800,12 +800,20 @@ const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + S
 // id, which only appears in the dashboard URL - so it is a var rather than
 // something we can work out. Without it we simply don't offer a link, rather
 // than offering one that 404s.
+// Straight to the bucket, not the folder inside it. The previous version
+// tried to deep-link into a specific prefix with a `?prefix=` query param -
+// that's the S3 LIST API's convention, not necessarily the dashboard UI's
+// current routing, and it was landing on a "Failed to find Object" page.
+// Cloudflare's dashboard does now support prefix deep-links (May 2025
+// changelog), but the exact URL shape isn't documented anywhere findable,
+// and guessing at it a second time risks shipping the same kind of "looks
+// right, isn't" bug again. The bucket root always loads - the folder name is
+// right there on the booking to paste into the dashboard's own search.
 function r2DashUrl(env, folder) {
   const acct = env.CF_ACCOUNT_ID;
   if (!acct || !folder) return null;
   const bucket = env.R2_BUCKET_NAME || "tmke-deliverables";
-  const prefix = `${PART_PREFIX}/${folder}/`;
-  return `https://dash.cloudflare.com/${acct}/r2/default/buckets/${bucket}/objects?prefix=${encodeURIComponent(prefix)}`;
+  return `https://dash.cloudflare.com/${acct}/r2/default/buckets/${bucket}`;
 }
 
 // Build a readable object key: <prefix>/<folder>/<category>/<file>. Slashes are
@@ -6633,6 +6641,10 @@ async function sendGalleryPinEmail(env, bookingId) {
   if (!pin) return { ok: false, reason: "no pin saved" };
   const to = bk.gallery_email || bk.client_email;
   if (!to) return { ok: false, reason: "no address" };
+  // Same release moment as the PIN - if a 360 tour is set, this is the first
+  // time the client is allowed to see it.
+  const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(bookingId)}&select=url`);
+  const tourUrl = (trow && trow[0] && trow[0].url) || "";
 
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
@@ -6643,6 +6655,7 @@ async function sendGalleryPinEmail(env, bookingId) {
     <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">Your download PIN is <strong>${esc(pin)}</strong>.</span></p>
     <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(to)}</strong> and the PIN above.</p>
     ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
+    ${tourUrl ? `<p style="${EM_P}">Your 360 tour: <a href="${esc(tourUrl)}">${esc(tourUrl)}</a></p>` : ""}
     <p style="${EM_P}">Your gallery will remain available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
     <p style="${EM_P}">You can also find this shoot, your gallery and all of your booking details anytime under Previous Bookings in the <a href="${esc(siteUrl)}/account/bookings">TMKE Studio</a>.</p>
     ${editRequestPromptHtml(env, editsToken)}
@@ -6752,11 +6765,15 @@ async function sendGalleryPinEmail(env, bookingId) {
         // actually stops it, and it reads from the database rather than from
         // anything the sender could have changed on screen.
         const paid = !!bk.paid_at;
-        let pin = "";
+        let pin = "", tourUrl = "";
         if (paid) {
           const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(id)}&select=pin`);
           pin = (prow && prow[0] && prow[0].pin) || "";
           if (!pin) return json({ error: "This shoot is paid but has no PIN saved - add it before sending." }, 400, request, env);
+          // Same rule as the PIN: only ever fetched, and only ever mentioned in
+          // the email, once paid is confirmed here from the database.
+          const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(id)}&select=url`);
+          tourUrl = (trow && trow[0] && trow[0].url) || "";
         }
 
         // Unpaid: attach the invoice and give them a way to pay it.
@@ -6777,7 +6794,6 @@ async function sendGalleryPinEmail(env, bookingId) {
         const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const links = [
           `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View your gallery</a></p>`,
-          bk.floorplan_url ? `<p style="${EM_P}">Floor plan: <a href="${esc(bk.floorplan_url)}">${esc(bk.floorplan_url)}</a></p>` : "",
           bk.extra_link_url ? `<p style="${EM_P}">${esc(bk.extra_link_label || "Also for you")}: <a href="${esc(bk.extra_link_url)}">${esc(bk.extra_link_url)}</a></p>` : "",
         ].filter(Boolean).join("");
 
@@ -6785,7 +6801,8 @@ async function sendGalleryPinEmail(env, bookingId) {
           ? `<p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
                Your download PIN is <strong>${esc(pin)}</strong>.<br>
                Pixieset asks for your email address and this PIN when you download, so use
-               <strong>${esc(to)}</strong>.</span></p>`
+               <strong>${esc(to)}</strong>.</span></p>
+             ${tourUrl ? `<p style="${EM_P}">Your 360 tour: <a href="${esc(tourUrl)}">${esc(tourUrl)}</a></p>` : ""}`
           : `<p style="${EM_P}">Your gallery will remain watermarked and downloads will stay locked until payment has been received${invNumber ? ` for invoice ${esc(invNumber)}` : ""}.</p>
              <p style="${EM_P}">As soon as payment comes through, we'll unlock your gallery and send over your download PIN, along with your 360 tour if one is included with your booking.</p>
              ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
@@ -6977,6 +6994,31 @@ async function sendGalleryPinEmail(env, bookingId) {
         const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(id)}&select=pin`);
         const pin = (prow && prow[0] && prow[0].pin) || "";
         return json({ ok: true, paid: true, pin }, 200, request, env);
+      }
+
+      // A member's own 360 tour link. Exactly the same three checks as the
+      // PIN above, for exactly the same reason - it lives in its own table
+      // no member can read, so this endpoint is the only way it can reach
+      // them, and only once paid_at is actually set.
+      if (path.endsWith("/videography/my-tour") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const id = (url.searchParams.get("booking_id") || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+
+        const rows = await sbGet(env, "videography_bookings",
+          `id=eq.${encodeURIComponent(id)}&select=account_user_id,client_email,paid_at`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Not found." }, 404, request, env);
+
+        const mine = (bk.account_user_id && bk.account_user_id === user.id)
+          || (bk.client_email && String(bk.client_email).toLowerCase() === String(user.email || "").toLowerCase());
+        if (!mine) return json({ error: "Not found." }, 404, request, env);
+        if (!bk.paid_at) return json({ ok: true, paid: false }, 200, request, env);
+
+        const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(id)}&select=url`);
+        const tourUrl = (trow && trow[0] && trow[0].url) || "";
+        return json({ ok: true, paid: true, url: tourUrl }, 200, request, env);
       }
 
       if (path.endsWith("/booking/thread") && request.method === "GET") {

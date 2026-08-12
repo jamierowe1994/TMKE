@@ -188,6 +188,13 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-pin-label { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .bk-pin-value { font-family: var(--sans); font-size: 22px; font-weight: 800; letter-spacing: 0.08em; color: var(--english-violet); }
     .bk-pin-note { font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(28,29,34,0.6); }
+    /* Same locked/unlocked treatment as the PIN, for the 360 tour link - held
+       back exactly the same way, for exactly the same reason. */
+    .bk-tour { margin-top: 10px; padding: 14px 16px; border-radius: 5px; background: rgba(28,29,34,0.04); border: 1px solid rgba(28,29,34,0.08); display: flex; flex-direction: column; gap: 4px; }
+    .bk-tour[data-unlocked="1"] { background: rgba(60,150,90,0.08); border-color: rgba(60,150,90,0.25); }
+    .bk-tour-label { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .bk-tour-link { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--english-violet); }
+    .bk-tour-note { font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(28,29,34,0.6); }
 
     .bk-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
     .bk-btn { appearance: none; border: 1px solid rgba(var(--violet-rgb),0.3); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; padding: 11px 16px; border-radius: 8px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 7px; transition: border-color .2s, background .2s, color .2s; }
@@ -297,7 +304,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       // Videography bookings + discovery calls (one table).
       const { data: vid, error: vidErr } = await supabase
         .from('videography_bookings')
-        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, floorplan_url, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at')
+        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at')
         .or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`)
         .order('shoot_date', { ascending: false, nullsFirst: false });
 
@@ -462,7 +469,6 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const gallery = (r.gallery_url && r.gallery_sent_at) ? (() => {
         const links = [
           `<a class="bk-btn bk-btn--primary" href="${escapeHtml(r.gallery_url)}" target="_blank" rel="noopener">Open your gallery</a>`,
-          r.floorplan_url ? `<a class="bk-btn" href="${escapeHtml(r.floorplan_url)}" target="_blank" rel="noopener">Floor plan</a>` : '',
           r.extra_link_url ? `<a class="bk-btn" href="${escapeHtml(r.extra_link_url)}" target="_blank" rel="noopener">${escapeHtml(r.extra_link_label || 'Also for you')}</a>` : '',
           r.store_url ? `<a class="bk-btn" href="${escapeHtml(r.store_url)}" target="_blank" rel="noopener">Buy extra downloads</a>` : '',
         ].filter(Boolean).join('');
@@ -477,6 +483,11 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
             ${unlocked
               ? `<span class="bk-pin-label">Download PIN</span><strong class="bk-pin-value">Loading…</strong>`
               : `<span class="bk-pin-label">Downloads locked</span><span class="bk-pin-note">Your gallery is watermarked until payment reaches us. Your PIN follows automatically as soon as it does.</span>`}
+          </div>
+          <div class="bk-tour" id="bk-tour" data-booking="${escapeHtml(r.id)}" data-unlocked="${unlocked ? '1' : '0'}">
+            ${unlocked
+              ? `<span class="bk-tour-label">360 Tour</span><span class="bk-tour-note">Checking…</span>`
+              : `<span class="bk-tour-label">360 Tour</span><span class="bk-tour-note">If one's included with your booking, it follows automatically with your PIN once payment reaches us.</span>`}
           </div>
           ${expires}
         </section>`;
@@ -497,6 +508,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       $('bk-detail').hidden = false;
       document.body.style.overflow = 'hidden';
       loadPin();
+      loadTour();
     }
     // The PIN is never in the page's data - it is asked for, once the drawer is
     // open, and only for a booking that has been paid for.
@@ -515,6 +527,27 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         if (!res.ok || !d.paid) { valueEl.textContent = '—'; return; }
         valueEl.textContent = d.pin || 'Ask us';
       } catch (_) { valueEl.textContent = 'Ask us'; }
+    }
+    // Same rule as the PIN, same reason: not in the page's data, asked for
+    // once the drawer is open and only once paid. Not every booking has a
+    // tour, so an unlocked booking with none just quietly disappears rather
+    // than showing an empty promise.
+    async function loadTour() {
+      const el = $('bk-tour');
+      if (!el) return;
+      if (el.getAttribute('data-unlocked') !== '1') return;
+      const noteEl = el.querySelector('.bk-tour-note');
+      if (!noteEl || !WORKER) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { noteEl.textContent = 'Sign in again to see this'; return; }
+        const res = await fetch(`${WORKER}/videography/my-tour?booking_id=${encodeURIComponent(el.getAttribute('data-booking'))}`, {
+          headers: { Authorization: 'Bearer ' + session.access_token },
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || !d.paid || !d.url) { el.hidden = true; return; }
+        noteEl.outerHTML = `<a class="bk-tour-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">Open your 360 tour</a>`;
+      } catch (_) { el.hidden = true; }
     }
 
     function closeDetail() { $('bk-detail').hidden = true; currentKey = null; document.body.style.overflow = ''; }
