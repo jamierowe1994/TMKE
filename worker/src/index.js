@@ -6429,11 +6429,7 @@ async function runInvoiceChasers(env) {
       subject: `Overdue: invoice ${inv.number} - ${inv.bill_to_name || "client"}`,
       html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
         <p style="${EM_P}">Invoice <strong>${esc(inv.number)}</strong> passed its due date yesterday and is still unpaid.</p>
-        <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
-          Billed to: ${esc(inv.bill_to_name || "-")}<br>
-          Amount: ${esc(gbpW(inv.total_pence))}<br>
-          Due: ${esc(niceDate(inv.due_date))}<br>
-          Sent to: ${esc(inv.bill_to_email || "-")}</span></p>
+        <p style="${EM_QUOTE}">Billed to: ${esc(inv.bill_to_name || "-")}<br>Amount: ${esc(gbpW(inv.total_pence))}<br>Due: ${esc(niceDate(inv.due_date))}<br>Sent to: ${esc(noAutoLink(inv.bill_to_email || "-"))}</p>
         <p style="${EM_P}">The client had a reminder on the due date. Worth deciding how to chase this one.</p>
         <p style="${EM_SMALL}">If it has been paid and we simply haven't recorded it, mark it paid in the admin centre - that releases the client's PIN and stops any further chasers.</p>
       </div>`),
@@ -6458,6 +6454,20 @@ async function runInvoiceChasers(env) {
 function firstName(full) {
   const first = String(full || "").trim().split(/\s+/)[0];
   return first || "there";
+}
+
+// Most email clients auto-detect anything shaped like an email address and
+// turn it into their own mailto: link, styled however that client styles
+// links - regardless of the HTML we actually sent. That's wrong wherever
+// we're just telling someone what to type (into Pixieset, say), not asking
+// them to click. A zero-width space right after the @ breaks the pattern
+// match without changing how the address looks, copies, or reads to a
+// screen reader. Never use this on an address that's meant to be a real,
+// clickable mailto: link.
+function noAutoLink(v) {
+  const s = String(v ?? "");
+  const at = s.indexOf("@");
+  return at === -1 ? s : s.slice(0, at + 1) + "​" + s.slice(at + 1);
 }
 
 async function runVideographyChasers(env) {
@@ -6667,7 +6677,7 @@ async function sendGalleryPinEmail(env, bookingId) {
     <p style="${EM_P}">Hi ${esc(firstName(bk.client_name))},</p>
     <p style="${EM_P}">Thank you for your payment. Your gallery is now unlocked and your content is ready to download!</p>
     <p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">Your download PIN is <strong>${esc(pin)}</strong>.</span></p>
-    <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(to)}</strong> and the PIN above.</p>
+    <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(noAutoLink(to))}</strong> and the PIN above.</p>
     ${bk.gallery_url ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open your gallery</a></p>` : ""}
     ${tourUrl ? `<p style="${EM_P}">Your 360 tour: <a href="${esc(tourUrl)}">${esc(tourUrl)}</a></p>` : ""}
     <p style="${EM_P}">Your gallery will remain available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
@@ -6812,10 +6822,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         ].filter(Boolean).join("");
 
         const unlock = paid
-          ? `<p style="${EM_QUOTE}"><span style="${EM_QUOTE_TEXT}">
-               Your download PIN is <strong>${esc(pin)}</strong>.<br>
-               Pixieset asks for your email address and this PIN when you download, so use
-               <strong>${esc(to)}</strong>.</span></p>
+          ? `<p style="${EM_QUOTE}">Your download PIN is <strong>${esc(pin)}</strong>.<br>Pixieset asks for your email address and this PIN when you download, so use <strong>${esc(noAutoLink(to))}</strong>.</p>
              ${tourUrl ? `<p style="${EM_P}">Your 360 tour: <a href="${esc(tourUrl)}">${esc(tourUrl)}</a></p>` : ""}`
           : `<p style="${EM_P}">Your gallery will remain watermarked and downloads will stay locked until payment has been received${invNumber ? ` for invoice ${esc(invNumber)}` : ""}.</p>
              <p style="${EM_P}">As soon as payment comes through, we'll unlock your gallery and send over your download PIN, along with your 360 tour if one is included with your booking.</p>
