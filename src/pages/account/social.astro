@@ -273,6 +273,12 @@ import "../../styles/account-sections.css";
         location.replace("/login?next=" + encodeURIComponent("/account/social"));
         return;
       }
+      // getSession() is local-only - a cleared/revoked session can still look
+      // valid to it. Confirm with the server before letting anyone in.
+      if (!DEV) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace("/login?next=" + encodeURIComponent("/account/social")); return; }
+      }
       if (!WORKER) { show({ client: null }); return; }
       try {
         const res = await fetch(`${WORKER}/smm/mine`, { headers: { Authorization: "Bearer " + session.access_token } });

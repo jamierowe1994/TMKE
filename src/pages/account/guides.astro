@@ -459,6 +459,14 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       let session = null;
       try { const { data } = await supabase.auth.getSession(); session = data.session; } catch (_) {}
       if (!session && !DEV) { location.replace('/login?next=' + encodeURIComponent('/account/guides')); return; }
+      // getSession() is local-only - a cleared/revoked session can still look
+      // valid to it. Confirm with the server before letting anyone in.
+      if (session && !DEV) {
+        try {
+          const { data: { user }, error } = await supabase.auth.getUser();
+          if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/guides')); return; }
+        } catch (_) { location.replace('/login?next=' + encodeURIComponent('/account/guides')); return; }
+      }
 
       if (session) {
         const email = session.user.email ?? '';

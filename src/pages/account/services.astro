@@ -28,6 +28,12 @@ import "../../styles/account-sections.css";
         if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/services'));
         return;
       }
+      // getSession() is local-only - a cleared/revoked session can still look
+      // valid to it. Confirm with the server before letting anyone in.
+      if (!import.meta.env.DEV) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/services')); return; }
+      }
       requestAnimationFrame(() => document.body.classList.add('is-loaded'));
       document.getElementById('app-signout')?.addEventListener('click', async () => {
         await signOutEverywhere();

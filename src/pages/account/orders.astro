@@ -169,6 +169,12 @@ import "../../styles/account-sections.css";
         if (!isDemo) location.replace('/login?next=' + encodeURIComponent('/account/orders'));
         return;
       }
+      // getSession() is local-only - a cleared/revoked session can still look
+      // valid to it. Confirm with the server before letting anyone in.
+      if (!isDemo) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/orders')); return; }
+      }
 
       const email = session.user.email ?? '';
       document.getElementById('footer-email').textContent = email;

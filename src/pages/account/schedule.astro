@@ -1208,6 +1208,11 @@ import "../../styles/account-sections.css";
     // Pull a 3-month window so prev/next feels instant. We re-fetch
     // whenever the user navigates outside the loaded window.
     let loadedWindow = null; // { fromYmd, toYmd }
+    // getSession() is local-only - a cleared/revoked session can still look
+    // valid to it. Confirmed once with the server (getUser()) per page load -
+    // not on every loadWindow() call, since that also runs on plain month
+    // navigation and shouldn't add a network round-trip each time.
+    let sessionConfirmed = false;
     async function loadWindow() {
       const winStart = addMonths(viewMonth, -1);
       const winEnd   = addMonths(viewMonth,  2);  // exclusive
@@ -1219,6 +1224,11 @@ import "../../styles/account-sections.css";
         if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
         return;
       }
+      if (!sessionConfirmed && !import.meta.env.DEV) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/schedule')); return; }
+      }
+      sessionConfirmed = true;
       $footerEmail.textContent = session.user.email ?? '';
 
       const [itemsRes, holsRes] = await Promise.all([

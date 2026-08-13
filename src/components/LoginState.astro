@@ -9,8 +9,15 @@
   import { supabase } from "../lib/supabase.js";
   (async () => {
     const btns = Array.from(document.querySelectorAll(".js-nav-login"));
+    // getSession() reads localStorage only - a revoked/cleared session can
+    // still look valid to it (see signOutEverywhere in lib/supabase.js).
+    // Without the getUser() confirmation below, a stale local session was
+    // enough to swap this button straight to "Members" -> /account, skipping
+    // the login page - and its own same guard - entirely.
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!user || error) return;
 
     // Members are already in — hide the "Create account" controls entirely.
     document.querySelectorAll(".js-nav-signup").forEach((el) => { el.hidden = true; el.style.display = "none"; });
