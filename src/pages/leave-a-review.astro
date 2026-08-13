@@ -1,0 +1,301 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+// Same nine placeholder tiles used on /login and /join's grid — reused here
+// as the flashing background. Swap for real TMKE content later; nothing else
+// needs to change since the grid just cycles through this array.
+const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}.webp`);
+---
+
+<BaseLayout
+  title="Leave a review — TMKE"
+  description="Had a great experience with TMKE? Let us know — it means a lot, and helps other people find us."
+>
+  <!-- Same "pop up, hold, then move" technique as the homepage's TMKE/Edit
+       hero (.hero-intro) — one phrase instead of a splitting pair, and it
+       flies UP and out rather than parting left/right, crossing paths with
+       the review card flying in to take its place. Behind it all, a grid of
+       images "flashes" (2-4 cells swap at a time) for ~30s, then freezes on
+       whatever's showing. Reduced-motion / no-JS skip straight to the
+       settled state, same as the homepage. -->
+  <section class="lrv-hero" id="lrv-hero" aria-label="Leave a review">
+    <div class="lrv-grid-bg" id="lrv-grid-bg" aria-hidden="true"></div>
+    <div class="lrv-hero-tint" aria-hidden="true"></div>
+
+    <span class="lrv-word" id="lrv-word">How did we do?</span>
+
+    <div class="lrv-card-wrap" id="lrv-card-wrap">
+      <form class="lrv-form" id="tmke-review-form" novalidate>
+        <div class="lrv-card" id="lrv-card">
+          <p class="lrv-eyebrow">/ Leave a review /</p>
+          <div class="lrv-grid-fields">
+            <div class="lrv-field">
+              <label for="rv-name">Your name <span>*</span></label>
+              <input id="rv-name" name="name" type="text" placeholder="Your name" autocomplete="name" required />
+            </div>
+            <div class="lrv-field">
+              <label for="rv-service">What did we help with? <span>*</span></label>
+              <input id="rv-service" name="service" type="text" placeholder="e.g. Property videography, Social media" required />
+            </div>
+            <div class="lrv-field lrv-field--full">
+              <label for="rv-review">Your review <span>*</span></label>
+              <textarea id="rv-review" name="review_text" rows="4" placeholder="How did it go?" required></textarea>
+            </div>
+          </div>
+
+          <div class="lrv-submit-row">
+            <button type="submit" class="lrv-submit" id="lrv-submit">
+              <span class="lrv-submit-label">Submit Review</span>
+              <span class="lrv-submit-spinner" aria-hidden="true"></span>
+            </button>
+          </div>
+          <p class="lrv-error" id="lrv-error" role="alert" hidden></p>
+
+          <!-- Success state — collapses into the middle of the card. -->
+          <div class="lrv-success" id="lrv-success" aria-hidden="true">
+            <div class="lrv-success-tick" aria-hidden="true">
+              <svg viewBox="0 0 52 52">
+                <circle class="lrv-tick-circle" cx="26" cy="26" r="24" />
+                <path class="lrv-tick-check" d="M15 27 l7.5 7.5 L37 18" />
+              </svg>
+            </div>
+            <p class="lrv-success-h">Thank you.</p>
+            <p class="lrv-success-p">We really appreciate you taking the time.</p>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <style is:global>
+    .lrv-hero {
+      position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: var(--violet-deep); overflow: hidden; padding: clamp(90px, 12vh, 140px) clamp(20px, 5vw, 60px) clamp(40px, 6vh, 70px);
+    }
+
+    /* ---- Flashing image grid, behind everything ---- */
+    .lrv-grid-bg { position: absolute; inset: 0; z-index: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
+    .lrv-grid-cell { background-size: cover; background-position: center; opacity: 0.5; transition: opacity 0.15s ease; }
+    .lrv-hero-tint { position: absolute; inset: 0; z-index: 1; background: rgba(20,19,16,0.55); pointer-events: none; }
+    @media (max-width: 900px) { .lrv-grid-bg { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); } }
+    @media (max-width: 560px) { .lrv-grid-bg { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(6, 1fr); } }
+
+    /* ---- "How did we do?" — pops up centred, holds, flies up + out ---- */
+    .lrv-word {
+      position: absolute; top: 50%; left: 50%; z-index: 2;
+      transform: translate(-50%, calc(-50% + 40px)) scale(0.94); opacity: 0;
+      font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 6vw, 72px);
+      letter-spacing: -0.015em; color: var(--paper); text-align: center; white-space: nowrap;
+      text-shadow: 0 2px 34px rgba(0,0,0,0.38); will-change: transform, opacity;
+    }
+    @keyframes lrvWordPlay {
+      0%    { opacity: 0; transform: translate(-50%, calc(-50% + 40px)) scale(0.94); }
+      16.7% { opacity: 1; transform: translate(-50%, -50%) scale(1); }        /* popped up */
+      72.2% { opacity: 1; transform: translate(-50%, -50%) scale(1); }        /* hold, to read */
+      100%  { opacity: 0; transform: translate(-50%, -170%) scale(0.96); }    /* flies up and out */
+    }
+    .lrv-hero.is-playing .lrv-word { animation: lrvWordPlay 3.6s cubic-bezier(.22, 1, .36, 1) both; }
+    .lrv-hero.is-settled .lrv-word { display: none; }
+
+    /* ---- Review card — flies in as the words leave, timed to cross ---- */
+    .lrv-card-wrap { position: relative; z-index: 2; width: 100%; max-width: 620px; opacity: 0; transform: translateY(70px); }
+    .lrv-hero.is-playing .lrv-card-wrap { animation: lrvCardIn 1.1s cubic-bezier(.22, 1, .36, 1) 2.6s both; }
+    .lrv-hero.no-anim .lrv-card-wrap, .lrv-hero.is-settled .lrv-card-wrap { opacity: 1; transform: none; animation: none; }
+    @keyframes lrvCardIn { 0% { opacity: 0; transform: translateY(70px); } 100% { opacity: 1; transform: translateY(0); } }
+    .lrv-hero.no-anim .lrv-word { display: none; }
+
+    /* ---- Card ---- */
+    .lrv-card {
+      position: relative; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      padding: clamp(26px, 3vw, 42px); background: #fff;
+      box-shadow: 0 40px 90px -30px rgba(0,0,0,0.5);
+    }
+    .lrv-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.26em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 18px; }
+    .lrv-grid-fields { display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; row-gap: 20px; transition: opacity 0.4s ease; }
+    .lrv-field { display: flex; flex-direction: column; gap: 7px; }
+    .lrv-field--full { grid-column: 1 / -1; }
+    .lrv-field label { font-family: var(--sans); font-size: 12.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28, 29, 34, 0.7); }
+    .lrv-field label span { color: var(--english-violet); margin-left: 2px; }
+    .lrv-field input, .lrv-field textarea {
+      font-family: var(--sans); font-size: 15px; color: var(--ink); background: transparent; border: none;
+      border-bottom: 1px solid rgba(51, 55, 71, 0.32); padding: 8px 0 9px; width: 100%; outline: none;
+      border-radius: 0; transition: border-color 0.25s; box-sizing: border-box;
+    }
+    .lrv-field input::placeholder, .lrv-field textarea::placeholder { color: rgba(51, 55, 71, 0.32); }
+    .lrv-field input:focus, .lrv-field textarea:focus { border-bottom-color: var(--english-violet); }
+    .lrv-field textarea { resize: vertical; min-height: 78px; line-height: 1.5; }
+
+    .lrv-submit-row { display: flex; justify-content: center; margin-top: 22px; transition: opacity 0.4s ease; }
+    .lrv-submit {
+      position: relative; width: 100%; max-width: 100%; height: 54px; border: none; border-radius: 999px;
+      background: var(--english-violet); color: var(--paper); cursor: pointer; overflow: hidden; font-family: var(--sans);
+      transition: width 0.55s cubic-bezier(.7,0,.2,1), border-radius 0.55s cubic-bezier(.7,0,.2,1), opacity 0.4s ease, transform 0.4s ease;
+    }
+    .lrv-submit:hover { background: var(--ink); }
+    .lrv-submit-label {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap; transition: opacity 0.2s ease;
+    }
+    .lrv-submit-spinner {
+      position: absolute; top: 50%; left: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+      border: 2.5px solid rgba(244, 242, 241, 0.4); border-top-color: var(--paper); border-radius: 50%;
+      opacity: 0; transition: opacity 0.25s ease 0.3s;
+    }
+    .lrv-submit.is-sending { width: 54px; border-radius: 50%; cursor: default; }
+    .lrv-submit.is-sending .lrv-submit-label { opacity: 0; }
+    .lrv-submit.is-sending .lrv-submit-spinner { opacity: 1; animation: lrv-spin 0.7s linear infinite; }
+    .lrv-submit.is-done { opacity: 0; transform: scale(0.7); pointer-events: none; }
+    @keyframes lrv-spin { to { transform: rotate(360deg); } }
+
+    .lrv-error { font-family: var(--sans); font-size: 13.5px; color: #b03a2e; text-align: center; margin: 14px 0 0; }
+    .lrv-error[hidden] { display: none; }
+
+    .lrv-card.is-done .lrv-grid-fields, .lrv-card.is-done .lrv-submit-row { opacity: 0; pointer-events: none; }
+    .lrv-success {
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 32px; background: #fff; border-radius: 14px; opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+    }
+    .lrv-success.is-visible { opacity: 1; }
+    .lrv-success-tick { width: 80px; height: 80px; margin-bottom: 20px; }
+    .lrv-success-tick svg { width: 100%; height: 100%; overflow: visible; }
+    .lrv-tick-circle { fill: #2e7d52; transform: scale(0); transform-box: fill-box; transform-origin: center; }
+    .lrv-tick-check { fill: none; stroke: #fff; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 44; stroke-dashoffset: 44; }
+    .lrv-success.is-visible .lrv-tick-circle { animation: lrv-pop 0.45s cubic-bezier(.2,1.4,.4,1) forwards; }
+    .lrv-success.is-visible .lrv-tick-check { animation: lrv-draw 0.4s ease 0.32s forwards; }
+    @keyframes lrv-pop { to { transform: scale(1); } }
+    @keyframes lrv-draw { to { stroke-dashoffset: 0; } }
+    .lrv-success-h { font-family: var(--serif); font-weight: 500; font-size: clamp(28px, 3vw, 40px); line-height: 1.04; letter-spacing: -0.015em; color: #2e7d52; margin: 0 0 10px; }
+    .lrv-success-p { font-family: var(--sans); font-size: clamp(14px, 1.1vw, 16px); line-height: 1.55; color: rgba(28, 29, 34, 0.66); margin: 0; max-width: 36ch; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lrv-tick-circle { transform: scale(1); }
+      .lrv-tick-check { stroke-dashoffset: 0; }
+      .lrv-submit { transition: opacity 0.3s ease; }
+    }
+    @media (max-width: 560px) {
+      .lrv-grid-fields { grid-template-columns: 1fr; column-gap: 0; row-gap: 16px; }
+    }
+  </style>
+
+  <!-- Trigger the intro on load, same deferred-frame pattern as the homepage
+       hero so the transforms are measured correctly. Reduced-motion / no-JS
+       skip straight to the settled state (card visible, no word). -->
+  <script>
+    (function () {
+      const hero = document.querySelector(".lrv-hero");
+      if (!hero) return;
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        hero.classList.add("no-anim");
+        return;
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => hero.classList.add("is-playing")));
+      setTimeout(() => hero.classList.add("is-settled"), 3700);
+    })();
+  </script>
+  <noscript>
+    <style>
+      .lrv-word { display: none !important; }
+      .lrv-card-wrap { opacity: 1 !important; transform: none !important; }
+    </style>
+  </noscript>
+
+  <!-- Background grid: flashes 2-4 cells at a time (a quick fade-out,
+       image swap, fade back in) every ~1.4s for 30s, then stops - whatever
+       is showing at that point just stays. -->
+  <script define:vars={{ GRID_IMAGES }}>
+    (function () {
+      const host = document.getElementById("lrv-grid-bg");
+      if (!host || !GRID_IMAGES.length) return;
+
+      const CELL_COUNT = 12;
+      const cells = [];
+      for (let i = 0; i < CELL_COUNT; i++) {
+        const cell = document.createElement("div");
+        cell.className = "lrv-grid-cell";
+        const img = GRID_IMAGES[i % GRID_IMAGES.length];
+        cell.style.backgroundImage = `url('${img}')`;
+        cell.dataset.img = img;
+        host.appendChild(cell);
+        cells.push(cell);
+      }
+
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+      function flashOnce() {
+        const n = 2 + Math.floor(Math.random() * 3); // 2-4 cells at once
+        const chosen = new Set();
+        while (chosen.size < Math.min(n, cells.length)) chosen.add(Math.floor(Math.random() * cells.length));
+        chosen.forEach((idx) => {
+          const cell = cells[idx];
+          let next = cell.dataset.img;
+          if (GRID_IMAGES.length > 1) {
+            while (next === cell.dataset.img) next = GRID_IMAGES[Math.floor(Math.random() * GRID_IMAGES.length)];
+          }
+          cell.style.opacity = "0";
+          setTimeout(() => {
+            cell.style.backgroundImage = `url('${next}')`;
+            cell.dataset.img = next;
+            cell.style.opacity = "0.5";
+          }, 150);
+        });
+      }
+
+      const interval = setInterval(flashOnce, 1400);
+      setTimeout(() => clearInterval(interval), 30000); // stop after ~30s, freezing whatever's showing
+    })();
+  </script>
+
+  <script>
+    import { supabase } from "../lib/supabase.js";
+
+    const form = document.getElementById("tmke-review-form");
+    if (form) {
+      const card = document.getElementById("lrv-card");
+      const submit = document.getElementById("lrv-submit");
+      const success = document.getElementById("lrv-success");
+      const errorEl = document.getElementById("lrv-error");
+      const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        if (errorEl) errorEl.hidden = true;
+
+        submit.setAttribute("disabled", "true");
+        submit.classList.add("is-sending");
+
+        const fd = new FormData(form);
+        const payload = {
+          name: String(fd.get("name") || "").trim(),
+          service: String(fd.get("service") || "").trim(),
+          review_text: String(fd.get("review_text") || "").trim(),
+        };
+
+        const [result] = await Promise.all([
+          supabase.from("client_reviews").insert(payload),
+          delay(1400),
+        ]);
+
+        if (result && result.error) {
+          console.error("[TMKE] review insert failed", result.error);
+          submit.classList.remove("is-sending");
+          submit.removeAttribute("disabled");
+          if (errorEl) {
+            errorEl.textContent = "Sorry — we couldn't send that. Please try again, or email hello@tmke.co.uk.";
+            errorEl.hidden = false;
+          }
+          return;
+        }
+
+        submit.classList.add("is-done");
+        await delay(420);
+        if (card) card.classList.add("is-done");
+        if (success) {
+          success.classList.add("is-visible");
+          success.setAttribute("aria-hidden", "false");
+        }
+        form.reset();
+      });
+    }
+  </script>
+</BaseLayout>

@@ -1,0 +1,141 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="reviews" title="Reviews" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Reviews</div>
+          <div class="page-header-sub">Everything submitted through the public leave-a-review page.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-actions">
+        <span class="admin-bar-count" id="trv-count">…</span>
+      </div>
+    </section>
+
+    <section class="trv-list wrap" id="trv-list" aria-busy="true">
+      <p class="trv-loading" id="trv-loading">Loading reviews…</p>
+      <p class="trv-empty" id="trv-empty" hidden>No reviews yet.</p>
+      <div class="trv-grid" id="trv-grid"></div>
+    </section>
+  </div>
+
+  <style is:global>
+    .trv-list { max-width: 1100px; margin: 0 auto; padding: 0 36px 200px; }
+    .trv-loading, .trv-empty { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; }
+
+    .trv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .trv-card {
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.18); border-radius: 2px;
+      padding: 18px 20px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .trv-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+    .trv-name { font-family: var(--serif); font-size: 18px; color: var(--ink); }
+    .trv-when { font-family: var(--sans); font-size: 11px; color: rgba(28, 29, 34, 0.45); white-space: nowrap; }
+    .trv-service {
+      display: inline-block; align-self: flex-start; font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet);
+      background: rgba(var(--violet-rgb), 0.1); padding: 3px 9px; border-radius: 999px;
+    }
+    .trv-text { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28, 29, 34, 0.8); white-space: pre-wrap; }
+    .trv-card-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
+
+    @media (max-width: 720px) { .admin-hero-pad { padding-top: 56px; } }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    function fmtWhen(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    }
+
+    let all = [];
+
+    function render() {
+      const grid = document.getElementById("trv-grid");
+      const emptyEl = document.getElementById("trv-empty");
+      const countEl = document.getElementById("trv-count");
+      if (!grid) return;
+      if (countEl) countEl.textContent = `${all.length} ${all.length === 1 ? "review" : "reviews"}`;
+      if (!all.length) {
+        grid.innerHTML = "";
+        if (emptyEl) emptyEl.hidden = false;
+        return;
+      }
+      if (emptyEl) emptyEl.hidden = true;
+      grid.innerHTML = all.map((r) => `
+        <div class="trv-card" data-id="${r.id}">
+          <div class="trv-card-top">
+            <div>
+              <div class="trv-name">${escapeHtml(r.name)}</div>
+              <span class="trv-service">${escapeHtml(r.service)}</span>
+            </div>
+            <span class="trv-when">${fmtWhen(r.created_at)}</span>
+          </div>
+          <p class="trv-text">${escapeHtml(r.review_text)}</p>
+          <div class="trv-card-actions">
+            <button type="button" class="admin-btn admin-btn-ghost" data-copy="${r.id}">Copy</button>
+            <button type="button" class="admin-btn admin-btn-danger" data-delete="${r.id}">Delete</button>
+          </div>
+        </div>`).join("");
+
+      grid.querySelectorAll("[data-copy]").forEach((btn) => btn.addEventListener("click", async () => {
+        const row = all.find((r) => r.id === btn.getAttribute("data-copy"));
+        if (!row) return;
+        try {
+          await navigator.clipboard.writeText(`"${row.review_text}"\n— ${row.name}, ${row.service}`);
+          const label = btn.textContent; btn.textContent = "Copied";
+          setTimeout(() => { btn.textContent = label; }, 1500);
+        } catch (_) {}
+      }));
+
+      grid.querySelectorAll("[data-delete]").forEach((btn) => btn.addEventListener("click", async () => {
+        const id = btn.getAttribute("data-delete");
+        if (!confirm("Delete this review? This can't be undone.")) return;
+        const { error } = await supabase.from("client_reviews").delete().eq("id", id);
+        if (error) { alert("Couldn't delete: " + error.message); return; }
+        all = all.filter((r) => r.id !== id);
+        render();
+      }));
+    }
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from("client_reviews")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const loading = document.getElementById("trv-loading");
+      if (loading) loading.hidden = true;
+      const listEl = document.getElementById("trv-list");
+      if (listEl) listEl.removeAttribute("aria-busy");
+
+      if (error) {
+        if (loading) { loading.hidden = false; loading.textContent = "Could not load reviews: " + error.message; }
+        return;
+      }
+
+      all = data || [];
+      render();
+    })();
+  </script>
+</AdminShell>
