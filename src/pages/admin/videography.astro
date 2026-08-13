@@ -2289,6 +2289,18 @@ import "../../styles/admin.css";
       const editsSentAt = b.pin_released_at || (b.paid_at && b.gallery_sent_at ? b.gallery_sent_at : null);
       if (!editsSentAt) { host.innerHTML = ""; return; }
 
+      // Their own link, so it can be handed over again by hand - a lost
+      // email, a different contact who needs it, whatever the reason. Same
+      // token every time (minted once, on first send), so this never goes
+      // stale even if they've already submitted a request through it.
+      const editsLink = b.edits_token ? `${location.origin}/edits?token=${encodeURIComponent(b.edits_token)}` : "";
+      const linkRow = editsLink
+        ? `<div class="vid-archive-row" style="margin-bottom:12px">
+             <input type="text" readonly value="${escapeHtml(editsLink)}" id="vid-edits-link" />
+             <button type="button" class="admin-btn admin-btn-ghost" id="vid-edits-link-copy">Copy</button>
+           </div>`
+        : "";
+
       const { data, error } = await supabase
         .from("videography_edit_requests")
         .select("*")
@@ -2300,8 +2312,10 @@ import "../../styles/admin.css";
         const sentNice = new Date(editsSentAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
         host.innerHTML = `<div class="vid-gate">
           <div class="vid-gate-h">Edit</div>
+          ${linkRow}
           <p class="vid-hint">Awaiting edits from the client. Sent ${escapeHtml(sentNice)}.</p>
         </div>`;
+        wireEditsLinkCopy();
         return;
       }
 
@@ -2323,8 +2337,21 @@ import "../../styles/admin.css";
 
       host.innerHTML = `<div class="vid-gate is-done">
         <div class="vid-gate-h">Edit</div>
+        ${linkRow}
         ${rowsHtml}
       </div>`;
+      wireEditsLinkCopy();
+    }
+
+    function wireEditsLinkCopy() {
+      const btn = document.getElementById("vid-edits-link-copy");
+      const input = document.getElementById("vid-edits-link");
+      if (!btn || !input) return;
+      btn.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(input.value); btn.textContent = "Copied"; }
+        catch (_) { input.select(); btn.textContent = "Selected"; }
+        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+      });
     }
 
     async function renderInvoiceCard(b) {
