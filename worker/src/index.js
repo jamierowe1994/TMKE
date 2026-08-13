@@ -1153,7 +1153,7 @@ const TEG_REASON_LABELS = {
 // re-derived from THESE constants at request time - the public edit-request
 // page never gets to say what anything costs.
 const FAUX_TWILIGHT_PRICE_PENCE = 2500;
-const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2000 };
+const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2400 };
 
 // ---- Invoice pay links ---------------------------------------------------
 //
@@ -6470,6 +6470,18 @@ function noAutoLink(v) {
   return at === -1 ? s : s.slice(0, at + 1) + "​" + s.slice(at + 1);
 }
 
+// A field like the 360 tour link is typed by hand, and "google.co.uk" is a
+// far more natural thing to type than "https://google.co.uk". Used as an
+// href exactly as typed, the missing scheme makes the browser treat it as a
+// path relative to wherever the link is opened, not an external site - which
+// looks and behaves like a dead button, not an obviously wrong one. Fixed at
+// render time rather than requiring the address always be entered in full.
+function normalizeUrl(v) {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+}
+
 async function runVideographyChasers(env) {
   const today = new Date();
   const iso = (d) => d.toISOString().slice(0, 10);
@@ -6668,7 +6680,7 @@ async function sendGalleryPinEmail(env, bookingId) {
   // Same release moment as the PIN - if a 360 tour is set, this is the first
   // time the client is allowed to see it.
   const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(bookingId)}&select=url`);
-  const tourUrl = (trow && trow[0] && trow[0].url) || "";
+  const tourUrl = normalizeUrl((trow && trow[0] && trow[0].url) || "");
 
   const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
@@ -6903,7 +6915,11 @@ async function sendGalleryPinEmail(env, bookingId) {
       function editRequestUpsellKind(bk) {
         const hay = `${bk.service_type || ""} ${bk.service || ""}`.toLowerCase();
         if (/property/.test(hay)) return "twilight";
-        if (/agent/.test(hay)) return "extra_images";
+        // Agent shoots proper, and the new-starter induction Studio Day
+        // (service "New-Starter Studio Day", service_type "content-studio" -
+        // it's an agent-family shoot with a limited image count, same as any
+        // other agent booking, just booked through a different flow).
+        if (/agent/.test(hay) || /induction|new-starter/.test(hay)) return "extra_images";
         return null;
       }
 
@@ -7048,7 +7064,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         if (!bk.paid_at) return json({ ok: true, paid: false }, 200, request, env);
 
         const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(id)}&select=url`);
-        const tourUrl = (trow && trow[0] && trow[0].url) || "";
+        const tourUrl = normalizeUrl((trow && trow[0] && trow[0].url) || "");
         return json({ ok: true, paid: true, url: tourUrl }, 200, request, env);
       }
 

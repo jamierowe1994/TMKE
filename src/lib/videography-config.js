@@ -440,7 +440,7 @@ export function tegReasonLabel(key) {
 // defined on the "property" service's addOns above (£25+VAT/image) rather
 // than duplicating it here. Agent/induction shoots instead offer a fixed
 // bundle of extra downloadable images - easy to retune, not fixed in stone.
-export const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2000 };
+export const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2400 };
 
 // ---- Fine & Country property agreements -------------------------------------
 // F&C sit a tier above the other TEG brands (Platinum, not Gold) and, more

@@ -89,14 +89,21 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     }
     .edr-submit-total { font-family: var(--serif); font-size: 22px; }
     .edr-submit-btn {
-      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
       background: var(--paper); color: var(--english-violet); border: 0; border-radius: 999px;
-      padding: 15px 26px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+      padding: 16px 30px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
     }
-    .edr-submit-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(0,0,0,0.22); }
+    .edr-submit-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(0,0,0,0.26); }
     .edr-submit-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
     .edr-error { font-family: var(--sans); font-size: 13px; color: #b42828; margin-top: 12px; }
     .edr-thanks { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink); padding: 40px 0; }
+
+    /* "Want to add anything else?" - a proper section heading, distinct from
+       the compact uppercase .edr-label field labels, since it introduces a
+       new part of the page rather than naming a single field. */
+    .edr-subhead { font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.2; color: var(--ink); margin: 0 0 10px; }
+    .edr-pay-note { font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(28,29,34,0.55); margin: 4px 0 0; }
 
     @media (max-width: 720px) { .edr-stage { padding: 36px 20px 100px; } .edr-head { padding: 18px 20px; } }
   </style>
@@ -145,8 +152,9 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
       const twilightBlock = upsell === "twilight" ? `
         <div class="edr-section">
-          <span class="edr-label">Fancy a twilight shot?</span>
-          <p class="edr-sub">We can turn any of your property photos into a twilight version — ${esc(gbpFromPence(twilightPricePence))}+VAT each. Click an image on your gallery and Pixieset shows the filename at the bottom — paste it below.</p>
+          <span class="edr-label">Twilight Photos</span>
+          <p class="edr-sub">Turn your chosen exterior shots into twilight images, perfect for giving your listing a different look across portals and social media. ${esc(gbpFromPence(twilightPricePence))} per photo.</p>
+          <p class="edr-hint" style="margin:-6px 0 12px">Click an image on your gallery and Pixieset shows the filename at the bottom — paste it below.</p>
           <div id="edr-twilight-rows"></div>
           <button type="button" class="edr-add-row" id="edr-add-row">+ Add another image</button>
           <p class="edr-twilight-total" id="edr-twilight-total"></p>
@@ -154,25 +162,33 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
       const bundleBlock = upsell === "extra_images" ? `
         <div class="edr-section">
-          <span class="edr-label">Want more images?</span>
+          <span class="edr-label">Too many favourites?</span>
           <div class="edr-bundle">
             <input type="checkbox" id="edr-bundle-check" />
-            <label for="edr-bundle-check">Add <strong>${d.extra_images.qty} extra images</strong> for <strong>${esc(gbpFromPence(d.extra_images.price_pence))}</strong></label>
+            <label for="edr-bundle-check">Add another <strong>${d.extra_images.qty}</strong> photos to your final selection for <strong>${esc(gbpFromPence(d.extra_images.price_pence))}</strong>, saving you 20% on the gallery price.</label>
           </div>
+        </div>` : "";
+
+      const extrasSection = upsell ? `
+        <div class="edr-section">
+          <h2 class="edr-subhead">Want to add anything else?</h2>
+          <p class="edr-note" style="margin-bottom:20px">While we're making your edits, you can also add a little extra to your finished content.</p>
+          ${twilightBlock}
+          ${bundleBlock}
+          <p class="edr-pay-note">These extras are added to your gallery once payment has been received — nothing is created before then.</p>
         </div>` : "";
 
       stage.innerHTML = `
         <div class="edr-eyebrow">Videography</div>
-        <h1 class="edr-title">${d.client_name ? esc(d.client_name) + ", " : ""}let us know what you'd like.</h1>
-        <p class="edr-note">Tell us about any edits you'd like to your content${upsell ? ", or add something extra below." : "."}</p>
+        <h1 class="edr-title">${d.client_name ? esc(d.client_name) + ", " : ""}let us know what you'd like changed.</h1>
+        <p class="edr-note">Had a look through your content and spotted something you'd like changed? No problem!</p>
+        <p class="edr-note">Add all of your requested changes below and send them through. Once they're submitted, Jack will make the updates and we'll let you know when your revised content is ready to review.</p>
         ${banner}
         <div class="edr-section">
-          <span class="edr-label">What would you like changed?</span>
           <textarea class="edr-notes" id="edr-notes" placeholder="Describe the edits you'd like — as much detail as helps"></textarea>
-          <p class="edr-hint">Leave this blank if you're only after the extras below.</p>
+          <p class="edr-hint">A quick note: as your package includes one round of edits, please make sure you've reviewed all of your content and included everything you'd like changed before submitting your request.</p>
         </div>
-        ${twilightBlock}
-        ${bundleBlock}
+        ${extrasSection}
         <div class="edr-submit-row">
           <div class="edr-submit-inner">
             <span class="edr-submit-total" id="edr-submit-total"></span>
