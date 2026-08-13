@@ -6816,25 +6816,35 @@ async function sendGalleryPinEmail(env, bookingId) {
         }
 
         const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        // Paid: the tour rides alongside the gallery as a second button, not a
+        // bare pasted URL underneath everything else - same visual weight,
+        // since it's just as much "your delivered content" as the gallery is.
         const links = [
-          `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View your gallery</a></p>`,
+          paid
+            ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View Gallery</a>${tourUrl ? ` <a href="${esc(tourUrl)}" style="${EM_BTN}">View 360 Tour</a>` : ""}</p>`
+            : `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">View your gallery</a></p>`,
           bk.extra_link_url ? `<p style="${EM_P}">${esc(bk.extra_link_label || "Also for you")}: <a href="${esc(bk.extra_link_url)}">${esc(bk.extra_link_url)}</a></p>` : "",
         ].filter(Boolean).join("");
 
         const unlock = paid
-          ? `<p style="${EM_QUOTE}">Your download PIN is <strong>${esc(pin)}</strong>.<br>Pixieset asks for your email address and this PIN when you download, so use <strong>${esc(noAutoLink(to))}</strong>.</p>
-             ${tourUrl ? `<p style="${EM_P}">Your 360 tour: <a href="${esc(tourUrl)}">${esc(tourUrl)}</a></p>` : ""}`
+          ? `<p style="${EM_QUOTE}">Your download PIN is <strong>${esc(pin)}</strong>.</p>
+             <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(noAutoLink(to))}</strong> and the PIN above.</p>`
           : `<p style="${EM_P}">Your gallery will remain watermarked and downloads will stay locked until payment has been received${invNumber ? ` for invoice ${esc(invNumber)}` : ""}.</p>
              <p style="${EM_P}">As soon as payment comes through, we'll unlock your gallery and send over your download PIN, along with your 360 tour if one is included with your booking.</p>
              ${payUrl ? `<p style="${EM_P}"><a href="${esc(payUrl)}" style="${EM_BTN}">Pay by card</a></p>` : ""}
              ${attachments ? `<p style="${EM_P}">We've attached another copy of your invoice to this email. You can also pay by bank transfer using the details on it.</p>` : ""}`;
 
-        // Paid: lifted from the agreement they signed rather than paraphrased,
-        // so what the email promises and what the contract says cannot drift
-        // apart - left untouched. Unpaid: softer, forward-looking wording -
-        // there's no live link yet, since edits only unlock once they've paid.
+        // Paid: dropped per Danielle's revised copy (12 Aug 2026) - the edits
+        // paragraph right below now covers the same ground in plainer language
+        // with a working link, so the two read as one redundant idea back to
+        // back rather than two separate ones. Flagging because the old wording
+        // was lifted verbatim from the signed agreement's amendments clause,
+        // not paraphrased - if that clause still needs to appear somewhere
+        // contractually, it isn't this email any more.
+        // Unpaid: softer, forward-looking wording - there's no live link yet,
+        // since edits only unlock once they've paid.
         const amends = paid
-          ? `<p style="${EM_SMALL}">One round of amendments is included with your booking and may be requested after the edited content has been released. Where amendments are requested by both the agent and seller, all requested changes must be submitted together as one consolidated set.</p>`
+          ? ""
           : `<p style="${EM_P}">Once everything is unlocked, have a look through your finished content. Your package includes one round of edits, so if there's anything you'd like us to change, you can send all of your requests through together using the link we'll provide.</p>`;
 
         // Only on the already-paid send: the unpaid email describes what's
@@ -6843,11 +6853,11 @@ async function sendGalleryPinEmail(env, bookingId) {
         const editsPrompt = paid ? editRequestPromptHtml(env, await ensureEditsToken(env, bk)) : "";
 
         const openingLine = paid
-          ? `Your ${esc((bk.service || "shoot").toLowerCase())} is ready to view.`
+          ? `Great news, your ${esc((bk.service || "shoot").toLowerCase())} gallery is now ready to view.`
           : `Your content is ready! You can now view everything from your ${esc((bk.service || "shoot").toLowerCase())} in your gallery using the link below.`;
 
         const closingLine = paid
-          ? `<p style="${EM_SMALL}">Your gallery stays available for about three months, and we'll remind you before it closes.</p>`
+          ? `<p style="${EM_SMALL}">Your gallery will stay available for three months, and we'll send you a reminder before it's due to expire so you have plenty of time to make sure everything is downloaded.</p>`
           : `<p style="${EM_P}">Your gallery will stay available for three months. Don't worry, we'll send you a reminder before it's due to expire, so you have plenty of time to make sure you've downloaded everything you need.</p>
              <p style="${EM_P}">We hope you love your content!</p>
              <p style="${EM_P}">The TMKE Team</p>`;
