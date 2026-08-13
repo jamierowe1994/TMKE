@@ -6659,6 +6659,51 @@ async function notifyEditRequest(env, requestId) {
   return { ok: true };
 }
 
+// Closes the loop from the client's side: Jack has done the edits (and any
+// paid extras) and settled up with them directly, so this just confirms it's
+// all done from our end, points them back to their account for the booking
+// details, and asks for a review. Idempotent via edits_complete_email_sent_at
+// so re-ticking "edits settled" on the client file can never double-send.
+async function sendEditsCompleteEmail(env, bookingId) {
+  const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&select=*`);
+  const bk = rows && rows[0];
+  if (!bk) return { ok: false, reason: "no booking" };
+  if (bk.edits_complete_email_sent_at) return { ok: false, reason: "already sent" };
+
+  const to = bk.gallery_email || bk.client_email;
+  if (!to) return { ok: false, reason: "no recipient" };
+
+  const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+  const firstName = String(bk.client_name || "").trim().split(/\s+/)[0] || "there";
+
+  const html = `<div style="${EM_WRAP}">
+    <h1 style="${EM_H1}">All done, ${esc(firstName)}</h1>
+    <p style="${EM_P}">Your ${esc((bk.service || "shoot").toLowerCase())} is fully wrapped up — everything's complete from our end.</p>
+    <p style="${EM_P}"><a href="${siteUrl}/account/bookings" style="${EM_BTN}">View Your Booking</a></p>
+    <p style="${EM_P}">If you have a spare minute, we'd really appreciate a review — it makes a big difference to us.</p>
+    <p style="${EM_P}"><a href="${siteUrl}/leave-a-review" style="${EM_BTN}">Leave a Review</a></p>
+    <p style="${EM_P}">Thanks again for working with us.</p>
+  </div>`;
+
+  const sent = await sendEmail(env, {
+    to, subject: `Your ${bk.service || "shoot"} is all done`,
+    html: await wrapInBrandedBase(env, html),
+  });
+  if (!sent.ok) return { ok: false, reason: sent.error || "send failed" };
+
+  await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&edits_complete_email_sent_at=is.null`, {
+    edits_complete_email_sent_at: new Date().toISOString(),
+  });
+  await logBookingMessage(env, {
+    booking_id: bk.id, booking_source: "videography",
+    channel: "email", kind: "edits_complete",
+    subject: "All done — close-out email", body: `Sent to ${to}.`,
+    is_automated: true, created_by: "system",
+  });
+  return { ok: true };
+}
+
 // The second email: they were sent their gallery before paying, so they have
 // the links but not the PIN. This is what closes that loop when the money
 // lands - without it, someone who pays after delivery waits for a human to
@@ -7014,6 +7059,21 @@ async function sendGalleryPinEmail(env, bookingId) {
         } catch (e) {
           return json({ error: "Couldn't reach the payment provider. Please try again." }, 502, request, env);
         }
+      }
+
+      // Admin-triggered: fires from the "edits settled" tickbox on the client
+      // file once Jack's confirmed everything's done and settled with the
+      // client directly. Not automatic on the tick itself — the admin calls
+      // this explicitly so a re-tick (untick/retick) never re-sends.
+      if (path.endsWith("/videography/edits-complete-email") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const result = await sendEditsCompleteEmail(env, id);
+        if (!result.ok) return json({ error: result.reason === "already sent" ? "Already sent." : "Couldn't send that email." }, 400, request, env);
+        return json({ ok: true }, 200, request, env);
       }
 
       // A member's own PIN. Sits behind three checks, because this is the one

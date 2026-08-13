@@ -1760,6 +1760,7 @@ import "../../styles/admin.css";
     }
 
     async function saveEditsSettled(b, checked) {
+      const wasSettled = !!b.edits_settled_at;
       const patch = {
         edits_settled_at: checked ? (b.edits_settled_at || new Date().toISOString()) : null,
         edits_settled_by: checked ? (b.edits_settled_by || adminEmail || null) : null,
@@ -1768,6 +1769,24 @@ import "../../styles/admin.css";
       const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
       if (error) { alert("Couldn't save that: " + error.message); return; }
       await addNote(b, checked ? "Edits settled." : "Edits reopened.", "audit");
+
+      // The close-out email fires here, on the tick itself, rather than
+      // automatically elsewhere - Jack settles with the client on his own
+      // channels first, then this is what closes it off from our side. Only
+      // on a fresh tick (not already settled), and it's self-guarding on the
+      // Worker via edits_complete_email_sent_at, so this can never double-send.
+      if (checked && !wasSettled && WORKER_URL && !b.edits_complete_email_sent_at) {
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/videography/edits-complete-email`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ booking_id: b.id }),
+          });
+          if (res.ok) b.edits_complete_email_sent_at = new Date().toISOString();
+        } catch (_) { /* best-effort - the tick itself has already saved */ }
+      }
+
       renderCandidate();
     }
 
