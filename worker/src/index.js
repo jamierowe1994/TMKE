@@ -6827,7 +6827,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         ].filter(Boolean).join("");
 
         const unlock = paid
-          ? `<p style="${EM_QUOTE}">Your download PIN is <strong>${esc(pin)}</strong>.</p>
+          ? `<p style="${EM_QUOTE}margin-bottom:0;">Your download PIN is <strong>${esc(pin)}</strong>.</p>
              <p style="${EM_P}">When you download your content, Pixieset will ask for your email address and PIN. Simply use <strong>${esc(noAutoLink(to))}</strong> and the PIN above.</p>`
           : `<p style="${EM_P}">Your gallery will remain watermarked and downloads will stay locked until payment has been received${invNumber ? ` for invoice ${esc(invNumber)}` : ""}.</p>
              <p style="${EM_P}">As soon as payment comes through, we'll unlock your gallery and send over your download PIN, along with your 360 tour if one is included with your booking.</p>
