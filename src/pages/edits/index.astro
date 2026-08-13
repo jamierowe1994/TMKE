@@ -84,7 +84,16 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .edr-btn-ghost:hover { background: rgba(var(--violet-rgb), 0.06); }
     .edr-btn-invert { background: var(--paper); color: var(--english-violet); }
     .edr-btn-invert:hover { background: var(--ink); color: var(--paper); }
-    .edr-btn-lg { padding: 14px 26px; font-size: 12px; }
+
+    /* Two separate CTAs, not one combined bar - leaving feedback and buying
+       an extra are different actions, so each gets its own small banner
+       right where it applies, rather than one oversized bar doing both. */
+    .edr-cta {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
+      background: var(--english-violet); color: var(--paper);
+      border-radius: 2px; padding: 12px 16px; margin-top: 16px;
+    }
+    .edr-cta-msg { font-family: var(--sans); font-size: 13px; }
 
     /* Twilight: an input + Add button that commits a filename to a list,
        rather than counting whatever's currently typed - so the running total
@@ -116,14 +125,9 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .edr-bundle label { font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; }
     .edr-bundle strong { color: var(--english-violet); }
 
-    .edr-submit-row { position: sticky; bottom: 20px; margin-top: 40px; }
-    .edr-submit-inner {
-      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
-      background: var(--english-violet); color: var(--paper);
-      border-radius: 2px; padding: 20px 26px; box-shadow: 0 18px 44px rgba(28,29,34,0.28);
-    }
-    .edr-submit-total { font-family: var(--serif); font-size: 22px; }
-    .edr-error { font-family: var(--sans); font-size: 13px; color: #b42828; margin-top: 12px; }
+    .edr-checkout-row { position: sticky; bottom: 20px; margin-top: 28px; }
+    .edr-checkout-row .edr-cta { box-shadow: 0 14px 34px rgba(28,29,34,0.24); }
+    .edr-error { font-family: var(--sans); font-size: 13px; color: #b42828; margin-top: 10px; }
     .edr-thanks { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink); padding: 40px 0; }
 
     /* "Want to add anything else?" - a proper section heading, distinct from
@@ -150,6 +154,10 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     // read from this array, so what they see is exactly what gets charged.
     let twilightItems = [];
     let twilightPricePence = 0;
+    // True once the free-text feedback has gone through its own banner - so
+    // a later Checkout click (a separate submission) never re-sends the same
+    // notes as a duplicate, but still catches them if Checkout is used first.
+    let feedbackSent = false;
 
     function renderTwilightList() {
       const listEl = document.getElementById("edr-twilight-list");
@@ -162,7 +170,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       listEl.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => {
         twilightItems.splice(Number(btn.getAttribute("data-remove")), 1);
         renderTwilightList();
-        updateTotal();
+        updateCheckoutTotal();
       }));
     }
 
@@ -174,21 +182,21 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       input.value = "";
       input.focus();
       renderTwilightList();
-      updateTotal();
+      updateCheckoutTotal();
     }
 
-    function updateTotal() {
+    function updateCheckoutTotal() {
       const filled = twilightItems.length;
       const total = document.getElementById("edr-twilight-total");
-      const submitTotal = document.getElementById("edr-submit-total");
-      const submitBtn = document.getElementById("edr-submit");
+      const checkoutMsg = document.getElementById("edr-checkout-total");
       const bundle = document.getElementById("edr-bundle-check");
       const bundlePence = (bundle && bundle.checked) ? window.__edrExtraPrice : 0;
       const twilightPence = filled * twilightPricePence;
       const pence = twilightPence + bundlePence;
       if (total) total.textContent = filled ? `${filled} image${filled === 1 ? "" : "s"} — ${gbpFromPence(twilightPence)} +VAT` : "";
-      if (submitTotal) submitTotal.textContent = pence ? `${gbpFromPence(pence)} +VAT` : "";
-      if (submitBtn) submitBtn.textContent = pence ? "Checkout" : "Send request";
+      if (checkoutMsg) checkoutMsg.textContent = pence ? `${gbpFromPence(pence)} +VAT` : "Nothing added yet";
+      const checkoutErr = document.getElementById("edr-checkout-error");
+      if (checkoutErr) checkoutErr.hidden = true;
     }
 
     function render(d) {
@@ -226,6 +234,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
           ${twilightBlock}
           ${bundleBlock}
           <p class="edr-pay-note">These extras are added to your gallery once payment has been received — nothing is created before then.</p>
+          <div class="edr-checkout-row">
+            <div class="edr-cta">
+              <span class="edr-cta-msg" id="edr-checkout-total">Nothing added yet</span>
+              <button type="button" class="edr-btn edr-btn-invert" id="edr-checkout-submit">Checkout</button>
+            </div>
+            <p class="edr-error" id="edr-checkout-error" hidden></p>
+          </div>
         </div>` : "";
 
       stage.innerHTML = `
@@ -237,15 +252,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         <div class="edr-section">
           <textarea class="edr-notes" id="edr-notes" placeholder="Describe the edits you'd like — as much detail as helps"></textarea>
           <p class="edr-hint">A quick note: as your package includes one round of edits, please make sure you've reviewed all of your content and included everything you'd like changed before submitting your request.</p>
-        </div>
-        ${extrasSection}
-        <div class="edr-submit-row">
-          <div class="edr-submit-inner">
-            <span class="edr-submit-total" id="edr-submit-total"></span>
-            <button type="button" class="edr-btn edr-btn-invert edr-btn-lg" id="edr-submit">Send request</button>
+          <div class="edr-cta" id="edr-feedback-cta">
+            <span class="edr-cta-msg" id="edr-feedback-msg">Ready to send this through to Jack?</span>
+            <button type="button" class="edr-btn edr-btn-invert" id="edr-feedback-submit">Send Feedback</button>
           </div>
+          <p class="edr-error" id="edr-feedback-error" hidden></p>
         </div>
-        <p class="edr-error" id="edr-error" hidden></p>`;
+        ${extrasSection}`;
 
       if (upsell === "twilight") {
         const input = document.getElementById("edr-twilight-input");
@@ -253,25 +266,58 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addTwilightItem(); } });
       }
       if (upsell === "extra_images") {
-        document.getElementById("edr-bundle-check").addEventListener("change", updateTotal);
+        document.getElementById("edr-bundle-check").addEventListener("change", updateCheckoutTotal);
       }
 
-      document.getElementById("edr-submit").addEventListener("click", async () => {
-        const btn = document.getElementById("edr-submit");
-        const errEl = document.getElementById("edr-error");
+      document.getElementById("edr-feedback-submit").addEventListener("click", async () => {
+        const btn = document.getElementById("edr-feedback-submit");
+        const msgEl = document.getElementById("edr-feedback-msg");
+        const errEl = document.getElementById("edr-feedback-error");
         errEl.hidden = true;
         const notes = document.getElementById("edr-notes").value.trim();
+        if (!notes) { errEl.textContent = "Add a note before sending."; errEl.hidden = false; return; }
+
+        btn.disabled = true;
+        const label = btn.textContent; btn.textContent = "Sending…";
+        try {
+          const res = await fetch(`${WORKER}/videography/edit-request`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, notes, twilight_filenames: [], extra_images: false }),
+          });
+          const out = await res.json().catch(() => ({}));
+          if (!res.ok) { errEl.textContent = out.error || "Something went wrong. Please try again."; errEl.hidden = false; btn.disabled = false; btn.textContent = label; return; }
+          feedbackSent = true;
+          document.getElementById("edr-notes").disabled = true;
+          msgEl.textContent = "✓ Sent — Jack will pick this up.";
+          btn.remove();
+        } catch (e) {
+          errEl.textContent = "Couldn't reach TMKE. Please try again in a moment.";
+          errEl.hidden = false;
+          btn.disabled = false; btn.textContent = label;
+        }
+      });
+
+      const checkoutBtn = document.getElementById("edr-checkout-submit");
+      if (checkoutBtn) checkoutBtn.addEventListener("click", async () => {
+        const btn = checkoutBtn;
+        const errEl = document.getElementById("edr-checkout-error");
+        errEl.hidden = true;
         const twilight_filenames = upsell === "twilight" ? twilightItems.slice() : [];
         const extra_images = upsell === "extra_images" && !!document.getElementById("edr-bundle-check")?.checked;
 
-        if (!notes && !twilight_filenames.length && !extra_images) {
-          errEl.textContent = "Add a note, or choose something to buy, before sending.";
+        if (!twilight_filenames.length && !extra_images) {
+          errEl.textContent = "Add something above before checking out.";
           errEl.hidden = false;
           return;
         }
 
+        // Carries any feedback typed but not yet sent along with checkout,
+        // rather than silently dropping it if Checkout is used first.
+        const notes = feedbackSent ? "" : document.getElementById("edr-notes").value.trim();
+
         btn.disabled = true;
-        const label = btn.textContent; btn.textContent = "Sending…";
+        const label = btn.textContent; btn.textContent = "Redirecting…";
         try {
           const res = await fetch(`${WORKER}/videography/edit-request`, {
             method: "POST",
@@ -281,7 +327,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
           const out = await res.json().catch(() => ({}));
           if (!res.ok) { errEl.textContent = out.error || "Something went wrong. Please try again."; errEl.hidden = false; btn.disabled = false; btn.textContent = label; return; }
           if (out.checkout_url) { location.href = out.checkout_url; return; }
-          stage.innerHTML = `<div class="edr-thanks"><p><strong>Thanks — that's with us.</strong></p><p>Jack will pick this up and be in touch once it's sorted.</p></div>`;
+          errEl.textContent = "Something went wrong. Please try again.";
+          errEl.hidden = false; btn.disabled = false; btn.textContent = label;
         } catch (e) {
           errEl.textContent = "Couldn't reach TMKE. Please try again in a moment.";
           errEl.hidden = false;
@@ -289,7 +336,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         }
       });
 
-      updateTotal();
+      updateCheckoutTotal();
     }
 
     (async () => {
