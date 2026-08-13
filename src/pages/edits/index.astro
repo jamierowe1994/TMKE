@@ -36,48 +36,83 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .edr-mark { font-family: var(--serif); font-size: 24px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink); }
     .edr-head-tag { font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); }
 
-    .edr-stage { max-width: 640px; margin: 0 auto; padding: 56px 36px 120px; }
+    /* Wider column, tighter side gutter - the previous 640px/36px left the
+       page reading as three empty-feeling columns with content crammed into
+       the middle one. */
+    .edr-stage { max-width: 780px; margin: 0 auto; padding: 56px 27px 120px; }
     .edr-loading, .edr-msg { font-family: var(--sans); font-size: 15px; color: rgba(28,29,34,0.6); padding: 60px 0; text-align: center; }
 
     .edr-eyebrow { font-family: var(--sans); font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase; font-weight: 700; color: var(--english-violet); margin-bottom: 14px; }
-    .edr-title { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 4.5vw, 44px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
-    .edr-note { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28,29,34,0.7); max-width: 56ch; margin: 0 0 36px; }
+    .edr-title { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 4.5vw, 44px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 24px; }
+    /* No max-width here on purpose now - a constrained measure on the
+       paragraphs while the boxes below run full width read as a margin bug,
+       not a deliberate choice. Per-instance spacing (tight between the two
+       intro sentences, tighter again down into the textarea) is set inline
+       in the markup below rather than here, since the same class is used in
+       three places that each need a different gap. */
+    .edr-note { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: rgba(28,29,34,0.7); margin: 0 0 36px; }
 
-    .edr-banner { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 999px; background: rgba(44,122,75,0.12); color: #2c7a4b; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 28px; }
+    .edr-banner { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 2px; background: rgba(44,122,75,0.12); color: #2c7a4b; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 28px; }
 
     .edr-section { margin-bottom: 34px; }
     .edr-label { display: block; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); margin-bottom: 10px; }
     .edr-sub { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.6); margin: -4px 0 14px; }
+
+    /* Corner radius, borders and padding below all match the admin centre's
+       own .vid-field input / .admin-btn tokens (2px radius, violet-tinted
+       border), so this page reads as the same product as the admin side
+       rather than a separately-designed one. */
     textarea.edr-notes {
-      width: 100%; min-height: 120px; padding: 14px 16px; font-family: var(--sans); font-size: 14.5px;
-      border: 1px solid rgba(28,29,34,0.16); border-radius: 10px; resize: vertical; background: #fff; color: var(--ink);
+      width: 100%; min-height: 120px; padding: 12px 14px; font-family: var(--sans); font-size: 14.5px;
+      border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 2px; resize: vertical; background: #fff; color: var(--ink);
     }
     textarea.edr-notes:focus { outline: none; border-color: var(--english-violet); }
+    .edr-hint { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); margin-top: 6px; }
 
-    .edr-twilight-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .edr-twilight-row input {
-      flex: 1; padding: 11px 14px; font-family: var(--sans); font-size: 14px;
-      border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; background: #fff; color: var(--ink);
+    /* Buttons - the admin centre's own .admin-btn tokens, plus one variant
+       (edr-btn-invert) for use on the violet submit box, where the standard
+       primary (violet-on-paper) would disappear against a violet background. */
+    .edr-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px;
+      border-radius: 2px; font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700;
+      cursor: pointer; border: 1px solid transparent; background: none;
+      transition: background 0.2s, color 0.2s, border-color 0.2s; text-decoration: none;
     }
-    .edr-twilight-row input:focus { outline: none; border-color: var(--english-violet); }
+    .edr-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .edr-btn-ghost { background: transparent; border-color: rgba(var(--violet-rgb), 0.4); color: var(--english-violet); }
+    .edr-btn-ghost:hover { background: rgba(var(--violet-rgb), 0.06); }
+    .edr-btn-invert { background: var(--paper); color: var(--english-violet); }
+    .edr-btn-invert:hover { background: var(--ink); color: var(--paper); }
+    .edr-btn-lg { padding: 14px 26px; font-size: 12px; }
+
+    /* Twilight: an input + Add button that commits a filename to a list,
+       rather than counting whatever's currently typed - so the running total
+       only ever reflects images actually added, matching what gets charged. */
+    .edr-twilight-input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .edr-twilight-input-row input {
+      flex: 1; padding: 9px 12px; font-family: var(--sans); font-size: 14px;
+      border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 2px; background: #fff; color: var(--ink);
+    }
+    .edr-twilight-input-row input:focus { outline: none; border-color: var(--english-violet); }
+    .edr-twilight-item {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 9px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 2px; background: rgba(28,29,34,0.02);
+      margin-bottom: 6px;
+    }
+    .edr-twilight-item-name { font-family: var(--sans); font-size: 13.5px; color: var(--ink); word-break: break-all; }
     .edr-row-del {
-      width: 32px; height: 32px; flex: none; border-radius: 8px; border: 1px solid rgba(28,29,34,0.14);
+      width: 28px; height: 28px; flex: none; border-radius: 2px; border: 1px solid rgba(28,29,34,0.14);
       background: transparent; color: rgba(28,29,34,0.5); cursor: pointer; font-size: 16px; line-height: 1;
     }
     .edr-row-del:hover { border-color: rgba(180,40,40,0.4); color: #b42828; }
-    .edr-add-row {
-      font-family: var(--sans); font-size: 12.5px; font-weight: 700; letter-spacing: 0.08em;
-      color: var(--english-violet); background: none; border: 0; cursor: pointer; padding: 6px 0;
-    }
-    .edr-add-row:hover { text-decoration: underline; }
-    .edr-twilight-total { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); margin-top: 10px; }
-    .edr-hint { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); margin-top: 6px; }
+    .edr-twilight-total { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 10px; }
 
     .edr-bundle {
       display: flex; align-items: center; gap: 12px; padding: 14px 16px;
-      border: 1px solid rgba(28,29,34,0.14); border-radius: 10px; background: #fff;
+      border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 2px; background: #fff;
     }
-    .edr-bundle input { width: 18px; height: 18px; accent-color: var(--english-violet); }
+    .edr-bundle input { width: 18px; height: 18px; accent-color: var(--english-violet); flex: none; }
     .edr-bundle label { font-family: var(--sans); font-size: 14px; color: var(--ink); cursor: pointer; }
     .edr-bundle strong { color: var(--english-violet); }
 
@@ -85,17 +120,9 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     .edr-submit-inner {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
       background: var(--english-violet); color: var(--paper);
-      border-radius: 14px; padding: 20px 26px; box-shadow: 0 18px 44px rgba(28,29,34,0.28);
+      border-radius: 2px; padding: 20px 26px; box-shadow: 0 18px 44px rgba(28,29,34,0.28);
     }
     .edr-submit-total { font-family: var(--serif); font-size: 22px; }
-    .edr-submit-btn {
-      display: inline-flex; align-items: center; gap: 10px;
-      font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-      background: var(--paper); color: var(--english-violet); border: 0; border-radius: 999px;
-      padding: 16px 30px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .edr-submit-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(0,0,0,0.26); }
-    .edr-submit-btn:disabled { opacity: 0.6; cursor: default; transform: none; box-shadow: none; }
     .edr-error { font-family: var(--sans); font-size: 13px; color: #b42828; margin-top: 12px; }
     .edr-thanks { font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ink); padding: 40px 0; }
 
@@ -118,30 +145,50 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
     function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
-    function addTwilightRow(list) {
-      const row = document.createElement("div");
-      row.className = "edr-twilight-row";
-      row.innerHTML = `<input type="text" placeholder="Pixieset image filename" data-twilight-file />
-        <button type="button" class="edr-row-del" aria-label="Remove">&times;</button>`;
-      row.querySelector(".edr-row-del").addEventListener("click", () => { row.remove(); updateTotal(); });
-      row.querySelector("[data-twilight-file]").addEventListener("input", updateTotal);
-      list.appendChild(row);
-      return row;
+    // Committed filenames only - not whatever's currently sitting in the
+    // input box. The running total, and what actually gets submitted, both
+    // read from this array, so what they see is exactly what gets charged.
+    let twilightItems = [];
+    let twilightPricePence = 0;
+
+    function renderTwilightList() {
+      const listEl = document.getElementById("edr-twilight-list");
+      if (!listEl) return;
+      listEl.innerHTML = twilightItems.map((name, i) => `
+        <div class="edr-twilight-item">
+          <span class="edr-twilight-item-name">${esc(name)}</span>
+          <button type="button" class="edr-row-del" data-remove="${i}" aria-label="Remove">&times;</button>
+        </div>`).join("");
+      listEl.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => {
+        twilightItems.splice(Number(btn.getAttribute("data-remove")), 1);
+        renderTwilightList();
+        updateTotal();
+      }));
     }
 
-    let twilightPricePence = 0;
+    function addTwilightItem() {
+      const input = document.getElementById("edr-twilight-input");
+      const val = input.value.trim();
+      if (!val) return;
+      twilightItems.push(val);
+      input.value = "";
+      input.focus();
+      renderTwilightList();
+      updateTotal();
+    }
+
     function updateTotal() {
-      const rows = document.querySelectorAll("[data-twilight-file]");
-      const filled = Array.from(rows).filter((el) => el.value.trim()).length;
+      const filled = twilightItems.length;
       const total = document.getElementById("edr-twilight-total");
       const submitTotal = document.getElementById("edr-submit-total");
       const submitBtn = document.getElementById("edr-submit");
       const bundle = document.getElementById("edr-bundle-check");
       const bundlePence = (bundle && bundle.checked) ? window.__edrExtraPrice : 0;
-      const pence = filled * twilightPricePence + bundlePence;
-      if (total) total.textContent = filled ? `${filled} image${filled === 1 ? "" : "s"} — ${gbpFromPence(pence - bundlePence)}` : "";
-      if (submitTotal) submitTotal.textContent = pence ? gbpFromPence(pence) : "";
-      if (submitBtn) submitBtn.textContent = pence ? "Continue to payment" : "Send request";
+      const twilightPence = filled * twilightPricePence;
+      const pence = twilightPence + bundlePence;
+      if (total) total.textContent = filled ? `${filled} image${filled === 1 ? "" : "s"} — ${gbpFromPence(twilightPence)} +VAT` : "";
+      if (submitTotal) submitTotal.textContent = pence ? `${gbpFromPence(pence)} +VAT` : "";
+      if (submitBtn) submitBtn.textContent = pence ? "Checkout" : "Send request";
     }
 
     function render(d) {
@@ -153,10 +200,13 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       const twilightBlock = upsell === "twilight" ? `
         <div class="edr-section">
           <span class="edr-label">Twilight Photos</span>
-          <p class="edr-sub">Turn your chosen exterior shots into twilight images, perfect for giving your listing a different look across portals and social media. ${esc(gbpFromPence(twilightPricePence))} per photo.</p>
-          <p class="edr-hint" style="margin:-6px 0 12px">Click an image on your gallery and Pixieset shows the filename at the bottom — paste it below.</p>
-          <div id="edr-twilight-rows"></div>
-          <button type="button" class="edr-add-row" id="edr-add-row">+ Add another image</button>
+          <p class="edr-sub">Turn your chosen exterior shots into twilight images, perfect for giving your listing a different look across portals and social media. ${esc(gbpFromPence(twilightPricePence))} +VAT per photo.</p>
+          <p class="edr-hint" style="margin:-6px 0 12px">Click an image on your gallery and Pixieset shows the filename at the bottom — paste it below, then press Add.</p>
+          <div class="edr-twilight-input-row">
+            <input type="text" id="edr-twilight-input" placeholder="Pixieset image filename" />
+            <button type="button" class="edr-btn edr-btn-ghost" id="edr-twilight-add">Add</button>
+          </div>
+          <div id="edr-twilight-list"></div>
           <p class="edr-twilight-total" id="edr-twilight-total"></p>
         </div>` : "";
 
@@ -165,7 +215,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
           <span class="edr-label">Too many favourites?</span>
           <div class="edr-bundle">
             <input type="checkbox" id="edr-bundle-check" />
-            <label for="edr-bundle-check">Add another <strong>${d.extra_images.qty}</strong> photos to your final selection for <strong>${esc(gbpFromPence(d.extra_images.price_pence))}</strong>, saving you 20% on the gallery price.</label>
+            <label for="edr-bundle-check">Add another <strong>${d.extra_images.qty}</strong> photos to your final selection for <strong>${esc(gbpFromPence(d.extra_images.price_pence))} +VAT</strong>, saving you 20% on the gallery price.</label>
           </div>
         </div>` : "";
 
@@ -181,8 +231,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       stage.innerHTML = `
         <div class="edr-eyebrow">Videography</div>
         <h1 class="edr-title">${d.client_name ? esc(d.client_name) + ", " : ""}let us know what you'd like changed.</h1>
-        <p class="edr-note">Had a look through your content and spotted something you'd like changed? No problem!</p>
-        <p class="edr-note">Add all of your requested changes below and send them through. Once they're submitted, Jack will make the updates and we'll let you know when your revised content is ready to review.</p>
+        <p class="edr-note" style="margin-bottom:8px">Had a look through your content and spotted something you'd like changed? No problem!</p>
+        <p class="edr-note" style="margin-bottom:16px">Add all of your requested changes below and send them through. Once they're submitted, Jack will make the updates and we'll let you know when your revised content is ready to review.</p>
         ${banner}
         <div class="edr-section">
           <textarea class="edr-notes" id="edr-notes" placeholder="Describe the edits you'd like — as much detail as helps"></textarea>
@@ -192,15 +242,15 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         <div class="edr-submit-row">
           <div class="edr-submit-inner">
             <span class="edr-submit-total" id="edr-submit-total"></span>
-            <button type="button" class="edr-submit-btn" id="edr-submit">Send request</button>
+            <button type="button" class="edr-btn edr-btn-invert edr-btn-lg" id="edr-submit">Send request</button>
           </div>
         </div>
         <p class="edr-error" id="edr-error" hidden></p>`;
 
       if (upsell === "twilight") {
-        const list = document.getElementById("edr-twilight-rows");
-        addTwilightRow(list);
-        document.getElementById("edr-add-row").addEventListener("click", () => addTwilightRow(list));
+        const input = document.getElementById("edr-twilight-input");
+        document.getElementById("edr-twilight-add").addEventListener("click", addTwilightItem);
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addTwilightItem(); } });
       }
       if (upsell === "extra_images") {
         document.getElementById("edr-bundle-check").addEventListener("change", updateTotal);
@@ -211,9 +261,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         const errEl = document.getElementById("edr-error");
         errEl.hidden = true;
         const notes = document.getElementById("edr-notes").value.trim();
-        const twilight_filenames = upsell === "twilight"
-          ? Array.from(document.querySelectorAll("[data-twilight-file]")).map((el) => el.value.trim()).filter(Boolean)
-          : [];
+        const twilight_filenames = upsell === "twilight" ? twilightItems.slice() : [];
         const extra_images = upsell === "extra_images" && !!document.getElementById("edr-bundle-check")?.checked;
 
         if (!notes && !twilight_filenames.length && !extra_images) {
