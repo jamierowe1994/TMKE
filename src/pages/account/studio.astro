@@ -95,7 +95,7 @@ const inspo = [
           <div class="st-row st-row--packs" data-packs>
             {packs.map((p) => (
               <a class="st-pack" href="/edit">
-                <span class="st-pack-img" style={`background-image:url('${p.thumb}')`}><span class="st-pack-label">{p.name}</span></span>
+                <span class="st-pack-img" style={`background-image:url('${p.thumb}')`}></span>
                 <span class="st-pack-name">{p.name}</span>
                 <span class="st-pack-count">{p.count} templates</span>
               </a>
@@ -228,13 +228,13 @@ const inspo = [
     }
     .st-pack:hover, .st-design:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
     .st-pack-img, .st-design-img {
-      position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 4px;
+      position: relative; width: 100%; aspect-ratio: 1080 / 1440; border-radius: 4px;
       background-size: cover; background-position: center; background-color: #e9e6e2; margin-bottom: 8px;
     }
     .st-pack-name, .st-design-name { font-family: var(--serif); font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
     .st-pack-count, .st-design-type { font-size: 11.5px; color: var(--ws-faint); }
-    /* The label burned into a pack's cover, and the state pill on a design. */
-    .st-pack-label { position: absolute; left: 8px; bottom: 8px; right: 8px; font-family: var(--serif); font-size: 13px; font-weight: 600; color: #fff; text-shadow: 0 1px 8px rgba(20,16,20,0.6); }
+    /* The state pill on a design. Packs carry no overlay: the name sits under
+       the card, and printing it twice only obscured the picture. */
     .st-design-tag { position: absolute; left: 8px; top: 8px; padding: 3px 8px; border-radius: 3px; background: rgba(255,255,255,0.93); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); }
 
     /* "Shop more packs" and "New design" — outlined, tinted, no picture. */
@@ -420,7 +420,7 @@ const inspo = [
         if (!owned.length) { row.innerHTML = shopTile; window.__ST_REWIRE_RAILS__?.(); return; } // no packs → just the shop tile
         row.innerHTML = owned.map((p) => `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
-            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}><span class="st-pack-label">${esc(p.title)}</span></span>
+            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
             <span class="st-pack-name">${esc(p.title)}</span>
             <span class="st-pack-count">Open pack &rarr;</span>
           </a>`).join('') + shopTile;   // + a "Shop more packs" tile at the end
