@@ -851,7 +851,17 @@ import "../../styles/account-sections.css";
     // viewMonth always points at the 1st of the month being displayed,
     // local time. Items + holidays are loaded in a window around it so
     // that prev/next swaps feel instant.
-    let viewMonth = startOfMonth(new Date());
+    // ?focus=YYYY-MM-DD (or YYYY-MM) opens the planner on that month, which is
+    // how the dashboard's day cards and its content-calendar card arrive here.
+    // Anything unparseable falls back to this month rather than a blank grid.
+    function focusedMonth() {
+      const q = new URLSearchParams(location.search).get('focus');
+      const m = q && /^(\d{4})-(0[1-9]|1[0-2])(?:-\d{2})?$/.exec(q);
+      if (!m) return startOfMonth(new Date());
+      const d = new Date(Number(m[1]), Number(m[2]) - 1, 1);
+      return isNaN(d.getTime()) ? startOfMonth(new Date()) : d;
+    }
+    let viewMonth = focusedMonth();
     let items     = [];           // user's scheduled posts (in window)
     let holidays  = [];           // uk_holidays rows (in window)
 

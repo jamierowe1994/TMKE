@@ -7,6 +7,8 @@ import { getMembersPosts } from "../../data/blog.js";
 // links to the blog either way, so a stale title is a stale title, not a
 // broken link.
 const latestPost = (await getMembersPosts())[0] ?? null;
+// BlogPanel links posts as /account/blog#<slug>, so the dashboard does too.
+const latestPostHref = latestPost?.slug ? `/account/blog#${latestPost.slug}` : "/account/blog";
 
 // "Pick up where you left off" falls back to a template the member can start
 // from, so the card is never empty. wireWork() swaps in their most recently
@@ -150,12 +152,18 @@ const recentTemplates = templates.slice(0, 4);
             <p class="ws-hero-sub">Your marketing's looking pretty organised.<br />Here's what needs your attention today.</p>
             <ul class="ws-brief">
               <li style="--d:1">
-                <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
-                <span class="ws-brief-tx"><strong id="brief-sched">—</strong><span>planned this week</span></span>
+                <a class="ws-brief-slot" href="/account/schedule">
+                  <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
+                  <span class="ws-brief-tx"><strong id="brief-sched">—</strong><span>planned this week</span></span>
+                </a>
               </li>
               <li style="--d:2">
-                <span class="ws-brief-ic ws-brief-ic--time"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><path d="M8 14h4"/></svg></span>
-                <span class="ws-brief-tx"><strong id="brief-bookings">—</strong><span id="brief-bookings-sub">coming up</span></span>
+                <!-- No href until there is a booking worth going to look at. An
+                     anchor without one is inert, which beats a link to nothing. -->
+                <a class="ws-brief-slot" id="brief-bookings-link">
+                  <span class="ws-brief-ic ws-brief-ic--time"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><path d="M8 14h4"/></svg></span>
+                  <span class="ws-brief-tx"><strong id="brief-bookings">—</strong><span id="brief-bookings-sub">coming up</span></span>
+                </a>
               </li>
               <li style="--d:3">
                 <a class="ws-brief-slot" id="brief-slot" href="/account/profile">
@@ -164,7 +172,7 @@ const recentTemplates = templates.slice(0, 4);
                 </a>
               </li>
             </ul>
-            <a class="ws-btn ws-btn--primary ws-hero-cta-btn" href="/account/editor">Continue creating
+            <a class="ws-btn ws-btn--primary ws-hero-cta-btn" href="/account/studio#designs-h">Continue creating
               <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
           </div>
@@ -192,7 +200,7 @@ const recentTemplates = templates.slice(0, 4);
           <!-- The starter ideas are written into the empty day cards above when
                the week is genuinely quiet - see fillStarterDays(). The blog
                title is carried here because it is only known at build time. -->
-          <span id="ws-starters" hidden data-blog-title={latestPost?.title ?? ""}></span>
+          <span id="ws-starters" hidden data-blog-title={latestPost?.title ?? ""} data-blog-href={latestPostHref}></span>
         </section>
 
         <!-- YOUR STUDIO — four ways in, wider than they are tall -->
@@ -248,7 +256,7 @@ const recentTemplates = templates.slice(0, 4);
                 <p class="ws-idea-hint" id="idea-hint">Talk straight to camera. One question per line on screen.</p>
               </div>
               <div class="ws-side-foot">
-                <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/editor">Create this post
+                <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/editor?blank=1">Create this post
                   <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </a>
                 <button type="button" class="ws-iconround ws-tip-right ws-idea-again" data-tip="Another idea" aria-label="Another idea">
@@ -294,8 +302,8 @@ const recentTemplates = templates.slice(0, 4);
           <a class="ws-news-card" href="/edit">
             <span class="ws-news-tx">
               <span class="ws-news-flag">Template pack</span>
-              <strong class="ws-news-h">Early Autumn Collection</strong>
-              <span class="ws-news-desc">12 new templates for the season ahead.</span>
+              <strong class="ws-news-h">The Property Pack</strong>
+              <span class="ws-news-desc">Our most-used pack — listings, from teaser to sold.</span>
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/cosy%20home.jpg')"></span>
           </a>
@@ -307,10 +315,12 @@ const recentTemplates = templates.slice(0, 4);
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/home%20video.jpg')"></span>
           </a>
-          <a class="ws-news-card" href="/account/schedule">
+          <!-- Month and link are set at runtime by wireNextMonth(): a card
+               hard-coded to "September" is wrong for eleven months of the year. -->
+          <a class="ws-news-card" id="ws-news-cal" href="/account/schedule">
             <span class="ws-news-tx">
               <span class="ws-news-flag">Seasonal content</span>
-              <strong class="ws-news-h">September Content Calendar</strong>
+              <strong class="ws-news-h" id="ws-news-cal-h">Next month's Content Calendar</strong>
               <span class="ws-news-desc">Plan your month with done-for-you ideas.</span>
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/home%20kitchen.jpg')"></span>
@@ -533,10 +543,12 @@ const recentTemplates = templates.slice(0, 4);
     /* The rotating slot is a link - it is the one tile that is usually asking
        you to go and do something about it. */
     .ws-brief-slot { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
-    .ws-brief-slot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
-    .ws-brief li:has(.ws-brief-slot) { transition: border-color 0.2s var(--ws-ease); }
-    .ws-brief li:has(.ws-brief-slot:hover) { border-color: rgba(28,29,34,0.3); }
-    .ws-brief-slot:hover .ws-brief-tx strong { text-decoration: underline; text-underline-offset: 3px; }
+    /* Only a slot with somewhere to go covers its box or reacts to a pointer.
+       No underline on hover - the whole box lighting up says it already. */
+    .ws-brief-slot[href] { cursor: pointer; }
+    .ws-brief-slot[href]::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+    .ws-brief li { transition: border-color 0.2s var(--ws-ease); }
+    .ws-brief li:has(.ws-brief-slot[href]:hover) { border-color: rgba(28,29,34,0.3); }
     .ws-brief-ic--due { color: #b4553f; }
     .ws-brief-ic--gallery { color: var(--ws-accent); }
     @media (max-width: 620px) { .ws-brief { grid-template-columns: 1fr; } }
@@ -864,6 +876,8 @@ const recentTemplates = templates.slice(0, 4);
         // where "0 bookings" reads as something that failed to load.
         bn.textContent = items.length ? `${items.length} booking${items.length === 1 ? '' : 's'}` : 'No bookings';
         bs.textContent = items.length ? 'coming up' : 'in the diary';
+        const bl = document.getElementById('brief-bookings-link');
+        if (bl) { if (items.length) bl.setAttribute('href', '/account/bookings'); else bl.removeAttribute('href'); }
       }
       // "Coming up" in the pick-up row: the very next booking, or a plain
       // statement that there are none. Set before the old widget's guard.
@@ -962,7 +976,7 @@ const recentTemplates = templates.slice(0, 4);
       targets.forEach((card) => {
         const occasion = dated.find((d) => ymdOf(d.when) === card.getAttribute('data-date'));
         if (occasion) {
-          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.hint, cta: 'Design this post', href: '/account/editor' });
+          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.hint, cta: 'Design this post', href: '/account/editor?blank=1' });
         } else {
           spare.push(card);
         }
@@ -973,16 +987,17 @@ const recentTemplates = templates.slice(0, 4);
       spare.forEach((card, i) => {
         if (i === spare.length - 1 && (spare.length > 1 || targets.length === 1)) {
           const blog = box && box.getAttribute('data-blog-title');
+          const blogHref = (box && box.getAttribute('data-blog-href')) || '/account/blog';
           const rot = wk % 3;
           paintStarter(card, rot === 0
             ? { flag: 'The Edit', title: 'Browse the template shop', hint: 'Packs built for estate agents.', cta: 'View templates', href: '/edit' }
             : (rot === 1 && blog)
-              ? { flag: 'From the blog', title: blog, hint: 'A few minutes, something you can use.', cta: 'Read it', href: '/account/blog' }
+              ? { flag: 'From the blog', title: blog, hint: 'A few minutes, something you can use.', cta: 'Read it', href: blogHref }
               : { flag: 'Learn', title: 'Get more out of the hub', hint: 'Short guides on content and reach.', cta: 'Start a guide', href: '/account/guides' });
           return;
         }
         const pr = EVERGREEN_PROMPTS[(wk + i) % EVERGREEN_PROMPTS.length];
-        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1], cta: 'Design this post', href: '/account/editor' });
+        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1], cta: 'Design this post', href: '/account/editor?blank=1' });
       });
     }
 
@@ -1043,6 +1058,17 @@ const recentTemplates = templates.slice(0, 4);
           days && days > 0 ? `${days} days to download` : 'ready to download', '/account/bookings');
       }
     }
+
+    // The seasonal-content card names next month and opens the planner there.
+    (function wireNextMonth() {
+      const card = document.getElementById('ws-news-cal');
+      const head = document.getElementById('ws-news-cal-h');
+      if (!card || !head) return;
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      head.textContent = next.toLocaleDateString('en-GB', { month: 'long' }) + ' Content Calendar';
+      card.setAttribute('href', `/account/schedule?focus=${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+    })();
 
     // The date above the name. Set on load and not touched again - nobody has
     // this page open across midnight often enough to justify a timer.
@@ -1185,7 +1211,6 @@ const recentTemplates = templates.slice(0, 4);
       if (top.thumb_url && heroImg) { heroImg.src = top.thumb_url; heroImg.alt = name; }
       if (heroTitle) heroTitle.textContent = name;
       if (heroLink) heroLink.setAttribute('href', editHref(top.id));
-      if (heroCta) heroCta.setAttribute('href', editHref(top.id));
       if (heroProg) heroProg.innerHTML = `<span class="ws-hero-pct">Last edited ${escapeHtml(fmtSaved(top.updated_at))}</span>`;
 
       // "Pick up where you left off" = the most recently edited design. The

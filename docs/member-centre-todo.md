@@ -87,6 +87,33 @@ week, and suppress one. That is a table plus a tab, and it is only worth
 building once the automatic version has been watched for a month — most of
 these entries will not want touching.
 
+## 4 · Editor gaps found while wiring the dashboard
+
+**`__TMKE_LOAD_BLANK__` does not exist.** The launcher's blank-canvas size
+chooser calls `window.__TMKE_LOAD_BLANK__(w, h)` and nothing anywhere defines
+it, so picking "Story" or "Square Post" opens the default 1080 x 1440 instead.
+Guarded by a `typeof` check, so it fails silently. Only the default size is
+therefore correct today, which is why the dashboard's prompts use `?blank=1`
+and take the default rather than asking for a size.
+
+**`?template=` skips the launcher but loads nothing.** The editor reads `mode`,
+`pack`, `schedule`, `design` and `id`. `?template=` matches none of them, but it
+does satisfy the "skip the launcher" check — so the link lands on a blank canvas
+with the picker suppressed, which is the worst of both. Renaming it to `?pack=`
+would not fix it: `pack` is matched against packs from Supabase, whereas the
+dashboard's fallback id (`tmpl-01`) comes from the static `library.js`. The
+editor has no route to open a library template by id.
+
+Only reachable before a member has saved work — after that the card switches to
+`?design=<id>`, which works. So it only affects brand-new members.
+
+**Carrying the prompt into the canvas.** "Design this post" now opens a blank
+Instagram portrait. The idea and its hint are not carried across; when the
+in-canvas brief is built, add a parameter and read it there.
+
+**The "Reels that actually get watched" guide does not exist.** Its card points
+at the guides index until it does.
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.
