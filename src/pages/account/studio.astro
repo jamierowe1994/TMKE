@@ -78,9 +78,6 @@ const inspo = [
               <a class="ws-btn ws-btn--primary" href="/account/editor">Create new design
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
               </a>
-              <a class="ws-btn ws-btn--ghost" href="/account/editor?import=1">Import design
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M5 6l3-3 3 3M3 11v1.5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </a>
           </div>
         </div>
         <div class="ws-hero-photo" role="img" aria-label="A styled kitchen"></div>
@@ -90,7 +87,7 @@ const inspo = [
       <section class="ws-block ws-rise" style="--i:1" aria-labelledby="packs-h">
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="packs-h"><span class="ws-block-ch">Chapter 01</span>Your packs</h2>
-          <a class="ws-block-link" href="/edit">View all templates <span aria-hidden="true">→</span></a>
+          <a class="ws-block-link" href="/edit">View All Templates <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-rail" data-rail>
           <!-- SSR sample packs; the wirePacks script below swaps in the member's
@@ -109,9 +106,17 @@ const inspo = [
               <span class="st-pack-count">Visit The Edit &rarr;</span>
             </a>
           </div>
-          <button type="button" class="st-arrow" data-rail-next aria-label="Scroll packs">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+          <!-- One dot per pack. Built by wireRail() once the real packs are in,
+               so the count always matches what is on the shelf. -->
+          <div class="st-nav" data-rail-nav hidden>
+            <button type="button" class="st-nav-arrow" data-rail-prev aria-label="Previous pack">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="st-dots" data-rail-dots></div>
+            <button type="button" class="st-nav-arrow" data-rail-next aria-label="Next pack">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -119,7 +124,7 @@ const inspo = [
       <section class="ws-block ws-rise" style="--i:2" aria-labelledby="designs-h">
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="designs-h"><span class="ws-block-ch">Chapter 02</span>Your designs</h2>
-          <a class="ws-block-link" href="/account/editor" data-seeall hidden>See all designs <span aria-hidden="true">→</span></a>
+          <a class="ws-block-link" href="/account/editor" data-seeall hidden>See All Designs <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--designs" data-designs>
           {starters.slice(0, 4).map((t, i) => (
@@ -165,7 +170,7 @@ const inspo = [
       <section class="ws-block ws-rise" style="--i:4" aria-labelledby="inspo-h">
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="inspo-h"><span class="ws-block-ch">Chapter 04</span>Inspiration</h2>
-          <a class="ws-block-link" href="/account/guides">Explore more <span aria-hidden="true">→</span></a>
+          <a class="ws-block-link" href="/account/guides">Explore More <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--inspo">
           {inspo.map((c) => (
@@ -194,14 +199,26 @@ const inspo = [
     .st-back { color: inherit; text-decoration: none; }
     .st-back:hover { color: var(--ws-ink); }
     .ws-greeting { text-wrap: balance; }
-    .st-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(22px, 2.8vh, 34px); }
+    .st-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(30px, 3.8vh, 46px); }
 
     /* Horizontal shelves. One card size across packs, designs and inspiration,
        so the three sections read as one page rather than three. */
     .st-rail { position: relative; }
-    .st-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr); gap: var(--ws-gap); overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    /* A fixed number of cards across, so anything beyond that genuinely runs
+       off the shelf and the dots below have something to do. At 1fr the cards
+       simply shrank to fit and the slider was decorative. */
+    .st-row {
+      --st-across: 5;
+      display: grid; grid-auto-flow: column;
+      grid-auto-columns: calc((100% - (var(--st-across) - 1) * var(--ws-gap)) / var(--st-across));
+      gap: var(--ws-gap); overflow-x: auto; scroll-snap-type: x proximity;
+      scrollbar-width: none; padding-bottom: 2px;
+    }
+    .st-row > * { scroll-snap-align: start; }
     .st-row::-webkit-scrollbar { display: none; }
-    @media (max-width: 900px) { .st-row { grid-auto-columns: minmax(160px, 70%); } }
+    @media (max-width: 1200px) { .st-row { --st-across: 4; } }
+    @media (max-width: 900px)  { .st-row { --st-across: 2.4; } }
+    @media (max-width: 560px)  { .st-row { --st-across: 1.3; } }
 
     .st-pack, .st-design {
       display: flex; flex-direction: column; gap: 4px; padding: 12px;
@@ -228,7 +245,7 @@ const inspo = [
     .st-design-new { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ws-accent); }
 
     /* Inspiration — a picture with the words laid over it. */
-    .st-row--inspo { grid-auto-columns: minmax(220px, 1fr); }
+    .st-row--inspo { --st-across: 4; }
     .st-insp {
       position: relative; display: flex; align-items: flex-end; min-height: 168px; padding: 16px;
       border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center;
@@ -241,17 +258,27 @@ const inspo = [
     .st-insp-tx strong { font-family: var(--serif); font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
     .st-insp-tx span { font-size: 11.5px; color: rgba(255,255,255,0.76); line-height: 1.4; }
 
-    /* The shelf's scroll button. */
-    .st-arrow {
-      position: absolute; top: 50%; right: -6px; transform: translateY(-50%);
-      width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--ws-line);
-      background: #fff; color: var(--ws-ink); cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center; z-index: 2;
-      transition: border-color 0.2s, transform 0.2s;
+    /* Shelf navigation: an arrow either side of one dot per pack, underneath
+       where it can be reached, rather than an arrow floating over the last card. */
+    .st-nav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
+    .st-nav[hidden] { display: none; }
+    .st-nav-arrow {
+      appearance: none; width: 28px; height: 28px; border-radius: 50%;
+      border: 1px solid var(--ws-line); background: #fff; color: var(--ws-ink); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: border-color 0.2s, opacity 0.2s;
     }
-    .st-arrow svg { width: 16px; height: 16px; }
-    .st-arrow:hover { border-color: var(--ws-accent); }
-    @media (max-width: 900px) { .st-arrow { display: none; } }
+    .st-nav-arrow svg { width: 15px; height: 15px; }
+    .st-nav-arrow:hover:not(:disabled) { border-color: var(--ws-accent); }
+    .st-nav-arrow:disabled { opacity: 0.3; cursor: default; }
+    .st-dots { display: flex; align-items: center; gap: 7px; }
+    .st-dot {
+      appearance: none; width: 7px; height: 7px; padding: 0; border-radius: 50%;
+      border: 0; background: rgba(28,29,34,0.18); cursor: pointer;
+      transition: background 0.2s var(--ws-ease), transform 0.2s var(--ws-ease);
+    }
+    .st-dot:hover { background: rgba(28,29,34,0.4); }
+    .st-dot.is-active { background: var(--ws-accent); transform: scale(1.35); }
 
     /* Entrance — the shared .ws-rise, stepped per section. */
     .ws-rise { animation-delay: calc(0.1s + var(--i, 0) * 0.09s); }
@@ -260,13 +287,76 @@ const inspo = [
   <script>
     import { supabase } from "../../lib/supabase.js";
 
-    // Mobile row arrows — nudge the scroller along.
-    document.querySelectorAll('[data-rail-next]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const row = btn.closest('[data-rail]')?.querySelector('.st-row');
-        if (row) row.scrollBy({ left: row.clientWidth * 0.8, behavior: 'smooth' });
+    // Shelf navigation: one dot per card, plus an arrow either side. Rebuilt on
+    // demand because the packs are swapped in from Supabase after first paint -
+    // a dot count baked at render time would be wrong the moment they land.
+    function wireRail(rail) {
+      const row = rail.querySelector('.st-row');
+      const nav = rail.querySelector('[data-rail-nav]');
+      const dots = rail.querySelector('[data-rail-dots]');
+      const prev = rail.querySelector('[data-rail-prev]');
+      const next = rail.querySelector('[data-rail-next]');
+      if (!row || !nav || !dots || !prev || !next) return;
+
+      const cards = [...row.children];
+      // Nothing to navigate if the whole shelf is already on screen.
+      const overflows = row.scrollWidth > row.clientWidth + 4;
+      nav.hidden = cards.length < 2 || !overflows;
+      if (nav.hidden) return;
+
+      dots.innerHTML = cards.map((_, i) =>
+        `<button type="button" class="st-dot" data-i="${i}" aria-label="Go to item ${i + 1}"></button>`).join('');
+      const dotEls = [...dots.children];
+
+      // Which card sits at the left edge, and which are on screen at all.
+      const leftmost = () => {
+        let best = 0, dist = Infinity;
+        cards.forEach((c, i) => {
+          const d = Math.abs(c.offsetLeft - row.scrollLeft);
+          if (d < dist) { dist = d; best = i; }
+        });
+        return best;
+      };
+      const isVisible = (i) => {
+        const c = cards[i];
+        if (!c) return false;
+        return c.offsetLeft >= row.scrollLeft - 2
+            && c.offsetLeft + c.offsetWidth <= row.scrollLeft + row.clientWidth + 2;
+      };
+
+      // The dot you last asked for stays lit while its card is on screen. With
+      // five across and seven packs the last cards can never reach the left
+      // edge, so keying the active dot off the leftmost card alone would leave
+      // the final dots permanently unlit and looking broken when clicked.
+      let wanted = 0;
+      const sync = () => {
+        const active = isVisible(wanted) ? wanted : leftmost();
+        dotEls.forEach((d, j) => d.classList.toggle('is-active', j === active));
+        prev.disabled = row.scrollLeft <= 2;
+        next.disabled = row.scrollLeft >= row.scrollWidth - row.clientWidth - 2;
+      };
+      const goTo = (i) => {
+        i = Math.max(0, Math.min(cards.length - 1, i));
+        wanted = i;
+        const c = cards[i];
+        if (c) row.scrollTo({ left: Math.min(c.offsetLeft, row.scrollWidth - row.clientWidth), behavior: 'smooth' });
+        sync();
+      };
+
+      dots.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-i]');
+        if (b) goTo(Number(b.getAttribute('data-i')));
       });
-    });
+      prev.addEventListener('click', () => goTo(leftmost() - 1));
+      next.addEventListener('click', () => goTo(leftmost() + 1));
+      row.addEventListener('scroll', sync, { passive: true });
+      window.addEventListener('resize', sync);
+      sync();
+    }
+    const rails = () => document.querySelectorAll('[data-rail]');
+    rails().forEach(wireRail);
+    // Re-wire after the real packs replace the sample ones.
+    window.__ST_REWIRE_RAILS__ = () => rails().forEach(wireRail);
 
     // Caption Generator tool → open the standalone generator (copy output).
     document.querySelector('[data-tool="caption"]')?.addEventListener('click', () => {
@@ -327,13 +417,14 @@ const inspo = [
         const allPacks = packsRes.data || [];
         const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
         const owned = allPacks.filter((p) => ownedIds.has(p.id));
-        if (!owned.length) { row.innerHTML = shopTile; return; } // no packs → just the shop tile
+        if (!owned.length) { row.innerHTML = shopTile; window.__ST_REWIRE_RAILS__?.(); return; } // no packs → just the shop tile
         row.innerHTML = owned.map((p) => `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
             <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}><span class="st-pack-label">${esc(p.title)}</span></span>
             <span class="st-pack-name">${esc(p.title)}</span>
             <span class="st-pack-count">Open pack &rarr;</span>
           </a>`).join('') + shopTile;   // + a "Shop more packs" tile at the end
+        window.__ST_REWIRE_RAILS__?.();   // the dot count follows the real packs
       } catch (_) { /* keep the SSR sample packs on any error */ }
     })();
   </script>

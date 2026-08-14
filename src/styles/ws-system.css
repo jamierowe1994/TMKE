@@ -9,6 +9,15 @@
    Anything added here changes every hub page, which is the point — the
    dashboard's look lived inline in one file before this, so a second page
    meant a second copy of it.
+
+   House rules, for anything added later:
+     · Section headings are wine strips, numbered as chapters, 10px uppercase.
+     · The link on a strip is Title Case at 12px — not uppercase, not smaller.
+     · Buttons are 37px, the same height as a strip, uppercase Helios.
+     · One gap everywhere: --ws-gap, including the drop below a strip.
+     · Cards are hairline-outlined and square-cornered. No fills, no shadows.
+     · An entrance must carry its own reveal — see .ws-rise. The navigation is
+       deliberately excluded: it should be there the instant the page is.
    ============================================================================ */
 
     .ws {
@@ -93,14 +102,18 @@
        The dash is drawn here so the markup carries only the words. */
     .ws-block-ch { color: rgba(255,255,255,0.5); font-weight: 500; }
     .ws-block-ch::after { content: " — "; }
-    .ws-block-link { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: 0.08em; font-weight: 600; color: rgba(255,255,255,0.78); text-decoration: none; transition: color 0.2s; }
+    /* House rule: a strip link is Title Case and 12px. At 10px in a wine bar
+       these were legible in a mockup and not on a screen. */
+    .ws-block-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; letter-spacing: 0.01em; font-weight: 600; color: rgba(255,255,255,0.78); text-decoration: none; transition: color 0.2s; }
     .ws-block-link:hover { color: #fff; }
-    .ws-block-link svg { width: 12px; height: 12px; transition: transform 0.25s var(--ws-ease); }
+    .ws-block-link svg { width: 13px; height: 13px; transition: transform 0.25s var(--ws-ease); }
     .ws-block-link:hover svg { transform: translateX(3px); }
     .ws-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 1000px) { .ws-tools { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .ws-tools { grid-template-columns: 1fr; } }
-    .ws-tool { display: flex; align-items: flex-start; gap: 13px; padding: 20px; min-height: 112px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+    /* Works as an <a> or a <button>. Without the reset a button centres its
+       text and takes the UA font, which is why the caption card sat wrong. */
+    .ws-tool { appearance: none; text-align: left; font: inherit; display: flex; align-items: flex-start; gap: 13px; padding: 20px; min-height: 112px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
     .ws-tool:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
     .ws-tool-ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; background: #f2f0ef; color: var(--ws-ink); }
     .ws-tool-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -134,6 +147,15 @@
        adopts the system inherits invisibility. A page wanting a staged sequence
        overrides the delay (see the dashboard's body.ws-ready rules, which win
        on specificity). */
+    /* The hero reads itself in: eyebrow, name, subtitle, then the button. The
+       navigation is deliberately not part of this - it should be there the
+       instant the page is. */
+    .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn { opacity: 0; animation: wsIn 0.55s var(--ws-ease) both; }
+    .ws-hero-date { animation-delay: 0.06s; }
+    .ws-greeting { animation-delay: 0.12s; }
+    .ws-hero-sub { animation-delay: 0.26s; }
+    .ws-hero-cta-btn { animation-delay: 0.38s; }
+
     .ws-rise { opacity: 0; animation: wsRise 0.7s var(--ws-ease) both; animation-delay: var(--delay, calc(0.08s + var(--i, 0) * 0.09s)); }
     @keyframes wsRise { to { opacity: 1; transform: none; } }
     @keyframes wsIn { from { opacity: 0; transform: translateY(20px) scale(.985); } to { opacity: 1; transform: none; } }
@@ -142,5 +164,5 @@
 
     /* Nobody should have to wait to read the page. */
     @media (prefers-reduced-motion: reduce) {
-      .ws-rise, .ws-block-head { opacity: 1 !important; transform: none !important; animation: none !important; }
+      .ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn { opacity: 1 !important; transform: none !important; animation: none !important; }
     }
