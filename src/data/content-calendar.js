@@ -141,3 +141,28 @@ export function upcomingDays(from = new Date(), count = 2) {
   dated.sort((a, b) => a.when - b.when);
   return dated.slice(0, count);
 }
+
+// Evergreen prompts — the daily idea on the dashboard, and the fallback when a
+// quiet day has no dated occasion of its own. Same shape as the dated hooks:
+// something to say, and a line on how to actually shoot it.
+//
+// Lives here rather than in the page because two separate <script> blocks need
+// it, and an Astro script block is its own module scope.
+export const EVERGREEN_PROMPTS = [
+    ["Three questions every buyer asks during a viewing — and how you answer them.", "Talk straight to camera. One question per line on screen."],
+    ["The one room that sells the home. Show buyers why.", "Slow pan of the room, then a close-up of the detail that does the work."],
+    ["What a little styling actually adds to a sale price.", "Before and after on the same shot. Hold each for two seconds."],
+    ["A 60-second tour of your favourite listing this week.", "Walk it in one take. Start outside the front door."],
+    ["Five things buyers notice in the first ten seconds of a viewing.", "Five quick cuts, one per point. Caption each on screen."],
+    ["Behind the scenes: how we shoot a property that sells.", "Film yourself setting up. Off-the-cuff beats scripted here."],
+    ["Sell the lifestyle, not just the house — the cafe, the school, the park.", "Three clips from the street, none of them inside the property."],
+    ["Just listed: tease it before the portal goes live.", "One detail shot only. Give nothing else away."],
+    ["A day in the life of an agent who actually answers the phone.", "Film four moments across one day. Keep them short."],
+    ["Why the right asking price sells faster than the highest one.", "Straight to camera, thirty seconds. Use a real example, no names."],
+    ["Myth vs fact: what really adds value before you sell.", "Split the screen. Myth on the left, fact on the right."],
+    ["Client win of the week — let the result do the talking.", "Photo of the sold board, and their words as the caption."],
+    ["Your honest take on the local market this month, in 30 seconds.", "One take, no notes. Film it in the car if that is where you are."],
+    ["First-time buyer? The one thing to sort before you offer.", "Direct address. Say the one thing in the first three seconds."],
+    ["Sold fast — the story behind the result.", "Three beats: what it was, what you changed, what it sold for."],
+    ["Three quick wins to get a home viewing-ready this weekend.", "Film each one being done, not described."],
+  ];

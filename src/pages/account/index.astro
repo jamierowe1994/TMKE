@@ -189,15 +189,10 @@ const recentTemplates = templates.slice(0, 4);
             <a class="ws-day ws-day--empty" href="/account/schedule"><span class="ws-day-name">Sun</span><span class="ws-day-num">16</span><span class="ws-day-empty-msg">No post planned</span></a>
           </div>
 
-          <!-- Shown only when the week is genuinely quiet: nothing planned, no
-               bookings, nothing owed. Filled at runtime, not build time - the
-               dates have to be right on the day someone opens the page, not on
-               the day we last deployed. -->
-          <div class="ws-starters" id="ws-starters" hidden
-               data-blog-title={latestPost?.title ?? ""}>
-            <p class="ws-starters-lead">Nothing planned this week — here are three places to start.</p>
-            <div class="ws-starters-row" id="ws-starters-row"></div>
-          </div>
+          <!-- The starter ideas are written into the empty day cards above when
+               the week is genuinely quiet - see fillStarterDays(). The blog
+               title is carried here because it is only known at build time. -->
+          <span id="ws-starters" hidden data-blog-title={latestPost?.title ?? ""}></span>
         </section>
 
         <!-- YOUR STUDIO — four ways in, wider than they are tall -->
@@ -596,21 +591,20 @@ const recentTemplates = templates.slice(0, 4);
     .ws-day-empty-msg { margin-top: auto; font-size: 11.5px; font-weight: 500; color: var(--ws-faint); }
 
     /* Recent designs reel — portrait, fan out on hover */
-    /* Starter ideas — only ever seen on a quiet week, so they are suggestions
-       on the page rather than another set of cards competing with the week
-       above them: no fill, a hairline, and the date doing the work. */
-    .ws-starters[hidden] { display: none; }
-    .ws-starters-lead { margin: 0 0 var(--ws-gap); font-size: 13px; color: var(--ws-tx); }
-    .ws-starters-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ws-gap); }
-    @media (max-width: 900px) { .ws-starters-row { grid-template-columns: 1fr; } }
-    .ws-starter { display: flex; flex-direction: column; gap: 7px; padding: 18px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
-    .ws-starter:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
-    .ws-starter-flag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); }
-    .ws-starter-h { font-family: var(--serif); font-size: 15px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
-    .ws-starter-hint { font-size: 12px; line-height: 1.45; color: var(--ws-faint); }
-    .ws-starter-cta { margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-ink); }
-    .ws-starter-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
-    .ws-starter:hover .ws-starter-cta em { transform: translateX(4px); }
+    /* A day carrying a starter idea. Tinted in the brand plum rather than left
+       white: an untouched week was seven identical blank boxes, which is a poor
+       first thing to hand somebody who has just signed up. */
+    .ws-day--idea {
+      background: color-mix(in srgb, var(--ws-accent) 9%, #fff);
+      border-color: color-mix(in srgb, var(--ws-accent) 22%, var(--ws-line));
+    }
+    .ws-day--idea:hover { border-color: color-mix(in srgb, var(--ws-accent) 45%, var(--ws-line)); }
+    .ws-day-flag { margin-top: 10px; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-accent); }
+    .ws-day-idea { margin-top: 3px; font-family: var(--serif); font-size: 12.5px; font-weight: 600; line-height: 1.28; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .ws-day-hint { margin-top: 5px; font-size: 11px; line-height: 1.4; color: var(--ws-tx); }
+    .ws-day-cta { margin-top: auto; font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-accent); }
+    .ws-day-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+    .ws-day--idea:hover .ws-day-cta em { transform: translateX(3px); }
 
     /* Your Studio — four ways in, wider than they are tall so they read as a
        row of doors rather than as more day squares. */
@@ -751,6 +745,8 @@ const recentTemplates = templates.slice(0, 4);
   </style>
 
   <script>
+    import { EVERGREEN_PROMPTS } from '../../data/content-calendar.js';
+
     requestAnimationFrame(() => document.body.classList.add('ws-ready'));
 
     // Off-canvas drawer (hamburger → everything that isn't a tab)
@@ -775,26 +771,6 @@ const recentTemplates = templates.slice(0, 4);
     // Today's prompt — "Another idea" cycles a curated pool of content ideas.
     // (A simple, free pool for now; can be swapped for AI generation via the
     // Worker later without touching this markup.)
-    // Each prompt carries a hint on how to actually make it. A good idea a
-    // member cannot picture shooting is not a good idea.
-    const TMKE_PROMPTS = [
-      ["Three questions every buyer asks during a viewing — and how you answer them.", "Talk straight to camera. One question per line on screen."],
-      ["The one room that sells the home. Show buyers why.", "Slow pan of the room, then a close-up of the detail that does the work."],
-      ["What a little styling actually adds to a sale price.", "Before and after on the same shot. Hold each for two seconds."],
-      ["A 60-second tour of your favourite listing this week.", "Walk it in one take. Start outside the front door."],
-      ["Five things buyers notice in the first ten seconds of a viewing.", "Five quick cuts, one per point. Caption each on screen."],
-      ["Behind the scenes: how we shoot a property that sells.", "Film yourself setting up. Off-the-cuff beats scripted here."],
-      ["Sell the lifestyle, not just the house — the cafe, the school, the park.", "Three clips from the street, none of them inside the property."],
-      ["Just listed: tease it before the portal goes live.", "One detail shot only. Give nothing else away."],
-      ["A day in the life of an agent who actually answers the phone.", "Film four moments across one day. Keep them short."],
-      ["Why the right asking price sells faster than the highest one.", "Straight to camera, thirty seconds. Use a real example, no names."],
-      ["Myth vs fact: what really adds value before you sell.", "Split the screen. Myth on the left, fact on the right."],
-      ["Client win of the week — let the result do the talking.", "Photo of the sold board, and their words as the caption."],
-      ["Your honest take on the local market this month, in 30 seconds.", "One take, no notes. Film it in the car if that is where you are."],
-      ["First-time buyer? The one thing to sort before you offer.", "Direct address. Say the one thing in the first three seconds."],
-      ["Sold fast — the story behind the result.", "Three beats: what it was, what you changed, what it sold for."],
-      ["Three quick wins to get a home viewing-ready this weekend.", "Film each one being done, not described."],
-    ];
     (function wirePrompt() {
       const idea = document.querySelector('.ws-idea');
       const hint = document.getElementById('idea-hint');
@@ -822,13 +798,13 @@ const recentTemplates = templates.slice(0, 4);
       // pool by day-of-year (no manual writing needed). "Another idea" shuffles.
       const _now = new Date();
       const _doy = Math.floor((_now - new Date(_now.getFullYear(), 0, 0)) / 86400000);
-      let current = TMKE_PROMPTS[_doy % TMKE_PROMPTS.length];
+      let current = EVERGREEN_PROMPTS[_doy % EVERGREEN_PROMPTS.length];
       paint(current, false);
 
       btn.addEventListener('click', () => {
         let next = current;
         for (let i = 0; i < 8 && next === current; i++) {
-          next = TMKE_PROMPTS[Math.floor(Math.random() * TMKE_PROMPTS.length)];
+          next = EVERGREEN_PROMPTS[Math.floor(Math.random() * EVERGREEN_PROMPTS.length)];
         }
         current = next;
         paint(next, true);
@@ -861,7 +837,7 @@ const recentTemplates = templates.slice(0, 4);
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { bookingLocation } from '../../lib/videography-config.js';
-    import { upcomingDays } from '../../data/content-calendar.js';
+    import { upcomingDays, EVERGREEN_PROMPTS } from '../../data/content-calendar.js';
 
     // Notifications — real booking correspondence, unread dot + deep links.
     initNotifications();
@@ -950,9 +926,8 @@ const recentTemplates = templates.slice(0, 4);
       if (!box) return;
       const keys = ['posts', 'bookings', 'due'];
       if (!keys.every((k) => k in quiet)) return;
-      if (!keys.every((k) => quiet[k])) { box.hidden = true; return; }
-      renderStarters(box);
-      box.hidden = false;
+      if (!keys.every((k) => quiet[k])) return;
+      fillStarterDays(box);
     }
 
     // Monday-based week number, used only to rotate the third card - so a
@@ -962,42 +937,65 @@ const recentTemplates = templates.slice(0, 4);
       t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
       return Math.floor((t - new Date(t.getFullYear(), 0, 1)) / 604800000);
     }
+    const ymdOf = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-    function renderStarters(box) {
-      const row = document.getElementById('ws-starters-row');
-      if (!row) return;
-      const fmt = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+    // Starter ideas are written INTO the empty day cards, not in a row beneath
+    // them. A week nobody has touched is otherwise seven identical white boxes,
+    // which is the worst thing a new member can open.
+    function fillStarterDays(box) {
+      const all = [...document.querySelectorAll('.ws-week .ws-day')];
+      if (!all.length) return;
+      // From today onwards: there is no use suggesting Monday's post on
+      // Thursday. Falls back to the whole week if today is not in it.
+      const todayAt = all.findIndex((d) => d.classList.contains('is-today'));
+      const from = todayAt < 0 ? 0 : todayAt;
+      const targets = all.slice(from).filter((d) => d.classList.contains('ws-day--empty')).slice(0, 3);
+      if (!targets.length) return;
 
-      // Two dated hooks, each already turned into a post an agent can make.
-      const cards = upcomingDays(new Date(), 2).map((d) => ({
-        flag: `${d.name} · ${fmt(d.when)}`,
-        title: d.angle,
-        hint: d.hint,
-        cta: 'Design this post',
-        href: '/account/editor',
-      }));
+      const wk = weekIndex(new Date());
+      const dated = upcomingDays(new Date(), 8);
 
-      // The third rotates weekly: shop, blog, learn.
-      const blogTitle = box.getAttribute('data-blog-title') || '';
-      const rot = weekIndex(new Date()) % 3;
-      if (rot === 0) {
-        cards.push({ flag: 'The Edit', title: 'Browse the template shop',
-          hint: 'Packs built for estate agents, ready to edit.', cta: 'View templates', href: '/edit' });
-      } else if (rot === 1 && blogTitle) {
-        cards.push({ flag: 'From the blog', title: blogTitle,
-          hint: 'A few minutes, and something you can use this week.', cta: 'Read it', href: '/account/blog' });
-      } else {
-        cards.push({ flag: 'Learn', title: 'Get more out of the hub',
-          hint: 'Short guides on content, design and reach.', cta: 'Start a guide', href: '/account/guides' });
-      }
+      // Occasions first, wherever they fall. A dated hook is the best thing we
+      // have to offer and must not be displaced by a card that happens to sit
+      // last - which is exactly what used to happen to World Photography Day.
+      const spare = [];
+      targets.forEach((card) => {
+        const occasion = dated.find((d) => ymdOf(d.when) === card.getAttribute('data-date'));
+        if (occasion) {
+          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.hint, cta: 'Design this post', href: '/account/editor' });
+        } else {
+          spare.push(card);
+        }
+      });
 
-      row.innerHTML = cards.map((c) => `
-        <a class="ws-starter" href="${c.href}">
-          <span class="ws-starter-flag">${escapeHtml(c.flag)}</span>
-          <strong class="ws-starter-h">${escapeHtml(c.title)}</strong>
-          <span class="ws-starter-hint">${escapeHtml(c.hint)}</span>
-          <span class="ws-starter-cta">${escapeHtml(c.cta)} <em aria-hidden="true">&rarr;</em></span>
-        </a>`).join('');
+      // Of what is left, the last points somewhere useful rather than at a
+      // post, and rotates weekly so a quiet fortnight does not repeat itself.
+      spare.forEach((card, i) => {
+        if (i === spare.length - 1 && (spare.length > 1 || targets.length === 1)) {
+          const blog = box && box.getAttribute('data-blog-title');
+          const rot = wk % 3;
+          paintStarter(card, rot === 0
+            ? { flag: 'The Edit', title: 'Browse the template shop', hint: 'Packs built for estate agents.', cta: 'View templates', href: '/edit' }
+            : (rot === 1 && blog)
+              ? { flag: 'From the blog', title: blog, hint: 'A few minutes, something you can use.', cta: 'Read it', href: '/account/blog' }
+              : { flag: 'Learn', title: 'Get more out of the hub', hint: 'Short guides on content and reach.', cta: 'Start a guide', href: '/account/guides' });
+          return;
+        }
+        const pr = EVERGREEN_PROMPTS[(wk + i) % EVERGREEN_PROMPTS.length];
+        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1], cta: 'Design this post', href: '/account/editor' });
+      });
+    }
+
+    function paintStarter(card, pick) {
+      const head = (card.querySelector('.ws-day-name')?.outerHTML || '') + (card.querySelector('.ws-day-num')?.outerHTML || '');
+      card.classList.add('ws-day--idea');
+      card.classList.remove('ws-day--empty');
+      card.setAttribute('href', pick.href);
+      card.innerHTML = `${head}
+        <span class="ws-day-flag">${escapeHtml(pick.flag)}</span>
+        <span class="ws-day-idea">${escapeHtml(pick.title)}</span>
+        <span class="ws-day-hint">${escapeHtml(pick.hint)}</span>
+        <span class="ws-day-cta">${escapeHtml(pick.cta)} <em aria-hidden="true">&rarr;</em></span>`;
     }
 
     // ---- The third hero slot ----
@@ -1272,6 +1270,7 @@ const recentTemplates = templates.slice(0, 4);
           const isToday = dYmd === todayYmd ? ' is-today' : '';
           const nameHtml = `<span class="ws-day-name">${nm}${dYmd === todayYmd ? ' <i>Today</i>' : ''}</span><span class="ws-day-num">${d.getDate()}</span>`;
           const href = `/account/schedule?focus=${dYmd}`;
+          const dateAttr = ` data-date="${dYmd}"`;
           const it = byDate[dYmd];
           if (it) {
             const thumb = it.thumbnail_url || it.asset_url || '';
@@ -1279,9 +1278,9 @@ const recentTemplates = templates.slice(0, 4);
             // is lives in the tooltip, because seven of these across one line
             // has no room for a title without shrinking the date.
             const label = it.title || it.caption || it.content_type || it.name || 'Scheduled';
-            return `<a class="ws-day${isToday}" href="${href}" title="${escapeHtml(String(label))}">${nameHtml}<span class="ws-day-thumb"${thumb ? ` style="background-image:url('${escapeHtml(thumb)}')"` : ''}></span></a>`;
+            return `<a class="ws-day${isToday}" href="${href}"${dateAttr} title="${escapeHtml(String(label))}">${nameHtml}<span class="ws-day-thumb"${thumb ? ` style="background-image:url('${escapeHtml(thumb)}')"` : ''}></span></a>`;
           }
-          return `<a class="ws-day ws-day--empty${isToday}" href="${href}">${nameHtml}<span class="ws-day-empty-msg">No post planned</span></a>`;
+          return `<a class="ws-day ws-day--empty${isToday}" href="${href}"${dateAttr}>${nameHtml}<span class="ws-day-empty-msg">No post planned</span></a>`;
         }).join('');
 
         // Hero brief: live count of posts scheduled this week.
