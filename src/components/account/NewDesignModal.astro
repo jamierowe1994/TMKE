@@ -1,0 +1,152 @@
+---
+// Starting a new design — a pop-out, not a page.
+//
+// Included on any hub page that offers "create". Anything with [data-new-design]
+// opens it; picking a size sends you to /account/editor?blank=<w>x<h>, which the
+// editor engine reads and opens a blank canvas at.
+//
+// It is a modal rather than a route because "what shape?" is one question, and
+// a whole page to ask it reads as a step in a process rather than a choice.
+
+const GROUPS = [
+  {
+    label: "Social",
+    sizes: [
+      { name: "Instagram Post",  w: 1080, h: 1440 },
+      { name: "Instagram Square", w: 1080, h: 1080 },
+      { name: "Story / Reel",    w: 1080, h: 1920 },
+      { name: "Facebook Link",   w: 1200, h: 628 },
+      { name: "Facebook Cover",  w: 820,  h: 312 },
+      { name: "LinkedIn Post",   w: 1200, h: 627 },
+      { name: "X (Twitter)",     w: 1200, h: 675 },
+      { name: "Pinterest",       w: 1000, h: 1500 },
+    ],
+  },
+  {
+    label: "Video & print",
+    sizes: [
+      { name: "YouTube Thumb", w: 1280, h: 720 },
+      { name: "Landscape",     w: 1920, h: 1080 },
+      { name: "A4 Portrait",   w: 2480, h: 3508 },
+      { name: "A4 Landscape",  w: 3508, h: 2480 },
+    ],
+  },
+];
+
+// The little shape on each card, drawn to the real ratio and capped so a
+// 3508-wide A4 does not dwarf a Story.
+const shape = (w: number, h: number) => {
+  const max = 46;
+  const s = Math.min(max / w, max / h);
+  return `--sw:${Math.max(14, Math.round(w * s))}px;--sh:${Math.max(14, Math.round(h * s))}px`;
+};
+---
+
+<div class="nd-scrim" id="nd-scrim" hidden>
+  <div class="nd" role="dialog" aria-modal="true" aria-labelledby="nd-title">
+    <button type="button" class="nd-x" data-nd-close aria-label="Close">&times;</button>
+    <p class="nd-eyebrow">New design</p>
+    <h2 class="nd-title" id="nd-title">What are you making?</h2>
+    <p class="nd-sub">Pick a size to start on a blank canvas. You can change it later from the Resize panel.</p>
+
+    {GROUPS.map((g) => (
+      <div class="nd-group">
+        <p class="nd-group-h">{g.label}</p>
+        <div class="nd-grid">
+          {g.sizes.map((s) => (
+            <button type="button" class="nd-size" data-w={s.w} data-h={s.h}>
+              <span class="nd-shape" style={shape(s.w, s.h)}></span>
+              <span class="nd-name">{s.name}</span>
+              <span class="nd-dim">{s.w} × {s.h}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    ))}
+
+    <div class="nd-group">
+      <p class="nd-group-h">Your own</p>
+      <form class="nd-own" id="nd-own">
+        <label class="nd-field">Width <input type="number" id="nd-w" min="50" max="10000" value="1080" /></label>
+        <span class="nd-by" aria-hidden="true">×</span>
+        <label class="nd-field">Height <input type="number" id="nd-h" min="50" max="10000" value="1440" /></label>
+        <span class="nd-px">px</span>
+        <button type="submit" class="nd-go">Create</button>
+        <p class="nd-err" id="nd-err" hidden></p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Opened by any [data-new-design] on the page, and by ?new=1 so the old link
+  // still lands somewhere sensible.
+  const scrim = document.getElementById("nd-scrim");
+  if (scrim) {
+    const open = () => { scrim.hidden = false; document.body.style.overflow = "hidden"; };
+    const close = () => { scrim.hidden = true; document.body.style.overflow = ""; };
+    const start = (w: number, h: number) => {
+      location.href = `/account/editor?blank=${w}x${h}`;
+    };
+
+    document.querySelectorAll("[data-new-design]").forEach((b) =>
+      b.addEventListener("click", (e) => { e.preventDefault(); open(); }));
+
+    scrim.addEventListener("click", (e) => {
+      const t = e.target as HTMLElement;
+      if (t === scrim || t.closest("[data-nd-close]")) { close(); return; }
+      const size = t.closest("[data-w]") as HTMLElement | null;
+      if (size) start(Number(size.dataset.w), Number(size.dataset.h));
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !scrim.hidden) close(); });
+
+    document.getElementById("nd-own")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const w = Number((document.getElementById("nd-w") as HTMLInputElement).value);
+      const h = Number((document.getElementById("nd-h") as HTMLInputElement).value);
+      const err = document.getElementById("nd-err");
+      // Said plainly rather than silently clamped — a canvas that is not the
+      // size you typed is worse than being told why.
+      if (!w || !h || w < 50 || h < 50 || w > 10000 || h > 10000) {
+        if (err) { err.textContent = "Give a width and height between 50 and 10000."; err.hidden = false; }
+        return;
+      }
+      if (err) err.hidden = true;
+      start(w, h);
+    });
+
+    if (new URLSearchParams(location.search).has("new")) open();
+  }
+</script>
+
+<style is:global>
+  .nd-scrim { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .nd-scrim[hidden] { display: none; }
+  .nd { position: relative; width: min(720px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; padding: 30px clamp(22px, 3vw, 34px) 30px; background: #fff; border-radius: 6px; box-shadow: 0 30px 70px -30px rgba(20,16,22,0.6); }
+  .nd-x { position: absolute; top: 14px; right: 16px; border: 0; background: none; font-size: 26px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; }
+  .nd-x:hover { color: var(--ink); }
+  .nd-eyebrow { margin: 0; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+  .nd-title { margin: 6px 0 0; font-family: var(--subhead); font-size: clamp(26px, 3vw, 34px); font-weight: 500; letter-spacing: -0.02em; color: var(--ink); }
+  .nd-sub { margin: 8px 0 0; font-family: var(--sans); font-size: 14px; line-height: 1.5; color: rgba(28,29,34,0.6); max-width: 52ch; }
+
+  .nd-group { margin-top: 22px; }
+  .nd-group-h { margin: 0 0 10px; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+  .nd-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 620px) { .nd-grid { grid-template-columns: repeat(2, 1fr); } }
+
+  .nd-size { appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; min-height: 118px; padding: 14px 10px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; background: #fff; transition: border-color 0.2s, transform 0.2s; }
+  .nd-size:hover { border-color: var(--english-violet); transform: translateY(-2px); }
+  .nd-shape { width: var(--sw, 34px); height: var(--sh, 46px); border-radius: 2px; background: color-mix(in srgb, var(--english-violet) 12%, #fff); border: 1px solid color-mix(in srgb, var(--english-violet) 26%, transparent); }
+  .nd-name { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); text-align: center; line-height: 1.2; }
+  .nd-dim { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); font-variant-numeric: tabular-nums; }
+
+  .nd-own { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+  .nd-field { display: flex; flex-direction: column; gap: 4px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+  .nd-field input { width: 110px; height: 37px; box-sizing: border-box; padding: 0 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+  .nd-by { padding-bottom: 10px; color: rgba(28,29,34,0.4); }
+  .nd-px { padding-bottom: 10px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); }
+  .nd-go { height: 37px; padding: 0 20px; border: 1px solid transparent; border-radius: 4px; background: var(--english-violet); color: #fff; font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer; }
+  .nd-go:hover { opacity: 0.9; }
+  .nd-err { flex: 1 0 100%; margin: 2px 0 0; font-family: var(--sans); font-size: 12.5px; color: #a5352f; }
+  .nd-err[hidden] { display: none; }
+</style>

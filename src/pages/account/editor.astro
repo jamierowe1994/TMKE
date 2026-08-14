@@ -4,6 +4,7 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import AskExpert from "../../components/AskExpert.astro";
 import ShopModal from "../../components/ShopModal.astro";
 import "../../styles/ws-system.css";
+import NewDesignModal from "../../components/account/NewDesignModal.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../../data/library.js";
@@ -159,7 +160,7 @@ const googleFonts = [
               <p class="ws-hero-date"><a href="/account/studio" class="ed-ob-backlink" id="ed-onboard-back"><span aria-hidden="true">&larr;</span> Studio</a></p>
               <h1 class="ws-greeting">Your Designs.</h1>
               <p class="ws-hero-sub">Everything you have made, newest first. Open one to carry on, or start something new in the Studio.</p>
-              <a class="ws-btn ws-btn--primary ws-hero-cta-btn ed-ob-newbtn" href="/account/editor?new=1">Create New Design
+              <a class="ws-btn ws-btn--primary ws-hero-cta-btn ed-ob-newbtn" href="/account/editor?new=1" data-new-design>Create New Design
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
               </a>
             </div>
@@ -227,16 +228,6 @@ const googleFonts = [
         </section>
 
         <!-- ===== SIZE — blank canvas format ===== -->
-        <section class="ed-ob-view" id="ed-ob-size" hidden>
-          <a class="ed-onboard-back2" href="/account/studio">
-            <span aria-hidden="true">&larr;</span> Studio
-          </a>
-          <div class="ed-onboard-eyebrow">New design</div>
-          <h1 class="ed-onboard-title">Pick a size</h1>
-          <p class="ed-onboard-sub">Choose a format to start — you can resize any design later from the Resize panel.</p>
-          <div class="ed-ob-sizes" id="ed-ob-sizes"></div>
-        </section>
-
         <!-- ===== PACK DESIGNS (step 2) ===== -->
         <section class="ed-ob-view" id="ed-onboard-step2" hidden>
           <button type="button" class="ed-onboard-back2" id="ed-onboard-back2">
@@ -3649,12 +3640,6 @@ const googleFonts = [
     .ed-ob-noresult[hidden] { display: none; }
     #ed-ob-packs-sec[hidden] { display: none; }
 
-    .ed-ob-sizes { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 14px; max-width: 800px; }
-    .ed-ob-size { appearance: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 12px; min-height: 150px; padding: 18px 16px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s; }
-    .ed-ob-size:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.26); box-shadow: 0 20px 38px -26px rgba(28,29,34,0.4); }
-    .ed-ob-size-shape { width: var(--sw, 55px); height: var(--sh, 72px); border-radius: 4px; background: var(--lilac); border: 1px solid rgba(28,29,34,0.16); }
-    .ed-ob-size-name { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); }
-    .ed-ob-size-dim { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.46); margin-top: -6px; font-variant-numeric: tabular-nums; }
 
     /* ---- Footer CTA (home-page button: wine → black, sliding arrow) ---- */
     .ed-ob-cta { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; margin-top: clamp(30px,4vw,46px); padding: 22px 26px; border-radius: 16px; border: 1px solid rgba(28,29,34,0.13); background: #fff; }
@@ -5425,7 +5410,6 @@ const googleFonts = [
     const editor = document.getElementById("editor");
     // Views.
     const homeView = document.getElementById("ed-ob-home");
-    const sizeView = document.getElementById("ed-ob-size");
     const packView = document.getElementById("ed-onboard-step2");
     // Home — your packs.
     const grid = document.getElementById("ed-onboard-grid");
@@ -5436,7 +5420,6 @@ const googleFonts = [
     const savedLoading = document.getElementById("ed-ob-designs-loading");
     const savedEmpty = document.getElementById("ed-ob-designs-empty");
     // Size chooser.
-    const sizesEl = document.getElementById("ed-ob-sizes");
     // Pack design chooser (step 2).
     const designGrid = document.getElementById("ed-onboard-design-grid");
     const designsLoading = document.getElementById("ed-onboard-designs-loading");
@@ -5478,7 +5461,6 @@ const googleFonts = [
     // Switch between the launcher's views (home / size chooser / pack designs).
     function showView(name) {
       if (homeView) homeView.hidden = name !== "home";
-      if (sizeView) sizeView.hidden = name !== "size";
       if (packView) packView.hidden = name !== "pack";
       if (scroller) scroller.scrollTop = 0;
     }
@@ -5486,31 +5468,6 @@ const googleFonts = [
     function showHome() { showView("home"); }
     if (back2Btn) back2Btn.addEventListener("click", showHome);
     document.querySelectorAll("[data-back-home]").forEach((b) => b.addEventListener("click", showHome));
-
-    // Blank-canvas size chooser → open a fresh canvas at that size, then reveal.
-    const SIZES = [
-      { name: "Instagram Post", w: 1080, h: 1440, sw: 54, sh: 72 },
-      { name: "Story",          w: 1080, h: 1920, sw: 41, sh: 72 },
-      { name: "Reel",           w: 1080, h: 1920, sw: 41, sh: 72 },
-      { name: "Square Post",    w: 1080, h: 1080, sw: 66, sh: 66 },
-      { name: "Landscape",      w: 1200, h: 628,  sw: 74, sh: 39 },
-    ];
-    if (sizesEl) {
-      sizesEl.innerHTML = SIZES.map((s) => `
-        <button type="button" class="ed-ob-size" data-w="${s.w}" data-h="${s.h}">
-          <span class="ed-ob-size-shape" style="--sw:${s.sw}px;--sh:${s.sh}px"></span>
-          <span class="ed-ob-size-name">${escapeHtml(s.name)}</span>
-          <span class="ed-ob-size-dim">${s.w} × ${s.h}</span>
-        </button>`).join("");
-      sizesEl.addEventListener("click", (e) => {
-        const btn = e.target instanceof Element ? e.target.closest("[data-w]") : null;
-        if (!btn) return;
-        const w = parseInt(btn.getAttribute("data-w"), 10);
-        const h = parseInt(btn.getAttribute("data-h"), 10);
-        if (typeof window.__TMKE_LOAD_BLANK__ === "function") window.__TMKE_LOAD_BLANK__(w, h);
-        revealStudio();
-      });
-    }
 
     // "Your designs" — the member's saved copies (user_designs), newest first.
     // Clicking one re-opens it via the ?design= path.
@@ -5921,11 +5878,10 @@ const googleFonts = [
         return;
       }
 
-      // "Create a new design" asks what shape first: ?new=1 opens on the size
-      // picker, and choosing one drops you onto a blank canvas at that size.
-      // ?blank=1 is the other route — a content prompt already knows it wants
-      // an Instagram portrait, so it skips this and goes straight to the canvas.
-      showView(params.has("new") ? "size" : "home");
+      // ?new=1 lands on the library with the "new design" pop-out already up —
+      // NewDesignModal opens itself off the query string. Picking a size there
+      // comes back as ?blank=<w>x<h>, which the engine opens a canvas at.
+      showView("home");
 
       // Dev-only preview: /editor?demo=1 fills the packs with example packs.
       const isDemo = import.meta.env.DEV && params.has("demo");
@@ -6013,6 +5969,7 @@ const googleFonts = [
 
   <!-- AI caption generator — opened from the Schedule modal's caption field. -->
   <CaptionGenerator />
+  <NewDesignModal />
 
   <!-- First-time login tour — resumes here only if a tour is in progress. -->
   <script>

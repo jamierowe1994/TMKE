@@ -7382,7 +7382,10 @@
   } else if (explicitTpl) {
     loadTemplate(explicitTpl, false);
   } else {
-    loadBlank();
+    // ?blank=1080x1920 — the "new design" pop-out sends the size it was
+    // asked for. Anything else (?blank=1, or nothing) takes the default.
+    var _bm = /^(\d{2,5})x(\d{2,5})$/.exec(urlParams.get("blank") || "");
+    if (_bm) loadBlank(Number(_bm[1]), Number(_bm[2])); else loadBlank();
   }
 
   // Persist filename changes
