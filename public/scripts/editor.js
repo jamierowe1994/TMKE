@@ -1715,11 +1715,12 @@
   }
 
   // ---------- Blank canvas ----------
-  // A truly-empty starting point (the onboarding "Start with a blank canvas"
-  // choice). A violet page with a "Start building here" hint — the hint is
-  // DOM-only (see fullRender), so it never lands in an export.
+  // A truly-empty starting point. White, because that is what a blank page is
+  // and because the violet it used to be belongs to no palette we use. The
+  // "Start building here" hint is DOM-only (see fullRender), so it never lands
+  // in an export.
   function loadBlank(w, h) {
-    resetToSinglePage("#7B5BCF", w, h);
+    resetToSinglePage("#ffffff", w, h);
     state.templateId = null;
     state.elements = [];
     state.selectedIds = [];
@@ -7169,6 +7170,9 @@
   };
   // Page navigation hooks for the "Read all pages" AI pass.
   window.__TMKE_PAGE_COUNT__ = function () { return state.pages.length; };
+  // So "Add a page" can sit in the start panel, where somebody who does not
+  // already know what Pages means will actually find it.
+  window.__TMKE_ADD_PAGE__ = function () { addPage(); };
   window.__TMKE_GOTO_PAGE__ = function (i) { goToPage(i); };
   window.__TMKE_AI_PLACE_TEXT__ = function (blocks) {
     if (!Array.isArray(blocks) || !blocks.length) return 0;

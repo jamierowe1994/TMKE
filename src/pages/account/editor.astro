@@ -338,6 +338,12 @@ const googleFonts = [
     <aside class="ed-rail" role="tablist">
       <!-- "Designs" tab removed — users rarely jump between templates
            mid-session, and dropping it gives the rail more breathing room. -->
+      <!-- Back to "Choose something to edit". Without it the start panel is
+           reachable once and then never again. -->
+      <button class="ed-rail-btn" data-tool="start" title="Where to start">
+        <span class="ed-rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+        <span>Start</span>
+      </button>
       <button class="ed-rail-btn is-active" data-tool="brand" title="Your brand kit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
         <span>Brand</span>
@@ -405,6 +411,7 @@ const googleFonts = [
           <button type="button" class="ed-start-btn" data-start-tool="background"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span><span class="ed-start-tx"><b>Background</b><i>Photo, crop &amp; overlay</i></span></button>
           <button type="button" class="ed-start-btn" data-start-tool="text"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6v13M12 6v6"/></svg></span><span class="ed-start-tx"><b>Text</b><i>Headlines &amp; captions</i></span></button>
           <button type="button" class="ed-start-btn" data-start-tool="photos"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><span class="ed-start-tx"><b>Images</b><i>Add a photo</i></span></button>
+          <button type="button" class="ed-start-btn" data-add-page><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="13" height="18" rx="2"/><path d="M19 8v13H8"/></svg></span><span class="ed-start-tx"><b>Add a page</b><i>For a carousel</i></span></button>
           <button type="button" class="ed-start-btn" data-start-tool="brand"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/></svg></span><span class="ed-start-tx"><b>Elements</b><i>Shapes, lines, icons</i></span></button>
         </div>
       </section>
@@ -1028,8 +1035,10 @@ const googleFonts = [
     .ed-start-tx { display: flex; flex-direction: column; gap: 1px; }
     .ed-start-tx b { font-size: 14px; font-weight: 600; color: var(--ink); }
     .ed-start-tx i { font-size: 12px; font-style: normal; color: rgba(28,29,34,0.5); }
-    /* Elements is merged into Assets for customers — its (now-empty) pane never shows. */
-    html.editor-light .ed-panel-pane[data-pane="elements"] { display: none; }
+    /* The Elements pane used to be hidden here, on the basis that it had been
+       merged into an Assets pane. There is no Assets pane, and the shapes live
+       nowhere else — so the rail button and the start card both opened onto
+       nothing. */
 
     /* ===== Top bar — floating pill, detached from the page edges ===== */
     .ed-topbar {
@@ -2751,7 +2760,7 @@ const googleFonts = [
       font-style: italic;
       font-size: 64px;
       letter-spacing: -0.01em;
-      color: rgba(255, 255, 255, 0.92);
+      color: rgba(28, 29, 34, 0.28);
       text-align: center;
       padding: 0 8%;
       /* Clickable: a click drops a real, editable + deletable text box here. */
@@ -5968,6 +5977,18 @@ const googleFonts = [
   <ShopModal />
 
   <!-- AI caption generator — opened from the Schedule modal's caption field. -->
+  <script>
+    // "Add a page" in the start panel, and the rail's way back to it. Both are
+    // markup added in this file, so they are wired here rather than in the
+    // engine — the engine only exposes addPage.
+    document.querySelector("[data-add-page]")?.addEventListener("click", () => {
+      if (typeof (window as any).__TMKE_ADD_PAGE__ === "function") (window as any).__TMKE_ADD_PAGE__();
+      // Reveal the page strip too, or the new page is added out of sight.
+      const t = document.getElementById("ed-pages-toggle");
+      if (t && t.getAttribute("aria-pressed") !== "true") t.click();
+    });
+  </script>
+
   <CaptionGenerator />
   <NewDesignModal />
 
