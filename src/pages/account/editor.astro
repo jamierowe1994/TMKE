@@ -3,6 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import AskExpert from "../../components/AskExpert.astro";
 import ShopModal from "../../components/ShopModal.astro";
+import "../../styles/ws-system.css";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../../data/library.js";
@@ -128,12 +129,11 @@ const googleFonts = [
     if (!location.search.includes('mode=admin')) document.documentElement.classList.add('editor-light');
   </script>
 
-  <!-- ============ Studio start screen ============
-       A branded, single-scroll launcher shown when you open the Studio to make
-       something new (customer mode only — admin skips it). Three clear ways to
-       start: a blank canvas (pick a size), a pack you own, or one of your saved
-       designs — plus a footer CTA to browse more in The Edit. -->
-  <div class="ed-onboard" id="ed-onboard">
+  <!-- ============ Your designs ============
+       The member's design library, shown when the Studio is opened without a
+       design, a template or ?blank. Carries the hub's .ws class so it takes the
+       shared system; the editor chrome underneath keeps its own look. -->
+  <div class="ed-onboard ws" id="ed-onboard">
     <WorkspaceHeader active="studio" />
 
     <div class="ed-ob-scroll" id="ed-ob-scroll">
@@ -143,15 +143,16 @@ const googleFonts = [
         <section class="ed-ob-view" id="ed-ob-home">
           <!-- Hero mirrors the Orders / Bookings .dash-hero: eyebrow + title pin
                to the image top, the sub pins to its base. -->
-          <section class="ed-ob-hero">
-            <div class="ed-ob-hero-copy">
-              <div class="ed-ob-hero-top">
-                <p class="ed-ob-hero-eyebrow"><a href="/account" class="ed-ob-backlink" id="ed-onboard-back"><span aria-hidden="true">&larr;</span> Workspace</a></p>
-                <h1 class="ed-ob-h">Your Designs.</h1>
-              </div>
-              <p class="ed-ob-hero-sub">Everything you have made, newest first. Open one to carry on, or start something new from the Studio.</p>
+          <section class="ws-hero ed-ob-hero">
+            <div class="ws-hero-copy">
+              <p class="ws-hero-date"><a href="/account/studio" class="ed-ob-backlink" id="ed-onboard-back"><span aria-hidden="true">&larr;</span> Studio</a></p>
+              <h1 class="ws-greeting">Your Designs.</h1>
+              <p class="ws-hero-sub">Everything you have made, newest first. Open one to carry on, or start something new in the Studio.</p>
+              <a class="ws-btn ws-btn--primary ws-hero-cta-btn ed-ob-newbtn" href="/account/editor?blank=1">Create New Design
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              </a>
             </div>
-            <figure class="ed-ob-hero-media"><img src="/assets/home%20kitchen.jpg" alt="" loading="eager" /></figure>
+            <div class="ws-hero-photo"></div>
           </section>
 
           <!-- Not a section of this page any more — Studio's shelf is where you
@@ -166,22 +167,34 @@ const googleFonts = [
           </section>
 
           <!-- Your saved designs -->
-          <section class="ed-ob-sec" id="ed-ob-designs-sec">
-            <div class="ed-ob-sec-head">
-              <h2 class="ed-ob-sec-h">Your designs <span class="ed-ob-count" id="ed-ob-designs-count"></span></h2>
+          <section class="ws-block ed-ob-sec" id="ed-ob-designs-sec">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 01</span>Your designs <span class="ed-ob-count" id="ed-ob-designs-count"></span></h2>
               <label class="ed-ob-search">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                 <input type="search" id="ed-ob-designs-q" placeholder="Search your designs…" aria-label="Search your designs" />
               </label>
-            </div>
+            </header>
             <p class="ed-ob-noresult" id="ed-ob-designs-noresult" hidden>Nothing matches that.</p>
             <div class="ed-onboard-loading" id="ed-ob-designs-loading">Loading your designs…</div>
             <div class="ed-ob-grid ed-ob-grid--sm" id="ed-ob-designs-grid" hidden></div>
             <div class="ed-ob-empty" id="ed-ob-designs-empty" hidden></div>
           </section>
 
-          <!-- Footer CTA -->
-          <div class="ed-ob-cta">
+          <!-- What else you could be working with. Filled from the live shop by
+               loadPackBanner(); the plain CTA below is what shows if there is
+               nothing to list. -->
+          <section class="ws-block ed-ob-sec" id="ed-ob-shop-sec" hidden>
+            <header class="ws-block-head">
+              <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 02</span>More to work with</h2>
+              <a class="ws-block-link" href="/edit">Browse The Edit
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+            </header>
+            <div class="ws-news" id="ed-ob-shop-grid"></div>
+          </section>
+
+          <div class="ed-ob-cta" id="ed-ob-cta">
             <div class="ed-ob-cta-tx">
               <strong>Need something new to work with?</strong>
               <span>Browse The Edit for more design packs and ready-made templates.</span>
@@ -3400,22 +3413,8 @@ const googleFonts = [
     .ed-ob-view[hidden] { display: none; }
 
     /* ---- Hero: mirrors the Orders / Bookings .dash-hero exactly ---- */
-    .ed-ob-hero { display: grid; grid-template-columns: 1fr auto; gap: clamp(28px,5vw,72px); align-items: stretch; margin: clamp(12px,2vh,20px) 0 clamp(26px,4vh,44px); }
-    .ed-ob-hero-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
-    .ed-ob-hero-top { display: flex; flex-direction: column; gap: 6px; }
-    .ed-ob-hero-eyebrow { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: rgba(28,29,34,0.64); }
     .ed-ob-backlink { color: rgba(28,29,34,0.64); text-decoration: none; font-weight: 700; letter-spacing: 0.28em; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s, transform 0.2s; }
     .ed-ob-backlink:hover { color: var(--english-violet); transform: translateX(-2px); }
-    .ed-ob-h { font-family: var(--serif); font-weight: 500; font-size: clamp(40px,5vw,66px); line-height: 1.02; letter-spacing: -0.02em; margin: 0; color: var(--english-violet); }
-    .ed-ob-h em { font-style: normal; color: var(--english-violet); }
-    .ed-ob-hero-sub { margin: 4px 0 0; font-family: var(--sans); font-size: 17px; line-height: 1.55; color: rgba(28,29,34,0.64); }
-    .ed-ob-hero-media { margin: 0; justify-self: end; }
-    .ed-ob-hero-media img { display: block; height: clamp(240px,30vh,320px); width: auto; aspect-ratio: 3/4; object-fit: cover; border-radius: 4px; background: var(--platinum); }
-    @media (max-width: 860px) {
-      .ed-ob-hero { grid-template-columns: 1fr; gap: 22px; }
-      .ed-ob-hero-media { justify-self: stretch; order: -1; }
-      .ed-ob-hero-media img { width: 100%; height: auto; aspect-ratio: 16/10; }
-    }
     /* Compact headers for the size / pack sub-views (no pill, no italic). */
     .ed-onboard-eyebrow { display: block; font-family: var(--sans); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.5); margin-bottom: 8px; }
     .ed-onboard-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.4vw, 36px); line-height: 1.05; letter-spacing: -0.02em; color: var(--english-violet); margin: 0 0 8px; }
@@ -3560,12 +3559,39 @@ const googleFonts = [
     .ed-ob-grid--sm { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 
     /* ---- Size chooser ---- */
+    /* ---- Your designs: the hub system, scoped to this overlay ---- */
+    .ed-onboard.ws { background: #fff; }
+    .ed-ob-hero { --ws-hero-img: url('/assets/home%20kitchen.jpg'); }
+    /* The launcher's own inner wrapper stands in for .ws-main here. */
+    .ed-onboard-inner { max-width: 1840px; margin: 0 auto; padding: clamp(20px, 2.4vh, 34px) clamp(22px, 2.6vw, 56px) 120px; display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 46px); }
+    .ed-ob-newbtn { margin-top: auto; }
+    .ed-ob-backlink { color: inherit; text-decoration: none; }
+    .ed-ob-sec { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    #ed-ob-shop-sec[hidden], #ed-ob-cta[hidden] { display: none; }
+
+    /* Design cards, on the same grid the rest of the hub uses. */
+    #ed-ob-designs-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 1200px) { #ed-ob-designs-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 900px)  { #ed-ob-designs-grid { grid-template-columns: repeat(2, 1fr); } }
+    #ed-ob-designs-grid .ed-onboard-card {
+      display: flex; flex-direction: column; gap: 4px; padding: 12px;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
+      text-decoration: none; color: var(--ws-ink);
+      transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
+    }
+    #ed-ob-designs-grid .ed-onboard-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    /* The shape of the thing it previews, like the Studio shelves. */
+    #ed-ob-designs-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: 1080 / 1440; border-radius: 4px; background-size: cover; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
+    #ed-ob-designs-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
+    #ed-ob-designs-grid .ed-onboard-card-title { font-family: var(--serif); font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
+    #ed-ob-designs-grid .ed-onboard-card-cat { font-size: 11.5px; color: var(--ws-faint); }
+
     /* Gallery header: the count sits with the heading, search to the right. */
     .ed-ob-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
     .ed-ob-count { font-family: var(--sans); font-size: 13px; font-weight: 500; color: rgba(28,29,34,0.45); margin-left: 6px; }
-    .ed-ob-search { display: flex; align-items: center; gap: 8px; height: 34px; box-sizing: border-box; padding: 0 12px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; }
-    .ed-ob-search svg { width: 15px; height: 15px; flex: none; fill: none; stroke: rgba(28,29,34,0.45); stroke-width: 2; }
-    .ed-ob-search input { border: 0; outline: none; background: none; width: 200px; font-family: var(--sans); font-size: 14px; color: var(--ink); }
+    .ed-ob-search { display: flex; align-items: center; gap: 7px; height: 25px; box-sizing: border-box; padding: 0 9px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 3px; }
+    .ed-ob-search svg { width: 13px; height: 13px; flex: none; fill: none; stroke: rgba(28,29,34,0.45); stroke-width: 2; }
+    .ed-ob-search input { border: 0; outline: none; background: none; width: 190px; font-family: var(--sans); font-size: 13px; color: var(--ink); }
     @media (max-width: 560px) { .ed-ob-search input { width: 100%; } }
     .ed-ob-noresult { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.5); padding: 18px 0; }
     .ed-ob-noresult[hidden] { display: none; }
@@ -5446,6 +5472,40 @@ const googleFonts = [
           </span>
         </a>`;
     }
+    // The pack banner. Reads the live shop rather than naming packs in code:
+    // the whole point of the row is to say what each pack is FOR, and that
+    // sentence is the pack's own description, written once where packs live.
+    async function loadPackBanner() {
+      const sec = document.getElementById("ed-ob-shop-sec");
+      const grid = document.getElementById("ed-ob-shop-grid");
+      const cta = document.getElementById("ed-ob-cta");
+      if (!sec || !grid) return;
+      let packs = [];
+      try {
+        const { data } = await supabase
+          .from("packs")
+          .select("slug, title, description, cover_image_url, status, sort_order")
+          .eq("status", "active")
+          .order("sort_order", { ascending: true })
+          .limit(4);
+        packs = data || [];
+      } catch (_) {}
+      // Nothing to show is not an error - the plain CTA below already covers it.
+      if (!packs.length) return;
+      grid.innerHTML = packs.map((p) => `
+        <a class="ws-news-card" href="/edit/${encodeURIComponent(p.slug || "")}">
+          <span class="ws-news-tx">
+            <span class="ws-news-flag">Template pack</span>
+            <strong class="ws-news-h">${escapeHtml(p.title || "Pack")}</strong>
+            <span class="ws-news-desc">${escapeHtml(p.description || "Ready-made templates you can edit.")}</span>
+          </span>
+          <span class="ws-news-art"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
+        </a>`).join("");
+      sec.hidden = false;
+      if (cta) cta.hidden = true;   // the row says it better than the strip did
+    }
+    loadPackBanner();
+
     // Filtering happens over the rows already in hand — the whole library is
     // loaded, so searching it should not cost a round trip.
     function wireDesignSearch(rows) {

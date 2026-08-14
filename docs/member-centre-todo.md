@@ -136,8 +136,14 @@ What stayed and why:
   and custom, both wired) does the same job once you are on a canvas. Worth
   removing on the next pass through this file.
 
-Still to do here: the page has not been brought onto ws-system.css. It uses its
-own `ed-ob-*` styling and does not match the dashboard or Studio yet.
+It now uses ws-system.css, scoped to the overlay by putting `.ws` on
+`#ed-onboard` so the editor chrome underneath keeps its own look.
+
+The bottom of the page lists the packs on sale, read live from `packs`
+(title, description, cover). Nothing about them is written in code: the line
+that says what a pack is FOR is the pack's own `description`, edited where
+packs are edited. If no packs come back, the plain "Browse The Edit" strip
+shows instead — which is what happens signed out.
 
 ## Notes
 
