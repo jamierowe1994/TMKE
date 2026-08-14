@@ -159,7 +159,7 @@ const googleFonts = [
               <p class="ws-hero-date"><a href="/account/studio" class="ed-ob-backlink" id="ed-onboard-back"><span aria-hidden="true">&larr;</span> Studio</a></p>
               <h1 class="ws-greeting">Your Designs.</h1>
               <p class="ws-hero-sub">Everything you have made, newest first. Open one to carry on, or start something new in the Studio.</p>
-              <a class="ws-btn ws-btn--primary ws-hero-cta-btn ed-ob-newbtn" href="/account/editor?blank=1">Create New Design
+              <a class="ws-btn ws-btn--primary ws-hero-cta-btn ed-ob-newbtn" href="/account/editor?new=1">Create New Design
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
               </a>
             </div>
@@ -228,10 +228,10 @@ const googleFonts = [
 
         <!-- ===== SIZE — blank canvas format ===== -->
         <section class="ed-ob-view" id="ed-ob-size" hidden>
-          <button type="button" class="ed-onboard-back2" data-back-home>
-            <span aria-hidden="true">&larr;</span> Back
-          </button>
-          <div class="ed-onboard-eyebrow">Blank canvas</div>
+          <a class="ed-onboard-back2" href="/account/studio">
+            <span aria-hidden="true">&larr;</span> Studio
+          </a>
+          <div class="ed-onboard-eyebrow">New design</div>
           <h1 class="ed-onboard-title">Pick a size</h1>
           <p class="ed-onboard-sub">Choose a format to start — you can resize any design later from the Resize panel.</p>
           <div class="ed-ob-sizes" id="ed-ob-sizes"></div>
@@ -5921,7 +5921,11 @@ const googleFonts = [
         return;
       }
 
-      showView("home");
+      // "Create a new design" asks what shape first: ?new=1 opens on the size
+      // picker, and choosing one drops you onto a blank canvas at that size.
+      // ?blank=1 is the other route — a content prompt already knows it wants
+      // an Instagram portrait, so it skips this and goes straight to the canvas.
+      showView(params.has("new") ? "size" : "home");
 
       // Dev-only preview: /editor?demo=1 fills the packs with example packs.
       const isDemo = import.meta.env.DEV && params.has("demo");
