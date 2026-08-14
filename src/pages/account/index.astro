@@ -163,7 +163,7 @@ const heroFirst = heroTemplates[0];
         <!-- PLAN -->
         <section class="ws-block" aria-labelledby="plan-h">
           <header class="ws-block-head">
-            <h2 class="ws-block-h" id="plan-h">Your week</h2>
+            <h2 class="ws-block-h" id="plan-h"><span class="ws-block-ch">Chapter 01</span>Your week</h2>
             <a class="ws-block-link" href="/account/schedule">View planner
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
@@ -182,7 +182,7 @@ const heroFirst = heroTemplates[0];
         <!-- YOUR STUDIO — four ways in, wider than they are tall -->
         <section class="ws-block" aria-labelledby="studio-h">
           <header class="ws-block-head">
-            <h2 class="ws-block-h" id="studio-h">Your Studio</h2>
+            <h2 class="ws-block-h" id="studio-h"><span class="ws-block-ch">Chapter 02</span>Your Studio</h2>
             <a class="ws-block-link" href="/account/studio">View all tools
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
@@ -215,7 +215,7 @@ const heroFirst = heroTemplates[0];
              width, then the prompt and the next booking beside it -->
         <section class="ws-block" aria-labelledby="pickup-h">
           <header class="ws-block-head">
-            <h2 class="ws-block-h" id="pickup-h">Pick up where you left off</h2>
+            <h2 class="ws-block-h" id="pickup-h"><span class="ws-block-ch">Chapter 03</span>Pick up where you left off</h2>
           </header>
           <div class="ws-pickup">
             <a class="ws-resume" id="ws-resume" href={`/account/editor?template=${encodeURIComponent(recentTemplates[0].id)}`} style={`background-image:url('${recentTemplates[0].thumb}')`}>
@@ -266,7 +266,7 @@ const heroFirst = heroTemplates[0];
       <!-- ============ New in The Studio — full width ============ -->
       <section class="ws-block ws-block--wide" aria-labelledby="new-h">
         <header class="ws-block-head">
-          <h2 class="ws-block-h" id="new-h">New in The Studio</h2>
+          <h2 class="ws-block-h" id="new-h"><span class="ws-block-ch">Chapter 05</span>New in The Studio</h2>
           <a class="ws-block-link" href="/account/guides">View all updates
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
@@ -335,6 +335,10 @@ const heroFirst = heroTemplates[0];
       --ws-accent: var(--english-violet, #5b4a55);
       --ws-success: #3f9468;
       --ws-r-lg: 4px; --ws-r: 4px; --ws-r-sm: 4px;   /* near-square boxes; images keep their own larger radius */
+      /* One gap for every grid on the page, and for the drop between a section
+         strip and the cards under it - so the space below a heading matches the
+         space between the cards it introduces. Change it here or nowhere. */
+      --ws-gap: 12px;
       --ws-sh-hero: none;   /* no shadows — hierarchy comes from outline + space */
       --ws-sh: none;
       --ws-ease: cubic-bezier(.2, .8, .2, 1);
@@ -592,12 +596,16 @@ const heroFirst = heroTemplates[0];
     @media (max-width: 620px) { .ws-hero { grid-template-columns: 1fr; } .ws-hero-preview { margin: 0 auto; max-height: 400px; } }
 
     /* ---------- Section blocks (plan, recent) — borderless, grouped by space ---------- */
-    .ws-block { display: flex; flex-direction: column; gap: 16px; }
+    .ws-block { display: flex; flex-direction: column; gap: var(--ws-gap); }
     /* Section strips, the same device the admin centre and the Hub use: a wine
        bar carries the title instead of it floating on the page. It is the only
        block of brand colour on an otherwise white page, which is the point. */
-    .ws-block-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 20px; margin: 0 0 16px; background: var(--english-violet); border-radius: var(--ws-r); }
+    .ws-block-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 20px; margin: 0; background: var(--english-violet); border-radius: var(--ws-r); }
     .ws-block-h { font-family: var(--serif); font-weight: 600; font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0; color: #fff; }
+    /* The page reads as chapters, the same numbering the Learn banner uses.
+       The dash is drawn here so the markup carries only the words. */
+    .ws-block-ch { color: rgba(255,255,255,0.5); font-weight: 500; }
+    .ws-block-ch::after { content: " — "; }
     .ws-block-link { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.78); text-decoration: none; transition: color 0.2s; }
     .ws-block-link:hover { color: #fff; }
     .ws-block-link svg { width: 14px; height: 14px; transition: transform 0.25s var(--ws-ease); }
@@ -605,7 +613,7 @@ const heroFirst = heroTemplates[0];
 
     /* Planner week — all seven days on one line, each near enough square.
        The date is the loud thing: you scan a week by number, not by label. */
-    .ws-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; }
+    .ws-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 900px) { .ws-week { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 520px) { .ws-week { grid-template-columns: repeat(2, 1fr); } }
     .ws-day { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; aspect-ratio: 1 / 1.25; border-radius: var(--ws-r-sm); background: #fff; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); cursor: pointer; font-family: inherit; text-align: left; transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
@@ -625,7 +633,7 @@ const heroFirst = heroTemplates[0];
     /* Recent designs reel — portrait, fan out on hover */
     /* Your Studio — four ways in, wider than they are tall so they read as a
        row of doors rather than as more day squares. */
-    .ws-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .ws-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 1000px) { .ws-tools { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .ws-tools { grid-template-columns: 1fr; } }
     .ws-tool { display: flex; align-items: flex-start; gap: 13px; padding: 20px; min-height: 112px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
@@ -640,7 +648,7 @@ const heroFirst = heroTemplates[0];
 
     /* Pick up where you left off — the last thing worked on at half width,
        then the prompt and the next booking at a quarter each. */
-    .ws-pickup { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: stretch; }
+    .ws-pickup { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--ws-gap); align-items: stretch; }
     @media (max-width: 1000px) { .ws-pickup { grid-template-columns: 1fr 1fr; } .ws-resume { grid-column: 1 / -1; } }
     @media (max-width: 620px) { .ws-pickup { grid-template-columns: 1fr; } }
     .ws-resume { position: relative; display: flex; align-items: flex-end; min-height: 240px; padding: 26px; border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center; background-color: #2a2126; text-decoration: none; color: #fff; }
@@ -660,7 +668,7 @@ const heroFirst = heroTemplates[0];
     .ws-side-foot { display: flex; align-items: center; gap: 12px; margin-top: auto; }
 
     /* New in The Studio — four split cards, words left, picture right. */
-    .ws-news { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .ws-news { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 1100px) { .ws-news { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .ws-news { grid-template-columns: 1fr; } }
     .ws-news-card { display: grid; grid-template-columns: minmax(0, 1fr) 96px; min-height: 128px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; background: #fff; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
