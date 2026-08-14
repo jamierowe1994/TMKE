@@ -114,6 +114,31 @@ the in-canvas brief is built, add a parameter and read it in the engine. And the
 "Reels that actually get watched" guide does not exist yet — its card points at
 the guides index until it does.
 
+## 5 · The design gallery
+
+`/account/editor` with no parameters used to be "Start a Design" — three entry
+cards, your packs, twelve of your designs. All of it except the blank-canvas
+card was something Studio already does, and Studio does it better, so it was a
+click between wanting to design and designing.
+
+It is now one thing: **every design you have made**, newest first, with search.
+Studio's "See All Designs" points here, as it always did.
+
+What stayed and why:
+
+- The packs grid and the pack-designs view are still in the DOM, hidden.
+  `/account/editor?pack=<id>` — which is what Studio's pack shelf links to —
+  renders the pack list into that grid before opening the pack, and it is the
+  "All packs" target when you go back from one. Deleting the section would
+  have broken the shelf.
+- The blank-canvas size chooser is now unreachable: nothing links to it since
+  the entry cards went. It is harmless, and the editor's own resize (presets
+  and custom, both wired) does the same job once you are on a canvas. Worth
+  removing on the next pass through this file.
+
+Still to do here: the page has not been brought onto ws-system.css. It uses its
+own `ed-ob-*` styling and does not match the dashboard or Studio yet.
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.
