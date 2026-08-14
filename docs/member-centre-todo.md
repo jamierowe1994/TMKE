@@ -67,6 +67,26 @@ message arrives attached to their account and the right person gets it.
 
 ---
 
+## 3 · Starter ideas — the parts still to do
+
+The quiet-week starter row ships automatic: `src/data/content-calendar.js`
+holds UK dated hooks already turned into estate agency angles, resolved in the
+browser so they are right on the day someone opens the page rather than on the
+day we last deployed. Nobody has to load next month's dates.
+
+Two things it does not yet do.
+
+**Carry the idea into the editor.** "Design this post" opens
+`/account/editor` with nothing pre-filled. The editor reads `?template=` and
+`?schedule=` and would need a third parameter to seed a title or caption from
+the angle. Deliberately not faked with a parameter that does nothing.
+
+**Let a person override it.** Everything is currently code. An admin surface
+would want to: add or edit a dated hook without a deploy, pin one for a given
+week, and suppress one. That is a table plus a tab, and it is only worth
+building once the automatic version has been watched for a month — most of
+these entries will not want touching.
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.

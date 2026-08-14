@@ -1,6 +1,12 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { templates } from "../../data/library.js";
+import { getMembersPosts } from "../../data/blog.js";
+
+// Named on the "from the blog" starter card. Build-time is fine: the card
+// links to the blog either way, so a stale title is a stale title, not a
+// broken link.
+const latestPost = (await getMembersPosts())[0] ?? null;
 
 // "Pick up where you left off" falls back to a template the member can start
 // from, so the card is never empty. wireWork() swaps in their most recently
@@ -181,6 +187,16 @@ const recentTemplates = templates.slice(0, 4);
             <a class="ws-day" href="/account/schedule"><span class="ws-day-name">Fri</span><span class="ws-day-num">14</span><span class="ws-day-thumb" style="background-image:url('/assets/home%20chair.jpg')"></span></a>
             <a class="ws-day ws-day--empty" href="/account/schedule"><span class="ws-day-name">Sat</span><span class="ws-day-num">15</span><span class="ws-day-empty-msg">No post planned</span></a>
             <a class="ws-day ws-day--empty" href="/account/schedule"><span class="ws-day-name">Sun</span><span class="ws-day-num">16</span><span class="ws-day-empty-msg">No post planned</span></a>
+          </div>
+
+          <!-- Shown only when the week is genuinely quiet: nothing planned, no
+               bookings, nothing owed. Filled at runtime, not build time - the
+               dates have to be right on the day someone opens the page, not on
+               the day we last deployed. -->
+          <div class="ws-starters" id="ws-starters" hidden
+               data-blog-title={latestPost?.title ?? ""}>
+            <p class="ws-starters-lead">Nothing planned this week — here are three places to start.</p>
+            <div class="ws-starters-row" id="ws-starters-row"></div>
           </div>
         </section>
 
@@ -657,6 +673,22 @@ const recentTemplates = templates.slice(0, 4);
     .ws-day-empty-msg { margin-top: auto; font-size: 11.5px; font-weight: 500; color: var(--ws-faint); }
 
     /* Recent designs reel — portrait, fan out on hover */
+    /* Starter ideas — only ever seen on a quiet week, so they are suggestions
+       on the page rather than another set of cards competing with the week
+       above them: no fill, a hairline, and the date doing the work. */
+    .ws-starters[hidden] { display: none; }
+    .ws-starters-lead { margin: 0 0 var(--ws-gap); font-size: 13px; color: var(--ws-tx); }
+    .ws-starters-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 900px) { .ws-starters-row { grid-template-columns: 1fr; } }
+    .ws-starter { display: flex; flex-direction: column; gap: 7px; padding: 18px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+    .ws-starter:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    .ws-starter-flag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); }
+    .ws-starter-h { font-family: var(--serif); font-size: 15px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; }
+    .ws-starter-hint { font-size: 12px; line-height: 1.45; color: var(--ws-faint); }
+    .ws-starter-cta { margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-ink); }
+    .ws-starter-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+    .ws-starter:hover .ws-starter-cta em { transform: translateX(4px); }
+
     /* Your Studio — four ways in, wider than they are tall so they read as a
        row of doors rather than as more day squares. */
     .ws-tools { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
@@ -942,6 +974,7 @@ const recentTemplates = templates.slice(0, 4);
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { bookingLocation } from '../../lib/videography-config.js';
+    import { upcomingDays } from '../../data/content-calendar.js';
 
     // Notifications — real booking correspondence, unread dot + deep links.
     initNotifications();
@@ -978,6 +1011,7 @@ const recentTemplates = templates.slice(0, 4);
           ? `<p class="ws-side-h">${escapeHtml(String(next.title || 'Booking'))}</p><p class="ws-side-meta">${escapeHtml(bkFmt(next.when) || '')}</p>`
           : `<p class="ws-side-h">No bookings yet</p><p class="ws-side-meta">Nothing in the diary.</p>`;
       }
+      reportQuiet('bookings', items.length === 0);
       const track = document.getElementById('ws-bk-track');
       const nav = document.getElementById('ws-bk-nav');
       const dots = document.getElementById('ws-bk-dots');
@@ -1017,6 +1051,68 @@ const recentTemplates = templates.slice(0, 4);
         nav.hidden = true;
       }
     }
+    // ---- Starter ideas, for a week with nothing in it ----
+    // Three reporters have to agree the week is quiet before this shows:
+    // nothing planned, nothing booked, nothing owed. Anything that fails to
+    // report leaves the row hidden, which is the right way round - showing
+    // "nothing planned" to someone with a full diary is the worse mistake.
+    const quiet = {};
+    function reportQuiet(key, isQuiet) {
+      quiet[key] = isQuiet;
+      const box = document.getElementById('ws-starters');
+      if (!box) return;
+      const keys = ['posts', 'bookings', 'due'];
+      if (!keys.every((k) => k in quiet)) return;
+      if (!keys.every((k) => quiet[k])) { box.hidden = true; return; }
+      renderStarters(box);
+      box.hidden = false;
+    }
+
+    // Monday-based week number, used only to rotate the third card - so a
+    // member does not see the same suggestion every week they are quiet.
+    function weekIndex(d) {
+      const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      t.setDate(t.getDate() - ((t.getDay() + 6) % 7));
+      return Math.floor((t - new Date(t.getFullYear(), 0, 1)) / 604800000);
+    }
+
+    function renderStarters(box) {
+      const row = document.getElementById('ws-starters-row');
+      if (!row) return;
+      const fmt = (d) => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+
+      // Two dated hooks, each already turned into a post an agent can make.
+      const cards = upcomingDays(new Date(), 2).map((d) => ({
+        flag: `${d.name} · ${fmt(d.when)}`,
+        title: d.angle,
+        hint: d.hint,
+        cta: 'Design this post',
+        href: '/account/editor',
+      }));
+
+      // The third rotates weekly: shop, blog, learn.
+      const blogTitle = box.getAttribute('data-blog-title') || '';
+      const rot = weekIndex(new Date()) % 3;
+      if (rot === 0) {
+        cards.push({ flag: 'The Edit', title: 'Browse the template shop',
+          hint: 'Packs built for estate agents, ready to edit.', cta: 'View templates', href: '/edit' });
+      } else if (rot === 1 && blogTitle) {
+        cards.push({ flag: 'From the blog', title: blogTitle,
+          hint: 'A few minutes, and something you can use this week.', cta: 'Read it', href: '/account/blog' });
+      } else {
+        cards.push({ flag: 'Learn', title: 'Get more out of the hub',
+          hint: 'Short guides on content, design and reach.', cta: 'Start a guide', href: '/account/guides' });
+      }
+
+      row.innerHTML = cards.map((c) => `
+        <a class="ws-starter" href="${c.href}">
+          <span class="ws-starter-flag">${escapeHtml(c.flag)}</span>
+          <strong class="ws-starter-h">${escapeHtml(c.title)}</strong>
+          <span class="ws-starter-hint">${escapeHtml(c.hint)}</span>
+          <span class="ws-starter-cta">${escapeHtml(c.cta)} <em aria-hidden="true">&rarr;</em></span>
+        </a>`).join('');
+    }
+
     // ---- The third hero slot ----
     // Two of the three stats are fixed (posts, bookings); this one is claimed by
     // whatever most needs attention. Everything that can claim it reports in
@@ -1050,6 +1146,7 @@ const recentTemplates = templates.slice(0, 4);
     // blocks the member - their content stays locked until it is settled.
     function claimFromBookings(vid) {
       const unpaid = vid.filter((b) => !b.paid_at && b.stage && b.stage !== 'booked');
+      reportQuiet('due', unpaid.length === 0);
       if (unpaid.length) {
         claimSlot(1, 'due', `${unpaid.length} payment${unpaid.length === 1 ? '' : 's'}`, 'due on your shoots', '/account/bookings');
       }
@@ -1304,6 +1401,7 @@ const recentTemplates = templates.slice(0, 4);
         const schedCount = (data || []).length;
         const sb = document.getElementById('brief-sched');
         if (sb) sb.textContent = schedCount ? `${schedCount} post${schedCount === 1 ? '' : 's'}` : 'No posts';
+        reportQuiet('posts', schedCount === 0);
 
         // Days still to come this week with nothing on them. Counted forward
         // from today, because a gap on Monday is not something anyone can act
