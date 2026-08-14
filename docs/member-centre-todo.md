@@ -145,6 +145,25 @@ that says what a pack is FOR is the pack's own `description`, edited where
 packs are edited. If no packs come back, the plain "Browse The Edit" strip
 shows instead — which is what happens signed out.
 
+## 6 · Design gallery — quick actions and folders
+
+Needs `supabase/user_designs_folders.sql` run before folders do anything. The
+rest works without it.
+
+Built: tick to select (one or many), then Duplicate, Add to folder, Add to
+planner, Delete. Folder chips under the strip, built from the designs. Sort by
+Most recent / Name A–Z / Format.
+
+**Add to planner opens the design in the editor.** It cannot do otherwise: the
+planner needs a rendered PNG of the canvas, and only the editor can produce
+one — see the render-and-upload in editor.astro. So the action navigates to
+`?design=<id>&schedule=<today>`, which lands on the design with the planner
+modal already open. Worth revisiting if a headless render ever exists.
+
+**Format is derived, not stored.** `formatOf()` reads the design's own canvas
+ratio and names it, falling back to `pages[0].canvas` for multi-page designs.
+Nothing to migrate, but it means an unusual size lands in "Other".
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.

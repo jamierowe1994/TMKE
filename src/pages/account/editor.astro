@@ -136,6 +136,17 @@ const googleFonts = [
   <div class="ed-onboard ws" id="ed-onboard">
     <WorkspaceHeader active="studio" />
 
+  <!-- Selection actions. Sits over the gallery once something is ticked. -->
+  <div class="ed-ob-actions" id="ed-ob-actions" hidden>
+    <span class="ed-ob-actions-n" id="ed-ob-actions-n">1 selected</span>
+    <button type="button" class="ed-ob-act" data-act="duplicate">Duplicate</button>
+    <button type="button" class="ed-ob-act" data-act="folder">Add to folder</button>
+    <button type="button" class="ed-ob-act" data-act="planner" id="ed-ob-act-planner">Add to planner</button>
+    <button type="button" class="ed-ob-act ed-ob-act--bad" data-act="delete">Delete</button>
+    <button type="button" class="ed-ob-act ed-ob-act--quiet" data-act="clear">Clear</button>
+  </div>
+
+
     <div class="ed-ob-scroll" id="ed-ob-scroll">
       <div class="ed-onboard-inner">
 
@@ -170,12 +181,24 @@ const googleFonts = [
           <section class="ws-block ed-ob-sec" id="ed-ob-designs-sec">
             <header class="ws-block-head">
               <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 01</span>Your designs <span class="ed-ob-count" id="ed-ob-designs-count"></span></h2>
-              <label class="ed-ob-search">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="search" id="ed-ob-designs-q" placeholder="Search your designs…" aria-label="Search your designs" />
-              </label>
+              <div class="ed-ob-tools">
+                <label class="ed-ob-search">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input type="search" id="ed-ob-designs-q" placeholder="Search your designs…" aria-label="Search your designs" />
+                </label>
+                <select id="ed-ob-sort" aria-label="Sort your designs">
+                  <option value="recent">Most recent</option>
+                  <option value="name">Name, A–Z</option>
+                  <option value="format">Format</option>
+                </select>
+              </div>
             </header>
+
+            <!-- Folders. A folder exists because a design names it, so this row
+                 is built from the designs themselves - see the migration. -->
+            <div class="ed-ob-folders" id="ed-ob-folders"></div>
             <p class="ed-ob-noresult" id="ed-ob-designs-noresult" hidden>Nothing matches that.</p>
+            <p class="ed-ob-groupless" id="ed-ob-groupless" hidden></p>
             <div class="ed-onboard-loading" id="ed-ob-designs-loading">Loading your designs…</div>
             <div class="ed-ob-grid ed-ob-grid--sm" id="ed-ob-designs-grid" hidden></div>
             <div class="ed-ob-empty" id="ed-ob-designs-empty" hidden></div>
@@ -3586,6 +3609,35 @@ const googleFonts = [
     #ed-ob-designs-grid .ed-onboard-card-title { font-family: var(--serif); font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
     #ed-ob-designs-grid .ed-onboard-card-cat { font-size: 11.5px; color: var(--ws-faint); }
 
+    /* Folders, sort, selection and the action bar. */
+    .ed-ob-tools { display: flex; align-items: center; gap: 8px; }
+    #ed-ob-sort { height: 25px; box-sizing: border-box; padding: 0 6px; border: 1px solid rgba(28,29,34,0.14); border-radius: 3px; background: #fff; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+
+    .ed-ob-folders { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ed-ob-folder { appearance: none; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 12px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; font-family: var(--sans); font-size: 13px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s; }
+    .ed-ob-folder:hover { border-color: rgba(28,29,34,0.3); }
+    .ed-ob-folder.is-on { background: var(--ws-accent); border-color: var(--ws-accent); color: #fff; }
+    .ed-ob-folder b { font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 3px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
+    .ed-ob-folder.is-on b { background: rgba(255,255,255,0.22); color: #fff; }
+    .ed-ob-folder--new { border-style: dashed; color: var(--ws-accent); }
+
+    /* The tick. Sits on the card and must not follow the card's link. */
+    #ed-ob-designs-grid .ed-onboard-card { position: relative; }
+    .ed-ob-tick { position: absolute; top: 18px; left: 18px; z-index: 2; appearance: none; width: 20px; height: 20px; padding: 0; border-radius: 4px; border: 1.5px solid rgba(28,29,34,0.3); background: rgba(255,255,255,0.92); cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+    .ed-ob-tick:hover { border-color: var(--ws-accent); }
+    .ed-ob-tick.is-on { background: var(--ws-accent); border-color: var(--ws-accent); }
+    .ed-ob-tick.is-on::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+    .ed-ob-actions { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 16px; border-radius: 6px; background: var(--ws-accent, #371e28); box-shadow: 0 18px 40px -18px rgba(20,16,22,0.7); }
+    .ed-ob-actions[hidden] { display: none; }
+    .ed-ob-actions-n { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: rgba(255,255,255,0.75); margin-right: 6px; }
+    .ed-ob-act { appearance: none; height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.24); border-radius: 4px; background: transparent; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: #fff; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+    .ed-ob-act:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
+    .ed-ob-act:disabled { opacity: 0.4; cursor: default; }
+    .ed-ob-act--bad { border-color: rgba(255,140,120,0.5); color: #ffb4a4; }
+    .ed-ob-act--bad:hover { background: rgba(255,120,100,0.18); }
+    .ed-ob-act--quiet { border-color: transparent; color: rgba(255,255,255,0.6); }
+
     /* Gallery header: the count sits with the heading, search to the right. */
     .ed-ob-sec-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
     .ed-ob-count { font-family: var(--sans); font-size: 13px; font-weight: 500; color: rgba(28,29,34,0.45); margin-left: 6px; }
@@ -5462,13 +5514,29 @@ const googleFonts = [
 
     // "Your designs" — the member's saved copies (user_designs), newest first.
     // Clicking one re-opens it via the ?design= path.
+    // What shape a design is, from its own canvas. Named rather than measured
+    // so "Instagram Post" groups with "Instagram Post" whatever the pixel size.
+    function formatOf(d) {
+      const c = (d.canvas && typeof d.canvas === "object") ? d.canvas
+        : (Array.isArray(d.pages) && d.pages[0] && d.pages[0].canvas) || null;
+      const w = Number(c && c.width), h = Number(c && c.height);
+      if (!w || !h) return "Other";
+      const r = w / h;
+      if (Math.abs(r - 1) < 0.02) return "Square Post";
+      if (Math.abs(r - 0.75) < 0.03) return "Instagram Post";
+      if (Math.abs(r - 0.5625) < 0.03) return "Story / Reel";
+      if (r > 1.2) return "Landscape";
+      return r < 1 ? "Portrait" : "Other";
+    }
+
     function savedCard(d) {
       return `
-        <a class="ed-onboard-card" href="/account/editor?design=${encodeURIComponent(d.id)}">
+        <a class="ed-onboard-card" href="/account/editor?design=${encodeURIComponent(d.id)}" data-design="${escapeHtml(d.id)}">
+          <button type="button" class="ed-ob-tick" data-tick="${escapeHtml(d.id)}" aria-label="Select ${escapeHtml(d.name || "design")}"></button>
           <span class="ed-onboard-card-cover"${d.thumb_url ? ` style="background-image:url('${escapeHtml(d.thumb_url)}')"` : ""}></span>
           <span class="ed-onboard-card-body">
             <span class="ed-onboard-card-title">${escapeHtml(d.name || "Untitled design")}</span>
-            <span class="ed-onboard-card-cat">Your design</span>
+            <span class="ed-onboard-card-cat">${escapeHtml(formatOf(d))}${d.folder ? " · " + escapeHtml(d.folder) : ""}</span>
           </span>
         </a>`;
     }
@@ -5506,24 +5574,175 @@ const googleFonts = [
     }
     loadPackBanner();
 
-    // Filtering happens over the rows already in hand — the whole library is
-    // loaded, so searching it should not cost a round trip.
-    function wireDesignSearch(rows) {
-      const q = document.getElementById("ed-ob-designs-q");
+    // ---- The gallery: folders, sorting, selection and the quick actions ----
+    // One list of rows is held here and every view is derived from it, so
+    // filtering and sorting never cost a round trip.
+    let GAL = { rows: [], folder: null, sort: "recent", q: "", picked: new Set() };
+
+    const byName = (a, b) => String(a.name || "Untitled design").localeCompare(String(b.name || "Untitled design"));
+    function galView() {
+      let rows = GAL.rows;
+      if (GAL.folder) rows = rows.filter((d) => (d.folder || "") === GAL.folder);
+      if (GAL.q) rows = rows.filter((d) => String(d.name || "Untitled design").toLowerCase().includes(GAL.q));
+      rows = rows.slice();
+      if (GAL.sort === "name") rows.sort(byName);
+      // Group by format, then newest first inside each group, so the shapes sit
+      // together rather than being interleaved by date.
+      else if (GAL.sort === "format") rows.sort((a, b) =>
+        formatOf(a).localeCompare(formatOf(b)) || new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at));
+      else rows.sort((a, b) => new Date(b.created_at || b.updated_at) - new Date(a.created_at || a.updated_at));
+      return rows;
+    }
+
+    function paintGallery() {
+      const rows = galView();
       const count = document.getElementById("ed-ob-designs-count");
       const none = document.getElementById("ed-ob-designs-noresult");
-      if (count) count.textContent = rows.length ? `(${rows.length})` : "";
-      if (!q || !savedGrid) return;
-      q.addEventListener("input", () => {
-        const term = q.value.trim().toLowerCase();
-        const hits = term
-          ? rows.filter((d) => String(d.name || "Untitled design").toLowerCase().includes(term))
-          : rows;
-        savedGrid.innerHTML = hits.map(savedCard).join("");
-        savedGrid.hidden = hits.length === 0;
-        if (none) none.hidden = hits.length !== 0;
-        if (count) count.textContent = term ? `(${hits.length} of ${rows.length})` : `(${rows.length})`;
+      if (savedGrid) {
+        savedGrid.innerHTML = rows.map(savedCard).join("");
+        savedGrid.hidden = rows.length === 0;
+        savedGrid.querySelectorAll("[data-tick]").forEach((b) => {
+          b.classList.toggle("is-on", GAL.picked.has(b.getAttribute("data-tick")));
+        });
+      }
+      if (none) none.hidden = rows.length !== 0;
+      if (count) {
+        const total = GAL.rows.length;
+        count.textContent = rows.length === total ? `(${total})` : `(${rows.length} of ${total})`;
+      }
+      paintFolders();
+      paintActions();
+    }
+
+    function paintFolders() {
+      const box = document.getElementById("ed-ob-folders");
+      if (!box) return;
+      const names = [...new Set(GAL.rows.map((d) => d.folder).filter(Boolean))].sort();
+      if (!names.length) {
+        // Nothing to list yet. A folder cannot exist before a design is in it,
+        // so this offers the only route that makes one.
+        box.innerHTML = `<button type="button" class="ed-ob-folder ed-ob-folder--new" data-newfolder>+ Create a folder</button>`;
+      } else {
+        box.innerHTML = `<button type="button" class="ed-ob-folder${GAL.folder ? "" : " is-on"}" data-folder="">All designs <b>${GAL.rows.length}</b></button>`
+          + names.map((n) => {
+              const n2 = escapeHtml(n);
+              const c = GAL.rows.filter((d) => d.folder === n).length;
+              return `<button type="button" class="ed-ob-folder${GAL.folder === n ? " is-on" : ""}" data-folder="${n2}">${n2} <b>${c}</b></button>`;
+            }).join("")
+          + `<button type="button" class="ed-ob-folder ed-ob-folder--new" data-newfolder>+ New folder</button>`;
+      }
+    }
+
+    function paintActions() {
+      const bar = document.getElementById("ed-ob-actions");
+      const n = document.getElementById("ed-ob-actions-n");
+      const planner = document.getElementById("ed-ob-act-planner");
+      if (!bar) return;
+      const c = GAL.picked.size;
+      bar.hidden = c === 0;
+      if (n) n.textContent = `${c} selected`;
+      // The planner needs a rendered picture, which only the editor can make,
+      // so it opens that one design there. Meaningless for several at once.
+      if (planner) planner.disabled = c !== 1;
+    }
+
+    async function galRefresh() {
+      const { data } = await supabase
+        .from("user_designs")
+        .select("id, name, thumb_url, updated_at, created_at, canvas, pages, folder")
+        .order("updated_at", { ascending: false });
+      GAL.rows = data || [];
+      GAL.picked = new Set([...GAL.picked].filter((id) => GAL.rows.some((r) => r.id === id)));
+      paintGallery();
+    }
+
+    function wireGallery(rows) {
+      GAL.rows = rows;
+      const q = document.getElementById("ed-ob-designs-q");
+      const sort = document.getElementById("ed-ob-sort");
+      const folders = document.getElementById("ed-ob-folders");
+      const bar = document.getElementById("ed-ob-actions");
+
+      q?.addEventListener("input", () => { GAL.q = q.value.trim().toLowerCase(); paintGallery(); });
+      sort?.addEventListener("change", () => { GAL.sort = sort.value; paintGallery(); });
+
+      folders?.addEventListener("click", (e) => {
+        const f = e.target.closest("[data-folder]");
+        if (f) { GAL.folder = f.getAttribute("data-folder") || null; paintGallery(); return; }
+        if (e.target.closest("[data-newfolder]")) fileIntoFolder();
       });
+
+      // A tick selects; it must not follow the card's link.
+      savedGrid?.addEventListener("click", (e) => {
+        const t = e.target.closest("[data-tick]");
+        if (!t) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const id = t.getAttribute("data-tick");
+        if (GAL.picked.has(id)) GAL.picked.delete(id); else GAL.picked.add(id);
+        t.classList.toggle("is-on", GAL.picked.has(id));
+        paintActions();
+      });
+
+      bar?.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-act]");
+        if (!b || b.disabled) return;
+        const act = b.getAttribute("data-act");
+        if (act === "clear") { GAL.picked.clear(); paintGallery(); }
+        else if (act === "duplicate") duplicatePicked();
+        else if (act === "folder") fileIntoFolder();
+        else if (act === "delete") deletePicked();
+        else if (act === "planner") {
+          const id = [...GAL.picked][0];
+          const today = new Date().toISOString().slice(0, 10);
+          location.href = `/account/editor?design=${encodeURIComponent(id)}&schedule=${today}`;
+        }
+      });
+
+      paintGallery();
+    }
+
+    async function duplicatePicked() {
+      const picked = GAL.rows.filter((d) => GAL.picked.has(d.id));
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !picked.length) return;
+      const copies = picked.map((d) => ({
+        user_id: session.user.id,
+        name: `${d.name || "Untitled design"} (copy)`,
+        canvas: d.canvas, pages: d.pages, thumb_url: d.thumb_url, folder: d.folder,
+      }));
+      const { error } = await supabase.from("user_designs").insert(copies);
+      if (error) { alert("Couldn't duplicate that: " + error.message); return; }
+      GAL.picked.clear();
+      await galRefresh();
+    }
+
+    async function fileIntoFolder() {
+      if (!GAL.picked.size) {
+        alert("Tick the designs you want to file first, then choose Add to folder.");
+        return;
+      }
+      const existing = [...new Set(GAL.rows.map((d) => d.folder).filter(Boolean))];
+      const name = prompt(
+        existing.length ? `Folder name — or one you already use:\n${existing.join(", ")}` : "Name the folder",
+        ""
+      );
+      if (name === null) return;
+      const folder = name.trim() || null;   // empty takes them back out of a folder
+      const { error } = await supabase.from("user_designs").update({ folder }).in("id", [...GAL.picked]);
+      if (error) { alert("Couldn't file that: " + error.message); return; }
+      GAL.picked.clear();
+      await galRefresh();
+    }
+
+    async function deletePicked() {
+      const c = GAL.picked.size;
+      if (!c) return;
+      if (!confirm(`Delete ${c} design${c === 1 ? "" : "s"}? This cannot be undone.`)) return;
+      const { error } = await supabase.from("user_designs").delete().in("id", [...GAL.picked]);
+      if (error) { alert("Couldn't delete that: " + error.message); return; }
+      GAL.picked.clear();
+      await galRefresh();
     }
 
     async function loadSavedDesigns(session) {
@@ -5536,7 +5755,7 @@ const googleFonts = [
       try {
         const { data, error: e } = await supabase
           .from("user_designs")
-          .select("id, name, thumb_url, updated_at")
+          .select("id, name, thumb_url, updated_at, created_at, canvas, pages, folder")
           .order("updated_at", { ascending: false });   // all of them: this page IS the library
         if (savedLoading) savedLoading.hidden = true;
         if (e || !data || !data.length) {
@@ -5545,7 +5764,7 @@ const googleFonts = [
         }
         savedGrid.innerHTML = data.map(savedCard).join("");
         savedGrid.hidden = false;
-        wireDesignSearch(data);
+        wireGallery(data);
       } catch (_) {
         if (savedLoading) savedLoading.hidden = true;
       }
