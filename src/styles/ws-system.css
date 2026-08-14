@@ -34,6 +34,29 @@
       font-family: var(--sans);
       background: #ffffff;
     }
+    /* ---------- HERO — copy on the left, photograph on the right ----------
+       Both halves are the same height and share one rounded frame; the photo
+       covers its half so it crops rather than letterboxes at any width. */
+    .ws-hero {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.86fr);
+      align-items: stretch; gap: 0; overflow: hidden;
+      background: #faf9f8; border: 1px solid var(--ws-line); border-radius: 6px;
+    }
+    .ws-hero-copy { display: flex; flex-direction: column; align-items: flex-start; padding: clamp(28px, 3.6vw, 56px); }
+    .ws-hero-date { margin: 0 0 clamp(14px, 1.8vh, 22px); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    /* One line where it fits - "Good evening, Danielle." is 615px against 824px
+       of column - and wrapping only when it has to, which is long first names
+       and the after-midnight greeting. text-wrap:balance keeps a wrap even
+       rather than dropping a single orphaned word. */
+    .ws-greeting { font-family: var(--subhead); margin: 0; line-height: 1.08; font-weight: 500; font-size: clamp(38px, 4.2vw, 62px); letter-spacing: -0.02em; color: var(--ws-ink); text-wrap: balance; }
+    .ws-greet-line, .ws-greet-name { display: inline; }
+    .ws-hero-sub { margin: clamp(16px, 2vh, 24px) 0 0; font-size: 15.5px; line-height: 1.55; color: var(--ws-tx); max-width: 46ch; }
+    .ws-hero-photo { background-image: var(--ws-hero-img, none); background-size: cover; background-position: center; min-height: clamp(280px, 30vw, 380px); }
+    @media (max-width: 860px) {
+      .ws-hero { grid-template-columns: 1fr; }
+      .ws-hero-photo { min-height: 220px; order: -1; }
+    }
+
     /* ---------- Layout: one full-width column ----------
        The right-hand rail (prompt / brand health / bookings) is gone, so every
        block runs the full width of the page. */
@@ -105,8 +128,19 @@
     /* ===== Entrance choreography — greeting → stats → button → This Week +
        Continue working (tiles bubble in column-by-column) → property pack →
        right widgets one-by-one → nav drops in last with a bounce. ===== */
-    .ws-rise { opacity: 0; transform: translateY(24px); }
+    /* Self-revealing. These carry their own animation rather than waiting for a
+       class a page has to remember to add: the hidden half of an entrance and
+       the half that undoes it must not live in different files, or a page that
+       adopts the system inherits invisibility. A page wanting a staged sequence
+       overrides the delay (see the dashboard's body.ws-ready rules, which win
+       on specificity). */
+    .ws-rise { opacity: 0; animation: wsRise 0.7s var(--ws-ease) both; animation-delay: var(--delay, calc(0.08s + var(--i, 0) * 0.09s)); }
     @keyframes wsRise { to { opacity: 1; transform: none; } }
     @keyframes wsIn { from { opacity: 0; transform: translateY(20px) scale(.985); } to { opacity: 1; transform: none; } }
     /* This Week + Continue working: headers, then tiles bubble in column-by-column (parallel) */
-    .ws-block-head { opacity: 0; }
+    .ws-block-head { opacity: 0; animation: wsIn 0.5s var(--ws-ease) both; animation-delay: 0.18s; }
+
+    /* Nobody should have to wait to read the page. */
+    @media (prefers-reduced-motion: reduce) {
+      .ws-rise, .ws-block-head { opacity: 1 !important; transform: none !important; animation: none !important; }
+    }

@@ -3,6 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import { templates } from "../../data/library.js";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
+import "../../styles/ws-system.css";
 
 // ---------------------------------------------------------------------------
 // Studio launcher — the page you land on from the "Studio" tab. Top nav only
@@ -40,6 +41,14 @@ const tools = [
   { name: "Templates", desc: "Browse beautiful on-brand templates.", href: "/edit", ic: "grid" },
 ];
 
+// Icons for the shared tool cards, keyed by the `ic` on each tool above.
+const TOOL_ICONS = {
+  caption: '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>',
+  scissors: '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
+  brand: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
+  grid: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+};
+
 const inspo = [
   { name: "See what's working", desc: "Check out top performing content right now.", thumb: templates[1]?.thumb, href: "/account/guides" },
   { name: "Seasonal Moments", desc: "Relevant for what's happening now.", thumb: templates[2]?.thumb, href: "/edit" },
@@ -57,36 +66,31 @@ const inspo = [
   <div class="ws">
     <WorkspaceHeader active="studio" />
 
-    <main class="st-main">
+    <main class="ws-main">
+      <div class="ws-left">
       <!-- ============ HERO ============ -->
-      <section class="st-hero ws-rise" style="--i:0">
-        <div class="st-hero-copy">
-          <div class="st-hero-top">
-            <p class="st-eyebrow"><a href="/account" class="st-back">&larr; Workspace</a></p>
-            <h1 class="st-h1">Your <em>Design Studio.</em></h1>
-          </div>
-          <div class="st-hero-bottom">
-            <p class="st-sub">Welcome to your creative space — edit your templates, build new assets, and create content that's ready to post.</p>
-            <div class="st-cta">
+      <section class="ws-hero">
+        <div class="ws-hero-copy">
+          <p class="ws-hero-date"><a href="/account" class="st-back">&larr; Workspace</a></p>
+          <h1 class="ws-greeting">Your Design Studio.</h1>
+          <p class="ws-hero-sub">Your creative space — edit your templates, build new assets, and make content that is ready to post.</p>
+          <div class="st-cta">
               <a class="ws-btn ws-btn--primary" href="/account/editor">Create new design
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
               </a>
               <a class="ws-btn ws-btn--ghost" href="/account/editor?import=1">Import design
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M5 6l3-3 3 3M3 11v1.5A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </a>
-            </div>
           </div>
         </div>
-        <figure class="st-hero-media">
-          <img src="/assets/home%20kitchen.jpg" alt="" loading="eager" />
-        </figure>
+        <div class="ws-hero-photo" role="img" aria-label="A styled kitchen"></div>
       </section>
 
       <!-- ============ PICK FROM YOUR PACKS ============ -->
-      <section class="st-sec ws-rise" style="--i:1" aria-labelledby="packs-h">
-        <header class="st-sec-head">
-          <h2 class="st-sec-h" id="packs-h">Pick From Your Packs</h2>
-          <a class="ws-textlink" href="/edit">View all templates <span aria-hidden="true">→</span></a>
+      <section class="ws-block ws-rise" style="--i:1" aria-labelledby="packs-h">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="packs-h"><span class="ws-block-ch">Chapter 01</span>Your packs</h2>
+          <a class="ws-block-link" href="/edit">View all templates <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-rail" data-rail>
           <!-- SSR sample packs; the wirePacks script below swaps in the member's
@@ -112,10 +116,10 @@ const inspo = [
       </section>
 
       <!-- ============ YOUR DESIGNS ============ -->
-      <section class="st-sec ws-rise" style="--i:2" aria-labelledby="designs-h">
-        <header class="st-sec-head">
-          <h2 class="st-sec-h" id="designs-h">Your Designs</h2>
-          <a class="ws-textlink" href="/account/editor" data-seeall hidden>See all designs <span aria-hidden="true">→</span></a>
+      <section class="ws-block ws-rise" style="--i:2" aria-labelledby="designs-h">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="designs-h"><span class="ws-block-ch">Chapter 02</span>Your designs</h2>
+          <a class="ws-block-link" href="/account/editor" data-seeall hidden>See all designs <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--designs" data-designs>
           {starters.slice(0, 4).map((t, i) => (
@@ -134,41 +138,34 @@ const inspo = [
       </section>
 
       <!-- ============ DESIGN TOOLS ============ -->
-      <section class="st-sec ws-rise" style="--i:3" aria-labelledby="tools-h">
-        <header class="st-sec-head">
-          <h2 class="st-sec-h" id="tools-h">Design Tools</h2>
+      <section class="ws-block ws-rise" style="--i:3" aria-labelledby="tools-h">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="tools-h"><span class="ws-block-ch">Chapter 03</span>Design tools</h2>
         </header>
-        <div class="st-row st-row--tools">
+        <div class="ws-tools">
           {tools.map((t) => (
             t.action ? (
-              <button type="button" class="st-tool" data-tool={t.action}>
-                <div class="st-tool-tx">
-                  <strong>{t.name}</strong>
-                  <span>{t.desc}</span>
-                </div>
-                <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
+              <button type="button" class="ws-tool" data-tool={t.action}>
+                <span class="ws-tool-ic" set:html={TOOL_ICONS[t.ic]} />
+                <span class="ws-tool-tx"><strong>{t.name}</strong><span>{t.desc}</span></span>
+                <span class="ws-tool-go" aria-hidden="true">→</span>
               </button>
             ) : (
-              <a class="st-tool" href={t.href}>
-                <div class="st-tool-tx">
-                  <strong>{t.name}</strong>
-                  <span>{t.desc}</span>
-                </div>
-                <span class={`st-tool-art st-tool-art--${t.ic}`}><span class="st-tool-aa">Aa</span></span>
+              <a class="ws-tool" href={t.href}>
+                <span class="ws-tool-ic" set:html={TOOL_ICONS[t.ic]} />
+                <span class="ws-tool-tx"><strong>{t.name}</strong><span>{t.desc}</span></span>
+                <span class="ws-tool-go" aria-hidden="true">→</span>
               </a>
             )
           ))}
-          <button type="button" class="st-arrow st-arrow--tools" aria-label="More tools">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
         </div>
       </section>
 
       <!-- ============ NEED INSPIRATION ============ -->
-      <section class="st-sec ws-rise" style="--i:4" aria-labelledby="inspo-h">
-        <header class="st-sec-head">
-          <h2 class="st-sec-h" id="inspo-h">Need Inspiration?</h2>
-          <a class="ws-textlink" href="/account/guides">Explore more <span aria-hidden="true">→</span></a>
+      <section class="ws-block ws-rise" style="--i:4" aria-labelledby="inspo-h">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="inspo-h"><span class="ws-block-ch">Chapter 04</span>Inspiration</h2>
+          <a class="ws-block-link" href="/account/guides">Explore more <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--inspo">
           {inspo.map((c) => (
@@ -181,178 +178,83 @@ const inspo = [
           </button>
         </div>
       </section>
+      </div>
     </main>
   </div>
 
   <CaptionGenerator />
 
   <style is:global>
-    /* ===== Shared workspace shell (matches /dashboard) ===== */
-    body[data-dashboard] { background: #ffffff; }
-    .ws {
-      --ws-bg: #ffffff; --ws-card: #ffffff; --ws-ink: #1c1d22;
-      --ws-tx: rgba(28, 29, 34, 0.64); --ws-faint: rgba(28, 29, 34, 0.46);
-      --ws-line: rgba(28, 29, 34, 0.13);
-      --ws-accent: var(--english-violet, #5b4a55);
-      --ws-r-lg: 16px; --ws-r: 16px; --ws-r-sm: 12px;
-      --ws-ease: cubic-bezier(.2, .8, .2, 1);
-      min-height: 100vh; color: var(--ws-ink); font-family: var(--sans); background: #ffffff;
-    }
+    /* Studio's own furniture. The tokens, layout, buttons, chapter strips and
+       the tool cards all come from ws-system.css - only the pack, design and
+       inspiration shelves are particular to this page. */
 
-    /* ---- Buttons / links ---- */
-    .ws-btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 13px; font-family: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.22s var(--ws-ease), box-shadow 0.22s, background 0.2s; }
-    .ws-btn svg { width: 15px; height: 15px; }
-    .ws-btn--primary { background: var(--ws-accent); color: #fff; box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--ws-accent) 80%, transparent); }
-    .ws-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 18px 32px -12px color-mix(in srgb, var(--ws-accent) 75%, transparent); }
-    .ws-btn--ghost { background: #fff; border-color: var(--ws-line); color: var(--ws-ink); }
-    .ws-btn--ghost:hover { transform: translateY(-2px); border-color: rgba(28,29,34,0.28); }
-    .ws-textlink { font-size: 13px; font-weight: 600; color: var(--ws-tx); background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; text-decoration: none; transition: color 0.2s; white-space: nowrap; }
-    .ws-textlink:hover { color: var(--ws-ink); }
+    /* Hero — the shared frame; only the photograph is Studio's own. */
+    .ws-hero { --ws-hero-img: url('/assets/home%20kitchen.jpg'); }
+    .st-back { color: inherit; text-decoration: none; }
+    .st-back:hover { color: var(--ws-ink); }
+    .ws-greeting { text-wrap: balance; }
+    .st-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(22px, 2.8vh, 34px); }
 
-    /* ---- Entrance ---- */
-    .ws-rise { opacity: 0; transform: translateY(14px); animation: wsRise 0.7s var(--ws-ease) forwards; animation-delay: calc(var(--i, 0) * 0.06s + 0.04s); }
-    @keyframes wsRise { to { opacity: 1; transform: none; } }
-    @media (prefers-reduced-motion: reduce) { .ws-rise { animation: none; opacity: 1; transform: none; } }
-
-    /* ===== Studio layout ===== */
-    .st-main { max-width: 1320px; margin: 0 auto; padding: clamp(18px, 2vh, 32px) clamp(22px, 3vw, 56px) 120px; display: flex; flex-direction: column; gap: clamp(40px, 5vh, 68px); }
-
-    /* ---- HERO ---- */
-    /* Hero mirrors the shared .dash-hero: title top, copy + buttons at the image base, portrait image right. */
-    .st-hero { display: grid; grid-template-columns: 1fr auto; gap: clamp(28px, 5vw, 72px); align-items: stretch; margin-top: clamp(14px, 2vh, 22px); padding-top: clamp(8px, 2vh, 28px); }
-    .st-hero-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
-    .st-hero-top { display: flex; flex-direction: column; gap: 6px; }
-    /* Eyebrow "← Workspace" back-link — mirrors the Planner/Orders/Bookings hero. */
-    .st-eyebrow { margin: 0; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.28em; text-transform: uppercase; color: var(--ws-tx); }
-    .st-back { color: var(--ws-tx); text-decoration: none; font-weight: 700; letter-spacing: 0.28em; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s, transform 0.2s; }
-    .st-back:hover { color: var(--ws-ink); transform: translateX(-2px); }
-    .st-hero-media { margin: 0; justify-self: end; }
-    .st-hero-media img { display: block; height: clamp(260px, 34vh, 360px); width: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 4px; }
-    /* Match the Planner/Orders/Bookings heading: serif, same size, whole title
-       in the brand dark red (no two-tone highlight). */
-    .st-h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 5vw, 72px); line-height: 1.02; letter-spacing: -0.02em; color: var(--english-violet); margin: 0; white-space: nowrap; }
-    .st-h1 em { font-style: normal; color: var(--english-violet); }
-    .st-sub { font-size: clamp(15px, 1.2vw, 17px); color: var(--ws-tx); margin: 0 0 20px; max-width: none; line-height: 1.6; }
-    .st-cta { display: flex; gap: 12px; flex-wrap: wrap; }
-    .st-packopts { display: flex; gap: 22px; margin-top: 24px; flex-wrap: wrap; }
-    .st-packopt { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--ws-tx); text-decoration: none; transition: color 0.2s; }
-    .st-packopt:hover { color: var(--ws-ink); }
-    .st-packopt svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-
-    /* ---- Hero Studio mock ---- */
-    .st-mock { position: relative; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: clamp(18px, 1.6vw, 26px); border-radius: 22px; background: linear-gradient(160deg, rgba(183,155,120,0.10), rgba(28,29,34,0.03)); }
-    .st-mock-rail { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; }
-    .st-mr { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 52px; padding: 8px 4px; border-radius: 9px; color: var(--ws-faint); }
-    .st-mr.is-active { background: color-mix(in srgb, var(--ws-accent) 10%, #fff); color: var(--ws-accent); }
-    .st-mr svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-    .st-mr i { font-style: normal; font-size: 8px; font-weight: 600; letter-spacing: 0.02em; }
-
-    .st-mock-canvas { position: relative; display: grid; grid-template-columns: 1fr 1fr; aspect-ratio: 4 / 5; border-radius: 8px; overflow: hidden; background: #efece6; box-shadow: 0 30px 60px -30px rgba(28,29,34,0.4); }
-    .st-md-text { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: clamp(12px, 1.4vw, 22px); }
-    .st-md-eyebrow { font-size: 9px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ws-faint); }
-    .st-md-h { font-family: var(--subhead); font-weight: 500; font-size: clamp(20px, 2.2vw, 34px); line-height: 1.0; color: var(--ws-ink); margin: 4px 0; }
-    .st-md-meta { font-size: 9px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-tx); }
-    .st-md-brand { margin-top: 14px; font-size: 8px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ws-faint); }
-    .st-md-photo { background-size: cover; background-position: center; background-color: #cdbfa9; }
-
-    .st-mock-panel { display: flex; flex-direction: column; gap: 12px; width: 132px; padding: 12px; background: #fff; border: 1px solid var(--ws-line); border-radius: 14px; }
-    .st-mp-sec { display: flex; flex-direction: column; gap: 7px; }
-    .st-mp-sec b { font-size: 9px; font-weight: 600; color: var(--ws-tx); }
-    .st-mp-row { display: flex; gap: 5px; align-items: center; }
-    .st-mp-aa { width: 26px; height: 22px; border-radius: 5px; border: 1px solid var(--ws-line); display: inline-flex; align-items: center; justify-content: center; font-family: var(--subhead); font-size: 12px; color: var(--ws-ink); }
-    .st-mp-sw { width: 22px; height: 22px; border-radius: 5px; flex: 0 0 auto; }
-    .st-mp-bg { width: 26px; height: 26px; border-radius: 6px; flex: 0 0 auto; background-size: cover; }
-    .st-mp-bg--check { background-image: linear-gradient(45deg, #ddd 25%, transparent 25%), linear-gradient(-45deg, #ddd 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ddd 75%), linear-gradient(-45deg, transparent 75%, #ddd 75%); background-size: 8px 8px; background-position: 0 0, 0 4px, 4px -4px, -4px 0; background-color: #fff; }
-    .st-mp-size { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--ws-line); flex: 0 0 auto; }
-    .st-mp-size--more { display: inline-flex; align-items: center; justify-content: center; color: var(--ws-faint); font-size: 14px; line-height: 1; border: 0; }
-
-    /* ---- Sections ---- */
-    .st-sec { display: flex; flex-direction: column; gap: 18px; }
-    /* A little more breathing room between the hero and the first section. */
-    .st-hero + .st-sec { margin-top: 20px; }
-    .st-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; }
-    .st-sec-h { font-family: var(--serif); font-weight: 600; font-size: clamp(19px, 1.6vw, 24px); letter-spacing: -0.03em; color: var(--ws-ink); margin: 0; }
+    /* Horizontal shelves. One card size across packs, designs and inspiration,
+       so the three sections read as one page rather than three. */
     .st-rail { position: relative; }
+    .st-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(190px, 1fr); gap: var(--ws-gap); overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .st-row::-webkit-scrollbar { display: none; }
+    @media (max-width: 900px) { .st-row { grid-auto-columns: minmax(160px, 70%); } }
 
-    .st-row { display: grid; grid-auto-flow: column; gap: clamp(14px, 1.4vw, 20px); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 6px; scrollbar-width: thin; }
-    .st-row::-webkit-scrollbar { height: 6px; }
-    .st-row::-webkit-scrollbar-thumb { background: var(--ws-line); border-radius: 99px; }
-    .st-row--packs { grid-auto-columns: minmax(184px, 1fr); }
-    .st-row--designs { grid-auto-columns: minmax(184px, 1fr); }
-    .st-row--tools { grid-auto-columns: minmax(230px, 1fr); }
-    .st-row--inspo { grid-auto-columns: minmax(230px, 1fr); }
-    @media (min-width: 1100px) {
-      .st-row--packs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; overflow: visible; }
-      .st-row--designs { grid-template-columns: repeat(5, 1fr); grid-auto-flow: row; overflow: visible; }
-      .st-row--tools, .st-row--inspo { grid-template-columns: repeat(4, 1fr); grid-auto-flow: row; overflow: visible; }
+    .st-pack, .st-design {
+      display: flex; flex-direction: column; gap: 4px; padding: 12px;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
+      text-decoration: none; color: var(--ws-ink);
+      transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
     }
-    .st-row > * { scroll-snap-align: start; }
-
-    /* Pack cards */
-    .st-pack { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ws-ink); }
-    .st-pack-img { position: relative; aspect-ratio: 4 / 5; border-radius: var(--ws-r-sm); background-size: cover; background-position: center; background-color: #e9e6e2; display: flex; align-items: flex-end; padding: 14px; overflow: hidden; transition: transform 0.28s var(--ws-ease), box-shadow 0.28s; }
-    .st-pack:hover .st-pack-img { transform: translateY(-4px); box-shadow: 0 24px 40px -22px rgba(28,29,34,0.5); }
-    .st-pack-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 45%, rgba(28,25,22,0.55)); }
-    .st-pack-label { position: relative; z-index: 1; font-family: var(--subhead); font-size: 17px; font-weight: 500; color: #fff; line-height: 1.05; }
-    .st-pack-name { font-size: 13.5px; font-weight: 600; }
-    .st-pack-count { font-size: 12px; color: var(--ws-faint); margin-top: -4px; }
-    /* Empty state — no packs owned yet → nudge to the shop */
-    .st-pack--shop .st-pack-img { align-items: center; justify-content: center; padding: 0; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ws-line); }
-    .st-pack--shop .st-pack-img::after { display: none; }
-    .st-pack--shop:hover .st-pack-img { box-shadow: inset 0 0 0 1.5px var(--ws-accent); }
-    .st-pack-shop-ic { font-size: 34px; font-weight: 200; line-height: 1; color: var(--ws-faint); transition: color 0.2s; }
-    .st-pack--shop:hover .st-pack-shop-ic { color: var(--ws-accent); }
-
-    /* Design cards */
-    .st-design { display: flex; flex-direction: column; gap: 8px; text-decoration: none; color: var(--ws-ink); }
-    .st-design-img { position: relative; aspect-ratio: 4 / 5; border-radius: var(--ws-r-sm); background-size: cover; background-position: center; background-color: #e9e6e2; transition: transform 0.28s var(--ws-ease), box-shadow 0.28s; }
-    .st-design:hover .st-design-img { transform: translateY(-4px); box-shadow: 0 24px 40px -22px rgba(28,29,34,0.5); }
-    .st-design-tag { position: absolute; left: 12px; bottom: 12px; font-size: 10.5px; font-weight: 600; color: #fff; background: rgba(28,25,22,0.62); padding: 4px 10px; border-radius: 999px; backdrop-filter: blur(4px); }
-    .st-design-name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
-    .st-design-type { font-size: 12px; color: var(--ws-faint); margin-top: -4px; }
-    .st-design--new { justify-content: stretch; }
-    .st-design-new { aspect-ratio: 4 / 5; border: 1px dashed var(--ws-line); border-radius: var(--ws-r-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ws-faint); font-size: 13px; font-weight: 600; transition: border-color 0.2s, color 0.2s; }
-    .st-design--new:hover .st-design-new { border-color: var(--ws-accent); color: var(--ws-accent); }
-    .st-plus { font-size: 26px; font-weight: 200; line-height: 1; }
-
-    /* Tool cards */
-    .st-tool { position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-height: 158px; padding: 20px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; text-decoration: none; color: var(--ws-ink); overflow: hidden; transition: transform 0.26s var(--ws-ease), border-color 0.26s, box-shadow 0.26s; }
-    .st-tool:hover { transform: translateY(-4px); border-color: rgba(28,29,34,0.2); box-shadow: 0 24px 44px -26px rgba(28,29,34,0.4); }
-    .st-tool-tx { display: flex; flex-direction: column; gap: 6px; max-width: 64%; }
-    .st-tool-tx strong { font-size: 15px; font-weight: 600; }
-    .st-tool-tx span { font-size: 12.5px; color: var(--ws-tx); line-height: 1.4; }
-    .st-tool-art { position: absolute; right: -14px; bottom: -14px; width: 96px; height: 96px; border-radius: 16px; background: linear-gradient(150deg, #efece6, #d8c8b2); display: flex; align-items: center; justify-content: center; }
-    .st-tool-aa { font-family: var(--subhead); font-size: 30px; color: var(--ws-ink); opacity: 0; }
-    .st-tool-art--brand .st-tool-aa { opacity: 1; }
-    .st-tool-art--resize { background: linear-gradient(150deg, #e7ddcf, #b79b78); }
-    button.st-tool { appearance: none; font: inherit; text-align: left; cursor: pointer; width: 100%; }
-    .st-tool-art--caption { background: linear-gradient(150deg, #ece0e2, #9c7080); }
-    .st-tool-art--caption::after { content: "✨"; font-size: 30px; }
-    .st-tool-art--scissors { background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
-    .st-tool-art--grid { background: linear-gradient(150deg, #efe7da, #cdbfa9); }
-
-    /* Inspiration cards */
-    .st-insp { position: relative; display: flex; align-items: flex-end; min-height: 180px; padding: 20px; border-radius: var(--ws-r); background-size: cover; background-position: center; background-color: #cdbfa9; text-decoration: none; overflow: hidden; transition: transform 0.26s var(--ws-ease), box-shadow 0.26s; }
-    .st-insp:hover { transform: translateY(-4px); box-shadow: 0 26px 46px -26px rgba(28,29,34,0.5); }
-    .st-insp::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(28,25,22,0.05) 30%, rgba(28,25,22,0.72)); }
-    .st-insp-tx { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 5px; color: #fff; }
-    .st-insp-tx strong { font-family: var(--subhead); font-weight: 500; font-size: 20px; letter-spacing: -0.01em; }
-    .st-insp-tx span { font-size: 12.5px; color: rgba(255,255,255,0.84); max-width: 26ch; line-height: 1.4; }
-
-    /* Scroll arrows */
-    .st-arrow { position: absolute; top: 50%; right: -6px; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--ws-line); background: #fff; color: var(--ws-ink); cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 12px 26px -14px rgba(28,29,34,0.4); transition: transform 0.2s, background 0.2s; z-index: 3; }
-    .st-arrow svg { width: 18px; height: 18px; }
-    .st-arrow:hover { background: var(--ws-accent); color: #fff; }
-    .st-row .st-arrow, .st-rail .st-arrow { display: flex; }
-    .st-arrow--tools, .st-arrow--inspo { right: -6px; }
-    @media (min-width: 1100px) { .st-arrow { display: none !important; } }
-
-    @media (max-width: 880px) {
-      .st-hero { grid-template-columns: 1fr; }
-      .st-h1 { white-space: normal; }
-      .st-hero-media { justify-self: stretch; order: -1; }
-      .st-hero-media img { width: 100%; height: auto; aspect-ratio: 16 / 10; }
+    .st-pack:hover, .st-design:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    .st-pack-img, .st-design-img {
+      position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 4px;
+      background-size: cover; background-position: center; background-color: #e9e6e2; margin-bottom: 8px;
     }
+    .st-pack-name, .st-design-name { font-family: var(--serif); font-size: 13.5px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
+    .st-pack-count, .st-design-type { font-size: 11.5px; color: var(--ws-faint); }
+    /* The label burned into a pack's cover, and the state pill on a design. */
+    .st-pack-label { position: absolute; left: 8px; bottom: 8px; right: 8px; font-family: var(--serif); font-size: 13px; font-weight: 600; color: #fff; text-shadow: 0 1px 8px rgba(20,16,20,0.6); }
+    .st-design-tag { position: absolute; left: 8px; top: 8px; padding: 3px 8px; border-radius: 3px; background: rgba(255,255,255,0.93); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); }
+
+    /* "Shop more packs" and "New design" — outlined, tinted, no picture. */
+    .st-pack--shop .st-pack-img, .st-design--new { background: color-mix(in srgb, var(--ws-accent) 7%, #fff); }
+    .st-pack--shop .st-pack-img { display: flex; align-items: center; justify-content: center; }
+    .st-pack-shop-ic, .st-plus { font-size: 26px; font-weight: 200; line-height: 1; color: var(--ws-accent); }
+    .st-design--new { align-items: center; justify-content: center; border-style: dashed; }
+    .st-design-new { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ws-accent); }
+
+    /* Inspiration — a picture with the words laid over it. */
+    .st-row--inspo { grid-auto-columns: minmax(220px, 1fr); }
+    .st-insp {
+      position: relative; display: flex; align-items: flex-end; min-height: 168px; padding: 16px;
+      border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center;
+      background-color: #2a2126; text-decoration: none; color: #fff;
+      transition: transform 0.25s var(--ws-ease);
+    }
+    .st-insp::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,16,20,0.82), rgba(20,16,20,0.12) 62%); }
+    .st-insp:hover { transform: translateY(-3px); }
+    .st-insp-tx { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 3px; }
+    .st-insp-tx strong { font-family: var(--serif); font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+    .st-insp-tx span { font-size: 11.5px; color: rgba(255,255,255,0.76); line-height: 1.4; }
+
+    /* The shelf's scroll button. */
+    .st-arrow {
+      position: absolute; top: 50%; right: -6px; transform: translateY(-50%);
+      width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--ws-line);
+      background: #fff; color: var(--ws-ink); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center; z-index: 2;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .st-arrow svg { width: 16px; height: 16px; }
+    .st-arrow:hover { border-color: var(--ws-accent); }
+    @media (max-width: 900px) { .st-arrow { display: none; } }
+
+    /* Entrance — the shared .ws-rise, stepped per section. */
+    .ws-rise { animation-delay: calc(0.1s + var(--i, 0) * 0.09s); }
   </style>
 
   <script>
