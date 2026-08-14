@@ -146,8 +146,10 @@ const heroFirst = heroTemplates[0];
                 <span class="ws-brief-tx"><strong id="brief-bookings">—</strong><span id="brief-bookings-sub">coming up</span></span>
               </li>
               <li style="--d:3">
-                <span class="ws-brief-ic ws-brief-ic--kit"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9"/></svg></span>
-                <span class="ws-brief-tx"><strong>Brand kit</strong><span id="brief-kit">—</span></span>
+                <a class="ws-brief-slot" id="brief-slot" href="/account/profile">
+                  <span class="ws-brief-ic ws-brief-ic--kit" id="brief-slot-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9"/></svg></span>
+                  <span class="ws-brief-tx"><strong id="brief-slot-v">Brand kit</strong><span id="brief-slot-l">—</span></span>
+                </a>
               </li>
             </ul>
             <a class="ws-btn ws-btn--primary ws-hero-cta-btn" href="/account/editor">Continue creating
@@ -552,6 +554,12 @@ const heroFirst = heroTemplates[0];
     .ws-brief-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .ws-brief-tx strong { color: var(--ws-ink); font-weight: 600; font-size: 14px; }
     .ws-brief-tx span { font-size: 12.5px; color: var(--ws-tx); }
+    /* The rotating slot is a link - it is the one tile that is usually asking
+       you to go and do something about it. */
+    .ws-brief-slot { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+    .ws-brief-slot:hover .ws-brief-tx strong { text-decoration: underline; text-underline-offset: 3px; }
+    .ws-brief-ic--due { color: #b4553f; }
+    .ws-brief-ic--gallery { color: var(--ws-accent); }
     @media (max-width: 620px) { .ws-brief { grid-template-columns: 1fr; } }
     .ws-brief strong { color: var(--ws-ink); font-weight: 600; }
     .ws-brief-ic--kit { color: var(--ws-success); }
@@ -969,6 +977,51 @@ const heroFirst = heroTemplates[0];
         nav.hidden = true;
       }
     }
+    // ---- The third hero slot ----
+    // Two of the three stats are fixed (posts, bookings); this one is claimed by
+    // whatever most needs attention. Everything that can claim it reports in
+    // when its own data lands, and the lowest rank on the board wins - so it
+    // does not matter which query finishes first.
+    const SLOT_ICONS = {
+      due:     '<path d="M12 2 2 20h20z"/><line x1="12" y1="9" x2="12" y2="14"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+      gallery: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
+      kit:     '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9"/>',
+      empty:   '<rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="12" y1="13" x2="12" y2="17"/><line x1="10" y1="15" x2="14" y2="15"/>',
+    };
+    const slotClaims = [];
+    function claimSlot(rank, icon, value, label, href) {
+      slotClaims.push({ rank, icon, value, label, href });
+      slotClaims.sort((a, b) => a.rank - b.rank);
+      const win = slotClaims[0];
+      const v = document.getElementById('brief-slot-v');
+      const l = document.getElementById('brief-slot-l');
+      const ic = document.getElementById('brief-slot-ic');
+      const a = document.getElementById('brief-slot');
+      if (!v || !l || !ic || !a) return;
+      v.textContent = win.value;
+      l.textContent = win.label;
+      a.setAttribute('href', win.href);
+      ic.className = 'ws-brief-ic ws-brief-ic--' + win.icon;
+      ic.innerHTML = `<svg viewBox="0 0 24 24">${SLOT_ICONS[win.icon] || ''}</svg>`;
+    }
+
+    // Payment owed and a gallery waiting both come off the bookings we already
+    // fetch. Rank 1 and 2: an unpaid shoot is the only thing here that actively
+    // blocks the member - their content stays locked until it is settled.
+    function claimFromBookings(vid) {
+      const unpaid = vid.filter((b) => !b.paid_at && b.stage && b.stage !== 'booked');
+      if (unpaid.length) {
+        claimSlot(1, 'due', `${unpaid.length} payment${unpaid.length === 1 ? '' : 's'}`, 'due on your shoots', '/account/bookings');
+      }
+      const live = vid.filter((b) => b.gallery_url && b.gallery_sent_at);
+      if (live.length) {
+        const exp = live.map((b) => b.gallery_expires_on).filter(Boolean).sort()[0];
+        const days = exp ? Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000) : null;
+        claimSlot(2, 'gallery', live.length === 1 ? 'Gallery ready' : `${live.length} galleries`,
+          days && days > 0 ? `${days} days to download` : 'ready to download', '/account/bookings');
+      }
+    }
+
     // The date above the name. Set on load and not touched again - nobody has
     // this page open across midnight often enough to justify a timer.
     (function wireHeroDate() {
@@ -984,10 +1037,11 @@ const heroFirst = heroTemplates[0];
         const email = session.user.email ?? '';
         try {
           const [v, s] = await Promise.all([
-            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage, postcode').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
+            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage, postcode, paid_at, gallery_url, gallery_sent_at, gallery_expires_on').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
             supabase.from('smm_leads').select('id, call_at, stage').eq('kind', 'discovery').or(`account_user_id.eq.${session.user.id},email.eq.${email}`),
           ]);
-          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage, postcode: r.postcode }));
+          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage, postcode: r.postcode, paid_at: r.paid_at, gallery_url: r.gallery_url, gallery_sent_at: r.gallery_sent_at, gallery_expires_on: r.gallery_expires_on }));
+          claimFromBookings(vid);
           const smm = (s.data || []).map((r) => ({ source: 'smm', id: r.id, title: 'Social media discovery call', service_type: 'discovery', when: r.call_at, stage: r.stage || 'discovery_call_booked' }));
           items = vid.concat(smm);
         } catch (_) {}
@@ -1128,17 +1182,19 @@ const heroFirst = heroTemplates[0];
     (function wireBrandHealth() {
       let brand;
       try { brand = JSON.parse(localStorage.getItem('tmke.brand') || 'null'); } catch (_) { brand = null; }
-      if (!brand) return; // no brand kit saved yet → keep the mock
+      // Nothing saved at all is the strongest case for showing the tile, not a
+      // reason to stay quiet - so claim first, then bail out of the widget work.
+      if (!brand) { claimSlot(3, 'kit', 'Brand kit', 'not set up yet', '/account/profile'); return; }
 
       const hasLogo = (brand.logos || []).length > 0;
       const hasColours = (brand.colors || []).filter((c) => c && c.hex).length > 0;
       const hasFonts = !!(brand.fonts && (brand.fonts.heading || brand.fonts.body));
-      // The brand-health widget is gone; the hero tile carries its state.
-      const kit = document.getElementById('brief-kit');
-      if (kit) {
-        const done = [hasLogo, hasColours, hasFonts].filter(Boolean).length;
-        kit.textContent = done === 3 ? 'complete' : `${done} of 3 done`;
-      }
+      // The brand-health widget is gone; the hero slot carries its state, but
+      // only while there is something to finish. Once it is done it drops to
+      // the fallback rank, where it shows only if nothing else is asking.
+      const kitDone = [hasLogo, hasColours, hasFonts].filter(Boolean).length;
+      if (kitDone < 3) claimSlot(3, 'kit', 'Brand kit', `${kitDone} of 3 done`, '/account/profile');
+      else claimSlot(9, 'kit', 'Brand kit', 'complete', '/account/profile');
       const items = [...document.querySelectorAll('.ws-journey li')];
       if (items.length < 3) return;
       items[0].classList.toggle('is-done', hasLogo);
@@ -1208,6 +1264,17 @@ const heroFirst = heroTemplates[0];
         const schedCount = (data || []).length;
         const sb = document.getElementById('brief-sched');
         if (sb) sb.textContent = schedCount ? `${schedCount} post${schedCount === 1 ? '' : 's'}` : 'No posts';
+
+        // Days still to come this week with nothing on them. Counted forward
+        // from today, because a gap on Monday is not something anyone can act
+        // on by Thursday.
+        let empty = 0;
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday); d.setDate(monday.getDate() + i);
+          const k = ymd(d);
+          if (k >= todayYmd && !byDate[k]) empty++;
+        }
+        if (empty) claimSlot(4, 'empty', `${empty} empty day${empty === 1 ? '' : 's'}`, 'left this week', '/account/schedule');
       } catch (_) { /* keep the mock week */ }
     })();
 
