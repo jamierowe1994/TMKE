@@ -2,24 +2,30 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { templates } from "../../data/library.js";
 
-// "Continue working" falls back to templates the user can start from (so it's
-// never blank) when they have no saved drafts. JS swaps in real drafts if any.
+// "Pick up where you left off" falls back to a template the member can start
+// from, so the card is never empty. wireWork() swaps in their most recently
+// edited design as soon as there is one.
 const recentTemplates = templates.slice(0, 4);
-
-// The hero shows a mini Studio with a real pack template on the canvas; it
-// rotates to the next template on each visit (see the rotate script below).
-const heroTemplates = templates.map((t) => ({ id: t.id, thumb: t.thumb, name: t.name }));
-const heroFirst = heroTemplates[0];
 ---
 
 <!--
-  TMKE workspace — Phase 2. Editorial, asymmetric composition (mock data).
-  Standalone preview at /dashboard; the live /account is untouched.
+  The member dashboard. This IS the live page: /dashboard redirects here and
+  every nav in the hub points at /account.
 
-  Hierarchy: ONE immersive hero (brief + dominant design preview) leads the eye,
-  then a left "workflow" column (plan -> recent work) beside a lighter right
-  "insights" column (idea, brand health, performance), finishing on a full-width
-  discovery card. Sections are grouped by whitespace + depth, not borders.
+  One full-width column, read as numbered chapters:
+
+    hero        date, greeting, three stats, one call to action, photograph
+    chapter 01  the week, seven days, today outlined darker
+    chapter 02  four ways into the Studio
+    chapter 03  the last thing worked on, today's prompt, the next booking
+    chapter 04  a guide (the full-bleed banner)
+    chapter 05  what is new
+
+  The third hero stat is claimed by whatever most needs attention - see
+  claimSlot() for the ranking. Everything else on the page is fixed.
+
+  Still placeholder, for a later content pass: the four "New in The Studio"
+  cards. Their links go to real pages but nothing fetches the items.
 -->
 <BaseLayout
   dashboard
@@ -1318,23 +1324,6 @@ const heroFirst = heroTemplates[0];
 
   </script>
 
-  <script define:vars={{ heroTemplates }}>
-    // Rotate the hero Studio canvas through the published pack templates — a new
-    // one each visit (index persisted in localStorage so it advances per sign-in).
-    (function rotateHero() {
-      if (!Array.isArray(heroTemplates) || !heroTemplates.length) return;
-      let idx = 0;
-      try { idx = parseInt(localStorage.getItem('tmke.dashHeroIdx') || '0', 10) || 0; } catch (_) {}
-      const t = heroTemplates[idx % heroTemplates.length];
-      try { localStorage.setItem('tmke.dashHeroIdx', String((idx + 1) % heroTemplates.length)); } catch (_) {}
-      const img = document.getElementById('ws-edmock-img');
-      if (img && t.thumb) { img.src = t.thumb; img.alt = t.name || ''; }
-      const title = document.getElementById('ws-edmock-title');
-      if (title && t.name) title.textContent = t.name;
-      const link = document.getElementById('ws-edmock');
-      if (link && t.id) link.setAttribute('href', '/account/editor?template=' + encodeURIComponent(t.id));
-    })();
-  </script>
 
   <script>
     // ===== Contextual coach =====
