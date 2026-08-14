@@ -226,12 +226,15 @@ const heroFirst = heroTemplates[0];
 
             <div class="ws-side">
               <span class="ws-side-eyebrow">Today's prompt</span>
-              <p class="ws-idea" id="idea-h">“Three questions every buyer asks during a viewing — and how you answer them.”</p>
+              <div class="ws-idea-wrap">
+                <p class="ws-idea" id="idea-h">“Three questions every buyer asks during a viewing — and how you answer them.”</p>
+                <p class="ws-idea-hint" id="idea-hint">Talk straight to camera. One question per line on screen.</p>
+              </div>
               <div class="ws-side-foot">
                 <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/editor">Create this post
                   <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </a>
-                <button type="button" class="ws-iconround ws-tip-right" data-tip="Another idea" aria-label="Another idea">
+                <button type="button" class="ws-iconround ws-tip-right ws-idea-again" data-tip="Another idea" aria-label="Another idea">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg>
                 </button>
               </div>
@@ -256,7 +259,7 @@ const heroFirst = heroTemplates[0];
       <a class="ws-discover ws-rise" style="--delay:1.65s" href="/account/guides" aria-label="Read the guide: five minutes well spent">
         <div class="ws-discover-body">
           <span class="ws-discover-flag">Chapter 04 — Learn</span>
-          <h2 class="ws-discover-h">Five minutes<br />well spent.</h2>
+          <h2 class="ws-discover-h">Five minutes well spent.</h2>
           <p class="ws-discover-desc">Why your listing posts aren't getting saved.</p>
           <span class="ws-discover-cta">Read the guide <span aria-hidden="true">→</span></span>
         </div>
@@ -507,9 +510,11 @@ const heroFirst = heroTemplates[0];
     .ws-textlink { font-size: 13px; font-weight: 600; color: var(--ws-tx); background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; text-decoration: none; transition: color 0.2s; }
     .ws-textlink:hover { color: var(--ws-ink); }
     .ws-textlink--accent { color: var(--ws-accent); }
-    .ws-btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 13px; font-family: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.22s var(--ws-ease), box-shadow 0.22s, background 0.2s; }
-    .ws-btn svg { width: 15px; height: 15px; }
-    .ws-btn--sm { padding: 10px 16px; font-size: 13px; border-radius: 11px; }
+    /* Set like a section strip and the same height as one, so a button reads as
+       part of the page's furniture rather than as the loudest thing on it. */
+    .ws-btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 37px; box-sizing: border-box; padding: 0 20px; border-radius: var(--ws-r); font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.22s var(--ws-ease), box-shadow 0.22s, background 0.2s; }
+    .ws-btn svg { width: 13px; height: 13px; }
+    .ws-btn--sm { height: 33px; padding: 0 16px; }
     .ws-btn--ghost { background: #fff; color: var(--ws-ink); border-color: var(--ws-line); }
     .ws-btn--ghost:hover { border-color: rgba(28,29,34,0.28); }
     .ws-btn--ghost svg { transition: transform 0.25s var(--ws-ease); }
@@ -677,6 +682,13 @@ const heroFirst = heroTemplates[0];
     .ws-side-h { margin: 0; font-family: var(--serif); font-size: 17px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; color: var(--ws-ink); }
     .ws-side-meta { margin: 4px 0 0; font-size: 13px; color: var(--ws-tx); }
     .ws-side-foot { display: flex; align-items: center; gap: 12px; margin-top: auto; }
+    /* The prompt sits in the middle of the card, not at the top: it is the
+       reason the card exists, so it gets the space rather than the eyebrow. */
+    .ws-idea-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 9px; padding: 6px 0; }
+    .ws-idea-hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ws-faint); }
+    /* Pushed to the far edge so it is a quiet second option, not a twin of the
+       button it used to sit against. */
+    .ws-idea-again { margin-left: auto; }
 
     /* New in The Studio — four split cards, words left, picture right. */
     .ws-news { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ws-gap); }
@@ -740,11 +752,13 @@ const heroFirst = heroTemplates[0];
         rgba(35,22,29,0.24);
     }
     .ws-discover:hover .ws-discover-art { transform: scale(1.05); }
-    .ws-discover-body { position: relative; padding: clamp(28px, 3vw, 48px); display: flex; flex-direction: column; justify-content: center; gap: 12px; color: #fff; background: #2f1b25; }
+    .ws-discover-body { position: relative; padding: clamp(28px, 3vw, 48px); display: flex; flex-direction: column; justify-content: flex-start; gap: 0; color: #fff; background: #2f1b25; }
     .ws-discover-flag { align-self: flex-start; padding: 0; background: none; border: 0; color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
-    .ws-discover-h { font-family: var(--subhead); font-weight: 500; font-size: clamp(28px, 3vw, 42px); line-height: 1.06; letter-spacing: -0.015em; margin: 0; color: #fff; }
-    .ws-discover-desc { font-size: 14.5px; line-height: 1.55; color: rgba(255,255,255,0.72); margin: 0; max-width: 34ch; }
-    .ws-discover-cta { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 8px; padding: 11px 18px; border-radius: 4px; background: #fff; color: var(--ws-ink); font-size: 13px; font-weight: 600; }
+    /* One line at this size in this column - measured, not hoped. */
+    .ws-discover-h { font-family: var(--subhead); font-weight: 500; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.015em; margin: clamp(16px, 2vw, 26px) 0 0; color: #fff; white-space: nowrap; }
+    @media (max-width: 900px) { .ws-discover-h { white-space: normal; } }
+    .ws-discover-desc { font-size: 14.5px; line-height: 1.55; color: rgba(255,255,255,0.72); margin: clamp(10px, 1.2vw, 14px) 0 0; max-width: 34ch; }
+    .ws-discover-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; margin-top: auto; height: 37px; box-sizing: border-box; padding: 0 20px; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
     .ws-discover-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
     .ws-discover:hover .ws-discover-cta em { transform: translateX(4px); }
     @media (max-width: 620px) { .ws-discover { grid-template-columns: 1fr; } .ws-discover-art { min-height: 180px; } }
@@ -831,48 +845,63 @@ const heroFirst = heroTemplates[0];
     // Today's prompt — "Another idea" cycles a curated pool of content ideas.
     // (A simple, free pool for now; can be swapped for AI generation via the
     // Worker later without touching this markup.)
+    // Each prompt carries a hint on how to actually make it. A good idea a
+    // member cannot picture shooting is not a good idea.
     const TMKE_PROMPTS = [
-      "Three questions every buyer asks during a viewing — and how you answer them.",
-      "The one room that sells the home. Show buyers why.",
-      "What a little styling actually adds to a sale price.",
-      "A 60-second tour of your favourite listing this week.",
-      "Five things buyers notice in the first ten seconds of a viewing.",
-      "Behind the scenes: how we shoot a property that sells.",
-      "Sell the lifestyle, not just the house — the cafe, the school, the park.",
-      "Just listed: tease it before the portal goes live.",
-      "A day in the life of an agent who actually answers the phone.",
-      "Why the right asking price sells faster than the highest one.",
-      "Myth vs fact: what really adds value before you sell.",
-      "Client win of the week — let the result do the talking.",
-      "Your honest take on the local market this month, in 30 seconds.",
-      "First-time buyer? The one thing to sort before you offer.",
-      "Sold fast — the story behind the result.",
-      "Three quick wins to get a home viewing-ready this weekend.",
+      ["Three questions every buyer asks during a viewing — and how you answer them.", "Talk straight to camera. One question per line on screen."],
+      ["The one room that sells the home. Show buyers why.", "Slow pan of the room, then a close-up of the detail that does the work."],
+      ["What a little styling actually adds to a sale price.", "Before and after on the same shot. Hold each for two seconds."],
+      ["A 60-second tour of your favourite listing this week.", "Walk it in one take. Start outside the front door."],
+      ["Five things buyers notice in the first ten seconds of a viewing.", "Five quick cuts, one per point. Caption each on screen."],
+      ["Behind the scenes: how we shoot a property that sells.", "Film yourself setting up. Off-the-cuff beats scripted here."],
+      ["Sell the lifestyle, not just the house — the cafe, the school, the park.", "Three clips from the street, none of them inside the property."],
+      ["Just listed: tease it before the portal goes live.", "One detail shot only. Give nothing else away."],
+      ["A day in the life of an agent who actually answers the phone.", "Film four moments across one day. Keep them short."],
+      ["Why the right asking price sells faster than the highest one.", "Straight to camera, thirty seconds. Use a real example, no names."],
+      ["Myth vs fact: what really adds value before you sell.", "Split the screen. Myth on the left, fact on the right."],
+      ["Client win of the week — let the result do the talking.", "Photo of the sold board, and their words as the caption."],
+      ["Your honest take on the local market this month, in 30 seconds.", "One take, no notes. Film it in the car if that is where you are."],
+      ["First-time buyer? The one thing to sort before you offer.", "Direct address. Say the one thing in the first three seconds."],
+      ["Sold fast — the story behind the result.", "Three beats: what it was, what you changed, what it sold for."],
+      ["Three quick wins to get a home viewing-ready this weekend.", "Film each one being done, not described."],
     ];
     (function wirePrompt() {
       const idea = document.querySelector('.ws-idea');
-      const btn = document.querySelector('.ws-iconround');
-      if (!idea || !btn) return;
+      const hint = document.getElementById('idea-hint');
+      const btn = document.querySelector('.ws-idea-again');
+      if (!idea || !hint || !btn) return;
+
+      const paint = (pair, animate) => {
+        const write = () => {
+          idea.textContent = '\u201C' + pair[0] + '\u201D';
+          hint.textContent = pair[1];
+        };
+        if (!animate) return write();
+        [idea, hint].forEach((el) => {
+          el.style.transition = 'opacity 0.22s cubic-bezier(.2,.8,.2,1), transform 0.22s cubic-bezier(.2,.8,.2,1)';
+          el.style.opacity = '0';
+          el.style.transform = 'translateY(8px)';
+        });
+        setTimeout(() => {
+          write();
+          [idea, hint].forEach((el) => { el.style.opacity = '1'; el.style.transform = 'none'; });
+        }, 220);
+      };
+
       // Daily prompt — everyone sees the same one each day, rotating through the
       // pool by day-of-year (no manual writing needed). "Another idea" shuffles.
       const _now = new Date();
       const _doy = Math.floor((_now - new Date(_now.getFullYear(), 0, 0)) / 86400000);
-      idea.textContent = '“' + TMKE_PROMPTS[_doy % TMKE_PROMPTS.length] + '”';
-      let current = idea.textContent.replace(/[“”"]/g, '').trim();
+      let current = TMKE_PROMPTS[_doy % TMKE_PROMPTS.length];
+      paint(current, false);
+
       btn.addEventListener('click', () => {
         let next = current;
         for (let i = 0; i < 8 && next === current; i++) {
           next = TMKE_PROMPTS[Math.floor(Math.random() * TMKE_PROMPTS.length)];
         }
         current = next;
-        idea.style.transition = 'opacity 0.22s cubic-bezier(.2,.8,.2,1), transform 0.22s cubic-bezier(.2,.8,.2,1)';
-        idea.style.opacity = '0';
-        idea.style.transform = 'translateY(8px)';
-        setTimeout(() => {
-          idea.textContent = '“' + next + '”';
-          idea.style.opacity = '1';
-          idea.style.transform = 'none';
-        }, 220);
+        paint(next, true);
       });
     })();
 

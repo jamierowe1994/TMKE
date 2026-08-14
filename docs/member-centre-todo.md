@@ -1,0 +1,74 @@
+# Member centre — what still needs building
+
+The running list for `/account`. Raised 14 August 2026. Newest sections at the
+bottom; tick things off here rather than in a chat thread.
+
+---
+
+## 1 · Bookings — show the member where their shoot actually is
+
+**Today:** `/account/bookings` lists a booking and its raw `stage`. The member
+can see *that* they booked something, not what is happening to it.
+
+**Wanted:** the booking page mirrors the admin centre's stage flow, so a client
+can answer "where is my video?" without emailing anyone.
+
+- A visible stage track: **Booked → Invoiced → Shoot day → Editing → Gallery
+  ready → Sent → Delivered**, with the current stage marked and the ones
+  behind it settled.
+- When a gallery exists, the member follows the link straight through from
+  here — gallery URL, which email address to use with it, and the PIN once
+  payment has landed.
+- Pulls the detail the admin centre already holds: shoot date and address,
+  what was booked, the expiry date on the gallery.
+
+**Constraints that already exist and must hold:**
+
+- The PIN is released **only** when `paid_at` is set, checked server-side.
+  Nothing about this display may weaken that.
+- Internal notes are `channel: note` and must never reach the member view.
+  Correspondence is `channel: email` and may.
+- The Cloudflare/R2 archive link is internal. It does not appear in the hub.
+
+## 2 · Social media management clients
+
+Three gaps for members on an SMM retainer.
+
+### 2a · Invoices
+
+Let an SMM client see and pay their own invoices.
+
+**Blocker:** `public.invoices` currently carries an admin policy only —
+`for all to authenticated using (is_admin())`. A member cannot read their own
+row. Needs a decision:
+
+- a narrow RLS policy scoped to the member's own invoices, **or**
+- a Worker endpoint using the service role that returns only that member's
+  invoices.
+
+The second keeps the table shut and is easier to reason about; the first is
+less code. Either way it is a deliberate widening of what members can read and
+wants signing off, not slipping in.
+
+Once it exists, the dashboard's rotating hero stat should read from it too —
+it currently infers "payment due" from `videography_bookings.paid_at`, which
+covers shoots only.
+
+### 2b · Monthly reports
+
+Somewhere for the client to read the monthly report we already produce. See
+`docs/smm-report-rules.md` and `src/lib/report-fields.js` for what the report
+holds today.
+
+### 2c · Contact their account manager
+
+A direct line from the hub, rather than the generic contact form — so the
+message arrives attached to their account and the right person gets it.
+
+---
+
+## Notes
+
+- The dashboard's "New in The Studio" row is **placeholder copy and images**.
+  The links go to real pages but nothing fetches those four items. If it should
+  list real packs and guides, that is a separate piece of work.
