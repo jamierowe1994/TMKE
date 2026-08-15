@@ -83,8 +83,13 @@ const shape = (w: number, h: number) => {
   // still lands somewhere sensible.
   const scrim = document.getElementById("nd-scrim");
   if (scrim) {
-    const open = () => { scrim.hidden = false; document.body.style.overflow = "hidden"; };
-    const close = () => { scrim.hidden = true; document.body.style.overflow = ""; };
+    // A class, not an inline style, and cleared on pageshow as well as on
+    // close. An inline overflow:hidden that outlives the modal — a back button
+    // restoring a cached page, say — leaves the page unscrollable with nothing
+    // on screen to explain why.
+    const open = () => { scrim.hidden = false; document.documentElement.classList.add("nd-locked"); };
+    const close = () => { scrim.hidden = true; document.documentElement.classList.remove("nd-locked"); };
+    window.addEventListener("pageshow", close);
     const start = (w: number, h: number) => {
       location.href = `/account/editor?blank=${w}x${h}`;
     };
@@ -120,6 +125,7 @@ const shape = (w: number, h: number) => {
 </script>
 
 <style is:global>
+  html.nd-locked, html.nd-locked body { overflow: hidden; }
   .nd-scrim { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
   .nd-scrim[hidden] { display: none; }
   .nd { position: relative; width: min(760px, 100%); max-height: calc(100vh - 48px); overflow-y: auto; padding: 24px clamp(22px, 3vw, 34px) 24px; background: #fff; border-radius: 6px; box-shadow: 0 30px 70px -30px rgba(20,16,22,0.6); }
