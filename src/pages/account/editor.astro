@@ -403,6 +403,25 @@ const googleFonts = [
       <!-- Customer Studio starting panel — a calm "choose something to edit"
            shown when nothing is selected. Admin keeps brand-kit-first (editor.js). -->
       <section class="ed-panel-pane" data-pane="start">
+        <!-- Only when arriving from a prompt (?prompt=<key>). Closed to start:
+             on a laptop the panel has little room, and the brief is a reminder
+             rather than something to read before you can begin. -->
+        <button type="button" class="ed-prompt" id="ed-prompt" hidden aria-expanded="false">
+          <span class="ed-prompt-top">
+            <span class="ed-prompt-tx">
+              <b>Prompt</b>
+              <i id="ed-prompt-name"></i>
+            </span>
+            <span class="ed-prompt-caret" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </span>
+          <span class="ed-prompt-body" id="ed-prompt-body"><span class="ed-prompt-inner">
+            <span class="ed-prompt-angle" id="ed-prompt-angle"></span>
+            <span class="ed-prompt-brief" id="ed-prompt-brief"></span>
+          </span></span>
+        </button>
+
         <div class="ed-pane-header">
           <h3>Choose something to edit</h3>
           <p>Tap an item on your design, or start here.</p>
@@ -1031,6 +1050,28 @@ const googleFonts = [
     html.editor-light .ed-rail .ed-rail-toggle.is-active {
       color: #fff; background: rgba(255,255,255,0.13); border-left-color: #fff;
     }
+
+    /* The prompt box: wine, above the start options, closed by default. */
+    .ed-prompt {
+      appearance: none; display: block; width: 100%; text-align: left; cursor: pointer;
+      margin: 0 0 14px; padding: 12px 14px; border: 0; border-radius: 4px;
+      background: var(--english-violet); color: #fff; font-family: var(--sans);
+    }
+    .ed-prompt[hidden] { display: none; }
+    .ed-prompt-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ed-prompt-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .ed-prompt-tx b { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+    .ed-prompt-tx i { font-style: normal; font-size: 13.5px; font-weight: 600; color: #fff; line-height: 1.25; }
+    .ed-prompt-caret { flex: none; color: rgba(255,255,255,0.7); display: inline-flex; transition: transform 0.25s cubic-bezier(.2,.8,.2,1); }
+    .ed-prompt-caret svg { width: 16px; height: 16px; }
+    .ed-prompt[aria-expanded="true"] .ed-prompt-caret { transform: rotate(180deg); }
+    /* The 0fr/1fr grid trick, which needs exactly one child to squash — with
+       two rows the second sizes itself and the box never fully closes. */
+    .ed-prompt-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s cubic-bezier(.2,.8,.2,1); }
+    .ed-prompt[aria-expanded="true"] .ed-prompt-body { grid-template-rows: 1fr; }
+    .ed-prompt-inner { display: block; min-height: 0; overflow: hidden; }
+    .ed-prompt-angle { display: block; padding-top: 11px; font-size: 13.5px; font-weight: 600; line-height: 1.35; color: #fff; }
+    .ed-prompt-brief { display: block; padding-top: 7px; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,0.76); }
 
     /* Starting panel — "choose something to edit" (customer Studio only). */
     .ed-start-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -5989,6 +6030,26 @@ const googleFonts = [
 
   <!-- AI caption generator — opened from the Schedule modal's caption field. -->
   <script>
+    // The prompt box. The dashboard sends a key, not the words, so a brief
+    // edited in content-calendar.js changes what shows here with no link to
+    // update.
+    import { findPrompt } from "../../data/content-calendar.js";
+    (function wirePromptBox() {
+      const key = new URLSearchParams(location.search).get("prompt");
+      const box = document.getElementById("ed-prompt");
+      if (!key || !box) return;
+      const p = findPrompt(key);
+      if (!p) return;                       // unknown key: show nothing at all
+      document.getElementById("ed-prompt-name").textContent = p.name;
+      document.getElementById("ed-prompt-angle").textContent = p.angle || "";
+      document.getElementById("ed-prompt-brief").textContent = p.brief || "";
+      box.hidden = false;
+      box.addEventListener("click", () => {
+        const open = box.getAttribute("aria-expanded") === "true";
+        box.setAttribute("aria-expanded", open ? "false" : "true");
+      });
+    })();
+
     // "Add a page" in the start panel, and the rail's way back to it. Both are
     // markup added in this file, so they are wired here rather than in the
     // engine — the engine only exposes addPage.

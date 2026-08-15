@@ -671,8 +671,13 @@ const recentTemplates = templates.slice(0, 4);
       // pool by day-of-year (no manual writing needed). "Another idea" shuffles.
       const _now = new Date();
       const _doy = Math.floor((_now - new Date(_now.getFullYear(), 0, 0)) / 86400000);
-      let current = EVERGREEN_PROMPTS[_doy % EVERGREEN_PROMPTS.length];
+      let idx = _doy % EVERGREEN_PROMPTS.length;
+      let current = EVERGREEN_PROMPTS[idx];
       paint(current, false);
+      // The "Create this post" button opens the editor on this same prompt.
+      const cta = document.querySelector('.ws-side .ws-btn--primary');
+      const pointCta = () => { if (cta) cta.setAttribute('href', `/account/editor?blank=1&prompt=${keyForEvergreen(idx)}`); };
+      pointCta();
 
       btn.addEventListener('click', () => {
         let next = current;
@@ -680,6 +685,8 @@ const recentTemplates = templates.slice(0, 4);
           next = EVERGREEN_PROMPTS[Math.floor(Math.random() * EVERGREEN_PROMPTS.length)];
         }
         current = next;
+        idx = EVERGREEN_PROMPTS.indexOf(next);
+        pointCta();
         paint(next, true);
       });
     })();
@@ -837,7 +844,7 @@ const recentTemplates = templates.slice(0, 4);
       targets.forEach((card) => {
         const occasion = dated.find((d) => ymdOf(d.when) === card.getAttribute('data-date'));
         if (occasion) {
-          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.hint, cta: 'Design this post', href: '/account/editor?blank=1' });
+          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.brief || occasion.hint, cta: 'Design this post', href: `/account/editor?blank=1&prompt=${keyForDay(occasion)}` });
         } else {
           spare.push(card);
         }
@@ -857,8 +864,9 @@ const recentTemplates = templates.slice(0, 4);
               : { flag: 'Learn', title: 'Get more out of the hub', hint: 'Short guides on content and reach.', cta: 'Start a guide', href: '/account/guides' });
           return;
         }
-        const pr = EVERGREEN_PROMPTS[(wk + i) % EVERGREEN_PROMPTS.length];
-        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1], cta: 'Design this post', href: '/account/editor?blank=1' });
+        const idx = (wk + i) % EVERGREEN_PROMPTS.length;
+        const pr = EVERGREEN_PROMPTS[idx];
+        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1], cta: 'Design this post', href: `/account/editor?blank=1&prompt=${keyForEvergreen(idx)}` });
       });
     }
 

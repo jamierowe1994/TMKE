@@ -338,3 +338,45 @@ export const EVERGREEN_PROMPTS = [
     ["Sold fast — the story behind the result.", "Three beats: what it was, what you changed, what it sold for."],
     ["Three quick wins to get a home viewing-ready this weekend.", "Film each one being done, not described."],
   ];
+
+// ---------------------------------------------------------------------------
+// Naming a prompt in a URL.
+//
+// The dashboard sends a key, not the text: /account/editor?blank=1&prompt=<key>
+// keeps the wording in one place, so editing a brief here changes what the
+// editor shows without touching a link.
+//
+//   a dated day   the slug of its name    "back-to-school"
+//   an evergreen  its position            "ev-3"
+// ---------------------------------------------------------------------------
+
+export function slugOf(name) {
+  return String(name || "")
+    .toLowerCase()
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function keyForDay(day) {
+  return slugOf(day && day.name);
+}
+
+export function keyForEvergreen(index) {
+  return "ev-" + index;
+}
+
+/**
+ * The prompt behind a key, or null. Returns one shape whichever list it came
+ * from: what to say, and the guidance that goes with it.
+ */
+export function findPrompt(key) {
+  if (!key) return null;
+  const ev = /^ev-(\d+)$/.exec(key);
+  if (ev) {
+    const pair = EVERGREEN_PROMPTS[Number(ev[1])];
+    return pair ? { name: "Today's prompt", angle: pair[0], brief: pair[1] } : null;
+  }
+  const day = CONTENT_DAYS.find((d) => slugOf(d.name) === key);
+  return day ? { name: day.name, angle: day.angle, brief: day.brief || day.hint || "" } : null;
+}
