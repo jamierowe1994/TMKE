@@ -21,6 +21,14 @@ import "../../styles/admin.css";
 
   <p class="pr-status" id="pr-status">Loading…</p>
 
+  <div class="pr-empty" id="pr-empty" hidden>
+    <h2>No prompts in the table yet</h2>
+    <p>The table exists but nothing is in it, so members are still being served the
+      prompts built into the code. Load those in and they become editable here.</p>
+    <button type="button" class="admin-btn admin-btn-primary" id="pr-import">Load the shipped prompts</button>
+    <p class="pr-empty-note" id="pr-import-note">64 of them — 48 dated days and 16 evergreen. Nothing is overwritten: this only runs while the table is empty.</p>
+  </div>
+
   <section class="ash-panel pr-wrap" id="pr-wrap" hidden>
     <div class="pr-bar">
       <div class="pr-chips" id="pr-chips">
@@ -172,9 +180,12 @@ import "../../styles/admin.css";
         return;
       }
       ROWS = data || [];
-      $("pr-wrap").hidden = false;
-      if (!ROWS.length) $("pr-status").textContent = "No prompts yet — run supabase/content_prompts_seed.sql to load the ones already in the code.";
-      render();
+      // An empty table is its own state with its own way out, not a status line
+      // that render() then overwrites with "0 of 0 shown".
+      $("pr-empty").hidden = ROWS.length > 0;
+      $("pr-wrap").hidden = ROWS.length === 0;
+      $("pr-status").hidden = ROWS.length === 0;
+      if (ROWS.length) render();
     }
 
     // ---- edits -------------------------------------------------------------
@@ -248,11 +259,48 @@ import "../../styles/admin.css";
     });
     $("pr-q").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
 
+    // Loading the shipped set from code, so nobody has to paste 75 lines of SQL.
+    // Guarded on the table being empty: this is a first fill, not a merge.
+    $("pr-import").addEventListener("click", async () => {
+      const btn = $("pr-import");
+      btn.disabled = true; btn.textContent = "Loading…";
+      const { CONTENT_DAYS, EVERGREEN_PROMPTS } = await import("../../data/content-calendar.js");
+      const rows = [
+        ...CONTENT_DAYS.map((d, i) => ({
+          kind: "dated", name: d.name,
+          rule: d.on ? { on: d.on } : { nth: d.nth },
+          angle: d.angle, brief: d.brief || d.hint || "",
+          say: d.video ? d.video.say : null, cover: d.video ? d.video.cover : null,
+          is_video: !!d.video, sort_order: i,
+        })),
+        ...EVERGREEN_PROMPTS.map((p, i) => ({
+          kind: "evergreen", name: null, rule: null,
+          angle: p[0], brief: p[1] || "",
+          say: p[2] ? p[2].say : null, cover: p[2] ? p[2].cover : null,
+          is_video: !!p[2], sort_order: i,
+        })),
+      ];
+      const { error } = await supabase.from("content_prompts").insert(rows);
+      if (error) {
+        btn.disabled = false; btn.textContent = "Try again";
+        $("pr-import-note").textContent = "Couldn't load them: " + error.message;
+        return;
+      }
+      await load();
+    });
+
     load();
   </script>
 
   <style is:global>
     .pr-status { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .pr-status[hidden] { display: none; }
+    .pr-empty { padding: 34px 30px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; max-width: 640px; }
+    .pr-empty[hidden] { display: none; }
+    .pr-empty h2 { margin: 0; font-family: var(--serif); font-size: 20px; font-weight: 600; color: var(--ink); }
+    .pr-empty p { margin: 8px 0 0; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.6); }
+    .pr-empty .admin-btn { margin-top: 18px; }
+    .pr-empty-note { font-size: 12.5px !important; color: rgba(28,29,34,0.5) !important; }
     .pr-wrap[hidden] { display: none; }
     .pr-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
     .pr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-right: auto; }
