@@ -164,6 +164,30 @@ modal already open. Worth revisiting if a headless render ever exists.
 ratio and names it, falling back to `pages[0].canvas` for multi-page designs.
 Nothing to migrate, but it means an unusual size lands in "Other".
 
+## 7 · Prompts are editable from the admin centre
+
+Insights > Prompts. Needs two migrations, in order:
+
+    supabase/content_prompts.sql        the table and its policies
+    supabase/content_prompts_seed.sql   the 64 prompts already in code
+
+The seed CLEARS the table first, so run it to populate an empty table or to
+deliberately reset to what shipped — not as a routine top-up.
+
+The table shows what each prompt opens as (Post 1080x1440, or Reel cover
+1080x1920 when the Reel toggle is on) and flags rows that would mislead a
+member: a Reel with no "say" or no "cover", a hook with no text, a dated day
+with no date.
+
+`loadPrompts(supabase)` in content-calendar.js prefers the table and falls
+back to the code file when it is empty or the query fails. The code file is
+therefore still the safety net and should not be deleted.
+
+**Still to wire.** The member dashboard, the editor prompt box and the admin
+runway card all still read the code file directly. Pointing them at
+loadPrompts() is what makes the table actually take effect — do that next,
+and check the runway card's counts still come out the same.
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.

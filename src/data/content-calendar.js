@@ -419,3 +419,77 @@ export function findPrompt(key) {
 export function canvasForPrompt(p) {
   return p && p.video ? "1080x1920" : "1";
 }
+
+// ---------------------------------------------------------------------------
+// The editable copy.
+//
+// Everything above is the shipped set. Once content_prompts.sql has been run
+// and seeded, Insights > Prompts in the admin centre is the source, and this
+// file becomes the fallback for when the table is empty or the query fails —
+// a member's dashboard should not go blank because of either.
+//
+// Callers use loadPrompts() and then read .days / .evergreen exactly as they
+// read CONTENT_DAYS / EVERGREEN_PROMPTS, so nothing else has to know where the
+// words came from.
+// ---------------------------------------------------------------------------
+
+let _cache = null;
+
+function rowsToShape(rows) {
+  const days = [];
+  const evergreen = [];
+  for (const r of rows) {
+    const video = r.is_video ? { say: r.say || "", cover: r.cover || "" } : null;
+    if (r.kind === "evergreen") {
+      evergreen.push(video ? [r.angle, r.brief || "", video] : [r.angle, r.brief || ""]);
+    } else {
+      const rule = r.rule || {};
+      days.push({
+        ...(rule.on ? { on: rule.on } : {}),
+        ...(rule.nth ? { nth: rule.nth } : {}),
+        name: r.name,
+        angle: r.angle,
+        brief: r.brief || "",
+        ...(video ? { video } : {}),
+      });
+    }
+  }
+  // A row with no usable date would never resolve, so it is dropped rather
+  // than left to sort oddly among the rest.
+  return { days: days.filter((d) => d.on || d.nth), evergreen };
+}
+
+export async function loadPrompts(supabase) {
+  if (_cache) return _cache;
+  const shipped = { days: CONTENT_DAYS, evergreen: EVERGREEN_PROMPTS, source: "code" };
+  if (!supabase) return shipped;
+  try {
+    const { data, error } = await supabase
+      .from("content_prompts")
+      .select("kind, name, rule, angle, brief, say, cover, is_video, sort_order")
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    if (error || !data || !data.length) return shipped;
+    const shaped = rowsToShape(data);
+    if (!shaped.days.length && !shaped.evergreen.length) return shipped;
+    _cache = { ...shaped, source: "db" };
+    return _cache;
+  } catch (_) {
+    return shipped;
+  }
+}
+
+/** The next `count` dated hooks from whichever set is in play. */
+export function upcomingFrom(days, from = new Date(), count = 2) {
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const year = start.getFullYear();
+  const dated = [];
+  for (const y of [year, year + 1]) {
+    for (const entry of days) {
+      const when = resolve(entry, y);
+      if (when >= start) dated.push({ ...entry, when });
+    }
+  }
+  dated.sort((a, b) => a.when - b.when);
+  return dated.slice(0, count);
+}

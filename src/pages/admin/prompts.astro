@@ -1,0 +1,305 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="prompts" title="Prompts" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Prompts</div>
+          <div class="page-header-sub">Every content prompt members are shown — on the dashboard, in the planner and in the Studio.</div>
+        </div>
+      </div>
+      <div class="page-header-actions">
+        <button type="button" class="admin-btn" id="pr-add-ev">+ Evergreen</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="pr-add-day">+ Dated day</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="pr-status" id="pr-status">Loading…</p>
+
+  <section class="ash-panel pr-wrap" id="pr-wrap" hidden>
+    <div class="pr-bar">
+      <div class="pr-chips" id="pr-chips">
+        <button type="button" class="pr-chip is-active" data-filter="all">All <b>0</b></button>
+        <button type="button" class="pr-chip" data-filter="dated">Dated <b>0</b></button>
+        <button type="button" class="pr-chip" data-filter="evergreen">Evergreen <b>0</b></button>
+        <button type="button" class="pr-chip" data-filter="video">Reels <b>0</b></button>
+        <button type="button" class="pr-chip pr-chip-warn" data-filter="incomplete">Needs attention <b>0</b></button>
+      </div>
+      <label class="pr-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="pr-q" placeholder="Search prompts…" aria-label="Search prompts" />
+      </label>
+    </div>
+
+    <table class="pr-table">
+      <thead>
+        <tr>
+          <th class="pr-c-when">When</th>
+          <th class="pr-c-name">Day</th>
+          <th>Hook &amp; guidance</th>
+          <th class="pr-c-opens">Opens as</th>
+          <th class="pr-c-act"></th>
+        </tr>
+      </thead>
+      <tbody id="pr-rows"></tbody>
+    </table>
+  </section>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    let ROWS = [];
+    let filter = "all";
+    let q = "";
+
+    // What the member's canvas opens at. Kept here rather than imported so the
+    // table states the rule plainly next to the toggle that drives it.
+    const opensAs = (r) => (r.is_video
+      ? { label: "Reel cover", dim: "1080 × 1920" }
+      : { label: "Post", dim: "1080 × 1440" });
+
+    // A video prompt with no "say" or no "cover" is worse than a static one:
+    // the member is told to film something and left to guess at the cover.
+    const incomplete = (r) =>
+      (r.is_video && (!r.say || !r.cover)) || !r.angle || (r.kind === "dated" && (!r.name || !r.rule));
+
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+    function whenLabel(r) {
+      if (r.kind === "evergreen") return "—";
+      const rule = r.rule || {};
+      if (rule.on) {
+        const [m, d] = String(rule.on).split("-").map(Number);
+        return `${d} ${MONTHS[m - 1] || "?"}`;
+      }
+      if (rule.nth) {
+        const { month, weekday, n, offset } = rule.nth;
+        const ord = n === -1 ? "last" : ["", "1st", "2nd", "3rd", "4th"][n] || `${n}th`;
+        return `${ord} ${DAYS[weekday]} of ${MONTHS[month - 1]}${offset ? ` +${offset}d` : ""}`;
+      }
+      return "no date";
+    }
+
+    function view() {
+      let rows = ROWS;
+      if (filter === "dated") rows = rows.filter((r) => r.kind === "dated");
+      else if (filter === "evergreen") rows = rows.filter((r) => r.kind === "evergreen");
+      else if (filter === "video") rows = rows.filter((r) => r.is_video);
+      else if (filter === "incomplete") rows = rows.filter(incomplete);
+      if (q) {
+        rows = rows.filter((r) =>
+          [r.name, r.angle, r.brief, r.say, r.cover].some((v) => String(v || "").toLowerCase().includes(q)));
+      }
+      return rows;
+    }
+
+    function counts() {
+      const set = (f, n) => {
+        const el = document.querySelector(`[data-filter="${f}"] b`);
+        if (el) el.textContent = n;
+      };
+      set("all", ROWS.length);
+      set("dated", ROWS.filter((r) => r.kind === "dated").length);
+      set("evergreen", ROWS.filter((r) => r.kind === "evergreen").length);
+      set("video", ROWS.filter((r) => r.is_video).length);
+      const bad = ROWS.filter(incomplete).length;
+      set("incomplete", bad);
+      document.querySelector('[data-filter="incomplete"]')?.classList.toggle("is-bad", bad > 0);
+    }
+
+    function render() {
+      counts();
+      const rows = view();
+      $("pr-rows").innerHTML = rows.map((r) => {
+        const o = opensAs(r);
+        return `
+        <tr data-id="${esc(r.id)}"${incomplete(r) ? ' class="is-incomplete"' : ""}>
+          <td class="pr-c-when">
+            ${r.kind === "dated"
+              ? `<input class="pr-in pr-in-when" data-f="ruleText" value="${esc(r.rule && r.rule.on ? r.rule.on : "")}" placeholder="MM-DD" ${r.rule && r.rule.nth ? "disabled" : ""} />
+                 ${r.rule && r.rule.nth ? `<span class="pr-rule">${esc(whenLabel(r))}</span>` : ""}`
+              : `<span class="pr-rule">Evergreen</span>`}
+          </td>
+          <td class="pr-c-name">
+            ${r.kind === "dated" ? `<input class="pr-in" data-f="name" value="${esc(r.name)}" placeholder="Occasion" />` : `<span class="pr-rule">—</span>`}
+          </td>
+          <td>
+            <input class="pr-in pr-in-angle" data-f="angle" value="${esc(r.angle)}" placeholder="The hook shown on the card" />
+            <textarea class="pr-in pr-ta" data-f="brief" rows="2" placeholder="Guidance shown in the Studio">${esc(r.brief)}</textarea>
+            <div class="pr-vid${r.is_video ? " is-on" : ""}">
+              <label class="pr-toggle"><input type="checkbox" data-f="is_video" ${r.is_video ? "checked" : ""} /> Reel</label>
+              <textarea class="pr-in pr-ta pr-vid-f" data-f="say" rows="2" placeholder="What to say on camera">${esc(r.say)}</textarea>
+              <textarea class="pr-in pr-ta pr-vid-f" data-f="cover" rows="2" placeholder="What the cover needs to carry">${esc(r.cover)}</textarea>
+            </div>
+          </td>
+          <td class="pr-c-opens">
+            <span class="pr-opens${r.is_video ? " is-reel" : ""}">${o.label}</span>
+            <span class="pr-dim">${o.dim}</span>
+          </td>
+          <td class="pr-c-act">
+            <button type="button" class="pr-save" data-save>Save</button>
+            <button type="button" class="pr-del" data-del aria-label="Delete">&times;</button>
+          </td>
+        </tr>`;
+      }).join("");
+      $("pr-status").textContent = `${rows.length} of ${ROWS.length} shown`;
+    }
+
+    function rowOf(el) {
+      const tr = el.closest("[data-id]");
+      return { tr, row: ROWS.find((r) => r.id === tr?.getAttribute("data-id")) };
+    }
+
+    async function load() {
+      const { data, error } = await supabase
+        .from("content_prompts")
+        .select("*")
+        .order("kind", { ascending: true })
+        .order("sort_order", { ascending: true });
+      if (error) {
+        $("pr-status").textContent =
+          error.message.includes("content_prompts")
+            ? "The content_prompts table is missing — run supabase/content_prompts.sql, then the seed."
+            : "Couldn't load prompts: " + error.message;
+        return;
+      }
+      ROWS = data || [];
+      $("pr-wrap").hidden = false;
+      if (!ROWS.length) $("pr-status").textContent = "No prompts yet — run supabase/content_prompts_seed.sql to load the ones already in the code.";
+      render();
+    }
+
+    // ---- edits -------------------------------------------------------------
+    $("pr-rows").addEventListener("input", (e) => {
+      const t = e.target;
+      const f = t.getAttribute("data-f");
+      if (!f) return;
+      const { tr, row } = rowOf(t);
+      if (!row) return;
+      if (f === "ruleText") row.rule = t.value.trim() ? { on: t.value.trim() } : null;
+      else if (f === "is_video") {
+        row.is_video = t.checked;
+        tr.querySelector(".pr-vid")?.classList.toggle("is-on", t.checked);
+        render();                       // "Opens as" has to follow immediately
+        return;
+      } else row[f] = t.value;
+      tr.classList.add("is-dirty");
+    });
+
+    $("pr-rows").addEventListener("click", async (e) => {
+      const saveBtn = e.target.closest("[data-save]");
+      const delBtn = e.target.closest("[data-del]");
+      if (saveBtn) {
+        const { tr, row } = rowOf(saveBtn);
+        if (!row) return;
+        saveBtn.disabled = true; saveBtn.textContent = "Saving…";
+        const { error } = await supabase.from("content_prompts").update({
+          name: row.name || null, rule: row.rule, angle: row.angle,
+          brief: row.brief || null, say: row.say || null, cover: row.cover || null,
+          is_video: !!row.is_video,
+        }).eq("id", row.id);
+        saveBtn.disabled = false; saveBtn.textContent = error ? "Retry" : "Saved";
+        if (error) { alert("Couldn't save: " + error.message); return; }
+        tr.classList.remove("is-dirty");
+        setTimeout(() => { saveBtn.textContent = "Save"; }, 1400);
+        counts();
+      }
+      if (delBtn) {
+        const { row } = rowOf(delBtn);
+        if (!row) return;
+        if (!confirm(`Delete "${row.name || row.angle}"? Members stop seeing it straight away.`)) return;
+        const { error } = await supabase.from("content_prompts").delete().eq("id", row.id);
+        if (error) { alert("Couldn't delete: " + error.message); return; }
+        ROWS = ROWS.filter((r) => r.id !== row.id);
+        render();
+      }
+    });
+
+    async function add(kind) {
+      const { data, error } = await supabase.from("content_prompts").insert({
+        kind, angle: "New prompt", brief: "",
+        rule: kind === "dated" ? { on: "01-01" } : null,
+        name: kind === "dated" ? "New day" : null,
+        sort_order: ROWS.filter((r) => r.kind === kind).length,
+      }).select().maybeSingle();
+      if (error) { alert("Couldn't add: " + error.message); return; }
+      ROWS.unshift(data);
+      filter = "all"; q = ""; $("pr-q").value = "";
+      document.querySelectorAll(".pr-chip").forEach((c) => c.classList.toggle("is-active", c.dataset.filter === "all"));
+      render();
+    }
+    $("pr-add-day").addEventListener("click", () => add("dated"));
+    $("pr-add-ev").addEventListener("click", () => add("evergreen"));
+
+    $("pr-chips").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-filter]");
+      if (!b) return;
+      filter = b.getAttribute("data-filter");
+      document.querySelectorAll(".pr-chip").forEach((c) => c.classList.toggle("is-active", c === b));
+      render();
+    });
+    $("pr-q").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+
+    load();
+  </script>
+
+  <style is:global>
+    .pr-status { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .pr-wrap[hidden] { display: none; }
+    .pr-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .pr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-right: auto; }
+    .pr-chip { display: inline-flex; align-items: center; gap: 7px; height: 28px; box-sizing: border-box; padding: 0 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; }
+    .pr-chip.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .pr-chip b { font-size: 11px; padding: 1px 6px; border-radius: 3px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
+    .pr-chip.is-active b { background: rgba(255,255,255,0.22); color: #fff; }
+    .pr-chip.is-bad:not(.is-active) { border-color: rgba(165,53,47,0.4); color: #a5352f; }
+    .pr-chip.is-bad:not(.is-active) b { background: rgba(165,53,47,0.12); color: #a5352f; }
+    .pr-search { display: flex; align-items: center; gap: 7px; height: 28px; box-sizing: border-box; padding: 0 10px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; }
+    .pr-search svg { width: 14px; height: 14px; fill: none; stroke: rgba(28,29,34,0.45); stroke-width: 2; }
+    .pr-search input { border: 0; outline: none; background: none; width: 190px; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+
+    .pr-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; border: 1px solid rgba(28,29,34,0.14); }
+    .pr-table thead th { text-align: left; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(28,29,34,0.72); background: rgba(28,29,34,0.05); padding: 9px 12px; border-right: 1px solid rgba(28,29,34,0.14); border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .pr-table td { padding: 10px 12px; border-right: 1px solid rgba(28,29,34,0.09); border-bottom: 1px solid rgba(28,29,34,0.09); vertical-align: top; }
+    .pr-table th:last-child, .pr-table td:last-child { border-right: 0; }
+    .pr-c-when { width: 128px; }
+    .pr-c-name { width: 170px; }
+    .pr-c-opens { width: 108px; }
+    .pr-c-act { width: 92px; }
+    /* A row that would mislead a member gets an edge, not a shout. */
+    .pr-table tr.is-incomplete td { background: rgba(165,53,47,0.045); }
+    .pr-table tr.is-incomplete td:first-child { box-shadow: inset 3px 0 0 #a5352f; }
+    .pr-table tr.is-dirty td:last-child { box-shadow: inset -3px 0 0 var(--english-violet); }
+
+    .pr-in { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid rgba(28,29,34,0.14); border-radius: 3px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; }
+    .pr-in:focus { outline: none; border-color: var(--english-violet); }
+    .pr-in:disabled { background: rgba(28,29,34,0.04); color: rgba(28,29,34,0.5); }
+    .pr-in-angle { font-weight: 600; }
+    .pr-ta { margin-top: 6px; resize: vertical; line-height: 1.45; }
+    .pr-rule { display: block; margin-top: 6px; font-size: 11.5px; color: rgba(28,29,34,0.5); }
+
+    .pr-vid { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(28,29,34,0.14); }
+    .pr-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
+    .pr-toggle input { accent-color: var(--english-violet); width: 15px; height: 15px; }
+    /* The two video-only fields only exist when the toggle says so. */
+    .pr-vid .pr-vid-f { display: none; }
+    .pr-vid.is-on .pr-vid-f { display: block; }
+
+    .pr-opens { display: inline-block; padding: 3px 8px; border-radius: 3px; background: rgba(28,29,34,0.07); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.65); }
+    .pr-opens.is-reel { background: rgba(var(--violet-rgb),0.12); color: var(--english-violet); }
+    .pr-dim { display: block; margin-top: 4px; font-size: 11px; color: rgba(28,29,34,0.45); font-variant-numeric: tabular-nums; }
+
+    .pr-save { height: 28px; padding: 0 12px; border: 1px solid rgba(var(--violet-rgb),0.4); border-radius: 4px; background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); cursor: pointer; }
+    .pr-save:hover:not(:disabled) { background: var(--english-violet); color: #fff; }
+    .pr-del { margin-left: 4px; height: 28px; width: 28px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; color: rgba(28,29,34,0.5); font-size: 16px; line-height: 1; cursor: pointer; }
+    .pr-del:hover { border-color: #a5352f; color: #a5352f; }
+  </style>
+</AdminShell>
