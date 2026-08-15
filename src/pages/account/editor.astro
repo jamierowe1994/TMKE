@@ -423,6 +423,7 @@ const googleFonts = [
             <span class="ed-prompt-brief" id="ed-prompt-brief"></span>
             <span class="ed-prompt-part" id="ed-prompt-say" hidden><b>What to say on camera</b><i></i></span>
             <span class="ed-prompt-part" id="ed-prompt-cover" hidden><b>Your cover</b><i></i></span>
+            <span class="ed-prompt-part" id="ed-prompt-detail" hidden><b>What to put in it</b><i></i></span>
           </span></span>
         </button>
 
@@ -1058,7 +1059,7 @@ const googleFonts = [
     /* The prompt box: wine, above the start options, closed by default. */
     .ed-prompt {
       appearance: none; display: block; width: 100%; text-align: left; cursor: pointer;
-      margin: 0 0 14px; padding: 12px 14px; border: 0; border-radius: 4px;
+      margin: 0 0 10px; padding: 14px; border: 0; border-radius: 12px;
       background: var(--english-violet); color: #fff; font-family: var(--sans);
     }
     .ed-prompt[hidden] { display: none; }
@@ -1074,12 +1075,15 @@ const googleFonts = [
     .ed-prompt-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s cubic-bezier(.2,.8,.2,1); }
     .ed-prompt[aria-expanded="true"] .ed-prompt-body { grid-template-rows: 1fr; }
     .ed-prompt-inner { display: block; min-height: 0; overflow: hidden; }
-    .ed-prompt-angle { display: block; padding-top: 11px; font-size: 13.5px; font-weight: 600; line-height: 1.35; color: #fff; }
-    .ed-prompt-brief { display: block; padding-top: 7px; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,0.76); }
-    .ed-prompt-part { display: block; padding-top: 10px; }
+    .ed-prompt-angle { display: block; padding-top: 15px; font-size: 13.5px; font-weight: 600; line-height: 1.45; color: #fff; }
+    .ed-prompt-brief { display: block; padding-top: 8px; font-size: 12.5px; line-height: 1.55; color: rgba(255,255,255,0.76); }
+    .ed-prompt-part { display: block; padding-top: 13px; }
     .ed-prompt-part[hidden] { display: none; }
     .ed-prompt-part b { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
-    .ed-prompt-part i { display: block; margin-top: 3px; font-style: normal; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,0.82); }
+    .ed-prompt-part i { display: block; margin-top: 4px; font-style: normal; font-size: 12.5px; line-height: 1.55; color: rgba(255,255,255,0.82); }
+    /* Breathing room at the foot of the opened panel, or the last line sits on
+       the edge of the box. */
+    .ed-prompt-inner { padding-bottom: 4px; }
 
     /* Starting panel — "choose something to edit" (customer Studio only). */
     .ed-start-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -1362,7 +1366,10 @@ const googleFonts = [
       border-right: 1px solid rgba(28,29,34,0.08);
       display: flex;
       flex-direction: column;
-      padding: 8px 0;
+      /* The bottom padding matches the Creative Assistant's own offset, so the
+         last icon in the rail and the button share one baseline instead of
+         missing each other by sixteen pixels. */
+      padding: 8px 0 24px;
       gap: 2px;
       z-index: 25;
     }
@@ -6075,6 +6082,11 @@ const googleFonts = [
         say.hidden = false;
         cov.hidden = false;
         document.getElementById("ed-prompt-name").textContent = p.name + " \u00b7 Reel";
+      } else if (p.detail) {
+        // The static equivalent: one job, but more than one line's worth of it.
+        const det = document.getElementById("ed-prompt-detail");
+        det.querySelector("i").textContent = p.detail;
+        det.hidden = false;
       }
       box.hidden = false;
       box.addEventListener("click", () => {

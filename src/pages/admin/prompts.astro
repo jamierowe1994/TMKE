@@ -77,7 +77,8 @@ import "../../styles/admin.css";
     // A video prompt with no "say" or no "cover" is worse than a static one:
     // the member is told to film something and left to guess at the cover.
     const incomplete = (r) =>
-      (r.is_video && (!r.say || !r.cover)) || !r.angle || (r.kind === "dated" && (!r.name || !r.rule));
+      (r.is_video && (!r.say || !r.cover)) || (!r.is_video && !r.detail) ||
+      !r.angle || (r.kind === "dated" && (!r.name || !r.rule));
 
     const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -146,6 +147,7 @@ import "../../styles/admin.css";
               <label class="pr-toggle"><input type="checkbox" data-f="is_video" ${r.is_video ? "checked" : ""} /> Reel</label>
               <textarea class="pr-in pr-ta pr-vid-f" data-f="say" rows="2" placeholder="What to say on camera">${esc(r.say)}</textarea>
               <textarea class="pr-in pr-ta pr-vid-f" data-f="cover" rows="2" placeholder="What the cover needs to carry">${esc(r.cover)}</textarea>
+              <textarea class="pr-in pr-ta pr-still-f" data-f="detail" rows="3" placeholder="More on what to put in the post — shown in the Studio, under the guidance">${esc(r.detail)}</textarea>
             </div>
           </td>
           <td class="pr-c-opens">
@@ -215,6 +217,7 @@ import "../../styles/admin.css";
         const { error } = await supabase.from("content_prompts").update({
           name: row.name || null, rule: row.rule, angle: row.angle,
           brief: row.brief || null, say: row.say || null, cover: row.cover || null,
+          detail: row.detail || null,
           is_video: !!row.is_video,
         }).eq("id", row.id);
         saveBtn.disabled = false; saveBtn.textContent = error ? "Retry" : "Saved";
@@ -340,6 +343,7 @@ import "../../styles/admin.css";
     /* The two video-only fields only exist when the toggle says so. */
     .pr-vid .pr-vid-f { display: none; }
     .pr-vid.is-on .pr-vid-f { display: block; }
+    .pr-vid.is-on .pr-still-f { display: none; }
 
     .pr-opens { display: inline-block; padding: 3px 8px; border-radius: 3px; background: rgba(28,29,34,0.07); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.65); }
     .pr-opens.is-reel { background: rgba(var(--violet-rgb),0.12); color: var(--english-violet); }

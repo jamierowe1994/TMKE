@@ -416,10 +416,18 @@ export function findPromptIn(sets, key) {
     const pair = /^\d+$/.test(rest)
       ? evergreen[Number(rest)]
       : evergreen.find((p) => slugOf(p[0]) === rest);
-    return pair ? { name: "Today's prompt", angle: pair[0], brief: pair[1] || "", video: pair[2] || null } : null;
+    const extra = pair && pair[2];
+    return pair
+      ? { name: "Today's prompt", angle: pair[0], brief: pair[1] || "",
+          video: extra && extra.say ? extra : null,
+          detail: extra && extra.detail ? extra.detail : "" }
+      : null;
   }
   const day = days.find((d) => slugOf(d.name) === key);
-  return day ? { name: day.name, angle: day.angle, brief: day.brief || day.hint || "", video: day.video || null } : null;
+  return day
+    ? { name: day.name, angle: day.angle, brief: day.brief || day.hint || "",
+        video: day.video || null, detail: day.detail || "" }
+    : null;
 }
 
 /** The shipped set only — used where nothing has loaded the table. */
@@ -456,7 +464,10 @@ function rowsToShape(rows) {
   for (const r of rows) {
     const video = r.is_video ? { say: r.say || "", cover: r.cover || "" } : null;
     if (r.kind === "evergreen") {
-      evergreen.push(video ? [r.angle, r.brief || "", video] : [r.angle, r.brief || ""]);
+      // The third slot carries whichever elaboration applies: a Reel's two
+      // lines, or the longer detail a post gets. Never both.
+      const extra = video || (r.detail ? { detail: r.detail } : null);
+      evergreen.push(extra ? [r.angle, r.brief || "", extra] : [r.angle, r.brief || ""]);
     } else {
       const rule = r.rule || {};
       days.push({
@@ -466,6 +477,7 @@ function rowsToShape(rows) {
         angle: r.angle,
         brief: r.brief || "",
         ...(video ? { video } : {}),
+        ...(!video && r.detail ? { detail: r.detail } : {}),
       });
     }
   }
@@ -481,7 +493,7 @@ export async function loadPrompts(supabase) {
   try {
     const { data, error } = await supabase
       .from("content_prompts")
-      .select("kind, name, rule, angle, brief, say, cover, is_video, sort_order")
+      .select("kind, name, rule, angle, brief, say, cover, detail, is_video, sort_order")
       .eq("active", true)
       .order("sort_order", { ascending: true });
     if (error || !data || !data.length) return shipped;
