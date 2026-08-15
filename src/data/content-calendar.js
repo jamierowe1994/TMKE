@@ -69,40 +69,197 @@ export const CONTENT_DAYS = [
     angle: "The difference good photography makes to a sale price",
     hint: "Your own before and after. Phone shot beside the professional one.",
   },
+  // ---------------------------------------------------------------------
+  // September to December, supplied by James. `brief` is his wording, kept
+  // verbatim — it is what the member reads. `angle` is the short hook the
+  // card shows, drawn from the brief rather than invented alongside it.
+  // ---------------------------------------------------------------------
   {
-    on: "09-01", name: "Back to school",
-    angle: "Buying for the catchment — what parents ask us first",
-    hint: "Talk to camera outside the school gates, not in the office.",
+    on: "09-01", name: "Back to School",
+    angle: "What the return to routine teaches you about your space",
+    brief: "Share how the return to routine can often make people rethink their home. Ask your audience what they've learnt about their space over the summer and pair it with a photo of your workspace, local school or a family-friendly home.",
+  },
+  {
+    on: "09-05", name: "International Day of Charity",
+    angle: "A local cause worth knowing about",
+    brief: "Shine a light on a local charity, fundraiser or community cause that's close to your heart. Share why it matters to you and encourage your audience to get involved or support them.",
+  },
+  {
+    on: "09-06", name: "Read a Book Day",
+    angle: "The book you'd actually recommend",
+    brief: "Recommend a book you've enjoyed, whether it's business, mindset, property or fiction. A simple photo of the book with a few words about why you'd recommend it works perfectly.",
+  },
+  {
+    on: "09-11", name: "Make Your Bed Day",
+    angle: "The small routines behind a productive day",
+    brief: "Talk about the little routines that help you have a productive day. Keep it personal and share a photo of your morning coffee, workspace or something that helps you start the day well.",
+  },
+  {
+    on: "09-13", name: "Positive Thinking Day",
+    angle: "The outlook that carries you through the job",
+    brief: "Share a positive mindset that's helped you in business or life. Keep it authentic and explain how that outlook helps you support your clients every day.",
+  },
+  {
+    on: "09-21", name: "Recycle Day",
+    angle: "Giving something in the home a second life",
+    brief: "Highlight a simple way to live more sustainably, whether that's recycling, upcycling furniture or giving household items a second life. A before-and-after or home inspiration post works well.",
+  },
+  {
+    on: "09-23", name: "Autumn Equinox",
+    angle: "What you love most about the season turning",
+    brief: "Mark the first day of autumn by sharing what you love most about the season. Think cosy homes, autumn walks, local scenery or your favourite seasonal traditions.",
+  },
+  {
+    // Macmillan set this each year; it has landed on the last Friday of
+    // September. Confirm against their date before the week itself.
+    nth: { month: 9, weekday: 5, n: -1 }, name: "World's Biggest Coffee Morning",
+    angle: "Back a Coffee Morning near you",
+    brief: "Support Macmillan by promoting a local Coffee Morning or encouraging your audience to get involved. If you're attending one yourself, share a photo and tag the organisers.",
+  },
+  {
+    on: "09-27", name: "World Tourism Day",
+    angle: "The one place every local should visit",
+    brief: "Recommend one place every local should visit, whether it's a landmark, cafe, beach, walk or hidden gem. Share a photo and explain why it's worth a visit.",
+  },
+  {
+    on: "09-30", name: "World Podcast Day",
+    angle: "What you have been listening to",
+    brief: "Recommend a podcast you've enjoyed recently, whether it's business, property or something completely different. Tell people why you like it and invite them to share their own recommendations.",
+  },
+  {
+    on: "10-01", name: "Black History Month",
+    angle: "A local story worth telling",
+    brief: "Celebrate a local person, place or story that has contributed to your community's history. Keep it respectful, informative and relevant to your local area.",
+  },
+  {
+    on: "10-02", name: "World Smile Day",
+    angle: "The moment that made you smile this week",
+    brief: "Share something that's made you smile recently, whether it's a client moment, a key handover or something that happened in your community. A genuine story will always outperform a generic quote.",
+  },
+  {
+    // UK Grandparents' Day — first Sunday of October.
+    nth: { month: 10, weekday: 0, n: 1 }, name: "Grandparents' Day",
+    angle: "The advice you got from someone older and wiser",
+    brief: "Share a memory, lesson or piece of advice you've learnt from a grandparent or older family member. A personal photo works well if you're comfortable sharing one.",
   },
   {
     on: "10-10", name: "World Mental Health Day",
-    angle: "Moving is stressful — the five things we take off your plate",
-    hint: "Honest and unpolished. One take beats five.",
+    angle: "How you actually switch off",
+    brief: "Talk honestly about looking after your wellbeing. Share a habit, routine or place that helps you switch off and encourage others to do the same.",
+  },
+  {
+    on: "10-12", name: "Coffee Week",
+    angle: "Your local, and your usual order",
+    brief: "Give a shout-out to your favourite local coffee shop or cafe. Share what you always order and encourage your audience to support local businesses.",
+  },
+  {
+    // Last Sunday of October.
+    nth: { month: 10, weekday: 0, n: -1 }, name: "Clocks Go Back",
+    angle: "Making a home feel warm when the evenings draw in",
+    brief: "Mark the arrival of darker evenings with autumn home inspiration. Share simple ways to make your home feel warm, cosy and inviting during the colder months.",
+  },
+  {
+    on: "10-26", name: "Pumpkin Day",
+    angle: "Your pumpkin, or the patch you found it at",
+    brief: "Show off your pumpkin carving, favourite autumn decoration or a local pumpkin patch. Keep it light-hearted and seasonal.",
   },
   {
     on: "10-31", name: "Halloween",
-    angle: "The listing photo mistakes that genuinely scare buyers off",
-    hint: "Show real examples, anonymised. Light-hearted, not cruel.",
+    angle: "Join in without trying too hard",
+    brief: "Join in with Halloween by sharing a decorated office, carved pumpkin or a fun community event. If appropriate, ask your audience to vote for their favourite costume or pumpkin.",
+  },
+  {
+    on: "11-01", name: "Movember",
+    angle: "Why men's health is worth a month",
+    brief: "If you're taking part, share why you're supporting Movember and the importance of men's health. If not, help raise awareness by sharing where people can find out more.",
   },
   {
     on: "11-05", name: "Bonfire Night",
-    angle: "Gardens made for autumn evenings",
-    hint: "Shoot at dusk. Outside lights on, one wide and one close.",
+    angle: "Where to watch, and a word about pets",
+    brief: "Share your favourite local fireworks display or Bonfire Night event. If you have pets, include a reminder about keeping them safe during fireworks.",
+  },
+  {
+    // Second Sunday of November.
+    nth: { month: 11, weekday: 0, n: 2 }, name: "Remembrance Sunday",
+    angle: "A simple message of remembrance",
+    brief: "Mark the day respectfully with a simple message of remembrance. Keep the focus on reflection rather than promotion.",
+  },
+  {
+    on: "11-11", name: "Armistice Day",
+    angle: "Observe the silence",
+    brief: "Observe the two-minute silence and share a respectful message recognising those who served. Avoid promotional content alongside this post.",
+  },
+  {
+    on: "11-13", name: "World Kindness Day",
+    angle: "A small kindness worth passing on",
+    brief: "Share a small act of kindness you've experienced or encourage your audience to support someone in their local community. Simple stories often resonate the most.",
+  },
+  {
+    on: "11-19", name: "International Men's Day",
+    angle: "The men who taught you something",
+    brief: "Celebrate positive male role models, whether that's a family member, colleague or friend. Share what you've learnt from them or why you appreciate them.",
+  },
+  {
+    // Friday after the fourth Thursday of November.
+    nth: { month: 11, weekday: 4, n: 4, offset: 1 }, name: "Black Friday",
+    angle: "Independents worth your money this week",
+    brief: "Instead of focusing on discounts, share your favourite local independent businesses that deserve support during the busy shopping season.",
+  },
+  {
+    // The Saturday after Black Friday.
+    nth: { month: 11, weekday: 4, n: 4, offset: 2 }, name: "Small Business Saturday",
+    angle: "The independent you would send a friend to",
+    brief: "Shine a light on an independent business you love. Share why you'd recommend them and encourage your audience to shop local where they can.",
   },
   {
     on: "11-30", name: "St Andrew's Day",
-    angle: "Why winter viewings tell you more about a house than summer ones",
-    hint: "Film on a grey day on purpose. Heating, light, draughts.",
+    angle: "What makes your patch worth living in",
+    brief: "If you're based in Scotland, celebrate what makes your local area special. If not, share your favourite Scottish destination, memory or tradition.",
   },
   {
-    on: "12-01", name: "First of December",
-    angle: "Should you list before Christmas or wait for January?",
-    hint: "Give a real answer with a reason. Thirty seconds.",
+    on: "12-01", name: "First Day of Advent",
+    angle: "The one thing you are looking forward to",
+    brief: "Mark the countdown to Christmas by sharing one thing you're looking forward to this festive season. A festive workspace or local decoration makes a great visual.",
+  },
+  {
+    on: "12-05", name: "International Volunteer Day",
+    angle: "The volunteers who hold your area together",
+    brief: "Recognise the volunteers who make a difference in your local community or share a cause you've supported yourself.",
+  },
+  {
+    on: "12-09", name: "Christmas Card Day",
+    angle: "Cards, and the people who make them",
+    brief: "Share a photo of your Christmas cards, your team's festive setup or encourage people to support local card makers this Christmas.",
+  },
+  {
+    on: "12-10", name: "Christmas Jumper Day",
+    angle: "Wear the jumper, ask for theirs",
+    brief: "Join in by wearing your favourite Christmas jumper and encourage your audience to do the same. If you're fundraising, let people know how they can support you.",
+  },
+  {
+    on: "12-21", name: "First Day of Winter",
+    angle: "A cosy home, or a frosty morning",
+    brief: "Celebrate the start of winter with a cosy home, frosty morning or beautiful local landscape. Ask your audience what they love most about the season.",
+  },
+  {
+    on: "12-24", name: "Christmas Eve",
+    angle: "Thank the people who made the year",
+    brief: "Share a warm festive message thanking your clients, followers and local community for their support throughout the year.",
+  },
+  {
+    on: "12-25", name: "Christmas Day",
+    angle: "Merry Christmas, and nothing else",
+    brief: "Wish everyone a Merry Christmas with a simple, heartfelt message. Keep the focus on spending time with loved ones and enjoying the day.",
+  },
+  {
+    on: "12-26", name: "Boxing Day",
+    angle: "Walk, leftovers, or the sofa?",
+    brief: "Ask your audience how they're spending Boxing Day, whether it's a walk, leftovers or a day on the sofa. Keep it relaxed and conversational.",
   },
   {
     on: "12-31", name: "New Year's Eve",
-    angle: "What the local market actually did this year",
-    hint: "Three numbers you can stand behind. Say where they came from.",
+    angle: "The year in one highlight and one lesson",
+    brief: "Reflect on the year, share a highlight or lesson you've learnt and thank your clients and community for their support. End by wishing everyone a happy New Year.",
   },
   {
     // World Book Day (UK) — first Thursday of March.
@@ -113,15 +270,30 @@ export const CONTENT_DAYS = [
 ];
 
 // Resolve an entry to a Date in a given year.
+//
+//   on:  "MM-DD"                       a genuinely fixed date
+//   nth: { month, weekday, n }         nth weekday of a month; n: -1 means last
+//        { ..., offset: 1 }            that many days after it
+//
+// The rules exist because several observances move: Remembrance Sunday is the
+// second Sunday of November, the clocks go back on the last Sunday of October,
+// and Black Friday is the day after the fourth Thursday. Pinning those to the
+// date they happen to fall on this year would be wrong from next year on.
 function resolve(entry, year) {
   if (entry.on) {
     const [m, d] = entry.on.split("-").map(Number);
     return new Date(year, m - 1, d);
   }
-  const { month, weekday, n } = entry.nth;
-  const first = new Date(year, month - 1, 1);
-  const shift = (weekday - first.getDay() + 7) % 7;
-  return new Date(year, month - 1, 1 + shift + (n - 1) * 7);
+  const { month, weekday, n, offset = 0 } = entry.nth;
+  let day;
+  if (n === -1) {
+    const last = new Date(year, month, 0);            // last day of the month
+    day = last.getDate() - ((last.getDay() - weekday + 7) % 7);
+  } else {
+    const first = new Date(year, month - 1, 1);
+    day = 1 + ((weekday - first.getDay() + 7) % 7) + (n - 1) * 7;
+  }
+  return new Date(year, month - 1, day + offset);
 }
 
 /**

@@ -14,6 +14,18 @@ import AdminShell from "../components/admin/AdminShell.astro";
     </div>
   </div>
 
+  <!-- How far the content calendar runs. It is checked-in data, so nothing
+       refills it on its own — this is the only thing that will say so before a
+       member opens the hub to a week with nothing in it. -->
+  <div class="card mb20" id="dash-calendar">
+    <div class="card-head">
+      <div class="card-title">Content calendar</div>
+      <a class="icon-btn" href="https://github.com/jamierowe1994/TMKE/blob/main/src/data/content-calendar.js" target="_blank" rel="noopener">Edit the days &rarr;</a>
+    </div>
+    <p class="dash-cal-line" id="dash-cal-line">Checking…</p>
+    <p class="dash-cal-sub" id="dash-cal-sub"></p>
+  </div>
+
   <div class="card mb20 dash-mgmt-only" data-mgmt hidden>
     <div class="card-head">
       <div class="card-title">Revenue</div>
@@ -755,4 +767,55 @@ import AdminShell from "../components/admin/AdminShell.astro";
       }
     });
   </script>
+  <script>
+    // One module script: the inline one ran before this had set its global, so
+    // the card sat on "Checking…".
+    //
+    // "Running out" is not about the last date — the calendar repeats every
+    // year, so there is always something twelve months out. What matters is
+    // whether the WEEKS AHEAD have anything in them, which is where a thin
+    // stretch actually shows up on a member's dashboard.
+    import { CONTENT_DAYS, upcomingDays } from "../data/content-calendar.js";
+
+    (function calendarRunway() {
+      const line = document.getElementById("dash-cal-line");
+      const sub = document.getElementById("dash-cal-sub");
+      const card = document.getElementById("dash-calendar");
+      if (!line || !sub || !card) return;
+
+      const HORIZON = 90;                       // days ahead we care about
+      const THIN = 6;                           // fewer than this is thin
+      const end = Date.now() + HORIZON * 86400000;
+      const ahead = upcomingDays(new Date(), 60).filter((d) => d.when.getTime() <= end);
+
+      // The longest run of days with nothing on it, counting from today.
+      let gap = 0, cursor = Date.now();
+      for (const d of ahead) {
+        gap = Math.max(gap, Math.round((d.when.getTime() - cursor) / 86400000));
+        cursor = d.when.getTime();
+      }
+      gap = Math.max(gap, Math.round((end - cursor) / 86400000));
+
+      const next = ahead[0];
+      line.textContent = ahead.length
+        ? `${ahead.length} dated prompt${ahead.length === 1 ? "" : "s"} in the next three months`
+        : "Nothing dated in the next three months";
+      sub.textContent =
+        (next ? `Next: ${next.name} on ${next.when.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}. ` : "") +
+        `Longest gap ahead: ${gap} days. ${CONTENT_DAYS.length} days in the calendar all told.`;
+
+      // Thin coverage, or a fortnight-plus with nothing, is worth writing more.
+      if (ahead.length < THIN || gap >= 21) {
+        card.classList.add("is-warning");
+        sub.textContent = "Worth adding more. " + sub.textContent;
+      }
+    })();
+  </script>
+
+  <style is:global>
+    #dash-calendar.is-warning { border-color: #b4553f; }
+    #dash-calendar.is-warning .card-title::after { content: " \2014 running low"; color: #b4553f; font-weight: 700; }
+    .dash-cal-line { margin: 6px 0 0; font-family: var(--sans); font-size: 20px; font-weight: 600; color: var(--ink); }
+    .dash-cal-sub { margin: 4px 0 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+  </style>
 </AdminShell>
