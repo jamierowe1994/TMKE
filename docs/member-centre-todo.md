@@ -183,10 +183,14 @@ with no date.
 back to the code file when it is empty or the query fails. The code file is
 therefore still the safety net and should not be deleted.
 
-**Still to wire.** The member dashboard, the editor prompt box and the admin
-runway card all still read the code file directly. Pointing them at
-loadPrompts() is what makes the table actually take effect — do that next,
-and check the runway card's counts still come out the same.
+**Wired.** The member dashboard, the editor prompt box and the admin runway
+card all read the table through `loadPrompts()`, with the code file as the
+fallback. Editing a prompt in Insights > Prompts changes all three.
+
+Evergreen prompts are keyed by a slug of their own hook (`ev-a-60-second-tour-
+of-...`), not by position. A position changes the moment somebody reorders the
+table, and every link made before that would open a different prompt. Numeric
+keys are still honoured so an open tab does not break, but nothing makes one.
 
 ## Notes
 

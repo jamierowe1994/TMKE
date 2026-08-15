@@ -6051,12 +6051,15 @@ const googleFonts = [
     // The prompt box. The dashboard sends a key, not the words, so a brief
     // edited in content-calendar.js changes what shows here with no link to
     // update.
-    import { findPrompt } from "../../data/content-calendar.js";
-    (function wirePromptBox() {
+    import { supabase } from "../../lib/supabase.js";
+    import { loadPrompts, findPromptIn } from "../../data/content-calendar.js";
+    (async function wirePromptBox() {
       const key = new URLSearchParams(location.search).get("prompt");
       const box = document.getElementById("ed-prompt");
       if (!key || !box) return;
-      const p = findPrompt(key);
+      // Same source as the dashboard that linked here, so the words in the box
+      // are the words on the card that was clicked.
+      const p = findPromptIn(await loadPrompts(supabase), key);
       if (!p) return;                       // unknown key: show nothing at all
       document.getElementById("ed-prompt-name").textContent = p.name;
       document.getElementById("ed-prompt-angle").textContent = p.angle || "";

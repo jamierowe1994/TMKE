@@ -393,23 +393,38 @@ export function keyForDay(day) {
   return slugOf(day && day.name);
 }
 
-export function keyForEvergreen(index) {
-  return "ev-" + index;
+// Keyed by its own words, not its position. A position changes the moment
+// someone reorders the admin table, and every link generated before that would
+// then open a different prompt.
+export function keyForEvergreen(pairOrAngle) {
+  const angle = Array.isArray(pairOrAngle) ? pairOrAngle[0] : pairOrAngle;
+  return "ev-" + slugOf(angle);
 }
 
 /**
  * The prompt behind a key, or null. Returns one shape whichever list it came
  * from: what to say, and the guidance that goes with it.
  */
-export function findPrompt(key) {
-  if (!key) return null;
-  const ev = /^ev-(\d+)$/.exec(key);
-  if (ev) {
-    const pair = EVERGREEN_PROMPTS[Number(ev[1])];
-    return pair ? { name: "Today's prompt", angle: pair[0], brief: pair[1], video: pair[2] || null } : null;
+export function findPromptIn(sets, key) {
+  if (!key || !sets) return null;
+  const days = sets.days || [];
+  const evergreen = sets.evergreen || [];
+  if (String(key).startsWith("ev-")) {
+    const rest = String(key).slice(3);
+    // A bare number is a link made before keys became slugs. Still honoured so
+    // an open tab does not break, but nothing generates one now.
+    const pair = /^\d+$/.test(rest)
+      ? evergreen[Number(rest)]
+      : evergreen.find((p) => slugOf(p[0]) === rest);
+    return pair ? { name: "Today's prompt", angle: pair[0], brief: pair[1] || "", video: pair[2] || null } : null;
   }
-  const day = CONTENT_DAYS.find((d) => slugOf(d.name) === key);
+  const day = days.find((d) => slugOf(d.name) === key);
   return day ? { name: day.name, angle: day.angle, brief: day.brief || day.hint || "", video: day.video || null } : null;
+}
+
+/** The shipped set only — used where nothing has loaded the table. */
+export function findPrompt(key) {
+  return findPromptIn({ days: CONTENT_DAYS, evergreen: EVERGREEN_PROMPTS }, key);
 }
 
 /**

@@ -775,9 +775,10 @@ import AdminShell from "../components/admin/AdminShell.astro";
     // year, so there is always something twelve months out. What matters is
     // whether the WEEKS AHEAD have anything in them, which is where a thin
     // stretch actually shows up on a member's dashboard.
-    import { CONTENT_DAYS, upcomingDays } from "../data/content-calendar.js";
+    import { supabase } from "../lib/supabase.js";
+    import { loadPrompts, upcomingFrom } from "../data/content-calendar.js";
 
-    (function calendarRunway() {
+    (async function calendarRunway() {
       const line = document.getElementById("dash-cal-line");
       const sub = document.getElementById("dash-cal-sub");
       const card = document.getElementById("dash-calendar");
@@ -786,7 +787,10 @@ import AdminShell from "../components/admin/AdminShell.astro";
       const HORIZON = 90;                       // days ahead we care about
       const THIN = 6;                           // fewer than this is thin
       const end = Date.now() + HORIZON * 86400000;
-      const ahead = upcomingDays(new Date(), 60).filter((d) => d.when.getTime() <= end);
+      // The same source the members see, so this cannot report coverage the
+      // dashboard does not actually have.
+      const PROMPTS = await loadPrompts(supabase);
+      const ahead = upcomingFrom(PROMPTS.days, new Date(), 60).filter((d) => d.when.getTime() <= end);
 
       // The longest run of days with nothing on it, counting from today.
       let gap = 0, cursor = Date.now();
@@ -802,7 +806,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
         : "Nothing dated in the next three months";
       sub.textContent =
         (next ? `Next: ${next.name} on ${next.when.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}. ` : "") +
-        `Longest gap ahead: ${gap} days. ${CONTENT_DAYS.length} days in the calendar all told.`;
+        `Longest gap ahead: ${gap} day${gap === 1 ? "" : "s"}. ${PROMPTS.days.length} day${PROMPTS.days.length === 1 ? "" : "s"} in the calendar all told.`;
 
       // Thin coverage, or a fortnight-plus with nothing, is worth writing more.
       if (ahead.length < THIN || gap >= 21) {
