@@ -421,6 +421,8 @@ const googleFonts = [
           <span class="ed-prompt-body" id="ed-prompt-body"><span class="ed-prompt-inner">
             <span class="ed-prompt-angle" id="ed-prompt-angle"></span>
             <span class="ed-prompt-brief" id="ed-prompt-brief"></span>
+            <span class="ed-prompt-part" id="ed-prompt-say" hidden><b>What to say on camera</b><i></i></span>
+            <span class="ed-prompt-part" id="ed-prompt-cover" hidden><b>Your cover</b><i></i></span>
           </span></span>
         </button>
 
@@ -1074,6 +1076,10 @@ const googleFonts = [
     .ed-prompt-inner { display: block; min-height: 0; overflow: hidden; }
     .ed-prompt-angle { display: block; padding-top: 11px; font-size: 13.5px; font-weight: 600; line-height: 1.35; color: #fff; }
     .ed-prompt-brief { display: block; padding-top: 7px; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,0.76); }
+    .ed-prompt-part { display: block; padding-top: 10px; }
+    .ed-prompt-part[hidden] { display: none; }
+    .ed-prompt-part b { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+    .ed-prompt-part i { display: block; margin-top: 3px; font-style: normal; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,0.82); }
 
     /* Starting panel — "choose something to edit" (customer Studio only). */
     .ed-start-grid { display: flex; flex-direction: column; gap: 10px; }
@@ -6055,6 +6061,18 @@ const googleFonts = [
       document.getElementById("ed-prompt-name").textContent = p.name;
       document.getElementById("ed-prompt-angle").textContent = p.angle || "";
       document.getElementById("ed-prompt-brief").textContent = p.brief || "";
+      // A video prompt is two jobs: the film, and the cover you are here to
+      // make. Saying only "film each one being done" on a canvas leaves the
+      // second one unexplained.
+      if (p.video) {
+        const say = document.getElementById("ed-prompt-say");
+        const cov = document.getElementById("ed-prompt-cover");
+        say.querySelector("i").textContent = p.video.say;
+        cov.querySelector("i").textContent = p.video.cover;
+        say.hidden = false;
+        cov.hidden = false;
+        document.getElementById("ed-prompt-name").textContent = p.name + " \u00b7 Reel";
+      }
       box.hidden = false;
       box.addEventListener("click", () => {
         const open = box.getAttribute("aria-expanded") === "true";

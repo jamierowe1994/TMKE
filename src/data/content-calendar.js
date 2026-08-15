@@ -320,23 +320,54 @@ export function upcomingDays(from = new Date(), count = 2) {
 //
 // Lives here rather than in the page because two separate <script> blocks need
 // it, and an Astro script block is its own module scope.
+// A third entry marks a prompt as video. Twelve of these sixteen are: the
+// guidance says film, walk, one take. That matters twice over — the canvas
+// wants to be a Story/Reel rather than a square post, and what a member
+// actually MAKES in the Studio is the cover, not the video. So a video prompt
+// carries two more lines: what to say on camera, and how to build the cover.
 export const EVERGREEN_PROMPTS = [
-    ["Three questions every buyer asks during a viewing — and how you answer them.", "Talk straight to camera. One question per line on screen."],
-    ["The one room that sells the home. Show buyers why.", "Slow pan of the room, then a close-up of the detail that does the work."],
-    ["What a little styling actually adds to a sale price.", "Before and after on the same shot. Hold each for two seconds."],
-    ["A 60-second tour of your favourite listing this week.", "Walk it in one take. Start outside the front door."],
-    ["Five things buyers notice in the first ten seconds of a viewing.", "Five quick cuts, one per point. Caption each on screen."],
-    ["Behind the scenes: how we shoot a property that sells.", "Film yourself setting up. Off-the-cuff beats scripted here."],
-    ["Sell the lifestyle, not just the house — the cafe, the school, the park.", "Three clips from the street, none of them inside the property."],
+    ["Three questions every buyer asks during a viewing — and how you answer them.", "Talk straight to camera. One question per line on screen.",
+      { say: "Name the three questions, then answer each in a sentence. Do not preamble — start on the first question.",
+        cover: "One line of text: \u201CThe 3 questions every buyer asks\u201D. Your face or a hallway shot behind it, text in the top third." }],
+    ["The one room that sells the home. Show buyers why.", "Slow pan of the room, then a close-up of the detail that does the work.",
+      { say: "Say which room it is in the first three seconds, then why it does the selling.",
+        cover: "The room at its best, with the room name over it. Keep text clear of the bottom third where the caption sits." }],
+    ["What a little styling actually adds to a sale price.", "Before and after on the same shot. Hold each for two seconds.",
+      { say: "Say what you changed and what it was worth. A real number beats an adjective.",
+        cover: "Split the frame: before on the left, after on the right, one word on each." }],
+    ["A 60-second tour of your favourite listing this week.", "Walk it in one take. Start outside the front door.",
+      { say: "Open with the street and the asking price. Name each room as you enter it.",
+        cover: "The best exterior shot, the address or area across it, and \u201C60-second tour\u201D small underneath." }],
+    ["Five things buyers notice in the first ten seconds of a viewing.", "Five quick cuts, one per point. Caption each on screen.",
+      { say: "Count them out loud. One sentence each, no elaboration.",
+        cover: "A big \u201C5\u201D and the title. Plain background, nothing competing with the number." }],
+    ["Behind the scenes: how we shoot a property that sells.", "Film yourself setting up. Off-the-cuff beats scripted here.",
+      { say: "Talk while you work. Explain what you are moving and why it matters on camera.",
+        cover: "A mid-setup shot \u2014 lights, tripod, a room half-styled \u2014 with \u201CBehind the scenes\u201D across it." }],
+    ["Sell the lifestyle, not just the house — the cafe, the school, the park.", "Three clips from the street, none of them inside the property.",
+      { say: "Name each place and how long it takes to walk there.",
+        cover: "The most recognisable local landmark, with the area name over it." }],
     ["Just listed: tease it before the portal goes live.", "One detail shot only. Give nothing else away."],
-    ["A day in the life of an agent who actually answers the phone.", "Film four moments across one day. Keep them short."],
-    ["Why the right asking price sells faster than the highest one.", "Straight to camera, thirty seconds. Use a real example, no names."],
+    ["A day in the life of an agent who actually answers the phone.", "Film four moments across one day. Keep them short.",
+      { say: "Timestamp each moment out loud \u2014 \u201C8am\u201D, \u201C11am\u201D. Keep it honest, not glossy.",
+        cover: "One candid shot from the day with the time stamped on it." }],
+    ["Why the right asking price sells faster than the highest one.", "Straight to camera, thirty seconds. Use a real example, no names.",
+      { say: "Give the two prices and the two timescales. Let the numbers make the argument.",
+        cover: "The two figures side by side with an arrow between them. No photograph needed." }],
     ["Myth vs fact: what really adds value before you sell.", "Split the screen. Myth on the left, fact on the right."],
     ["Client win of the week — let the result do the talking.", "Photo of the sold board, and their words as the caption."],
-    ["Your honest take on the local market this month, in 30 seconds.", "One take, no notes. Film it in the car if that is where you are."],
-    ["First-time buyer? The one thing to sort before you offer.", "Direct address. Say the one thing in the first three seconds."],
-    ["Sold fast — the story behind the result.", "Three beats: what it was, what you changed, what it sold for."],
-    ["Three quick wins to get a home viewing-ready this weekend.", "Film each one being done, not described."],
+    ["Your honest take on the local market this month, in 30 seconds.", "One take, no notes. Film it in the car if that is where you are.",
+      { say: "Lead with the one number that moved. Say whether it is good news and for whom.",
+        cover: "The month and the headline figure, large. Keep it plain \u2014 this is a market update, not an advert." }],
+    ["First-time buyer? The one thing to sort before you offer.", "Direct address. Say the one thing in the first three seconds.",
+      { say: "Say \u201Cif you are buying your first home\u201D straight away so the right person stops scrolling.",
+        cover: "\u201CFirst-time buyers\u201D across the top, the one thing underneath it." }],
+    ["Sold fast — the story behind the result.", "Three beats: what it was, what you changed, what it sold for.",
+      { say: "Three sentences, one per beat. End on the number and stop.",
+        cover: "The sold board or the property, with the days-to-sell figure over it." }],
+    ["Three quick wins to get a home viewing-ready this weekend.", "Film each one being done, not described.",
+      { say: "Say each win as you start doing it, not before. Three jobs, three sentences.",
+        cover: "\u201C3 quick wins\u201D large, over the tidiest shot you get from the three." }],
   ];
 
 // ---------------------------------------------------------------------------
@@ -375,8 +406,16 @@ export function findPrompt(key) {
   const ev = /^ev-(\d+)$/.exec(key);
   if (ev) {
     const pair = EVERGREEN_PROMPTS[Number(ev[1])];
-    return pair ? { name: "Today's prompt", angle: pair[0], brief: pair[1] } : null;
+    return pair ? { name: "Today's prompt", angle: pair[0], brief: pair[1], video: pair[2] || null } : null;
   }
   const day = CONTENT_DAYS.find((d) => slugOf(d.name) === key);
-  return day ? { name: day.name, angle: day.angle, brief: day.brief || day.hint || "" } : null;
+  return day ? { name: day.name, angle: day.angle, brief: day.brief || day.hint || "", video: day.video || null } : null;
+}
+
+/**
+ * The canvas a prompt wants. A video prompt is making a reel cover, which is a
+ * Story/Reel frame; everything else takes the default post.
+ */
+export function canvasForPrompt(p) {
+  return p && p.video ? "1080x1920" : "1";
 }

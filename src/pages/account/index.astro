@@ -620,7 +620,7 @@ const recentTemplates = templates.slice(0, 4);
   </style>
 
   <script>
-    import { EVERGREEN_PROMPTS, keyForEvergreen } from '../../data/content-calendar.js';
+    import { EVERGREEN_PROMPTS, keyForEvergreen, canvasForPrompt, findPrompt } from '../../data/content-calendar.js';
 
     requestAnimationFrame(() => document.body.classList.add('ws-ready'));
 
@@ -678,7 +678,11 @@ const recentTemplates = templates.slice(0, 4);
       paint(current, false);
       // The "Create this post" button opens the editor on this same prompt.
       const cta = document.querySelector('.ws-side .ws-btn--primary');
-      const pointCta = () => { if (cta) cta.setAttribute('href', `/account/editor?blank=1&prompt=${keyForEvergreen(idx)}`); };
+      const pointCta = () => {
+        if (!cta) return;
+        const key = keyForEvergreen(idx);
+        cta.setAttribute('href', `/account/editor?blank=${canvasForPrompt(findPrompt(key))}&prompt=${key}`);
+      };
       pointCta();
 
       btn.addEventListener('click', () => {
@@ -719,7 +723,7 @@ const recentTemplates = templates.slice(0, 4);
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { bookingLocation } from '../../lib/videography-config.js';
-    import { upcomingDays, EVERGREEN_PROMPTS, keyForDay, keyForEvergreen } from '../../data/content-calendar.js';
+    import { upcomingDays, EVERGREEN_PROMPTS, keyForDay, keyForEvergreen, canvasForPrompt } from '../../data/content-calendar.js';
 
     // Notifications — real booking correspondence, unread dot + deep links.
     initNotifications();
@@ -846,7 +850,9 @@ const recentTemplates = templates.slice(0, 4);
       targets.forEach((card) => {
         const occasion = dated.find((d) => ymdOf(d.when) === card.getAttribute('data-date'));
         if (occasion) {
-          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.brief || occasion.hint, cta: 'Design this post', href: `/account/editor?blank=1&prompt=${keyForDay(occasion)}` });
+          paintStarter(card, { flag: occasion.name, title: occasion.angle, hint: occasion.brief || occasion.hint,
+            cta: occasion.video ? 'Design the cover' : 'Design this post',
+            href: `/account/editor?blank=${canvasForPrompt(occasion)}&prompt=${keyForDay(occasion)}` });
         } else {
           spare.push(card);
         }
@@ -868,7 +874,9 @@ const recentTemplates = templates.slice(0, 4);
         }
         const idx = (wk + i) % EVERGREEN_PROMPTS.length;
         const pr = EVERGREEN_PROMPTS[idx];
-        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1], cta: 'Design this post', href: `/account/editor?blank=1&prompt=${keyForEvergreen(idx)}` });
+        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1],
+          cta: pr[2] ? 'Design the cover' : 'Design this post',
+          href: `/account/editor?blank=${pr[2] ? '1080x1920' : '1'}&prompt=${keyForEvergreen(idx)}` });
       });
     }
 
