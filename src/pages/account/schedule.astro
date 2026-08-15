@@ -3,6 +3,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/workspace.css";
+import "../../styles/ws-system.css";
+import NewDesignModal from "../../components/account/NewDesignModal.astro";
 import "../../styles/account-sections.css";
 ---
 
@@ -13,41 +15,41 @@ import "../../styles/account-sections.css";
   hideNav
   hideFooter
 >
+  <div class="ws">
   <WorkspaceHeader active="planner" />
-  <div class="dash-shell dash-shell--top">
-    <main class="app-main dash-main">
-    <section class="dash-hero fade-up" data-delay="1">
-      <div class="dash-hero-copy">
-        <div class="dash-hero-top">
-          <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-          <h1 class="welcome-h">Your <em>Content Calendar.</em></h1>
+  <main class="ws-main">
+    <div class="ws-left">
+    <section class="ws-hero ws-hero--sub cal-hero">
+      <div class="ws-hero-copy">
+        <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
+        <h1 class="ws-greeting">Your Content Calendar.</h1>
+        <p class="ws-hero-sub">Your content calendar, all in one view. See what's planned, plan around key dates, and keep your social media moving consistently.</p>
+        <div class="cal-hero-cta">
+          <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </button>
         </div>
-        <p class="welcome-sub">Your content calendar, all in one view. See what's planned, plan around key dates, and keep your social media moving consistently.</p>
       </div>
-      <figure class="dash-hero-media">
-        <img src="/assets/home%20chair.jpg" alt="" loading="eager" />
-      </figure>
+      <div class="ws-hero-photo"></div>
     </section>
 
     <!-- Calendar shell -->
-    <section class="cal fade-up" data-delay="2" aria-labelledby="cal-title">
-      <header class="cal-bar">
-        <div class="cal-bar-l">
+    <section class="ws-block cal" aria-labelledby="cal-title">
+      <header class="ws-block-head cal-strip">
+        <h2 class="ws-block-h" id="cal-title"><span class="ws-block-ch">Chapter 01</span><span class="cal-month">—</span></h2>
+        <div class="cal-strip-nav">
           <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">&larr;</button>
-          <h2 id="cal-title" class="cal-title">—</h2>
+          <button type="button" class="cal-nav cal-today" id="cal-today">Today</button>
           <button type="button" class="cal-nav" id="cal-next" aria-label="Next month">&rarr;</button>
-          <button type="button" class="cal-today" id="cal-today">Today</button>
-        </div>
-        <div class="cal-bar-r">
-          <div class="cal-legend" aria-hidden="true">
-            <span class="cal-leg cal-leg--post">Planned</span>
-            <span class="cal-leg cal-leg--prompt">Prompt</span>
-            <span class="cal-leg cal-leg--bank">Bank holiday</span>
-            <span class="cal-leg cal-leg--aware">Awareness day</span>
-          </div>
-          <a href="/account/editor" class="cal-new">+ New post</a>
         </div>
       </header>
+
+      <div class="cal-legend" aria-hidden="true">
+        <span class="cal-leg cal-leg--post">Planned</span>
+        <span class="cal-leg cal-leg--prompt">Prompt</span>
+        <span class="cal-leg cal-leg--bank">Bank holiday</span>
+        <span class="cal-leg cal-leg--aware">Awareness day</span>
+      </div>
 
       <div class="cal-weekhead" aria-hidden="true">
         <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
@@ -59,6 +61,8 @@ import "../../styles/account-sections.css";
 
       <p id="cal-state" class="cal-state" hidden></p>
     </section>
+
+    </div><!-- /.ws-left -->
 
     <footer class="app-foot dash-foot">
       <div class="app-foot-block">
@@ -153,79 +157,38 @@ import "../../styles/account-sections.css";
        calendar-specific.
        ============================================================ */
 
-    /* One white panel wrapping the bar + week head + grid */
-    .cal {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      background: var(--card-glass);
-      -webkit-backdrop-filter: var(--card-blur);
-      backdrop-filter: var(--card-blur);
-      padding: 20px 22px 22px;
-      border-radius: 18px;
-      border: 1px solid rgba(28, 29, 34, 0.08);
-      box-shadow:
-        0 10px 24px -16px rgba(var(--violet-rgb), 0.22),
-        0 2px 6px -3px rgba(28, 29, 34, 0.08);
-    }
+    /* No panel: on the hub system a block is unfilled and the wine strip is the
+       only colour. The old glass card fought the grid's hairlines for it. */
 
-    /* ---------- Top bar: month label, prev/next, legend, new ---------- */
-    .cal-bar {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 22px;
-      align-items: center;
-      padding: 2px 2px 16px;
-      border-bottom: 1px solid rgba(28, 29, 34, 0.08);
-    }
-    .cal-bar-l { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .cal-bar-r { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; justify-content: flex-end; }
+    /* ---- Planner on the shared hub system ---- */
+    .cal-hero { --ws-hero-img: url('/assets/home%20chair.jpg'); }
+    .cal-hero-cta { margin-top: auto; padding-top: clamp(24px, 3vh, 36px); }
+    .back-link { color: inherit; text-decoration: none; }
 
-    .cal-title {
-      font-family: var(--serif);
-      font-size: clamp(22px, 2.4vw, 30px);
-      letter-spacing: -0.01em;
-      font-weight: 500;
-      margin: 0;
-      min-width: 220px;
-      color: var(--ink);
-    }
+    /* The month name sits beside the chapter label rather than in a heading of
+       its own, so the page carries one bar where it used to carry two. */
+    .cal-month { font-family: var(--serif); font-size: 12px; letter-spacing: 0.01em; text-transform: none; }
+
+    /* 25px, so a strip holding controls still measures the house 37px. */
+    /* A strip carrying controls tightens its own padding so it still measures
+       37px — the same trick the shared sheet does for inputs, done here because
+       a bare <button> in a strip means something taller elsewhere. */
+    .cal-strip { padding-top: 6px; padding-bottom: 6px; padding-right: 6px; }
+    .cal-strip-nav { display: flex; align-items: center; gap: 6px; }
     .cal-nav {
       appearance: none;
-      background: transparent;
-      border: 1px solid rgba(var(--violet-rgb), 0.35);
-      border-radius: 999px;
-      width: 36px; height: 36px;
-      font-size: 16px;
-      color: var(--violet-deep);
-      cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center;
-      transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
+      height: 25px; min-width: 25px; padding: 0 9px; box-sizing: border-box;
+      border: 1px solid rgba(255,255,255,0.28); border-radius: 3px;
+      background: transparent; color: #fff; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 600; line-height: 1;
+      transition: background 0.2s, border-color 0.2s;
     }
-    .cal-nav:hover {
-      background: var(--violet-deep);
-      color: var(--paper);
-      border-color: var(--violet-deep);
-      transform: translateY(-1px);
-    }
-    .cal-today {
-      appearance: none;
-      background: transparent;
-      border: 1px solid rgba(28,29,34,0.18);
-      border-radius: 2px;
-      padding: 7px 14px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(28,29,34,0.7);
-      cursor: pointer;
-      transition: background 0.25s, color 0.25s, border-color 0.25s;
-    }
-    .cal-today:hover { background: rgba(var(--violet-rgb), 0.08); color: var(--violet-deep); border-color: var(--violet-deep); }
+    .cal-nav:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); }
+    .cal-today { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 
-    .cal-legend { display: flex; gap: 12px; flex-wrap: wrap; }
+    .cal-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px var(--ws-gap); }
+
     .cal-leg {
       display: inline-flex; align-items: center; gap: 6px;
       font-family: var(--sans);
@@ -293,52 +256,45 @@ import "../../styles/account-sections.css";
     .cal-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      grid-auto-rows: minmax(120px, 1fr);
-      gap: 8px;
+      grid-auto-rows: minmax(118px, 1fr);
+      gap: var(--ws-gap);
     }
 
+    /* Hairline-outlined, square-cornered, unfilled — the same card the rest of
+       the hub uses. A month is 35 of these at once, so anything heavier than a
+       hairline reads as a wall of boxes rather than a calendar. */
     .cal-day {
       position: relative;
       display: flex;
       flex-direction: column;
       gap: 6px;
       padding: 10px 11px 12px;
-      background: var(--paper);
-      border-radius: 8px;
-      border: 1px solid rgba(28, 29, 34, 0.06);
+      background: transparent;
+      border-radius: 0;
+      border: 1px solid rgba(28, 29, 34, 0.14);
       cursor: pointer;
       text-align: left;
       font: inherit;
       color: var(--ink);
       overflow: hidden;
-      transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+      transition: border-color 0.2s, background 0.2s;
     }
-    .cal-day:hover {
-      border-color: rgba(var(--violet-rgb), 0.35);
-      box-shadow:
-        0 8px 18px -10px rgba(var(--violet-rgb), 0.25),
-        0 2px 6px -3px rgba(28, 29, 34, 0.10);
-      transform: translateY(-1px);
-    }
-    .cal-day.is-other-month {
-      background: rgba(244, 242, 241, 0.4);
-      color: rgba(28,29,34,0.35);
-    }
+    .cal-day:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.03); }
+
+    /* Days you cannot act on recede by weight, not by fill. */
+    .cal-day.is-other-month { border-color: rgba(28,29,34,0.07); color: rgba(28,29,34,0.35); }
     .cal-day.is-other-month .cal-day-num { color: rgba(28,29,34,0.32); }
-    .cal-day.is-past   { background: rgba(244, 242, 241, 0.6); }
-    .cal-day.is-today  {
-      border-color: var(--violet-deep);
-      box-shadow:
-        inset 0 0 0 1px var(--violet-deep),
-        0 10px 22px -12px rgba(var(--violet-rgb), 0.35);
-    }
+    .cal-day.is-past { border-color: rgba(28,29,34,0.08); }
+    .cal-day.is-past .cal-day-num { color: rgba(28,29,34,0.4); }
+
+    /* Today is the one square that gets the wine, and it gets it outright. */
+    .cal-day.is-today { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
     .cal-day.is-today .cal-day-num {
       color: var(--paper);
-      background: var(--violet-deep);
-      border-radius: 999px;
-      padding: 2px 8px;
+      background: var(--english-violet);
+      border-radius: 0;
+      padding: 2px 7px;
     }
-    .cal-day.is-weekend { background: rgba(var(--violet-rgb), 0.02); }
 
     .cal-day-head {
       display: flex; align-items: center; justify-content: space-between;
@@ -368,7 +324,7 @@ import "../../styles/account-sections.css";
       align-items: center;
       gap: 5px;
       padding: 3px 7px;
-      border-radius: 3px;
+      border-radius: 0;
       font-family: var(--sans);
       font-size: 10px;
       font-weight: 600;
@@ -434,10 +390,8 @@ import "../../styles/account-sections.css";
     /* Compact mode on mobile — drop the day-of-week strip into each
        cell, shrink chips, collapse cells to fit. */
     @media (max-width: 780px) {
-      .cal-bar { padding: 14px 16px; }
-      .cal-bar-r { width: 100%; justify-content: space-between; }
       .cal-legend { display: none; }
-      .cal-grid { grid-auto-rows: minmax(82px, 1fr); gap: 4px; padding: 4px; }
+      .cal-grid { grid-auto-rows: minmax(82px, 1fr); gap: 6px; }
       .cal-weekhead { display: none; }
       .cal-day { padding: 6px 7px 8px; }
       .cal-day-dow { display: inline-block; }
@@ -935,7 +889,10 @@ import "../../styles/account-sections.css";
     }
 
     function renderCalendar() {
-      $title.textContent = fmtMonthYear(viewMonth);
+      // The strip's chapter label lives inside this heading, so replace only
+      // the month text rather than the whole node.
+      const monthEl = $title.querySelector('.cal-month') || $title;
+      monthEl.textContent = fmtMonthYear(viewMonth);
       const days = buildGridDays();
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1435,5 +1392,6 @@ import "../../styles/account-sections.css";
     })();
   </script>
 
+  <NewDesignModal />
   <CaptionGenerator />
 </BaseLayout>
