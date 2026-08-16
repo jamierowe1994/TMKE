@@ -23,7 +23,7 @@ import "../../styles/account-sections.css";
       <div class="ws-hero-copy">
         <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
         <h1 class="ws-greeting">Your Content Calendar.</h1>
-        <p class="ws-hero-sub">Your content calendar, all in one view. See what's planned, plan around key dates, and keep your social media moving consistently.</p>
+        <p class="ws-hero-sub">See what's planned, find fresh post prompts and keep your social media consistent all month.</p>
         <div class="cal-hero-cta">
           <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -45,10 +45,9 @@ import "../../styles/account-sections.css";
       </header>
 
       <div class="cal-legend" aria-hidden="true">
-        <span class="cal-leg cal-leg--post">Planned</span>
-        <span class="cal-leg cal-leg--prompt">Prompt</span>
-        <span class="cal-leg cal-leg--bank">Bank holiday</span>
-        <span class="cal-leg cal-leg--aware">Awareness day</span>
+        <span class="cal-leg cal-leg--post">Your posts</span>
+        <span class="cal-leg cal-leg--prompt">Idea ready</span>
+        <span class="cal-leg cal-leg--date">Key date</span>
       </div>
 
       <div class="cal-weekhead" aria-hidden="true">
@@ -163,7 +162,6 @@ import "../../styles/account-sections.css";
     /* ---- Planner on the shared hub system ---- */
     .cal-hero { --ws-hero-img: url('/assets/home%20chair.jpg'); }
     .cal-hero-cta { margin-top: auto; padding-top: clamp(24px, 3vh, 36px); }
-    .back-link { color: inherit; text-decoration: none; }
 
     /* The month name sits beside the chapter label rather than in a heading of
        its own, so the page carries one bar where it used to carry two. */
@@ -201,10 +199,9 @@ import "../../styles/account-sections.css";
     .cal-leg::before {
       content: ""; width: 10px; height: 10px; border-radius: 2px;
     }
-    .cal-leg--post::before  { background: var(--violet-deep); }
-    .cal-leg--prompt::before { background: var(--english-violet); }  /* wine — a prompt */
-    .cal-leg--bank::before  { background: #c97a3a; }   /* burnt orange — bank */
-    .cal-leg--aware::before { background: #6f8d65; }   /* sage — awareness */
+    .cal-leg--post::before   { background: var(--violet-deep); }      /* your own scheduled posts */
+    .cal-leg--prompt::before { background: #fff; box-shadow: inset 0 0 0 2px var(--english-violet); }  /* wine outline — an angle is written for you */
+    .cal-leg--date::before   { background: #887d77; }                 /* stone — a date to know, nothing to do */
 
     .cal-new {
       appearance: none;
@@ -335,15 +332,11 @@ import "../../styles/account-sections.css";
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .cal-chip--bank {
-      background: rgba(201, 122, 58, 0.14);
-      color: #8a4d1f;
-      border: 1px solid rgba(201, 122, 58, 0.35);
-    }
+    .cal-chip--bank,
     .cal-chip--aware {
-      background: rgba(111, 141, 101, 0.14);
-      color: #3f5a36;
-      border: 1px solid rgba(111, 141, 101, 0.32);
+      background: rgba(136, 125, 119, 0.13);
+      color: #6b6058;
+      border: 1px solid rgba(136, 125, 119, 0.30);
     }
     .cal-chip--post {
       background: var(--violet-deep);
@@ -500,7 +493,12 @@ import "../../styles/account-sections.css";
 
     /* A prompt on the grid. Wine, because it is the one marker that is asking
        for something rather than noting something. */
-    .cal-chip--prompt { background: var(--english-violet); color: #fff; border-color: var(--english-violet); }
+    .cal-chip--prompt {
+      background: #fff;
+      color: var(--english-violet);
+      border: 1px solid var(--english-violet);
+      font-weight: 700;
+    }
 
     /* The prompt in the day panel: what it is, what to make, and the way in. */
     .day-prompt { padding: 14px; border-radius: 10px; background: var(--english-violet); color: #fff; display: flex; flex-direction: column; gap: 4px; }
@@ -999,7 +997,7 @@ import "../../styles/account-sections.css";
             <div class="day-prompt">
               <span class="day-prompt-name">${escapeHtml(p.name)}</span>
               <strong class="day-prompt-angle">${escapeHtml(p.angle)}</strong>
-              ${p.brief ? `<span class="day-prompt-brief">${escapeHtml(p.brief)}</span>` : ''}
+              ${(p.brief || p.hint) ? `<span class="day-prompt-brief">${escapeHtml(p.brief || p.hint)}</span>` : ''}
               <a class="day-prompt-cta" href="/account/editor?blank=${canvasForPrompt(p)}&prompt=${encodeURIComponent(keyForDay(p))}">
                 ${p.video ? 'Design the cover' : 'Design this post'} <span aria-hidden="true">&rarr;</span>
               </a>
