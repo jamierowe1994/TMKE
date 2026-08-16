@@ -2,9 +2,21 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
+import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
 ---
 
+<!--
+  Orders — the member's financial record. Rebuilt onto the shared hub system
+  (ws-system.css): wine chapter strips, hairline square cards, one --ws-gap.
+
+  Today this reads `orders` only — self-serve pack purchases from The Edit,
+  which a member can read under their own RLS. Raised invoices (videography,
+  social media management) live in `invoices`, which is admin-policy-only, so
+  they cannot be shown here until that access decision is made. The markup is
+  built for the merge: every row carries a type and its own action, so adding
+  a second source is a second fetch and a concat, not a redesign.
+-->
 <BaseLayout
   dashboard
   title="Orders — TMKE workspace"
@@ -12,135 +24,130 @@ import "../../styles/account-sections.css";
   hideNav
   hideFooter
 >
-  <WorkspaceHeader active="orders" />
-  <div class="dash-shell dash-shell--top">
-    <main class="app-main dash-main">
-    <section class="dash-hero">
-      <div class="dash-hero-copy">
-        <div class="dash-hero-top">
-          <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-          <h1 class="welcome-h">Your <em>Orders</em></h1>
+  <div class="ws">
+    <WorkspaceHeader active="orders" />
+    <main class="ws-main">
+      <div class="ws-left">
+
+        <!-- ============ HERO ============ -->
+        <section class="ws-hero ws-hero--sub ord-hero">
+          <div class="ws-hero-copy">
+            <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
+            <h1 class="ws-greeting">Your Orders.</h1>
+            <p class="ws-hero-sub">Every purchase and receipt in one place. Download what you have bought, and check back for anything still to settle.</p>
+          </div>
+          <div class="ws-hero-photo" role="img" aria-label="A styled interior"></div>
+        </section>
+
+        <!-- ============ Chapter 01 — the numbers ============ -->
+        <section class="ws-block ws-rise" style="--i:1" aria-labelledby="ord-sum-h">
+          <header class="ws-block-head">
+            <h2 class="ws-block-h" id="ord-sum-h"><span class="ws-block-ch">Chapter 01</span>Summary</h2>
+          </header>
+          <div class="ord-stats">
+            <div class="ord-stat">
+              <div class="ord-stat-label">Total orders</div>
+              <div class="ord-stat-value" id="o-count">&mdash;</div>
+            </div>
+            <div class="ord-stat">
+              <div class="ord-stat-label">Lifetime spend</div>
+              <div class="ord-stat-value" id="o-spend">&pound;0</div>
+            </div>
+            <div class="ord-stat">
+              <div class="ord-stat-label">Last purchase</div>
+              <div class="ord-stat-value" id="o-last">&mdash;</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ Chapter 02 — the list ============ -->
+        <section class="ws-block ws-rise" style="--i:2" aria-labelledby="ord-list-h">
+          <header class="ws-block-head">
+            <h2 class="ws-block-h" id="ord-list-h"><span class="ws-block-ch">Chapter 02</span>All orders</h2>
+            <a class="ws-block-link" href="/edit">Browse The Edit
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </header>
+          <div id="orders-list" class="ord-list">
+            <p class="ord-state">Loading orders&hellip;</p>
+          </div>
+        </section>
+
+      </div>
+
+      <footer class="app-foot dash-foot">
+        <div class="app-foot-block">
+          <div class="app-foot-tag">Help</div>
+          <a href="/contact">hello@tmke.co.uk</a>
         </div>
-        <p class="welcome-sub">Your purchases, downloads, and invoices, all in one place. Access your Edit packs, view receipts, and download your assets whenever you need them.</p>
-      </div>
-      <figure class="dash-hero-media">
-        <img src="/assets/sitting%20chair.jpg" alt="" loading="eager" />
-      </figure>
-    </section>
-
-    <!-- Summary strip -->
-    <section class="orders-summary">
-      <div class="o-stat">
-        <div class="o-stat-label">Total orders</div>
-        <div class="o-stat-value" id="o-count">—</div>
-      </div>
-      <div class="o-stat">
-        <div class="o-stat-label">Lifetime spend</div>
-        <div class="o-stat-value" id="o-spend">£0</div>
-      </div>
-      <div class="o-stat">
-        <div class="o-stat-label">Last purchase</div>
-        <div class="o-stat-value" id="o-last">—</div>
-      </div>
-    </section>
-
-    <!-- Orders table -->
-    <section class="orders-section">
-      <header class="section-head">
-        <h2 class="section-h">All Orders</h2>
-        <p class="section-sub">Click any invoice number to view the full receipt.</p>
-      </header>
-      <div id="orders-list" class="orders-list">
-        <div class="lib-state" style="padding:18px 22px;">Loading orders…</div>
-      </div>
-    </section>
-
-    <footer class="app-foot dash-foot">
-      <div class="app-foot-block">
-        <div class="app-foot-tag">Help</div>
-        <a href="/contact">hello@tmke.co.uk</a>
-      </div>
-      <div class="app-foot-block app-foot-block--right">
-        <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
-      </div>
-    </footer>
+        <div class="app-foot-block app-foot-block--right">
+          <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
+        </div>
+      </footer>
     </main>
   </div>
 
-  <!-- Left-edge Calendar tab + month-view drawer.
-       Same component as on /account. Click the tab → drawer slides in
-       from the left. Click a day in the drawer → deep-links to the
-       full /account/schedule page focused on that day. -->
-  <button type="button" class="cal-tab" id="cal-tab-trigger" aria-haspopup="dialog" aria-controls="cal-popup">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="18" rx="2"/>
-      <line x1="16" y1="2" x2="16" y2="6"/>
-      <line x1="8" y1="2" x2="8" y2="6"/>
-      <line x1="3" y1="10" x2="21" y2="10"/>
-    </svg>
-    <span class="cal-tab-label">Calendar</span>
-    <span class="cal-tab-count" id="cal-tab-count" hidden>0</span>
-  </button>
-
-  <div class="cal-popup-backdrop" id="cal-popup" hidden role="dialog" aria-modal="true" aria-labelledby="cal-popup-title">
-    <aside class="cal-popup" aria-label="Content calendar">
-      <header class="cal-popup-head">
-        <h2 class="cal-popup-title" id="cal-popup-title">—</h2>
-        <div class="cal-popup-controls">
-          <button type="button" class="cal-popup-nav" id="cal-popup-prev" aria-label="Previous month">&larr;</button>
-          <button type="button" class="cal-popup-today" id="cal-popup-today">Today</button>
-          <button type="button" class="cal-popup-nav" id="cal-popup-next" aria-label="Next month">&rarr;</button>
-        </div>
-        <a href="/account/schedule" class="cal-popup-expand">Open full &rarr;</a>
-        <button type="button" class="cal-popup-close" id="cal-popup-close" aria-label="Close">&times;</button>
-      </header>
-      <div class="cal-popup-weekhead" aria-hidden="true">
-        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-      </div>
-      <div id="cal-popup-grid" class="cal-popup-grid" role="grid" aria-labelledby="cal-popup-title"></div>
-      <p id="cal-popup-state" class="cal-popup-state" hidden></p>
-    </aside>
-  </div>
-
   <style is:global>
-    /* Shared workspace shell (header, footer, welcome, section heads,
-       order rows, etc.) lives in src/styles/workspace.css. Only the
-       orders-page-specific summary cards stay here. */
+    .ord-hero { --ws-hero-img: url('/assets/sitting%20chair.jpg'); }
 
-    .orders-summary {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 18px;
+    /* ---- Chapter 01: the numbers. Outline, square, no fill — house rule. ---- */
+    .ord-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 720px) { .ord-stats { grid-template-columns: 1fr; } }
+    .ord-stat {
+      padding: 20px 22px 18px; background: #fff;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r);
+      transition: border-color 0.2s var(--ws-ease), transform 0.2s var(--ws-ease);
     }
-    @media (max-width: 720px) { .orders-summary { grid-template-columns: 1fr; } }
-    /* Outline boxes to match the dashboard (light-grey outline, white fill, no
-       shadow; the dusky purple stays a restrained accent, not a solid fill). */
-    .o-stat {
-      padding: 22px 24px 20px;
-      background: #fff;
-      border: 1px solid rgba(28, 29, 34, 0.13);
-      border-radius: 4px;   /* match the dashboard's near-square boxes */
-      transition: border-color 0.2s, transform 0.2s;
+    .ord-stat:hover { transform: translateY(-2px); border-color: rgba(28,29,34,0.28); }
+    .ord-stat-label { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .ord-stat-value { font-family: var(--serif); font-size: clamp(26px, 2.6vw, 34px); font-weight: 400; letter-spacing: -0.015em; margin-top: 8px; color: var(--ws-ink); line-height: 1.05; }
+
+    /* ---- Chapter 02: one row per order. A row is a card, not a table line, so
+       a future invoice row can carry a different action without the columns
+       having to agree. ---- */
+    .ord-list { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    .ord-row {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center;
+      padding: 16px 18px; background: #fff;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r);
+      text-decoration: none; color: var(--ws-ink);
+      transition: border-color 0.2s var(--ws-ease), transform 0.2s var(--ws-ease);
     }
-    .o-stat:hover {
-      transform: translateY(-2px);
-      border-color: rgba(28, 29, 34, 0.28);
+    .ord-row:hover { transform: translateY(-2px); border-color: rgba(28,29,34,0.28); }
+    .ord-row-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .ord-row-top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+    .ord-type {
+      font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--ws-accent);
+      border: 1px solid color-mix(in srgb, var(--ws-accent) 34%, transparent);
+      border-radius: 3px; padding: 3px 7px;
     }
-    .o-stat-label {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28, 29, 34, 0.5);
+    .ord-title { font-family: var(--serif); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+    .ord-meta { font-size: 12.5px; line-height: 1.45; color: var(--ws-tx); }
+    .ord-meta b { font-weight: 600; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
+    .ord-row-side { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+    .ord-amount { font-family: var(--serif); font-size: 19px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .ord-pill {
+      font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+      background: rgba(63,148,104,0.12); color: #2f6f4d; border: 1px solid rgba(63,148,104,0.3);
     }
-    .o-stat-value {
-      font-family: var(--serif);
-      font-size: 40px;
-      letter-spacing: -0.015em;
-      margin-top: 8px;
-      color: var(--ink);
+    .ord-pill--due { background: rgba(201,122,58,0.12); color: #8a4d1f; border-color: rgba(201,122,58,0.32); }
+    .ord-pill--other { background: rgba(28,29,34,0.05); color: var(--ws-tx); border-color: var(--ws-line); }
+    .ord-go { font-size: 15px; color: var(--ws-faint); transition: transform 0.25s var(--ws-ease), color 0.2s; }
+    .ord-row:hover .ord-go { transform: translateX(4px); color: var(--ws-accent); }
+    @media (max-width: 720px) {
+      .ord-row { grid-template-columns: 1fr; }
+      .ord-row-side { justify-content: space-between; }
     }
+
+    /* Empty / loading / error all share one quiet card. */
+    .ord-state {
+      margin: 0; padding: 32px; background: #fff;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r);
+      font-size: 14px; line-height: 1.6; color: var(--ws-tx);
+    }
+    .ord-state strong { display: block; font-family: var(--serif); font-size: 22px; font-weight: 600; color: var(--ws-ink); margin-bottom: 6px; }
   </style>
 
   <script>
@@ -155,10 +162,17 @@ import "../../styles/account-sections.css";
       try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }); }
       catch (_) { return ''; }
     }
+    const METHOD = { apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card', bank_transfer: 'Bank transfer' };
 
-    async function signOut() {
-      await signOutEverywhere();
+    // Paid is the settled state; anything owed is the one worth colouring
+    // differently, because it is the only row a member has to act on.
+    function pillClass(status) {
+      if (status === 'paid') return '';
+      if (status === 'due' || status === 'sent' || status === 'overdue' || status === 'pending') return ' ord-pill--due';
+      return ' ord-pill--other';
     }
+
+    async function signOut() { await signOutEverywhere(); }
     document.getElementById('app-signout')?.addEventListener('click', signOut);
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
@@ -177,7 +191,8 @@ import "../../styles/account-sections.css";
       }
 
       const email = session.user.email ?? '';
-      document.getElementById('footer-email').textContent = email;
+      const $email = document.getElementById('footer-email');
+      if ($email) $email.textContent = email;
 
       const { data: orders, error } = await supabase
         .from('orders')
@@ -188,7 +203,7 @@ import "../../styles/account-sections.css";
       const $list = document.getElementById('orders-list');
 
       if (error) {
-        $list.innerHTML = `<div class="lib-state" style="padding:18px 22px;">Couldn't load orders: ${escapeHtml(error.message)}</div>`;
+        $list.innerHTML = `<p class="ord-state"><strong>Couldn't load your orders.</strong>${escapeHtml(error.message)}</p>`;
         return;
       }
 
@@ -203,227 +218,33 @@ import "../../styles/account-sections.css";
 
       if (list.length === 0) {
         $list.innerHTML = `
-          <div class="lib-state" style="padding:32px;">
-            <strong style="display:block;font-family:var(--serif);font-size:24px;color:var(--ink);margin-bottom:6px;">No orders yet.</strong>
-            <p style="margin:0;line-height:1.6;">When you purchase a pack from The Edit, the invoice will live here.</p>
-          </div>`;
+          <p class="ord-state">
+            <strong>No orders yet.</strong>
+            When you buy a pack from The Edit, the receipt will live here.
+          </p>`;
         return;
       }
 
-      $list.innerHTML = `
-        <div class="order-row order-row-head">
-          <span>Invoice</span>
-          <span>Pack</span>
-          <span>Method</span>
-          <span>Date</span>
-          <span>Amount</span>
-          <span>Status</span>
-        </div>
-        ${list.map((o) => `
-          <div class="order-row">
-            <span class="order-invoice"><a href="/edit/thanks?order=${encodeURIComponent(o.id)}">${escapeHtml(o.invoice_number || '—')}</a></span>
-            <span>${escapeHtml(o.pack_title)}</span>
-            <span>${({ apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card' }[o.payment_method] || o.payment_method)}</span>
-            <span>${formatDate(o.created_at)}</span>
-            <span>${gbpFromPence(o.amount_pence)}</span>
-            <span><span class="pill">${escapeHtml(o.status)}</span></span>
-          </div>
-        `).join('')}
-      `;
-
-      // Update the order-row grid for the extra Amount column.
-      const style = document.createElement('style');
-      style.textContent = `
-        .order-row { grid-template-columns: 1.1fr 1.2fr 0.8fr 0.9fr 0.7fr 0.6fr; }
-        @media (max-width: 720px) {
-          .order-row { grid-template-columns: 1fr 1fr; }
-          .order-row-head { display: none; }
-        }
-      `;
-      document.head.appendChild(style);
-    })();
-
-    // ====== Calendar drawer (left-tab → month view) ======
-    // Drawer-only variant of the calendar bootstrap on /account — no
-    // week strip here. Self-contained so an orders-page failure can't
-    // break /account and vice versa. Shares /lib/calendar.js helpers
-    // and the workspace.css drawer styles.
-    (async function calendarDrawerBootstrap() {
-      const cal = await import('../../lib/calendar.js');
-
-      const $tab        = document.getElementById('cal-tab-trigger');
-      const $popup      = document.getElementById('cal-popup');
-      const $popupClose = document.getElementById('cal-popup-close');
-      const $popupPrev  = document.getElementById('cal-popup-prev');
-      const $popupNext  = document.getElementById('cal-popup-next');
-      const $popupToday = document.getElementById('cal-popup-today');
-      const $popupTitle = document.getElementById('cal-popup-title');
-      const $popupGrid  = document.getElementById('cal-popup-grid');
-      const $popupState = document.getElementById('cal-popup-state');
-      const $tabCount   = document.getElementById('cal-tab-count');
-
-      if (!$tab || !$popup) return;
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      let popupMonth = cal.startOfMonth(new Date());
-      let items = [];
-      let holidays = [];
-      let loadedRange = null;
-
-      async function loadWindow() {
-        const winStart = cal.addMonths(popupMonth, -2);
-        const winEnd   = cal.addMonths(popupMonth, 3);
-        const fromYmd  = cal.ymd(winStart);
-        const toYmd    = cal.ymd(new Date(winEnd.getFullYear(), winEnd.getMonth(), 0));
-        const { items: ii, holidays: hh, itemsError } = await cal.fetchCalendarWindow(supabase, fromYmd, toYmd);
-        items = ii;
-        holidays = hh;
-        loadedRange = { fromYmd, toYmd };
-        if (itemsError && /relation .* does not exist/i.test(itemsError)) {
-          $popupState.hidden = false;
-          $popupState.textContent = "Calendar table not found — run supabase/calendar.sql first.";
-        } else {
-          $popupState.hidden = true;
-        }
-        updateBadge();
-      }
-
-      async function ensureLoaded() {
-        if (!loadedRange) { await loadWindow(); return; }
-        const refYmd = cal.ymd(popupMonth);
-        if (refYmd < loadedRange.fromYmd || refYmd > loadedRange.toYmd) {
-          await loadWindow();
-        }
-      }
-
-      function updateBadge() {
-        // Count posts in the current week that are still pending.
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const weekStart = cal.defaultUpcomingWeekStart(today);
-        const weekStartYmd = cal.ymd(weekStart);
-        const weekEndYmd = cal.ymd(cal.addDays(weekStart, 7));
-        const upcoming = items.filter((p) => {
-          if (p.status !== 'scheduled' && p.status !== 'reminder_sent') return false;
-          if (p.scheduled_date < weekStartYmd || p.scheduled_date >= weekEndYmd) return false;
-          const pTs = new Date(`${p.scheduled_date}T${p.scheduled_time || '09:00'}`);
-          return pTs >= todayStart;
-        });
-        if (upcoming.length === 0) { $tabCount.hidden = true; return; }
-        $tabCount.hidden = false;
-        $tabCount.textContent = String(upcoming.length);
-      }
-
-      function renderDrawer() {
-        $popupTitle.textContent = cal.fmtMonthYear(popupMonth);
-        const first = cal.startOfMonth(popupMonth);
-        const dow = (first.getDay() + 6) % 7;
-        const start = new Date(first);
-        start.setDate(first.getDate() - dow);
-
-        const itemsByDate    = cal.bucketBy(items,    (i) => i.scheduled_date);
-        const holidaysByDate = cal.bucketBy(holidays, (h) => h.date);
-
-        const today = new Date();
-        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-        const cells = [];
-        for (let i = 0; i < 42; i++) {
-          const d = new Date(start);
-          d.setDate(start.getDate() + i);
-          const key       = cal.ymd(d);
-          const isOther   = d.getMonth() !== popupMonth.getMonth();
-          const isToday   = cal.sameDay(d, todayStart);
-          const dayItems  = itemsByDate.get(key) || [];
-          const dayHols   = holidaysByDate.get(key) || [];
-
-          const visibleHols  = dayHols.slice(0, 1);
-          const visiblePosts = dayItems.slice(0, 2 - visibleHols.length);
-          const hiddenCount  = (dayHols.length - visibleHols.length) + (dayItems.length - visiblePosts.length);
-
-          const cls = [
-            'cal-popup-day',
-            isOther ? 'is-other-month' : '',
-            isToday ? 'is-today' : '',
-          ].filter(Boolean).join(' ');
-
-          const holsHtml = visibleHols.map((h) =>
-            `<span class="cal-popup-chip cal-popup-chip--${h.kind === 'bank' ? 'bank' : 'aware'}" title="${cal.escapeHtml(h.name)}">${cal.escapeHtml(h.name)}</span>`
-          ).join('');
-          const postsHtml = visiblePosts.map((p) => {
-            const sClass = p.status === 'done' ? 'is-done'
-              : p.status === 'reminder_sent' ? 'is-sent'
-              : p.status === 'cancelled' ? 'is-cancelled' : '';
-            return `<span class="cal-popup-chip cal-popup-chip--post ${sClass}" title="${cal.escapeHtml(p.title)}">${cal.escapeHtml(p.title)}</span>`;
-          }).join('');
-          const moreHtml = hiddenCount > 0 ? `<span class="cal-popup-day-more">+${hiddenCount}</span>` : '';
-
-          cells.push(`
-            <button type="button" class="${cls}" data-date="${key}" role="gridcell">
-              <span class="cal-popup-day-num">${d.getDate()}</span>
-              ${holsHtml}
-              ${postsHtml}
-              ${moreHtml}
-            </button>
-          `);
-        }
-        $popupGrid.innerHTML = cells.join('');
-      }
-
-      let popupCloseTimer = null;
-      function openPopup() {
-        renderDrawer();
-        $popup.hidden = false;
-        document.body.style.overflow = 'hidden';
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => $popup.classList.add('is-open'));
-        });
-      }
-      function closePopup() {
-        if (!$popup.classList.contains('is-open')) {
-          $popup.hidden = true;
-          document.body.style.overflow = '';
-          return;
-        }
-        $popup.classList.remove('is-open');
-        clearTimeout(popupCloseTimer);
-        popupCloseTimer = setTimeout(() => {
-          $popup.hidden = true;
-          document.body.style.overflow = '';
-        }, 580);
-      }
-
-      $tab.addEventListener('click', openPopup);
-      $popupClose.addEventListener('click', closePopup);
-      $popup.addEventListener('click', (e) => { if (e.target === $popup) closePopup(); });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !$popup.hidden) closePopup();
-      });
-      $popupPrev.addEventListener('click', async () => {
-        popupMonth = cal.addMonths(popupMonth, -1);
-        await ensureLoaded();
-        renderDrawer();
-      });
-      $popupNext.addEventListener('click', async () => {
-        popupMonth = cal.addMonths(popupMonth, 1);
-        await ensureLoaded();
-        renderDrawer();
-      });
-      $popupToday.addEventListener('click', async () => {
-        popupMonth = cal.startOfMonth(new Date());
-        await ensureLoaded();
-        renderDrawer();
-      });
-      $popupGrid.addEventListener('click', (e) => {
-        const cell = e.target.closest('.cal-popup-day');
-        if (!cell) return;
-        const dateStr = cell.getAttribute('data-date');
-        if (dateStr) location.href = '/account/schedule?focus=' + encodeURIComponent(dateStr);
-      });
-
-      try { await loadWindow(); } catch (err) { console.warn('[calendar drawer]', err); }
+      $list.innerHTML = list.map((o) => `
+        <a class="ord-row" href="/account/orders/receipt?order=${encodeURIComponent(o.id)}">
+          <span class="ord-row-main">
+            <span class="ord-row-top">
+              <span class="ord-type">Pack</span>
+              <span class="ord-title">${escapeHtml(o.pack_title || 'Order')}</span>
+            </span>
+            <span class="ord-meta">
+              <b>${escapeHtml(o.invoice_number || '—')}</b>
+              &nbsp;·&nbsp; ${formatDate(o.created_at)}
+              ${o.payment_method ? `&nbsp;·&nbsp; ${escapeHtml(METHOD[o.payment_method] || o.payment_method)}` : ''}
+            </span>
+          </span>
+          <span class="ord-row-side">
+            <span class="ord-amount">${gbpFromPence(o.amount_pence)}</span>
+            <span class="ord-pill${pillClass(o.status)}">${escapeHtml(o.status)}</span>
+            <span class="ord-go" aria-hidden="true">&rarr;</span>
+          </span>
+        </a>
+      `).join('');
     })();
   </script>
 </BaseLayout>

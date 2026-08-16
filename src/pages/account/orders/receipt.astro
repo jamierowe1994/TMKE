@@ -1,0 +1,269 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../../components/account/WorkspaceHeader.astro";
+import "../../../styles/workspace.css";
+import "../../../styles/ws-system.css";
+import "../../../styles/account-sections.css";
+---
+
+<!--
+  A single order's receipt, inside the hub.
+
+  This exists because /edit/thanks was doing two jobs: the post-checkout
+  confirmation (public page, "set a password to reach your library") AND the
+  receipt a member opens months later from Orders. The second job inherited the
+  first's account-setup step, its own TMKE mark on top of the site nav, and the
+  public site's type scale — which is why it read as a different product.
+
+  /edit/thanks keeps the checkout job. This page is the receipt: hub chrome,
+  hub type, no account step, and the same wine chapter strips as every other
+  page in /account.
+-->
+<BaseLayout
+  dashboard
+  hideNav
+  hideFooter
+  title="Receipt — TMKE workspace"
+  description="Your TMKE order receipt."
+>
+  <div class="ws">
+    <WorkspaceHeader active="orders" />
+    <main class="ws-main">
+      <div class="ws-left">
+
+        <section class="ws-hero ws-hero--sub rcp-hero">
+          <div class="ws-hero-copy">
+            <p class="ws-hero-date"><a href="/account/orders">&larr; Orders</a></p>
+            <h1 class="ws-greeting">Your Receipt.</h1>
+            <p class="ws-hero-sub" id="rcp-sub">A record of what you bought, when, and what you paid.</p>
+          </div>
+          <div class="ws-hero-photo" role="img" aria-label="A styled interior"></div>
+        </section>
+
+        <section class="ws-block ws-rise" style="--i:1" aria-labelledby="rcp-h">
+          <header class="ws-block-head">
+            <h2 class="ws-block-h" id="rcp-h"><span class="ws-block-ch">Chapter 01</span>Receipt</h2>
+            <button type="button" class="ws-block-link" id="rcp-print">Download invoice
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8m0 0L5 7m3 3 3-3M3 13h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </header>
+
+          <article class="rcp" id="rcp-card">
+            <header class="rcp-head">
+              <div>
+                <p class="rcp-eyebrow">Invoice</p>
+                <p class="rcp-no" id="rcp-no">&mdash;</p>
+              </div>
+              <div class="rcp-issuer">
+                <span>TMKE &mdash; The Marketing Experts</span>
+                <span id="rcp-date">&mdash;</span>
+              </div>
+            </header>
+
+            <div class="rcp-line">
+              <span class="rcp-thumb" id="rcp-cover"></span>
+              <span class="rcp-line-tx">
+                <strong id="rcp-pack">&hellip;</strong>
+                <span id="rcp-desc"></span>
+              </span>
+              <span class="rcp-line-amt" id="rcp-amount">&mdash;</span>
+            </div>
+
+            <dl class="rcp-facts">
+              <div><dt>Billed to</dt><dd id="rcp-billto">&mdash;</dd></div>
+              <div><dt>Company</dt><dd id="rcp-company">&mdash;</dd></div>
+              <div><dt>Email</dt><dd id="rcp-email">&mdash;</dd></div>
+              <div><dt>Phone</dt><dd id="rcp-phone">&mdash;</dd></div>
+              <div><dt>Payment</dt><dd id="rcp-method">&mdash;</dd></div>
+              <div><dt>Status</dt><dd><span class="rcp-pill" id="rcp-status">&mdash;</span></dd></div>
+            </dl>
+
+            <footer class="rcp-foot">
+              <div>
+                <p class="rcp-eyebrow">Total paid</p>
+                <p class="rcp-total" id="rcp-total">&mdash;</p>
+              </div>
+              <a class="ws-btn ws-btn--ghost" href="/account/studio">Open your library
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+            </footer>
+          </article>
+
+          <p class="rcp-state" id="rcp-state" hidden></p>
+        </section>
+
+      </div>
+
+      <footer class="app-foot dash-foot">
+        <div class="app-foot-block">
+          <div class="app-foot-tag">Help</div>
+          <a href="/contact">hello@tmke.co.uk</a>
+        </div>
+        <div class="app-foot-block app-foot-block--right">
+          <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <style is:global>
+    .rcp-hero { --ws-hero-img: url('/assets/sitting%20chair.jpg'); }
+
+    /* House rules: hairline outline, square corners, no fill, no shadow.
+       Seasons appears once on this page — the hero greeting — exactly as it
+       does on every other hub page. Everything inside the receipt is Helios
+       (--serif) or Darker Grotesque (--sans). */
+    .rcp { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; }
+    .rcp-eyebrow { margin: 0; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+
+    .rcp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid var(--ws-line); }
+    .rcp-no { margin: 6px 0 0; font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .rcp-issuer { display: flex; flex-direction: column; gap: 3px; text-align: right; font-family: var(--sans); font-size: 12.5px; color: var(--ws-tx); }
+
+    .rcp-line { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid var(--ws-line); }
+    .rcp-thumb { width: 72px; height: 72px; border-radius: var(--ws-r); background: #e9e6e2 center/cover no-repeat; }
+    .rcp-line-tx { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .rcp-line-tx strong { font-family: var(--serif); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+    .rcp-line-tx span { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ws-tx); }
+    .rcp-line-amt { font-family: var(--serif); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .rcp-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; padding: 22px 24px; margin: 0; border-bottom: 1px solid var(--ws-line); }
+    @media (max-width: 620px) { .rcp-facts { grid-template-columns: 1fr; } .rcp-line { grid-template-columns: 56px minmax(0,1fr); } .rcp-line-amt { grid-column: 2; } }
+    .rcp-facts > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .rcp-facts dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0; }
+    .rcp-facts dd { font-family: var(--sans); font-size: 14px; margin: 0; color: var(--ws-ink); word-break: break-word; }
+
+    .rcp-pill { display: inline-block; font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; background: rgba(63,148,104,0.12); color: #2f6f4d; border: 1px solid rgba(63,148,104,0.3); }
+    .rcp-pill[data-status="pending"] { background: rgba(201,122,58,0.12); color: #8a4d1f; border-color: rgba(201,122,58,0.32); }
+    .rcp-pill[data-status="failed"], .rcp-pill[data-status="refunded"] { background: rgba(28,29,34,0.05); color: var(--ws-tx); border-color: var(--ws-line); }
+
+    .rcp-foot { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 22px 24px; }
+    .rcp-total { margin: 6px 0 0; font-family: var(--serif); font-size: clamp(26px, 2.6vw, 32px); font-weight: 600; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+
+    /* A strip link that is a <button> needs the reset, or it takes the UA font. */
+    #rcp-print { appearance: none; background: none; border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.01em; }
+
+    .rcp-state { margin: 0; padding: 32px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
+    .rcp-state strong { display: block; font-family: var(--serif); font-size: 22px; font-weight: 600; color: var(--ws-ink); margin-bottom: 6px; }
+  </style>
+
+  <script>
+    import { supabase, gbpFromPence } from '../../../lib/supabase.js';
+
+    const orderId = new URLSearchParams(location.search).get('order');
+
+    const $ = (id) => document.getElementById(id);
+    const METHOD = { apple_pay: 'Apple Pay', google_pay: 'Google Pay', card: 'Card', bank_transfer: 'Bank transfer', gift: 'Gift' };
+    const STATUS = { paid: 'Paid', pending: 'Processing…', failed: 'Failed', refunded: 'Refunded' };
+
+    function formatDate(iso) {
+      try { return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }); }
+      catch (_) { return ''; }
+    }
+    function fail(msg) {
+      $('rcp-card').hidden = true;
+      const s = $('rcp-state');
+      s.hidden = false;
+      s.innerHTML = `<strong>Receipt not found.</strong>${msg}`;
+    }
+
+    let orderRow = null;
+
+    (async () => {
+      const isDemo = import.meta.env.DEV;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (!isDemo) location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search));
+        return;
+      }
+      if (!isDemo) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search)); return; }
+      }
+
+      const email = session.user.email ?? '';
+      if ($('footer-email')) $('footer-email').textContent = email;
+
+      if (!orderId) return fail('No order was specified.');
+
+      // RLS already scopes `orders` to the member; the extra filter keeps a
+      // mistyped id from silently rendering somebody else's row if that ever
+      // loosens.
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`)
+        .maybeSingle();
+
+      if (error) return fail(error.message);
+      if (!data) return fail("We couldn't find that order on your account.");
+
+      orderRow = data;
+
+      $('rcp-no').textContent = data.invoice_number ?? '—';
+      $('rcp-date').textContent = formatDate(data.created_at);
+      $('rcp-pack').textContent = data.pack_title ?? 'Your order';
+      $('rcp-billto').textContent = data.buyer_name || '—';
+      $('rcp-company').textContent = data.buyer_company || '—';
+      $('rcp-email').textContent = data.buyer_email || '—';
+      $('rcp-phone').textContent = data.buyer_phone || '—';
+      $('rcp-method').textContent = METHOD[data.payment_method] || data.payment_method || '—';
+      $('rcp-amount').textContent = gbpFromPence(data.amount_pence);
+      $('rcp-total').textContent = gbpFromPence(data.amount_pence);
+      $('rcp-sub').textContent = `${data.pack_title || 'Your order'} — ${formatDate(data.created_at)}.`;
+
+      const st = $('rcp-status');
+      st.textContent = STATUS[data.status] || data.status;
+      st.dataset.status = data.status;
+
+      if (data.pack_id) {
+        const { data: pack } = await supabase
+          .from('packs').select('description, cover_image_url').eq('id', data.pack_id).maybeSingle();
+        if (pack) {
+          if (pack.description) $('rcp-desc').textContent = pack.description;
+          if (pack.cover_image_url) $('rcp-cover').style.backgroundImage = `url('${pack.cover_image_url}')`;
+        }
+      }
+    })();
+
+    // Print view. Styles are inlined because the new window shares no
+    // stylesheet with the app — and they are the hub's fonts, not the public
+    // site's, so a printed invoice matches the page it came from.
+    $('rcp-print')?.addEventListener('click', () => {
+      const w = window.open('', '_blank', 'width=820,height=920');
+      if (!w) return;
+      const card = $('rcp-card')?.outerHTML ?? '';
+      const styles = `
+        * { box-sizing: border-box; }
+        body { font-family: "Darker Grotesque", -apple-system, Segoe UI, Helvetica, Arial, sans-serif; padding: 48px 40px; color: #1c1d22; background: #fff; }
+        .rcp { border: 1px solid #e2e0db; border-radius: 4px; max-width: 820px; margin: 0 auto; overflow: hidden; }
+        .rcp-eyebrow { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
+        .rcp-head { display: flex; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid #ececea; }
+        .rcp-no { margin: 6px 0 0; font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; }
+        .rcp-issuer { display: flex; flex-direction: column; gap: 3px; text-align: right; font-size: 12.5px; color: rgba(28,29,34,0.64); }
+        .rcp-line { display: grid; grid-template-columns: 72px 1fr auto; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid #f0efed; }
+        .rcp-thumb { width: 72px; height: 72px; border-radius: 4px; background: #e9e6e2 center/cover no-repeat; }
+        .rcp-line-tx { display: flex; flex-direction: column; gap: 4px; }
+        .rcp-line-tx strong { font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 17px; font-weight: 600; }
+        .rcp-line-tx span { font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.64); }
+        .rcp-line-amt { font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; }
+        .rcp-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; padding: 22px 24px; margin: 0; border-bottom: 1px solid #ececea; }
+        .rcp-facts > div { display: flex; flex-direction: column; gap: 3px; }
+        .rcp-facts dt { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); margin: 0; }
+        .rcp-facts dd { font-size: 14px; margin: 0; }
+        .rcp-pill { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; background: #eaf3ee; color: #2f6f4d; border: 1px solid rgba(63,148,104,0.3); }
+        .rcp-foot { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; }
+        .rcp-total { margin: 6px 0 0; font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 30px; font-weight: 600; }
+        .ws-btn { display: none !important; }
+        @media print { body { padding: 0; } .rcp { border: none; } }
+      `;
+      w.document.write(
+        `<!doctype html><html><head><title>Invoice — ${orderRow?.invoice_number || ''}</title><style>${styles}</style></head><body>${card}</body></html>`
+      );
+      w.document.close();
+      w.focus();
+      setTimeout(() => w.print(), 350);
+    });
+  </script>
+</BaseLayout>
