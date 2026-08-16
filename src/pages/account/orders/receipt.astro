@@ -227,43 +227,46 @@ import "../../../styles/account-sections.css";
       }
     })();
 
-    // Print view. Styles are inlined because the new window shares no
-    // stylesheet with the app — and they are the hub's fonts, not the public
-    // site's, so a printed invoice matches the page it came from.
-    $('rcp-print')?.addEventListener('click', () => {
-      const w = window.open('', '_blank', 'width=820,height=920');
+    // Same TMKE invoice template the admin centre uses, so a pack receipt
+    // matches every other invoice the business sends. Bank details are
+    // suppressed: it is already paid, so payment instructions are noise.
+    $('rcp-print')?.addEventListener('click', async () => {
+      if (!orderRow) return;
+      const { renderInvoiceHtml } = await import('../../../lib/invoice-render.js');
+
+      let settings = {};
+      try {
+        const { data } = await supabase.from('invoice_settings').select('*').limit(1).maybeSingle();
+        if (data) settings = data;
+      } catch (_) { /* renderer defaults cover a member who cannot read it */ }
+
+      const ymd = (iso) => { try { return new Date(iso).toISOString().slice(0, 10); } catch (_) { return ''; } };
+      const issued = ymd(orderRow.created_at);
+
+      const html = renderInvoiceHtml({
+        settings: { ...settings, show_bank: false },
+        invoice: {
+          number: orderRow.invoice_number || '',
+          issued_date: issued,
+          paid_date: orderRow.status === 'paid' ? issued : null,
+          status: orderRow.status,
+          payment_method: orderRow.payment_method,
+          bill_to_name: orderRow.buyer_name || '',
+          bill_to_email: orderRow.buyer_email || '',
+          bill_to_address: orderRow.buyer_company || '',
+          line_items: [{ description: orderRow.pack_title || 'TMKE pack', qty: 1, unit_pence: orderRow.amount_pence || 0 }],
+          subtotal_pence: orderRow.amount_pence || 0,
+          vat_pence: 0,
+          total_pence: orderRow.amount_pence || 0,
+        },
+      });
+
+      const w = window.open('', '_blank', 'width=880,height=1000');
       if (!w) return;
-      const card = $('rcp-card')?.outerHTML ?? '';
-      const styles = `
-        * { box-sizing: border-box; }
-        body { font-family: "Darker Grotesque", -apple-system, Segoe UI, Helvetica, Arial, sans-serif; padding: 48px 40px; color: #1c1d22; background: #fff; }
-        .rcp { border: 1px solid #e2e0db; border-radius: 4px; max-width: 820px; margin: 0 auto; overflow: hidden; }
-        .rcp-eyebrow { margin: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
-        .rcp-head { display: flex; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid #ececea; }
-        .rcp-no { margin: 6px 0 0; font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; }
-        .rcp-issuer { display: flex; flex-direction: column; gap: 3px; text-align: right; font-size: 12.5px; color: rgba(28,29,34,0.64); }
-        .rcp-line { display: grid; grid-template-columns: 72px 1fr auto; gap: 18px; align-items: center; padding: 22px 24px; border-bottom: 1px solid #f0efed; }
-        .rcp-thumb { width: 72px; height: 72px; border-radius: 4px; background: #e9e6e2 center/cover no-repeat; }
-        .rcp-line-tx { display: flex; flex-direction: column; gap: 4px; }
-        .rcp-line-tx strong { font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 17px; font-weight: 600; }
-        .rcp-line-tx span { font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.64); }
-        .rcp-line-amt { font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; }
-        .rcp-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; padding: 22px 24px; margin: 0; border-bottom: 1px solid #ececea; }
-        .rcp-facts > div { display: flex; flex-direction: column; gap: 3px; }
-        .rcp-facts dt { font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); margin: 0; }
-        .rcp-facts dd { font-size: 14px; margin: 0; }
-        .rcp-pill { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; background: #eaf3ee; color: #2f6f4d; border: 1px solid rgba(63,148,104,0.3); }
-        .rcp-foot { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; }
-        .rcp-total { margin: 6px 0 0; font-family: "Helios", Helvetica, Arial, sans-serif; font-size: 30px; font-weight: 600; }
-        .ws-btn { display: none !important; }
-        @media print { body { padding: 0; } .rcp { border: none; } }
-      `;
-      w.document.write(
-        `<!doctype html><html><head><title>Invoice — ${orderRow?.invoice_number || ''}</title><style>${styles}</style></head><body>${card}</body></html>`
-      );
+      w.document.write(html);
       w.document.close();
       w.focus();
-      setTimeout(() => w.print(), 350);
+      setTimeout(() => w.print(), 400);
     });
   </script>
 </BaseLayout>

@@ -415,42 +415,56 @@ import "../../styles/ws-system.css";
     // Browser-side invoice "download" — opens print dialog scoped to the
     // receipt block; users can save to PDF. Real email-sent PDF lands when
     // we wire up Resend/SendGrid behind an edge function.
-    dlBtn.addEventListener('click', () => {
-      const w = window.open('', '_blank', 'width=800,height=900');
+    // The invoice download uses the real TMKE invoice template — the same
+    // renderer the admin centre uses for videography and social invoices — so a
+    // pack receipt looks like every other invoice the business sends, rather
+    // than like a screenshot of this page.
+    //
+    // invoice_settings is admin-policy-only, so a member's fetch returns
+    // nothing; the renderer's own defaults cover that. show_bank is forced off
+    // regardless: this is already paid, so payment instructions are noise, and
+    // it keeps bank details out of a member-facing document.
+    dlBtn.addEventListener('click', async () => {
+      if (!orderRow) return;
+      const [{ renderInvoiceHtml }, { supabase: sb }] = await Promise.all([
+        import('../../lib/invoice-render.js'),
+        import('../../lib/supabase.js'),
+      ]);
+
+      let settings = {};
+      try {
+        const { data } = await sb.from('invoice_settings').select('*').limit(1).maybeSingle();
+        if (data) settings = data;
+      } catch (_) { /* defaults */ }
+
+      const ymd = (iso) => { try { return new Date(iso).toISOString().slice(0, 10); } catch (_) { return ''; } };
+      const issued = ymd(orderRow.created_at);
+      const paid = orderRow.status === 'paid' ? issued : null;
+
+      const html = renderInvoiceHtml({
+        settings: { ...settings, show_bank: false },
+        invoice: {
+          number: orderRow.invoice_number || '',
+          issued_date: issued,
+          paid_date: paid,
+          status: orderRow.status,
+          payment_method: orderRow.payment_method,
+          bill_to_name: orderRow.buyer_name || '',
+          bill_to_email: orderRow.buyer_email || '',
+          bill_to_address: orderRow.buyer_company || '',
+          line_items: [{ description: orderRow.pack_title || 'TMKE pack', qty: 1, unit_pence: orderRow.amount_pence || 0 }],
+          subtotal_pence: orderRow.amount_pence || 0,
+          vat_pence: 0,
+          total_pence: orderRow.amount_pence || 0,
+        },
+      });
+
+      const w = window.open('', '_blank', 'width=880,height=1000');
       if (!w) return;
-      const receipt = document.querySelector('.thanks-receipt')?.outerHTML ?? '';
-      const styles = `
-        * { box-sizing: border-box; }
-        body { font-family: 'Cormorant Garamond', Georgia, serif; padding: 56px 40px; color: #1c1d22; background: #fff; }
-        .thanks-receipt { background: #fff; width: 100%; max-width: 880px; margin: 0 auto; padding: 0; box-shadow: none; border: 1px solid #e2e0db; border-radius: 8px; overflow: hidden; }
-        .thanks-receipt-head { display: flex; justify-content: space-between; align-items: flex-start; padding: 28px 36px; border-bottom: 1px solid #ececea; }
-        .thanks-receipt-eyebrow { font-family: 'Darker Grotesque', sans-serif; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: #6b6675; margin: 0 0 6px; }
-        .thanks-receipt-no { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 500; }
-        .thanks-receipt-meta { text-align: right; display: flex; flex-direction: column; gap: 4px; font-family: 'Darker Grotesque', sans-serif; font-size: 13px; color: #777; }
-        .thanks-receipt-row { display: grid; grid-template-columns: 84px 1fr auto; gap: 22px; align-items: center; padding: 28px 36px; border-bottom: 1px solid #f0efed; }
-        .thanks-receipt-thumb { width: 84px; height: 84px; background-size: cover; background-position: center; border-radius: 4px; background-color: #eee; }
-        .thanks-receipt-info h3 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 26px; margin: 0 0 4px; }
-        .thanks-receipt-info p { font-family: 'Darker Grotesque', sans-serif; font-size: 14px; color: #555; margin: 0; line-height: 1.5; }
-        .thanks-receipt-amount { font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--english-violet); }
-        .thanks-receipt-list { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 36px; padding: 28px 36px; margin: 0; }
-        .thanks-receipt-list > div { display: flex; flex-direction: column; gap: 3px; }
-        .thanks-receipt-list dt { font-family: 'Darker Grotesque', sans-serif; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: #8a8693; margin: 0; }
-        .thanks-receipt-list dd { font-family: 'Darker Grotesque', sans-serif; font-size: 16px; margin: 0; }
-        .thanks-receipt-foot { display: flex; justify-content: space-between; align-items: center; padding: 28px 36px; border-top: 1px solid #ececea; }
-        .thanks-receipt-total { font-family: 'Cormorant Garamond', serif; font-size: 40px; color: #1c1d22; }
-        .pill { background: #e6efe5; color: #2e6a4a; padding: 3px 12px; border-radius: 99px; font-family: 'Darker Grotesque', sans-serif; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
-        .btn, .btn-arrow { display: none !important; }
-        @media print { body { padding: 0; } .thanks-receipt { border: none; max-width: none; } }
-      `;
-      const SCRIPT_OPEN = '<' + 'script>';
-      const SCRIPT_CLOSE = '<' + '/script>';
-      w.document.write(
-        `<!doctype html><html><head><title>Invoice — ${orderRow?.invoice_number || ''}</title><style>${styles}</style></head><body>` +
-          receipt +
-          `${SCRIPT_OPEN}window.onload=function(){setTimeout(function(){window.print();},120);};${SCRIPT_CLOSE}` +
-          `</body></html>`
-      );
+      w.document.write(html);
       w.document.close();
+      w.focus();
+      setTimeout(() => w.print(), 400);
     });
 
     loadOrder();
