@@ -1,413 +1,205 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import "../../styles/ws-system.css";
 ---
 
+<!--
+  Post-checkout confirmation. Public: the buyer may not have an account yet,
+  which is what the password step is for — so this keeps the site's own nav
+  rather than the member header.
+
+  Everything else follows the hub: the same eyebrow / heading / subheading the
+  dashboard uses, the same 37px buttons, the same hairline square cards. Seasons
+  appears once, on the greeting, exactly as it does in /account.
+-->
 <BaseLayout
   dashboard
   title="Thank you — your TMKE order · The Edit"
   description="Your TMKE pack purchase is confirmed. Set a password to access your library and download your invoice."
   hideFooter={true}
 >
+  <div class="ws">
   <main class="thanks-shell">
-    <header class="thanks-mark">
-      <a href="/" class="thanks-logo">TMKE</a>
-      <span class="thanks-eyebrow">The Edit — Order confirmation</span>
-    </header>
 
+    <!-- Eyebrow / heading / subheading — the dashboard's hero, minus the photo. -->
     <section class="thanks-hero">
-      <p class="thanks-chapter">Order #<span id="thanks-invoice">…</span></p>
-      <h1 class="thanks-h1">
-        Thank you, <em id="thanks-name">friend</em>.
-      </h1>
-      <p class="thanks-sub">
-        Your purchase is confirmed — a receipt has been emailed to
-        <strong id="thanks-email">you</strong>. Below, set a password to unlock your library and download your invoice.
+      <p class="ws-hero-date">Order #<span id="thanks-invoice">&hellip;</span></p>
+      <h1 class="ws-greeting">Thank you, <em id="thanks-name">friend</em>.</h1>
+      <p class="ws-hero-sub">
+        Your purchase is confirmed &mdash; a receipt has been emailed to
+        <strong id="thanks-email">you</strong>.
       </p>
     </section>
 
     <section class="thanks-grid">
-      <!-- Left: receipt + invoice -->
+      <!-- Left: receipt -->
       <article class="thanks-receipt">
         <header class="thanks-receipt-head">
           <div>
             <div class="thanks-receipt-eyebrow">Invoice</div>
-            <div class="thanks-receipt-no" id="thanks-invoice-2">—</div>
+            <div class="thanks-receipt-no" id="thanks-invoice-2">&mdash;</div>
           </div>
           <div class="thanks-receipt-meta">
-            <span>TMKE — The Marketing Experts</span>
-            <span id="thanks-date">—</span>
+            <span>TMKE &mdash; The Marketing Experts</span>
+            <span id="thanks-date">&mdash;</span>
           </div>
         </header>
 
         <div class="thanks-receipt-row">
           <div class="thanks-receipt-thumb" id="thanks-cover"></div>
           <div class="thanks-receipt-info">
-            <h3 id="thanks-pack-title">…</h3>
+            <h3 id="thanks-pack-title">&hellip;</h3>
             <p id="thanks-pack-desc"></p>
           </div>
-          <div class="thanks-receipt-amount" id="thanks-amount">£299</div>
+          <div class="thanks-receipt-amount" id="thanks-amount">&mdash;</div>
         </div>
 
         <dl class="thanks-receipt-list">
-          <div><dt>Billed to</dt><dd id="thanks-billto">—</dd></div>
-          <div><dt>Company</dt><dd id="thanks-company">—</dd></div>
-          <div><dt>Email</dt><dd id="thanks-email-2">—</dd></div>
-          <div><dt>Phone</dt><dd id="thanks-phone">—</dd></div>
-          <div><dt>Payment</dt><dd id="thanks-method">—</dd></div>
-          <div><dt>Status</dt><dd><span class="pill" id="thanks-status">Paid</span></dd></div>
+          <div><dt>Billed to</dt><dd id="thanks-billto">&mdash;</dd></div>
+          <div><dt>Company</dt><dd id="thanks-company">&mdash;</dd></div>
+          <div><dt>Email</dt><dd id="thanks-email-2">&mdash;</dd></div>
+          <div><dt>Phone</dt><dd id="thanks-phone">&mdash;</dd></div>
+          <div><dt>Payment</dt><dd id="thanks-method">&mdash;</dd></div>
+          <div><dt>Status</dt><dd><span class="pill" id="thanks-status">&mdash;</span></dd></div>
         </dl>
 
         <footer class="thanks-receipt-foot">
           <div>
             <div class="thanks-receipt-eyebrow">Total paid</div>
-            <div class="thanks-receipt-total" id="thanks-total">£299.00</div>
+            <div class="thanks-receipt-total" id="thanks-total">&mdash;</div>
           </div>
-          <button type="button" class="btn btn--solid" id="download-invoice">
-            Download invoice <span class="btn-arrow">&rarr;</span>
+          <button type="button" class="ws-btn ws-btn--ghost" id="download-invoice">
+            Download invoice
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8m0 0L5 7m3 3 3-3M3 13h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </footer>
       </article>
 
-      <!-- Right: account setup -->
+      <!-- Right: account setup. Bottom-aligned so its last line sits on the
+           receipt's bottom edge rather than floating halfway up. -->
       <article class="thanks-setup">
-        <div class="eyebrow">Last step</div>
-        <h2 class="thanks-setup-h">Set a password to access your library.</h2>
-        <p class="thanks-setup-sub">
-          We've created your account with the email above. Choose a password and
-          you'll go straight to your library where your new pack is waiting.
-        </p>
+        <div class="thanks-setup-inner">
+          <p class="thanks-setup-eyebrow">Last step</p>
+          <h2 class="thanks-setup-h">Set a password to access your library.</h2>
+          <p class="thanks-setup-sub">
+            We&rsquo;ve created your account with the email above. Choose a password and
+            you&rsquo;ll go straight to your library where your new pack is waiting.
+          </p>
 
-        <form id="password-form" class="thanks-form" novalidate>
-          <label class="ck-field">
-            <span>Password</span>
-            <input type="password" name="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters" />
-          </label>
-          <label class="ck-field">
-            <span>Confirm password</span>
-            <input type="password" name="confirm" autocomplete="new-password" minlength="8" required />
-          </label>
-          <p class="ck-error" id="password-error" hidden></p>
-          <button type="submit" class="ck-cta" id="password-submit">
-            Create my library <em>&rarr;</em>
-          </button>
-        </form>
+          <form id="password-form" class="thanks-form" novalidate>
+            <label class="ck-field">
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="new-password" minlength="8" required placeholder="At least 8 characters" />
+            </label>
+            <label class="ck-field">
+              <span>Confirm password</span>
+              <input type="password" name="confirm" autocomplete="new-password" minlength="8" required />
+            </label>
+            <p class="ck-error" id="password-error" hidden></p>
+            <button type="submit" class="ws-btn ws-btn--primary" id="password-submit">
+              Create my library
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </form>
 
-        <div class="thanks-success" id="password-success" hidden>
-          <div class="thanks-success-mark">✓</div>
-          <h3>Password saved.</h3>
-          <p id="thanks-success-msg">Your library is unlocked — jump straight in.</p>
-          <a href="/account" class="ck-cta">
-            Open your library <em>&rarr;</em>
-          </a>
+          <div class="thanks-success" id="password-success" hidden>
+            <div class="thanks-success-mark">&#10003;</div>
+            <h3>Password saved.</h3>
+            <p id="thanks-success-msg">Your library is unlocked &mdash; jump straight in.</p>
+            <a href="/account" class="ws-btn ws-btn--primary">
+              Open your library
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </div>
+
+          <p class="thanks-setup-foot">
+            Already have an account?
+            <a href="/login" class="thanks-link">Sign in instead</a>.
+          </p>
         </div>
-
-        <p class="thanks-setup-foot">
-          Already have an account?
-          <a href="/login" class="thanks-link">Sign in instead</a>.
-        </p>
       </article>
     </section>
   </main>
+  </div>
 
-  <!-- Clean white page — the receipt card and form carry the structure.
-       Global because scoped CSS can't target <body>. -->
   <style is:global>
     body:has(.thanks-shell) { background: #ffffff; }
   </style>
 
-  <style>
-    .thanks-shell {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px 36px 120px;
-    }
-    .thanks-mark {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 60px;
-    }
-    .thanks-logo {
-      font-family: var(--serif);
-      font-size: 22px;
-      letter-spacing: 0.06em;
-      color: var(--ink);
-    }
-    .thanks-eyebrow {
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-    }
+  <style is:global>
+    .thanks-shell { max-width: 1200px; margin: 0 auto; padding: clamp(28px, 4vh, 56px) clamp(22px, 2.6vw, 56px) 100px; }
 
-    .thanks-hero {
-      max-width: 760px;
-      margin-bottom: 64px;
-    }
-    .thanks-chapter {
-      font-family: var(--sans);
-      font-size: 12px;
-      letter-spacing: 0.32em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
-      margin: 0 0 18px;
-    }
-    .thanks-h1 {
-      font-family: var(--subhead);
-      font-weight: 400;
-      font-size: clamp(48px, 6vw, 88px);
-      line-height: 1.02;
-      letter-spacing: -0.005em;
-      color: var(--ink);
-      margin: 0 0 22px;
-    }
-    .thanks-h1 em { font-style: italic; color: var(--english-violet); }
-    .thanks-sub {
-      font-size: 17px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.7);
-      max-width: 620px;
-    }
-    .thanks-sub strong { color: var(--ink); font-weight: 600; }
+    /* Hero: the dashboard's three-part heading, nothing else. Seasons lands on
+       .ws-greeting only — every other line here is Helios or Darker Grotesque. */
+    .thanks-hero { margin-bottom: clamp(28px, 3.4vh, 48px); max-width: 660px; }
+    /* 46ch wrapped the greeting after "Thank you," — the dashboard fits its
+       greeting on one line and this should match. A pixel cap sized to the
+       greeting, not a character cap sized to the subtitle. */
+    .thanks-hero .ws-greeting em { font-style: italic; }
 
-    .thanks-grid {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 36px;
-      align-items: stretch;   /* invoice box matches the setup box height */
-    }
-    @media (max-width: 980px) { .thanks-grid { grid-template-columns: 1fr; align-items: start; } }
+    /* Receipt left, account setup right, both the same height so the setup
+       column can sit its last line on the receipt's bottom edge. */
+    .thanks-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(20px, 2.4vw, 36px); align-items: stretch; }
+    @media (max-width: 900px) { .thanks-grid { grid-template-columns: 1fr; } }
 
-    /* ============ Receipt ============ */
-    .thanks-receipt {
-      background: #fff;
-      border: 1px solid rgba(28,29,34,0.08);
-      border-radius: 4px;
-      padding: 32px 32px 28px;
-      display: flex; flex-direction: column; gap: 24px;
-      box-shadow: 0 24px 60px -32px rgba(28,29,34,0.25);
-    }
-    .thanks-receipt-head {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      padding-bottom: 22px;
-      border-bottom: 1px solid rgba(28,29,34,0.08);
-    }
-    .thanks-receipt-eyebrow {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.28em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: var(--english-violet);
-      margin-bottom: 4px;
-    }
-    .thanks-receipt-no {
-      font-family: var(--serif);
-      font-size: 24px;
-      font-weight: 500;
-      color: var(--ink);
-    }
-    .thanks-receipt-meta {
-      text-align: right;
-      display: flex; flex-direction: column; gap: 4px;
-      font-family: var(--sans);
-      font-size: 12px;
-      color: rgba(28,29,34,0.55);
-    }
+    /* ---- Receipt. Hairline outline, square corners, no fill — house rules. ---- */
+    .thanks-receipt { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; align-self: start; }
+    .thanks-receipt-eyebrow { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0; }
+    .thanks-receipt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid var(--ws-line); }
+    .thanks-receipt-no { font-family: var(--serif); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; margin-top: 6px; font-variant-numeric: tabular-nums; }
+    .thanks-receipt-meta { display: flex; flex-direction: column; gap: 3px; text-align: right; font-family: var(--sans); font-size: 12.5px; color: var(--ws-tx); }
 
-    .thanks-receipt-row {
-      display: grid;
-      grid-template-columns: 96px 1fr auto;
-      gap: 18px;
-      align-items: center;
-      padding-bottom: 22px;
-      border-bottom: 1px solid rgba(28,29,34,0.06);
-    }
-    .thanks-receipt-thumb {
-      aspect-ratio: 1 / 1;
-      background: var(--platinum);
-      background-size: cover;
-      background-position: center;
-      border-radius: 2px;
-    }
-    .thanks-receipt-info h3 {
-      font-family: var(--serif);
-      font-size: 22px;
-      font-weight: 500;
-      margin: 0 0 4px;
-      color: var(--ink);
-    }
-    .thanks-receipt-info p {
-      font-size: 13px;
-      color: rgba(28,29,34,0.6);
-      line-height: 1.5;
-      margin: 0;
-      max-width: 50ch;
-    }
-    .thanks-receipt-amount {
-      font-family: var(--serif);
-      font-size: 24px;
-      font-weight: 500;
-      color: var(--english-violet);
-    }
+    /* 3:4 portrait, matching what the Studio actually outputs. Aligned to the
+       top with the title and the price, so the three read as one line. */
+    .thanks-receipt-row { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 20px; align-items: start; padding: 22px 24px; border-bottom: 1px solid var(--ws-line); }
+    .thanks-receipt-thumb { width: 96px; aspect-ratio: 3 / 4; border-radius: var(--ws-r); background: #e9e6e2 center/cover no-repeat; }
+    .thanks-receipt-info h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 5px; }
+    .thanks-receipt-info p { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ws-tx); margin: 0; }
+    .thanks-receipt-amount { font-family: var(--serif); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    .thanks-receipt-list {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px 28px;
-      margin: 0;
-    }
-    .thanks-receipt-list > div { display: flex; flex-direction: column; gap: 2px; }
-    .thanks-receipt-list dt {
-      font-family: var(--sans);
-      font-size: 11px;
-      letter-spacing: 0.22em;
-      text-transform: uppercase;
-      font-weight: 700;
-      color: rgba(28,29,34,0.5);
-      margin: 0;
-    }
-    .thanks-receipt-list dd {
-      font-family: var(--sans);
-      font-size: 14px;
-      color: var(--ink);
-      margin: 0;
-      word-break: break-word;
-    }
-    .pill {
-      display: inline-flex; align-items: center;
-      padding: 3px 10px;
-      background: #e6efe5;
-      color: #2e6a4a;
-      border-radius: 999px;
-      font-family: var(--sans);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-    }
+    .thanks-receipt-list { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; padding: 22px 24px; margin: 0; border-bottom: 1px solid var(--ws-line); }
+    @media (max-width: 620px) { .thanks-receipt-list { grid-template-columns: 1fr; } }
+    .thanks-receipt-list > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .thanks-receipt-list dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0; }
+    .thanks-receipt-list dd { font-family: var(--sans); font-size: 14px; margin: 0; word-break: break-word; }
 
-    .thanks-receipt-foot {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-top: auto;   /* sit at the bottom when the card is stretched taller */
-      padding-top: 22px;
-      border-top: 1px solid rgba(28,29,34,0.06);
-      gap: 18px;
-      flex-wrap: wrap;
-    }
-    .thanks-receipt-total {
-      font-family: var(--serif);
-      font-size: 36px;
-      font-weight: 500;
-      color: var(--ink);
-    }
+    .pill { display: inline-block; font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; background: rgba(63,148,104,0.12); color: #2f6f4d; border: 1px solid rgba(63,148,104,0.3); }
+    .pill[data-status="pending"] { background: rgba(201,122,58,0.12); color: #8a4d1f; border-color: rgba(201,122,58,0.32); }
+    .pill[data-status="failed"], .pill[data-status="refunded"] { background: rgba(28,29,34,0.05); color: var(--ws-tx); border-color: var(--ws-line); }
 
-    /* ============ Setup ============ */
-    .thanks-setup {
-      padding: 6px 0 0;
-    }
-    .thanks-setup-h {
-      font-family: var(--subhead);
-      font-size: clamp(28px, 3vw, 40px);
-      font-weight: 400;
-      letter-spacing: -0.005em;
-      line-height: 1.08;
-      margin: 12px 0 14px;
-    }
-    .thanks-setup-sub {
-      font-size: 15px;
-      color: rgba(28,29,34,0.65);
-      line-height: 1.55;
-      margin: 0 0 24px;
-    }
-    .thanks-form { display: flex; flex-direction: column; gap: 14px; }
-    .thanks-setup-foot {
-      margin-top: 26px;
-      font-size: 13px;
-      color: rgba(28,29,34,0.55);
-    }
-    .thanks-link {
-      color: var(--english-violet);
-      border-bottom: 1px solid currentColor;
-      font-weight: 600;
-    }
+    .thanks-receipt-foot { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 22px 24px; }
+    .thanks-receipt-total { font-family: var(--serif); font-size: clamp(26px, 2.6vw, 32px); font-weight: 600; letter-spacing: -0.015em; margin-top: 6px; font-variant-numeric: tabular-nums; }
 
-    .thanks-success {
-      display: flex; flex-direction: column; gap: 12px;
-      align-items: flex-start;
-      padding: 24px;
-      background: rgba(46, 106, 74, 0.06);
-      border: 1px solid rgba(46, 106, 74, 0.22);
-      border-radius: 4px;
-    }
-    .thanks-success-mark {
-      width: 40px; height: 40px;
-      border-radius: 50%;
-      background: #2e6a4a;
-      color: var(--paper);
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      font-weight: 700;
-    }
-    .thanks-success h3 {
-      font-family: var(--serif);
-      font-size: 24px;
-      font-weight: 500;
-      margin: 0;
-    }
-    .thanks-success p { font-size: 14px; color: rgba(28,29,34,0.65); margin: 0; }
+    /* ---- Account setup ---- */
+    .thanks-setup { display: flex; }
+    /* Pushed to the bottom so "Already have an account?" lands on the receipt's
+       bottom edge, with the breathing room above rather than below. */
+    .thanks-setup-inner { display: flex; flex-direction: column; margin-top: auto; width: 100%; }
+    @media (max-width: 900px) { .thanks-setup-inner { margin-top: 0; } }
+    .thanks-setup-eyebrow { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0 0 10px; }
+    .thanks-setup-h { font-family: var(--serif); font-size: clamp(20px, 2vw, 25px); font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; margin: 0; }
+    .thanks-setup-sub { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ws-tx); margin: 10px 0 0; }
 
-    /* Let the [hidden] attribute win over the flex/grid display rules above,
-       so the success card stays hidden until sign-up and the grid hides on
-       the order-not-found state. */
-    .thanks-grid[hidden],
-    .thanks-form[hidden],
-    .thanks-success[hidden] { display: none !important; }
+    .thanks-form { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+    .ck-field { display: flex; flex-direction: column; gap: 5px; }
+    .ck-field span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .ck-field input { font-family: var(--sans); font-size: 14px; padding: 10px 12px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); }
+    .ck-field input:focus { outline: none; border-color: var(--ws-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ws-accent) 12%, transparent); }
+    .ck-error { font-family: var(--sans); font-size: 12.5px; color: #8a2f2f; margin: 0; }
+    .thanks-form .ws-btn { align-self: flex-start; margin-top: 4px; }
 
-    /* Reuse small bits of checkout look */
-    .ck-field { display: flex; flex-direction: column; gap: 6px; }
-    .ck-field > span {
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
-    }
-    .ck-field input {
-      font-family: var(--sans); font-size: 15px;
-      padding: 12px 14px;
-      border: 1px solid rgba(var(--violet-rgb),0.28);
-      border-radius: 2px;
-      background: #fff;
-      color: var(--ink);
-    }
-    .ck-field input:focus {
-      outline: none; border-color: var(--english-violet);
-      box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12);
-    }
-    .ck-error {
-      margin: 0; padding: 10px 12px;
-      background: rgba(160,90,60,0.1);
-      border-left: 3px solid #a05a3c;
-      color: #a05a3c;
-      font-size: 13px;
-      font-family: var(--sans);
-    }
-    .ck-cta {
-      appearance: none;
-      background: var(--ink);
-      color: var(--paper);
-      border: 0;
-      padding: 14px 22px;
-      border-radius: 2px;
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.24em; text-transform: uppercase;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-flex; align-items: center; justify-content: center;
-      transition: background 0.25s;
-    }
-    .ck-cta:hover { background: var(--english-violet); }
-    .ck-cta em { font-family: var(--serif); font-style: italic; font-size: 16px; letter-spacing: 0; text-transform: none; margin-left: 8px; }
-    .ck-cta[disabled] { opacity: 0.55; cursor: progress; }
+    .thanks-success { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin-top: 20px; padding: 20px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .thanks-success-mark { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(63,148,104,0.12); color: #2f6f4d; font-size: 14px; }
+    .thanks-success h3 { font-family: var(--serif); font-size: 17px; font-weight: 600; margin: 0; }
+    .thanks-success p { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ws-tx); margin: 0; }
+    .thanks-success .ws-btn { margin-top: 6px; }
+
+    .thanks-setup-foot { font-family: var(--sans); font-size: 12.5px; color: var(--ws-tx); margin: 18px 0 0; }
+    .thanks-link { color: var(--ws-accent); font-weight: 600; text-decoration: none; }
+    .thanks-link:hover { text-decoration: underline; }
+
+    /* The [hidden] attribute must win over the flex/grid rules above. */
+    .thanks-grid[hidden], .thanks-form[hidden], .thanks-success[hidden] { display: none !important; }
   </style>
 
   <script>
