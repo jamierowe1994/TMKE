@@ -17,57 +17,57 @@ export const CONTENT_DAYS = [
   {
     on: "01-01", name: "New Year's Day",
     angle: "The three things to sort now if you're selling this year",
-    hint: "Straight to camera. One thing per point, thirty seconds total.",
+    brief: "Straight to camera. One thing per point, thirty seconds total.",
   },
   {
     on: "01-25", name: "Burns Night",
     angle: "Homes built for a long dinner with friends",
-    hint: "Kitchen and dining shots only. Warm lamps on, overheads off.",
+    brief: "Kitchen and dining shots only. Warm lamps on, overheads off.",
   },
   {
     on: "02-14", name: "Valentine's Day",
     angle: "The homes we fell in love with this year",
-    hint: "Three listings, one detail each. Say what made you look twice.",
+    brief: "Three listings, one detail each. Say what made you look twice.",
   },
   {
     on: "03-01", name: "St David's Day",
     angle: "What makes a house feel like it belongs where it stands",
-    hint: "Exterior shots. Show the street, not just the front door.",
+    brief: "Exterior shots. Show the street, not just the front door.",
   },
   {
     on: "03-08", name: "International Women's Day",
     angle: "The women who built this agency — and what they'd tell a first-time seller",
-    hint: "Let them speak to camera themselves. No script.",
+    brief: "Let them speak to camera themselves. No script.",
   },
   {
     on: "04-11", name: "National Pet Day",
     angle: "What buyers with dogs actually look for in a home",
-    hint: "Garden gates, hard floors, boot rooms. Film them, don't list them.",
+    brief: "Garden gates, hard floors, boot rooms. Film them, don't list them.",
   },
   {
     on: "04-22", name: "Earth Day",
     angle: "The efficiency upgrades that actually move an EPC rating",
-    hint: "Use a real certificate. Before and after, on screen.",
+    brief: "Use a real certificate. Before and after, on screen.",
   },
   {
     on: "04-23", name: "St George's Day",
     angle: "Period features worth keeping — and what they add",
-    hint: "Close-ups: cornicing, fireplaces, sash windows. Hold each shot.",
+    brief: "Close-ups: cornicing, fireplaces, sash windows. Hold each shot.",
   },
   {
     on: "05-01", name: "May Day",
     angle: "Getting a garden viewing-ready before the bank holiday",
-    hint: "Film the jobs being done, not a list of them.",
+    brief: "Film the jobs being done, not a list of them.",
   },
   {
     on: "06-05", name: "World Environment Day",
     angle: "Homes that cost less to run — and how you spot one",
-    hint: "One property, three features, real numbers if you have them.",
+    brief: "One property, three features, real numbers if you have them.",
   },
   {
     on: "08-19", name: "World Photography Day",
     angle: "The difference good photography makes to a sale price",
-    hint: "Your own before and after. Phone shot beside the professional one.",
+    brief: "Your own before and after. Phone shot beside the professional one.",
   },
   // ---------------------------------------------------------------------
   // September to December, supplied by James. `brief` is his wording, kept
@@ -265,7 +265,7 @@ export const CONTENT_DAYS = [
     // World Book Day (UK) — first Thursday of March.
     nth: { month: 3, weekday: 4, n: 1 }, name: "World Book Day",
     angle: "Reading corners: the small spaces that sell a family home",
-    hint: "Find the nook in your current listings. One shot each.",
+    brief: "Find the nook in your current listings. One shot each.",
   },
 ];
 
