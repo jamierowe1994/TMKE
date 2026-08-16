@@ -1152,6 +1152,25 @@ const TEG_REASON_LABELS = {
 // src/lib/videography-config.js. Same duplication, same reason. Prices are
 // re-derived from THESE constants at request time - the public edit-request
 // page never gets to say what anything costs.
+// Everything a customer buys direct is quoted EX-VAT — the pack pages say
+// "£24 +VAT", the videography rate card says "£25 +VAT per image" — so the
+// figure that reaches Stripe has to be grossed up first. Packs and the edit
+// upsells were both charging the bare net figure, so no VAT was collected on
+// either.
+//
+// The rate comes from invoice_settings, the same place the admin centre's
+// invoices read it, so there is one number to change rather than several.
+async function vatBreakdown(env, netPence) {
+  let rate = 20;
+  try {
+    const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=vat_rate"))?.[0];
+    if (st && st.vat_rate != null) rate = Number(st.vat_rate);
+  } catch (_) { /* fall back to the statutory rate rather than under-charging */ }
+  const net = Math.round(Number(netPence) || 0);
+  const vat = Math.round(net * rate / 100);
+  return { net, vat, gross: net + vat, rate };
+}
+
 const FAUX_TWILIGHT_PRICE_PENCE = 2500;
 const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2400 };
 
@@ -2537,7 +2556,8 @@ export default {
         const packs = await sbGet(env, "packs", `id=eq.${encodeURIComponent(packId)}&status=eq.active&select=id,slug,title,price_pence,cover_image_url&limit=1`);
         const pack = packs && packs[0];
         if (!pack) return json({ error: "That pack isn't available." }, 404, request, env);
-        const amount = pack.price_pence || 0;
+        // price_pence is the advertised EX-VAT figure; the customer is charged gross.
+        const { net: amountNet, vat: amountVat, gross: amount } = await vatBreakdown(env, pack.price_pence || 0);
 
         // Only redirect back to a known-good origin.
         const origin = request.headers.get("Origin") || "";
@@ -2546,7 +2566,8 @@ export default {
 
         // Create the order up-front as `pending` (or `paid` for free packs).
         const ins = await sbPost(env, "orders", {
-          pack_id: pack.id, pack_slug: pack.slug, pack_title: pack.title, amount_pence: amount,
+          pack_id: pack.id, pack_slug: pack.slug, pack_title: pack.title,
+          amount_pence: amountNet, vat_pence: amountVat, total_pence: amount,
           buyer_name: name, buyer_email: email, buyer_phone: phone || null, buyer_company: company || null,
           payment_method: "card", status: amount === 0 ? "paid" : "pending",
         }, "return=representation");
@@ -7015,11 +7036,14 @@ async function sendGalleryPinEmail(env, bookingId) {
           return json({ error: "Add a note, or choose something to buy, before sending." }, 400, request, env);
         }
 
-        const totalPence = twilightItems.reduce((s, it) => s + it.price_pence, 0) + (extraPrice || 0);
+        // Line items are held net (that is how they are quoted); the charge is gross.
+        const netPence = twilightItems.reduce((s, it) => s + it.price_pence, 0) + (extraPrice || 0);
+        const { vat: upsellVat, gross: totalPence } = await vatBreakdown(env, netPence);
 
         const ins = await sbPost(env, "videography_edit_requests", {
           booking_id: bk.id, notes: notes || null,
           twilight_items: twilightItems, extra_images_qty: extraQty, extra_images_price_pence: extraPrice,
+          vat_pence: upsellVat, total_pence: totalPence,
         }, "return=representation");
         const created = await ins.json().catch(() => null);
         const reqRow = Array.isArray(created) ? created[0] : created;

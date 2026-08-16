@@ -423,6 +423,22 @@ import "../../styles/ws-system.css";
     // nothing; the renderer's own defaults cover that. show_bank is forced off
     // regardless: this is already paid, so payment instructions are noise, and
     // it keeps bank details out of a member-facing document.
+    // An invoice has to match the money that actually moved.
+    //
+    // Orders placed since VAT was wired up carry their own split, so it is used
+    // as-is. Orders from before it carry only amount_pence — and that IS what
+    // the card was charged — so the split is worked backwards out of it rather
+    // than adding VAT that was never taken.
+    function vatSplit(o) {
+      const rate = 20;
+      if (o.total_pence != null && o.vat_pence != null) {
+        return { net: o.amount_pence || 0, vat: o.vat_pence, gross: o.total_pence };
+      }
+      const gross = o.amount_pence || 0;
+      const net = Math.round(gross / (1 + rate / 100));
+      return { net, vat: gross - net, gross };
+    }
+
     dlBtn.addEventListener('click', async () => {
       if (!orderRow) return;
       const [{ renderInvoiceHtml }, { supabase: sb }] = await Promise.all([
@@ -451,10 +467,10 @@ import "../../styles/ws-system.css";
           bill_to_name: orderRow.buyer_name || '',
           bill_to_email: orderRow.buyer_email || '',
           bill_to_address: orderRow.buyer_company || '',
-          line_items: [{ description: orderRow.pack_title || 'TMKE pack', qty: 1, unit_pence: orderRow.amount_pence || 0 }],
-          subtotal_pence: orderRow.amount_pence || 0,
-          vat_pence: 0,
-          total_pence: orderRow.amount_pence || 0,
+          line_items: [{ description: orderRow.pack_title || 'TMKE pack', qty: 1, unit_pence: vatSplit(orderRow).net }],
+          subtotal_pence: vatSplit(orderRow).net,
+          vat_pence: vatSplit(orderRow).vat,
+          total_pence: vatSplit(orderRow).gross,
         },
       });
 
