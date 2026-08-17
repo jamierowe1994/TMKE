@@ -542,6 +542,15 @@ const googleFonts = [
           <button class="ed-shape" data-frame="arch"     title="Arch frame"><div class="fr fr-arch"></div><span>Arch</span></button>
           <button class="ed-shape" data-frame="diamond"  title="Diamond frame"><div class="fr fr-diamond"></div><span>Diamond</span></button>
         </div>
+
+        <div class="ed-section-title">Screen</div>
+        <p class="ed-section-hint">Put a design onto a screen, a poster or a board in a photo. Drop your artwork in, then drag the four corners onto the surface.</p>
+        <div class="ed-shape-grid">
+          <button class="ed-shape" data-screen="1" title="Screen mockup">
+            <div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6.5l18-3v17l-18-3z"/><path d="M3 6.5v14.5"/></svg></div>
+            <span>Screen</span>
+          </button>
+        </div>
       </section>
 
       <!-- Text -->
@@ -1817,6 +1826,48 @@ const googleFonts = [
     }
 
     /* ===================== On-canvas frame element ===================== */
+    /* A screen: the same idea as a frame, but its four corners move
+       independently, so the artwork sits in perspective on a surface in a
+       photo. The clip-path is written by the editor from those corners. */
+    .ed-element[data-type="screen"] {
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(var(--violet-rgb),0.05) 0 8px,
+        rgba(var(--violet-rgb),0.10) 8px 16px
+      );
+      outline: 1px dashed rgba(var(--violet-rgb),0.45);
+      outline-offset: -1px;
+    }
+    .ed-element[data-type="screen"].is-filled { background: none; outline: none; }
+    .ed-element[data-type="screen"] .sc-img {
+      position: absolute; top: 0; left: 0;
+      max-width: none; max-height: none;   /* the matrix does the sizing */
+      pointer-events: none; user-select: none;
+    }
+    .ed-element[data-type="screen"] .sc-placeholder {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px; text-align: center;
+      padding: 12px; color: rgba(var(--violet-rgb),0.75);
+      font-family: var(--sans); font-size: 12.5px; line-height: 1.35;
+    }
+    .ed-element[data-type="screen"].is-drop-target { outline-color: var(--english-violet); }
+
+    /* The quad's own outline, and a pin on each corner. Round, and larger than
+       a resize handle, because these are dragged to a specific point in a
+       photograph rather than nudged along an edge. */
+    .ed-screen-outline {
+      position: absolute; pointer-events: none;
+      background: rgba(var(--violet-rgb),0.10);
+      outline: 1px solid var(--english-violet); outline-offset: -1px;
+    }
+    .ed-screen-pin {
+      position: absolute; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 2px solid var(--english-violet);
+      box-shadow: 0 1px 4px rgba(20,18,26,0.35);
+      cursor: grab; pointer-events: auto; z-index: 2;
+    }
+    .ed-screen-pin:active { cursor: grabbing; }
+
     /* A frame is just an .ed-element with data-type="frame". Its outer
        div carries the clip-path/border-radius so any child <img> (the
        dropped photo) gets cropped to the frame's silhouette. */

@@ -2409,6 +2409,55 @@
           enterViewpointEdit(el, node);
         });
       }
+    } else if (el.type === "screen") {
+      // The artwork is warped by a CSS matrix3d, so what is on the canvas is
+      // the same projection the export computes - not an approximation of it.
+      if (el.src) {
+        node.classList.add("is-filled");
+        const img = document.createElement("img");
+        img.decoding = "async";
+        img.src = el.src;
+        img.draggable = false;
+        img.alt = "";
+        img.crossOrigin = "anonymous";
+        img.className = "sc-img";
+        if (el.imgNaturalW && el.imgNaturalH) applyScreenTransform(img, el);
+        img.addEventListener("load", function () {
+          el.imgNaturalW = img.naturalWidth;
+          el.imgNaturalH = img.naturalHeight;
+          applyScreenTransform(img, el);
+        });
+        node.appendChild(img);
+      } else {
+        const ph = document.createElement("div");
+        ph.className = "sc-placeholder";
+        ph.innerHTML =
+          '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+          '<rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/>' +
+          '</svg>' +
+          '<span>Drop your artwork, then drag the corners</span>';
+        node.appendChild(ph);
+      }
+      // Same drop target as a frame: a photo card from any panel fills it.
+      node.addEventListener("dragover", function (e) {
+        if (!e.dataTransfer) return;
+        const hasUrl = (e.dataTransfer.types || []).indexOf("text/uri-list") !== -1
+                    || (e.dataTransfer.types || []).indexOf("text/plain") !== -1;
+        if (!hasUrl) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        node.classList.add("is-drop-target");
+      });
+      node.addEventListener("dragleave", function () { node.classList.remove("is-drop-target"); });
+      node.addEventListener("drop", function (e) {
+        node.classList.remove("is-drop-target");
+        if (!e.dataTransfer) return;
+        const src = e.dataTransfer.getData("text/uri-list") || e.dataTransfer.getData("text/plain");
+        if (!src) return;
+        e.preventDefault();
+        e.stopPropagation();
+        fillScreen(el, src);
+      });
     } else if (el.type === "rect") {
       // styling on node directly
     } else if (el.type === "ellipse") {
@@ -2481,6 +2530,13 @@
     if (el.type === "line") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
       node.style.background = grad || el.fill || "#000";
+    }
+    if (el.type === "screen") {
+      // Clipped to the quad, so a warped image never leaks outside the shape
+      // it is supposed to be sitting in.
+      const pct = screenCorners(el).map((c) => (c.x * 100).toFixed(3) + "% " + (c.y * 100).toFixed(3) + "%");
+      node.style.clipPath = "polygon(" + pct.join(",") + ")";
+      node.style.overflow = "hidden";
     }
     if (el.type === "frame") {
       // Corner rounding + outline. Rounding/border read best on rectangular
@@ -2788,6 +2844,34 @@
     const elNode = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
     if (elNode && elNode.classList.contains("is-editing")) hideFloatBar();
     else positionFloatBar(bounds.getBoundingClientRect(), el);
+
+    /* A screen gets four corner pins instead of the eight box handles. Its
+       shape IS its corners - box handles would only scale the quad, which is
+       what dragging the element already does, and two sets of handles sitting
+       on top of each other at the corners would be a coin toss as to which one
+       you grabbed. */
+    if (el.type === "screen") {
+      const pts = screenPoints(el);
+      const outline = document.createElement("div");
+      outline.className = "ed-screen-outline";
+      outline.style.left = el.x + "px";
+      outline.style.top = el.y + "px";
+      outline.style.width = el.w + "px";
+      outline.style.height = el.h + "px";
+      outline.style.clipPath = "polygon(" + screenCorners(el).map((c) =>
+        (c.x * 100).toFixed(3) + "% " + (c.y * 100).toFixed(3) + "%").join(",") + ")";
+      handlesEl.appendChild(outline);
+      pts.forEach((pt, i) => {
+        const pin = document.createElement("div");
+        pin.className = "ed-screen-pin";
+        pin.dataset.corner = String(i);
+        pin.style.left = (pt.x - 8) + "px";
+        pin.style.top = (pt.y - 8) + "px";
+        handlesEl.appendChild(pin);
+        pin.addEventListener("pointerdown", (ev) => startCornerDrag(ev, el, i));
+      });
+      return;
+    }
 
     // Resize handles
     const positions = [
@@ -3107,6 +3191,63 @@
     if (!inner) return;
     const h = Math.ceil(inner.offsetHeight);
     if (h > 0) { el.h = h; node.style.height = h + "px"; }
+  }
+
+  /* Dragging one corner of a screen. Only that corner moves - the other three
+     stay pinned, which is what makes it possible to match a surface in a photo
+     rather than just skew a rectangle. */
+  /* A quad is only meaningful as a surface while it stays convex and wound the
+     same way round. Drag one corner past the far edge and it folds into a
+     bowtie: the homography flips, the artwork turns inside out, and there is
+     no sensible picture on the other side of it. So a move that would fold it
+     is simply not taken - the corner stops at the last good position rather
+     than the drag being cancelled, which is what makes it feel like a limit
+     rather than a glitch. */
+  function screenIsConvex(pts) {
+    let sign = 0;
+    for (let i = 0; i < 4; i++) {
+      const a = pts[i], b = pts[(i + 1) % 4], c = pts[(i + 2) % 4];
+      const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+      if (Math.abs(cross) < 1e-6) return false;      // three corners in a line
+      const s = cross > 0 ? 1 : -1;
+      if (!sign) sign = s;
+      else if (s !== sign) return false;
+    }
+    return true;
+  }
+
+  function startCornerDrag(ev, el, index) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const startX = ev.clientX, startY = ev.clientY;
+    const origin = screenPoints(el);
+
+    function onMove(e) {
+      const dx = (e.clientX - startX) / state.zoom;
+      const dy = (e.clientY - startY) / state.zoom;
+      const pts = origin.map((p, i) => (i === index ? { x: p.x + dx, y: p.y + dy } : { x: p.x, y: p.y }));
+      if (!screenIsConvex(pts)) return;
+      // Written back through the element's own box so normaliseScreen can
+      // re-fit it, rather than mutating corners in place.
+      const minX = Math.min.apply(null, pts.map((p) => p.x));
+      const minY = Math.min.apply(null, pts.map((p) => p.y));
+      const maxX = Math.max.apply(null, pts.map((p) => p.x));
+      const maxY = Math.max.apply(null, pts.map((p) => p.y));
+      const w = Math.max(1, maxX - minX), h = Math.max(1, maxY - minY);
+      el.x = minX; el.y = minY; el.w = w; el.h = h;
+      el.corners = pts.map((p) => ({ x: (p.x - minX) / w, y: (p.y - minY) / h }));
+      partialRenderElement(el);
+      renderHandles();
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      normaliseScreen(el);
+      pushHistory();
+      fullRender();
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
   }
 
   function startResize(ev, el, handle) {
@@ -3874,6 +4015,138 @@
     diamond:   { w: 500, h: 500, shape: "diamond" },
   };
 
+  /* ---------- Screen mockups ----------
+     A screen is a frame whose four corners move independently: drop a photo of
+     a laptop, a phone, a billboard or a poster on the canvas, add a screen over
+     the flat surface, pull its corners onto the four corners of that surface,
+     and the artwork sits in it in perspective.
+
+     Corners are stored as fractions of the element's own box (0..1, clockwise
+     from top-left), not as canvas coordinates. That is what lets a screen
+     inherit everything else for free: dragging moves x/y, resizing scales w/h,
+     alignment and group resize read the same bounding box as every other
+     element, and the quad follows all of it without a line of extra code. */
+  const SCREEN_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];   // TL TR BR BL
+
+  function screenCorners(el) {
+    const c = Array.isArray(el.corners) && el.corners.length === 4 ? el.corners : null;
+    return SCREEN_CORNERS.map((d, i) => ({
+      x: c && c[i] && isFinite(c[i].x) ? c[i].x : d[0],
+      y: c && c[i] && isFinite(c[i].y) ? c[i].y : d[1],
+    }));
+  }
+  // Corner positions in canvas coordinates.
+  function screenPoints(el) {
+    return screenCorners(el).map((c) => ({ x: el.x + c.x * el.w, y: el.y + c.y * el.h }));
+  }
+
+  /* The homography taking the unit square to the four corners.
+
+     This is the whole trick, and it is the one thing a plain 2D transform
+     cannot express: a perspective map needs the bottom row (g, h) that an
+     affine matrix does not have. Closed form - no solver, no library. */
+  function screenHomography(q) {
+    const [p0, p1, p2, p3] = q;                 // TL TR BR BL
+    const sx = p0.x - p1.x + p2.x - p3.x;
+    const sy = p0.y - p1.y + p2.y - p3.y;
+    // Both zero means the quad is a parallelogram: no perspective, and the
+    // general form below would divide by a determinant of zero.
+    if (Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) {
+      return { a: p1.x - p0.x, b: p3.x - p0.x, c: p0.x,
+               d: p1.y - p0.y, e: p3.y - p0.y, f: p0.y, g: 0, h: 0 };
+    }
+    const dx1 = p1.x - p2.x, dy1 = p1.y - p2.y;
+    const dx2 = p3.x - p2.x, dy2 = p3.y - p2.y;
+    const den = dx1 * dy2 - dx2 * dy1;
+    if (!den) return null;
+    const g = (sx * dy2 - dx2 * sy) / den;
+    const h = (dx1 * sy - sx * dy1) / den;
+    return {
+      a: p1.x - p0.x + g * p1.x, b: p3.x - p0.x + h * p3.x, c: p0.x,
+      d: p1.y - p0.y + g * p1.y, e: p3.y - p0.y + h * p3.y, f: p0.y, g: g, h: h,
+    };
+  }
+  // Where a point in the unit square lands. Used by the export mesh.
+  function screenProject(m, u, v) {
+    const w = m.g * u + m.h * v + 1;
+    return { x: (m.a * u + m.b * v + m.c) / w, y: (m.d * u + m.e * v + m.f) / w };
+  }
+
+  /* The same homography as a CSS transform, so the live canvas shows exactly
+     what will be exported. The image is laid out at its own pixel size and the
+     matrix maps that box onto the quad, so the source coordinates divide out
+     by the image's width and height. matrix3d is column-major. */
+  function screenMatrixCss(el, imgW, imgH) {
+    const local = screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h }));
+    const m = screenHomography(local);
+    if (!m || !imgW || !imgH) return "";
+    const a = m.a / imgW, d = m.d / imgW, g = m.g / imgW;
+    const b = m.b / imgH, e = m.e / imgH, h = m.h / imgH;
+    return "matrix3d(" + [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, m.c, m.f, 0, 1].join(",") + ")";
+  }
+
+  function applyScreenTransform(img, el) {
+    const w = el.imgNaturalW || img.naturalWidth;
+    const h = el.imgNaturalH || img.naturalHeight;
+    if (!w || !h) return;
+    img.style.width = w + "px";
+    img.style.height = h + "px";
+    img.style.transformOrigin = "0 0";
+    img.style.transform = screenMatrixCss(el, w, h);
+  }
+
+  /* After a corner moves, re-fit the element's box to the quad so the bounding
+     box stays honest: selection, layers, alignment and multi-select all read
+     x/y/w/h, and a box that no longer contains its own artwork makes every one
+     of them wrong. */
+  function normaliseScreen(el) {
+    const pts = screenPoints(el);
+    const minX = Math.min.apply(null, pts.map((p) => p.x));
+    const minY = Math.min.apply(null, pts.map((p) => p.y));
+    const maxX = Math.max.apply(null, pts.map((p) => p.x));
+    const maxY = Math.max.apply(null, pts.map((p) => p.y));
+    const w = Math.max(1, maxX - minX), h = Math.max(1, maxY - minY);
+    el.x = minX; el.y = minY; el.w = w; el.h = h;
+    el.corners = pts.map((p) => ({ x: (p.x - minX) / w, y: (p.y - minY) / h }));
+  }
+
+  function addScreen() {
+    const w = 520, h = 320;
+    addElement({
+      type: "screen",
+      x: Math.round(state.canvas.width / 2 - w / 2),
+      y: Math.round(state.canvas.height / 2 - h / 2),
+      w: w, h: h, rotation: 0, opacity: 1,
+      // Starts square. A default skew would only have to be undone, and a
+      // rectangle makes it obvious the corners are yours to move.
+      corners: SCREEN_CORNERS.map(([x, y]) => ({ x: x, y: y })),
+      src: null, imgNaturalW: 0, imgNaturalH: 0,
+    });
+  }
+
+  function fillScreen(el, src) {
+    el.src = src;
+    el.imgNaturalW = 0;
+    el.imgNaturalH = 0;
+    const probe = new Image();
+    probe.crossOrigin = "anonymous";
+    probe.onload = function () {
+      el.imgNaturalW = probe.naturalWidth;
+      el.imgNaturalH = probe.naturalHeight;
+      partialRenderElement(el);
+    };
+    probe.src = src;
+    pushHistory();
+    fullRender();
+  }
+
+  function resetScreenCorners(el) {
+    if (!el || el.type !== "screen") return;
+    el.corners = SCREEN_CORNERS.map(([x, y]) => ({ x: x, y: y }));
+    pushHistory();
+    fullRender();
+  }
+
   function addFrame(kind) {
     const p = FRAME_PRESETS[kind] || FRAME_PRESETS.square;
     addElement({
@@ -4297,6 +4570,8 @@
             ctx.drawImage(img, 0, 0, el.w, el.h);
           }
         } catch (e) {}
+      } else if (el.type === "screen") {
+        await drawScreenToCanvas(ctx, el);
       } else if (el.type === "frame") {
         await drawFrameToCanvas(ctx, el);
       } else if (el.type === "rect") {
@@ -4734,6 +5009,74 @@
   // Draw a frame element (clipped image, or empty placeholder) into a 2D
   // canvas context. Caller is responsible for the surrounding ctx.save()/
   // translate/rotate/restore.
+  /* ---------- Screen: perspective on a canvas that has no perspective ----------
+     Canvas 2D transforms are affine - six numbers, so translate, rotate, scale
+     and skew, and nothing that can make parallel lines converge. Handing it the
+     matrix the browser uses for the live preview would export a parallelogram.
+
+     So the quad is cut into a grid of triangles and each one is drawn with its
+     own affine transform. Three points can always be mapped exactly by an
+     affine matrix; enough small triangles and the error inside each is smaller
+     than a pixel. This is how every 2D engine fakes a texture-mapped quad.
+
+     The triangles are expanded a hair before clipping - adjacent edges are
+     antialiased against nothing, and without the overlap the seams show as a
+     faint grid over the artwork. */
+  function drawTexturedTriangle(ctx, img, s0, s1, s2, d0, d1, d2) {
+    const den = (s1.x - s0.x) * (s2.y - s0.y) - (s2.x - s0.x) * (s1.y - s0.y);
+    if (!den) return;
+    const m11 = ((d1.x - d0.x) * (s2.y - s0.y) - (d2.x - d0.x) * (s1.y - s0.y)) / den;
+    const m12 = ((d2.x - d0.x) * (s1.x - s0.x) - (d1.x - d0.x) * (s2.x - s0.x)) / den;
+    const m21 = ((d1.y - d0.y) * (s2.y - s0.y) - (d2.y - d0.y) * (s1.y - s0.y)) / den;
+    const m22 = ((d2.y - d0.y) * (s1.x - s0.x) - (d1.y - d0.y) * (s2.x - s0.x)) / den;
+    const dx = d0.x - m11 * s0.x - m12 * s0.y;
+    const dy = d0.y - m21 * s0.x - m22 * s0.y;
+
+    ctx.save();
+    const cx = (d0.x + d1.x + d2.x) / 3, cy = (d0.y + d1.y + d2.y) / 3;
+    const grow = (p) => {
+      const vx = p.x - cx, vy = p.y - cy;
+      const len = Math.hypot(vx, vy) || 1;
+      return { x: p.x + (vx / len) * 0.5, y: p.y + (vy / len) * 0.5 };
+    };
+    const g0 = grow(d0), g1 = grow(d1), g2 = grow(d2);
+    ctx.beginPath();
+    ctx.moveTo(g0.x, g0.y); ctx.lineTo(g1.x, g1.y); ctx.lineTo(g2.x, g2.y);
+    ctx.closePath();
+    ctx.clip();
+    ctx.transform(m11, m21, m12, m22, dx, dy);
+    ctx.drawImage(img, 0, 0);
+    ctx.restore();
+  }
+
+  async function drawScreenToCanvas(ctx, el) {
+    if (!el.src) return;
+    let img;
+    try { img = await loadImage(el.src); } catch (_) { return; }
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (!iw || !ih) return;
+
+    // Corners in the element's own space; the caller has already translated
+    // the context to the element's top-left.
+    const m = screenHomography(screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h })));
+    if (!m) return;
+
+    // Enough subdivision that a straight edge stays straight at print sizes,
+    // cheap enough that export does not stall on it.
+    const N = 24;
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
+        const sA = { x: u0 * iw, y: v0 * ih }, sB = { x: u1 * iw, y: v0 * ih };
+        const sC = { x: u1 * iw, y: v1 * ih }, sD = { x: u0 * iw, y: v1 * ih };
+        const dA = screenProject(m, u0, v0), dB = screenProject(m, u1, v0);
+        const dC = screenProject(m, u1, v1), dD = screenProject(m, u0, v1);
+        drawTexturedTriangle(ctx, img, sA, sB, sC, dA, dB, dC);
+        drawTexturedTriangle(ctx, img, sA, sC, sD, dA, dC, dD);
+      }
+    }
+  }
+
   async function drawFrameToCanvas(ctx, el) {
     ctx.save();
     pathForFrame(ctx, el);
@@ -5966,11 +6309,13 @@
 
       const thumb = document.createElement("div");
       thumb.className = "ed-layer-thumb";
-      if (el.type === "image") {
+      if (el.type === "image" || (el.type === "screen" && el.src)) {
         const img = document.createElement("img");
         img.src = el.src; thumb.appendChild(img);
       } else if (el.type === "text") {
         thumb.textContent = "T";
+      } else if (el.type === "screen") {
+        thumb.textContent = "\u25F1";
       } else thumb.style.background = el.fill || "#999";
 
       const name = document.createElement("div");
@@ -6019,6 +6364,7 @@
   function layerName(el) {
     if (el.type === "text") return el.text ? (el.text.slice(0, 28) + (el.text.length > 28 ? "…" : "")) : "Text";
     if (el.type === "image") return "Image";
+    if (el.type === "screen") return "Screen" + (el.src ? "" : " (empty)");
     if (el.type === "frame") {
       const shape = (el.frameShape || "square");
       const cap = shape.charAt(0).toUpperCase() + shape.slice(1);
@@ -6454,7 +6800,8 @@
   // data-frame (photo frame presets), or data-svg (SVG shape / icon).
   document.querySelectorAll(".ed-shape").forEach((btn) => {
     btn.addEventListener("click", () => {
-      if (btn.dataset.frame) addFrame(btn.dataset.frame);
+      if (btn.dataset.screen) addScreen();
+      else if (btn.dataset.frame) addFrame(btn.dataset.frame);
       else if (btn.dataset.svg) addSvgShape(btn.dataset.svg);
       else if (btn.dataset.shape) addShape(btn.dataset.shape);
     });
