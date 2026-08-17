@@ -42,7 +42,7 @@ and nothing here changes that. The member sees a **shorter track mapped from
 them**, because two of the seven are bookkeeping rather than progress:
 
 ```
-Booked  →  Shoot day  →  Editing  →  Your edits  →  Delivered
+Booked  →  Shoot day  →  Editing  →  Amends  →  Delivered
                                                     (+ Cancelled)
 ```
 
@@ -52,13 +52,14 @@ Booked  →  Shoot day  →  Editing  →  Your edits  →  Delivered
 | `invoiced` | Booked | Invoicing is its own section and attaches to the booking. It is not a step in getting their video. |
 | `shoot_day` | Shoot day | |
 | `editing` | Editing | We are cutting it. |
-| `gallery_ready` | Your edits | The gallery being up *is* the window in which they ask for changes. |
+| `gallery_ready` | Amends | The gallery being up *is* the window in which they ask for changes. |
 | `delivered` | Delivered | |
 | `cancelled` | Cancelled | Replaces the track rather than sitting in it. |
 
 **Naming, so two different things stay apart:** *Editing* is us cutting the
-footage. *Your edits* is their paid twilight / extra-image request. Same word,
-opposite actors — the labels have to carry the difference.
+footage. *Amends* is their paid twilight / extra-image request. The database
+calls both of them edits; the member-facing words must not, or the track reads
+as the same step twice.
 
 Each stage says what it means for them, not just its own name — "Editing: we
 have your footage, your gallery follows" beats the word "Editing" alone.
@@ -100,15 +101,14 @@ unlocks it — not find a blank space and wonder.
 | Gallery | `gallery_url` + `gallery_email` + `gallery_expires_on` | yes |
 | 360 tour | `/videography/my-tour` | yes |
 | Gallery PIN | `/videography/my-pin` | yes — server-side, already |
-| Their edit page | `videography_edit_requests.edits_token` | yes |
+| Their amends page | `videography_edit_requests.edits_token` | yes |
 
 The **gallery email** goes with the gallery link, always. Pixieset gates
 downloads to that address, so the link without it is a dead end.
 
-**The edit page link** is the one from the "your edits" email — same page, so
-they can find it in the hub instead of digging through their inbox. Edit
-requests themselves stay on that existing page; this is a link out, not a
-rebuild.
+**The amends page link** is the one from the amends email — the same page, so
+they can find it in the hub instead of digging through their inbox. The request
+flow itself stays where it is; this is a link out, not a rebuild.
 
 ### Revealing the PIN
 
@@ -130,7 +130,7 @@ One booking, opened, reads top to bottom:
 
 1. **Stage track** — where the shoot is.
 2. **Booking detail** — what, when, where, who.
-3. **The links** — gallery, tour, PIN, edit page. Gated (§3).
+3. **The links** — gallery, tour, PIN, amends page. Gated (§3).
 4. **Invoicing** — the invoice and its state, pulled from the documents.
 5. **Attachments** — everything else filed against the booking.
 6. **Correspondence** — what we have sent them.
@@ -212,31 +212,53 @@ centre identically; the only difference is that the money arrived through the
 monthly package rather than an invoice. So the booking is real, the stage track
 is real, and the gallery is theirs — but the page must not ask them to pay.
 
-Two kinds:
+Because Jack books them by hand, a shoot only appears here once he has made
+it — there is no "included but unbooked" placeholder to render. Arranging the
+date stays a conversation with him.
 
-- **Shot and booked** — a normal booking row, covered by the package.
-- **Included but not yet booked** — an entitlement from their marketing plan.
-  They still arrange the date with Jack, but the hub should show that it is
-  theirs and waiting, rather than saying nothing at all.
-
-An indicator on the card says which — *Included in your package* rather than a
+The card carries an indicator — *Included in your package* — rather than a
 price and a Pay button.
 
-### The gap this opens
+### How it gets marked — a fourth payment route
 
-**There is no marker in the data for this today.** `payment_route` allows only
-`agent_card`, `brand_invoice` and `brand_invoice_teg` — none of which means
-"covered by their SMM package". And the whole of §3 gates on `paid_at`.
+SMM shoots are always booked by hand, by Jack, in the admin centre. So the
+marker belongs where he already tells us who is settling the booking: the
+payment route.
 
-So either the admin centre sets `paid_at` when a package shoot is booked (which
-works immediately and needs no migration, but overloads a field that means
-"money landed"), or `payment_route` gains an `smm_package` value and every paid
-check becomes `paid_at is not null or payment_route = 'smm_package'`.
+Today that is a three-way choice. It becomes four:
 
-The second is the honest one, and the number of places that test `paid_at` is
-small enough to change safely. Either way **this must be settled before the
-gating is written**, or package clients get locked out of galleries they have
-already paid for.
+| `payment_route` | Admin label |
+|---|---|
+| `agent_card` | Agent card |
+| `brand_invoice` | Brand invoice |
+| `brand_invoice_teg` | TEG brand invoice |
+| **`smm_package`** | **Social Media Marketing** |
+
+It follows the TEG route's existing shape rather than inventing a new one:
+
+- **Brands stay as they are** — the same `TEG_BRANDS` selector, unchanged.
+- **The reason list gains one option, `Included in the SMM package`**, and that
+  option appears *only* when Social Media Marketing is the selected route. It
+  does not show under the TEG route, and the TEG reasons do not show under this
+  one.
+
+Everything downstream then reads from one field. The paid gate in §3 becomes:
+
+```
+paid  =  paid_at is not null  or  payment_route = 'smm_package'
+```
+
+This matters more than it looks. Every link on the page gates on payment, so
+until this exists a package client is locked out of a gallery they have already
+paid for. It is the first thing to build.
+
+Two follow-ons, both small but easy to miss:
+
+- The **invoicing section** should say *Included in your social media package*
+  rather than showing a total and a Pay button.
+- The **chase emails** — the ones that look for bookings with no `paid_at` —
+  must skip this route, or Jack's package clients get invoice reminders for
+  money that already arrived.
 
 The SMM tab gets its own link through to this page — that is a job for the SMM
 section, not this one.
@@ -276,14 +298,13 @@ production before this page goes anywhere near that table.
 - Stage track shortened to five, mapped from the seven in the database (§1).
 - Every link gated on payment, with a stated locked state (§3).
 - PIN blurred behind a Reveal, no password (§3).
-- Edit requests link out to the existing page; the hub carries the link (§3).
+- Amends link out to the existing page; the hub carries the link (§3).
 - Documents opened to members with an RLS policy, not a new endpoint (§5).
-- SMM-covered shoots appear on this page with an *Included* indicator (§7).
+- SMM-covered shoots appear on this page with an *Included* indicator, marked
+  by a fourth payment route, `smm_package` (§7). Build this first.
 
 ## Open before build
 
-1. **How an SMM-covered shoot is marked as paid** (§7). Blocking — it decides
-   whether package clients can reach their gallery.
-2. **Agreement: rendered on demand or stored as a row** (§5). Leaning rendered.
-3. **`videography_deliverables` RLS** — confirm production is admin-only before
+1. **Agreement: rendered on demand or stored as a row** (§5). Leaning rendered.
+2. **`videography_deliverables` RLS** — confirm production is admin-only before
    this page reads it.
