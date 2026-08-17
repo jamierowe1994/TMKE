@@ -131,7 +131,7 @@ One booking, opened, reads top to bottom:
 1. **Stage track** — where the shoot is.
 2. **Booking detail** — what, when, where, who.
 3. **The links** — gallery, tour, PIN, amends page. Gated (§3).
-4. **Invoicing** — the invoice and its state, pulled from the documents.
+4. **Invoicing** — the invoice, its state, and a way to pay it (§5).
 5. **Attachments** — everything else filed against the booking.
 6. **Correspondence** — what we have sent them.
 
@@ -140,7 +140,82 @@ booked, and the prep document if one is attached.
 
 ---
 
-## 5 · Attachments and documents
+## 5 · Invoicing and payment
+
+There is a real `invoices` table already — `number`, `line_items`, `subtotal`,
+`vat`, `total`, `status` (`draft | sent | paid | void`), `issued_date`,
+`due_date`, `paid_date`, plus `pay_by_card`, `stripe_session_id` and
+`payment_ref`. The member section reads from it; it does not invent anything.
+
+### What the member sees
+
+An invoice raised in the admin centre appears against its booking. Number,
+what it is for, the total, when it is due, and its state. They can open it,
+read it, download it if they want.
+
+### Only invoices they are actually paying
+
+**An invoice raised to a brand never appears on the member side.** For those
+bookings there is no invoice as far as the client is concerned — someone else
+is settling it, and showing them a bill they do not owe is worse than showing
+them nothing.
+
+So the section keys off the payment route:
+
+| `payment_route` | Invoicing section |
+|---|---|
+| `agent_card` | The invoice, and a way to pay it |
+| `brand_invoice` | Hidden — the brand is paying |
+| `brand_invoice_teg` | Hidden — the brand is paying |
+| `smm_package` | *Included in your social media package* |
+
+The route is the right key rather than `bill_to_email`, because it is the field
+Jack sets deliberately and the same one the paid gate in §3 already reads.
+
+### Paying it
+
+`pay_by_card` invoices already have a durable link: `invoicePayUrl()` mints a
+signed `/invoicing/pay?t=…` URL that opens a fresh Stripe checkout. **This is
+the identical link that goes in their invoice email** — so the hub is a second
+door onto the same thing, not a parallel payment path. Nothing new to build on
+the Stripe side.
+
+Shown only while `pay_by_card` is set and `status !== 'paid'`.
+
+### Showing it as paid
+
+Two ways an invoice gets settled, and the member should not have to care which:
+
+- **Stripe** — the webhook already writes `status: 'paid'`, `paid_date` and
+  `payment_ref`.
+- **Bank transfer** — marked by hand in the admin centre, same `status` and
+  `paid_date`, no `payment_ref`.
+
+The page reads `status === 'paid'` and shows the date. The pay link disappears.
+It does not need to say *how* it was paid.
+
+Worth being deliberate here: this is the same flag the whole of §3 gates on, so
+the moment an invoice is marked paid the gallery, tour, PIN and amends link all
+open. That is the intent — but it means marking an invoice paid in the admin
+centre is a release action, and should feel like one.
+
+### How the member reads it — a Worker route, not RLS
+
+`invoices` is admin-only at RLS, and unlike documents it should **stay** that
+way. The pay link has to be signed with a server secret, so a request to the
+server is unavoidable — and once we are making one, it may as well return the
+invoice too, filtered to what that member is allowed to see.
+
+So: `/booking/invoices/mine`, which resolves the member, drops brand-routed
+bookings, and returns each invoice with its pay URL already minted.
+
+That gives the page two different paths for two different reasons —
+**documents by RLS** (§6, no secret involved), **invoices by Worker** (a token
+has to be signed). Not an inconsistency; they are solving different problems.
+
+---
+
+## 6 · Attachments and documents
 
 `booking_documents` already holds these, uploaded from the admin centre, keyed
 to `booking_id` + `booking_source`, with `account_user_id` and `client_email`
@@ -161,17 +236,13 @@ an attachment without anyone uploading it. We hold `signed_name` and
 `signed_at`, and the page already renders the T&Cs — so the document exists in
 substance, just not as a file.
 
-Two ways to do it, and this needs a decision at build time:
+**Rendered on demand.** No file is stored. The attachment row is a button; the
+member clicks it, the server builds the signed agreement from `signed_name`,
+`signed_at` and the clause text, and hands it back to view or download. The
+same machinery as the pack receipt (`orders/receipt.astro`).
 
-- **Render it on demand** — the same route that builds the pack receipt
-  (`orders/receipt.astro`, added this week) builds a signed agreement PDF from
-  `signed_name` / `signed_at` and the clause text. Nothing to store, never out
-  of sync, and it works retrospectively for every booking already signed.
-- **Write a row at signing time** — a `booking_documents` row with
-  `category: agreement`. Simpler to read, but only covers bookings signed from
-  now on, and needs a backfill for the rest.
-
-The first is the better fit, and it reuses machinery we now have.
+Which means it works for every booking already signed, not just the ones signed
+from today — and it can never drift out of step with what the record says.
 
 ### Member read access — what "via RLS" means
 
@@ -190,7 +261,7 @@ does — the same shape, one table over. That is the one to use.
 
 ---
 
-## 6 · Correspondence
+## 7 · Correspondence
 
 `booking_messages` already has exactly the right policy:
 
@@ -205,7 +276,7 @@ and the database itself refuses it.
 
 ---
 
-## 7 · Shoots covered by a social media package
+## 8 · Shoots covered by a social media package
 
 These appear here, alongside paid shoots. Jack works them through the admin
 centre identically; the only difference is that the money arrived through the
@@ -299,12 +370,14 @@ production before this page goes anywhere near that table.
 - Every link gated on payment, with a stated locked state (§3).
 - PIN blurred behind a Reveal, no password (§3).
 - Amends link out to the existing page; the hub carries the link (§3).
-- Documents opened to members with an RLS policy, not a new endpoint (§5).
+- Documents opened to members with an RLS policy, not a new endpoint (§6).
+- The signed agreement is rendered on demand, never stored (§6).
+- Invoices come through a Worker route, since the pay link must be signed (§5).
+- Brand-raised invoices are never shown member-side (§5).
 - SMM-covered shoots appear on this page with an *Included* indicator, marked
-  by a fourth payment route, `smm_package` (§7). Build this first.
+  by a fourth payment route, `smm_package` (§8). Build this first.
 
 ## Open before build
 
-1. **Agreement: rendered on demand or stored as a row** (§5). Leaning rendered.
-2. **`videography_deliverables` RLS** — confirm production is admin-only before
+1. **`videography_deliverables` RLS** — confirm production is admin-only before
    this page reads it.
