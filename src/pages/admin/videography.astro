@@ -305,6 +305,7 @@ import "../../styles/admin.css";
             <option value="agent_card">Customer pays by card</option>
             <option value="brand_invoice">Invoice the brand (F&amp;C)</option>
             <option value="brand_invoice_teg">Invoice the brand (TEG)</option>
+            <option value="smm_package">Social Media Marketing</option>
           </select>
         </div>
 
@@ -334,9 +335,9 @@ import "../../styles/admin.css";
           <p class="vid-warn" id="vid-fee-warn" hidden></p>
         </div>
 
-        <!-- Only for TEG-invoiced jobs. No fee to confirm and nothing blocks
-             raising the invoice — just who, and why, so it's billed and
-             worded correctly. -->
+        <!-- TEG-invoiced jobs and package-covered jobs share this block: both
+             need a brand and a reason, neither has a fee to confirm. The reason
+             list differs by route — see reasonsForRoute(). -->
         <div id="vid-teg-block" hidden>
           <div class="vid-field-row">
             <div class="vid-field">
@@ -354,7 +355,8 @@ import "../../styles/admin.css";
               <input type="text" data-f="teg_reason_other" id="vid-teg-reason-other" placeholder="For the invoice notes" />
             </div>
           </div>
-          <p class="vid-hint">Goes to Paula at Newman for every TEG brand — billed to the brand name selected above, not to Paula.</p>
+          <p class="vid-hint" id="vid-teg-hint">Goes to Paula at Newman for every TEG brand — billed to the brand name selected above, not to Paula.</p>
+          <p class="vid-hint" id="vid-smm-hint" hidden>Covered by their social media package — nothing is invoiced, and the client's gallery, tour and PIN open as soon as the booking is saved.</p>
         </div>
 
         <div id="vid-card-block">
@@ -1157,7 +1159,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1673,6 +1675,8 @@ import "../../styles/admin.css";
     // than folded in - there is no fee to confirm with anyone, so the F&C gate
     // below must never fire for a TEG booking.
     function isTegInvoiced(b) { return b && b.payment_route === "brand_invoice_teg"; }
+    /* Covered by their SMM package: no invoice, and nothing to chase. */
+    function isSmmCovered(b) { return b && b.payment_route === "smm_package"; }
 
     function renderBrandGate(b) {
       if (!isBrandInvoiced(b) || b.stage !== "booked") return "";
@@ -3137,10 +3141,9 @@ import "../../styles/admin.css";
       if (tegBrand && tegBrand.options.length <= 1) {
         TEG_BRANDS.forEach((o) => tegBrand.add(new Option(o.label, o.key)));
       }
-      const tegReason = document.getElementById("vid-teg-reason");
-      if (tegReason && tegReason.options.length <= 1) {
-        TEG_REASONS.forEach((o) => tegReason.add(new Option(o.label, o.key)));
-      }
+      // Built for this booking's route before the value is set, so a saved
+      // reason lands on an option that actually exists.
+      syncReasonOptions(b?.payment_route || "agent_card");
       set("payment_route", b?.payment_route || "agent_card");
       set("fc_office", b?.fc_office);
       // "Not asked" is right for a booking added by hand - nobody put the
@@ -3274,12 +3277,20 @@ import "../../styles/admin.css";
       const route = document.querySelector('[data-f="payment_route"]')?.value || "agent_card";
       const brand = route === "brand_invoice";
       const teg = route === "brand_invoice_teg";
+      const smm = route === "smm_package";
       const bBlock = document.getElementById("vid-brand-block");
       const tBlock = document.getElementById("vid-teg-block");
       const cBlock = document.getElementById("vid-card-block");
       if (bBlock) bBlock.hidden = !brand;
-      if (tBlock) tBlock.hidden = !teg;
-      if (cBlock) cBlock.hidden = brand || teg;
+      if (tBlock) tBlock.hidden = !(teg || smm);
+      if (cBlock) cBlock.hidden = brand || teg || smm;
+      // Same brand list, different reason list. Rebuilt on every switch so a
+      // reason picked under one route cannot survive into the other.
+      const tHint = document.getElementById("vid-teg-hint");
+      const sHint = document.getElementById("vid-smm-hint");
+      if (tHint) tHint.hidden = !teg;
+      if (sHint) sHint.hidden = !smm;
+      if (teg || smm) syncReasonOptions(route);
       const warn = document.getElementById("vid-fee-warn");
       if (warn) {
         const office = document.querySelector('[data-f="fc_office"]')?.value;
@@ -3293,7 +3304,28 @@ import "../../styles/admin.css";
         }
       }
       const reasonOtherWrap = document.getElementById("vid-teg-reason-other-wrap");
-      if (reasonOtherWrap) reasonOtherWrap.hidden = document.querySelector('[data-f="teg_reason"]')?.value !== "other";
+      if (reasonOtherWrap) {
+        reasonOtherWrap.hidden = smm || document.querySelector('[data-f="teg_reason"]')?.value !== "other";
+      }
+    }
+
+    /* The reason list belongs to the route: "Included in the SMM package" must
+       never be offered on a TEG invoice, and the TEG reasons must never be
+       offered on a package shoot. Keeps the current value if it is still on
+       the menu, so reopening a saved booking does not silently blank it. */
+    function syncReasonOptions(route) {
+      const sel = document.getElementById("vid-teg-reason");
+      if (!sel) return;
+      const want = reasonsForRoute(route);
+      const same = sel.options.length === want.length + 1
+        && want.every((o, i) => sel.options[i + 1]?.value === o.key);
+      if (same) return;
+      const had = sel.value;
+      sel.innerHTML = "";
+      sel.add(new Option("— Select —", ""));
+      want.forEach((o) => sel.add(new Option(o.label, o.key)));
+      sel.value = want.some((o) => o.key === had) ? had
+        : (route === "smm_package" ? SMM_REASON.key : "");
     }
 
     async function saveBooking() {

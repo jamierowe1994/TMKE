@@ -430,7 +430,32 @@ export const TEG_REASONS = [
   { key: "marketing", label: "Brand Marketing Content" },
   { key: "other",     label: "Other" },
 ];
+
+// Shoots covered by a social media management package. There is nothing to
+// invoice, so this route carries a single reason rather than the TEG list —
+// and that reason exists only here, which is why it is not in TEG_REASONS.
+export const SMM_REASON = { key: "smm_package", label: "Included in the SMM package" };
+
+// The reasons offered for a given payment route. The brand list is shared
+// between the two invoiced routes; the reasons are not.
+export function reasonsForRoute(route) {
+  return route === "smm_package" ? [SMM_REASON] : TEG_REASONS;
+}
+
+// True when the booking needs no payment from the client because their package
+// covers it. Everything that gates on money should ask this rather than
+// testing paid_at alone, or package clients are locked out of their own work.
+export function isPackageCovered(b) {
+  return !!b && b.payment_route === "smm_package";
+}
+
+// The one question the gallery, the tour, the PIN and the amends link all ask.
+export function isSettled(b) {
+  return !!b && (!!b.paid_at || isPackageCovered(b));
+}
+
 export function tegReasonLabel(key) {
+  if (key === SMM_REASON.key) return SMM_REASON.label;
   return (TEG_REASONS.find((o) => o.key === key) || {}).label || key || "";
 }
 

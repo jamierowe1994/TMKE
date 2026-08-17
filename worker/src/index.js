@@ -1212,6 +1212,16 @@ async function invoicePayVerify(env, token) {
 // the Worker, not the website. A *.workers.dev payment link reads as phishing,
 // which matters more here than anywhere else on the site - we are asking
 // someone to type card details. Worth a real route before this goes to clients.
+// The one question the gallery, the tour, the PIN and the amends page all ask.
+//
+// A shoot covered by a social media package has no invoice and never gets a
+// paid_at, but it is as paid as anything here gets — the money arrived with
+// the monthly package. Testing paid_at alone locks those clients out of work
+// they have already paid for, so every release check goes through here.
+function isSettled(bk) {
+  return !!bk && (!!bk.paid_at || bk.payment_route === "smm_package");
+}
+
 async function invoicePayUrl(env, invoiceId) {
   const t = await invoicePaySign(env, invoiceId);
   return t ? `${unsubBase(env)}/invoicing/pay?t=${encodeURIComponent(t)}` : null;
@@ -6514,7 +6524,10 @@ async function runVideographyChasers(env) {
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
   const due = (await sbGet(env, "videography_bookings",
     `shoot_date=gte.${iso(yesterday)}T00:00:00&shoot_date=lte.${iso(yesterday)}T23:59:59`
-    + `&paid_at=is.null&reminder_sent_at=is.null&stage=neq.cancelled&select=*`)) || [];
+    // A package shoot has no invoice to chase — reminding those clients to pay
+    // for something their package already covers is worse than staying quiet.
+    + `&paid_at=is.null&payment_route=neq.smm_package`
+    + `&reminder_sent_at=is.null&stage=neq.cancelled&select=*`)) || [];
 
   for (const bk of due) {
     const to = bk.client_email;
@@ -6866,7 +6879,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         // says, the toggle on screen - is presentation. This is the check that
         // actually stops it, and it reads from the database rather than from
         // anything the sender could have changed on screen.
-        const paid = !!bk.paid_at;
+        const paid = isSettled(bk);
         let pin = "", tourUrl = "";
         if (paid) {
           const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(id)}&select=pin`);
@@ -6993,12 +7006,12 @@ async function sendGalleryPinEmail(env, bookingId) {
         const token = (url.searchParams.get("token") || "").trim();
         if (!token) return json({ error: "Missing token" }, 400, request, env);
         const rows = await sbGet(env, "videography_bookings",
-          `edits_token=eq.${encodeURIComponent(token)}&select=id,client_name,service,service_type,paid_at`);
+          `edits_token=eq.${encodeURIComponent(token)}&select=id,client_name,service,service_type,paid_at,payment_route`);
         const bk = rows && rows[0];
         if (!bk) return json({ error: "That link isn't valid." }, 404, request, env);
         // The rule, same as the PIN: read from the database, not from anything
         // the page itself could claim.
-        if (!bk.paid_at) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
+        if (!isSettled(bk)) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
         return json({
           ok: true,
           client_name: bk.client_name || "",
@@ -7015,7 +7028,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         const rows = await sbGet(env, "videography_bookings", `edits_token=eq.${encodeURIComponent(token)}&select=*`);
         const bk = rows && rows[0];
         if (!bk) return json({ error: "That link isn't valid." }, 404, request, env);
-        if (!bk.paid_at) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
+        if (!isSettled(bk)) return json({ error: "This booking hasn't been paid for yet." }, 403, request, env);
 
         const notes = String((b && b.notes) || "").trim().slice(0, 4000);
         const upsell = editRequestUpsellKind(bk);
@@ -7111,7 +7124,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
 
         const rows = await sbGet(env, "videography_bookings",
-          `id=eq.${encodeURIComponent(id)}&select=account_user_id,client_email,paid_at`);
+          `id=eq.${encodeURIComponent(id)}&select=account_user_id,client_email,paid_at,payment_route`);
         const bk = rows && rows[0];
         if (!bk) return json({ error: "Not found." }, 404, request, env);
 
@@ -7120,7 +7133,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         // Deliberately the same answer as "no such booking": telling someone
         // a booking exists but isn't theirs is information they don't need.
         if (!mine) return json({ error: "Not found." }, 404, request, env);
-        if (!bk.paid_at) return json({ ok: true, paid: false }, 200, request, env);
+        if (!isSettled(bk)) return json({ ok: true, paid: false }, 200, request, env);
 
         const prow = await sbGet(env, "videography_gallery_pins", `booking_id=eq.${encodeURIComponent(id)}&select=pin`);
         const pin = (prow && prow[0] && prow[0].pin) || "";
@@ -7138,14 +7151,14 @@ async function sendGalleryPinEmail(env, bookingId) {
         if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
 
         const rows = await sbGet(env, "videography_bookings",
-          `id=eq.${encodeURIComponent(id)}&select=account_user_id,client_email,paid_at`);
+          `id=eq.${encodeURIComponent(id)}&select=account_user_id,client_email,paid_at,payment_route`);
         const bk = rows && rows[0];
         if (!bk) return json({ error: "Not found." }, 404, request, env);
 
         const mine = (bk.account_user_id && bk.account_user_id === user.id)
           || (bk.client_email && String(bk.client_email).toLowerCase() === String(user.email || "").toLowerCase());
         if (!mine) return json({ error: "Not found." }, 404, request, env);
-        if (!bk.paid_at) return json({ ok: true, paid: false }, 200, request, env);
+        if (!isSettled(bk)) return json({ ok: true, paid: false }, 200, request, env);
 
         const trow = await sbGet(env, "videography_tour_links", `booking_id=eq.${encodeURIComponent(id)}&select=url`);
         const tourUrl = normalizeUrl((trow && trow[0] && trow[0].url) || "");
