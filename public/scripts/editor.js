@@ -2414,6 +2414,8 @@
       // the same projection the export computes - not an approximation of it.
       if (el.src) {
         node.classList.add("is-filled");
+        const plane = document.createElement("div");
+        plane.className = "sc-plane";
         const img = document.createElement("img");
         img.decoding = "async";
         img.src = el.src;
@@ -2421,13 +2423,14 @@
         img.alt = "";
         img.crossOrigin = "anonymous";
         img.className = "sc-img";
-        if (el.imgNaturalW && el.imgNaturalH) applyScreenTransform(img, el);
+        plane.appendChild(img);
+        node.appendChild(plane);
+        if (el.imgNaturalW && el.imgNaturalH) applyScreenTransform(node, el);
         img.addEventListener("load", function () {
           el.imgNaturalW = img.naturalWidth;
           el.imgNaturalH = img.naturalHeight;
-          applyScreenTransform(img, el);
+          applyScreenTransform(node, el);
         });
-        node.appendChild(img);
       } else {
         const ph = document.createElement("div");
         ph.className = "sc-placeholder";
@@ -4119,14 +4122,63 @@
     return "matrix3d(" + [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, m.c, m.f, 0, 1].join(",") + ")";
   }
 
-  function applyScreenTransform(img, el) {
-    const w = el.imgNaturalW || img.naturalWidth;
-    const h = el.imgNaturalH || img.naturalHeight;
-    if (!w || !h) return;
-    img.style.width = w + "px";
-    img.style.height = h + "px";
-    img.style.transformOrigin = "0 0";
-    img.style.transform = screenMatrixCss(el, w, h);
+  /* The artwork's own placement inside the screen.
+
+     It used to be stretched to the quad, which only looks right when the
+     artwork happens to share the surface's proportions - and a phone screen
+     and an Instagram post never do. So it is fitted to cover the plane with
+     its shape intact, and then it is yours to move: pan, zoom and rotate,
+     the same three things you would reach for on any crop.
+
+     Two nested transforms rather than one. The plane carries the perspective;
+     the artwork sits inside that space with a plain affine transform of its
+     own. Composing them this way means panning does not have to be re-derived
+     through the homography every time it moves. */
+  function screenImageFit(el) {
+    const nw = el.imgNaturalW, nh = el.imgNaturalH;
+    if (!nw || !nh) return { baseW: el.w, baseH: el.h };
+    const ar = nw / nh, planeAr = el.w / el.h;
+    if (ar > planeAr) { const h = el.h; return { baseW: h * ar, baseH: h }; }
+    const w = el.w; return { baseW: w, baseH: w / ar };
+  }
+  // The artwork's affine transform, in plane coordinates.
+  function screenImageAffine(el) {
+    const fit = screenImageFit(el);
+    const s = el.imgScale != null ? el.imgScale : 1;
+    const rot = ((el.imgRotation || 0) * Math.PI) / 180;
+    const cos = Math.cos(rot), sin = Math.sin(rot);
+    // Centre of the artwork in plane space.
+    const cx = el.w / 2 + (el.imgOffsetX || 0);
+    const cy = el.h / 2 + (el.imgOffsetY || 0);
+    return { a: cos * s, b: -sin * s, c: cx, d: sin * s, e: cos * s, f: cy, baseW: fit.baseW, baseH: fit.baseH };
+  }
+
+  function applyScreenTransform(node, el) {
+    const plane = node.querySelector(".sc-plane");
+    const img = node.querySelector(".sc-img");
+    if (!plane) return;
+    plane.style.width = el.w + "px";
+    plane.style.height = el.h + "px";
+    plane.style.transformOrigin = "0 0";
+    plane.style.transform = screenMatrixCss(el, el.w, el.h);
+    if (!img) return;
+    const fit = screenImageFit(el);
+    /* Placed with explicit left/top rather than a percentage translate.
+
+       A `translate(-50%,-50%)` in the same list as a scale resolves against the
+       element's own un-scaled box, so the centring drifts by half the growth as
+       soon as you zoom - which showed up as the artwork pulling away from one
+       corner of the quad. Positioning it outright and rotating about its own
+       centre is unambiguous, and it is the same placement screenImageAffine
+       describes, so the canvas and the exported file cannot disagree. */
+    img.style.width = fit.baseW + "px";
+    img.style.height = fit.baseH + "px";
+    img.style.left = ((el.w - fit.baseW) / 2 + (el.imgOffsetX || 0)) + "px";
+    img.style.top = ((el.h - fit.baseH) / 2 + (el.imgOffsetY || 0)) + "px";
+    img.style.transformOrigin = "50% 50%";
+    img.style.transform =
+      "rotate(" + (el.imgRotation || 0) + "deg)" +
+      " scale(" + (el.imgScale != null ? el.imgScale : 1) + ")";
   }
 
   /* After a corner moves, re-fit the element's box to the quad so the bounding
@@ -4160,6 +4212,7 @@
       // so it is a colour you can change rather than one we picked for you.
       guide: "#00c2a8",
       src: null, imgNaturalW: 0, imgNaturalH: 0,
+      imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgRotation: 0,
     });
   }
 
@@ -4167,6 +4220,9 @@
     el.src = src;
     el.imgNaturalW = 0;
     el.imgNaturalH = 0;
+    // A new piece of artwork starts centred and unrotated - carrying the last
+    // one's framing over would be a puzzle, not a convenience.
+    el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0; el.imgRotation = 0;
     const probe = new Image();
     probe.crossOrigin = "anonymous";
     probe.onload = function () {
@@ -5100,20 +5156,48 @@
     const m = screenHomography(screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h })));
     if (!m) return;
 
+    /* The mesh walks the plane, so each vertex has to be taken back to a pixel
+       in the artwork - the opposite direction to the live preview, which walks
+       the artwork forward. That is the inverse of the same affine transform,
+       and inverting it once here beats solving it per vertex. */
+    const t = screenImageAffine(el);
+    const det = t.a * t.e - t.b * t.d;
+    if (!det) return;
+    const ia = t.e / det, ib = -t.b / det, id = -t.d / det, ie = t.a / det;
+    const ic = -(ia * t.c + ib * t.f), iff = -(id * t.c + ie * t.f);
+    // Plane point -> source pixel in the artwork's own coordinates.
+    const toSrc = (px, py) => {
+      const x = ia * px + ib * py + ic;      // centred on the artwork
+      const y = id * px + ie * py + iff;
+      return { x: (x + t.baseW / 2) * (iw / t.baseW), y: (y + t.baseH / 2) * (ih / t.baseH) };
+    };
+
     // Enough subdivision that a straight edge stays straight at print sizes,
     // cheap enough that export does not stall on it.
     const N = 24;
+    ctx.save();
+    // The artwork may now be rotated or zoomed inside the plane, so it can
+    // reach past the quad. The quad is the window; clip to it.
+    const q = screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h }));
+    ctx.beginPath();
+    ctx.moveTo(q[0].x, q[0].y);
+    for (let k = 1; k < 4; k++) ctx.lineTo(q[k].x, q[k].y);
+    ctx.closePath();
+    ctx.clip();
     for (let i = 0; i < N; i++) {
       for (let j = 0; j < N; j++) {
         const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
-        const sA = { x: u0 * iw, y: v0 * ih }, sB = { x: u1 * iw, y: v0 * ih };
-        const sC = { x: u1 * iw, y: v1 * ih }, sD = { x: u0 * iw, y: v1 * ih };
+        const pA = { x: u0 * el.w, y: v0 * el.h }, pB = { x: u1 * el.w, y: v0 * el.h };
+        const pC = { x: u1 * el.w, y: v1 * el.h }, pD = { x: u0 * el.w, y: v1 * el.h };
+        const sA = toSrc(pA.x, pA.y), sB = toSrc(pB.x, pB.y);
+        const sC = toSrc(pC.x, pC.y), sD = toSrc(pD.x, pD.y);
         const dA = screenProject(m, u0, v0), dB = screenProject(m, u1, v0);
         const dC = screenProject(m, u1, v1), dD = screenProject(m, u0, v1);
         drawTexturedTriangle(ctx, img, sA, sB, sC, dA, dB, dC);
         drawTexturedTriangle(ctx, img, sA, sC, sD, dA, dC, dD);
       }
     }
+    ctx.restore();
   }
 
   async function drawFrameToCanvas(ctx, el) {
@@ -6067,6 +6151,72 @@
         }
       ));
       ctxEl.appendChild(g);
+
+      // Artwork placement — only worth offering once there is artwork in it.
+      if (el.src) {
+        const fitWrap = popoverIconButton({
+          icon: ICONS.crop || ICONS.opacity,
+          title: "Position the artwork",
+          render: function () {
+            const panel = document.createElement("div");
+            panel.className = "ed-pop-panel";
+            const rot = el.imgRotation || 0;
+            const zoom = Math.round((el.imgScale != null ? el.imgScale : 1) * 100);
+            panel.innerHTML =
+              '<div class="ed-pop-row"><span>Rotate</span></div>' +
+              '<div class="ed-pop-row">' +
+                '<input type="range" min="-180" max="180" step="1" value="' + rot + '" data-sc-rot />' +
+                '<output data-sc-rot-out>' + rot + '&deg;</output>' +
+              '</div>' +
+              '<div class="ed-pop-row"><span>Zoom</span></div>' +
+              '<div class="ed-pop-row">' +
+                '<input type="range" min="50" max="400" step="1" value="' + zoom + '" data-sc-zoom />' +
+                '<output data-sc-zoom-out>' + zoom + '%</output>' +
+              '</div>' +
+              '<div class="ed-pop-row"><span>Across</span></div>' +
+              '<div class="ed-pop-row">' +
+                '<input type="range" min="-' + Math.round(el.w) + '" max="' + Math.round(el.w) + '" step="1" value="' + (el.imgOffsetX || 0) + '" data-sc-x />' +
+              '</div>' +
+              '<div class="ed-pop-row"><span>Down</span></div>' +
+              '<div class="ed-pop-row">' +
+                '<input type="range" min="-' + Math.round(el.h) + '" max="' + Math.round(el.h) + '" step="1" value="' + (el.imgOffsetY || 0) + '" data-sc-y />' +
+              '</div>' +
+              '<div class="ed-pop-row"><button type="button" class="ed-ctx-btn" data-sc-recentre>Recentre</button></div>';
+
+            const live = () => {
+              const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+              if (node) applyScreenTransform(node, el);
+            };
+            const bind = (sel, set, out, fmt) => {
+              const input = panel.querySelector(sel);
+              const o = out ? panel.querySelector(out) : null;
+              input.addEventListener("input", function () {
+                set(parseFloat(input.value));
+                if (o) o.textContent = fmt(input.value);
+                live();
+              });
+              input.addEventListener("change", function () { pushHistory(); });
+            };
+            bind("[data-sc-rot]", (v) => { el.imgRotation = v; }, "[data-sc-rot-out]", (v) => v + "\u00B0");
+            bind("[data-sc-zoom]", (v) => { el.imgScale = v / 100; }, "[data-sc-zoom-out]", (v) => v + "%");
+            bind("[data-sc-x]", (v) => { el.imgOffsetX = v; });
+            bind("[data-sc-y]", (v) => { el.imgOffsetY = v; });
+            panel.querySelector("[data-sc-recentre]").addEventListener("click", function () {
+              el.imgRotation = 0; el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
+              panel.querySelector("[data-sc-rot]").value = "0";
+              panel.querySelector("[data-sc-rot-out]").textContent = "0\u00B0";
+              panel.querySelector("[data-sc-zoom]").value = "100";
+              panel.querySelector("[data-sc-zoom-out]").textContent = "100%";
+              panel.querySelector("[data-sc-x]").value = "0";
+              panel.querySelector("[data-sc-y]").value = "0";
+              live();
+              pushHistory();
+            });
+            return panel;
+          },
+        });
+        ctxEl.appendChild(fitWrap);
+      }
 
       const resetBtn = document.createElement("button");
       resetBtn.className = "ed-ctx-btn";
