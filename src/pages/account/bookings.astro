@@ -38,6 +38,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 01</span>Upcoming</h2>
         <a class="ws-block-link" href="/videography">Book another</a>
       </header>
+      <div id="bk-next"></div>
       <div id="bk-upcoming" class="bk-list">
         <div class="bk-state">Loading bookings&hellip;</div>
       </div>
@@ -145,6 +146,32 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-pill.is-complete { background: transparent; border: 1px solid rgba(46,106,74,0.4); color: #2e6a4a; }
     .bk-view-cue { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28,29,34,0.45); }
     .bk-card:hover .bk-view-cue { color: var(--english-violet); }
+    /* ---- Next shoot banner ----
+       Wine, because it is the one thing on the page asking for attention. It
+       sits above Chapter 01 rather than inside it: the list is a record, this
+       is a prompt. */
+    .bk-next {
+      display: grid; grid-template-columns: auto 1fr auto; gap: 8px 26px; align-items: center;
+      padding: 18px 22px; margin-bottom: var(--ws-gap);
+      background: var(--english-violet); color: #fff;
+    }
+    .bk-next-when { display: flex; flex-direction: column; gap: 2px; }
+    .bk-next-count { font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
+    .bk-next-date { font-family: var(--sans); font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .bk-next-main { min-width: 0; }
+    .bk-next-title { font-family: var(--serif); font-size: 20px; font-weight: 500; letter-spacing: -0.01em; margin: 0; color: #fff; }
+    .bk-next-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(255,255,255,0.7); margin: 3px 0 0; }
+    .bk-next-acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    /* On the wine the primary button has to invert, or it disappears into it. */
+    .bk-next .ws-btn { border-color: rgba(255,255,255,0.4); color: #fff; background: transparent; }
+    .bk-next .ws-btn:hover { background: rgba(255,255,255,0.14); border-color: #fff; }
+    .bk-next .ws-btn--primary { background: #fff; color: var(--english-violet); border-color: #fff; }
+    .bk-next .ws-btn--primary:hover { background: rgba(255,255,255,0.88); }
+    @media (max-width: 720px) {
+      .bk-next { grid-template-columns: 1fr; gap: 12px; }
+      .bk-next-acts { justify-content: flex-start; }
+    }
+
     /* ---- Invoicing rows ---- */
     .bk-inv {
       display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center;
@@ -473,6 +500,10 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
             // note must never render here, whatever the server sends.
             (t.messages || []).filter((m) => m.channel === 'email').forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
             (t.documents || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
+            // The banner offers the prep document, and documents arrive after
+            // the first paint — so the list has to be drawn again, not just an
+            // open drawer refreshed.
+            render();
             if (currentKey) openDetail(currentKey);
           }
         } catch (_) {}
@@ -537,6 +568,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       up.sort((a, b) => new Date(a.when || 0) - new Date(b.when || 0));
       past.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
 
+      renderNext(up);
       const $up = $('bk-upcoming');
       if (!up.length) {
         $up.innerHTML = `<div class="bk-empty-card"><h3 class="bk-card-title">Nothing upcoming.</h3><p>When you book a shoot or a call, it'll appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
@@ -547,6 +579,48 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       $('bk-past').innerHTML = past.length
         ? past.map(cardHtml).join('')
         : `<div class="bk-empty-card"><h3 class="bk-card-title">No previous bookings yet.</h3><p>Once a shoot, session or call is done, it'll move here — so you've always got your history to hand.</p></div>`;
+    }
+
+    /* ---- The next shoot ----------------------------------------------------
+       One booking gets pulled out of the list, because "when is my shoot and
+       what do I need to do" is the question people actually arrive with. Only
+       ever a shoot: a discovery call needs no preparation, so promoting one
+       would be noise. */
+    function renderNext(upcoming) {
+      const el = $('bk-next');
+      if (!el) return;
+      const next = upcoming.find((r) => hasTrack(r) && r.when && r.stage !== 'cancelled');
+      if (!next) { el.innerHTML = ''; return; }
+
+      const ts = new Date(next.when).getTime();
+      const days = Math.ceil((ts - Date.now()) / 86400000);
+      const countdown = days <= 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`;
+
+      // The prep document, if one has been uploaded — surfaced here rather than
+      // left three clicks away in Documents, which is the whole point of a
+      // banner about the shoot you are about to have.
+      const docs = docsByKey.get(keyOf(next)) || [];
+      const prep = docs.find((d) => d.category === 'prep');
+
+      const bits = [];
+      if (next.location) bits.push(escapeHtml(next.location));
+      if (next.package) bits.push(escapeHtml(next.package));
+      if (next.duration_min) bits.push(`${next.duration_min} min`);
+
+      el.innerHTML = `<div class="bk-next">
+        <div class="bk-next-when">
+          <span class="bk-next-count">${escapeHtml(countdown)}</span>
+          <span class="bk-next-date">${escapeHtml(fmtWhen(next.when) || '')}</span>
+        </div>
+        <div class="bk-next-main">
+          <h3 class="bk-next-title">${escapeHtml(next.service)}</h3>
+          ${bits.length ? `<p class="bk-next-meta">${bits.join(' &middot; ')}</p>` : ''}
+        </div>
+        <div class="bk-next-acts">
+          <button type="button" class="ws-btn ws-btn--primary" data-open="${escapeHtml(keyOf(next))}">View booking</button>
+          ${prep ? `<button type="button" class="ws-btn" data-doc="${escapeHtml(prep.id)}" data-name="${escapeHtml(prep.file_name)}">How to prepare</button>` : ''}
+        </div>
+      </div>`;
     }
 
     function cardHtml(r) {
