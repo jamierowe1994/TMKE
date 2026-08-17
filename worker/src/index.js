@@ -7108,7 +7108,16 @@ async function sendGalleryPinEmail(env, bookingId) {
         }, "return=representation");
         const created = await ins.json().catch(() => null);
         const reqRow = Array.isArray(created) ? created[0] : created;
-        if (!reqRow || !reqRow.id) return json({ error: "Couldn't save your request. Please try again." }, 500, request, env);
+        if (!reqRow || !reqRow.id) {
+          // The client gets the same sentence either way - there is nothing
+          // useful it could do with a Postgres error code. But it goes to the
+          // Worker log, because the one time this fired it was a column the
+          // table never had, and the reply said "please try again" about a
+          // failure that was never going to stop happening. `wrangler tail`
+          // now says which column.
+          console.log("edit-request insert failed", ins.status, JSON.stringify(created));
+          return json({ error: "Couldn't save your request. Please try again." }, 500, request, env);
+        }
 
         // Free-text only, nothing to pay - tell Jack straight away rather than
         // waiting on a payment that was never coming.
