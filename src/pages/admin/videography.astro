@@ -811,6 +811,31 @@ import "../../styles/admin.css";
     .vid-add-opt:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.07); }
     .vid-add-opt strong { display: block; font-size: 14px; color: var(--ink); margin-bottom: 3px; }
     .vid-add-opt span { font-size: 12px; color: rgba(28,29,34,0.6); }
+    /* Contact matches: one row per person, with what matched and what you can
+       do about it. The reason sits next to the name because a suggestion you
+       cannot see the basis for is not one you can act on. */
+    .vid-contact-block { margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(var(--violet-rgb), 0.12); }
+    /* Only the block that opens the drawer loses its rule. Keyed off the
+       heading rather than :first-of-type, which picked the wrong block whenever
+       the first thing under the heading was a gate or a line of prose. */
+    .vid-cand-drawer > h4 + .vid-contact-block { margin-top: 0; padding-top: 0; border-top: 0; }
+    .vid-contact-row {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 9px 0; border-bottom: 1px solid rgba(28, 29, 34, 0.07);
+    }
+    /* Grows to fill the row, so the reason chip lands beside the button at the
+       same place on every row instead of trailing the name's length. */
+    .vid-contact-who { display: flex; flex-direction: column; gap: 2px; flex: 1 1 220px; min-width: 180px; }
+    .vid-contact-who strong { font-family: var(--sans); font-size: 13.5px; color: var(--ink); font-weight: 700; }
+    .vid-contact-who span { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.55); }
+    .vid-contact-why {
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--english-violet);
+      background: rgba(var(--violet-rgb), 0.09); border-radius: 999px; padding: 3px 9px;
+    }
+    .vid-contact-row .admin-btn { margin-left: auto; }
+    .vid-contact-block .vid-gate-h { color: rgba(28, 29, 34, 0.55); }
+
     .vid-cand-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-top: 14px; }
     .vid-cand-form .vid-field { flex: 1; min-width: 160px; }
     .vid-cand-form .vid-field input { width: 100%; }
@@ -1677,12 +1702,14 @@ import "../../styles/admin.css";
           <span>Quote&nbsp; <strong>${amount}</strong></span>
           ${loc ? `<span>Shoot location&nbsp; <strong>${escapeHtml(loc)}</strong></span>` : ""}
           ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
+          <span data-contact>Contact&nbsp; <strong>…</strong></span>
         </div>
         <div class="vid-cand-actions">
           ${f.advance ? `<button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button>` : ""}
           <button type="button" class="admin-btn admin-btn-ghost" data-act="reschedule">Reschedule</button>
           <button type="button" class="admin-btn admin-btn-ghost" data-act="edit">Edit</button>
           <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
+          <button type="button" class="admin-btn admin-btn-ghost" data-act="contact">${b.contact_id ? "Contact" : "Link contact"}</button>
           ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
         </div>
         <!-- One card, tabbed. Invoice, notes, documents and messages used to be
@@ -1762,6 +1789,7 @@ import "../../styles/admin.css";
       });
       el.querySelectorAll("[data-act]").forEach((btn) => btn.addEventListener("click", () => candAction(btn.getAttribute("data-act"))));
       if (!isStudio) showDistance(b);
+      showLinkedContact(b);
       const slot = document.getElementById("vid-cand-action");
       if (slot) { slot.innerHTML = ""; slot.hidden = !stageAction(b.stage); }
       renderDeliveryCard(b);
@@ -3070,6 +3098,7 @@ import "../../styles/admin.css";
       if (!drawer) return;
       showCandTab("stage");   // the drawer lives in the stage tab; open it there
       drawer.classList.add("is-open");
+      if (act === "contact") { renderContactDrawer(b); return; }
       if (act === "reschedule") {
         drawer.innerHTML = `<h4>Reschedule shoot</h4>
           <div class="vid-cand-form">
@@ -3148,6 +3177,241 @@ import "../../styles/admin.css";
         const miles = haversineMiles(base.lat, base.lon, d.result.latitude, d.result.longitude);
         span.textContent = Math.round(miles) + " mi from base";
       } catch (_) { span.textContent = "unknown"; }
+    }
+
+    /* ---- The booking's CRM contact ----
+       Bookings taken through the public form arrive with an email, so the
+       Worker can join them to a contact on the way in. The ones Jack adds by
+       hand often cannot be joined automatically - a phone call, a name and a
+       date - so this is the manual route: look for a match, pick one yourself,
+       or make the contact from what the booking already knows.
+
+       Deliberately three separate answers rather than one clever one. A guess
+       good enough to show as a suggestion is not good enough to act on by
+       itself, so nothing here links anything without being asked to. */
+    const contactCache = new Map();   // id -> contact row, so re-renders don't re-fetch
+
+    function contactName(c) {
+      const n = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
+      return n || c.email || "Unnamed contact";
+    }
+    // Last six digits, which survives every way a UK number gets typed
+    // ("07123 456789", "+447123456789", "07123456789").
+    function phoneTail(v) {
+      const digits = (v || "").replace(/\D/g, "");
+      return digits.length >= 6 ? digits.slice(-6) : "";
+    }
+
+    async function getContact(id) {
+      if (!id) return null;
+      if (contactCache.has(id)) return contactCache.get(id);
+      const { data } = await supabase.from("contacts").select("id,email,first_name,last_name,phone,company,lifecycle").eq("id", id).maybeSingle();
+      if (data) contactCache.set(id, data);
+      return data || null;
+    }
+
+    async function showLinkedContact(b) {
+      const span = document.querySelector("#vid-cand [data-contact] strong");
+      if (!span) return;
+      if (!b.contact_id) { span.textContent = "not linked"; return; }
+      const c = await getContact(b.contact_id);
+      span.textContent = c ? contactName(c) : "not linked";
+    }
+
+    /* What this booking looks like it belongs to. Each query is separate rather
+       than one .or() string - the search text is the client's own name and
+       email, and PostgREST's or() takes commas and brackets as syntax. */
+    async function suggestContacts(b) {
+      const found = new Map();   // id -> { contact, why }
+      const add = (rows, why) => (rows || []).forEach((c) => { if (!found.has(c.id)) found.set(c.id, { c, why }); });
+      const cols = "id,email,first_name,last_name,phone,company,lifecycle";
+      const email = (b.client_email || "").trim();
+      const name = (b.client_name || "").trim();
+      const tail = phoneTail(b.client_phone);
+
+      if (email) {
+        const { data } = await supabase.from("contacts").select(cols).ilike("email", email).limit(5);
+        add(data, "same email");
+      }
+      if (tail) {
+        const { data } = await supabase.from("contacts").select(cols).ilike("phone", "%" + tail).limit(5);
+        add(data, "same phone number");
+      }
+      if (name) {
+        const first = name.split(/\s+/)[0];
+        const last = name.split(/\s+/).slice(1).join(" ");
+        if (last) {
+          const { data } = await supabase.from("contacts").select(cols).ilike("first_name", first).ilike("last_name", last).limit(5);
+          add(data, "same name");
+        }
+        const { data } = await supabase.from("contacts").select(cols).ilike("last_name", last || first).limit(5);
+        add(data, "same surname");
+      }
+      return [...found.values()];
+    }
+
+    async function searchContacts(q) {
+      const term = (q || "").trim();
+      if (term.length < 2) return [];
+      const cols = "id,email,first_name,last_name,phone,company,lifecycle";
+      const found = new Map();
+      // One query per column for the same reason as above: the term is free text.
+      for (const col of ["email", "first_name", "last_name", "company"]) {
+        const { data } = await supabase.from("contacts").select(cols).ilike(col, "%" + term + "%").limit(8);
+        (data || []).forEach((c) => found.set(c.id, c));
+      }
+      return [...found.values()].slice(0, 12);
+    }
+
+    function contactRow(c, why, action) {
+      return `<div class="vid-contact-row">
+        <div class="vid-contact-who">
+          <strong>${escapeHtml(contactName(c))}</strong>
+          <span>${escapeHtml([c.email, c.company].filter(Boolean).join(" · ") || "no email on file")}</span>
+        </div>
+        ${why ? `<span class="vid-contact-why">${escapeHtml(why)}</span>` : ""}
+        ${action}
+      </div>`;
+    }
+
+    async function renderContactDrawer(b) {
+      const drawer = document.getElementById("vid-cand-drawer");
+      if (!drawer) return;
+      drawer.innerHTML = `<h4>Contact</h4><p class="vid-loading">Looking for a match…</p>`;
+
+      const linked = await getContact(b.contact_id);
+      const suggestions = linked ? [] : await suggestContacts(b);
+
+      const linkedBlock = linked
+        ? `<div class="vid-gate is-done">
+             <div class="vid-gate-h">Linked to</div>
+             ${contactRow(linked, "", `<button type="button" class="admin-btn admin-btn-ghost" data-contact-unlink>Unlink</button>`)}
+             <p class="vid-hint">Unlinking leaves the contact alone — it only removes the join to this shoot.</p>
+           </div>`
+        : suggestions.length
+          ? `<div class="vid-contact-block">
+               <div class="vid-gate-h">Looks like it might be</div>
+               <p class="vid-hint" style="margin-bottom:10px">Matched on what the booking already knows. Check it is the right person before linking — nothing here links itself.</p>
+               ${suggestions.map((s) => contactRow(s.c, s.why, `<button type="button" class="admin-btn admin-btn-primary" data-contact-link="${escapeHtml(s.c.id)}">Link</button>`)).join("")}
+             </div>`
+          : `<div class="vid-contact-block"><p class="vid-hint">Nothing in the CRM matches this booking's name, email or phone number. Search for them below, or make the contact from what the booking already has.</p></div>`;
+
+      const company = b.client_company || b.company || "";
+      drawer.innerHTML = `
+        <h4>Contact</h4>
+        ${linkedBlock}
+        <div class="vid-contact-block">
+          <div class="vid-gate-h">${linked ? "Link to somebody else" : "Search for them"}</div>
+          <div class="vid-archive-row">
+            <input type="text" id="vid-contact-q" placeholder="Name, email or company…" />
+            <button type="button" class="admin-btn admin-btn-ghost" id="vid-contact-search">Search</button>
+          </div>
+          <div id="vid-contact-results"></div>
+        </div>
+        <div class="vid-contact-block">
+          <div class="vid-gate-h">Or make a new contact</div>
+          <p class="vid-hint" style="margin-bottom:10px">Pre-filled from the booking. An email address is how the CRM tells people apart, so it is the one thing this needs.</p>
+          <div class="vid-cand-form">
+            <div class="vid-field"><label>Name</label><input type="text" id="vid-nc-name" value="${escapeHtml(b.client_name || "")}" /></div>
+            <div class="vid-field"><label>Email</label><input type="email" id="vid-nc-email" value="${escapeHtml(b.client_email || "")}" /></div>
+            <div class="vid-field"><label>Phone</label><input type="text" id="vid-nc-phone" value="${escapeHtml(b.client_phone || "")}" /></div>
+            <div class="vid-field"><label>Company</label><input type="text" id="vid-nc-company" value="${escapeHtml(company)}" /></div>
+            <button type="button" class="admin-btn admin-btn-primary" id="vid-nc-save">Create &amp; link</button>
+          </div>
+        </div>
+        <p class="vid-warn" id="vid-contact-msg" hidden></p>`;
+
+      wireContactDrawer(b);
+    }
+
+    function contactMsg(text, bad) {
+      const el = document.getElementById("vid-contact-msg");
+      if (!el) return;
+      el.hidden = !text;
+      el.textContent = text || "";
+      el.style.color = bad ? "#8a3b2f" : "var(--english-violet)";
+    }
+
+    function wireContactDrawer(b) {
+      const drawer = document.getElementById("vid-cand-drawer");
+      if (!drawer) return;
+      drawer.querySelectorAll("[data-contact-link]").forEach((btn) =>
+        btn.addEventListener("click", () => linkContact(b, btn.getAttribute("data-contact-link"))));
+      drawer.querySelector("[data-contact-unlink]")?.addEventListener("click", () => linkContact(b, null));
+      document.getElementById("vid-nc-save")?.addEventListener("click", () => createContactFor(b));
+
+      const q = document.getElementById("vid-contact-q");
+      const run = async () => {
+        const host = document.getElementById("vid-contact-results");
+        if (!host) return;
+        const term = q ? q.value : "";
+        if (term.trim().length < 2) { host.innerHTML = `<p class="vid-hint">Type at least two characters.</p>`; return; }
+        host.innerHTML = `<p class="vid-loading">Searching…</p>`;
+        const rows = await searchContacts(term);
+        host.innerHTML = rows.length
+          ? rows.map((c) => contactRow(c, "", `<button type="button" class="admin-btn admin-btn-ghost" data-contact-link="${escapeHtml(c.id)}">Link</button>`)).join("")
+          : `<p class="vid-hint">Nobody in the CRM matches that. Make the contact below instead.</p>`;
+        host.querySelectorAll("[data-contact-link]").forEach((btn) =>
+          btn.addEventListener("click", () => linkContact(b, btn.getAttribute("data-contact-link"))));
+      };
+      document.getElementById("vid-contact-search")?.addEventListener("click", run);
+      q?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
+    }
+
+    async function linkContact(b, contactId, note) {
+      const { error } = await supabase.from("videography_bookings").update({ contact_id: contactId }).eq("id", b.id);
+      if (error) { contactMsg("Couldn't save that link: " + error.message, true); return; }
+      b.contact_id = contactId;
+      // The whole card re-renders (the button's label and the meta row both
+      // change), which takes the drawer with it - so it is reopened here rather
+      // than through candAction, whose own render is not awaited and would drop
+      // the message below on the floor.
+      renderCandidate();
+      showCandTab("stage");
+      document.getElementById("vid-cand-drawer")?.classList.add("is-open");
+      await renderContactDrawer(b);
+      contactMsg(note || (contactId ? "Linked." : "Unlinked."));
+    }
+
+    /* Made from the booking, tagged the way the CRM backfill tags a videography
+       client so this contact sorts with the rest of them. Marketing consent is
+       not something a booking can speak for, so it is left off. */
+    async function createContactFor(b) {
+      const name = (document.getElementById("vid-nc-name")?.value || "").trim();
+      const email = (document.getElementById("vid-nc-email")?.value || "").trim().toLowerCase();
+      const phone = (document.getElementById("vid-nc-phone")?.value || "").trim();
+      const company = (document.getElementById("vid-nc-company")?.value || "").trim();
+      if (!email) { contactMsg("A contact needs an email address — it is how the CRM tells people apart.", true); return; }
+
+      const first = name.split(/\s+/)[0] || null;
+      const last = name.split(/\s+/).slice(1).join(" ") || null;
+      const product = { content: "Content-Studio", "content-studio": "Content-Studio", property: "Property-Videography", agent: "Agent-Videography" }[b.service_type];
+      const network = /experts\.co\.uk$/.test(email) ? "Network: TEG"
+        : /@fineandcountry\.com$/.test(email) ? "Network: Fine-and-Country"
+        : "Network: External";
+      const tags = ["Videography-Client", "Marketing-Not-Opted-In", network];
+      if (product) tags.push("Videography-Product: " + product);
+
+      const { data, error } = await supabase.from("contacts").insert({
+        email, first_name: first, last_name: last, phone: phone || null, company: company || null,
+        source: "videography", lifecycle: "customer", marketing_opt_in: false, tags,
+      }).select("id,email,first_name,last_name,phone,company,lifecycle").maybeSingle();
+
+      // Email is the CRM's unique key, so "already exists" is a link, not an
+      // error - the person you were about to create is already on file.
+      if (error) {
+        if (!/duplicate|unique/i.test(error.message || "")) { contactMsg("Couldn't create that contact: " + error.message, true); return; }
+        // .eq, not .ilike: `_` is a wildcard in ilike and a legal character in
+        // an email, so a pattern match here could return somebody else and link
+        // the shoot to the wrong person. The insert just failed on the unique
+        // index over this exact value, so an exact match is what finds it.
+        const { data: existing } = await supabase.from("contacts").select("id").eq("email", email).maybeSingle();
+        if (!existing) { contactMsg("Couldn't create that contact: " + error.message, true); return; }
+        await linkContact(b, existing.id, `${email} was already in the CRM — linked to them instead.`);
+        return;
+      }
+      if (data) contactCache.set(data.id, data);
+      await linkContact(b, data.id, "Contact created and linked.");
     }
 
     /* Auto-advance: a booked job becomes "Shoot day" once its day arrives. */
