@@ -125,12 +125,38 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
 
     <!-- ============================== RIGHT COLUMN: settings + SEO -->
     <aside class="be-col be-col-side">
+      <!-- Typography for the article body, saved as data on the post rather than
+           written onto each element as it is typed. That is what makes it
+           reusable: it reaches text added later, and it can be lifted onto the
+           next article whole. -->
+      <fieldset class="be-card">
+        <legend class="be-card-legend">Styling</legend>
+        <label class="be-field">
+          <span class="be-label">Template</span>
+          <div class="be-tpl-row">
+            <select id="be-tpl"><option value="">Custom (this article only)</option></select>
+            <button type="button" class="be-btn be-btn--ghost" id="be-tpl-apply" title="Load this template's settings">Use</button>
+          </div>
+        </label>
+        <div class="be-styles" id="be-styles"></div>
+        <div class="be-tpl-acts">
+          <button type="button" class="be-btn be-btn--ghost" id="be-tpl-save">Save as template</button>
+          <button type="button" class="be-btn be-btn--ghost" id="be-tpl-update" hidden>Update template</button>
+        </div>
+        <label class="be-check" id="be-tpl-default-wrap" hidden>
+          <input type="checkbox" id="be-tpl-default" />
+          <span>Start new articles from this template</span>
+        </label>
+        <p class="be-hint" id="be-tpl-msg">Leave a setting blank to keep the site's own. Anything you style from the toolbar on a specific bit of text stays as it is.</p>
+      </fieldset>
+
       <fieldset class="be-card">
         <legend class="be-card-legend">Status</legend>
         <label class="be-field">
           <span class="be-label">Audience — where it publishes</span>
           <select name="audience" id="be-audience">
             <option value="public">Front-end website (public)</option>
+            <option value="both">Both — the website and the member hub</option>
             <option value="members">Members only — exclusive (in the customer dashboard)</option>
           </select>
         </label>
@@ -464,6 +490,21 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     }
     .be-rt-btn:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.32); }
     .be-rt-btn b, .be-rt-btn i { font-size: 13px; }
+
+    /* Styling panel: four rows of three, tight enough to sit in the side column. */
+    .be-tpl-row { display: flex; gap: 6px; }
+    .be-tpl-row select { flex: 1; min-width: 0; }
+    .be-styles { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .be-style-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: center; }
+    .be-style-row select { min-width: 0; font-size: 12px; padding: 6px 8px; }
+    .be-style-label {
+      grid-column: 1 / -1; font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+    .be-style-row select[data-prop="font"] { grid-column: 1 / -1; }
+    .be-tpl-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
+    .be-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.7); }
+    .be-check[hidden] { display: none; }
     .be-rt-div { width: 1px; align-self: stretch; background: rgba(28,29,34,0.14); margin: 2px 3px; }
     .be-rich {
       min-height: 480px; width: 100%;
@@ -756,6 +797,150 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         f.replaceWith(span);
       });
     }
+    /* ─── Article styling ───────────────────────────────────────────────────
+       The four things an article body is made of, and the three properties
+       worth setting on each. Held as data on the post and rendered as one
+       scoped stylesheet - which is what the toolbar could never do, because a
+       style written onto a paragraph as you type says nothing about the
+       paragraph you write tomorrow. */
+    const STYLE_PARTS = [
+      ["p", "Body text"], ["h2", "Heading"], ["h3", "Sub-heading"], ["blockquote", "Quote"],
+    ];
+    const FONT_OPTS = [
+      ["", "Site default"],
+      ["Helios, 'Helvetica Neue', Helvetica, Arial, sans-serif", "Helios"],
+      ["'Darker Grotesque', Inter, system-ui, sans-serif", "Darker Grotesque"],
+      ["'The Seasons', 'Cormorant Garamond', Georgia, serif", "The Seasons"],
+      ["Georgia, 'Times New Roman', serif", "Georgia"],
+    ];
+    const SIZE_OPTS = ["", "14px", "15px", "16px", "17px", "18px", "20px", "24px", "28px", "34px", "42px"];
+    const LH_OPTS = ["", "1", "1.2", "1.4", "1.5", "1.6", "1.7", "1.8", "2"];
+    let styleState = {};
+    let templates = [];
+
+    function buildStyleControls() {
+      const host = document.getElementById("be-styles");
+      if (!host) return;
+      host.innerHTML = STYLE_PARTS.map(([key, label]) => `
+        <div class="be-style-row">
+          <span class="be-style-label">${label}</span>
+          <select data-sty="${key}" data-prop="font">${FONT_OPTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
+          <select data-sty="${key}" data-prop="size">${SIZE_OPTS.map((v) => `<option value="${v}">${v || "Size"}</option>`).join("")}</select>
+          <select data-sty="${key}" data-prop="lh">${LH_OPTS.map((v) => `<option value="${v}">${v || "Line height"}</option>`).join("")}</select>
+        </div>`).join("");
+      host.querySelectorAll("select").forEach((sel) => sel.addEventListener("change", () => {
+        const key = sel.getAttribute("data-sty");
+        const prop = sel.getAttribute("data-prop");
+        styleState[key] = styleState[key] || {};
+        if (sel.value) styleState[key][prop] = sel.value;
+        else delete styleState[key][prop];
+        if (!Object.keys(styleState[key]).length) delete styleState[key];
+        applyStylePreview();
+        // Once you have changed something by hand it is no longer that template.
+        const pick = document.getElementById("be-tpl");
+        if (pick && pick.value) markTemplateDirty();
+      }));
+    }
+
+    function fillStyleControls() {
+      document.querySelectorAll("#be-styles select").forEach((sel) => {
+        const v = (styleState[sel.getAttribute("data-sty")] || {})[sel.getAttribute("data-prop")] || "";
+        sel.value = v;
+        // A value saved before this list existed would otherwise silently blank
+        // the control - and blanking it is how you lose it on the next save.
+        if (sel.value !== v) { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); sel.value = v; }
+      });
+    }
+
+    /* Same stylesheet the article gets, live in the editor - so what you are
+       writing into looks like what will be published. */
+    function styleCssFor(scope) {
+      const safe = (x) => String(x || "").replace(/[;{}<>"]/g, "").trim();
+      return STYLE_PARTS.map(([key]) => {
+        const v = styleState[key];
+        if (!v) return "";
+        const d = [];
+        if (v.font) d.push("font-family:" + safe(v.font));
+        if (v.size) d.push("font-size:" + safe(v.size));
+        if (v.lh) d.push("line-height:" + safe(v.lh));
+        return d.length ? `${scope} ${key}{${d.join(";")}}` : "";
+      }).filter(Boolean).join("\n");
+    }
+    function applyStylePreview() {
+      let tag = document.getElementById("be-style-live");
+      if (!tag) { tag = document.createElement("style"); tag.id = "be-style-live"; document.head.appendChild(tag); }
+      tag.textContent = styleCssFor("#be-rich") + "\n" + styleCssFor("#be-preview-out");
+    }
+
+    function markTemplateDirty() {
+      const pick = document.getElementById("be-tpl");
+      if (pick) pick.value = "";
+      document.getElementById("be-tpl-update").hidden = true;
+      document.getElementById("be-tpl-default-wrap").hidden = true;
+    }
+
+    async function loadTemplates(selectId) {
+      const { data } = await supabase.from("blog_style_templates").select("*").order("name");
+      templates = data || [];
+      const pick = document.getElementById("be-tpl");
+      if (!pick) return;
+      pick.innerHTML = `<option value="">Custom (this article only)</option>`
+        + templates.map((t) => `<option value="${t.id}">${t.name}${t.is_default ? " · default" : ""}</option>`).join("");
+      if (selectId) pick.value = selectId;
+      syncTemplateActions();
+    }
+    function syncTemplateActions() {
+      const pick = document.getElementById("be-tpl");
+      const t = templates.find((x) => x.id === (pick && pick.value));
+      document.getElementById("be-tpl-update").hidden = !t;
+      document.getElementById("be-tpl-default-wrap").hidden = !t;
+      document.getElementById("be-tpl-default").checked = !!(t && t.is_default);
+    }
+    function tplMsg(text) {
+      const el = document.getElementById("be-tpl-msg");
+      if (el && text) el.textContent = text;
+    }
+
+    function wireStyling() {
+      buildStyleControls();
+      const pick = document.getElementById("be-tpl");
+      pick?.addEventListener("change", syncTemplateActions);
+      document.getElementById("be-tpl-apply")?.addEventListener("click", () => {
+        const t = templates.find((x) => x.id === pick.value);
+        if (!t) { tplMsg("Pick a template first."); return; }
+        styleState = JSON.parse(JSON.stringify(t.styles || {}));
+        fillStyleControls();
+        applyStylePreview();
+        tplMsg(`Using “${t.name}”. It saves with the article.`);
+      });
+      document.getElementById("be-tpl-save")?.addEventListener("click", async () => {
+        const name = prompt("Name this template");
+        if (!name || !name.trim()) return;
+        const { data, error } = await supabase.from("blog_style_templates")
+          .insert({ name: name.trim(), styles: styleState }).select().maybeSingle();
+        if (error) { tplMsg("Couldn't save: " + error.message); return; }
+        await loadTemplates(data && data.id);
+        tplMsg(`Saved as “${name.trim()}”.`);
+      });
+      document.getElementById("be-tpl-update")?.addEventListener("click", async () => {
+        const t = templates.find((x) => x.id === pick.value);
+        if (!t) return;
+        const { error } = await supabase.from("blog_style_templates")
+          .update({ styles: styleState }).eq("id", t.id);
+        if (error) { tplMsg("Couldn't update: " + error.message); return; }
+        await loadTemplates(t.id);
+        tplMsg(`“${t.name}” updated. Articles using it pick this up.`);
+      });
+      document.getElementById("be-tpl-default")?.addEventListener("change", async (e) => {
+        const t = templates.find((x) => x.id === pick.value);
+        if (!t) return;
+        const { error } = await supabase.from("blog_style_templates")
+          .update({ is_default: e.target.checked }).eq("id", t.id);
+        if (error) { tplMsg("Couldn't save that: " + error.message); return; }
+        await loadTemplates(t.id);
+      });
+    }
+
     function doCmd(rt) {
       restoreRange();
       switch (rt) {
@@ -790,10 +975,55 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         else if (kind === "size" && val) setFontSize(val);
         else if (kind === "lh" && val) eachSelectedBlock((b) => { b.style.lineHeight = val; });
         syncRich();
-        sel.selectedIndex = 0; // reset the dropdown label
+        syncToolbarFromSelection();
       });
     });
     $rich.addEventListener("input", () => { syncRich(); });
+
+    /* What the toolbar says should be what the text says. These dropdowns used
+       to snap back to their placeholder the moment they were used, so an
+       article you had styled carefully looked, on the way back in, exactly like
+       one you had not touched - there was no way to read your own settings back
+       off it. They follow the cursor now.
+
+       Read from the computed style rather than the inline one, so a value
+       inherited from the article's own styling shows up here as the value that
+       is actually on screen. */
+    function nearestBlock(node) {
+      let n = node;
+      while (n && n !== $rich && !(n.nodeType === 1 && /^(P|H1|H2|H3|H4|LI|BLOCKQUOTE|DIV)$/.test(n.tagName))) n = n.parentNode;
+      return n && n !== $rich ? n : null;
+    }
+    function setSelIfPresent(sel, value) {
+      const has = [...sel.options].some((o) => o.value === value);
+      sel.value = has ? value : "";
+    }
+    function syncToolbarFromSelection() {
+      const s = window.getSelection();
+      if (!s || !s.rangeCount || !$rich.contains(s.anchorNode)) return;
+      const el = s.anchorNode.nodeType === 1 ? s.anchorNode : s.anchorNode.parentNode;
+      const block = nearestBlock(s.anchorNode);
+      if (!el) return;
+      const cs = getComputedStyle(el);
+      const tb = (k) => $richTb.querySelector(`.be-rt-sel[data-rt="${k}"]`);
+      if (block) setSelIfPresent(tb("block"), block.tagName.toLowerCase());
+      // Font sizes round to whole pixels, which is how they are listed.
+      setSelIfPresent(tb("size"), Math.round(parseFloat(cs.fontSize)) + "px");
+      const lhSrc = block ? getComputedStyle(block) : cs;
+      const lh = parseFloat(lhSrc.lineHeight) / parseFloat(lhSrc.fontSize);
+      setSelIfPresent(tb("lh"), Number.isFinite(lh) ? String(Math.round(lh * 10) / 10) : "");
+      // Fonts are compared on the first family only - the browser reports the
+      // whole stack back with its own quoting, which never matches ours.
+      const first = (cs.fontFamily || "").split(",")[0].replace(/['"]/g, "").trim().toLowerCase();
+      const fontSel = tb("font");
+      const match = [...fontSel.options].find((o) => o.value && o.value.split(",")[0].replace(/['"]/g, "").trim().toLowerCase() === first);
+      fontSel.value = match ? match.value : "";
+    }
+    document.addEventListener("selectionchange", () => {
+      if (document.activeElement === $rich) syncToolbarFromSelection();
+    });
+    $rich.addEventListener("keyup", syncToolbarFromSelection);
+    $rich.addEventListener("mouseup", syncToolbarFromSelection);
 
     // ─── Live updates ───
     function renderPreview() {
@@ -893,6 +1123,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         author_name: String(fd.get("author_name") || "").trim() || "The TMKE Desk",
         status: $status.value,
         audience: String(fd.get("audience") || "public"),
+        body_styles: styleState,
         publish_date: $publishDate.value || null,
         seo_title: ($seoTitle.value || "").trim() || null,
         seo_description: ($seoDesc.value || "").trim() || null,
@@ -1030,6 +1261,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         // Populate fields
         $title.value = data.title || "";
         $form.querySelector('[name="audience"]').value = data.audience || "public";
+        styleState = (data.body_styles && typeof data.body_styles === "object") ? data.body_styles : {};
         $form.querySelector('[name="eyebrow"]').value = data.eyebrow || "";
         $form.querySelector('[name="category"]').value = data.category || "Insights";
         $form.querySelector('[name="standfirst"]').value = data.standfirst || "";
@@ -1056,6 +1288,31 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       } else {
         $publishDate.value = new Date().toISOString().slice(0, 10);
       }
+
+      // The styling panel, and - for a brand new article - the template marked
+      // as the one to start from. That is the whole point of saving one: not
+      // having to rebuild the same choices on every piece.
+      wireStyling();
+      await loadTemplates();
+      if (!id) {
+        const def = templates.find((t) => t.is_default);
+        if (def) {
+          styleState = JSON.parse(JSON.stringify(def.styles || {}));
+          document.getElementById("be-tpl").value = def.id;
+          syncTemplateActions();
+          tplMsg(`Started from “${def.name}”. Change anything you like — it saves with this article.`);
+        }
+      } else {
+        // An article carrying exactly one template's settings should say so.
+        const match = templates.find((t) => JSON.stringify(t.styles || {}) === JSON.stringify(styleState || {}));
+        if (match && Object.keys(styleState || {}).length) {
+          document.getElementById("be-tpl").value = match.id;
+          syncTemplateActions();
+        }
+      }
+      fillStyleControls();
+      applyStylePreview();
+
       syncTitle();
       renderPreview();
       $heroUrl.dispatchEvent(new Event("input"));

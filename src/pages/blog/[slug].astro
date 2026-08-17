@@ -1,6 +1,6 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { getPublishedPosts } from "../../data/blog.js";
+import { getPublishedPosts, blogStyleCss } from "../../data/blog.js";
 
 export async function getStaticPaths() {
   const posts = await getPublishedPosts();
@@ -8,6 +8,9 @@ export async function getStaticPaths() {
 }
 
 const { post, posts } = Astro.props;
+// The article's own typography, scoped to its body so it cannot reach the rest
+// of the page. Inline styles from the editor toolbar sit above it.
+const bodyCss = blogStyleCss(post.styles, ".post-body");
 
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -62,6 +65,7 @@ const related = posts
         </div>
 
         <!-- ============================== BODY -->
+        <style id="post-body-style" set:html={bodyCss}></style>
         <div class="post-body" set:html={post.body}></div>
 
         <!-- ============================== AUTHOR / OUTRO -->
@@ -539,13 +543,14 @@ const related = posts
       var url = SB_URL.replace(/\/$/, "") +
         "/rest/v1/blog_posts?slug=eq." + encodeURIComponent(revalSlug) +
         "&status=eq.published&limit=1&select=" +
-        "title,standfirst,hero_image_url,hero_image_alt,body_html,publish_date,published_at,created_at,read_time_minutes,audience";
+        "title,standfirst,hero_image_url,hero_image_alt,body_html,body_styles,publish_date,published_at,created_at,read_time_minutes,audience";
       fetch(url, { headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY } })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (rows) {
           var row = rows && rows[0];
           if (!row) return;
-          if (row.audience && row.audience !== "public") return; // members-only: don't surface here
+          // 'both' belongs here as much as 'public' does; only 'members' is held back.
+          if (row.audience && row.audience !== "public" && row.audience !== "both") return;
           function setText(sel, val) {
             var el = document.querySelector(sel);
             if (el && val != null && el.textContent !== val) el.textContent = val;
@@ -556,6 +561,24 @@ const related = posts
           if (hero && row.hero_image_url && hero.getAttribute("src") !== row.hero_image_url) {
             hero.src = row.hero_image_url;
             if (row.hero_image_alt) hero.alt = row.hero_image_alt;
+          }
+          var styleEl = document.getElementById("post-body-style");
+          if (styleEl) {
+            var st = row.body_styles || {};
+            var map = { p: "p", h2: "h2", h3: "h3", blockquote: "blockquote" };
+            var css = [];
+            Object.keys(map).forEach(function (k) {
+              var v = st[k];
+              if (!v) return;
+              var safe = function (x) { return String(x || "").replace(/[;{}<>"]/g, "").trim(); };
+              var d = [];
+              if (v.font) d.push("font-family:" + safe(v.font));
+              if (v.size) d.push("font-size:" + safe(v.size));
+              if (v.lh) d.push("line-height:" + safe(v.lh));
+              if (d.length) css.push(".post-body " + map[k] + "{" + d.join(";") + "}");
+            });
+            var next = css.join("\n");
+            if (styleEl.textContent !== next) styleEl.textContent = next;
           }
           var body = document.querySelector(".post-body");
           var html = row.body_html && row.body_html.trim() ? row.body_html : null;

@@ -664,6 +664,37 @@ export function estimateReadTime(body) {
 // ───────────────────────────────────────────────────────────────────
 // Normalise a Supabase row into the shape the public pages expect.
 // ───────────────────────────────────────────────────────────────────
+/* Where a post is allowed to appear. 'both' is in both lists, and a row with no
+   audience at all predates the column, so it is public. */
+export function isPublicAudience(a) { return (a || "public") === "public" || a === "both"; }
+export function isMembersAudience(a) { return a === "members" || a === "both"; }
+
+/* The article's typography, as one scoped stylesheet.
+
+   Held as data and rendered here rather than written onto every element as it
+   is typed, which is what makes it reusable: the same four lines describe an
+   article of any length, they reach text added after the styling was decided,
+   and changing them changes the whole piece. Anything set on a specific run of
+   text from the editor toolbar is inline, and inline still wins. */
+const STYLE_BLOCKS = { p: "p", h2: "h2", h3: "h3", blockquote: "blockquote" };
+export function blogStyleCss(styles, scope) {
+  if (!styles || typeof styles !== "object") return "";
+  const out = [];
+  for (const [key, selector] of Object.entries(STYLE_BLOCKS)) {
+    const v = styles[key];
+    if (!v || typeof v !== "object") continue;
+    const decls = [];
+    // Quotes and semicolons would let a saved value close the declaration and
+    // start writing rules of its own. Nothing here needs either character.
+    const safe = (x) => String(x || "").replace(/[;{}<>"]/g, "").trim();
+    if (v.font) decls.push(`font-family:${safe(v.font)}`);
+    if (v.size) decls.push(`font-size:${safe(v.size)}`);
+    if (v.lh) decls.push(`line-height:${safe(v.lh)}`);
+    if (decls.length) out.push(`${scope} ${selector}{${decls.join(";")}}`);
+  }
+  return out.join("\n");
+}
+
 function rowToPost(row) {
   const html = row.body_html && row.body_html.trim()
     ? row.body_html
@@ -681,6 +712,7 @@ function rowToPost(row) {
     keywords: Array.isArray(row.seo_keywords) ? row.seo_keywords : [],
     author: row.author_name || "The TMKE Desk",
     body: html,
+    styles: (row.body_styles && typeof row.body_styles === "object") ? row.body_styles : {},
     seo: {
       title: row.seo_title || null,
       description: row.seo_description || row.standfirst || "",
@@ -703,9 +735,9 @@ export async function getPublishedPosts() {
       .eq("status", "published")
       .order("publish_date", { ascending: false });
     if (!error && Array.isArray(data) && data.length) {
-      // Only front-end ('public') posts on the public site; 'members' posts are
-      // customer-exclusive. Treat a missing audience as public (pre-migration).
-      return data.filter((r) => (r.audience || "public") === "public").map(rowToPost);
+      // 'both' publishes to the website and the hub; 'members' is exclusive to
+      // the hub. A missing audience is public (rows predating the column).
+      return data.filter((r) => isPublicAudience(r.audience)).map(rowToPost);
     }
   }
   return STATIC_POSTS;
@@ -720,7 +752,7 @@ export async function getMembersPosts() {
       .eq("status", "published")
       .order("publish_date", { ascending: false });
     if (!error && Array.isArray(data)) {
-      const members = data.filter((r) => r.audience === "members").map(rowToPost);
+      const members = data.filter((r) => isMembersAudience(r.audience)).map(rowToPost);
       if (members.length) return members;
     }
   }
@@ -737,7 +769,7 @@ export async function getPost(slug) {
       .eq("status", "published")
       .maybeSingle();
     // Don't expose members-only posts on the public site.
-    if (!error && data && (data.audience || "public") === "public") return rowToPost(data);
+    if (!error && data && isPublicAudience(data.audience)) return rowToPost(data);
   }
   return STATIC_POSTS.find((p) => p.slug === slug) || null;
 }
