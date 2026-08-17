@@ -50,6 +50,10 @@ export async function initNotifications() {
   } catch (_) { return; }
 
   const notifs = messages
+    // Same rule as the bookings thread: internal notes are channel 'note' and
+    // are never a member's notification. The Worker filters them too; this is
+    // the second lock on the same door.
+    .filter((m) => m.channel === "email")
     .filter((m) => m.direction !== "inbound")
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 10);

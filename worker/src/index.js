@@ -6038,7 +6038,12 @@ export default {
         const ids = await memberBookingIds(env, user);
         if (!ids.length) return json({ messages: [], documents: [] }, 200, request, env);
         const inList = `in.(${ids.join(",")})`;
-        const messages = (await sbGet(env, "booking_messages", `booking_id=${inList}&select=id,booking_id,booking_source,direction,channel,kind,subject,body,is_automated,created_by,created_at&order=created_at.asc`)) || [];
+        // channel=eq.email is NOT optional. booking_messages carries internal
+        // notes as channel='note', and its RLS policy exists precisely to keep
+        // those from members — but sbGet runs as the service role, which
+        // bypasses RLS entirely. Without this filter the Worker hands a member
+        // every internal note written about them.
+        const messages = (await sbGet(env, "booking_messages", `booking_id=${inList}&channel=eq.email&select=id,booking_id,booking_source,direction,channel,kind,subject,body,is_automated,created_by,created_at&order=created_at.asc`)) || [];
         const documents = (await sbGet(env, "booking_documents", `booking_id=${inList}&select=id,booking_id,booking_source,category,title,file_name,size_bytes,content_type,created_at&order=created_at.asc`)) || [];
         return json({ messages, documents }, 200, request, env);
       }

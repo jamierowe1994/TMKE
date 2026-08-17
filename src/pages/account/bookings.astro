@@ -337,7 +337,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
           const res = await fetch(`${WORKER}/booking/mine`, { headers: { Authorization: 'Bearer ' + session.access_token } });
           if (res.ok) {
             const t = await res.json();
-            (t.messages || []).forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
+            // Belt and braces on top of the Worker's own filter: an internal
+            // note must never render here, whatever the server sends.
+            (t.messages || []).filter((m) => m.channel === 'email').forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
             (t.documents || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
             if (currentKey) openDetail(currentKey);
           }
