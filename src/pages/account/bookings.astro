@@ -3,6 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import { TERMS_BY_SERVICE, TERMS_NOTE } from "../../lib/videography-config.js";
 import "../../styles/workspace.css";
+import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
 import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the reschedule picker
 ---
@@ -15,38 +16,40 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
   hideFooter
 >
   <WorkspaceHeader active="bookings" />
-  <div class="dash-shell dash-shell--top">
-    <main class="app-main dash-main">
-    <section class="dash-hero">
-      <div class="dash-hero-copy">
-        <div class="dash-hero-top">
-          <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-          <h1 class="welcome-h">Your <em>Bookings</em></h1>
+  <div class="ws">
+    <main class="ws-main">
+    <div class="ws-left">
+    <section class="ws-hero ws-hero--sub bk-hero">
+      <div class="ws-hero-copy">
+        <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
+        <h1 class="ws-greeting">Your Bookings.</h1>
+        <p class="ws-hero-sub">Every shoot, studio session and call in one place — where each one has got to, what we sent you, and everything that came back.</p>
+        <div class="bk-hero-cta">
+          <a class="ws-btn ws-btn--primary" href="/videography">Book a shoot
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+          </a>
         </div>
-        <p class="welcome-sub">Your upcoming shoots, studio sessions, and calls. View, reschedule, or cancel your bookings directly from here.</p>
       </div>
-      <figure class="dash-hero-media">
-        <img src="/assets/home%20window.jpg" alt="" loading="eager" />
-      </figure>
+      <div class="ws-hero-photo"></div>
     </section>
 
-    <section class="orders-section">
-      <header class="section-head">
-        <h2 class="section-h">Upcoming</h2>
-        <p class="section-sub">Shoots, studio sessions and calls still to come. Click one to see the full details.</p>
+    <section class="ws-block">
+      <header class="ws-block-head">
+        <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 01</span>Upcoming</h2>
+        <a class="ws-block-link" href="/videography">Book another</a>
       </header>
       <div id="bk-upcoming" class="bk-list">
-        <div class="lib-state" style="padding:18px 22px;">Loading bookings…</div>
+        <div class="bk-state">Loading bookings&hellip;</div>
       </div>
     </section>
 
-    <section class="orders-section bk-past-sec" id="bk-past-sec">
-      <header class="section-head">
-        <h2 class="section-h">Previous Bookings</h2>
-        <p class="section-sub">Shoots, studio sessions and calls you've completed or cancelled. Your history lives here.</p>
+    <section class="ws-block bk-past-sec" id="bk-past-sec">
+      <header class="ws-block-head">
+        <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 02</span>Previously</h2>
       </header>
       <div id="bk-past" class="bk-list"></div>
     </section>
+    </div><!-- /.ws-left -->
 
     <footer class="app-foot dash-foot">
       <div class="app-foot-block">
@@ -115,30 +118,37 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
   <script type="application/json" id="tmke-terms" set:html={JSON.stringify({ note: TERMS_NOTE, byService: TERMS_BY_SERVICE })}></script>
 
   <style is:global>
-    .bk-list { display: flex; flex-direction: column; gap: 14px; }
-    /* Outline boxes to match the dashboard — white fill, light-grey outline, no
-       solid purple fill or heavy glow. */
+    /* One gap everywhere, the same token the rest of the hub uses. */
+    .bk-list { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    /* Hairline-outlined, square-cornered, unfilled — the house card. */
     .bk-card {
       display: grid; grid-template-columns: 1fr auto; gap: 10px 24px; align-items: center;
-      padding: 18px 22px; border-radius: 4px; cursor: pointer;
-      background: #fff; border: 1px solid rgba(28,29,34,0.13);
-      transition: transform .18s ease, border-color .18s ease;
+      padding: 18px 22px; border-radius: 0; cursor: pointer;
+      background: transparent; border: 1px solid rgba(28,29,34,0.14);
+      transition: border-color .2s ease, background .2s ease;
     }
-    .bk-card:hover { transform: translateY(-2px); border-color: rgba(28,29,34,0.28); }
+    .bk-card:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.03); }
     .bk-card:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
-    .bk-card.is-cancelled { opacity: 0.6; }
+    .bk-card.is-cancelled { opacity: 0.55; }
     .bk-card-main { min-width: 0; }
-    .bk-card-title { font-family: var(--serif); font-size: 21px; letter-spacing: 0; color: var(--ink); margin: 0 0 3px; }
-    .bk-card-when { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.7); }
-    .bk-card-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); margin-top: 3px; }
+    .bk-card-title { font-family: var(--serif); font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 3px; }
+    .bk-card-when { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.7); }
+    .bk-card-meta { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 3px; }
     .bk-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
-    .bk-pill { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 5px 11px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); white-space: nowrap; }
-    .bk-pill.is-cancelled { background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.55); }
-    .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
-    .bk-view-cue { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); opacity: 0.9; }
+    /* Square, like everything else. The stage is a label, not a badge. */
+    .bk-pill {
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; padding: 5px 10px; border-radius: 0; white-space: nowrap;
+      background: var(--english-violet); color: #fff;
+    }
+    .bk-pill.is-cancelled { background: transparent; border: 1px solid rgba(28,29,34,0.2); color: rgba(28,29,34,0.5); }
+    .bk-pill.is-complete { background: transparent; border: 1px solid rgba(46,106,74,0.4); color: #2e6a4a; }
+    .bk-view-cue { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28,29,34,0.45); }
+    .bk-card:hover .bk-view-cue { color: var(--english-violet); }
+    .bk-state { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.55); padding: 18px 22px; border: 1px solid rgba(28,29,34,0.1); }
+    .bk-hero { --ws-hero-img: url('/assets/home%20window.jpg'); }
+    .bk-hero-cta { margin-top: auto; padding-top: clamp(24px, 3vh, 36px); }
 
-    /* Clear breathing room + hairline divider between Upcoming and Previous. */
-    .bk-past-sec { margin-top: 46px; padding-top: 40px; border-top: 1px solid rgba(28,29,34,0.1); }
     /* Empty states sit in an outline card so they match the booking cards. */
     .bk-empty-card { background: #fff; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; padding: 22px; }
     /* Match the booking card's typography exactly: the title reuses .bk-card-title
@@ -159,9 +169,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-detail-x { position: absolute; top: 20px; right: 22px; appearance: none; background: none; border: 0; font-size: 30px; line-height: 1; color: rgba(28,29,34,0.45); cursor: pointer; }
     .bk-detail-x:hover { color: var(--ink); }
     .bk-detail-head { margin: 4px 40px 22px 0; }
-    .bk-detail-head .bk-pill { display: inline-block; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); margin-bottom: 12px; }
-    .bk-detail-head .bk-pill.is-cancelled { background: rgba(28,29,34,0.1); color: rgba(28,29,34,0.55); }
-    .bk-detail-head .bk-pill.is-complete { background: rgba(46,106,74,0.14); color: #2e6a4a; }
+    /* The drawer's pill is the same pill as the card's — it names the same
+       stage, so it should not be a second visual language for it. */
+    .bk-detail-head .bk-pill { display: inline-block; margin-bottom: 12px; }
     .bk-detail-title { font-family: var(--serif); font-weight: 500; font-size: 30px; line-height: 1.1; color: var(--ink); margin: 0; }
     .bk-detail-count { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.6); margin: 6px 0 0; }
     .bk-detail-block { border-top: 1px solid rgba(28,29,34,0.09); padding: 20px 0; }
@@ -696,7 +706,10 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       if (!el) return;
       if (el.getAttribute('data-unlocked') !== '1') return;
       const noteEl = el.querySelector('.bk-tour-note');
-      if (!noteEl || !WORKER) return;
+      if (!noteEl) return;
+      // A row that says "Checking…" forever is worse than no row: most
+      // bookings have no tour, and the absent case is already hidden below.
+      if (!WORKER) { el.hidden = true; return; }
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { noteEl.textContent = 'Sign in again to see this'; return; }
@@ -921,7 +934,16 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       rows = [
         { source: 'videography', id: 'demo-1', kind: 'booking', service: 'Property shoot — full package', when: soon.toISOString(), duration_min: 120, stage: 'booked', location: 'NN14 1AA', total_pence: 54000, surcharge_pence: 4000, add_ons: [{ name: 'Drone footage' }], package: 'Full property package', service_type: 'property', reschedule_token: 'demo-tok-1', client_name: 'Danielle Adams', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 30 * 86400000).toISOString(), canManageOnline: true },
         { source: 'smm', id: 'demo-2', kind: 'discovery', service: 'Social media discovery call', when: call.toISOString(), duration_min: 30, stage: 'discovery_call_booked', location: 'Teams call', total_pence: null, service_type: 'discovery', client_name: 'Danielle Adams', canManageOnline: false },
-        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'delivered', location: 'TMKE Content Studio', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true },
+        { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'delivered', location: 'TMKE Content Studio', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true,
+          gallery_url: 'https://example.com/gallery', gallery_email: 'danielle@example.com', gallery_sent_at: new Date(Date.now() - 14 * 86400000).toISOString(), gallery_expires_on: '2026-12-01', store_url: 'https://example.com/store', paid_at: new Date(Date.now() - 12 * 86400000).toISOString(), payment_route: 'agent_card', settled: true, packageCovered: false },
+        /* Gallery up, invoice not settled — the locked half of the gate. */
+        { source: 'videography', id: 'demo-4', kind: 'booking', service: 'Agent headshots', when: new Date(Date.now() - 9 * 86400000).toISOString(), duration_min: 60, stage: 'gallery_ready', location: 'NN14 1AA', total_pence: 30000, surcharge_pence: 0, package: 'Agent', service_type: 'agent', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 20 * 86400000).toISOString(), canManageOnline: true,
+          gallery_url: 'https://example.com/gallery-2', gallery_email: 'danielle@example.com', gallery_sent_at: new Date(Date.now() - 2 * 86400000).toISOString(), gallery_expires_on: '2026-11-15', paid_at: null, payment_route: 'agent_card', settled: false, packageCovered: false },
+        /* Covered by a social media package — no price, and open anyway. */
+        { source: 'videography', id: 'demo-5', kind: 'booking', service: 'Monthly social shoot', when: new Date(Date.now() - 30 * 86400000).toISOString(), duration_min: 120, stage: 'delivered', location: 'NN14 1AA', total_pence: 42000, surcharge_pence: 0, package: 'Social content day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 60 * 86400000).toISOString(), canManageOnline: true,
+          gallery_url: 'https://example.com/gallery-3', gallery_email: 'danielle@example.com', gallery_sent_at: new Date(Date.now() - 24 * 86400000).toISOString(), gallery_expires_on: '2026-10-30', paid_at: null, payment_route: 'smm_package', settled: true, packageCovered: true },
+        /* In edit — the middle of the track, nothing to show yet. */
+        { source: 'videography', id: 'demo-6', kind: 'booking', service: 'Property shoot — 12 Elm Road', when: new Date(Date.now() - 4 * 86400000).toISOString(), duration_min: 90, stage: 'editing', location: 'NN14 1AA', total_pence: 48000, surcharge_pence: 3000, add_ons: [{ name: 'Drone footage' }], package: 'Property standard', service_type: 'property', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 25 * 86400000).toISOString(), canManageOnline: true, payment_route: 'agent_card', settled: false, packageCovered: false },
       ];
       msgsByKey.set('videography:demo-1', [
         { direction: 'outbound', is_automated: true, kind: 'confirmation', subject: 'Your property shoot is confirmed', body: "Thanks Danielle — your shoot is booked in for the morning. Jack will confirm the running order the day before. Anything to add? Just reply here.", created_at: new Date(Date.now() - 30 * 86400000).toISOString(), created_by: 'system' },
