@@ -445,7 +445,6 @@ import "../../styles/admin.css";
     }
     .admin-search:focus { outline: none; border-color: var(--english-violet); }
 
-    .vid-tabs { display: inline-flex; gap: 4px; flex-wrap: wrap; }
     .enquiry-chip {
       display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
       background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.3);
@@ -677,14 +676,46 @@ import "../../styles/admin.css";
     .vid-gate-list > div { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
     .vid-gate-list dt { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.55); min-width: 190px; }
     .vid-gate-list dd { margin: 0; font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); }
-    .vid-cand-who { font-family: var(--sans); font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: rgba(28, 29, 34, 0.5); }
-    .vid-cand-co { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.55); margin-top: 4px; }
-    .vid-cand-big {
+    /* Client, brand, stage - one line, reading left to right. It used to run
+       down four stacked lines, two of which said the same thing. */
+    .vid-cand-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+    .vid-cand-name {
       font-family: var(--serif); font-weight: 500; color: var(--ink);
-      font-size: clamp(28px, 4vw, 44px); line-height: 1.08; letter-spacing: -0.01em;
-      margin: 2px 0 0;
+      font-size: clamp(26px, 3.2vw, 38px); line-height: 1.1; letter-spacing: -0.01em;
+      margin: 0;
     }
-    .vid-cand-sub { font-family: var(--serif); font-style: italic; font-size: clamp(16px, 1.7vw, 21px); color: var(--english-violet); margin: 8px 0 0; }
+    .vid-cand-co { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); }
+    /* Pushed to the end of the line so the stage sits clear of the name, and
+       drops beneath it rather than squashing it when the name runs long. */
+    .vid-cand-stage {
+      margin-left: auto; flex: none; align-self: center;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--english-violet);
+      background: rgba(var(--violet-rgb), 0.09); border: 1px solid rgba(var(--violet-rgb), 0.22);
+      border-radius: 999px; padding: 5px 12px; white-space: nowrap;
+    }
+    @media (max-width: 560px) { .vid-cand-stage { margin-left: 0; } }
+
+    /* Tabs on the booking card. */
+    .vid-tabs {
+      display: flex; flex-wrap: wrap; gap: 2px; margin-top: 26px;
+      border-bottom: 1px solid rgba(var(--violet-rgb), 0.16);
+    }
+    .vid-tab {
+      appearance: none; border: 0; background: none; cursor: pointer;
+      font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28, 29, 34, 0.55);
+      padding: 10px 14px; border-radius: 8px 8px 0 0; margin-bottom: -1px;
+      border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .vid-tab:hover { color: var(--ink); background: rgba(var(--violet-rgb), 0.05); }
+    .vid-tab.is-active { color: var(--english-violet); border-bottom-color: var(--english-violet); }
+    .vid-tabpane { display: none; padding-top: 24px; }
+    .vid-tabpane.is-active { display: block; }
+    /* The tab already names the section, so the card's own heading would say it
+       twice. The stage tab keeps its headings - they name the work, not the tab. */
+    .vid-tabpane:not([data-tab="stage"]) > div > h4:first-child { display: none; }
+    /* The timeline opens the stage tab, so it has the tab bar above it already. */
+    .vid-tabpane[data-tab="stage"] > .vid-timeline:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
     .vid-cand-next {
       font-family: var(--sans); font-size: 14.5px; line-height: 1.6; color: rgba(28, 29, 34, 0.72);
       max-width: 62ch; margin: 10px 0 0;
@@ -1455,14 +1486,19 @@ import "../../styles/admin.css";
     /* ---------- Clients list + candidate file (CRM) ---------- */
     let adminEmail = null;   // who is signed in, for stamping confirmations
     const panelFrom = { candId: null };   // which client file a panel was opened from
+    /* One line per stage: what the stage is called, and what you do next.
+       There used to be a `big` here too - a headline restating the stage
+       ("Editing" over "In editing") or the shoot date the meta row already
+       carries. Both said the same thing twice, so the card now leads with the
+       client and wears the stage as a badge. */
     const STAGE_FLOW = {
-      booked:        { sub: "Booked in",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Confirm the details, then raise the invoice two days before the shoot.", advance: { to: "invoiced",      label: "Raise invoice" } },
-      invoiced:      { sub: "Invoiced",      big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Awaiting a date", next: "Invoice is out. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",     label: "Start shoot day" } },
-      shoot_day:     { sub: "Shoot day",     big: (b) => b.shoot_date ? fmtBig(b.shoot_date) : "Today",           next: "Shoot the job, then move it into editing.",                              advance: { to: "editing",       label: "Shot — move to editing" } },
-      editing:       { sub: "In editing",    big: () => "Editing",                                                next: "Edit the footage, then build the gallery and upload the archive copy.",   advance: { to: "gallery_ready", label: "Gallery built" } },
-      gallery_ready: { sub: "Gallery ready", big: () => "Ready to send",                                          next: "Add the gallery link, expiry date and PIN, then send it to the client.",  advance: null },
-      sent:          { sub: "Sent",          big: () => "With the client",                                       next: "They have their content. Waiting on payment and any edits.",              advance: { to: "delivered",     label: "Close this job" } },
-      delivered:     { sub: "Delivered",     big: () => "Delivered",                                              next: "Paid, edits settled, nothing left to do.",                                advance: null },
+      booked:        { sub: "Booked in",     next: "Confirm the details, then raise the invoice two days before the shoot.", advance: { to: "invoiced",      label: "Raise invoice" } },
+      invoiced:      { sub: "Invoiced",      next: "Invoice is out. This moves to Shoot day on its own when the day arrives.", advance: { to: "shoot_day",     label: "Start shoot day" } },
+      shoot_day:     { sub: "Shoot day",     next: "Shoot the job, then move it into editing.",                              advance: { to: "editing",       label: "Shot — move to editing" } },
+      editing:       { sub: "In editing",    next: "Edit the footage, then build the gallery and upload the archive copy.",   advance: { to: "gallery_ready", label: "Gallery built" } },
+      gallery_ready: { sub: "Gallery ready", next: "Add the gallery link, expiry date and PIN, then send it to the client.",  advance: null },
+      sent:          { sub: "Sent",          next: "They have their content. Waiting on payment and any edits.",              advance: { to: "delivered",     label: "Close this job" } },
+      delivered:     { sub: "Delivered",     next: "Paid, edits settled, nothing left to do.",                                advance: null },
     };
     function fmtBig(iso) {
       return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
@@ -1574,14 +1610,18 @@ import "../../styles/admin.css";
       const loc = bookingLocation({ service_type: b.service_type, source: "videography", postcode: b.location || b.postcode });
       el.innerHTML = `
         <div class="vid-cand-card">
-        <div class="vid-cand-who">${escapeHtml(b.client_name)}</div>
-        ${b.client_company ? `<div class="vid-cand-co">${escapeHtml(b.client_company)}</div>` : ""}
-        <div class="vid-cand-big">${escapeHtml(f.big(b))}</div>
-        <div class="vid-cand-sub">${escapeHtml(f.sub)}</div>
+        <!-- Who, for whom, and where it has got to - one line, in that order.
+             The stage is a badge rather than a headline: it is a label on the
+             job, not the name of it. -->
+        <div class="vid-cand-head">
+          <h2 class="vid-cand-name">${escapeHtml(b.client_name)}</h2>
+          ${b.client_company ? `<span class="vid-cand-co">${escapeHtml(b.client_company)}</span>` : ""}
+          <span class="vid-cand-stage">${escapeHtml(f.sub)}</span>
+        </div>
         <p class="vid-cand-next">${escapeHtml(f.next)}</p>
         <div class="vid-cand-meta">
           ${b.service ? `<span>Service&nbsp; <strong>${escapeHtml(b.service)}</strong></span>` : ""}
-          ${whenStr ? `<span>When&nbsp; <strong>${escapeHtml(whenStr)}</strong></span>` : ""}
+          <span>When&nbsp; <strong>${whenStr ? escapeHtml(whenStr) : "Awaiting a date"}</strong></span>
           <span>Quote&nbsp; <strong>${amount}</strong></span>
           ${loc ? `<span>Shoot location&nbsp; <strong>${escapeHtml(loc)}</strong></span>` : ""}
           ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
@@ -1593,21 +1633,32 @@ import "../../styles/admin.css";
           <button type="button" class="admin-btn admin-btn-ghost" data-act="add">Add</button>
           ${b.stage !== "booked" ? `<button type="button" class="admin-btn admin-btn-ghost" data-act="back">Move back a step</button>` : ""}
         </div>
-        ${renderTimeline(b)}
-        ${renderBrandGate(b)}
-        <div id="vid-cand-edits-gate"></div>
-        ${renderCloseGate(b)}
-        <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
-        <!-- Whatever this stage asks you to do sits here, inside the stage card,
-             so the action and the stage read as one thing. Once the shoot moves
-             past it, it drops back out into a card of its own below. -->
-        <div class="vid-cand-action" id="vid-cand-action"></div>
+        <!-- One card, tabbed. Invoice, notes, documents and messages used to be
+             four full-height cards stacked underneath, so the page scrolled a
+             long way past sections that are usually empty. -->
+        ${renderCandTabs(b)}
+        <div class="vid-tabpanes">
+          <div class="vid-tabpane is-active" data-tab="stage">
+            ${renderTimeline(b)}
+            ${renderBrandGate(b)}
+            <div id="vid-cand-edits-gate"></div>
+            ${renderCloseGate(b)}
+            <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
+            <!-- Whatever this stage asks you to do sits here, beside the
+                 progress bar, so the action and the stage read as one thing.
+                 Once the shoot moves past it, it drops back out into its own
+                 tab alongside the rest. -->
+            <div class="vid-cand-action" id="vid-cand-action"></div>
+          </div>
+          <div class="vid-tabpane" data-tab="delivery"><div id="vid-cand-delivery" hidden></div></div>
+          <div class="vid-tabpane" data-tab="invoice"><div id="vid-cand-invoice"></div></div>
+          <div class="vid-tabpane" data-tab="notes"><div id="vid-cand-notes"></div></div>
+          <div class="vid-tabpane" data-tab="docs"><div id="vid-cand-docs"></div></div>
+          <div class="vid-tabpane" data-tab="thread"><div id="vid-cand-thread"></div></div>
         </div>
-        <div class="vid-cand-card" id="vid-cand-delivery" hidden></div>
-        <div class="vid-cand-card" id="vid-cand-invoice"></div>
-        <div class="vid-cand-card" id="vid-cand-notes"></div>
-        <div class="vid-cand-card" id="vid-cand-docs"></div>
-        <div class="vid-cand-card" id="vid-cand-thread"></div>`;
+        </div>`;
+      el.querySelectorAll(".vid-tab").forEach((btn) =>
+        btn.addEventListener("click", () => showCandTab(btn.getAttribute("data-tab"))));
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
       el.querySelector("#vid-fc-send")?.addEventListener("click", () => sendFcConfirm(b));
       el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
@@ -1651,7 +1702,7 @@ import "../../styles/admin.css";
             vivForceOpen = true;
             await renderInvoiceCard(b);
           }
-          document.getElementById("vid-cand-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          scrollToInvoice(b);
           document.getElementById("viv-name")?.focus({ preventScroll: true });
           return;
         }
@@ -1665,6 +1716,51 @@ import "../../styles/admin.css";
       renderInvoiceCard(b);
       renderEditsCard(b);
       loadThread(b);
+    }
+
+    /* The tabs on the booking card. The first one is always the stage itself -
+       progress bar, whatever gate applies, and the work this stage is asking
+       for. The rest are the standing sections.
+
+       A tab only appears if its card has somewhere to render: while a shoot is
+       at Booked or Invoiced the invoice builder lives in the stage tab (see
+       actionHost), and the same goes for delivery from Editing to Sent. Showing
+       a tab as well would open onto an empty pane. */
+    const CAND_TABS = [
+      ["stage",    "Progress"],
+      ["delivery", "Delivery"],
+      ["invoice",  "Invoice"],
+      ["notes",    "Notes"],
+      ["docs",     "Documents"],
+      ["thread",   "Messages"],
+    ];
+    function candTabShown(b, key) {
+      if (key === "delivery") {
+        return ["editing", "gallery_ready", "sent", "delivered"].includes(b.stage)
+          && stageAction(b.stage) !== "vid-cand-delivery";
+      }
+      if (key === "invoice") return stageAction(b.stage) !== "vid-cand-invoice";
+      return true;
+    }
+    function renderCandTabs(b) {
+      return `<div class="vid-tabs" role="tablist">${CAND_TABS
+        .filter(([key]) => candTabShown(b, key))
+        .map(([key, label], i) => `<button type="button" role="tab" class="vid-tab${i === 0 ? " is-active" : ""}" data-tab="${key}">${escapeHtml(label)}</button>`)
+        .join("")}</div>`;
+    }
+    function showCandTab(key) {
+      const el = document.getElementById("vid-cand");
+      if (!el) return;
+      el.querySelectorAll(".vid-tab").forEach((btn) => btn.classList.toggle("is-active", btn.getAttribute("data-tab") === key));
+      el.querySelectorAll(".vid-tabpane").forEach((pane) => pane.classList.toggle("is-active", pane.getAttribute("data-tab") === key));
+    }
+    /* The invoice builder is in two places depending on the stage, and both the
+       "Raise invoice" button and reissuing want to put you in front of it. */
+    function scrollToInvoice(b) {
+      const inSlot = stageAction(b && b.stage) === "vid-cand-invoice";
+      if (!inSlot) showCandTab("invoice");
+      document.getElementById(inSlot ? "vid-cand-action" : "vid-cand-invoice")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     /* Fine & Country bookings get an extra step before the invoice goes out:
@@ -2669,7 +2765,7 @@ import "../../styles/admin.css";
       const draftBtn = document.getElementById("viv-draft");
       if (draftBtn) draftBtn.textContent = "Reissue as draft";
       vivStatus(`Editing ${data.number}. Saving raises a new invoice and voids ${data.number}.`);
-      document.getElementById("vid-cand-invoice")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollToInvoice(b);
     }
 
     // Keep the due date honest when terms change.
@@ -2920,6 +3016,7 @@ import "../../styles/admin.css";
       if (act === "back") { advanceStage(prevStageOf(b.stage)); return; }
       const drawer = document.getElementById("vid-cand-drawer");
       if (!drawer) return;
+      showCandTab("stage");   // the drawer lives in the stage tab; open it there
       drawer.classList.add("is-open");
       if (act === "reschedule") {
         drawer.innerHTML = `<h4>Reschedule shoot</h4>
