@@ -3205,7 +3205,7 @@ import "../../styles/admin.css";
     async function getContact(id) {
       if (!id) return null;
       if (contactCache.has(id)) return contactCache.get(id);
-      const { data } = await supabase.from("contacts").select("id,email,first_name,last_name,phone,company,lifecycle").eq("id", id).maybeSingle();
+      const { data } = await supabase.from("contacts").select("id,email,first_name,last_name,phone,company,lifecycle,user_id").eq("id", id).maybeSingle();
       if (data) contactCache.set(id, data);
       return data || null;
     }
@@ -3224,7 +3224,7 @@ import "../../styles/admin.css";
     async function suggestContacts(b) {
       const found = new Map();   // id -> { contact, why }
       const add = (rows, why) => (rows || []).forEach((c) => { if (!found.has(c.id)) found.set(c.id, { c, why }); });
-      const cols = "id,email,first_name,last_name,phone,company,lifecycle";
+      const cols = "id,email,first_name,last_name,phone,company,lifecycle,user_id";
       const email = (b.client_email || "").trim();
       const name = (b.client_name || "").trim();
       const tail = phoneTail(b.client_phone);
@@ -3253,7 +3253,7 @@ import "../../styles/admin.css";
     async function searchContacts(q) {
       const term = (q || "").trim();
       if (term.length < 2) return [];
-      const cols = "id,email,first_name,last_name,phone,company,lifecycle";
+      const cols = "id,email,first_name,last_name,phone,company,lifecycle,user_id";
       const found = new Map();
       // One query per column for the same reason as above: the term is free text.
       for (const col of ["email", "first_name", "last_name", "company"]) {
@@ -3282,10 +3282,23 @@ import "../../styles/admin.css";
       const linked = await getContact(b.contact_id);
       const suggestions = linked ? [] : await suggestContacts(b);
 
+      // Three states, and the difference matters: on their account, linkable to
+      // an account, or nobody to link to.
+      const onAccount = linked && linked.user_id && b.account_user_id === linked.user_id;
+      const canAttach = linked && linked.user_id && !onAccount;
+      const accountLine = !linked ? ""
+        : onAccount
+          ? `<p class="vid-hint">They can see this shoot in their own account under My bookings.</p>`
+          : canAttach
+            ? `<p class="vid-hint">${escapeHtml(contactName(linked))} has a TMKE account, but this shoot is not attached to it yet — so it will not appear under their My bookings.</p>
+               <div class="vid-cand-actions" style="margin-top:10px"><button type="button" class="admin-btn admin-btn-primary" data-contact-attach>Show it in their account</button></div>`
+            : `<p class="vid-hint">${escapeHtml(contactName(linked))} has no TMKE account, so there is no My bookings for this to appear in. The link is admin-side only until they sign up with ${escapeHtml(linked.email || "that address")}.</p>`;
+
       const linkedBlock = linked
         ? `<div class="vid-gate is-done">
              <div class="vid-gate-h">Linked to</div>
              ${contactRow(linked, "", `<button type="button" class="admin-btn admin-btn-ghost" data-contact-unlink>Unlink</button>`)}
+             ${accountLine}
              <p class="vid-hint">Unlinking leaves the contact alone — it only removes the join to this shoot.</p>
            </div>`
         : suggestions.length
@@ -3338,6 +3351,9 @@ import "../../styles/admin.css";
       drawer.querySelectorAll("[data-contact-link]").forEach((btn) =>
         btn.addEventListener("click", () => linkContact(b, btn.getAttribute("data-contact-link"))));
       drawer.querySelector("[data-contact-unlink]")?.addEventListener("click", () => linkContact(b, null));
+      // Re-running the link is the whole repair: it is what stamps the account.
+      drawer.querySelector("[data-contact-attach]")?.addEventListener("click", () =>
+        linkContact(b, b.contact_id, "Attached — it will show under their My bookings."));
       document.getElementById("vid-nc-save")?.addEventListener("click", () => createContactFor(b));
 
       const q = document.getElementById("vid-contact-q");
@@ -3358,10 +3374,31 @@ import "../../styles/admin.css";
       q?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); run(); } });
     }
 
+    /* Linking is two joins, not one, because the client's own account finds a
+       shoot a different way than the CRM does. /account/bookings looks for
+       account_user_id (or a client_email matching the account's own address),
+       and the row-level policy on the table gates reads the same way - so a
+       contact_id on its own is an admin-side note the client cannot see.
+
+       If the contact has a TMKE account, linking attaches the shoot to it too.
+       If they have not got one, there is nothing to attach to and the drawer
+       says so rather than leaving you to wonder why nothing happened. */
     async function linkContact(b, contactId, note) {
-      const { error } = await supabase.from("videography_bookings").update({ contact_id: contactId }).eq("id", b.id);
+      const patch = { contact_id: contactId };
+      if (contactId) {
+        const c = await getContact(contactId);
+        if (c && c.user_id) patch.account_user_id = c.user_id;
+      } else {
+        // Unlinking gives back what linking took, and no more: an
+        // account_user_id the booking flow set for itself belongs to the
+        // booking, not to this link, so it is left alone.
+        const prev = await getContact(b.contact_id);
+        if (prev && prev.user_id && b.account_user_id === prev.user_id) patch.account_user_id = null;
+      }
+      const { error } = await supabase.from("videography_bookings").update(patch).eq("id", b.id);
       if (error) { contactMsg("Couldn't save that link: " + error.message, true); return; }
       b.contact_id = contactId;
+      if ("account_user_id" in patch) b.account_user_id = patch.account_user_id;
       // The whole card re-renders (the button's label and the meta row both
       // change), which takes the drawer with it - so it is reopened here rather
       // than through candAction, whose own render is not awaited and would drop
@@ -3395,7 +3432,7 @@ import "../../styles/admin.css";
       const { data, error } = await supabase.from("contacts").insert({
         email, first_name: first, last_name: last, phone: phone || null, company: company || null,
         source: "videography", lifecycle: "customer", marketing_opt_in: false, tags,
-      }).select("id,email,first_name,last_name,phone,company,lifecycle").maybeSingle();
+      }).select("id,email,first_name,last_name,phone,company,lifecycle,user_id").maybeSingle();
 
       // Email is the CRM's unique key, so "already exists" is a link, not an
       // error - the person you were about to create is already on file.
