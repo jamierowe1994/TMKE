@@ -2532,6 +2532,7 @@
       node.style.background = grad || el.fill || "#000";
     }
     if (el.type === "screen") {
+      node.style.setProperty("--sc-guide", el.guide || "#00c2a8");
       // Clipped to the quad, so a warped image never leaks outside the shape
       // it is supposed to be sitting in.
       const pct = screenCorners(el).map((c) => (c.x * 100).toFixed(3) + "% " + (c.y * 100).toFixed(3) + "%");
@@ -2854,6 +2855,7 @@
       const pts = screenPoints(el);
       const outline = document.createElement("div");
       outline.className = "ed-screen-outline";
+      outline.style.setProperty("--sc-guide", el.guide || "#00c2a8");
       outline.style.left = el.x + "px";
       outline.style.top = el.y + "px";
       outline.style.width = el.w + "px";
@@ -2864,6 +2866,7 @@
       pts.forEach((pt, i) => {
         const pin = document.createElement("div");
         pin.className = "ed-screen-pin";
+        pin.style.setProperty("--sc-guide", el.guide || "#00c2a8");
         pin.dataset.corner = String(i);
         pin.style.left = (pt.x - 8) + "px";
         pin.style.top = (pt.y - 8) + "px";
@@ -3902,7 +3905,38 @@
     addElement(Object.assign({ type: "text", x: cx - preset.w / 2, y: cy - preset.h / 2, rotation: 0, opacity: 1 }, preset));
   }
 
-  function addImage(src) {
+  /* How big a photo should arrive, and in what shape.
+
+     Both of the paths below used to hardcode 500x500, so every image was
+     stretched into a square the moment it landed - a portrait shot came in
+     squashed and you had to fix it by hand before you could even see what it
+     was. The logo drop already sized from the natural dimensions; this is that,
+     shared, so every route in agrees.
+
+     The image loads before the element is made: the natural size is the whole
+     input, and guessing it and correcting later would make the element jump
+     under the cursor. */
+  function fitImageBox(natW, natH, max) {
+    const cap = max || 500;
+    const ratio = (natW && natH) ? natW / natH : 1;
+    // Never wider or taller than the canvas either - an image that arrives
+    // bigger than the page is its own kind of annoying.
+    const limit = Math.min(cap, state.canvas.width * 0.85, state.canvas.height * 0.85);
+    let w, h;
+    if (ratio >= 1) { w = limit; h = limit / ratio; }
+    else { h = limit; w = limit * ratio; }
+    return { w: Math.max(1, Math.round(w)), h: Math.max(1, Math.round(h)) };
+  }
+  async function measureImageBox(src, max) {
+    try {
+      const img = await loadImage(src);
+      return fitImageBox(img.naturalWidth, img.naturalHeight, max);
+    } catch (_) {
+      return fitImageBox(1, 1, max);   // unreadable image: square, as before
+    }
+  }
+
+  async function addImage(src) {
     // If exactly one frame is selected, treat this as a "fill the frame"
     // action rather than adding a new floating image. This matches the
     // user's mental model: pick a frame, then pick a photo.
@@ -3913,8 +3947,8 @@
         return;
       }
     }
-    const w = 500, h = 500;
-    addElement({ type: "image", x: state.canvas.width / 2 - w / 2, y: state.canvas.height / 2 - h / 2, w, h, src, opacity: 1, rotation: 0 });
+    const { w, h } = await measureImageBox(src);
+    addElement({ type: "image", x: Math.round(state.canvas.width / 2 - w / 2), y: Math.round(state.canvas.height / 2 - h / 2), w, h, src, opacity: 1, rotation: 0 });
   }
 
   // ---------- SVG shapes + icons ----------
@@ -4120,6 +4154,11 @@
       // Starts square. A default skew would only have to be undone, and a
       // rectangle makes it obvious the corners are yours to move.
       corners: SCREEN_CORNERS.map(([x, y]) => ({ x: x, y: y })),
+      // The colour of the guide you position it with - not part of the artwork
+      // and never exported. A screen is usually being lined up against a dark
+      // phone or a black monitor, where a subtle outline is no outline at all,
+      // so it is a colour you can change rather than one we picked for you.
+      guide: "#00c2a8",
       src: null, imgNaturalW: 0, imgNaturalH: 0,
     });
   }
@@ -6016,6 +6055,25 @@
       g3.appendChild(alignBtn);
       g3.appendChild(spacingPopover(el));
       ctxEl.appendChild(g3);
+    } else if (el.type === "screen") {
+      const g = group();
+      g.appendChild(colorSwatchButton(
+        function () { return el.guide || "#00c2a8"; },
+        {
+          title: "Guide colour",
+          onSolid: function (hex) { el.guide = hex; },
+          onGradient: function () { /* a guide is one colour; a gradient would only make it harder to see */ },
+          getGradient: function () { return null; },
+        }
+      ));
+      ctxEl.appendChild(g);
+
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "ed-ctx-btn";
+      resetBtn.textContent = "Reset corners";
+      resetBtn.title = "Put the four corners back to a rectangle";
+      resetBtn.addEventListener("click", function () { resetScreenCorners(el); });
+      ctxEl.appendChild(resetBtn);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       // Fill — opens the rich colour panel.
       const g = group();
@@ -7146,8 +7204,8 @@
   // Frames have their own drop handlers (they stopPropagation), so a drop that
   // reaches the canvas is on empty space → drop a floating image where released.
   // Works for both Pexels photos and uploaded images (same drag data).
-  function addImageAt(src, cx, cy) {
-    const w = 500, h = 500;
+  async function addImageAt(src, cx, cy) {
+    const { w, h } = await measureImageBox(src);
     addElement({ type: "image", x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w, h, src, opacity: 1, rotation: 0 });
   }
   function _dtHasUri(dt) {
