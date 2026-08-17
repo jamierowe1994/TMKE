@@ -5,6 +5,27 @@ bottom; tick things off here rather than in a chat thread.
 
 ---
 
+## 0 · Waiting on a Worker deploy
+
+The site auto-deploys from `main` via Railway. **The Worker does not** — there
+is no CI, so it only updates when someone runs wrangler by hand:
+
+```
+cd worker && npm install && npx wrangler deploy
+```
+
+Committed but not yet live in the Worker:
+
+- **The internal-notes filter** (`7bcd684`). `/booking/mine` runs as the service
+  role, which bypasses RLS, and returned `channel: 'note'` rows to members. The
+  page and the notification bell now drop them client-side and that half *is*
+  live, so nothing leaks on screen — but the endpoint still returns them.
+- **`isSettled()` and the `smm_package` route** (`b1f4c04`). Until this ships, a
+  package-covered shoot behaves exactly as it does today: no gallery, tour or
+  PIN release. Nothing regresses; the new route simply has no effect yet.
+
+---
+
 ## 1 · Bookings — show the member where their shoot actually is
 
 **Today:** `/account/bookings` lists a booking and its raw `stage`. The member
