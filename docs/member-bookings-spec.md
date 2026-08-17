@@ -37,22 +37,36 @@ What it does **not** do, and this rebuild is mostly about:
 
 ## 1 · The stage track
 
-Seven stages, from the CHECK constraint on `videography_bookings.stage`:
+The database keeps its seven stages — the admin centre's kanban runs on them
+and nothing here changes that. The member sees a **shorter track mapped from
+them**, because two of the seven are bookkeeping rather than progress:
 
 ```
-booked → invoiced → shoot_day → editing → gallery_ready → delivered
-                                                          (+ cancelled)
+Booked  →  Shoot day  →  Editing  →  Your edits  →  Delivered
+                                                    (+ Cancelled)
 ```
 
-The current stage is marked; the ones behind it read as settled; the ones ahead
-are dim. `cancelled` replaces the track rather than sitting in it.
+| Database stage | Member sees | Why |
+|---|---|---|
+| `booked` | Booked | |
+| `invoiced` | Booked | Invoicing is its own section and attaches to the booking. It is not a step in getting their video. |
+| `shoot_day` | Shoot day | |
+| `editing` | Editing | We are cutting it. |
+| `gallery_ready` | Your edits | The gallery being up *is* the window in which they ask for changes. |
+| `delivered` | Delivered | |
+| `cancelled` | Cancelled | Replaces the track rather than sitting in it. |
 
-Each stage should say what it *means for them*, not just name itself — "Editing:
-we have your footage, your gallery follows" beats the word "Editing" alone.
+**Naming, so two different things stay apart:** *Editing* is us cutting the
+footage. *Your edits* is their paid twilight / extra-image request. Same word,
+opposite actors — the labels have to carry the difference.
+
+Each stage says what it means for them, not just its own name — "Editing: we
+have your footage, your gallery follows" beats the word "Editing" alone.
 
 **Dates we can hang off the track**, all already stored:
 `created_at`, `shoot_date`, `paid_at`, `pixieset_uploaded_at`,
-`gallery_sent_at`, `pin_released_at`, `archived_at`, `gallery_expires_on`.
+`gallery_sent_at`, `pin_released_at`, `edits_settled_at`,
+`edits_complete_email_sent_at`, `gallery_expires_on`.
 
 ---
 
@@ -75,28 +89,58 @@ mileage — rather than an unexplained line on the total.
 
 ---
 
-## 3 · The links
+## 3 · The links — and the paid gate
 
-The reason this section exists. Each appears only when its column is set.
+Four links, and **every one of them is gated on payment**. Until the invoice is
+settled the member should see the row, know it exists, and be told plainly what
+unlocks it — not find a blank space and wonder.
 
-- **Gallery** — `gallery_url`, plus `gallery_email` (the address Pixieset gates
-  downloads to; useless without it) and `gallery_expires_on`.
-- **The PIN** — never from the table. `videography_gallery_pins` is admin-only
-  at RLS and must stay that way. The hub asks `/videography/my-pin`, which
-  releases only when `paid_at` is set.
-- **360 tour** — `/videography/my-tour`.
-- **Store** — `store_url`, for buying extra downloads.
-- **Floorplan** — `floorplan_url`.
-- **Anything else** — `extra_link_label` / `extra_link_url`.
-- **Edit requests** — `/videography/edit-request`, the paid twilight/extra-image
-  flow. Show its status (`pending` / `paid` / `notified`) if one exists.
+| Link | Source | Gated |
+|---|---|---|
+| Gallery | `gallery_url` + `gallery_email` + `gallery_expires_on` | yes |
+| 360 tour | `/videography/my-tour` | yes |
+| Gallery PIN | `/videography/my-pin` | yes — server-side, already |
+| Their edit page | `videography_edit_requests.edits_token` | yes |
+
+The **gallery email** goes with the gallery link, always. Pixieset gates
+downloads to that address, so the link without it is a dead end.
+
+**The edit page link** is the one from the "your edits" email — same page, so
+they can find it in the hub instead of digging through their inbox. Edit
+requests themselves stay on that existing page; this is a link out, not a
+rebuild.
+
+### Revealing the PIN
+
+Blurred out by default, with a **Reveal** control — the banking-app gesture. No
+password, no second factor; it is a nicety, not a security layer. The actual
+security is that `/videography/my-pin` will not return a PIN at all until
+`paid_at` is set, and `videography_gallery_pins` is admin-only at RLS. The blur
+is over a value the server already agreed to send.
+
+Which means: **before payment there is nothing to blur.** The row shows the
+locked state and what clears it. It does not fetch a PIN and hide it.
 
 **Not on this page:** `archive_url` and `archive_folder`. The Cloudflare/R2
 archive is internal.
 
+## 4 · The order of the page
+
+One booking, opened, reads top to bottom:
+
+1. **Stage track** — where the shoot is.
+2. **Booking detail** — what, when, where, who.
+3. **The links** — gallery, tour, PIN, edit page. Gated (§3).
+4. **Invoicing** — the invoice and its state, pulled from the documents.
+5. **Attachments** — everything else filed against the booking.
+6. **Correspondence** — what we have sent them.
+
+Above the list, an **upcoming shoot banner**: days until, where, what was
+booked, and the prep document if one is attached.
+
 ---
 
-## 4 · Attachments and documents
+## 5 · Attachments and documents
 
 `booking_documents` already holds these, uploaded from the admin centre, keyed
 to `booking_id` + `booking_source`, with `account_user_id` and `client_email`
@@ -106,19 +150,47 @@ for ownership. Categories in use:
 agreement · prep · invoice · delivery · content_plan · insights_report · other
 ```
 
-The member should see their agreement, prep notes, invoices and delivery notes
-against the booking they belong to. Files live in R2 under `booking-docs/…`, so
-downloads go through the Worker rather than a public URL.
+`invoice` splits out into its own section above; the rest are attachments.
+Files live in R2 under `booking-docs/…`, so downloads go through the Worker
+rather than a public URL.
 
-**Open point — needs a decision before build:** the upload and delete routes are
-admin-gated, and I have not found a member-side read route. Either
-`booking_documents` needs a "read own" RLS policy in the shape
-`booking_messages` already uses, or the Worker needs a `/booking/documents/mine`.
-The RLS route is the smaller change and matches the existing precedent.
+### The agreement attaches itself
+
+If they booked through the website and signed, that agreement should appear as
+an attachment without anyone uploading it. We hold `signed_name` and
+`signed_at`, and the page already renders the T&Cs — so the document exists in
+substance, just not as a file.
+
+Two ways to do it, and this needs a decision at build time:
+
+- **Render it on demand** — the same route that builds the pack receipt
+  (`orders/receipt.astro`, added this week) builds a signed agreement PDF from
+  `signed_name` / `signed_at` and the clause text. Nothing to store, never out
+  of sync, and it works retrospectively for every booking already signed.
+- **Write a row at signing time** — a `booking_documents` row with
+  `category: agreement`. Simpler to read, but only covers bookings signed from
+  now on, and needs a backfill for the rest.
+
+The first is the better fit, and it reuses machinery we now have.
+
+### Member read access — what "via RLS" means
+
+Right now both `/booking/document` routes are admin-gated, so nothing in the
+hub can read this table. Two ways to open it up:
+
+- **A Worker endpoint** — a new `/booking/documents/mine` that checks who you
+  are and returns your rows.
+- **An RLS policy** — a rule stored *in the database itself* saying "a signed-in
+  member may select rows where the booking is theirs." Postgres then enforces
+  it on every query, so the browser can read the table directly and cannot see
+  anyone else's rows even if the page asked for them.
+
+The second is fewer moving parts and it is what `booking_messages` already
+does — the same shape, one table over. That is the one to use.
 
 ---
 
-## 5 · Correspondence
+## 6 · Correspondence
 
 `booking_messages` already has exactly the right policy:
 
@@ -129,18 +201,45 @@ using ( channel = 'email' and ( account_user_id = auth.uid()
 
 So the confirmation, the reschedule note, the "your gallery is ready" — the
 member can see the trail of what we sent them. `channel = 'note'` is internal
-and the database itself refuses it; the page does not need to filter, but it
-should not select columns as though it might.
+and the database itself refuses it.
 
 ---
 
-## 6 · Upcoming
+## 7 · Shoots covered by a social media package
 
-The current split is by date-or-terminal-stage. Worth sharpening:
+These appear here, alongside paid shoots. Jack works them through the admin
+centre identically; the only difference is that the money arrived through the
+monthly package rather than an invoice. So the booking is real, the stage track
+is real, and the gallery is theirs — but the page must not ask them to pay.
 
-- A next-shoot banner: how many days, where, what was booked, what to prepare.
-- Reschedule and cancel on the upcoming one, as now.
-- The prep document, if one is attached, surfaced here rather than buried.
+Two kinds:
+
+- **Shot and booked** — a normal booking row, covered by the package.
+- **Included but not yet booked** — an entitlement from their marketing plan.
+  They still arrange the date with Jack, but the hub should show that it is
+  theirs and waiting, rather than saying nothing at all.
+
+An indicator on the card says which — *Included in your package* rather than a
+price and a Pay button.
+
+### The gap this opens
+
+**There is no marker in the data for this today.** `payment_route` allows only
+`agent_card`, `brand_invoice` and `brand_invoice_teg` — none of which means
+"covered by their SMM package". And the whole of §3 gates on `paid_at`.
+
+So either the admin centre sets `paid_at` when a package shoot is booked (which
+works immediately and needs no migration, but overloads a field that means
+"money landed"), or `payment_route` gains an `smm_package` value and every paid
+check becomes `paid_at is not null or payment_route = 'smm_package'`.
+
+The second is the honest one, and the number of places that test `paid_at` is
+small enough to change safely. Either way **this must be settled before the
+gating is written**, or package clients get locked out of galleries they have
+already paid for.
+
+The SMM tab gets its own link through to this page — that is a job for the SMM
+section, not this one.
 
 ---
 
@@ -172,10 +271,19 @@ production before this page goes anywhere near that table.
 
 ---
 
-## Still to confirm with James
+## Decisions taken
 
-- **SMM bookings.** `booking_documents.booking_source` allows `smm`, and the
-  todo has a separate SMM section. Does this page show SMM alongside shoots, or
-  do they stay apart?
-- **Documents route** — RLS policy or Worker endpoint (see §4).
-- **Edit requests** — full flow on this page, or a link out to the existing one?
+- Stage track shortened to five, mapped from the seven in the database (§1).
+- Every link gated on payment, with a stated locked state (§3).
+- PIN blurred behind a Reveal, no password (§3).
+- Edit requests link out to the existing page; the hub carries the link (§3).
+- Documents opened to members with an RLS policy, not a new endpoint (§5).
+- SMM-covered shoots appear on this page with an *Included* indicator (§7).
+
+## Open before build
+
+1. **How an SMM-covered shoot is marked as paid** (§7). Blocking — it decides
+   whether package clients can reach their gallery.
+2. **Agreement: rendered on demand or stored as a row** (§5). Leaning rendered.
+3. **`videography_deliverables` RLS** — confirm production is admin-only before
+   this page reads it.
