@@ -44,9 +44,19 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       </div>
     </section>
 
+    <!-- Between "coming up" and "done" there is a stretch where the shoot has
+         happened and we are working on it. Filed under Previously it read as
+         finished, which is the one thing it is not. -->
+    <section class="ws-block bk-progress-sec" id="bk-progress-sec">
+      <header class="ws-block-head">
+        <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 02</span>In progress</h2>
+      </header>
+      <div id="bk-progress" class="bk-list"></div>
+    </section>
+
     <section class="ws-block bk-past-sec" id="bk-past-sec">
       <header class="ws-block-head">
-        <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 02</span>Previously</h2>
+        <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 03</span>Previously</h2>
       </header>
       <div id="bk-past" class="bk-list"></div>
     </section>
@@ -132,7 +142,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-card:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
     .bk-card.is-cancelled { opacity: 0.55; }
     .bk-card-main { min-width: 0; }
-    .bk-card-title { font-family: var(--serif); font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 3px; }
+    /* An h3, and global.css re-points --serif to The Seasons on h3/h4 - so this
+       title came out in a different face from the same booking's title in the
+       drawer (.bk-detail-title, an h2, in Helios). Pointed back, the way
+       hub-tokens does for the admin side. */
+    .bk-card-title {
+      --serif: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-family: var(--serif); font-size: 19px; font-weight: 500; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 3px;
+    }
     .bk-card-when { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.7); }
     .bk-card-meta { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin-top: 3px; }
     .bk-card-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; text-align: right; }
@@ -207,8 +224,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-none-p { margin: 0; font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.6); max-width: 52ch; }
     .bk-none-p a { color: var(--english-violet); font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(var(--violet-rgb),0.35); }
     .bk-none-p a:hover { border-bottom-color: var(--english-violet); }
-    /* Match the booking card's typography exactly: the title reuses .bk-card-title
-       (The Seasons), the body matches the .bk-card-when date line (Darker Grotesque). */
+    /* Match the booking card's typography exactly: the title reuses
+       .bk-card-title (Helios), the body matches the .bk-card-when date line
+       (Darker Grotesque). */
     @media (max-width: 680px) {
       .bk-card { grid-template-columns: 1fr; }
       .bk-card-side { align-items: flex-start; text-align: left; }
@@ -217,7 +235,10 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     /* ---- Detail drawer ---- */
     .bk-detail-scrim { position: fixed; inset: 0; z-index: 520; background: rgba(28,29,34,0.5); display: flex; justify-content: flex-end; }
     .bk-detail-scrim[hidden] { display: none; }
-    .bk-detail-panel { position: relative; width: min(560px, 100vw); height: 100%; overflow-y: auto; background: var(--paper); box-shadow: -30px 0 80px rgba(0,0,0,0.32); padding: 30px 34px 60px; animation: bkSlideIn .28s cubic-bezier(.2,.7,.3,1); }
+    /* Half the screen. overscroll-behavior stops a wheel that reaches the end of
+       the panel from carrying on into the page behind it. */
+    .bk-detail-panel { position: relative; width: 50vw; min-width: 460px; max-width: 100vw; height: 100%; overflow-y: auto; overscroll-behavior: contain; background: var(--paper); box-shadow: -30px 0 80px rgba(0,0,0,0.32); padding: 30px 34px 60px; animation: bkSlideIn .28s cubic-bezier(.2,.7,.3,1); }
+    @media (max-width: 760px) { .bk-detail-panel { width: 100vw; min-width: 0; } }
     @keyframes bkSlideIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
     .bk-detail-x { position: absolute; top: 20px; right: 22px; appearance: none; background: none; border: 0; font-size: 30px; line-height: 1; color: rgba(28,29,34,0.45); cursor: pointer; }
     .bk-detail-x:hover { color: var(--ink); }
@@ -333,7 +354,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     /* ---- Reschedule modal ---- */
     .bk-resched-scrim { position: fixed; inset: 0; z-index: 560; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
     .bk-resched-scrim[hidden] { display: none; }
-    .bk-resched-card { width: min(440px, 96vw); max-height: 90vh; overflow-y: auto; background: var(--paper); border-radius: 14px; padding: 24px 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
+    .bk-resched-card { width: min(440px, 96vw); max-height: 90vh; overflow-y: auto; overscroll-behavior: contain; background: var(--paper); border-radius: 14px; padding: 24px 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
     .bk-resched-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .bk-resched-head h3 { font-family: var(--serif); font-weight: 500; font-size: 26px; color: var(--ink); margin: 0; }
     .bk-resched-x { appearance: none; background: none; border: 0; font-size: 26px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; }
@@ -567,13 +588,27 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     // ---------- Render list ----------
     function render() {
       const now = Date.now();
-      const up = [], past = [];
+      /* Three piles, and only two of them are about the date.
+
+         Finished is a stage, not a date: delivered or cancelled, and nothing
+         else. In progress is a shoot whose day has been and gone but whose work
+         has not landed yet - which is where the day-has-passed test used to
+         send things straight to Previously, so a shoot still being edited read
+         as history. A discovery call has no work after it, so it has no middle
+         state and goes on date alone. */
+      const DONE = new Set(['delivered', 'complete', 'cancelled']);
+      const STARTED = new Set(['shoot_day', 'editing', 'final_draft', 'gallery_ready', 'sent']);
+      const up = [], progress = [], past = [];
       for (const r of rows) {
         const ts = r.when ? new Date(r.when).getTime() : null;
-        const isPast = r.stage === 'cancelled' || r.stage === 'delivered' || (ts != null && ts < now);
-        (isPast ? past : up).push(r);
+        const gone = ts != null && ts < now;
+        if (DONE.has(r.stage)) past.push(r);
+        else if (hasTrack(r) && (gone || STARTED.has(r.stage))) progress.push(r);
+        else if (gone) past.push(r);
+        else up.push(r);
       }
       up.sort((a, b) => new Date(a.when || 0) - new Date(b.when || 0));
+      progress.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
       past.sort((a, b) => new Date(b.when || 0) - new Date(a.when || 0));
 
       renderNext(up);
@@ -583,6 +618,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       } else {
         $up.innerHTML = up.map(cardHtml).join('');
       }
+      $('bk-progress').innerHTML = progress.length
+        ? progress.map(cardHtml).join('')
+        : `<div class="bk-none"><p class="bk-none-h">Nothing in progress</p><p class="bk-none-p">Once a shoot has happened it sits here while we edit it and build your gallery.</p></div>`;
       // Previous bookings always show — with an empty state until a booking is done.
       $('bk-past').innerHTML = past.length
         ? past.map(cardHtml).join('')
@@ -656,6 +694,17 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
           <span class="bk-view-cue">View details &rarr;</span>
         </div>
       </div>`;
+    }
+
+    /* Holding the page still behind an overlay. body{overflow:hidden} on its own
+       was not enough: this layout scrolls on <html>, so the wheel kept moving
+       the page underneath - and it did it for every turn of the wheel, because
+       a panel shorter than the window has no scroll of its own to take. Both
+       elements get locked. Neither loses its scroll position, so there is
+       nothing to restore on the way out. */
+    function lockScroll(on) {
+      document.documentElement.style.overflow = on ? 'hidden' : '';
+      document.body.style.overflow = on ? 'hidden' : '';
     }
 
     // ---------- Detail drawer ----------
@@ -761,7 +810,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         <section class="bk-detail-block"><h3 class="bk-detail-h">Documents</h3>${renderDocs(r, docs)}</section>
       `;
       $('bk-detail').hidden = false;
-      document.body.style.overflow = 'hidden';
+      lockScroll(true);
       loadPin();
       loadTour();
     }
@@ -838,7 +887,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       } catch (_) { el.hidden = true; }
     }
 
-    function closeDetail() { $('bk-detail').hidden = true; currentKey = null; document.body.style.overflow = ''; }
+    function closeDetail() { $('bk-detail').hidden = true; currentKey = null; lockScroll(false); }
 
     function renderMessages(list) {
       if (!list.length) return `<p class="bk-empty">No messages yet. Booking confirmations and any updates from the team will appear here.</p>`;
@@ -931,9 +980,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         : `<p class="bk-empty">Agreement terms are unavailable — please contact us for a copy.</p>`;
       $('bk-agree-note').textContent = TERMS_DATA.note || '';
       $('bk-agree').hidden = false;
-      document.body.style.overflow = 'hidden';
+      lockScroll(true);
     }
-    function closeAgreement() { $('bk-agree').hidden = true; document.body.style.overflow = currentKey ? 'hidden' : ''; }
+    function closeAgreement() { $('bk-agree').hidden = true; lockScroll(!!currentKey); }
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-agreement]'); if (!btn) return;
       openAgreement(btn.getAttribute('data-agreement'), btn.getAttribute('data-signer'), btn.getAttribute('data-signed'));
