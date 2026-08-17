@@ -232,6 +232,16 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       .bk-card-side { align-items: flex-start; text-align: left; }
     }
 
+    /* What they asked us to change, kept as a record. Styled as a quiet list
+       rather than message bubbles - these are their own words back at them,
+       not correspondence. */
+    .bk-edits { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+    .bk-edit { border-left: 2px solid rgba(var(--violet-rgb), 0.3); padding: 2px 0 2px 14px; }
+    .bk-edit-when { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 5px; }
+    .bk-edit-notes { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: var(--ink); margin: 0; white-space: normal; }
+    .bk-edit-notes--none { color: rgba(28,29,34,0.5); font-style: italic; }
+    .bk-edit-extras { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 6px 0 0; }
+
     /* ---- Detail drawer ---- */
     .bk-detail-scrim { position: fixed; inset: 0; z-index: 520; background: rgba(28,29,34,0.5); display: flex; justify-content: flex-end; }
     .bk-detail-scrim[hidden] { display: none; }
@@ -498,7 +508,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       // Videography bookings + discovery calls (one table).
       const { data: vid, error: vidErr } = await supabase
         .from('videography_bookings')
-        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at, payment_route')
+        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at, payment_route, edits_token')
         .or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`)
         .order('shoot_date', { ascending: false, nullsFirst: false });
 
@@ -560,7 +570,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         location: bookingLocation({ service_type: r.service_type, source: 'videography', postcode: r.postcode }),
         total_pence: r.total_pence, surcharge_pence: r.surcharge_pence,
         add_ons: r.add_ons, package: r.package, service_type: r.service_type,
-        reschedule_token: r.reschedule_token, client_name: r.client_name, client_email: r.client_email,
+        reschedule_token: r.reschedule_token, edits_token: r.edits_token,
+        client_name: r.client_name, client_email: r.client_email,
         client_phone: r.client_phone, signed_name: r.signed_name, signed_at: r.signed_at,
         notes: r.notes, created_at: r.created_at, discovery_interests: r.discovery_interests, canManageOnline: true,
         // These are selected above and were being dropped here, so the whole
@@ -804,6 +815,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         <section class="bk-detail-block"><div class="bk-facts">${facts.join('')}</div></section>
         ${!cancelled ? `<section class="bk-detail-block"><h3 class="bk-detail-h">What to expect</h3><p class="bk-expect">${escapeHtml(expect)}</p></section>` : ''}
         ${gallery}
+        ${editsHtml(r)}
         <section class="bk-detail-block"><h3 class="bk-detail-h">Manage</h3><div class="bk-detail-actions">${acts.join('')}</div>${actNote}</section>
         ${renderInvoices(r, invsByKey.get(key) || [])}
         <section class="bk-detail-block"><h3 class="bk-detail-h">Messages</h3>${renderMessages(msgs)}</section>
@@ -813,7 +825,76 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       lockScroll(true);
       loadPin();
       loadTour();
+      loadEdits();
     }
+    /* ---- Your edits ----
+       The round of edits included in the package. There was no way into it from
+       here at all: the link only ever went out in the gallery email, so anyone
+       who had lost that email had lost the way to ask.
+
+       Two jobs, and which one it does depends on whether they have asked yet.
+       Before: the way in. After: what they asked for, kept where they can find
+       it - so when the amended work lands they can check it against what they
+       actually requested, rather than trying to remember. The way in stays
+       either way, because a round of edits can be more than one message. */
+    function editsHtml(r) {
+      if (!r.edits_token || r.stage === 'cancelled') return '';
+      return `<section class="bk-detail-block" id="bk-edits" data-booking="${escapeHtml(r.id)}" data-token="${escapeHtml(r.edits_token)}">
+        <h3 class="bk-detail-h">Your edits</h3>
+        <p class="bk-expect" id="bk-edits-state">Checking…</p>
+      </section>`;
+    }
+
+    function editsRequestHtml(e) {
+      const when = e.created_at
+        ? new Date(e.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+        : '';
+      const extras = [];
+      const tw = Array.isArray(e.twilight_items) ? e.twilight_items : [];
+      if (tw.length) extras.push(`${tw.length} faux-twilight ${tw.length === 1 ? 'image' : 'images'}`);
+      if (e.extra_images_qty) extras.push(`${e.extra_images_qty} extra downloadable images`);
+      // Only the paid add-ons have a status worth showing. The edits themselves
+      // are included, so "pending" against them would read as owing us money.
+      const paidNote = extras.length
+        ? `<p class="bk-edit-extras">${escapeHtml(extras.join(' · '))}${e.status === 'paid' || e.paid_at ? ' — paid' : ' — awaiting payment'}</p>`
+        : '';
+      return `<div class="bk-edit">
+        <div class="bk-edit-when">${escapeHtml(when || 'Requested')}</div>
+        ${e.notes ? `<p class="bk-edit-notes">${escapeHtml(e.notes).replace(/\n/g, '<br>')}</p>` : `<p class="bk-edit-notes bk-edit-notes--none">No notes were left with this request.</p>`}
+        ${paidNote}
+      </div>`;
+    }
+
+    async function loadEdits() {
+      const el = $('bk-edits');
+      if (!el) return;
+      const state = $('bk-edits-state');
+      const token = el.getAttribute('data-token');
+      const link = `<div class="bk-detail-actions" style="margin-top:12px"><a class="bk-btn bk-btn--primary" href="/edits?token=${encodeURIComponent(token)}">%LABEL%</a></div>`;
+      const { data, error } = await supabase
+        .from('videography_edit_requests')
+        .select('id, notes, twilight_items, extra_images_qty, status, paid_at, created_at')
+        .eq('booking_id', el.getAttribute('data-booking'))
+        .order('created_at', { ascending: false });
+
+      // A failure here should not take the way in with it - that link is the
+      // more important half of this block.
+      if (error) {
+        state.outerHTML = `<p class="bk-expect">Your package includes a round of edits. We could not load what you have asked for so far — the link below still works.</p>`
+          + link.replace('%LABEL%', 'Request your edits');
+        return;
+      }
+      const rows = data || [];
+      if (!rows.length) {
+        state.outerHTML = `<p class="bk-expect">Your package includes one round of edits. Send us everything you would like changed in one go, and add any extras while you are there.</p>`
+          + link.replace('%LABEL%', 'Request your edits');
+        return;
+      }
+      state.outerHTML = `<p class="bk-expect">What you have asked us to change. Jack works to this list, so it is worth checking against the amended work when it lands.</p>`
+        + `<div class="bk-edits">${rows.map(editsRequestHtml).join('')}</div>`
+        + link.replace('%LABEL%', 'Ask for something else');
+    }
+
     // The PIN is never in the page's data - it is asked for, once the drawer is
     // open, and only for a booking that has been paid for.
     async function loadPin() {
