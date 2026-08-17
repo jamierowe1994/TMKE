@@ -188,6 +188,48 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-pin-label { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .bk-pin-value { font-family: var(--sans); font-size: 22px; font-weight: 800; letter-spacing: 0.08em; color: var(--english-violet); }
     .bk-pin-note { font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(28,29,34,0.6); }
+    /* Masked with real characters rather than a CSS blur, so the value a
+       screen reader or a text selection picks up matches what is on screen. */
+    .bk-pin-value.is-hidden { letter-spacing: 0.18em; color: rgba(28,29,34,0.35); }
+    .bk-reveal {
+      appearance: none; margin-left: auto; height: 28px; padding: 0 12px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: transparent;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: rgba(28,29,34,0.7); cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .bk-reveal:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .bk-reveal[hidden] { display: none; }
+
+    /* ---- Stage track ---- */
+    .bk-track { display: flex; list-style: none; margin: 0 0 12px; padding: 0; gap: 0; }
+    .bk-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; position: relative; text-align: center; }
+    /* The connector is drawn on the step, not between them, so the first and
+       last ends stay clean without extra elements. */
+    .bk-step::before, .bk-step::after {
+      content: ''; position: absolute; top: 5px; height: 1px; background: rgba(28,29,34,0.15);
+    }
+    .bk-step::before { left: 0; right: 50%; }
+    .bk-step::after { left: 50%; right: 0; }
+    .bk-step:first-child::before, .bk-step:last-child::after { display: none; }
+    .bk-step-dot {
+      width: 11px; height: 11px; border-radius: 50%; box-sizing: border-box;
+      border: 1px solid rgba(28,29,34,0.28); background: var(--paper);
+      position: relative; z-index: 1;
+    }
+    .bk-step-label { font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: rgba(28,29,34,0.42); }
+    .bk-step.is-done .bk-step-dot { background: var(--english-violet); border-color: var(--english-violet); }
+    .bk-step.is-done .bk-step-label { color: rgba(28,29,34,0.62); }
+    .bk-step.is-done::before, .bk-step.is-done::after,
+    .bk-step.is-now::before { background: var(--english-violet); }
+    .bk-step.is-now .bk-step-dot {
+      background: var(--english-violet); border-color: var(--english-violet);
+      box-shadow: 0 0 0 3px rgba(var(--violet-rgb), 0.18);
+    }
+    .bk-step.is-now .bk-step-label { color: var(--english-violet); font-weight: 800; }
+    .bk-track-now { margin: 0; }
+    .bk-track-cancelled { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 0; }
+    @media (max-width: 520px) { .bk-step-label { font-size: 9px; letter-spacing: 0; } }
     /* Same locked/unlocked treatment as the PIN, for the 360 tour link - held
        back exactly the same way, for exactly the same reason. */
     .bk-tour { margin-top: 10px; padding: 14px 16px; border-radius: 5px; background: rgba(28,29,34,0.04); border: 1px solid rgba(28,29,34,0.08); display: flex; flex-direction: column; gap: 4px; }
@@ -254,7 +296,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
   <script>
     import { supabase, gbpFromPence, signOutEverywhere} from '../../lib/supabase.js';
-    import { bookingLocation } from '../../lib/videography-config.js';
+    import { bookingLocation, isSettled, isPackageCovered } from '../../lib/videography-config.js';
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
 
     const $ = (id) => document.getElementById(id);
@@ -276,6 +318,67 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       gallery_ready: 'Being prepared', sent: 'Ready to view', delivered: 'Delivered', cancelled: 'Cancelled',
       discovery_call_booked: 'Call booked', enquiry_non_member: 'Enquiry sent',
     };
+
+    /* ---- The stage track ----------------------------------------------------
+       The database keeps seven stages because the admin kanban runs on them.
+       A member sees five, because two of the seven are bookkeeping rather than
+       progress: 'invoiced' is not a step in getting your video, and
+       'gallery_ready' is really the window in which you ask for changes.
+
+       Note the two words that must not blur into each other: "Editing" is us
+       cutting the footage, "Amends" is the client's own paid request. Same
+       word in the database, opposite actors on screen. */
+    const TRACK = [
+      { key: 'booked',    label: 'Booked',    blurb: 'Your date is held. We will confirm the running order the day before.' },
+      { key: 'shoot_day', label: 'Shoot day', blurb: 'Filming day. Please have access arranged and any spaces ready.' },
+      { key: 'editing',   label: 'Editing',   blurb: 'We have your footage and are cutting it. Your gallery follows.' },
+      { key: 'amends',    label: 'Amends',    blurb: 'Your gallery is up. This is the window to ask for any changes.' },
+      { key: 'delivered', label: 'Delivered', blurb: 'All done — everything is yours to download.' },
+    ];
+    const STAGE_TO_STEP = {
+      booked: 'booked', invoiced: 'booked',
+      shoot_day: 'shoot_day',
+      editing: 'editing',
+      gallery_ready: 'amends', sent: 'amends',
+      delivered: 'delivered', complete: 'delivered', final_draft: 'editing',
+    };
+    /* The one label a member sees for a stage, so the pill on the card, the
+       pill in the drawer and the track cannot disagree with each other. A
+       shoot reads off the track; anything else keeps its own wording. */
+    function memberStageLabel(r) {
+      if (!r) return 'Booking';
+      if (r.stage === 'cancelled') return 'Cancelled';
+      if (hasTrack(r)) {
+        const step = TRACK.find((t) => t.key === (STAGE_TO_STEP[r.stage] || 'booked'));
+        if (step) return step.label;
+      }
+      return STAGE_LABEL[r.stage] || r.stage || 'Booking';
+    }
+
+    /* Discovery calls and enquiries are not shoots and have no track. */
+    function hasTrack(r) {
+      return r && r.source === 'videography' && r.kind !== 'discovery' && r.service_type !== 'discovery';
+    }
+    function trackHtml(r) {
+      if (!hasTrack(r)) return '';
+      if (r.stage === 'cancelled') {
+        return `<section class="bk-detail-block"><h3 class="bk-detail-h">Where it is</h3>
+          <p class="bk-track-cancelled">This booking was cancelled. Nothing further is due.</p></section>`;
+      }
+      const stepKey = STAGE_TO_STEP[r.stage] || 'booked';
+      const at = Math.max(0, TRACK.findIndex((t) => t.key === stepKey));
+      const steps = TRACK.map((t, i) => {
+        const state = i < at ? 'is-done' : i === at ? 'is-now' : '';
+        return `<li class="bk-step ${state}"><span class="bk-step-dot" aria-hidden="true"></span>
+          <span class="bk-step-label">${escapeHtml(t.label)}</span></li>`;
+      }).join('');
+      return `<section class="bk-detail-block">
+        <h3 class="bk-detail-h">Where it is</h3>
+        <ol class="bk-track">${steps}</ol>
+        <p class="bk-expect bk-track-now">${escapeHtml(TRACK[at].blurb)}</p>
+      </section>`;
+    }
+
     const CAT_LABEL = { agreement: 'Service Agreement', prep: 'Prep Document', invoice: 'Invoice', delivery: 'Delivered Files', other: 'Document' };
     const CAT_ICON = { agreement: '✓', prep: '📋', invoice: '£', delivery: '🎬', other: '📄' };
     const keyOf = (r) => `${r.source}:${r.id}`;
@@ -310,7 +413,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       // Videography bookings + discovery calls (one table).
       const { data: vid, error: vidErr } = await supabase
         .from('videography_bookings')
-        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at')
+        .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at, payment_route')
         .or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`)
         .order('shoot_date', { ascending: false, nullsFirst: false });
 
@@ -357,6 +460,16 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         reschedule_token: r.reschedule_token, client_name: r.client_name, client_email: r.client_email,
         client_phone: r.client_phone, signed_name: r.signed_name, signed_at: r.signed_at,
         notes: r.notes, created_at: r.created_at, discovery_interests: r.discovery_interests, canManageOnline: true,
+        // These are selected above and were being dropped here, so the whole
+        // "Your content" block — gallery, PIN, 360 tour — could never render:
+        // it gates on r.gallery_url, which was always undefined.
+        gallery_url: r.gallery_url, gallery_email: r.gallery_email, gallery_sent_at: r.gallery_sent_at,
+        gallery_expires_on: r.gallery_expires_on, extra_link_label: r.extra_link_label,
+        extra_link_url: r.extra_link_url, store_url: r.store_url,
+        paid_at: r.paid_at, pin_released_at: r.pin_released_at, payment_route: r.payment_route,
+        // One question for the gallery, the tour and the PIN alike. A package
+        // shoot has no invoice and never gets a paid_at, but it is settled.
+        settled: isSettled(r), packageCovered: isPackageCovered(r),
       };
     }
     function normSmm(r) {
@@ -398,10 +511,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const complete = r.stage === 'delivered';
       const when = fmtWhen(r.when);
       const pillCls = cancelled ? 'is-cancelled' : complete ? 'is-complete' : '';
-      const label = STAGE_LABEL[r.stage] || r.stage || '—';
+      const label = memberStageLabel(r) || '—';
       const metaBits = [];
       if (r.location) metaBits.push(escapeHtml(r.location));
-      if (r.total_pence != null) metaBits.push(gbpFromPence(r.total_pence) + ' inc. VAT');
+      // A package shoot has a total on the record — that is what it is worth to
+      // us — but the client is not paying it, so a price here would read as a
+      // bill they owe.
+      if (r.packageCovered) metaBits.push('Included in your package');
+      else if (r.total_pence != null) metaBits.push(gbpFromPence(r.total_pence) + ' inc. VAT');
       else if (r.service_type === 'discovery') metaBits.push('Complimentary');
       return `<div class="bk-card ${cancelled ? 'is-cancelled' : ''}" data-open="${escapeHtml(keyOf(r))}" role="button" tabindex="0">
         <div class="bk-card-main">
@@ -429,7 +546,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const days = ts != null ? (ts - now) / 86400000 : null;
 
       $('bk-detail-pill').className = 'bk-pill ' + (cancelled ? 'is-cancelled' : complete ? 'is-complete' : '');
-      $('bk-detail-pill').textContent = STAGE_LABEL[r.stage] || r.stage || 'Booking';
+      $('bk-detail-pill').textContent = memberStageLabel(r);
       $('bk-detail-title').textContent = r.service;
       let countdown = '';
       if (cancelled) countdown = 'This booking was cancelled.';
@@ -445,6 +562,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       if (r.package) facts.push(`<div class="bk-fact"><span>Package</span><strong>${escapeHtml(r.package)}</strong></div>`);
       if (r.service_type === 'discovery' || r.source === 'smm') {
         facts.push(`<div class="bk-fact"><span>Cost</span><strong>Complimentary</strong></div>`);
+      } else if (r.packageCovered) {
+        facts.push(`<div class="bk-fact"><span>Cost</span><strong>Included in your package</strong></div>`);
+        facts.push(`<div class="bk-fact bk-fact--note"><span></span><span>Covered by your social media management — there is nothing to pay for this shoot.</span></div>`);
       } else if (r.total_pence != null) {
         facts.push(`<div class="bk-fact"><span>Total</span><strong>${gbpFromPence(r.total_pence)} inc. VAT</strong></div>`);
         if (r.surcharge_pence) facts.push(`<div class="bk-fact bk-fact--sub"><span>Includes travel</span><span>${gbpFromPence(r.surcharge_pence)}</span></div>`);
@@ -480,7 +600,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
           r.extra_link_url ? `<a class="bk-btn" href="${escapeHtml(r.extra_link_url)}" target="_blank" rel="noopener">${escapeHtml(r.extra_link_label || 'Also for you')}</a>` : '',
           r.store_url ? `<a class="bk-btn" href="${escapeHtml(r.store_url)}" target="_blank" rel="noopener">Buy extra downloads</a>` : '',
         ].filter(Boolean).join('');
-        const unlocked = !!r.paid_at;
+        const unlocked = !!r.settled;
         const expires = r.gallery_expires_on
           ? `<p class="bk-expect" style="margin-top:10px">Available until ${escapeHtml(new Date(r.gallery_expires_on + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }))}.</p>`
           : '';
@@ -489,7 +609,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
           <div class="bk-detail-actions">${links}</div>
           <div class="bk-pin" id="bk-pin" data-booking="${escapeHtml(r.id)}" data-unlocked="${unlocked ? '1' : '0'}">
             ${unlocked
-              ? `<span class="bk-pin-label">Download PIN</span><strong class="bk-pin-value">Loading…</strong>`
+              ? `<span class="bk-pin-label">Download PIN</span><strong class="bk-pin-value is-hidden" id="bk-pin-value">••••••</strong><button type="button" class="bk-reveal" id="bk-pin-reveal" aria-pressed="false">Reveal</button>`
               : `<span class="bk-pin-label">Downloads locked</span><span class="bk-pin-note">Your gallery is watermarked until payment reaches us. Your PIN follows automatically as soon as it does.</span>`}
           </div>
           <div class="bk-tour" id="bk-tour" data-booking="${escapeHtml(r.id)}" data-unlocked="${unlocked ? '1' : '0'}">
@@ -506,6 +626,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const docs = docsByKey.get(key) || [];
 
       $('bk-detail-body').innerHTML = `
+        ${trackHtml(r)}
         <section class="bk-detail-block"><div class="bk-facts">${facts.join('')}</div></section>
         ${!cancelled ? `<section class="bk-detail-block"><h3 class="bk-detail-h">What to expect</h3><p class="bk-expect">${escapeHtml(expect)}</p></section>` : ''}
         ${gallery}
@@ -524,18 +645,48 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const el = $('bk-pin');
       if (!el || el.getAttribute('data-unlocked') !== '1') return;
       const valueEl = el.querySelector('.bk-pin-value');
-      if (!valueEl || !WORKER) return;
+      const btn = $('bk-pin-reveal');
+      if (!valueEl) return;
+      // Anything other than a real PIN is said plainly and the Reveal goes
+      // away: a button that uncovers the word "Ask us" is just a tease.
+      const fail = (msg) => { valueEl.classList.remove('is-hidden'); valueEl.textContent = msg; if (btn) btn.hidden = true; };
+      // No Worker configured is still a failure to the person looking at it —
+      // returning early here would leave dots and a Reveal that does nothing.
+      if (!WORKER) return fail('Ask us');
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { valueEl.textContent = 'Sign in again to see this'; return; }
+        if (!session) return fail('Sign in again to see this');
         const res = await fetch(`${WORKER}/videography/my-pin?booking_id=${encodeURIComponent(el.getAttribute('data-booking'))}`, {
           headers: { Authorization: 'Bearer ' + session.access_token },
         });
         const d = await res.json().catch(() => ({}));
-        if (!res.ok || !d.paid) { valueEl.textContent = '—'; return; }
-        valueEl.textContent = d.pin || 'Ask us';
-      } catch (_) { valueEl.textContent = 'Ask us'; }
+        if (!res.ok || !d.paid) return fail('—');
+        if (!d.pin) return fail('Ask us');
+        // Held on the element so Reveal costs nothing. To be clear about what
+        // this is: once fetched the PIN IS in the page, attribute or not. The
+        // mask is presentation, not protection — the protection is that the
+        // Worker refuses to send a PIN at all until the booking is settled.
+        el.setAttribute('data-pin', d.pin);
+        valueEl.textContent = '\u2022'.repeat(Math.max(4, String(d.pin).length));
+      } catch (_) { fail('Ask us'); }
     }
+
+    /* The banking-app gesture: covered until you ask. It is a nicety, not a
+       lock — the real gate is that the Worker will not return a PIN at all
+       until the booking is settled, so there is nothing here to reveal early. */
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#bk-pin-reveal');
+      if (!btn) return;
+      const el = $('bk-pin');
+      const valueEl = el && el.querySelector('.bk-pin-value');
+      const pin = el && el.getAttribute('data-pin');
+      if (!valueEl || !pin) return;
+      const shown = !valueEl.classList.contains('is-hidden');
+      valueEl.classList.toggle('is-hidden', shown);
+      valueEl.textContent = shown ? '\u2022'.repeat(Math.max(4, pin.length)) : pin;
+      btn.textContent = shown ? 'Reveal' : 'Hide';
+      btn.setAttribute('aria-pressed', shown ? 'false' : 'true');
+    });
     // Same rule as the PIN, same reason: not in the page's data, asked for
     // once the drawer is open and only once paid. Not every booking has a
     // tour, so an unlocked booking with none just quietly disappears rather
