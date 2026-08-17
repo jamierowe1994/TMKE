@@ -145,6 +145,24 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-pill.is-complete { background: transparent; border: 1px solid rgba(46,106,74,0.4); color: #2e6a4a; }
     .bk-view-cue { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28,29,34,0.45); }
     .bk-card:hover .bk-view-cue { color: var(--english-violet); }
+    /* ---- Invoicing rows ---- */
+    .bk-inv {
+      display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center;
+      padding: 13px 15px; border: 1px solid rgba(28,29,34,0.14);
+    }
+    .bk-inv + .bk-inv { margin-top: 8px; }
+    .bk-inv-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .bk-inv-main strong { font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: var(--ink); }
+    .bk-inv-main span { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .bk-inv-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+    .bk-inv-total { font-family: var(--sans); font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .bk-inv-state { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #a5352f; }
+    .bk-inv-state.is-paid { color: #2e6a4a; }
+    /* The pay button spans both columns so it reads as an action on the whole
+       row rather than a third value in it. */
+    .bk-inv .bk-btn { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
+    .bk-inv.is-paid { border-color: rgba(46,106,74,0.3); }
+
     .bk-state { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.55); padding: 18px 22px; border: 1px solid rgba(28,29,34,0.1); }
     .bk-hero { --ws-hero-img: url('/assets/home%20window.jpg'); }
     .bk-hero-cta { margin-top: auto; padding-top: clamp(24px, 3vh, 36px); }
@@ -399,6 +417,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     let rows = [];
     const msgsByKey = new Map();
     const docsByKey = new Map();
+    const invsByKey = new Map();
 
     // ---------- Load ----------
     (async () => {
@@ -454,6 +473,20 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
             // note must never render here, whatever the server sends.
             (t.messages || []).filter((m) => m.channel === 'email').forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
             (t.documents || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
+            if (currentKey) openDetail(currentKey);
+          }
+        } catch (_) {}
+        // Invoices come from their own route: the pay link has to be signed
+        // server-side, and brand-billed bookings are filtered out there.
+        try {
+          const res = await fetch(`${WORKER}/booking/invoices/mine`, { headers: { Authorization: 'Bearer ' + session.access_token } });
+          if (res.ok) {
+            const t = await res.json();
+            (t.invoices || []).forEach((iv) => {
+              const k = `videography:${iv.booking_id}`;
+              if (!invsByKey.has(k)) invsByKey.set(k, []);
+              invsByKey.get(k).push(iv);
+            });
             if (currentKey) openDetail(currentKey);
           }
         } catch (_) {}
@@ -641,6 +674,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         ${!cancelled ? `<section class="bk-detail-block"><h3 class="bk-detail-h">What to expect</h3><p class="bk-expect">${escapeHtml(expect)}</p></section>` : ''}
         ${gallery}
         <section class="bk-detail-block"><h3 class="bk-detail-h">Manage</h3><div class="bk-detail-actions">${acts.join('')}</div>${actNote}</section>
+        ${renderInvoices(r, invsByKey.get(key) || [])}
         <section class="bk-detail-block"><h3 class="bk-detail-h">Messages</h3>${renderMessages(msgs)}</section>
         <section class="bk-detail-block"><h3 class="bk-detail-h">Documents</h3>${renderDocs(r, docs)}</section>
       `;
@@ -735,6 +769,48 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
           <div class="bk-msg-body">${escapeHtml(m.body || '').replace(/\n/g, '<br>')}</div>
         </li>`;
       }).join('') + `</ul>`;
+    }
+
+    /* ---- Invoicing --------------------------------------------------------
+       Three shapes, and which one you get is decided by the payment route
+       rather than by anything on screen:
+         · covered by a package  — nothing to pay, said plainly
+         · billed to a brand     — nothing at all, the route filters it out
+         · billed to the client  — the invoice, and a way to settle it
+
+       The pay link is the same signed URL that goes in the invoice email, so
+       this is a second door onto one Stripe checkout, not a parallel path. */
+    function renderInvoices(r, list) {
+      if (r.packageCovered) {
+        return `<section class="bk-detail-block"><h3 class="bk-detail-h">Invoicing</h3>
+          <p class="bk-expect">Included in your social media package — there is nothing to pay for this shoot.</p></section>`;
+      }
+      if (!list.length) return '';
+      const rows = list.map((iv) => {
+        const paid = iv.status === 'paid';
+        const when = paid
+          ? `Paid${iv.paid_date ? ' ' + fmtDate(iv.paid_date) : ''}`
+          : (iv.due_date ? `Due ${fmtDate(iv.due_date)}` : 'Due on receipt');
+        // The pay button only exists while there is something to pay; once it
+        // is settled the row says so and the button goes.
+        const pay = (!paid && iv.pay_url)
+          ? `<a class="bk-btn bk-btn--primary" href="${escapeHtml(iv.pay_url)}">Pay now</a>` : '';
+        return `<div class="bk-inv ${paid ? 'is-paid' : ''}">
+          <div class="bk-inv-main">
+            <strong>${escapeHtml(iv.number || 'Invoice')}</strong>
+            <span>${escapeHtml(when)}</span>
+          </div>
+          <div class="bk-inv-side">
+            <span class="bk-inv-total">${gbpFromPence(iv.total_pence || 0)}</span>
+            <span class="bk-inv-state ${paid ? 'is-paid' : ''}">${paid ? 'Paid' : 'Outstanding'}</span>
+          </div>
+          ${pay}
+        </div>`;
+      }).join('');
+      const owing = list.some((iv) => iv.status !== 'paid');
+      return `<section class="bk-detail-block"><h3 class="bk-detail-h">Invoicing</h3>${rows}
+        ${owing ? `<p class="bk-expect" style="margin-top:10px">Your gallery, 360 tour and download PIN unlock automatically as soon as payment reaches us — by card or by bank transfer.</p>` : ''}
+      </section>`;
     }
 
     function renderDocs(r, list) {

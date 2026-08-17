@@ -6048,6 +6048,49 @@ export default {
         return json({ messages, documents }, 200, request, env);
       }
 
+      // ---- Member: the invoices I am actually being asked to pay ------------
+      //
+      // Deliberately a Worker route rather than an RLS policy, unlike messages
+      // and documents: the pay link is a signed token, and signing needs a
+      // secret the browser must never hold. Since a round trip is unavoidable,
+      // the filtering happens here too.
+      //
+      // The route decides visibility, not the billing address. A booking billed
+      // to a brand has no invoice as far as the client is concerned — someone
+      // else is settling it — and showing them a bill they do not owe is worse
+      // than showing them nothing. A package-covered shoot has nothing to bill
+      // at all.
+      if (path.endsWith("/booking/invoices/mine") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+
+        const email = String(user.email || "").toLowerCase();
+        const mine = (await sbGet(env, "videography_bookings",
+          `or=(account_user_id.eq.${user.id},client_email.ilike.${encodeURIComponent(email)})`
+          + `&select=id,payment_route`)) || [];
+        // Only bookings the client settles themselves.
+        const payable = mine.filter((b) => (b.payment_route || "agent_card") === "agent_card");
+        if (!payable.length) return json({ invoices: [] }, 200, request, env);
+
+        const ids = payable.map((b) => b.id).join(",");
+        // Drafts are ours until they are sent, and a void invoice is not a bill.
+        const rows = (await sbGet(env, "invoices",
+          `booking_id=in.(${ids})&status=in.(sent,paid)`
+          + `&select=id,number,booking_id,line_items,subtotal_pence,vat_pence,total_pence,status,issued_date,due_date,paid_date,pay_by_card`
+          + `&order=created_at.desc`)) || [];
+
+        const invoices = [];
+        for (const iv of rows) {
+          // Minted per invoice, and only where there is something to pay.
+          let pay_url = null;
+          if (iv.pay_by_card && iv.status !== "paid" && env.STRIPE_SECRET_KEY) {
+            try { pay_url = await invoicePayUrl(env, iv.id); } catch (_) { pay_url = null; }
+          }
+          invoices.push({ ...iv, pay_url });
+        }
+        return json({ invoices }, 200, request, env);
+      }
+
       // ---- Member: my managed-social service (client record + monthly insights)
       if (path.endsWith("/smm/mine") && request.method === "GET") {
         const user = await getUser(request, env);
