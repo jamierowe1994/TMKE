@@ -248,6 +248,22 @@ import "../../styles/admin.css";
   </section>
   </div>
 
+  <!-- ============ The card's side actions (reschedule / add / contact) ============
+       These used to unfold inside the booking card, which pushed the stage and
+       its work down the page to make room for a form you were finished with in
+       a few seconds. Same modal treatment as Edit booking instead. It keeps the
+       drawer's id, so everything that renders into it is unchanged - and being
+       outside the card, it now survives the card re-rendering underneath it. -->
+  <div class="modal-backdrop" id="vid-act-modal" hidden>
+    <div class="modal vid-modal vid-act-modal" role="dialog" aria-modal="true" aria-labelledby="vid-act-title">
+      <header class="modal-head">
+        <h2 id="vid-act-title">Booking</h2>
+        <button type="button" class="modal-close" id="vid-act-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="vid-act-body" id="vid-cand-drawer"></div>
+    </div>
+  </div>
+
   <!-- ===================== Booking modal (add / edit) ===================== -->
   <div class="modal-backdrop" id="vid-modal" hidden>
     <div class="modal vid-modal" role="dialog" aria-modal="true" aria-labelledby="vid-modal-title">
@@ -795,12 +811,11 @@ import "../../styles/admin.css";
     .vid-tl-step--first .vid-tl-label { text-align: left; }
     .vid-tl-step--last .vid-tl-label { text-align: right; }
     .vid-tl-step.is-done .vid-tl-label, .vid-tl-step.is-current .vid-tl-label { color: var(--ink); font-weight: 600; }
-    .vid-cand-drawer {
-      margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
-      text-align: left; display: none;
-    }
-    .vid-cand-drawer.is-open { display: block; }
-    .vid-cand-drawer h4 { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    /* The action modal's body. Scrolls on its own, like the booking form's. */
+    .vid-act-body { padding: 22px 28px 26px; overflow-y: auto; flex: 1; text-align: left; }
+    /* The modal's header already names the action, so the heading each of these
+       renders for itself would be saying it twice. */
+    .vid-act-body > h4:first-child { display: none; }
     .vid-add-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
     @media (max-width: 640px) { .vid-add-opts { grid-template-columns: 1fr; } }
     .vid-add-opt {
@@ -818,7 +833,7 @@ import "../../styles/admin.css";
     /* Only the block that opens the drawer loses its rule. Keyed off the
        heading rather than :first-of-type, which picked the wrong block whenever
        the first thing under the heading was a gate or a line of prose. */
-    .vid-cand-drawer > h4 + .vid-contact-block { margin-top: 0; padding-top: 0; border-top: 0; }
+    .vid-act-body > h4 + .vid-contact-block { margin-top: 0; padding-top: 0; border-top: 0; }
     .vid-contact-row {
       display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
       padding: 9px 0; border-bottom: 1px solid rgba(28, 29, 34, 0.07);
@@ -1722,7 +1737,6 @@ import "../../styles/admin.css";
             ${renderBrandGate(b)}
             <div id="vid-cand-edits-gate"></div>
             ${renderCloseGate(b)}
-            <div class="vid-cand-drawer" id="vid-cand-drawer"></div>
             <!-- Whatever this stage asks you to do sits here, beside the
                  progress bar, so the action and the stage read as one thing.
                  Once the shoot moves past it, it drops back out into its own
@@ -3096,8 +3110,7 @@ import "../../styles/admin.css";
       if (act === "back") { advanceStage(prevStageOf(b.stage)); return; }
       const drawer = document.getElementById("vid-cand-drawer");
       if (!drawer) return;
-      showCandTab("stage");   // the drawer lives in the stage tab; open it there
-      drawer.classList.add("is-open");
+      openActModal({ reschedule: "Reschedule shoot", add: "Add to this job", contact: "Contact" }[act] || "Booking");
       if (act === "contact") { renderContactDrawer(b); return; }
       if (act === "reschedule") {
         drawer.innerHTML = `<h4>Reschedule shoot</h4>
@@ -3129,7 +3142,8 @@ import "../../styles/admin.css";
     function addThing(kind) {
       const b = bookings.find((x) => x.id === candId);
       if (!b) return;
-      if (kind === "file") { openModal(b.id); return; }
+      // Hand over to the booking form rather than stacking one modal on another.
+      if (kind === "file") { closeActModal(); openModal(b.id); return; }
       const form = document.getElementById("vid-add-form");
       if (!form) return;
       if (kind === "service") {
@@ -3399,13 +3413,9 @@ import "../../styles/admin.css";
       if (error) { contactMsg("Couldn't save that link: " + error.message, true); return; }
       b.contact_id = contactId;
       if ("account_user_id" in patch) b.account_user_id = patch.account_user_id;
-      // The whole card re-renders (the button's label and the meta row both
-      // change), which takes the drawer with it - so it is reopened here rather
-      // than through candAction, whose own render is not awaited and would drop
-      // the message below on the floor.
+      // The card re-renders underneath - the button's label and the meta row
+      // both change - and the modal is outside it, so it simply stays put.
       renderCandidate();
-      showCandTab("stage");
-      document.getElementById("vid-cand-drawer")?.classList.add("is-open");
       await renderContactDrawer(b);
       contactMsg(note || (contactId ? "Linked." : "Unlinked."));
     }
@@ -3634,6 +3644,23 @@ import "../../styles/admin.css";
       document.getElementById("vid-modal").hidden = false;
     }
     function closeModal() { document.getElementById("vid-modal").hidden = true; editingId = null; }
+
+    /* The card's side actions. Closing empties it rather than just hiding it:
+       these forms hold a client's details and a half-typed search, and neither
+       should still be sitting there the next time it opens. */
+    function openActModal(title) {
+      const el = document.getElementById("vid-act-modal");
+      if (!el) return;
+      document.getElementById("vid-act-title").textContent = title;
+      el.hidden = false;
+    }
+    function closeActModal() {
+      const el = document.getElementById("vid-act-modal");
+      if (!el) return;
+      el.hidden = true;
+      const body = document.getElementById("vid-cand-drawer");
+      if (body) body.innerHTML = "";
+    }
 
     /* The client downloads from Pixieset with their email address and the PIN,
        so the gallery email has to be the one they will actually type. If we mail
@@ -4582,6 +4609,15 @@ import "../../styles/admin.css";
       document.getElementById("vid-delete")?.addEventListener("click", deleteBooking);
       document.getElementById("vid-cancel")?.addEventListener("click", closeModal);
       document.getElementById("vid-modal-close")?.addEventListener("click", closeModal);
+      document.getElementById("vid-act-close")?.addEventListener("click", closeActModal);
+      document.getElementById("vid-act-modal")?.addEventListener("click", (e) => {
+        if (e.target instanceof HTMLElement && e.target.id === "vid-act-modal") closeActModal();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape") return;
+        if (!document.getElementById("vid-act-modal")?.hidden) closeActModal();
+        else if (!document.getElementById("vid-modal")?.hidden) closeModal();
+      });
       document.getElementById("vid-modal")?.addEventListener("click", (e) => {
         if (e.target instanceof HTMLElement && e.target.id === "vid-modal") closeModal();
       });
