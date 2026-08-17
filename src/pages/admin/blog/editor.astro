@@ -14,6 +14,12 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       <div>
         <h1 class="blog-editor-title" id="be-title-display">New article</h1>
         <p class="blog-editor-sub" id="be-sub">Draft &middot; not yet published</p>
+        <!-- Saving and going live are two different events, and only one of them
+             is instant. Publish writes to the database straight away; the public
+             site is statically built, so it only changes when a rebuild runs.
+             This says which of those has actually happened, and stays put -
+             it used to be a toast that had gone by the time you looked up. -->
+        <p class="be-deploy" id="be-deploy" hidden></p>
       </div>
     </div>
     <div class="blog-editor-top-right">
@@ -492,6 +498,13 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     .be-rt-btn b, .be-rt-btn i { font-size: 13px; }
 
     /* Styling panel: four rows of three, tight enough to sit in the side column. */
+    .be-deploy {
+      margin: 6px 0 0; max-width: 70ch; font-family: var(--sans); font-size: 12px;
+      line-height: 1.5; font-weight: 600; color: var(--english-violet);
+    }
+    .be-deploy[hidden] { display: none; }
+    .be-deploy.is-warn { color: #8a3b2f; }
+
     .be-tpl-row { display: flex; gap: 6px; }
     .be-tpl-row select { flex: 1; min-width: 0; }
     .be-styles { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
@@ -689,6 +702,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     const $form = document.getElementById("be-form");
     const $titleDisp = document.getElementById("be-title-display");
     const $sub = document.getElementById("be-sub");
+    const $deploy = document.getElementById("be-deploy");
     const $title = document.getElementById("be-title");
     const $titleCount = document.getElementById("be-title-count");
     const $slug = document.getElementById("be-slug");
@@ -1137,20 +1151,44 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     // Ask the Worker to rebuild the static site so a published/edited post goes
     // live without a manual deploy. Best-effort: the save already succeeded.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    /* `kind` drives the colour: 'ok' while a rebuild is running, 'warn' when the
+       post is saved but the public site has not been told about it - which is
+       the state worth shouting about, because from the database's point of view
+       everything worked. */
+    function deployState(kind, text) {
+      if (!$deploy) return;
+      $deploy.hidden = !text;
+      $deploy.textContent = text || "";
+      $deploy.className = "be-deploy" + (kind ? " is-" + kind : "");
+    }
     async function triggerDeploy() {
-      if (!WORKER_URL) return; // Worker not configured (e.g. local dev)
+      if (!WORKER_URL) {
+        deployState("warn", "Saved to the database. The live site was not rebuilt — no Worker is configured here, so this is expected in local development.");
+        return;
+      }
+      deployState("ok", "Saved. Asking the site to rebuild…");
       try {
         const { data } = await supabase.auth.getSession();
         const token = data && data.session && data.session.access_token;
-        if (!token) return;
+        if (!token) {
+          deployState("warn", "Saved to the database, but the live site was not rebuilt: your admin sign-in has expired. Sign in again and save once more.");
+          return;
+        }
         const res = await fetch(`${WORKER_URL}/deploy`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
         });
         const out = await res.json().catch(() => ({}));
-        if (out && out.message) toast(out.message);
-        else if (out && out.error) toast("Saved — but the site update didn't trigger: " + out.error);
-      } catch (_) { /* save already persisted; the deploy is best-effort */ }
+        if (res.ok && out && out.ok) {
+          deployState("ok", (out.message || "The site is rebuilding.") + " Article pages refresh on their own; the /blog list needs this rebuild to finish.");
+        } else {
+          deployState("warn", "Saved to the database, but the live site was NOT rebuilt: "
+            + ((out && out.error) || ("the deploy endpoint returned " + res.status))
+            + " — until it does, the /blog list keeps showing the old version.");
+        }
+      } catch (e) {
+        deployState("warn", "Saved to the database, but the live site was NOT rebuilt: couldn't reach the Worker. " + (e && e.message ? e.message : ""));
+      }
     }
 
     async function save(opts = {}) {
@@ -1211,6 +1249,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         // Rebuild the public site when the post is live now, OR was live and is
         // being taken down (unpublished/archived) — both change the front end.
         if (payload.status === "published" || wasLive) triggerDeploy();
+        else deployState("", "");
       }
     }
     $save.addEventListener("click", () => save());
