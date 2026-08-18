@@ -75,6 +75,14 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
 
     /* ---- Flashing image grid, behind everything ---- */
     .lrv-grid-bg { position: absolute; inset: 0; z-index: 0; display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, 1fr); }
+    /* The nav's resting colour is ink, which is right on cream and invisible
+       on this page - the hero fills the viewport and is dark the whole way
+       down, so the bar stays light rather than switching on scroll. */
+    body:has(.lrv-hero) .nav,
+    body:has(.lrv-hero) .nav.scrolled { color: var(--paper); border-bottom-color: rgba(255,255,255,0.14); }
+    body:has(.lrv-hero) .nav.scrolled { background: rgba(20,19,16,0.45); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+    body:has(.lrv-hero) .nav-cta { border-color: rgba(255,255,255,0.5); color: var(--paper); }
+
     .lrv-grid-cell { background-size: cover; background-position: center; opacity: 0.5; transition: opacity 0.15s ease; }
     .lrv-hero-tint { position: absolute; inset: 0; z-index: 1; background: rgba(20,19,16,0.55); pointer-events: none; }
     @media (max-width: 900px) { .lrv-grid-bg { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); } }
@@ -83,13 +91,19 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
     /* ---- "How did we do?" — pops up centred, holds, flies up + out ---- */
     .lrv-word {
       position: absolute; top: 50%; left: 50%; z-index: 2;
-      transform: translate(-50%, calc(-50% + 40px)) scale(0.94); opacity: 0;
-      font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 6vw, 72px);
-      letter-spacing: -0.015em; color: var(--paper); text-align: center; white-space: nowrap;
+      transform: translate(-50%, calc(-50% + 48px)) scale(0.94); opacity: 0;
+      /* Matches the homepage hero's "TMKE Edit" exactly: same family (which is
+         --sans, not a serif - the wordmark only looks like one), same weight,
+         tracking and size ramp, so the two pages open the same way. Caps to
+         match it too. */
+      font-family: var(--sans), "Helvetica Neue", Arial, sans-serif; font-weight: 400;
+      font-size: clamp(35px, 5.6vw, 93px); line-height: 1;
+      letter-spacing: -0.01em; text-transform: uppercase;
+      color: var(--paper); text-align: center; white-space: nowrap;
       text-shadow: 0 2px 34px rgba(0,0,0,0.38); will-change: transform, opacity;
     }
     @keyframes lrvWordPlay {
-      0%    { opacity: 0; transform: translate(-50%, calc(-50% + 40px)) scale(0.94); }
+      0%    { opacity: 0; transform: translate(-50%, calc(-50% + 48px)) scale(0.94); }
       16.7% { opacity: 1; transform: translate(-50%, -50%) scale(1); }        /* popped up */
       72.2% { opacity: 1; transform: translate(-50%, -50%) scale(1); }        /* hold, to read */
       100%  { opacity: 0; transform: translate(-50%, -170%) scale(0.96); }    /* flies up and out */
@@ -106,7 +120,9 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
 
     /* ---- Card ---- */
     .lrv-card {
-      position: relative; border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+      /* 4px, the radius every other surface in the brand uses - 14px read as a
+         different system to the buttons and fields sitting inside it. */
+      position: relative; border: 1px solid rgba(255,255,255,0.14); border-radius: 4px;
       padding: clamp(26px, 3vw, 42px); background: #fff;
       box-shadow: 0 40px 90px -30px rgba(0,0,0,0.5);
     }
@@ -127,7 +143,9 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
 
     .lrv-submit-row { display: flex; justify-content: center; margin-top: 22px; transition: opacity 0.4s ease; }
     .lrv-submit {
-      position: relative; width: 100%; max-width: 100%; height: 54px; border: none; border-radius: 999px;
+      /* Square-ish and plum, like every other primary button on the site. The
+         pill shape was the odd one out. */
+      position: relative; width: 100%; max-width: 100%; height: 54px; border: none; border-radius: 4px;
       background: var(--english-violet); color: var(--paper); cursor: pointer; overflow: hidden; font-family: var(--sans);
       transition: width 0.55s cubic-bezier(.7,0,.2,1), border-radius 0.55s cubic-bezier(.7,0,.2,1), opacity 0.4s ease, transform 0.4s ease;
     }
@@ -153,7 +171,7 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
     .lrv-card.is-done .lrv-grid-fields, .lrv-card.is-done .lrv-submit-row { opacity: 0; pointer-events: none; }
     .lrv-success {
       position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center; padding: 32px; background: #fff; border-radius: 14px; opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
+      text-align: center; padding: 32px; background: #fff; border-radius: 4px; opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
     }
     .lrv-success.is-visible { opacity: 1; }
     .lrv-success-tick { width: 80px; height: 80px; margin-bottom: 20px; }
@@ -221,6 +239,17 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
 
       if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+      /* A swap used to pick any image that was not the one already in THAT cell,
+         which says nothing about the other eleven - so the same photo regularly
+         appeared twice on screen. It now picks from the images that are not
+         showing anywhere.
+
+         That needs more images than cells to work at all: with twelve cells and
+         nine images, three duplicates are a certainty however the swap is
+         written. When the library is too small it falls back to the old rule,
+         so the grid still animates rather than freezing. */
+      const showing = () => new Set(cells.map((c) => c.dataset.img));
+
       function flashOnce() {
         const n = 2 + Math.floor(Math.random() * 3); // 2-4 cells at once
         const chosen = new Set();
@@ -228,9 +257,16 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
         chosen.forEach((idx) => {
           const cell = cells[idx];
           let next = cell.dataset.img;
-          if (GRID_IMAGES.length > 1) {
+          const onScreen = showing();
+          const spare = GRID_IMAGES.filter((src) => !onScreen.has(src));
+          if (spare.length) {
+            next = spare[Math.floor(Math.random() * spare.length)];
+          } else if (GRID_IMAGES.length > 1) {
             while (next === cell.dataset.img) next = GRID_IMAGES[Math.floor(Math.random() * GRID_IMAGES.length)];
           }
+          // Claimed straight away so two cells swapping in the same tick cannot
+          // both take it.
+          cell.dataset.img = next;
           cell.style.opacity = "0";
           setTimeout(() => {
             cell.style.backgroundImage = `url('${next}')`;
