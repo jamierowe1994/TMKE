@@ -2583,7 +2583,13 @@ export default {
         }, "return=representation");
         const created = await ins.json().catch(() => null);
         const order = Array.isArray(created) ? created[0] : created;
-        if (!order || !order.id) return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
+        if (!order || !order.id) {
+          // Same lesson as the edit-request insert: "please try again" about a
+          // permanent failure wastes everyone's time. The buyer still gets a
+          // sentence they can act on; the reason goes to `wrangler tail`.
+          console.log("order insert failed", ins.status, JSON.stringify(created));
+          return json({ error: "Couldn't start your order. Please try again." }, 500, request, env);
+        }
 
         // Free pack — no Stripe needed. Still a customer → make/merge a contact.
         if (amount === 0) { await contactFromOrder(env, order); return json({ url: `${base}/edit/thanks?order=${order.id}` }, 200, request, env); }
