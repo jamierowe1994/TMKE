@@ -6670,8 +6670,23 @@
     });
     ctxEl.appendChild(opacityWrap);
 
-    // Duplicate — labelled button (user explicitly asked for text, not icon).
     const gA = group();
+    /* Flip. Moved down from the global bar, where it sat next to undo and zoom
+       as though it were about the whole design - it has only ever acted on the
+       selection, and up there it could only tell you off for not having one. */
+    const flipBtn = document.createElement("button");
+    flipBtn.type = "button";
+    flipBtn.className = "ed-ctx-btn";
+    flipBtn.title = "Flip horizontally (right-click for vertical)";
+    flipBtn.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>' +
+      '<polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+    flipBtn.addEventListener("click", function () { flipSelected("h"); });
+    gA.appendChild(flipBtn);
+
+    // Duplicate — labelled button (user explicitly asked for text, not icon).
     const dupBtn = document.createElement("button");
     dupBtn.type = "button";
     dupBtn.className = "ed-ctx-btn ed-ctx-btn-text";
@@ -7650,24 +7665,19 @@
   // Crop — placeholder for the moment. The full drag-resize crop UI is
   // deferred; this just checks the user has an image selected so we can
   // wire the real flow into the same button later.
-  $("ed-crop")?.addEventListener("click", function () {
-    const el = getEl(state.selectedIds[0]);
-    if (!el || el.type !== "image") {
-      toast("Select an image to crop it", 2400);
-      return;
-    }
-    toast("Crop tool coming soon — use Replace image for now", 3000);
-  });
+  /* Crop and flip have left the top bar - see the header comment there. Flip
+     is on the element's own toolbar now (it needs something selected, which is
+     exactly the condition that toolbar appears under), and the right-click menu
+     still carries both axes. Crop was never built. */
 
-  // Flip — works on any selected element. Toggles flipX (horizontal).
-  // The right-click menu has both axes; this top-bar button is the
-  // common-case fast path.
-  $("ed-flip")?.addEventListener("click", function () {
-    if (!state.selectedIds.length) {
-      toast("Select something to flip", 2400);
-      return;
+  // The format pill opens the Resize pane rather than only reporting the size.
+  $("ed-canvas-size-btn")?.addEventListener("click", function () {
+    if (typeof showPane === "function") showPane("resize");
+    const rail = document.querySelector('.ed-rail-btn[data-tool="resize"]');
+    if (rail) {
+      document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.remove("is-active"));
+      rail.classList.add("is-active");
     }
-    flipSelected("h");
   });
 
   // Share — uses the Web Share API where available (mobile, modern desktop
