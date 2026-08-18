@@ -6759,12 +6759,54 @@ async function sendEditsCompleteEmail(env, bookingId) {
   const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
   const firstName = String(bk.client_name || "").trim().split(/\s+/)[0] || "there";
 
+  // Say back what was actually done. A close-out email that only says "all
+  // done" makes the reader go and look up which shoot it means.
+  const when = bk.shoot_date
+    ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : "";
+  const where = (bk.location || bk.postcode || "").trim();
+  const facts = [
+    ["Shoot", bk.service || "Videography"],
+    when ? ["Filmed", when] : null,
+    where ? ["Where", where] : null,
+  ].filter(Boolean);
+  const factsHtml = facts
+    .map(([k, v]) => `<p style="${EM_P}margin:0 0 4px;"><strong>${esc(k)}</strong> &nbsp;${esc(v)}</p>`)
+    .join("");
+
+  // Only claim the amends are done if they actually asked for some.
+  let amendsLine = "";
+  try {
+    const reqs = await sbGet(env, "videography_edit_requests",
+      `booking_id=eq.${encodeURIComponent(bk.id)}&select=id`);
+    if (reqs && reqs.length) {
+      amendsLine = `<p style="${EM_P}">The changes you asked for have been made and are in your gallery.</p>`;
+    }
+  } catch (_) { /* the rest of the email is still worth sending */ }
+
+  const galleryLine = bk.gallery_url
+    ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open Your Gallery</a></p>`
+    : "";
+
+  /* The review link carries the booking, the name and the service. Without
+     them the client retypes what we already know - and, more importantly, the
+     review comes back with nothing tying it to the shoot, so their bookings
+     page goes on asking for a review they have already left. */
+  const reviewUrl = `${siteUrl}/leave-a-review`
+    + `?booking=${encodeURIComponent(bk.id)}`
+    + `&service=${encodeURIComponent(bk.service || "")}`
+    + `&name=${encodeURIComponent(bk.client_name || "")}`;
+
   const html = `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">All done, ${esc(firstName)}</h1>
     <p style="${EM_P}">Your ${esc((bk.service || "shoot").toLowerCase())} is fully wrapped up — everything's complete from our end.</p>
+    ${factsHtml}
+    ${amendsLine}
+    ${galleryLine}
+    <p style="${EM_P}">Everything for this booking lives in your account, whenever you need it.</p>
     <p style="${EM_P}"><a href="${siteUrl}/account/bookings" style="${EM_BTN}">View Your Booking</a></p>
     <p style="${EM_P}">If you have a spare minute, we'd really appreciate a review — it makes a big difference to us.</p>
-    <p style="${EM_P}"><a href="${siteUrl}/leave-a-review" style="${EM_BTN}">Leave a Review</a></p>
+    <p style="${EM_P}"><a href="${reviewUrl}" style="${EM_BTN}">Leave a Review</a></p>
     <p style="${EM_P}">Thanks again for working with us.</p>
   </div>`;
 
