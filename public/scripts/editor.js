@@ -506,6 +506,154 @@
   // Circular colour swatch — clicking it triggers the native colour picker.
   // Used in place of square `<input type="color">` with a "Colour" label.
   // onChange is called on every input event with the new hex string.
+  /* ---------- The colour picker ----------
+     A saturation/value square, a hue strip, a hex field and an eyedropper.
+
+     This replaces <input type="color"> wherever a colour is chosen. The native
+     control opens the operating system's picker: it looks like macOS rather
+     than like this app, it puts R/G/B boxes in front of you when hex is what
+     brand work is written in, and on every platform it is a different shape.
+
+     Built on canvas-free maths so it costs nothing to render. Hue drives the
+     square's tint; the square gives saturation across and value down - the
+     arrangement every design tool uses, so the muscle memory carries over. */
+  function hsvToRgb(h, sv, vv) {
+    const c = vv * sv, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = vv - c;
+    let r = 0, g = 0, b = 0;
+    if (h < 60)       { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; }
+    else              { r = c; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d) {
+      if (max === r) h = 60 * (((g - b) / d) % 6);
+      else if (max === g) h = 60 * ((b - r) / d + 2);
+      else h = 60 * ((r - g) / d + 4);
+    }
+    if (h < 0) h += 360;
+    return [h, max ? d / max : 0, max];
+  }
+  function hexToRgb(hex) {
+    const h = normHex(hex) || "#000000";
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  function rgbToHex(r, g, b) {
+    return "#" + [r, g, b].map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  }
+
+  /* Returns an element. onChange(hex) fires continuously while dragging;
+     onCommit(hex) once the gesture ends, so history gets one entry per choice
+     rather than one per pixel of travel. */
+  function buildColorPicker(initialHex, onChange, onCommit) {
+    let [h, sv, vv] = rgbToHsv.apply(null, hexToRgb(initialHex || "#000000"));
+
+    const wrap = document.createElement("div");
+    wrap.className = "ed-pick";
+    wrap.innerHTML =
+      '<div class="ed-pick-sv"><div class="ed-pick-sv-white"></div><div class="ed-pick-sv-black"></div>' +
+        '<span class="ed-pick-dot"></span></div>' +
+      '<div class="ed-pick-hue"><span class="ed-pick-hue-dot"></span></div>' +
+      '<div class="ed-pick-foot">' +
+        '<span class="ed-pick-preview"></span>' +
+        '<input class="ed-pick-hex" spellcheck="false" maxlength="7">' +
+        '<button type="button" class="ed-pick-drop" title="Pick a colour from the screen">' +
+          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+          'stroke-linecap="round" stroke-linejoin="round"><path d="M19 2l3 3-9 9-3-3 9-9z"/>' +
+          '<path d="M10 11l-6 6v3h3l6-6"/></svg></button>' +
+      '</div>';
+
+    const svBox = wrap.querySelector(".ed-pick-sv");
+    const svDot = wrap.querySelector(".ed-pick-dot");
+    const hueBox = wrap.querySelector(".ed-pick-hue");
+    const hueDot = wrap.querySelector(".ed-pick-hue-dot");
+    const hexInput = wrap.querySelector(".ed-pick-hex");
+    const preview = wrap.querySelector(".ed-pick-preview");
+    const dropBtn = wrap.querySelector(".ed-pick-drop");
+
+    const hex = () => rgbToHex.apply(null, hsvToRgb(h, sv, vv));
+    function paint(skipHexField) {
+      const cur = hex();
+      svBox.style.background = "hsl(" + Math.round(h) + ",100%,50%)";
+      svDot.style.left = (sv * 100) + "%";
+      svDot.style.top = ((1 - vv) * 100) + "%";
+      svDot.style.background = cur;
+      hueDot.style.left = ((h / 360) * 100) + "%";
+      preview.style.background = cur;
+      if (!skipHexField) hexInput.value = cur.toUpperCase();
+    }
+    paint();
+
+    // One drag handler for both strips: press, move anywhere, release.
+    function dragOn(box, onPos) {
+      const move = (e) => {
+        const r = box.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+        const y = Math.min(1, Math.max(0, (e.clientY - r.top) / r.height));
+        onPos(x, y);
+        paint();
+        onChange(hex());
+      };
+      box.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        move(e);
+        const up = () => {
+          window.removeEventListener("pointermove", move);
+          window.removeEventListener("pointerup", up);
+          onCommit(hex());
+        };
+        window.addEventListener("pointermove", move);
+        window.addEventListener("pointerup", up);
+      });
+    }
+    dragOn(svBox, (x, y) => { sv = x; vv = 1 - y; });
+    dragOn(hueBox, (x) => { h = x * 360; });
+
+    hexInput.addEventListener("input", () => {
+      const v = normHex(hexInput.value);
+      if (!v) return;                     // half-typed: leave the swatch alone
+      const hsv = rgbToHsv.apply(null, hexToRgb(v));
+      h = hsv[0]; sv = hsv[1]; vv = hsv[2];
+      paint(true);                        // not the field they are typing into
+      onChange(v);
+    });
+    hexInput.addEventListener("change", () => { const v = normHex(hexInput.value); if (v) onCommit(v); });
+
+    /* The browser's own eyedropper where it exists (Chromium). It reads real
+       screen pixels, so it can sample the design, a photo, anything on the
+       desktop. Hidden where it does not exist rather than offered and broken. */
+    if (window.EyeDropper) {
+      dropBtn.addEventListener("click", async () => {
+        try {
+          const picked = await new window.EyeDropper().open();
+          const v = normHex(picked.sRGBHex);
+          if (!v) return;
+          const hsv = rgbToHsv.apply(null, hexToRgb(v));
+          h = hsv[0]; sv = hsv[1]; vv = hsv[2];
+          paint();
+          onChange(v); onCommit(v);
+        } catch (_) { /* dismissed */ }
+      });
+    } else {
+      dropBtn.remove();
+    }
+
+    wrap.setColor = function (v) {
+      const n = normHex(v);
+      if (!n) return;
+      const hsv = rgbToHsv.apply(null, hexToRgb(n));
+      h = hsv[0]; sv = hsv[1]; vv = hsv[2];
+      paint();
+    };
+    return wrap;
+  }
+
   function circleColorInput(initialHex, onChange, title) {
     const wrap = document.createElement("label");
     wrap.className = "ed-circle-swatch";
@@ -869,15 +1017,23 @@
         (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
         (_cpFull ? sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') : "") +
         sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
-        sec("Add a colour",
-          '<input class="ed-cp-hex" placeholder="#hex" value="' + (current || "") + '">' +
-          '<div class="ed-cp-native"><input type="color" class="ed-cp-native-input" value="' + (current || "#000000") + '">' +
-          '<span>Pick from the spectrum</span></div>') +
+        sec("Add a colour", '<div data-mount="picker"></div>') +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
         (panel._onGradient ? sec("Custom gradient", cpGradEditorHtml(panel._gradDraft)) : "") +
       '</div>';
 
     panel.hidden = false;
+
+    // The picker is built rather than templated - it carries its own drag
+    // handlers and needs the live value back.
+    const pickMount = panel.querySelector('[data-mount="picker"]');
+    if (pickMount) {
+      pickMount.appendChild(buildColorPicker(
+        current || "#000000",
+        function (hex) { if (panel._onSolid) panel._onSolid(hex); },
+        function (hex) { pushRecentColor(hex); if (panel._onSolid) panel._onSolid(hex); pushHistory(); }
+      ));
+    }
 
     // Async photo colours fill in when ready.
     extractPhotoColors().then((cols) => {
@@ -5646,8 +5802,8 @@
               bgSw("#000000", "Black") + bgSw("#ffffff", "White") +
               brandHexes.map((h) => bgSw(h, h)).join("") +
             '</div>' +
-            '<div class="ed-props-field" style="margin-top:8px"><label>Or pick one</label>' +
-              '<input type="color" id="ed-sc-bg-pick" value="' + rgbHex(bg || "#000000") + '"></div>' +
+            '<div class="ed-props-field" style="margin-top:10px"><label>Or pick one</label>' +
+              '<div data-mount="sc-bg-pick"></div></div>' +
           '</div>');
       }
     }
@@ -5903,13 +6059,18 @@
         el.bgFill = v === "none" ? null : v;
         pushHistory(); fullRender(); renderProps();
       }));
-      const bgPick = body.querySelector("#ed-sc-bg-pick");
-      if (bgPick) bgPick.addEventListener("input", () => {
-        el.bgFill = bgPick.value;
-        const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
-        if (node) node.style.setProperty("--sc-bg", el.bgFill);
-      });
-      if (bgPick) bgPick.addEventListener("change", () => { pushHistory(); fullRender(); renderProps(); });
+      const bgMount = body.querySelector('[data-mount="sc-bg-pick"]');
+      if (bgMount) {
+        bgMount.appendChild(buildColorPicker(
+          el.bgFill || "#000000",
+          function (hex) {
+            el.bgFill = hex;
+            const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+            if (node) node.style.setProperty("--sc-bg", hex);
+          },
+          function (hex) { el.bgFill = hex; pushHistory(); fullRender(); }
+        ));
+      }
       body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
       body.querySelector("#ed-sc-recentre")?.addEventListener("click", () => {
         el.imgRotation = 0; el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
