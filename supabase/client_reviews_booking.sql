@@ -1,21 +1,41 @@
--- TMKE — tie a review to the shoot it is about
+-- TMKE — client reviews: the table, the shoot it belongs to, and sane policies
 -- ---------------------------------------------------------------------------
--- client_reviews was written for the public /leave-a-review page: anyone can
--- fill it in, and nothing connects a review to a job. That is still true - the
--- column below is nullable and a review left by a stranger simply has none.
+-- Self-contained. It creates client_reviews if it is not there yet (it was
+-- written for the public /leave-a-review page but the table was never actually
+-- created, so that page has never been able to save anything), adds the link to
+-- a booking, and replaces the read/delete policies.
 --
--- What it adds is the ability to ask. A member whose shoot has been delivered
--- can be invited to review it from their own bookings page, and the invitation
--- has to disappear once they have taken it - otherwise it nags people who have
--- already done the thing, which is worse than never asking.
+-- Why the booking link: a member whose shoot has been delivered gets invited to
+-- review it from their own bookings page, and the invitation has to disappear
+-- once they have taken it. Nullable, because a review left by a stranger
+-- through the public page has no booking - and that is most of them.
 --
--- The member needs to read one fact: has this booking of mine been reviewed.
--- The select policy gives them exactly the rows hanging off a booking they can
--- already see, and nothing else. Admins keep the full read they had.
+-- Why the policies change:
+--   * select was `to authenticated using (true)`. Written when the only people
+--     signed in were admins; since members got accounts it has meant any of
+--     them could read every review on file.
+--   * delete was the same, which is worse - any signed-in member could delete
+--     anyone's review. Admins only now.
+--   * insert is unchanged: the public page has to work for people who are not
+--     signed in, and it still only accepts rows with all three fields filled.
 --
 -- Safe to re-run.
 -- ---------------------------------------------------------------------------
 
+create extension if not exists "pgcrypto";
+
+create table if not exists public.client_reviews (
+  id            uuid primary key default gen_random_uuid(),
+  name          text not null,
+  service       text not null,
+  review_text   text not null,
+  created_at    timestamptz not null default now()
+);
+
+create index if not exists client_reviews_created_at_idx
+  on public.client_reviews (created_at desc);
+
+-- ---- The shoot it is about ----------------------------------------------
 alter table public.client_reviews
   add column if not exists booking_id uuid references public.videography_bookings(id) on delete set null;
 
@@ -23,14 +43,30 @@ create index if not exists client_reviews_booking_idx
   on public.client_reviews (booking_id);
 
 comment on column public.client_reviews.booking_id is
-  'The shoot this review is about, when it was left from the member hub. Null for reviews left through the public page, which is most of them.';
+  'The shoot this review is about, when it was left from the member hub. Null for reviews left through the public page.';
 
--- ---- Reads --------------------------------------------------------------
--- The old policy was `to authenticated` with no test, which since members got
--- accounts has meant any signed-in member could read every review on file.
-drop policy if exists "client_reviews read authed" on public.client_reviews;
-drop policy if exists "client_reviews read own"    on public.client_reviews;
+-- ---- RLS ----------------------------------------------------------------
+alter table public.client_reviews enable row level security;
 
+drop policy if exists "client_reviews insert anon"   on public.client_reviews;
+drop policy if exists "client_reviews read authed"   on public.client_reviews;
+drop policy if exists "client_reviews delete authed" on public.client_reviews;
+drop policy if exists "client_reviews read own"      on public.client_reviews;
+drop policy if exists "client_reviews admin write"   on public.client_reviews;
+
+-- Anyone may leave one, signed in or not, as long as it is actually filled in.
+create policy "client_reviews insert anon"
+  on public.client_reviews for insert
+  to anon, authenticated
+  with check (
+    length(coalesce(name, '')) > 0
+    and length(coalesce(service, '')) > 0
+    and length(coalesce(review_text, '')) > 0
+  );
+
+-- Admins read everything. A member reads only the reviews on their own
+-- bookings, which is the one fact their bookings page needs: has this been
+-- reviewed yet.
 create policy "client_reviews read own"
   on public.client_reviews for select
   to authenticated
@@ -49,8 +85,16 @@ create policy "client_reviews read own"
     )
   );
 
+-- Editing and removing reviews is an admin job.
+create policy "client_reviews admin write"
+  on public.client_reviews for all
+  to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 -- ============================================================
 -- Check it worked:
+--   select count(*) from public.client_reviews;              -- table exists
 --   select column_name from information_schema.columns
---   where table_name = 'client_reviews' and column_name = 'booking_id';
+--   where table_name = 'client_reviews';                     -- includes booking_id
 -- ============================================================
