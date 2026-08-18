@@ -83,7 +83,17 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
     body:has(.lrv-hero) .nav.scrolled { background: rgba(20,19,16,0.45); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
     body:has(.lrv-hero) .nav-cta { border-color: rgba(255,255,255,0.5); color: var(--paper); }
 
-    .lrv-grid-cell { background-size: cover; background-position: center; opacity: 0.5; transition: opacity 0.15s ease; }
+    /* Two stacked layers per cell. The old version faded the cell itself to
+       zero, swapped the image and faded it back - which meant every change
+       blinked through to the dark background behind, and at 150ms that reads
+       as a glitch rather than a decision. The new photo now fades in over the
+       one it replaces, so the cell is never empty. */
+    .lrv-grid-cell { position: relative; overflow: hidden; opacity: 0.5; }
+    .lrv-grid-cell span {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      transition: opacity 1.1s ease;
+    }
     .lrv-hero-tint { position: absolute; inset: 0; z-index: 1; background: rgba(20,19,16,0.55); pointer-events: none; }
     @media (max-width: 900px) { .lrv-grid-bg { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); } }
     @media (max-width: 560px) { .lrv-grid-bg { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(6, 1fr); } }
@@ -231,7 +241,15 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
         const cell = document.createElement("div");
         cell.className = "lrv-grid-cell";
         const img = GRID_IMAGES[i % GRID_IMAGES.length];
-        cell.style.backgroundImage = `url('${img}')`;
+        // Two layers: the one you can see, and the one the next photo arrives on.
+        const a = document.createElement("span");
+        const b = document.createElement("span");
+        a.style.backgroundImage = `url('${img}')`;
+        a.style.opacity = "1";
+        b.style.opacity = "0";
+        cell.append(a, b);
+        cell._layers = [a, b];
+        cell._top = 0;
         cell.dataset.img = img;
         host.appendChild(cell);
         cells.push(cell);
@@ -250,34 +268,48 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
          so the grid still animates rather than freezing. */
       const showing = () => new Set(cells.map((c) => c.dataset.img));
 
+      /* One cell at a time. Two to four at once, over twelve cells, meant a
+         third of the grid moving on every tick - which is what made it read as
+         a fault rather than a slow drift. */
+      let last = -1;
       function flashOnce() {
-        const n = 2 + Math.floor(Math.random() * 3); // 2-4 cells at once
-        const chosen = new Set();
-        while (chosen.size < Math.min(n, cells.length)) chosen.add(Math.floor(Math.random() * cells.length));
-        chosen.forEach((idx) => {
-          const cell = cells[idx];
-          let next = cell.dataset.img;
-          const onScreen = showing();
-          const spare = GRID_IMAGES.filter((src) => !onScreen.has(src));
-          if (spare.length) {
-            next = spare[Math.floor(Math.random() * spare.length)];
-          } else if (GRID_IMAGES.length > 1) {
-            while (next === cell.dataset.img) next = GRID_IMAGES[Math.floor(Math.random() * GRID_IMAGES.length)];
-          }
-          // Claimed straight away so two cells swapping in the same tick cannot
-          // both take it.
+        let idx = Math.floor(Math.random() * cells.length);
+        // Not the same cell twice running: it looks stuck.
+        if (cells.length > 1 && idx === last) idx = (idx + 1) % cells.length;
+        last = idx;
+
+        const cell = cells[idx];
+        const onScreen = showing();
+        const spare = GRID_IMAGES.filter((src) => !onScreen.has(src));
+        let next = cell.dataset.img;
+        if (spare.length) {
+          next = spare[Math.floor(Math.random() * spare.length)];
+        } else if (GRID_IMAGES.length > 1) {
+          while (next === cell.dataset.img) next = GRID_IMAGES[Math.floor(Math.random() * GRID_IMAGES.length)];
+        }
+        if (next === cell.dataset.img) return;   // nothing else to show
+
+        const incoming = cell._layers[1 - cell._top];
+        const outgoing = cell._layers[cell._top];
+        // Decode before the fade starts, or the first frame of the dissolve is
+        // a blank layer — which is the flicker all over again.
+        const pre = new Image();
+        pre.onload = pre.onerror = () => {
+          incoming.style.backgroundImage = `url('${next}')`;
+          requestAnimationFrame(() => {
+            incoming.style.opacity = "1";
+            outgoing.style.opacity = "0";
+          });
+          cell._top = 1 - cell._top;
           cell.dataset.img = next;
-          cell.style.opacity = "0";
-          setTimeout(() => {
-            cell.style.backgroundImage = `url('${next}')`;
-            cell.dataset.img = next;
-            cell.style.opacity = "0.5";
-          }, 150);
-        });
+        };
+        pre.src = next;
       }
 
-      const interval = setInterval(flashOnce, 1400);
-      setTimeout(() => clearInterval(interval), 30000); // stop after ~30s, freezing whatever's showing
+      // Slow enough to be a drift rather than a flicker: a 1.1s dissolve with
+      // a gap after it, so at most one cell is moving at any moment.
+      const interval = setInterval(flashOnce, 2600);
+      setTimeout(() => clearInterval(interval), 45000); // then it settles on whatever is showing
     })();
   </script>
 
