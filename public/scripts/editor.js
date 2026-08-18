@@ -1249,6 +1249,14 @@
 
   // SVG icons used in the context bar.
   const ICONS = {
+    // Placing the artwork inside a screen: crop marks with arrows through them,
+    // for the one control that moves the picture rather than the box.
+    place:
+      '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M7 3v14h14"/>' +
+      '<path d="M3 7h14v14"/>' +
+      '<path d="M10.5 10.5l3 3M13.5 10.5l-3 3"/>' +
+      '</svg>',
     opacity:
       '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
       '<circle cx="12" cy="12" r="9"/>' +
@@ -6155,7 +6163,7 @@
       // Artwork placement — only worth offering once there is artwork in it.
       if (el.src) {
         const fitWrap = popoverIconButton({
-          icon: ICONS.crop || ICONS.opacity,
+          icon: ICONS.place,
           title: "Position the artwork",
           render: function () {
             const panel = document.createElement("div");
