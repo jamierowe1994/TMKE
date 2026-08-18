@@ -537,7 +537,13 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const { data: vid, error: vidErr } = await supabase
         .from('videography_bookings')
         .select('id, kind, service, service_type, shoot_date, stage, total_pence, surcharge_pence, add_ons, package, postcode, reschedule_token, duration_min, created_at, client_name, client_email, client_phone, signed_name, signed_at, notes, discovery_interests, gallery_url, gallery_email, gallery_expires_on, extra_link_label, extra_link_url, store_url, gallery_sent_at, paid_at, pin_released_at, payment_route, edits_token')
-        .or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`)
+        /* ilike, not eq. The row-level policy matches on lower(client_email) =
+           lower(the account's email), so the database is case-insensitive - but
+           this filter was not, and the stricter of the two wins. A booking taken
+           down as "Catherine@..." simply never appeared for an account created
+           as "catherine@...", with nothing to say why. That is the exact promise
+           the close-out email makes when it invites someone to sign up. */
+        .or(`account_user_id.eq.${session.user.id},client_email.ilike.${email}`)
         .order('shoot_date', { ascending: false, nullsFirst: false });
 
       // SMM discovery calls (separate table).
@@ -545,7 +551,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         .from('smm_leads')
         .select('id, kind, full_name, email, phone, business, call_at, duration_min, reschedule_token, stage, created_at')
         .eq('kind', 'discovery')
-        .or(`account_user_id.eq.${session.user.id},email.eq.${email}`)
+        .or(`account_user_id.eq.${session.user.id},email.ilike.${email}`)
         .order('call_at', { ascending: false, nullsFirst: false });
 
       if (vidErr) {

@@ -6780,7 +6780,7 @@ async function sendEditsCompleteEmail(env, bookingId) {
     const reqs = await sbGet(env, "videography_edit_requests",
       `booking_id=eq.${encodeURIComponent(bk.id)}&select=id`);
     if (reqs && reqs.length) {
-      amendsLine = `<p style="${EM_P}">The changes you asked for have been made and are in your gallery.</p>`;
+      amendsLine = `<p style="${EM_P}">The changes you asked for have now been made and you&rsquo;ll find the updated content in your gallery.</p>`;
     }
   } catch (_) { /* the rest of the email is still worth sending */ }
 
@@ -6803,7 +6803,8 @@ async function sendEditsCompleteEmail(env, bookingId) {
     }
   }
   const accountLine = hasAccount ? "" : `
-    <p style="${EM_P}">One more thing — you don't have a TMKE account yet. It is where your galleries, invoices and every booking you have with us live, and it takes a minute to set up with this email address.</p>
+    <p style="${EM_P}">One more thing. You don&rsquo;t have a TMKE Member Account yet. It&rsquo;s the easiest way to keep track of your bookings, galleries and invoices all in one place, and it only takes a minute to set up using this email address.</p>
+    <p style="${EM_P}">You&rsquo;ll also get access to our exclusive Design Studio, plus marketing insights, resources and training created specifically for the property industry.</p>
     <p style="${EM_P}"><a href="${siteUrl}/join?email=${encodeURIComponent(bk.client_email || "")}" style="${EM_BTN}">Create Your Account</a></p>`;
 
   const galleryLine = bk.gallery_url
@@ -6820,17 +6821,18 @@ async function sendEditsCompleteEmail(env, bookingId) {
     + `&name=${encodeURIComponent(bk.client_name || "")}`;
 
   const html = `<div style="${EM_WRAP}">
-    <h1 style="${EM_H1}">All done, ${esc(firstName)}</h1>
-    <p style="${EM_P}">Your ${esc((bk.service || "shoot").toLowerCase())} is fully wrapped up — everything's complete from our end.</p>
+    <h1 style="${EM_H1}">That&rsquo;s a wrap, ${esc(firstName)}</h1>
+    <p style="${EM_P}">Your videography booking is now complete and everything is finished from our end.</p>
     ${factsHtml}
     ${amendsLine}
     ${galleryLine}
-    ${hasAccount ? `<p style="${EM_P}">Everything for this booking lives in your account, whenever you need it.</p>
+    ${hasAccount ? `<p style="${EM_P}">You can find all the details for this booking, along with your other TMKE bookings, under <strong>Previously</strong> in your account.</p>
     <p style="${EM_P}"><a href="${siteUrl}/account/bookings" style="${EM_BTN}">View Your Booking</a></p>` : ""}
-    <p style="${EM_P}">If you have a spare minute, we'd really appreciate a review — it makes a big difference to us.</p>
+    <p style="${EM_P}">Now that everything&rsquo;s complete, if you have a spare minute, we&rsquo;d really appreciate a review. It makes a big difference to us.</p>
     <p style="${EM_P}"><a href="${reviewUrl}" style="${EM_BTN}">Leave a Review</a></p>
     ${accountLine}
-    <p style="${EM_P}">Thanks again for working with us.</p>
+    <p style="${EM_P}">Thanks again for working with us. We hope you love the finished content, and hopefully we&rsquo;ll see you again soon!</p>
+    <p style="${EM_P}">The TMKE Team</p>
   </div>`;
 
   const sent = await sendEmail(env, {
