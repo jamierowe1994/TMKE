@@ -873,12 +873,18 @@ const googleFonts = [
 
     <!-- =================== CANVAS STAGE =================== -->
     <main class="ed-stage" id="ed-stage" data-lenis-prevent>
+      <!-- The sizer holds the canvas's SCALED footprint. A transform scales
+           what you see but not the box the layout reserves, so at any zoom
+           above "fit" the stage had no idea the canvas had grown - which is
+           why it could not be scrolled to its own top or bottom. -->
+      <div class="ed-canvas-sizer" id="ed-canvas-sizer">
       <div class="ed-canvas-shadow" id="ed-canvas-shadow">
         <div class="ed-canvas" id="ed-canvas">
           <!-- elements rendered here -->
         </div>
         <div class="ed-guides" id="ed-guides"></div>
         <div class="ed-handles" id="ed-handles"></div>
+      </div>
       </div>
     </main>
 
@@ -1891,7 +1897,12 @@ const googleFonts = [
        desk without needing to know which it is sitting on. */
     /* Fixed swatch rows in the Selection panel — a small set of choices reads
        faster than a spectrum when the answer is "something I can see". */
-    .ed-sc-swatches { display: flex; flex-wrap: wrap; gap: 7px; }
+    /* Room above for the label and below for whatever follows, and enough
+       padding that the selected swatch's ring is not clipped by the row. */
+    .ed-sc-swatches {
+      display: flex; flex-wrap: wrap; gap: 9px;
+      margin: 8px 0 16px; padding: 3px;
+    }
     .ed-sc-sw {
       width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
       border: 1px solid rgba(28,29,34,0.22); padding: 0;
@@ -1908,6 +1919,32 @@ const googleFonts = [
         linear-gradient(45deg, transparent 44%, #c8484c 44%, #c8484c 56%, transparent 56%),
         repeating-conic-gradient(#e9e6e2 0% 25%, #fff 0% 50%) 0 0/10px 10px;
     }
+
+    /* Guide off: while the colour panel is open, or when the Hide guide box is
+       ticked. The artwork and the photo stay exactly as they are - it is only
+       the positioning aids that go, so what you see (and sample) is what will
+       be exported. */
+    html.ed-picking .ed-element[data-type="screen"],
+    html.ed-guide-off .ed-element[data-type="screen"] {
+      background: var(--sc-bg, transparent) !important;
+      outline: none !important;
+      box-shadow: none !important;
+    }
+    html.ed-picking .ed-screen-outline,
+    html.ed-picking .ed-screen-pin,
+    html.ed-picking .ed-screen-rot,
+    html.ed-guide-off .ed-screen-outline,
+    html.ed-guide-off .ed-screen-pin,
+    html.ed-guide-off .ed-screen-rot { display: none; }
+    html.ed-picking .ed-element[data-type="screen"] .sc-placeholder,
+    html.ed-guide-off .ed-element[data-type="screen"] .sc-placeholder { opacity: 0.25; }
+
+    .ed-sc-hide {
+      display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px;
+      font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.7);
+      cursor: pointer;
+    }
+    .ed-sc-hide input { margin-top: 2px; flex: none; }
 
     /* Spin handle for the artwork, above the quad's top edge. */
     .ed-screen-rot {
@@ -2657,9 +2694,24 @@ const googleFonts = [
       /* Transparent so the editor's purple wash shows through behind the
          white canvas. */
       background: transparent;
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
       padding: 40px;
     }
+    /* Centred with auto margins rather than align/justify-content.
+
+       They look equivalent until the canvas is bigger than the stage: a
+       flex item centred with align-items overflows equally in both
+       directions, and the half above the container sits at a negative scroll
+       offset the browser cannot reach. That is why a zoomed-in design would
+       scroll down but never up, and never quite reach the bottom either.
+       Auto margins collapse to zero once there is no spare room, so the
+       overflow all falls below and every part of it is reachable. */
+    /* Centred with auto margins on the sizer, not align-items on the stage:
+       a centred flex item that overflows does so equally in both directions,
+       and the half above the container sits at a scroll offset the browser
+       cannot reach. Auto margins collapse to zero once the space is gone, so
+       all of the overflow falls below, where it can be scrolled to. */
+    .ed-canvas-sizer { margin: auto; flex: none; }
 
     /* ---- Colour panel (left, over the panel column) ---- */
     .ed-colorpanel {
@@ -2935,7 +2987,10 @@ const googleFonts = [
     .ed-canvas-shadow {
       position: relative;
       box-shadow: 0 30px 90px -30px rgba(28,29,34,0.35), 0 4px 12px -6px rgba(28,29,34,0.18);
-      transform-origin: center center;
+      /* Scales from its top-left, which is where the sizer has reserved its
+         space. Scaling from the centre threw the top half of a zoomed canvas
+         above the sizer, where nothing could scroll to it. */
+      transform-origin: 0 0;
     }
     .ed-canvas {
       position: relative;
@@ -3165,6 +3220,10 @@ const googleFonts = [
     }
     .ed-props-empty p { margin: 12px 0 4px; font-size: 13px; }
     .ed-props-hint { font-size: 11px; color: rgba(28,29,34,0.35); }
+    /* A hint sitting under a label needs to wrap onto its own line rather than
+       run into it - "shown while you position it, never exported" was being
+       clipped against the swatches below. */
+    .ed-props-field > label > .ed-props-hint { display: block; margin-top: 3px; line-height: 1.4; }
     .ed-props-hint kbd {
       font-family: var(--sans);
       background: rgba(28,29,34,0.08);

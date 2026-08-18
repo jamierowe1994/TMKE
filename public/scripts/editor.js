@@ -822,11 +822,15 @@
   function closeColorPanel() {
     const panel = document.getElementById("ed-colorpanel");
     if (panel) { panel.hidden = true; panel._onSolid = null; panel._onGradient = null; }
+    document.documentElement.classList.remove("ed-picking");
   }
 
   function openColorPanel(opts) {
     const panel = document.getElementById("ed-colorpanel");
     if (!panel) return;
+    // Picking a colour usually means picking it off the design. Take the guide
+    // down for the duration so what you sample is what is actually there.
+    document.documentElement.classList.add("ed-picking");
     // Close any open icon-popover so only one control panel shows at a time.
     if (_activePopoverClose) _activePopoverClose();
     panel._onSolid = opts.onSolid || null;
@@ -2899,6 +2903,9 @@
        on top of each other at the corners would be a coin toss as to which one
        you grabbed. */
     if (el.type === "screen") {
+      // Nothing drawn over the artwork while the guide is off - including the
+      // handles, which are the brightest thing on it.
+      if (screenGuideHidden) return;
       const pts = screenPoints(el);
       const outline = document.createElement("div");
       outline.className = "ed-screen-outline";
@@ -4210,6 +4217,13 @@
   // Which screen, if any, is in artwork mode: double-clicked, so dragging pans
   // the picture inside it instead of moving the element.
   let artworkEditId = null;
+  /* The guide sits over the photo, which is the point of it - until you are
+     trying to read the photo. Sampling a colour off the device screen you are
+     lining up against gave you the guide's tint instead, and an eyedropper
+     that reads actual screen pixels cannot be reasoned with: whatever is
+     showing is what it takes. So the guide comes off on demand. Editor state,
+     not design data - it describes how you are working, not what you made. */
+  let screenGuideHidden = false;
   function setArtworkEdit(id) {
     if (artworkEditId === id) return;
     artworkEditId = id;
@@ -4583,6 +4597,14 @@
   function setZoom(z) {
     state.zoom = clamp(z, 0.1, 4);
     shadowEl.style.transform = "scale(" + state.zoom + ")";
+    // The sizer reserves the space the scaled canvas actually occupies. Without
+    // it the stage sizes itself to the canvas's unscaled box and the rest of a
+    // zoomed-in design sits outside anything you can scroll to.
+    const sizer = document.getElementById("ed-canvas-sizer");
+    if (sizer) {
+      sizer.style.width = Math.round(state.canvas.width * state.zoom) + "px";
+      sizer.style.height = Math.round(state.canvas.height * state.zoom) + "px";
+    }
     zoomDisplayEl.textContent = Math.round(state.zoom * 100) + "%";
   }
   function fitZoom() {
@@ -5577,6 +5599,8 @@
                          ' style="background:' + c.hex + '" title="' + c.name + '"></button>';
                 }).join("") +
               '</div></div>' +
+            '<label class="ed-sc-hide"><input type="checkbox" id="ed-sc-hide"' + (screenGuideHidden ? " checked" : "") + '>' +
+              '<span>Hide the guide <span class="ed-props-hint">so you can see — and sample — the photo underneath</span></span></label>' +
             '<button class="ed-btn-ghost" id="ed-sc-reset" style="background:rgba(28,29,34,0.06);width:100%">Reset corners</button>' +
           '</div>');
       if (el.src) {
@@ -5863,6 +5887,12 @@
         // Changing how it sits invalidates a zoom chosen against the old fit.
         el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
         pushHistory(); fullRender();
+      });
+      const hideBox = body.querySelector("#ed-sc-hide");
+      if (hideBox) hideBox.addEventListener("change", () => {
+        screenGuideHidden = hideBox.checked;
+        document.documentElement.classList.toggle("ed-guide-off", screenGuideHidden);
+        fullRender();
       });
       body.querySelectorAll("[data-guide]").forEach((b) => b.addEventListener("click", () => {
         el.guide = b.getAttribute("data-guide");
