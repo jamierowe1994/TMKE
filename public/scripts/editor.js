@@ -845,18 +845,30 @@
     const sec = (title, inner) => '<div class="ed-cp-sec"><h5>' + title + '</h5>' + inner + '</div>';
     const grid = (cells, mod) => '<div class="ed-cp-grid' + (mod || "") + '">' + (Array.isArray(cells) ? cells.join("") : cells) + '</div>';
 
-    // Customer Studio keeps the colour picker to the essentials (per the brief):
-    // a custom hex, brand colours, and gradients. Admin keeps every colour source.
+    /* Colours you already have come before colours you have to invent.
+
+       The customer panel used to open on an empty hex box, with brand colours
+       under it and everything else hidden - so the two sets that are nearly
+       always the right answer (the brand's own, and the ones already in this
+       design) were either buried or missing. They lead now, then a small
+       default set, and the picker sits after them as the way to add something
+       new rather than the first thing you meet.
+
+       Hex throughout: it is what a brand guideline is written in and what gets
+       pasted between tools. */
     var _cpFull = location.search.indexOf("mode=admin") !== -1;
     panel.innerHTML =
       '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
       '<div class="ed-cp-scroll">' +
-        '<input class="ed-cp-hex" placeholder="Type a colour or #hex" value="' + (current || "") + '">' +
-        (_cpFull && recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
-        (_cpFull ? sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') : "") +
         sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
+        sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
+        (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
         (_cpFull ? sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') : "") +
-        (_cpFull ? sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) : "") +
+        sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
+        sec("Add a colour",
+          '<input class="ed-cp-hex" placeholder="#hex" value="' + (current || "") + '">' +
+          '<div class="ed-cp-native"><input type="color" class="ed-cp-native-input" value="' + (current || "#000000") + '">' +
+          '<span>Pick from the spectrum</span></div>') +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
         (panel._onGradient ? sec("Custom gradient", cpGradEditorHtml(panel._gradDraft)) : "") +
       '</div>';
@@ -983,6 +995,22 @@
       if (!inp) return;
       const h = normHex(inp.value);
       if (h && panel._onSolid) { pushRecentColor(h); panel._onSolid(h); }
+    });
+
+    /* The spectrum picker, sitting under "Add a colour". It reports live while
+       you drag, and the hex box beside it keeps up - so the hex is always
+       readable, whichever way the colour was chosen. */
+    panel.addEventListener("input", (e) => {
+      const nat = e.target.closest(".ed-cp-native-input");
+      if (!nat) return;
+      const h = normHex(nat.value);
+      if (!h) return;
+      const hex = panel.querySelector(".ed-cp-hex");
+      if (hex) hex.value = h;
+      if (panel._onSolid) panel._onSolid(h);
+    });
+    panel.addEventListener("change", (e) => {
+      if (e.target.closest(".ed-cp-native-input")) pushRecentColor(normHex(e.target.value));
     });
   })();
 
@@ -2551,6 +2579,7 @@
     }
     if (el.type === "screen") {
       node.style.setProperty("--sc-guide", el.guide || "#00c2a8");
+      node.style.setProperty("--sc-bg", el.bgFill || "transparent");
       // Clipped to the quad, so a warped image never leaks outside the shape
       // it is supposed to be sitting in.
       const pct = screenCorners(el).map((c) => (c.x * 100).toFixed(3) + "% " + (c.y * 100).toFixed(3) + "%");
@@ -2898,10 +2927,10 @@
         rh.className = "ed-screen-rot";
         rh.title = "Drag to spin the artwork (hold Shift for 15° steps)";
         rh.style.setProperty("--sc-guide", el.guide || "#00c2a8");
-        rh.style.left = (top.x + (vx / len) * 26 - 11) + "px";
-        rh.style.top = (top.y + (vy / len) * 26 - 11) + "px";
+        rh.style.left = (top.x + (vx / len) * 32 - 15) + "px";
+        rh.style.top = (top.y + (vy / len) * 32 - 15) + "px";
         rh.innerHTML =
-          '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" ' +
+          '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" ' +
           'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
           '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>';
         handlesEl.appendChild(rh);
@@ -4172,6 +4201,12 @@
      alignment and group resize read the same bounding box as every other
      element, and the quad follows all of it without a line of extra code. */
   const SCREEN_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];   // TL TR BR BL
+  // Enough contrast between them to find one that shows up on any photograph.
+  const SCREEN_GUIDE_COLOURS = [
+    { name: "Black", hex: "#111111" }, { name: "White", hex: "#ffffff" },
+    { name: "Beige", hex: "#e8dcc8" }, { name: "Green", hex: "#00c2a8" },
+    { name: "Blue", hex: "#2f6bf0" },  { name: "Pink", hex: "#c200b2" },
+  ];
   // Which screen, if any, is in artwork mode: double-clicked, so dragging pans
   // the picture inside it instead of moving the element.
   let artworkEditId = null;
@@ -5271,6 +5306,20 @@
   }
 
   async function drawScreenToCanvas(ctx, el) {
+    // The fill goes down first, whether or not there is artwork on top of it -
+    // it is the surface itself, and on a Fit-ed design it is most of what you
+    // see at the edges.
+    if (el.bgFill) {
+      const q0 = screenCorners(el).map((c) => ({ x: c.x * el.w, y: c.y * el.h }));
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(q0[0].x, q0[0].y);
+      for (let k = 1; k < 4; k++) ctx.lineTo(q0[k].x, q0[k].y);
+      ctx.closePath();
+      ctx.fillStyle = el.bgFill;
+      ctx.fill();
+      ctx.restore();
+    }
     if (!el.src) return;
     let img;
     try { img = await loadImage(el.src); } catch (_) { return; }
@@ -5515,12 +5564,21 @@
     if (el.type === "screen") {
       const zoom = Math.round((el.imgScale != null ? el.imgScale : 1) * 100);
       const rot = Math.round(el.imgRotation || 0);
+      // Six, not a picker. The guide only has to stand out from the photo
+      // underneath it, and picking a colour from a spectrum to solve "I can't
+      // see it against black" is more work than the problem deserves.
       html.push(
-        '<div class="ed-props-section"><h4>Guide</h4>' +
-          '<div class="ed-props-field"><label>Colour <span class="ed-props-hint">shown while you position it, never exported</span></label>' +
-            '<input type="color" data-prop="guide" value="' + rgbHex(el.guide || "#00c2a8") + '"></div>' +
-          '<button class="ed-btn-ghost" id="ed-sc-reset" style="background:rgba(28,29,34,0.06);width:100%">Reset corners</button>' +
-        '</div>');
+          '<div class="ed-props-section"><h4>Guide</h4>' +
+            '<div class="ed-props-field"><label>Colour <span class="ed-props-hint">shown while you position it, never exported</span></label>' +
+              '<div class="ed-sc-swatches">' +
+                SCREEN_GUIDE_COLOURS.map(function (c) {
+                  const on = (el.guide || "#00c2a8").toLowerCase() === c.hex.toLowerCase();
+                  return '<button type="button" class="ed-sc-sw' + (on ? " is-on" : "") + '" data-guide="' + c.hex + '"' +
+                         ' style="background:' + c.hex + '" title="' + c.name + '"></button>';
+                }).join("") +
+              '</div></div>' +
+            '<button class="ed-btn-ghost" id="ed-sc-reset" style="background:rgba(28,29,34,0.06);width:100%">Reset corners</button>' +
+          '</div>');
       if (el.src) {
         html.push(
           '<div class="ed-props-section"><h4>Artwork</h4>' +
@@ -5545,6 +5603,27 @@
             '</div>' +
             '<p class="ed-props-hint">Double-click the screen to move the artwork by dragging it, and use the round handle above it to spin it. Escape when you are done.</p>' +
             '<button class="ed-btn-ghost" id="ed-sc-recentre" style="background:rgba(28,29,34,0.06);width:100%">Recentre artwork</button>' +
+          '</div>');
+        /* What shows where the artwork does not reach. A design almost never
+           shares a screen's proportions, so Fit leaves a margin - and a real
+           device fills that margin with its own screen rather than letting the
+           desk show through. Off by default, because on a poster or a board
+           the surface showing IS the right answer. */
+        const bg = el.bgFill || null;
+        const bgSw = (hex, name) =>
+          '<button type="button" class="ed-sc-sw' + (bg && bg.toLowerCase() === hex.toLowerCase() ? " is-on" : "") + '"' +
+          ' data-scbg="' + hex + '" style="background:' + hex + '" title="' + name + '"></button>';
+        const brandHexes = (BRAND && Array.isArray(BRAND.colors))
+          ? BRAND.colors.map((c) => normHex(c.hex)).filter(Boolean).slice(0, 5) : [];
+        html.push(
+          '<div class="ed-props-section"><h4>Behind the artwork</h4>' +
+            '<div class="ed-sc-swatches">' +
+              '<button type="button" class="ed-sc-sw ed-sc-sw--none' + (!bg ? " is-on" : "") + '" data-scbg="none" title="Let the photo show through"></button>' +
+              bgSw("#000000", "Black") + bgSw("#ffffff", "White") +
+              brandHexes.map((h) => bgSw(h, h)).join("") +
+            '</div>' +
+            '<div class="ed-props-field" style="margin-top:8px"><label>Or pick one</label>' +
+              '<input type="color" id="ed-sc-bg-pick" value="' + rgbHex(bg || "#000000") + '"></div>' +
           '</div>');
       }
     }
@@ -5785,11 +5864,22 @@
         el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
         pushHistory(); fullRender();
       });
-      const guideInput = body.querySelector('[data-prop="guide"]');
-      if (guideInput) guideInput.addEventListener("input", () => {
-        el.guide = guideInput.value;
-        fullRender();
+      body.querySelectorAll("[data-guide]").forEach((b) => b.addEventListener("click", () => {
+        el.guide = b.getAttribute("data-guide");
+        pushHistory(); fullRender(); renderProps();
+      }));
+      body.querySelectorAll("[data-scbg]").forEach((b) => b.addEventListener("click", () => {
+        const v = b.getAttribute("data-scbg");
+        el.bgFill = v === "none" ? null : v;
+        pushHistory(); fullRender(); renderProps();
+      }));
+      const bgPick = body.querySelector("#ed-sc-bg-pick");
+      if (bgPick) bgPick.addEventListener("input", () => {
+        el.bgFill = bgPick.value;
+        const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+        if (node) node.style.setProperty("--sc-bg", el.bgFill);
       });
+      if (bgPick) bgPick.addEventListener("change", () => { pushHistory(); fullRender(); renderProps(); });
       body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
       body.querySelector("#ed-sc-recentre")?.addEventListener("click", () => {
         el.imgRotation = 0; el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
