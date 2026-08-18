@@ -244,44 +244,83 @@ const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, 
       const host = document.getElementById("lrv-grid-bg");
       if (!host || !GRID_IMAGES.length) return;
 
-      /* Swap in the real photos as soon as the bucket answers. The grid starts
-         on the fallback rather than waiting, so the page is never blank, and
-         the library grows underneath it - which is exactly what the no-repeat
-         rule needs, since twelve cells cannot be filled uniquely from nine. */
-      let LIBRARY = GRID_IMAGES.slice();
-      if (WORKER_URL) {
-        fetch(WORKER_URL + "/assets/review-grid")
-          .then((r) => (r.ok ? r.json() : null))
-          .then((d) => {
-            if (d && Array.isArray(d.images) && d.images.length >= 4) {
-              LIBRARY = d.images;
-              // Warm the cache so the first dissolves are not waiting on a download.
-              d.images.slice(0, 16).forEach((src) => { const i = new Image(); i.src = src; });
-            }
-          })
-          .catch(() => { /* the fallback is already on screen */ });
-      }
+      /* Ask the bucket FIRST, then build the grid from what comes back.
 
+         It used to paint the fallback immediately and let the real photos
+         replace them one at a time as the grid drifted — so a refresh opened
+         on the old placeholders and they lingered, several of them still
+         there a minute later. The folder is the source; the packaged nine are
+         only what happens if it cannot be reached.
+
+         The wait is bounded, because a hanging request must not leave the hero
+         empty, and it is hidden anyway: the headline plays over this grid for
+         the first three and a half seconds. */
       const CELL_COUNT = 12;
+      let LIBRARY = GRID_IMAGES.slice();
       const cells = [];
-      for (let i = 0; i < CELL_COUNT; i++) {
-        const cell = document.createElement("div");
-        cell.className = "lrv-grid-cell";
-        const img = GRID_IMAGES[i % GRID_IMAGES.length];
-        // Two layers: the one you can see, and the one the next photo arrives on.
-        const a = document.createElement("span");
-        const b = document.createElement("span");
-        a.style.backgroundImage = `url('${img}')`;
-        a.style.opacity = "1";
-        b.style.opacity = "0";
-        cell.append(a, b);
-        cell._layers = [a, b];
-        cell._top = 0;
-        cell.dataset.img = img;
-        host.appendChild(cell);
-        cells.push(cell);
+
+      function fetchLibrary() {
+        if (!WORKER_URL) return Promise.resolve(null);
+        const live = fetch(WORKER_URL + "/assets/review-grid")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => (d && Array.isArray(d.images) && d.images.length >= 4 ? d.images : null))
+          .catch(() => null);
+        const capped = new Promise((res) => setTimeout(() => res(undefined), 2500));
+        // undefined = still waiting (keep listening); null = asked and got nothing.
+        return Promise.race([live, capped]).then((r) => (r === undefined ? live.then((x) => { if (x) repaint(x); return null; }) : r));
       }
 
+      function paint(cell, src) {
+        const top = cell._layers[cell._top];
+        top.style.backgroundImage = `url('${src}')`;
+        cell._layers[1 - cell._top].style.opacity = "0";
+        top.style.opacity = "1";
+        cell.dataset.img = src;
+      }
+
+      // Fill every cell from the library, no image twice while there are enough.
+      function repaint(list) {
+        if (!list || !list.length) return;
+        LIBRARY = list;
+        const pool = list.slice();
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        cells.forEach((cell, i) => paint(cell, pool[i % pool.length]));
+        list.slice(0, 16).forEach((src) => { const im = new Image(); im.src = src; });
+      }
+
+      function build(list) {
+        LIBRARY = (list && list.length) ? list : GRID_IMAGES;
+        const pool = LIBRARY.slice();
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        for (let i = 0; i < CELL_COUNT; i++) {
+          const cell = document.createElement("div");
+          cell.className = "lrv-grid-cell";
+          const img = pool[i % pool.length];
+          // Two layers: the one you can see, and the one the next photo arrives on.
+          const a = document.createElement("span");
+          const b = document.createElement("span");
+          a.style.backgroundImage = `url('${img}')`;
+          a.style.opacity = "1";
+          b.style.opacity = "0";
+          cell.append(a, b);
+          cell._layers = [a, b];
+          cell._top = 0;
+          cell.dataset.img = img;
+          host.appendChild(cell);
+          cells.push(cell);
+        }
+        start();
+      }
+
+      fetchLibrary().then(build);
+
+      function start() {
       if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
       /* A swap used to pick any image that was not the one already in THAT cell,
@@ -337,6 +376,7 @@ const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, 
       // a gap after it, so at most one cell is moving at any moment.
       const interval = setInterval(flashOnce, 2600);
       setTimeout(() => clearInterval(interval), 45000); // then it settles on whatever is showing
+      }
     })();
   </script>
 
