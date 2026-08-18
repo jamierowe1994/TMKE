@@ -12,6 +12,13 @@
   // the instance is exposed on window.__lenis so other scripts (e.g. the
   // Parade cinematic scroll-scrub) can hook into lenis.on('scroll', fn).
   const initLenis = () => {
+    /* Not on application pages. Lenis takes over the wheel to animate the
+       document's own scroll, which is right for a page you read and wrong for
+       one you work in: in the Studio it cancelled every wheel event before the
+       canvas viewport could scroll, so a zoomed-in design could not be moved up
+       or down at all. A page opts out with data-no-smooth-scroll on <html>. */
+    if (document.documentElement.hasAttribute("data-no-smooth-scroll")) return;
+
     const lenis = new Lenis({
       duration: 1.6,
       easing: easeOutExpo,

@@ -128,6 +128,11 @@ const googleFonts = [
        authoring mode (?mode=admin) keeps its existing look untouched. Set before
        paint so there's no flash. */
     if (!location.search.includes('mode=admin')) document.documentElement.classList.add('editor-light');
+    /* The Studio is an application, not a page you scroll. Site-wide smooth
+       scrolling hijacks the wheel to animate the document, which left the
+       canvas viewport unable to scroll at all once a design was zoomed past
+       the window. Set before Lenis initialises so it never starts. */
+    document.documentElement.setAttribute('data-no-smooth-scroll', '');
   </script>
 
   <!-- ============ Your designs ============
@@ -867,7 +872,7 @@ const googleFonts = [
     </div>
 
     <!-- =================== CANVAS STAGE =================== -->
-    <main class="ed-stage" id="ed-stage">
+    <main class="ed-stage" id="ed-stage" data-lenis-prevent>
       <div class="ed-canvas-shadow" id="ed-canvas-shadow">
         <div class="ed-canvas" id="ed-canvas">
           <!-- elements rendered here -->
@@ -2616,6 +2621,8 @@ const googleFonts = [
     }
 
     /* ===== Canvas stage ===== */
+    /* data-lenis-prevent is set on this element in the markup - see the stage
+       div - so any smooth-scroll library leaves its wheel events alone. */
     .ed-stage {
       grid-area: stage;
       position: relative;
