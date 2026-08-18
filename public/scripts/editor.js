@@ -2469,6 +2469,13 @@
         e.stopPropagation();
         fillScreen(el, src);
       });
+      if (el.src) {
+        if (artworkEditId === el.id) node.classList.add("is-artwork-edit");
+        node.addEventListener("dblclick", function (ev) {
+          ev.stopPropagation();
+          setArtworkEdit(artworkEditId === el.id ? null : el.id);
+        });
+      }
     } else if (el.type === "rect") {
       // styling on node directly
     } else if (el.type === "ellipse") {
@@ -2874,6 +2881,33 @@
       outline.style.clipPath = "polygon(" + screenCorners(el).map((c) =>
         (c.x * 100).toFixed(3) + "% " + (c.y * 100).toFixed(3) + "%").join(",") + ")";
       handlesEl.appendChild(outline);
+      /* Spin the artwork by hand. Typing an angle means guessing it, then
+         correcting the guess - and a screen is being matched to a photograph,
+         where the right angle is the one that looks right rather than one you
+         could have named in advance. The number box is still there for when
+         you do know it. */
+      if (el.src) {
+        const centre = { x: (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4,
+                         y: (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4 };
+        const top = { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+        // Sat off the top edge, along the line out from the centre, so it stays
+        // clear of the corner pins however the quad is angled.
+        const vx = top.x - centre.x, vy = top.y - centre.y;
+        const len = Math.hypot(vx, vy) || 1;
+        const rh = document.createElement("div");
+        rh.className = "ed-screen-rot";
+        rh.title = "Drag to spin the artwork (hold Shift for 15° steps)";
+        rh.style.setProperty("--sc-guide", el.guide || "#00c2a8");
+        rh.style.left = (top.x + (vx / len) * 26 - 11) + "px";
+        rh.style.top = (top.y + (vy / len) * 26 - 11) + "px";
+        rh.innerHTML =
+          '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" ' +
+          'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg>';
+        handlesEl.appendChild(rh);
+        rh.addEventListener("pointerdown", (ev) => startArtworkRotate(ev, el, centre));
+      }
+
       pts.forEach((pt, i) => {
         const pin = document.createElement("div");
         pin.className = "ed-screen-pin";
@@ -3135,7 +3169,13 @@
         fullRender();
         return;
       }
-      if (!el.locked) startDrag(ev);
+      // Inside a screen's artwork mode, dragging moves the picture rather than
+      // the element. Entered by double-clicking the screen, so the ordinary
+      // drag - moving the whole thing - stays the default.
+      if (!el.locked) {
+        if (el.type === "screen" && el.src && artworkEditId === el.id) startArtworkPan(ev, el);
+        else startDrag(ev);
+      }
     });
 
     if (el.type === "text") {
@@ -3229,6 +3269,66 @@
     }
     return true;
   }
+
+  /* Spin the artwork inside the quad. The angle is read from the pointer's
+     bearing around the quad's centre, so the artwork follows the cursor rather
+     than tracking some accumulated delta. */
+  function startArtworkRotate(ev, el, centre) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const rect = canvasEl.getBoundingClientRect();
+    const cx = rect.left + centre.x * state.zoom;
+    const cy = rect.top + centre.y * state.zoom;
+    const base = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI;
+    const start = el.imgRotation || 0;
+    function onMove(e) {
+      const a = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+      let r = start + (a - base);
+      if (e.shiftKey) r = Math.round(r / 15) * 15;
+      // Kept in -180..180 so the number box never shows 540 degrees.
+      r = ((Math.round(r) + 180) % 360 + 360) % 360 - 180;
+      el.imgRotation = r;
+      const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+      if (node) applyScreenTransform(node, el);
+      renderHandles();
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      pushHistory();
+      renderProps();
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  /* Drag the artwork around inside the quad. Zooming in used to leave you
+     looking at the middle of the picture with no way to reach the rest of it
+     except two number boxes. */
+  function startArtworkPan(ev, el) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const startX = ev.clientX, startY = ev.clientY;
+    const ox = el.imgOffsetX || 0, oy = el.imgOffsetY || 0;
+    const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    function onMove(e) {
+      el.imgOffsetX = Math.round(ox + (e.clientX - startX) / state.zoom);
+      el.imgOffsetY = Math.round(oy + (e.clientY - startY) / state.zoom);
+      if (node) applyScreenTransform(node, el);
+    }
+    function onUp() {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      pushHistory();
+      renderProps();
+    }
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && artworkEditId) setArtworkEdit(null);
+  });
 
   function startCornerDrag(ev, el, index) {
     ev.preventDefault();
@@ -4072,6 +4172,14 @@
      alignment and group resize read the same bounding box as every other
      element, and the quad follows all of it without a line of extra code. */
   const SCREEN_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]];   // TL TR BR BL
+  // Which screen, if any, is in artwork mode: double-clicked, so dragging pans
+  // the picture inside it instead of moving the element.
+  let artworkEditId = null;
+  function setArtworkEdit(id) {
+    if (artworkEditId === id) return;
+    artworkEditId = id;
+    fullRender();
+  }
 
   function screenCorners(el) {
     const c = Array.isArray(el.corners) && el.corners.length === 4 ? el.corners : null;
@@ -4142,12 +4250,22 @@
      the artwork sits inside that space with a plain affine transform of its
      own. Composing them this way means panning does not have to be re-derived
      through the homography every time it moves. */
+  /* Fill crops the artwork to the surface; Fit shows all of it and leaves the
+     surface showing at the edges.
+
+     Fill alone is wrong more often than it looks: a 4:5 post going onto a
+     landscape screen gets cropped to a band across its middle, and the only way
+     back was to zoom out - which shrank it away from the edges and left gaps
+     anyway. Fit is the honest answer to "show me my whole design". */
   function screenImageFit(el) {
     const nw = el.imgNaturalW, nh = el.imgNaturalH;
     if (!nw || !nh) return { baseW: el.w, baseH: el.h };
     const ar = nw / nh, planeAr = el.w / el.h;
-    if (ar > planeAr) { const h = el.h; return { baseW: h * ar, baseH: h }; }
-    const w = el.w; return { baseW: w, baseH: w / ar };
+    const contain = el.imgFit === "contain";
+    // Fill matches the longer side, Fit matches the shorter one. Same two
+    // cases, opposite choice.
+    if (contain ? ar > planeAr : ar < planeAr) { const w = el.w; return { baseW: w, baseH: w / ar }; }
+    const h = el.h; return { baseW: h * ar, baseH: h };
   }
   // The artwork's affine transform, in plane coordinates.
   function screenImageAffine(el) {
@@ -4220,7 +4338,7 @@
       // so it is a colour you can change rather than one we picked for you.
       guide: "#00c2a8",
       src: null, imgNaturalW: 0, imgNaturalH: 0,
-      imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgRotation: 0,
+      imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgRotation: 0, imgFit: "cover",
     });
   }
 
@@ -5394,6 +5512,43 @@
       html.push(cornerRadiusSectionHtml());
     }
 
+    if (el.type === "screen") {
+      const zoom = Math.round((el.imgScale != null ? el.imgScale : 1) * 100);
+      const rot = Math.round(el.imgRotation || 0);
+      html.push(
+        '<div class="ed-props-section"><h4>Guide</h4>' +
+          '<div class="ed-props-field"><label>Colour <span class="ed-props-hint">shown while you position it, never exported</span></label>' +
+            '<input type="color" data-prop="guide" value="' + rgbHex(el.guide || "#00c2a8") + '"></div>' +
+          '<button class="ed-btn-ghost" id="ed-sc-reset" style="background:rgba(28,29,34,0.06);width:100%">Reset corners</button>' +
+        '</div>');
+      if (el.src) {
+        html.push(
+          '<div class="ed-props-section"><h4>Artwork</h4>' +
+            '<div class="ed-props-field"><label>How it sits</label>' +
+              '<select data-prop="imgFit">' +
+                '<option value="cover"' + (el.imgFit !== "contain" ? " selected" : "") + '>Fill the surface (crops)</option>' +
+                '<option value="contain"' + (el.imgFit === "contain" ? " selected" : "") + '>Fit it all in (shows everything)</option>' +
+              '</select></div>' +
+            '<div class="ed-props-field"><label>Angle</label>' +
+              '<div class="ed-props-row">' +
+                '<input type="range" min="-180" max="180" step="1" value="' + rot + '" data-sc-rot>' +
+                '<input type="number" min="-180" max="180" step="1" value="' + rot + '" data-sc-rot-num style="width:64px">' +
+              '</div></div>' +
+            '<div class="ed-props-field"><label>Zoom</label>' +
+              '<div class="ed-props-row">' +
+                '<input type="range" min="20" max="400" step="1" value="' + zoom + '" data-sc-zoom>' +
+                '<input type="number" min="20" max="400" step="1" value="' + zoom + '" data-sc-zoom-num style="width:64px">' +
+              '</div></div>' +
+            '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+              '<div class="ed-props-field"><label>Across</label><input type="number" step="1" value="' + Math.round(el.imgOffsetX || 0) + '" data-sc-x></div>' +
+              '<div class="ed-props-field"><label>Down</label><input type="number" step="1" value="' + Math.round(el.imgOffsetY || 0) + '" data-sc-y></div>' +
+            '</div>' +
+            '<p class="ed-props-hint">Double-click the screen to move the artwork by dragging it, and use the round handle above it to spin it. Escape when you are done.</p>' +
+            '<button class="ed-btn-ghost" id="ed-sc-recentre" style="background:rgba(28,29,34,0.06);width:100%">Recentre artwork</button>' +
+          '</div>');
+      }
+    }
+
     if (el.type === "frame") {
       // Shape picker — lets the user swap silhouette on the same frame
       // without re-creating it (and without losing the contained photo).
@@ -5592,6 +5747,55 @@
         else if (a === "delete") deleteSelected();
       });
     });
+
+    // ---- Screen controls -------------------------------------------------
+    if (el.type === "screen") {
+      const live = () => {
+        const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+        if (node) applyScreenTransform(node, el);
+      };
+      // A slider and a number box for the same value, each following the other.
+      const pair = (rangeSel, numSel, set, read) => {
+        const r = body.querySelector(rangeSel), n = numSel ? body.querySelector(numSel) : null;
+        const apply = (v, from) => {
+          if (!isFinite(v)) return;
+          set(v);
+          if (r && from !== "r") r.value = String(v);
+          if (n && from !== "n") n.value = String(v);
+          live();
+        };
+        if (r) {
+          r.addEventListener("input", () => apply(parseFloat(r.value), "r"));
+          r.addEventListener("change", pushHistory);
+        }
+        if (n) {
+          n.addEventListener("input", () => apply(parseFloat(n.value), "n"));
+          n.addEventListener("change", pushHistory);
+        }
+      };
+      pair("[data-sc-rot]", "[data-sc-rot-num]", (v) => { el.imgRotation = v; });
+      pair("[data-sc-zoom]", "[data-sc-zoom-num]", (v) => { el.imgScale = v / 100; });
+      pair("[data-sc-x]", null, (v) => { el.imgOffsetX = v; });
+      pair("[data-sc-y]", null, (v) => { el.imgOffsetY = v; });
+
+      const fitSel = body.querySelector('[data-prop="imgFit"]');
+      if (fitSel) fitSel.addEventListener("change", () => {
+        el.imgFit = fitSel.value;
+        // Changing how it sits invalidates a zoom chosen against the old fit.
+        el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
+        pushHistory(); fullRender();
+      });
+      const guideInput = body.querySelector('[data-prop="guide"]');
+      if (guideInput) guideInput.addEventListener("input", () => {
+        el.guide = guideInput.value;
+        fullRender();
+      });
+      body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
+      body.querySelector("#ed-sc-recentre")?.addEventListener("click", () => {
+        el.imgRotation = 0; el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
+        pushHistory(); fullRender(); renderProps();
+      });
+    }
 
     const replaceBtn = body.querySelector("#ed-replace-img");
     if (replaceBtn) {
@@ -6148,90 +6352,11 @@
       g3.appendChild(spacingPopover(el));
       ctxEl.appendChild(g3);
     } else if (el.type === "screen") {
-      const g = group();
-      g.appendChild(colorSwatchButton(
-        function () { return el.guide || "#00c2a8"; },
-        {
-          title: "Guide colour",
-          onSolid: function (hex) { el.guide = hex; },
-          onGradient: function () { /* a guide is one colour; a gradient would only make it harder to see */ },
-          getGradient: function () { return null; },
-        }
-      ));
-      ctxEl.appendChild(g);
+      /* A screen's own controls live in the Selection panel on the left, not
+         up here. There are enough of them - colour, fit, angle, zoom, position
+         - that a row of popovers was the wrong home: they are what you are
+         working on while a screen is selected, not things you dip into. */
 
-      // Artwork placement — only worth offering once there is artwork in it.
-      if (el.src) {
-        const fitWrap = popoverIconButton({
-          icon: ICONS.place,
-          title: "Position the artwork",
-          render: function () {
-            const panel = document.createElement("div");
-            panel.className = "ed-pop-panel";
-            const rot = el.imgRotation || 0;
-            const zoom = Math.round((el.imgScale != null ? el.imgScale : 1) * 100);
-            panel.innerHTML =
-              '<div class="ed-pop-row"><span>Rotate</span></div>' +
-              '<div class="ed-pop-row">' +
-                '<input type="range" min="-180" max="180" step="1" value="' + rot + '" data-sc-rot />' +
-                '<output data-sc-rot-out>' + rot + '&deg;</output>' +
-              '</div>' +
-              '<div class="ed-pop-row"><span>Zoom</span></div>' +
-              '<div class="ed-pop-row">' +
-                '<input type="range" min="50" max="400" step="1" value="' + zoom + '" data-sc-zoom />' +
-                '<output data-sc-zoom-out>' + zoom + '%</output>' +
-              '</div>' +
-              '<div class="ed-pop-row"><span>Across</span></div>' +
-              '<div class="ed-pop-row">' +
-                '<input type="range" min="-' + Math.round(el.w) + '" max="' + Math.round(el.w) + '" step="1" value="' + (el.imgOffsetX || 0) + '" data-sc-x />' +
-              '</div>' +
-              '<div class="ed-pop-row"><span>Down</span></div>' +
-              '<div class="ed-pop-row">' +
-                '<input type="range" min="-' + Math.round(el.h) + '" max="' + Math.round(el.h) + '" step="1" value="' + (el.imgOffsetY || 0) + '" data-sc-y />' +
-              '</div>' +
-              '<div class="ed-pop-row"><button type="button" class="ed-ctx-btn" data-sc-recentre>Recentre</button></div>';
-
-            const live = () => {
-              const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
-              if (node) applyScreenTransform(node, el);
-            };
-            const bind = (sel, set, out, fmt) => {
-              const input = panel.querySelector(sel);
-              const o = out ? panel.querySelector(out) : null;
-              input.addEventListener("input", function () {
-                set(parseFloat(input.value));
-                if (o) o.textContent = fmt(input.value);
-                live();
-              });
-              input.addEventListener("change", function () { pushHistory(); });
-            };
-            bind("[data-sc-rot]", (v) => { el.imgRotation = v; }, "[data-sc-rot-out]", (v) => v + "\u00B0");
-            bind("[data-sc-zoom]", (v) => { el.imgScale = v / 100; }, "[data-sc-zoom-out]", (v) => v + "%");
-            bind("[data-sc-x]", (v) => { el.imgOffsetX = v; });
-            bind("[data-sc-y]", (v) => { el.imgOffsetY = v; });
-            panel.querySelector("[data-sc-recentre]").addEventListener("click", function () {
-              el.imgRotation = 0; el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0;
-              panel.querySelector("[data-sc-rot]").value = "0";
-              panel.querySelector("[data-sc-rot-out]").textContent = "0\u00B0";
-              panel.querySelector("[data-sc-zoom]").value = "100";
-              panel.querySelector("[data-sc-zoom-out]").textContent = "100%";
-              panel.querySelector("[data-sc-x]").value = "0";
-              panel.querySelector("[data-sc-y]").value = "0";
-              live();
-              pushHistory();
-            });
-            return panel;
-          },
-        });
-        ctxEl.appendChild(fitWrap);
-      }
-
-      const resetBtn = document.createElement("button");
-      resetBtn.className = "ed-ctx-btn";
-      resetBtn.textContent = "Reset corners";
-      resetBtn.title = "Put the four corners back to a rectangle";
-      resetBtn.addEventListener("click", function () { resetScreenCorners(el); });
-      ctxEl.appendChild(resetBtn);
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       // Fill — opens the rich colour panel.
       const g = group();
