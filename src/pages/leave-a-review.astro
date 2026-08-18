@@ -252,6 +252,18 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
     if (form) {
       const card = document.getElementById("lrv-card");
       const submit = document.getElementById("lrv-submit");
+      /* Prefilled when the member came from their bookings page: they have
+         already told us their name and which shoot it was, and asking again is
+         asking them to look it up. Everything stays editable - the fields are
+         a starting point, not a lock. */
+      const rvParams = new URLSearchParams(location.search);
+      const rvBookingId = (rvParams.get("booking") || "").trim() || null;
+      (function prefill() {
+        const set = (id, v) => { const el = document.getElementById(id); if (el && v && !el.value) el.value = v; };
+        set("rv-name", (rvParams.get("name") || "").trim());
+        set("rv-service", (rvParams.get("service") || "").trim());
+      })();
+
       const success = document.getElementById("lrv-success");
       const errorEl = document.getElementById("lrv-error");
       const delay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -270,6 +282,9 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
           service: String(fd.get("service") || "").trim(),
           review_text: String(fd.get("review_text") || "").trim(),
         };
+        // Arrived from a member's own bookings page: remember which shoot this
+        // is about, so the invitation to review it can stop appearing.
+        if (rvBookingId) payload.booking_id = rvBookingId;
 
         const [result] = await Promise.all([
           supabase.from("client_reviews").insert(payload),

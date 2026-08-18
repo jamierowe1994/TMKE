@@ -59,6 +59,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 03</span>Previously</h2>
       </header>
       <div id="bk-past" class="bk-list"></div>
+      <!-- Filled in by renderReviewAsk once a shoot has actually been
+           delivered; hidden until then, and gone once they have reviewed it. -->
+      <div id="bk-review-ask" hidden></div>
     </section>
     </div><!-- /.ws-left -->
 
@@ -334,6 +337,27 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-tour-label { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .bk-tour-link { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--english-violet); }
     .bk-tour-note { font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(28,29,34,0.6); }
+
+    /* The review invitation. Warmer than a booking card and clearly not one -
+       it is the only thing on the page asking for something rather than
+       reporting it. */
+    .bk-ask {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 20px; flex-wrap: wrap; margin-top: 18px;
+      padding: 22px 24px; border-radius: 14px;
+      background: rgba(var(--violet-rgb), 0.05);
+      border: 1px solid rgba(var(--violet-rgb), 0.16);
+    }
+    .bk-ask-tx { min-width: 240px; flex: 1; }
+    .bk-ask-h {
+      margin: 0 0 5px; font-family: var(--serif); font-size: 17px; font-weight: 600;
+      letter-spacing: -0.01em; color: var(--ink);
+    }
+    .bk-ask-p {
+      margin: 0; font-family: var(--sans); font-size: 13.5px; line-height: 1.6;
+      color: rgba(28,29,34,0.68); max-width: 60ch;
+    }
+    @media (max-width: 620px) { .bk-ask .bk-btn { width: 100%; justify-content: center; } }
 
     .bk-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
     .bk-detail-actions--end { justify-content: flex-end; margin-top: 14px; }
@@ -636,10 +660,54 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       $('bk-progress').innerHTML = progress.length
         ? progress.map(cardHtml).join('')
         : `<div class="bk-none"><p class="bk-none-h">Nothing in progress</p><p class="bk-none-p">Once a shoot has happened it sits here while we edit it and build your gallery.</p></div>`;
+      renderReviewAsk(past);
       // Previous bookings always show — with an empty state until a booking is done.
       $('bk-past').innerHTML = past.length
         ? past.map(cardHtml).join('')
         : `<div class="bk-none"><p class="bk-none-h">Nothing here yet</p><p class="bk-none-p">Once a shoot, session or call is done it moves here, so your history is always to hand.</p></div>`;
+    }
+
+    /* ---- Asking for a review ----------------------------------------------
+       At the bottom of Previously, because that is where a finished job ends up
+       and the moment to ask is when someone has just seen the work land.
+
+       Asked once per shoot, and only for shoots that are genuinely finished -
+       delivered, not cancelled. It carries the booking through to the review
+       page, which is what lets the invitation disappear afterwards: a prompt
+       that keeps asking people who have already answered is worse than one
+       that never asks. */
+    async function renderReviewAsk(past) {
+      const host = $('bk-review-ask');
+      if (!host) return;
+      const done = (past || []).filter((r) => r.stage === 'delivered' && hasTrack(r));
+      if (!done.length) { host.hidden = true; return; }
+
+      // Which of these already have a review. One query, and the policy only
+      // returns rows for bookings that are theirs.
+      let reviewed = new Set();
+      try {
+        const { data } = await supabase
+          .from('client_reviews')
+          .select('booking_id')
+          .in('booking_id', done.map((r) => r.id));
+        (data || []).forEach((row) => reviewed.add(row.booking_id));
+      } catch (_) { /* can't tell — better to ask than to stay silent */ }
+
+      const ask = done.find((r) => !reviewed.has(r.id));
+      if (!ask) { host.hidden = true; return; }
+
+      const href = '/leave-a-review?booking=' + encodeURIComponent(ask.id)
+        + '&service=' + encodeURIComponent(ask.service || '')
+        + '&name=' + encodeURIComponent(ask.client_name || '');
+      host.hidden = false;
+      host.innerHTML = `
+        <div class="bk-ask">
+          <div class="bk-ask-tx">
+            <p class="bk-ask-h">How did we do?</p>
+            <p class="bk-ask-p">Your ${escapeHtml((ask.service || 'shoot').toLowerCase())} is finished and with you. If it landed well, a few words from you helps more than anything else we could say about ourselves.</p>
+          </div>
+          <a class="bk-btn bk-btn--primary" href="${href}">Leave a review</a>
+        </div>`;
     }
 
     /* ---- The next shoot ----------------------------------------------------
