@@ -199,6 +199,18 @@ const TILES = [
       if (session) location.replace("/account");
     })();
 
+    /* Arrived from an email we sent them (?email=...). Prefilling is not just a
+       courtesy here: a booking joins itself to an account by matching this
+       address, so someone who signs up with a different one gets an account
+       their shoot is not in. Editable, in case that address is not the one they
+       want to log in with. */
+    (function prefillEmail() {
+      const wanted = new URLSearchParams(location.search).get("email");
+      if (!wanted) return;
+      const field = document.querySelector('input[name="email"]');
+      if (field && !field.value) field.value = wanted.trim();
+    })();
+
     const drawer = document.getElementById("jn-drawer");
     const form = document.getElementById("jn-form");
     const errEl = document.getElementById("jn-error");

@@ -6784,6 +6784,28 @@ async function sendEditsCompleteEmail(env, bookingId) {
     }
   } catch (_) { /* the rest of the email is still worth sending */ }
 
+  /* Do they already have somewhere to log in to?
+
+     Two ways to have an account, and both count: the booking may be attached
+     to one directly (which is what linking a contact in the admin centre now
+     does), or the CRM contact on their email may carry a user. Only when
+     neither is true is there anything worth inviting them to. Asking someone
+     to create an account they already have is the fastest way to be ignored. */
+  let hasAccount = !!bk.account_user_id;
+  if (!hasAccount) {
+    const addr = String(bk.client_email || "").trim().toLowerCase();
+    if (addr) {
+      try {
+        const cs = await sbGet(env, "contacts",
+          `email=eq.${encodeURIComponent(addr)}&select=user_id&limit=1`);
+        hasAccount = !!(cs && cs[0] && cs[0].user_id);
+      } catch (_) { /* can't tell — say nothing rather than nag */ hasAccount = true; }
+    }
+  }
+  const accountLine = hasAccount ? "" : `
+    <p style="${EM_P}">One more thing — you don't have a TMKE account yet. It is where your galleries, invoices and every booking you have with us live, and it takes a minute to set up with this email address.</p>
+    <p style="${EM_P}"><a href="${siteUrl}/join?email=${encodeURIComponent(bk.client_email || "")}" style="${EM_BTN}">Create Your Account</a></p>`;
+
   const galleryLine = bk.gallery_url
     ? `<p style="${EM_P}"><a href="${esc(bk.gallery_url)}" style="${EM_BTN}">Open Your Gallery</a></p>`
     : "";
@@ -6803,10 +6825,11 @@ async function sendEditsCompleteEmail(env, bookingId) {
     ${factsHtml}
     ${amendsLine}
     ${galleryLine}
-    <p style="${EM_P}">Everything for this booking lives in your account, whenever you need it.</p>
-    <p style="${EM_P}"><a href="${siteUrl}/account/bookings" style="${EM_BTN}">View Your Booking</a></p>
+    ${hasAccount ? `<p style="${EM_P}">Everything for this booking lives in your account, whenever you need it.</p>
+    <p style="${EM_P}"><a href="${siteUrl}/account/bookings" style="${EM_BTN}">View Your Booking</a></p>` : ""}
     <p style="${EM_P}">If you have a spare minute, we'd really appreciate a review — it makes a big difference to us.</p>
     <p style="${EM_P}"><a href="${reviewUrl}" style="${EM_BTN}">Leave a Review</a></p>
+    ${accountLine}
     <p style="${EM_P}">Thanks again for working with us.</p>
   </div>`;
 
