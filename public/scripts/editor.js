@@ -1692,7 +1692,7 @@
     el.style.opacity = "1";
     if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
     else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
-    else if (kind === "local") { el.textContent = "⚠ Saved on this device — reconnecting to cloud…"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; }
+    else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
   }
 
   function autosaveDraft() {
@@ -4889,12 +4889,21 @@
     if (typeof window.__TMKE_ADMIN_SAVE__ === "function") {
       setSaveStatus("saving");
       try {
-        const ok = await window.__TMKE_ADMIN_SAVE__(payload);
-        if (ok) { _dbRetries = 0; setSaveStatus("saved"); toast("Template saved"); }
-        else { setSaveStatus("local"); toast("Saved on this device — cloud save failed, retrying"); scheduleAutosave(); }
-        return !!ok;
+        // The hook returns { ok, reason }. It used to return a bare boolean, so
+        // every failure read the same and none of them said what to do.
+        const res = await window.__TMKE_ADMIN_SAVE__(payload);
+        const ok = res === true || (res && res.ok);
+        if (ok) { _dbRetries = 0; setSaveStatus("saved"); toast("Template saved"); return true; }
+        const why = (res && res.reason) || "the cloud save was refused";
+        setSaveStatus("local");
+        // Long enough to read: this is the sentence that says what went wrong.
+        toast("Saved on this device. " + why, 7000);
+        scheduleAutosave();
+        return false;
       } catch (e) {
-        setSaveStatus("local"); toast("Saved on this device — cloud save failed, retrying"); scheduleAutosave();
+        setSaveStatus("local");
+        toast("Saved on this device. Couldn't reach the server" + (e && e.message ? ": " + e.message : "") + ".", 7000);
+        scheduleAutosave();
         return false;
       }
     }

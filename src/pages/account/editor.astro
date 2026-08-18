@@ -4120,10 +4120,28 @@ const googleFonts = [
         // its current `state.templateId` in `payload.templateId`, which is
         // also the Supabase row id (we keep ids stable end-to-end). This must
         // be in place before we boot so editor.js's isAdminMode() is true.
+        /* Returns { ok } or { ok:false, reason }. It used to return a bare
+           boolean, which threw away why a save failed - so an expired sign-in,
+           a photo that would not upload and a dropped connection all surfaced
+           as the same "reconnecting to cloud…" and none of them told you what
+           to do about it. */
         window.__TMKE_ADMIN_SAVE__ = async (payload) => {
-          if (!payload?.templateId) return false;
-          // Upload any embedded data-URL images to storage first (keeps the row small).
-          try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (e) { console.error('[save: externalize]', e); }
+          if (!payload?.templateId) return { ok: false, reason: 'No design open to save into.' };
+
+          /* Photos are uploaded to storage and the row keeps their URLs. When
+             that fails the picture stays in the design as base64 - which is
+             what pushes the row past what the database will accept, and is the
+             likeliest reason a save that used to work stops working. It is
+             said out loud now rather than logged to a console nobody has open. */
+          let stranded = 0;
+          try {
+            await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]);
+          } catch (e) { console.error('[save: externalize]', e); }
+          for (const el of (payload.elements || [])) {
+            if (el && typeof el.src === 'string' && el.src.startsWith('data:')) stranded++;
+          }
+          if (typeof payload?.canvas?.backgroundImage === 'string'
+              && payload.canvas.backgroundImage.startsWith('data:')) stranded++;
           // Upload the editor-generated thumbnail so the studio list can show one
           // small image instead of rebuilding the whole design from full-res
           // photos — the big lever on list load time.
@@ -4145,11 +4163,27 @@ const googleFonts = [
           };
           if (thumbUrl) patch.thumb_url = thumbUrl;
           if (renderUrl) patch.render_url = renderUrl;
-          const { error: saveErr } = await supabase
-            .from('templates')
-            .update(patch)
-            .eq('id', payload.templateId);
-          return !saveErr;
+          // A long editing session can outlive the access token. Refresh once
+          // and try again before calling it a failure — the design is fine, the
+          // sign-in just went stale underneath it.
+          const write = () => supabase.from('templates').update(patch).eq('id', payload.templateId);
+          let { error: saveErr } = await write();
+          if (saveErr && /jwt|token|expired|auth/i.test(saveErr.message || '')) {
+            try { await supabase.auth.refreshSession(); } catch (_) {}
+            ({ error: saveErr } = await write());
+          }
+          if (!saveErr) return { ok: true };
+
+          const size = Math.round(JSON.stringify(patch).length / 1024);
+          let reason = saveErr.message || 'The database refused the save.';
+          if (stranded) {
+            reason = stranded + (stranded === 1 ? ' image' : ' images') +
+              " couldn't be uploaded to storage, so the design is too big to save (" +
+              size + "KB). Check your connection and save again.";
+          } else if (size > 1500) {
+            reason = 'This design is ' + size + 'KB, which is too big for one save. Try removing or replacing the largest photos.';
+          }
+          return { ok: false, reason };
         };
         // Turn on autosave-as-draft (admin only for now) — editor.js persists a
         // draft to localStorage shortly after each change and before unload.
