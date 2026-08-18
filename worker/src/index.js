@@ -3105,6 +3105,24 @@ export default {
       // ?prefix= param selects the folder (defaults to the whole headshots
       // folder for backward compatibility). Returns videos first so a gallery
       // can lead with its film. ----
+      /* The photos behind the review page. Public on purpose: the page itself is
+         public, and everything it returns is already readable by anyone at
+         assets.tmke.co.uk - listing them adds no access, it only saves hard-
+         coding two dozen filenames into the site.
+
+         The prefix is fixed here rather than taken from the query, so this
+         cannot be turned into a way to enumerate the rest of the bucket. */
+      if (path.endsWith("/assets/review-grid") && request.method === "GET") {
+        if (!env.ASSETS) return json({ images: [] }, 200, request, env);
+        const listed = await env.ASSETS.list({ prefix: "TMKE Review Grid Images/" });
+        const images = (listed.objects || [])
+          .filter((o) => !o.key.endsWith("/"))
+          .filter((o) => /\.(jpe?g|png|webp|avif)$/i.test(o.key))
+          .sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
+          .map((o) => "https://assets.tmke.co.uk/" + o.key.split("/").map(encodeURIComponent).join("/"));
+        return json({ images }, 200, request, env);
+      }
+
       if (path.endsWith("/headshots") && request.method === "GET") {
         if (!env.ASSETS) return json({ images: [], videos: [], items: [] }, 200, request, env);
         const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "60", 10)));
@@ -4694,7 +4712,9 @@ export default {
     // account to sign in with) the moment those routes landed after this
     // point. Explicit bypass here rather than reordering the file, so the
     // next route added below doesn't fall into the same trap silently.
-    const publicNoAuth = path.endsWith("/videography/edit-request/context") || path.endsWith("/videography/edit-request");
+    const publicNoAuth = path.endsWith("/videography/edit-request/context")
+      || path.endsWith("/videography/edit-request")
+      || path.endsWith("/assets/review-grid");
     if (!publicNoAuth) {
       const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
       if (hot) {

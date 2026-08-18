@@ -1,10 +1,11 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-// Same nine placeholder tiles used on /login and /join's grid — reused here
-// as the flashing background. Swap for real TMKE content later; nothing else
-// needs to change since the grid just cycles through this array.
+// The fallback only. The real set is Jack's own work, read from R2 at load
+// (see the grid script) so images can be added or swapped in the bucket
+// without touching this file. These nine are what shows if that fetch fails.
 const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}.webp`);
+const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 ---
 
 <BaseLayout
@@ -91,7 +92,11 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
     .lrv-grid-cell { position: relative; overflow: hidden; opacity: 0.5; }
     .lrv-grid-cell span {
       position: absolute; inset: 0;
-      background-size: cover; background-position: center;
+      background-size: cover;
+      /* Slightly above centre. A square photo in a wider cell is cropped top
+         and bottom, and dead centre on a standing person takes the crop
+         through their chin. 42% keeps faces in. */
+      background-position: center 42%;
       transition: opacity 1.1s ease;
     }
     .lrv-hero-tint { position: absolute; inset: 0; z-index: 1; background: rgba(20,19,16,0.55); pointer-events: none; }
@@ -234,10 +239,28 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
   <!-- Background grid: flashes 2-4 cells at a time (a quick fade-out,
        image swap, fade back in) every ~1.4s for 30s, then stops - whatever
        is showing at that point just stays. -->
-  <script define:vars={{ GRID_IMAGES }}>
+  <script define:vars={{ GRID_IMAGES, WORKER_URL }}>
     (function () {
       const host = document.getElementById("lrv-grid-bg");
       if (!host || !GRID_IMAGES.length) return;
+
+      /* Swap in the real photos as soon as the bucket answers. The grid starts
+         on the fallback rather than waiting, so the page is never blank, and
+         the library grows underneath it - which is exactly what the no-repeat
+         rule needs, since twelve cells cannot be filled uniquely from nine. */
+      let LIBRARY = GRID_IMAGES.slice();
+      if (WORKER_URL) {
+        fetch(WORKER_URL + "/assets/review-grid")
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            if (d && Array.isArray(d.images) && d.images.length >= 4) {
+              LIBRARY = d.images;
+              // Warm the cache so the first dissolves are not waiting on a download.
+              d.images.slice(0, 16).forEach((src) => { const i = new Image(); i.src = src; });
+            }
+          })
+          .catch(() => { /* the fallback is already on screen */ });
+      }
 
       const CELL_COUNT = 12;
       const cells = [];
@@ -284,12 +307,12 @@ const GRID_IMAGES = Array.from({ length: 9 }, (_, i) => `/assets/signup/${i + 1}
 
         const cell = cells[idx];
         const onScreen = showing();
-        const spare = GRID_IMAGES.filter((src) => !onScreen.has(src));
+        const spare = LIBRARY.filter((src) => !onScreen.has(src));
         let next = cell.dataset.img;
         if (spare.length) {
           next = spare[Math.floor(Math.random() * spare.length)];
-        } else if (GRID_IMAGES.length > 1) {
-          while (next === cell.dataset.img) next = GRID_IMAGES[Math.floor(Math.random() * GRID_IMAGES.length)];
+        } else if (LIBRARY.length > 1) {
+          while (next === cell.dataset.img) next = LIBRARY[Math.floor(Math.random() * LIBRARY.length)];
         }
         if (next === cell.dataset.img) return;   // nothing else to show
 
