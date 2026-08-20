@@ -688,7 +688,7 @@ import "../../styles/admin.css";
               <div class="smm-linkrow" style="display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-family:var(--sans);font-size:12.5px;flex-wrap:wrap;">
                 <span style="color:rgba(28,29,34,0.5);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10.5px;">Member hub</span>
                 ${r.account_user_id
-                  ? `<span style="color:#2e6b40;font-weight:700;">Linked ✓</span>`
+                  ? `<span style="color:#2e6b40;font-weight:700;">Linked ✓</span><button type="button" data-unlinkacct style="appearance:none;cursor:pointer;background:none;color:rgba(28,29,34,0.5);border:1px solid rgba(28,29,34,0.18);border-radius:7px;padding:5px 10px;font-family:var(--sans);font-size:11px;font-weight:700;">Unlink</button>`
                   : `<span style="color:rgba(28,29,34,0.55);">Not linked</span>${r.email ? `<button type="button" data-linkacct style="appearance:none;cursor:pointer;background:var(--english-violet);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-family:var(--sans);font-size:11.5px;font-weight:700;">Link to hub account</button>` : `<span style="color:rgba(28,29,34,0.4);">add an email first</span>`}`}
               </div>
               <button type="button" class="smm-more-toggle" data-more>See more info ${CHEV_SVG}</button>
@@ -797,6 +797,7 @@ import "../../styles/admin.css";
       body.querySelector("[data-editname]")?.addEventListener("click", () => startEditName(r));
       // Link this card to the member's hub account
       body.querySelector("[data-linkacct]")?.addEventListener("click", () => linkAccount(r));
+      body.querySelector("[data-unlinkacct]")?.addEventListener("click", () => unlinkAccount(r));
       // See more
       body.querySelector("[data-more]")?.addEventListener("click", (e) => {
         const btn = e.currentTarget, more = body.querySelector(".smm-more");
@@ -1085,6 +1086,27 @@ import "../../styles/admin.css";
       } catch (e) {
         reset();
         smmStatus(e.message || "Couldn't link the account.", false);
+      }
+    }
+
+    // Linking is a judgement call — an email can be shared, a name can look
+    // like a match when it isn't. Getting it wrong shows one client another
+    // client's reports, so it has to be undoable without a developer.
+    async function unlinkAccount(r) {
+      const name = nameOf(r);
+      if (!confirm(`Unlink ${name} from their member hub account?\n\nTheir reports will stop showing on the hub. Nothing is deleted — the hub account itself, and everything on this card, stays exactly as it is. You can link it again afterwards.`)) return;
+      const btn = $("smm-file-body").querySelector("[data-unlinkacct]");
+      if (btn) { btn.disabled = true; btn.textContent = "Unlinking…"; }
+      if (isDemo(r)) { r.account_user_id = null; openFile(r.id); return; }
+      try {
+        const { error } = await supabase.from("smm_leads").update({ account_user_id: null }).eq("id", r.id);
+        if (error) throw new Error(error.message);
+        r.account_user_id = null;
+        smmStatus("Unlinked — their reports no longer show on the member hub.", true);
+        openFile(r.id);
+      } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = "Unlink"; }
+        smmStatus(e.message || "Couldn't unlink that account.", false);
       }
     }
 

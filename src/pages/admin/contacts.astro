@@ -68,6 +68,7 @@ import "../../styles/admin.css";
       <p class="ct-empty" id="ct-empty" hidden>No contacts yet — they appear here as people enquire, book, sign up or buy.</p>
       <div class="ct-bulkbar" id="ct-bulkbar" hidden>
         <span class="ct-bulk-count" id="ct-bulk-count">0 selected</span>
+        <button type="button" class="ct-bulk-merge" id="ct-bulk-merge" hidden>Merge these two</button>
         <button type="button" class="ct-bulk-del" id="ct-bulk-del">Delete selected</button>
         <button type="button" class="ct-bulk-clear" id="ct-bulk-clear">Clear selection</button>
       </div>
@@ -121,7 +122,23 @@ import "../../styles/admin.css";
     <div class="ct-drawer-body" id="ct-drawer-body"><!-- filled by JS --></div>
   </aside>
 
-  <!-- Import CSV modal -->
+  <!-- Merge two contacts -->
+  <div class="ct-import-scrim" id="ct-merge" hidden>
+    <div class="ct-import-card" role="dialog" aria-modal="true" aria-label="Merge contacts">
+      <button type="button" class="ct-drawer-x ct-import-x" id="ct-merge-close" aria-label="Close">&times;</button>
+      <h2 class="ct-import-title">Merge two contacts</h2>
+      <p class="ct-import-sub">Pick the record to keep. Everything on the other one moves across &mdash; notes, tasks, tags, bookings and history &mdash; and anything the kept record is missing gets filled in from it. The other record is then deleted.</p>
+      <div class="ct-merge-grid" id="ct-merge-grid"></div>
+      <p class="ct-merge-sum" id="ct-merge-sum"></p>
+      <p class="ct-import-preview ct-meta" id="ct-merge-status"></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+        <button type="button" class="ct-bulk-clear" id="ct-merge-cancel">Cancel</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="ct-merge-go">Merge them</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import CSV modal -->  <!-- Import CSV modal -->
   <div class="ct-import-scrim" id="ct-import" hidden>
     <div class="ct-import-card" role="dialog" aria-modal="true" aria-label="Import contacts">
       <button type="button" class="ct-drawer-x ct-import-x" id="ct-import-close" aria-label="Close">&times;</button>
@@ -368,6 +385,19 @@ import "../../styles/admin.css";
     .ct-bulk-del { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; border: 1px solid #a5352f; background: #a5352f; color: #fff; border-radius: 8px; padding: 8px 15px; cursor: pointer; transition: background 0.15s; }
     .ct-bulk-del:hover { background: #7f2a25; }
     .ct-bulk-clear { font-family: var(--sans); font-size: 12px; font-weight: 600; border: 1px solid rgba(28,29,34,0.18); background: #fff; color: rgba(28,29,34,0.7); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+    /* Merge only makes sense on a pair, so the button only exists on a pair. */
+    .ct-bulk-merge { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff; border-radius: 8px; padding: 8px 15px; cursor: pointer; }
+    .ct-bulk-merge[hidden] { display: none; }
+    .ct-merge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 14px; }
+    @media (max-width: 620px) { .ct-merge-grid { grid-template-columns: 1fr; } }
+    .ct-merge-pick { text-align: left; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 10px; padding: 12px 14px; font-family: var(--sans); }
+    .ct-merge-pick.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .ct-merge-pick b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 3px; }
+    .ct-merge-pick span { display: block; font-size: 12px; color: rgba(28,29,34,0.6); line-height: 1.5; }
+    .ct-merge-keep { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 6px; }
+    .ct-merge-pick:not(.is-on) .ct-merge-keep { color: rgba(28,29,34,0.35); }
+    .ct-merge-sum { font-family: var(--sans); font-size: 12.5px; line-height: 1.65; color: rgba(28,29,34,0.7); background: rgba(55,30,40,0.04); border-radius: 8px; padding: 12px 14px; margin: 0 0 4px; }
+    .ct-merge-sum b { color: var(--ink); font-weight: 700; }
     .ct-check-col { width: 40px; }
     .ct-table td.ct-check-cell { cursor: default; }
     .ct-check-col input, .ct-check-cell input { accent-color: var(--english-violet); width: 15px; height: 15px; cursor: pointer; }
@@ -589,6 +619,7 @@ import "../../styles/admin.css";
       const n = selectedIds.size;
       $("ct-bulkbar").hidden = n === 0;
       $("ct-bulk-count").textContent = `${n} selected`;
+      $("ct-bulk-merge").hidden = n !== 2;
       const all = $("ct-check-all");
       if (all) {
         all.checked = rows.length > 0 && rows.every((c) => selectedIds.has(c.id));
@@ -1292,6 +1323,138 @@ import "../../styles/admin.css";
       selectedIds.clear();
       render();
     });
+
+    // ---- Merge two partially-duplicated contacts ------------------------------
+    // The same person arrives twice: once as a lead from a form, once as a
+    // member when they sign up, and each record holds half the story. Merging
+    // keeps one and folds the other into it.
+    //
+    // The important part is what happens BEFORE the delete. contact_notes,
+    // contact_tasks, automation_enrollments and agent_profiles are all
+    // ON DELETE CASCADE, so deleting the loser first would silently take its
+    // notes and history with it. Everything is repointed at the survivor, then
+    // the empty record goes.
+    let mergePair = [];        // [survivor, loser]
+    const LIFECYCLE_RANK = { member: 4, customer: 3, lead: 2, past: 1 };
+
+    function openMerge() {
+      const ids = Array.from(selectedIds);
+      if (ids.length !== 2) return;
+      const [a, b] = ids.map((id) => ALL.find((c) => c.id === id)).filter(Boolean);
+      if (!a || !b) return;
+      // Default to keeping the richer record: better lifecycle, then more filled in.
+      const filled = (c) => ["first_name", "last_name", "phone", "company", "source", "user_id", "secondary_email"].filter((k) => c[k]).length + (c.tags || []).length;
+      const aBetter = (LIFECYCLE_RANK[deriveLifecycle(a)] || 0) !== (LIFECYCLE_RANK[deriveLifecycle(b)] || 0)
+        ? (LIFECYCLE_RANK[deriveLifecycle(a)] || 0) > (LIFECYCLE_RANK[deriveLifecycle(b)] || 0)
+        : filled(a) >= filled(b);
+      mergePair = aBetter ? [a, b] : [b, a];
+      renderMerge();
+      $("ct-merge").hidden = false;
+    }
+
+    function renderMerge() {
+      const [keep] = mergePair;
+      const card = (c) => `
+        <button type="button" class="ct-merge-pick ${c.id === keep.id ? "is-on" : ""}" data-keep="${esc(c.id)}">
+          <span class="ct-merge-keep">${c.id === keep.id ? "Keeping this one" : "Merge into the other"}</span>
+          <b>${esc(fullName(c))}</b>
+          <span>${esc(c.email || "no email")}</span>
+          <span>${esc(lifecycleLabel(deriveLifecycle(c)))}${c.company ? " · " + esc(c.company) : ""}</span>
+          <span>Last seen ${esc(fmtDate(c.last_seen_at))} · added ${esc(fmtDate(c.created_at))}</span>
+        </button>`;
+      $("ct-merge-grid").innerHTML = mergePair.map(card).join("");
+      $("ct-merge-grid").querySelectorAll("[data-keep]").forEach((b) => b.addEventListener("click", () => {
+        const id = b.getAttribute("data-keep");
+        if (id !== mergePair[0].id) mergePair = [mergePair[1], mergePair[0]];
+        renderMerge();
+      }));
+
+      const [k, lose] = mergePair;
+      const gains = [];
+      ["first_name", "last_name", "phone", "company", "source"].forEach((f) => { if (!k[f] && lose[f]) gains.push(f.replace(/_/g, " ")); });
+      const newTags = (lose.tags || []).filter((t) => !(k.tags || []).includes(t));
+      if (newTags.length) gains.push(`${newTags.length} tag${newTags.length === 1 ? "" : "s"}`);
+      if (!k.user_id && lose.user_id) gains.push("their linked account");
+      const keepsEmail = lose.email && lose.email.toLowerCase() !== (k.email || "").toLowerCase() && !k.secondary_email;
+      $("ct-merge-sum").innerHTML = `
+        <b>${esc(fullName(k))}</b> stays, on <b>${esc(k.email || "no email")}</b>.
+        ${gains.length ? `They gain ${esc(gains.join(", "))}.` : "Nothing needs filling in."}
+        ${keepsEmail ? ` <b>${esc(lose.email)}</b> is kept as their second email, so that address still finds them.` : ""}
+        Notes, tasks, bookings and automation history from the other record move across.`;
+    }
+
+    function closeMerge() { $("ct-merge").hidden = true; $("ct-merge-status").textContent = ""; }
+
+    async function doMerge() {
+      const [keep, lose] = mergePair;
+      const btn = $("ct-merge-go");
+      const say = (m) => { $("ct-merge-status").textContent = m; };
+      btn.disabled = true; btn.textContent = "Merging…";
+      try {
+        // 1. Fill the survivor's blanks, union the tags, take the safer flags.
+        const patch = {};
+        ["first_name", "last_name", "phone", "company", "source", "user_id"].forEach((f) => { if (!keep[f] && lose[f]) patch[f] = lose[f]; });
+        const tags = Array.from(new Set([...(keep.tags || []), ...(lose.tags || [])]));
+        if (tags.length !== (keep.tags || []).length) patch.tags = tags;
+        // Opting in on either record is consent; do-not-contact on either is a
+        // refusal. Both are resolved the way that respects the person's wishes.
+        if (lose.marketing_opt_in && !keep.marketing_opt_in) patch.marketing_opt_in = true;
+        if (lose.dnd && !keep.dnd) patch.dnd = true;
+        if (lose.dnd_email && !keep.dnd_email) patch.dnd_email = true;
+        const rank = (c) => LIFECYCLE_RANK[c.lifecycle] || 0;
+        if (rank(lose) > rank(keep)) patch.lifecycle = lose.lifecycle;
+        if (lose.last_seen_at && (!keep.last_seen_at || new Date(lose.last_seen_at) > new Date(keep.last_seen_at))) patch.last_seen_at = lose.last_seen_at;
+        if (lose.created_at && (!keep.created_at || new Date(lose.created_at) < new Date(keep.created_at))) patch.created_at = lose.created_at;
+        // The loser's address is about to stop existing — keep it reachable.
+        if (lose.email && lose.email.toLowerCase() !== (keep.email || "").toLowerCase() && !keep.secondary_email) patch.secondary_email = lose.email;
+        else if (!keep.secondary_email && lose.secondary_email) patch.secondary_email = lose.secondary_email;
+        // A merged record is no longer the duplicate it was flagged as.
+        if (keep.needs_review) { patch.needs_review = false; patch.review_reason = null; }
+
+        if (Object.keys(patch).length) {
+          const { error } = await supabase.from("contacts").update(patch).eq("id", keep.id);
+          if (error) throw new Error("Couldn't update the record you're keeping: " + error.message);
+        }
+
+        // 2. Move the children over BEFORE the delete, or the cascade eats them.
+        say("Moving notes, tasks and history across…");
+        for (const t of ["contact_notes", "contact_tasks", "automation_enrollments", "email_events", "contact_consent_events", "videography_bookings"]) {
+          const { error } = await supabase.from(t).update({ contact_id: keep.id }).eq("contact_id", lose.id);
+          // Not every one of these tables exists on every environment, and a
+          // missing table must not abandon a half-finished merge.
+          if (error && !/does not exist|schema cache|relation/i.test(error.message)) {
+            throw new Error(`Couldn't move ${t.replace(/_/g, " ")}: ${error.message}`);
+          }
+        }
+        // agent_profiles is keyed BY contact_id, so it can only move if the
+        // survivor hasn't got one already. If they have, theirs wins.
+        try {
+          const { data: mine } = await supabase.from("agent_profiles").select("contact_id").eq("contact_id", keep.id).maybeSingle();
+          if (!mine) await supabase.from("agent_profiles").update({ contact_id: keep.id }).eq("contact_id", lose.id);
+        } catch (_) { /* table may not exist here */ }
+
+        // 3. Now the other record is empty, remove it.
+        say("Removing the duplicate…");
+        const { error: delErr } = await supabase.from("contacts").delete().eq("id", lose.id);
+        if (delErr) throw new Error("Merged, but couldn't delete the duplicate: " + delErr.message);
+
+        Object.assign(keep, patch);
+        ALL = ALL.filter((c) => c.id !== lose.id);
+        selectedIds.clear();
+        closeMerge();
+        render();
+      } catch (e) {
+        say(e.message || "Couldn't merge those two.");
+      } finally {
+        btn.disabled = false; btn.textContent = "Merge them";
+      }
+    }
+
+    $("ct-bulk-merge").addEventListener("click", openMerge);
+    $("ct-merge-cancel").addEventListener("click", closeMerge);
+    $("ct-merge-close").addEventListener("click", closeMerge);
+    $("ct-merge").addEventListener("click", (e) => { if (e.target === $("ct-merge")) closeMerge(); });
+    $("ct-merge-go").addEventListener("click", doMerge);
 
     // ---- Export the current (filtered) list as CSV ----
     const csvCell = (v) => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
