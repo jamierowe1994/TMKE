@@ -3829,25 +3829,35 @@ import "../../styles/admin.css";
     async function fillSmmClients(selected) {
       const sel = document.getElementById("vid-smm-client");
       if (!sel) return;
+      let failed = false;
       if (!smmClientsCache) {
+        // The stage lives in pipeline_stage — smm_leads has no "stage" column,
+        // so asking for one failed and left the menu looking simply empty.
         const { data, error } = await supabase
           .from("smm_leads")
           .select("id, business, full_name, first_name, last_name, email")
-          .eq("stage", "active_client")
+          .eq("pipeline_stage", "active_client")
           .order("business", { ascending: true, nullsFirst: false });
-        if (error) { smmClientsCache = []; }
+        // Not cached on failure: an empty menu you can reopen is recoverable,
+        // one cached for the life of the page is not.
+        if (error) { failed = true; console.error("Couldn't load social media clients:", error.message); }
         else smmClientsCache = data || [];
       }
+      const clients = smmClientsCache || [];
       const label = (r) => r.business
         || [r.first_name, r.last_name].filter(Boolean).join(" ").trim()
         || r.full_name || r.email || "Client";
       // Rebuilt rather than appended: this runs on every booking opened.
       sel.innerHTML = "";
       sel.add(new Option("— Not linked —", ""));
-      smmClientsCache.forEach((r) => sel.add(new Option(label(r), r.id)));
+      clients.forEach((r) => sel.add(new Option(label(r), r.id)));
+      // An empty menu reads as "there are no clients", which is a different
+      // problem from the list not loading. Say which one it is.
+      const msg = failed ? "Couldn't load clients — reopen to retry" : (!clients.length ? "No active clients yet" : "");
+      if (msg) { const o = new Option(msg, ""); o.disabled = true; sel.add(o); }
       // A link to a client who is no longer active would otherwise vanish from
       // the menu and read as "not linked" — keep it visible and say why.
-      if (selected && !smmClientsCache.some((r) => r.id === selected)) {
+      if (selected && !clients.some((r) => r.id === selected)) {
         sel.add(new Option("Linked client (no longer active)", selected));
       }
       sel.value = selected || "";
