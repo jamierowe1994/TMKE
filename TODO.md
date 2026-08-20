@@ -351,6 +351,26 @@ candidates; none is confirmed as *the* cause yet, so measure before changing.
 Ruled out already: the two scroll listeners are both `passive` and
 rAF-throttled, so they are not the stiffness. (`src/pages/edit.astro:1659`)
 
+### 6c. Insights sits on a wider left margin than the rest of the site ⬜ — raised 17 Aug
+
+`/blog` (titled "Insights") indents its hero and archive further from the left
+edge than any other page, and it grows with the viewport rather than staying
+put:
+
+    padding: … max(76px, calc((100vw - 1360px) / 2 + 76px));
+    src/pages/blog/index.astro:198
+
+The `max()` centres the content to a 1360px container and then adds 76px on
+top, so past ~1512px wide the gutter keeps growing while every other page's
+stays where it is. That is the difference being seen — the two agree at
+narrow widths and diverge on a big screen.
+
+Reduce it to the flat left inset the other pages use (`services.astro` uses a
+bare `76px` on its hero header) and drop the `calc()`. Worth noting there is
+no shared gutter token anywhere — each page hard-codes its own — so this is a
+good moment to introduce one rather than fix a single page and leave the next
+person guessing.
+
 ### 6b. `/edit` shop — two visual fixes ⬜ — raised 17 Aug
 
 - ⬜ **The bottom section's images need replacing** — placeholder imagery, real
