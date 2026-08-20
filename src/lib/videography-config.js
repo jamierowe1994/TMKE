@@ -416,13 +416,26 @@ export const TEG_BRANDS = [
   { key: "recruitment_experts",label: "The Recruitment Experts",     address: TEG_STANDARD_ADDRESS },
   { key: "marketing_experts",  label: "The Marketing Experts",       address: TEG_STANDARD_ADDRESS },
   { key: "newman",             label: "Newman Property Services",    address: TEG_STANDARD_ADDRESS },
+  // Not a TEG brand. It shares this list because the list also serves the SMM
+  // route, where an F&C office can be on a social package — and that route
+  // invoices nothing, so the TEG accounts contact never comes into it.
+  // Deliberately left without an address: if it is ever invoiced through the
+  // TEG route it must NOT inherit TEG's, and the real F&C billing address is
+  // not recorded anywhere yet.
+  { key: "fine_and_country",   label: "Fine & Country",              address: "" },
   { key: "other",              label: "Other",                       address: TEG_STANDARD_ADDRESS },
 ];
 export function tegBrandLabel(key) {
   return (TEG_BRANDS.find((o) => o.key === key) || {}).label || key || "";
 }
 export function tegBrandAddress(key) {
-  return (TEG_BRANDS.find((o) => o.key === key) || {}).address || TEG_STANDARD_ADDRESS;
+  const brand = TEG_BRANDS.find((o) => o.key === key);
+  // An unknown key falls back to the shared TEG address; a brand that
+  // deliberately carries no address (Fine & Country) returns blank rather than
+  // silently inheriting TEG's and putting the wrong billing address on an
+  // invoice.
+  if (!brand) return TEG_STANDARD_ADDRESS;
+  return brand.address || "";
 }
 export const TEG_REASONS = [
   { key: "induction", label: "New Starter Induction Shoot - Pro / Academy" },
