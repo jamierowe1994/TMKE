@@ -7266,10 +7266,10 @@ async function sendGalleryPinEmail(env, bookingId) {
         const bk = rows && rows[0];
         if (!bk) return json({ error: "No such booking." }, 404, request, env);
 
-        const team = [...new Set([env.JACK_NOTIFY || env.JACK_UPN]
-          .flatMap((v) => String(v || "").split(","))
-          .map((v) => v.trim()).filter(Boolean))];
-        if (!team.length) return json({ error: "No recipient configured." }, 503, request, env);
+        // JACK_NOTIFY overrides JACK_UPN rather than adding to it, matching
+        // every other booking notification in this file.
+        const team = env.JACK_NOTIFY || env.JACK_UPN;
+        if (!team) return json({ error: "No recipient configured." }, 503, request, env);
 
         const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
