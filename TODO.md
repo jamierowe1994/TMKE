@@ -325,6 +325,38 @@ Not complete. Needs scoping — what's missing, and what "complete" looks like.
 - ⬜ **`README.md` is completely stale** — describes a plain HTML site with
   `index.html`. It's Astro, ~86 pages, a Cloudflare Worker and Supabase.
 
+### 6a. `/edit` is slow to load and stiff to scroll ⬜ — raised 17 Aug
+
+Both reported from the live site. A first look at the code turns up four
+candidates; none is confirmed as *the* cause yet, so measure before changing.
+
+- ⬜ **Smooth-scroll is a library, not the browser.** Lenis is loaded site-wide
+  from a CDN and `/edit` leans on it hard — the page's own comments call it
+  "deliberately floaty" and note it "emits NO native scroll events", so the
+  panel logic hooks Lenis's callback and polls for it to appear. Floaty inertia
+  is exactly what "stiff" describes. Worth trying the page with Lenis off
+  before anything else — it is the cheapest test and the likeliest answer.
+  (`src/layouts/BaseLayout.astro:115-120`, `src/pages/edit.astro:2298-2331`)
+- ⬜ **Pack covers can't lazy-load.** They are painted as CSS
+  `background-image`, not `<img>` — there is not a single `<img>` or
+  `loading="lazy"` on the page — so every cover downloads at full size on first
+  paint whether or not it is on screen. Prime suspect for the load time.
+  (`src/pages/edit.astro`, 9 × `cover_image_url`)
+- ⬜ **A `backdrop-filter` repaints on every frame** while scrolling. One use,
+  cheap to test by removing.
+- ⬜ **2,571 lines in one page file**, including three IntersectionObservers
+  and the panel-snapping machinery. Worth a look once the above are ruled in
+  or out.
+
+Ruled out already: the two scroll listeners are both `passive` and
+rAF-throttled, so they are not the stiffness. (`src/pages/edit.astro:1659`)
+
+### 6b. `/edit` shop — two visual fixes ⬜ — raised 17 Aug
+
+- ⬜ **The bottom section's images need replacing** — placeholder imagery, real
+  assets needed from Dani.
+- ⬜ **Drop the line border around the pack images** in the shop section.
+
 ## 7a. Deleting things, with permissions ⬜
 
 Added 28 Jul. Two places, two different rules.
