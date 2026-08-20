@@ -357,17 +357,6 @@ import "../../styles/admin.css";
     .vidx-step.is-now .vidx-dot { background: var(--english-violet); border-color: var(--english-violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--english-violet) 18%, transparent); }
     .vidx-cancelled { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 0; }
 
-    .vidx-form { border: 1px solid rgba(28,29,34,0.13); border-radius: 5px; padding: 16px; margin-top: 12px; display: flex; flex-direction: column; gap: 12px; background: #faf9f8; }
-    .vidx-form[hidden] { display: none; }
-    .vidx-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    @media (max-width: 620px) { .vidx-form-row { grid-template-columns: 1fr; } }
-    .vidx-field { display: flex; flex-direction: column; gap: 5px; }
-    .vidx-field span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
-    .vidx-field input, .vidx-field textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; color: var(--ink); }
-    .vidx-field input:focus, .vidx-field textarea:focus { outline: none; border-color: var(--english-violet); }
-    .vidx-hint { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0; }
-    .vidx-form-foot { display: flex; justify-content: flex-end; gap: 8px; }
-    .vidx-status { font-family: var(--sans); font-size: 12.5px; margin: 0; }
     .smm-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .smm-panel-head h4 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
 
@@ -428,6 +417,9 @@ import "../../styles/admin.css";
     .smm-modal-scrim { position: fixed; top: 0; right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
     .smm-modal { background: #fff; border-radius: 14px; width: min(440px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); }
     .smm-modal.smm-modal--email { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; }
+    /* The booking form carries far more than a meeting does, so it needs the
+       wider shell and has to scroll on a laptop screen. */
+    .smm-modal.smm-modal--booking { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; }
     .smm-modal-field textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; }
     .smm-modal-field textarea:focus { outline: none; border-color: var(--english-violet); }
     .smm-modal-field input[readonly] { background: rgba(28,29,34,0.04); color: rgba(28,29,34,0.6); }
@@ -435,7 +427,7 @@ import "../../styles/admin.css";
     .smm-modal p.smm-modal-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
     .smm-modal-field { margin-bottom: 14px; }
     .smm-modal-field > label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-bottom: 6px; }
-    .smm-modal-field input[type=text], .smm-modal-field input[type=date], .smm-modal-field input[type=time], .smm-modal-field select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
+    .smm-modal-field input[type=text], .smm-modal-field input[type=date], .smm-modal-field input[type=time], .smm-modal-field input[type=email], .smm-modal-field input[type=tel], .smm-modal-field input[type=datetime-local], .smm-modal-field select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
     .smm-modal-field input:focus, .smm-modal-field select:focus { outline: none; border-color: var(--english-violet); }
     .smm-modal-two { display: flex; gap: 12px; }
     .smm-modal-two > * { flex: 1; }
@@ -917,27 +909,59 @@ import "../../styles/admin.css";
         ${error
           ? `<p class="smm-soon">Couldn't load the existing shoots: ${esc(error.message)}</p>`
           : list.length ? rows : `<p class="smm-soon">No shoots booked yet. Book one and it lands on Jack's board straight away.</p>`}
-        <form class="vidx-form" id="vidx-form" hidden>
-          <div class="vidx-form-row">
-            <label class="vidx-field"><span>What are we shooting?</span><input id="vidx-service" type="text" placeholder="Property video, reels day…" /></label>
-            <label class="vidx-field"><span>Date &amp; time</span><input id="vidx-date" type="datetime-local" step="900" /></label>
-          </div>
-          <div class="vidx-form-row">
-            <label class="vidx-field"><span>Where</span><input id="vidx-location" type="text" placeholder="Address or postcode" /></label>
-          </div>
-          <label class="vidx-field"><span>Anything Jack should know</span><textarea id="vidx-notes" rows="2"></textarea></label>
-          <p class="vidx-hint">Covered by their social package — nothing is invoiced. Jack is emailed as soon as you save.</p>
-          <div class="vidx-form-foot">
-            <button type="button" class="smm-btn" id="vidx-cancel">Cancel</button>
-            <button type="button" class="smm-btn smm-btn--primary" id="vidx-save">Book it</button>
-          </div>
-          <p class="vidx-status" id="vidx-status"></p>
-        </form>`;
+`;
 
-      const form = $("vidx-form");
-      $("vidx-add")?.addEventListener("click", () => { form.hidden = !form.hidden; if (!form.hidden) $("vidx-service")?.focus(); });
-      $("vidx-cancel")?.addEventListener("click", () => { form.hidden = true; });
-      $("vidx-save")?.addEventListener("click", () => saveVideographyBooking(r));
+      $("vidx-add")?.addEventListener("click", () => openVidBooking(r));
+    }
+
+    // The same New booking form Jack uses, minus the parts the social manager
+    // shouldn't have to think about: the client is already known, so their
+    // details are filled in, and package work is never quoted or routed by
+    // hand — brand and payment route are set on save.
+    function openVidBooking(r) {
+      const name = r.business || [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || r.full_name || r.email || "Client";
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal smm-modal--booking" role="dialog" aria-modal="true" aria-label="New booking">
+            <h3>New booking</h3>
+            <p class="smm-modal-sub">Covered by their social package &mdash; nothing is invoiced. Jack is emailed as soon as you save.</p>
+            <div class="smm-modal-field">
+              <label>Client name</label>
+              <input type="text" id="vidx-name" value="${esc(name)}" />
+            </div>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>Email</label><input type="email" id="vidx-email" value="${esc(r.email || "")}" /></div>
+              <div class="smm-modal-field"><label>Phone</label><input type="tel" id="vidx-phone" value="${esc(r.phone || "")}" /></div>
+            </div>
+            <div class="smm-modal-two">
+              <div class="smm-modal-field"><label>Company</label><input type="text" id="vidx-company" value="${esc(r.business || "")}" /></div>
+              <div class="smm-modal-field"><label>Shoot date</label><input type="datetime-local" id="vidx-date" step="900" /></div>
+            </div>
+            <div class="smm-modal-field">
+              <label>Service</label>
+              <input type="text" id="vidx-service" placeholder="Property video, podcast&hellip;" />
+            </div>
+            <div class="smm-modal-field">
+              <label>Shoot location</label>
+              <input type="text" id="vidx-location" placeholder="Where Jack is going &mdash; this is what his calendar says" />
+            </div>
+            <div class="smm-modal-field">
+              <label>Property address</label>
+              <textarea id="vidx-address" rows="2" placeholder="Full address including postcode">${esc(r.business_address || "")}</textarea>
+            </div>
+            <div class="smm-modal-field"><label>Notes</label><textarea id="vidx-notes" rows="3"></textarea></div>
+            <p class="smm-modal-status" id="vidx-status"></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="vidx-save">Save booking</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("vidx-save").addEventListener("click", () => saveVideographyBooking(r));
+      $("vidx-service").focus();
     }
 
     async function saveVideographyBooking(r) {
@@ -947,18 +971,22 @@ import "../../styles/admin.css";
       if (!service) { if (status) { status.textContent = "Say what we're shooting."; status.style.color = "#a3372b"; } return; }
 
       const btn = $("vidx-save");
-      if (btn) { btn.disabled = true; btn.textContent = "Booking…"; }
+      if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
 
-      const name = r.business || [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || r.full_name || r.email || "Client";
+      const val = (id) => ($(id)?.value || "").trim();
+      const fallbackName = r.business || [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || r.full_name || r.email || "Client";
       const payload = {
-        client_name: name,
-        client_email: r.email || null,
-        client_company: r.business || null,
+        client_name: val("vidx-name") || fallbackName,
+        client_email: val("vidx-email") || null,
+        client_phone: val("vidx-phone") || null,
+        client_company: val("vidx-company") || null,
         service,
         shoot_date: when ? new Date(when).toISOString() : null,
-        location: ($("vidx-location")?.value || "").trim() || null,
-        notes: ($("vidx-notes")?.value || "").trim() || null,
-        // Package work: nothing to invoice, and the brand/tier says why.
+        location: val("vidx-location") || null,
+        property_address: val("vidx-address") || null,
+        notes: val("vidx-notes") || null,
+        // Package work: never quoted, never routed by hand. Set here so the
+        // social manager cannot leave the client billed as anything else.
         payment_route: "smm_package",
         brand: "social-media-marketing",
         smm_lead_id: r.id,
@@ -968,7 +996,7 @@ import "../../styles/admin.css";
       const { data, error } = await supabase.from("videography_bookings").insert(payload).select("id").single();
       if (error) {
         if (status) { status.textContent = "Couldn't book that: " + error.message; status.style.color = "#a3372b"; }
-        if (btn) { btn.disabled = false; btn.textContent = "Book it"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Save booking"; }
         return;
       }
 
@@ -992,16 +1020,30 @@ import "../../styles/admin.css";
         } catch (_) { mailed = false; }
       }
 
-      if (status) {
-        status.textContent = mailed
-          ? "Booked — Jack has been emailed."
-          : (WORKER ? "Booked and on Jack's board, but the email didn't send. Worth a message."
-                    : "Booked and on Jack's board. No Worker configured, so Jack has not been emailed.");
-        status.style.color = mailed ? "#2e6b40" : "#8a5a1f";
+      // When Jack has been told, the shoot appearing in the list behind is the
+      // confirmation — close and show it. When he hasn't, the modal stays put:
+      // that warning is the whole reason to send someone a message, so it must
+      // not vanish behind a closing dialog.
+      if (mailed) {
+        closeModal();
+        loadVideography(r);
+        return;
       }
-      if (btn) { btn.disabled = false; btn.textContent = "Book it"; }
-      $("vidx-form").hidden = true;
-      loadVideography(r);
+      if (status) {
+        status.textContent = WORKER
+          ? "Booked and on Jack's board, but the email didn't send. Worth a message."
+          : "Booked and on Jack's board. No Worker configured, so Jack has not been emailed.";
+        status.style.color = "#8a5a1f";
+      }
+      // Replacing the node drops the save listener with it — the shoot is
+      // already booked, and a second click must not book it twice.
+      if (btn) {
+        const done = btn.cloneNode(false);
+        done.disabled = false;
+        done.textContent = "Done";
+        done.addEventListener("click", () => { closeModal(); loadVideography(r); });
+        btn.replaceWith(done);
+      }
     }
 
     function smmStatus(msg, ok) { const s = $("smm-cd-status"); if (s) { s.textContent = msg; s.style.color = ok ? "#2e6b40" : "#a3372b"; } }
