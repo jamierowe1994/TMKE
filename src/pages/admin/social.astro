@@ -336,6 +336,38 @@ import "../../styles/admin.css";
     .smm-tab:hover { color: var(--ink); }
     .smm-tab.is-active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.14); }
     .smm-panel-body[hidden] { display: none; }
+
+    /* ---- Videography tab ---- */
+    .vidx-card { border: 1px solid rgba(28,29,34,0.13); border-radius: 5px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+    .vidx-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
+    .vidx-service { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
+    .vidx-when { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 3px 0 0; }
+    .vidx-open { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: none; white-space: nowrap; }
+    .vidx-open:hover { text-decoration: underline; }
+    /* The track reads left to right; the line is drawn behind the dots so a
+       step's state is carried by the dot rather than by two separate things. */
+    .vidx-track { list-style: none; display: flex; margin: 0; padding: 0; }
+    .vidx-step { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; font-family: var(--sans); font-size: 10.5px; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(28,29,34,0.4); text-align: center; }
+    .vidx-step::before { content: ""; position: absolute; top: 5px; left: -50%; width: 100%; height: 1px; background: rgba(28,29,34,0.15); }
+    .vidx-step:first-child::before { display: none; }
+    .vidx-dot { width: 11px; height: 11px; border-radius: 50%; background: #fff; border: 1.5px solid rgba(28,29,34,0.22); position: relative; z-index: 1; }
+    .vidx-step.is-done { color: rgba(28,29,34,0.55); }
+    .vidx-step.is-done .vidx-dot { background: rgba(28,29,34,0.35); border-color: rgba(28,29,34,0.35); }
+    .vidx-step.is-now { color: var(--english-violet); font-weight: 700; }
+    .vidx-step.is-now .vidx-dot { background: var(--english-violet); border-color: var(--english-violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--english-violet) 18%, transparent); }
+    .vidx-cancelled { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 0; }
+
+    .vidx-form { border: 1px solid rgba(28,29,34,0.13); border-radius: 5px; padding: 16px; margin-top: 12px; display: flex; flex-direction: column; gap: 12px; background: #faf9f8; }
+    .vidx-form[hidden] { display: none; }
+    .vidx-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 620px) { .vidx-form-row { grid-template-columns: 1fr; } }
+    .vidx-field { display: flex; flex-direction: column; gap: 5px; }
+    .vidx-field span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .vidx-field input, .vidx-field textarea { font-family: var(--sans); font-size: 13.5px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; color: var(--ink); }
+    .vidx-field input:focus, .vidx-field textarea:focus { outline: none; border-color: var(--english-violet); }
+    .vidx-hint { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0; }
+    .vidx-form-foot { display: flex; justify-content: flex-end; gap: 8px; }
+    .vidx-status { font-family: var(--sans); font-size: 12.5px; margin: 0; }
     .smm-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .smm-panel-head h4 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
 
@@ -740,12 +772,14 @@ import "../../styles/admin.css";
               <button type="button" class="smm-tab ${activeTab === "files" ? "is-active" : ""}" data-tab="files">Files</button>
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoicing</button>` : ""}
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "insights" ? "is-active" : ""}" data-tab="insights">Insights</button>` : ""}
+              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "videography" ? "is-active" : ""}" data-tab="videography">Videography</button>` : ""}
             </div>
             <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>
             <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
             <div id="smm-panel-files" class="smm-panel-body" ${activeTab === "files" ? "" : "hidden"}></div>
             ${isActive ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
             ${isActive ? `<div id="smm-panel-insights" class="smm-panel-body" ${activeTab === "insights" ? "" : "hidden"}></div>` : ""}
+            ${isActive ? `<div id="smm-panel-videography" class="smm-panel-body" ${activeTab === "videography" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>` : ""}
             <p class="smm-thread-status" id="smm-thread-status" hidden></p>
           </div>
         </div>`;
@@ -801,12 +835,173 @@ import "../../styles/admin.css";
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
         activeTab = b.getAttribute("data-tab");
         body.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("is-active", x === b));
-        ["notes", "emails", "files", "invoices", "insights"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
+        ["notes", "emails", "files", "invoices", "insights", "videography"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
         if (activeTab === "insights") loadInsights(r);
+        if (activeTab === "videography") loadVideography(r);
       }));
       // Correspondence
       loadThread(r);
       if (activeTab === "insights") loadInsights(r);
+      if (activeTab === "videography") loadVideography(r);
+    }
+
+
+    /* ================= Videography =================
+       The shoots linked to this client, and a way to book one without going
+       through Jack first — the social manager usually knows about a shoot
+       before he does, and making them wait to have it entered is how it ends
+       up only in someone's head.
+
+       The track mirrors the member hub's (src/pages/account/bookings.astro):
+       seven stages in the database, five a person reads, because 'invoiced' is
+       bookkeeping rather than progress and 'gallery_ready'/'sent' are both
+       really "your gallery is up". Kept identical on purpose — a client asking
+       "where is my video" should get the same answer from either side. */
+    const VID_TRACK = [
+      { key: "booked",    label: "Booked" },
+      { key: "shoot_day", label: "Shoot day" },
+      { key: "editing",   label: "Editing" },
+      { key: "amends",    label: "Amends" },
+      { key: "delivered", label: "Delivered" },
+    ];
+    const VID_STAGE_TO_STEP = {
+      booked: "booked", invoiced: "booked",
+      shoot_day: "shoot_day",
+      editing: "editing", final_draft: "editing",
+      gallery_ready: "amends", sent: "amends",
+      delivered: "delivered", complete: "delivered",
+    };
+    function vidTrackHtml(b) {
+      if (b.stage === "cancelled") return `<p class="vidx-cancelled">Cancelled — nothing further is due.</p>`;
+      const at = Math.max(0, VID_TRACK.findIndex((t) => t.key === (VID_STAGE_TO_STEP[b.stage] || "booked")));
+      return `<ol class="vidx-track">${VID_TRACK.map((t, i) =>
+        `<li class="vidx-step ${i < at ? "is-done" : i === at ? "is-now" : ""}"><span class="vidx-dot"></span><span>${esc(t.label)}</span></li>`
+      ).join("")}</ol>`;
+    }
+    const vidWhen = (iso) => {
+      if (!iso) return "Date to confirm";
+      try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+      catch (_) { return ""; }
+    };
+
+    async function loadVideography(r) {
+      const panel = $("smm-panel-videography");
+      if (!panel) return;
+      const { data, error } = await supabase
+        .from("videography_bookings")
+        .select("id, service, service_type, shoot_date, stage, location, property_address, notes")
+        .eq("smm_lead_id", r.id)
+        .order("shoot_date", { ascending: false, nullsFirst: true });
+
+      // A failed read must not take the "Book a shoot" button down with it —
+      // being unable to see the existing shoots is no reason to be unable to
+      // add one. The error goes in the list region only.
+      const list = error ? [] : (data || []);
+      const rows = list.map((b) => `
+        <article class="vidx-card">
+          <header class="vidx-card-head">
+            <div>
+              <h4 class="vidx-service">${esc(b.service || "Videography shoot")}</h4>
+              <p class="vidx-when">${esc(vidWhen(b.shoot_date))}${b.location || b.property_address ? " · " + esc(b.property_address || b.location) : ""}</p>
+            </div>
+            <a class="vidx-open" href="/admin/videography?booking=${encodeURIComponent(b.id)}">Open &rarr;</a>
+          </header>
+          ${vidTrackHtml(b)}
+        </article>`).join("");
+
+      panel.innerHTML = `
+        <div class="smm-panel-head">
+          <h4>Shoots for this client</h4>
+          <button type="button" class="smm-btn" id="vidx-add">+ Book a shoot</button>
+        </div>
+        ${error
+          ? `<p class="smm-soon">Couldn't load the existing shoots: ${esc(error.message)}</p>`
+          : list.length ? rows : `<p class="smm-soon">No shoots booked yet. Book one and it lands on Jack's board straight away.</p>`}
+        <form class="vidx-form" id="vidx-form" hidden>
+          <div class="vidx-form-row">
+            <label class="vidx-field"><span>What are we shooting?</span><input id="vidx-service" type="text" placeholder="Property video, reels day…" /></label>
+            <label class="vidx-field"><span>Date &amp; time</span><input id="vidx-date" type="datetime-local" step="900" /></label>
+          </div>
+          <div class="vidx-form-row">
+            <label class="vidx-field"><span>Where</span><input id="vidx-location" type="text" placeholder="Address or postcode" /></label>
+          </div>
+          <label class="vidx-field"><span>Anything Jack should know</span><textarea id="vidx-notes" rows="2"></textarea></label>
+          <p class="vidx-hint">Covered by their social package — nothing is invoiced. Jack is emailed as soon as you save.</p>
+          <div class="vidx-form-foot">
+            <button type="button" class="smm-btn" id="vidx-cancel">Cancel</button>
+            <button type="button" class="smm-btn smm-btn--primary" id="vidx-save">Book it</button>
+          </div>
+          <p class="vidx-status" id="vidx-status"></p>
+        </form>`;
+
+      const form = $("vidx-form");
+      $("vidx-add")?.addEventListener("click", () => { form.hidden = !form.hidden; if (!form.hidden) $("vidx-service")?.focus(); });
+      $("vidx-cancel")?.addEventListener("click", () => { form.hidden = true; });
+      $("vidx-save")?.addEventListener("click", () => saveVideographyBooking(r));
+    }
+
+    async function saveVideographyBooking(r) {
+      const status = $("vidx-status");
+      const service = ($("vidx-service")?.value || "").trim();
+      const when = $("vidx-date")?.value || "";
+      if (!service) { if (status) { status.textContent = "Say what we're shooting."; status.style.color = "#a3372b"; } return; }
+
+      const btn = $("vidx-save");
+      if (btn) { btn.disabled = true; btn.textContent = "Booking…"; }
+
+      const name = r.business || [r.first_name, r.last_name].filter(Boolean).join(" ").trim() || r.full_name || r.email || "Client";
+      const payload = {
+        client_name: name,
+        client_email: r.email || null,
+        client_company: r.business || null,
+        service,
+        shoot_date: when ? new Date(when).toISOString() : null,
+        location: ($("vidx-location")?.value || "").trim() || null,
+        notes: ($("vidx-notes")?.value || "").trim() || null,
+        // Package work: nothing to invoice, and the brand/tier says why.
+        payment_route: "smm_package",
+        brand: "social-media-marketing",
+        smm_lead_id: r.id,
+        stage: "booked",
+      };
+
+      const { data, error } = await supabase.from("videography_bookings").insert(payload).select("id").single();
+      if (error) {
+        if (status) { status.textContent = "Couldn't book that: " + error.message; status.style.color = "#a3372b"; }
+        if (btn) { btn.disabled = false; btn.textContent = "Book it"; }
+        return;
+      }
+
+      // Jack is told by email. Best-effort on purpose: the booking is already
+      // saved and on his board, so a mail failure must not read as "not booked".
+      // This page calls the Worker WORKER, not WORKER_URL, and does not keep the
+      // signed-in admin around, so it is read here rather than assumed.
+      let mailed = false;
+      if (WORKER) {
+        try {
+          // The endpoint is admin-gated, so it needs the bearer token this page
+          // already uses for its other Worker calls.
+          const token = await authToken();
+          const { data: { user } } = await supabase.auth.getUser();
+          const res = await fetch(`${WORKER}/videography/notify-new-booking`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ booking_id: data.id, booked_by: user?.email || null }),
+          });
+          mailed = res.ok;
+        } catch (_) { mailed = false; }
+      }
+
+      if (status) {
+        status.textContent = mailed
+          ? "Booked — Jack has been emailed."
+          : (WORKER ? "Booked and on Jack's board, but the email didn't send. Worth a message."
+                    : "Booked and on Jack's board. No Worker configured, so Jack has not been emailed.");
+        status.style.color = mailed ? "#2e6b40" : "#8a5a1f";
+      }
+      if (btn) { btn.disabled = false; btn.textContent = "Book it"; }
+      $("vidx-form").hidden = true;
+      loadVideography(r);
     }
 
     function smmStatus(msg, ok) { const s = $("smm-cd-status"); if (s) { s.textContent = msg; s.style.color = ok ? "#2e6b40" : "#a3372b"; } }

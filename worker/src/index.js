@@ -7252,6 +7252,57 @@ async function sendGalleryPinEmail(env, bookingId) {
       // file once Jack's confirmed everything's done and settled with the
       // client directly. Not automatic on the tick itself — the admin calls
       // this explicitly so a re-tick (untick/retick) never re-sends.
+      // A shoot booked from the social media side rather than by Jack. The
+      // social manager usually hears about it first, so they can enter it —
+      // but Jack has to be told, or it sits on a board nobody has looked at.
+      if (path.endsWith("/videography/notify-new-booking") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+
+        const rows = await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "No such booking." }, 404, request, env);
+
+        const team = [...new Set([env.JACK_NOTIFY || env.JACK_UPN]
+          .flatMap((v) => String(v || "").split(","))
+          .map((v) => v.trim()).filter(Boolean))];
+        if (!team.length) return json({ error: "No recipient configured." }, 503, request, env);
+
+        const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const link = `${siteUrl}/admin/videography?booking=${encodeURIComponent(bk.id)}`;
+        const when = bk.shoot_date
+          ? new Date(bk.shoot_date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" })
+          : "No date yet — needs arranging";
+        const bookedBy = String((b && b.booked_by) || "").trim();
+        const where = bk.property_address || bk.location || "";
+
+        const row = (k, v) => v ? `<p style="${EM_P}"><strong>${esc(k)}</strong> ${esc(v)}</p>` : "";
+        const body = `
+          <p style="${EM_P}">A shoot has been booked from the social media side${bookedBy ? ` by ${esc(bookedBy)}` : ""}. It is already on your board — nothing to accept, this is just so you know it is there.</p>
+          ${row("Client", bk.client_name)}
+          ${row("What", bk.service)}
+          ${row("When", when)}
+          ${row("Where", where)}
+          ${row("Notes", bk.notes)}
+          <p style="${EM_P}">Covered by their social media package, so there is nothing to invoice.</p>
+          <p style="${EM_P}"><a href="${link}" style="${EM_BTN}">Open the booking</a></p>`;
+
+        try {
+          await sendEmail(env, {
+            to: team,
+            subject: `New shoot booked - ${bk.client_name || "SMM client"}${bk.shoot_date ? " - " + when : ""}`,
+            html: await wrapInBrandedBase(env, body),
+          });
+        } catch (e) {
+          return json({ error: "Couldn't send that email." }, 502, request, env);
+        }
+        return json({ ok: true }, 200, request, env);
+      }
+
       if (path.endsWith("/videography/edits-complete-email") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
