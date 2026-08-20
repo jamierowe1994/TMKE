@@ -388,6 +388,15 @@ import "../../styles/admin.css";
     /* Merge only makes sense on a pair, so the button only exists on a pair. */
     .ct-bulk-merge { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff; border-radius: 8px; padding: 8px 15px; cursor: pointer; }
     .ct-bulk-merge[hidden] { display: none; }
+    /* The primary email is identity, not just another detail — it saves on an
+       explicit click, so the Save only appears once it has actually changed. */
+    .ct-email-edit { display: flex; align-items: center; gap: 8px; }
+    .ct-email-edit input { flex: 1 1 auto; min-width: 0; font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; }
+    .ct-email-edit input:hover { border-color: rgba(28,29,34,0.16); background: #fff; }
+    .ct-email-edit input:focus { outline: none; border-color: var(--english-violet); background: #fff; }
+    .ct-email-edit .ct-mini[hidden] { display: none; }
+    .ct-email-note { margin: 6px 0 0; }
+    .ct-email-note.is-bad { color: #a5352f; }
     .ct-merge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 4px 0 14px; }
     @media (max-width: 620px) { .ct-merge-grid { grid-template-columns: 1fr; } }
     .ct-merge-pick { text-align: left; cursor: pointer; background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 10px; padding: 12px 14px; font-family: var(--sans); }
@@ -897,7 +906,13 @@ import "../../styles/admin.css";
           <div class="ct-sec">
             <h3>Details</h3>
             <dl class="ct-dl">
-              <div><dt>Email</dt><dd>${esc(c.email || "—")}</dd></div>
+              <div><dt>Email</dt><dd>
+                <div class="ct-email-edit">
+                  <input id="ct-d-email" type="email" value="${esc(c.email || "")}" placeholder="name@example.com" aria-label="Primary email" />
+                  <button type="button" class="ct-mini" id="ct-d-email-save" hidden>Save</button>
+                </div>
+                <p class="ct-meta ct-email-note" id="ct-d-email-note" hidden></p>
+              </dd></div>
               ${c.agentProfile && c.agentProfile.postcode ? `<div><dt>Postcode</dt><dd>${esc(c.agentProfile.postcode)}</dd></div>` : ""}
               <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
             </dl>
@@ -1107,6 +1122,63 @@ import "../../styles/admin.css";
           render();
         });
       });
+      // Primary email — this one IS the identity. Orders, bookings and SMM
+      // history are all matched to a contact by their email, so changing it
+      // changes what shows on their card: their old history follows the old
+      // address and stops appearing here. That is usually right (a typo, or
+      // someone changing firm) but it is worth saying out loud before it
+      // happens, so this saves on a click rather than on blur like the rest.
+      (function wirePrimaryEmail() {
+        const input = $("ct-d-email"), save = $("ct-d-email-save"), note = $("ct-d-email-note");
+        if (!input) return;
+        const was = (c.email || "").trim().toLowerCase();
+        const say = (msg, bad) => {
+          note.hidden = !msg;
+          note.textContent = msg || "";
+          note.classList.toggle("is-bad", !!bad);
+        };
+        const changed = () => input.value.trim().toLowerCase() !== was;
+        input.addEventListener("input", () => {
+          save.hidden = !changed();
+          if (!changed()) say("");
+          else say(c.user_id
+            ? "Their member hub sign-in stays on the old address — this only changes their contact record."
+            : "Orders and bookings are matched by email, so history under the old address will stop showing here.");
+        });
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save.click(); } });
+
+        save.addEventListener("click", async () => {
+          const v = input.value.trim().toLowerCase();
+          if (!v) { say("A contact has to have an email address.", true); return; }
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { say("That doesn't look like an email address.", true); return; }
+          if (v === was) { save.hidden = true; say(""); return; }
+
+          // Email is unique in the database. Catching the clash here turns a
+          // raw constraint error into the thing you'd actually want to do.
+          const dupe = ALL.find((x) => x.id !== c.id && (x.email || "").toLowerCase() === v);
+          if (dupe) {
+            say(`${fullName(dupe)} already uses that address. Close this and select both contacts in the list to merge them instead.`, true);
+            return;
+          }
+          if (!confirm(`Change ${fullName(c)}'s email from ${was || "(none)"} to ${v}?`)) return;
+
+          save.disabled = true; save.textContent = "Saving…";
+          const { error } = await supabase.from("contacts").update({ email: v }).eq("id", c.id);
+          save.disabled = false; save.textContent = "Save";
+          if (error) {
+            say(/duplicate key|unique/i.test(error.message || "")
+              ? "Another contact already uses that address. Merge the two records instead."
+              : "Couldn't save that: " + error.message, true);
+            return;
+          }
+          c.email = v;
+          save.hidden = true;
+          say("Saved.");
+          render();
+          openDrawer(c.id);
+        });
+      })();
+
       // Secondary email — a delivery address for funnel email, not an identity.
       $("ct-sec-email")?.addEventListener("change", async (e) => {
         const v = (e.target.value || "").trim().toLowerCase();
