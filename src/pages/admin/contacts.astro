@@ -390,10 +390,9 @@ import "../../styles/admin.css";
     .ct-bulk-merge[hidden] { display: none; }
     /* The primary email is identity, not just another detail — it saves on an
        explicit click, so the Save only appears once it has actually changed. */
+    .ct-field--email { display: flex; flex-direction: column; }
     .ct-email-edit { display: flex; align-items: center; gap: 8px; }
-    .ct-email-edit input { flex: 1 1 auto; min-width: 0; font-family: var(--sans); font-size: 13px; color: var(--ink); padding: 5px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; }
-    .ct-email-edit input:hover { border-color: rgba(28,29,34,0.16); background: #fff; }
-    .ct-email-edit input:focus { outline: none; border-color: var(--english-violet); background: #fff; }
+    .ct-email-edit input { flex: 1 1 auto; min-width: 0; }
     .ct-email-edit .ct-mini[hidden] { display: none; }
     .ct-email-note { margin: 6px 0 0; }
     .ct-email-note.is-bad { color: #a5352f; }
@@ -906,19 +905,21 @@ import "../../styles/admin.css";
           <div class="ct-sec">
             <h3>Details</h3>
             <dl class="ct-dl">
-              <div><dt>Email</dt><dd>
-                <div class="ct-email-edit">
-                  <input id="ct-d-email" type="email" value="${esc(c.email || "")}" placeholder="name@example.com" aria-label="Primary email" />
-                  <button type="button" class="ct-mini" id="ct-d-email-save" hidden>Save</button>
-                </div>
-                <p class="ct-meta ct-email-note" id="ct-d-email-note" hidden></p>
-              </dd></div>
+
               ${c.agentProfile && c.agentProfile.postcode ? `<div><dt>Postcode</dt><dd>${esc(c.agentProfile.postcode)}</dd></div>` : ""}
               <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
             </dl>
             <!-- Editable details — some contacts arrive email-only (e.g. the
                  newsletter form), so anything learned later is filled in here.
                  Each field saves itself when you click/tab away. -->
+            <div class="ct-field ct-field--email" style="margin-top:12px">
+              <label for="ct-d-email">Email</label>
+              <div class="ct-email-edit">
+                <input id="ct-d-email" type="email" value="${esc(c.email || "")}" placeholder="name@example.com" />
+                <button type="button" class="ct-mini" id="ct-d-email-save" hidden>Save</button>
+              </div>
+              <p class="ct-meta ct-email-note" id="ct-d-email-note" hidden></p>
+            </div>
             <div class="ct-add-grid" style="margin-top:12px">
               <div class="ct-field"><label>First name</label><input id="ct-d-first" value="${esc(c.first_name || "")}" placeholder="—" /></div>
               <div class="ct-field"><label>Last name</label><input id="ct-d-last" value="${esc(c.last_name || "")}" placeholder="—" /></div>
