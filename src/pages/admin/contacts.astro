@@ -913,9 +913,9 @@ import "../../styles/admin.css";
                  newsletter form), so anything learned later is filled in here.
                  Each field saves itself when you click/tab away. -->
             <div class="ct-field ct-field--email" style="margin-top:12px">
-              <label for="ct-d-email">Email</label>
+              <label for="ct-d-email-input">Email</label>
               <div class="ct-email-edit">
-                <input id="ct-d-email" type="email" value="${esc(c.email || "")}" placeholder="name@example.com" />
+                <input id="ct-d-email-input" type="email" value="${esc(c.email || "")}" placeholder="name@example.com" />
                 <button type="button" class="ct-mini" id="ct-d-email-save" hidden>Save</button>
               </div>
               <p class="ct-meta ct-email-note" id="ct-d-email-note" hidden></p>
@@ -1130,7 +1130,9 @@ import "../../styles/admin.css";
       // someone changing firm) but it is worth saying out loud before it
       // happens, so this saves on a click rather than on blur like the rest.
       (function wirePrimaryEmail() {
-        const input = $("ct-d-email"), save = $("ct-d-email-save"), note = $("ct-d-email-note");
+        // NOT "ct-d-email" — that id belongs to the header line above, which
+        // getElementById would return instead, leaving this wired to a <p>.
+        const input = $("ct-d-email-input"), save = $("ct-d-email-save"), note = $("ct-d-email-note");
         if (!input) return;
         const was = (c.email || "").trim().toLowerCase();
         const say = (msg, bad) => {
