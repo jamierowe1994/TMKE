@@ -528,6 +528,38 @@ the rendered output checking, not just a build.
 - ⬜ Schedule falls back to a hard-coded holiday list if `uk_observances` was
   never seeded. (`src/pages/account/schedule.astro:1249-1263`)
 
+## 8b. Design Studio — editing behaviour ⬜ — raised 17 Aug
+
+Raised while building pack templates, so these bite hardest on the work we do
+most. The engine is `public/scripts/editor.js` (loaded with `<script src>`, not
+bundled) with the panels in `src/pages/account/editor.astro` — both need
+reading, the .astro alone tells you less than half.
+
+- ⬜ **No multi-select.** Cmd-click (Ctrl on Windows) should add an item to the
+  selection so several can be moved, aligned or grouped together. Today every
+  click replaces the selection, so anything involving two objects is done one
+  at a time by eye.
+
+- ⬜ **Panels do not follow the selection.** With Position open, clicking a
+  different item leaves the panel showing the *previous* item's numbers — you
+  have to close it and reopen it before it reads the thing you just clicked.
+  Whatever panel is open should re-read on every selection change.
+
+- ⬜ **The open panel is dropped when you select something else.** Change a
+  text colour, click the next text item, and you are back at the generic
+  selection panel instead of still on Text colour. The common case is
+  recolouring several items in a row, so the panel should stay put and be
+  dismissed deliberately.
+
+  These two are one underlying fault — selection changes are not driving the
+  panel — so they are almost certainly one fix rather than two.
+
+- ⬜ **The Text colour overlay does not cover the left column.** The panel
+  underneath shows through down the side and along the bottom (see the swatch
+  grid: the Start / Brand / Elements rail is clear, but the panel behind the
+  overlay is not). Either size the overlay to the column or give it an opaque
+  ground.
+
 ## 9. Security + infrastructure
 
 - ✅ **(27 Jul) Backstage tables locked to admins.** The admin area and member
