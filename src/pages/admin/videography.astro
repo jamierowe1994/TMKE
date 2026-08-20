@@ -372,6 +372,14 @@ import "../../styles/admin.css";
               <input type="text" data-f="teg_reason_other" id="vid-teg-reason-other" placeholder="For the invoice notes" />
             </div>
           </div>
+          <!-- SMM only. The shoot belongs to a social media client, and linking
+               it here is what puts it on that client's Videography tab. -->
+          <div class="vid-field-row" id="vid-smm-client-row" hidden>
+            <div class="vid-field">
+              <label>Social media client</label>
+              <select data-f="smm_lead_id" id="vid-smm-client"><option value="">— Not linked —</option></select>
+            </div>
+          </div>
           <p class="vid-hint" id="vid-teg-hint">Goes to Paula at Newman for every TEG brand — billed to the brand name selected above, not to Paula.</p>
           <p class="vid-hint" id="vid-smm-hint" hidden>Covered by their social media package — nothing is invoiced, and the client's gallery, tour and PIN open as soon as the booking is saved.</p>
         </div>
@@ -3603,6 +3611,9 @@ import "../../styles/admin.css";
       if (tegBrand && tegBrand.options.length <= 1) {
         TEG_BRANDS.forEach((o) => tegBrand.add(new Option(o.label, o.key)));
       }
+      // Not awaited: openModal is synchronous, and fillSmmClients sets the
+      // value itself once the list lands, so the select self-corrects.
+      fillSmmClients(b?.smm_lead_id || "");
       // Built for this booking's route before the value is set, so a saved
       // reason lands on an option that actually exists.
       syncReasonOptions(b?.payment_route || "agent_card");
@@ -3769,6 +3780,8 @@ import "../../styles/admin.css";
       const sHint = document.getElementById("vid-smm-hint");
       if (tHint) tHint.hidden = !teg;
       if (sHint) sHint.hidden = !smm;
+      const smmClientRow = document.getElementById("vid-smm-client-row");
+      if (smmClientRow) smmClientRow.hidden = !smm;
       if (teg || smm) syncReasonOptions(route);
       const warn = document.getElementById("vid-fee-warn");
       if (warn) {
@@ -3807,6 +3820,39 @@ import "../../styles/admin.css";
         : (route === "smm_package" ? SMM_REASON.key : "");
     }
 
+
+    /* The social media clients a shoot can be linked to.
+       Active only, matching the test social.astro uses to decide a lead has
+       become a client — otherwise this list and that page would disagree.
+       Cached: the picker is opened repeatedly while working through a board. */
+    let smmClientsCache = null;
+    async function fillSmmClients(selected) {
+      const sel = document.getElementById("vid-smm-client");
+      if (!sel) return;
+      if (!smmClientsCache) {
+        const { data, error } = await supabase
+          .from("smm_leads")
+          .select("id, business, full_name, first_name, last_name, email")
+          .eq("stage", "active_client")
+          .order("business", { ascending: true, nullsFirst: false });
+        if (error) { smmClientsCache = []; }
+        else smmClientsCache = data || [];
+      }
+      const label = (r) => r.business
+        || [r.first_name, r.last_name].filter(Boolean).join(" ").trim()
+        || r.full_name || r.email || "Client";
+      // Rebuilt rather than appended: this runs on every booking opened.
+      sel.innerHTML = "";
+      sel.add(new Option("— Not linked —", ""));
+      smmClientsCache.forEach((r) => sel.add(new Option(label(r), r.id)));
+      // A link to a client who is no longer active would otherwise vanish from
+      // the menu and read as "not linked" — keep it visible and say why.
+      if (selected && !smmClientsCache.some((r) => r.id === selected)) {
+        sel.add(new Option("Linked client (no longer active)", selected));
+      }
+      sel.value = selected || "";
+    }
+
     async function saveBooking() {
       const get = (f) => { const el = document.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : ""; };
       const name = get("client_name");
@@ -3835,6 +3881,7 @@ import "../../styles/admin.css";
         brand_fee_confirmed_by: document.getElementById("vid-fee-confirmed")?.checked
           ? (bookings.find((x) => x.id === editingId)?.brand_fee_confirmed_by || adminEmail || null)
           : null,
+        smm_lead_id: get("payment_route") === "smm_package" ? (get("smm_lead_id") || null) : null,
         teg_brand: get("teg_brand") || null,
         teg_reason: get("teg_reason") || null,
         teg_reason_other: get("teg_reason") === "other" ? (get("teg_reason_other") || null) : null,
