@@ -6514,9 +6514,19 @@
     if (!slots.length) return;
 
     slots.forEach(function (slot) {
-      // The box the designer drew. The logo is fitted inside it rather than
-      // stretched to it, so a wide lockup and a square badge both sit right.
+      // NOT the box the designer drew. Those are text line boxes — typically
+      // 600x24 — so fitting a logo inside one would land a wide lockup at
+      // 96x24. A logo gets its own allowance instead: at most 200 x 80, the
+      // largest a mark should ever sit on these designs.
+      const MAX_W = 200, MAX_H = 80;
+      // Where the slot sat decides where the logo sits. Measured across the
+      // pack: every lockup is 108px from an edge — 30 at the top, 16 at the
+      // foot — so a top mark stays at the top and a foot mark stays at the
+      // foot rather than all of them jumping to one end.
+      const EDGE = 108;
       const box = { x: slot.x, y: slot.y, w: slot.w, h: slot.h };
+      const distTop = slot.y;
+      const distBottom = state.canvas.height - (slot.y + (slot.h || 0));
       // Converted in place, so z-order, rotation and any grouping survive.
       ["text", "runs", "font", "size", "weight", "color", "align", "lineHeight",
        "letterSpacing", "textGradient", "textShadow", "textOutline", "textBg"]
@@ -6526,13 +6536,25 @@
 
       const probe = new Image();
       probe.onload = function () {
+        // Fit inside 200x80 — whichever dimension hits its limit first wins.
+        // The logo's own proportions are never touched.
         const ratio = probe.naturalWidth / probe.naturalHeight || 1;
-        let w = box.w, h = box.w / ratio;
-        if (h > box.h) { h = box.h; w = box.h * ratio; }
+        let w = MAX_W, h = MAX_W / ratio;
+        if (h > MAX_H) { h = MAX_H; w = MAX_H * ratio; }
         slot.w = Math.round(w);
         slot.h = Math.round(h);
-        slot.x = Math.round(box.x + (box.w - w) / 2);
-        slot.y = Math.round(box.y + (box.h - h) / 2);
+        // Centred on the canvas, not on the text box: the text boxes are
+        // variously left, right, centre and justified, and a mark that
+        // inherited a justified box would sit off-centre.
+        slot.x = Math.round((state.canvas.width - w) / 2);
+        if (distTop <= distBottom && distTop < 400) {
+          slot.y = EDGE;
+        } else if (distBottom < distTop && distBottom < 400) {
+          slot.y = Math.round(state.canvas.height - EDGE - h);
+        } else {
+          // A mark placed deliberately mid-design keeps where it was put.
+          slot.y = Math.round(box.y + ((box.h || 0) - h) / 2);
+        }
         fullRender();
       };
       // A logo that won't load leaves the slot at the drawn box rather than
