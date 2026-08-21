@@ -566,7 +566,6 @@ const googleFonts = [
         <div class="ed-ttabs" role="tablist">
           <button type="button" class="ed-ttab is-active" data-ttab="page" role="tab">On this page</button>
           <button type="button" class="ed-ttab" data-ttab="add" role="tab">Add text</button>
-          <button type="button" class="ed-ttab" data-ttab="brand" role="tab">Brand kit</button>
           <button type="button" class="ed-ttab" data-ttab="fonts" role="tab">Fonts</button>
         </div>
 
@@ -586,9 +585,11 @@ const googleFonts = [
           <button class="ed-text-add" data-text="body">
             <div class="ed-text-preview ed-text-b">Add body text</div>
           </button>
-        </div>
-
-        <div class="ed-ttab-pane" data-ttab-pane="brand">
+          <!-- The two brand presets used to sit behind their own "Brand kit"
+               tab, which put font-adjacent things in two places. They are
+               add-text presets, so they live with the other three; brand
+               FONTS are starred in the font list instead. -->
+          <div class="ed-text-add-sep">From your brand kit</div>
           <button class="ed-text-add" data-text="brand-eyebrow">
             <div class="ed-text-preview ed-text-eyebrow">CHAPTER MARKER</div>
           </button>
@@ -1523,6 +1524,12 @@ const googleFonts = [
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .ed-tl-row:focus-within { border-color: var(--english-violet); box-shadow: 0 0 0 2px rgba(55,30,40,0.08); }
+    /* The row for the box you have selected. This list is how you move between
+       text boxes without leaving the pane, so it has to show where you are. */
+    .ed-tl-row { cursor: pointer; }
+    .ed-tl-row.is-selected { border-color: var(--english-violet); background: rgba(var(--violet-rgb),0.05); }
+    .ed-tl-row.is-selected .ed-tl-num { color: var(--english-violet); }
+    .ed-tl-input { cursor: text; }
     .ed-tl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .ed-tl-num {
       font-family: var(--sans); font-size: 9.5px; font-weight: 700;
@@ -2090,13 +2097,18 @@ const googleFonts = [
       border: 1px solid rgba(28,29,34,0.16); border-radius: 7px; background: #fff;
     }
     .ed-fb-search:focus { outline: none; border-color: rgba(var(--violet-rgb),0.5); }
+    .ed-text-add-sep {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
+      border-top: 1px solid rgba(28,29,34,0.10); padding-top: 13px; margin: 13px 0 8px;
+    }
     .ed-fb-hint { margin: 0 0 12px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
     .ed-fb-title {
       font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
       text-transform: uppercase; color: rgba(28,29,34,0.5);
       margin: 14px 0 8px;
     }
-    .ed-fb-weights { margin-bottom: 4px; }
+    .ed-fb-weights { margin-bottom: 4px; padding-bottom: 12px; border-bottom: 1px solid rgba(28,29,34,0.10); }
     .ed-fb-weights .ed-fb-title { margin-top: 0; }
     .ed-fb-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
     .ed-fb-chip {
@@ -2114,7 +2126,14 @@ const googleFonts = [
     }
     .ed-fb-list::-webkit-scrollbar { width: 8px; }
     .ed-fb-list::-webkit-scrollbar-thumb { background: rgba(28,29,34,0.18); border-radius: 8px; }
-    .ed-fb-list .ed-fb-title:first-child { margin-top: 2px; }
+    .ed-fb-list .ed-fb-title:first-child { margin-top: 2px; border-top: 0; padding-top: 0; }
+    /* Brand fonts, Recently picked and All fonts ran together as one column
+       with a small heading in it. A rule above each makes them read as
+       separate shelves without adding chrome. */
+    .ed-fb-list .ed-fb-title {
+      border-top: 1px solid rgba(28,29,34,0.10);
+      padding-top: 13px; margin-top: 13px;
+    }
     .ed-fb-row {
       display: flex; align-items: center; gap: 6px;
       border-radius: 7px; padding-right: 4px;
@@ -2123,7 +2142,10 @@ const googleFonts = [
     .ed-fb-row.is-current { background: rgba(var(--violet-rgb),0.1); }
     .ed-fb-name {
       flex: 1; min-width: 0; text-align: left;
-      padding: 9px 10px; font-size: 15px; color: var(--ink);
+      /* Was 15px/9px. The previewed rows render in their own face at this
+         size, and a column of them at 15 read as a specimen sheet rather than
+         a list you scan. */
+      padding: 7px 10px; font-size: 13.5px; color: var(--ink);
       background: none; border: none; border-radius: 7px; cursor: pointer;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }

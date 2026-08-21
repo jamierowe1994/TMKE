@@ -2504,8 +2504,11 @@
       wrap.innerHTML = '<p class="ed-textlist-empty">No text on this page yet — add one below.</p>';
       return;
     }
+    // The row marks itself when its element is the selection, so this list
+    // doubles as the text selector: pick a box here, restyle it on the Fonts
+    // tab, move to the next one — without going back to the canvas to click.
     wrap.innerHTML = texts.map((el, i) =>
-      '<div class="ed-tl-row" data-id="' + el.id + '">' +
+      '<div class="ed-tl-row' + (state.selectedIds.length === 1 && state.selectedIds[0] === el.id ? " is-selected" : "") + '" data-id="' + el.id + '">' +
         '<div class="ed-tl-head"><span class="ed-tl-num">Text ' + (i + 1) + '</span>' +
         '<button type="button" class="ed-tl-find" data-find="' + el.id + '">Select</button></div>' +
         '<textarea class="ed-tl-input" rows="2" spellcheck="false"></textarea>' +
@@ -2519,6 +2522,21 @@
     wrap.querySelectorAll("[data-find]").forEach((b) => {
       b.addEventListener("click", () => {
         state.selectedIds = [b.dataset.find];
+        fullRender();
+      });
+    });
+    // The whole row selects too — the Select button alone was a small target
+    // for what is the row's main job. Clicking into the textarea to retype the
+    // wording still selects, but must not steal the caret.
+    wrap.querySelectorAll(".ed-tl-row").forEach((row) => {
+      row.addEventListener("pointerdown", (e) => {
+        if (e.target.closest("[data-find]")) return;
+        const id = row.dataset.id;
+        if (state.selectedIds.length === 1 && state.selectedIds[0] === id) return;
+        state.selectedIds = [id];
+        // Safe mid-type: renderTextList bails out while the focus is inside
+        // this list, so the textarea and its caret survive the re-render.
+        wrap.querySelectorAll(".ed-tl-row").forEach((r) => r.classList.toggle("is-selected", r === row));
         fullRender();
       });
     });
@@ -5746,11 +5764,19 @@
       return;
     }
 
-    // Selected element — surface its controls and switch to Selection pane.
-    if (typeof showPane === "function") showPane("selection");
-
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
+
+    // Selected element — surface its controls and switch to Selection pane.
+    // Exception: if you are already working in the Text pane and you pick
+    // another text box, stay there. Moving between text boxes to restyle them
+    // is the whole point of that pane, and being thrown back to the generic
+    // Selection pane on every click made it unusable for the job — the same
+    // fault the colour panel had. Any other element type still switches, since
+    // the Text pane has nothing to say about a photo.
+    const stayInText = activeToolPane === "text" && el.type === "text";
+    if (typeof showPane === "function" && !stayInText) showPane("selection");
+    if (stayInText) { renderTextList(); renderFontBrowser(); return; }
 
     // Position & size, font/type and the effects panel used to render
     // here as always-visible sections. They now live as popovers on the
