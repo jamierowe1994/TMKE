@@ -6503,7 +6503,7 @@
      Nothing happens in admin mode: authors need to see the placeholder they
      drew, tags and all. */
   /* Authoring: drop a logo slot that is already the right size and in the
-     right place, rather than drawing a box by eye and hoping. 200x80 is the
+     right place, rather than drawing a box by eye and hoping. 200x75 is the
      largest a mark should sit on these designs, centred, 108px from the edge —
      the measurements the existing pack already follows.
 
@@ -6511,7 +6511,7 @@
      without a logo should see; the slot only becomes an image for members who
      have uploaded one. So the placeholder IS the fallback, not a stand-in for
      it, and there is nothing to remember to swap out later. */
-  const LOGO_SLOT_W = 200, LOGO_SLOT_H = 80, LOGO_SLOT_EDGE = 108;
+  const LOGO_SLOT_W = 200, LOGO_SLOT_H = 75, LOGO_SLOT_EDGE = 108;
 
   function addLogoSlot(anchor) {
     const y = anchor === "bottom"
@@ -6532,7 +6532,7 @@
       align: "center",
       lineHeight: 1.2,
     });
-    toast("Logo slot added — 200 × 80, centred, " + LOGO_SLOT_EDGE + "px from the " + (anchor === "bottom" ? "foot" : "top"));
+    toast("Logo slot added — " + LOGO_SLOT_W + " × " + LOGO_SLOT_H + ", centred, " + LOGO_SLOT_EDGE + "px from the " + (anchor === "bottom" ? "foot" : "top"));
   }
 
   function brandLogoSrc() {
@@ -6552,9 +6552,9 @@
     slots.forEach(function (slot) {
       // NOT the box the designer drew. Those are text line boxes — typically
       // 600x24 — so fitting a logo inside one would land a wide lockup at
-      // 96x24. A logo gets its own allowance instead: at most 200 x 80, the
+      // 96x24. A logo gets its own allowance instead: at most 200 x 75, the
       // largest a mark should ever sit on these designs.
-      const MAX_W = 200, MAX_H = 80;
+      const MAX_W = 200, MAX_H = 75;
       // Where the slot sat decides where the logo sits. Measured across the
       // pack: every lockup is 108px from an edge — 30 at the top, 16 at the
       // foot — so a top mark stays at the top and a foot mark stays at the
@@ -6572,7 +6572,7 @@
 
       const probe = new Image();
       probe.onload = function () {
-        // Fit inside 200x80 — whichever dimension hits its limit first wins.
+        // Fit inside 200x75 — whichever dimension hits its limit first wins.
         // The logo's own proportions are never touched.
         const ratio = probe.naturalWidth / probe.naturalHeight || 1;
         let w = MAX_W, h = MAX_W / ratio;
@@ -7751,7 +7751,7 @@
         '<button type="button" class="ed-logoslot-btn" data-logoslot="top">Logo slot &middot; top</button>' +
         '<button type="button" class="ed-logoslot-btn" data-logoslot="bottom">Logo slot &middot; foot</button>' +
       '</div>' +
-      '<p class="ed-brand-hint">200 &times; 80, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>';
+      '<p class="ed-brand-hint">200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>';
     head.insertAdjacentElement("afterend", wrap);
     wrap.querySelectorAll("[data-logoslot]").forEach(function (b) {
       b.addEventListener("click", function () { addLogoSlot(b.getAttribute("data-logoslot")); });

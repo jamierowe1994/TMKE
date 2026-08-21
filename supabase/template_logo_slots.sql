@@ -13,7 +13,7 @@
 --      "Greenfield Properties" AND that sit within 200px of the top or bottom
 --      edge become LOGO SLOTS: brandRole = "logo", and
 --      their text becomes {brand name}. On load the editor swaps the slot for
---      the member's uploaded logo — at most 200x80, its own proportions kept,
+--      the member's uploaded logo — at most 200x75, its own proportions kept,
 --      centred, 108px from the nearest edge — or, if they haven't uploaded
 --      one, leaves it as text showing their own company name.
 --   2. Every other mention ("at Greenfield Property", "Six years at Greenfield
