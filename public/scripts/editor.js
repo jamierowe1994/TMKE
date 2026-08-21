@@ -5793,9 +5793,26 @@
     // Selection pane on every click made it unusable for the job — the same
     // fault the colour panel had. Any other element type still switches, since
     // the Text pane has nothing to say about a photo.
-    const stayInText = activeToolPane === "text" && el.type === "text";
-    if (typeof showPane === "function" && !stayInText) showPane("selection");
-    if (stayInText) { renderTextList(); renderFontBrowser(); }
+    // Text always goes to the Text pane, not just when you were already in it.
+    // Its controls now live in that pane's first tab, so sending a text box to
+    // the generic Selection pane would show the same controls in the poorer of
+    // the two places — without the list of the page's other text, the fonts,
+    // or the tabs. Everything else still uses the Selection pane.
+    const useTextPane = el.type === "text";
+    if (useTextPane) {
+      if (activeToolPane !== "text") {
+        activeToolPane = "text";
+        document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
+        showPane("text");
+        // Land on Text selection — where the controls are — rather than
+        // whichever tab was last open.
+        setTextTab("page");
+        placeSelectionBody();
+      }
+      renderTextList(); renderFontBrowser();
+    } else if (typeof showPane === "function") {
+      showPane("selection");
+    }
 
     // Position & size, font/type and the effects panel used to render
     // here as always-visible sections. They now live as popovers on the

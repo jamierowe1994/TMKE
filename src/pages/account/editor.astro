@@ -256,7 +256,7 @@ const googleFonts = [
     <!-- =================== TOP BAR =================== -->
     <header class="ed-topbar">
       <div class="ed-topbar-left">
-        <a href="/account" class="ed-back" title="Back to library">
+        <a href="/account/studio" class="ed-back" title="Back to the Studio">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
         </a>
         <a href="/account" class="ed-logo">TMKE<em>Studio</em></a>
@@ -2166,9 +2166,12 @@ const googleFonts = [
     .ed-fb-star {
       flex: none; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
       background: none; border: none; border-radius: 6px; cursor: pointer;
-      color: rgba(28,29,34,0.3); transition: color 0.15s, background 0.15s;
+      /* Was a 30%-black outline, which read as a hard-to-see black star rather
+         than a soft affordance. Brand violet at the same weight is legible
+         without shouting. */
+      color: rgba(var(--violet-rgb),0.45); transition: color 0.15s, background 0.15s;
     }
-    .ed-fb-star:hover { background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.55); }
+    .ed-fb-star:hover { background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .ed-fb-star.is-on { color: #e0a823; }
     .ed-fb-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); padding: 10px 2px; }
 
@@ -3314,13 +3317,24 @@ const googleFonts = [
       font-size: 10px;
     }
 
-    .ed-props-section { margin-bottom: 24px; }
+    /* Section headings match .ed-fb-title and .ed-textlist-head exactly. They
+       were 12px/800/0.2em in full ink while every other pane used
+       11px/700/0.14em at half strength — invisible while these lived in their
+       own pane, obvious now the selected element's controls sit inside the
+       Text selection tab next to them. One treatment everywhere. */
+    .ed-props-section { margin-bottom: 18px; }
     .ed-props-section h4 {
       font-family: var(--sans);
-      font-size: 12px; font-weight: 800;
-      letter-spacing: 0.2em; text-transform: uppercase;
-      color: var(--ink);
-      margin: 0 0 12px;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+      margin: 0 0 8px;
+    }
+    /* Second and later sections carry the same rule the font shelves use, so
+       Content / Arrange separate the way Brand fonts / All fonts do. */
+    .ed-props-section + .ed-props-section > h4 {
+      border-top: 1px solid rgba(28,29,34,0.10);
+      padding-top: 13px; margin-top: 13px;
     }
     .ed-props-row {
       display: grid;
