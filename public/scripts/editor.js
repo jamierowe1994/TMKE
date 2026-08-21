@@ -7755,11 +7755,85 @@
       li.appendChild(lockBtn);
 
       li.addEventListener("click", () => {
+        if (li._dragged) { li._dragged = false; return; }   // a drag, not a click
         state.selectedIds = [el.id];
         fullRender();
       });
+
+      li.dataset.id = el.id;
+      bindLayerDrag(li, el);
       layersEl.appendChild(li);
     }
+  }
+
+  /* Drag to reorder. The panel has always said you could; nothing was ever
+     wired to it, so the rows only ever selected.
+
+     Pointer events rather than HTML5 drag-and-drop: the canvas already uses
+     them for everything else, and native DnD brings a drag image and drop
+     effects that fight a list this small. Rows are reordered in the DOM as you
+     move, so what you see is the result, and the final order is read back off
+     the DOM once — no index arithmetic mid-drag.
+
+     The list is drawn top-of-canvas first, which is the REVERSE of
+     state.elements, so the readback reverses again to put it back. */
+  function bindLayerDrag(li, el) {
+    li.addEventListener("pointerdown", (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target.closest(".ed-layer-action")) return;   // hide / lock
+      ev.preventDefault();
+
+      const startY = ev.clientY;
+      let moved = false;
+      li.setPointerCapture(ev.pointerId);
+
+      function onMove(e) {
+        if (!moved && Math.abs(e.clientY - startY) < 4) return;   // a click, so far
+        if (!moved) { moved = true; li.classList.add("is-dragging"); layersEl.classList.add("is-reordering"); }
+
+        // The row the pointer is over decides where this one goes: above it
+        // when the pointer is in its top half, below when in its bottom.
+        const rows = [...layersEl.children].filter((r) => r !== li);
+        for (const row of rows) {
+          const b = row.getBoundingClientRect();
+          if (e.clientY >= b.top && e.clientY <= b.bottom) {
+            const before = e.clientY < b.top + b.height / 2;
+            layersEl.insertBefore(li, before ? row : row.nextSibling);
+            break;
+          }
+        }
+      }
+
+      function onUp(e) {
+        li.releasePointerCapture(ev.pointerId);
+        li.removeEventListener("pointermove", onMove);
+        li.removeEventListener("pointerup", onUp);
+        li.removeEventListener("pointercancel", onUp);
+        li.classList.remove("is-dragging");
+        layersEl.classList.remove("is-reordering");
+        if (!moved) return;
+        li._dragged = true;   // stops the click handler re-selecting
+
+        // Read the order off the DOM and reverse it: top of the list is the
+        // top of the canvas, which is the END of state.elements.
+        const order = [...layersEl.children].map((r) => r.dataset.id).reverse();
+        const byId = {};
+        state.elements.forEach((x) => { byId[x.id] = x; });
+        const next = order.map((id) => byId[id]).filter(Boolean);
+        // Anything the list didn't cover keeps its place rather than vanishing.
+        if (next.length === state.elements.length) {
+          state.elements = next;
+          pushHistory();
+          fullRender();
+        } else {
+          fullRender();   // put the rows back where they belong
+        }
+      }
+
+      li.addEventListener("pointermove", onMove);
+      li.addEventListener("pointerup", onUp);
+      li.addEventListener("pointercancel", onUp);
+    });
   }
 
   function layerName(el) {

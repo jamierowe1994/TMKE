@@ -2504,6 +2504,18 @@ const googleFonts = [
       list-style: none; padding: 0; margin: 0;
       display: flex; flex-direction: column; gap: 4px;
     }
+    /* Rows are draggable, so they don't fight the gesture by selecting their
+       own text mid-drag. The grab cursor is set after the base rule below,
+       which sets pointer. */
+    .ed-layer { touch-action: none; user-select: none; -webkit-user-select: none; }
+    .ed-layer.is-dragging {
+      cursor: grabbing; opacity: 0.9;
+      box-shadow: 0 8px 20px rgba(20,18,26,0.22);
+      position: relative; z-index: 2;
+    }
+    /* While reordering, the row under the pointer shouldn't light up as if it
+       were about to be clicked. */
+    .ed-layers.is-reordering .ed-layer:hover { background: rgba(28,29,34,0.04); }
     .ed-layer {
       display: grid;
       grid-template-columns: 40px 1fr auto auto;
@@ -2516,6 +2528,7 @@ const googleFonts = [
       cursor: pointer;
       font-size: var(--ws-t-meta);
     }
+    .ed-layer { cursor: grab; }
     .ed-layer:hover { background: rgba(var(--violet-rgb),0.08); }
     .ed-layer.is-selected { border-color: var(--english-violet); background: rgba(var(--violet-rgb),0.12); }
     .ed-layer-thumb {
