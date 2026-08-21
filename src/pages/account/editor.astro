@@ -2507,6 +2507,25 @@ const googleFonts = [
     /* Rows are draggable, so they don't fight the gesture by selecting their
        own text mid-drag. The grab cursor is set after the base rule below,
        which sets pointer. */
+    /* Repositioning the background photo. The design steps aside: nothing on
+       the canvas takes the pointer, so the drag reaches the photo rather than
+       grabbing whatever happens to be on top of it, and an overlay can't be
+       nudged by accident. Text stays visible because it is usually what you
+       are positioning the photo around; everything else fades back. */
+    .ed-canvas.is-bg-repositioning .ed-element { pointer-events: none; }
+    /* !important is doing real work here: every element carries its own
+       opacity as an inline style, which a stylesheet rule cannot otherwise
+       beat. This is a temporary display state that ends with the mode, and it
+       never touches the stored value. */
+    .ed-canvas.is-bg-repositioning .ed-element:not([data-type="text"]) {
+      opacity: 0.12 !important;
+      transition: opacity 0.18s;
+    }
+    .ed-canvas.is-bg-repositioning .ed-element[data-type="text"] {
+      opacity: 0.85 !important;
+      transition: opacity 0.18s;
+    }
+
     .ed-layer { touch-action: none; user-select: none; -webkit-user-select: none; }
     .ed-layer.is-dragging {
       cursor: grabbing; opacity: 0.9;

@@ -8477,6 +8477,18 @@
       // Let the photo spill past the frame, and dim everything outside it.
       canvasEl.style.overflow = "visible";
       canvasEl.style.cursor = "move";
+      /* Take the design out of the way for the duration.
+         Two reasons, and the first is why this never worked over an overlay:
+         an element's own pointerdown calls preventDefault to start its drag,
+         and preventDefault on pointerdown suppresses the mousedown that
+         follows — which is the event this listens for. So landing on anything
+         covering the photo moved that thing and never began the reposition.
+         pointer-events:none on the elements fixes the drag and stops you
+         nudging the overlay by accident at the same time.
+         Everything but text is also faded out, so you can see the photo you
+         are placing. Text stays: it is what you are usually positioning the
+         photo around. */
+      canvasEl.classList.add("is-bg-repositioning");
       const mask = document.createElement("div");
       mask.id = "ed-bg-repo-mask";
       mask.style.cssText =
@@ -8533,6 +8545,7 @@
         document.removeEventListener("mousedown", outside, true);
         canvasEl.style.overflow = "";
         canvasEl.style.cursor = "";
+        canvasEl.classList.remove("is-bg-repositioning");
         const m = document.getElementById("ed-bg-repo-mask"); if (m) m.remove();
         pushHistory();
         fullRender();
