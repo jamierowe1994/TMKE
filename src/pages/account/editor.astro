@@ -913,6 +913,15 @@ const googleFonts = [
     <!-- Toast -->
     <div class="ed-toast" id="ed-toast" hidden></div>
 
+    <!-- Shown when a design carries {brand name} but the brand kit has no
+         company in it, so the tag can't resolve and the member would be
+         looking at a literal {brand name} on their design. -->
+    <div class="ed-brandnudge" id="ed-brandnudge" hidden>
+      <span class="ed-brandnudge-txt">This design fills in your business name automatically &mdash; there isn&rsquo;t one in your brand kit yet.</span>
+      <a class="ed-brandnudge-go" href="/account/profile?next=/account/editor">Add it</a>
+      <button type="button" class="ed-brandnudge-x" id="ed-brandnudge-x" aria-label="Dismiss">&times;</button>
+    </div>
+
     <!-- Shortcut modal -->
     <div class="ed-modal" id="ed-shortcuts" hidden>
       <div class="ed-modal-card">
@@ -2164,6 +2173,33 @@ const googleFonts = [
       background: rgba(255,255,255,0.9); padding: 1px 4px; border-radius: 2px;
       pointer-events: none;
     }
+    /* Sits over the stage, clear of the panel and the context bar. Quiet
+       enough to ignore, present enough to explain a {brand name} on screen. */
+    .ed-brandnudge {
+      position: absolute; z-index: 60;
+      left: calc(76px + 360px + 24px); top: calc(64px + 44px + 16px);
+      display: flex; align-items: center; gap: 12px;
+      max-width: min(560px, calc(100vw - 76px - 360px - 48px));
+      padding: 10px 12px 10px 14px;
+      background: var(--english-violet); border-radius: 8px;
+      box-shadow: 0 12px 30px rgba(20,18,26,0.28);
+    }
+    .ed-brandnudge[hidden] { display: none; }
+    .ed-brandnudge-txt {
+      font-family: var(--sans); font-size: var(--ws-t-meta, 12px);
+      line-height: 1.45; color: rgba(255,255,255,0.9);
+    }
+    .ed-brandnudge-go {
+      flex: none; font-family: var(--sans); font-size: var(--ws-t-meta, 12px);
+      font-weight: 700; color: #fff; text-decoration: none;
+      border-bottom: 1px solid rgba(255,255,255,0.55); padding-bottom: 1px;
+    }
+    .ed-brandnudge-go:hover { border-bottom-color: #fff; }
+    .ed-brandnudge-x {
+      flex: none; appearance: none; background: none; border: 0; cursor: pointer;
+      font-size: 18px; line-height: 1; color: rgba(255,255,255,0.55); padding: 0 2px;
+    }
+    .ed-brandnudge-x:hover { color: #fff; }
     .ed-logoslot-row { display: flex; gap: 8px; margin-bottom: 8px; }
     .ed-logoslot-btn {
       flex: 1; padding: 10px 8px; cursor: pointer;

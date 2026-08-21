@@ -1944,7 +1944,7 @@
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
-    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); }
+    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); nudgeIfBrandNameMissing(); }
     normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
@@ -6599,6 +6599,24 @@
     });
   }
 
+  /* A tag only resolves if the brand kit has the answer. With no company name
+     saved, applyMergeTags deliberately leaves {brand name} in place rather than
+     dropping it — "Six years at and counting" is worse than a visible gap — but
+     that means the member is looking at a token and has no idea why. This says
+     why, and where to fix it. Dismissible, and never shown to admins, who are
+     authoring the tokens on purpose. */
+  function nudgeIfBrandNameMissing() {
+    const bar = document.getElementById("ed-brandnudge");
+    if (!bar || isAdminMode()) return;
+    if (((BRAND && BRAND.company) || "").trim()) { bar.hidden = true; return; }
+    // Only when this design actually asks for the name.
+    const wants = state.elements.some(function (el) {
+      return el && el.type === "text" && typeof el.text === "string"
+        && /[{(]\s*(brand ?name|company ?name|brand|company)\s*[})]/i.test(el.text);
+    });
+    bar.hidden = !wants;
+  }
+
   // Walk every text element and run their copy through applyMergeTags. Called
   // when a template loads fresh so the customer sees their brand name baked in
   // straight away. They can still edit any text afterwards as normal.
@@ -7758,6 +7776,10 @@
     });
     _logoToolMounted = true;
   }
+
+  document.getElementById("ed-brandnudge-x")?.addEventListener("click", function () {
+    document.getElementById("ed-brandnudge").hidden = true;
+  });
 
   // ---------- Shapes / text / bg / swatches bindings ----------
   // A single .ed-shape button can carry data-shape (legacy CSS shapes),
