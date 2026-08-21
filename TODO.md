@@ -533,37 +533,43 @@ the rendered output checking, not just a build.
 - ⬜ Schedule falls back to a hard-coded holiday list if `uk_observances` was
   never seeded. (`src/pages/account/schedule.astro:1249-1263`)
 
-## 8b. Design Studio — editing behaviour ⬜ — raised 17 Aug
+## 8b. Design Studio — editing behaviour ✅ (21 Aug) — raised 17 Aug
 
 Raised while building pack templates, so these bite hardest on the work we do
 most. The engine is `public/scripts/editor.js` (loaded with `<script src>`, not
 bundled) with the panels in `src/pages/account/editor.astro` — both need
 reading, the .astro alone tells you less than half.
 
-- ⬜ **No multi-select.** Cmd-click (Ctrl on Windows) should add an item to the
-  selection so several can be moved, aligned or grouped together. Today every
-  click replaces the selection, so anything involving two objects is done one
-  at a time by eye.
+- ✅ **Multi-select on Cmd.** It turned out multi-select was already built —
+  bound to Shift, which is why it looked missing. Cmd now adds to the
+  selection too (and Ctrl off-Mac, where ctrl-click is not already a
+  right-click). Marquee box-select accepts the same modifiers.
 
-- ⬜ **Panels do not follow the selection.** With Position open, clicking a
+- ✅ **Panels do not follow the selection.** With Position open, clicking a
   different item leaves the panel showing the *previous* item's numbers — you
   have to close it and reopen it before it reads the thing you just clicked.
   Whatever panel is open should re-read on every selection change.
 
-- ⬜ **The open panel is dropped when you select something else.** Change a
+- ✅ **The open panel is dropped when you select something else.** Change a
   text colour, click the next text item, and you are back at the generic
   selection panel instead of still on Text colour. The common case is
   recolouring several items in a row, so the panel should stay put and be
   dismissed deliberately.
 
-  These two are one underlying fault — selection changes are not driving the
-  panel — so they are almost certainly one fix rather than two.
+  These two were one underlying fault, as suspected, and took one fix. Each
+  popover's panel is appended to <body> while its trigger sits in the context
+  bar, which is wiped and rebuilt on every selection change — so the panel
+  outlived its button, kept showing the previous element's values, and leaked
+  a node per render. Popovers are registered and disposed with the bar now,
+  and whichever was open is reopened against the new selection.
 
-- ⬜ **The Text colour overlay does not cover the left column.** The panel
+- ✅ **The Text colour overlay does not cover the left column.** The panel
   underneath shows through down the side and along the bottom (see the swatch
   grid: the Start / Brand / Elements rail is clear, but the panel behind the
-  overlay is not). Either size the overlay to the column or give it an opaque
-  ground.
+  overlay is not). Fixed by sizing it off the grid: the shell is
+  `76px 360px 1fr` and the overlay was pinned at `left: 100px`, a stale number
+  from when the rail was 100 wide (the comment above the grid still says so).
+  It now starts where the rail ends and is exactly as wide as the panel.
 
 ## 9. Security + infrastructure
 
