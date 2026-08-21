@@ -296,6 +296,38 @@
   // previous one (and the colour panel), so Position/Effects/etc. never stack.
   let _activePopoverClose = null;
 
+  // Every popover's panel is appended to <body>, but its trigger lives in the
+  // context bar — which is wiped and rebuilt on every selection change. Without
+  // a registry the panel outlived its button: still on screen, still showing
+  // the element you had selected a moment ago, and leaking one node per render.
+  // The bar disposes these before rebuilding, then reopens the same one against
+  // whatever is now selected, so a panel follows the selection instead of
+  // going stale or vanishing.
+  // Add-to-selection modifier. Shift has always worked; Cmd is what a Mac user
+  // reaches for and was doing nothing. Ctrl is the Windows equivalent, but on a
+  // Mac ctrl-click IS a right-click, so it is only additive off-Mac.
+  const _IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
+  function isAddToSelection(ev) {
+    return !!(ev.shiftKey || ev.metaKey || (!_IS_MAC && ev.ctrlKey));
+  }
+
+  const _livePopovers = [];
+  const _liveSwatches = [];     // colour swatches in the current context bar
+  let _openColorKey = null;     // which swatch's panel is open
+  let _reopenColorKey = null;   // set when a selection change closes it, so it can come back
+  let _openPopoverKey = null;   // which panel is open, by name
+  let _reopenPopoverKey = null; // and which to restore after a rebuild
+
+  function disposePopovers() {
+    _openPopoverKey = null;
+    _liveSwatches.length = 0;
+    while (_livePopovers.length) {
+      const p = _livePopovers.pop();
+      try { p.destroy(); } catch (_) { }
+    }
+    _activePopoverClose = null;
+  }
+
   // Generic icon button that opens a popover when clicked. The `render`
   // callback gets a `close` function and should return a DOM element to
   // populate the popover. Closes on outside click, Escape, scroll.
@@ -325,12 +357,20 @@
       if (_activePopoverClose && _activePopoverClose !== close) _activePopoverClose();
       if (typeof closeColorPanel === "function") closeColorPanel();
       _activePopoverClose = close;
+      _openPopoverKey = opts.key || null;
       pop.innerHTML = "";
       pop.appendChild(opts.render(close));
       pop.hidden = false;
       position();
     }
-    function close() { pop.hidden = true; if (_activePopoverClose === close) _activePopoverClose = null; }
+    function close() {
+      pop.hidden = true;
+      if (_activePopoverClose === close) _activePopoverClose = null;
+      if (_openPopoverKey === (opts.key || null)) _openPopoverKey = null;
+    }
+    // Called when the context bar is rebuilt: take the panel with the button.
+    function destroy() { pop.remove(); }
+    _livePopovers.push({ key: opts.key || null, open: open, destroy: destroy });
 
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -353,6 +393,7 @@
     return popoverIconButton({
       icon: opts.icon,
       title: opts.title,
+      key: opts.key || null,
       render: function () {
         const box = document.createElement("div");
         box.style.cssText = "padding:12px 14px;min-width:210px;font-family:var(--sans,inherit);";
@@ -488,7 +529,7 @@
   function spacingPopover(el) {
     const icon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 4v16"/><path d="M1 6l2-2 2 2"/><path d="M1 18l2 2 2-2"/></svg>';
     return popoverIconButton({
-      icon: icon, title: "Spacing",
+      icon: icon, title: "Spacing", key: "spacing",
       render: function () {
         const box = document.createElement("div");
         box.style.cssText = "padding:14px 16px;min-width:236px;font-family:var(--sans,inherit);display:flex;flex-direction:column;gap:16px;";
@@ -682,10 +723,13 @@
     btn.type = "button";
     btn.className = "ed-circle-swatch";
     btn.title = opts.title || "Colour";
+    // Named so the context bar can reopen this same swatch against the next
+    // element — recolouring a run of items is why the panel is open at all.
+    const swatchKey = opts.key || ("colour:" + (opts.title || "Colour"));
     const paint = () => { btn.style.background = getCurrent() || "#000000"; };
     paint();
-    btn.addEventListener("click", function (e) {
-      e.stopPropagation();
+    function show() {
+      _openColorKey = swatchKey;
       openColorPanel({
         title: opts.title || "Colour",
         current: getCurrent(),
@@ -693,7 +737,9 @@
         onSolid: function (hex) { opts.onSolid(hex); paint(); fullRender(); pushHistory(); },
         onGradient: opts.onGradient ? function (g) { opts.onGradient(g); paint(); fullRender(); pushHistory(); } : null,
       });
-    });
+    }
+    btn.addEventListener("click", function (e) { e.stopPropagation(); show(); });
+    _liveSwatches.push({ key: swatchKey, open: show });
     return btn;
   }
 
@@ -968,6 +1014,7 @@
   }
 
   function closeColorPanel() {
+    _openColorKey = null;
     const panel = document.getElementById("ed-colorpanel");
     if (panel) { panel.hidden = true; panel._onSolid = null; panel._onGradient = null; }
     document.documentElement.classList.remove("ed-picking");
@@ -3347,13 +3394,18 @@
       if (node.classList.contains("is-editing-viewpoint")) return;
       ev.stopPropagation();
 
-      const multi = ev.shiftKey;
+      const multi = isAddToSelection(ev);
       const ids = groupIdsFor(el); // the whole group if el is grouped
       state.selectedGuideId = null; // selecting an element drops any guide selection
       if (!state.selectedIds.includes(el.id)) {
         if (multi) ids.forEach((id) => { if (!state.selectedIds.includes(id)) state.selectedIds.push(id); });
         else state.selectedIds = ids;
-        closeColorPanel(); // a different element is now selected
+        // A different element is now selected, so the panel's callbacks point
+        // at the wrong one — but remember which swatch it was, so the bar can
+        // reopen it against the new element rather than dumping you back to
+        // the generic pane mid-way through recolouring a run of items.
+        _reopenColorKey = _openColorKey;
+        closeColorPanel();
         fullRender();
       } else if (multi) {
         // Shift-click a selected group toggles the whole group off.
@@ -3380,7 +3432,7 @@
       // selected box drops the caret where you clicked — no double-click needed.
       node.addEventListener("click", (ev) => {
         if (el.locked || node.classList.contains("is-editing")) return;
-        if (ev.shiftKey || _dragMoved) return;
+        if (isAddToSelection(ev) || _dragMoved) return;
         if (state.selectedIds.length === 1 && state.selectedIds[0] === el.id) {
           startTextEdit(node, el, { x: ev.clientX, y: ev.clientY });
         }
@@ -4102,8 +4154,8 @@
     if (ev.target !== canvasEl || ev.button !== 0) return;
     if (_bgRepoActive) return; // reposition mode runs its own drag
     closeColorPanel();
-    // Plain drag on the empty background PANS the view; hold Shift to box-select.
-    if (!ev.shiftKey) {
+    // Plain drag on the empty background PANS the view; hold Shift (or Cmd) to box-select.
+    if (!isAddToSelection(ev)) {
       const startX = ev.clientX, startY = ev.clientY;
       const startL = stageEl.scrollLeft, startT = stageEl.scrollTop;
       let panned = false;
@@ -6572,14 +6624,22 @@
 
   // ---------- Context bar (top, when element selected) ----------
   function renderContextBar() {
+    // Remember which panel was open, then take the old ones down with their
+    // buttons. Restored at the end against the newly selected element.
+    const reopen = _reopenPopoverKey || _openPopoverKey;
+    const reopenColor = _reopenColorKey;
+    _reopenColorKey = null;
+    disposePopovers();
     if (state.selectedIds.length !== 1) {
       ctxEl.hidden = true;
+      _reopenPopoverKey = null;
       return;
     }
     const el = getEl(state.selectedIds[0]);
-    if (!el) { ctxEl.hidden = true; return; }
+    if (!el) { ctxEl.hidden = true; _reopenPopoverKey = null; return; }
     ctxEl.hidden = false;
     ctxEl.innerHTML = "";
+    _reopenPopoverKey = reopen;
 
     if (el.type === "text") {
       // Row order: font · size · colour. Weight now lives in the Text side panel
@@ -6666,6 +6726,7 @@
       const strokeWrap = popoverIconButton({
         icon: ICONS.stroke,
         title: "Stroke",
+        key: "stroke",
         render: function () {
           const panel = document.createElement("div");
           panel.className = "ed-pop-panel";
@@ -6709,6 +6770,7 @@
         const radiusWrap = popoverIconButton({
           icon: ICONS.radius,
           title: "Corner radius",
+          key: "radius",
           render: function () {
             const panel = document.createElement("div");
             panel.className = "ed-pop-panel";
@@ -6789,6 +6851,7 @@
     const positionWrap = popoverIconButton({
       icon: '<span class="ed-ctx-poplabel">Position</span>',
       title: "Position & size",
+      key: "position",
       render: function () {
         const panel = document.createElement("div");
         panel.className = "ed-pop-panel ed-pop-form";
@@ -6818,6 +6881,7 @@
       const effectsWrap = popoverIconButton({
         icon: '<span class="ed-ctx-poplabel">Effects</span>',
         title: "Effects",
+        key: "effects",
         render: function () {
           const panel = document.createElement("div");
           panel.className = "ed-pop-panel ed-pop-form ed-pop-effects";
@@ -6839,6 +6903,7 @@
     const opacityWrap = popoverIconButton({
       icon: ICONS.opacity,
       title: "Transparency",
+      key: "opacity",
       render: function () {
         const panel = document.createElement("div");
         panel.className = "ed-pop-panel";
@@ -6905,6 +6970,23 @@
     // (Delete removed from the toolbar — use Backspace/Del or right-click → Delete.)
 
     ctxEl.appendChild(gA);
+
+    // Put back the panel that was open before this rebuild, now reading the
+    // element you just clicked. Recolouring or nudging several items in a row
+    // is the common case, so the panel is dismissed deliberately rather than
+    // by the act of selecting the next thing. If the new element has no such
+    // control (no Effects on a line, say) it simply stays closed.
+    if (_reopenPopoverKey) {
+      const want = _reopenPopoverKey;
+      const entry = _livePopovers.filter(function (p) { return p.key === want; })[0];
+      _reopenPopoverKey = null;
+      if (entry) entry.open();
+    } else if (reopenColor) {
+      // Only ever set by a selection change, so picking a colour doesn't
+      // rebuild the panel under your cursor.
+      const sw = _liveSwatches.filter(function (p) { return p.key === reopenColor; })[0];
+      if (sw) sw.open();
+    }
 
     function group() {
       const g = document.createElement("div");
