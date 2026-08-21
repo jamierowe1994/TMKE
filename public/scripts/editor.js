@@ -6067,6 +6067,30 @@
 
     const html = [];
 
+    /* A filled logo slot keeps knowing it is a logo, so it can still offer the
+       rest of the brand kit. A light mark works most of the time and then
+       lands on a pale photo — this is the swap, without going near the brand
+       kit or resizing anything by hand. Each choice is re-fitted and re-seated
+       by the same code that placed the first one. */
+    if (el.brandRole === "logo" && el.type === "image") {
+      const kit = (BRAND && Array.isArray(BRAND.logos)) ? BRAND.logos.filter(function (l) { return l && l.src; }) : [];
+      if (kit.length > 1) {
+        html.push('<div class="ed-props-section"><h4>Brand logo</h4><div class="ed-logopick">' +
+          kit.map(function (l, i) {
+            const on = l.src === el.src ? " is-on" : "";
+            const label = l.name || (l.primary ? "Main logo" : "Logo " + (i + 1));
+            return '<button type="button" class="ed-logopick-b' + on + '" data-logopick="' + i + '" title="' + escapeHtml(label) + '">' +
+              '<img src="' + escapeHtml(l.src) + '" alt="' + escapeHtml(label) + '">' +
+            '</button>';
+          }).join('') +
+        '</div><p class="ed-props-hint">Kept to ' + LOGO_MAX_W + ' \u00d7 ' + LOGO_MAX_H + ', its own shape, back on the line.</p></div>');
+      } else if (kit.length === 1) {
+        html.push('<div class="ed-props-section"><h4>Brand logo</h4>' +
+          '<p class="ed-props-hint">Only one logo in your brand kit. ' +
+          '<a href="/account/profile" style="color:var(--english-violet)">Add another</a> to switch between them here.</p></div>');
+      }
+    }
+
     if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
         <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="fill" value="${rgbHex(el.fill)}"></div>
@@ -6263,6 +6287,19 @@
     </div>`);
 
     body.innerHTML = html.join("");
+
+    // Swap the slot to another logo from the kit.
+    body.querySelectorAll("[data-logopick]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const kit = (BRAND && Array.isArray(BRAND.logos)) ? BRAND.logos.filter(function (l) { return l && l.src; }) : [];
+        const pick = kit[+b.getAttribute("data-logopick")];
+        if (!pick || pick.src === el.src) return;
+        placeLogoInSlot(el, pick.src, function () {
+          pushHistory();
+          renderProps();   // repaint so the chosen one shows as selected
+        });
+      });
+    });
 
     // Mount the font picker into its placeholder (text elements only).
     // Inline mode: search + scrollable list always visible, no popover.
@@ -6785,6 +6822,52 @@
     return (main || withSrc[0]).src;
   }
 
+  /* One logo, one slot. Sizing and placement live here so the first automatic
+     fill and a later hand-swap cannot drift apart — they are the same call.
+
+     At most 200 x 75, whichever limit the logo reaches first, its own
+     proportions never touched. Centred on the canvas rather than on whatever
+     box the designer drew, because those boxes are variously left, right,
+     centre and justified. Vertically it returns to the edge the slot belongs
+     to, so swapping a wide mark for a square one re-seats it rather than
+     leaving it hanging where the previous one ended. */
+  const LOGO_MAX_W = 200, LOGO_MAX_H = 75, LOGO_EDGE = 108;
+
+  // Which edge this slot belongs to. Recorded on the element the first time it
+  // is filled; worked out from where it sits for slots filled before that.
+  function logoAnchorOf(el) {
+    if (el.logoAnchor) return el.logoAnchor;
+    const dTop = el.y;
+    const dBottom = state.canvas.height - (el.y + (el.h || 0));
+    if (dTop <= dBottom && dTop < 400) return "top";
+    if (dBottom < dTop && dBottom < 400) return "bottom";
+    return "free";   // placed deliberately mid-design: stays put
+  }
+
+  function placeLogoInSlot(slot, src, after) {
+    const anchor = logoAnchorOf(slot);
+    const prevY = slot.y, prevH = slot.h || 0;
+    slot.logoAnchor = anchor;
+    slot.src = src;
+    const probe = new Image();
+    probe.onload = function () {
+      const ratio = probe.naturalWidth / probe.naturalHeight || 1;
+      let w = LOGO_MAX_W, h = LOGO_MAX_W / ratio;
+      if (h > LOGO_MAX_H) { h = LOGO_MAX_H; w = LOGO_MAX_H * ratio; }
+      slot.w = Math.round(w);
+      slot.h = Math.round(h);
+      slot.x = Math.round((state.canvas.width - w) / 2);
+      if (anchor === "top") slot.y = LOGO_EDGE;
+      else if (anchor === "bottom") slot.y = Math.round(state.canvas.height - LOGO_EDGE - h);
+      else slot.y = Math.round(prevY + (prevH - h) / 2);
+      fullRender();
+      if (after) after();
+    };
+    // A logo that won't load leaves the slot where it is rather than
+    // collapsing it — visible and fixable, not silently gone.
+    probe.src = src;
+  }
+
   function fillTemplateLogos() {
     const src = brandLogoSrc();
     if (!src) return;   // no logo in the kit — the text path already covers it
@@ -6797,85 +6880,16 @@
     if (!slots.length) return;
 
     slots.forEach(function (slot) {
-      // NOT the box the designer drew. Those are text line boxes — typically
-      // 600x24 — so fitting a logo inside one would land a wide lockup at
-      // 96x24. A logo gets its own allowance instead: at most 200 x 75, the
-      // largest a mark should ever sit on these designs.
-      const MAX_W = 200, MAX_H = 75;
-      // Where the slot sat decides where the logo sits. Measured across the
-      // pack: every lockup is 108px from an edge — 30 at the top, 16 at the
-      // foot — so a top mark stays at the top and a foot mark stays at the
-      // foot rather than all of them jumping to one end.
-      const EDGE = 108;
-      const box = { x: slot.x, y: slot.y, w: slot.w, h: slot.h };
-      const distTop = slot.y;
-      const distBottom = state.canvas.height - (slot.y + (slot.h || 0));
+      // The anchor has to be read while the element still sits where the
+      // designer put it, before the fit moves it.
+      slot.logoAnchor = logoAnchorOf(slot);
       // Converted in place, so z-order, rotation and any grouping survive.
       ["text", "runs", "font", "size", "weight", "color", "align", "lineHeight",
        "letterSpacing", "textGradient", "textShadow", "textOutline", "textBg"]
         .forEach(function (k) { delete slot[k]; });
       slot.type = "image";
-      slot.src = src;
-
-      const probe = new Image();
-      probe.onload = function () {
-        // Fit inside 200x75 — whichever dimension hits its limit first wins.
-        // The logo's own proportions are never touched.
-        const ratio = probe.naturalWidth / probe.naturalHeight || 1;
-        let w = MAX_W, h = MAX_W / ratio;
-        if (h > MAX_H) { h = MAX_H; w = MAX_H * ratio; }
-        slot.w = Math.round(w);
-        slot.h = Math.round(h);
-        // Centred on the canvas, not on the text box: the text boxes are
-        // variously left, right, centre and justified, and a mark that
-        // inherited a justified box would sit off-centre.
-        slot.x = Math.round((state.canvas.width - w) / 2);
-        if (distTop <= distBottom && distTop < 400) {
-          slot.y = EDGE;
-        } else if (distBottom < distTop && distBottom < 400) {
-          slot.y = Math.round(state.canvas.height - EDGE - h);
-        } else {
-          // A mark placed deliberately mid-design keeps where it was put.
-          slot.y = Math.round(box.y + ((box.h || 0) - h) / 2);
-        }
-        fullRender();
-      };
-      // A logo that won't load leaves the slot at the drawn box rather than
-      // collapsing it — visible and fixable, not silently gone.
-      probe.src = src;
+      placeLogoInSlot(slot, src);
     });
-  }
-
-  /* A tag only resolves if the brand kit has the answer. With no company name
-     saved, applyMergeTags deliberately leaves {brand name} in place rather than
-     dropping it — "Six years at and counting" is worse than a visible gap — but
-     that means the member is looking at a token and has no idea why. This says
-     why, and where to fix it. Dismissible, and never shown to admins, who are
-     authoring the tokens on purpose. */
-  function nudgeIfBrandNameMissing() {
-    const bar = document.getElementById("ed-brandnudge");
-    if (!bar || isAdminMode()) return;
-    const txt = document.querySelector(".ed-brandnudge-txt");
-    const asks = function (re) {
-      return state.elements.some(function (el) {
-        return el && el.type === "text" && typeof el.text === "string" && re.test(el.text);
-      });
-    };
-    const b = BRAND || {};
-    const needName = !((b.company || "").trim())
-      && asks(/[{(]\s*(brand ?name|company ?name|brand|company)\s*[})]/i);
-    const needArea = !((b.location || "").trim())
-      && asks(/[{(]\s*(location|area|town)\s*[})]/i);
-
-    if (!needName && !needArea) { bar.hidden = true; return; }
-    // Name the thing that's actually missing — being told to add a business
-    // name when the gap is the area is worse than saying nothing.
-    const what = needName && needArea ? "your business name and the area you cover"
-               : needName ? "your business name"
-               : "the area you cover";
-    if (txt) txt.textContent = "This design fills in " + what + " automatically — "
-      + (needName && needArea ? "neither is" : "that isn’t") + " in your brand kit yet.";
-    bar.hidden = false;
   }
 
   // Walk every text element and run their copy through applyMergeTags. Called
