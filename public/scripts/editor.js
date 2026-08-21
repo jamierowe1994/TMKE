@@ -1521,17 +1521,32 @@
 
   // Align the currently-selected element relative to the canvas bounds.
   // mode: "left" | "centerX" | "right" | "top" | "centerY" | "bottom"
+  /* Align to the page. Works on whatever is selected, one element or twenty:
+     the selection's bounding box is what gets centred, and everything moves by
+     the same offset, so the arrangement you built is preserved rather than
+     collapsed into a stack. It used to read selectedIds[0] and move only that,
+     which is why aligning a group appeared to do nothing much. For a single
+     element the maths is identical to before. */
   function alignSelected(mode) {
-    const el = getEl(state.selectedIds[0]);
-    if (!el) return;
-    const cw = state.canvas.width;
-    const ch = state.canvas.height;
-    if (mode === "left")     el.x = 0;
-    if (mode === "centerX")  el.x = Math.round((cw - el.w) / 2);
-    if (mode === "right")    el.x = cw - el.w;
-    if (mode === "top")      el.y = 0;
-    if (mode === "centerY")  el.y = Math.round((ch - el.h) / 2);
-    if (mode === "bottom")   el.y = ch - el.h;
+    const els = selectedElements();
+    if (!els.length) return;
+    const cw = state.canvas.width, ch = state.canvas.height;
+    const minX = Math.min.apply(null, els.map(function (e) { return e.x; }));
+    const minY = Math.min.apply(null, els.map(function (e) { return e.y; }));
+    const maxX = Math.max.apply(null, els.map(function (e) { return e.x + e.w; }));
+    const maxY = Math.max.apply(null, els.map(function (e) { return e.y + e.h; }));
+    const bw = maxX - minX, bh = maxY - minY;
+
+    let dx = 0, dy = 0;
+    if (mode === "left")     dx = -minX;
+    if (mode === "centerX")  dx = Math.round((cw - bw) / 2) - minX;
+    if (mode === "right")    dx = (cw - bw) - minX;
+    if (mode === "top")      dy = -minY;
+    if (mode === "centerY")  dy = Math.round((ch - bh) / 2) - minY;
+    if (mode === "bottom")   dy = (ch - bh) - minY;
+    if (!dx && !dy) return;
+
+    els.forEach(function (e) { e.x = Math.round(e.x + dx); e.y = Math.round(e.y + dy); });
     pushHistory();
     fullRender();
   }
@@ -1624,6 +1639,27 @@
   }
 
   // SVG icons used in the context bar.
+  /* Align-to-page glyphs: the outlined rectangle is the page, the solid bar is
+     where the selection ends up. Local to this panel — ICONS carries only the
+     context-bar set. */
+  const ALIGN_ICONS = (function () {
+    const frame = '<rect x="2.5" y="2.5" width="15" height="15" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.45"/>';
+    const bar = function (x, y, w, h) {
+      return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="0.8" fill="currentColor"/>';
+    };
+    const svg = function (inner) {
+      return '<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">' + frame + inner + '</svg>';
+    };
+    return {
+      left:    svg(bar(4, 6.5, 5, 7)),
+      centerX: svg(bar(7.5, 6.5, 5, 7)),
+      right:   svg(bar(11, 6.5, 5, 7)),
+      top:     svg(bar(6.5, 4, 7, 5)),
+      centerY: svg(bar(6.5, 7.5, 7, 5)),
+      bottom:  svg(bar(6.5, 11, 7, 5)),
+    };
+  })();
+
   const ICONS = {
     // Placing the artwork inside a screen: crop marks with arrows through them,
     // for the one control that moves the picture rather than the box.
@@ -5945,8 +5981,23 @@
               '<div class="ed-props-field"><label>Width</label><input type="number" value="' + Math.round(maxX - minX) + '" disabled></div>' +
               '<div class="ed-props-field"><label>Height</label><input type="number" value="' + Math.round(maxY - minY) + '" disabled></div>' +
             '</div>' +
+          '</div>' +
+          // Align to page. The context bar is single-selection only, so without
+          // this a group had no way to reach it but the right-click menu.
+          '<div class="ed-props-section"><h4>Align to page</h4>' +
+            '<div class="ed-grp-align">' +
+              '<button type="button" data-galign="left" title="Left">' + ALIGN_ICONS.left + '</button>' +
+              '<button type="button" data-galign="centerX" title="Centre horizontally">' + ALIGN_ICONS.centerX + '</button>' +
+              '<button type="button" data-galign="right" title="Right">' + ALIGN_ICONS.right + '</button>' +
+              '<button type="button" data-galign="top" title="Top">' + ALIGN_ICONS.top + '</button>' +
+              '<button type="button" data-galign="centerY" title="Centre vertically">' + ALIGN_ICONS.centerY + '</button>' +
+              '<button type="button" data-galign="bottom" title="Bottom">' + ALIGN_ICONS.bottom + '</button>' +
+            '</div>' +
           '</div>';
         if (typeof showPane === "function") showPane("selection");
+        body.querySelectorAll("[data-galign]").forEach(function (b) {
+          b.addEventListener("click", function () { alignSelected(b.getAttribute("data-galign")); });
+        });
         const gx = body.querySelector("#ed-grp-x"), gy = body.querySelector("#ed-grp-y");
         const moveGroup = function () {
           const nx = parseFloat(gx.value), ny = parseFloat(gy.value);
