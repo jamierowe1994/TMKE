@@ -553,6 +553,20 @@
      Exact, and it needs to know nothing about Canva — the arithmetic is this
      editor's own. Admin only: it is an authoring aid for rebuilding a Canva
      draft, not something a customer has any use for. */
+  /* Measured, not derived. Canva's line box is taller than the CSS one by a
+     factor that depends on the font, and it is not any of the font's own
+     metric tables — The Seasons reports 1.285 (hhea and typo) and 1.63 (win)
+     where Canva behaves as 1.191, and Montserrat's browser font box is 1.22
+     where Canva behaves as 1.140. So these come from comparing real heights:
+
+       Montserrat   24/60/100px at 1.4  ->  1.119 / 1.143 / 1.138   (~1.140)
+       The Seasons  46px at 1.4         ->  1.191
+
+     The 24px reading is the loose one — small sizes round harder — so the
+     figure follows the two larger samples. A font that isn't listed has no
+     measured factor; the height box below covers it exactly. */
+  const CANVA_LINE_FACTOR = { "Montserrat": 1.140, "The Seasons": 1.191 };
+
   function textLineCount(el) {
     const node = canvasEl.querySelector('[data-id="' + el.id + '"] .ed-text-inner');
     const lh = (el.size || 16) * (el.lineHeight || 1.3);
@@ -577,6 +591,38 @@
         'This text is <strong>' + lines + '</strong> line' + (lines === 1 ? "" : "s") + ' at ' + (el.size || 0) + 'px. ' +
         'Type the height Canva shows and the line spacing is solved to match it.</p>' +
       '<p style="margin:0;font-size:11.5px;color:#a3372b" id="ed-canva-warn" hidden></p>';
+
+    // If we have measured this font against Canva, the far easier route: type
+    // the line spacing off the Canva panel rather than reading a height.
+    const factor = CANVA_LINE_FACTOR[el.font];
+    if (factor) {
+      const conv = document.createElement("div");
+      conv.style.cssText = "display:flex;flex-direction:column;gap:8px;margin-top:4px;";
+      conv.innerHTML =
+        '<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(28,29,34,0.55)">Or Canva line spacing</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<input type="number" id="ed-canva-ls" placeholder="1.4" step="0.05" min="0.5" ' +
+            'style="flex:1;min-width:0;padding:7px 9px;border:1px solid rgba(28,29,34,0.18);border-radius:6px;font-family:var(--sans);font-size:13px">' +
+          '<button type="button" id="ed-canva-ls-go" style="flex:none;padding:7px 14px;cursor:pointer;' +
+            'font-family:var(--sans);font-size:12px;font-weight:700;color:#fff;' +
+            'background:var(--english-violet);border:0;border-radius:6px">Set</button>' +
+        '</div>' +
+        '<p style="margin:0;font-size:11.5px;line-height:1.45;color:rgba(28,29,34,0.55)">' +
+          escapeHtml(el.font) + ' measures &times;' + factor + ' against Canva, so 1.4 there is ' +
+          (Math.round(1.4 * factor * 100) / 100) + ' here.</p>';
+      conv.querySelector("#ed-canva-ls-go").addEventListener("click", function () {
+        const v = parseFloat(conv.querySelector("#ed-canva-ls").value);
+        if (!isFinite(v) || v <= 0) return;
+        const lh = Math.round(v * factor * 100) / 100;
+        if (lh < 0.8 || lh > 3) return;
+        el.lineHeight = lh;
+        fitTextHeight(el);
+        fullRender();
+        pushHistory();
+        toast("Line spacing " + lh + " — Canva's " + v + " for " + el.font);
+      });
+      wrap.appendChild(conv);
+    }
 
     wrap.querySelector("#ed-canva-go").addEventListener("click", function () {
       const target = parseFloat(wrap.querySelector("#ed-canva-h").value);
