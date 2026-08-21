@@ -535,6 +535,72 @@
   }
 
   // Combined Letter spacing + Line spacing popover (one tab, Canva-style).
+  /* Matching a height from Canva.
+     Canva and this editor disagree about how tall a line of type is. Canva
+     builds its line box from the font's own metrics; this editor uses the CSS
+     rule, height = font size x line spacing, which is why the same 46px with
+     the same 1.4 spacing comes out 64 here and 76.7 there.
+
+     Their exact algorithm is not published, and it is not simply the font's
+     metrics either — The Seasons reports 1.285 for both its hhea and typo
+     tables and 1.63 for win, while Canva's number implies 1.191. So rather
+     than guess at it, this works backwards from the answer: you type the
+     height Canva gave you and it solves for the line spacing that produces
+     exactly that height here.
+
+       line spacing = target height / (font size x lines)
+
+     Exact, and it needs to know nothing about Canva — the arithmetic is this
+     editor's own. Admin only: it is an authoring aid for rebuilding a Canva
+     draft, not something a customer has any use for. */
+  function textLineCount(el) {
+    const node = canvasEl.querySelector('[data-id="' + el.id + '"] .ed-text-inner');
+    const lh = (el.size || 16) * (el.lineHeight || 1.3);
+    if (!node || !lh) return 1;
+    return Math.max(1, Math.round(node.offsetHeight / lh));
+  }
+
+  function _canvaHeightRow(el) {
+    const wrap = document.createElement("div");
+    wrap.style.cssText = "border-top:1px solid rgba(28,29,34,0.1);padding-top:14px;display:flex;flex-direction:column;gap:8px;";
+    const lines = textLineCount(el);
+    wrap.innerHTML =
+      '<div style="font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:rgba(28,29,34,0.55)">Match a Canva height</div>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+        '<input type="number" id="ed-canva-h" placeholder="76.7" step="0.1" min="1" ' +
+          'style="flex:1;min-width:0;padding:7px 9px;border:1px solid rgba(28,29,34,0.18);border-radius:6px;font-family:var(--sans);font-size:13px">' +
+        '<button type="button" id="ed-canva-go" style="flex:none;padding:7px 14px;cursor:pointer;' +
+          'font-family:var(--sans);font-size:12px;font-weight:700;color:#fff;' +
+          'background:var(--english-violet);border:0;border-radius:6px">Set</button>' +
+      '</div>' +
+      '<p style="margin:0;font-size:11.5px;line-height:1.45;color:rgba(28,29,34,0.55)">' +
+        'This text is <strong>' + lines + '</strong> line' + (lines === 1 ? "" : "s") + ' at ' + (el.size || 0) + 'px. ' +
+        'Type the height Canva shows and the line spacing is solved to match it.</p>' +
+      '<p style="margin:0;font-size:11.5px;color:#a3372b" id="ed-canva-warn" hidden></p>';
+
+    wrap.querySelector("#ed-canva-go").addEventListener("click", function () {
+      const target = parseFloat(wrap.querySelector("#ed-canva-h").value);
+      const warn = wrap.querySelector("#ed-canva-warn");
+      const n = textLineCount(el);
+      if (!isFinite(target) || target <= 0 || !el.size || !n) return;
+      const lh = target / (el.size * n);
+      // The slider's own range. Outside it the answer would not stick.
+      if (lh < 0.8 || lh > 3) {
+        warn.hidden = false;
+        warn.textContent = "That needs a line spacing of " + lh.toFixed(2)
+          + ", outside the 0.8–3 range. Change the font size first.";
+        return;
+      }
+      warn.hidden = true;
+      el.lineHeight = Math.round(lh * 100) / 100;
+      fitTextHeight(el);
+      fullRender();
+      pushHistory();
+      toast("Line spacing " + el.lineHeight + " — height now " + Math.round(el.size * el.lineHeight * n) + "px");
+    });
+    return wrap;
+  }
+
   function spacingPopover(el) {
     const icon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 4v16"/><path d="M1 6l2-2 2 2"/><path d="M1 18l2 2 2-2"/></svg>';
     return popoverIconButton({
@@ -548,6 +614,7 @@
         box.appendChild(_spacingRow("Line spacing", "", 0.8, 3, 0.05,
           function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
           function (v) { el.lineHeight = v; }));
+        if (isAdminMode()) box.appendChild(_canvaHeightRow(el));
         return box;
       },
     });
