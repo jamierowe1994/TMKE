@@ -2778,6 +2778,9 @@
       node.classList.add(state.selectedIds.length > 1 ? "is-multiselected" : "is-selected");
     }
     if (el.locked) node.classList.add("is-locked");
+    // Authoring aid: show which element is the logo slot. Admin only — a
+    // customer sees their own logo there, not a marked-up box.
+    if (el.brandRole === "logo" && isAdminMode()) node.classList.add("is-logoslot");
     if (el.hidden) node.classList.add("is-hidden");
     if (el.type === "text" && el.vcenter) node.classList.add("ed-text-vcenter");
 
@@ -6499,6 +6502,39 @@
 
      Nothing happens in admin mode: authors need to see the placeholder they
      drew, tags and all. */
+  /* Authoring: drop a logo slot that is already the right size and in the
+     right place, rather than drawing a box by eye and hoping. 200x80 is the
+     largest a mark should sit on these designs, centred, 108px from the edge —
+     the measurements the existing pack already follows.
+
+     It goes in as TEXT carrying {brand name}, which is exactly what a member
+     without a logo should see; the slot only becomes an image for members who
+     have uploaded one. So the placeholder IS the fallback, not a stand-in for
+     it, and there is nothing to remember to swap out later. */
+  const LOGO_SLOT_W = 200, LOGO_SLOT_H = 80, LOGO_SLOT_EDGE = 108;
+
+  function addLogoSlot(anchor) {
+    const y = anchor === "bottom"
+      ? state.canvas.height - LOGO_SLOT_EDGE - LOGO_SLOT_H
+      : LOGO_SLOT_EDGE;
+    addElement({
+      type: "text",
+      brandRole: "logo",
+      text: "{brand name}",
+      x: Math.round((state.canvas.width - LOGO_SLOT_W) / 2),
+      y: Math.round(y),
+      w: LOGO_SLOT_W,
+      h: LOGO_SLOT_H,
+      font: "The Seasons",
+      size: 20,
+      weight: 400,
+      color: "#1c1d22",
+      align: "center",
+      lineHeight: 1.2,
+    });
+    toast("Logo slot added — 200 × 80, centred, " + LOGO_SLOT_EDGE + "px from the " + (anchor === "bottom" ? "foot" : "top"));
+  }
+
   function brandLogoSrc() {
     const L = (BRAND && Array.isArray(BRAND.logos)) ? BRAND.logos : [];
     const withSrc = L.filter(function (l) { return l && l.src; });
@@ -7467,6 +7503,7 @@
       showPane(tool);
       if (tool === "text") { placeSelectionBody(); renderTextList(); renderFontBrowser(); }
       else placeSelectionBody();
+      if (tool === "elements") mountLogoSlotTool();
     });
   });
 
@@ -7694,6 +7731,32 @@
     showPane("text");
     // The browser lives behind the Fonts tab now — no scrolling-to-it needed.
     setTextTab("fonts");
+  }
+
+  // Admin authoring only: a Brand section at the head of Elements, so the logo
+  // slot is placed from a control rather than drawn by hand.
+  // Mounted on demand, not at load: isAdminMode() reads a hook the admin page
+  // installs after this script runs, so checking it once on boot always said no.
+  let _logoToolMounted = false;
+  function mountLogoSlotTool() {
+    if (_logoToolMounted || !isAdminMode()) return;
+    const pane = document.querySelector('.ed-panel-pane[data-pane="elements"]');
+    if (!pane) return;
+    const head = pane.querySelector(".ed-pane-header");
+    if (!head) return;
+    const wrap = document.createElement("div");
+    wrap.innerHTML =
+      '<div class="ed-section-title">Brand</div>' +
+      '<div class="ed-logoslot-row">' +
+        '<button type="button" class="ed-logoslot-btn" data-logoslot="top">Logo slot &middot; top</button>' +
+        '<button type="button" class="ed-logoslot-btn" data-logoslot="bottom">Logo slot &middot; foot</button>' +
+      '</div>' +
+      '<p class="ed-brand-hint">200 &times; 80, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>';
+    head.insertAdjacentElement("afterend", wrap);
+    wrap.querySelectorAll("[data-logoslot]").forEach(function (b) {
+      b.addEventListener("click", function () { addLogoSlot(b.getAttribute("data-logoslot")); });
+    });
+    _logoToolMounted = true;
   }
 
   // ---------- Shapes / text / bg / swatches bindings ----------
