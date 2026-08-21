@@ -24,6 +24,9 @@ import { templates as defaultLibrary } from "../../data/library.js";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <input type="search" id="tpl-search" placeholder="Search templates…" aria-label="Search templates" />
         </label>
+        <select class="tpl-filter" id="tpl-pack" aria-label="Filter by pack">
+          <option value="">All packs</option>
+        </select>
         <select class="tpl-filter" id="tpl-filter" aria-label="Filter templates">
           <option value="recent">Most recent</option>
           <option value="oldest">Last added</option>
@@ -385,6 +388,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       newBtn: document.getElementById('new-btn'),
       search: document.getElementById('tpl-search'),
       filter: document.getElementById('tpl-filter'),
+      pack: document.getElementById('tpl-pack'),
     };
 
     // All loaded templates (unfiltered). applyView() derives the visible grid
@@ -493,7 +497,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       els.loading.hidden = false;
       const { data, error } = await supabase
         .from('templates')
-        .select('id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at')
+        .select('id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at, pack_id')
         .order('status', { ascending: true })
         .order('sort_order', { ascending: true });
 
@@ -517,10 +521,76 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
 
     // Render the grid from ALL, honouring the search box + filter dropdown.
+    /* The view survives opening a design.
+       Editing a template means leaving this page for the editor and coming
+       back, and losing the search and filters every time made working through
+       one pack a chore. Kept in localStorage rather than the session so it
+       also survives closing the tab, which is the same job picked up the next
+       morning. */
+    const VIEW_KEY = 'tmke.admin.templates.view';
+
+    function saveView() {
+      try {
+        localStorage.setItem(VIEW_KEY, JSON.stringify({
+          q: els.search?.value || '',
+          f: els.filter?.value || 'recent',
+          pack: els.pack?.value || '',
+        }));
+      } catch (_) { /* private mode — the filters just won't persist */ }
+    }
+
+    function restoreView() {
+      let v = null;
+      try { v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null'); } catch (_) {}
+      if (!v) return;
+      if (els.search && typeof v.q === 'string') els.search.value = v.q;
+      if (els.filter && v.f) els.filter.value = v.f;
+      // Only restore a pack that still exists, or the grid would come back
+      // empty with no obvious cause.
+      if (els.pack && v.pack && [...els.pack.options].some((o) => o.value === v.pack)) {
+        els.pack.value = v.pack;
+      }
+    }
+
+    // What the empty state should call the current view, so "nothing here"
+    // always says which of the three filters is responsible.
+    function describeView(q) {
+      if (q) return '\u201c' + q + '\u201d';
+      const packSel = els.pack && els.pack.selectedIndex > 0
+        ? els.pack.options[els.pack.selectedIndex].text : '';
+      const statusSel = els.filter && ['draft', 'active', 'archived'].includes(els.filter.value)
+        ? els.filter.options[els.filter.selectedIndex].text : '';
+      if (packSel && statusSel) return statusSel + ' in ' + packSel;
+      return packSel || statusSel || 'that view';
+    }
+
+    // Fill the pack menu from the packs themselves, so it can't drift out of
+    // step with what exists.
+    async function loadPackFilter() {
+      if (!els.pack) return;
+      let packs = [];
+      try {
+        const { data } = await supabase.from('packs').select('id, title').order('title');
+        packs = data || [];
+      } catch (_) { }
+      const frag = packs.map((p) =>
+        `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title || 'Untitled pack')}</option>`).join('');
+      els.pack.innerHTML = '<option value="">All packs</option>' + frag +
+        '<option value="__none__">Not in a pack</option>';
+    }
+
     function applyView() {
       const q = (els.search?.value || '').toLowerCase().trim();
       const f = els.filter?.value || 'recent';
+      const packId = els.pack?.value || '';
+      saveView();
       let list = ALL.slice();
+
+      // Pack filter. "Loose" is everything not in a pack yet — the state a
+      // template is in between being drawn and being sold, and the one you
+      // most often want to go looking for.
+      if (packId === '__none__') list = list.filter((t) => !t.pack_id);
+      else if (packId) list = list.filter((t) => t.pack_id === packId);
 
       // Status filter (the sort-only options leave the status set untouched).
       if (f === 'draft') list = list.filter((t) => t.status === 'draft');
@@ -538,7 +608,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       els.empty.hidden = ALL.length !== 0;
       els.grid.innerHTML = list.length
         ? list.map(renderCard).join('')
-        : (ALL.length ? `<p class="tpl-loading">No templates match “${escapeHtml(q || els.filter.options[els.filter.selectedIndex].text)}”.</p>` : '');
+        : (ALL.length ? `<p class="tpl-loading">No templates match ${escapeHtml(describeView(q))}.</p>` : '');
     }
 
     async function seedFromLibrary() {
@@ -649,6 +719,10 @@ import { templates as defaultLibrary } from "../../data/library.js";
         const session = await requireAdmin();
         if (!session) return;
       }
+      // Packs first: restoreView can only re-select a pack once the options
+      // it is choosing from exist.
+      await loadPackFilter();
+      restoreView();
       await loadTemplates();
       autoSyncNewDrafts();   // heal new/orphaned local drafts so previews show automatically
     })();
@@ -658,6 +732,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
     els.rebuildBtn?.addEventListener('click', rebuildThumbnails);
     els.search?.addEventListener('input', applyView);
     els.filter?.addEventListener('change', applyView);
+    els.pack?.addEventListener('change', applyView);
 
     // ---- Sync local drafts to the database -----------------------------------
     // Designs created before DB-autosave existed live only in THIS browser's
