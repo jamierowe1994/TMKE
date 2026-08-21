@@ -1242,7 +1242,26 @@
       fullRender();
     }
 
-    const items = [
+    const items = [];
+
+    // Authoring control, admin only: mark which element on a template is the
+    // brand's logo. A customer opening the template gets their own logo in
+    // this box, or their brand name if they haven't uploaded one.
+    if (isAdminMode()) {
+      const isSlot = el.brandRole === "logo";
+      items.push({
+        label: isSlot ? "✓ Brand logo slot" : "Mark as brand logo slot",
+        action: function () {
+          if (isSlot) delete el.brandRole;
+          else el.brandRole = "logo";
+          pushHistory();
+          fullRender();
+          toast(isSlot ? "No longer the logo slot" : "This is the logo slot now");
+        },
+      });
+    }
+
+    items.push(
       // Z-order — collapsed into a hover fly-out so the menu isn't a wall of
       // options you rarely need all at once.
       { label: "Layer", submenu: [
@@ -1267,8 +1286,8 @@
       { divider: true },
       { label: "Copy",            hint: "Ctrl+C", action: function () { copySelectedToClipboard(); } },
       { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
-      { label: "Delete",          hint: "Del", action: function () { deleteSelected(); }, danger: true },
-    ];
+      { label: "Delete",          hint: "Del", action: function () { deleteSelected(); }, danger: true }
+    );
 
     if (el.type === "text") {
       items.push({ divider: true });
@@ -1925,7 +1944,7 @@
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
-    if (!isAdminMode()) fillTemplateMergeTags();
+    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); }
     normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
@@ -6461,6 +6480,64 @@
       // Unknown brand data → leave the placeholder so the customer can fill it
       // (or the admin can spot what's missing on the template).
       return val ? val : full;
+    });
+  }
+
+  /* ---- Brand logo slots ---------------------------------------------------
+     Templates are drawn with a made-up agency on them — "Greenfield Property"
+     set in The Seasons, small, pinned to the top or foot of the design. That
+     works for a brand whose mark IS its name, and not at all for one with a
+     real image logo, which is most estate agents.
+
+     A slot is any element carrying brandRole: "logo". On load we do one of two
+     things with it, so both kinds of brand are served by the same template:
+
+       · the member has uploaded a logo  -> the slot becomes that image, fitted
+         inside the box the designer drew, keeping its own proportions
+       · they haven't                    -> it stays text, and the merge tag in
+         it resolves to their brand name
+
+     Nothing happens in admin mode: authors need to see the placeholder they
+     drew, tags and all. */
+  function brandLogoSrc() {
+    const L = (BRAND && Array.isArray(BRAND.logos)) ? BRAND.logos : [];
+    const withSrc = L.filter(function (l) { return l && l.src; });
+    if (!withSrc.length) return null;
+    const main = withSrc.filter(function (l) { return l.primary; })[0];
+    return (main || withSrc[0]).src;
+  }
+
+  function fillTemplateLogos() {
+    const src = brandLogoSrc();
+    if (!src) return;   // no logo in the kit — the text path already covers it
+    const slots = state.elements.filter(function (el) { return el && el.brandRole === "logo"; });
+    if (!slots.length) return;
+
+    slots.forEach(function (slot) {
+      // The box the designer drew. The logo is fitted inside it rather than
+      // stretched to it, so a wide lockup and a square badge both sit right.
+      const box = { x: slot.x, y: slot.y, w: slot.w, h: slot.h };
+      // Converted in place, so z-order, rotation and any grouping survive.
+      ["text", "runs", "font", "size", "weight", "color", "align", "lineHeight",
+       "letterSpacing", "textGradient", "textShadow", "textOutline", "textBg"]
+        .forEach(function (k) { delete slot[k]; });
+      slot.type = "image";
+      slot.src = src;
+
+      const probe = new Image();
+      probe.onload = function () {
+        const ratio = probe.naturalWidth / probe.naturalHeight || 1;
+        let w = box.w, h = box.w / ratio;
+        if (h > box.h) { h = box.h; w = box.h * ratio; }
+        slot.w = Math.round(w);
+        slot.h = Math.round(h);
+        slot.x = Math.round(box.x + (box.w - w) / 2);
+        slot.y = Math.round(box.y + (box.h - h) / 2);
+        fullRender();
+      };
+      // A logo that won't load leaves the slot at the drawn box rather than
+      // collapsing it — visible and fixable, not silently gone.
+      probe.src = src;
     });
   }
 
