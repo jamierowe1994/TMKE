@@ -72,6 +72,16 @@ import "../../styles/account-sections.css";
             </label>
           </div>
           <p class="profile-hint">The town or area your designs should name. Designs fill it in for you, and you can always type over it on any one post.</p>
+          <div class="profile-row">
+            <label class="profile-field profile-field--full">
+              <span>Slogan <span class="profile-optional">optional</span></span>
+              <div class="field-wrap">
+                <input type="text" name="slogan" placeholder="Your move made simple" />
+                <span class="field-ok" id="slogan-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+          </div>
+          <p class="profile-hint">Some designs carry a strapline. Leave it blank and those designs simply won&rsquo;t ask for one.</p>
         </section>
 
         <!-- Logos -->
@@ -268,6 +278,10 @@ import "../../styles/account-sections.css";
       border: 1px solid rgba(28, 29, 34, 0.13);
       border-radius: 6px;
       box-shadow: none;
+    }
+    .profile-optional {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: rgba(28,29,34,0.4); margin-left: 6px;
     }
     .profile-hint {
       font-family: var(--sans); font-size: var(--ws-t-meta, 12px);
@@ -669,6 +683,7 @@ import "../../styles/account-sections.css";
       const previewB = preview.querySelector(".type-preview-b");
       const companyInput = form.elements["company"];
       const locationInput = form.elements["location"];
+      const sloganInput = form.elements["slogan"];
       const toneInput = form.elements["tone"];
       const companyOk = document.getElementById("company-ok");
       const saveEl = document.getElementById("brand-save");
@@ -701,6 +716,8 @@ import "../../styles/account-sections.css";
       const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
       if (brand) companyInput.value = brand.company || "";
       if (brand && locationInput) locationInput.value = brand.location || "";
+      // Older kits stored this as `tagline`; read either.
+      if (brand && sloganInput) sloganInput.value = brand.slogan || brand.tagline || "";
       if (brand && toneInput) toneInput.value = brand.tone || "";
 
       // ---- Autosave ----
@@ -719,7 +736,8 @@ import "../../styles/account-sections.css";
         setStatus("saved");
         // Flash the tick beside whichever field was just typed in. Was
         // company-only; every field with a tick can use it now.
-        const flashInput = flashField === "location" ? locationInput : companyInput;
+        const flashInput = flashField === "location" ? locationInput
+                        : flashField === "slogan" ? sloganInput : companyInput;
         const flashOk = document.getElementById((flashField || "company") + "-ok");
         if (flashField && flashOk && flashInput && flashInput.value.trim()) {
           flashOk.hidden = false;
@@ -734,7 +752,8 @@ import "../../styles/account-sections.css";
       function scheduleSave(opts) {
         if (!ready) return;
         const flashField = (opts && opts.company) ? "company"
-                         : (opts && opts.location) ? "location" : null;
+                         : (opts && opts.location) ? "location"
+                         : (opts && opts.slogan) ? "slogan" : null;
         setStatus("saving");
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => doSave(flashField), 450);
@@ -883,6 +902,7 @@ import "../../styles/account-sections.css";
       // ---- Company ----
       companyInput.addEventListener("input", function () { scheduleSave({ company: true }); });
       locationInput?.addEventListener("input", function () { scheduleSave({ location: true }); });
+      sloganInput?.addEventListener("input", function () { scheduleSave({ slogan: true }); });
       if (toneInput) toneInput.addEventListener("input", function () { scheduleSave(); });
 
       // ---- Logos ----
@@ -1000,6 +1020,7 @@ import "../../styles/account-sections.css";
         return {
           company: companyInput.value.trim(),
           location: locationInput ? locationInput.value.trim() : "",
+          slogan: sloganInput ? sloganInput.value.trim() : "",
           tone: toneInput ? toneInput.value.trim() : "",
           colors: colours,
           fonts: { heading: headingPicker.value(), body: bodyPicker.value() },

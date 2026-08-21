@@ -292,6 +292,15 @@
     return typeof window.__TMKE_ADMIN_SAVE__ === "function";
   }
 
+  /* Ratio lock. Sticky on purpose — it stays on until you turn it off, rather
+     than resetting each time you select something, because the reason you turn
+     it on is usually a run of elements rather than one. It governs both the
+     Position panel's W/H boxes and dragging a resize handle, so the two cannot
+     disagree about what "locked" means. */
+  let ratioLocked = false;
+  const LOCK_SHUT = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+  const LOCK_OPEN = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>';
+
   // Tracks the single popover allowed open at any time. Opening one closes the
   // previous one (and the colour panel), so Position/Effects/etc. never stack.
   let _activePopoverClose = null;
@@ -3654,7 +3663,9 @@
     const startX = ev.clientX, startY = ev.clientY;
     const o = { x: el.x, y: el.y, w: el.w, h: el.h, size: el.size };
     const aspect = o.w / o.h;
-    const lockAspect = (el.type === "image" || el.type === "ellipse");
+    // Images and ellipses always keep their proportions; the toggle turns that
+    // on for everything else too.
+    const lockAspect = ratioLocked || el.type === "image" || el.type === "ellipse";
     // Text + corner handle → Canva-style scale: the font grows/shrinks with the
     // box (and the box width follows), so you size by dragging, not guessing.
     const textScale = (el.type === "text" && handle.length === 2);
@@ -5699,6 +5710,45 @@
   // Shared binder for any DOM subtree that contains [data-prop] inputs.
   // Used by both the right panel (renderProps) and the top-bar Position
   // popover so the wiring behaviour is identical wherever the input lives.
+  /* Width and Height as a linked pair. Not part of bindGenericPropInputs
+     because that sets one property per input, and here changing one has to
+     move the other. The ratio is read off the element BEFORE the edit is
+     applied, so repeated nudges don't compound rounding into a drift. */
+  function bindRatioPair(root) {
+    const wIn = root.querySelector("#ed-pos-w");
+    const hIn = root.querySelector("#ed-pos-h");
+    const btn = root.querySelector("#ed-pos-lock");
+    if (!wIn || !hIn || !btn) return;
+
+    function apply(which) {
+      const tgt = getEl(state.selectedIds[0]);
+      if (!tgt) return;
+      const ratio = (tgt.w > 0 && tgt.h > 0) ? tgt.w / tgt.h : 1;
+      const v = parseFloat(which === "w" ? wIn.value : hIn.value);
+      if (!isFinite(v) || v <= 0) return;
+      if (which === "w") {
+        tgt.w = Math.round(v);
+        if (ratioLocked) { tgt.h = Math.max(1, Math.round(tgt.w / ratio)); hIn.value = tgt.h; }
+      } else {
+        tgt.h = Math.round(v);
+        if (ratioLocked) { tgt.w = Math.max(1, Math.round(tgt.h * ratio)); wIn.value = tgt.w; }
+      }
+      fullRender();
+      pushHistory();
+    }
+    wIn.addEventListener("change", function () { apply("w"); });
+    hIn.addEventListener("change", function () { apply("h"); });
+
+    btn.addEventListener("click", function () {
+      ratioLocked = !ratioLocked;
+      btn.classList.toggle("is-on", ratioLocked);
+      btn.setAttribute("aria-pressed", ratioLocked ? "true" : "false");
+      btn.innerHTML = ratioLocked ? LOCK_SHUT : LOCK_OPEN;
+      btn.title = ratioLocked ? "Ratio locked — click to unlock" : "Lock the ratio";
+      toast(ratioLocked ? "Ratio locked" : "Ratio unlocked");
+    });
+  }
+
   function bindGenericPropInputs(root) {
     root.querySelectorAll("[data-prop]").forEach(function (input) {
       const prop = input.dataset.prop;
@@ -6467,7 +6517,16 @@
       m["area"]     = b.location;
       m["town"]     = b.location;
     }
-    if (b.tagline) m["tagline"] = b.tagline;
+    // Slogan. The engine has always known {tagline} but the brand kit had no
+    // field to fill it, so it could never resolve — there is one now, and
+    // {slogan} and {strapline} say the same thing. Older kits that stored a
+    // tagline still work.
+    const slogan = (b.slogan || b.tagline || "").trim();
+    if (slogan) {
+      m["slogan"] = slogan;
+      m["strapline"] = slogan;
+      m["tagline"] = slogan;
+    }
     if (b.email)   m["email"]   = b.email;
     if (b.phone)   m["phone"]   = b.phone;
     if (b.website) m["website"] = b.website;
@@ -6475,7 +6534,8 @@
   }
   // Surface the keys so the admin "insert tag" UI can list them.
   const KNOWN_TAGS = ["brand name", "brand", "company", "company name",
-    "location", "area", "town", "tagline", "email", "phone", "website"];
+    "location", "area", "town", "slogan", "strapline", "tagline",
+    "email", "phone", "website"];
 
   function applyMergeTags(text) {
     if (!text || typeof text !== "string") return text;
@@ -7099,15 +7159,20 @@
             '<div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="' + el.x + '"></div>' +
             '<div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="' + el.y + '"></div>' +
           '</div>' +
-          '<div class="ed-props-row">' +
-            '<div class="ed-props-field"><label>Width</label><input type="number" data-prop="w" value="' + el.w + '"></div>' +
-            '<div class="ed-props-field"><label>Height</label><input type="number" data-prop="h" value="' + el.h + '"></div>' +
+          '<div class="ed-props-row ed-props-row--wh">' +
+            '<div class="ed-props-field"><label>Width</label><input type="number" id="ed-pos-w" value="' + el.w + '"></div>' +
+            '<button type="button" class="ed-ratio-lock' + (ratioLocked ? " is-on" : "") + '" id="ed-pos-lock"' +
+              ' aria-pressed="' + (ratioLocked ? "true" : "false") + '"' +
+              ' title="' + (ratioLocked ? "Ratio locked — click to unlock" : "Lock the ratio") + '">' +
+              (ratioLocked ? LOCK_SHUT : LOCK_OPEN) + '</button>' +
+            '<div class="ed-props-field"><label>Height</label><input type="number" id="ed-pos-h" value="' + el.h + '"></div>' +
           '</div>' +
           '<div class="ed-props-row">' +
             '<div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="' + (el.rotation || 0) + '"></div>' +
             '<div class="ed-props-field"></div>' +
           '</div>';
         bindGenericPropInputs(panel);
+        bindRatioPair(panel);
         return panel;
       },
     });
