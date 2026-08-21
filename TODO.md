@@ -380,7 +380,10 @@ its own job rather than smuggled into a one-page fix.
 
 - ⬜ **The bottom section's images need replacing** — placeholder imagery, real
   assets needed from Dani.
-- ⬜ **Drop the line border around the pack images** in the shop section.
+- ✅ (21 Aug) **Drop the line border around the pack images** in the shop
+  section. It was an `outline` rather than a `border`, on `.pcard-media` —
+  the three Shop the Packs cards. The hero reel's own active-tile outline is
+  a selection indicator and was left alone.
 
 ## 7a. Deleting things, with permissions ⬜
 
@@ -527,9 +530,12 @@ the rendered output checking, not just a build.
   invitee has to retype everything.
 - ⬜ Brand kit doesn't reach the dashboard or caption generator on a new device
   until the member opens the Studio or profile first.
-- ⬜ The Studio upload library's save-and-reload was never tested against real
-  storage.
-- ⬜ The Studio text list only covers the current page of a multi-page template.
+- ✅ (21 Aug) The Studio upload library's save-and-reload — confirmed working
+  against real storage by Dani: historic uploads reappear on returning.
+- ✅ (21 Aug) The Studio text list only covers the current page of a
+  multi-page template. Not a fault — confirmed by Dani as the wanted
+  behaviour: the list shows the current page's text, and moving to the next
+  page shows that page's. Listing every page at once would be far too busy.
 - ⬜ Schedule falls back to a hard-coded holiday list if `uk_observances` was
   never seeded. (`src/pages/account/schedule.astro:1249-1263`)
 

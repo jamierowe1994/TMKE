@@ -1513,6 +1513,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       payMethod: 'apple_pay',
     };
 
+    /* Pack covers are the Studio's own exports — full-size PNGs. One of them is
+       3MB for a tile a few hundred pixels wide, and there are forty on this
+       page, painted as CSS backgrounds so the browser cannot lazy-load them.
+       Measured on the live bucket: worst case took nearly two minutes.
+
+       Supabase's storage render endpoint resizes on the fly and returns WebP to
+       any browser that asks for it. The same cover comes back at ~70KB — about
+       forty times smaller. Falls through untouched for anything that is not a
+       Supabase public object, so external and local art is unaffected. */
+    function edImg(src, width) {
+      const s = String(src || '');
+      const marker = '/storage/v1/object/public/';
+      const at = s.indexOf(marker);
+      if (!s || at === -1 || s.includes('/render/image/')) return s;
+      const [path] = s.slice(at + marker.length).split('?');
+      return s.slice(0, at) + '/storage/v1/render/image/public/' + path
+        + '?width=' + (width || 700) + '&quality=70';
+    }
+
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -1551,7 +1570,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const type = p.category ? `${escapeHtml(p.category)} Template Pack` : 'Template Pack';
       const href = `/edit/${encodeURIComponent(p.slug)}`;
       const frames = previews.map((src, k) =>
-        `<span class="pcard-frame${k === 0 ? ' is-active' : ''}" style="background-image:url('${escapeHtml(src)}')"></span>`
+        `<span class="pcard-frame${k === 0 ? ' is-active' : ''}" style="background-image:url('${escapeHtml(edImg(src, 700))}')"></span>`
       ).join('');
       const dots = previews.length > 1
         ? `<div class="pcard-dots">${previews.map((_, k) =>
@@ -1607,7 +1626,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           hero.style.opacity = '0.18';   // flicker out…
           cancelAnimationFrame(raf);
           raf = requestAnimationFrame(() => setTimeout(() => {
-            hero.style.backgroundImage = `url('${url}')`;
+            hero.style.backgroundImage = `url('${edImg(url, 1600)}')`;
             hero.style.opacity = '1';    // …and back in on the new shot
           }, 80));
         };
@@ -1683,12 +1702,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // One reel tile + one dot per pack. (The pack name now lives in the feature
       // copy, so the covers carry no caption.)
       reelEl.innerHTML = list.map((p, i) =>
-        `<button type="button" class="eh2-tile${i === 0 ? ' is-active' : ''}" role="tab" aria-selected="${i === 0}" data-i="${i}" aria-label="${escapeHtml(p.title || '')}" style="background-image:url('${cover(p)}')"></button>`
+        `<button type="button" class="eh2-tile${i === 0 ? ' is-active' : ''}" role="tab" aria-selected="${i === 0}" data-i="${i}" aria-label="${escapeHtml(p.title || '')}" style="background-image:url('${edImg(cover(p), 500)}')"></button>`
       ).join('');
       const tiles = [...reelEl.children];
       dotsEl.innerHTML = list.map((_, i) => `<button type="button" class="eh2-dot${i === 0 ? ' is-active' : ''}" data-i="${i}" aria-label="Pack ${i + 1}"></button>`).join('');
       const dots = [...dotsEl.children];
-      list.forEach((p) => { const im = new Image(); im.src = cover(p); });   // preload
+      // Preload the same resized covers the tiles paint, not the originals —
+      // preloading the 3MB versions defeated the point of resizing them.
+      list.forEach((p) => { const im = new Image(); im.src = edImg(cover(p), 500); });
 
       // The big title is the single-word category; the pack name goes in the
       // pronunciation slot. No splitting/auto-fit needed.
@@ -1833,7 +1854,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             const p = b.pack;
             const href = p.slug ? `/edit/${encodeURIComponent(p.slug)}` : '#edit-catalogue';
             html += `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
-              + `<span class="egh-tile-img" style="background-image:url('${heroOf(p)}')"></span>`
+              + `<span class="egh-tile-img" style="background-image:url('${edImg(heroOf(p), 700)}')"></span>`
               + `<span class="egh-tile-cap">`
               + `<span class="egh-tile-num">${escapeHtml(b.num)}</span>`
               + `<span class="egh-tile-name">${escapeHtml(b.main)}</span>`
@@ -1841,7 +1862,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           } else {
             const img = pool.length ? pool[(imgOffset + gi) % pool.length] : '';
             gi++; count++;
-            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${img}')"></div>`;
+            html += `<div class="egh-tile egh-tile--image" style="background-image:url('${edImg(img, 700)}')"></div>`;
           }
         }
         gridEl.innerHTML = html;
@@ -1891,7 +1912,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         if (e.target.closest('.egh-tile--next')) goToSet(setIdx + 1);
       });
 
-      pool.slice(0, 24).forEach((u) => { const im = new Image(); im.src = u; });
+      pool.slice(0, 24).forEach((u) => { const im = new Image(); im.src = edImg(u, 700); });
     }
 
     let packsById = new Map();
@@ -2059,13 +2080,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         // word is what tells you the box is a control rather than a pack.
         const box = (num, main, sub) =>
           `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
-          + `<span class="egh-tile-img" style="background-image:url('${hover}')"></span>`
+          + `<span class="egh-tile-img" style="background-image:url('${edImg(hover, 700)}')"></span>`
           + `<span class="egh-tile-cap">`
           + (num ? `<span class="egh-tile-num">${escapeHtml(num)}</span>` : '')
           + `<span class="egh-tile-name">${escapeHtml(main)}</span>`
           + (sub ? `<span class="egh-tile-sub">${escapeHtml(sub)}</span>` : '')
           + `</span></a>`;
-        const design = (i) => `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${pick(i)}')"></span></div>`;
+        const design = (i) => `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${edImg(pick(i), 700)}')"></span></div>`;
 
         return box('', p.title || '', pillar)             // 1
           + design(0) + design(1) + design(2) + design(3) // 2-5
@@ -2202,7 +2223,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         feat.innerHTML = FEATURES.map((f, i) => {
           const img = pool.length ? pool[(i * 3) % pool.length] : '';
           return `<div class="egh-tile egh-tile--pack">`
-            + `<span class="egh-tile-img" style="background-image:url('${img}')"></span>`
+            + `<span class="egh-tile-img" style="background-image:url('${edImg(img, 700)}')"></span>`
             + `<span class="egh-tile-cap"><span class="egh-tile-name">${escapeHtml(f)}</span></span></div>`;
         }).join('');
       }
@@ -2351,7 +2372,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       pkgDescEl.textContent = pack.description ?? '';
       pkgListEl.innerHTML = (pack.contents ?? []).slice(0, 4).map((c) => `<li>${escapeHtml(c)}</li>`).join('');
       pkgPriceEl.textContent = gbpFromPence(pack.price_pence) + ' +VAT';
-      coverEl.style.backgroundImage = pack.cover_image_url ? `url('${pack.cover_image_url}')` : '';
+      coverEl.style.backgroundImage = pack.cover_image_url ? `url('${edImg(pack.cover_image_url, 700)}')` : '';
 
       // Update £ amount on payment step in two places
       modal.querySelectorAll('[data-bind="amount"]').forEach((el) => {
