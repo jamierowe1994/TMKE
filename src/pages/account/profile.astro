@@ -59,6 +59,19 @@ import "../../styles/account-sections.css";
               </div>
             </label>
           </div>
+          <!-- The patch, not an address. Templates ask for it constantly —
+               "We Know [here]", "A Day in [here]", "Schools in [here]" — and
+               it is the same answer every time, so it belongs in the kit. -->
+          <div class="profile-row">
+            <label class="profile-field profile-field--full">
+              <span>Area you cover</span>
+              <div class="field-wrap">
+                <input type="text" name="location" placeholder="Banbury" autocomplete="address-level2" />
+                <span class="field-ok" id="location-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+          </div>
+          <p class="profile-hint">The town or area your designs should name. Designs fill it in for you, and you can always type over it on any one post.</p>
         </section>
 
         <!-- Logos -->
@@ -255,6 +268,10 @@ import "../../styles/account-sections.css";
       border: 1px solid rgba(28, 29, 34, 0.13);
       border-radius: 6px;
       box-shadow: none;
+    }
+    .profile-hint {
+      font-family: var(--sans); font-size: var(--ws-t-meta, 12px);
+      line-height: 1.5; color: rgba(28,29,34,0.55); margin: 6px 0 0;
     }
     .profile-section-head {
       display: flex;
@@ -651,6 +668,7 @@ import "../../styles/account-sections.css";
       const previewH = preview.querySelector(".type-preview-h");
       const previewB = preview.querySelector(".type-preview-b");
       const companyInput = form.elements["company"];
+      const locationInput = form.elements["location"];
       const toneInput = form.elements["tone"];
       const companyOk = document.getElementById("company-ok");
       const saveEl = document.getElementById("brand-save");
@@ -682,6 +700,7 @@ import "../../styles/account-sections.css";
       const initialHeading = (brand && brand.fonts && brand.fonts.heading) || "Cormorant Garamond";
       const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
       if (brand) companyInput.value = brand.company || "";
+      if (brand && locationInput) locationInput.value = brand.location || "";
       if (brand && toneInput) toneInput.value = brand.tone || "";
 
       // ---- Autosave ----
@@ -690,7 +709,7 @@ import "../../styles/account-sections.css";
         saveEl.dataset.state = state;
         saveText.textContent = state === "saving" ? "Saving…" : "All changes saved";
       }
-      function doSave(flashCompany) {
+      function doSave(flashField) {
         const kit = collect();
         try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
         // Persist to the member's account too (server sync module listens for
@@ -698,22 +717,27 @@ import "../../styles/account-sections.css";
         try { window.dispatchEvent(new CustomEvent("tmke:brand-changed", { detail: kit })); } catch (_) {}
         firstrun.hidden = true;
         setStatus("saved");
-        if (flashCompany && companyInput.value.trim()) {
-          companyOk.hidden = false;
-          requestAnimationFrame(() => companyOk.classList.add("is-show"));
+        // Flash the tick beside whichever field was just typed in. Was
+        // company-only; every field with a tick can use it now.
+        const flashInput = flashField === "location" ? locationInput : companyInput;
+        const flashOk = document.getElementById((flashField || "company") + "-ok");
+        if (flashField && flashOk && flashInput && flashInput.value.trim()) {
+          flashOk.hidden = false;
+          requestAnimationFrame(() => flashOk.classList.add("is-show"));
           clearTimeout(okTimer);
           okTimer = setTimeout(() => {
-            companyOk.classList.remove("is-show");
-            setTimeout(() => { companyOk.hidden = true; }, 260);
+            flashOk.classList.remove("is-show");
+            setTimeout(() => { flashOk.hidden = true; }, 260);
           }, 2200);
         }
       }
       function scheduleSave(opts) {
         if (!ready) return;
-        const flashCompany = !!(opts && opts.company);
+        const flashField = (opts && opts.company) ? "company"
+                         : (opts && opts.location) ? "location" : null;
         setStatus("saving");
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => doSave(flashCompany), 450);
+        saveTimer = setTimeout(() => doSave(flashField), 450);
       }
 
       // ---- Searchable Google-Fonts picker ----
@@ -858,6 +882,7 @@ import "../../styles/account-sections.css";
 
       // ---- Company ----
       companyInput.addEventListener("input", function () { scheduleSave({ company: true }); });
+      locationInput?.addEventListener("input", function () { scheduleSave({ location: true }); });
       if (toneInput) toneInput.addEventListener("input", function () { scheduleSave(); });
 
       // ---- Logos ----
@@ -974,6 +999,7 @@ import "../../styles/account-sections.css";
         }
         return {
           company: companyInput.value.trim(),
+          location: locationInput ? locationInput.value.trim() : "",
           tone: toneInput ? toneInput.value.trim() : "",
           colors: colours,
           fonts: { heading: headingPicker.value(), body: bodyPicker.value() },

@@ -27,6 +27,19 @@
 -- plus any lockup still in place when this runs, which simply becomes
 -- {brand name} and can be deleted as you get to that design.
 --
+-- LOCATION
+-- The pack also asks for the agency's patch 21 times — "We Know [Location]",
+-- "A Day in [Location]", "Schools in [Location]". Those are square brackets,
+-- which the engine deliberately does NOT touch: square means "type this in
+-- yourself". They are the same answer every time for a given agency though, so
+-- there is now an "Area you cover" field in the brand kit and a {location} tag
+-- ({area} and {town} work too). Switching them over is opt-in, below.
+--
+-- Leave the second statement commented out if you would rather convert them by
+-- hand as you go through the designs. Either way, the genuinely per-post
+-- square brackets — [£000,000], [X days], [School Name], [Date & Time] — stay
+-- exactly as they are.
+--
 -- EXPECTED (measured 21 Aug 2026): 71 of 81 templates touched, 0 templates
 -- left containing "Greenfield" afterwards.
 --
@@ -57,6 +70,27 @@ set elements = (
 )
 where jsonb_typeof(t.elements) = 'array'
   and t.elements::text ilike '%Greenfield%';
+
+-- OPTIONAL: switch [Location] over to the {location} tag as well. Uncomment
+-- the whole statement to run it. Only [Location]/[location] is touched; every
+-- other square-bracket placeholder is left alone.
+--
+--   update public.templates t
+--   set elements = (
+--     select jsonb_agg(
+--       case
+--         when el->>'type' = 'text' and (el->>'text') ~ '\[[Ll]ocation\]'
+--         then jsonb_set(el, '{text}',
+--                to_jsonb(replace(replace(el->>'text',
+--                  '[Location]', '{location}'), '[location]', '{location}')))
+--         else el
+--       end
+--       order by ord
+--     )
+--     from jsonb_array_elements(t.elements) with ordinality as a(el, ord)
+--   )
+--   where jsonb_typeof(t.elements) = 'array'
+--     and t.elements::text ~ '\[[Ll]ocation\]';
 
 commit;
 

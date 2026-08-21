@@ -6458,6 +6458,15 @@
     }
     // Optional fields — wired up as customers fill them in (kept opt-in so
     // half-finished brand kits don't push empty strings into templates).
+    // The patch, straight from the kit. Templates ask for it 21 times across
+    // the pack — "We Know {location}", "A Day in {location}" — and it is the
+    // same answer every time for a given agency. Overwritable like any other
+    // text, for the post where it isn't.
+    if (b.location) {
+      m["location"] = b.location;
+      m["area"]     = b.location;
+      m["town"]     = b.location;
+    }
     if (b.tagline) m["tagline"] = b.tagline;
     if (b.email)   m["email"]   = b.email;
     if (b.phone)   m["phone"]   = b.phone;
@@ -6465,7 +6474,8 @@
     return m;
   }
   // Surface the keys so the admin "insert tag" UI can list them.
-  const KNOWN_TAGS = ["brand name", "brand", "company", "company name", "tagline", "email", "phone", "website"];
+  const KNOWN_TAGS = ["brand name", "brand", "company", "company name",
+    "location", "area", "town", "tagline", "email", "phone", "website"];
 
   function applyMergeTags(text) {
     if (!text || typeof text !== "string") return text;
@@ -6608,13 +6618,27 @@
   function nudgeIfBrandNameMissing() {
     const bar = document.getElementById("ed-brandnudge");
     if (!bar || isAdminMode()) return;
-    if (((BRAND && BRAND.company) || "").trim()) { bar.hidden = true; return; }
-    // Only when this design actually asks for the name.
-    const wants = state.elements.some(function (el) {
-      return el && el.type === "text" && typeof el.text === "string"
-        && /[{(]\s*(brand ?name|company ?name|brand|company)\s*[})]/i.test(el.text);
-    });
-    bar.hidden = !wants;
+    const txt = document.querySelector(".ed-brandnudge-txt");
+    const asks = function (re) {
+      return state.elements.some(function (el) {
+        return el && el.type === "text" && typeof el.text === "string" && re.test(el.text);
+      });
+    };
+    const b = BRAND || {};
+    const needName = !((b.company || "").trim())
+      && asks(/[{(]\s*(brand ?name|company ?name|brand|company)\s*[})]/i);
+    const needArea = !((b.location || "").trim())
+      && asks(/[{(]\s*(location|area|town)\s*[})]/i);
+
+    if (!needName && !needArea) { bar.hidden = true; return; }
+    // Name the thing that's actually missing — being told to add a business
+    // name when the gap is the area is worse than saying nothing.
+    const what = needName && needArea ? "your business name and the area you cover"
+               : needName ? "your business name"
+               : "the area you cover";
+    if (txt) txt.textContent = "This design fills in " + what + " automatically — "
+      + (needName && needArea ? "neither is" : "that isn’t") + " in your brand kit yet.";
+    bar.hidden = false;
   }
 
   // Walk every text element and run their copy through applyMergeTags. Called
