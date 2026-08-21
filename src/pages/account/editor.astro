@@ -1488,11 +1488,17 @@ const googleFonts = [
          once-a-page mark, and this is panel chrome — so it matches the rest of
          the panel instead, larger rather than heavier. */
       font-family: var(--sans);
-      font-size: 19px;
-      font-weight: 600;
+      /* Matches the "Studio" tab in the hub nav (.ws-tab, 17px/500) so the
+         panel title sits in the same register as the app's own navigation. */
+      font-size: 17px;
+      font-weight: 500;
+      /* The gap under the title was mostly leading, not margin: 19px text on
+         28.5px line-height left ~5px of air before the 3px margin even
+         applied. Tightening the line closes it by about 40%. */
+      line-height: 1.3;
       letter-spacing: 0.01em;
       color: #fff;
-      margin: 0 0 3px;
+      margin: 0 0 2px;
     }
     .ed-pane-header p {
       font-family: var(--sans);
@@ -1501,11 +1507,21 @@ const googleFonts = [
       color: rgba(255,255,255,0.72);
       margin: 0;
     }
+    /* The Brand kit subtitle carries an inline "Edit" link, whose own
+       line-height raised the line box and made that one header a pixel taller
+       than the rest — enough to put its content off the shared line. */
+    .ed-pane-header p a { line-height: inherit; color: #fff; }
     /* Every pane starts its content at the same height, whatever that content
        happens to be. Panes led by a section title (Elements) sat lower than
        panes led straight into a grid (Images, Layers); the header owns the gap
        now, so the first thing in each pane lines up with the next. */
     .ed-panel-pane > .ed-pane-header + * { margin-top: 0; }
+    /* Some panes put a hidden block (an empty state) straight after the
+       header, so the visible content is the sibling after that — and Brand kit
+       wraps its content in a div whose first child carries the section title's
+       own 22px. Both were still starting lower than the rest. */
+    .ed-panel-pane > .ed-pane-header + [hidden] + * { margin-top: 0; }
+    .ed-panel-pane > * > .ed-section-title:first-child { margin-top: 0; }
     .ed-section-title {
       font-family: var(--sans);
       font-size: 10px; font-weight: 700;
@@ -1600,13 +1616,20 @@ const googleFonts = [
       font-size: 13px;
       color: rgba(28,29,34,0.65);
     }
-    #brand-company { font-family: var(--serif); }
+    /* No font-family here. This is an id, so it beat .ed-pane-header h3 and
+       kept the Brand kit title on The Seasons while every other pane moved to
+       the panel face — which is why that one header still looked like the old
+       design. It inherits the shared header styling now. */
     #brand-edit-link {
-      color: var(--english-violet);
-      border-bottom: 1px solid currentColor;
+      /* Was english-violet, which is now the header's own background — the
+         link would have been violet on violet. */
+      color: #fff;
+      border-bottom: 1px solid rgba(255,255,255,0.5);
       font-size: 11px;
+      line-height: inherit;
       letter-spacing: 0.04em;
     }
+    #brand-edit-link:hover { border-bottom-color: #fff; }
     .ed-brand-font {
       display: grid;
       grid-template-columns: 1fr auto;
