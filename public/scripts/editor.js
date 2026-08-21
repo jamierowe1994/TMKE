@@ -2084,6 +2084,14 @@
           state.history = [];
           state.historyIndex = -1;
           state.pages.forEach((pg) => preloadFontsForElements(pg.elements));
+          // Reopening a design you have already worked on comes through here
+          // and used to return without ever substituting, so a template edited
+          // once kept showing {brand name} and an empty logo slot no matter
+          // what was in the brand kit. Safe to run on a restored copy: merge
+          // tags only touch text that still contains a tag, and a logo slot
+          // only fills while it is still text — anything you have typed or
+          // replaced yourself is left exactly as you left it.
+          if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); nudgeIfBrandNameMissing(); }
           normalizeLegacySize();
           pushHistory();
           fullRender();
@@ -6780,7 +6788,12 @@
   function fillTemplateLogos() {
     const src = brandLogoSrc();
     if (!src) return;   // no logo in the kit — the text path already covers it
-    const slots = state.elements.filter(function (el) { return el && el.brandRole === "logo"; });
+    // Still text = still a placeholder. Once a slot has become an image it is
+    // left alone, so reopening a design cannot overwrite a logo you swapped or
+    // repositioned by hand.
+    const slots = state.elements.filter(function (el) {
+      return el && el.brandRole === "logo" && el.type === "text";
+    });
     if (!slots.length) return;
 
     slots.forEach(function (slot) {
