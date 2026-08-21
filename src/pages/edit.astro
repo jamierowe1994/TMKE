@@ -1528,8 +1528,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       const at = s.indexOf(marker);
       if (!s || at === -1 || s.includes('/render/image/')) return s;
       const [path] = s.slice(at + marker.length).split('?');
+      // resize=contain is load-bearing: asking for a width alone returns that
+      // width at the ORIGINAL height — 1080x1440 came back 700x1440, which
+      // squashed every cover. contain scales to fit and keeps each image's own
+      // ratio, whatever that ratio happens to be.
       return s.slice(0, at) + '/storage/v1/render/image/public/' + path
-        + '?width=' + (width || 700) + '&quality=70';
+        + '?width=' + (width || 700) + '&resize=contain&quality=70';
     }
 
     function escapeHtml(s) {
