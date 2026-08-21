@@ -5707,8 +5707,27 @@
   // properties panel was removed in favour of a unified left rail). On
   // selection change this either populates the pane and switches to it, or
   // empties it and switches back to the user's last-active tool tab.
-  function renderProps() {
+  // The selected element's controls live in one node. When you are working in
+  // the Text pane on a text box, that node is moved into the Text selection
+  // tab so choosing which box to style and styling it are the same place;
+  // otherwise it goes home to the Selection pane. Moving it rather than
+  // duplicating it means there is only ever one set of live controls.
+  function placeSelectionBody() {
     const body = document.getElementById("ed-selection-body");
+    if (!body) return null;
+    const host = document.getElementById("ed-text-selhost");
+    const home = document.querySelector('.ed-panel-pane[data-pane="selection"]');
+    const el = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
+    const wantText = host && activeToolPane === "text" && el && el.type === "text";
+    const target = wantText ? host : home;
+    if (target && body.parentNode !== target) target.appendChild(body);
+    const listHead = document.getElementById("ed-textlist-head");
+    if (listHead) listHead.hidden = !wantText;
+    return body;
+  }
+
+  function renderProps() {
+    const body = placeSelectionBody();
     if (!body) return;
 
     // A selected guide takes over the Selection pane (no element is selected
@@ -5776,7 +5795,7 @@
     // the Text pane has nothing to say about a photo.
     const stayInText = activeToolPane === "text" && el.type === "text";
     if (typeof showPane === "function" && !stayInText) showPane("selection");
-    if (stayInText) { renderTextList(); renderFontBrowser(); return; }
+    if (stayInText) { renderTextList(); renderFontBrowser(); }
 
     // Position & size, font/type and the effects panel used to render
     // here as always-visible sections. They now live as popovers on the
@@ -7330,7 +7349,8 @@
       const tool = btn.dataset.tool;
       activeToolPane = tool;
       showPane(tool);
-      if (tool === "text") { renderTextList(); renderFontBrowser(); }
+      if (tool === "text") { placeSelectionBody(); renderTextList(); renderFontBrowser(); }
+      else placeSelectionBody();
     });
   });
 
@@ -7497,12 +7517,23 @@
         return;
       }
       // Sectioned view: Brand fonts → Recently picked → All fonts.
-      const favs = getFavFonts();
-      if (favs.length) {
-        sectionTitle("Brand fonts");
-        favs.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
+      // "Brand fonts" means the kit's own heading/body faces first — they were
+      // only reachable by scrolling All fonts, which is not what a brand kit is
+      // for — followed by anything starred here.
+      const kit = [];
+      if (BRAND && BRAND.fonts) {
+        ["heading", "body"].forEach(function (role) {
+          const nm = BRAND.fonts[role];
+          if (nm && kit.indexOf(nm) === -1) kit.push(nm);
+        });
       }
-      const recents = getRecentFonts().filter(function (nm) { return favs.indexOf(nm) === -1; });
+      const favs = getFavFonts().filter(function (nm) { return kit.indexOf(nm) === -1; });
+      const brandList = kit.concat(favs);
+      if (brandList.length) {
+        sectionTitle(BRAND && BRAND.company ? BRAND.company + "’s fonts" : "Brand fonts");
+        brandList.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
+      }
+      const recents = getRecentFonts().filter(function (nm) { return brandList.indexOf(nm) === -1; });
       if (recents.length) {
         sectionTitle("Recently picked");
         recents.forEach(function (nm) { listWrap.appendChild(rowFor(fontByName(nm), true)); });
@@ -7533,7 +7564,7 @@
   function setTextTab(name) {
     document.querySelectorAll(".ed-ttab").forEach((t) => t.classList.toggle("is-active", t.dataset.ttab === name));
     document.querySelectorAll(".ed-ttab-pane").forEach((p) => p.classList.toggle("is-active", p.dataset.ttabPane === name));
-    if (name === "page") renderTextList();
+    if (name === "page") { placeSelectionBody(); renderTextList(); }
     if (name === "fonts") renderFontBrowser();
   }
   document.querySelectorAll(".ed-ttab").forEach((t) => {

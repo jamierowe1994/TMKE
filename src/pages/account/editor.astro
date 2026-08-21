@@ -564,7 +564,7 @@ const googleFonts = [
 
         <!-- Tabbed so the pane stays short instead of one long scroll. -->
         <div class="ed-ttabs" role="tablist">
-          <button type="button" class="ed-ttab is-active" data-ttab="page" role="tab">On this page</button>
+          <button type="button" class="ed-ttab is-active" data-ttab="page" role="tab">Text selection</button>
           <button type="button" class="ed-ttab" data-ttab="add" role="tab">Add text</button>
           <button type="button" class="ed-ttab" data-ttab="fonts" role="tab">Fonts</button>
         </div>
@@ -572,6 +572,12 @@ const googleFonts = [
         <!-- Every text box on this page, editable in one place — type over the
              wording without touching the design. Built by editor.js. -->
         <div class="ed-ttab-pane is-active" data-ttab-pane="page">
+          <!-- When a text box is selected, its own controls are moved in here
+               from the Selection pane so styling it and picking which box you
+               are styling are the same place. editor.js moves the actual
+               #ed-selection-body node, so there is only ever one of it. -->
+          <div class="ed-text-selhost" id="ed-text-selhost"></div>
+          <div class="ed-textlist-head" id="ed-textlist-head" hidden>All text on this page</div>
           <div class="ed-textlist" id="ed-textlist"></div>
         </div>
 
@@ -2097,6 +2103,13 @@ const googleFonts = [
       border: 1px solid rgba(28,29,34,0.16); border-radius: 7px; background: #fff;
     }
     .ed-fb-search:focus { outline: none; border-color: rgba(var(--violet-rgb),0.5); }
+    .ed-text-selhost:not(:empty) { margin-bottom: 4px; }
+    .ed-textlist-head {
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
+      border-top: 1px solid rgba(28,29,34,0.10); padding-top: 13px; margin: 13px 0 8px;
+    }
+    .ed-textlist-head[hidden] { display: none; }
     .ed-text-add-sep {
       font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
       text-transform: uppercase; color: rgba(28,29,34,0.5);
