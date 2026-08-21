@@ -6814,6 +6814,184 @@
     toast("Logo slot added — " + LOGO_SLOT_W + " × " + LOGO_SLOT_H + ", centred, " + LOGO_SLOT_EDGE + "px from the " + (anchor === "bottom" ? "foot" : "top"));
   }
 
+  /* ---- Rebrand: put this design into their colours and fonts ---------------
+     Not a fixed list of roles. The packs don't record what is a "title" and
+     what is "body", and inventing that from font size would be guesswork. So
+     this reads the colours the design ACTUALLY uses and offers each one for
+     remapping — measured across the pack, a design uses one to three colours,
+     so that is one to three decisions rather than a wall of controls.
+
+     Why not one colour for everything: on a design with light text over a dark
+     panel, flattening to a single colour makes the text disappear. Mapping
+     keeps the relationships — light stays light, dark stays dark — and anyone
+     who wants a title in its own colour just recolours that one item as usual.
+
+     Background is only offered where it can be seen. 57 of the 81 templates
+     sit on a photo, where the colour behind is irrelevant, so the row is shown
+     only when there is no background image. */
+  const REBRAND_PROPS = { text: "color", rect: "fill", line: "stroke", ellipse: "fill", triangle: "fill", star: "fill" };
+
+  function normHexSafe(v) {
+    if (typeof v !== "string" || v[0] !== "#") return null;
+    let c = v.toLowerCase();
+    if (c.length === 4) c = "#" + c[1] + c[1] + c[2] + c[2] + c[3] + c[3];
+    return /^#[0-9a-f]{6}$/.test(c) ? c : null;
+  }
+
+  // Every colour in the current page, with what carries it — so a row can say
+  // "body text, 4 items" rather than showing a bare swatch.
+  function designColours() {
+    const map = {};
+    const note = { text: "text", rect: "shapes", ellipse: "shapes", triangle: "shapes", star: "shapes", line: "lines" };
+    state.elements.forEach(function (el) {
+      if (!el) return;
+      ["color", "fill", "stroke"].forEach(function (k) {
+        const c = normHexSafe(el[k]);
+        if (!c) return;
+        if (!map[c]) map[c] = { hex: c, count: 0, kinds: {}, refs: [] };
+        map[c].count++;
+        map[c].kinds[note[el.type] || el.type] = true;
+        map[c].refs.push({ id: el.id, prop: k });
+      });
+    });
+    return Object.keys(map).map(function (k) { return map[k]; })
+      .sort(function (a, b) { return b.count - a.count; });
+  }
+
+  function recolourDesign(fromHex, toHex) {
+    if (!normHexSafe(toHex)) return 0;
+    let n = 0;
+    state.elements.forEach(function (el) {
+      ["color", "fill", "stroke"].forEach(function (k) {
+        if (normHexSafe(el[k]) === fromHex) { el[k] = toHex; n++; }
+      });
+    });
+    if (n) { fullRender(); pushHistory(); }
+    return n;
+  }
+
+  // The colour behind the design is only meaningful when nothing covers it.
+  function canRecolourBackground() {
+    return !state.canvas.backgroundImage && !!normHexSafe(state.canvas.background);
+  }
+
+  /* Fonts follow the pack's own convention rather than asking twice: The
+     Seasons is the display face on a couple of things, Montserrat carries
+     everything else. So a serif in the kit takes the display role and a sans
+     takes the body, and a design maps across in one move. */
+  function isSerifFont(name) {
+    const f = FONTS.find(function (x) { return x.name === name; });
+    // "sans-serif" contains "serif", so it has to go before the test — without
+    // this, Montserrat reads as a serif and takes the display role.
+    const stack = ((f && f.stack) || "").toLowerCase().replace(/sans-serif/g, "");
+    return /serif|georgia|garamond|seasons|cormorant|times|playfair|baskerville/.test(stack);
+  }
+
+  function designFonts() {
+    const seen = {};
+    state.elements.forEach(function (el) {
+      if (el && el.type === "text" && el.font) seen[el.font] = (seen[el.font] || 0) + 1;
+    });
+    return Object.keys(seen).map(function (name) {
+      return { name: name, count: seen[name], serif: isSerifFont(name) };
+    }).sort(function (a, b) { return b.count - a.count; });
+  }
+
+  function refontDesign(fromName, toName) {
+    if (!toName) return 0;
+    let n = 0;
+    state.elements.forEach(function (el) {
+      if (el && el.type === "text" && el.font === fromName) { el.font = toName; n++; }
+    });
+    if (n) { loadGoogleFont(toName); fullRender(); pushHistory(); }
+    return n;
+  }
+
+  function renderRebrand() {
+    const mount = document.getElementById("ed-rebrand");
+    if (!mount) return;
+    const kit = (BRAND && Array.isArray(BRAND.colors))
+      ? BRAND.colors.map(function (c) { return { hex: normHexSafe(c.hex), name: c.name || "" }; }).filter(function (c) { return c.hex; })
+      : [];
+    if (!kit.length) {
+      mount.innerHTML = '<p class="ed-rb-note">Add some colours to your brand kit and you can recolour a whole design from here.</p>';
+      return;
+    }
+
+    const swatches = function (current) {
+      return '<span class="ed-rb-to">' + kit.map(function (c) {
+        return '<button type="button" class="ed-rb-sw' + (c.hex === current ? " is-on" : "") + '"' +
+          ' style="background:' + c.hex + '" data-to="' + c.hex + '"' +
+          ' title="' + escapeHtml(c.name || c.hex) + '"></button>';
+      }).join("") + '</span>';
+    };
+
+    const rows = designColours().map(function (c) {
+      const kinds = Object.keys(c.kinds).join(" &amp; ");
+      return '<div class="ed-rb-row" data-from="' + c.hex + '">' +
+        '<span class="ed-rb-from" style="background:' + c.hex + '"></span>' +
+        '<span class="ed-rb-what"><b>' + kinds + '</b>' + c.count + ' item' + (c.count === 1 ? "" : "s") + '</span>' +
+        swatches(c.hex) +
+      '</div>';
+    });
+
+    if (canRecolourBackground()) {
+      const bg = normHexSafe(state.canvas.background);
+      rows.push('<div class="ed-rb-row" data-bg="1">' +
+        '<span class="ed-rb-from" style="background:' + bg + '"></span>' +
+        '<span class="ed-rb-what"><b>Background</b>behind everything</span>' +
+        swatches(bg) +
+      '</div>');
+    }
+
+    // Fonts follow the pack's own split rather than asking per font.
+    const fonts = designFonts();
+    const kitSerif = BRAND && BRAND.fonts && BRAND.fonts.heading;
+    const kitSans = BRAND && BRAND.fonts && BRAND.fonts.body;
+    const fontRows = fonts.map(function (f) {
+      const suggested = f.serif ? kitSerif : kitSans;
+      const opts = FONTS.map(function (x) {
+        return '<option value="' + escapeHtml(x.name) + '"' + (x.name === f.name ? " selected" : "") + '>' + escapeHtml(x.name) + '</option>';
+      }).join("");
+      return '<div class="ed-rb-font" data-font-from="' + escapeHtml(f.name) + '">' +
+        '<span class="ed-rb-what"><b>' + escapeHtml(f.name) + '</b>' + f.count + ' text item' + (f.count === 1 ? "" : "s") + '</span>' +
+        '<select>' + opts + '</select>' +
+        (suggested && suggested !== f.name
+          ? '<button type="button" class="ed-rb-sw" style="width:auto;padding:5px 9px;font-family:var(--sans);font-size:11px;font-weight:700;background:rgba(var(--violet-rgb),0.1);color:var(--english-violet);border-color:rgba(var(--violet-rgb),0.35)" data-font-to="' + escapeHtml(suggested) + '">Use ' + escapeHtml(suggested) + '</button>'
+          : '') +
+      '</div>';
+    });
+
+    mount.innerHTML = rows.join("") +
+      (fontRows.length ? '<p class="ed-rb-note" style="margin-top:8px">Fonts</p>' + fontRows.join("") : "") +
+      '<p class="ed-rb-note">Changing a colour here changes every item using it. To do just one, select it and set its colour as usual.</p>';
+
+    mount.querySelectorAll(".ed-rb-row").forEach(function (row) {
+      row.querySelectorAll("[data-to]").forEach(function (b) {
+        b.addEventListener("click", function () {
+          const to = b.getAttribute("data-to");
+          if (row.getAttribute("data-bg")) {
+            state.canvas.background = to;
+            fullRender(); pushHistory();
+          } else {
+            recolourDesign(row.getAttribute("data-from"), to);
+          }
+          renderRebrand();
+        });
+      });
+    });
+
+    mount.querySelectorAll("[data-font-from]").forEach(function (row) {
+      const from = row.getAttribute("data-font-from");
+      row.querySelector("select")?.addEventListener("change", function (e) {
+        refontDesign(from, e.target.value); renderRebrand();
+      });
+      row.querySelector("[data-font-to]")?.addEventListener("click", function (b) {
+        refontDesign(from, row.querySelector("[data-font-to]").getAttribute("data-font-to")); renderRebrand();
+      });
+    });
+  }
+
   function brandLogoSrc() {
     const L = (BRAND && Array.isArray(BRAND.logos)) ? BRAND.logos : [];
     const withSrc = L.filter(function (l) { return l && l.src; });
@@ -7779,7 +7957,9 @@
         ? '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/admin/fonts" target="_blank" rel="noopener" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>'
         : '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>';
     }
+    renderRebrand();
   }
+
 
   // ---------- Tool rail / panel switching ----------
   // The left panel now serves double duty: when an element is selected it
@@ -7802,6 +7982,7 @@
       if (tool === "text") { placeSelectionBody(); renderTextList(); renderFontBrowser(); }
       else placeSelectionBody();
       if (tool === "elements") mountLogoSlotTool();
+      if (tool === "brand") renderRebrand();
     });
   });
 

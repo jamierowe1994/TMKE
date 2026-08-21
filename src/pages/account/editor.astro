@@ -442,6 +442,10 @@ const googleFonts = [
           <button type="button" class="ed-start-btn" data-start-tool="photos"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><span class="ed-start-tx"><b>Images</b><i>Add a photo</i></span></button>
           <button type="button" class="ed-start-btn" data-add-page><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="13" height="18" rx="2"/><path d="M19 8v13H8"/></svg></span><span class="ed-start-tx"><b>Add a page</b><i>For a carousel</i></span></button>
           <button type="button" class="ed-start-btn" data-start-tool="brand"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/></svg></span><span class="ed-start-tx"><b>Elements</b><i>Shapes, lines, icons</i></span></button>
+          <!-- Straight to the rebrand rows in the brand kit. The action people
+               most want on landing, so it earns a place here rather than being
+               something you have to go looking for. -->
+          <button type="button" class="ed-start-btn" data-start-tool="brand"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8"/></svg></span><span class="ed-start-tx"><b>Make it yours</b><i>Your colours &amp; fonts</i></span></button>
         </div>
       </section>
 
@@ -469,6 +473,13 @@ const googleFonts = [
         </div>
 
         <div id="brand-loaded">
+          <!-- Rebrand — put the open design into their colours and fonts in one
+               pass. Sits at the top of the kit because it is what people come
+               to this pane wanting to do; the swatches below stay for changing
+               one thing at a time. Built by editor.js from the design itself. -->
+          <div class="ed-section-title">Make this design yours</div>
+          <div class="ed-rebrand" id="ed-rebrand"></div>
+
           <div class="ed-section-title">Brand colours</div>
           <p class="ed-brand-hint">Select an element first, then click a colour. Or click any swatch on its own to recolour the canvas background.</p>
           <div class="ed-swatches" id="brand-colour-grid"></div>
@@ -2220,6 +2231,28 @@ const googleFonts = [
        horizontal trio and the vertical trio read as two sets of three. */
     /* Brand-kit logos for a filled slot. Chequerboard behind each one so a
        white mark on a transparent background is still visible to choose. */
+    /* Rebrand rows: what the design uses on the left, what to change it to on
+       the right. One row per colour actually present, so a simple design shows
+       one or two and a busy one shows what it really has. */
+    .ed-rebrand { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+    .ed-rb-row { display: flex; align-items: center; gap: 10px; }
+    .ed-rb-from { flex: none; width: 26px; height: 26px; border-radius: 5px; border: 1px solid rgba(28,29,34,0.2); }
+    .ed-rb-what { flex: 1; min-width: 0; font-family: var(--sans); font-size: var(--ws-t-meta, 12px); color: rgba(28,29,34,0.65); line-height: 1.3; }
+    .ed-rb-what b { display: block; color: var(--ink); font-weight: 700; }
+    .ed-rb-to { flex: none; display: flex; gap: 5px; }
+    .ed-rb-sw {
+      appearance: none; cursor: pointer; width: 24px; height: 24px; padding: 0;
+      border-radius: 5px; border: 1px solid rgba(28,29,34,0.2);
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .ed-rb-sw:hover { transform: scale(1.12); }
+    .ed-rb-sw.is-on { box-shadow: 0 0 0 2px rgba(var(--violet-rgb),0.35); }
+    .ed-rb-note { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); line-height: 1.45; color: rgba(28,29,34,0.55); margin: 2px 0 0; }
+    .ed-rb-font { display: flex; align-items: center; gap: 10px; }
+    .ed-rb-font select {
+      flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid rgba(28,29,34,0.18);
+      border-radius: 6px; font-family: var(--sans); font-size: var(--ws-t-meta, 12px); background: #fff; color: var(--ink);
+    }
     .ed-logopick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
     .ed-logopick-b {
       appearance: none; cursor: pointer; height: 52px; padding: 6px;
