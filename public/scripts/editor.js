@@ -417,7 +417,7 @@
         range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
         const num = document.createElement("input");
         num.type = "number"; num.min = opts.min; num.max = opts.max; num.step = opts.step; num.value = opts.get();
-        num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+        num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font-family:var(--sans);font-size:var(--ws-t-meta,12px);color:var(--ink);";
         const apply = function (v, fromNum) {
           v = Math.max(opts.min, Math.min(opts.max, isNaN(v) ? opts.get() : v));
           opts.set(v); range.value = v; if (!fromNum) num.value = v; fullRender();
@@ -448,7 +448,7 @@
     range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
     const num = document.createElement("input");
     num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
-    num.style.cssText = "width:60px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+    num.style.cssText = "width:60px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font-family:var(--sans);font-size:var(--ws-t-meta,12px);color:var(--ink);";
     const apply = function (v, fromNum) {
       v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
       set(v); range.value = v; if (!fromNum) num.value = v; fullRender();
@@ -480,7 +480,7 @@
     range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
     const num = document.createElement("input");
     num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
-    num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font:inherit;";
+    num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font-family:var(--sans);font-size:var(--ws-t-meta,12px);color:var(--ink);";
     const apply = function (v, fromNum) {
       v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
       set(v); range.value = v; if (!fromNum) num.value = v; if (onLive) onLive();
@@ -950,7 +950,9 @@
     "#000000", "#3A3A3A", "#5C5C5C", "#8C8C8C", "#BFBFBF", "#E6E6E6", "#FFFFFF",
     "#E23B3B", "#F06543", "#FF7AAE", "#C98BD9", "#9B6BE0", "#5B6BF0", "#2F50C9",
     "#1C9BD1", "#16C0C8", "#3FD0A8", "#46C06A", "#9BD13E", "#F0C23B", "#F0913B",
-    "#1c1d22", "#474254", "#B9826A", "#DFDCDE", "#F2EFE9", "#BCB3B9", "#333747",
+    // 27, not 28: the grid fits nine across, so the last one wrapped onto a
+    // row of its own.
+    "#1c1d22", "#474254", "#B9826A", "#DFDCDE", "#F2EFE9", "#BCB3B9",
   ];
   const CP_DEFAULT_GRADS = [
     { from: "#1c1d22", to: "transparent", angle: 180 },
@@ -6115,8 +6117,11 @@
     }
 
     if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
+      // Same rich panel the swatch on the toolbar opens — Stroke below has
+      // always used it, so a native colour box here meant two different
+      // pickers for the same job in one panel.
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
-        <div class="ed-props-field"><label>Colour</label><input type="color" data-prop="fill" value="${rgbHex(el.fill)}"></div>
+        <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="fill-color"></span><label style="margin:0">Colour</label></div>
       </div>`);
       if (el.type === "rect") {
         html.push(cornerRadiusSectionHtml());
@@ -6144,7 +6149,7 @@
       // get this picker because we'd have nothing meaningful to recolour.
       if (el.svgKey) {
         html.push(`<div class="ed-props-section"><h4>Colour</h4>
-          <div class="ed-props-field"><input type="color" data-prop="svgFill" value="${rgbHex(el.svgFill || '#1c1d22')}"></div>
+          <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="svg-fill"></span><label style="margin:0">Colour</label></div>
         </div>`);
       }
       html.push(`<div class="ed-props-section"><h4>Image</h4>
@@ -6366,6 +6371,24 @@
         function () { partialRenderElement(el); renderHandles(); }));
     }
 
+    const fillMount = body.querySelector('[data-mount="fill-color"]');
+    if (fillMount) {
+      fillMount.appendChild(colorSwatchButton(
+        function () { return rgbHex(el.fill); },
+        { title: "Fill colour", onSolid: function (hex) { el.fill = hex; } }
+      ));
+    }
+    const svgFillMount = body.querySelector('[data-mount="svg-fill"]');
+    if (svgFillMount) {
+      svgFillMount.appendChild(colorSwatchButton(
+        function () { return rgbHex(el.svgFill || "#1c1d22"); },
+        { title: "Icon colour", onSolid: function (hex) {
+            el.svgFill = hex;
+            // The icon is a data-URI, so its colour is baked into the src.
+            if (el.svgKey) el.src = svgKeyToDataUri(el.svgKey, hex);
+          } }
+      ));
+    }
     const strokeMount = body.querySelector('[data-mount="stroke-color"]');
     if (strokeMount) {
       strokeMount.appendChild(colorSwatchButton(
