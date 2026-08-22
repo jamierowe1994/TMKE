@@ -3612,12 +3612,20 @@
         // the generic pane mid-way through recolouring a run of items.
         _reopenColorKey = _openColorKey;
         closeColorPanel();
+        _paneFollowClick = true;
         fullRender();
       } else if (multi) {
         // Shift-click a selected group toggles the whole group off.
         state.selectedIds = state.selectedIds.filter((x) => ids.indexOf(x) === -1);
         fullRender();
         return;
+      } else {
+        // Already selected, so nothing about the selection changed and no
+        // re-render was happening — which is exactly why the panel used to
+        // stay on whatever pane you had open. Surface its controls anyway;
+        // renderProps only rebuilds the panel, so the drag below is unaffected.
+        _paneFollowClick = true;
+        renderProps();
       }
       // Inside a screen's artwork mode, dragging moves the picture rather than
       // the element. Entered by double-clicking the screen, so the ordinary
@@ -6050,8 +6058,9 @@
        are, and the panel still follows when you genuinely select something
        else. */
     const selSig = state.selectedIds.join(",");
-    const selectionChanged = selSig !== _lastSelSig;
+    const selectionChanged = selSig !== _lastSelSig || _paneFollowClick;
     _lastSelSig = selSig;
+    _paneFollowClick = false;
 
     const useTextPane = el.type === "text";
     if (!selectionChanged) {
@@ -8368,6 +8377,12 @@
   // The selection renderProps last drew, so it can tell a real selection change
   // from the many re-renders that leave it untouched.
   let _lastSelSig = null;
+  /* Clicking an element on the canvas is an explicit "work on this" — the
+     panel should show its controls even when that element was already
+     selected and nothing technically changed. Without this, clicking a shape
+     while the Elements or Brand pane was open left you looking at the wrong
+     panel, and only the click that CHANGED the selection ever followed. */
+  let _paneFollowClick = false;
 
   let _logoToolMounted = false;
   function mountLogoSlotTool() {
