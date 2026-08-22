@@ -100,6 +100,40 @@ where jsonb_typeof(t.elements) = 'array'
 --   where jsonb_typeof(t.elements) = 'array'
 --     and t.elements::text ~ '\[[Ll]ocation\]';
 
+-- Formatted text keeps its wording twice: once in `text`, and again in `runs`,
+-- one entry per stretch of bold/italic/underline. The renderer prefers runs
+-- when they exist, so the statement above could leave an element whose `text`
+-- read {brand name} while the run under it still read the old agency — which
+-- is what the first run of this migration turned up on Sale Price Insights.
+update public.templates t
+set elements = (
+  select jsonb_agg(
+    case
+      when el->>'type' = 'text'
+       and jsonb_typeof(el->'runs') = 'array'
+       and (el->'runs')::text ~* 'Greenfield[[:space:]]+Propert(y|ies)'
+      then jsonb_set(el, '{runs}', (
+        select jsonb_agg(
+          case
+            when (r->>'text') ~* 'Greenfield[[:space:]]+Propert(y|ies)'
+            then jsonb_set(r, '{text}',
+                   to_jsonb(regexp_replace(r->>'text',
+                     'Greenfield[[:space:]]+Propert(y|ies)', '{brand name}', 'gi')))
+            else r
+          end
+          order by rord
+        )
+        from jsonb_array_elements(el->'runs') with ordinality as b(r, rord)
+      ))
+      else el
+    end
+    order by ord
+  )
+  from jsonb_array_elements(t.elements) with ordinality as a(el, ord)
+)
+where jsonb_typeof(t.elements) = 'array'
+  and t.elements::text ilike '%Greenfield%';
+
 commit;
 
 -- ---------------------------------------------------------------------------

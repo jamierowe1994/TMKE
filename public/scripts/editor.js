@@ -7075,9 +7075,24 @@
   // straight away. They can still edit any text afterwards as normal.
   function fillTemplateMergeTags() {
     state.elements.forEach(function (el) {
-      if (el.type !== "text" || !el.text) return;
-      const replaced = applyMergeTags(el.text);
-      if (replaced !== el.text) el.text = replaced;
+      if (el.type !== "text") return;
+      if (el.text) {
+        const replaced = applyMergeTags(el.text);
+        if (replaced !== el.text) el.text = replaced;
+      }
+      /* Formatted text keeps its wording a second time, in `runs` — one entry
+         per stretch of bold/italic/underline — and the renderer prefers runs
+         when they exist. Substituting only `text` left a run-carrying element
+         showing the template's own wording while the element claimed to say
+         something else. Found on Sale Price Insights, whose text read
+         {brand name} while its single bold run still read the old agency. */
+      if (Array.isArray(el.runs)) {
+        el.runs.forEach(function (r) {
+          if (!r || typeof r.text !== "string") return;
+          const rep = applyMergeTags(r.text);
+          if (rep !== r.text) r.text = rep;
+        });
+      }
     });
   }
 
