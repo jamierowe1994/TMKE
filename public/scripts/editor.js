@@ -6042,8 +6042,22 @@
     // the generic Selection pane would show the same controls in the poorer of
     // the two places — without the list of the page's other text, the fonts,
     // or the tabs. Everything else still uses the Selection pane.
+    /* Only follow the selection when the selection actually changed.
+       renderProps runs on every fullRender, and this used to switch the panel
+       every single time — so recolouring from "Make this design yours", or any
+       other panel action that redraws, threw you out of the pane you were
+       working in and onto Selection. Now picking a colour keeps you where you
+       are, and the panel still follows when you genuinely select something
+       else. */
+    const selSig = state.selectedIds.join(",");
+    const selectionChanged = selSig !== _lastSelSig;
+    _lastSelSig = selSig;
+
     const useTextPane = el.type === "text";
-    if (useTextPane) {
+    if (!selectionChanged) {
+      // Same element as last time: refresh its controls, leave the panel alone.
+      if (useTextPane && activeToolPane === "text") { renderTextList(); renderFontBrowser(); }
+    } else if (useTextPane) {
       if (activeToolPane !== "text") {
         activeToolPane = "text";
         document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
@@ -7800,14 +7814,19 @@
 
       const startY = ev.clientY;
       let moved = false;
-      li.setPointerCapture(ev.pointerId);
 
+      /* Listeners go on the document, NOT the row, and there is no
+         setPointerCapture. Both matter: reordering moves this row in the DOM,
+         and moving a node releases any pointer capture it holds — so a
+         captured row stopped receiving events the instant it was reordered,
+         and the drag died after the first step. Dispatching events straight at
+         the row in a test hides this completely, which is how it got through. */
       function onMove(e) {
-        if (!moved && Math.abs(e.clientY - startY) < 4) return;   // a click, so far
+        if (!moved && Math.abs(e.clientY - startY) < 4) return;   // still a click
         if (!moved) { moved = true; li.classList.add("is-dragging"); layersEl.classList.add("is-reordering"); }
 
-        // The row the pointer is over decides where this one goes: above it
-        // when the pointer is in its top half, below when in its bottom.
+        // The row under the pointer decides where this one goes: above it when
+        // the pointer is in its top half, below when in its bottom.
         const rows = [...layersEl.children].filter((r) => r !== li);
         for (const row of rows) {
           const b = row.getBoundingClientRect();
@@ -7819,35 +7838,33 @@
         }
       }
 
-      function onUp(e) {
-        li.releasePointerCapture(ev.pointerId);
-        li.removeEventListener("pointermove", onMove);
-        li.removeEventListener("pointerup", onUp);
-        li.removeEventListener("pointercancel", onUp);
+      function onUp() {
+        document.removeEventListener("pointermove", onMove, true);
+        document.removeEventListener("pointerup", onUp, true);
+        document.removeEventListener("pointercancel", onUp, true);
         li.classList.remove("is-dragging");
         layersEl.classList.remove("is-reordering");
         if (!moved) return;
         li._dragged = true;   // stops the click handler re-selecting
 
-        // Read the order off the DOM and reverse it: top of the list is the
-        // top of the canvas, which is the END of state.elements.
+        // Read the order off the DOM and reverse it: top of the list is the top
+        // of the canvas, which is the END of state.elements.
         const order = [...layersEl.children].map((r) => r.dataset.id).reverse();
         const byId = {};
         state.elements.forEach((x) => { byId[x.id] = x; });
         const next = order.map((id) => byId[id]).filter(Boolean);
-        // Anything the list didn't cover keeps its place rather than vanishing.
         if (next.length === state.elements.length) {
           state.elements = next;
           pushHistory();
           fullRender();
         } else {
-          fullRender();   // put the rows back where they belong
+          fullRender();   // something was missing — put the rows back
         }
       }
 
-      li.addEventListener("pointermove", onMove);
-      li.addEventListener("pointerup", onUp);
-      li.addEventListener("pointercancel", onUp);
+      document.addEventListener("pointermove", onMove, true);
+      document.addEventListener("pointerup", onUp, true);
+      document.addEventListener("pointercancel", onUp, true);
     });
   }
 
@@ -8305,6 +8322,10 @@
   // slot is placed from a control rather than drawn by hand.
   // Mounted on demand, not at load: isAdminMode() reads a hook the admin page
   // installs after this script runs, so checking it once on boot always said no.
+  // The selection renderProps last drew, so it can tell a real selection change
+  // from the many re-renders that leave it untouched.
+  let _lastSelSig = null;
+
   let _logoToolMounted = false;
   function mountLogoSlotTool() {
     if (_logoToolMounted || !isAdminMode()) return;
