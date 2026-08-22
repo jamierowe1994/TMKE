@@ -53,6 +53,14 @@ create table if not exists public.templates_backup_merge_tags as
   from public.templates
   where elements::text ilike '%Greenfield%';
 
+-- RLS on, no policies: nothing reaches this through the anon or authenticated
+-- keys, while the SQL editor and the service role still can — which is all the
+-- backup and the restore below need. (public.templates is anon-readable today,
+-- so this exposes nothing new either way; there is just no reason to leave a
+-- table more open than it has to be. Supabase prompts for this on any table
+-- created without it.)
+alter table public.templates_backup_merge_tags enable row level security;
+
 update public.templates t
 set elements = (
   select jsonb_agg(
