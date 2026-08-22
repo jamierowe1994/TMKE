@@ -6921,6 +6921,35 @@
     return n;
   }
 
+  /* Drop the member's logo onto a design they are building themselves, on the
+     same footing the packs use: 200x75, centred, 108px from the edge. Without
+     this the only customer route was the Logos grid, which lands a logo at
+     canvas centre at up to 480px wide — nothing like where a pack puts it, so
+     a design of their own never matched one they bought.
+
+     It goes in carrying brandRole, so it is a real slot: the swap-to-another-
+     logo picker works on it, and it re-seats itself if they choose a different
+     shaped mark. They can still drag it anywhere afterwards. */
+  function addBrandLogo(anchor) {
+    const src = brandLogoSrc();
+    if (!src) { toast("Add a logo to your brand kit first"); return; }
+    addElement({
+      type: "image",
+      src: src,
+      brandRole: "logo",
+      logoAnchor: anchor,
+      x: Math.round((state.canvas.width - LOGO_MAX_W) / 2),
+      y: anchor === "bottom" ? state.canvas.height - LOGO_EDGE - LOGO_MAX_H : LOGO_EDGE,
+      w: LOGO_MAX_W, h: LOGO_MAX_H,
+      opacity: 1, rotation: 0,
+    });
+    // addElement selects what it made, which is how we get hold of it — then
+    // the shared placer fits it to the logo's real proportions.
+    const el = getEl(state.selectedIds[0]);
+    if (el) placeLogoInSlot(el, src, function () { pushHistory(); });
+    toast("Logo added — " + (anchor === "bottom" ? "foot" : "top") + " of the design");
+  }
+
   function renderRebrand() {
     const mount = document.getElementById("ed-rebrand");
     if (!mount) return;
@@ -6940,14 +6969,24 @@
       }).join("") + '</span>';
     };
 
-    const rows = designColours().map(function (c) {
+    const rows = [];
+    if (brandLogoSrc()) {
+      rows.push('<div class="ed-rb-row" data-logorow="1">' +
+        '<span class="ed-rb-what"><b>Your logo</b>200 \u00d7 75, centred</span>' +
+        '<span class="ed-rb-to">' +
+          '<button type="button" class="ed-rb-logo" data-addlogo="top">Top</button>' +
+          '<button type="button" class="ed-rb-logo" data-addlogo="bottom">Foot</button>' +
+        '</span>' +
+      '</div>');
+    }
+    rows.push.apply(rows, designColours().map(function (c) {
       const kinds = Object.keys(c.kinds).join(" &amp; ");
       return '<div class="ed-rb-row" data-from="' + c.hex + '">' +
         '<span class="ed-rb-from" style="background:' + c.hex + '"></span>' +
         '<span class="ed-rb-what"><b>' + kinds + '</b>' + c.count + ' item' + (c.count === 1 ? "" : "s") + '</span>' +
         swatches(c.hex) +
       '</div>';
-    });
+    }));
 
     if (canRecolourBackground()) {
       const bg = normHexSafe(state.canvas.background);
@@ -6979,6 +7018,10 @@
     mount.innerHTML = rows.join("") +
       (fontRows.length ? '<p class="ed-rb-note" style="margin-top:8px">Fonts</p>' + fontRows.join("") : "") +
       '<p class="ed-rb-note">Changing a colour here changes every item using it. To do just one, select it and set its colour as usual.</p>';
+
+    mount.querySelectorAll("[data-addlogo]").forEach(function (b) {
+      b.addEventListener("click", function () { addBrandLogo(b.getAttribute("data-addlogo")); });
+    });
 
     mount.querySelectorAll(".ed-rb-row").forEach(function (row) {
       row.querySelectorAll("[data-to]").forEach(function (b) {
