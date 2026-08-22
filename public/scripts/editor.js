@@ -8568,6 +8568,31 @@
          are placing. Text stays: it is what you are usually positioning the
          photo around. */
       canvasEl.classList.add("is-bg-repositioning");
+
+      /* Give the photo somewhere to move before anyone tries to move it.
+         The background is a COVER fit, so at scale 1 it is sized to exactly
+         cover the canvas and there is nothing hidden to pan into — the drag
+         then does nothing at all, which reads as broken. Scrolling used to be
+         the only way out: zooming past 1 created the overflow and movement
+         suddenly worked.
+         So on entry, if either axis has less than a little headroom, the photo
+         is scaled up just enough to give it some. Visible, undone by the same
+         Escape that ends the mode, and it means clicking Reposition and
+         dragging works immediately. */
+      let nudged = false;
+      (function ensureRoom() {
+        const nw = state.canvas.bgNatW, nh = state.canvas.bgNatH;
+        const fw = state.canvas.width, fh = state.canvas.height;
+        if (!nw || !nh) return;
+        const ROOM = 40;                       // px of travel to guarantee, each axis
+        const base = state.canvas.bgFit === "contain"
+          ? Math.min(fw / nw, fh / nh) : Math.max(fw / nw, fh / nh);
+        const cur = state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1;
+        const lay = bgLayout();
+        if (lay && (lay.sw - fw) >= ROOM && (lay.sh - fh) >= ROOM) return;   // already free
+        const needed = Math.max((fw + ROOM) / nw, (fh + ROOM) / nh) / base;
+        if (needed > cur) { state.canvas.bgScale = Math.min(needed, 5); nudged = true; }
+      })();
       const mask = document.createElement("div");
       mask.id = "ed-bg-repo-mask";
       mask.style.cssText =
@@ -8579,7 +8604,9 @@
         '<span style="position:absolute;top:33.333%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.5)"></span>' +
         '<span style="position:absolute;top:66.666%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.5)"></span>';
       canvasEl.appendChild(mask);
-      toast("Drag to move the photo, scroll to zoom — click away or Esc when done", 3600);
+      toast(nudged
+        ? "Drag to move the photo, scroll to zoom — zoomed in slightly so it has room to move"
+        : "Drag to move the photo, scroll to zoom — click away or Esc when done", 3600);
 
       function applyBg() {
         const img = canvasEl.querySelector(".ed-canvas-bg");
@@ -8608,6 +8635,9 @@
       function up() { dragging = false; }
       function wheel(ev) {
         if (!canvasEl.contains(ev.target)) return;
+        // Cmd/Ctrl + scroll is the design's own zoom everywhere else in the
+        // editor; it keeps meaning that here rather than being swallowed.
+        if (ev.metaKey || ev.ctrlKey) return;
         ev.preventDefault();
         const cur = state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1;
         state.canvas.bgScale = cl(cur * (ev.deltaY < 0 ? 1.08 : 1 / 1.08), 1, 5);
