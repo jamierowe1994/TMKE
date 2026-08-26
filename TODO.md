@@ -231,10 +231,23 @@ booking UI has copy for both. Previously every case read "No times available
 that day", which would have looked like being fully booked and nobody would
 have thought to widen the open hours.
 
-## 4h. SMM invoices can't be paid - no Stripe link ⬜ NEXT
+## 4h. SMM invoices can't be paid - no Stripe link ✅ (built since; verified 22 Aug)
 
 Raised by James 4 Aug: "I need to get social media management invoices out, and
 at the minute Stripe isn't linked to the SMM invoicing option."
+
+**Done — this entry was stale and read as outstanding for months.** Checked
+against the Worker on 22 Aug: `invoicePayUrl` signs a link that goes into the
+invoice email whenever the invoice is marked pay-by-card;
+`GET /invoicing/pay` verifies the token, refuses an invoice already paid or
+voided, opens a Stripe Checkout session and redirects; the webhook writes
+status, paid date, method and payment reference back, filtered on
+`status=neq.paid` so Stripe's retries cannot double-apply. With no Stripe key
+configured the customer is told to pay by bank transfer rather than hitting an
+error, and the return page reports what the webhook has actually recorded
+instead of assuming success.
+
+Original note below, kept for the history.
 
 Where it stands after a look round:
 
