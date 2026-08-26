@@ -10,6 +10,27 @@ worth a sanity check before anyone acts on them.
 
 No strict order. Tick things off as they land.
 
+**Audited 22 Aug against the running code and the live site**, after two
+entries turned out to be long done and were quoted back at Dani as current.
+What that pass established:
+
+  · 4h  SMM invoice payment — DONE, and had been for a while. Marked off.
+  · 7b  SMM brochure — still 404 today. Real, live, and one upload from fixed.
+  · 6a  Pack covers — the payload half is solved; the scroll half is not.
+  · 9   Enquiries RLS — still `using (true)` in the repo and no later
+        migration touches it. Production could differ, since policies can be
+        changed straight in the SQL editor: check Database > Policies before
+        trusting either answer.
+  · 7a  Videography delete EXISTS (`vid-delete`); enquiries delete does not.
+        The permissions half of that item is unbuilt either way.
+  · 1   Hub course screenshots — the folder holds a README and nothing else.
+  · 4c  robots.txt — still no sitemap line.
+  · 6   README — still documents `index.html`; privacy still says "[to be
+        confirmed]" on the live site.
+
+An entry with no date next to it has not been re-checked. Dates are when
+something was actually verified, not when it was written.
+
 ---
 
 ## 1. Training / Learn ⬜
@@ -350,7 +371,13 @@ candidates; none is confirmed as *the* cause yet, so measure before changing.
   is exactly what "stiff" describes. Worth trying the page with Lenis off
   before anything else — it is the cheapest test and the likeliest answer.
   (`src/layouts/BaseLayout.astro:115-120`, `src/pages/edit.astro:2298-2331`)
-- ⬜ **Pack covers can't lazy-load.** They are painted as CSS
+- ✅ (21 Aug) **Pack covers can't lazy-load.** Solved from the other end:
+  every cover now goes through Supabase's render endpoint at the size it is
+  shown, so the 3MB original became ~72KB. Verified: all 54 image requests on
+  the page use the transform and none fetch an original. The elements are
+  still CSS backgrounds, so this is size rather than laziness — but the
+  payload problem it describes is gone. Original note below.
+- ⬜ ~~**Pack covers can't lazy-load.**~~ They are painted as CSS
   `background-image`, not `<img>` — there is not a single `<img>` or
   `loading="lazy"` on the page — so every cover downloads at full size on first
   paint whether or not it is on screen. Prime suspect for the load time.
@@ -429,6 +456,11 @@ Checked 28 Jul:
   `assets.tmke.co.uk/TMKE - Videography Services.pdf` (15.9 MB, returns 200).
   So if a request email didn't arrive, the fault is in the *email*, not the
   file - worth testing the request form end to end.
+- ⬜ **The SMM brochure is broken — still 404 on 22 Aug.** Re-tested:
+  `assets.tmke.co.uk/tmke-smm-brochure.pdf` returns 404 while the videography
+  PDF returns 200, so anyone requesting the SMM brochure still gets an email
+  with a dead link. Upload the file to that exact name in R2; no code change.
+  Original note below.
 - ⬜ **The SMM brochure is broken.** Contrary to expectation the whole flow
   exists - a request form, the `POST /smm/brochure` endpoint, and a "Your TMKE
   social media brochure" email template - but the PDF it links to
