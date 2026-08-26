@@ -214,7 +214,13 @@ const TILES = [
       drawer.hidden = false; drawer.setAttribute("aria-hidden", "false");
       requestAnimationFrame(() => drawer.classList.add("is-open"));
       document.body.style.overflow = "hidden";
-      setTimeout(() => { const f = form.querySelector('input[name="email"]'); if (f) f.focus(); }, 80);
+      setTimeout(() => {
+        // Email already filled (they came from /join) — start them on the password.
+        const em = form.querySelector('input[name="email"]');
+        const pw = form.querySelector('input[name="password"]');
+        const f = (em && em.value && pw) ? pw : em;
+        if (f) f.focus();
+      }, 80);
     }
     function closeDrawer() {
       drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true");
@@ -226,6 +232,17 @@ const TILES = [
     document.querySelectorAll("[data-open]").forEach((el) => el.addEventListener("click", openDrawer));
     document.addEventListener("click", (e) => { if (e.target.closest("[data-close]")) closeDrawer(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer(); });
+
+    /* Sent here from /join because the address already has an account (?email=...).
+       Prefill and open the drawer immediately — they clicked "Sign in instead",
+       so landing them on the closed page would just make them click again. */
+    (function prefillFromJoin() {
+      const wanted = new URLSearchParams(location.search).get("email");
+      if (!wanted) return;
+      const field = form.querySelector('input[name="email"]');
+      if (field && !field.value) field.value = wanted.trim();
+      openDrawer();
+    })();
 
     // Custom "Click to sign in" cursor over the grid (fine-pointer devices only).
     const jnMain = document.querySelector(".jn");

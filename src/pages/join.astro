@@ -87,7 +87,7 @@ const TILES = [
             <span>Keep me updated with tips, guides and offers. Unsubscribe anytime.</span>
           </label>
           <button type="submit" class="btn btn--solid jn-submit"><span data-label>Create account</span> <span class="btn-arrow">&rarr;</span></button>
-          <p id="jn-error" class="jn-error" hidden></p>
+          <p id="jn-error" class="jn-error" hidden><span id="jn-error-text"></span> <a id="jn-error-signin" class="jn-link" href="/login" hidden>Sign in instead</a></p>
         </form>
 
         <div id="jn-done" class="jn-done" hidden>
@@ -165,6 +165,7 @@ const TILES = [
     .jn-check input { width: 17px; height: 17px; flex: none; margin-top: 1px; accent-color: var(--english-violet); }
     .jn-submit { width: 100%; justify-content: center; padding: 15px; margin-top: 6px; }
     .jn-error { font-family: var(--sans); font-size: 13px; color: #a05a3c; background: rgba(160,90,60,0.08); padding: 10px 13px; border-radius: 3px; margin: 2px 0 0; }
+    .jn-error--info { color: var(--english-violet); background: rgba(78,42,90,0.07); }
     .jn-alt { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; margin: 18px 0 0; }
     .jn-link { color: var(--english-violet); font-weight: 700; border-bottom: 1px solid currentColor; }
     .jn-done { text-align: center; padding: 8px 0; }
@@ -214,6 +215,8 @@ const TILES = [
     const drawer = document.getElementById("jn-drawer");
     const form = document.getElementById("jn-form");
     const errEl = document.getElementById("jn-error");
+    const errTextEl = document.getElementById("jn-error-text");
+    const errSignin = document.getElementById("jn-error-signin");
     const doneEl = document.getElementById("jn-done");
     const altEl = document.getElementById("jn-alt");
     let lastFocus = null;
@@ -266,7 +269,17 @@ const TILES = [
       });
 
       btn.removeAttribute("disabled"); label.textContent = orig;
-      if (res.error) { errEl.textContent = res.error; errEl.hidden = false; return; }
+      if (res.error) {
+        errTextEl.textContent = res.error;
+        // Already registered isn't a mistake they made, so it doesn't get the
+        // error styling — it gets a way out. Carry the address across so the
+        // sign-in form is ready rather than asking them to type it twice.
+        errEl.classList.toggle("jn-error--info", !!res.existing);
+        if (res.existing) errSignin.href = "/login?email=" + encodeURIComponent(String(data.get("email") || "").trim());
+        errSignin.hidden = !res.existing;
+        errEl.hidden = false;
+        return;
+      }
       if (res.needsConfirm) { form.hidden = true; altEl.hidden = true; doneEl.hidden = false; }
       else if (typeof window.tmkeSplash === "function") window.tmkeSplash("/account");
       else location.href = "/account";
