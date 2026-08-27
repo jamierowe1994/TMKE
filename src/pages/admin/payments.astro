@@ -24,8 +24,11 @@ import "../../styles/admin.css";
           <button type="button" class="enquiry-chip" data-days="365">A year</button>
           <button type="button" class="enquiry-chip" data-days="3650">Everything</button>
         </div>
+        <span class="admin-bar-count" id="pay-count">…</span>
+      </div>
+      <div class="admin-bar-actions">
         <div class="order-filters" id="pay-source" role="tablist">
-          <button type="button" class="enquiry-chip is-active" data-source="all">All sources</button>
+          <button type="button" class="enquiry-chip is-active" data-source="all">All</button>
           <button type="button" class="enquiry-chip" data-source="pack">Packs</button>
           <button type="button" class="enquiry-chip" data-source="videography">Videography</button>
           <button type="button" class="enquiry-chip" data-source="invoice">Invoices</button>
@@ -33,7 +36,6 @@ import "../../styles/admin.css";
         </div>
         <input type="search" id="pay-search" class="admin-search" placeholder="Search customer or item…" />
         <button type="button" class="admin-btn admin-btn-ghost" id="pay-csv">Export CSV</button>
-        <span class="admin-bar-count" id="pay-count">…</span>
       </div>
     </section>
 
@@ -56,54 +58,164 @@ import "../../styles/admin.css";
       </div>
     </section>
 
-    <section class="order-list wrap" id="pay-list" aria-busy="true">
-      <p class="enquiry-loading" id="pay-loading">Reading your Stripe account…</p>
-      <p class="enquiry-empty" id="pay-empty" hidden>No payments match this filter.</p>
-      <p class="enquiry-empty" id="pay-note" hidden></p>
-      <div class="enquiry-table" id="pay-table" role="table"></div>
+    <section class="order-list" id="pay-list" aria-busy="true">
+      <p class="pay-state" id="pay-loading">Reading your Stripe account…</p>
+      <p class="pay-state" id="pay-empty" hidden>No payments match this filter.</p>
+      <p class="pay-note" id="pay-note" hidden></p>
+      <div class="pay-table" id="pay-table" role="table"></div>
     </section>
   </div>
 
-  <style>
+  <div class="modal-backdrop" id="pay-modal" hidden>
+    <div class="modal pay-modal" role="dialog" aria-modal="true" aria-labelledby="pay-modal-title">
+      <header class="modal-head">
+        <h2 id="pay-modal-title">Receipt</h2>
+        <button type="button" class="modal-close" id="pay-modal-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="pay-receipt" id="pay-receipt"></div>
+      <footer class="modal-foot">
+        <button type="button" class="admin-btn admin-btn-ghost" id="pay-modal-cancel">Close</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="pay-print">Print / Save as PDF</button>
+      </footer>
+    </div>
+  </div>
+
+  <style is:global>
+    /* is:global on purpose. The rows below are built in JavaScript, so they
+       carry none of Astro's scoping attributes and a scoped block would miss
+       them entirely — which is exactly how this page first shipped as one long
+       unstyled column. Everything here is namespaced under .pay-* or an id, so
+       going global costs nothing.
+
+       .admin-bar, .enquiry-chip and .admin-search are defined per page across
+       the backstage rather than centrally; these match the other admin pages. */
+
+    .admin-bar {
+      display: flex; flex-direction: column; align-items: stretch; gap: 12px;
+      max-width: 1360px; margin: 0 auto; padding: 12px 36px 28px;
+    }
+    .admin-bar-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-count {
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em;
+      text-transform: uppercase; color: rgba(28, 29, 34, 0.5); margin-left: auto;
+    }
+    .admin-search {
+      padding: 8px 12px; border: 1px solid rgba(var(--violet-rgb), 0.3);
+      border-radius: 2px; font-family: var(--sans); font-size: 13px;
+      color: var(--ink); background: var(--paper); min-width: 200px; flex: 1 1 200px;
+    }
+    .admin-search:focus { outline: none; border-color: var(--english-violet); }
+
+    .order-filters { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .enquiry-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.3);
+      border-radius: 999px; font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
+      color: var(--english-violet); cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .enquiry-chip:hover { background: rgba(var(--violet-rgb), 0.06); }
+    .enquiry-chip.is-active { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+
+    .order-stats-grid { max-width: 1360px; margin: 0 auto 28px; padding: 0 36px; }
+    @media (max-width: 860px) { .order-stats-grid.g4 { grid-template-columns: repeat(2, 1fr); } }
+
+    .order-list { max-width: 1360px; margin: 0 auto; padding: 0 36px 200px; }
+    .pay-state, .pay-note {
+      font-family: var(--sans); font-size: 13px; line-height: 1.6;
+      color: rgba(28, 29, 34, 0.6); padding: 18px 20px; margin: 0 0 12px;
+      background: var(--paper); border-radius: 4px;
+    }
+    .pay-note { color: #8a6a3c; background: rgba(183, 138, 46, 0.09); }
+
+    /* The table scrolls inside itself rather than pushing the page sideways. */
+    .pay-table { overflow-x: auto; border-radius: 4px; }
     .pay-row {
       display: grid;
-      grid-template-columns: 92px 108px minmax(150px, 1.4fr) minmax(120px, 1fr) repeat(4, 84px);
-      gap: 10px;
-      align-items: baseline;
-      padding: 11px 14px;
-      border-bottom: 1px solid rgba(28, 29, 34, 0.08);
-      font-size: 13px;
+      grid-template-columns: 96px 116px minmax(190px, 1.5fr) minmax(140px, 1fr) 96px 96px 100px 108px;
+      gap: 16px; align-items: center; min-width: 1040px;
+      padding: 15px 20px; background: var(--paper);
+      border-bottom: 1px solid rgba(28, 29, 34, 0.07);
+      font-family: var(--sans); font-size: 13px; color: var(--ink);
+      cursor: pointer; transition: background 0.15s;
     }
-    .pay-row--head {
-      font-weight: 600;
-      font-size: 11px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      opacity: 0.58;
-      border-bottom-width: 2px;
+    .pay-row:not(.is-header):hover { background: rgba(var(--violet-rgb), 0.05); }
+    .pay-row:not(.is-header):focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
+    .pay-row.is-header {
+      cursor: default; background: rgba(var(--violet-rgb), 0.04);
+      font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28, 29, 34, 0.55);
     }
+    .pay-row.is-header:hover { background: rgba(var(--violet-rgb), 0.04); }
+
+    .pay-when { font-size: 12px; color: rgba(28, 29, 34, 0.62); }
+    .pay-what { font-weight: 600; }
+    .pay-cust { color: rgba(28, 29, 34, 0.66); overflow-wrap: anywhere; }
     .pay-num { text-align: right; font-variant-numeric: tabular-nums; }
-    .pay-what { font-weight: 500; }
-    .pay-cust { opacity: 0.72; overflow-wrap: anywhere; }
+    .pay-gross { font-family: var(--serif); font-size: 16px; font-weight: 500; }
+    .pay-est { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: #8a6a3c; }
+    .pay-refund { display: block; font-size: 11px; color: #a05a3c; margin-top: 3px; font-weight: 400; }
+
     .pay-src {
-      display: inline-block;
-      font-size: 10.5px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      padding: 2px 7px;
-      border-radius: 3px;
-      background: rgba(28, 29, 34, 0.07);
-      white-space: nowrap;
+      display: inline-block; font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 4px 9px; border-radius: 3px; white-space: nowrap;
+      background: rgba(28, 29, 34, 0.07); color: rgba(28, 29, 34, 0.7);
     }
-    .pay-src[data-s="videography"] { background: rgba(78, 42, 90, 0.12); }
-    .pay-src[data-s="pack"]        { background: rgba(46, 107, 64, 0.12); }
-    .pay-src[data-s="invoice"]     { background: rgba(52, 96, 140, 0.12); }
-    .pay-src[data-s="external"]    { background: rgba(160, 90, 60, 0.14); }
-    .pay-est { opacity: 0.55; font-size: 11px; }
-    .pay-refund { color: #a05a3c; font-size: 11.5px; }
-    /* The table is wider than a narrow window; scroll it rather than the page. */
-    #pay-table { overflow-x: auto; }
-    #pay-table > * { min-width: 860px; }
+    .pay-src[data-s="videography"] { background: rgba(78, 42, 90, 0.13);  color: #4e2a5a; }
+    .pay-src[data-s="pack"]        { background: rgba(46, 107, 64, 0.13); color: #2e6b40; }
+    .pay-src[data-s="invoice"]     { background: rgba(52, 96, 140, 0.13); color: #34608c; }
+    .pay-src[data-s="external"]    { background: rgba(160, 90, 60, 0.14); color: #a05a3c; }
+
+    /* ---- Receipt ---- */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(20, 18, 26, 0.55);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal.pay-modal {
+      background: var(--paper); max-width: 620px; width: 100%; max-height: 86vh;
+      display: flex; flex-direction: column; border-radius: 4px; overflow: hidden;
+      box-shadow: 0 30px 80px rgba(20, 18, 26, 0.35);
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 28px; border-bottom: 1px solid rgba(var(--violet-rgb), 0.12);
+    }
+    .modal-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; margin: 0; color: var(--ink); }
+    .modal-close {
+      background: transparent; border: none; font-size: 28px; line-height: 1;
+      color: var(--english-violet); cursor: pointer; padding: 0 4px;
+    }
+    .modal-foot {
+      display: flex; justify-content: flex-end; gap: 10px;
+      padding: 16px 28px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
+    }
+    .pay-receipt { padding: 28px; overflow-y: auto; flex: 1; font-family: var(--sans); }
+    .rc-brand {
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em;
+      text-transform: uppercase; color: rgba(28, 29, 34, 0.5); margin: 0 0 6px;
+    }
+    .rc-title { font-family: var(--serif); font-size: 26px; font-weight: 400; margin: 0 0 22px; color: var(--ink); }
+    .rc-line { display: flex; justify-content: space-between; gap: 18px; padding: 9px 0; font-size: 13px; }
+    .rc-line + .rc-line { border-top: 1px solid rgba(28, 29, 34, 0.07); }
+    .rc-k { color: rgba(28, 29, 34, 0.55); flex: none; }
+    .rc-v { text-align: right; overflow-wrap: anywhere; }
+    .rc-total { margin-top: 14px; border-top: 2px solid var(--english-violet); padding-top: 14px; }
+    .rc-total .rc-k, .rc-total .rc-v { font-weight: 700; font-size: 15px; color: var(--ink); }
+    .rc-foot { margin: 22px 0 0; font-size: 11px; line-height: 1.6; color: rgba(28, 29, 34, 0.5); }
+
+    /* Print only the receipt. Everything else on the page is chrome. */
+    @media print {
+      body * { visibility: hidden !important; }
+      #pay-receipt, #pay-receipt * { visibility: visible !important; }
+      .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
+      .modal.pay-modal { max-width: none !important; max-height: none !important; box-shadow: none !important; }
+      .modal-head, .modal-foot { display: none !important; }
+      #pay-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; overflow: visible !important; }
+    }
   </style>
 
   <script>
@@ -116,9 +228,9 @@ import "../../styles/admin.css";
       p == null ? "—" : (p / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP" });
     const esc = (v) =>
       String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const SOURCE_LABEL = {
-      pack: "Pack", videography: "Videography", invoice: "Invoice", external: "External",
-    };
+    const SOURCE_LABEL = { pack: "Pack", videography: "Videography", invoice: "Invoice", external: "External" };
+    const longDate = (iso) =>
+      new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     let all = [];
     let days = 90;
@@ -149,41 +261,66 @@ import "../../styles/admin.css";
 
       el("pay-empty").hidden = rows.length > 0;
 
-      // Any derived VAT in view gets said out loud - a number we worked
-      // backwards from the total must never be mistaken for one we were told.
+      // Any derived VAT in view is said out loud. A figure we worked backwards
+      // from the total must never be mistaken for one we were given.
       const derived = rows.filter((r) => r.vat_derived).length;
       const note = el("pay-note");
       if (derived) {
         note.hidden = false;
-        note.textContent = `${derived} payment${derived === 1 ? " has its" : "s have their"} VAT worked back from the total (marked “est”) — these came from outside the Hub, so we hold no split for them. Check the source before filing a return.`;
+        note.textContent = `${derived} payment${derived === 1 ? " has its" : "s have their"} VAT worked back from the total (marked “est”) — those came from outside the Hub, so we hold no split for them. Check the source before filing a return.`;
       } else {
         note.hidden = true;
       }
 
       el("pay-table").innerHTML = rows.length
-        ? `<div class="pay-row pay-row--head" role="row">
+        ? `<div class="pay-row is-header" role="row">
              <div>Date</div><div>Source</div><div>What</div><div>Customer</div>
              <div class="pay-num">Net</div><div class="pay-num">VAT</div>
              <div class="pay-num">Gross</div><div class="pay-num">Received</div>
            </div>` +
-          rows.map((p) => {
-            const when = new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
-            const what = p.receipt_url
-              ? `<a href="${esc(p.receipt_url)}" target="_blank" rel="noopener">${esc(p.label)}</a>`
-              : esc(p.label);
-            return `<div class="pay-row" role="row">
-              <div>${esc(when)}</div>
+          rows.map((p, i) => `
+            <div class="pay-row" role="row" tabindex="0" data-i="${i}" title="Open receipt">
+              <div class="pay-when">${esc(new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }))}</div>
               <div><span class="pay-src" data-s="${esc(p.source)}">${esc(SOURCE_LABEL[p.source] || p.source)}</span></div>
-              <div class="pay-what">${what}${p.refunded_pence ? `<div class="pay-refund">${esc(gbp(p.refunded_pence))} refunded</div>` : ""}</div>
+              <div class="pay-what">${esc(p.label)}${p.refunded_pence ? `<span class="pay-refund">${esc(gbp(p.refunded_pence))} refunded</span>` : ""}</div>
               <div class="pay-cust">${esc(p.customer || "—")}</div>
               <div class="pay-num">${esc(gbp(p.net_pence))}</div>
               <div class="pay-num">${esc(gbp(p.vat_pence))}${p.vat_derived ? ' <span class="pay-est">est</span>' : ""}</div>
-              <div class="pay-num">${esc(gbp(p.gross_pence))}</div>
+              <div class="pay-num pay-gross">${esc(gbp(p.gross_pence))}</div>
               <div class="pay-num">${esc(gbp(p.received_pence))}</div>
-            </div>`;
-          }).join("")
+            </div>`).join("")
         : "";
     }
+
+    // ---- Receipt -----------------------------------------------------------
+    // Built from the payment in front of us rather than raised as an invoice:
+    // an invoice would consume a number from the sequence and read as a second
+    // sale of money that has already been taken. This is a record of a payment,
+    // for matching against the bank.
+    function openReceipt(p) {
+      const line = (k, v, cls) => `<div class="rc-line ${cls || ""}"><span class="rc-k">${esc(k)}</span><span class="rc-v">${v}</span></div>`;
+      el("pay-receipt").innerHTML = `
+        <p class="rc-brand">TMKE &middot; Payment received</p>
+        <h3 class="rc-title">${esc(p.label)}</h3>
+        ${line("Received from", esc(p.customer || "—"))}
+        ${line("Date", esc(longDate(p.paid_at)))}
+        ${line("Source", esc(SOURCE_LABEL[p.source] || p.source))}
+        ${line("Net", esc(gbp(p.net_pence)) + (p.vat_derived ? ' <span class="pay-est">est</span>' : ""))}
+        ${line("VAT", esc(gbp(p.vat_pence)) + (p.vat_derived ? ' <span class="pay-est">est</span>' : ""))}
+        ${line("Gross paid", esc(gbp(p.gross_pence)), "rc-total")}
+        ${line("Stripe fee", esc(gbp(p.fee_pence)))}
+        ${line("Received in bank", esc(gbp(p.received_pence)))}
+        ${p.refunded_pence ? line("Refunded", esc(gbp(p.refunded_pence))) : ""}
+        ${line("Stripe reference", esc(p.id))}
+        <p class="rc-foot">
+          ${p.vat_derived
+            ? "The VAT on this payment was worked back from the total at the standard rate — it was taken outside the Hub, so no split was recorded at the time. Confirm against the source before relying on it for a return."
+            : "The VAT split shown is the one recorded when the payment was taken."}
+          <br>A record of a payment received, not a VAT invoice.
+        </p>`;
+      el("pay-modal").hidden = false;
+    }
+    function closeReceipt() { el("pay-modal").hidden = true; }
 
     function exportCsv() {
       const rows = visible();
@@ -261,6 +398,28 @@ import "../../styles/admin.css";
       wireChips("pay-source", "source", (v) => { source = v; render(); });
       el("pay-search").addEventListener("input", (ev) => { query = ev.target.value || ""; render(); });
       el("pay-csv").addEventListener("click", exportCsv);
+
+      // Delegated: the rows don't exist until a fetch has come back.
+      el("pay-table").addEventListener("click", (ev) => {
+        const row = ev.target.closest(".pay-row:not(.is-header)");
+        if (!row) return;
+        const p = visible()[Number(row.dataset.i)];
+        if (p) openReceipt(p);
+      });
+      el("pay-table").addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        const row = ev.target.closest(".pay-row:not(.is-header)");
+        if (!row) return;
+        ev.preventDefault();
+        const p = visible()[Number(row.dataset.i)];
+        if (p) openReceipt(p);
+      });
+
+      el("pay-modal-close").addEventListener("click", closeReceipt);
+      el("pay-modal-cancel").addEventListener("click", closeReceipt);
+      el("pay-modal").addEventListener("click", (ev) => { if (ev.target === el("pay-modal")) closeReceipt(); });
+      document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeReceipt(); });
+      el("pay-print").addEventListener("click", () => window.print());
 
       await load();
     })();
