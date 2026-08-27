@@ -3097,7 +3097,7 @@ export default {
           const filename = `TMKE-receipt-${stamp}-${charge.id}.pdf`;
 
           if (action === "email") {
-            const to = String((b && b.to) || env.ACCOUNTS_NOTIFY || "").trim();
+            const to = String((b && b.to) || env.ACCOUNTS_PAYABLE_EMAIL || env.ACCOUNTS_NOTIFY || "").trim();
             if (!to) return json({ error: "No accounts address configured (ACCOUNTS_NOTIFY)." }, 503, request, env);
             const sent = await sendEmail(env, {
               to,
