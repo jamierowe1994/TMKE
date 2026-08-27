@@ -538,12 +538,14 @@ and the first newsletter goes to the wrong people.
   reconciles against the bank. CSV export for accounts. Read-only: it writes
   nothing back, so it can't duplicate an order we already recorded.
   (`src/pages/admin/payments.astro`, `worker/src/index.js` `/admin/payments`)
-- ⬜ **Videography upsells show the net price only.** The edits card on a
+- ✅ **(27 Aug) Videography upsells show the net price only.** The edits card on a
   booking prints `extra_images_price_pence` — the ex-VAT figure — so a purchase
   charged at £28.80 reads as "£24.00", and twilight purchases show no price at
   all. This is what caused the 26 Aug scare that VAT wasn't being collected; it
   was, since 16 Aug. Should show gross with the split, e.g. "£28.80 inc. £4.80
-  VAT". (`src/pages/admin/videography.astro:2557`)
+  VAT". Done as "£24.00 +VAT" rather than the gross — everything here is
+  quoted ex-VAT, so that is the label that matches the rate card. Twilight
+  now carries a price too; it had none. (`src/pages/admin/videography.astro:2556-2557`)
 - ⬜ **No VAT invoice for Pixieset sales.** Extra photos bought through Pixieset
   settle into our Stripe, but business details are never entered into Pixieset
   and Stripe's receipt isn't a compliant UK VAT invoice — no VAT number, no
