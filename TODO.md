@@ -527,6 +527,30 @@ and the first newsletter goes to the wrong people.
 - ⬜ No newsletter / send-to-a-list flow.
 - ⬜ `ADMIN_SETUP.md` and `AUTH_SETUP.md` are both stale — they list things as
   unbuilt (Orders, Subscribers, Enquiries, Stripe) that now exist.
+- ✅ **(27 Aug) One page for every payment.** Money arrives through five
+  channels into four tables, and Pixieset sells straight into the same Stripe
+  account without touching the Hub at all — so no view built on our own tables
+  could ever be complete. A £60 payment took most of a day to identify for
+  exactly that reason. **Admin → Payments** now reads every charge from Stripe,
+  classifies it by the metadata our own checkouts write (`order_id`,
+  `invoice_id`, `edit_request_id`) and shows anything untagged as external.
+  Real Stripe fee per row from the balance transaction, so "received"
+  reconciles against the bank. CSV export for accounts. Read-only: it writes
+  nothing back, so it can't duplicate an order we already recorded.
+  (`src/pages/admin/payments.astro`, `worker/src/index.js` `/admin/payments`)
+- ⬜ **Videography upsells show the net price only.** The edits card on a
+  booking prints `extra_images_price_pence` — the ex-VAT figure — so a purchase
+  charged at £28.80 reads as "£24.00", and twilight purchases show no price at
+  all. This is what caused the 26 Aug scare that VAT wasn't being collected; it
+  was, since 16 Aug. Should show gross with the split, e.g. "£28.80 inc. £4.80
+  VAT". (`src/pages/admin/videography.astro:2557`)
+- ⬜ **No VAT invoice for Pixieset sales.** Extra photos bought through Pixieset
+  settle into our Stripe, but business details are never entered into Pixieset
+  and Stripe's receipt isn't a compliant UK VAT invoice — no VAT number, no
+  proper breakdown. So a business customer who wants to reclaim the VAT has
+  nothing to reclaim it against. Decide what should happen when one asks:
+  most likely generate an invoice from the Stripe payment, marked already paid
+  so the revenue isn't counted twice. Raised 27 Aug.
 
 ## 7d. Email builder — mobile spacing ✅
 
@@ -623,6 +647,15 @@ reading, the .astro alone tells you less than half.
   It now starts where the rail ends and is exactly as wide as the panel.
 
 ## 9. Security + infrastructure
+
+- ⬜ **The Worker's `AI_MODEL` may be a model that no longer exists.** It is set
+  to `claude-sonnet-4-6`, which doesn't match any current Anthropic model ID —
+  seen in the `wrangler deploy` output on 27 Aug. If it's stale, `/ai/caption`
+  (the member caption generator) is failing, possibly silently. Check whether
+  the endpoint still works and whether the error reaches the user or is
+  swallowed, then pick the right current model for the job — captioning doesn't
+  need the top tier. `AI_MODEL` is a Worker environment variable, so changing
+  it needs a redeploy from `worker/`. Raised 27 Aug.
 
 - ✅ **(27 Jul) Backstage tables locked to admins.** The admin area and member
   hub are two doors into one database, and the database was only asking "are
