@@ -1204,6 +1204,10 @@ async function vatBreakdown(env, netPence) {
   return { net, vat, gross: net + vat, rate };
 }
 
+// email -> last reset-link send (ms). See /auth/reset-link for why this is only
+// a speed bump.
+const RESET_COOLDOWN = new Map();
+
 const FAUX_TWILIGHT_PRICE_PENCE = 2500;
 const EXTRA_IMAGES_BUNDLE = { qty: 5, price_pence: 2400 };
 
@@ -2847,6 +2851,76 @@ export default {
           }
         }
         return json({ received: true }, 200, request, env);
+      }
+
+      // ---- Public: send a password-reset link that survives a mail scanner ---
+      //
+      // Not supabase.auth.resetPasswordForEmail(). That sends Supabase's own
+      // template, whose link is .../auth/v1/verify?token=... - a plain GET that
+      // verifies and BURNS the token the moment anything requests it. Microsoft
+      // Safe Links requests it, to scan it, before the human ever clicks. So the
+      // customer opens a link that is genuinely already used and is told it has
+      // expired. Outlook recipients could not reset their password at all.
+      //
+      // generate_link hands back the hashed_token as well as that doomed URL, so
+      // we build our own: /auth/callback?token_hash=... That page is static HTML
+      // and does the verification in JavaScript, in a real browser, after load.
+      // A scanner fetching it gets markup and leaves the token untouched.
+      //
+      // It also means the wording and the branding are ours, and nothing depends
+      // on a dashboard template propagating.
+      if (path.endsWith("/auth/reset-link") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const email = String((b && b.email) || "").trim().toLowerCase();
+
+        // One reply for every outcome, always 200: no account, rate-limited,
+        // send failed, sent. This endpoint is public, so any difference between
+        // those is a way of asking us which addresses have accounts.
+        const same = () => json({ ok: true }, 200, request, env);
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return same();
+
+        // Per-isolate, so it is a speed bump rather than a guarantee - Workers
+        // spin up many isolates and this map dies with each one. It is enough to
+        // stop a form being leant on, and the mail only ever goes to the account
+        // holder, so the worst case is one person's inbox. A real limiter wants
+        // KV, which this Worker has no binding for yet.
+        const now = Date.now();
+        const last = RESET_COOLDOWN.get(email) || 0;
+        if (now - last < 60_000) return same();
+        RESET_COOLDOWN.set(email, now);
+        if (RESET_COOLDOWN.size > 5000) RESET_COOLDOWN.clear();   // crude, but unbounded is worse
+
+        try {
+          const u = await findUserByEmail(env, email);
+          if (!u || !u.id) return same();
+
+          const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+          const gl = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "recovery", email, options: { redirect_to: `${site}/reset-password` } }),
+          });
+          if (!gl.ok) { console.error("reset-link generate_link", gl.status, (await gl.text().catch(() => "")).slice(0, 200)); return same(); }
+          const gj = await gl.json().catch(() => ({}));
+          const hashed = (gj && (gj.hashed_token || (gj.properties && gj.properties.hashed_token))) || "";
+          if (!hashed) { console.error("reset-link: no hashed_token in generate_link reply"); return same(); }
+
+          const link = `${site}/auth/callback?token_hash=${encodeURIComponent(hashed)}&type=recovery`;
+          const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const content = `
+            <h1 style="${EM_H1}">Set a new password</h1>
+            <p style="${EM_P}">Someone asked to reset the password on your TMKE account. Click below to choose a new one.</p>
+            <p style="margin:0 0 24px;"><a href="${esc(link)}" style="${EM_BTN}">Set a new password</a></p>
+            <p style="${EM_P}">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;word-break:break-all;">${esc(link)}</span></p>
+            <p style="${EM_SMALL}">The link works once and expires after an hour. If you didn't ask for this, ignore this email &mdash; your password stays exactly as it is.</p>`;
+          const html = await wrapInBrandedBase(env, content);
+          const sent = await sendEmail(env, { to: email, subject: "Set a new password - TMKE", html });
+          // Logged, not returned: the caller is told the same thing either way.
+          if (!sent.ok) console.error("reset-link send failed", sent.error);
+        } catch (e) {
+          console.error("reset-link", String((e && e.message) || e).slice(0, 200));
+        }
+        return same();
       }
 
       // ---- Admin: every payment, read from Stripe ---------------------------
