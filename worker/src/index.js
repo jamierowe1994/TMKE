@@ -1071,6 +1071,39 @@ async function stripeApi(env, path, params) {
   return data;
 }
 
+// stripeApi() only does POST. Stripe's list endpoints are GET, so reporting
+// needs its own door.
+async function stripeGet(env, path, query) {
+  const qs = new URLSearchParams();
+  Object.entries(query || {}).forEach(([k, v]) => { if (v !== undefined && v !== null) qs.append(k, String(v)); });
+  const res = await fetch(`https://api.stripe.com/v1/${path}?${qs}`, {
+    headers: { Authorization: `Bearer ${env.STRIPE_SECRET_KEY}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || ("Stripe " + res.status));
+  return data;
+}
+
+// Walks `has_more`, because a busy month past 100 rows would otherwise be
+// silently truncated - and a payments list that quietly drops payments is
+// worse than no list at all. Hard-capped so a runaway can't hold the request
+// open forever; the caller is told when the cap bites.
+async function stripeList(env, path, query, cap = 1000) {
+  const out = [];
+  let startingAfter = null, truncated = false;
+  for (let page = 0; page < 25; page++) {
+    const q = { ...(query || {}), limit: 100 };
+    if (startingAfter) q.starting_after = startingAfter;
+    const res = await stripeGet(env, path, q);
+    const rows = Array.isArray(res.data) ? res.data : [];
+    out.push(...rows);
+    if (!res.has_more || !rows.length) break;
+    if (out.length >= cap) { truncated = true; break; }
+    startingAfter = rows[rows.length - 1].id;
+  }
+  return { rows: out, truncated };
+}
+
 // Verify a Stripe webhook signature ("t=…,v1=…") against the raw request body,
 // using the endpoint's signing secret. Returns true only on an exact HMAC match
 // within a 5-minute tolerance (replay guard).
@@ -2814,6 +2847,142 @@ export default {
           }
         }
         return json({ received: true }, 200, request, env);
+      }
+
+      // ---- Admin: every payment, read from Stripe ---------------------------
+      //
+      // The one place that sees all of it. Packs, invoices and videography
+      // upsells are already in our own tables - but Pixieset sells straight
+      // into this same Stripe account and never touches the Hub, so our tables
+      // can never be the complete list and Stripe always is.
+      //
+      // READ-ONLY on purpose. Nothing here writes back. There is exactly one
+      // record of each payment (Stripe's), annotated with whatever context we
+      // already hold, so nothing on this page can duplicate an order we
+      // recorded ourselves.
+      if (path.endsWith("/admin/payments") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
+
+        const u = new URL(request.url);
+        const days = Math.min(Math.max(parseInt(u.searchParams.get("days") || "90", 10) || 90, 1), 3650);
+        const since = Math.floor(Date.now() / 1000) - days * 86400;
+
+        try {
+          // Charges are the complete set (Pixieset's included). The balance
+          // transaction is expanded so every row carries the fee Stripe
+          // actually took, rather than a percentage we guessed at.
+          const { rows: charges, truncated } = await stripeList(env, "charges", {
+            "created[gte]": since, "expand[]": "data.balance_transaction",
+          });
+
+          // Our metadata rides on the Checkout Session, not the charge - Stripe
+          // does not copy session metadata onto the PaymentIntent. Joining on
+          // the payment intent is what tells us which of these charges were
+          // ours and what they were for. Anything with no session is external.
+          const { rows: sessions } = await stripeList(env, "checkout/sessions", { "created[gte]": since });
+          const byPaymentIntent = new Map();
+          for (const sess of sessions) {
+            if (sess && sess.payment_intent) byPaymentIntent.set(String(sess.payment_intent), sess);
+          }
+
+          const paid = charges.filter((c) => c && c.status === "succeeded");
+
+          // Classify first, then fetch the splits we hold in one query per kind
+          // rather than one per row.
+          const classify = (c) => {
+            const sess = c.payment_intent ? byPaymentIntent.get(String(c.payment_intent)) : null;
+            const md = (sess && sess.metadata) || {};
+            if (md.edit_request_id) return { source: "videography", ref: String(md.edit_request_id), kind: md.upsell_type || null };
+            if (md.invoice_id)      return { source: "invoice",     ref: String(md.invoice_id),     number: md.invoice_number || null };
+            if (md.order_id)        return { source: "pack",        ref: String(md.order_id) };
+            return { source: "external", ref: null };
+          };
+          const tagged = paid.map((c) => ({ charge: c, ...classify(c) }));
+
+          const idsFor = (src) => [...new Set(tagged.filter((t) => t.source === src && t.ref).map((t) => t.ref))];
+          const inList = (ids) => `(${ids.map((i) => `"${i}"`).join(",")})`;
+          const fetchSplits = async (src, table, select) => {
+            const ids = idsFor(src);
+            if (!ids.length) return new Map();
+            try {
+              const rows = await sbGet(env, table, `id=in.${inList(ids)}&select=${select}`);
+              return new Map((rows || []).map((r) => [String(r.id), r]));
+            } catch (_) { return new Map(); }   // a missing split is worth less than a missing page
+          };
+          const [orderById, invoiceById, editById] = await Promise.all([
+            fetchSplits("pack", "orders", "id,pack_title,buyer_name,buyer_email,amount_pence,vat_pence,total_pence"),
+            fetchSplits("invoice", "invoices", "id,number,subtotal_pence,vat_pence,total_pence"),
+            fetchSplits("videography", "videography_edit_requests", "id,booking_id,twilight_items,extra_images_qty,vat_pence,total_pence"),
+          ]);
+
+          // The rate only matters for payments we hold no split for - Pixieset
+          // quotes tax-inclusive, so its gross is worked backwards at the same
+          // rate the invoices use. Flagged as derived so nobody files a VAT
+          // return off a number we inferred.
+          let vatRate = 20;
+          try {
+            const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=vat_rate"))?.[0];
+            if (st && st.vat_rate != null) vatRate = Number(st.vat_rate);
+          } catch (_) {}
+
+          const out = tagged.map(({ charge: c, source, ref, kind, number }) => {
+            const bt = c.balance_transaction && typeof c.balance_transaction === "object" ? c.balance_transaction : null;
+            const gross = Number(c.amount) || 0;
+            const refunded = Number(c.amount_refunded) || 0;
+            const fee = bt ? Number(bt.fee) || 0 : null;
+
+            let net = null, vat = null, derived = true, label = c.description || "Payment", customer = null;
+            if (source === "pack") {
+              const r = orderById.get(ref);
+              if (r) {
+                label = r.pack_title || "Pack";
+                customer = r.buyer_name || r.buyer_email || null;
+                if (r.vat_pence != null) { net = Number(r.amount_pence) || 0; vat = Number(r.vat_pence) || 0; derived = false; }
+              }
+            } else if (source === "invoice") {
+              const r = invoiceById.get(ref);
+              label = `Invoice ${(r && r.number) || number || ""}`.trim();
+              if (r && r.vat_pence != null) { net = Number(r.subtotal_pence) || 0; vat = Number(r.vat_pence) || 0; derived = false; }
+            } else if (source === "videography") {
+              const r = editById.get(ref);
+              if (r) {
+                const tw = Array.isArray(r.twilight_items) ? r.twilight_items.length : 0;
+                label = tw ? `Faux twilight - ${tw} image${tw === 1 ? "" : "s"}`
+                     : r.extra_images_qty ? `${r.extra_images_qty} extra images` : "Videography upsell";
+                if (r.vat_pence != null) { vat = Number(r.vat_pence) || 0; net = (Number(r.total_pence) || gross) - vat; derived = false; }
+              } else if (kind) {
+                label = kind === "twilight" ? "Faux twilight" : "Extra images";
+              }
+            }
+            // No split of our own: treat what was charged as tax-inclusive.
+            if (net == null || vat == null) {
+              net = Math.round(gross / (1 + vatRate / 100));
+              vat = gross - net;
+              derived = true;
+            }
+
+            return {
+              id: c.id,
+              paid_at: new Date((Number(c.created) || 0) * 1000).toISOString(),
+              source, ref, label,
+              customer: customer || (c.billing_details && c.billing_details.name) || (c.billing_details && c.billing_details.email) || null,
+              gross_pence: gross,
+              net_pence: net,
+              vat_pence: vat,
+              vat_derived: derived,
+              fee_pence: fee,
+              received_pence: fee == null ? null : gross - fee,
+              refunded_pence: refunded,
+              receipt_url: c.receipt_url || null,
+            };
+          }).sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1));
+
+          return json({ ok: true, days, vat_rate: vatRate, truncated, payments: out }, 200, request, env);
+        } catch (e) {
+          return json({ error: String((e && e.message) || e).slice(0, 300) }, 502, request, env);
+        }
       }
 
       // ---- AI: generate a social caption (+ hashtags) for a member's post ----

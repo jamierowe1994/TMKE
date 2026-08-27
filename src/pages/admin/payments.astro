@@ -1,0 +1,268 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="payments" title="Payments" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Payments</div>
+          <div class="page-header-sub">Every payment that has reached your Stripe account, whatever sold it.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-actions">
+        <div class="order-filters" id="pay-range" role="tablist">
+          <button type="button" class="enquiry-chip" data-days="30">30 days</button>
+          <button type="button" class="enquiry-chip is-active" data-days="90">90 days</button>
+          <button type="button" class="enquiry-chip" data-days="365">A year</button>
+          <button type="button" class="enquiry-chip" data-days="3650">Everything</button>
+        </div>
+        <div class="order-filters" id="pay-source" role="tablist">
+          <button type="button" class="enquiry-chip is-active" data-source="all">All sources</button>
+          <button type="button" class="enquiry-chip" data-source="pack">Packs</button>
+          <button type="button" class="enquiry-chip" data-source="videography">Videography</button>
+          <button type="button" class="enquiry-chip" data-source="invoice">Invoices</button>
+          <button type="button" class="enquiry-chip" data-source="external">External</button>
+        </div>
+        <input type="search" id="pay-search" class="admin-search" placeholder="Search customer or item…" />
+        <button type="button" class="admin-btn admin-btn-ghost" id="pay-csv">Export CSV</button>
+        <span class="admin-bar-count" id="pay-count">…</span>
+      </div>
+    </section>
+
+    <section class="g4 order-stats-grid" id="pay-stats">
+      <div class="stat">
+        <div class="stat-num" data-stat="gross">…</div>
+        <div class="stat-label">Gross taken</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-stat="vat">…</div>
+        <div class="stat-label">VAT within it</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-stat="fees">…</div>
+        <div class="stat-label">Stripe fees</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" data-stat="received">…</div>
+        <div class="stat-label">Landed in the bank</div>
+      </div>
+    </section>
+
+    <section class="order-list wrap" id="pay-list" aria-busy="true">
+      <p class="enquiry-loading" id="pay-loading">Reading your Stripe account…</p>
+      <p class="enquiry-empty" id="pay-empty" hidden>No payments match this filter.</p>
+      <p class="enquiry-empty" id="pay-note" hidden></p>
+      <div class="enquiry-table" id="pay-table" role="table"></div>
+    </section>
+  </div>
+
+  <style>
+    .pay-row {
+      display: grid;
+      grid-template-columns: 92px 108px minmax(150px, 1.4fr) minmax(120px, 1fr) repeat(4, 84px);
+      gap: 10px;
+      align-items: baseline;
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(28, 29, 34, 0.08);
+      font-size: 13px;
+    }
+    .pay-row--head {
+      font-weight: 600;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.58;
+      border-bottom-width: 2px;
+    }
+    .pay-num { text-align: right; font-variant-numeric: tabular-nums; }
+    .pay-what { font-weight: 500; }
+    .pay-cust { opacity: 0.72; overflow-wrap: anywhere; }
+    .pay-src {
+      display: inline-block;
+      font-size: 10.5px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 3px;
+      background: rgba(28, 29, 34, 0.07);
+      white-space: nowrap;
+    }
+    .pay-src[data-s="videography"] { background: rgba(78, 42, 90, 0.12); }
+    .pay-src[data-s="pack"]        { background: rgba(46, 107, 64, 0.12); }
+    .pay-src[data-s="invoice"]     { background: rgba(52, 96, 140, 0.12); }
+    .pay-src[data-s="external"]    { background: rgba(160, 90, 60, 0.14); }
+    .pay-est { opacity: 0.55; font-size: 11px; }
+    .pay-refund { color: #a05a3c; font-size: 11.5px; }
+    /* The table is wider than a narrow window; scroll it rather than the page. */
+    #pay-table { overflow-x: auto; }
+    #pay-table > * { min-width: 860px; }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { requireAdmin } from "../../lib/admin-gate.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+
+    const gbp = (p) =>
+      p == null ? "—" : (p / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP" });
+    const esc = (v) =>
+      String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const SOURCE_LABEL = {
+      pack: "Pack", videography: "Videography", invoice: "Invoice", external: "External",
+    };
+
+    let all = [];
+    let days = 90;
+    let source = "all";
+    let query = "";
+
+    const el = (id) => document.getElementById(id);
+
+    function visible() {
+      const q = query.trim().toLowerCase();
+      return all.filter((p) => {
+        if (source !== "all" && p.source !== source) return false;
+        if (!q) return true;
+        return `${p.label} ${p.customer || ""}`.toLowerCase().includes(q);
+      });
+    }
+
+    function render() {
+      const rows = visible();
+      const sum = (k) => rows.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+
+      el("pay-count").textContent = `${rows.length} payment${rows.length === 1 ? "" : "s"}`;
+      const stats = { gross: sum("gross_pence"), vat: sum("vat_pence"), fees: sum("fee_pence"), received: sum("received_pence") };
+      Object.entries(stats).forEach(([k, v]) => {
+        const node = document.querySelector(`[data-stat="${k}"]`);
+        if (node) node.textContent = gbp(v);
+      });
+
+      el("pay-empty").hidden = rows.length > 0;
+
+      // Any derived VAT in view gets said out loud - a number we worked
+      // backwards from the total must never be mistaken for one we were told.
+      const derived = rows.filter((r) => r.vat_derived).length;
+      const note = el("pay-note");
+      if (derived) {
+        note.hidden = false;
+        note.textContent = `${derived} payment${derived === 1 ? " has its" : "s have their"} VAT worked back from the total (marked “est”) — these came from outside the Hub, so we hold no split for them. Check the source before filing a return.`;
+      } else {
+        note.hidden = true;
+      }
+
+      el("pay-table").innerHTML = rows.length
+        ? `<div class="pay-row pay-row--head" role="row">
+             <div>Date</div><div>Source</div><div>What</div><div>Customer</div>
+             <div class="pay-num">Net</div><div class="pay-num">VAT</div>
+             <div class="pay-num">Gross</div><div class="pay-num">Received</div>
+           </div>` +
+          rows.map((p) => {
+            const when = new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" });
+            const what = p.receipt_url
+              ? `<a href="${esc(p.receipt_url)}" target="_blank" rel="noopener">${esc(p.label)}</a>`
+              : esc(p.label);
+            return `<div class="pay-row" role="row">
+              <div>${esc(when)}</div>
+              <div><span class="pay-src" data-s="${esc(p.source)}">${esc(SOURCE_LABEL[p.source] || p.source)}</span></div>
+              <div class="pay-what">${what}${p.refunded_pence ? `<div class="pay-refund">${esc(gbp(p.refunded_pence))} refunded</div>` : ""}</div>
+              <div class="pay-cust">${esc(p.customer || "—")}</div>
+              <div class="pay-num">${esc(gbp(p.net_pence))}</div>
+              <div class="pay-num">${esc(gbp(p.vat_pence))}${p.vat_derived ? ' <span class="pay-est">est</span>' : ""}</div>
+              <div class="pay-num">${esc(gbp(p.gross_pence))}</div>
+              <div class="pay-num">${esc(gbp(p.received_pence))}</div>
+            </div>`;
+          }).join("")
+        : "";
+    }
+
+    function exportCsv() {
+      const rows = visible();
+      if (!rows.length) return;
+      const head = ["Date", "Source", "Item", "Customer", "Net", "VAT", "VAT estimated", "Gross", "Stripe fee", "Received", "Refunded", "Stripe charge id"];
+      const cell = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const money = (p) => (p == null ? "" : (p / 100).toFixed(2));
+      const body = rows.map((p) => [
+        new Date(p.paid_at).toISOString().slice(0, 10),
+        SOURCE_LABEL[p.source] || p.source,
+        p.label, p.customer || "",
+        money(p.net_pence), money(p.vat_pence), p.vat_derived ? "yes" : "no",
+        money(p.gross_pence), money(p.fee_pence), money(p.received_pence),
+        money(p.refunded_pence), p.id,
+      ].map(cell).join(","));
+      const blob = new Blob([[head.map(cell).join(","), ...body].join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `tmke-payments-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    }
+
+    async function load() {
+      const listEl = el("pay-list");
+      const loading = el("pay-loading");
+      listEl.setAttribute("aria-busy", "true");
+      loading.hidden = false;
+      loading.textContent = "Reading your Stripe account…";
+      el("pay-table").innerHTML = "";
+
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      try {
+        const res = await fetch(`${WORKER}/admin/payments?days=${encodeURIComponent(days)}`, {
+          headers: token ? { Authorization: "Bearer " + token } : {},
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok || !body.ok) throw new Error(body.error || `Stripe request failed (${res.status})`);
+        all = Array.isArray(body.payments) ? body.payments : [];
+        loading.hidden = true;
+        listEl.removeAttribute("aria-busy");
+        render();
+        if (body.truncated) {
+          const note = el("pay-note");
+          note.hidden = false;
+          note.textContent = "There are more payments in this period than one request can return. Narrow the date range to see the rest.";
+        }
+      } catch (e) {
+        loading.hidden = false;
+        loading.textContent = `Could not load payments: ${e.message}`;
+        listEl.removeAttribute("aria-busy");
+      }
+    }
+
+    function wireChips(hostId, attr, onPick) {
+      const host = el(hostId);
+      if (!host) return;
+      host.addEventListener("click", (ev) => {
+        const btn = ev.target.closest(`[data-${attr}]`);
+        if (!btn) return;
+        host.querySelectorAll(".enquiry-chip").forEach((b) => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        onPick(btn.getAttribute(`data-${attr}`));
+      });
+    }
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+
+      wireChips("pay-range", "days", (v) => { days = Number(v) || 90; load(); });
+      wireChips("pay-source", "source", (v) => { source = v; render(); });
+      el("pay-search").addEventListener("input", (ev) => { query = ev.target.value || ""; render(); });
+      el("pay-csv").addEventListener("click", exportCsv);
+
+      await load();
+    })();
+  </script>
+</AdminShell>
