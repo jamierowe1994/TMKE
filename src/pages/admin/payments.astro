@@ -74,8 +74,10 @@ import "../../styles/admin.css";
       </header>
       <div class="pay-receipt" id="pay-receipt"></div>
       <footer class="modal-foot">
+        <span class="pay-modal-msg" id="pay-modal-msg"></span>
         <button type="button" class="admin-btn admin-btn-ghost" id="pay-modal-cancel">Close</button>
-        <button type="button" class="admin-btn admin-btn-primary" id="pay-print">Print / Save as PDF</button>
+        <button type="button" class="admin-btn admin-btn-ghost" id="pay-send">Send to accounts</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="pay-download">Download PDF</button>
       </footer>
     </div>
   </div>
@@ -190,9 +192,15 @@ import "../../styles/admin.css";
       color: var(--english-violet); cursor: pointer; padding: 0 4px;
     }
     .modal-foot {
-      display: flex; justify-content: flex-end; gap: 10px;
+      display: flex; justify-content: flex-end; align-items: center; gap: 10px;
       padding: 16px 28px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
+      flex-wrap: wrap;
     }
+    .pay-modal-msg {
+      margin-right: auto; font-family: var(--sans); font-size: 12px;
+      line-height: 1.4; color: #2e6b40;
+    }
+    .pay-modal-msg.is-bad { color: #a05a3c; }
     .pay-receipt { padding: 28px; overflow-y: auto; flex: 1; font-family: var(--sans); }
     .rc-brand {
       font-family: var(--sans); font-size: 11px; letter-spacing: 0.22em;
@@ -207,15 +215,6 @@ import "../../styles/admin.css";
     .rc-total .rc-k, .rc-total .rc-v { font-weight: 700; font-size: 15px; color: var(--ink); }
     .rc-foot { margin: 22px 0 0; font-size: 11px; line-height: 1.6; color: rgba(28, 29, 34, 0.5); }
 
-    /* Print only the receipt. Everything else on the page is chrome. */
-    @media print {
-      body * { visibility: hidden !important; }
-      #pay-receipt, #pay-receipt * { visibility: visible !important; }
-      .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
-      .modal.pay-modal { max-width: none !important; max-height: none !important; box-shadow: none !important; }
-      .modal-head, .modal-foot { display: none !important; }
-      #pay-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; overflow: visible !important; }
-    }
   </style>
 
   <script>
@@ -297,7 +296,13 @@ import "../../styles/admin.css";
     // an invoice would consume a number from the sequence and read as a second
     // sale of money that has already been taken. This is a record of a payment,
     // for matching against the bank.
+    let openPayment = null;
+
     function openReceipt(p) {
+      openPayment = p;
+      const msg = el("pay-modal-msg");
+      msg.textContent = "";
+      msg.classList.remove("is-bad");
       const line = (k, v, cls) => `<div class="rc-line ${cls || ""}"><span class="rc-k">${esc(k)}</span><span class="rc-v">${v}</span></div>`;
       el("pay-receipt").innerHTML = `
         <p class="rc-brand">TMKE &middot; Payment received</p>
@@ -320,7 +325,58 @@ import "../../styles/admin.css";
         </p>`;
       el("pay-modal").hidden = false;
     }
-    function closeReceipt() { el("pay-modal").hidden = true; }
+    function closeReceipt() { el("pay-modal").hidden = true; openPayment = null; }
+
+    // The PDF is rendered by the Worker, not by the browser's print dialog -
+    // that dialog was dropping the top of the document, and it produced
+    // something you had to save, find and attach by hand.
+    async function receiptRequest(action, btn) {
+      if (!openPayment) return;
+      const msg = el("pay-modal-msg");
+      const orig = btn.textContent;
+      btn.setAttribute("disabled", "true");
+      btn.textContent = action === "email" ? "Sending…" : "Building…";
+      msg.textContent = "";
+      msg.classList.remove("is-bad");
+
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      const p = openPayment;
+      try {
+        const res = await fetch(`${WORKER}/admin/payments/receipt`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+          body: JSON.stringify({
+            action, id: p.id, label: p.label, customer: p.customer,
+            source: SOURCE_LABEL[p.source] || p.source,
+            vat_pence: p.vat_pence, vat_derived: p.vat_derived,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `That didn't work (${res.status})`);
+        }
+        if (action === "email") {
+          const body = await res.json().catch(() => ({}));
+          msg.textContent = `Sent to ${body.sent_to || "accounts"}.`;
+        } else {
+          const blob = await res.blob();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `TMKE-receipt-${p.paid_at.slice(0, 10)}-${p.id}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+          msg.textContent = "Downloaded.";
+        }
+      } catch (e) {
+        msg.classList.add("is-bad");
+        msg.textContent = e.message;
+      }
+      btn.removeAttribute("disabled");
+      btn.textContent = orig;
+    }
 
     function exportCsv() {
       const rows = visible();
@@ -419,7 +475,8 @@ import "../../styles/admin.css";
       el("pay-modal-cancel").addEventListener("click", closeReceipt);
       el("pay-modal").addEventListener("click", (ev) => { if (ev.target === el("pay-modal")) closeReceipt(); });
       document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") closeReceipt(); });
-      el("pay-print").addEventListener("click", () => window.print());
+      el("pay-download").addEventListener("click", (ev) => receiptRequest("download", ev.currentTarget));
+      el("pay-send").addEventListener("click", (ev) => receiptRequest("email", ev.currentTarget));
 
       await load();
     })();

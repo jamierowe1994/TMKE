@@ -2999,6 +2999,134 @@ export default {
         return same();
       }
 
+      // ---- Admin: a receipt for one payment, as a PDF -----------------------
+      //
+      // Downloaded or emailed to accounts, not printed. The browser's print
+      // dialog was losing the top of the document and produced something nobody
+      // would want to send anyone.
+      //
+      // Stripe is asked again for the money. The label and the VAT split come
+      // from the caller (that context is ours, and was computed by
+      // /admin/payments moments earlier), but the amount, the fee and the date
+      // are re-read from the charge so the figures on a document that reaches
+      // an accounts team cannot be whatever a page happened to be holding.
+      if (path.endsWith("/admin/payments/receipt") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
+
+        const b = await request.json().catch(() => ({}));
+        const chargeId = String((b && b.id) || "").trim();
+        const action = (b && b.action) === "email" ? "email" : "download";
+        if (!/^ch_[A-Za-z0-9]+$/.test(chargeId)) return json({ error: "Missing or malformed charge id." }, 400, request, env);
+
+        try {
+          const charge = await stripeGet(env, `charges/${encodeURIComponent(chargeId)}`, { "expand[]": "balance_transaction" });
+          if (!charge || !charge.id) return json({ error: "No such payment." }, 404, request, env);
+          const bt = charge.balance_transaction && typeof charge.balance_transaction === "object" ? charge.balance_transaction : null;
+
+          const gross    = Number(charge.amount) || 0;
+          const fee      = bt ? Number(bt.fee) || 0 : null;
+          const refunded = Number(charge.amount_refunded) || 0;
+          const paidAt   = new Date((Number(charge.created) || 0) * 1000);
+
+          // Context from the caller, clamped: never wider than the money.
+          const label    = String((b && b.label) || "Payment").slice(0, 160);
+          const customer = String((b && b.customer) || "").slice(0, 160);
+          const source   = String((b && b.source) || "").slice(0, 40);
+          const derived  = !!(b && b.vat_derived);
+          let vat = Number(b && b.vat_pence);
+          if (!Number.isFinite(vat) || vat < 0 || vat > gross) vat = 0;
+          const net = gross - vat;
+
+          const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+          const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const money = (p) => (p == null ? "&mdash;" : "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+          const when = paidAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
+          const est = derived ? ' <span style="font-size:9pt;color:#8a6a3c;">est</span>' : "";
+          const row = (k, v, strong) => `<tr>
+            <td style="padding:7px 0;color:#6b5c61;font-size:10pt;">${esc(k)}</td>
+            <td style="padding:7px 0;text-align:right;font-size:${strong ? "13pt;font-weight:700" : "10pt"};color:#241419;">${v}</td></tr>`;
+
+          const html = `<!doctype html><html><head><meta charset="utf-8">
+            <style>
+              @page { size: A4; margin: 20mm; }
+              body { font-family: Verdana, Geneva, sans-serif; color:#241419; margin:0; }
+              .eyebrow { font-size:9pt; letter-spacing:0.18em; text-transform:uppercase; color:#8a8796; margin:0 0 6px; }
+              h1 { font-size:20pt; font-weight:400; margin:0 0 4px; }
+              .sub { font-size:10pt; color:#6b5c61; margin:0 0 26px; }
+              table { width:100%; border-collapse:collapse; }
+              .rule td { border-top:1px solid #e4dedf; }
+              .total td { border-top:2px solid #371e28; padding-top:12px; }
+              .foot { margin-top:28px; font-size:8.5pt; line-height:1.6; color:#8a8796; border-top:1px solid #e4dedf; padding-top:14px; }
+            </style></head><body>
+            <p class="eyebrow">${esc((st.company_name || "The Marketing Experts").toUpperCase())} &middot; Payment received</p>
+            <h1>${esc(label)}</h1>
+            <p class="sub">${esc(when)}${source ? " &middot; " + esc(source) : ""}</p>
+            <table>
+              ${row("Received from", esc(customer || "&mdash;"))}
+              ${row("Date", esc(when))}
+              ${source ? row("Source", esc(source)) : ""}
+              <tr class="rule"><td colspan="2" style="height:8px;"></td></tr>
+              ${row("Net", money(net) + est)}
+              ${row("VAT", money(vat) + est)}
+              <tr class="total">${`<td style="padding:12px 0 0;font-size:13pt;font-weight:700;">Gross paid</td><td style="padding:12px 0 0;text-align:right;font-size:13pt;font-weight:700;">${money(gross)}</td>`}</tr>
+              <tr class="rule"><td colspan="2" style="height:8px;"></td></tr>
+              ${row("Stripe fee", money(fee))}
+              ${row("Received in bank", money(fee == null ? null : gross - fee))}
+              ${refunded ? row("Refunded", money(refunded)) : ""}
+              ${row("Stripe reference", esc(charge.id))}
+            </table>
+            <p class="foot">
+              ${derived
+                ? "The VAT shown was worked back from the total at the standard rate. This payment was taken outside the Hub, so no split was recorded at the time &mdash; confirm against the source before relying on it for a return."
+                : "The VAT split shown is the one recorded when the payment was taken."}
+              <br>A record of a payment received, not a VAT invoice.
+              ${st.vat_number ? "<br>VAT number " + esc(st.vat_number) : ""}
+            </p></body></html>`;
+
+          const browser = await puppeteer.launch(env.BROWSER);
+          let pdf;
+          try {
+            const page = await browser.newPage();
+            await page.setContent(html, { waitUntil: "networkidle0" });
+            pdf = await page.pdf({ printBackground: true, preferCSSPageSize: true });
+          } finally { await browser.close(); }
+
+          const stamp = paidAt.toISOString().slice(0, 10);
+          const filename = `TMKE-receipt-${stamp}-${charge.id}.pdf`;
+
+          if (action === "email") {
+            const to = String((b && b.to) || env.ACCOUNTS_NOTIFY || "").trim();
+            if (!to) return json({ error: "No accounts address configured (ACCOUNTS_NOTIFY)." }, 503, request, env);
+            const sent = await sendEmail(env, {
+              to,
+              subject: `Payment received - ${label} - ${money(gross).replace("&mdash;", "-")}`,
+              html: await wrapInBrandedBase(env, `
+                <h1 style="${EM_H1}">Payment received</h1>
+                <p style="${EM_P}">${esc(label)}${customer ? " &mdash; " + esc(customer) : ""}, ${esc(when)}.</p>
+                <p style="${EM_P}">Gross ${money(gross)}, of which VAT ${money(vat)}${derived ? " (estimated)" : ""}. Stripe fee ${money(fee)}, so ${money(fee == null ? null : gross - fee)} reached the bank.</p>
+                <p style="${EM_P}">The receipt is attached, and the Stripe reference is <strong>${esc(charge.id)}</strong>.</p>`),
+              attachments: [{ filename, content: bufToBase64(pdf), contentType: "application/pdf" }],
+            });
+            if (!sent.ok) return json({ error: sent.error || "The receipt didn't send." }, 502, request, env);
+            return json({ ok: true, sent_to: to }, 200, request, env);
+          }
+
+          return new Response(pdf, {
+            status: 200,
+            headers: {
+              ...corsHeaders(request, env),
+              "Content-Type": "application/pdf",
+              "Content-Disposition": `attachment; filename="${filename}"`,
+            },
+          });
+        } catch (e) {
+          console.error("payments/receipt", String((e && e.message) || e).slice(0, 300));
+          return json({ error: "Couldn't build that receipt." }, 502, request, env);
+        }
+      }
+
       // ---- Admin: every payment, read from Stripe ---------------------------
       //
       // The one place that sees all of it. Packs, invoices and videography
