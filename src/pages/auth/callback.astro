@@ -27,6 +27,17 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
            of probing for members.
            Sign-in is where it belongs: an address AND a password, and the
            resend appears there once we know the account is theirs. -->
+      <!-- Nothing is verified until this is clicked.
+           Safe Links doesn't only fetch a URL to scan it, it can detonate it -
+           rendering the page in a sandbox with JavaScript running. A page that
+           verifies on load gets verified BY THE SCANNER, and the token is spent
+           before the recipient ever opens it. A sandbox renders; it doesn't
+           click. So the click is the thing that proves a human is here. -->
+      <div id="cb-confirm" class="cb-next" hidden>
+        <p class="cb-next-p" id="cb-confirm-p">Click below to continue.</p>
+        <button type="button" id="cb-confirm-btn" class="cb-btn-link"><span data-label>Continue</span> <span>&rarr;</span></button>
+      </div>
+
       <div id="cb-next" class="cb-next" hidden>
         <p class="cb-next-p">Sign in with the email and password you signed up with, and we'll send you a fresh link from there.</p>
         <a href="/login" class="cb-btn-link">Go to sign in <span>&rarr;</span></a>
@@ -78,6 +89,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     }
     .cb-btn-link {
       display: inline-flex; align-items: center; gap: 10px;
+      border: 0; cursor: pointer;
       padding: 13px 26px; border-radius: 3px; text-decoration: none;
       background: var(--english-violet); color: #fff;
       font-family: var(--sans); font-size: 11px; font-weight: 700;
@@ -152,14 +164,28 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       const tokenHash = params.get("token_hash");
       if (tokenHash) {
         const type = params.get("type") || "email";
-        const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
-        if (error) { fail(error.message); return; }
-        if (!routed) {
+        const $confirm = document.getElementById("cb-confirm");
+        const $confirmBtn = document.getElementById("cb-confirm-btn");
+        const $confirmP = document.getElementById("cb-confirm-p");
+
+        $headline.textContent = type === "recovery" ? "Set your new password" : "Confirm your email";
+        $confirmP.textContent = type === "recovery"
+          ? "Click below and we'll take you to choose a new password."
+          : "Click below to confirm your email and open your account.";
+        $confirmBtn.querySelector("[data-label]").textContent = type === "recovery" ? "Continue" : "Confirm my email";
+        $sub.hidden = true;
+        $confirm.hidden = false;
+
+        $confirmBtn.addEventListener("click", async () => {
+          $confirmBtn.setAttribute("disabled", "true");
+          $confirmBtn.querySelector("[data-label]").textContent = "One moment…";
+          const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+          if (error) { $confirm.hidden = true; fail(error.message); return; }
           routed = true;
           // Recovery links land here too; they need the password form, not the hub.
           if (type === "recovery") location.replace("/reset-password");
           else routeAfter();
-        }
+        }, { once: true });
         return;
       }
 
