@@ -85,7 +85,7 @@ const TILES = [
             <a href="/forgot-password" class="jn-forgot">Forgot password?</a>
           </div>
           <button type="submit" class="btn btn--solid jn-submit"><span data-label>Sign in</span> <span class="btn-arrow">&rarr;</span></button>
-          <p id="signin-error" class="jn-error" hidden></p>
+          <p id="signin-error" class="jn-error" hidden><span id="signin-error-text"></span> <button type="button" id="signin-resend" class="jn-linkbtn" hidden>Send me a new confirmation link</button></p>
         </form>
 
         <p class="jn-alt">New here? <a href="/join" class="jn-link">Create a free account</a></p>
@@ -155,6 +155,14 @@ const TILES = [
     .jn-alt { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; margin: 22px 0 0; }
     .jn-alt--shop { margin-top: 6px; }
     .jn-link { color: var(--english-violet); font-weight: 700; border-bottom: 1px solid currentColor; }
+    /* Reads as the link it is, but it's a button because it performs an action. */
+    .jn-linkbtn {
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: inherit; font-size: inherit;
+      color: var(--english-violet); font-weight: 700;
+      border-bottom: 1px solid currentColor;
+    }
+    .jn-linkbtn[disabled] { opacity: 0.6; cursor: default; }
 
     /* ---- Responsive ---- */
     @media (max-width: 860px) {
@@ -180,6 +188,29 @@ const TILES = [
     const drawer = document.getElementById("jn-drawer");
     const form = document.getElementById("signin-form");
     const errEl = document.getElementById("signin-error");
+    const errTextEl = document.getElementById("signin-error-text");
+    const resendBtn = document.getElementById("signin-resend");
+
+    resendBtn.addEventListener("click", async () => {
+      const email = resendBtn.dataset.email || "";
+      if (!email) return;
+      resendBtn.setAttribute("disabled", "true");
+      const orig = resendBtn.textContent;
+      resendBtn.textContent = "Sending…";
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: location.origin + "/auth/callback" },
+      });
+      if (error && /rate|limit|seconds/i.test(error.message || "")) {
+        resendBtn.textContent = orig;
+        resendBtn.removeAttribute("disabled");
+        errTextEl.textContent = "That was a moment ago — give it a minute and try again.";
+        return;
+      }
+      resendBtn.hidden = true;
+      errTextEl.textContent = "A new link is on its way. Open it in this browser, and check your spam or quarantine folder if it's slow.";
+    });
     let lastFocus = null;
 
     // ---- Post-auth routing (next param, else the dashboard via the splash) ----
@@ -271,7 +302,16 @@ const TILES = [
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         btn.removeAttribute("disabled"); label.textContent = orig;
-        errEl.textContent = error.message; errEl.hidden = false;
+        // "Email not confirmed" is a dead end on its own: they can't sign in
+        // until they confirm, and they can't register again because the
+        // address is taken. Hand them the only thing that helps.
+        const unconfirmed = /confirm/i.test(error.message || "");
+        errTextEl.textContent = unconfirmed
+          ? "This account hasn't been confirmed yet. Check your inbox for the link — including your spam or quarantine folder."
+          : error.message;
+        resendBtn.hidden = !unconfirmed;
+        resendBtn.dataset.email = unconfirmed ? email : "";
+        errEl.hidden = false;
         return;
       }
       routeAfterSignIn();

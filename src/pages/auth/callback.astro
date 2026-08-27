@@ -18,6 +18,19 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         One moment — we're verifying the link and signing you in.
       </p>
       <p id="cb-error" class="cb-error" hidden></p>
+
+      <!-- "Back to sign in" is a dead end on its own: an unconfirmed account
+           can't sign in, and the address is taken so they can't register
+           again. The way out of a dead link is another link. -->
+      <form id="cb-resend" class="cb-resend" hidden>
+        <label class="cb-label" for="cb-email">Send yourself a new link</label>
+        <div class="cb-resend-row">
+          <input type="email" id="cb-email" name="email" required autocomplete="email" placeholder="you@agency.co.uk" class="cb-input" />
+          <button type="submit" class="cb-btn"><span data-label>Send</span></button>
+        </div>
+        <p id="cb-resend-msg" class="cb-resend-msg" hidden></p>
+      </form>
+
       <a href="/login" id="cb-retry" class="cb-cta" hidden>Back to sign in <span>&rarr;</span></a>
     </div>
   </main>
@@ -57,6 +70,32 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       padding: 12px 16px; border-radius: 2px;
       margin: 0 0 18px;
     }
+    .cb-resend { margin: 22px 0 18px; text-align: left; }
+    .cb-label {
+      display: block; font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
+      color: rgba(28,29,34,0.55); margin-bottom: 8px;
+    }
+    .cb-resend-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cb-input {
+      flex: 1 1 200px; min-width: 0; padding: 11px 13px;
+      border: 1px solid rgba(28,29,34,0.2); border-radius: 3px;
+      font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff;
+    }
+    .cb-input:focus { outline: none; border-color: var(--english-violet); }
+    .cb-btn {
+      flex: none; padding: 11px 22px; border: 0; border-radius: 3px; cursor: pointer;
+      background: var(--english-violet); color: #fff;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .cb-btn[disabled] { opacity: 0.55; cursor: default; }
+    .cb-resend-msg {
+      font-family: var(--sans); font-size: 13px; line-height: 1.5;
+      margin: 10px 0 0; color: #2e6b40;
+    }
+    .cb-resend-msg.is-bad { color: #a05a3c; }
+
     .cb-cta {
       display: inline-flex; align-items: center; gap: 10px;
       font-family: var(--sans); font-size: 12px;
@@ -76,13 +115,49 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
     const $error = document.getElementById("cb-error");
     const $retry = document.getElementById("cb-retry");
 
+    const $resend = document.getElementById("cb-resend");
+    const $resendMsg = document.getElementById("cb-resend-msg");
+
     function fail(msg) {
-      $headline.textContent = "Couldn't sign you in.";
-      $sub.textContent = "The link may have expired or already been used.";
+      $headline.textContent = "That link didn't work.";
+      $sub.textContent = "It may have expired, been used already, or been opened in a different browser from the one you signed up in. Any of those is fixable — send yourself a fresh one.";
       $error.textContent = msg;
       $error.hidden = false;
+      $resend.hidden = false;
       $retry.hidden = false;
     }
+
+    // Neutral wording whatever the outcome: this form is public, so it must not
+    // become a way of finding out which addresses have accounts.
+    $resend.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = String(document.getElementById("cb-email").value || "").trim();
+      if (!email) return;
+      const btn = $resend.querySelector("button");
+      const label = btn.querySelector("[data-label]");
+      const orig = label.textContent;
+      btn.setAttribute("disabled", "true");
+      label.textContent = "Sending…";
+      $resendMsg.hidden = true;
+      $resendMsg.classList.remove("is-bad");
+
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: location.origin + "/auth/callback" },
+      });
+
+      label.textContent = orig;
+      $resendMsg.hidden = false;
+      if (error && /rate|limit|seconds/i.test(error.message || "")) {
+        // Worth saying plainly - otherwise it reads as another broken thing.
+        $resendMsg.classList.add("is-bad");
+        $resendMsg.textContent = "That was a moment ago — give it a minute and try again.";
+        btn.removeAttribute("disabled");
+        return;
+      }
+      $resendMsg.textContent = "If that address needs confirming, a new link is on its way. Open it in this browser.";
+    });
 
     function routeAfter() {
       const params = new URLSearchParams(location.search);
