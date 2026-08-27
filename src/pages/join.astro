@@ -201,6 +201,8 @@ const TILES = [
     import { supabase } from "../lib/supabase.js";
     import { signUpMember } from "../lib/member-signup.js";
 
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) location.replace("/account");
@@ -235,20 +237,28 @@ const TILES = [
       resendBtn.setAttribute("disabled", "true");
       const orig = resendBtn.textContent;
       resendBtn.textContent = "Sending…";
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: location.origin + "/auth/callback" },
-      });
+      // The Worker, not supabase.auth.resend(): Supabase's own link gets eaten
+      // by mail scanners. A recovery link confirms the account and lets them
+      // set a password, which is what someone stuck here actually needs.
+      let failed = false;
+      try {
+        const res = await fetch(`${WORKER}/auth/reset-link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        failed = !res.ok;
+      } catch (_) { failed = true; }
+
       resendMsg.hidden = false;
-      if (error && /rate|limit|seconds/i.test(error.message || "")) {
+      if (failed) {
         resendBtn.textContent = orig;
         resendBtn.removeAttribute("disabled");
-        resendMsg.textContent = "That was a moment ago — give it a minute and try again.";
+        resendMsg.textContent = "We couldn't send that just now — try again in a moment.";
         return;
       }
       resendBtn.textContent = "Sent";
-      resendMsg.textContent = "On its way. Remember to open it in this browser.";
+      resendMsg.textContent = "On its way. It'll let you set your password and go straight in.";
     });
     const doneEl = document.getElementById("jn-done");
     const altEl = document.getElementById("jn-alt");

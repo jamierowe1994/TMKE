@@ -85,7 +85,7 @@ const TILES = [
             <a href="/forgot-password" class="jn-forgot">Forgot password?</a>
           </div>
           <button type="submit" class="btn btn--solid jn-submit"><span data-label>Sign in</span> <span class="btn-arrow">&rarr;</span></button>
-          <p id="signin-error" class="jn-error" hidden><span id="signin-error-text"></span> <button type="button" id="signin-resend" class="jn-linkbtn" hidden>Send me a new confirmation link</button></p>
+          <p id="signin-error" class="jn-error" hidden><span id="signin-error-text"></span> <button type="button" id="signin-resend" class="jn-linkbtn" hidden>Send me a link to get in</button></p>
         </form>
 
         <p class="jn-alt">New here? <a href="/join" class="jn-link">Create a free account</a></p>
@@ -185,6 +185,8 @@ const TILES = [
   <script>
     import { supabase } from "../lib/supabase.js";
 
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+
     const drawer = document.getElementById("jn-drawer");
     const form = document.getElementById("signin-form");
     const errEl = document.getElementById("signin-error");
@@ -197,19 +199,28 @@ const TILES = [
       resendBtn.setAttribute("disabled", "true");
       const orig = resendBtn.textContent;
       resendBtn.textContent = "Sending…";
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email,
-        options: { emailRedirectTo: location.origin + "/auth/callback" },
-      });
-      if (error && /rate|limit|seconds/i.test(error.message || "")) {
+      // The Worker, not supabase.auth.resend(): Supabase's own email carries a
+      // link that a mail scanner consumes before the recipient sees it. This
+      // sends a recovery link, which confirms the account and lets them set a
+      // password in one go — the right destination for someone locked out.
+      let failed = false;
+      try {
+        const res = await fetch(`${WORKER}/auth/reset-link`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        failed = !res.ok;
+      } catch (_) { failed = true; }
+
+      if (failed) {
         resendBtn.textContent = orig;
         resendBtn.removeAttribute("disabled");
-        errTextEl.textContent = "That was a moment ago — give it a minute and try again.";
+        errTextEl.textContent = "We couldn't send that just now. Please try again in a moment.";
         return;
       }
       resendBtn.hidden = true;
-      errTextEl.textContent = "A new link is on its way. Open it in this browser, and check your spam or quarantine folder if it's slow.";
+      errTextEl.textContent = "A link is on its way. Open it and you'll be able to set a password and get straight in. Check your spam or quarantine folder if it's slow.";
     });
     let lastFocus = null;
 

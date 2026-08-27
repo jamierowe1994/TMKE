@@ -2853,6 +2853,82 @@ export default {
         return json({ received: true }, 200, request, env);
       }
 
+      // ---- Public: sign up, with a confirmation link that survives a scanner --
+      //
+      // Same reasoning as /auth/reset-link below. supabase.auth.signUp() sends
+      // Supabase's own confirmation email, whose link a Microsoft mail scanner
+      // consumes before the recipient sees it - so new members could not confirm
+      // their account at all. generate_link creates the user AND hands back the
+      // hashed_token, so we send our own branded email pointing at
+      // /auth/callback, which verifies only once a human clicks.
+      if (path.endsWith("/auth/signup") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const email = String((b && b.email) || "").trim().toLowerCase();
+        const password = String((b && b.password) || "");
+        const fullName = String((b && b.full_name) || "").trim().slice(0, 120);
+
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please enter a valid email address." }, 400, request, env);
+        if (password.length < 8) return json({ error: "Choose a password of at least 8 characters." }, 400, request, env);
+
+        // Said plainly rather than hidden. The sign-up form already tells people
+        // when an address is taken - it has to, or they cannot act on it - so
+        // pretending otherwise here would only make the form lie.
+        const existing = await findUserByEmail(env, email);
+        if (existing && existing.id) return json({ existing: true }, 200, request, env);
+
+        const now = Date.now();
+        const last = RESET_COOLDOWN.get("signup:" + email) || 0;
+        if (now - last < 60_000) return json({ ok: true, needsConfirm: true }, 200, request, env);
+        RESET_COOLDOWN.set("signup:" + email, now);
+
+        try {
+          const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+          const gl = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/generate_link`, {
+            method: "POST",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "signup", email, password,
+              options: { data: { full_name: fullName || null }, redirect_to: `${site}/account` },
+            }),
+          });
+          if (!gl.ok) {
+            const t = await gl.text().catch(() => "");
+            if (/already|registered|exists/i.test(t)) return json({ existing: true }, 200, request, env);
+            console.error("signup generate_link", gl.status, t.slice(0, 200));
+            return json({ error: "Something went wrong creating your account. Please try again." }, 502, request, env);
+          }
+          const gj = await gl.json().catch(() => ({}));
+          const hashed = (gj && (gj.hashed_token || (gj.properties && gj.properties.hashed_token))) || "";
+          if (!hashed) {
+            console.error("signup: no hashed_token in generate_link reply");
+            return json({ error: "Something went wrong creating your account. Please try again." }, 502, request, env);
+          }
+
+          const link = `${site}/auth/callback?token_hash=${encodeURIComponent(hashed)}&type=signup`;
+          const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+          const first = (fullName.split(/\s+/)[0] || "there").trim();
+          const content = `
+            <h1 style="${EM_H1}">Confirm your email</h1>
+            <p style="${EM_P}">Hi ${esc(first)},</p>
+            <p style="${EM_P}">Thanks for creating a TMKE account. Click below to confirm your email and open your member hub.</p>
+            <p style="margin:0 0 24px;"><a href="${esc(link)}" style="${EM_BTN}">Confirm my email</a></p>
+            <p style="${EM_P}">If the button doesn't work, paste this into your browser:<br><span style="color:#371e28;word-break:break-all;">${esc(link)}</span></p>
+            <p style="${EM_SMALL}">Didn't sign up? Ignore this email &mdash; the account stays unconfirmed and can't be used.</p>`;
+          const html = await wrapInBrandedBase(env, content);
+          const sent = await sendEmail(env, { to: email, subject: "Confirm your email - TMKE", html });
+          if (!sent.ok) {
+            // The account exists now, so saying "try again" would be a lie - a
+            // second attempt hits "already registered". Say what is true.
+            console.error("signup send failed", sent.error);
+            return json({ ok: true, needsConfirm: true, emailFailed: true }, 200, request, env);
+          }
+          return json({ ok: true, needsConfirm: true }, 200, request, env);
+        } catch (e) {
+          console.error("signup", String((e && e.message) || e).slice(0, 200));
+          return json({ error: "Something went wrong creating your account. Please try again." }, 502, request, env);
+        }
+      }
+
       // ---- Public: send a password-reset link that survives a mail scanner ---
       //
       // Not supabase.auth.resetPasswordForEmail(). That sends Supabase's own

@@ -1,15 +1,25 @@
-// Shared self-serve member sign-up, used by the /join page. Creates a Supabase auth
-// account (client-side, so the confirmation email still gates it) and — if the
-// person ticks marketing consent — brings them into the CRM via the existing
-// public /newsletter path.
-import { supabase } from "./supabase.js";
+// Shared self-serve member sign-up, used by the /join page. The account is
+// created by the Worker rather than here, and — if the person ticks marketing
+// consent — they come into the CRM via the existing public /newsletter path.
+//
+// Why the Worker and not supabase.auth.signUp():
+//
+// signUp() makes Supabase send its own confirmation email, and that email's
+// link is a plain GET that verifies and CONSUMES the token the moment anything
+// requests it. Microsoft's mail scanners request it, to check it, before the
+// recipient ever clicks — so the link is genuinely spent by the time a person
+// opens it and they are told it has expired. New members could not confirm
+// their account at all.
+//
+// The Worker creates the account and emails a link to /auth/callback carrying a
+// token_hash instead. That page verifies nothing until a human presses a
+// button, which a scanner won't do. Same fix as the password-reset flow.
 
 // .trim(): the deployed value carries a leading space.
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-// One wording for "you already have an account", used by both routes below —
-// Supabase reports the same situation two different ways.
 const EXISTS_MSG = "You already have an account with this email address.";
+const GENERIC_MSG = "Something went wrong creating your account. Please try again, or get in touch if it keeps happening.";
 
 export async function signUpMember({ fullName, email, password, marketing }) {
   fullName = String(fullName || "").trim();
@@ -18,38 +28,29 @@ export async function signUpMember({ fullName, email, password, marketing }) {
   if (!fullName) return { error: "Please add your name." };
   if (!EMAIL_RE.test(email)) return { error: "Please enter a valid email address." };
   if (password.length < 8) return { error: "Choose a password of at least 8 characters." };
+  if (!WORKER) return { error: GENERIC_MSG };
 
-  // /auth/callback, not /account. Two reasons, and the flow is broken without
-  // both: only the callback calls exchangeCodeForSession, so /account would
-  // land them not signed in; and /account isn't on Supabase's redirect
-  // allow-list, so Supabase would ignore it and fall back to the Site URL —
-  // dropping a newly confirmed member on the homepage. The callback exchanges
-  // the code and then routes on to /account (or /profile first time).
-  const redirect = (typeof location !== "undefined" ? location.origin : "") + "/auth/callback";
-  let data, error;
+  let res, body;
   try {
-    ({ data, error } = await supabase.auth.signUp({
-      email, password,
-      options: { data: { full_name: fullName }, emailRedirectTo: redirect },
-    }));
+    res = await fetch(`${WORKER}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, full_name: fullName }),
+    });
+    body = await res.json().catch(() => ({}));
   } catch (e) {
-    return { error: (e && e.message) || "Something went wrong — please try again." };
+    console.error("[signup]", e);
+    return { error: GENERIC_MSG };
   }
-  if (error) {
-    if (/already|registered|exists/i.test(error.message || "")) return { existing: true, error: EXISTS_MSG };
-    // Anything else is ours to explain, not theirs to decode. Supabase's raw text
-    // leaks internals ("Error sending confirmation email") and reads as though
-    // nothing was created — when in fact the account usually has been.
-    console.error("[signup]", error);
-    return { error: "Something went wrong creating your account. Please try again, or get in touch if it keeps happening." };
+
+  if (body && body.existing) return { existing: true, error: EXISTS_MSG };
+  if (!res.ok || !body || !body.ok) {
+    console.error("[signup]", res.status, body);
+    return { error: (body && body.error) || GENERIC_MSG };
   }
-  // Supabase hides existing emails: it returns a user with no identities and no
-  // session rather than an error. Treat that as "already registered".
-  if (data && data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-    return { existing: true, error: EXISTS_MSG };
-  }
+
   // Consented marketing → become a CRM contact (existing newsletter path).
-  if (marketing && WORKER) {
+  if (marketing) {
     try {
       await fetch(`${WORKER}/newsletter`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -57,5 +58,11 @@ export async function signUpMember({ fullName, email, password, marketing }) {
       });
     } catch (_) {}
   }
-  return { ok: true, needsConfirm: !(data && data.session), session: (data && data.session) || null };
+
+  // Always needsConfirm: the account is created unconfirmed on purpose, so
+  // there is never a session to hand back here. emailFailed rides along so the
+  // page can say the account exists but the email didn't leave — telling them
+  // to try again would be wrong, since a second attempt hits "already
+  // registered".
+  return { ok: true, needsConfirm: true, emailFailed: !!(body && body.emailFailed) };
 }
