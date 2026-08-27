@@ -3209,7 +3209,7 @@ export default {
           };
           const [orderById, invoiceById, editById] = await Promise.all([
             fetchSplits("pack", "orders", "id,pack_title,buyer_name,buyer_email,amount_pence,vat_pence,total_pence"),
-            fetchSplits("invoice", "invoices", "id,number,subtotal_pence,vat_pence,total_pence"),
+            fetchSplits("invoice", "invoices", "id,number,booking_source,subtotal_pence,vat_pence,total_pence"),
             fetchSplits("videography", "videography_edit_requests", "id,booking_id,twilight_items,extra_images_qty,vat_pence,total_pence"),
           ]);
 
@@ -3223,13 +3223,18 @@ export default {
             if (st && st.vat_rate != null) vatRate = Number(st.vat_rate);
           } catch (_) {}
 
+          // "Invoice" alone isn't enough in the Source column: the same client
+          // is invoiced for shoots AND for social, and the invoice number
+          // doesn't say which.
+          const strandLabel = (v) => v === "smm" ? "Social media" : v === "videography" ? "Videography" : null;
+
           const out = tagged.map(({ charge: c, source, ref, kind, number }) => {
             const bt = c.balance_transaction && typeof c.balance_transaction === "object" ? c.balance_transaction : null;
             const gross = Number(c.amount) || 0;
             const refunded = Number(c.amount_refunded) || 0;
             const fee = bt ? Number(bt.fee) || 0 : null;
 
-            let net = null, vat = null, derived = true, label = c.description || "Payment", customer = null;
+            let net = null, vat = null, derived = true, label = c.description || "Payment", customer = null, strand = null;
             if (source === "pack") {
               const r = orderById.get(ref);
               if (r) {
@@ -3240,6 +3245,7 @@ export default {
             } else if (source === "invoice") {
               const r = invoiceById.get(ref);
               label = `Invoice ${(r && r.number) || number || ""}`.trim();
+              strand = strandLabel(r && r.booking_source);
               if (r && r.vat_pence != null) { net = Number(r.subtotal_pence) || 0; vat = Number(r.vat_pence) || 0; derived = false; }
             } else if (source === "videography") {
               const r = editById.get(ref);
@@ -3262,7 +3268,7 @@ export default {
             return {
               id: c.id,
               paid_at: new Date((Number(c.created) || 0) * 1000).toISOString(),
-              source, ref, label,
+              source, ref, label, strand,
               customer: customer || (c.billing_details && c.billing_details.name) || (c.billing_details && c.billing_details.email) || null,
               gross_pence: gross,
               net_pence: net,
@@ -3288,7 +3294,7 @@ export default {
             const seenInvoices = new Set(out.filter((r) => r.source === "invoice" && r.ref).map((r) => String(r.ref)));
             const paidInvoices = await sbGet(env, "invoices",
               `status=eq.paid&paid_date=gte.${sinceDate}`
-              + "&select=id,number,bill_to_name,subtotal_pence,vat_pence,total_pence,paid_date,payment_method&limit=1000");
+              + "&select=id,number,booking_source,bill_to_name,subtotal_pence,vat_pence,total_pence,paid_date,payment_method&limit=1000");
             for (const inv of paidInvoices || []) {
               if (seenInvoices.has(String(inv.id))) continue;
               const gross = Number(inv.total_pence) || 0;
@@ -3300,6 +3306,7 @@ export default {
                 id: `inv_${inv.id}`,
                 paid_at: new Date(`${inv.paid_date}T12:00:00Z`).toISOString(),
                 source: "invoice", ref: String(inv.id),
+                strand: strandLabel(inv.booking_source),
                 label: `Invoice ${inv.number || ""}`.trim() + (method && method !== "card" ? ` (${method})` : ""),
                 customer: inv.bill_to_name || null,
                 gross_pence: gross,
