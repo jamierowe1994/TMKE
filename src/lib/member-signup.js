@@ -19,7 +19,13 @@ export async function signUpMember({ fullName, email, password, marketing }) {
   if (!EMAIL_RE.test(email)) return { error: "Please enter a valid email address." };
   if (password.length < 8) return { error: "Choose a password of at least 8 characters." };
 
-  const redirect = (typeof location !== "undefined" ? location.origin : "") + "/account";
+  // /auth/callback, not /account. Two reasons, and the flow is broken without
+  // both: only the callback calls exchangeCodeForSession, so /account would
+  // land them not signed in; and /account isn't on Supabase's redirect
+  // allow-list, so Supabase would ignore it and fall back to the Site URL —
+  // dropping a newly confirmed member on the homepage. The callback exchanges
+  // the code and then routes on to /account (or /profile first time).
+  const redirect = (typeof location !== "undefined" ? location.origin : "") + "/auth/callback";
   let data, error;
   try {
     ({ data, error } = await supabase.auth.signUp({
