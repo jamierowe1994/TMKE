@@ -316,12 +316,12 @@ import "../../styles/admin.css";
         ${line("Net", esc(gbp(p.net_pence)) + (p.vat_derived ? ' <span class="pay-est">est</span>' : ""))}
         ${line("VAT", esc(gbp(p.vat_pence)) + (p.vat_derived ? ' <span class="pay-est">est</span>' : ""))}
         ${line("Gross paid", esc(gbp(p.gross_pence)), "rc-total")}
-        ${line("Stripe fee", esc(gbp(p.fee_pence)))}
+        ${p.off_stripe ? "" : line("Stripe fee", esc(gbp(p.fee_pence)))}
         ${line("Received in bank", esc(gbp(p.received_pence)))}
         ${p.refunded_pence ? line("Refunded", esc(gbp(p.refunded_pence))) : ""}
-        ${line("Stripe reference", esc(p.id))}
+        ${line(p.off_stripe ? "Reference" : "Stripe reference", esc(p.off_stripe ? p.label : p.id))}
         <p class="rc-foot">
-          ${p.vat_derived
+          ${p.off_stripe ? "Settled outside Stripe, so the full amount reached the bank. " : ""}${p.vat_derived
             ? "The VAT on this payment was worked back from the total at the standard rate — it was taken outside the Hub, so no split was recorded at the time. Confirm against the source before relying on it for a return."
             : "The VAT split shown is the one recorded when the payment was taken."}
           <br>A record of a payment received, not a VAT invoice.

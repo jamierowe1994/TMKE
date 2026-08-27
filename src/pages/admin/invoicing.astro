@@ -18,6 +18,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     <nav class="inv-tabs" id="inv-tabs">
       <button type="button" class="inv-tab is-active" data-tab="create">Create invoice</button>
       <button type="button" class="inv-tab" data-tab="invoices">Invoices</button>
+      <button type="button" class="inv-tab" data-tab="report">Month end</button>
       <button type="button" class="inv-tab" data-tab="settings">Settings</button>
       <button type="button" class="inv-tab" data-tab="template">Template</button>
       <button type="button" class="inv-tab" data-tab="book">Address book</button>
@@ -86,6 +87,27 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         <div class="ash-card-head"><div class="ash-card-title">Invoices</div></div>
         <div class="ash-card-body">
           <div class="inv-list" id="inv-list"><p class="inv-empty">Loading…</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Month end: what accounts has to confirm -->
+    <section class="inv-panel" data-panel="report" hidden>
+      <div class="ash-card">
+        <div class="ash-card-head">
+          <div class="ash-card-title">Month end</div>
+          <div class="rep-controls">
+            <input type="month" id="rep-month" class="rep-month" />
+            <button type="button" class="inv-pdf-btn" id="rep-copy">Copy for email</button>
+          </div>
+        </div>
+        <div class="ash-card-body">
+          <p class="inv-empty" id="rep-state">Loading…</p>
+          <div id="rep-out" hidden>
+            <div class="rep-totals" id="rep-totals"></div>
+            <div id="rep-tables"></div>
+          </div>
+          <p class="inv-msg" id="rep-msg" hidden></p>
         </div>
       </div>
     </section>
@@ -337,6 +359,33 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .ci-totals .r { display: flex; justify-content: space-between; font-size: 13.5px; padding: 3px 0; color: rgba(28,29,34,0.7); }
     .ci-totals .r.grand { font-size: 16px; font-weight: 800; color: var(--ink); margin-top: 4px; }
     .inv-list { display: flex; flex-direction: column; gap: 8px; overflow-x: auto; }
+
+    .rep-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .rep-month {
+      padding: 7px 10px; border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 3px;
+      font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff;
+    }
+    .rep-totals { display: flex; gap: 26px; flex-wrap: wrap; margin: 0 0 22px; }
+    .rep-tot-k {
+      display: block; font-family: var(--sans); font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5); margin-bottom: 4px;
+    }
+    .rep-tot-v { font-family: var(--sans); font-size: 19px; font-weight: 700; color: var(--ink); }
+    .rep-group { margin: 0 0 28px; }
+    .rep-group h4 {
+      font-family: var(--sans); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--english-violet); margin: 0 0 4px;
+    }
+    .rep-group p.rep-why { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 0 0 12px; }
+    .rep-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .rep-table th {
+      text-align: left; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5); padding: 0 10px 8px 0; border-bottom: 1px solid rgba(28,29,34,0.12);
+    }
+    .rep-table td { padding: 9px 10px 9px 0; border-bottom: 1px solid rgba(28,29,34,0.07); vertical-align: top; }
+    .rep-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .rep-late { color: #a05a3c; font-weight: 600; }
+    .rep-wrap { overflow-x: auto; }
     .invrow { min-width: 860px; }
     /* No cap on this panel: the row needs the width, and capping it was what
        forced the name column and the buttons to compete for the same pixels. */
@@ -438,6 +487,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (tab === "template") scaleFit();
       if (tab === "create") ciScaleFit();
       if (tab === "invoices") loadInvoices();
+      if (tab === "report") loadReport();
     });
 
     function msg(id, text, ok) { const m = $(id); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
@@ -872,6 +922,131 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const vd = e.target.closest(".invvoid");
       if (vd) { const reason = prompt("Void this invoice? It'll be removed and accounts + you will be emailed.\n\nReason for voiding:"); if (reason === null) return; vd.disabled = true; try { await api("/invoicing/invoices/void", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: vd.getAttribute("data-voidid"), reason }) }); loadInvoices(); } catch (err) { alert(err.message); vd.disabled = false; } return; }
     });
+
+    // ---- Month end -------------------------------------------------------
+    // Two questions, so two tables: has the inter-brand transfer actually been
+    // done, and has the ordinary invoice landed in the bank. Accounts answers
+    // them per row, which is why this exists as a table to paste into an email
+    // rather than a figure on a screen.
+    let repRows = [];
+    let repMonth = "";
+
+    function repMonthLabel(m) {
+      const [y, mo] = String(m || "").split("-").map(Number);
+      if (!y || !mo) return m || "";
+      return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+    }
+    const repDate = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+
+    function repTable(rows) {
+      if (!rows.length) return '<p class="inv-empty">Nothing here.</p>';
+      return `<div class="rep-wrap"><table class="rep-table">
+        <thead><tr><th>Invoice</th><th>Billed to</th><th>Issued</th><th>Due</th><th class="num">Amount</th><th>Status</th></tr></thead>
+        <tbody>${rows.map((r) => `<tr>
+          <td>${esc(r.number)}</td>
+          <td>${esc(r.bill_to)}${r.brand ? `<br><span style="font-size:11.5px;color:rgba(28,29,34,0.5)">${esc(r.brand)}</span>` : ""}</td>
+          <td>${esc(repDate(r.issued_date))}</td>
+          <td>${esc(repDate(r.due_date))}</td>
+          <td class="num">${gbp(r.total_pence)}</td>
+          <td>${r.status === "paid"
+                ? `Paid ${esc(repDate(r.paid_date))}`
+                : r.days_overdue
+                  ? `<span class="rep-late">${r.days_overdue} day${r.days_overdue === 1 ? "" : "s"} overdue</span>`
+                  : esc(r.status)}</td>
+        </tr>`).join("")}</tbody></table></div>`;
+    }
+
+    async function loadReport() {
+      const state = $("rep-state"), out = $("rep-out");
+      state.hidden = false; state.textContent = "Loading…"; out.hidden = true;
+      $("rep-msg").hidden = true;
+      if (!WORKER) { state.textContent = "Connect the Worker to pull a report."; return; }
+      try {
+        const q = repMonth ? `?month=${encodeURIComponent(repMonth)}` : "";
+        const d = await api("/invoicing/report" + q);
+        repRows = d.payments || [];
+        repMonth = d.month;
+        $("rep-month").value = d.month;
+
+        const t = d.totals || {};
+        $("rep-totals").innerHTML = [
+          ["Raised this month", t.raised],
+          ["Outstanding &mdash; inter-brand", t.outstanding_inter_brand],
+          ["Outstanding &mdash; everything else", t.outstanding_other],
+        ].map(([k, v]) => `<div><span class="rep-tot-k">${k}</span><span class="rep-tot-v">${gbp(v || 0)}</span></div>`).join("");
+
+        const brandRows = repRows.filter((r) => r.outstanding && r.inter_brand);
+        const otherRows = repRows.filter((r) => r.outstanding && !r.inter_brand);
+        const paidRows  = repRows.filter((r) => !r.outstanding && r.raised_this_month);
+
+        $("rep-tables").innerHTML = `
+          <div class="rep-group">
+            <h4>Inter-brand &mdash; outstanding</h4>
+            <p class="rep-why">Please confirm each of these transfers has actually been made.</p>
+            ${repTable(brandRows)}
+          </div>
+          <div class="rep-group">
+            <h4>Outstanding &mdash; everything else</h4>
+            <p class="rep-why">Please confirm whether payment has landed in the bank account.</p>
+            ${repTable(otherRows)}
+          </div>
+          <div class="rep-group">
+            <h4>Settled this month</h4>
+            <p class="rep-why">For the record &mdash; no action needed.</p>
+            ${repTable(paidRows)}
+          </div>`;
+        state.hidden = true; out.hidden = false;
+      } catch (err) { state.textContent = err.message; }
+    }
+
+    // Copied as HTML *and* plain text: Outlook takes the table, anything that
+    // can't renders a readable list instead of one long unbroken line.
+    async function copyReport() {
+      if (!repRows.length) return;
+      const msg = $("rep-msg");
+      const brandRows = repRows.filter((r) => r.outstanding && r.inter_brand);
+      const otherRows = repRows.filter((r) => r.outstanding && !r.inter_brand);
+      const money = (p) => "£" + ((p || 0) / 100).toFixed(2);
+
+      const htmlTable = (rows) => rows.length
+        ? `<table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:Verdana,sans-serif;font-size:12px;">
+             <tr style="background:#f4f2f1;"><th align="left">Invoice</th><th align="left">Billed to</th><th align="left">Issued</th><th align="left">Due</th><th align="right">Amount</th><th align="left">Status</th></tr>
+             ${rows.map((r) => `<tr><td>${esc(r.number)}</td><td>${esc(r.bill_to)}${r.brand ? " (" + esc(r.brand) + ")" : ""}</td><td>${esc(repDate(r.issued_date))}</td><td>${esc(repDate(r.due_date))}</td><td align="right">${money(r.total_pence)}</td><td>${r.days_overdue ? esc(r.days_overdue + " days overdue") : esc(r.status)}</td></tr>`).join("")}
+           </table>`
+        : "<p>Nothing outstanding.</p>";
+
+      const html = `<div style="font-family:Verdana,sans-serif;font-size:12px;">
+        <p><strong>Invoice position &mdash; ${esc(repMonthLabel(repMonth))}</strong></p>
+        <p><strong>Inter-brand &mdash; please confirm each transfer has been made:</strong></p>
+        ${htmlTable(brandRows)}
+        <p><strong>Everything else &mdash; please confirm whether payment has landed:</strong></p>
+        ${htmlTable(otherRows)}
+      </div>`;
+
+      const textTable = (rows) => rows.length
+        ? rows.map((r) => `  ${r.number}  ${r.bill_to}${r.brand ? " (" + r.brand + ")" : ""}  issued ${repDate(r.issued_date)}  due ${repDate(r.due_date)}  ${money(r.total_pence)}  ${r.days_overdue ? r.days_overdue + " days overdue" : r.status}`).join("\n")
+        : "  Nothing outstanding.";
+      const text = `Invoice position - ${repMonthLabel(repMonth)}\n\n`
+        + `Inter-brand - please confirm each transfer has been made:\n${textTable(brandRows)}\n\n`
+        + `Everything else - please confirm whether payment has landed:\n${textTable(otherRows)}\n`;
+
+      try {
+        if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+          await navigator.clipboard.write([new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" }),
+          })]);
+        } else {
+          await navigator.clipboard.writeText(text);
+        }
+        msg.hidden = false; msg.textContent = "Copied — paste it straight into an email.";
+      } catch (_) {
+        msg.hidden = false; msg.textContent = "Couldn't reach the clipboard. Select the tables above and copy manually.";
+      }
+    }
+
+    $("rep-month").addEventListener("change", (e) => { repMonth = e.target.value; loadReport(); });
+    $("rep-copy").addEventListener("click", copyReport);
 
     document.addEventListener("ash:ready", () => { initTemplate(); loadSettings(); loadRecipients(); });
   </script>

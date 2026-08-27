@@ -3016,19 +3016,37 @@ export default {
         if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
 
         const b = await request.json().catch(() => ({}));
-        const chargeId = String((b && b.id) || "").trim();
+        const rowId = String((b && b.id) || "").trim();
         const action = (b && b.action) === "email" ? "email" : "download";
-        if (!/^ch_[A-Za-z0-9]+$/.test(chargeId)) return json({ error: "Missing or malformed charge id." }, 400, request, env);
+        // Two kinds of payment reach this page, so two sources of truth. A
+        // Stripe charge is re-read from Stripe; an invoice settled by bank
+        // transfer or direct debit never touched Stripe, so its own row is the
+        // authority. Either way the money is re-read rather than trusted from
+        // the browser.
+        const offStripe = /^inv_[0-9a-f-]{36}$/i.test(rowId);
+        if (!offStripe && !/^ch_[A-Za-z0-9]+$/.test(rowId)) return json({ error: "Missing or malformed payment id." }, 400, request, env);
 
         try {
-          const charge = await stripeGet(env, `charges/${encodeURIComponent(chargeId)}`, { "expand[]": "balance_transaction" });
-          if (!charge || !charge.id) return json({ error: "No such payment." }, 404, request, env);
-          const bt = charge.balance_transaction && typeof charge.balance_transaction === "object" ? charge.balance_transaction : null;
-
-          const gross    = Number(charge.amount) || 0;
-          const fee      = bt ? Number(bt.fee) || 0 : null;
-          const refunded = Number(charge.amount_refunded) || 0;
-          const paidAt   = new Date((Number(charge.created) || 0) * 1000);
+          let gross, fee, refunded, paidAt, reference;
+          if (offStripe) {
+            const invId = rowId.slice(4);
+            const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invId)}&select=id,number,total_pence,paid_date,payment_method&limit=1`))?.[0];
+            if (!inv) return json({ error: "No such invoice." }, 404, request, env);
+            gross = Number(inv.total_pence) || 0;
+            fee = 0;                       // never went through Stripe
+            refunded = 0;
+            paidAt = new Date(`${inv.paid_date || new Date().toISOString().slice(0, 10)}T12:00:00Z`);
+            reference = `${inv.number || invId}${inv.payment_method ? " · " + String(inv.payment_method).replace(/_/g, " ") : ""}`;
+          } else {
+            const charge = await stripeGet(env, `charges/${encodeURIComponent(rowId)}`, { "expand[]": "balance_transaction" });
+            if (!charge || !charge.id) return json({ error: "No such payment." }, 404, request, env);
+            const bt = charge.balance_transaction && typeof charge.balance_transaction === "object" ? charge.balance_transaction : null;
+            gross = Number(charge.amount) || 0;
+            fee = bt ? Number(bt.fee) || 0 : null;
+            refunded = Number(charge.amount_refunded) || 0;
+            paidAt = new Date((Number(charge.created) || 0) * 1000);
+            reference = charge.id;
+          }
 
           // Context from the caller, clamped: never wider than the money.
           const label    = String((b && b.label) || "Payment").slice(0, 160);
@@ -3072,10 +3090,10 @@ export default {
               ${row("VAT", money(vat) + est)}
               <tr class="total">${`<td style="padding:12px 0 0;font-size:13pt;font-weight:700;">Gross paid</td><td style="padding:12px 0 0;text-align:right;font-size:13pt;font-weight:700;">${money(gross)}</td>`}</tr>
               <tr class="rule"><td colspan="2" style="height:8px;"></td></tr>
-              ${row("Stripe fee", money(fee))}
+              ${offStripe ? "" : row("Stripe fee", money(fee))}
               ${row("Received in bank", money(fee == null ? null : gross - fee))}
               ${refunded ? row("Refunded", money(refunded)) : ""}
-              ${row("Stripe reference", esc(charge.id))}
+              ${row(offStripe ? "Reference" : "Stripe reference", esc(reference))}
             </table>
             <p class="foot">
               ${derived
@@ -3094,7 +3112,7 @@ export default {
           } finally { await browser.close(); }
 
           const stamp = paidAt.toISOString().slice(0, 10);
-          const filename = `TMKE-receipt-${stamp}-${charge.id}.pdf`;
+          const filename = `TMKE-receipt-${stamp}-${rowId}.pdf`;
 
           if (action === "email") {
             const to = String((b && b.to) || env.ACCOUNTS_PAYABLE_EMAIL || env.ACCOUNTS_NOTIFY || "").trim();
@@ -3105,8 +3123,8 @@ export default {
               html: await wrapInBrandedBase(env, `
                 <h1 style="${EM_H1}">Payment received</h1>
                 <p style="${EM_P}">${esc(label)}${customer ? " &mdash; " + esc(customer) : ""}, ${esc(when)}.</p>
-                <p style="${EM_P}">Gross ${money(gross)}, of which VAT ${money(vat)}${derived ? " (estimated)" : ""}. Stripe fee ${money(fee)}, so ${money(fee == null ? null : gross - fee)} reached the bank.</p>
-                <p style="${EM_P}">The receipt is attached, and the Stripe reference is <strong>${esc(charge.id)}</strong>.</p>`),
+                <p style="${EM_P}">Gross ${money(gross)}, of which VAT ${money(vat)}${derived ? " (estimated)" : ""}. ${offStripe ? "Settled outside Stripe, so the full amount reached the bank." : `Stripe fee ${money(fee)}, so ${money(fee == null ? null : gross - fee)} reached the bank.`}</p>
+                <p style="${EM_P}">The receipt is attached, and the reference is <strong>${esc(reference)}</strong>.</p>`),
               attachments: [{ filename, content: bufToBase64(pdf), contentType: "application/pdf" }],
             });
             if (!sent.ok) return json({ error: sent.error || "The receipt didn't send." }, 502, request, env);
@@ -3255,7 +3273,54 @@ export default {
               refunded_pence: refunded,
               receipt_url: c.receipt_url || null,
             };
-          }).sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1));
+          });
+
+          // ---- Money that never went through Stripe ------------------------
+          // An invoice settled by bank transfer or direct debit is real income
+          // that Stripe has never heard of, so a page reading Stripe alone is
+          // not "all the money in" - which is the only thing this page is for.
+          //
+          // Invoices PAID BY CARD are already above, as charges carrying
+          // metadata.invoice_id. Those are matched by id and skipped, so a card
+          // invoice appears once, not twice.
+          try {
+            const sinceDate = new Date(since * 1000).toISOString().slice(0, 10);
+            const seenInvoices = new Set(out.filter((r) => r.source === "invoice" && r.ref).map((r) => String(r.ref)));
+            const paidInvoices = await sbGet(env, "invoices",
+              `status=eq.paid&paid_date=gte.${sinceDate}`
+              + "&select=id,number,bill_to_name,subtotal_pence,vat_pence,total_pence,paid_date,payment_method&limit=1000");
+            for (const inv of paidInvoices || []) {
+              if (seenInvoices.has(String(inv.id))) continue;
+              const gross = Number(inv.total_pence) || 0;
+              if (!gross) continue;
+              const vat = Number(inv.vat_pence);
+              const hasSplit = Number.isFinite(vat);
+              const method = String(inv.payment_method || "").replace(/_/g, " ").trim();
+              out.push({
+                id: `inv_${inv.id}`,
+                paid_at: new Date(`${inv.paid_date}T12:00:00Z`).toISOString(),
+                source: "invoice", ref: String(inv.id),
+                label: `Invoice ${inv.number || ""}`.trim() + (method && method !== "card" ? ` (${method})` : ""),
+                customer: inv.bill_to_name || null,
+                gross_pence: gross,
+                net_pence: hasSplit ? (Number(inv.subtotal_pence) || gross - vat) : Math.round(gross / (1 + vatRate / 100)),
+                vat_pence: hasSplit ? vat : gross - Math.round(gross / (1 + vatRate / 100)),
+                vat_derived: !hasSplit,
+                // No Stripe, so no Stripe fee, and the whole amount arrived.
+                fee_pence: 0,
+                received_pence: gross,
+                refunded_pence: 0,
+                off_stripe: true,
+                receipt_url: null,
+              });
+            }
+          } catch (e) {
+            // Better a Stripe-only list than none - but say so, loudly, because
+            // a payments page quietly missing payments is the worst outcome here.
+            console.error("payments: off-Stripe invoices", String((e && e.message) || e).slice(0, 200));
+          }
+
+          out.sort((a, b) => (a.paid_at < b.paid_at ? 1 : -1));
 
           return json({ ok: true, days, vat_rate: vatRate, truncated, payments: out }, 200, request, env);
         } catch (e) {
@@ -5876,6 +5941,95 @@ export default {
       }
 
       // ---- Admin: invoices (create draft / list / mark paid) -----------------
+      // ---- Admin: the month-end chase list ----------------------------------
+      //
+      // What accounts has to confirm at the end of a month, in one table:
+      // everything raised this month, plus anything still unpaid from any
+      // month. Two questions get asked of it, so the rows carry which one they
+      // are - has an inter-brand transfer actually been done, or has an
+      // ordinary invoice landed in the bank.
+      //
+      // Inter-brand isn't on the invoice. It lives on the booking, as
+      // payment_route brand_invoice (Fine & Country) or brand_invoice_teg (a
+      // TEG sister brand), so the bookings are fetched and matched back. An
+      // invoice with no booking is treated as ordinary, which is what a
+      // manually raised one is.
+      if (path.endsWith("/invoicing/report") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+
+        // Default to the month we are in. YYYY-MM.
+        const now = new Date();
+        const raw = String(url.searchParams.get("month") || "").trim();
+        const month = /^\d{4}-\d{2}$/.test(raw)
+          ? raw
+          : `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+        const [yy, mm] = month.split("-").map(Number);
+        const monthStart = `${month}-01`;
+        const nextMonth = mm === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
+
+        try {
+          const rows = await sbGet(env, "invoices",
+            "select=id,number,booking_id,booking_source,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,payment_method"
+            + "&status=neq.void&order=issued_date.desc&limit=1000");
+
+          const inMonth  = (v) => !!v.issued_date && v.issued_date >= monthStart && v.issued_date < nextMonth;
+          const unpaid   = (v) => v.status !== "paid";
+          const relevant = (rows || []).filter((v) => inMonth(v) || unpaid(v));
+
+          // One query for every booking referenced, rather than one per row.
+          const bookingIds = [...new Set(relevant.map((v) => v.booking_id).filter(Boolean))];
+          const routeById = new Map();
+          if (bookingIds.length) {
+            try {
+              const bks = await sbGet(env, "videography_bookings",
+                `id=in.(${bookingIds.map((i) => `"${i}"`).join(",")})&select=id,payment_route,fc_office,teg_brand,client_name`);
+              for (const b of bks || []) routeById.set(String(b.id), b);
+            } catch (_) { /* no route means "ordinary", which is the safe reading */ }
+          }
+
+          const today = new Date().toISOString().slice(0, 10);
+          const out = relevant.map((v) => {
+            const bk = v.booking_id ? routeById.get(String(v.booking_id)) : null;
+            const route = bk && bk.payment_route;
+            const interBrand = route === "brand_invoice" || route === "brand_invoice_teg";
+            const brand = route === "brand_invoice"
+              ? ("Fine & Country" + (bk && bk.fc_office ? ` — ${bk.fc_office}` : ""))
+              : route === "brand_invoice_teg"
+                ? ("TEG" + (bk && bk.teg_brand ? ` — ${String(bk.teg_brand).replace(/_/g, " ")}` : ""))
+                : null;
+            const overdue = v.status !== "paid" && v.due_date && v.due_date < today
+              ? Math.floor((Date.parse(today) - Date.parse(v.due_date)) / 86400000)
+              : 0;
+            return {
+              id: v.id, number: v.number || "—",
+              bill_to: v.bill_to_name || (bk && bk.client_name) || "—",
+              total_pence: Number(v.total_pence) || 0,
+              status: v.status, issued_date: v.issued_date, due_date: v.due_date, paid_date: v.paid_date,
+              inter_brand: interBrand, brand,
+              raised_this_month: inMonth(v),
+              outstanding: unpaid(v),
+              days_overdue: overdue,
+            };
+          });
+
+          const sum = (f) => out.filter(f).reduce((t, r) => t + r.total_pence, 0);
+          return json({
+            ok: true, month,
+            payments: out,
+            totals: {
+              raised: sum((r) => r.raised_this_month),
+              outstanding: sum((r) => r.outstanding),
+              outstanding_inter_brand: sum((r) => r.outstanding && r.inter_brand),
+              outstanding_other: sum((r) => r.outstanding && !r.inter_brand),
+            },
+          }, 200, request, env);
+        } catch (e) {
+          console.error("invoicing/report", String((e && e.message) || e).slice(0, 200));
+          return json({ error: "Couldn't build the report." }, 502, request, env);
+        }
+      }
+
       if (path.endsWith("/invoicing/invoices") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
