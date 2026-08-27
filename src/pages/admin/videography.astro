@@ -2481,6 +2481,7 @@ import "../../styles/admin.css";
         bill_to_name: document.getElementById("viv-name")?.value.trim() || "",
         bill_to_email: document.getElementById("viv-email")?.value.trim() || "",
         bill_to_address: document.getElementById("viv-address")?.value.trim() || "",
+        client_name: document.getElementById("viv-client")?.value.trim() || "",
         notes: document.getElementById("viv-notes")?.value.trim() || null,
         line_items: vivItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
@@ -2652,6 +2653,11 @@ import "../../styles/admin.css";
           <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(billTo)}" /></label>
           <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(brand ? "" : teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || ""))}" placeholder="${brand ? "The office's accounts address" : ""}" /></label>
         </div>
+        <!-- On a brand invoice "Bill to" is the office's finance department,
+             which settles for several agents at once - so without naming the
+             client neither accounts team can tell one shoot's invoice from
+             another. Prefilled from the booking; editable before it goes. -->
+        <label class="vid-field"><span>Client</span><input id="viv-client" value="${escapeHtml(b.client_company || b.client_name || "")}" placeholder="Who the shoot was for" /></label>
         <label class="vid-field"><span>CC</span><input id="viv-cc" value="${escapeHtml((invSettings && invSettings.accounts_cc_email) || "hello@tmke.co.uk")}" placeholder="Comma-separated" /></label>
         <div class="vid-inv-row">
           <label class="vid-field"><span>Issued</span><input id="viv-issued" type="date" value="${today}" /></label>
@@ -2754,6 +2760,7 @@ import "../../styles/admin.css";
             booking_id: b.id, booking_source: "videography",
             bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null,
             bill_to_address: inv.bill_to_address || null,
+            client_name: (document.getElementById("viv-client")?.value || "").trim() || null,
             issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes,
             cc_email: (document.getElementById("viv-cc")?.value || "").trim() || null,
             pay_by_card: inv.pay_by_card, release_on_payment: true, terms_days: inv.terms_days,

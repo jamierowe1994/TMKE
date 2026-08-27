@@ -733,7 +733,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     $("ci-items").addEventListener("input", (e) => { const i = +e.target.getAttribute("data-i"); if (e.target.classList.contains("ci-desc")) ciItems[i].description = e.target.value; else if (e.target.classList.contains("ci-amt")) ciItems[i].amount = e.target.value; ciRenderTotals(); ciPreview(); });
     $("ci-items").addEventListener("click", (e) => { const b = e.target.closest(".ci-del"); if (!b) return; ciItems.splice(+b.getAttribute("data-i"), 1); if (!ciItems.length) ciItems.push({ description: "", amount: "" }); ciRefresh(); });
     $("ci-add-item").addEventListener("click", () => { ciItems.push({ description: "", amount: "" }); ciRefresh(); });
-    ["ci-name", "ci-email", "ci-address", "ci-issued", "ci-due", "ci-notes"].forEach((id) => $(id).addEventListener("input", ciPreview));
+    ["ci-name", "ci-client", "ci-email", "ci-address", "ci-issued", "ci-due", "ci-notes"].forEach((id) => $(id).addEventListener("input", ciPreview));
     $("ci-recip").addEventListener("change", (e) => { const r = ciRecipients.find((x) => x.id === e.target.value); if (r) { $("ci-name").value = r.name; $("ci-email").value = r.email || ""; $("ci-address").value = r.address || ""; ciPreview(); } });
     $("ci-open-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: ciSettings(), invoice: ciBuildInvoice() })); w.document.close(); });
     // Create a draft; returns the saved invoice (or null on validation/error).
@@ -772,7 +772,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       }
       return invoice;
     }
-    function ciReset() { ciEditing = null; $("ci-create").textContent = "Save draft"; $("ci-send").textContent = "Create & send"; ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
+    function ciReset() { ciEditing = null; $("ci-create").textContent = "Save draft"; $("ci-send").textContent = "Create & send"; ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-client", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
     $("ci-create").addEventListener("click", async () => {
       const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
       try {
