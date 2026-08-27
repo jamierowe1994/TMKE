@@ -168,11 +168,23 @@ async function ensureDdInvoice(env, lead, ym) {
   const row = {
     number, booking_id: lead.id, booking_source: "smm",
     bill_to_name: billName, bill_to_email: lead.email || null, bill_to_address: lead.business_address || null,
+    client_name: billName,   // the lead IS the client here; payer and client are the same
+
     line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
     status: "sent", issued_date: `${ym}-01`, due_date: `${ym}-${String(ddDay).padStart(2, "0")}`,
     payment_method: "direct_debit", billing_month: ym, cc_email: null, created_by: "auto (direct debit)",
   };
-  const res = await sbPost(env, "invoices", row, "return=representation");
+  let res = await sbPost(env, "invoices", row, "return=representation");
+  if (!res.ok) {
+    // Same tolerance as the create endpoint: an unrun migration must not stop a
+    // direct-debit invoice being raised.
+    const errText = await res.text().catch(() => "");
+    if (/client_name/.test(errText)) {
+      const { client_name: _c, ...lean } = row;
+      res = await sbPost(env, "invoices", lean, "return=representation");
+      console.error("ensureDdInvoice: client_name column missing - run supabase/invoices_client_name.sql");
+    }
+  }
   let inv = null; try { const j = await res.json(); inv = Array.isArray(j) ? j[0] : j; } catch (_) {}
   if (!inv || !inv.id) return { invoice: null, created: false };
   await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?id=eq.1`, {
@@ -6116,6 +6128,24 @@ export default {
         const billName = String((b && b.bill_to_name) || "").trim();
         if (!billName) return json({ error: "A recipient name is required." }, 400, request, env);
 
+        // Videography raises invoices through this same endpoint from the
+        // client file, and won't have a client name to send. Rather than make
+        // every caller remember, look it up from the booking - which is the
+        // only place that knows, and differs by strand: shoots live in
+        // videography_bookings, social clients in smm_leads.
+        let clientName = String((b && b.client_name) || "").trim();
+        if (!clientName && b && b.booking_id) {
+          try {
+            if ((b.booking_source || "videography") === "smm") {
+              const l = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(b.booking_id)}&select=business,full_name,first_name,last_name&limit=1`))?.[0];
+              if (l) clientName = l.business || l.full_name || `${l.first_name || ""} ${l.last_name || ""}`.trim();
+            } else {
+              const bk = (await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(b.booking_id)}&select=company,client_name&limit=1`))?.[0];
+              if (bk) clientName = bk.company || bk.client_name || "";
+            }
+          } catch (_) { /* a missing name must not stop the invoice */ }
+        }
+
         const srows = await sbGet(env, "invoice_settings", "id=eq.1&select=*");
         const st = (srows && srows[0]) || {};
         const vatRate = st.vat_rate != null ? Number(st.vat_rate) : 20;
@@ -6133,7 +6163,7 @@ export default {
           // Who the work was FOR. The payer can be a finance department
           // settling for several clients at once, so this is what makes a line
           // identifiable to both accounts teams.
-          client_name: (b && String(b.client_name || "").trim()) || null,
+          client_name: clientName || null,
           line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
           status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
           notes: (b && b.notes) || null, template,
