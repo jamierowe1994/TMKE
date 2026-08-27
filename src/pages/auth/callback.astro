@@ -110,9 +110,36 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
       }
     });
 
-    // Some flows return a `?code=` instead of a fragment — exchange it explicitly.
     (async () => {
       const params = new URLSearchParams(location.search);
+
+      // token_hash first, because it is the only route that survives being
+      // opened in a different browser from the one that signed up.
+      //
+      // The ?code= exchange below is PKCE: it needs a code_verifier that only
+      // exists in the localStorage of the browser that STARTED the sign-up. Open
+      // the email on your laptop after signing up on your phone and there is no
+      // verifier, so the exchange cannot complete and the link looks broken
+      // through no fault of the user's. verifyOtp carries everything it needs in
+      // the URL, so it works anywhere.
+      //
+      // Dormant until the Supabase email template sends token_hash — see
+      // AUTH_SETUP.md. Harmless while it doesn't; nothing else changes.
+      const tokenHash = params.get("token_hash");
+      if (tokenHash) {
+        const type = params.get("type") || "email";
+        const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+        if (error) { fail(error.message); return; }
+        if (!routed) {
+          routed = true;
+          // Recovery links land here too; they need the password form, not the hub.
+          if (type === "recovery") location.replace("/reset-password");
+          else routeAfter();
+        }
+        return;
+      }
+
+      // Some flows return a `?code=` instead of a fragment — exchange it explicitly.
       const code = params.get("code");
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);

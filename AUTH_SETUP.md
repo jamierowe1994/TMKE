@@ -44,8 +44,21 @@ edit them under **Authentication → Email Templates**:
 - **Reset password** — sent from `/forgot-password`. Link points to `/reset-password`.
 - **Magic link** — not used yet, leave default.
 
-The default `{{ .ConfirmationURL }}` token does the right thing — you only need
-to edit the wording / styling.
+`{{ .ConfirmationURL }}` works, but only in the SAME browser the person signed
+up in. It uses PKCE, and the secret half of that lives in that browser's
+localStorage — so signing up on a phone and opening the email on a laptop fails
+with "The link is missing the auth token", through no fault of the user's.
+
+To make the links work in any browser, replace the URL in each template with a
+`token_hash` link. `/auth/callback` already handles these:
+
+```
+{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup
+{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=recovery
+```
+
+Use `type=signup` on **Confirm signup** and `type=recovery` on **Reset
+password**. Recovery links are routed on to `/reset-password` by the callback.
 
 For production, point Supabase at a real SMTP provider under
 **Authentication → SMTP Settings** (Resend, Postmark, or Mailgun all have
