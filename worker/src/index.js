@@ -5983,23 +5983,51 @@ export default {
         const nextMonth = mm === 12 ? `${yy + 1}-01-01` : `${yy}-${String(mm + 1).padStart(2, "0")}-01`;
 
         try {
+          // sent and paid only. A draft has not left the building, so accounts
+          // cannot reconcile it and listing it only invites questions about
+          // money nobody has been asked for yet.
           const rows = await sbGet(env, "invoices",
             "select=id,number,booking_id,booking_source,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,payment_method"
-            + "&status=neq.void&order=issued_date.desc&limit=1000");
+            + "&status=in.(sent,paid)&order=issued_date.desc&limit=1000");
 
           const inMonth  = (v) => !!v.issued_date && v.issued_date >= monthStart && v.issued_date < nextMonth;
           const unpaid   = (v) => v.status !== "paid";
           const relevant = (rows || []).filter((v) => inMonth(v) || unpaid(v));
 
-          // One query for every booking referenced, rather than one per row.
-          const bookingIds = [...new Set(relevant.map((v) => v.booking_id).filter(Boolean))];
+          // Who the work was FOR, which is not who it is billed to - one payer
+          // can cover several clients, and an accounts team reconciling on
+          // "billed to" alone has to fall back to matching invoice numbers.
+          //
+          // booking_id points at different tables depending on the strand, so
+          // this is two lookups rather than one: shoots live in
+          // videography_bookings, social clients in smm_leads.
+          const idsFor = (src) => [...new Set(
+            relevant.filter((v) => (v.booking_source || "videography") === src).map((v) => v.booking_id).filter(Boolean))];
+          const vidIds = idsFor("videography");
+          const smmIds = idsFor("smm");
+          const inList = (ids) => ids.map((i) => `"${i}"`).join(",");
           const routeById = new Map();
-          if (bookingIds.length) {
+          const clientById = new Map();
+          if (vidIds.length) {
             try {
               const bks = await sbGet(env, "videography_bookings",
-                `id=in.(${bookingIds.map((i) => `"${i}"`).join(",")})&select=id,payment_route,fc_office,teg_brand,client_name`);
-              for (const b of bks || []) routeById.set(String(b.id), b);
+                `id=in.(${inList(vidIds)})&select=id,payment_route,fc_office,teg_brand,client_name,company`);
+              for (const b of bks || []) {
+                routeById.set(String(b.id), b);
+                clientById.set(String(b.id), b.company || b.client_name || null);
+              }
             } catch (_) { /* no route means "ordinary", which is the safe reading */ }
+          }
+          if (smmIds.length) {
+            try {
+              const leads = await sbGet(env, "smm_leads",
+                `id=in.(${inList(smmIds)})&select=id,business,full_name,first_name,last_name`);
+              for (const l of leads || []) {
+                const name = l.business || l.full_name
+                  || `${l.first_name || ""} ${l.last_name || ""}`.trim() || null;
+                clientById.set(String(l.id), name);
+              }
+            } catch (_) { /* a missing name is worth less than a missing report */ }
           }
 
           const today = new Date().toISOString().slice(0, 10);
@@ -6017,7 +6045,9 @@ export default {
               : 0;
             return {
               id: v.id, number: v.number || "—",
-              bill_to: v.bill_to_name || (bk && bk.client_name) || "—",
+              bill_to: v.bill_to_name || "—",
+              client: (v.booking_id && clientById.get(String(v.booking_id))) || null,
+              strand: v.booking_source === "smm" ? "Social media" : v.booking_source === "videography" ? "Videography" : null,
               total_pence: Number(v.total_pence) || 0,
               status: v.status, issued_date: v.issued_date, due_date: v.due_date, paid_date: v.paid_date,
               inter_brand: interBrand, brand,
