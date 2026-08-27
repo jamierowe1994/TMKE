@@ -49,6 +49,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <h3 class="inv-h">Bill to</h3>
             <label class="inv-field"><span>From the address book</span><select id="ci-recip"><option value="">— Choose a partner, or type below —</option></select></label>
             <label class="inv-field"><span>Name *</span><input id="ci-name" placeholder="e.g. Fine &amp; Country — Rugby" /></label>
+            <!-- Who the work was FOR, which on inter-brand billing is not who
+                 pays. One finance department settles for several clients, so
+                 without this both accounts teams reconcile on invoice numbers. -->
+            <label class="inv-field"><span>Client (who the work was for)</span><input id="ci-client" placeholder="e.g. Prestige — Rugby branch" /></label>
             <div class="inv-row2b">
               <label class="inv-field"><span>Email</span><input id="ci-email" type="email" /></label>
               <label class="inv-field"><span>Address</span><input id="ci-address" /></label>
@@ -675,6 +679,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         number: (currentSettings.invoice_prefix || "TMKE") + (currentSettings.next_number || 1001),
         issued_date: $("ci-issued").value || null, due_date: $("ci-due").value || null,
         bill_to_name: $("ci-name").value.trim(), bill_to_email: $("ci-email").value.trim(), bill_to_address: $("ci-address").value.trim(),
+        client_name: $("ci-client").value.trim(),
         notes: $("ci-notes").value.trim() || null,
         line_items: ciItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
@@ -733,7 +738,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const payload = { bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items };
+      const payload = { bill_to_name: inv.bill_to_name, client_name: inv.client_name || null, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items };
 
       // A draft is edited in place - nothing has been sent, so there is no
       // reason to burn a number or leave a void behind.
@@ -871,6 +876,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       }));
       if (!ciItems.length) ciItems = [{ description: "", amount: "" }];
       $("ci-name").value = full.bill_to_name || "";
+      $("ci-client").value = full.client_name || "";
       $("ci-email").value = full.bill_to_email || "";
       $("ci-address").value = full.bill_to_address || "";
       $("ci-cc").value = full.cc_email || "";

@@ -62,8 +62,16 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
     inv.bill_to_email ? esc(inv.bill_to_email) : "",
     inv.bill_to_address ? nl2br(inv.bill_to_address) : "",
   ].filter(Boolean).join("<br>");
+  // "For" sits under "Bill to" because on inter-brand work they are different
+  // people: the payer is a finance department settling for several clients, and
+  // without naming the client their accounts team cannot tell these apart
+  // either. Omitted entirely when there is no client, so ordinary invoices are
+  // unchanged.
+  const forLine = inv.client_name
+    ? `<div class="billfor"><span class="lbl">For</span> <span class="who">${esc(inv.client_name)}</span></div>`
+    : "";
   const billto = inv.bill_to_name ? `
-    <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}</span>${billExtra ? `<div class="bill-extra">${billExtra}</div>` : ""}</div>` : "";
+    <div class="billto"><span class="lbl">Bill to</span> <span class="who">${esc(inv.bill_to_name)}</span>${billExtra ? `<div class="bill-extra">${billExtra}</div>` : ""}</div>${forLine}` : "";
 
   // Payment block. Direct Debit invoices show a "collected by Direct Debit" flag
   // (no bank details — nothing to pay); everyone else gets the bank-transfer
@@ -134,6 +142,9 @@ export function renderInvoiceHtml({ settings = {}, invoice = {} } = {}) {
   .dates-row b { font-weight:400; }
 
   .billto { margin:0; font-size:11.5px; }
+  .billfor { margin:5px 0 0; font-size:11.5px; }
+  .billfor .lbl { color:var(--accent); }
+  .billfor .who { line-height:1.55; }
   .billto .lbl { color:var(--accent); }
   .billto .who { line-height:1.55; }
   .bill-extra { margin-top:4px; font-size:11.5px; line-height:1.5; }
@@ -219,6 +230,7 @@ export function sampleInvoice(settings = {}) {
     number: `${prefix}${settings.next_number || 1001}`,
     issued_date: "2026-08-03", due_date: "2026-08-10",
     bill_to_name: "Fine & Country — Rugby",
+    client_name: "Prestige — Rugby branch",
     bill_to_email: "accounts@fineandcountry-example.com",
     bill_to_address: "12 High Street, Rugby, CV21 3BZ",
     notes: "Thank you for your business.",

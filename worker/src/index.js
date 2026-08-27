@@ -5987,8 +5987,12 @@ export default {
           // cannot reconcile it and listing it only invites questions about
           // money nobody has been asked for yet.
           const rows = await sbGet(env, "invoices",
-            "select=id,number,booking_id,booking_source,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,payment_method"
-            + "&status=in.(sent,paid)&order=issued_date.desc&limit=1000");
+            "select=id,number,booking_id,booking_source,bill_to_name,bill_to_email,client_name,total_pence,status,issued_date,due_date,paid_date,payment_method"
+            + "&status=in.(sent,paid)&order=issued_date.desc&limit=1000")
+            .catch(() => null)
+            || await sbGet(env, "invoices",   // no client_name column yet
+              "select=id,number,booking_id,booking_source,bill_to_name,bill_to_email,total_pence,status,issued_date,due_date,paid_date,payment_method"
+              + "&status=in.(sent,paid)&order=issued_date.desc&limit=1000");
 
           const inMonth  = (v) => !!v.issued_date && v.issued_date >= monthStart && v.issued_date < nextMonth;
           const unpaid   = (v) => v.status !== "paid";
@@ -6046,7 +6050,8 @@ export default {
             return {
               id: v.id, number: v.number || "—",
               bill_to: v.bill_to_name || "—",
-              client: (v.booking_id && clientById.get(String(v.booking_id))) || null,
+              // What the invoice says, or the booking if it predates the field.
+              client: v.client_name || (v.booking_id && clientById.get(String(v.booking_id))) || null,
               strand: v.booking_source === "smm" ? "Social media" : v.booking_source === "videography" ? "Videography" : null,
               total_pence: Number(v.total_pence) || 0,
               status: v.status, issued_date: v.issued_date, due_date: v.due_date, paid_date: v.paid_date,
@@ -6125,6 +6130,10 @@ export default {
           number, booking_id: (b && b.booking_id) || null, booking_source: (b && b.booking_source) || "videography",
           recipient_id: (b && b.recipient_id) || null,
           bill_to_name: billName, bill_to_email: (b && b.bill_to_email) || null, bill_to_address: (b && b.bill_to_address) || null,
+          // Who the work was FOR. The payer can be a finance department
+          // settling for several clients at once, so this is what makes a line
+          // identifiable to both accounts teams.
+          client_name: (b && String(b.client_name || "").trim()) || null,
           line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
           status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
           notes: (b && b.notes) || null, template,
@@ -6157,6 +6166,13 @@ export default {
           if (!res.ok && /terms_days|release_on_payment/.test(errText)) {
             const { terms_days: _t2, release_on_payment: _r, ...rowNoTerms } = row;
             res = await sbPost(env, "invoices", rowNoTerms, "return=representation");
+          }
+          // And for supabase/invoices_client_name.sql. Losing the client name
+          // is a smaller harm than losing the invoice.
+          if (!res.ok && /client_name/.test(errText)) {
+            const { client_name: _c, ...rowNoClient } = row;
+            res = await sbPost(env, "invoices", rowNoClient, "return=representation");
+            console.error("invoices: client_name column missing - run supabase/invoices_client_name.sql");
           }
           if (!res.ok) return json({ error: "Couldn't save the invoice." + (errText ? " " + errText.slice(0, 180) : "") }, 502, request, env);
         }
@@ -6197,6 +6213,7 @@ export default {
           const patch2 = {
             line_items: items, subtotal_pence: subtotal2, vat_pence: vat2, total_pence: subtotal2 + vat2,
             bill_to_name: (b.bill_to_name || "").trim() || null,
+            client_name: b.client_name !== undefined ? (String(b.client_name || "").trim() || null) : undefined,
             bill_to_email: b.bill_to_email || null,
             bill_to_address: b.bill_to_address || null,
             cc_email: b.cc_email !== undefined ? (String(b.cc_email || "").trim() || null) : undefined,
@@ -6210,7 +6227,7 @@ export default {
           let pr2 = await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(id)}`, patch2);
           if (!pr2.ok) {
             // The optional columns again - save the edit rather than lose it.
-            const { terms_days: _t, release_on_payment: _r, pay_by_card: _p, ...lean } = patch2;
+            const { terms_days: _t, release_on_payment: _r, pay_by_card: _p, client_name: _c, ...lean } = patch2;
             pr2 = await sbPatch(env, "invoices", `id=eq.${encodeURIComponent(id)}`, lean);
             if (!pr2.ok) return json({ error: "Couldn't save the changes." }, 502, request, env);
           }
