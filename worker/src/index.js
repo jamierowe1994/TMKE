@@ -3223,10 +3223,13 @@ export default {
             if (st && st.vat_rate != null) vatRate = Number(st.vat_rate);
           } catch (_) {}
 
-          // "Invoice" alone isn't enough in the Source column: the same client
-          // is invoiced for shoots AND for social, and the invoice number
-          // doesn't say which.
-          const strandLabel = (v) => v === "smm" ? "Social media" : v === "videography" ? "Videography" : null;
+          // An invoice is a billing mechanism, not a category of work. What
+          // matters when you're splitting income is which service earned it, so
+          // a shoot invoice counts as videography and a social one as social -
+          // landing in the same bucket as a card payment for the same thing.
+          // "Invoice" is left for genuinely ad-hoc billing that belongs to
+          // neither, which is what booking_source not being set means.
+          const invoiceSource = (v) => v === "smm" ? "social" : v === "videography" ? "videography" : "invoice";
 
           const out = tagged.map(({ charge: c, source, ref, kind, number }) => {
             const bt = c.balance_transaction && typeof c.balance_transaction === "object" ? c.balance_transaction : null;
@@ -3234,7 +3237,10 @@ export default {
             const refunded = Number(c.amount_refunded) || 0;
             const fee = bt ? Number(bt.fee) || 0 : null;
 
-            let net = null, vat = null, derived = true, label = c.description || "Payment", customer = null, strand = null;
+            let net = null, vat = null, derived = true, label = c.description || "Payment", customer = null;
+            // What the row is filed under. Only invoices move; everything else
+            // is already the category it belongs to.
+            let emitSource = source;
             if (source === "pack") {
               const r = orderById.get(ref);
               if (r) {
@@ -3245,7 +3251,7 @@ export default {
             } else if (source === "invoice") {
               const r = invoiceById.get(ref);
               label = `Invoice ${(r && r.number) || number || ""}`.trim();
-              strand = strandLabel(r && r.booking_source);
+              emitSource = invoiceSource(r && r.booking_source);
               if (r && r.vat_pence != null) { net = Number(r.subtotal_pence) || 0; vat = Number(r.vat_pence) || 0; derived = false; }
             } else if (source === "videography") {
               const r = editById.get(ref);
@@ -3268,7 +3274,7 @@ export default {
             return {
               id: c.id,
               paid_at: new Date((Number(c.created) || 0) * 1000).toISOString(),
-              source, ref, label, strand,
+              source: emitSource, ref, label,
               customer: customer || (c.billing_details && c.billing_details.name) || (c.billing_details && c.billing_details.email) || null,
               gross_pence: gross,
               net_pence: net,
@@ -3291,7 +3297,9 @@ export default {
           // invoice appears once, not twice.
           try {
             const sinceDate = new Date(since * 1000).toISOString().slice(0, 10);
-            const seenInvoices = new Set(out.filter((r) => r.source === "invoice" && r.ref).map((r) => String(r.ref)));
+            // Card-paid invoices are already above, but they may be filed as
+            // videography or social now - so match on the id, not the category.
+            const seenInvoices = new Set(out.filter((r) => r.ref).map((r) => String(r.ref)));
             const paidInvoices = await sbGet(env, "invoices",
               `status=eq.paid&paid_date=gte.${sinceDate}`
               + "&select=id,number,booking_source,bill_to_name,subtotal_pence,vat_pence,total_pence,paid_date,payment_method&limit=1000");
@@ -3305,8 +3313,7 @@ export default {
               out.push({
                 id: `inv_${inv.id}`,
                 paid_at: new Date(`${inv.paid_date}T12:00:00Z`).toISOString(),
-                source: "invoice", ref: String(inv.id),
-                strand: strandLabel(inv.booking_source),
+                source: invoiceSource(inv.booking_source), ref: String(inv.id),
                 label: `Invoice ${inv.number || ""}`.trim() + (method && method !== "card" ? ` (${method})` : ""),
                 customer: inv.bill_to_name || null,
                 gross_pence: gross,

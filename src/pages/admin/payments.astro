@@ -31,6 +31,7 @@ import "../../styles/admin.css";
           <button type="button" class="enquiry-chip is-active" data-source="all">All</button>
           <button type="button" class="enquiry-chip" data-source="pack">Packs</button>
           <button type="button" class="enquiry-chip" data-source="videography">Videography</button>
+          <button type="button" class="enquiry-chip" data-source="social">Social media</button>
           <button type="button" class="enquiry-chip" data-source="invoice">Invoices</button>
           <button type="button" class="enquiry-chip" data-source="external">External</button>
         </div>
@@ -138,7 +139,7 @@ import "../../styles/admin.css";
       /* Tight enough to fit an ordinary laptop without scrolling. When the
          table does scroll, the right-hand column is the one that goes off the
          edge, which reads as lopsided padding even though it isn't. */
-      grid-template-columns: 86px 118px minmax(160px, 1.5fr) minmax(120px, 1fr) 88px 88px 92px 96px;
+      grid-template-columns: 86px 112px minmax(166px, 1.5fr) minmax(122px, 1fr) 88px 88px 92px 96px;
       gap: 12px; align-items: center; min-width: 920px;
       padding: 15px 20px; background: var(--paper);
       border-bottom: 1px solid rgba(28, 29, 34, 0.07);
@@ -170,14 +171,9 @@ import "../../styles/admin.css";
     }
     .pay-src[data-s="videography"] { background: rgba(78, 42, 90, 0.13);  color: #4e2a5a; }
     .pay-src[data-s="pack"]        { background: rgba(46, 107, 64, 0.13); color: #2e6b40; }
+    .pay-src[data-s="social"]      { background: rgba(38, 106, 106, 0.13); color: #266a6a; }
     .pay-src[data-s="invoice"]     { background: rgba(52, 96, 140, 0.13); color: #34608c; }
     .pay-src[data-s="external"]    { background: rgba(160, 90, 60, 0.14); color: #a05a3c; }
-    /* Which strand an invoice belongs to. The same client is invoiced for
-       shoots and for social, and the number alone doesn't say which. */
-    .pay-strand {
-      display: block; margin-top: 4px; font-size: 10.5px;
-      color: rgba(28, 29, 34, 0.55); letter-spacing: 0.02em;
-    }
 
     /* ---- Receipt ---- */
     .modal-backdrop {
@@ -236,7 +232,9 @@ import "../../styles/admin.css";
       p == null ? "—" : (p / 100).toLocaleString("en-GB", { style: "currency", currency: "GBP" });
     const esc = (v) =>
       String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const SOURCE_LABEL = { pack: "Pack", videography: "Videography", invoice: "Invoice", external: "External" };
+    // Invoices are filed by the service that earned them, so "Invoice" here
+    // means genuinely ad-hoc billing that is neither a shoot nor social.
+    const SOURCE_LABEL = { pack: "Pack", videography: "Videography", social: "Social media", invoice: "Invoice", external: "External" };
     const longDate = (iso) =>
       new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -289,7 +287,7 @@ import "../../styles/admin.css";
           rows.map((p, i) => `
             <div class="pay-row" role="row" tabindex="0" data-i="${i}" title="Open receipt">
               <div class="pay-when">${esc(new Date(p.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }))}</div>
-              <div><span class="pay-src" data-s="${esc(p.source)}">${esc(SOURCE_LABEL[p.source] || p.source)}</span>${p.strand ? `<span class="pay-strand">${esc(p.strand)}</span>` : ""}</div>
+              <div><span class="pay-src" data-s="${esc(p.source)}">${esc(SOURCE_LABEL[p.source] || p.source)}</span></div>
               <div class="pay-what">${esc(p.label)}${p.refunded_pence ? `<span class="pay-refund">${esc(gbp(p.refunded_pence))} refunded</span>` : ""}</div>
               <div class="pay-cust">${esc(p.customer || "—")}</div>
               <div class="pay-num">${esc(gbp(p.net_pence))}</div>
@@ -318,7 +316,7 @@ import "../../styles/admin.css";
         <h3 class="rc-title">${esc(p.label)}</h3>
         ${line("Received from", esc(p.customer || "—"))}
         ${line("Date", esc(longDate(p.paid_at)))}
-        ${line("Source", esc((SOURCE_LABEL[p.source] || p.source) + (p.strand ? ` — ${p.strand}` : "")))}
+        ${line("Source", esc(SOURCE_LABEL[p.source] || p.source))}
         ${line("Net", esc(gbp(p.net_pence)) + (p.vat_derived ? ' <span class="pay-est">est</span>' : ""))}
         ${line("VAT", esc(gbp(p.vat_pence)) + (p.vat_derived ? ' <span class="pay-est">est</span>' : ""))}
         ${line("Gross paid", esc(gbp(p.gross_pence)), "rc-total")}
@@ -357,7 +355,7 @@ import "../../styles/admin.css";
           headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
           body: JSON.stringify({
             action, id: p.id, label: p.label, customer: p.customer,
-            source: (SOURCE_LABEL[p.source] || p.source) + (p.strand ? ` — ${p.strand}` : ""),
+            source: SOURCE_LABEL[p.source] || p.source,
             vat_pence: p.vat_pence, vat_derived: p.vat_derived,
           }),
         });
@@ -395,7 +393,7 @@ import "../../styles/admin.css";
       const money = (p) => (p == null ? "" : (p / 100).toFixed(2));
       const body = rows.map((p) => [
         new Date(p.paid_at).toISOString().slice(0, 10),
-        (SOURCE_LABEL[p.source] || p.source) + (p.strand ? ` — ${p.strand}` : ""),
+        SOURCE_LABEL[p.source] || p.source,
         p.label, p.customer || "",
         money(p.net_pence), money(p.vat_pence), p.vat_derived ? "yes" : "no",
         money(p.gross_pence), money(p.fee_pence), money(p.received_pence),
