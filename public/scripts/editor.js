@@ -7167,6 +7167,32 @@
   // Walk every text element and run their copy through applyMergeTags. Called
   // when a template loads fresh so the customer sees their brand name baked in
   // straight away. They can still edit any text afterwards as normal.
+  function nudgeIfBrandNameMissing() {
+    const bar = document.getElementById("ed-brandnudge");
+    if (!bar || isAdminMode()) return;
+    const txt = document.querySelector(".ed-brandnudge-txt");
+    const asks = function (re) {
+      return state.elements.some(function (el) {
+        return el && el.type === "text" && typeof el.text === "string" && re.test(el.text);
+      });
+    };
+    const b = BRAND || {};
+    const needName = !((b.company || "").trim())
+      && asks(/[{(]\s*(brand ?name|company ?name|brand|company)\s*[})]/i);
+    const needArea = !((b.location || "").trim())
+      && asks(/[{(]\s*(location|area|town)\s*[})]/i);
+
+    if (!needName && !needArea) { bar.hidden = true; return; }
+    // Name the thing that's actually missing — being told to add a business
+    // name when the gap is the area is worse than saying nothing.
+    const what = needName && needArea ? "your business name and the area you cover"
+               : needName ? "your business name"
+               : "the area you cover";
+    if (txt) txt.textContent = "This design fills in " + what + " automatically — "
+      + (needName && needArea ? "neither is" : "that isn’t") + " in your brand kit yet.";
+    bar.hidden = false;
+  }
+
   function fillTemplateMergeTags() {
     state.elements.forEach(function (el) {
       if (el.type !== "text") return;
