@@ -6187,6 +6187,7 @@
       // pickers for the same job in one panel.
       html.push(`<div class="ed-props-section"><h4>Fill</h4>
         <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="fill-color"></span><label style="margin:0">Colour</label></div>
+        <div data-mount="fill-opacity"></div>
       </div>`);
       if (el.type === "rect") {
         html.push(cornerRadiusSectionHtml());
@@ -6438,11 +6439,36 @@
 
     const fillMount = body.querySelector('[data-mount="fill-color"]');
     if (fillMount) {
+      // The same options the top bar's fill swatch passes. Without onGradient
+      // the panel opens solid-only, so a gradient element offered nothing but
+      // flat colours — the one thing it isn't — while the identical swatch on
+      // the toolbar showed the gradient sections.
       fillMount.appendChild(colorSwatchButton(
         function () { return rgbHex(el.fill); },
-        { title: "Fill colour", onSolid: function (hex) { el.fill = hex; } }
+        {
+          title: "Fill colour",
+          onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
+          onGradient: function (gr) {
+            el.fillGradient = { enabled: true, type: gr.type || "linear",
+              angle: gr.angle != null ? gr.angle : 135, stops: gr.stops,
+              from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop };
+          },
+          getGradient: function () { return el.fillGradient; },
+        }
       ));
     }
+    /* Transparency, in the panel rather than only on the toolbar. A gradient
+       is rarely wanted at full strength — it sits behind text to make it
+       readable, so the setting you reach for straight after dropping one in
+       is how strong it is. */
+    const fillOpacityMount = body.querySelector('[data-mount="fill-opacity"]');
+    if (fillOpacityMount) {
+      fillOpacityMount.appendChild(sliderNumberRow("Transparency", "%", 0, 100, 1,
+        function () { return Math.round((el.opacity != null ? el.opacity : 1) * 100); },
+        function (v) { el.opacity = Math.max(0, Math.min(100, v)) / 100; },
+        function () { partialRenderElement(el); }));
+    }
+
     const svgFillMount = body.querySelector('[data-mount="svg-fill"]');
     if (svgFillMount) {
       svgFillMount.appendChild(colorSwatchButton(
