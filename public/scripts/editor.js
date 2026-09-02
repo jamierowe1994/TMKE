@@ -8062,6 +8062,36 @@
       bindLayerDrag(li, el);
       layersEl.appendChild(li);
     }
+
+    /* The background, always last, because it always is. It isn't an element
+       and can't be reordered or hidden from here — but this is where someone
+       goes looking for "the thing underneath everything", and its absence read
+       as a gap rather than as a deliberate distinction. Clicking it opens the
+       Background pane, which is where it can actually be changed. */
+    const base = document.createElement("li");
+    base.className = "ed-layer ed-layer--base";
+    const bThumb = document.createElement("div");
+    bThumb.className = "ed-layer-thumb";
+    if (state.canvas.backgroundImage) {
+      const im = document.createElement("img");
+      im.src = state.canvas.backgroundImage;
+      bThumb.appendChild(im);
+    } else {
+      bThumb.style.background = state.canvas.background || "#ffffff";
+    }
+    const bName = document.createElement("div");
+    bName.className = "ed-layer-name";
+    bName.textContent = state.canvas.backgroundImage ? "Background photo" : "Background";
+    const bGo = document.createElement("span");
+    bGo.className = "ed-layer-base-go";
+    bGo.textContent = "Edit";
+    base.appendChild(bThumb); base.appendChild(bName); base.appendChild(bGo);
+    base.title = "Open the Background pane";
+    base.addEventListener("click", function () {
+      const btn = document.querySelector('.ed-rail-btn[data-tool="background"]');
+      if (btn) btn.click();
+    });
+    layersEl.appendChild(base);
   }
 
   /* Drag to reorder. The panel has always said you could; nothing was ever
@@ -8719,16 +8749,47 @@
     const gradCircle = $("ed-bg-grad");
     const gradMenu = $("ed-bg-gradmenu");
 
+    /* What you'd expect to pick from: pictures already in this design, then
+       the uploads library. It read the library alone, and only whatever had
+       finished loading by the time you opened it — so on a design full of
+       photos the grid still said there was nothing, which reads as broken
+       rather than empty. */
+    function bgMenuImages() {
+      const seen = {};
+      const out = [];
+      const add = function (u) {
+        if (!u || typeof u !== "string" || seen[u]) return;
+        seen[u] = 1; out.push(u);
+      };
+      state.elements.forEach(function (el) {
+        if (el && (el.type === "image" || el.type === "frame" || el.type === "screen") && el.src) add(el.src);
+      });
+      (state.uploads || []).slice().reverse().forEach(add);
+      return out.slice(0, 12);
+    }
+
     function buildImgMenu() {
       if (!menu) return;
-      const recent = (state.uploads || []).slice(-9).reverse();
+      // The library loads asynchronously on open; if the menu is opened first,
+      // fetch it now rather than showing an empty grid that fills in later.
+      if (!(state.uploads || []).length && typeof window.__TMKE_UPLOADS_LIST__ === "function") {
+        window.__TMKE_UPLOADS_LIST__().then(function (urls) {
+          let added = false;
+          (urls || []).forEach(function (u) {
+            if (state.uploads.includes(u)) return;
+            state.uploads.push(u); addUploadTile(u); added = true;
+          });
+          if (added && menu && !menu.hidden) buildImgMenu();
+        }).catch(function () {});
+      }
+      const recent = bgMenuImages();
       let html = recent.length
         ? '<div class="ed-bg-imgmenu-grid">' + recent.map((src, i) => '<button type="button" data-idx="' + i + '" style="background-image:url(' + JSON.stringify(src) + ')"></button>').join("") + '</div>'
-        : '<p class="ed-bg-imgmenu-empty">No recent uploads yet.</p>';
+        : '<p class="ed-bg-imgmenu-empty">Nothing to pick from yet — upload an image and it will be here next time.</p>';
       html += '<button type="button" class="ed-bg-imgmenu-upload" data-upload>Upload a new image</button>';
       menu.innerHTML = html;
       menu.querySelectorAll("[data-idx]").forEach((b) => b.addEventListener("click", () => {
-        setCanvasBackgroundImage(recent[parseInt(b.dataset.idx, 10)]);
+        setCanvasBackgroundImage(bgMenuImages()[parseInt(b.dataset.idx, 10)]);
         menu.hidden = true;
       }));
       const up = menu.querySelector("[data-upload]");
@@ -9624,25 +9685,35 @@
     }
   });
 
+  /* The member's own colours, at the top of the Background pane. TMKE's house
+     palette used to sit below them under a second "Brand" heading, which to a
+     member was nine colours belonging to nobody, competing with their own kit
+     for the same job — so that block is gone.
+     With no kit saved there would now be no swatches at all, so the shared
+     default set stands in: the same 27 the colour panel offers, rather than a
+     second hardcoded list that can drift from it. */
   function seedBrandIntoBackgroundPane() {
-    if (!BRAND || !BRAND.colors || !BRAND.colors.length) return;
     const bgPane = document.querySelector('.ed-panel-pane[data-pane="background"]');
     if (!bgPane) return;
+    const hasKit = !!(BRAND && BRAND.colors && BRAND.colors.length);
+    const swatches = hasKit
+      ? BRAND.colors.map(function (c) { return { hex: c.hex, name: c.name || c.hex }; })
+      : CP_DEFAULT_SOLIDS.map(function (h) { return { hex: h, name: h }; });
     let existing = bgPane.querySelector(".ed-brand-injected");
     if (existing) existing.remove();
     const wrap = document.createElement("div");
     wrap.className = "ed-brand-injected";
     const title = document.createElement("div");
     title.className = "ed-section-title";
-    title.textContent = "Your brand";
+    title.textContent = hasKit ? "Your brand" : "Colours";
     wrap.appendChild(title);
     const row = document.createElement("div");
     row.className = "ed-swatches";
-    BRAND.colors.forEach(function (c) {
+    swatches.forEach(function (c) {
       const b = document.createElement("button");
       b.className = "ed-sw";
       b.style.background = c.hex;
-      b.title = c.name + " — " + c.hex;
+      b.title = c.name === c.hex ? c.hex : (c.name + " — " + c.hex);
       if (c.hex.toUpperCase() === "#FFFFFF") b.style.border = "1px solid rgba(0,0,0,0.1)";
       b.addEventListener("click", function () {
         state.canvas.background = c.hex;
