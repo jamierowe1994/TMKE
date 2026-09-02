@@ -2975,7 +2975,15 @@
     // 4px and 1px too - you aim at one, miss, and try again. This marks them
     // so the CSS can pad the hit target out to something a hand can hit,
     // without changing a pixel of what's drawn.
-    node.classList.toggle("is-thin", (Number(el.h) || 0) < 14 || (Number(el.w) || 0) < 14);
+    /* Hit cushion for thin elements. The size is in CANVAS units, so at the
+       zoom the stage usually sits at it shrank to about nine screen pixels —
+       and less the further you zoomed out, which is why clicking a rule was
+       hit-and-miss. Dividing by the zoom keeps it a constant size under the
+       pointer whatever the stage is doing. */
+    const thin = (Number(el.h) || 0) < 14 || (Number(el.w) || 0) < 14;
+    node.classList.toggle("is-thin", thin);
+    if (thin) node.style.setProperty("--ed-hit", (18 / (state.zoom || 1)).toFixed(1) + "px");
+    else node.style.removeProperty("--ed-hit");
     const sx = el.flipX ? -1 : 1;
     const sy = el.flipY ? -1 : 1;
     node.style.transform = "rotate(" + (el.rotation || 0) + "deg) scale(" + sx + ", " + sy + ")";
@@ -7524,8 +7532,32 @@
       ));
       ctxEl.appendChild(g);
 
+      /* A line has no stroke: its colour is `fill` and its thickness is its
+         height. The Stroke popover here edited strokeWidth, which a line never
+         renders, so the top bar looked connected to the line and wasn't. It
+         gets the same Thickness control the left panel has instead — same
+         property, same range, so the two always agree. */
+      if (el.type === "line") {
+        const weightWrap = popoverIconButton({
+          icon: '<span class="ed-ctx-poplabel">Thickness</span>',
+          title: "Line thickness",
+          key: "line-weight",
+          render: function () {
+            const panel = document.createElement("div");
+            panel.className = "ed-pop-panel ed-pop-form";
+            panel.appendChild(sliderNumberRow("Thickness", "px", 1, 80, 1,
+              function () { return Math.max(1, Math.round(el.h || 1)); },
+              function (v) { el.h = Math.max(1, v); },
+              function () { partialRenderElement(el); renderHandles(); }));
+            return panel;
+          },
+        });
+        ctxEl.appendChild(weightWrap);
+      }
+
       // Stroke — icon-only trigger; click opens a popover with colour
       // + width. Same UX shape as opacity below.
+      if (el.type !== "line") {
       const strokeWrap = popoverIconButton({
         icon: ICONS.stroke,
         title: "Stroke",
@@ -7567,6 +7599,7 @@
         },
       });
       ctxEl.appendChild(strokeWrap);
+      }
 
       // Corner radius — same popover pattern for rectangles only.
       if (el.type === "rect") {
