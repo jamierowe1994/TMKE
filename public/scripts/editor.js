@@ -980,16 +980,24 @@
     let stops;
     if (Array.isArray(g.stops) && g.stops.length >= 2) {
       stops = g.stops.map(function (s) {
-        const c = s.color === "transparent" ? "transparent" : (normHex(s.color) || "#371E28");
-        return { color: c, pos: s.pos != null ? s.pos : 0 };
+        // A stop saved as the keyword becomes an explicit black at zero
+        // opacity — same pixels, but now it can be edited rather than being a
+        // yes/no. Anything else keeps its colour and its own alpha.
+        const wasKeyword = s.color === "transparent";
+        const c = wasKeyword ? "#000000" : (normHex(s.color) || "#371E28");
+        return { color: c, pos: s.pos != null ? s.pos : 0, a: wasKeyword ? 0 : (s.a != null ? s.a : 1) };
       });
     } else {
       const from = normHex(g.from) || normHex(currentSolid) || "#371E28";
       const toVal = g.to || "transparent";
-      const to = toVal === "transparent" ? "transparent" : (normHex(toVal) || "#B9826A");
+      // A fade defaults to the SAME colour at zero opacity rather than the
+      // transparent keyword, so it fades out cleanly instead of dragging
+      // through black on its way.
+      const fadeOut = toVal === "transparent";
+      const to = fadeOut ? from : (normHex(toVal) || "#B9826A");
       stops = [
-        { color: from, pos: g.fromStop != null ? g.fromStop : 0 },
-        { color: to, pos: g.toStop != null ? g.toStop : 100 },
+        { color: from, pos: g.fromStop != null ? g.fromStop : 0, a: 1 },
+        { color: to, pos: g.toStop != null ? g.toStop : 100, a: fadeOut ? 0 : 1 },
       ];
     }
     return {
@@ -1032,9 +1040,12 @@
     const isLin = d.type !== "radial";
     const sel = Math.max(0, Math.min(d.stops.length - 1, d.sel || 0));
     const selStop = d.stops[sel] || d.stops[0];
-    const selFade = selStop.color === "transparent";
+    const selAlpha = selStop.color === "transparent" ? 0 : (selStop.a != null ? selStop.a : 1);
     const swatches = d.stops.map(function (s, i) {
-      const bg = s.color === "transparent" ? CPG_CHECKER : s.color;
+      const a = s.a != null ? s.a : 1;
+      const bg = (s.color === "transparent" || a < 1)
+        ? "linear-gradient(" + stopCss(s) + "," + stopCss(s) + ")," + CPG_CHECKER
+        : s.color;
       return '<button type="button" class="ed-cpg-stop' + (i === sel ? " is-sel" : "") +
         '" data-stop="' + i + '" style="background:' + bg + '" title="' + s.color + '"></button>';
     }).join("");
@@ -1053,10 +1064,13 @@
         '<button type="button" class="ed-cpg-add" data-cpg="add" title="Add a colour">+</button>' +
       '</div>' +
       '<div class="ed-cpg-row">' +
-        '<input type="color" class="ed-cpg-color" data-cpg="selColor" value="' + (selFade ? "#cccccc" : selStop.color) + '"' + (selFade ? " disabled" : "") + '>' +
-        '<input type="text" class="ed-cpg-hex" data-cpg="selHex" value="' + (selFade ? "transparent" : selStop.color) + '">' +
-        '<label class="ed-cpg-fade"><input type="checkbox" data-cpg="selFade"' + (selFade ? " checked" : "") + '>Fade</label>' +
+        '<input type="color" class="ed-cpg-color" data-cpg="selColor" value="' + (selStop.color === "transparent" ? "#000000" : selStop.color) + '">' +
+        '<input type="text" class="ed-cpg-hex" data-cpg="selHex" value="' + (selStop.color === "transparent" ? "#000000" : selStop.color) + '">' +
         '<button type="button" class="ed-cpg-del" data-cpg="del"' + (d.stops.length <= 2 ? " disabled" : "") + ' title="Remove this colour">&times;</button>' +
+      '</div>' +
+      '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Opacity</span>' +
+        '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="selAlpha" value="' + Math.round(selAlpha * 100) + '">' +
+        '<span class="ed-cpg-val">' + Math.round(selAlpha * 100) + '%</span>' +
       '</div>' +
       '<div class="ed-cpg-row"><span class="ed-cpg-lbl">Position</span>' +
         '<input type="range" min="0" max="100" class="ed-cpg-range" data-cpg="selPos" value="' + (selStop.pos || 0) + '">' +
@@ -1233,7 +1247,13 @@
       const root = cpRoot(); if (!root || !panel._gradDraft) return;
       const get = (k) => root.querySelector('[data-cpg="' + k + '"]');
       const stop = cpSelStop(); if (!stop) return;
-      const fade = get("selFade"); if (fade) stop.color = fade.checked ? "transparent" : (stop.color === "transparent" ? "#CCCCCC" : stop.color);
+      // Opacity replaced the Fade tick, so a stop keeps its colour while
+      // fading rather than swapping to the transparent keyword.
+      const al = get("selAlpha");
+      if (al) {
+        stop.a = Math.max(0, Math.min(1, (parseInt(al.value, 10) || 0) / 100));
+        if (stop.color === "transparent") stop.color = "#000000";
+      }
       if (stop.color !== "transparent") {
         const c = get("selColor"); if (c && c.value) stop.color = c.value.toUpperCase();
         const h = get("selHex"); if (h) { const nh = normHex(h.value); if (nh) stop.color = nh; }
@@ -1313,7 +1333,7 @@
       const t = e.target;
       if (!t.closest(".ed-cpg")) return;
       cpReadAll();
-      if (t.dataset.cpg === "selFade") cpRerender();
+      if (t.dataset.cpg === "selAlpha") cpRerender();
       cpRefresh(); cpCommit();
     });
 
@@ -4465,6 +4485,38 @@
     fullRender();
   }
 
+  /* A gradient is a rectangle with a gradient fill — nothing new in the model,
+     which is the point: everything that already works on a shape (resize,
+     move, opacity, the colour panel) works on it unchanged, and it exports
+     through the same path.
+
+     It arrives full-bleed, because that is what a gradient behind text is
+     for. Black fading to the SAME black at zero opacity, not to the
+     transparent keyword, so it fades out cleanly rather than through
+     whatever the keyword resolves to. */
+  const GRADIENT_PRESETS = {
+    down:   { type: "linear", angle: 0,   label: "Gradient · up" },
+    right:  { type: "linear", angle: 90,  label: "Gradient · across" },
+    centre: { type: "radial", angle: 135, label: "Gradient · centre" },
+  };
+
+  function addGradient(kind) {
+    const preset = GRADIENT_PRESETS[kind] || GRADIENT_PRESETS.down;
+    // The centre one runs the other way: clear in the middle, dark at the edges.
+    const stops = kind === "centre"
+      ? [{ color: "#000000", pos: 35, a: 0 }, { color: "#000000", pos: 100, a: 0.85 }]
+      : [{ color: "#000000", pos: 0, a: 0.85 }, { color: "#000000", pos: 100, a: 0 }];
+    addElement({
+      type: "rect",
+      x: 0, y: 0,
+      w: state.canvas.width, h: state.canvas.height,
+      fill: "#000000",
+      fillGradient: { enabled: true, type: preset.type, angle: preset.angle, stops: stops },
+      radius: 0, opacity: 1, rotation: 0,
+    });
+    toast(preset.label + " added — recolour it in the Fill panel");
+  }
+
   function addShape(shape) {
     const cx = state.canvas.width / 2 - 100;
     const cy = state.canvas.height / 2 - 100;
@@ -6695,10 +6747,29 @@
   // For backward compatibility we still read the old from/to/fromStop/toStop pair
   // when no `stops` array is present (and we keep writing from/to alongside stops).
   // `gradStops` is the single source of truth used by every builder below.
+  /* A stop is a colour AND an opacity, not a colour that might be the keyword
+     `transparent`. That keyword is rgba(0,0,0,0) — transparent BLACK — so a
+     white-to-transparent fade dragged itself through grey, and a black fade
+     and a white fade over the same photo behaved differently for reasons
+     nothing on screen explained. Carrying alpha per stop means "this colour,
+     fading out" is expressible for any colour.
+
+     `transparent` is still read for designs already saved with it, and still
+     means what CSS says it means, so nothing already made changes. */
+  function stopCss(s) {
+    if (!s) return "rgba(0,0,0,0)";
+    if (s.color === "transparent") return "rgba(0,0,0,0)";
+    const a = s.a != null ? Math.max(0, Math.min(1, s.a)) : 1;
+    if (a >= 1) return s.color;
+    const h = (normHex(s.color) || "#000000").slice(1);
+    const n = parseInt(h.length === 3 ? h.split("").map(function (c) { return c + c; }).join("") : h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + (+a.toFixed(3)) + ")";
+  }
+
   function gradStops(g) {
     if (g && Array.isArray(g.stops) && g.stops.length >= 2) {
       return g.stops.map(function (s) {
-        return { color: s.color || "#000000", pos: s.pos != null ? s.pos : 0 };
+        return { color: s.color || "#000000", pos: s.pos != null ? s.pos : 0, a: s.a != null ? s.a : 1 };
       }).sort(function (a, b) { return a.pos - b.pos; });
     }
     const from = (g && g.from) || "#1c1d22";
@@ -6709,7 +6780,7 @@
   }
   // CSS gradient string for any gradient object (or draft).
   function gradCss(g) {
-    const stops = gradStops(g).map(function (s) { return s.color + " " + s.pos + "%"; }).join(", ");
+    const stops = gradStops(g).map(function (s) { return stopCss(s) + " " + s.pos + "%"; }).join(", ");
     if (g && g.type === "radial") return "radial-gradient(circle, " + stops + ")";
     const angle = g && g.angle != null ? g.angle : 135;
     return "linear-gradient(" + angle + "deg, " + stops + ")";
@@ -6742,7 +6813,7 @@
     }
     gradStops(g).forEach(function (s) {
       const p = Math.max(0, Math.min(1, (s.pos || 0) / 100));
-      try { grad.addColorStop(p, s.color); } catch (_) { /* invalid colour — skip */ }
+      try { grad.addColorStop(p, stopCss(s)); } catch (_) { /* invalid colour — skip */ }
     });
     return grad;
   }
@@ -8505,6 +8576,7 @@
       if (btn.dataset.screen) addScreen();
       else if (btn.dataset.frame) addFrame(btn.dataset.frame);
       else if (btn.dataset.svg) addSvgShape(btn.dataset.svg);
+      else if (btn.dataset.gradient) addGradient(btn.dataset.gradient);
       else if (btn.dataset.shape) addShape(btn.dataset.shape);
     });
   });
