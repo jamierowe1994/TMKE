@@ -1929,6 +1929,23 @@ const googleFonts = [
        - where a faint outline may as well not be there, so the empty state is
        a solid tint rather than a hint, and the outline carries a white companion
        so it holds its edge on any photo underneath it. */
+    /* Thin elements - lines and rules - get a hit target you can actually hit.
+       The pseudo is invisible and doesn't move or resize anything; it only
+       widens what counts as a click. Kept modest so it doesn't start stealing
+       clicks from whatever sits next to it. */
+    .ed-element.is-thin::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: max(100%, 18px);
+      height: max(100%, 18px);
+    }
+    /* A locked or hidden element shouldn't grow a hit area either. */
+    .ed-element.is-thin.is-locked::after,
+    .ed-element.is-thin.is-hidden::after { content: none; }
+
     .ed-element[data-type="screen"] {
       --sc-guide: #00c2a8;
       background: color-mix(in srgb, var(--sc-guide) 22%, transparent);

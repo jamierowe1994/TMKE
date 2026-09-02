@@ -2971,6 +2971,11 @@
     node.style.top = el.y + "px";
     node.style.width = el.w + "px";
     node.style.height = el.h + "px";
+    // A line is 4px tall and a thin rule is 1px, so their clickable area was
+    // 4px and 1px too - you aim at one, miss, and try again. This marks them
+    // so the CSS can pad the hit target out to something a hand can hit,
+    // without changing a pixel of what's drawn.
+    node.classList.toggle("is-thin", (Number(el.h) || 0) < 14 || (Number(el.w) || 0) < 14);
     const sx = el.flipX ? -1 : 1;
     const sy = el.flipY ? -1 : 1;
     node.style.transform = "rotate(" + (el.rotation || 0) + "deg) scale(" + sx + ", " + sy + ")";
