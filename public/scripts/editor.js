@@ -840,6 +840,53 @@
   // Circular swatch that opens the rich left-hand colour panel (not the OS
   // picker). getCurrent() returns the live colour; onSolid(hex)/onGradient(g)
   // mutate the element — render + history handled here.
+  /* ---- One definition per control, used by both bars ----------------------
+     The toolbar and the left panel offer several of the same controls, and
+     until now each built its own options object. They drifted twice in one
+     day: the panel's Fill lost its gradient sections because it passed only
+     onSolid, and a line's "Stroke width" on the toolbar edited a property a
+     line never renders. Both bars read these instead, so a change reaches
+     both or neither.
+
+     Fill: an element already carrying a gradient is offered gradients only.
+     Its whole purpose is the gradient, and a wall of flat swatches above the
+     thing you came for is the wrong way round. Anything else gets both. */
+  function fillControl(el) {
+    const isGradient = !!(el.fillGradient && el.fillGradient.enabled);
+    const o = {
+      title: isGradient ? "Gradient" : "Fill",
+      onGradient: function (gr) {
+        el.fillGradient = { enabled: true, type: gr.type || "linear",
+          angle: gr.angle != null ? gr.angle : 135, stops: gr.stops,
+          from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop };
+      },
+      getGradient: function () { return el.fillGradient; },
+    };
+    if (!isGradient) {
+      o.onSolid = function (hex) { el.fill = hex; el.fillGradient = null; };
+    }
+    return o;
+  }
+  function fillCurrent(el) { return function () { return el.fill; }; }
+
+  function strokeControl(el) {
+    return {
+      title: "Stroke colour",
+      onSolid: function (hex) { el.stroke = hex; if (!el.strokeWidth) el.strokeWidth = 2; },
+    };
+  }
+  function strokeCurrent(el) {
+    return function () { return (el.stroke && el.stroke !== "transparent") ? el.stroke : "#000000"; };
+  }
+
+  // A line's thickness IS its height — the same control on both bars.
+  function lineThicknessRow(el) {
+    return sliderNumberRow("Thickness", "px", 1, 80, 1,
+      function () { return Math.max(1, Math.round(el.h || 1)); },
+      function (v) { el.h = Math.max(1, v); },
+      function () { partialRenderElement(el); renderHandles(); });
+  }
+
   function colorSwatchButton(getCurrent, opts) {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -856,7 +903,11 @@
         title: opts.title || "Colour",
         current: getCurrent(),
         currentGradient: opts.getGradient ? opts.getGradient() : null,
-        onSolid: function (hex) { opts.onSolid(hex); paint(); fullRender(); pushHistory(); },
+        // Conditional, exactly like onGradient below. Wrapping unconditionally
+        // meant the panel always believed a solid could be applied — so a
+        // gradient still got the whole wall of flat swatches, and clicking one
+        // would have called through to nothing.
+        onSolid: opts.onSolid ? function (hex) { opts.onSolid(hex); paint(); fullRender(); pushHistory(); } : null,
         onGradient: opts.onGradient ? function (g) { opts.onGradient(g); paint(); fullRender(); pushHistory(); } : null,
       });
     }
@@ -1197,12 +1248,17 @@
     panel.innerHTML =
       '<div class="ed-cp-head"><span class="ed-cp-title">' + (opts.title || "Colour") + '</span><button class="ed-cp-close" title="Close">&times;</button></div>' +
       '<div class="ed-cp-scroll">' +
-        sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
-        sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
-        (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
-        (_cpFull ? sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') : "") +
-        sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
-        sec("Add a colour", '<div data-mount="picker"></div>') +
+        // Solid sections only when a solid can actually be applied. Every one
+        // of these swatches is guarded by _onSolid, so without it they render
+        // and do nothing — worse than not offering them.
+        (panel._onSolid
+          ? sec(brandName, brand.length ? grid(brand.map(swHtml)) : '<p class="ed-cp-empty">No brand colours saved.</p>') +
+            sec("Colours in this design", design.length ? grid(design.map(swHtml)) : '<p class="ed-cp-empty">None yet.</p>') +
+            (recent.length ? sec("Recently used", grid(recent.map(swHtml))) : "") +
+            (_cpFull ? sec("Photo colours", '<div class="ed-cp-grid" data-photo><p class="ed-cp-empty">Reading photos…</p></div>') : "") +
+            sec("Default colours", grid(CP_DEFAULT_SOLIDS.map(swHtml))) +
+            sec("Add a colour", '<div data-mount="picker"></div>')
+          : "") +
         (panel._onGradient ? sec("Gradients", grid(CP_DEFAULT_GRADS.map(gradHtml), " ed-cp-grid--grad")) : "") +
         (panel._onGradient ? sec("Custom gradient", cpGradEditorHtml(panel._gradDraft)) : "") +
       '</div>';
@@ -6431,31 +6487,12 @@
     // visible thickness). 1px = thinnest.
     const lineWeightMount = body.querySelector('[data-mount="line-weight"]');
     if (lineWeightMount && el.type === "line") {
-      lineWeightMount.appendChild(sliderNumberRow("Thickness", "px", 1, 80, 1,
-        function () { return Math.max(1, Math.round(el.h || 1)); },
-        function (v) { el.h = Math.max(1, v); },
-        function () { partialRenderElement(el); renderHandles(); }));
+      lineWeightMount.appendChild(lineThicknessRow(el));
     }
 
     const fillMount = body.querySelector('[data-mount="fill-color"]');
     if (fillMount) {
-      // The same options the top bar's fill swatch passes. Without onGradient
-      // the panel opens solid-only, so a gradient element offered nothing but
-      // flat colours — the one thing it isn't — while the identical swatch on
-      // the toolbar showed the gradient sections.
-      fillMount.appendChild(colorSwatchButton(
-        function () { return rgbHex(el.fill); },
-        {
-          title: "Fill colour",
-          onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
-          onGradient: function (gr) {
-            el.fillGradient = { enabled: true, type: gr.type || "linear",
-              angle: gr.angle != null ? gr.angle : 135, stops: gr.stops,
-              from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop };
-          },
-          getGradient: function () { return el.fillGradient; },
-        }
-      ));
+      fillMount.appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
     }
     /* Transparency, in the panel rather than only on the toolbar. A gradient
        is rarely wanted at full strength — it sits behind text to make it
@@ -6482,10 +6519,7 @@
     }
     const strokeMount = body.querySelector('[data-mount="stroke-color"]');
     if (strokeMount) {
-      strokeMount.appendChild(colorSwatchButton(
-        function () { return (el.stroke && el.stroke !== "transparent") ? el.stroke : "#000000"; },
-        { title: "Stroke colour", onSolid: function (hex) { el.stroke = hex; if (!el.strokeWidth) el.strokeWidth = 2; } }
-      ));
+      strokeMount.appendChild(colorSwatchButton(strokeCurrent(el), strokeControl(el)));
     }
     const borderMount = body.querySelector('[data-mount="frame-border"]');
     if (borderMount) {
@@ -7618,15 +7652,7 @@
     } else if (el.type === "rect" || el.type === "ellipse" || el.type === "triangle" || el.type === "star" || el.type === "line") {
       // Fill — opens the rich colour panel.
       const g = group();
-      g.appendChild(colorSwatchButton(
-        function () { return el.fill; },
-        {
-          title: "Fill",
-          onSolid: function (hex) { el.fill = hex; el.fillGradient = null; },
-          onGradient: function (gr) { el.fillGradient = { enabled: true, type: gr.type || "linear", angle: gr.angle != null ? gr.angle : 135, stops: gr.stops, from: gr.from, to: gr.to, fromStop: gr.fromStop, toStop: gr.toStop }; },
-          getGradient: function () { return el.fillGradient; },
-        }
-      ));
+      g.appendChild(colorSwatchButton(fillCurrent(el), fillControl(el)));
       ctxEl.appendChild(g);
 
       /* A line has no stroke: its colour is `fill` and its thickness is its
@@ -7642,10 +7668,7 @@
           render: function () {
             const panel = document.createElement("div");
             panel.className = "ed-pop-panel ed-pop-form";
-            panel.appendChild(sliderNumberRow("Thickness", "px", 1, 80, 1,
-              function () { return Math.max(1, Math.round(el.h || 1)); },
-              function (v) { el.h = Math.max(1, v); },
-              function () { partialRenderElement(el); renderHandles(); }));
+            panel.appendChild(lineThicknessRow(el));
             return panel;
           },
         });
@@ -7671,16 +7694,18 @@
               '<output data-stroke-out>' + (el.strokeWidth || 0) + 'px</output>' +
             '</div>';
           const mount = panel.querySelector('[data-mount="stroke-color"]');
+          // Colour comes from strokeControl, the same definition the left
+          // panel uses, so the two cannot disagree about what picking a
+          // stroke colour does. The width readout is this popover's own.
+          const strokeSet = strokeControl(el).onSolid;
           mount.appendChild(circleColorInput(
-            el.stroke && el.stroke !== "transparent" ? el.stroke : "#000000",
+            strokeCurrent(el)(),
             function (hex) {
-              el.stroke = hex;
-              // If user picks a colour but has no width, give it 2px so the change is visible.
-              if (!el.strokeWidth) {
-                el.strokeWidth = 2;
-                panel.querySelector("[data-stroke-w]").value = "2";
-                panel.querySelector("[data-stroke-out]").textContent = "2px";
-              }
+              strokeSet(hex);
+              const w = panel.querySelector("[data-stroke-w]");
+              const out = panel.querySelector("[data-stroke-out]");
+              if (w) w.value = String(el.strokeWidth || 0);
+              if (out) out.textContent = (el.strokeWidth || 0) + "px";
             }, "Stroke colour"
           ));
           const r = panel.querySelector("[data-stroke-w]");
