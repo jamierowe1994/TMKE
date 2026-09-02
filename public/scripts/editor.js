@@ -852,7 +852,10 @@
      Its whole purpose is the gradient, and a wall of flat swatches above the
      thing you came for is the wrong way round. Anything else gets both. */
   function fillControl(el) {
-    const isGradient = !!(el.fillGradient && el.fillGradient.enabled);
+    // Keyed on the element's role, NOT on whether it currently carries a
+    // gradient — otherwise filling an ordinary shape with one stripped its
+    // solid colours away and left no route back to a flat fill.
+    const isGradient = el.role === "gradient";
     const o = {
       title: isGradient ? "Gradient" : "Fill",
       onGradient: function (gr) {
@@ -4564,6 +4567,11 @@
       : [{ color: "#000000", pos: 0, a: 0.85 }, { color: "#000000", pos: 100, a: 0 }];
     addElement({
       type: "rect",
+      // What it IS, not what it currently looks like. A gradient dropped in
+      // from Elements is a gradient for good; a rectangle someone happens to
+      // have filled with a gradient is still a rectangle and must keep every
+      // colour option, including the way back to a flat fill.
+      role: "gradient",
       x: 0, y: 0,
       w: state.canvas.width, h: state.canvas.height,
       fill: "#000000",
