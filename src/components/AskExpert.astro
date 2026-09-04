@@ -812,19 +812,33 @@
     //     the user is uploading a file)
     const CURATED_TOURS: { label: string; steps: TourStep[] }[] = [
       {
-        label: "Add my logo",
+        label: "Put my logo on this",
         steps: [
-          { target: "uploads-tool", caption: "Click Uploads in the left rail." },
-          { target: "panel",        caption: "Upload your logo here — drop a file in or hit 'Click to upload'. When it appears in the panel, press Next.", awaitNext: true },
-          { target: "panel",        caption: "Now click your logo thumbnail to drop it onto your design." },
-          { target: "canvas",       caption: "Drag your logo where you want it on the canvas. Press Next when you're happy.", awaitNext: true },
+          { target: "brand-tool", caption: "Your logo comes from your brand kit — click Brand." },
+          { target: "panel",      caption: "Logos you've saved show at the bottom. No logos yet? Use the 'Edit' link to add one, then come back. Press Next.", awaitNext: true },
+          { target: "canvas",     caption: "Designs with a logo space fill it in on their own. Otherwise click a logo here to drop it on, then drag it into place.", awaitNext: true },
         ],
       },
       {
-        label: "Change brand colours",
+        label: "Swap to my other logo",
+        steps: [
+          { target: "canvas", caption: "Click the logo on your design to select it." },
+          { target: "panel",  caption: "Under 'Brand logo' you'll see every logo in your kit — click another to swap it in. It re-sizes and re-centres itself." },
+        ],
+      },
+      {
+        label: "Make this design mine",
         steps: [
           { target: "brand-tool", caption: "Click Brand in the left rail." },
-          { target: "panel",      caption: "Your saved colours live here. Click any one to apply it to the selected element on your canvas." },
+          { target: "panel",      caption: "'Make this design yours' is at the top. Each row is a colour the design uses — click one of your own beside it to swap it everywhere at once." },
+        ],
+      },
+      {
+        label: "Change one colour",
+        steps: [
+          { target: "canvas",     caption: "Click the thing you want to recolour." },
+          { target: "brand-tool", caption: "Now click Brand." },
+          { target: "panel",      caption: "Click any of your brand colours to apply it. Click a swatch with nothing selected and it recolours the background instead." },
         ],
       },
       {
@@ -838,29 +852,30 @@
       {
         label: "Add a photo",
         steps: [
-          { target: "photos-tool", caption: "Click Photos in the left rail." },
-          { target: "panel",       caption: "Search the library or upload your own photo. When you've added it to the canvas, press Next.", awaitNext: true },
+          { target: "images-tool", caption: "Click Images in the left rail." },
+          { target: "panel",       caption: "Search the free library at the top, or scroll to 'Your uploads' to add your own. When it's on the canvas, press Next.", awaitNext: true },
         ],
       },
       {
         label: "Change the background",
         steps: [
           { target: "background-tool", caption: "Click Background in the left rail." },
-          { target: "panel",           caption: "Pick a colour, gradient or photo for the page background." },
+          { target: "panel",           caption: "Change the image, fade it back, or pick a colour or gradient for the whole page." },
         ],
       },
       {
-        label: "Schedule this post",
+        label: "Move the background photo",
         steps: [
-          { target: "schedule", caption: "Click Schedule in the top-right of the toolbar." },
-          { target: "stage",    caption: "Pick a date and time, then submit. We'll email you a reminder the morning it's due to go out. Press Next when you're done.", awaitNext: true },
+          { target: "background-tool", caption: "Click Background in the left rail." },
+          { target: "panel",           caption: "Hit 'Reposition'. Everything on top fades out so you can see the photo." },
+          { target: "canvas",          caption: "Drag the photo until it sits how you want, then click Done. Press Next when you're happy.", awaitNext: true },
         ],
       },
       {
-        label: "Resize the canvas",
+        label: "Reorder / hide things",
         steps: [
-          { target: "resize-tool", caption: "Click Resize at the bottom of the left rail." },
-          { target: "panel",       caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
+          { target: "layers-tool", caption: "Click Layers in the left rail." },
+          { target: "panel",       caption: "Drag any row to change what sits in front. The eye hides something without deleting it, and Background is the row at the bottom." },
         ],
       },
       {
@@ -868,6 +883,27 @@
         steps: [
           { target: "undo", caption: "This is Undo. Hit it (or press Ctrl+Z) any time to step back. Press Next to see Redo.", awaitNext: true },
           { target: "redo", caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z). Press Finish when you're done.", awaitNext: true },
+        ],
+      },
+      {
+        label: "Resize the canvas",
+        steps: [
+          { target: "resize-tool", caption: "Click Resize in the left rail." },
+          { target: "panel",       caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
+        ],
+      },
+      {
+        label: "Schedule this post",
+        steps: [
+          { target: "schedule", caption: "Click Schedule in the top toolbar." },
+          { target: "stage",    caption: "Pick a date and time, then submit. We'll email you a reminder the morning it's due to go out. Press Next when you're done.", awaitNext: true },
+        ],
+      },
+      {
+        label: "Download it",
+        steps: [
+          { target: "save",     caption: "Save first, so your work is kept." },
+          { target: "download", caption: "Then click Download and pick your format — PNG for social, PNG with no background, JPG, or PDF for print." },
         ],
       },
     ];
@@ -891,14 +927,16 @@
     // in the editor. Adding new tour vocabulary = add an entry here AND
     // mention the key in the system prompt.
     const TARGET_SELECTORS: Record<string, string> = {
+      "start-tool":      '[data-tool="start"]',
       "brand-tool":      '[data-tool="brand"]',
       "elements-tool":   '[data-tool="elements"]',
       "text-tool":       '[data-tool="text"]',
-      "photos-tool":     '[data-tool="photos"]',
-      "uploads-tool":    '[data-tool="uploads"]',
+      "images-tool":     '[data-tool="photos"]',
       "background-tool": '[data-tool="background"]',
       "layers-tool":     '[data-tool="layers"]',
       "resize-tool":     '[data-tool="resize"]',
+      "guides-tool":     '[data-tool="guides"]',
+      "pages-toggle":    "#ed-pages-toggle",
       "panel":           "#ed-panel",
       "canvas":          "#ed-canvas",
       "stage":           "#ed-stage",
@@ -906,10 +944,20 @@
       "undo":            "#ed-undo",
       "redo":            "#ed-redo",
       "zoom":            "#ed-zoom-display",
-      "share":           "#ed-share",
+      "canvas-size":     "#ed-canvas-size-btn",
+      "save":            "#ed-save",
       "schedule":        "#ed-schedule",
+      "review":          "#ed-review-btn",
+      "download":        "#ed-download-trigger",
       "topbar":          ".ed-topbar",
       "rail":            ".ed-rail",
+      // Retired names, still answered so an older conversation (or a model
+      // working from a stale prompt) lands somewhere sensible instead of
+      // spotlighting nothing. Uploads folded into Images; Share became
+      // Download. Not offered in the system prompt.
+      "photos-tool":     '[data-tool="photos"]',
+      "uploads-tool":    '[data-tool="photos"]',
+      "share":           "#ed-download-trigger",
     };
 
     function splitDemo(reply: string): { prose: string; steps: TourStep[] | null } {

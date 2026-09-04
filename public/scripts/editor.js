@@ -7289,16 +7289,32 @@
 
   function fillTemplateLogos() {
     const src = brandLogoSrc();
-    if (!src) return;   // no logo in the kit — the text path already covers it
-    // Still text = still a placeholder. Once a slot has become an image it is
-    // left alone, so reopening a design cannot overwrite a logo you swapped or
-    // repositioned by hand.
     const slots = state.elements.filter(function (el) {
-      return el && el.brandRole === "logo" && el.type === "text";
+      return el && el.brandRole === "logo";
     });
     if (!slots.length) return;
 
+    /* A slot with nothing to go in it: no logo uploaded AND no company name in
+       the brand kit. The tag can't resolve, so the design would carry a literal
+       "{brand name}" — and unlike the empty-kit nudge bar, which only exists
+       inside the editor, that follows the file out through Download and onto
+       Instagram. Better to show nothing than to show the plumbing.
+
+       Hidden, not deleted, and marked as OUR doing: the moment they fill the
+       kit in, the slot comes back on its own. Someone who hides a slot by hand
+       from Layers carries no marker, so we leave that alone. */
+    const hasName = !!(((BRAND || {}).company || "").trim());
     slots.forEach(function (slot) {
+      const filled = slot.type === "image" && slot.src;
+      if (!src && !hasName && !filled) { slot.hidden = true; slot.autoHidden = true; }
+      else if (slot.autoHidden) { slot.hidden = false; delete slot.autoHidden; }
+    });
+
+    if (!src) return;   // no logo in the kit — the name, or the hide above, covers it
+    // Still text = still a placeholder. Once a slot has become an image it is
+    // left alone, so reopening a design cannot overwrite a logo you swapped or
+    // repositioned by hand.
+    slots.filter(function (el) { return el.type === "text"; }).forEach(function (slot) {
       // The anchor has to be read while the element still sits where the
       // designer put it, before the fit moves it.
       slot.logoAnchor = logoAnchorOf(slot);
