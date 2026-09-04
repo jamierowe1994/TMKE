@@ -432,21 +432,16 @@ const googleFonts = [
           </span></span>
         </button>
 
+        <!-- Header + shortcuts are filled in by the script below, because
+             what belongs here depends entirely on how you arrived. Someone
+             personalising a pack they bought does not want "Add a page";
+             someone on a blank canvas has nothing to rebrand yet. Static
+             markup could only ever suit one of them. -->
         <div class="ed-pane-header">
-          <h3>Choose something to edit</h3>
-          <p>Tap an item on your design, or start here.</p>
+          <h3 id="ed-start-title">Choose something to edit</h3>
+          <p id="ed-start-sub">Tap an item on your design, or start here.</p>
         </div>
-        <div class="ed-start-grid">
-          <button type="button" class="ed-start-btn" data-start-tool="background"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span><span class="ed-start-tx"><b>Background</b><i>Photo, crop &amp; overlay</i></span></button>
-          <button type="button" class="ed-start-btn" data-start-tool="text"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M9 6v13M12 6v6"/></svg></span><span class="ed-start-tx"><b>Text</b><i>Headlines &amp; captions</i></span></button>
-          <button type="button" class="ed-start-btn" data-start-tool="photos"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><span class="ed-start-tx"><b>Images</b><i>Add a photo</i></span></button>
-          <button type="button" class="ed-start-btn" data-add-page><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="13" height="18" rx="2"/><path d="M19 8v13H8"/></svg></span><span class="ed-start-tx"><b>Add a page</b><i>For a carousel</i></span></button>
-          <button type="button" class="ed-start-btn" data-start-tool="elements"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/></svg></span><span class="ed-start-tx"><b>Elements</b><i>Shapes, lines, icons</i></span></button>
-          <!-- Straight to the rebrand rows in the brand kit. The action people
-               most want on landing, so it earns a place here rather than being
-               something you have to go looking for. -->
-          <button type="button" class="ed-start-btn" data-start-tool="brand"><span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8"/></svg></span><span class="ed-start-tx"><b>Make it yours</b><i>Your colours &amp; fonts</i></span></button>
-        </div>
+        <div class="ed-start-grid" id="ed-start-grid"></div>
       </section>
 
       <!-- Templates pane kept in the DOM (the admin /admin/templates page
@@ -481,7 +476,7 @@ const googleFonts = [
           <div class="ed-rebrand" id="ed-rebrand"></div>
 
           <div class="ed-section-title">Brand colours</div>
-          <p class="ed-brand-hint">Select an element first, then click a colour. Or click any swatch on its own to recolour the canvas background.</p>
+          <p class="ed-brand-hint">To change the colour of something, select it first, then click a colour. Click a colour with nothing selected and it recolours the background instead.</p>
           <div class="ed-swatches" id="brand-colour-grid"></div>
 
           <div class="ed-section-title">Brand fonts</div>
@@ -6567,6 +6562,92 @@ const googleFonts = [
       });
     }
 
+    /* ---- What "Start here" offers, by how you got here ---------------------
+       There is one Start pane, and it used to offer one fixed list to
+       everybody. That list can only be right for one of these:
+
+         · a pack design you bought   — already designed; you are personalising
+         · a design of your own       — you are picking up where you left off
+         · a blank canvas             — nothing exists yet; you are building
+         · a prompt from your planner — a brief to work to, on a blank canvas
+
+       "Add a page" and "Elements" are noise on a finished template and the
+       whole point on a blank one. "Make it yours" is the first thing you
+       want on a template and does nothing on an empty canvas — there are no
+       colours in the design for it to swap. So the list is built per route. */
+    (function startPane() {
+      const grid  = document.getElementById("ed-start-grid");
+      const title = document.getElementById("ed-start-title");
+      const sub   = document.getElementById("ed-start-sub");
+      if (!grid) return;
+
+      const IC = {
+        brand:      '<path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8"/>',
+        background: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/>',
+        text:       '<path d="M5 6h14M9 6v13M12 6v6"/>',
+        photos:     '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+        elements:   '<path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/>',
+        page:       '<rect x="3" y="3" width="13" height="18" rx="2"/><path d="M19 8v13H8"/>',
+      };
+      const ACTIONS = {
+        brand:      { tool: "brand",      label: "Make it yours", note: "Your colours &amp; fonts" },
+        background: { tool: "background", label: "Background",    note: "Photo, crop &amp; overlay" },
+        text:       { tool: "text",       label: "Text",          note: "Headlines &amp; captions" },
+        photos:     { tool: "photos",     label: "Images",        note: "Add a photo" },
+        elements:   { tool: "elements",   label: "Elements",      note: "Shapes, lines, icons" },
+        page:       { addPage: true,      label: "Add a page",    note: "For a carousel" },
+      };
+
+      const params = new URLSearchParams(location.search);
+      let ctx = "template";
+      if (params.has("prompt")) ctx = "prompt";
+      else if (params.has("blank") || params.has("new")) ctx = "blank";
+      else if (params.has("design")) ctx = "design";
+
+      const LAYOUT = {
+        // Bought and already designed. Personalise it; don't offer to extend it.
+        template: {
+          title: "Choose something to edit",
+          sub: "Tap an item on your design, or start here.",
+          order: ["brand", "background", "text", "photos"],
+        },
+        // Yours, part-finished. Could have come from anywhere, so offer the lot.
+        design: {
+          title: "Pick up where you left off",
+          sub: "Tap an item on your design, or start here.",
+          order: ["brand", "background", "text", "photos", "elements", "page"],
+        },
+        // Nothing on the page yet. Building tools first; rebranding last,
+        // because there is nothing yet for it to recolour.
+        blank: {
+          title: "Start building",
+          sub: "Nothing on the page yet — add your first piece here.",
+          order: ["text", "photos", "elements", "background", "page", "brand"],
+        },
+        // Same empty canvas, but they came with a brief. The brief sits above
+        // this and is the thing to read first, so the header defers to it.
+        prompt: {
+          title: "Build your post",
+          sub: "Your brief is above. Start with whichever piece you like.",
+          order: ["text", "photos", "elements", "background", "page", "brand"],
+        },
+      };
+
+      const L = LAYOUT[ctx] || LAYOUT.template;
+      if (title) title.textContent = L.title;
+      if (sub) sub.textContent = L.sub;
+
+      grid.innerHTML = L.order.map(function (key) {
+        const a = ACTIONS[key];
+        if (!a) return "";
+        const attr = a.addPage ? "data-add-page" : 'data-start-tool="' + a.tool + '"';
+        return '<button type="button" class="ed-start-btn" ' + attr + '>' +
+          '<span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[key] + '</svg></span>' +
+          '<span class="ed-start-tx"><b>' + a.label + '</b><i>' + a.note + '</i></span>' +
+        '</button>';
+      }).join("");
+    })();
+
     (async () => {
       const params = new URLSearchParams(location.search);
 
@@ -6724,7 +6805,11 @@ const googleFonts = [
     // "Add a page" in the start panel, and the rail's way back to it. Both are
     // markup added in this file, so they are wired here rather than in the
     // engine — the engine only exposes addPage.
-    document.querySelector("[data-add-page]")?.addEventListener("click", () => {
+    // Delegated for the same reason as the start-tool buttons: the Start grid
+    // is rendered per route, so the button may not exist when this runs.
+    document.addEventListener("click", (e) => {
+      const el = e.target as HTMLElement | null;
+      if (!el?.closest?.("[data-add-page]")) return;
       if (typeof (window as any).__TMKE_ADD_PAGE__ === "function") (window as any).__TMKE_ADD_PAGE__();
       // Reveal the page strip too, or the new page is added out of sight.
       const t = document.getElementById("ed-pages-toggle");

@@ -6404,7 +6404,7 @@
       html.push(
         '<div class="ed-props-section"><h4>Content</h4>' +
           '<textarea class="ed-props-text" id="ed-sel-text" rows="3" spellcheck="false"></textarea>' +
-          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Type to replace the wording — the design updates as you go.</p>' +
+          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Type to replace the wording. Your design updates as you go in the preview.</p>' +
         '</div>'
       );
     }
@@ -7009,7 +7009,7 @@
       align: "center",
       lineHeight: 1.2,
     });
-    toast("Logo slot added — " + LOGO_SLOT_W + " × " + LOGO_SLOT_H + ", centred, " + LOGO_SLOT_EDGE + "px from the " + (anchor === "bottom" ? "foot" : "top"));
+    toast("Logo slot added — " + LOGO_SLOT_W + " × " + LOGO_SLOT_H + ", centred, " + LOGO_SLOT_EDGE + "px from the " + (anchor === "bottom" ? "bottom" : "top"));
   }
 
   /* ---- Rebrand: put this design into their colours and fonts ---------------
@@ -7131,7 +7131,7 @@
     // the shared placer fits it to the logo's real proportions.
     const el = getEl(state.selectedIds[0]);
     if (el) placeLogoInSlot(el, src, function () { pushHistory(); });
-    toast("Logo added — " + (anchor === "bottom" ? "foot" : "top") + " of the design");
+    toast("Logo added — " + (anchor === "bottom" ? "bottom" : "top") + " of the design");
   }
 
   function renderRebrand() {
@@ -7156,10 +7156,10 @@
     const rows = [];
     if (brandLogoSrc()) {
       rows.push('<div class="ed-rb-row" data-logorow="1">' +
-        '<span class="ed-rb-what"><b>Your logo</b>200 \u00d7 75, centred</span>' +
+        '<span class="ed-rb-what"><b>Add your logo</b>200 \u00d7 75, centred</span>' +
         '<span class="ed-rb-to">' +
           '<button type="button" class="ed-rb-logo" data-addlogo="top">Top</button>' +
-          '<button type="button" class="ed-rb-logo" data-addlogo="bottom">Foot</button>' +
+          '<button type="button" class="ed-rb-logo" data-addlogo="bottom">Bottom</button>' +
         '</span>' +
       '</div>');
     }
@@ -7201,7 +7201,7 @@
 
     mount.innerHTML = rows.join("") +
       (fontRows.length ? '<p class="ed-rb-note" style="margin-top:8px">Fonts</p>' + fontRows.join("") : "") +
-      '<p class="ed-rb-note">Changing a colour here changes every item using it. To do just one, select it and set its colour as usual.</p>';
+      '<p class="ed-rb-note">Changing a colour here changes every item using it. To change just one, select that item and set its colour from its own menu.</p>';
 
     mount.querySelectorAll("[data-addlogo]").forEach(function (b) {
       b.addEventListener("click", function () { addBrandLogo(b.getAttribute("data-addlogo")); });
@@ -8410,11 +8410,13 @@
   // Customer Studio: a calm "choose something to edit" start panel is shown when
   // nothing is selected, instead of the brand kit. Its options just trigger the
   // matching rail tool. Admin (?mode=admin) keeps brand-kit-first, untouched.
-  document.querySelectorAll("[data-start-tool]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var railBtn = document.querySelector('.ed-rail-btn[data-tool="' + b.dataset.startTool + '"]');
-      if (railBtn) railBtn.click();
-    });
+  // Delegated: the Start grid is built per route by editor.astro, so these
+  // buttons may not exist yet when this runs — and are rebuilt if it reruns.
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest && e.target.closest("[data-start-tool]");
+    if (!b) return;
+    var railBtn = document.querySelector('.ed-rail-btn[data-tool="' + b.dataset.startTool + '"]');
+    if (railBtn) railBtn.click();
   });
   if (!location.search.includes("mode=admin")) {
     activeToolPane = "start";
@@ -8659,7 +8661,7 @@
       '<div class="ed-section-title">Brand</div>' +
       '<div class="ed-logoslot-row">' +
         '<button type="button" class="ed-logoslot-btn" data-logoslot="top">Logo slot &middot; top</button>' +
-        '<button type="button" class="ed-logoslot-btn" data-logoslot="bottom">Logo slot &middot; foot</button>' +
+        '<button type="button" class="ed-logoslot-btn" data-logoslot="bottom">Logo slot &middot; bottom</button>' +
       '</div>' +
       '<p class="ed-brand-hint">200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>';
     head.insertAdjacentElement("afterend", wrap);
