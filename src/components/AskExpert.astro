@@ -49,14 +49,19 @@
     <button type="button" id="ask-expert-close" class="ae-close" aria-label="Close">&times;</button>
   </header>
 
-  <!-- Two-tab layout: Demos first (most users want a quick walk-
-       through), Chat second for ad-hoc questions. -->
+  <!-- Three tabs: a demo you can watch, and two assistants that answer
+       genuinely different questions. One bot doing both jobs had to be
+       described so vaguely ("ask me anything") that nobody could tell what
+       it was for; two named tabs say it without a sentence of explanation. -->
   <div class="ae-tabs" role="tablist">
     <button type="button" class="ae-tab is-active" data-tab="demos" role="tab" aria-selected="true">
-      <span aria-hidden="true">&#9758;</span> Live demos
+      <span aria-hidden="true">&#9758;</span> Show me
     </button>
-    <button type="button" class="ae-tab" data-tab="chat" role="tab" aria-selected="false">
-      <span aria-hidden="true">&#9993;</span> Chat to a bot
+    <button type="button" class="ae-tab" data-tab="help" role="tab" aria-selected="false">
+      <span aria-hidden="true">&#63;</span> Studio help
+    </button>
+    <button type="button" class="ae-tab" data-tab="ideas" role="tab" aria-selected="false">
+      <span aria-hidden="true">&#9998;</span> What to post
     </button>
   </div>
 
@@ -66,21 +71,22 @@
     <div class="ae-tours-grid" id="ae-tours-grid"></div>
   </div>
 
-  <!-- Chat view — free-form Q&A with the AI assistant. -->
-  <div class="ae-view ae-view--chat" data-view="chat" hidden>
-    <div id="ae-log" class="ae-log" aria-live="polite">
+  <!-- Studio help — how the editor works, for anything the demos miss.
+       data-mode picks the system prompt on the back end. -->
+  <div class="ae-view ae-view--chat" data-view="help" data-mode="studio" hidden>
+    <div class="ae-log" data-log aria-live="polite">
       <div class="ae-msg ae-msg--bot">
-        <p>Hi! I&rsquo;m your Creative Assistant. Tell me what you&rsquo;d like &mdash; &ldquo;make this look more premium&rdquo;, &ldquo;improve readability&rdquo;, &ldquo;match my brand colours&rdquo; &mdash; or ask how anything works. Prefer to be shown on screen? Switch to <strong>Live demos</strong>.</p>
+        <p>Stuck on something in the Studio? Ask away &mdash; &ldquo;how do I move the photo behind the text&rdquo;, &ldquo;why has my logo not appeared&rdquo;, &ldquo;what&rsquo;s the difference between the download options&rdquo;. If it&rsquo;s quicker to show you, I&rsquo;ll walk you through it on screen.</p>
       </div>
     </div>
 
-    <form id="ae-form" class="ae-form">
+    <form class="ae-form" data-form>
       <textarea
-        id="ae-input"
         class="ae-input"
+        data-input
         rows="2"
-        placeholder="Ask for anything — or how something works…"
-        aria-label="Your question"
+        placeholder="How do I…?"
+        aria-label="Your question about the Studio"
       ></textarea>
       <button type="submit" class="ae-send" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -91,6 +97,33 @@
     </form>
 
     <p class="ae-foot">Powered by AI &middot; replies may take a few seconds.</p>
+  </div>
+
+  <!-- What to post — the marketing half. Never talks about buttons. -->
+  <div class="ae-view ae-view--chat" data-view="ideas" data-mode="content" hidden>
+    <div class="ae-log" data-log aria-live="polite">
+      <div class="ae-msg ae-msg--bot">
+        <p>Design sorted, but not sure what to say? I can help you plan the week, write the caption, or work out what to post when you&rsquo;ve nothing new on. Try &ldquo;what should I post this week&rdquo;, &ldquo;write a caption for a new 3-bed&rdquo;, or &ldquo;ideas for a quiet month&rdquo;.</p>
+      </div>
+    </div>
+
+    <form class="ae-form" data-form>
+      <textarea
+        class="ae-input"
+        data-input
+        rows="2"
+        placeholder="What should I post about…?"
+        aria-label="Your content question"
+      ></textarea>
+      <button type="submit" class="ae-send" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </form>
+
+    <p class="ae-foot">Powered by AI &middot; it can&rsquo;t see your listings, so fill in the blanks it leaves.</p>
   </div>
 </aside>
 
@@ -362,7 +395,8 @@
   .ae-view[hidden] { display: none; }
   .ae-view--demos {
     padding: 18px 22px 22px;
-    overflow-y: auto;
+    overflow: hidden;          /* the list below does the scrolling */
+    min-height: 0;
   }
   .ae-view-intro {
     margin: 0 4px 14px;
@@ -378,6 +412,22 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    /* Roughly six rows, then scroll. Enough to see there is a list and to
+       reach the common ones without the panel growing into the design. */
+    max-height: min(354px, 46vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* Room for the scrollbar so it never sits on the chips. */
+    padding-right: 4px;
+    margin-right: -4px;
+    /* Fade the last row so a cut-off chip reads as "more below". */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent);
+  }
+  .ae-tours-grid::-webkit-scrollbar { width: 6px; }
+  .ae-tours-grid::-webkit-scrollbar-thumb {
+    background: rgba(28, 29, 34, 0.18);
+    border-radius: 3px;
   }
   .ae-tour-chip {
     appearance: none;
@@ -404,7 +454,36 @@
   }
   .ae-tour-chip .ae-tour-chip-arrow {
     margin-left: auto;
+    flex: none;
     transition: transform 0.2s;
+  }
+  .ae-tour-chip-tx { display: block; min-width: 0; }
+  .ae-tour-chip-tx b { font-weight: 700; }
+  .ae-tour-chip-tx i {
+    display: block;
+    margin-top: 2px;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 12px;
+    opacity: 0.72;
+  }
+  /* The two walk-rounds read as the front door, not another item in the
+     list — filled rather than tinted, so the eye lands there first. */
+  .ae-tour-chip--big {
+    padding: 14px 16px;
+    background: var(--english-violet);
+    border-color: var(--english-violet);
+    color: var(--paper);
+  }
+  .ae-tour-chip--big:hover { background: #241a2c; border-color: #241a2c; }
+  .ae-tours-sep {
+    margin: 6px 0 0;
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(28, 29, 34, 0.38);
   }
   .ae-tour-chip:hover .ae-tour-chip-arrow {
     transform: translateX(3px);
@@ -658,23 +737,27 @@
     const $trigger = document.getElementById("ask-expert-trigger");
     const $panel   = document.getElementById("ask-expert-panel");
     const $close   = document.getElementById("ask-expert-close");
-    const $form    = document.getElementById("ae-form");
-    const $input   = document.getElementById("ae-input") as HTMLTextAreaElement | null;
-    const $log     = document.getElementById("ae-log");
-    const $send    = $form ? ($form.querySelector(".ae-send") as HTMLButtonElement | null) : null;
-    if (!$trigger || !$panel || !$form || !$input || !$log) return;
+    if (!$trigger || !$panel) return;
 
-    const history: { role: "user" | "assistant"; content: string }[] = [];
+    // The two chat views are the same component twice over. Each keeps its
+    // own log and its own history — a question about captions has no
+    // business appearing in the thread about how Layers works, and mixing
+    // them would send each bot the other's conversation.
+    const chatViews = Array.from(
+      $panel.querySelectorAll<HTMLDivElement>(".ae-view--chat")
+    );
+    function inputOf(view: HTMLElement | null | undefined) {
+      return view?.querySelector<HTMLTextAreaElement>("[data-input]") ?? null;
+    }
 
     function openPanel() {
       $panel.hidden = false;
       requestAnimationFrame(() => {
         $panel.classList.add("is-open");
         $trigger.setAttribute("aria-expanded", "true");
-        // Only auto-focus the chat input if the chat tab is the one
-        // currently visible — otherwise we'd snap focus across views.
-        const chatView = $panel.querySelector<HTMLDivElement>('.ae-view[data-view="chat"]');
-        if (chatView && !chatView.hidden) $input.focus();
+        // Only auto-focus a chat input if a chat tab is the one currently
+        // visible — otherwise we'd snap focus across views.
+        inputOf(chatViews.find((v) => !v.hidden))?.focus();
       });
     }
     function closePanel() {
@@ -701,7 +784,7 @@
         '$1<strong>$2</strong>'
       );
     }
-    function append(role: "user" | "assistant" | "error", text: string): HTMLDivElement {
+    function append($log: HTMLElement, role: "user" | "assistant" | "error", text: string): HTMLDivElement {
       const div = document.createElement("div");
       div.className = "ae-msg ae-msg--" + (role === "user" ? "user" : role === "error" ? "error" : "bot");
       const p = document.createElement("p");
@@ -713,7 +796,7 @@
       $log.scrollTop = $log.scrollHeight;
       return div;
     }
-    function appendTyping(): HTMLDivElement {
+    function appendTyping($log: HTMLElement): HTMLDivElement {
       const div = document.createElement("div");
       div.className = "ae-msg ae-msg--bot ae-msg--typing";
       div.innerHTML = "<span></span><span></span><span></span>";
@@ -729,12 +812,14 @@
       (import.meta.env.PUBLIC_ASK_EXPERT_URL as string | undefined) ||
       "/api/ask-expert";
 
-    async function askBackend(messages: typeof history): Promise<string> {
+    type Msg = { role: "user" | "assistant"; content: string };
+
+    async function askBackend(messages: Msg[], mode: string): Promise<string> {
       try {
         const res = await fetch(BACKEND_URL, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages }),
+          body: JSON.stringify({ messages, mode }),
         });
         if (!res.ok) throw new Error("HTTP " + res.status);
         const data = await res.json();
@@ -769,7 +854,7 @@
         v.hidden = !match;
         v.classList.toggle("is-active", match);
       });
-      if (name === "chat") $input.focus();
+      inputOf(chatViews.find((v) => v.dataset.view === name))?.focus();
     }
     $tabs.forEach((t) => {
       t.addEventListener("click", () => switchTab(t.dataset.tab || "demos"));
@@ -778,26 +863,38 @@
       if (e.key === "Escape" && !$panel.hidden) closePanel();
     });
 
-    $form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const text = $input.value.trim();
-      if (!text) return;
-      append("user", text);
-      history.push({ role: "user", content: text });
-      $input.value = "";
-      $input.style.height = "";
-      if ($send) $send.disabled = true;
-      const $typing = appendTyping();
-      const reply = await askBackend(history);
-      $typing.remove();
-      // Reply may contain a ```demo ... ``` fenced JSON block with a
-      // guided tour. Strip it from the visible chat message; pass the
-      // parsed steps to the tour runner.
-      const { prose, steps } = splitDemo(reply);
-      append("assistant", prose);
-      history.push({ role: "assistant", content: reply });
-      if ($send) $send.disabled = false;
-      if (steps && steps.length) startTour(steps);
+    chatViews.forEach((view) => {
+      const $log   = view.querySelector<HTMLElement>("[data-log]");
+      const $form  = view.querySelector<HTMLFormElement>("[data-form]");
+      const $input = inputOf(view);
+      const $send  = $form?.querySelector<HTMLButtonElement>(".ae-send") ?? null;
+      if (!$log || !$form || !$input) return;
+      const mode = view.dataset.mode || "studio";
+      const history: Msg[] = [];
+
+      $form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = $input.value.trim();
+        if (!text) return;
+        append($log, "user", text);
+        history.push({ role: "user", content: text });
+        $input.value = "";
+        $input.style.height = "";
+        if ($send) $send.disabled = true;
+        const $typing = appendTyping($log);
+        const reply = await askBackend(history, mode);
+        $typing.remove();
+        // Reply may contain a ```demo ... ``` fenced JSON block with a
+        // guided tour. Strip it from the visible chat message; pass the
+        // parsed steps to the tour runner. Only the Studio bot is told it
+        // may emit one, but the strip runs either way so a stray fence is
+        // never shown as raw text.
+        const { prose, steps } = splitDemo(reply);
+        append($log, "assistant", prose);
+        history.push({ role: "assistant", content: reply });
+        if ($send) $send.disabled = false;
+        if (steps && steps.length) startTour(steps);
+      });
     });
 
     // ===== Curated tours =====
@@ -810,7 +907,73 @@
     //   - awaitNext: true  ->  user must hit "Next →" (use for steps
     //     where any panel click would advance prematurely, e.g. while
     //     the user is uploading a file)
-    const CURATED_TOURS: { label: string; steps: TourStep[] }[] = [
+    /* The two at the top are different in kind from the rest: they are not
+       "how do I do X" but "what IS all this", for somebody who has just
+       opened their first design and doesn't yet know what the left bar is
+       for. They open each pane themselves and advance on Next, so nobody
+       has to hunt for the right button to keep going — you can sit and read
+       it like a tour, which is the point.
+
+       Split in two because the two audiences want opposite things. Someone
+       editing a pack they bought needs six tools and can ignore the rest;
+       someone building from a blank canvas needs the half we deliberately
+       kept out of the first tour. One combined walk-round would be twice as
+       long and wrong for both of them. */
+    const CURATED_TOURS: { label: string; note?: string; steps: TourStep[] }[] = [
+      {
+        label: "Take a look around",
+        note: "New here? Start with this — 2 minutes",
+        steps: [
+          { target: "canvas", awaitNext: true,
+            caption: "This is your design. Everything you change happens here — and nothing you do is permanent, so have a poke about." },
+          { target: "rail", awaitNext: true,
+            caption: "All your tools live on this bar. Click one and its options open in the panel beside it." },
+          { open: "start-tool", target: "panel", awaitNext: true,
+            caption: "Start is the shortcut menu — the handful of things people change most, without hunting for them." },
+          { open: "brand-tool", target: "panel", awaitNext: true,
+            caption: "Brand is your colours, fonts and logos. 'Make this design yours' at the top recolours the whole design in your palette in one go." },
+          { open: "text-tool", target: "canvas", awaitNext: true,
+            caption: "To change words already on the design, just double-click them here. The Text panel is only for adding new ones." },
+          { open: "images-tool", target: "panel", awaitNext: true,
+            caption: "Images: free photos to search at the top, and your own uploads further down. Click one to drop it on." },
+          { open: "background-tool", target: "panel", awaitNext: true,
+            caption: "Background is the picture behind everything — swap it, fade it back, or hit Reposition to slide it about." },
+          { open: "layers-tool", target: "panel", awaitNext: true,
+            caption: "Layers is what's stacked on what. Drag a row to change the order; the eye hides something without deleting it." },
+          { target: "undo", awaitNext: true,
+            caption: "Gone wrong? Undo, or Ctrl+Z. This is why you can't break anything." },
+          { target: "save", awaitNext: true,
+            caption: "Save keeps the design in your account so you can come back to it later." },
+          { open: "download", target: "download-menu", awaitNext: true,
+            caption: "Download is how you get the file out. PNG for Instagram, PNG with no background for layering, JPG for email, PDF for print." },
+          { target: "schedule", awaitNext: true,
+            caption: "Or hit Add — it goes into your content planner and we email you a reminder the morning it's due." },
+        ],
+      },
+      {
+        label: "Making one from scratch",
+        note: "The tools a bought template doesn't need",
+        steps: [
+          { open: "elements-tool", target: "panel", awaitNext: true,
+            caption: "Elements is where a blank page starts: shapes, gradients, lines, social icons and photo frames." },
+          { target: "panel", awaitNext: true,
+            caption: "Gradients sit near the top — pick a direction, drop it on, and each colour in it can fade out to transparent." },
+          { target: "canvas", awaitNext: true,
+            caption: "Click anything you've added and the panel becomes its own settings — fill, outline, size and position." },
+          { target: "panel", awaitNext: true,
+            caption: "In Position there's a padlock beside width and height. Switch it on and things keep their proportions as you resize." },
+          { open: "guides-tool", target: "panel", awaitNext: true,
+            caption: "Guides gives you margins and lines to line everything up against — the difference between tidy and nearly tidy." },
+          { open: "resize-tool", target: "panel", awaitNext: true,
+            caption: "Resize moves the whole design between formats — square post, story, reel — rather than starting again." },
+          { target: "pages-toggle", awaitNext: true,
+            caption: "Pages is for carousels: add a second page and you've got a swipe-through post." },
+          { open: "layers-tool", target: "panel", awaitNext: true,
+            caption: "Layers earns its keep when you build your own — it's the only place to see everything you've stacked up." },
+          { target: "save", awaitNext: true,
+            caption: "Then it finishes the same way as any template: Save, then Download. That's the lot." },
+        ],
+      },
       {
         label: "Put my logo on this",
         steps: [
@@ -893,9 +1056,9 @@
         ],
       },
       {
-        label: "Schedule this post",
+        label: "Add to planner",
         steps: [
-          { target: "schedule", caption: "Click Schedule in the top toolbar." },
+          { target: "schedule", caption: "Click Add in the top toolbar — the calendar icon." },
           { target: "stage",    caption: "Pick a date and time, then submit. We'll email you a reminder the morning it's due to go out. Press Next when you're done.", awaitNext: true },
         ],
       },
@@ -922,6 +1085,12 @@
       // steps like "upload a file then click the thumbnail" where any
       // click inside the panel would advance prematurely.
       awaitNext?: boolean;
+      // Open something before this step is measured — a target key, which
+      // gets clicked for real. A walk-through that only WATCHES has to ask
+      // the user to click the right thing before it can show them the panel
+      // behind it, which is backwards when the whole point is "show me
+      // round". With this the tour opens the pane itself and narrates.
+      open?: string;
     }
     // The named keys Claude is told to use, mapped to actual selectors
     // in the editor. Adding new tour vocabulary = add an entry here AND
@@ -949,6 +1118,7 @@
       "schedule":        "#ed-schedule",
       "review":          "#ed-review-btn",
       "download":        "#ed-download-trigger",
+      "download-menu":   "#ed-download-menu",
       "topbar":          ".ed-topbar",
       "rail":            ".ed-rail",
       // Retired names, still answered so an older conversation (or a model
@@ -1072,10 +1242,16 @@
     const $toursGrid = document.getElementById("ae-tours-grid");
     if ($toursGrid) {
       $toursGrid.innerHTML = CURATED_TOURS.map((t, i) =>
-        `<button type="button" class="ae-tour-chip" data-tour-idx="${i}">` +
-          `<span>${t.label}</span>` +
+        `<button type="button" class="ae-tour-chip${t.note ? " ae-tour-chip--big" : ""}" data-tour-idx="${i}">` +
+          `<span class="ae-tour-chip-tx"><b>${t.label}</b>` +
+            (t.note ? `<i>${t.note}</i>` : "") +
+          `</span>` +
           `<span class="ae-tour-chip-arrow" aria-hidden="true">&rarr;</span>` +
-        `</button>`
+        `</button>` +
+        // The walk-rounds are a different kind of thing from the task chips
+        // under them, so they get a line between rather than blending in.
+        (t.note && !CURATED_TOURS[i + 1]?.note
+          ? `<p class="ae-tours-sep">Or jump straight to one thing</p>` : "")
       ).join("");
       $toursGrid.addEventListener("click", (e) => {
         const btn = (e.target as HTMLElement).closest(".ae-tour-chip") as HTMLElement | null;
@@ -1112,6 +1288,19 @@
         // Always available, but the tour is click-driven first —
         // the user almost never needs to use Next manually.
         $next.textContent = (idx + 1 === total) ? "Finish" : "Next →";
+      }
+
+      // Open whatever this step is about to talk about, then let the pane
+      // swap before anything is measured.
+      //
+      // Deferred by a tick on purpose. We are usually running inside the
+      // "Next" button's own click, and anything that dismisses on an
+      // outside click — the Download menu does — would be opened here and
+      // shut again a moment later as that same click carried on up to
+      // document. Letting the click finish first is the whole fix.
+      if (step.open) {
+        const opener = resolveTarget(step.open);
+        if (opener) window.setTimeout(() => opener.click(), 0);
       }
 
       const el = resolveTarget(step.target);
@@ -1166,7 +1355,7 @@
           };
           el.addEventListener("click", stepClickHandler, true);
         }
-      }, 320);
+      }, step.open ? 480 : 320);
     }
 
     // Place the card in the viewport CORNER furthest from the target's
@@ -1259,18 +1448,22 @@
       }
     });
 
-    // Auto-grow textarea so multi-line questions fit.
-    $input.addEventListener("input", () => {
-      $input.style.height = "";
-      $input.style.height = Math.min($input.scrollHeight, 120) + "px";
-    });
-
-    // Submit on Enter (Shift+Enter inserts a newline).
-    $input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        $form.requestSubmit();
-      }
+    // Auto-grow the textarea so multi-line questions fit, and submit on
+    // Enter (Shift+Enter inserts a newline). Once per chat view.
+    chatViews.forEach((view) => {
+      const $input = inputOf(view);
+      const $form  = view.querySelector<HTMLFormElement>("[data-form]");
+      if (!$input || !$form) return;
+      $input.addEventListener("input", () => {
+        $input.style.height = "";
+        $input.style.height = Math.min($input.scrollHeight, 120) + "px";
+      });
+      $input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          $form.requestSubmit();
+        }
+      });
     });
   })();
 </script>
