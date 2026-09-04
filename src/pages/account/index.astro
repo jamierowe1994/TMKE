@@ -497,7 +497,24 @@ const recentTemplates = templates.slice(0, 4);
     .ws-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 900px) { .ws-week { grid-template-columns: repeat(4, 1fr); } }
     @media (max-width: 520px) { .ws-week { grid-template-columns: repeat(2, 1fr); } }
-    .ws-day { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; aspect-ratio: 1 / 1.25; border-radius: var(--ws-r-sm); background: #fff; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); cursor: pointer; font-family: inherit; text-align: left; transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+    /* Every day as tall as the busiest one, so the line at the foot — "No post
+       planned", "Design this post" — sits level across all seven and only the
+       gap above it varies with the length of the prompt.
+
+       Both declarations earn their place. `align-self: stretch` because the
+       default `align-items: normal` deliberately does NOT stretch an item that
+       carries an aspect-ratio; for those it behaves as `start`, to protect the
+       ratio. And `width: 100%` because once stretching makes the height
+       definite, an auto width lets the ratio run backwards and compute the
+       WIDTH from that height — cards then grow past their column, close the
+       gaps and overlap. Pinning the width to the column leaves the ratio with
+       no free axis, so it only ever sets the shape of a quiet week.
+
+       `min-width: 0` for the same reason one step further down: a grid item's
+       automatic minimum size takes the width the ratio implies from its
+       height, which at four columns pushed cards past their track — that one
+       predates any of this and was already overflowing at tablet width. */
+    .ws-day { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px; aspect-ratio: 1 / 1.25; width: 100%; min-width: 0; align-self: stretch; border-radius: var(--ws-r-sm); background: #fff; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); cursor: pointer; font-family: inherit; text-align: left; transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
     .ws-day:hover { transform: translateY(-3px); border-color: rgba(28, 29, 34, 0.22); }
     .ws-day-name { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); display: flex; align-items: center; gap: 6px; }
     .ws-day-name i { display: none; }
