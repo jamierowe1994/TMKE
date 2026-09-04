@@ -714,72 +714,77 @@ const googleFonts = [
       </section>
 
       <!-- Background -->
+      <!-- Two jobs, so two sections. Colour and image were interleaved here —
+           brand swatches at the top, the photo controls above them, custom and
+           gradients at the foot — so neither read as a complete answer to
+           "what goes behind this design". Colour first because the brand
+           swatches are the thing most people came for. -->
       <section class="ed-panel-pane" data-pane="background">
         <div class="ed-pane-header"><h3>Background</h3><p>Set a background image, colour or gradient for the whole design.</p></div>
 
-        <!-- Background image: live preview + change/upload menu. -->
-        <div class="ed-bg-img-block">
-          <div class="ed-bg-thumb" id="ed-bg-thumb"><span class="ed-bg-thumb-empty">No image</span></div>
-          <div class="ed-bg-img-actions">
-            <div class="ed-bg-change-wrap">
-              <button type="button" class="ed-bg-btn" id="ed-bg-change">Change image
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              <div class="ed-bg-imgmenu" id="ed-bg-imgmenu" hidden></div>
-            </div>
-            <div class="ed-bg-fit" id="ed-bg-fit" hidden role="group" aria-label="Background fit">
-              <button type="button" class="ed-bg-fit-btn is-active" data-bgfit="cover" title="Fill the frame — crop to cover">Fill</button>
-              <button type="button" class="ed-bg-fit-btn" data-bgfit="contain" title="Fit the whole photo inside the frame">Fit</button>
-            </div>
-            <button type="button" class="ed-bg-btn" id="ed-bg-reposition" hidden>Reposition</button>
-            <button type="button" class="ed-bg-btn ed-bg-btn-danger" id="ed-bg-detach" hidden>Remove</button>
-          </div>
-          <input type="file" id="ed-bg-upload" accept="image/*" hidden />
-        </div>
+        <!-- ===== Colour ===== -->
+        <div class="ed-bg-sec">
+          <div class="ed-section-title">Colour</div>
+          <!-- The member's own kit is injected here by
+               seedBrandIntoBackgroundPane, above Custom and Gradient. -->
+          <div id="ed-bg-colour-mount"></div>
 
-        <!-- Transparency — only when an image is set (toggled in editor.js). -->
-        <div class="ed-bg-imgctl" id="ed-bg-imgctl" hidden>
-          <div class="ed-section-title">Image transparency</div>
-          <div class="ed-bg-op-row">
-            <input type="range" min="0" max="100" step="1" value="100" id="ed-bg-opacity" />
-            <input type="number" min="0" max="100" step="1" value="100" id="ed-bg-opacity-num" />
-            <span class="ed-bg-op-pct">%</span>
-          </div>
-          <!-- Fade colour: only shown once the image is below 100% (the colour
-               that shows through the faded photo). -->
-          <div class="ed-bg-tint" id="ed-bg-tint" hidden>
-            <div class="ed-section-title" style="margin-top:12px;">Fade colour</div>
-            <div class="ed-bg-tint-row">
-              <button type="button" class="ed-sw" data-color="#000000" style="background:#000000" title="Black"></button>
-              <button type="button" class="ed-sw" data-color="#FFFFFF" style="background:#FFFFFF; border:1px solid rgba(0,0,0,0.12)" title="White"></button>
-              <label class="ed-circle-swatch ed-bg-tint-custom" title="Custom fade colour"><input type="color" id="ed-bg-tint-color" value="#000000" /></label>
+          <!-- Same square swatches as the kit above and the fade colours
+               below, rather than circles that read as a different kind of
+               control for the same job. -->
+          <div class="ed-bg-cg">
+            <div class="ed-bg-cg-item">
+              <button type="button" class="ed-sw ed-sw-lg" id="ed-bg-color-wrap" title="Custom colour — pick any hex colour" style="background:#f4f2f1"></button>
+              <span class="ed-bg-cg-label">Custom</span>
+            </div>
+            <div class="ed-bg-cg-item">
+              <button type="button" class="ed-sw ed-sw-lg" id="ed-bg-grad" title="Build a gradient" style="background:linear-gradient(135deg, var(--english-violet), #B9826A)"></button>
+              <span class="ed-bg-cg-label">Gradient</span>
             </div>
           </div>
         </div>
 
-        <!-- TMKE's own palette used to sit here under a second "Brand" heading,
-             directly below the member's actual brand colours. To them it was
-             nine colours belonging to nobody, competing with their own kit for
-             the same job. Their kit is injected above by
-             seedBrandIntoBackgroundPane; Custom and Gradients follow it, which
-             is where you go when the answer isn't in the kit. -->
+        <!-- ===== Image ===== -->
+        <div class="ed-bg-sec">
+          <div class="ed-section-title">Image</div>
 
-        <!-- Custom colour + Gradients as compact circle triggers (hex-first). -->
-        <div class="ed-bg-cg">
-          <div class="ed-bg-cg-item">
-            <span class="ed-bg-cg-label">Custom</span>
-            <button type="button" class="ed-circle-swatch" id="ed-bg-color-wrap" title="Custom colour — pick a hex colour or build a gradient" style="background:#f4f2f1"></button>
+          <!-- Background image: live preview + change/upload menu. -->
+          <div class="ed-bg-img-block">
+            <div class="ed-bg-thumb" id="ed-bg-thumb"><span class="ed-bg-thumb-empty">No image</span></div>
+            <div class="ed-bg-img-actions">
+              <div class="ed-bg-change-wrap">
+                <button type="button" class="ed-bg-btn" id="ed-bg-change">Change image
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div class="ed-bg-imgmenu" id="ed-bg-imgmenu" hidden></div>
+              </div>
+              <div class="ed-bg-fit" id="ed-bg-fit" hidden role="group" aria-label="Background fit">
+                <button type="button" class="ed-bg-fit-btn is-active" data-bgfit="cover" title="Fill the frame — crop to cover">Fill</button>
+                <button type="button" class="ed-bg-fit-btn" data-bgfit="contain" title="Fit the whole photo inside the frame">Fit</button>
+              </div>
+              <button type="button" class="ed-bg-btn" id="ed-bg-reposition" hidden>Reposition</button>
+              <button type="button" class="ed-bg-btn ed-bg-btn-danger" id="ed-bg-detach" hidden>Remove</button>
+            </div>
+            <input type="file" id="ed-bg-upload" accept="image/*" hidden />
           </div>
-          <div class="ed-bg-cg-item ed-bg-grad-wrap">
-            <span class="ed-bg-cg-label">Gradients</span>
-            <button type="button" class="ed-circle-swatch ed-bg-grad-circle" id="ed-bg-grad" title="Pick a gradient" style="background:linear-gradient(135deg, var(--english-violet), #B9826A)"></button>
-            <div class="ed-bg-gradmenu" id="ed-bg-gradmenu" hidden>
-              <button class="ed-grad" data-grad="linear-gradient(135deg, var(--english-violet), #B9826A)" style="background:linear-gradient(135deg, var(--english-violet), #B9826A)"></button>
-              <button class="ed-grad" data-grad="linear-gradient(135deg, #1c1d22, var(--english-violet))" style="background:linear-gradient(135deg, #1c1d22, var(--english-violet))"></button>
-              <button class="ed-grad" data-grad="linear-gradient(180deg, #f4f2f1, #DFDCDE)" style="background:linear-gradient(180deg, #f4f2f1, #DFDCDE)"></button>
-              <button class="ed-grad" data-grad="linear-gradient(135deg, #B9826A, #f4f2f1)" style="background:linear-gradient(135deg, #B9826A, #f4f2f1)"></button>
-              <button class="ed-grad" data-grad="radial-gradient(circle at 30% 30%, #BCB3B9, var(--english-violet))" style="background:radial-gradient(circle at 30% 30%, #BCB3B9, var(--english-violet))"></button>
-              <button class="ed-grad" data-grad="linear-gradient(180deg, #333747, #BCB3B9)" style="background:linear-gradient(180deg, #333747, #BCB3B9)"></button>
+
+          <!-- Transparency — only when an image is set (toggled in editor.js). -->
+          <div class="ed-bg-imgctl" id="ed-bg-imgctl" hidden>
+            <div class="ed-section-title">Image transparency</div>
+            <div class="ed-bg-op-row">
+              <input type="range" min="0" max="100" step="1" value="100" id="ed-bg-opacity" />
+              <input type="number" min="0" max="100" step="1" value="100" id="ed-bg-opacity-num" />
+              <span class="ed-bg-op-pct">%</span>
+            </div>
+            <!-- Fade colour: only shown once the image is below 100% (the colour
+                 that shows through the faded photo). -->
+            <div class="ed-bg-tint" id="ed-bg-tint" hidden>
+              <div class="ed-section-title" style="margin-top:12px;">Fade colour</div>
+              <div class="ed-bg-tint-row">
+                <button type="button" class="ed-sw" data-color="#000000" style="background:#000000" title="Black"></button>
+                <button type="button" class="ed-sw" data-color="#FFFFFF" style="background:#FFFFFF; border:1px solid rgba(0,0,0,0.12)" title="White"></button>
+                <label class="ed-sw ed-bg-tint-custom" title="Custom fade colour"><input type="color" id="ed-bg-tint-color" value="#000000" /></label>
+              </div>
             </div>
           </div>
         </div>
@@ -2262,12 +2267,35 @@ const googleFonts = [
     /* Rebrand rows: what the design uses on the left, what to change it to on
        the right. One row per colour actually present, so a simple design shows
        one or two and a busy one shows what it really has. */
+    /* This is the quickest route from "a template" to "our template", and it
+       sat in the pane as flat rows with a hairline under them — the same
+       weight as the swatch grid below, which does a far smaller job. A card
+       gives it an edge and a ground of its own, so it reads as the thing to
+       do first rather than the first thing on a list. */
     .ed-rebrand {
-      display: flex; flex-direction: column; gap: 10px;
-      /* Closes the rebrand block off from the swatches below, which are a
-         different job — recolouring one selected thing, not the whole design. */
-      padding-bottom: 18px; margin-bottom: 4px;
-      border-bottom: 1px solid rgba(28,29,34,0.12);
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 14px; margin-bottom: 6px;
+      background: rgba(var(--violet-rgb), 0.045);
+      border: 1px solid rgba(var(--violet-rgb), 0.16);
+      border-radius: 12px;
+    }
+    /* Colours and Fonts are two groups inside the card, each labelled the
+       same way, instead of one run of rows with a grey sentence in the middle
+       standing in for a heading. */
+    .ed-rb-group { display: flex; flex-direction: column; gap: 9px; }
+    .ed-rb-group + .ed-rb-group {
+      padding-top: 13px;
+      border-top: 1px solid rgba(var(--violet-rgb), 0.16);
+    }
+    .ed-rb-grouptitle {
+      font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: rgba(28,29,34,0.5);
+    }
+    /* Rows sit on the card's own surface so each reads as one decision. */
+    .ed-rb-row, .ed-rb-font {
+      background: #fff; border: 1px solid rgba(28,29,34,0.09);
+      border-radius: 8px; padding: 8px 10px;
     }
     .ed-rb-row { display: flex; align-items: center; gap: 10px; }
     .ed-rb-from { flex: none; width: 26px; height: 26px; border-radius: 5px; border: 1px solid rgba(28,29,34,0.2); }
@@ -2321,8 +2349,15 @@ const googleFonts = [
       transition: background 0.15s, border-color 0.15s;
     }
     .ed-rb-logo:hover { background: rgba(var(--violet-rgb), 0.16); border-color: var(--english-violet); }
-    .ed-rb-note { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); line-height: 1.45; color: rgba(28,29,34,0.55); margin: 2px 0 0; }
+    .ed-rb-note { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); line-height: 1.45; color: rgba(28,29,34,0.55); margin: 0; }
     .ed-rb-font { display: flex; align-items: center; gap: 10px; }
+    /* The font name is the row's subject, so it sits on its own line with the
+       controls beneath — three things across one 360px panel left the dropdown
+       about twenty pixels wide. */
+    .ed-rb-font { flex-direction: column; align-items: stretch; gap: 8px; }
+    .ed-rb-fontctl { display: flex; align-items: center; gap: 8px; }
+    .ed-rb-fontctl select { flex: 1 1 auto; min-width: 0; }
+    .ed-rb-fontctl .ed-rb-logo { flex: none; white-space: nowrap; }
     .ed-rb-font select {
       flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid rgba(28,29,34,0.18);
       border-radius: 6px; font-family: var(--sans); font-size: var(--ws-t-meta, 12px); background: #fff; color: var(--ink);
@@ -2551,7 +2586,7 @@ const googleFonts = [
     }
     .ed-sw {
       aspect-ratio: 1;
-      border: none; cursor: pointer; border-radius: 4px;
+      border: 1px solid rgba(28,29,34,0.14); cursor: pointer; border-radius: 4px;
       transition: transform 0.2s, box-shadow 0.2s;
     }
     .ed-sw:hover { transform: scale(1.08); box-shadow: 0 4px 10px -4px rgba(28,29,34,0.3); }
@@ -2864,17 +2899,31 @@ const googleFonts = [
     .ed-bg-tint[hidden] { display: none; }
     .ed-bg-tint-row { display: flex; align-items: center; gap: 8px; }
     .ed-bg-tint-row .ed-sw { width: 26px; height: 26px; }
-    .ed-bg-cg { display: flex; gap: 28px; align-items: center; margin-top: 16px; }
-    .ed-bg-cg-item { display: flex; align-items: center; gap: 10px; position: relative; }
-    .ed-bg-cg-label { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .ed-bg-gradmenu {
-      position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
-      display: grid; grid-template-columns: repeat(3, 38px); gap: 6px;
-      background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px;
-      box-shadow: 0 18px 44px -16px rgba(28,29,34,0.4); padding: 10px;
+    /* Custom and Gradient are two more ways to answer the same question as
+       the swatches above them, so they are the same square, on the same grid
+       — five across, matching .ed-swatches — rather than two loose circles. */
+    .ed-bg-cg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+    .ed-bg-cg-item { display: flex; flex-direction: column; align-items: stretch; gap: 4px; position: relative; }
+    .ed-bg-cg-label { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); text-align: center; }
+    .ed-bg-cg .ed-sw { width: 100%; }
+    /* The tint custom swatch is a <label> wrapping a colour input, so it needs
+       the box drawn on it rather than inherited from a button. */
+    .ed-bg-tint-row .ed-bg-tint-custom {
+      position: relative; overflow: hidden; border: 1px solid rgba(28,29,34,0.18);
+      display: inline-block; aspect-ratio: auto;
     }
-    .ed-bg-gradmenu[hidden] { display: none; }
-    .ed-bg-gradmenu .ed-grad { width: 38px; height: 38px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(28,29,34,0.1); }
+    .ed-bg-tint-row .ed-bg-tint-custom input[type="color"] {
+      position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px);
+      border: 0; padding: 0; background: none; cursor: pointer;
+    }
+    /* Sections give colour and image a visible edge between them. */
+    .ed-bg-sec + .ed-bg-sec { margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(28,29,34,0.09); }
+    /* Inside a section, the group labels step down rather than repeating the
+       section heading's weight two lines below it. */
+    #ed-bg-colour-mount .ed-section-title {
+      margin-top: 0; font-size: 9.5px; letter-spacing: 0.08em;
+      color: rgba(28,29,34,0.5);
+    }
 
     /* Popover triggered from a .ed-pop-trigger button. The trigger lives
        in the context bar; the popover itself is appended to <body> so

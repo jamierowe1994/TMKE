@@ -7040,7 +7040,7 @@
   // "body text, 4 items" rather than showing a bare swatch.
   function designColours() {
     const map = {};
-    const note = { text: "text", rect: "shapes", ellipse: "shapes", triangle: "shapes", star: "shapes", line: "lines" };
+    const note = { text: "Text", rect: "Shapes", ellipse: "Shapes", triangle: "Shapes", star: "Shapes", line: "Lines" };
     state.elements.forEach(function (el) {
       if (!el) return;
       ["color", "fill", "stroke"].forEach(function (k) {
@@ -7164,10 +7164,10 @@
       '</div>');
     }
     rows.push.apply(rows, designColours().map(function (c) {
-      const kinds = Object.keys(c.kinds).join(" &amp; ");
+      const kinds = Object.keys(c.kinds).join(" &amp; ");   // already capitalised above
       return '<div class="ed-rb-row" data-from="' + c.hex + '">' +
         '<span class="ed-rb-from" style="background:' + c.hex + '"></span>' +
-        '<span class="ed-rb-what"><b>' + kinds + '</b>' + c.count + ' item' + (c.count === 1 ? "" : "s") + '</span>' +
+        '<span class="ed-rb-what"><b>' + kinds + '</b>' + c.count + ' item' + (c.count === 1 ? "" : "s") + ' &middot; ' + c.hex.toUpperCase() + '</span>' +
         swatches(c.hex) +
       '</div>';
     }));
@@ -7192,15 +7192,22 @@
       }).join("");
       return '<div class="ed-rb-font" data-font-from="' + escapeHtml(f.name) + '">' +
         '<span class="ed-rb-what"><b>' + escapeHtml(f.name) + '</b>' + f.count + ' text item' + (f.count === 1 ? "" : "s") + '</span>' +
-        '<select>' + opts + '</select>' +
-        (suggested && suggested !== f.name
-          ? '<button type="button" class="ed-rb-sw" style="width:auto;padding:5px 9px;font-family:var(--sans);font-size:11px;font-weight:700;background:rgba(var(--violet-rgb),0.1);color:var(--english-violet);border-color:rgba(var(--violet-rgb),0.35)" data-font-to="' + escapeHtml(suggested) + '">Use ' + escapeHtml(suggested) + '</button>'
-          : '') +
+        '<span class="ed-rb-fontctl">' +
+          '<select>' + opts + '</select>' +
+          (suggested && suggested !== f.name
+            ? '<button type="button" class="ed-rb-logo" data-font-to="' + escapeHtml(suggested) + '">Use ' + escapeHtml(suggested) + '</button>'
+            : '') +
+        '</span>' +
       '</div>';
     });
 
-    mount.innerHTML = rows.join("") +
-      (fontRows.length ? '<p class="ed-rb-note" style="margin-top:8px">Fonts</p>' + fontRows.join("") : "") +
+    mount.innerHTML =
+      '<div class="ed-rb-group">' +
+        '<div class="ed-rb-grouptitle">Colours</div>' + rows.join("") +
+      '</div>' +
+      (fontRows.length
+        ? '<div class="ed-rb-group"><div class="ed-rb-grouptitle">Fonts</div>' + fontRows.join("") + '</div>'
+        : "") +
       '<p class="ed-rb-note">Changing a colour here changes every item using it. To change just one, select that item and set its colour from its own menu.</p>';
 
     mount.querySelectorAll("[data-addlogo]").forEach(function (b) {
@@ -8740,22 +8747,40 @@
     wrap.addEventListener("click", function (e) {
       e.stopPropagation();
       const bg = state.canvas.background;
+      // Solid only. It used to offer the gradient builder as well, which is
+      // exactly what the Gradient control beside it is for — two doors to the
+      // same room, and neither label mentioned the other.
       openColorPanel({
-        title: "Background",
+        title: "Background colour",
         current: isGradient(bg) ? "#F4F2F1" : bg,
-        currentGradient: null,
         onSolid: function (hex) { state.canvas.background = hex; wrap.style.background = hex; fullRender(); pushHistory(); },
-        onGradient: function (g) { state.canvas.background = gradCss(g); wrap.style.background = gradCss(g); fullRender(); pushHistory(); },
       });
     });
   })();
-  document.querySelectorAll(".ed-grad").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.canvas.background = btn.dataset.grad;
-      pushHistory();
-      fullRender();
+  /* Gradient opens the builder the rest of the editor uses, rather than the
+     six fixed presets it used to drop down. A background gradient and a
+     gradient on a shape are now the same thing to learn — every stop
+     editable, transparency included — instead of one being a short menu of
+     someone else's choices. */
+  (function () {
+    const gwrap = $("ed-bg-grad");
+    if (!gwrap) return;
+    gwrap.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const bg = state.canvas.background;
+      openColorPanel({
+        title: "Background gradient",
+        currentGradient: (typeof bg === "string" && bg.indexOf("gradient") !== -1) ? bg : null,
+        onGradient: function (g) {
+          const css = gradCss(g);
+          state.canvas.background = css;
+          gwrap.style.background = css;
+          fullRender();
+          pushHistory();
+        },
+      });
     });
-  });
+  })();
 
   // ---------- Background pane: change/upload image, fade tint, gradient menu, reposition ----------
   (function () {
@@ -8764,8 +8789,6 @@
     const fileInput = $("ed-bg-upload");
     const repoBtn = $("ed-bg-reposition");
     const tintColor = $("ed-bg-tint-color");
-    const gradCircle = $("ed-bg-grad");
-    const gradMenu = $("ed-bg-gradmenu");
 
     /* What you'd expect to pick from: pictures already in this design, then
        the uploads library. It read the library alone, and only whatever had
@@ -8833,11 +8856,6 @@
     if (tintColor) {
       tintColor.addEventListener("input", () => { state.canvas.background = tintColor.value; fullRender(); });
       tintColor.addEventListener("change", () => pushHistory());
-    }
-    if (gradCircle && gradMenu) {
-      gradCircle.addEventListener("click", (e) => { e.stopPropagation(); gradMenu.hidden = !gradMenu.hidden; });
-      document.addEventListener("click", (e) => { if (!gradMenu.hidden && !gradMenu.contains(e.target) && !gradCircle.contains(e.target)) gradMenu.hidden = true; });
-      gradMenu.querySelectorAll(".ed-grad").forEach((b) => b.addEventListener("click", () => { gradMenu.hidden = true; }));
     }
     if (repoBtn) repoBtn.addEventListener("click", () => { if (state.canvas.backgroundImage) enterBgReposition(); });
 
@@ -9723,7 +9741,7 @@
     wrap.className = "ed-brand-injected";
     const title = document.createElement("div");
     title.className = "ed-section-title";
-    title.textContent = hasKit ? "Your brand" : "Colours";
+    title.textContent = hasKit ? "Your brand" : "Presets";
     wrap.appendChild(title);
     const row = document.createElement("div");
     row.className = "ed-swatches";
@@ -9741,7 +9759,9 @@
       row.appendChild(b);
     });
     wrap.appendChild(row);
-    // Insert right after pane header
+    // Into the Colour section, above Custom and Gradient.
+    const mount = document.getElementById("ed-bg-colour-mount");
+    if (mount) { mount.innerHTML = ""; mount.appendChild(wrap); return; }
     const header = bgPane.querySelector(".ed-pane-header");
     if (header && header.nextSibling) bgPane.insertBefore(wrap, header.nextSibling);
     else bgPane.appendChild(wrap);
