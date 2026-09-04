@@ -5890,8 +5890,14 @@ const googleFonts = [
         if (!imgs.length) { el.hidden = true; el.innerHTML = ""; return; }
         el.hidden = false;
         el.innerHTML =
-          imgs.slice(0, 12).map((im) => '<span class="ed-canva-thumb" style="background-image:url(' + JSON.stringify(im.src) + ')"></span>').join("") +
+          imgs.slice(0, 12).map(() => '<span class="ed-canva-thumb"></span>').join("") +
           (imgs.length > 12 ? '<span class="ed-canva-thumb ed-canva-thumb--more">+' + (imgs.length - 12) + '</span>' : "");
+        // Same trap as the background image grid: a JSON-quoted URL inside a
+        // double-quoted style attribute closes the attribute at url(, and every
+        // thumbnail draws blank. Set it on the element instead.
+        el.querySelectorAll(".ed-canva-thumb:not(.ed-canva-thumb--more)").forEach((sp, i) => {
+          sp.style.backgroundImage = "url(" + JSON.stringify(imgs[i].src) + ")";
+        });
       }
 
       function wireDrop(dropId, inputId, badgeId, thumbsId, onImages) {

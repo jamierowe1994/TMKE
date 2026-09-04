@@ -8818,14 +8818,19 @@
       }
       const recent = bgMenuImages();
       let html = recent.length
-        ? '<div class="ed-bg-imgmenu-grid">' + recent.map((src, i) => '<button type="button" data-idx="' + i + '" style="background-image:url(' + JSON.stringify(src) + ')"></button>').join("") + '</div>'
+        ? '<div class="ed-bg-imgmenu-grid">' + recent.map((src, i) => '<button type="button" data-idx="' + i + '"></button>').join("") + '</div>'
         : '<p class="ed-bg-imgmenu-empty">Nothing to pick from yet — upload an image and it will be here next time.</p>';
       html += '<button type="button" class="ed-bg-imgmenu-upload" data-upload>Upload a new image</button>';
       menu.innerHTML = html;
-      menu.querySelectorAll("[data-idx]").forEach((b) => b.addEventListener("click", () => {
-        setCanvasBackgroundImage(bgMenuImages()[parseInt(b.dataset.idx, 10)]);
-        menu.hidden = true;
-      }));
+      // The picture goes on through the DOM, not through the HTML string. Built
+      // inline it read style="background-image:url("https://…")" — the URL's own
+      // quotes closed the style attribute at url(, so every tile drew as an
+      // empty grey box while the grid itself looked perfectly correct.
+      menu.querySelectorAll("[data-idx]").forEach((b) => {
+        const src = recent[parseInt(b.dataset.idx, 10)];
+        b.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
+        b.addEventListener("click", () => { setCanvasBackgroundImage(src); menu.hidden = true; });
+      });
       const up = menu.querySelector("[data-upload]");
       if (up) up.addEventListener("click", () => { menu.hidden = true; if (fileInput) fileInput.click(); });
     }
