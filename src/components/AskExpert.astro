@@ -67,7 +67,7 @@
 
   <!-- Demos view — the curated quick-pick list. -->
   <div class="ae-view ae-view--demos is-active" data-view="demos">
-    <p class="ae-view-intro">Tap any of these and we&rsquo;ll walk you through it on screen.</p>
+    <p class="ae-view-intro">Pick one and we&rsquo;ll walk you through it on screen &mdash; opening each panel as we go. Just press <strong>Next</strong>; we&rsquo;ll say when it&rsquo;s your turn.</p>
     <div class="ae-tours-grid" id="ae-tours-grid"></div>
   </div>
 
@@ -672,6 +672,7 @@
     transition: top 0.45s cubic-bezier(.22,1,.36,1),
                 left 0.45s cubic-bezier(.22,1,.36,1);
   }
+  .ae-tour-step.is-you { color: var(--english-violet); }
   .ae-tour-step {
     font-family: var(--sans);
     font-size: 10px;
@@ -903,10 +904,15 @@
     // no risk of hallucinated targets. Each entry uses the same step
     // schema the AI demo block uses, so the same runner plays them.
     // Tour step rules:
-    //   - default: clicking the spotlighted target advances the step
-    //   - awaitNext: true  ->  user must hit "Next →" (use for steps
-    //     where any panel click would advance prematurely, e.g. while
-    //     the user is uploading a file)
+    //   - Next is the only thing that advances a tour, on every step.
+    //   - The tour opens panels itself: `open` names a target to click
+    //     first (a step aimed AT a rail button opens it automatically).
+    //     So captions describe what is on screen rather than ordering
+    //     the reader to click, and pressing Next always lands them
+    //     somewhere that matches what they are reading.
+    //   - `you: true` for the handful of steps only the reader can do:
+    //     selecting their own element, typing their own words. The card
+    //     says "your turn" so those stop looking like the rest.
     /* The two at the top are different in kind from the rest: they are not
        "how do I do X" but "what IS all this", for somebody who has just
        opened their first design and doesn't yet know what the left bar is
@@ -924,29 +930,29 @@
         label: "Take a look around",
         note: "New here? Start with this — 2 minutes",
         steps: [
-          { target: "canvas", awaitNext: true,
+          { target: "canvas",
             caption: "This is your design. Everything you change happens here — and nothing you do is permanent, so have a poke about." },
-          { target: "rail", awaitNext: true,
+          { target: "rail",
             caption: "All your tools live on this bar. Click one and its options open in the panel beside it." },
-          { open: "start-tool", target: "panel", awaitNext: true,
+          { open: "start-tool", target: "panel",
             caption: "Start is the shortcut menu — the handful of things people change most, without hunting for them." },
-          { open: "brand-tool", target: "panel", awaitNext: true,
+          { open: "brand-tool", target: "panel",
             caption: "Brand is your colours, fonts and logos. 'Make this design yours' at the top recolours the whole design in your palette in one go." },
-          { open: "text-tool", target: "canvas", awaitNext: true,
+          { open: "text-tool", target: "canvas",
             caption: "To change words already on the design, just double-click them here. The Text panel is only for adding new ones." },
-          { open: "images-tool", target: "panel", awaitNext: true,
+          { open: "images-tool", target: "panel",
             caption: "Images: free photos to search at the top, and your own uploads further down. Click one to drop it on." },
-          { open: "background-tool", target: "panel", awaitNext: true,
+          { open: "background-tool", target: "panel",
             caption: "Background is the picture behind everything — swap it, fade it back, or hit Reposition to slide it about." },
-          { open: "layers-tool", target: "panel", awaitNext: true,
+          { open: "layers-tool", target: "panel",
             caption: "Layers is what's stacked on what. Drag a row to change the order; the eye hides something without deleting it." },
-          { target: "undo", awaitNext: true,
+          { target: "undo",
             caption: "Gone wrong? Undo, or Ctrl+Z. This is why you can't break anything." },
-          { target: "save", awaitNext: true,
+          { target: "save",
             caption: "Save keeps the design in your account so you can come back to it later." },
-          { open: "download", target: "download-menu", awaitNext: true,
+          { open: "download", target: "download-menu",
             caption: "Download is how you get the file out. PNG for Instagram, PNG with no background for layering, JPG for email, PDF for print." },
-          { target: "schedule", awaitNext: true,
+          { target: "schedule",
             caption: "Or hit Add — it goes into your content planner and we email you a reminder the morning it's due." },
         ],
       },
@@ -954,119 +960,139 @@
         label: "Making one from scratch",
         note: "The tools a bought template doesn't need",
         steps: [
-          { open: "elements-tool", target: "panel", awaitNext: true,
+          { open: "elements-tool", target: "panel",
             caption: "Elements is where a blank page starts: shapes, gradients, lines, social icons and photo frames." },
-          { target: "panel", awaitNext: true,
+          { target: "panel",
             caption: "Gradients sit near the top — pick a direction, drop it on, and each colour in it can fade out to transparent." },
-          { target: "canvas", awaitNext: true,
-            caption: "Click anything you've added and the panel becomes its own settings — fill, outline, size and position." },
-          { target: "panel", awaitNext: true,
-            caption: "In Position there's a padlock beside width and height. Switch it on and things keep their proportions as you resize." },
-          { open: "guides-tool", target: "panel", awaitNext: true,
+          { target: "canvas",
+            caption: "Click anything you've added and the panel becomes its settings — fill, outline, size and position. There's a padlock beside width and height there: on means it keeps its proportions as you resize." },
+          { open: "guides-tool", target: "panel",
             caption: "Guides gives you margins and lines to line everything up against — the difference between tidy and nearly tidy." },
-          { open: "resize-tool", target: "panel", awaitNext: true,
+          { open: "resize-tool", target: "panel",
             caption: "Resize moves the whole design between formats — square post, story, reel — rather than starting again." },
-          { target: "pages-toggle", awaitNext: true,
+          { target: "pages-toggle",
             caption: "Pages is for carousels: add a second page and you've got a swipe-through post." },
-          { open: "layers-tool", target: "panel", awaitNext: true,
+          { open: "layers-tool", target: "panel",
             caption: "Layers earns its keep when you build your own — it's the only place to see everything you've stacked up." },
-          { target: "save", awaitNext: true,
+          { target: "save",
             caption: "Then it finishes the same way as any template: Save, then Download. That's the lot." },
         ],
       },
       {
         label: "Put my logo on this",
         steps: [
-          { target: "brand-tool", caption: "Your logo comes from your brand kit — click Brand." },
-          { target: "panel",      caption: "Logos you've saved show at the bottom. No logos yet? Use the 'Edit' link to add one, then come back. Press Next.", awaitNext: true },
-          { target: "canvas",     caption: "Designs with a logo space fill it in on their own. Otherwise click a logo here to drop it on, then drag it into place.", awaitNext: true },
+          { open: "brand-tool", target: "panel",
+            caption: "Your logo comes from your brand kit, not from the design. This is it — colours, fonts and logos, all saved on your profile." },
+          { target: "panel",
+            caption: "Saved logos sit at the bottom of this panel. Nothing there yet? The 'Edit' link at the top takes you to your profile to add one." },
+          { target: "canvas",
+            caption: "Any design with a logo space fills it in for you when it opens. If yours hasn't a space, click a logo in the panel to drop one on." },
         ],
       },
       {
         label: "Swap to my other logo",
         steps: [
-          { target: "canvas", caption: "Click the logo on your design to select it." },
-          { target: "panel",  caption: "Under 'Brand logo' you'll see every logo in your kit — click another to swap it in. It re-sizes and re-centres itself." },
+          { target: "canvas", you: true,
+            caption: "Click the logo on your design so it's selected, then press Next." },
+          { target: "panel",
+            caption: "Under 'Brand logo' you'll see every logo in your kit. Click another and it swaps in — re-sized and re-centred for you." },
         ],
       },
       {
         label: "Make this design mine",
         steps: [
-          { target: "brand-tool", caption: "Click Brand in the left rail." },
-          { target: "panel",      caption: "'Make this design yours' is at the top. Each row is a colour the design uses — click one of your own beside it to swap it everywhere at once." },
+          { open: "brand-tool", target: "panel",
+            caption: "'Make this design yours' sits at the top of your brand kit." },
+          { target: "panel",
+            caption: "Each row is a colour the design already uses. Click one of your own beside it and it swaps everywhere at once — light stays light, dark stays dark." },
         ],
       },
       {
         label: "Change one colour",
         steps: [
-          { target: "canvas",     caption: "Click the thing you want to recolour." },
-          { target: "brand-tool", caption: "Now click Brand." },
-          { target: "panel",      caption: "Click any of your brand colours to apply it. Click a swatch with nothing selected and it recolours the background instead." },
+          { target: "canvas", you: true,
+            caption: "Click the one thing you want to recolour, then press Next." },
+          { open: "brand-tool", target: "panel",
+            caption: "Click any of your brand colours to apply it. With nothing selected, a swatch recolours the background instead." },
         ],
       },
       {
         label: "Add a text block",
         steps: [
-          { target: "text-tool", caption: "Click Text in the left rail." },
-          { target: "panel",     caption: "Pick a heading, subheading or body style — click it to drop it on the canvas." },
-          { target: "canvas",    caption: "Double-click the text on the canvas to start typing. Press Next when you're done.", awaitNext: true },
+          { open: "text-tool", target: "panel",
+            caption: "Heading, subheading or body — click one and it drops onto your design." },
+          { target: "canvas", you: true,
+            caption: "Double-click the text on the canvas to type your own. That works for text already on the design too." },
         ],
       },
       {
         label: "Add a photo",
         steps: [
-          { target: "images-tool", caption: "Click Images in the left rail." },
-          { target: "panel",       caption: "Search the free library at the top, or scroll to 'Your uploads' to add your own. When it's on the canvas, press Next.", awaitNext: true },
+          { open: "images-tool", target: "panel",
+            caption: "Free photos to search at the top — try 'kitchen' or 'garden'. Click one to drop it on." },
+          { target: "panel",
+            caption: "Further down is 'Your uploads' — your own photos, and anything you've added before." },
         ],
       },
       {
         label: "Change the background",
         steps: [
-          { target: "background-tool", caption: "Click Background in the left rail." },
-          { target: "panel",           caption: "Change the image, fade it back, or pick a colour or gradient for the whole page." },
+          { open: "background-tool", target: "panel",
+            caption: "The background is the picture behind everything. Change the image, or swap it for a colour or gradient." },
+          { target: "panel",
+            caption: "'Image transparency' fades the photo back so text on top stays readable — the quickest fix for a busy picture." },
         ],
       },
       {
         label: "Move the background photo",
         steps: [
-          { target: "background-tool", caption: "Click Background in the left rail." },
-          { target: "panel",           caption: "Hit 'Reposition'. Everything on top fades out so you can see the photo." },
-          { target: "canvas",          caption: "Drag the photo until it sits how you want, then click Done. Press Next when you're happy.", awaitNext: true },
+          { open: "background-tool", target: "panel",
+            caption: "Hit 'Reposition' here. Everything sitting on top fades out so you can see the whole photo." },
+          { target: "canvas", you: true,
+            caption: "Drag the photo until it sits how you want it, then click Done." },
         ],
       },
       {
         label: "Reorder / hide things",
         steps: [
-          { target: "layers-tool", caption: "Click Layers in the left rail." },
-          { target: "panel",       caption: "Drag any row to change what sits in front. The eye hides something without deleting it, and Background is the row at the bottom." },
+          { open: "layers-tool", target: "panel",
+            caption: "Everything on the page, top of the list first. Drag a row to change what sits in front." },
+          { target: "panel",
+            caption: "The eye hides something without deleting it, and the very last row is the background." },
         ],
       },
       {
         label: "Undo a mistake",
         steps: [
-          { target: "undo", caption: "This is Undo. Hit it (or press Ctrl+Z) any time to step back. Press Next to see Redo.", awaitNext: true },
-          { target: "redo", caption: "Changed your mind? Redo is right next to it (Ctrl+Shift+Z). Press Finish when you're done.", awaitNext: true },
+          { target: "undo",
+            caption: "Undo, or Ctrl+Z. This is why you genuinely can't break a design." },
+          { target: "redo",
+            caption: "And Redo is next to it, Ctrl+Shift+Z, for when you undid one too many." },
         ],
       },
       {
         label: "Resize the canvas",
         steps: [
-          { target: "resize-tool", caption: "Click Resize in the left rail." },
-          { target: "panel",       caption: "Pick a format — Instagram post, story, reel — and we'll resize the canvas for you." },
+          { open: "resize-tool", target: "panel",
+            caption: "Pick a format — Instagram post, story, reel — and the whole design resizes rather than starting again." },
         ],
       },
       {
         label: "Add to planner",
         steps: [
-          { target: "schedule", caption: "Click Add in the top toolbar — the calendar icon." },
-          { target: "stage",    caption: "Pick a date and time, then submit. We'll email you a reminder the morning it's due to go out. Press Next when you're done.", awaitNext: true },
+          { target: "schedule",
+            caption: "This is Add — it puts the design on your content plan, it doesn't post it anywhere." },
+          { target: "stage", you: true,
+            caption: "Pick a date and time and submit. We'll email you a reminder the morning it's due to go out." },
         ],
       },
       {
         label: "Download it",
         steps: [
-          { target: "save",     caption: "Save first, so your work is kept." },
-          { target: "download", caption: "Then click Download and pick your format — PNG for social, PNG with no background, JPG, or PDF for print." },
+          { target: "save",
+            caption: "Save first — that keeps the design in your account." },
+          { open: "download", target: "download-menu",
+            caption: "Then Download. PNG for Instagram, PNG with no background for layering, JPG for email, PDF for print." },
         ],
       },
     ];
@@ -1080,10 +1106,12 @@
       caption: string;
       action?: "click" | "hover" | "look" | "type";
       duration?: number;
-      // When true, the step does NOT advance on a click on the target.
-      // The user has to press "Next →" explicitly. Use for multi-action
-      // steps like "upload a file then click the thumbnail" where any
-      // click inside the panel would advance prematurely.
+      // Marks a step the tour cannot perform for you — selecting your own
+      // element, typing your own words, choosing your own file. Every step
+      // waits for Next either way; this only changes what the card says, so
+      // "watch this" and "your turn" stop looking identical.
+      you?: boolean;
+      // Kept so a demo block written against the older schema still parses.
       awaitNext?: boolean;
       // Open something before this step is measured — a target key, which
       // gets clicked for real. A walk-through that only WATCHES has to ask
@@ -1168,8 +1196,6 @@
     let stepIdx = -1;
     let stepTimer: number | null = null;
     // Cached click-listener so we can remove it cleanly between steps.
-    let stepClickHandler: ((e: Event) => void) | null = null;
-    let stepClickTarget: HTMLElement | null = null;
 
     // Move the 4 shield rectangles so they fully cover the viewport
     // except for the spotlight rect. Clicks anywhere outside the
@@ -1218,13 +1244,6 @@
     }
 
     // Detach the previous step's click-to-advance listener (if any).
-    function clearStepClick() {
-      if (stepClickTarget && stepClickHandler) {
-        stepClickTarget.removeEventListener("click", stepClickHandler, true);
-      }
-      stepClickHandler = null;
-      stepClickTarget = null;
-    }
 
     function startTour(steps: TourStep[]) {
       if (!$tour) return;
@@ -1266,7 +1285,6 @@
       currentTour = [];
       stepIdx = -1;
       if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
-      clearStepClick();
       if ($tour) $tour.hidden = true;
       if ($spot) $spot.classList.remove("is-pulse");
       if ($cursor) $cursor.classList.remove("is-click");
@@ -1277,12 +1295,17 @@
       stepIdx = idx;
       // Reset any prior step's click listener + timer before kicking
       // off the new one.
-      clearStepClick();
       if (stepTimer) { clearTimeout(stepTimer); stepTimer = null; }
 
       const step = currentTour[idx];
       const total = currentTour.length;
-      if ($stepLabel) $stepLabel.textContent = "Step " + (idx + 1) + " of " + total;
+      if ($stepLabel) {
+        $stepLabel.textContent = "Step " + (idx + 1) + " of " + total;
+        // Say plainly whose move it is. Without this, a step you are meant
+        // to act on looks exactly like a step you are meant to watch.
+        $stepLabel.classList.toggle("is-you", !!step.you);
+        if (step.you) $stepLabel.textContent += " · your turn";
+      }
       if ($caption) $caption.textContent = step.caption;
       if ($next) {
         // Always available, but the tour is click-driven first —
@@ -1298,8 +1321,13 @@
       // outside click — the Download menu does — would be opened here and
       // shut again a moment later as that same click carried on up to
       // document. Letting the click finish first is the whole fix.
-      if (step.open) {
-        const opener = resolveTarget(step.open);
+      // A step pointing AT a rail button opens that pane too — otherwise the
+      // spotlight sits on "Brand" while the panel beside it still shows
+      // whatever was there before. Covers demo steps written by the
+      // assistant, which won't always carry an explicit `open`.
+      const toOpen = step.open || (/-tool$|^pages-toggle$/.test(step.target) ? step.target : null);
+      if (toOpen) {
+        const opener = resolveTarget(toOpen);
         if (opener) window.setTimeout(() => opener.click(), 0);
       }
 
@@ -1336,26 +1364,13 @@
         positionCard(r);
         flyCursorTo(r, /* doClick */ false);
 
-        // Click-driven advancement — the user clicks the highlighted
-        // thing and we advance ~420ms later (page handlers settle).
-        // "End tour" / Esc bail out at any time; "Next →" is a manual
-        // fallback if they're just reading.
-        // Multi-action steps (awaitNext: true) skip the click listener
-        // entirely — those require explicit Next so an early click on
-        // the panel doesn't fire while the user is still mid-action
-        // (e.g. uploading a file).
-        if (!step.awaitNext) {
-          stepClickTarget = el;
-          stepClickHandler = (_e: Event) => {
-            // Tiny delay so the page's own handler can open whatever
-            // panel it needs before we measure the next target.
-            window.setTimeout(() => {
-              if (stepIdx === idx) advanceTour(idx + 1);
-            }, 420);
-          };
-          el.addEventListener("click", stepClickHandler, true);
-        }
-      }, step.open ? 480 : 320);
+        // Nothing advances the tour except "Next". It used to advance when
+        // you clicked the highlighted thing, with some steps opting out —
+        // so on any given step it was anyone's guess whether you were meant
+        // to click along or press on, and pressing Next past a "click Brand"
+        // step left you reading about a panel that had never opened. The
+        // tour drives now; the reader reads.
+      }, toOpen ? 480 : 320);
     }
 
     // Place the card in the viewport CORNER furthest from the target's

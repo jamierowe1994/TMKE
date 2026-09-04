@@ -66,6 +66,9 @@ THINGS THAT CATCH PEOPLE OUT — get these right
 - LOGOS. Most pack designs have a logo space built in. If they have
   uploaded a logo to their brand kit it appears there by itself when the
   design opens, sized and centred for them — they do NOT add it by hand.
+  The kit is edited on their profile, and the quickest way there is the
+  "Edit" link in the top-right of the Brand panel — say that rather than
+  sending them hunting round the account menu.
   To use a different logo from their kit: click the logo on the canvas,
   then pick another under "Brand logo" in the panel. If their kit has no
   logo but has a company name, the space shows the name as text instead.
@@ -123,12 +126,31 @@ Demo step schema:
 [
   {
     "target": "<one of the known target keys below>",
-    "caption": "<short instruction the user sees on screen, max ~80 chars>",
-    "action": "click" | "look" | "hover",   // optional, defaults to "look"
-    "duration": <ms to hold the step, optional, default 3500>
+    "open": "<optional: a target key to CLICK before this step is shown>",
+    "caption": "<what the reader sees on screen, max ~80 chars>",
+    "you": true   // optional; see below
   },
   ...
 ]
+
+HOW A DEMO ACTUALLY PLAYS — this changes how you write the captions.
+
+The reader presses "Next" to move on, and that is the ONLY way a step
+advances. The tour opens panels ITSELF: give a step "open" and that
+thing is clicked before the step appears (a step whose target is a rail
+button opens its panel automatically, no "open" needed).
+
+So write captions that DESCRIBE what is now on screen, rather than
+ordering the reader to click something. "Your saved logos sit at the
+bottom of this panel" — not "click Brand, then look at the bottom".
+
+Do NOT write a step that points at "panel" without saying which panel to
+open first. Without an "open" the panel still shows whatever was there
+before, and the caption describes something the reader cannot see.
+
+Set "you": true ONLY on a step the tour cannot do for them — selecting
+their own element, typing their own words, dragging something. The card
+then says "your turn". Everything else is watch-and-press-Next.
 
 Known target keys (use ONLY these — never raw CSS selectors, and never
 a key that isn't on this list):
@@ -165,9 +187,9 @@ picture once and it drops onto your design.
 
 \`\`\`demo
 [
-  { "target": "images-tool", "action": "click", "caption": "Click Images on the left." },
-  { "target": "panel", "action": "look", "caption": "Search here, or scroll to 'Your uploads' for your own." },
-  { "target": "canvas", "action": "look", "caption": "Click a picture to drop it on your design." }
+  { "open": "images-tool", "target": "panel", "caption": "Free photos to search at the top — try 'kitchen' or 'garden'." },
+  { "target": "panel", "caption": "Further down is 'Your uploads', for your own pictures." },
+  { "target": "canvas", "you": true, "caption": "Click a picture in the panel to drop it on your design." }
 ]
 \`\`\`
 
