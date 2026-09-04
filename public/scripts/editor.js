@@ -6237,10 +6237,10 @@
               '<img src="' + escapeHtml(l.src) + '" alt="' + escapeHtml(label) + '">' +
             '</button>';
           }).join('') +
-        '</div><p class="ed-props-hint">Kept to ' + LOGO_MAX_W + ' \u00d7 ' + LOGO_MAX_H + ', its own shape, back on the line.</p></div>');
+        '</div><p class="ed-props-hint">Your logo keeps its shape and fits within a ' + LOGO_MAX_W + ' \u00d7 ' + LOGO_MAX_H + ' area.</p></div>');
       } else if (kit.length === 1) {
         html.push('<div class="ed-props-section"><h4>Brand logo</h4>' +
-          '<p class="ed-props-hint">Only one logo in your brand kit. ' +
+          '<p class="ed-props-hint">Your brand kit contains one logo. ' +
           '<a href="/account/profile" style="color:var(--english-violet)">Add another</a> to switch between them here.</p></div>');
       }
     }
@@ -6296,7 +6296,7 @@
       // see it against black" is more work than the problem deserves.
       html.push(
           '<div class="ed-props-section"><h4>Guide</h4>' +
-            '<div class="ed-props-field"><label>Colour <span class="ed-props-hint">shown while you position it, never exported</span></label>' +
+            '<div class="ed-props-field"><label>Colour <span class="ed-props-hint ed-props-hint--block">It appears while you position the guide and is never exported.</span></label>' +
               '<div class="ed-sc-swatches">' +
                 SCREEN_GUIDE_COLOURS.map(function (c) {
                   const on = (el.guide || "#00c2a8").toLowerCase() === c.hex.toLowerCase();
@@ -6305,7 +6305,7 @@
                 }).join("") +
               '</div></div>' +
             '<label class="ed-sc-hide"><input type="checkbox" id="ed-sc-hide"' + (screenGuideHidden ? " checked" : "") + '>' +
-              '<span>Hide the guide <span class="ed-props-hint">so you can see — and sample — the photo underneath</span></span></label>' +
+              '<span>Hide the guide <span class="ed-props-hint ed-props-hint--block">Hide it to view and sample the photo underneath.</span></span></label>' +
             '<button class="ed-btn-ghost" id="ed-sc-reset" style="background:rgba(28,29,34,0.06);width:100%">Reset corners</button>' +
           '</div>');
       if (el.src) {
@@ -6330,7 +6330,7 @@
               '<div class="ed-props-field"><label>Across</label><input type="number" step="1" value="' + Math.round(el.imgOffsetX || 0) + '" data-sc-x></div>' +
               '<div class="ed-props-field"><label>Down</label><input type="number" step="1" value="' + Math.round(el.imgOffsetY || 0) + '" data-sc-y></div>' +
             '</div>' +
-            '<p class="ed-props-hint">Double-click the screen to move the artwork by dragging it, and use the round handle above it to spin it. Escape when you are done.</p>' +
+            '<p class="ed-props-hint">Double-click the screen, then drag the artwork to reposition it. Use the round handle to rotate it. Press Escape when finished.</p>' +
             '<button class="ed-btn-ghost" id="ed-sc-recentre" style="background:rgba(28,29,34,0.06);width:100%">Recentre artwork</button>' +
           '</div>');
         /* What shows where the artwork does not reach. A design almost never
@@ -6391,7 +6391,7 @@
                 '<button type="button" id="ed-frame-replace" style="flex:1">Replace photo</button>' +
               '</div>' +
               '<button type="button" id="ed-frame-clear" class="ed-btn-ghost" style="width:100%;margin-top:8px;background:rgba(28,29,34,0.06)">Empty frame</button>')
-            : '<p class="ed-section-hint" style="margin:6px 0">Drag a photo from the Photos or Uploads panel onto this frame to fill it.</p>') +
+            : '<p class="ed-section-hint" style="margin:6px 0">Drag a photo from the Images panel onto this frame to fill it.</p>') +
         '</div>'
       );
     }
@@ -6404,7 +6404,7 @@
       html.push(
         '<div class="ed-props-section"><h4>Content</h4>' +
           '<textarea class="ed-props-text" id="ed-sel-text" rows="3" spellcheck="false"></textarea>' +
-          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Type to replace the wording. Your design updates as you go in the preview.</p>' +
+          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Type to replace the text. The preview updates as you type.</p>' +
         '</div>'
       );
     }
@@ -7141,7 +7141,7 @@
       ? BRAND.colors.map(function (c) { return { hex: normHexSafe(c.hex), name: c.name || "" }; }).filter(function (c) { return c.hex; })
       : [];
     if (!kit.length) {
-      mount.innerHTML = '<p class="ed-rb-note">Add some colours to your brand kit and you can recolour a whole design from here.</p>';
+      mount.innerHTML = '<p class="ed-rb-note">Add colours to your brand kit to recolour an entire design from here.</p>';
       return;
     }
 
@@ -8314,8 +8314,8 @@
     });
     if (!BRAND.colors || !BRAND.colors.length) {
       swatchGrid.innerHTML = isAdminMode()
-        ? '<p class="ed-brand-hint" style="grid-column:1/-1">No brand colours yet. <a href="/admin/fonts" target="_blank" rel="noopener" style="color:var(--english-violet); border-bottom:1px solid currentColor">Add some</a>.</p>'
-        : '<p class="ed-brand-hint" style="grid-column:1/-1">No brand colours yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Add some</a>.</p>';
+        ? '<p class="ed-brand-hint" style="grid-column:1/-1">You have not added any brand colours yet.</p>'
+        : '<p class="ed-brand-hint" style="grid-column:1/-1">You have not added any brand colours yet.</p>';
     }
 
     // Fonts
@@ -8375,8 +8375,8 @@
     });
     if (!BRAND.logos || !BRAND.logos.length) {
       logoGrid.innerHTML = isAdminMode()
-        ? '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/admin/fonts" target="_blank" rel="noopener" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>'
-        : '<p class="ed-brand-hint" style="grid-column:1/-1">No logos yet. <a href="/profile" style="color:var(--english-violet); border-bottom:1px solid currentColor">Upload some</a>.</p>';
+        ? '<p class="ed-brand-hint" style="grid-column:1/-1">You have not uploaded any logos yet.</p>'
+        : '<p class="ed-brand-hint" style="grid-column:1/-1">You have not uploaded any logos yet.</p>';
     }
     renderRebrand();
   }
