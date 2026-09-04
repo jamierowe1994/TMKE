@@ -94,6 +94,10 @@ const inspo = [
           <!-- SSR sample packs; the wirePacks script below swaps in the member's
                actually-purchased packs (or a "Shop packs" card if they own none). -->
           <div class="st-row st-row--packs" data-packs>
+            {/* Shown only while a signed-in member's own packs are on their
+                way. Signed-out visitors never see these — the samples below
+                are the preview they are meant to get. */}
+            {[0, 1, 2, 3, 4].map(() => <span class="st-skel st-skel--pack" aria-hidden="true"></span>)}
             {packs.map((p) => (
               <a class="st-pack" href="/edit">
                 <span class="st-pack-img" style={`background-image:url('${p.thumb}')`}></span>
@@ -128,6 +132,7 @@ const inspo = [
           <a class="ws-block-link" href="/account/editor" data-seeall hidden>See All Designs <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-row st-row--designs" data-designs>
+          {[0, 1, 2, 3].map(() => <span class="st-skel st-skel--design" aria-hidden="true"></span>)}
           {starters.slice(0, 4).map((t, i) => (
             <a class="st-design" href={`/account/editor?template=${encodeURIComponent(t.id)}`}>
               <span class="st-design-img" style={`background-image:url('${t.thumb}')`}>
@@ -247,6 +252,50 @@ const inspo = [
     .st-pack-shop-ic, .st-plus { font-size: var(--ws-t-panel); font-weight: 200; line-height: 1; color: var(--ws-accent); }
     .st-design--new { align-items: center; justify-content: center; border-style: dashed; }
     .st-design-new { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-accent); }
+
+    /* ---- Loading, for members only -----------------------------------------
+       The packs and designs baked into this page are a preview for people who
+       are not signed in — six invented packs with illustrative counts, and
+       four starter templates, one labelled "In progress". A member used to
+       get all of that for the length of an auth check plus two queries, then
+       watch it flip to their own. Signed in, they get these instead until
+       their real content lands: a shape in the right place, saying nothing
+       untrue. The class comes from BaseLayout, before the body paints. */
+    .st-skel { display: none; }
+    html.has-session .st-row--packs > .st-pack,
+    html.has-session .st-row--designs > .st-design { display: none; }
+    html.has-session .st-skel {
+      display: flex; flex-direction: column; gap: 4px; padding: 12px;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
+    }
+    .st-skel::before {
+      content: ""; display: block; width: 100%; aspect-ratio: 1080 / 1440;
+      border-radius: 4px; background: rgba(28,29,34,0.06);
+    }
+    .st-skel::after {
+      content: ""; display: block; width: 62%; height: 9px; margin-top: 8px;
+      border-radius: 3px; background: rgba(28,29,34,0.06);
+    }
+    /* One shimmer crossing the row, so it reads as a single thing loading
+       rather than four cards each doing their own animation. */
+    html.has-session .st-skel::before,
+    html.has-session .st-skel::after {
+      background-image: linear-gradient(90deg, transparent, rgba(28,29,34,0.05) 45%, transparent);
+      background-size: 260px 100%; background-repeat: no-repeat;
+      animation: st-shimmer 1.15s linear infinite;
+    }
+    @keyframes st-shimmer {
+      from { background-position: -260px 0; }
+      to   { background-position: calc(100% + 260px) 0; }
+    }
+    /* Resolved: whichever way it went, the skeletons go and whatever is in the
+       row is what should be there. */
+    .st-row.is-ready .st-skel { display: none !important; }
+    html.has-session .st-row.is-ready > .st-pack,
+    html.has-session .st-row.is-ready > .st-design { display: flex; }
+    @media (prefers-reduced-motion: reduce) {
+      html.has-session .st-skel::before, html.has-session .st-skel::after { animation: none; }
+    }
 
     /* Inspiration — a picture with the words laid over it. */
     .st-row--inspo { --st-across: 4; }
@@ -374,26 +423,35 @@ const inspo = [
       const seeall = document.querySelector('[data-seeall]');
       const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const newCard = `<a class="st-design st-design--new" href="/account/editor?new=1" data-new-design><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
+      // However this ends — their designs, none yet, signed out, or a failed
+      // query — the skeletons come down and whatever is in the row is final.
+      // A stored token that turned out to be dead also drops the class, so the
+      // samples show rather than an empty shelf.
+      const done = (signedIn) => {
+        row.classList.add('is-ready');
+        if (!signedIn) document.documentElement.classList.remove('has-session');
+      };
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return; // signed out (preview) → keep the SSR starter samples
+        if (!session) { done(false); return; } // signed out (preview) → keep the SSR starter samples
         // Fetch 5: enough to show the 4 most recent AND detect a 5th (→ "See all").
         const { data, error } = await supabase
           .from('user_designs')
           .select('id, name, thumb_url, updated_at')
           .order('updated_at', { ascending: false })
           .limit(5);
-        if (error) return;
+        if (error) { done(true); return; }
         const designs = data || [];
         if (seeall) seeall.hidden = designs.length <= 4;   // only show "See all" when they have more than four
-        if (!designs.length) { row.innerHTML = newCard; return; } // signed in, none yet → just "New design"
+        if (!designs.length) { row.innerHTML = newCard; done(true); return; } // signed in, none yet → just "New design"
         row.innerHTML = designs.slice(0, 4).map((d) => `
           <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}">
             <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
             <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
             <span class="st-design-type">Your design</span>
           </a>`).join('') + newCard;
-      } catch (_) { /* keep the SSR sample designs on any error */ }
+        done(true);
+      } catch (_) { done(true); /* keep the SSR sample designs on any error */ }
     })();
   </script>
 
@@ -410,9 +468,10 @@ const inspo = [
           <span class="st-pack-name">Shop more packs</span>
           <span class="st-pack-count">Visit The Edit &rarr;</span>
         </a>`;
+      const done = () => { row.classList.add('is-ready'); window.__ST_REWIRE_RAILS__?.(); };
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return; // signed out (preview) → keep the SSR sample packs
+        if (!session) { done(); return; } // signed out (preview) → keep the SSR sample packs
         const email = session.user.email || '';
         const [packsRes, ordersRes] = await Promise.all([
           supabase.from('packs').select('id, slug, title, cover_image_url').eq('status', 'active').order('sort_order', { ascending: true }),
@@ -421,15 +480,15 @@ const inspo = [
         const allPacks = packsRes.data || [];
         const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
         const owned = allPacks.filter((p) => ownedIds.has(p.id));
-        if (!owned.length) { row.innerHTML = shopTile; window.__ST_REWIRE_RAILS__?.(); return; } // no packs → just the shop tile
+        if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         row.innerHTML = owned.map((p) => `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
             <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
             <span class="st-pack-name">${esc(p.title)}</span>
             <span class="st-pack-count">Open pack &rarr;</span>
           </a>`).join('') + shopTile;   // + a "Shop more packs" tile at the end
-        window.__ST_REWIRE_RAILS__?.();   // the dot count follows the real packs
-      } catch (_) { /* keep the SSR sample packs on any error */ }
+        done();                           // the dot count follows the real packs
+      } catch (_) { done(); /* keep the SSR sample packs on any error */ }
     })();
   </script>
 </BaseLayout>

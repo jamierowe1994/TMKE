@@ -155,6 +155,21 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
         </>
       )
     }
+
+    {/* Whether this browser holds a session, decided before the body paints.
+        Pages that ship sample content for signed-out visitors and swap it for
+        the member's own once Supabase answers need to know which of the two
+        they are about to show — otherwise a member watches somebody else's
+        packs and designs for the length of a round trip, then sees them
+        flip. This only says "a token is stored here", not that it is still
+        valid; the fetch settles that, and clears the class if not. */}
+    <script is:inline>
+      try {
+        if (localStorage.getItem("tmke-admin-auth")) {
+          document.documentElement.classList.add("has-session");
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body data-dashboard={dashboard ? "" : undefined}>
     {!hideNav && <Nav />}
