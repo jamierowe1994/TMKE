@@ -7201,14 +7201,7 @@
       '</div>';
     });
 
-    mount.innerHTML =
-      '<div class="ed-rb-group">' +
-        '<div class="ed-rb-grouptitle">Colours</div>' + rows.join("") +
-      '</div>' +
-      (fontRows.length
-        ? '<div class="ed-rb-group"><div class="ed-rb-grouptitle">Fonts</div>' + fontRows.join("") + '</div>'
-        : "") +
-      '<p class="ed-rb-note">Changing a colour here changes every item using it. To change just one, select that item and set its colour from its own menu.</p>';
+    mount.innerHTML = rows.join("") + fontRows.join("");
 
     mount.querySelectorAll("[data-addlogo]").forEach(function (b) {
       b.addEventListener("click", function () { addBrandLogo(b.getAttribute("data-addlogo")); });
