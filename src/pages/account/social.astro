@@ -2,135 +2,222 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
+import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
 ---
 
+<!--
+  Your SMM — the last member tab still on the old dashboard chrome. Rebuilt onto
+  the shared hub system (ws-system.css): wine chapter strips, hairline square
+  cards, one --ws-gap. Nothing about what the page DOES changes; the report
+  renderers, the visibility rules and the worker fetch are untouched.
+
+  The report's own furniture (.ri-*) comes out of lib/report-insights.js, which
+  the admin Insights view shares. Those classes are styled here, in the member's
+  own vocabulary — admin keeps its copy, so the two can look like the places
+  they live without fighting over one stylesheet.
+-->
 <BaseLayout title="Your SMM · TMKE" description="Your social media management, your plan and your monthly performance." dashboard hideNav hideFooter>
-  <WorkspaceHeader active="social" />
-  <div class="dash-shell dash-shell--top">
-    <main class="app-main dash-main">
-      <section class="dash-hero">
-        <div class="dash-hero-copy">
-          <div class="dash-hero-top">
-            <p class="welcome-eyebrow"><a href="/account" class="back-link">&larr; Workspace</a></p>
-            <h1 class="welcome-h">Your <em>SMM</em></h1>
+  <div class="ws">
+    <WorkspaceHeader active="social" />
+    <main class="ws-main">
+      <div class="ws-left">
+
+        <!-- ============ HERO ============ -->
+        <section class="ws-hero ws-hero--sub soc-hero">
+          <div class="ws-hero-copy">
+            <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
+            <h1 class="ws-greeting">Your Social.</h1>
+            <p class="ws-hero-sub">Your social media management. Your plan, and how your accounts are performing, month by month.</p>
           </div>
-          <p class="welcome-sub">Your social media management. Your plan, and how your accounts are performing, month by month.</p>
-        </div>
-        <figure class="dash-hero-media">
-          <img src="/assets/sitting%20chair.jpg" alt="" loading="eager" />
-        </figure>
-      </section>
-
-      <p id="soc-loading" class="smm-soon" style="padding:16px 0">Loading your social media…</p>
-
-      <!-- Not a managed-social client -->
-      <section id="soc-noclient" hidden>
-        <div class="soc-card soc-empty">
-          <h2 class="soc-empty-h">You're not on a managed social plan yet</h2>
-          <p class="soc-empty-p">TMKE can run your social media end to end: content, scheduling and clear monthly reporting. Take a look at what's included, or drop us a line.</p>
-          <div class="soc-actions">
-            <a class="soc-btn soc-btn--primary" href="/account/services">See the plans</a>
-            <a class="soc-btn" href="/account/contact">Get in touch</a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Managed-social client -->
-      <section id="soc-client" hidden>
-        <div class="soc-card" id="soc-plan"></div>
-
-        <!-- One card, like the plan above it, so the whole report reads as a single
-             contained thing rather than a loose stack of panels on the page. -->
-        <section class="soc-card soc-report">
-          <div class="soc-report-head">
-            <h2 class="soc-report-h">Your monthly performance</h2>
-          </div>
-          <div id="soc-insights"><p class="smm-soon">Your first monthly report will appear here once we've published it.</p></div>
+          <div class="ws-hero-photo" role="img" aria-label="A styled interior"></div>
         </section>
 
-        <div class="soc-card soc-contact">
-          <div>
-            <h3 class="soc-contact-h">Questions about your social?</h3>
-            <p class="soc-contact-p">Your TMKE social team is here to help, from content ideas to the numbers below.</p>
+        <p id="soc-loading" class="soc-state">Loading your social media&hellip;</p>
+
+        <!-- ============ Not a managed-social client ============ -->
+        <section id="soc-noclient" hidden>
+          <div class="soc-card soc-empty">
+            <h2 class="soc-empty-h">You&rsquo;re not on a managed social plan yet</h2>
+            <p class="soc-empty-p">TMKE can run your social media end to end: content, scheduling and clear monthly reporting. Take a look at what&rsquo;s included, or drop us a line.</p>
+            <div class="soc-actions">
+              <a class="ws-btn ws-btn--primary" href="/account/services">See the plans</a>
+              <a class="ws-btn ws-btn--ghost" href="/account/contact">Get in touch</a>
+            </div>
           </div>
-          <a class="soc-btn soc-btn--primary" href="/account/contact">Contact your team</a>
+        </section>
+
+        <!-- ============ Managed-social client ============ -->
+        <div id="soc-client" hidden>
+
+          <!-- Chapter 01 — what you are on -->
+          <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-plan-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-plan-h"><span class="ws-block-ch">Chapter 01</span>Your plan</h2>
+              <!-- Filled by renderPlan(). The strip carries the status so the
+                   card below holds only the facts. -->
+              <span class="ws-block-status" id="soc-status" hidden></span>
+            </header>
+            <div class="soc-card" id="soc-plan"></div>
+          </section>
+
+          <!-- Chapter 02 — the monthly report -->
+          <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-perf-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 02</span>Monthly performance</h2>
+            </header>
+            <div class="soc-card soc-report">
+              <div id="soc-insights"><p class="soc-state">Your first monthly report will appear here once we&rsquo;ve published it.</p></div>
+            </div>
+          </section>
+
+          <!-- Chapter 03 — the people behind it -->
+          <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-team-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-team-h"><span class="ws-block-ch">Chapter 03</span>Your social team</h2>
+            </header>
+            <div class="soc-card soc-contact">
+              <div>
+                <h3 class="soc-contact-h">Questions about your social?</h3>
+                <p class="soc-contact-p">Your TMKE social team is here to help, from content ideas to the numbers above.</p>
+              </div>
+              <a class="ws-btn ws-btn--primary" href="/account/contact">Contact your team</a>
+            </div>
+          </section>
+
         </div>
-      </section>
+      </div>
+
+      <footer class="app-foot dash-foot">
+        <div class="app-foot-block">
+          <div class="app-foot-tag">Help</div>
+          <a href="/contact">hello@tmke.co.uk</a>
+        </div>
+        <div class="app-foot-block app-foot-block--right">
+          <strong id="footer-email" class="dash-foot-email">&hellip;</strong>
+        </div>
+      </footer>
     </main>
-    <footer class="app-foot dash-foot"><span id="footer-email"></span></footer>
   </div>
 
   <style is:global>
+    /* The wine the takeaways panel uses. The hub theme resolves
+       --english-violet to the BROWN, so the wine is carried as its own token. */
     #soc-client, #soc-noclient { --violet-rgb: 55,30,40; }
-    .soc-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; }
-    .soc-h { font-family: var(--serif, Georgia, serif); font-size: var(--ws-t-title, 17px); color: var(--ink, #1c1d22); margin: 26px 0 12px; }
-    /* The report as ONE card — same border/radius as the plan card above it. */
-    .soc-report { padding: 20px 22px 22px; }
-    .soc-report-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-    .soc-report-h { font-family: var(--serif, Georgia, serif); font-size: var(--ws-t-title); color: var(--ink, #1c1d22); margin: 0; }
-    /* Inside one card, the panels shouldn't each carry their own border too. */
-    .soc-report .ri-panel { border-color: rgba(28,29,34,0.08); }
-    .soc-report .soc-summary { margin-left: 0; margin-right: 0; }
-    .soc-summary { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-left: 3px solid var(--english-violet, #371e28); border-radius: 12px; padding: 15px 18px; margin-bottom: 14px; font-family: var(--sans, sans-serif); font-size: var(--ws-t-row); line-height: 1.65; color: rgba(28,29,34,0.78); }
-    .soc-plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-    .soc-plan-head h2 { font-family: var(--serif, Georgia, serif); font-size: var(--ws-t-title); color: var(--ink, #1c1d22); margin: 0; }
-    .soc-status { font-family: var(--sans, sans-serif); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 11px; border-radius: 999px; background: rgba(60,150,90,0.14); color: #2e6b40; }
-    .soc-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
-    .soc-plan-grid dt { font-family: var(--sans, sans-serif); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; }
-    .soc-plan-grid dd { font-family: var(--sans, sans-serif); font-size: var(--ws-t-row); color: var(--ink, #1c1d22); margin: 0; }
+    .soc-hero { --ws-hero-img: url('/assets/personal-brand.jpg'); }
+
+    /* Chapters are siblings in one column, spaced like every other hub page.
+       Scoped to :not([hidden]) because a bare `display:flex` on the id beats
+       the hidden attribute — which would show the empty scaffolding to
+       everybody who is NOT on a managed plan. */
+    #soc-client:not([hidden]) { display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 46px); }
+
+    /* House rule: hairline outline, square corners, no fill, no shadow. */
+    .soc-card {
+      background: #fff; border: 1px solid var(--ws-line);
+      border-radius: var(--ws-r); padding: 20px 22px;
+    }
+    .soc-state { font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-faint); line-height: 1.6; margin: 0; }
+
+    /* Status rides the strip, so it is white-on-wine like everything else
+       there rather than a green pill the strip has to make room for. */
+    .ws-block-status {
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      letter-spacing: 0.01em; color: rgba(255,255,255,0.78);
+      display: inline-flex; align-items: center; gap: 7px;
+      /* Matched to the heading's own line box. Left to itself, 12px text made
+         this strip 40px against 37px for the two below it, and a strip that is
+         three pixels out of step with its neighbours is exactly the kind of
+         thing you can see without being able to name. Same line box as
+         .ws-block-link, so a strip is one height whatever it carries. */
+      line-height: 14px;
+    }
+    .ws-block-status[hidden] { display: none; }
+    .ws-block-status::before {
+      content: ""; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--ws-success, #3f9468);
+    }
+
+    /* ---- Chapter 01: the plan ---- */
+    .soc-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--ws-gap); margin: 0; }
+    .soc-plan-grid dt { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin-bottom: 7px; }
+    .soc-plan-grid dd { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); margin: 0; }
     .soc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .soc-chip { font-family: var(--sans, sans-serif); font-size: var(--ws-t-meta); font-weight: 600; padding: 4px 11px; border-radius: 999px; background: rgba(55,30,40,0.08); color: var(--english-violet, #371e28); }
-    .soc-empty { text-align: center; padding: 34px 24px; }
-    .soc-empty-h { font-family: var(--serif, Georgia, serif); font-size: var(--ws-t-panel, 26px); color: var(--ink, #1c1d22); margin: 0 0 10px; }
-    .soc-empty-p { font-family: var(--sans, sans-serif); font-size: var(--ws-t-row); line-height: 1.6; color: rgba(28,29,34,0.65); max-width: 460px; margin: 0 auto 20px; }
+    .soc-chip {
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600;
+      padding: 3px 9px; border-radius: 3px;
+      border: 1px solid color-mix(in srgb, var(--ws-accent) 34%, transparent);
+      color: var(--ws-accent);
+    }
+
+    /* ---- Chapter 02: the report ---- */
+    .soc-report { padding: 18px 20px 20px; }
+    .soc-summary {
+      border: 1px solid var(--ws-line); border-left: 3px solid rgb(var(--violet-rgb));
+      border-radius: var(--ws-r); padding: 15px 18px; margin-bottom: var(--ws-gap);
+      font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.65; color: var(--ws-tx);
+    }
+
+    /* ---- Not a client ---- */
+    .soc-empty { text-align: center; padding: 40px 24px; }
+    .soc-empty-h { font-family: var(--subhead); font-size: clamp(24px, 2.6vw, 32px); font-weight: 500; letter-spacing: -0.015em; color: var(--ws-ink); margin: 0 0 10px; }
+    .soc-empty-p { font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.6; color: var(--ws-tx); max-width: 460px; margin: 0 auto 22px; }
     .soc-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+    /* ---- Chapter 03: the team ---- */
     .soc-contact { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    .soc-contact-h { font-family: var(--serif, Georgia, serif); font-size: var(--ws-t-title); color: var(--ink, #1c1d22); margin: 0 0 4px; }
-    .soc-contact-p { font-family: var(--sans, sans-serif); font-size: var(--ws-t-body); color: rgba(28,29,34,0.6); margin: 0; }
-    .soc-btn { appearance: none; cursor: pointer; display: inline-block; text-decoration: none; border: 1px solid rgba(28,29,34,0.16); border-radius: 10px; padding: 11px 20px; font-family: var(--sans, sans-serif); font-size: var(--ws-t-body); font-weight: 700; color: var(--ink, #1c1d22); background: #fff; }
-    .soc-btn:hover { background: rgba(28,29,34,0.03); }
-    .soc-btn--primary { background: var(--english-violet, #371e28); border-color: var(--english-violet, #371e28); color: #fff; }
-    .soc-btn--primary:hover { opacity: 0.92; background: var(--english-violet, #371e28); }
-    .smm-soon { font-family: var(--sans, sans-serif); font-size: var(--ws-t-body); color: rgba(28,29,34,0.5); line-height: 1.6; }
+    .soc-contact-h { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 700; color: var(--ws-ink); margin: 0 0 4px; }
+    .soc-contact-p { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-tx); margin: 0; }
 
-    /* Insights render primitives (shared with the admin Insights view) */
+    /* ---- Report primitives, emitted by lib/report-insights.js ----
+       Same class names the admin Insights view uses; restyled here into the
+       member vocabulary. Square, hairline, no fills. */
     .ri-months { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-    .ri-month { padding: 5px 13px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans, sans-serif); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
-    .ri-month.is-active { background: var(--english-violet, #371e28); border-color: var(--english-violet, #371e28); color: #fff; }
-    .ri-subtabs { display: inline-flex; gap: 2px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; margin-bottom: 14px; flex-wrap: wrap; }
-    .ri-subtab { padding: 6px 14px; border: 0; background: none; border-radius: 6px; font-family: var(--sans, sans-serif); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.55); cursor: pointer; }
-    .ri-subtab:hover { color: var(--ink, #1c1d22); }
-    .ri-subtab.is-active { background: #fff; color: var(--ink, #1c1d22); box-shadow: 0 1px 3px rgba(28,29,34,0.12); }
-    .ri-kpi { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 13px; }
-    .ri-kpi-label { font-size: var(--ws-t-label); color: #8a8796; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 6px; }
-    .ri-kpi-val { font-size: 21px; font-weight: 600; line-height: 1; color: var(--ink, #1c1d22); }
-    .ri-kpi-sub { font-size: var(--ws-t-label); margin-top: 4px; }
-    .ri-panel { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 15px 17px; margin-bottom: 14px; }
-    .ri-sec { font-family: var(--sans, sans-serif); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #8a8796; margin: 20px 0 9px; }
+    .ri-month { padding: 5px 12px; border-radius: var(--ws-r); border: 1px solid var(--ws-line); background: #fff; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-tx); cursor: pointer; transition: border-color 0.2s var(--ws-ease); }
+    .ri-month:hover { border-color: rgba(28,29,34,0.3); }
+    .ri-month.is-active { background: rgb(var(--violet-rgb)); border-color: rgb(var(--violet-rgb)); color: #fff; }
+    .ri-subtabs { display: inline-flex; gap: 2px; padding: 3px; background: rgba(28,29,34,0.045); border-radius: var(--ws-r); margin-bottom: 16px; flex-wrap: wrap; }
+    .ri-subtab { padding: 6px 14px; border: 0; background: none; border-radius: 3px; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-tx); cursor: pointer; }
+    .ri-subtab:hover { color: var(--ws-ink); }
+    .ri-subtab.is-active { background: #fff; color: var(--ws-ink); border: 1px solid var(--ws-line); padding: 5px 13px; }
+    .ri-kpi { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 14px 15px; }
+    .ri-kpi-label { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin-bottom: 7px; }
+    /* The one place a number is allowed to be big and serif, the same move the
+       orders page makes with its totals. */
+    .ri-kpi-val { font-family: var(--serif); font-size: clamp(22px, 2vw, 28px); font-weight: 400; letter-spacing: -0.015em; line-height: 1.05; color: var(--ws-ink); }
+    .ri-kpi-sub { font-family: var(--sans); font-size: var(--ws-t-label); margin-top: 5px; color: var(--ws-tx); }
+    .ri-panel { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 15px 17px; margin-bottom: var(--ws-gap); }
+    .ri-sec { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 22px 0 10px; }
+    /* Inside one card, nested panels shouldn't each carry a full-strength edge. */
+    .soc-report .ri-panel { border-color: rgba(28,29,34,0.09); }
 
-    /* "What we're doing next" — the one part of the report a client should not be
-       able to miss, so it's a wine panel rather than another white card in the row. */
-    /* rgb(--violet-rgb), not var(--english-violet): in the hub theme that token
-       resolves to the BROWN #7e6765, not the wine. The page already declares
-       --violet-rgb: 55,30,40 up top — that's the wine, so use it. */
-    .soc-act { background: rgb(var(--violet-rgb, 55,30,40)); color: var(--paper, #f4f2f1); border-radius: 14px; padding: 20px 22px; margin-top: 20px; }
+    /* ---- Key takeaways ----
+       The house rule is that the wine strip is the only brand colour on the
+       page, and this used to be a second wine panel — which now reads as a
+       chapter heading that has come loose. So it keeps its prominence from a
+       wine rule and a wine heading instead of a wine field, and stops
+       competing with the strips above it. */
+    .soc-act { border: 1px solid var(--ws-line); border-top: 3px solid rgb(var(--violet-rgb)); border-radius: var(--ws-r); padding: 18px 20px; margin-top: 18px; background: #fff; }
     .soc-act-head { margin-bottom: 14px; }
     /* Helios spelled out — global.css rebinds --serif to --subhead ON h3/h4, so
        var(--serif) in here silently resolves to The Seasons. */
-    .soc-act-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: var(--ws-t-title, 17px); font-style: normal; color: var(--paper, #f4f2f1); margin: 0 0 5px; }
-    .soc-act-sub { font-family: var(--sans, sans-serif); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(244,242,241,0.72); margin: 0; max-width: 58ch; }
+    .soc-act-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: var(--ws-t-row); font-weight: 700; font-style: normal; color: var(--ws-ink); margin: 0 0 5px; }
+    .soc-act-sub { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.55; color: var(--ws-tx); margin: 0; max-width: 58ch; }
     .soc-act-list { list-style: none; margin: 0; padding: 0; }
-    .soc-act-item { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; border-bottom: 1px solid rgba(244,242,241,0.14); font-family: var(--sans, sans-serif); font-size: var(--ws-t-row); line-height: 1.55; color: var(--paper, #f4f2f1); }
+    .soc-act-item { display: flex; align-items: flex-start; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--ws-line); font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.55; color: var(--ws-ink); }
     .soc-act-item:last-child { border-bottom: 0; }
     /* One neutral mark, not a traffic light. The admin triage colours (green/amber/
        red) are ours for deciding what to work on; on a client's report an amber dot
        announces "this bit's going badly" before they've read the line. Every takeaway
        gets the same mark and the tone lives in the words. */
-    .soc-act-mark { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 8px; background: rgba(244,242,241,0.55); }
-    .soc-act-coming { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(244,242,241,0.14); }
-    .soc-act-coming-h { font-family: var(--sans, sans-serif); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(244,242,241,0.6); margin: 0 0 8px; }
-    .soc-act-coming-list { margin: 0; padding-left: 18px; font-family: var(--sans, sans-serif); font-size: var(--ws-t-body); line-height: 1.7; color: rgba(244,242,241,0.85); }
+    .soc-act-mark { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 8px; background: rgb(var(--violet-rgb)); }
+    .soc-act-coming { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--ws-line); }
+    .soc-act-coming-h { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0 0 8px; }
+    .soc-act-coming-list { margin: 0; padding-left: 18px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.7; color: var(--ws-tx); }
+
+    @media (max-width: 720px) {
+      .soc-contact { flex-direction: column; align-items: flex-start; }
+    }
   </style>
 
   <script>
@@ -153,8 +240,11 @@ import "../../styles/account-sections.css";
     function renderPlan(c) {
       const platforms = Array.isArray(c.platforms) && c.platforms.length ? c.platforms.map((p) => `<span class="soc-chip">${esc(p)}</span>`).join("") : "—";
       const since = c.start_date ? (() => { try { return new Date(c.start_date + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }); } catch (_) { return null; } })() : null;
+      // The chapter strip carries the heading and the status now, so the card
+      // holds only the facts.
+      const status = $("soc-status");
+      if (status) { status.textContent = "Active"; status.hidden = false; }
       $("soc-plan").innerHTML = `
-        <div class="soc-plan-head"><h2>Your plan</h2><span class="soc-status">Active</span></div>
         <dl class="soc-plan-grid">
           ${c.package_name ? `<div><dt>Package</dt><dd>${esc(c.package_name)}</dd></div>` : ""}
           <div><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
@@ -189,7 +279,7 @@ import "../../styles/account-sections.css";
 
     function renderInsights() {
       const wrap = $("soc-insights");
-      if (!reports.length) { wrap.innerHTML = `<p class="smm-soon">Your first monthly report will appear here once we've published it.</p>`; return; }
+      if (!reports.length) { wrap.innerHTML = `<p class="soc-state">Your first monthly report will appear here once we've published it.</p>`; return; }
       const cur = reports[curIdx];
       const months = reports.map((r, i) => `<button type="button" class="ri-month ${i === curIdx ? "is-active" : ""}" data-mi="${i}">${MONTHS[r.month]} ${r.year}</button>`).join("");
       // A tab only exists if it has something to say for THIS month. Two different
@@ -246,7 +336,7 @@ import "../../styles/account-sections.css";
         ? `<div class="ri-sec">How you're tracking, month on month</div>${renderTrends(reports.slice().reverse())}`
         : "";
       const body = !TABS.length
-        ? `<p class="smm-soon">There's nothing to show for this month yet. Your team is still putting the numbers together.</p>`
+        ? `<p class="soc-state">There's nothing to show for this month yet. Your team is still putting the numbers together.</p>`
         : tab === "summary" ? summaryHtml + keyTakeaways(d, vis)
         : tab === "overview" ? renderTab("overview", cur.data, cur, vis) + trendsHtml
         : renderTab(tab, cur.data, cur, vis, MEMBER_OPTS);
