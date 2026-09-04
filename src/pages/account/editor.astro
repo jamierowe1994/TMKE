@@ -6452,6 +6452,7 @@ const googleFonts = [
         const btn = e.target instanceof Element ? e.target.closest("[data-template-id]") : null;
         if (!btn) return;
         if (typeof window.__TMKE_LOAD_TEMPLATE__ === "function") window.__TMKE_LOAD_TEMPLATE__(btn.getAttribute("data-template-id"));
+        (window as any).__TMKE_START_CONTEXT__?.("template");
         revealStudio();
       });
     }
@@ -6498,7 +6499,10 @@ const googleFonts = [
         designsEmpty.innerHTML = "No designs in this pack yet — they're being added. <button type=\"button\" class=\"ed-onboard-skip-inline\" data-blank>Start with a blank canvas &rarr;</button>";
         designsEmpty.hidden = false;
         const blank = designsEmpty.querySelector("[data-blank]");
-        if (blank) blank.addEventListener("click", () => revealStudio());
+        if (blank) blank.addEventListener("click", () => {
+          (window as any).__TMKE_START_CONTEXT__?.("blank");
+          revealStudio();
+        });
         return;
       }
       designGrid.innerHTML = designs.map(designCard).join("");
@@ -6633,19 +6637,25 @@ const googleFonts = [
         },
       };
 
-      const L = LAYOUT[ctx] || LAYOUT.template;
-      if (title) title.textContent = L.title;
-      if (sub) sub.textContent = L.sub;
+      function render(which) {
+        const L = LAYOUT[which] || LAYOUT.template;
+        if (title) title.textContent = L.title;
+        if (sub) sub.textContent = L.sub;
+        grid.innerHTML = L.order.map(function (key) {
+          const a = ACTIONS[key];
+          if (!a) return "";
+          const attr = a.addPage ? "data-add-page" : 'data-start-tool="' + a.tool + '"';
+          return '<button type="button" class="ed-start-btn" ' + attr + '>' +
+            '<span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[key] + '</svg></span>' +
+            '<span class="ed-start-tx"><b>' + a.label + '</b><i>' + a.note + '</i></span>' +
+          '</button>';
+        }).join("");
+      }
+      render(ctx);
 
-      grid.innerHTML = L.order.map(function (key) {
-        const a = ACTIONS[key];
-        if (!a) return "";
-        const attr = a.addPage ? "data-add-page" : 'data-start-tool="' + a.tool + '"';
-        return '<button type="button" class="ed-start-btn" ' + attr + '>' +
-          '<span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[key] + '</svg></span>' +
-          '<span class="ed-start-tx"><b>' + a.label + '</b><i>' + a.note + '</i></span>' +
-        '</button>';
-      }).join("");
+      // Choosing from the launcher doesn't change the URL, so the query string
+      // can't be the only thing that decides this. The launcher says which.
+      (window as any).__TMKE_START_CONTEXT__ = render;
     })();
 
     (async () => {
