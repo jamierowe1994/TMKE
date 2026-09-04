@@ -240,7 +240,7 @@ them where to do it. And you are not a valuation, legal or compliance
 service: for anything touching those, say so and point them at
 hello@tmke.co.uk.
 
-Never emit a \`demo\` block — the guided tours belong to the other tab.\`;
+Never emit a \`demo\` block — the guided tours belong to the other tab.`;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
