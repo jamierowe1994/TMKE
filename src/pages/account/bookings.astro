@@ -234,9 +234,13 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       margin: 0 0 6px; font-family: var(--serif); font-size: var(--ws-t-label); font-weight: 700;
       letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
-    .bk-none-p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: rgba(28,29,34,0.6); max-width: 52ch; }
-    .bk-none-p a { color: var(--english-violet); font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(var(--violet-rgb),0.35); }
-    .bk-none-p a:hover { border-bottom-color: var(--english-violet); }
+    /* No measure cap: each of these is one sentence, and capping it at 52ch
+       folded it onto two lines and left the right half of the card empty,
+       which read as a stray margin rather than a short paragraph. */
+    .bk-none-p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: rgba(28,29,34,0.6); }
+    /* The link sits on its own row under the sentence, arrow and all. */
+    .bk-none-link { display: inline-block; margin-top: 8px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: var(--english-violet); font-weight: 700; text-decoration: none; border-bottom: 1px solid rgba(var(--violet-rgb),0.35); }
+    .bk-none-link:hover { border-bottom-color: var(--english-violet); }
     /* Match the booking card's typography exactly: the title reuses
        .bk-card-title (Helios), the body matches the .bk-card-when date line
        (Darker Grotesque). */
@@ -667,7 +671,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       renderNext(up);
       const $up = $('bk-upcoming');
       if (!up.length) {
-        $up.innerHTML = `<div class="bk-none"><p class="bk-none-h">Nothing upcoming</p><p class="bk-none-p">When you book a shoot or a call it will appear here. <a href="/videography">Browse videography &rarr;</a></p></div>`;
+        $up.innerHTML = `<div class="bk-none"><p class="bk-none-h">Nothing upcoming</p><p class="bk-none-p">When you book a shoot or a call it will appear here.</p><a class="bk-none-link" href="/videography">Browse videography &rarr;</a></div>`;
       } else {
         $up.innerHTML = up.map(cardHtml).join('');
       }
