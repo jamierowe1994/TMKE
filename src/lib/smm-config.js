@@ -256,9 +256,9 @@ export const COPY = {
     chooseLine: "Choose the level of support that fits where you are right now:",
   },
   whatGoodLooksLike: {
-    headline: "What Good Looks Like",
+    headline: "Social Media Marketing",
     body:
-      "Consistent, considered, and built around the brand. Here's some of the work we're proud of.",
+      "Shot and Scheduled is our social media marketing service. A shoot day every quarter with a TMKE videographer, then every video edited, captioned and scheduled across the three months, so you show up consistently without making the content yourself. You keep running your own accounts and your listings. Social media management goes further: one account manager owns the strategy, the content, the engagement and the reporting, and runs the account for you.",
     cta: "See Our Work",
   },
   ctas: {
