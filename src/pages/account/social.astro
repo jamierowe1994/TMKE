@@ -4,6 +4,7 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
+import { SOCIAL_SERVICES, SOCIAL_EXTRAS, PRICE_NOTE } from "../../data/services.js";
 ---
 
 <!--
@@ -35,17 +36,67 @@ import "../../styles/account-sections.css";
 
         <p id="soc-loading" class="soc-state">Loading your social media&hellip;</p>
 
-        <!-- ============ Not a managed-social client ============ -->
-        <section id="soc-noclient" hidden>
-          <div class="soc-card soc-empty">
-            <h2 class="soc-empty-h">You&rsquo;re not on a managed social plan yet</h2>
-            <p class="soc-empty-p">TMKE can run your social media end to end: content, scheduling and clear monthly reporting. Take a look at what&rsquo;s included, or drop us a line.</p>
-            <div class="soc-actions">
-              <a class="ws-btn ws-btn--primary" href="/account/services">See the plans</a>
-              <a class="ws-btn ws-btn--ghost" href="/account/contact">Get in touch</a>
+        <!-- ============ Not a managed-social client ============
+             What this page is for when there is no account behind it: the two
+             services, in TMKE's own words, with real prices. It used to be one
+             card apologising for being empty, above a "See the plans" button
+             that led to three invented tiers at two to five times the actual
+             cost. -->
+        <div id="soc-noclient" hidden>
+          <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-svc-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-svc-h"><span class="ws-block-ch">Chapter 01</span>Social, handled</h2>
+              <a class="ws-block-link" href="/account/contact">Talk to us
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+            </header>
+
+            <p class="soc-lede">You&rsquo;re not on a social plan with us yet. There are two ways we run social for estate agents &mdash; one where we take the whole thing off your hands, one where we handle the video.</p>
+
+            <div class="soc-svc-grid">
+              {SOCIAL_SERVICES.map((sv) => (
+                <article class="soc-svc">
+                  <p class="soc-svc-strap">{sv.strap}</p>
+                  <h3 class="soc-svc-name">{sv.name}</h3>
+                  <p class="soc-svc-sum">{sv.summary}</p>
+                  <p class="soc-svc-blurb">{sv.blurb}</p>
+                  <ul class="soc-svc-list">
+                    {sv.includes.map((it) => <li>{it}</li>)}
+                  </ul>
+                  {sv.note && <p class="soc-svc-note">{sv.note}</p>}
+                  <div class="soc-svc-foot">
+                    <div class="soc-price">
+                      <span class="soc-price-tag">Prices</span>
+                      <span class="soc-price-val">from {sv.from}</span>
+                      <span class="soc-price-unit">{sv.unit}</span>
+                    </div>
+                    <a class="ws-btn ws-btn--primary" href={`/account/contact?from=${sv.id}`}>Talk to us</a>
+                  </div>
+                </article>
+              ))}
             </div>
-          </div>
-        </section>
+          </section>
+
+          <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-extra-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-extra-h"><span class="ws-block-ch">Chapter 02</span>Also on social</h2>
+            </header>
+            <div class="soc-extra-grid">
+              {SOCIAL_EXTRAS.map((sv) => (
+                <article class="soc-extra">
+                  <h3 class="soc-extra-name">{sv.name}</h3>
+                  <p class="soc-extra-sum">{sv.summary}</p>
+                  <div class="soc-price soc-price--sm">
+                    <span class="soc-price-tag">Prices</span>
+                    <span class="soc-price-val">from {sv.from}</span>
+                    <span class="soc-price-unit">{sv.unit}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <p class="soc-price-note">{PRICE_NOTE}</p>
+          </section>
+        </div>
 
         <!-- ============ Managed-social client ============ -->
         <div id="soc-client" hidden>
@@ -158,11 +209,41 @@ import "../../styles/account-sections.css";
       font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.65; color: var(--ws-tx);
     }
 
-    /* ---- Not a client ---- */
-    .soc-empty { text-align: center; padding: 40px 24px; }
-    .soc-empty-h { font-family: var(--subhead); font-size: clamp(24px, 2.6vw, 32px); font-weight: 500; letter-spacing: -0.015em; color: var(--ws-ink); margin: 0 0 10px; }
-    .soc-empty-p { font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.6; color: var(--ws-tx); max-width: 460px; margin: 0 auto 22px; }
-    .soc-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    /* ---- Not a client: the two services ----
+       Same vocabulary as everything else on the page — hairline outline,
+       square corners, no fill, no shadow. The only colour is the chapter
+       strip above, as everywhere else in the hub. */
+    #soc-noclient:not([hidden]) { display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 46px); }
+    .soc-lede { font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.6; color: var(--ws-tx); margin: 0; max-width: 74ch; }
+    .soc-svc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 900px) { .soc-svc-grid { grid-template-columns: 1fr; } }
+    .soc-svc {
+      display: flex; flex-direction: column; padding: 24px 26px 22px;
+      background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r);
+    }
+    .soc-svc-strap { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); margin: 0 0 12px; line-height: 1.5; }
+    /* The one serif moment in the card, the way a stat is on Orders. */
+    .soc-svc-name { font-family: var(--subhead); font-size: clamp(22px, 2vw, 28px); font-weight: 500; letter-spacing: -0.015em; line-height: 1.15; color: var(--ws-ink); margin: 0 0 10px; }
+    .soc-svc-sum { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 700; line-height: 1.5; color: var(--ws-ink); margin: 0 0 10px; }
+    .soc-svc-blurb { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.6; color: var(--ws-tx); margin: 0 0 16px; }
+    .soc-svc-list { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .soc-svc-list li { position: relative; padding-left: 18px; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-ink); }
+    .soc-svc-list li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--ws-accent); }
+    .soc-svc-note { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-faint); margin: 0 0 16px; }
+    /* Pinned, so the two cards' buttons line up however long the lists are. */
+    .soc-svc-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ws-line); display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+    .soc-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .soc-price-tag { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .soc-price-val { font-family: var(--subhead); font-size: clamp(19px, 1.7vw, 23px); font-weight: 500; letter-spacing: -0.015em; color: var(--ws-ink); }
+    .soc-price-unit { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-tx); }
+    .soc-price--sm .soc-price-val { font-size: var(--ws-t-row); }
+
+    .soc-extra-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 720px) { .soc-extra-grid { grid-template-columns: 1fr; } }
+    .soc-extra { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .soc-extra-name { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 700; color: var(--ws-ink); margin: 0; }
+    .soc-extra-sum { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-tx); margin: 0; }
+    .soc-price-note { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.6; color: var(--ws-faint); margin: 4px 0 0; max-width: 78ch; }
 
     /* ---- Chapter 03: the team ---- */
     .soc-contact { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
