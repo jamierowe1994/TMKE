@@ -12,9 +12,9 @@ const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
 // SMM dictionary-hero backdrop — the client's "Smm hero" still on R2 (reused on
 // the slide-6 work-samples field; the hero itself is now a portrait video).
 const SMM_HERO_IMG = "https://assets.tmke.co.uk/Smm%20hero.jpg";
-// Slide 2 ("doesn't want you to go viral") is now the VIDEO; the hero goes back
-// to the still image (SMM_HERO_IMG). The stills shift down one slide each.
-const SMM_HERO_VIDEO = "https://assets.tmke.co.uk/TMKE%20SMM/hf_20260628_061058_a6d65665-2848-4f20-bae4-4c4ef6066688.mp4";
+// The video slide is gone (5 Sep): the hero's long image grows to fill the
+// screen on scroll and the three "ethos" texts now play over THAT, so there is
+// no separate scene to slide across to. See the sm-feature panels below.
 // Slide-1 "long image" — sits in a band below the About-style header and scrolls
 // up on wheel. Full-width → keep it near native res (source is 2560×1440) at high
 // quality so it stays crisp on large/retina screens.
@@ -22,14 +22,6 @@ const SMM_HERO_BG = (await getImage({
   src: "https://assets.tmke.co.uk/TMKE%20SMM/SMM%20Background%202.png",
   width: 2560, height: 1440, quality: 86, format: "webp",
 })).src;
-// Full-bleed feature backgrounds (slides 3 & 4) — near native (2560×1440, 16:9)
-// at high quality so they stay crisp full-screen, matching slide 1.
-const [FEATURE3_IMG, FEATURE4_IMG] = await Promise.all(
-  [
-    "https://assets.tmke.co.uk/TMKE%20SMM/SMM%202.png",   // S3 · property first, always
-    "https://assets.tmke.co.uk/TMKE%20SMM/SMM3.png",      // S4 · one account manager
-  ].map((src) => getImage({ src, width: 2560, height: 1440, quality: 86, format: "webp" }).then((r) => r.src))
-);
 // Slide-5 half-screen image (kept at half-screen res).
 const SMM_MKTG_IMG = (await getImage({
   src: "https://assets.tmke.co.uk/TMKE%20SMM/Slide%202%20-%20Social%20Media%20Marketing.png",
@@ -44,7 +36,7 @@ const TIER_IMAGES = [SMM_MKTG_IMG, R2("white-2"), R2("table"), R2("living-2")];
 // 24 tiles scattered to fill the screen, drifting fast toward the viewer.
 const GIMG = [
   R2("white-1"), R2("living-1"), R2("kitchen-1"), R2("orange-1"), R2("table"), R2("white-2"),
-  R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), FEATURE3_IMG, SMM_MKTG_IMG,
+  R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), SMM_HERO_IMG, SMM_MKTG_IMG,
 ];
 const GSW = ["var(--english-violet)", "var(--ink)", "#c9a88e", "#8a9a8e", "#d8c4b0"];
 // Concentric-ring depth field: tiles emerge from the BACK (far, faint, small),
@@ -100,7 +92,7 @@ const total = 7;
       <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false" data-nav-drawer-open><span></span><span></span><span></span></button>
     </header>
 
-    <div class="pf-stage" id="pf-deck">
+    <div class="pf-stage" id="pf-deck" style={`--sm-hero-bg:url('${SMM_HERO_BG}')`}>
       <div class="pf-plane" id="pf-plane">
         <!-- Slide 1 (col 0,row 0) — uses the About lede layout EXACTLY (term +
              pronunciation top, mini brief + Discover button bottom, image right),
@@ -135,13 +127,16 @@ const total = 7;
                deck advances across to slide 2. -->
           <figure class="sm-hero-pic">
             <img class="sm-hero-long" src={SMM_HERO_BG} alt="" />
+            <!-- Darkens as the first text slide arrives, so the words read
+                 against the photo. Opacity is driven per frame by the deck. -->
+            <div class="sm-hero-shade" id="sm-hero-shade" aria-hidden="true"></div>
           </figure>
         </section>
 
-        <!-- Slide 2 (col 1,row 0) — full-image: don't go viral. Scroll DOWN. -->
-        <section class="pf-panel sm-feature" style="--col:1;--row:0;--step:1">
-          <video class="sm-feature-bg sm-feature-vid" src={SMM_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
-          <div class="sm-feature-overlay"></div>
+        <!-- Slides 2-4 — the three ethos texts. None carries a backdrop: the
+             hero's long image has just grown to fill the screen, and these slide
+             in from the right over it. One scene, three thoughts. -->
+        <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:1">
           <div class="sm-feature-inner">
             <h2 class="sm-feature-h">{COPY.positioning.headline}</h2>
             {COPY.positioning.body.split("\n\n").filter((para) => para !== "That's what we build.").map((para) => (
@@ -324,9 +319,10 @@ const total = 7;
        live in .sm-hud below. */
     .sm-feature:not(.is-in) .sm-feature-inner { opacity: 0; transition: opacity 0.25s ease; }
     .sm-feature.is-in .sm-feature-inner { opacity: 1; transition: opacity 0.45s ease 0.1s; }
-    .sm-feature-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
-    .sm-feature-vid { width: 100%; height: 100%; object-fit: cover; }
-    .sm-feature-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
+    /* The shade over the hero photo. The deck drives its opacity per frame in
+       step with the first text slide coming in, so the picture darkens as the
+       words arrive rather than snapping dark on a slide boundary. */
+    .sm-hero-shade { position: absolute; inset: 0; opacity: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); pointer-events: none; }
 
     /* The shared HUD: one line, one number, one pill, held still across all
        three slides. Shown only while a feature slide is up (the deck toggles
@@ -712,6 +708,10 @@ const total = 7;
        double-scroll before the deck would advance). ===== */
     @media (max-width: 600px) {
       .sm-hero-pic { display: none; }
+      /* No grown hero to sit on here, so each ethos slide paints the same photo
+         and shade itself — same scene, just carried by the panel. */
+      .sm-feature--over { background: #2a2733 var(--sm-hero-bg) center / cover no-repeat; }
+      .sm-feature--over::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
       .sm-hero { height: 100%; display: flex; flex-direction: column; }
       .sm-hero-header { flex: 1; display: flex; padding: 84px 22px 0; box-sizing: border-box; }
       .sm-hero-wrap { display: flex; flex-direction: column; flex: 1; width: 100%; max-width: none; }
@@ -760,11 +760,12 @@ const total = 7;
       const pad = (n) => String(n + 1).padStart(2, "0");
       const last = panels.length - 1;
       // entry edge per panel: [x,y] in units of 100% (the way it slides in to cover).
-      // S1 base · S2 across · S3 across · S4 across · S5 across · S6 across · S7 across
-      // Slides 3 and 4 used to push up from the bottom carrying a whole new
-      // photograph each. Three images in a row for three paragraphs of one
-      // argument was a lot of scenery for one idea, so they slide in from the
-      // right over the SAME backdrop now — only the words change.
+      // S1 base · S2-4 across (words only, over the grown hero) · S5-7 across
+      // Slides 2-4 used to be three separate scenes — a video and two stills,
+      // each pushing in with its own photograph. Three backdrops for three
+      // paragraphs of one argument was a lot of scenery for one idea, so they
+      // are words now, sliding in from the right over the hero the reader has
+      // just zoomed into.
       const ENTRY = [[0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
@@ -857,7 +858,11 @@ const total = 7;
         return anchor;
       };
 
+      const heroShade = document.getElementById("sm-hero-shade");
       const render = () => {
+        // 0 while on the hero, 1 once the first text slide has fully arrived,
+        // and every value between as it slides — the photo dims with the words.
+        if (heroShade) heroShade.style.opacity = Math.max(0, Math.min(1, display)).toFixed(3);
         for (let i = 0; i < panels.length; i++) {
           const f = Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
           const e = ENTRY[i] || [0, 0];
