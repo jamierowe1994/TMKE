@@ -49,7 +49,7 @@ export const SERVICE_TIERS = [
    ----------------------------------------------------------------------------
    Two services. Prices in PENCE, excluding VAT, matching videography-config.js.
 
-   1. SOCIAL MEDIA MANAGEMENT — from £599. Not packaged or priced in detail
+   1. SOCIAL MEDIA MANAGEMENT — from £649. Not packaged or priced in detail
       yet, and deliberately so: there is no capacity, so nobody is being
       onboarded onto it right now. SERVICE_TIERS below already carries the
       three shapes it will eventually split into — Planned and Posted, Present
@@ -100,7 +100,7 @@ export const SOCIAL_SERVICES = [
       "One marketing manager from start to finish",
       "Monthly reporting you can actually read",
     ],
-    from_pence: 59900,
+    from_pence: 64900,
     unit: "month",
     /* No spaces at the moment, so this is not being sold. Kept visible because
        people ask what we do, not only what they can buy today. */
