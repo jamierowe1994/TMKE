@@ -300,6 +300,13 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .team-edit-input:focus { outline: none; box-shadow: 0 0 0 3px rgba(55,30,40,0.1); }
     .team-btn, .team-remove { appearance: none; cursor: pointer; background: none; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; padding: 8px 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); transition: background 0.2s, border-color 0.2s, color 0.2s; flex: none; }
     .team-btn:hover { background: rgba(28,29,34,0.05); border-color: rgba(28,29,34,0.28); color: var(--ink); }
+    .team-level {
+      appearance: none; cursor: pointer; flex: none;
+      padding: 7px 26px 7px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 9px;
+      background: #fff url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(28,29,34,0.5)' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>") no-repeat right 8px center / 11px;
+      font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink);
+    }
+    .team-level:disabled { opacity: 0.55; cursor: default; }
     .team-btn.team-save-name { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .team-btn.team-save-name:hover { opacity: 0.9; }
     .team-remove:hover { background: rgba(200,70,50,0.08); border-color: rgba(200,70,50,0.4); color: #a3372b; }
@@ -558,11 +565,19 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           ? '<span class="team-you">You</span>'
           : `<button type="button" class="team-btn team-reset" data-uid="${esc(a.user_id)}" data-name="${esc(name)}">Reset password</button>
              <button type="button" class="team-remove" data-uid="${esc(a.user_id)}" data-name="${esc(name)}">Remove</button>`;
+        // Level lives on the row it belongs to, so who sees the money is
+        // answered in the same place as who has access at all — rather than in
+        // the database, where it used to be the only way to set it.
+        const level = `<select class="team-level" data-uid="${esc(a.user_id)}" aria-label="Access level for ${esc(name)}">
+            <option value="admin"${a.is_management ? "" : " selected"}>Admin</option>
+            <option value="management"${a.is_management ? " selected" : ""}>Management</option>
+          </select>`;
         return `<div class="team-row">
           <div class="team-meta">
             <div class="team-name">${esc(name)}${a.role ? ` · ${esc(a.role)}` : ""}</div>
             <div class="team-sub">${esc(a.email)}${when ? ` — added ${when}` : ""}</div>
           </div>
+          ${level}
           <button type="button" class="team-btn team-edit" data-uid="${esc(a.user_id)}">Edit name</button>
           ${right}
         </div>`;
@@ -621,6 +636,39 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         loadTeam();
       } catch (err) { teamMsg(err.message || "Couldn't grant access.", false); }
       finally { btn.disabled = false; btn.textContent = "Grant access"; }
+    });
+
+    /* Change an access level. Saves on pick — there is no Save button on this
+       row and adding one for a two-option choice would only invite half-made
+       changes. Reverts the control on failure so it never shows a level the
+       server did not take. */
+    $("team-list")?.addEventListener("change", async (ev) => {
+      const sel = ev.target.closest(".team-level");
+      if (!sel) return;
+      const uid = sel.getAttribute("data-uid");
+      const row = teamAdmins.find((a) => a.user_id === uid);
+      const was = !!(row && row.is_management);
+      const want = sel.value === "management";
+      if (want === was) return;
+      sel.disabled = true;
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/admin/team`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: uid, is_management: want }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't change that access level.");
+        if (row) row.is_management = want;
+        const who = (row && (row.full_name || (row.email || "").split("@")[0])) || "That admin";
+        teamMsg(want
+          ? `<strong>${esc(who)}</strong> is now Management — they can see invoices, month end and revenue.`
+          : `<strong>${esc(who)}</strong> is now Admin — invoices, month end and revenue are hidden from them.`, true);
+      } catch (err) {
+        sel.value = was ? "management" : "admin";
+        teamMsg(err.message || "Couldn't change that access level.", false);
+      } finally { sel.disabled = false; }
     });
 
     $("team-list")?.addEventListener("click", async (ev) => {

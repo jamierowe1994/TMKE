@@ -5606,12 +5606,20 @@ export default {
       if (path.endsWith("/admin/team") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isOwner(user)) return json({ error: "Only the account owner can manage admin access." }, 403, request, env);
+        // is_management is asked for separately: on a project where the column
+        // has not been added yet, folding it into the main select would make
+        // PostgREST reject the whole query and the team list would come back
+        // empty rather than simply un-levelled.
         const rows = (await sbGet(env, "admins", "select=user_id,email,created_at&order=created_at.asc")) || [];
         const profs = (await sbGet(env, "admin_profiles", "select=user_id,full_name,role")) || [];
+        let mgmt = null;
+        try { mgmt = await sbGet(env, "admins", "select=user_id,is_management"); } catch (_) {}
+        const mm = {}; for (const m of (mgmt || [])) mm[m.user_id] = !!m.is_management;
         const pm = {}; for (const p of profs) pm[p.user_id] = p;
         const admins = rows.map((r) => ({
           user_id: r.user_id, email: r.email, created_at: r.created_at,
           full_name: (pm[r.user_id] || {}).full_name || null, role: (pm[r.user_id] || {}).role || null,
+          is_management: !!mm[r.user_id],
         }));
         return json({ ok: true, admins, self: user.id }, 200, request, env);
       }
@@ -5703,6 +5711,27 @@ export default {
         const userId = String((b && b.user_id) || "").trim();
         const fullName = String((b && b.full_name) || "").trim();
         if (!userId) return json({ error: "Missing user_id" }, 400, request, env);
+
+        // Level change: its own shape, so the name is not required alongside.
+        // Owner-gated like everything else on this endpoint — an admin cannot
+        // promote themselves, which is the whole point of a second tier.
+        if (typeof b.is_management === "boolean") {
+          const r = await fetch(`${env.SUPABASE_URL}/rest/v1/admins?user_id=eq.${encodeURIComponent(userId)}`, {
+            method: "PATCH",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+            body: JSON.stringify({ is_management: b.is_management }),
+          });
+          if (!r.ok) {
+            const detail = await r.text().catch(() => "");
+            // The one failure worth naming: the column has not been added yet.
+            const missing = /is_management/.test(detail) && /column/i.test(detail);
+            return json({ error: missing
+              ? "The management tier hasn't been set up on the database yet — run supabase/admins_management_flag.sql."
+              : "Couldn't change that access level." }, 500, request, env);
+          }
+          return json({ ok: true }, 200, request, env);
+        }
+
         if (!fullName) return json({ error: "Enter a name." }, 400, request, env);
         const row = { user_id: userId, full_name: fullName };
         if (b && typeof b.role === "string" && b.role.trim()) row.role = b.role.trim();

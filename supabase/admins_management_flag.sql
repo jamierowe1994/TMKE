@@ -32,14 +32,19 @@ $$;
 -- themarketingexperts.co.uk, not @tmke.co.uk, so admins.sql's domain-based
 -- auto-seed may never have created their row in the first place.
 --
--- 2026-09-05: the original seed said 'sam@themarketingexperts.co.uk'. Her
--- address is samantha@ — so that line matched no auth user, and Samantha never
--- got the flag while looking as though she had. Corrected below; the stray
--- address is cleared underneath in case a sam@ account exists and was granted.
+-- 2026-09-05: BOTH addresses in the original seed were wrong. It named
+-- 'danielle@themarketingexperts.co.uk' and 'sam@themarketingexperts.co.uk';
+-- the real accounts are danielle@tmke.co.uk and samantha@themarketingexperts.
+-- co.uk. Neither matched an auth user, so the insert...select matched no rows
+-- and the seed granted management to NOBODY — silently, because it only ever
+-- gated the Dashboard revenue totals, which simply looked empty.
+--
+-- Levels are set from Settings > Access now, so this file is the floor rather
+-- than the mechanism: run it once to make sure the two of them are covered.
 insert into public.admins (user_id, email, is_management)
 select id, email, true
 from auth.users
-where lower(email) in ('danielle@themarketingexperts.co.uk', 'samantha@themarketingexperts.co.uk')
+where lower(email) in ('danielle@tmke.co.uk', 'samantha@themarketingexperts.co.uk')
 on conflict (user_id) do update set is_management = true;
 
 update public.admins set is_management = false
