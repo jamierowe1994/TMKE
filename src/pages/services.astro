@@ -142,9 +142,6 @@ const total = 7;
         <section class="pf-panel sm-feature" style="--col:1;--row:0;--step:1">
           <video class="sm-feature-bg sm-feature-vid" src={SMM_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
           <div class="sm-feature-overlay"></div>
-          <div class="sm-line" aria-hidden="true"><span class="sm-line-fill"></span></div>
-          <span class="sm-line-num" aria-hidden="true">01</span>
-          <span class="sm-tag">Ethos</span>
           <div class="sm-feature-inner">
             <h2 class="sm-feature-h">{COPY.positioning.headline}</h2>
             {COPY.positioning.body.split("\n\n").filter((para) => para !== "That's what we build.").map((para) => (
@@ -156,9 +153,6 @@ const total = 7;
         <!-- Slide 3 — property first. No backdrop of its own: it slides in from
              the right over slide 2's, so the scene holds and only the words move. -->
         <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:2">
-          <div class="sm-line" aria-hidden="true"><span class="sm-line-fill"></span></div>
-          <span class="sm-line-num" aria-hidden="true">02</span>
-          <span class="sm-tag">Industry</span>
           <div class="sm-feature-inner">
             <h2 class="sm-feature-h">{COPY.positioning.pillars[0].title}</h2>
             <p class="sm-feature-body">{COPY.positioning.pillars[0].body}</p>
@@ -167,14 +161,23 @@ const total = 7;
 
         <!-- Slide 4 — one account manager. Same again: words only. -->
         <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:3">
-          <div class="sm-line" aria-hidden="true"><span class="sm-line-fill"></span></div>
-          <span class="sm-line-num" aria-hidden="true">03</span>
-          <span class="sm-tag">Action</span>
           <div class="sm-feature-inner">
             <h2 class="sm-feature-h">{COPY.positioning.pillars[1].title}</h2>
             <p class="sm-feature-body">{COPY.positioning.pillars[1].body}</p>
           </div>
         </section>
+
+        <!-- Shared HUD for slides 2-4. The line, the number and the pill live
+             here rather than inside each panel, because they occupy the same
+             spot on all three: riding along with a sliding panel made them
+             travel across the screen only to land where they started. Out here
+             they hold still and cross-fade, and the line is genuinely one line
+             rather than three stacked. -->
+        <div class="sm-hud" id="sm-hud" aria-hidden="true" hidden>
+          <div class="sm-line"><span class="sm-line-fill" id="sm-hud-fill"></span></div>
+          <span class="sm-line-num" id="sm-hud-num">01</span>
+          <span class="sm-tag" id="sm-hud-tag">Ethos</span>
+        </div>
 
         <!-- Slide 5 (col 2) — what we do: tier list (left) + reactive image (right) -->
         <section class="pf-panel sm-services" style="--col:2;--row:0">
@@ -315,28 +318,34 @@ const total = 7;
     /* Slides 3 and 4 are text over slide 2's picture, so the panel itself must
        not paint — .pf-panel's --paper would hide the very thing they sit on. */
     .sm-feature--over { background: transparent; }
-    /* Only the slide you are on shows its words. Without this the panel beneath
-       still reads through the transparent one above it and you get two titles,
-       two numbers and two progress lines on top of each other. */
-    .sm-feature:not(.is-in) .sm-feature-inner,
-    .sm-feature:not(.is-in) .sm-line,
-    .sm-feature:not(.is-in) .sm-line-num,
-    .sm-feature:not(.is-in) .sm-tag { opacity: 0; transition: opacity 0.25s ease; }
-    .sm-feature.is-in .sm-feature-inner,
-    .sm-feature.is-in .sm-line,
-    .sm-feature.is-in .sm-line-num,
-    .sm-feature.is-in .sm-tag { opacity: 1; transition: opacity 0.45s ease 0.1s; }
+    /* Only the slide you are on shows its words — the panel beneath reads
+       straight through the transparent one above it otherwise, and you get two
+       titles at once. The line, number and pill are not in here any more; they
+       live in .sm-hud below. */
+    .sm-feature:not(.is-in) .sm-feature-inner { opacity: 0; transition: opacity 0.25s ease; }
+    .sm-feature.is-in .sm-feature-inner { opacity: 1; transition: opacity 0.45s ease 0.1s; }
     .sm-feature-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
     .sm-feature-vid { width: 100%; height: 100%; object-fit: cover; }
     .sm-feature-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
 
-    /* progress line across the screen + step number above its left end */
-    .sm-line { position: absolute; left: 0; right: 0; top: 44%; height: 1px; background: rgba(240,238,235,0.3); z-index: 2; }
-    .sm-line-fill { position: absolute; left: 0; top: 0; height: 1px; background: var(--paper); width: calc((var(--step) - 1) / var(--steps) * 100%); transition: width 1.1s cubic-bezier(.16,1,.3,1) 0.15s; }
-    .sm-feature.is-in .sm-line-fill { width: calc(var(--step) / var(--steps) * 100%); }
-    .sm-line-num { position: absolute; top: 44%; left: clamp(28px, 8vw, 140px); transform: translateY(-165%); z-index: 3; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.22em; color: var(--paper); text-shadow: 0 1px 12px rgba(0,0,0,0.4); }
-    /* category tag — a small pill ABOVE the line, left-aligned with the title */
-    .sm-tag { position: absolute; top: 44%; left: clamp(28px, 18vw, 360px); transform: translateY(-160%); z-index: 3; padding: 6px 16px; border-radius: 999px; background: var(--english-violet); color: var(--paper); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 6px 20px rgba(20,18,26,0.28); }
+    /* The shared HUD: one line, one number, one pill, held still across all
+       three slides. Shown only while a feature slide is up (the deck toggles
+       [hidden]). */
+    .sm-hud { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+    .sm-hud[hidden] { display: none; }
+    .sm-line { position: absolute; left: 0; right: 0; top: 44%; height: 1px; background: rgba(240,238,235,0.3); }
+    .sm-line-fill { position: absolute; left: 0; top: 0; height: 1px; background: var(--paper); width: 0; transition: width 1.1s cubic-bezier(.16,1,.3,1); }
+    /* Number and pill sit ON the line and cross-fade in place. Both are bottom-
+       anchored to it, so the pill's underside and the number's baseline sit on
+       the same rule — before, each was pushed up by a share of its own height,
+       and the pill being taller left it floating above the number. */
+    .sm-line-num, .sm-tag { position: absolute; bottom: 56%; z-index: 3; transition: opacity 0.3s ease; }
+    /* 3px against the pill's 6px, not the same number: "01" has no descenders,
+       so its glyphs stop about 3px above its box. Matching the boxes would sit
+       the pill visibly low against a number that looks higher than it measures. */
+    .sm-line-num { left: clamp(28px, 8vw, 140px); margin-bottom: 3px; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.22em; color: var(--paper); text-shadow: 0 1px 12px rgba(0,0,0,0.4); }
+    .sm-tag { left: clamp(28px, 18vw, 360px); margin-bottom: 6px; padding: 6px 16px; border-radius: 999px; background: var(--english-violet); color: var(--paper); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 6px 20px rgba(20,18,26,0.28); }
+    .sm-hud.is-swapping .sm-line-num, .sm-hud.is-swapping .sm-tag { opacity: 0; }
 
     /* title + body, below the line, set in from the left (left-of-centre) */
     .sm-feature-inner { position: absolute; top: 49%; left: clamp(28px, 18vw, 360px); right: clamp(28px, 5vw, 96px); max-width: 1100px; z-index: 2; color: var(--paper); text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
@@ -355,7 +364,8 @@ const total = 7;
       .sm-feature, .sm-line-fill { transition: none; }
     }
     @media (max-width: 760px) {
-      .sm-line, .sm-line-num, .sm-tag { top: 38%; }
+      .sm-line { top: 38%; }
+      .sm-line-num, .sm-tag { bottom: 62%; }
       .sm-feature-inner { top: 43%; left: 28px; right: 28px; }
       .sm-tag { left: 28px; }
     }
@@ -758,6 +768,41 @@ const total = 7;
       const ENTRY = [[0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
+      /* The shared HUD for slides 2-4. It does not move with the panels, so the
+         number and the pill change by fading rather than travelling across the
+         screen to land where they started. The line's fill just grows.
+         Hidden entirely on every other slide, where it would be furniture for
+         a section that isn't there. */
+      const hud = document.getElementById("sm-hud");
+      const hudNum = document.getElementById("sm-hud-num");
+      const hudTag = document.getElementById("sm-hud-tag");
+      const hudFill = document.getElementById("sm-hud-fill");
+      const HUD_STEPS = 3;
+      const HUD = { 1: "Ethos", 2: "Industry", 3: "Action" };
+      let hudStep = 0;
+      function syncHud(panel) {
+        if (!hud) return;
+        const isFeature = !!panel && panel.classList.contains("sm-feature");
+        hud.hidden = !isFeature;
+        if (!isFeature) { hudStep = 0; return; }
+        const step = Number(panel.style.getPropertyValue("--step")) || 1;
+        // The fill tracks the step whether or not the words are mid-swap.
+        hudFill.style.width = ((step / HUD_STEPS) * 100).toFixed(2) + "%";
+        if (step === hudStep) return;
+        const first = hudStep === 0;
+        hudStep = step;
+        const paint = () => {
+          hudNum.textContent = String(step).padStart(2, "0");
+          hudTag.textContent = HUD[step] || "";
+          hud.classList.remove("is-swapping");
+        };
+        // Arriving from another section: paint straight away rather than
+        // fading out something nobody has seen.
+        if (first) return paint();
+        hud.classList.add("is-swapping");
+        setTimeout(paint, 300);   // matches the opacity transition
+      }
+
       const SENS = 0.001;    // wheel → progress (slow + gradual: ~one slide per scroll)
       const EASE = 0.06;     // lerp toward target (smooth glide)
       const SLOW_EASE = 0.035; // slower glide for slides 6 & 7 coming in
@@ -823,6 +868,7 @@ const total = 7;
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           if (curEl) curEl.textContent = pad(cur);
+          syncHud(panels[cur]);
           // Slide 1 is light → ink nav; the dark image slides → white nav; and
           // from "What we do" onward (light slides) → TMKE wine.
           const top = document.getElementById("pf-top");
