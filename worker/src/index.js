@@ -2511,7 +2511,7 @@ async function pollSmmInbox(env) {
 
 // The TMKE services brochure (social media). Overridden by SMM_BROCHURE_URL in
 // wrangler.toml; this is only what GET /smm/brochure.pdf streams when it's unset.
-const SMM_BROCHURE_FALLBACK = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure.pdf";
+const SMM_BROCHURE_FALLBACK = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure%202026.pdf";
 
 export default {
   // Cron (see wrangler.toml [triggers]). The 07:00 & 08:00 daily runs send post
@@ -4431,7 +4431,7 @@ export default {
       //      brochure email both point here. -------------------------------
       if (path.endsWith("/smm/brochure.pdf") && request.method === "GET") {
         const src = env.SMM_BROCHURE_URL || SMM_BROCHURE_FALLBACK;
-        const filename = "TMKE - Services Brochure.pdf";
+        const filename = "TMKE - Services Brochure 2026.pdf";
         const headers = {
           "Content-Type": "application/pdf",
           "Content-Disposition": `attachment; filename="${filename}"`,

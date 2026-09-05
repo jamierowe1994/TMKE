@@ -286,4 +286,4 @@ export const PRIVACY_URL = "/privacy";
 // The TMKE services brochure (social media; the videography one lives in
 // videography-config.js). Direct link to the file — the fallback the form uses
 // if the Worker didn't hand back its own download URL.
-export const BROCHURE_URL = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure.pdf";
+export const BROCHURE_URL = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure%202026.pdf";
