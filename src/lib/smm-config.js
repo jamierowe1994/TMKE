@@ -283,5 +283,7 @@ export const COPY = {
 
 // ---- External resources ----------------------------------------------------
 export const PRIVACY_URL = "/privacy";
-// SMM services brochure — upload to the assets bucket, then this resolves.
-export const BROCHURE_URL = "https://assets.tmke.co.uk/tmke-smm-brochure.pdf";
+// The TMKE services brochure (social media; the videography one lives in
+// videography-config.js). Direct link to the file — the fallback the form uses
+// if the Worker didn't hand back its own download URL.
+export const BROCHURE_URL = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure.pdf";

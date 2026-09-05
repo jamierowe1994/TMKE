@@ -2509,6 +2509,10 @@ async function pollSmmInbox(env) {
   return { ok: true, read: messages.length, captured };
 }
 
+// The TMKE services brochure (social media). Overridden by SMM_BROCHURE_URL in
+// wrangler.toml; this is only what GET /smm/brochure.pdf streams when it's unset.
+const SMM_BROCHURE_FALLBACK = "https://assets.tmke.co.uk/TMKE%20SMM/TMKE%20-%20Services%20Brochure.pdf";
+
 export default {
   // Cron (see wrangler.toml [triggers]). The 07:00 & 08:00 daily runs send post
   // reminders (runReminders self-gates to 8am UK); every other (frequent) run
@@ -4419,6 +4423,35 @@ export default {
         return json({ ok: true, existed: up.existed }, 200, request, env);
       }
 
+      // ---- Social Media — the brochure file itself. Streams the PDF out of the
+      //      public assets bucket with Content-Disposition: attachment, so the
+      //      browser downloads it instead of opening it in a tab. The bucket's
+      //      own URL cannot do that (it is a different origin, so a link's
+      //      `download` attribute is ignored). The form's done state and the
+      //      brochure email both point here. -------------------------------
+      if (path.endsWith("/smm/brochure.pdf") && request.method === "GET") {
+        const src = env.SMM_BROCHURE_URL || SMM_BROCHURE_FALLBACK;
+        const filename = "TMKE - Services Brochure.pdf";
+        const headers = {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Cache-Control": "public, max-age=3600",
+        };
+        // Native R2 read when the object is in our bucket; plain fetch otherwise.
+        const key = (() => { try { const u = new URL(src); return u.hostname === "assets.tmke.co.uk" ? decodeURIComponent(u.pathname.slice(1)) : null; } catch (_) { return null; } })();
+        if (env.ASSETS && key) {
+          const obj = await env.ASSETS.get(key);
+          if (obj) {
+            if (obj.size) headers["Content-Length"] = String(obj.size);
+            if (obj.httpEtag) headers["ETag"] = obj.httpEtag;
+            return new Response(obj.body, { status: 200, headers });
+          }
+        }
+        const upstream = await fetch(src);
+        if (!upstream.ok) return new Response("The brochure isn't available right now.", { status: 502, headers: { "Content-Type": "text/plain" } });
+        return new Response(upstream.body, { status: 200, headers });
+      }
+
       // ---- Social Media — Download a Brochure (Form 1): emails the brochure,
       //      stores the email as a lead, optional account. Brochure goes out on
       //      EVERY submit regardless of account creation. ---------------------
@@ -4461,7 +4494,9 @@ export default {
         await logBookingMessage(env, { booking_id: smmBrochureId, booking_source: "smm", account_user_id: accountUserId, client_email: email, channel: "note", kind: "note", body: "Downloaded the social media brochure." });
 
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        const brochureUrl = env.SMM_BROCHURE_URL || "https://assets.tmke.co.uk/tmke-smm-brochure.pdf";
+        // The Worker's own download route (see GET /smm/brochure.pdf above), so
+        // the email button and the form's link save the file rather than open it.
+        const brochureUrl = url.origin + path.replace(/\/smm\/brochure$/, "/smm/brochure.pdf");
         const firstName = String(full_name).trim().split(/\s+/)[0] || "there";
 
         // Email the brochure (a link — works the moment the PDF is uploaded).

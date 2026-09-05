@@ -422,18 +422,36 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
 
     function showErr(form, m) { const el = form.querySelector(".smf-error"); el.textContent = m; el.hidden = false; el.scrollIntoView({ block: "nearest" }); }
 
+    // Kick off the brochure download without leaving the page. The Worker's
+    // /smm/brochure.pdf answers with Content-Disposition: attachment, so
+    // pointing a hidden iframe at it makes the browser save the file and
+    // nothing visible changes. (A link's `download` attribute would not do —
+    // it's ignored across origins.) The visible button stays as the fallback.
+    function startDownload(href) {
+      if (!href || href === "#") return;
+      try {
+        const f = document.createElement("iframe");
+        f.hidden = true; f.setAttribute("aria-hidden", "true"); f.tabIndex = -1;
+        f.src = href;
+        document.body.appendChild(f);
+        setTimeout(() => f.remove(), 120000);
+      } catch (_) { /* the button is still there */ }
+    }
+
     function showDone(kind, data) {
       forms.forEach((f) => { f.hidden = true; });
       const title = document.getElementById("smf-done-title");
       const msg = document.getElementById("smf-done-msg");
       const action = document.getElementById("smf-done-action");
       if (kind === "brochure") {
-        title.textContent = "Your brochure is on its way";
+        const href = (data && data.brochure_url) || BROCHURE || "#";
+        title.textContent = "Your brochure is downloading";
         msg.textContent = data && data.account_created
-          ? "We've emailed it over — and created your TMKE account so your downloads and bookings live in one place."
-          : "We've emailed it over — check your inbox in a moment. You can also open it right here.";
-        action.href = (data && data.brochure_url) || BROCHURE || "#";
+          ? "It should be saving now, and we've emailed you a copy too — plus we've created your TMKE account so your downloads and bookings live in one place."
+          : "It should be saving now, and we've emailed you a copy too. If nothing happened, use the button below.";
+        action.href = href;
         action.hidden = false;
+        startDownload(href);
       } else if (kind === "discovery") {
         title.textContent = "Your call is booked";
         msg.textContent = data && data.account_created
