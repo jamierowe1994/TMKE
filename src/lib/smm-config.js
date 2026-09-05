@@ -258,7 +258,7 @@ export const COPY = {
   whatGoodLooksLike: {
     headline: "Social Media Marketing",
     body:
-      "Shot and Scheduled is our social media marketing service. A shoot day every quarter with a TMKE videographer, then every video edited, captioned and scheduled across the three months, so you show up consistently without making the content yourself. You keep running your own accounts and your listings. Social media management goes further: one account manager owns the strategy, the content, the engagement and the reporting, and runs the account for you.",
+      "Shot and Scheduled covers content creation and scheduling, while you stay in control of your accounts, engagement and listings. It's ideal if you want a consistent flow of professionally made content without handing over your whole social presence. You keep the flexibility to post, reply and manage things day to day, while we handle the time-consuming content production. Social media management goes further. One account manager takes ownership of the strategy, content, engagement and reporting, and runs your accounts for you.",
     cta: "See Our Work",
   },
   ctas: {
