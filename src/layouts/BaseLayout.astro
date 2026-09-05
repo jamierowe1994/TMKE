@@ -168,6 +168,17 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
         if (localStorage.getItem("tmke-admin-auth")) {
           document.documentElement.classList.add("has-session");
         }
+        /* Admin opening a template in the editor: cover the page before the
+           first paint. Set here, in the head, because an inline script lower
+           in the body runs after everything above it has already been drawn —
+           the member header and Studio chrome were flashing through. The veil
+           itself and the lift live in account/editor.astro. */
+        if (location.pathname.replace(/\/+$/, "") === "/account/editor") {
+          var q = new URLSearchParams(location.search);
+          if (q.get("mode") === "admin" && q.get("rebuildthumb") !== "1") {
+            document.documentElement.classList.add("ed-booting");
+          }
+        }
       } catch (e) {}
     </script>
   </head>
