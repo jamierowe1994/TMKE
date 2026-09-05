@@ -1,0 +1,324 @@
+---
+// The Studio's inspiration pop-out. One shell, three views:
+//
+//   trending  "See what's working"  — the current Trending month, five topics
+//                                     stepped through like a carousel.
+//   seasonal  "Seasonal moments"    — the pack for this time of year, with its
+//                                     cover, contents, price and a Buy button.
+//   brand     "Brand inspo"         — our templates shown in the member's own
+//                                     brand kit. Previews only; buying the pack
+//                                     is what opens them.
+//
+// "Content ideas" is deliberately not a view: 48 ideas is a read, so that card
+// links to the guide instead. Everything here keeps the member on the Studio
+// page, which is where the packs are — the point of the cards is to sell them.
+//
+// Opens from any [data-inspo="trending|seasonal|brand"] on the page, or from
+// /account/studio?inspo=trending so the admin editor can link to a preview.
+import { templates } from "../../data/library.js";
+import { TRENDING_SAMPLE } from "../../data/trending-sample.js";
+
+// Fallback stills for the brand view when the templates table is empty.
+const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
+---
+<div class="si" id="si" hidden>
+  <div class="si-scrim" data-si-close></div>
+  <section class="si-panel" role="dialog" aria-modal="true" aria-labelledby="si-title">
+    <header class="si-head">
+      <div class="si-head-tx">
+        <p class="si-eyebrow" id="si-eyebrow"></p>
+        <h2 class="si-title" id="si-title"></h2>
+      </div>
+      <button type="button" class="si-x" data-si-close aria-label="Close">&times;</button>
+    </header>
+    <div class="si-body" id="si-body"><p class="si-loading">Loading&hellip;</p></div>
+  </section>
+</div>
+
+<script type="application/json" id="si-data" set:html={JSON.stringify({ sample: TRENDING_SAMPLE, thumbs: FALLBACK_THUMBS })}></script>
+
+<style is:global>
+  /* ---- shell ---- */
+  .si { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 24px; }
+  .si[hidden] { display: none; }
+  .si-scrim { position: absolute; inset: 0; background: rgba(20,16,20,0.55); backdrop-filter: blur(2px); }
+  .si-panel {
+    position: relative; width: min(1180px, 100%); height: min(780px, 100%);
+    display: flex; flex-direction: column; background: var(--paper, #f4f2f1);
+    border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
+    box-shadow: 0 30px 90px rgba(16,14,22,0.4); overflow: hidden;
+    animation: siIn 0.32s cubic-bezier(.2,.7,.3,1);
+  }
+  @keyframes siIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .si-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 22px 26px 16px; border-bottom: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-eyebrow { margin: 0 0 4px; font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5)); }
+  .si-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2vw, 28px); letter-spacing: -0.015em; color: var(--ws-ink, #1c1d22); }
+  .si-x { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: 50%; background: #fff; color: var(--ws-ink, #1c1d22); font-size: 20px; line-height: 1; cursor: pointer; }
+  .si-x:hover { border-color: var(--ws-accent, #4a2a3c); color: var(--ws-accent, #4a2a3c); }
+  .si-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 26px; }
+  .si-loading, .si-note { font-family: var(--sans); font-size: var(--ws-t-body, 13px); color: var(--ws-faint, rgba(28,29,34,0.5)); margin: 0; }
+  .si-note { margin-top: 18px; }
+  .si-btn { display: inline-flex; align-items: center; gap: 8px; height: var(--ws-btn-h, 30px); padding: 0 16px; border-radius: var(--ws-r, 4px); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; cursor: pointer; border: 1px solid transparent; }
+  .si-btn--primary { background: var(--ws-accent, #4a2a3c); color: #fff; }
+  .si-btn--ghost { background: #fff; color: var(--ws-ink, #1c1d22); border-color: var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-empty { max-width: 46ch; margin: 40px auto; text-align: center; }
+  .si-empty h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0 0 10px; color: var(--ws-ink, #1c1d22); }
+  .si-empty p { font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; }
+
+  /* ---- trending: one topic per screen ---- */
+  .si-trend { display: flex; flex-direction: column; height: 100%; }
+  .si-slide { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 32px; align-items: start; }
+  .si-copy { display: flex; flex-direction: column; gap: 16px; }
+  .si-topic-no { font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent, #4a2a3c); margin: 0; }
+  .si-topic-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0; }
+  .si-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; padding: 12px 0; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-bottom: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-facts div { padding: 0 14px 0 0; }
+  .si-facts dt { font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5)); margin: 0 0 3px; }
+  .si-facts dd { font-family: var(--sans); font-size: var(--ws-t-body, 13px); font-weight: 600; color: var(--ws-ink, #1c1d22); margin: 0; }
+  .si-about { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.65; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0; }
+  .si-tip { padding: 14px 16px; border-radius: var(--ws-r, 4px); background: var(--ws-accent, #4a2a3c); color: #fff; }
+  .si-tip strong { display: block; font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.8; margin-bottom: 6px; }
+  .si-tip p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.6; }
+  .si-media { position: relative; aspect-ratio: 4 / 5; max-height: 100%; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); justify-self: end; width: 100%; max-width: 440px; }
+  .si-media img, .si-media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+  .si-media-empty { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--sans); font-size: var(--ws-t-body, 13px); color: var(--ws-faint, rgba(28,29,34,0.5)); text-align: center; padding: 20px; }
+  .si-nav { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-dots { display: flex; gap: 8px; }
+  .si-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(28,29,34,0.18); border: 0; padding: 0; cursor: pointer; }
+  .si-dot.is-on { background: var(--ws-accent, #4a2a3c); }
+  .si-sample { display: inline-block; margin-left: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(227,160,8,0.16); color: #7a5300; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: middle; }
+
+  /* ---- seasonal: the pack ---- */
+  .si-pack { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 32px; align-items: start; }
+  .si-pack-cover { aspect-ratio: 4 / 5; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1 center/cover no-repeat; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-pack-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 12px; }
+  .si-pack-p { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.65; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; }
+  .si-pack-list { list-style: none; margin: 0 0 22px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+  .si-pack-list li { position: relative; padding-left: 16px; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.5; color: var(--ws-ink, #1c1d22); }
+  .si-pack-list li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--ws-accent, #4a2a3c); }
+  .si-pack-foot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-price { font-family: var(--serif); font-size: 26px; font-weight: 600; color: var(--ws-ink, #1c1d22); }
+  .si-price small { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 400; color: var(--ws-tx, rgba(28,29,34,0.72)); margin-left: 6px; }
+  .si-previews { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+  .si-previews div { aspect-ratio: 4 / 5; border-radius: var(--ws-r, 4px); background: #e6e3e1 center/cover no-repeat; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+
+  /* ---- brand: our templates, their kit ---- */
+  .si-kit { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 22px; background: #fff; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px); }
+  .si-kit-name { font-family: var(--serif); font-size: 18px; color: var(--ws-ink, #1c1d22); }
+  .si-kit-sw { display: flex; gap: 6px; }
+  .si-kit-sw span { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.12); }
+  .si-kit-fonts { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); color: var(--ws-tx, rgba(28,29,34,0.72)); }
+  .si-kit a { margin-left: auto; }
+  .si-tpls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .si-tpl { position: relative; border-radius: var(--ws-r, 4px); overflow: hidden; border: 3px solid var(--si-c1, #4a2a3c); background: #e6e3e1; aspect-ratio: 4 / 5; }
+  .si-tpl-img { position: absolute; inset: 0; background: center/cover no-repeat; }
+  .si-tpl-tint { position: absolute; inset: 0; background: linear-gradient(to top, var(--si-c1, #4a2a3c) 0%, transparent 55%); opacity: 0.85; }
+  .si-tpl-band { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 12px 10px; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; color: #fff; }
+  .si-tpl-band strong { font-family: var(--serif); font-weight: 400; font-size: 15px; letter-spacing: 0.02em; line-height: 1.1; }
+  .si-tpl-band em { font-family: var(--sans); font-style: normal; font-size: 10px; opacity: 0.8; display: block; margin-top: 3px; }
+  .si-tpl-sw { display: flex; gap: 4px; }
+  .si-tpl-sw span { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5); }
+  .si-tpl-tag { position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.92); color: var(--ws-ink, #1c1d22); font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+
+  @media (max-width: 860px) {
+    .si { padding: 0; }
+    .si-panel { height: 100%; border-radius: 0; }
+    .si-slide, .si-pack { grid-template-columns: 1fr; }
+    .si-media { max-width: none; justify-self: stretch; }
+    .si-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 0; }
+    .si-previews { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .si-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+</style>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+
+  const root = document.getElementById("si");
+  const body = document.getElementById("si-body");
+  const eyebrow = document.getElementById("si-eyebrow");
+  const title = document.getElementById("si-title");
+  const DATA = JSON.parse(document.getElementById("si-data")?.textContent || "{}");
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const gbp = (p) => "£" + (Math.round((p || 0) / 100)).toLocaleString("en-GB");
+  const monthLabel = (m) => { const d = new Date(String(m || "").slice(0, 10) + "T00:00:00"); return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { month: "long", year: "numeric" }); };
+
+  let openKind = null;
+  let onKey = null;
+
+  function open(kind) {
+    openKind = kind;
+    root.hidden = false;
+    document.body.style.overflow = "hidden";
+    body.innerHTML = '<p class="si-loading">Loading&hellip;</p>';
+    ({ trending, seasonal, brand })[kind]?.();
+  }
+  function close() {
+    root.hidden = true;
+    document.body.style.overflow = "";
+    openKind = null;
+    if (onKey) { document.removeEventListener("keydown", onKey); onKey = null; }
+  }
+  root.querySelectorAll("[data-si-close]").forEach((el) => el.addEventListener("click", close));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !root.hidden) close(); });
+  document.addEventListener("click", (e) => {
+    const t = e.target.closest("[data-inspo]");
+    if (!t) return;
+    e.preventDefault();
+    open(t.getAttribute("data-inspo"));
+  });
+  // ?inspo=trending — the admin editor's "Preview in the Studio" link.
+  const want = new URLSearchParams(location.search).get("inspo");
+  if (want && ["trending", "seasonal", "brand"].includes(want)) setTimeout(() => open(want), 300);
+
+  /* ---------------- trending ---------------- */
+  async function trending() {
+    let row = null, isSample = false;
+    try {
+      const { data } = await supabase.from("trending_months").select("*").eq("status", "published").order("month", { ascending: false }).limit(1).maybeSingle();
+      row = data || null;
+    } catch (_) { /* table not there yet → sample */ }
+    if (!row || !Array.isArray(row.topics) || !row.topics.length) { row = DATA.sample; isSample = true; }
+    const topics = row.topics;
+    let i = 0;
+
+    eyebrow.textContent = "See what's working";
+    title.innerHTML = esc(monthLabel(row.month)) + (isSample ? '<span class="si-sample">Sample</span>' : "");
+
+    const media = (t) => {
+      if (!t.media_url) return '<div class="si-media-empty">Image or video goes here</div>';
+      const isVideo = t.media_type === "video" || /\.(mp4|webm|mov)(\?|$)/i.test(t.media_url);
+      return isVideo
+        ? `<video src="${esc(t.media_url)}" autoplay muted loop playsinline></video>`
+        : `<img src="${esc(t.media_url)}" alt="">`;
+    };
+    const fact = (label, v) => v ? `<div><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
+
+    function paint() {
+      const t = topics[i];
+      body.innerHTML = `
+        <div class="si-trend">
+          <div class="si-slide">
+            <div class="si-copy">
+              <p class="si-topic-no">${String(i + 1).padStart(2, "0")} / ${String(topics.length).padStart(2, "0")}</p>
+              <h3 class="si-topic-h">${esc(t.title || "Untitled")}</h3>
+              <dl class="si-facts">${fact("Format", t.format)}${fact("Platform", t.platform)}${fact("Length", t.length)}${fact("Effort", t.effort)}</dl>
+              ${t.about ? `<p class="si-about">${esc(t.about)}</p>` : ""}
+              ${t.tip ? `<div class="si-tip"><strong>TMKE tip</strong><p>${esc(t.tip)}</p></div>` : ""}
+            </div>
+            <div class="si-media">${media(t)}</div>
+          </div>
+          <div class="si-nav">
+            <button type="button" class="si-btn si-btn--ghost" data-prev ${i === 0 ? "disabled" : ""}>&larr; Back</button>
+            <div class="si-dots">${topics.map((_, k) => `<button type="button" class="si-dot ${k === i ? "is-on" : ""}" data-go="${k}" aria-label="Topic ${k + 1}"></button>`).join("")}</div>
+            <button type="button" class="si-btn si-btn--primary" data-next>${i === topics.length - 1 ? "Done" : "Next &rarr;"}</button>
+          </div>
+        </div>`;
+      body.querySelector("[data-prev]")?.addEventListener("click", () => { if (i > 0) { i--; paint(); } });
+      body.querySelector("[data-next]")?.addEventListener("click", () => { if (i < topics.length - 1) { i++; paint(); } else close(); });
+      body.querySelectorAll("[data-go]").forEach((d) => d.addEventListener("click", () => { i = +d.dataset.go; paint(); }));
+    }
+    paint();
+    if (onKey) document.removeEventListener("keydown", onKey);
+    onKey = (e) => {
+      if (openKind !== "trending") return;
+      if (e.key === "ArrowRight" && i < topics.length - 1) { i++; paint(); }
+      if (e.key === "ArrowLeft" && i > 0) { i--; paint(); }
+    };
+    document.addEventListener("keydown", onKey);
+  }
+
+  /* ---------------- seasonal ---------------- */
+  async function seasonal() {
+    eyebrow.textContent = "Seasonal moments";
+    title.textContent = "In season";
+    let pack = null, owned = false;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      // The newest active pack filed under "In Season" — the category the pack
+      // editor already has. Flick the category and this card follows.
+      let q = supabase.from("packs").select("id, slug, title, description, contents, cover_image_url, preview_images, price_pence, category, status")
+        .eq("status", "active").eq("category", "In Season").order("created_at", { ascending: false }).limit(1);
+      let { data } = await q.maybeSingle();
+      if (!data) {
+        const r = await supabase.from("packs").select("id, slug, title, description, contents, cover_image_url, preview_images, price_pence, category, status").eq("status", "active").order("created_at", { ascending: false }).limit(1).maybeSingle();
+        data = r.data;
+      }
+      pack = data || null;
+      if (pack && session) {
+        const email = session.user.email || "";
+        const { data: orders } = await supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`);
+        owned = (orders || []).some((o) => o.status === "paid" && o.pack_id === pack.id);
+      }
+    } catch (_) { pack = null; }
+
+    if (!pack) {
+      body.innerHTML = `<div class="si-empty"><h3>Nothing in season just yet</h3><p>The seasonal pack appears here the moment it goes live in The Edit.</p><a class="si-btn si-btn--primary" href="/edit">Browse the packs &rarr;</a></div>`;
+      return;
+    }
+    const contents = Array.isArray(pack.contents) ? pack.contents : [];
+    const previews = Array.isArray(pack.preview_images) ? pack.preview_images.slice(0, 6) : [];
+    title.textContent = pack.title;
+    body.innerHTML = `
+      <div class="si-pack">
+        <div class="si-pack-cover" style="${pack.cover_image_url ? `background-image:url('${esc(pack.cover_image_url)}')` : ""}"></div>
+        <div>
+          <h3 class="si-pack-h">${esc(pack.title)}</h3>
+          ${pack.description ? `<p class="si-pack-p">${esc(pack.description)}</p>` : ""}
+          ${contents.length ? `<ul class="si-pack-list">${contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
+          <div class="si-pack-foot">
+            ${owned
+              ? `<a class="si-btn si-btn--primary" href="/account/editor?pack=${encodeURIComponent(pack.id)}">Open in the Studio &rarr;</a><span class="si-note" style="margin:0">You own this pack.</span>`
+              : `<span class="si-price">${gbp(pack.price_pence)}<small>+VAT</small></span><a class="si-btn si-btn--primary" href="/edit?buy=${encodeURIComponent(pack.id)}">Buy this pack &rarr;</a><a class="si-btn si-btn--ghost" href="/edit">See all packs</a>`}
+          </div>
+        </div>
+        ${previews.length ? `<div class="si-previews">${previews.map((u) => `<div style="background-image:url('${esc(u)}')"></div>`).join("")}</div>` : ""}
+      </div>`;
+  }
+
+  /* ---------------- brand ---------------- */
+  async function brand() {
+    eyebrow.textContent = "Brand inspo";
+    title.textContent = "Our templates, your brand";
+    let kit = null;
+    try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+    const colors = (kit && Array.isArray(kit.colors) ? kit.colors : []).filter(Boolean);
+    if (!kit || !colors.length) {
+      body.innerHTML = `<div class="si-empty"><h3>Set up your brand kit first</h3><p>Add your colours, fonts and logo once, and this space shows our templates the way they'd look as yours.</p><a class="si-btn si-btn--primary" href="/account/profile">Set up your brand kit &rarr;</a></div>`;
+      return;
+    }
+    // Two templates per pack, from the live templates table when it has
+    // them; the library stills otherwise, so the shell is never empty.
+    let tpls = [];
+    try {
+      const { data } = await supabase.from("templates").select("id, name, thumb_url, pack_id").eq("status", "active").order("sort_order", { ascending: true }).limit(60);
+      const perPack = {};
+      (data || []).forEach((t) => { if (!t.thumb_url) return; const k = t.pack_id || "none"; (perPack[k] = perPack[k] || []); if (perPack[k].length < 2) perPack[k].push(t); });
+      tpls = Object.values(perPack).flat().slice(0, 8);
+    } catch (_) {}
+    if (!tpls.length) tpls = (DATA.thumbs || []).map((u, i) => ({ id: "s" + i, name: "Template", thumb_url: u }));
+
+    const heading = kit.fonts?.heading || "", bodyFont = kit.fonts?.body || "";
+    const company = kit.company || "Your agency";
+    body.innerHTML = `
+      <div class="si-kit">
+        <span class="si-kit-name">${esc(company)}</span>
+        <span class="si-kit-sw">${colors.slice(0, 6).map((c) => `<span style="background:${esc(c)}"></span>`).join("")}</span>
+        ${heading || bodyFont ? `<span class="si-kit-fonts">${esc([heading, bodyFont].filter(Boolean).join(" · "))}</span>` : ""}
+        <a class="si-btn si-btn--ghost" href="/account/profile">Edit brand kit</a>
+      </div>
+      <div class="si-tpls">
+        ${tpls.map((t) => `
+          <div class="si-tpl" style="--si-c1:${esc(colors[0])}">
+            <div class="si-tpl-img" style="background-image:url('${esc(t.thumb_url)}')"></div>
+            <div class="si-tpl-tint"></div>
+            <span class="si-tpl-tag">Preview</span>
+            <div class="si-tpl-band">
+              <div><strong>${esc(company)}</strong><em>${esc(t.name || "Template")}</em></div>
+              <span class="si-tpl-sw">${colors.slice(0, 4).map((c) => `<span style="background:${esc(c)}"></span>`).join("")}</span>
+            </div>
+          </div>`).join("")}
+      </div>
+      <p class="si-note">Previews only. Buy the pack and these open in the Studio with your kit already applied. <a href="/edit" style="color:var(--ws-accent);font-weight:700;text-decoration:none">Browse the packs &rarr;</a></p>`;
+  }
+</script>

@@ -372,6 +372,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
+    import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE];
     const DEV = import.meta.env.DEV;
     const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -486,6 +488,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         if (error) throw error;
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
       } catch (_) { ALL = DEV ? SAMPLE : []; }
+      // Built-in guides that ship with the site, unless the DB has its own copy.
+      STATIC_GUIDES.forEach((g) => { if (!ALL.some((x) => x.slug === g.slug)) ALL.unshift(g); });
 
       // Completion state for the signed-in member (RLS returns only their rows).
       if (session) {

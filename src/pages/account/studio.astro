@@ -5,6 +5,7 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/ws-system.css";
 import NewDesignModal from "../../components/account/NewDesignModal.astro";
+import StudioInspo from "../../components/account/StudioInspo.astro";
 
 // ---------------------------------------------------------------------------
 // Studio launcher — the page you land on from the "Studio" tab. Top nav only
@@ -50,11 +51,13 @@ const TOOL_ICONS = {
   grid: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
 };
 
+// The four inspiration cards. Three open the StudioInspo pop-out (data-inspo);
+// Content ideas is a proper read, so it links to the guide instead.
 const inspo = [
-  { name: "See what's working", desc: "Check out top performing content right now.", thumb: templates[1]?.thumb, href: "/account/guides" },
-  { name: "Seasonal Moments", desc: "Relevant for what's happening now.", thumb: templates[2]?.thumb, href: "/edit" },
-  { name: "Content Ideas", desc: "Never run out of ideas again.", thumb: templates[3]?.thumb, href: "/account/guides" },
-  { name: "Brand Inspo", desc: "Designs that match your brand perfectly.", thumb: templates[4]?.thumb, href: "/edit" },
+  { key: "trending", name: "See what's working", desc: "Five formats performing right now, updated monthly.", thumb: templates[1]?.thumb },
+  { key: "seasonal", name: "Seasonal moments",   desc: "The pack for this time of year.",                  thumb: templates[2]?.thumb },
+  { key: "ideas",    name: "Content ideas",      desc: "48 evergreen post ideas across four pillars.",     thumb: templates[3]?.thumb, href: "/account/guides/read?g=content-ideas" },
+  { key: "brand",    name: "Brand inspo",        desc: "Our templates, in your colours.",                  thumb: templates[4]?.thumb },
 ];
 ---
 <BaseLayout
@@ -180,9 +183,13 @@ const inspo = [
         </header>
         <div class="st-row st-row--inspo">
           {inspo.map((c) => (
-            <a class="st-insp" href={c.href} style={`background-image:url('${c.thumb}')`}>
-              <span class="st-insp-tx"><strong>{c.name}</strong><span>{c.desc}</span></span>
-            </a>
+            c.href
+              ? <a class="st-insp" href={c.href} style={`background-image:url('${c.thumb}')`}>
+                  <span class="st-insp-tx"><strong>{c.name}</strong><span>{c.desc}</span></span>
+                </a>
+              : <button type="button" class="st-insp" data-inspo={c.key} style={`background-image:url('${c.thumb}')`}>
+                  <span class="st-insp-tx"><strong>{c.name}</strong><span>{c.desc}</span></span>
+                </button>
           ))}
           <button type="button" class="st-arrow st-arrow--inspo" aria-label="More inspiration">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -195,6 +202,7 @@ const inspo = [
 
   <CaptionGenerator />
   <NewDesignModal />
+  <StudioInspo />
 
   <style is:global>
     /* Studio's own furniture. The tokens, layout, buttons, chapter strips and
@@ -306,6 +314,8 @@ const inspo = [
       background-color: #2a2126; text-decoration: none; color: #fff;
       transition: transform 0.25s var(--ws-ease);
     }
+    /* Three of the cards are buttons now (they open the pop-out); same look. */
+    button.st-insp { border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; appearance: none; }
     .st-insp::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,16,20,0.82), rgba(20,16,20,0.12) 62%); }
     .st-insp:hover { transform: translateY(-3px); }
     .st-insp-tx { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 3px; }

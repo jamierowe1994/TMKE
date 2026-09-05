@@ -202,6 +202,8 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
   <script>
     import { supabase } from "../../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
+    import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE];
 
     const $ = (s) => document.querySelector(s);
     const DEV = import.meta.env.DEV;
@@ -407,12 +409,15 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
       }
 
       const devSample = slug === "sample-course" ? SAMPLE_COURSE : SAMPLE_ARTICLE;
+      // Guides that ship with the site (content-ideas). A published DB row with
+      // the same slug wins; until one exists the static copy is what members read.
+      const builtIn = STATIC_GUIDES.find((g) => g.slug === slug) || null;
       if (!slug) { render(DEV ? SAMPLE_ARTICLE : null); return; }
       try {
         const { data, error } = await supabase.from("guides").select("*").eq("slug", slug).eq("status","published").maybeSingle();
         if (error) throw error;
-        render(data || (DEV ? devSample : null));
-      } catch (_) { render(DEV ? devSample : null); }
+        render(data || builtIn || (DEV ? devSample : null));
+      } catch (_) { render(builtIn || (DEV ? devSample : null)); }
     })();
   </script>
 </BaseLayout>

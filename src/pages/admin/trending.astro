@@ -1,0 +1,288 @@
+---
+// Admin → Insights → Trending month.
+//
+// Five topics a month for the Studio's "See what's working" card. Pick the
+// month, fill the five, upload an image or video for each, publish. Members
+// see the most recent published month; a draft is invisible to them.
+//
+// Table: public.trending_months (supabase/trending_months.sql). Media goes to
+// the public assets bucket through the Worker's /admin/upload, same as the
+// email studio.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+import { TRENDING_FIELDS, TRENDING_TOPIC_COUNT } from "../../data/trending-sample.js";
+---
+
+<AdminShell active="trending" title="Trending month" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Trending month</div>
+          <div class="page-header-sub">Five formats that are working right now. One set a month, shown in the Studio under &ldquo;See what&rsquo;s working&rdquo;.</div>
+        </div>
+      </div>
+      <div class="page-header-right">
+        <a class="admin-btn" href="/account/studio?inspo=trending" target="_blank" rel="noopener">Preview in the Studio &rarr;</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="tadm">
+    <aside class="tadm-list">
+      <div class="tadm-list-head">
+        <h2>Months</h2>
+        <button type="button" class="tadm-new" id="t-new">+ New</button>
+      </div>
+      <div class="tadm-items" id="t-items"><p class="tadm-muted">Loading&hellip;</p></div>
+    </aside>
+
+    <section class="tadm-edit" id="t-edit" hidden>
+      <div class="tadm-bar">
+        <span class="tadm-status" id="t-status-pill" data-status="draft">Draft</span>
+        <span class="tadm-muted" id="t-saved"></span>
+        <span class="tadm-bar-gap"></span>
+        <button type="button" class="tadm-btn" id="t-sample">Load the sample</button>
+        <button type="button" class="tadm-btn" id="t-save">Save draft</button>
+        <button type="button" class="tadm-btn tadm-btn--solid" id="t-publish">Publish</button>
+        <button type="button" class="tadm-btn tadm-btn--danger" id="t-delete">Delete</button>
+      </div>
+
+      <div class="tadm-f2">
+        <label class="tadm-f"><span>Month</span><input id="t-month" type="month" /></label>
+        <label class="tadm-f"><span>One line under the month</span><input id="t-intro" placeholder="Five formats pulling reach for agents right now." /></label>
+      </div>
+
+      <div class="tadm-topics" id="t-topics"></div>
+    </section>
+
+    <section class="tadm-empty" id="t-empty">
+      <h2>Trending month</h2>
+      <p>Pick a month on the left, or start the next one.</p>
+      <button type="button" class="tadm-btn tadm-btn--solid" id="t-new-2">+ New month</button>
+    </section>
+  </div>
+
+  <p class="tadm-toast" id="t-toast" hidden></p>
+
+  <script type="application/json" id="t-fields" set:html={JSON.stringify({ fields: TRENDING_FIELDS, count: TRENDING_TOPIC_COUNT })}></script>
+
+  <style is:global>
+    .tadm { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+    .tadm-list { background: #fff; border: 1px solid var(--line, rgba(28,29,34,0.13)); border-radius: 6px; overflow: hidden; }
+    .tadm-list-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--line, rgba(28,29,34,0.13)); }
+    .tadm-list-head h2 { margin: 0; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
+    .tadm-new { border: 0; background: none; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; cursor: pointer; }
+    .tadm-items { display: flex; flex-direction: column; }
+    .tadm-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 12px 14px; border: 0; border-bottom: 1px solid rgba(28,29,34,0.08); background: none; cursor: pointer; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .tadm-item:hover, .tadm-item.is-on { background: rgba(var(--violet-rgb, 74,42,60), 0.06); }
+    .tadm-item small { font-size: 11px; color: rgba(28,29,34,0.5); }
+    .tadm-muted { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin: 0; padding: 12px 14px; }
+    .tadm-edit, .tadm-empty { background: #fff; border: 1px solid var(--line, rgba(28,29,34,0.13)); border-radius: 6px; padding: 18px 20px 24px; }
+    .tadm-empty { text-align: center; padding: 60px 20px; }
+    .tadm-empty h2 { font-family: var(--serif); font-weight: 400; font-size: 24px; margin: 0 0 8px; }
+    .tadm-empty p { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); margin: 0 0 16px; }
+    .tadm-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .tadm-bar-gap { flex: 1; }
+    .tadm-status { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.6); }
+    .tadm-status[data-status="published"] { background: rgba(60,140,90,0.14); color: #2b6b44; }
+    .tadm-btn { height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid rgba(28,29,34,0.16); background: #fff; color: var(--ink); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; cursor: pointer; }
+    .tadm-btn--solid { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .tadm-btn--danger { color: #9a2a2a; }
+    .tadm-f { display: flex; flex-direction: column; gap: 5px; font-family: var(--sans); }
+    .tadm-f > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .tadm-f input, .tadm-f textarea, .tadm-f select { font-family: var(--sans); font-size: 13px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; background: #fff; color: var(--ink); }
+    .tadm-f textarea { resize: vertical; line-height: 1.5; }
+    .tadm-f2 { display: grid; grid-template-columns: 220px 1fr; gap: 14px; margin-bottom: 20px; }
+    .tadm-topics { display: flex; flex-direction: column; gap: 16px; }
+    .tadm-topic { border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 16px; display: grid; grid-template-columns: 1fr 240px; gap: 18px; }
+    .tadm-topic-no { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 10px; }
+    .tadm-topic-main { display: flex; flex-direction: column; gap: 12px; }
+    .tadm-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .tadm-media { display: flex; flex-direction: column; gap: 8px; }
+    .tadm-media-box { aspect-ratio: 4 / 5; border-radius: 4px; border: 1px dashed rgba(28,29,34,0.2); background: #f4f2f1 center/cover no-repeat; display: grid; place-items: center; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.45); overflow: hidden; position: relative; }
+    .tadm-media-box video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .tadm-media input[type="file"] { display: none; }
+    .tadm-media-stat { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.55); min-height: 1em; }
+    .tadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; font-family: var(--sans); font-size: 13px; padding: 10px 16px; border-radius: 6px; z-index: 50; margin: 0; }
+    @media (max-width: 900px) { .tadm { grid-template-columns: 1fr; } .tadm-topic { grid-template-columns: 1fr; } .tadm-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tadm-f2 { grid-template-columns: 1fr; } }
+  </style>
+
+  <script>
+    import { supabase, isConfigured } from "../../lib/supabase.js";
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { TRENDING_SAMPLE, emptyTopic, monthLabel } from "../../data/trending-sample.js";
+
+    const $ = (s) => document.querySelector(s);
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const CFG = JSON.parse($("#t-fields")?.textContent || "{}");
+    const FIELDS = CFG.fields || [];
+    const COUNT = CFG.count || 5;
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    function toast(m) { const t = $("#t-toast"); t.textContent = m; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2600); }
+
+    let list = [];
+    let cur = null;          // row id, null = unsaved
+    let curStatus = "draft";
+    let topics = [];
+    let dirty = false, booted = false;
+    const markDirty = () => { if (booted) { dirty = true; $("#t-saved").textContent = "Unsaved changes"; } };
+
+    /* ---------- topics editor ---------- */
+    function renderTopics() {
+      const wrap = $("#t-topics");
+      wrap.innerHTML = topics.map((t, i) => `
+        <div class="tadm-topic" data-i="${i}">
+          <div class="tadm-topic-main">
+            <p class="tadm-topic-no">Topic ${i + 1}</p>
+            <label class="tadm-f"><span>Title</span><input data-k="title" value="${esc(t.title)}" placeholder="e.g. The 15-second walkthrough" /></label>
+            <div class="tadm-facts">
+              ${FIELDS.map(([k, label, ph]) => `<label class="tadm-f"><span>${label}</span><input data-k="${k}" value="${esc(t[k])}" placeholder="${esc(ph)}" /></label>`).join("")}
+            </div>
+            <label class="tadm-f"><span>About — why it's working</span><textarea data-k="about" rows="4" placeholder="Two or three sentences.">${esc(t.about)}</textarea></label>
+            <label class="tadm-f"><span>TMKE tip — how an agent should use it</span><textarea data-k="tip" rows="3" placeholder="One or two sentences, specific to estate agency.">${esc(t.tip)}</textarea></label>
+          </div>
+          <div class="tadm-media">
+            <div class="tadm-media-box" data-box>${mediaPreview(t)}</div>
+            <label class="tadm-btn" style="text-align:center;line-height:28px">Upload image or video<input type="file" accept="image/*,video/mp4,video/webm,video/quicktime" data-file /></label>
+            <label class="tadm-f"><span>or paste a URL</span><input data-k="media_url" value="${esc(t.media_url)}" placeholder="https://assets.tmke.co.uk/…" /></label>
+            <span class="tadm-media-stat" data-stat></span>
+          </div>
+        </div>`).join("");
+
+      wrap.querySelectorAll(".tadm-topic").forEach((card) => {
+        const i = +card.dataset.i;
+        card.querySelectorAll("[data-k]").forEach((el) => el.addEventListener("input", () => {
+          topics[i][el.dataset.k] = el.value;
+          if (el.dataset.k === "media_url") { topics[i].media_type = guessType(el.value); card.querySelector("[data-box]").innerHTML = mediaPreview(topics[i]); }
+          markDirty();
+        }));
+        card.querySelector("[data-file]").addEventListener("change", async (e) => {
+          const file = e.target.files?.[0]; if (!file) return;
+          const stat = card.querySelector("[data-stat]");
+          stat.textContent = "Uploading…";
+          try {
+            const { data: { session: s } } = await supabase.auth.getSession();
+            const fd = new FormData(); fd.append("file", file);
+            const res = await fetch(`${WORKER}/admin/upload`, { method: "POST", headers: s?.access_token ? { Authorization: `Bearer ${s.access_token}` } : {}, body: fd });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok || !j.url) { stat.textContent = "Upload failed: " + (j.error || ("HTTP " + res.status)); return; }
+            topics[i].media_url = j.url; topics[i].media_type = file.type.startsWith("video/") ? "video" : "image";
+            card.querySelector('[data-k="media_url"]').value = j.url;
+            card.querySelector("[data-box]").innerHTML = mediaPreview(topics[i]);
+            stat.textContent = "Uploaded ✓"; markDirty();
+          } catch (err) { stat.textContent = "Upload failed: " + (err.message || err); }
+        });
+      });
+    }
+    const guessType = (u) => /\.(mp4|webm|mov)(\?|$)/i.test(u || "") ? "video" : "image";
+    function mediaPreview(t) {
+      if (!t.media_url) return "Portrait, 4:5";
+      return t.media_type === "video"
+        ? `<video src="${esc(t.media_url)}" muted loop autoplay playsinline></video>`
+        : `<img src="${esc(t.media_url)}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`;
+    }
+
+    /* ---------- form <-> state ---------- */
+    function setStatusPill(s) { const p = $("#t-status-pill"); p.dataset.status = s; p.textContent = s.charAt(0).toUpperCase() + s.slice(1); }
+    function nextMonthValue() {
+      const latest = list[0]?.month;
+      const d = latest ? new Date(latest + "T00:00:00") : new Date();
+      d.setDate(1); d.setMonth(d.getMonth() + (latest ? 1 : 0));
+      return d.toISOString().slice(0, 7);
+    }
+    function showEditor(row) {
+      booted = false;
+      $("#t-empty").hidden = true; $("#t-edit").hidden = false;
+      cur = row ? row.id : null;
+      curStatus = row?.status || "draft";
+      setStatusPill(curStatus);
+      $("#t-month").value = row ? String(row.month).slice(0, 7) : nextMonthValue();
+      $("#t-intro").value = row?.intro || "";
+      topics = Array.isArray(row?.topics) && row.topics.length ? row.topics.map((t) => ({ ...emptyTopic(), ...t })) : Array.from({ length: COUNT }, emptyTopic);
+      while (topics.length < COUNT) topics.push(emptyTopic());
+      renderTopics();
+      $("#t-saved").textContent = row ? "Saved" : "";
+      dirty = false; booted = true;
+      document.querySelectorAll(".tadm-item").forEach((b) => b.classList.toggle("is-on", b.dataset.id === cur));
+    }
+    ["t-month", "t-intro"].forEach((id) => $("#" + id).addEventListener("input", markDirty));
+
+    function gather() {
+      const m = $("#t-month").value || nextMonthValue();
+      return {
+        month: m + "-01",
+        intro: ($("#t-intro").value || "").trim() || null,
+        topics: topics.map((t) => ({ ...t, title: (t.title || "").trim() })).slice(0, COUNT),
+        status: curStatus,
+      };
+    }
+
+    async function save(newStatus) {
+      if (!isConfigured) { toast("Connect Supabase to save."); return; }
+      if (newStatus) { curStatus = newStatus; setStatusPill(curStatus); }
+      const payload = gather();
+      if (newStatus === "published" && payload.topics.filter((t) => t.title).length < COUNT) {
+        if (!confirm(`Only ${payload.topics.filter((t) => t.title).length} of ${COUNT} topics have a title. Publish anyway?`)) { curStatus = "draft"; setStatusPill("draft"); return; }
+      }
+      toast("Saving…");
+      const q = cur
+        ? supabase.from("trending_months").update(payload).eq("id", cur).select().maybeSingle()
+        : supabase.from("trending_months").insert(payload).select().maybeSingle();
+      const { data, error } = await q;
+      if (error) {
+        toast(/schema cache|does not exist/i.test(error.message) ? "The table isn't there yet — run supabase/trending_months.sql in the SQL editor." : "Couldn't save: " + error.message);
+        return;
+      }
+      cur = data.id; dirty = false; $("#t-saved").textContent = "Saved";
+      toast(newStatus === "published" ? "Published — it's live in the Studio." : "Saved.");
+      await loadList();
+      document.querySelectorAll(".tadm-item").forEach((b) => b.classList.toggle("is-on", b.dataset.id === cur));
+    }
+
+    $("#t-save").addEventListener("click", () => save());
+    $("#t-publish").addEventListener("click", () => save("published"));
+    $("#t-delete").addEventListener("click", async () => {
+      if (!cur) { showEmpty(); return; }
+      if (!confirm("Delete this month? Members will see the previous published month instead.")) return;
+      const { error } = await supabase.from("trending_months").delete().eq("id", cur);
+      if (error) { toast("Couldn't delete: " + error.message); return; }
+      toast("Deleted."); showEmpty(); await loadList();
+    });
+    $("#t-sample").addEventListener("click", () => {
+      if (topics.some((t) => t.title || t.about) && !confirm("Replace what's here with the sample month?")) return;
+      topics = TRENDING_SAMPLE.topics.map((t) => ({ ...emptyTopic(), ...t }));
+      $("#t-intro").value = TRENDING_SAMPLE.intro;
+      renderTopics(); markDirty();
+    });
+    function showEmpty() { $("#t-edit").hidden = true; $("#t-empty").hidden = false; cur = null; }
+    const startNew = () => { if (dirty && !confirm("Discard unsaved changes?")) return; showEditor(null); };
+    $("#t-new").addEventListener("click", startNew);
+    $("#t-new-2").addEventListener("click", startNew);
+
+    /* ---------- list ---------- */
+    async function loadList() {
+      const wrap = $("#t-items");
+      if (!isConfigured) { wrap.innerHTML = '<p class="tadm-muted">Connect Supabase to load months.</p>'; return; }
+      const { data, error } = await supabase.from("trending_months").select("id, month, status, intro, topics").order("month", { ascending: false });
+      if (error) {
+        wrap.innerHTML = `<p class="tadm-muted">${/schema cache|does not exist/i.test(error.message) ? "The table isn't there yet — run <code>supabase/trending_months.sql</code> in the SQL editor, then reload." : esc(error.message)}</p>`;
+        return;
+      }
+      list = data || [];
+      wrap.innerHTML = list.length
+        ? list.map((r) => `<button type="button" class="tadm-item ${r.id === cur ? "is-on" : ""}" data-id="${r.id}"><span>${esc(monthLabel(r.month))}<br><small>${(r.topics || []).filter((t) => t.title).length}/${COUNT} topics</small></span><small>${r.status === "published" ? "Live" : "Draft"}</small></button>`).join("")
+        : '<p class="tadm-muted">No months yet. Start the first one.</p>';
+      wrap.querySelectorAll(".tadm-item").forEach((b) => b.addEventListener("click", () => {
+        if (dirty && !confirm("Discard unsaved changes?")) return;
+        showEditor(list.find((r) => r.id === b.dataset.id));
+      }));
+    }
+
+    (async () => {
+      const session = await requireAdmin("/admin/login");
+      if (!session) return;
+      await loadList();
+    })();
+  </script>
+</AdminShell>
