@@ -27,17 +27,32 @@ as $$
   select coalesce((select is_management from public.admins where user_id = auth.uid()), false);
 $$;
 
--- ---- Seed: Danielle + Sam, 2026-08-08 --------------------------------------
--- Upsert rather than plain update — Danielle's and Sam's addresses are on
+-- ---- Seed: Danielle + Samantha ---------------------------------------------
+-- Upsert rather than plain update — both addresses are on
 -- themarketingexperts.co.uk, not @tmke.co.uk, so admins.sql's domain-based
 -- auto-seed may never have created their row in the first place.
+--
+-- 2026-09-05: the original seed said 'sam@themarketingexperts.co.uk'. Her
+-- address is samantha@ — so that line matched no auth user, and Samantha never
+-- got the flag while looking as though she had. Corrected below; the stray
+-- address is cleared underneath in case a sam@ account exists and was granted.
 insert into public.admins (user_id, email, is_management)
 select id, email, true
 from auth.users
-where lower(email) in ('danielle@themarketingexperts.co.uk', 'sam@themarketingexperts.co.uk')
+where lower(email) in ('danielle@themarketingexperts.co.uk', 'samantha@themarketingexperts.co.uk')
 on conflict (user_id) do update set is_management = true;
+
+update public.admins set is_management = false
+where lower(email) = 'sam@themarketingexperts.co.uk';
+
+-- Everyone else with admin access — Jack, Abie — stays a full admin and is
+-- deliberately NOT management: they operate the site, they do not see the
+-- invoice ledger, the month-end report or the revenue totals. Nothing to do
+-- for them; the flag defaults to false.
 
 -- To grant later, by email:
 --   update public.admins set is_management = true where lower(email) = 'person@example.com';
 -- To revoke:
 --   update public.admins set is_management = false where lower(email) = 'person@example.com';
+-- To see where everyone stands:
+--   select email, is_management from public.admins order by is_management desc, email;
