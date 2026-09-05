@@ -1059,6 +1059,30 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     $("rep-month").addEventListener("change", (e) => { repMonth = e.target.value; loadReport(); });
     $("rep-copy").addEventListener("click", copyReport);
 
-    document.addEventListener("ash:ready", () => { initTemplate(); loadSettings(); loadRecipients(); });
+    /* Invoices and Month end are management only — the ledger and the
+       month-end figures, as against raising an invoice, which any admin does.
+       Taken out of the DOM rather than hidden, so there is no tab to un-hide
+       in devtools and no panel quietly fetching behind it.
+
+       This only decides what gets drawn. The endpoints behind both tabs check
+       admins.is_management themselves (worker: isManagement), which is what
+       actually keeps the numbers in. */
+    const MGMT_TABS = ["invoices", "report"];
+    function applyMgmt(isManagement) {
+      if (isManagement) return;
+      MGMT_TABS.forEach((t) => {
+        document.querySelector(`.inv-tab[data-tab="${t}"]`)?.remove();
+        document.querySelector(`.inv-panel[data-panel="${t}"]`)?.remove();
+      });
+      // If one of them was showing, fall back to the first tab that is left.
+      if (!document.querySelector(".inv-tab.is-active")) {
+        document.querySelector(".inv-tab")?.click();
+      }
+    }
+
+    document.addEventListener("ash:ready", (e) => {
+      applyMgmt(!!(e.detail && e.detail.isManagement));
+      initTemplate(); loadSettings(); loadRecipients();
+    });
   </script>
 </AdminShell>

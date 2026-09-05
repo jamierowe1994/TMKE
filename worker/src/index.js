@@ -656,6 +656,33 @@ function isOwner(user) {
   return !!e && OWNER_EMAILS.includes(e);
 }
 
+/* Management: the narrow tier inside the admin list, held on
+   admins.is_management (see supabase/admins_management_flag.sql). Every admin
+   can operate the site; only management sees the money in aggregate — the
+   Dashboard's revenue totals, and now the invoice ledger and month-end report.
+
+   Read with the service role rather than trusted from the browser, because the
+   client-side check only decides which tabs to draw. It is deliberately NOT
+   domain- or allowlist-based like isAdminEmail: a manually-curated column is
+   the whole point, so a new @tmke.co.uk starter does not inherit the books.
+
+   Fails CLOSED. If the column has not been added yet the lookup errors and
+   nobody is management, which shows up immediately as "you cannot see your own
+   invoices" — the loud failure. Failing open would leave the ledger visible to
+   every admin while looking restricted, which is the quiet one. */
+async function isManagement(env, user) {
+  if (!user || !user.id) return false;
+  if (user._isManagement !== undefined) return user._isManagement;
+  let ok = false;
+  try {
+    const rows = await sbGet(env, "admins", `user_id=eq.${encodeURIComponent(user.id)}&select=is_management`);
+    ok = !!(rows && rows[0] && rows[0].is_management);
+  } catch (_) { ok = false; }
+  user._isManagement = ok;
+  return ok;
+}
+const MGMT_ONLY = { error: "Invoices and month end are management only." };
+
 // Read from Supabase with the service role (server-side only, never exposed).
 async function sbGet(env, table, qs) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE) return null;
@@ -5958,6 +5985,7 @@ export default {
       if (path.endsWith("/invoicing/invoice") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const id = (url.searchParams.get("id") || "").trim();
         if (!id) return json({ error: "Missing id" }, 400, request, env);
         const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
@@ -5983,6 +6011,7 @@ export default {
       if (path.endsWith("/invoicing/report") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
 
         // Default to the month we are in. YYYY-MM.
         const now = new Date();
@@ -6094,6 +6123,7 @@ export default {
       if (path.endsWith("/invoicing/invoices") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const extra = url.searchParams.get("booking_id") ? `&booking_id=eq.${encodeURIComponent(url.searchParams.get("booking_id"))}` : "";
         const tail = `${extra}&order=created_at.desc&limit=300`;
         const BASE = "id,number,bill_to_name,bill_to_email,cc_email,total_pence,status,issued_date,due_date,paid_date,payment_method,billing_month,created_at";
@@ -6290,6 +6320,7 @@ export default {
       if (path.endsWith("/invoicing/invoices") && request.method === "DELETE") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const id = String(url.searchParams.get("id") || "").trim();
         if (!id) return json({ error: "Missing id." }, 400, request, env);
         const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number`))?.[0];
@@ -6303,6 +6334,7 @@ export default {
       if (path.endsWith("/invoicing/invoices/void") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const id = String((b && b.id) || "").trim();
         const reason = String((b && b.reason) || "").trim();
