@@ -153,10 +153,9 @@ const total = 7;
           </div>
         </section>
 
-        <!-- Slide 3 (col 1,row 1) — full-image: property first. Scroll DOWN. -->
-        <section class="pf-panel sm-feature" style="--col:1;--row:0;--step:2">
-          <div class="sm-feature-bg" style={`background-image:url('${FEATURE3_IMG}')`}></div>
-          <div class="sm-feature-overlay"></div>
+        <!-- Slide 3 — property first. No backdrop of its own: it slides in from
+             the right over slide 2's, so the scene holds and only the words move. -->
+        <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:2">
           <div class="sm-line" aria-hidden="true"><span class="sm-line-fill"></span></div>
           <span class="sm-line-num" aria-hidden="true">02</span>
           <span class="sm-tag">Industry</span>
@@ -166,10 +165,8 @@ const total = 7;
           </div>
         </section>
 
-        <!-- Slide 4 (col 1,row 2) — full-image: one account manager. Scroll ACROSS. -->
-        <section class="pf-panel sm-feature" style="--col:1;--row:0;--step:3">
-          <div class="sm-feature-bg" style={`background-image:url('${FEATURE4_IMG}')`}></div>
-          <div class="sm-feature-overlay"></div>
+        <!-- Slide 4 — one account manager. Same again: words only. -->
+        <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:3">
           <div class="sm-line" aria-hidden="true"><span class="sm-line-fill"></span></div>
           <span class="sm-line-num" aria-hidden="true">03</span>
           <span class="sm-tag">Action</span>
@@ -315,6 +312,20 @@ const total = 7;
        one (which drifts up a touch). The whole panel — image, text and line —
        rides up together. JS sets the per-panel translateY. */
     .sm-feature { padding: 0; overflow: hidden; --steps: 3; }
+    /* Slides 3 and 4 are text over slide 2's picture, so the panel itself must
+       not paint — .pf-panel's --paper would hide the very thing they sit on. */
+    .sm-feature--over { background: transparent; }
+    /* Only the slide you are on shows its words. Without this the panel beneath
+       still reads through the transparent one above it and you get two titles,
+       two numbers and two progress lines on top of each other. */
+    .sm-feature:not(.is-in) .sm-feature-inner,
+    .sm-feature:not(.is-in) .sm-line,
+    .sm-feature:not(.is-in) .sm-line-num,
+    .sm-feature:not(.is-in) .sm-tag { opacity: 0; transition: opacity 0.25s ease; }
+    .sm-feature.is-in .sm-feature-inner,
+    .sm-feature.is-in .sm-line,
+    .sm-feature.is-in .sm-line-num,
+    .sm-feature.is-in .sm-tag { opacity: 1; transition: opacity 0.45s ease 0.1s; }
     .sm-feature-bg { position: absolute; inset: 0; background-size: cover; background-position: center; background-color: #2a2733; }
     .sm-feature-vid { width: 100%; height: 100%; object-fit: cover; }
     .sm-feature-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
@@ -329,9 +340,17 @@ const total = 7;
 
     /* title + body, below the line, set in from the left (left-of-centre) */
     .sm-feature-inner { position: absolute; top: 49%; left: clamp(28px, 18vw, 360px); right: clamp(28px, 5vw, 96px); max-width: 1100px; z-index: 2; color: var(--paper); text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
-    .sm-feature-h { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.2vw, 46px); line-height: 1.08; letter-spacing: -0.02em; color: var(--paper); margin: 0 0 18px; max-width: 30ch; }
-    .sm-feature-body { font-family: var(--sans); font-size: clamp(16px, 1.4vw, 19px); line-height: 1.25; color: rgba(240,238,235,0.92); max-width: 83ch; margin: 0 0 14px; }
-    .sm-feature-build { font-family: var(--serif); font-style: italic; font-size: clamp(19px, 1.9vw, 28px); color: var(--paper); margin: 8px 0 14px; }
+    /* Mirrors the videography intro's type — italic serif heading at 32px, body
+       at 17px on a 1.5 line. The heading was 46px against that page's 32, and
+       the body 19px against 17, which is why this section read louder than the
+       rest of the site.
+
+       The 30ch cap is gone with it: at 46px it was what forced "The social
+       media agency that doesn't want you to go viral." onto two lines, and no
+       size would have fixed that while the cap was there. */
+    .sm-feature-h { font-family: var(--serif); font-weight: 500; font-size: clamp(22px, 2.4vw, 32px); line-height: 1.32; letter-spacing: -0.01em; color: var(--paper); margin: 0 0 20px; max-width: none; }
+    .sm-feature-body { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: rgba(240,238,235,0.92); max-width: 76ch; margin: 0 0 14px; }
+    .sm-feature-build { font-family: var(--serif); font-style: normal; font-size: clamp(19px, 1.9vw, 28px); color: var(--paper); margin: 8px 0 14px; }
     @media (prefers-reduced-motion: reduce) {
       .sm-feature, .sm-line-fill { transition: none; }
     }
@@ -397,7 +416,7 @@ const total = 7;
     .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
     .sm-lede-pron { display: flex; align-items: baseline; gap: 12px; margin: 12px 0 0; }
     .sm-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
-    .sm-lede-pos { font-family: var(--serif); font-style: italic; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
+    .sm-lede-pos { font-family: var(--serif); font-style: normal; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
     .sm-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: 44ch; }
     .sm-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--ink); background: none; cursor: pointer; color: var(--ink); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
     .sm-lede-btn:hover { background: var(--ink); color: var(--paper); }
@@ -446,7 +465,7 @@ const total = 7;
 
     /* Slide 3 — how it works */
     .sm-how-inner { max-width: 660px; }
-    .sm-how-lead { font-family: var(--serif) !important; font-style: italic; font-size: clamp(22px, 2.4vw, 34px) !important; line-height: 1.3 !important; color: var(--ink) !important; margin: 0 0 22px !important; }
+    .sm-how-lead { font-family: var(--serif) !important; font-style: normal; font-size: clamp(22px, 2.4vw, 34px) !important; line-height: 1.3 !important; color: var(--ink) !important; margin: 0 0 22px !important; }
     .pf-cta { align-self: flex-start; background: none; border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); padding: 12px 0; margin-top: 12px; border-bottom: 1px solid rgba(28,29,34,0.25); transition: color 0.25s, border-color 0.25s; }
     .pf-cta em { font-style: normal; margin-left: 10px; display: inline-block; transition: margin 0.25s; }
     .pf-cta:hover { color: var(--english-violet); border-color: var(--english-violet); }
@@ -455,7 +474,7 @@ const total = 7;
     /* ---- Slide 2: positioning headline + two pillars ---- */
     .sm-why-head { font-family: var(--serif); font-weight: 400; font-size: clamp(25px, 2.8vw, 42px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ink); margin: 0; max-width: 20ch; }
     .sm-why-lead { font-family: var(--sans); font-size: clamp(14px, 1.05vw, 16px); line-height: 1.65; color: rgba(28,29,34,0.72); margin: 0; }
-    .sm-why-build { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 1.6vw, 23px); color: var(--english-violet); margin: 0; }
+    .sm-why-build { font-family: var(--serif); font-style: normal; font-size: clamp(18px, 1.6vw, 23px); color: var(--english-violet); margin: 0; }
     .sm-pillars { display: flex; flex-direction: column; gap: clamp(16px, 2vw, 24px); }
     .sm-pillars .sm-col-h { font-size: clamp(18px, 1.5vw, 22px); margin: 0 0 8px; }
     .sm-pillars .sm-col p { font-size: clamp(14px, 1.05vw, 15px); line-height: 1.6; margin: 0; }
@@ -731,8 +750,12 @@ const total = 7;
       const pad = (n) => String(n + 1).padStart(2, "0");
       const last = panels.length - 1;
       // entry edge per panel: [x,y] in units of 100% (the way it slides in to cover).
-      // S1 base · S2 across · S3 down · S4 down · S5 across · S6 across · S7 across
-      const ENTRY = [[0, 0], [1, 0], [0, 1], [0, 1], [1, 0], [1, 0], [1, 0]];
+      // S1 base · S2 across · S3 across · S4 across · S5 across · S6 across · S7 across
+      // Slides 3 and 4 used to push up from the bottom carrying a whole new
+      // photograph each. Three images in a row for three paragraphs of one
+      // argument was a lot of scenery for one idea, so they slide in from the
+      // right over the SAME backdrop now — only the words change.
+      const ENTRY = [[0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       const SENS = 0.001;    // wheel → progress (slow + gradual: ~one slide per scroll)
