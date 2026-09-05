@@ -13,7 +13,7 @@
    House rules, for anything added later:
      · Section headings are wine strips, numbered as chapters, 10px uppercase.
      · The link on a strip is Title Case at 12px — not uppercase, not smaller.
-     · Buttons are the admin centre's: 42px, 12px uppercase Darker
+     · Buttons are the admin centre's: 30px, 12px uppercase Darker
        Grotesque at 0.04em. Don't restyle one on a page — change it here.
      · One gap everywhere: --ws-gap, including the drop below a strip.
      · Cards are hairline-outlined and square-cornered. No fills, no shadows.
@@ -38,6 +38,7 @@
          strip and the cards under it - so the space below a heading matches the
          space between the cards it introduces. Change it here or nowhere. */
       --ws-gap: 12px;
+      --ws-btn-h: 30px;   /* the admin centre's button box */
       --ws-sh-hero: none;   /* no shadows — hierarchy comes from outline + space */
       --ws-sh: none;
       --ws-ease: cubic-bezier(.2, .8, .2, 1);
@@ -100,7 +101,7 @@
     .ws-hero--sub .ws-hero-sub { min-height: 3.1em; }   /* 2 lines at 1.55 */
     .ws-hero-cta { margin-top: auto; padding-top: clamp(24px, 3vh, 36px); }
     .ws-hero--sub .ws-hero-copy:not(:has(.ws-hero-cta))::after {
-      content: ""; display: block; height: 42px;      /* .ws-btn */
+      content: ""; display: block; height: var(--ws-btn-h);
       margin-top: auto; padding-top: clamp(24px, 3vh, 36px);
     }
     @media (max-width: 860px) {
@@ -125,10 +126,12 @@
        the letter-spacing at two thirds the size is what made these read as
        sprawling rather than crisp.
 
-       Height comes from the padding now rather than a fixed 37px, which is how
-       the admin button is built, so the two stay the same shape if the type
-       scale ever moves. */
-    .ws-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 42px; box-sizing: border-box; padding: 8px 16px; border-radius: var(--ws-r); font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: background 0.18s, border-color 0.18s, color 0.18s; }
+       30px, which is what the admin button measures: 12px of line box, 8px of
+       padding either side, 1px of border. Set outright rather than left to the
+       padding, because a button carrying a 13px icon computes a 13px line box
+       and comes out a pixel taller than one without — so a row of them was
+       never quite level with itself, never mind with admin. */
+    .ws-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box; height: var(--ws-btn-h); padding: 0 16px; border-radius: var(--ws-r); font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: background 0.18s, border-color 0.18s, color 0.18s; }
     .ws-btn svg { width: 13px; height: 13px; }
     .ws-btn--sm { height: 33px; padding: 0 16px; }
     .ws-btn--ghost { background: #fff; color: var(--ws-ink); border-color: var(--ws-line); }

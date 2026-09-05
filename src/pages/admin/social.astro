@@ -1,6 +1,10 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
+import { SOCIAL_SERVICES, SOCIAL_EXTRAS, PRICE_COLUMNS } from "../../lib/smm-config.js";
+import { gbpFromPence } from "../../lib/supabase.js";
+
+const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing");
 ---
 
 <AdminShell active="social" title="Social media" skin="hub">
@@ -15,10 +19,39 @@ import "../../styles/admin.css";
     </div>
   </div>
   <div class="ash-panel ash-page">
-    <section class="smm-bar">
+    <!-- Same shape as Videography's: an action bar, then the panel it acts on.
+         The two pages sit next to each other in the rail and were laid out
+         differently for no reason other than being written apart. -->
+    <section class="admin-bar">
+      <div class="admin-bar-actions">
+        <button type="button" class="admin-btn admin-btn-primary" id="smm-add-lead">+ New client</button>
+        <div class="smm-cog-wrap">
+          <button type="button" class="smm-cog" id="smm-cog" aria-label="Social settings" aria-expanded="false">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            <span>Settings</span>
+          </button>
+          <div class="smm-cog-menu" id="smm-cog-menu" hidden>
+            <button type="button" data-go="pipeline">Contacts</button>
+            <button type="button" data-go="rates">Packages &amp; pricing</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== CONTACTS (the pipeline) ===================== -->
+    <section class="smm-panel is-active" data-panel="pipeline">
+      <div class="smm-panel-head">
+        <div>
+          <h2 class="smm-panel-title">Contacts</h2>
+          <p class="smm-panel-sub">Everyone who has come to us about social, by pipeline stage &mdash; waitlist sign-ups, brochure downloads, enquiries and live clients. Click a card to open that person&rsquo;s file.</p>
+        </div>
+        <input type="search" id="smm-search" class="admin-search" placeholder="Search name, email, business…" aria-label="Search contacts" />
+      </div>
+
       <div class="smm-bar-top">
         <div class="smm-filters" id="smm-filters" role="tablist">
           <button type="button" class="smm-chip is-active" data-filter="all">All</button>
+          <button type="button" class="smm-chip" data-filter="waitlist">Waitlist</button>
           <button type="button" class="smm-chip" data-filter="enquiry">Enquiries</button>
           <button type="button" class="smm-chip" data-filter="brochure">Brochures</button>
           <button type="button" class="smm-chip" data-filter="meeting_set">Discovery calls</button>
@@ -29,20 +62,84 @@ import "../../styles/admin.css";
         </div>
         <div class="smm-bar-actions">
           <label class="smm-lost-toggle"><input type="checkbox" id="smm-show-lost" /> Show lost</label>
-          <button type="button" class="smm-add-btn" id="smm-add-lead"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add</button>
         </div>
       </div>
-      <div class="smm-bar-bottom">
-        <label class="smm-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="smm-search" placeholder="Search name, email, business…" aria-label="Search leads" />
-        </label>
-      </div>
+
+      <p class="smm-loading" id="smm-loading">Loading pipeline…</p>
+      <div class="smm-scrolltop" id="smm-scrolltop" hidden><div id="smm-scrolltop-inner"></div></div>
+      <div class="smm-board" id="smm-board" hidden></div>
     </section>
 
-    <p class="smm-loading" id="smm-loading">Loading pipeline…</p>
-    <div class="smm-scrolltop" id="smm-scrolltop" hidden><div id="smm-scrolltop-inner"></div></div>
-    <div class="smm-board" id="smm-board" hidden></div>
+    <!-- ===================== PACKAGES & PRICING (reference) ===================== -->
+    <section class="smm-panel" data-panel="rates" hidden>
+      <div class="smm-panel-head">
+        <div>
+          <h2 class="smm-panel-title">Packages &amp; pricing</h2>
+          <p class="smm-panel-sub">What we sell and what it costs, so nobody has to go looking for a spreadsheet. Read-only &mdash; the figures come from <code>src/lib/smm-config.js</code>, the same file the website and the member hub price from, so this cannot drift from what a client is shown.</p>
+        </div>
+      </div>
+
+      <div class="smm-rate-heads">
+        {SOCIAL_SERVICES.map((sv) => (
+          <div class="smm-rate-head">
+            <div class="smm-rate-head-name">{sv.name}</div>
+            {sv.alias && <div class="smm-rate-head-alias">Also called &ldquo;{sv.alias}&rdquo;</div>}
+            <div class="smm-rate-head-price">from {gbpFromPence(sv.from_pence)} <span>+VAT / {sv.unit}</span></div>
+            <div class={`smm-rate-head-state ${sv.openToNewClients ? "is-open" : "is-closed"}`}>
+              {sv.openToNewClients ? "Taking new clients" : "Full — waitlist only"}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <h3 class="smm-rate-sub">{marketing.name} &mdash; the three packages</h3>
+      <div class="smm-rate-wrap">
+        <table class="smm-rate">
+          <thead>
+            <tr>
+              <th>Package</th><th>Shoot</th><th>Videos</th><th>Posts / wk</th><th>Amends</th>
+              {PRICE_COLUMNS.map((c) => <th class="smm-rate-num">{c.label}</th>)}
+              <th class="smm-rate-num">Max clients</th>
+            </tr>
+          </thead>
+          <tbody>
+            {marketing.packages.map((pk, i) => (
+              <tr>
+                <td><strong>{pk.name || `Package ${i + 1}`}</strong><span class="smm-rate-hours">{pk.hours.videography}h film · {pk.hours.editing}h edit · {pk.hours.brief}h brief · {pk.hours.management}h management</span></td>
+                <td>{pk.spec}</td>
+                <td>{pk.videos}</td>
+                <td>{pk.postsPerWeek}</td>
+                <td>{pk.amends}</td>
+                {PRICE_COLUMNS.map((c) => <td class="smm-rate-num">{gbpFromPence(pk.price_pence[c.key])}</td>)}
+                <td class="smm-rate-num">{pk.maxClientsPerSmm}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="smm-rate-note">
+        Onboarding is {gbpFromPence(marketing.onboarding_pence)} one-off on every package. Prices exclude VAT.
+        The three columns are <strong>who is buying</strong>, not what they get &mdash; the spec is identical across them.
+        Nothing client-facing picks a column: the website and the hub show &ldquo;from&rdquo; the lowest, because neither can tell who someone is.
+      </p>
+
+      <h3 class="smm-rate-sub">Also on social</h3>
+      <div class="smm-rate-wrap">
+        <table class="smm-rate">
+          <thead><tr><th>Service</th><th>What it is</th><th class="smm-rate-num">From</th></tr></thead>
+          <tbody>
+            {SOCIAL_EXTRAS.map((sv) => (
+              <tr><td><strong>{sv.name}</strong></td><td>{sv.summary}</td><td class="smm-rate-num">{gbpFromPence(sv.from_pence)} <span class="smm-rate-unit">+VAT / {sv.unit}</span></td></tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {SOCIAL_SERVICES.filter((sv) => sv.futurePackages).map((sv) => (
+        <p class="smm-rate-note">
+          <strong>{sv.name}</strong> is one service at one price for now. It splits into {sv.futurePackages.join(", ")} once those are packaged and priced.
+        </p>
+      ))}
+    </section>
   </div>
 
   <!-- Full-screen customer file -->
@@ -57,9 +154,77 @@ import "../../styles/admin.css";
   <div id="smm-modal-host"></div>
 
   <style is:global>
-    /* ---- Toolbar ---- */
+    /* ---- Panels + toolbar (mirroring Videography) ----
+       The bar's own layout is defined per page in the admin centre, so it is
+       written out here too rather than inherited — without it the two buttons
+       stack instead of sitting in a row. Same numbers as Videography's. */
+    .admin-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; max-width: 1360px; margin: 0 auto;
+      padding: 0 36px 12px; flex-wrap: wrap;
+    }
+    .admin-bar-actions,
+    .hub-skin .admin-bar .admin-bar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    /* The open cog menu must sit above the cards below it. */
+    .admin-bar:has(#smm-cog-menu:not([hidden])) { z-index: 30; position: relative; }
+    /* ---- Panels + toolbar (mirroring Videography) ---- */
+    .smm-panel { max-width: 1360px; margin: 0 auto; padding: 0 36px 40px; }
+    .smm-panel[hidden] { display: none; }
+    .smm-panel-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+    .smm-panel-title { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); margin: 0; }
+    .smm-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 4px 0 0; max-width: 78ch; }
+    .smm-panel-sub code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 3px; }
+
+    /* Settings cog — the same control Videography carries. */
+    .smm-cog-wrap { position: relative; }
+    .smm-cog {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px;
+      background: var(--surface, #fff); border: 1px solid var(--border, #eae5e1); border-radius: 4px;
+      font-family: var(--sans); font-size: 12px; line-height: 1; letter-spacing: 0.04em;
+      font-weight: 700; text-transform: uppercase; color: var(--ink); cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    .smm-cog svg { width: 15px; height: 15px; }
+    .smm-cog:hover { border-color: var(--english-violet); color: var(--english-violet); }
+    .smm-cog-menu {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 400;
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.2); border-radius: 8px;
+      box-shadow: 0 18px 50px rgba(20, 18, 26, 0.22); padding: 6px; width: 220px;
+    }
+    .smm-cog-menu[hidden] { display: none; }
+    .smm-cog-menu button {
+      display: block; width: 100%; text-align: left; padding: 9px 12px; border: 0; border-radius: 5px;
+      background: none; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer;
+    }
+    .smm-cog-menu button:hover { background: rgba(var(--violet-rgb), 0.08); }
+
+    /* ---- The rate card ---- */
+    .smm-rate-heads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 30px; }
+    @media (max-width: 800px) { .smm-rate-heads { grid-template-columns: 1fr; } }
+    .smm-rate-head { padding: 16px 18px; border: 1px solid var(--border, #eae5e1); border-radius: 4px; background: #fff; }
+    .smm-rate-head-name { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ink); }
+    .smm-rate-head-alias { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-top: 2px; }
+    .smm-rate-head-price { font-family: var(--serif); font-size: 24px; font-weight: 500; color: var(--ink); margin-top: 10px; }
+    .smm-rate-head-price span { font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55); }
+    .smm-rate-head-state { margin-top: 8px; display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .smm-rate-head-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; }
+    .smm-rate-head-state.is-open { color: #2e6b40; }
+    .smm-rate-head-state.is-open::before { background: #3f9468; }
+    .smm-rate-head-state.is-closed { color: #8a4d33; }
+    .smm-rate-head-state.is-closed::before { background: #b9826a; }
+    .smm-rate-sub { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 26px 0 10px; }
+    .smm-rate-wrap { overflow-x: auto; border: 1px solid var(--border, #eae5e1); border-radius: 4px; background: #fff; }
+    .smm-rate { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .smm-rate th, .smm-rate td { padding: 11px 14px; text-align: left; border-bottom: 1px solid rgba(28,29,34,0.07); vertical-align: top; }
+    .smm-rate thead th { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); white-space: nowrap; }
+    .smm-rate tbody tr:last-child td { border-bottom: 0; }
+    .smm-rate-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .smm-rate-hours { display: block; font-size: 11.5px; color: rgba(28,29,34,0.5); margin-top: 3px; }
+    .smm-rate-unit { font-size: 11.5px; color: rgba(28,29,34,0.5); }
+    .smm-rate-note { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 12px 0 0; max-width: 88ch; }
+
     .smm-bar { display: flex; flex-direction: column; gap: 12px; max-width: 1360px; margin: 0 auto; padding: 34px 36px 20px; }
-    .smm-bar-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .smm-bar-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
     .smm-bar-actions { display: flex; align-items: center; gap: 12px; flex: none; }
     .smm-filters { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
     .smm-chip { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
@@ -2146,6 +2311,33 @@ import "../../styles/admin.css";
       $("smm-search").addEventListener("input", (e) => { q = e.target.value.toLowerCase().trim(); renderBoard(); });
       $("smm-show-lost").addEventListener("change", (e) => { showLost = e.target.checked; renderBoard(); });
       $("smm-add-lead").addEventListener("click", openAddLead);
+
+      /* Settings cog → panel switching, the same as Videography's. */
+      const cog = $("smm-cog"), cogMenu = $("smm-cog-menu");
+      if (cog && cogMenu) {
+        const closeCog = () => { cogMenu.hidden = true; cog.setAttribute("aria-expanded", "false"); };
+        cog.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const open = cogMenu.hidden;
+          cogMenu.hidden = !open;
+          cog.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+        document.addEventListener("click", (e) => {
+          if (!cogMenu.hidden && !cogMenu.contains(e.target) && !cog.contains(e.target)) closeCog();
+        });
+        cogMenu.addEventListener("click", (e) => {
+          const b = e.target.closest("[data-go]");
+          if (!b) return;
+          const want = b.getAttribute("data-go");
+          document.querySelectorAll(".smm-panel").forEach((pn) => {
+            const on = pn.getAttribute("data-panel") === want;
+            pn.hidden = !on;
+            pn.classList.toggle("is-active", on);
+          });
+          closeCog();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
       // Keep the top scrollbar and the board in sync (either can be dragged).
       let riSyncLock = false;
       $("smm-scrolltop").addEventListener("scroll", () => { if (riSyncLock) return; riSyncLock = true; $("smm-board").scrollLeft = $("smm-scrolltop").scrollLeft; riSyncLock = false; });
