@@ -4,7 +4,6 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
-import SMMForms from "../../components/SMMForms.astro";
 import { SOCIAL_SERVICES, SOCIAL_EXTRAS, PRICE_NOTE } from "../../lib/smm-config.js";
 import { gbpFromPence } from "../../lib/supabase.js";
 ---
@@ -162,17 +161,30 @@ import { gbpFromPence } from "../../lib/supabase.js";
         </div>
       </footer>
     </main>
+
+  <!-- A confirmation, not a form. Everyone here is signed in and has already
+       given us their name, business and email — asking for them again is a
+       worse experience AND a second copy of the truth to reconcile. The Worker
+       reads them from the account, so this only has to ask. -->
+  <div class="soc-wl-scrim" id="soc-wl" hidden>
+    <div class="soc-wl-card" role="dialog" aria-modal="true" aria-labelledby="soc-wl-h">
+      <button type="button" class="soc-wl-x" id="soc-wl-x" aria-label="Close">&times;</button>
+      <p class="soc-wl-eyebrow">TMKE &mdash; Social Media</p>
+      <h2 class="soc-wl-h" id="soc-wl-h">Join the waitlist.</h2>
+      <p class="soc-wl-lead">We&rsquo;re not taking on new social media management clients right now. We&rsquo;ll be in touch when a space opens up.</p>
+
+      <dl class="soc-wl-you" id="soc-wl-you"></dl>
+      <p class="soc-wl-note">We&rsquo;ll use the details on your account. <a href="/account/profile">Update them &rarr;</a></p>
+
+      <label class="soc-wl-check"><input type="checkbox" id="soc-wl-optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+
+      <p class="soc-wl-error" id="soc-wl-error" hidden></p>
+      <button type="button" class="ws-btn ws-btn--primary soc-wl-go" id="soc-wl-go">Yes, add me to the waitlist</button>
+      <button type="button" class="soc-wl-cancel" id="soc-wl-cancel">Not now</button>
+    </div>
   </div>
 
-  <!-- The site's own lead-capture modal, so the hub's waitlist form is the
-       same form people meet on the website rather than a second one built to
-       look like it. `source` tells the Worker which funnel this was. -->
-  <SMMForms />
-  <script>
-    // Same modal, different funnel. Set on the form so the Worker records where
-    // the sign-up came from — website, hub, or an email link later.
-    document.querySelector('[data-kind="waitlist"]')?.setAttribute("data-source", "hub");
-  </script>
+  </div>
 
   <style is:global>
     /* The wine the takeaways panel uses. The hub theme resolves
@@ -335,6 +347,30 @@ import { gbpFromPence } from "../../lib/supabase.js";
     .soc-act-coming-h { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0 0 8px; }
     .soc-act-coming-list { margin: 0; padding-left: 18px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.7; color: var(--ws-tx); }
 
+    /* ---- Waitlist confirmation ---- */
+    .soc-wl-scrim { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(20,18,26,0.45); }
+    .soc-wl-scrim[hidden] { display: none; }
+    .soc-wl-card { position: relative; width: 460px; max-width: 100%; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 30px 32px 26px; }
+    .soc-wl-x { position: absolute; top: 12px; right: 14px; border: 0; background: none; font-size: 26px; line-height: 1; color: rgba(28,29,34,0.4); cursor: pointer; }
+    .soc-wl-eyebrow { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); margin: 0 0 10px; }
+    .soc-wl-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(21px, 2vw, 25px); font-weight: 600; letter-spacing: -0.01em; color: var(--ws-ink); margin: 0 0 8px; }
+    .soc-wl-lead { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.6; color: var(--ws-tx); margin: 0 0 18px; }
+    /* Their details, shown rather than asked for — so they can see exactly what
+       is about to be sent before they agree to it. */
+    .soc-wl-you[hidden], .soc-wl-note[hidden] { display: none; }
+    .soc-wl-you { margin: 0 0 10px; padding: 14px 16px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+    .soc-wl-you dt { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); }
+    .soc-wl-you dd { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-ink); min-width: 0; overflow-wrap: anywhere; }
+    .soc-wl-note { font-family: var(--sans); font-size: var(--ws-t-label); color: var(--ws-faint); margin: 0 0 16px; }
+    .soc-wl-note a { color: var(--ws-accent); font-weight: 700; text-decoration: none; }
+    .soc-wl-check { display: flex; align-items: flex-start; gap: 9px; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: var(--ws-tx); margin-bottom: 18px; cursor: pointer; }
+    .soc-wl-check input { margin-top: 2px; flex: none; }
+    .soc-wl-error { font-family: var(--sans); font-size: var(--ws-t-meta); color: #b3261e; margin: 0 0 12px; }
+    .soc-wl-error[hidden] { display: none; }
+    .soc-wl-go { width: 100%; }
+    .soc-wl-cancel { display: block; width: 100%; margin-top: 10px; border: 0; background: none; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-faint); cursor: pointer; padding: 8px; }
+    .soc-wl-cancel:hover { color: var(--ws-ink); }
+
     @media (max-width: 720px) {
       .soc-contact { flex-direction: column; align-items: flex-start; }
     }
@@ -475,9 +511,63 @@ import { gbpFromPence } from "../../lib/supabase.js";
       curIdx = 0; renderInsights();
     }
 
+    /* ---- Join the waitlist ----
+       A confirmation, because everyone on this page is signed in. It shows the
+       details it is about to use so nobody agrees to something they cannot
+       see, and the Worker reads them from the account rather than trusting
+       what this sends — otherwise the confirm box would be a way to file an
+       entry in someone else's name. */
+    function wireWaitlist(session) {
+      const scrim = $("soc-wl"), go = $("soc-wl-go"), err = $("soc-wl-error");
+      if (!scrim) return;
+      const meta = (session && session.user && session.user.user_metadata) || {};
+      const email = (session && session.user && session.user.email) || "";
+      const name = meta.name || meta.full_name || "";
+      const business = meta.company || "";
+      const row = (k, v) => v ? `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>` : "";
+      const rows = row("Name", name) + row("Business", business) + row("Email", email);
+      $("soc-wl-you").innerHTML = rows;
+      // Nothing to show is better shown as nothing than as an empty box.
+      $("soc-wl-you").hidden = !rows;
+      document.querySelector(".soc-wl-note").hidden = !rows;
+
+      const open = () => { err.hidden = true; scrim.hidden = false; document.documentElement.style.overflow = "hidden"; };
+      const close = () => { scrim.hidden = true; document.documentElement.style.overflow = ""; };
+      document.querySelectorAll('[data-smm-form="waitlist"]').forEach((b) => b.addEventListener("click", open));
+      $("soc-wl-x").addEventListener("click", close);
+      $("soc-wl-cancel").addEventListener("click", close);
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) close(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !scrim.hidden) close(); });
+
+      go.addEventListener("click", async () => {
+        err.hidden = true;
+        const orig = go.textContent;
+        go.disabled = true; go.textContent = "Adding you…";
+        try {
+          if (!WORKER || !session) throw new Error("This isn't quite live yet — please email hello@tmke.co.uk and we'll sort it.");
+          const res = await fetch(`${WORKER}/smm/waitlist`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+            body: JSON.stringify({ source: "hub", marketing_opt_in: $("soc-wl-optin").checked }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || "Something went wrong — please try again.");
+          $("soc-wl-h").textContent = "You're on the list";
+          $("soc-wl-lead").textContent = "We'll be in touch the moment a space opens up. Check your inbox — we've sent you a confirmation.";
+          ["soc-wl-you", "soc-wl-optin", "soc-wl-go"].forEach((id) => $(id)?.closest("dl, label, button")?.setAttribute("hidden", ""));
+          document.querySelector(".soc-wl-note")?.setAttribute("hidden", "");
+          $("soc-wl-cancel").textContent = "Close";
+        } catch (e2) {
+          err.textContent = e2 && e2.message ? e2.message : "Something went wrong — please try again.";
+          err.hidden = false;
+        } finally { go.disabled = false; go.textContent = orig; }
+      });
+    }
+
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) $("footer-email").textContent = session.user.email || "";
+      wireWaitlist(session);
       if (!session) {
         if (DEV) { show({ client: { package_name: "Growth", platforms: ["Instagram", "Facebook", "LinkedIn"], start_date: "2026-02-01" }, reports: DEMO_REPORTS }); return; }
         location.replace("/login?next=" + encodeURIComponent("/account/social"));

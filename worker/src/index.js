@@ -4298,29 +4298,60 @@ export default {
          us, and a CRM contact carrying the interest tag. */
       if (path.endsWith("/smm/waitlist") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
-        const { business, email, phone, message, marketing_opt_in, turnstile_token, hp } = b || {};
+        const { message, marketing_opt_in, turnstile_token, hp } = b || {};
         if (hp) return json({ ok: true }, 200, request, env);   // bot; look successful, save nothing
-        const ip = request.headers.get("CF-Connecting-IP") || "";
-        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
-
-        /* One "Full name" field on the form, because asking a waitlist to fill
-           two boxes for a name is friction for nothing. The lead table wants
-           the halves, so the last word is the surname and everything before it
-           is the first name — which handles "Anne Marie Smith" and leaves a
-           single-word name as a first name rather than inventing a surname. */
-        const rawName = String(b.full_name || `${b.first_name || ""} ${b.last_name || ""}`).trim().replace(/\s+/g, " ");
-        if (!rawName || !email) return json({ error: "Please give us your name and email." }, 400, request, env);
-        const nameBits = rawName.split(" ");
-        const first_name = nameBits.length > 1 ? nameBits.slice(0, -1).join(" ") : rawName;
-        const last_name = nameBits.length > 1 ? nameBits[nameBits.length - 1] : "";
-        const fullName = rawName;
-        const source = ["website", "hub", "email"].includes(String(b.source || "")) ? b.source : "website";
-        const SOURCE_LABEL = { website: "the website", hub: "the member hub", email: "an email link" };
 
         // A signed-in member is identified by their token; nobody is asked to
         // make an account to join a list.
         const authedUser = await getUser(request, env);
         const accountUserId = authedUser ? authedUser.id : null;
+
+        // Turnstile guards the public form. A member has already passed a real
+        // auth check and the hub sends a confirmation with no widget on it, so
+        // demanding a token there would reject every member.
+        if (!authedUser) {
+          const ip = request.headers.get("CF-Connecting-IP") || "";
+          if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
+        }
+
+        /* A member in the hub has told us all of this once already, so that
+           funnel sends a confirmation rather than a form and the details come
+           from their account and their existing records — never from the
+           request body, which for a signed-in user would let anyone file a
+           waitlist entry in somebody else's name. The website's form still
+           supplies its own, because there is nobody to look up. */
+        let known = {};
+        if (authedUser) {
+          const meta = authedUser.user_metadata || {};
+          const prior = (await sbGet(env, "smm_leads", `email=ilike.${encodeURIComponent(authedUser.email)}&select=full_name,business,phone&order=created_at.desc&limit=1`))?.[0] || {};
+          const contact = (await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(authedUser.email)}&select=first_name,last_name,company,phone&limit=1`))?.[0] || {};
+          known = {
+            email: authedUser.email,
+            full_name: meta.name || meta.full_name || prior.full_name || [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim(),
+            business: meta.company || prior.business || contact.company || "",
+            phone: meta.phone || prior.phone || contact.phone || "",
+          };
+        }
+        const email    = authedUser ? known.email : b.email;
+        const business = (authedUser ? known.business : b.business) || null;
+        const phone    = (authedUser ? known.phone : b.phone) || null;
+
+        /* One "Full name" field on the public form, because asking a waitlist
+           to fill two boxes for a name is friction for nothing. The lead table
+           wants the halves, so the last word is the surname and everything
+           before it is the first name — which handles "Anne Marie Smith" and
+           leaves a single-word name as a first name rather than inventing a
+           surname. A member with no name saved anywhere falls back to the part
+           of their email before the @, so the lead is never nameless. */
+        const rawName = String((authedUser ? known.full_name : b.full_name) || `${b.first_name || ""} ${b.last_name || ""}`).trim().replace(/\s+/g, " ");
+        if (!email) return json({ error: "Please give us your email." }, 400, request, env);
+        if (!rawName && !authedUser) return json({ error: "Please give us your name." }, 400, request, env);
+        const fullName = rawName || String(email).split("@")[0];
+        const nameBits = fullName.split(" ");
+        const first_name = nameBits.length > 1 ? nameBits.slice(0, -1).join(" ") : fullName;
+        const last_name = nameBits.length > 1 ? nameBits[nameBits.length - 1] : "";
+        const source = ["website", "hub", "email"].includes(String(b.source || "")) ? b.source : (authedUser ? "hub" : "website");
+        const SOURCE_LABEL = { website: "the website", hub: "the member hub", email: "an email link" };
 
         const up = await upsertSmmLead(env, email, {
           kind: "waitlist", tag: "SMM Waitlist", stage: "waitlist",
