@@ -184,7 +184,24 @@ export const LEAD = {
   brochure:  { kind: "brochure",  tag: "Brochure Download", stage: "brochure_downloaded" },
   discovery: { kind: "discovery", tag: "Discovery Call",    stage: "discovery_call_booked" },
   enquiry:   { kind: "enquiry",   tag: "General Enquiry",   stage: "general_enquiry" },
+  /* Social Media Management has no capacity, so the ask is to be told when a
+     space opens rather than to buy. A stage of its own in front of Inquiry, as
+     Dani described it — and the CRM tag below is permanent, so how someone
+     arrived survives them moving down the board.
+
+     Not to be confused with /waitlist/register, which is the CANCELLATION list
+     for a fully-booked videography session. Different table, different email,
+     different thing. */
+  waitlist:  { kind: "waitlist",  tag: "SMM Waitlist",      stage: "waitlist" },
 };
+
+/* Where a waitlist sign-up came from. Recorded on the lead so we can tell which
+   funnel is working. Three eventually: the public site, the member hub's Your
+   SMM page, and a link in a marketing email. */
+export const WAITLIST_SOURCES = ["website", "hub", "email"];
+
+/** The CRM tag that says what they want. Kept here so every funnel agrees. */
+export const WAITLIST_INTEREST_TAG = "Interest: Social Media Management";
 
 // ---- Password policy (shared) ----------------------------------------------
 // Brief: min 8 chars incl. at least one number and one special character.

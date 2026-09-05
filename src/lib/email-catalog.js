@@ -23,6 +23,34 @@
 export const EMAIL_CATALOG = [
   // ─────────────────────────── Social media ───────────────────────────
   {
+    id: "smm_waitlist_ack",
+    group: "Social media",
+    name: "SMM waitlist — confirmation",
+    audience: "client",
+    trigger: "Someone joins the Social Media Management waitlist",
+    fires: "POST /smm/waitlist",
+    to: "The person who joined",
+    sender: "hello@tmke.co.uk",
+    subject: "You're on the list — TMKE Social Media Management",
+    summary:
+      "Confirms they are on the waitlist and says plainly why there is one — we cap how many agencies we take. Then points at Social Media Marketing, which does have space, in case that is closer to what they need. Sent whichever funnel they came through: the website, the member hub, or a link in an email.",
+    fields: ["name"],
+  },
+  {
+    id: "smm_waitlist_team",
+    group: "Social media",
+    name: "SMM waitlist — internal alert",
+    audience: "internal",
+    trigger: "Someone joins the Social Media Management waitlist",
+    fires: "POST /smm/waitlist",
+    to: "SMM_NOTIFY + samantha@themarketingexperts.co.uk",
+    sender: "hello@tmke.co.uk",
+    subject: "SMM waitlist — {name}",
+    summary:
+      "Their name, business, email, phone and message, which funnel they came through, whether they opted into marketing, and whether they are a signed-in member — plus a direct link to their file in the admin centre. They land in the SMM pipeline at the Waitlist stage and their CRM contact is tagged \"Interest: Social Media Management\".",
+    fields: ["name", "business", "email", "phone", "message", "source"],
+  },
+  {
     id: "smm_enquiry_ack",
     group: "Social media",
     name: "Enquiry — acknowledgement",

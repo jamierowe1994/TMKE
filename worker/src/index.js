@@ -4285,6 +4285,100 @@ export default {
         return json({ ok: true, account_created: accountCreated }, 200, request, env);
       }
 
+      /* ---- Social Media Management — join the waitlist -----------------------
+         Management is full, so the ask is "tell me when there is a space", not
+         "sell me". One endpoint for all three funnels — the public site, the
+         member hub's Your SMM page, and eventually a link in a marketing email
+         — because they differ only in where the person was standing. `source`
+         records which, so we can tell later which funnel actually works.
+
+         Everything the enquiry form does, for the same reasons: honeypot and
+         Turnstile, one merged lead per email rather than a duplicate per
+         submit, a note on their file, an acknowledgement to them, an alert to
+         us, and a CRM contact carrying the interest tag. */
+      if (path.endsWith("/smm/waitlist") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        const { first_name, last_name, business, email, phone, message, marketing_opt_in, turnstile_token, hp } = b || {};
+        if (hp) return json({ ok: true }, 200, request, env);   // bot; look successful, save nothing
+        const ip = request.headers.get("CF-Connecting-IP") || "";
+        if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
+        if (!first_name || !last_name || !email)
+          return json({ error: "Please give us your name and email." }, 400, request, env);
+        const fullName = `${first_name} ${last_name}`.trim();
+        const source = ["website", "hub", "email"].includes(String(b.source || "")) ? b.source : "website";
+        const SOURCE_LABEL = { website: "the website", hub: "the member hub", email: "an email link" };
+
+        // A signed-in member is identified by their token; nobody is asked to
+        // make an account to join a list.
+        const authedUser = await getUser(request, env);
+        const accountUserId = authedUser ? authedUser.id : null;
+
+        const up = await upsertSmmLead(env, email, {
+          kind: "waitlist", tag: "SMM Waitlist", stage: "waitlist",
+          first_name, last_name, full_name: fullName, email, phone: phone || null,
+          business: business || null, message: message || null,
+          marketing_opt_in: !!marketing_opt_in, account_user_id: accountUserId,
+        });
+        if (!up.id) {
+          console.error("smm waitlist upsert failed", up.error || "");
+          return json({ error: "We couldn't add you to the list just then - please try again, or email hello@tmke.co.uk." }, 502, request, env);
+        }
+        const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        await logBookingMessage(env, {
+          booking_id: up.id, booking_source: "smm", account_user_id: accountUserId, client_email: email,
+          channel: "note", kind: "note",
+          body: `Joined the Social Media Management waitlist via ${SOURCE_LABEL[source]}.${message ? ` They said: ${message}` : ""}`,
+        });
+
+        // To them.
+        await sendEmail(env, {
+          to: email, subject: "You're on the list - TMKE Social Media Management",
+          html: await wrapInBrandedBase(env, `
+            <h1 style="${EM_H1}">You're on the list, ${esc(first_name)}</h1>
+            <p style="${EM_P}">Social Media Management is full at the moment - we cap how many agencies we take so the ones we have get the attention they pay for. You're on the waitlist now, and we'll come to you the moment a space opens.</p>
+            <p style="${EM_P}">In the meantime, our <strong>Social Media Marketing</strong> service does have space. It's a shoot day every quarter with our videographer, then we edit, caption and schedule everything across the three months. If that sounds closer to what you need, just reply and we'll talk it through.</p>`),
+        });
+        await logBookingMessage(env, {
+          booking_id: up.id, booking_source: "smm", account_user_id: accountUserId, client_email: email,
+          kind: "confirmation", subject: "You're on the list - TMKE Social Media Management",
+          body: `Auto-acknowledgement sent: confirmed ${first_name} is on the Social Media Management waitlist, and mentioned Social Media Marketing has space.`,
+        });
+
+        // To us — Sam runs social, so she is on this one by name rather than
+        // relying on whoever happens to read the shared inbox.
+        const fileLink = `${unsubBase(env)}/admin/social?lead=${encodeURIComponent(up.id)}`;
+        const notify = [env.SMM_NOTIFY || env.MAIL_SENDER, "samantha@themarketingexperts.co.uk"].filter(Boolean).join(",");
+        await sendEmail(env, {
+          to: notify, subject: `SMM waitlist - ${fullName}`,
+          html: `<div style="${EM_WRAP}">
+            <h1 style="${EM_H1}">Someone joined the SMM waitlist</h1>
+            <div style="${EM_QUOTE}">
+              <div><span style="color:#888">Name:</span> ${esc(fullName)}</div>
+              ${business ? `<div><span style="color:#888">Business:</span> ${esc(business)}</div>` : ""}
+              <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+              ${phone ? `<div><span style="color:#888">Phone:</span> ${esc(phone)}</div>` : ""}
+              ${message ? `<div><span style="color:#888">Message:</span> ${esc(message)}</div>` : ""}
+              <div><span style="color:#888">Came from:</span> ${esc(SOURCE_LABEL[source])}</div>
+              <div><span style="color:#888">Marketing:</span> ${marketing_opt_in ? "Opted in" : "No"}</div>
+              <div><span style="color:#888">Account:</span> ${accountUserId ? "Signed-in member" : "None"}</div>
+            </div>
+            <p style="${EM_P}"><a href="${fileLink}" style="color:#371e28">Open their file in the admin centre &rarr;</a></p>
+            <p style="${EM_SMALL}">They are in the SMM pipeline at the Waitlist stage.</p></div>`,
+        });
+
+        // CRM: the contact, tagged with what they actually want.
+        try {
+          await fireTrigger(env, "form_submitted", {
+            email, first_name, last_name, phone: phone || null, company: business || null,
+            source: "smm_waitlist", lifecycle: "lead", marketing_opt_in: !!marketing_opt_in,
+            tags: crmTags(email, ["Interest: SMM", "Interest: Social Media Management"], { optIn: !!marketing_opt_in, member: !!accountUserId }),
+            user_id: accountUserId || null,
+          }, { form: "smm_waitlist", tag: "SMM Waitlist" });
+        } catch (_) {}
+
+        return json({ ok: true, existed: up.existed }, 200, request, env);
+      }
+
       // ---- Social Media — Download a Brochure (Form 1): emails the brochure,
       //      stores the email as a lead, optional account. Brochure goes out on
       //      EVERY submit regardless of account creation. ---------------------

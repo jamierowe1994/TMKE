@@ -630,6 +630,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
 
     const STAGES = [
+      // Ahead of Inquiry: they have asked to be told when a space opens, which
+      // is not the same as having asked to buy.
+      { key: "waitlist", label: "Waitlist" },
       { key: "inquiry", label: "Inquiry" },
       { key: "meeting_set", label: "Meeting set" },
       { key: "proposal_sent", label: "Proposal sent" },
@@ -639,7 +642,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     ];
     const STAGE_INDEX = Object.fromEntries(STAGES.map((s, i) => [s.key, i]));
     // Legacy stages map onto the nearest current column.
-    const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry" };
+    const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry", waitlist_joined: "waitlist" };
     const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call", manual: "Manual" };
     const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended" };
     const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract sent", onboarding: "Start onboarding", active_client: "Make active client" };
@@ -2324,6 +2327,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       $("smm-loading").hidden = true;
       $("smm-board").hidden = false;
       renderBoard();
+
+      /* ?lead=<id> opens that person straight away. The waitlist alert emails
+         a link to a specific file, and without this it landed on the board and
+         left you to find them. */
+      const wanted = new URLSearchParams(location.search).get("lead");
+      if (wanted && all.some((r) => String(r.id) === String(wanted))) openFile(wanted);
 
       $("smm-filters").addEventListener("click", (e) => {
         const btn = e.target.closest(".smm-chip"); if (!btn) return;
