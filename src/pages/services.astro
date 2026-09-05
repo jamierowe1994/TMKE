@@ -297,7 +297,10 @@ const total = 7;
        top (last) panel. The controller overrides these inline on the first frame. */
     .pf-panel:first-child { transform: translateX(0); }
     /* words settle in with a short fade + small bounce when a panel arrives */
-    @keyframes wordIn { 0% { opacity: 0; transform: translateY(16px); } 55% { opacity: 1; transform: translateY(-5px); } 100% { opacity: 1; transform: translateY(0); } }
+    /* A fade and nothing else. It used to drop the words 16px, overshoot 5px up
+       and settle, which read as a hop on every slide — and a hop arriving in the
+       middle of a sideways glide fights the glide. */
+    @keyframes wordIn { from { opacity: 0; } to { opacity: 1; } }
     /* Not the three ethos slides. wordIn drops the words 16px, overshoots 5px
        up and settles — a bounce — and it fires every time a panel becomes
        current, which on those slides is both the fade-in on the photo and the
@@ -537,15 +540,16 @@ const total = 7;
     }
     .sm-rule-eyebrow::before { content: ""; width: 30px; height: 1px; background: var(--english-violet); opacity: 0.5; }
 
-    /* The tier list: one hairline (The Edit's rgba(28,29,34,0.16)) top and
-       between rows, where it had two weights. */
+    /* The tier list is as it was — number beside the name, serif name — after a
+       pass that stacked the number over the name made every row 76px where it
+       had been 48, and four of those threw the whole slide's proportions. The
+       one thing kept from that pass is a single hairline weight (The Edit's
+       rgba(28,29,34,0.16)) for the top rule and the rows, where it had two. */
     .sm-tierlist { display: flex; flex-direction: column; border-top: 1px solid rgba(28,29,34,0.16); }
-    .sm-tieritem { display: flex; flex-direction: column; gap: 6px; align-items: stretch; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.16); border-left: 2px solid transparent; padding: 14px 0; cursor: pointer; transition: border-color 0.3s ease, padding 0.3s ease; -webkit-tap-highlight-color: transparent; }
-    /* Number OVER the name, as on The Edit's tiles, rather than beside it. */
-    .sm-tieritem-num { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); padding: 0; flex: 0 0 auto; }
+    .sm-tieritem { display: flex; gap: 14px; align-items: flex-start; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.16); border-left: 2px solid transparent; padding: 13px 0; cursor: pointer; transition: border-color 0.3s ease, padding 0.3s ease; -webkit-tap-highlight-color: transparent; }
+    .sm-tieritem-num { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--english-violet); padding-top: 5px; flex: 0 0 auto; }
     .sm-tieritem-body { display: flex; flex-direction: column; min-width: 0; }
-    /* The Edit's tile name: a clean sans at 500, no tight tracking. */
-    .sm-tieritem-name { font-family: var(--sans); font-weight: 500; font-size: clamp(15px, 1.15vw, 19px); line-height: 1.2; letter-spacing: 0; color: rgba(28,29,34,0.5); transition: color 0.3s ease; }
+    .sm-tieritem-name { font-family: var(--serif); font-weight: 500; font-size: clamp(15px, 1.4vw, 20px); line-height: 1.1; letter-spacing: -0.01em; color: rgba(28,29,34,0.5); transition: color 0.3s ease; }
     .sm-tieritem-sub { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin-top: 6px; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.35s ease, max-height 0.35s ease, margin 0.35s ease; }
     .sm-tieritem-blurb { font-family: var(--sans); font-size: clamp(14px, 1.05vw, 16px); line-height: 1.55; color: rgba(28,29,34,0.66); margin-top: 0; max-width: 66ch; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.4s ease, max-height 0.5s ease, margin 0.4s ease; }
     .sm-tieritem.is-active { border-left-color: var(--english-violet); padding-left: 16px; }
@@ -932,7 +936,11 @@ const total = 7;
       // How far through the grow the first words (and the shade, and the HUD)
       // have come in. Nothing until the photo is over half way, then a fade
       // across the rest — so the picture fills first and the line arrives into it.
-      const growIn = (p) => Math.max(0, Math.min(1, (p - 0.55) / 0.45));
+      // Widened from 0.55 to 0.4 so that going BACK the words are still there
+      // until the photo is well into its shrink, instead of vanishing while it
+      // is still nearly full — which read as the text outrunning the image.
+      // Forward it still reads photo-first: nothing until 40% grown.
+      const growIn = (p) => Math.max(0, Math.min(1, (p - 0.4) / 0.6));
       const render = () => {
         const onHero = Math.round(display) === 0;
         if (onHero && !isPhone()) {
@@ -1009,11 +1017,24 @@ const total = 7;
             if (heroP >= 1) { anchor = 1; acc = 1; lockUntil = performance.now() + PAUSE; }
             return;
           }
-          if (d < 0 && heroP > 0) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+          if (d < 0 && heroP > 0) {
+            ev.preventDefault();
+            // A hold before the shrink starts: landing back on the full photo
+            // from slide 2 sets a dwell, and the photo does not begin to come
+            // down until it has passed. Once shrinking, no gate.
+            if (heroP >= 1 && performance.now() < lockUntil) return;
+            heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return;
+          }
+          // Forward on a photo that is already full: slide 2 is already showing,
+          // so step onto it now rather than spending half a scroll on nothing —
+          // which is what "it gets stuck" was.
+          if (d > 0 && heroP >= 1) { ev.preventDefault(); anchor = 1; acc = 1; lockUntil = performance.now() + PAUSE; return; }
         }
         // Scrolling back off slide 2 lands on the full photo with the words still
         // on it; the next scroll up then shrinks the photo (the branch above).
-        if (!isPhone() && d < 0 && Math.round(anchor) === 1 && acc <= 1 && heroP >= 1) {
+        // `acc < anchor + STEP`: a part-scroll forward that never committed to
+        // slide 3 must not stop the way back.
+        if (!isPhone() && d < 0 && Math.round(anchor) === 1 && acc < anchor + STEP && heroP >= 1) {
           ev.preventDefault(); anchor = 0; acc = 0; lockUntil = performance.now() + PAUSE; return;
         }
         if (edgeBlocked(ev, d)) return;
