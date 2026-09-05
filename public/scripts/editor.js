@@ -9698,6 +9698,13 @@
       refreshAdminTemplates();
       const id = requestedId || (TEMPLATES[0] && TEMPLATES[0].id);
       if (id) loadTemplate(id, false); else loadBlank();
+      // Lift the admin boot veil (editor.astro) only once the fonts this design
+      // uses are in and it has been drawn with them — the swap was the flash.
+      (async function () {
+        try { await ensureTextFontsLoaded(); } catch (_) {}
+        try { fullRender(); } catch (_) {}
+        if (typeof window.__TMKE_BOOT_DONE__ === "function") window.__TMKE_BOOT_DONE__();
+      })();
       // Headless thumbnail rebuild (opened in a hidden iframe by the studio
       // list's "Rebuild thumbnails" action). Render the design with the real
       // editor renderer, persist a fresh thumbnail, then tell the opener so it
@@ -9742,6 +9749,7 @@
           if (pick) loadTemplate(pick, false);
           else loadBlank();
         }
+        if (typeof window.__TMKE_BOOT_DONE__ === "function") window.__TMKE_BOOT_DONE__();
       }, 6000);
     }
   } else if (explicitDesign) {

@@ -342,6 +342,39 @@ const googleFonts = [
     </header>
 
     <!-- =================== LEFT TOOL RAIL =================== -->
+    <!-- Admin boot veil. Opening a template from the Design studio used to
+         show the empty default canvas, then the design popping in, then the
+         fonts swapping as they arrived — three flashes in a second, ugly on a
+         screen recording. In admin mode the page is covered in paper from the
+         very first paint (the class is set by the inline script below, before
+         any of the editor renders) and uncovered only once the requested
+         template is loaded, its fonts are ready and a frame has been drawn.
+         Falls open on its own after ten seconds so nothing can strand it. -->
+    <script is:inline>
+      (function () {
+        try {
+          if (new URLSearchParams(location.search).get("mode") !== "admin") return;
+          if (new URLSearchParams(location.search).get("rebuildthumb") === "1") return;
+          document.documentElement.classList.add("ed-booting");
+          var done = false;
+          window.__TMKE_BOOT_DONE__ = function () {
+            if (done) return; done = true;
+            var v = document.getElementById("ed-veil"), lifted = false;
+            var lift = function () {
+              if (lifted) return; lifted = true;
+              if (v) v.classList.add("is-out");
+              setTimeout(function () { document.documentElement.classList.remove("ed-booting"); }, 380);
+            };
+            // A frame after the render is the ideal moment; a timer covers a
+            // tab that isn't visible, where frames don't run.
+            requestAnimationFrame(function () { requestAnimationFrame(lift); });
+            setTimeout(lift, 120);
+          };
+          setTimeout(function () { window.__TMKE_BOOT_DONE__(); }, 10000);
+        } catch (_) {}
+      })();
+    </script>
+    <div class="ed-veil" id="ed-veil" aria-hidden="true"><span>Opening design&hellip;</span></div>
     <aside class="ed-rail" role="tablist">
       <!-- "Designs" tab removed — users rarely jump between templates
            mid-session, and dropping it gives the rail more breathing room. -->
@@ -1055,6 +1088,15 @@ const googleFonts = [
   <script id="ed-google-fonts-data" type="application/json" set:html={JSON.stringify(googleFonts)}></script>
 
   <style is:global>
+    /* ---- Admin boot veil (see the markup note by #ed-veil) ---- */
+    .ed-veil { display: none; }
+    html.ed-booting .ed-veil {
+      display: grid; place-items: center; position: fixed; inset: 0; z-index: 100000;
+      background: var(--paper, #f4f2f1); opacity: 1; transition: opacity 0.35s ease;
+    }
+    html.ed-booting .ed-veil.is-out { opacity: 0; pointer-events: none; }
+    .ed-veil span { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+
     /* Soft light-purple iridescent wash — matches the rest of the hub
        (the .dash-shell background). The white chrome (top bar, rail,
        panel, canvas) sits on top of it. */
