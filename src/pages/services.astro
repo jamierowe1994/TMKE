@@ -136,7 +136,7 @@ const total = 7;
         <!-- Slides 2-4 — the three ethos texts. None carries a backdrop: the
              hero's long image has just grown to fill the screen, and these slide
              in from the right over it. One scene, three thoughts. -->
-        <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:1">
+        <section class="pf-panel sm-feature sm-feature--over sm-feature--first" style="--col:1;--row:0;--step:1">
           <div class="sm-feature-inner">
             <h2 class="sm-feature-h">{COPY.positioning.headline}</h2>
             {COPY.positioning.body.split("\n\n").filter((para) => para !== "That's what we build.").map((para) => (
@@ -171,7 +171,7 @@ const total = 7;
         <div class="sm-hud" id="sm-hud" aria-hidden="true" hidden>
           <div class="sm-line"><span class="sm-line-fill" id="sm-hud-fill"></span></div>
           <span class="sm-line-num" id="sm-hud-num">01</span>
-          <span class="sm-tag" id="sm-hud-tag">Ethos</span>
+          <span class="sm-tag" id="sm-hud-tag"><span class="sm-tag-text" id="sm-hud-tag-text">Ethos</span></span>
         </div>
 
         <!-- Slide 5 (col 2) — what we do: tier list (left) + reactive image (right) -->
@@ -319,6 +319,12 @@ const total = 7;
        live in .sm-hud below. */
     .sm-feature:not(.is-in) .sm-feature-inner { opacity: 0; transition: opacity 0.25s ease; }
     .sm-feature.is-in .sm-feature-inner { opacity: 1; transition: opacity 0.45s ease 0.1s; }
+    /* The first ethos slide does not arrive — it is already on the photo,
+       fading in as the photo grows (the deck writes its opacity inline from the
+       grow progress, so the transition is off while that is happening). It sits
+       over the hero from the start, so it must never catch the hero's clicks. */
+    .sm-feature--first { pointer-events: none; }
+    .sm-feature--first.is-growing .sm-feature-inner { transition: none; }
     /* The shade over the hero photo. The deck drives its opacity per frame in
        step with the first text slide coming in, so the picture darkens as the
        words arrive rather than snapping dark on a slide boundary. */
@@ -335,16 +341,24 @@ const total = 7;
        anchored to it, so the pill's underside and the number's baseline sit on
        the same rule — before, each was pushed up by a share of its own height,
        and the pill being taller left it floating above the number. */
-    .sm-line-num, .sm-tag { position: absolute; bottom: 56%; z-index: 3; transition: opacity 0.3s ease; }
+    .sm-line-num, .sm-tag { position: absolute; bottom: 56%; z-index: 3; }
+    /* The pill itself never fades — only the word inside it does, and the
+       number beside it. So the pill is one fixed size for all three (the deck
+       measures the widest label at start and sets it) with the word centred. */
+    .sm-line-num, .sm-tag-text { transition: opacity 0.3s ease; }
+    .sm-tag { display: inline-flex; justify-content: center; text-align: center; }
+    .sm-hud { transition: opacity 0.35s ease; }
     /* 3px against the pill's 6px, not the same number: "01" has no descenders,
        so its glyphs stop about 3px above its box. Matching the boxes would sit
        the pill visibly low against a number that looks higher than it measures. */
     .sm-line-num { left: clamp(28px, 8vw, 140px); margin-bottom: 3px; font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.22em; color: var(--paper); text-shadow: 0 1px 12px rgba(0,0,0,0.4); }
     .sm-tag { left: clamp(28px, 18vw, 360px); margin-bottom: 6px; padding: 6px 16px; border-radius: 999px; background: var(--english-violet); color: var(--paper); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 6px 20px rgba(20,18,26,0.28); }
-    .sm-hud.is-swapping .sm-line-num, .sm-hud.is-swapping .sm-tag { opacity: 0; }
+    .sm-hud.is-swapping .sm-line-num, .sm-hud.is-swapping .sm-tag-text { opacity: 0; }
 
     /* title + body, below the line, set in from the left (left-of-centre) */
-    .sm-feature-inner { position: absolute; top: 49%; left: clamp(28px, 18vw, 360px); right: clamp(28px, 5vw, 96px); max-width: 1100px; z-index: 2; color: var(--paper); text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
+    /* Right edge pulled out (was 5vw/96px, capped at 1100px) so the first
+       slide's paragraph sits on three lines rather than four. */
+    .sm-feature-inner { position: absolute; top: 49%; left: clamp(28px, 18vw, 360px); right: clamp(28px, 3vw, 60px); max-width: none; z-index: 2; color: var(--paper); text-shadow: 0 2px 22px rgba(0,0,0,0.42); }
     /* Mirrors the videography intro's type — italic serif heading at 32px, body
        at 17px on a 1.5 line. The heading was 46px against that page's 32, and
        the body 19px against 17, which is why this section read louder than the
@@ -354,7 +368,11 @@ const total = 7;
        media agency that doesn't want you to go viral." onto two lines, and no
        size would have fixed that while the cap was there. */
     .sm-feature-h { font-family: var(--serif); font-weight: 500; font-size: clamp(22px, 2.4vw, 32px); line-height: 1.32; letter-spacing: -0.01em; color: var(--paper); margin: 0 0 20px; max-width: none; }
-    .sm-feature-body { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: rgba(240,238,235,0.92); max-width: 76ch; margin: 0 0 14px; }
+    /* 100ch puts the first slide's paragraph on three lines. Measured at 1440:
+       anything from 81ch to 119ch gives three, 76ch (the old cap) gave four, and
+       uncapped it collapsed to two — a 150-character line nobody wants to read.
+       The middle of that band, so a different screen does not tip it either way. */
+    .sm-feature-body { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: rgba(240,238,235,0.92); max-width: 100ch; margin: 0 0 14px; }
     .sm-feature-build { font-family: var(--serif); font-style: normal; font-size: clamp(19px, 1.9vw, 28px); color: var(--paper); margin: 8px 0 14px; }
     @media (prefers-reduced-motion: reduce) {
       .sm-feature, .sm-line-fill { transition: none; }
@@ -766,7 +784,10 @@ const total = 7;
       // paragraphs of one argument was a lot of scenery for one idea, so they
       // are words now, sliding in from the right over the hero the reader has
       // just zoomed into.
-      const ENTRY = [[0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]];
+      // Slide 2 has no entry on desktop: it is already on the photo, fading in as
+      // the photo grows, so there is nothing for it to slide in FROM. Phones hide
+      // the long photo and skip the grow, so there it still slides in (see render).
+      const ENTRY = [[0, 0], [0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       /* The shared HUD for slides 2-4. It does not move with the panels, so the
@@ -777,31 +798,53 @@ const total = 7;
       const hud = document.getElementById("sm-hud");
       const hudNum = document.getElementById("sm-hud-num");
       const hudTag = document.getElementById("sm-hud-tag");
+      const hudTagText = document.getElementById("sm-hud-tag-text");
       const hudFill = document.getElementById("sm-hud-fill");
       const HUD_STEPS = 3;
       const HUD = { 1: "Ethos", 2: "Industry", 3: "Action" };
       let hudStep = 0;
+      // The pill stays one size across all three, sized to the widest word
+      // ("Industry") so that only the word changes when the slide does, not the
+      // shape around it. Measured rather than guessed, so a renamed tag still fits.
+      const sizePill = () => {
+        if (!hud || !hudTag || !hudTagText) return;
+        // The HUD starts [hidden] (display:none), where offsetWidth reads 0 for
+        // everything — so it is shown invisibly for the length of the measurement.
+        const was = hudTagText.textContent, wasHidden = hud.hidden;
+        hud.hidden = false; hud.style.visibility = "hidden"; hudTag.style.minWidth = "";
+        let widest = 0;
+        Object.values(HUD).forEach((label) => { hudTagText.textContent = label; widest = Math.max(widest, hudTag.offsetWidth); });
+        hudTagText.textContent = was;
+        hud.style.visibility = ""; hud.hidden = wasHidden;
+        if (widest) hudTag.style.minWidth = widest + "px";
+      };
+      // Once now, and again when the webfont lands: measured in the fallback face
+      // the pill came out 98px, in Darker Grotesque 111px — so a slow connection
+      // would have set it from the wrong font and clipped "Industry".
+      sizePill();
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePill);
+      const paintHud = (step) => {
+        hudNum.textContent = String(step).padStart(2, "0");
+        hudTagText.textContent = HUD[step] || "";
+        hudFill.style.width = ((step / HUD_STEPS) * 100).toFixed(2) + "%";
+        hud.classList.remove("is-swapping");
+        hudStep = step;
+      };
       function syncHud(panel) {
         if (!hud) return;
         const isFeature = !!panel && panel.classList.contains("sm-feature");
-        hud.hidden = !isFeature;
-        if (!isFeature) { hudStep = 0; return; }
+        if (!isFeature) { hud.hidden = true; hud.style.opacity = ""; hudStep = 0; return; }
+        hud.hidden = false; hud.style.opacity = "";
         const step = Number(panel.style.getPropertyValue("--step")) || 1;
+        if (step === hudStep) return;
         // The fill tracks the step whether or not the words are mid-swap.
         hudFill.style.width = ((step / HUD_STEPS) * 100).toFixed(2) + "%";
-        if (step === hudStep) return;
-        const first = hudStep === 0;
-        hudStep = step;
-        const paint = () => {
-          hudNum.textContent = String(step).padStart(2, "0");
-          hudTag.textContent = HUD[step] || "";
-          hud.classList.remove("is-swapping");
-        };
         // Arriving from another section: paint straight away rather than
         // fading out something nobody has seen.
-        if (first) return paint();
+        if (hudStep === 0) return paintHud(step);
+        hudStep = step;
         hud.classList.add("is-swapping");
-        setTimeout(paint, 300);   // matches the opacity transition
+        setTimeout(() => paintHud(step), 300);   // matches the opacity transition
       }
 
       const SENS = 0.001;    // wheel → progress (slow + gradual: ~one slide per scroll)
@@ -859,13 +902,29 @@ const total = 7;
       };
 
       const heroShade = document.getElementById("sm-hero-shade");
+      const firstFeature = panels.find((p) => p.classList.contains("sm-feature--first"));
+      const firstInner = firstFeature && firstFeature.querySelector(".sm-feature-inner");
+      // How far through the grow the first words (and the shade, and the HUD)
+      // have come in. Nothing until the photo is over half way, then a fade
+      // across the rest — so the picture fills first and the line arrives into it.
+      const growIn = (p) => Math.max(0, Math.min(1, (p - 0.55) / 0.45));
       const render = () => {
-        // 0 while on the hero, 1 once the first text slide has fully arrived,
-        // and every value between as it slides — the photo dims with the words.
-        if (heroShade) heroShade.style.opacity = Math.max(0, Math.min(1, display)).toFixed(3);
+        const onHero = Math.round(display) === 0;
+        if (onHero && !isPhone()) {
+          const o = growIn(heroDisp);
+          if (heroShade) heroShade.style.opacity = o.toFixed(3);
+          if (firstFeature) { firstFeature.classList.add("is-growing"); if (firstInner) firstInner.style.opacity = o.toFixed(3); }
+          if (hud) { if (hudStep !== 1) paintHud(1); hud.hidden = o <= 0; hud.style.opacity = o.toFixed(3); }
+        } else {
+          // Past the grow: the class rules take over (slide 3 fading slide 2's
+          // words out as it arrives), and the shade stays fully in.
+          if (heroShade) heroShade.style.opacity = isPhone() ? "0" : "1";
+          if (firstFeature) { firstFeature.classList.remove("is-growing"); if (firstInner) firstInner.style.opacity = ""; }
+        }
         for (let i = 0; i < panels.length; i++) {
           const f = Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
-          const e = ENTRY[i] || [0, 0];
+          // Phones skip the grow, so slide 2 must still slide in there.
+          const e = (i === 1 && isPhone()) ? [1, 0] : (ENTRY[i] || [0, 0]);
           panels[i].style.transform = `translate(${(e[0] * f * 100).toFixed(3)}%, ${(e[1] * f * 100).toFixed(3)}%)`;
         }
         const cur = clamp(Math.round(display));
@@ -916,8 +975,21 @@ const total = 7;
         // once it's full does a further scroll advance the deck across. (Skipped
         // on phones — the long image is hidden, so scroll advances immediately.)
         if (!isPhone() && Math.round(anchor) === 0) {
-          if (d > 0 && heroP < 1) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+          if (d > 0 && heroP < 1) {
+            ev.preventDefault();
+            heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS));
+            // The photo filling the screen IS the arrival of slide 2 — its words
+            // have faded in with the grow — so the deck steps onto it here rather
+            // than asking for a second scroll to land on something already shown.
+            if (heroP >= 1) { anchor = 1; acc = 1; lockUntil = performance.now() + PAUSE; }
+            return;
+          }
           if (d < 0 && heroP > 0) { ev.preventDefault(); heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
+        }
+        // Scrolling back off slide 2 lands on the full photo with the words still
+        // on it; the next scroll up then shrinks the photo (the branch above).
+        if (!isPhone() && d < 0 && Math.round(anchor) === 1 && acc <= 1 && heroP >= 1) {
+          ev.preventDefault(); anchor = 0; acc = 0; lockUntil = performance.now() + PAUSE; return;
         }
         if (edgeBlocked(ev, d)) return;
         ev.preventDefault();
@@ -932,7 +1004,12 @@ const total = 7;
 
       // Slide-1 "Discover" button advances the deck to the next slide.
       stage.querySelectorAll("[data-deck-next]").forEach((b) =>
-        b.addEventListener("click", () => { acc = clamp(Math.round(anchor) + 1); }));
+        b.addEventListener("click", () => {
+          // From the hero, Discover means "show me": fill the photo and the first
+          // words come with it, the same as scrolling would.
+          if (!isPhone() && Math.round(anchor) === 0) heroP = 1;
+          acc = clamp(Math.round(anchor) + 1);
+        }));
 
       // touch — drag continuously (up/left advances); ignored inside the tiers box
       let tx = 0, ty = 0, tp = 0, thp = 0, tScroll = false;
