@@ -39,7 +39,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     </section>
 
     <!-- ===================== CONTACTS (the pipeline) ===================== -->
-    <section class="smm-panel is-active" data-panel="pipeline">
+    <section class="smm-panel wrap is-active" data-panel="pipeline">
       <div class="smm-panel-head">
         <div>
           <h2 class="smm-panel-title">Contacts</h2>
@@ -71,7 +71,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     </section>
 
     <!-- ===================== PACKAGES & PRICING (reference) ===================== -->
-    <section class="smm-panel" data-panel="rates" hidden>
+    <section class="smm-panel wrap" data-panel="rates" hidden>
       <div class="smm-panel-head">
         <div>
           <h2 class="smm-panel-title">Packages &amp; pricing</h2>
@@ -168,11 +168,17 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     /* The open cog menu must sit above the cards below it. */
     .admin-bar:has(#smm-cog-menu:not([hidden])) { z-index: 30; position: relative; }
     /* ---- Panels + toolbar (mirroring Videography) ---- */
-    .smm-panel { max-width: 1360px; margin: 0 auto; padding: 0 36px 40px; }
+    /* Videography's numbers exactly — same padding-bottom, same head, same
+       margins. Title and sub deliberately declare NOTHING but their margin:
+       hub-tokens.css already sets both for .vid-panel-title / .vid-panel-sub
+       and Social is named in those rules now, so there is one definition of
+       what a panel heading looks like rather than two that drifted to 30px
+       against 26px. */
+    .smm-panel { padding-bottom: 40px; }
     .smm-panel[hidden] { display: none; }
     .smm-panel-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-    .smm-panel-title { font-family: var(--serif); font-size: 30px; font-weight: 500; color: var(--ink); margin: 0; }
-    .smm-panel-sub { font-family: var(--sans); font-size: 14px; color: rgba(28,29,34,0.6); margin: 4px 0 0; max-width: 78ch; }
+    .smm-panel-title { margin: 0; }
+    .smm-panel-sub { margin: 4px 0 0; max-width: 78ch; }
     .smm-panel-sub code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 3px; }
 
     /* Settings cog — the same control Videography carries. */
@@ -184,7 +190,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       font-weight: 700; text-transform: uppercase; color: var(--ink); cursor: pointer;
       transition: border-color .15s, color .15s;
     }
-    .smm-cog svg { width: 15px; height: 15px; }
+    .smm-cog svg { width: 14px; height: 14px; flex: none; margin: -1px 0; }
     .smm-cog:hover { border-color: var(--english-violet); color: var(--english-violet); }
     .smm-cog-menu {
       position: absolute; right: 0; top: calc(100% + 6px); z-index: 400;
@@ -226,8 +232,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-bar { display: flex; flex-direction: column; gap: 12px; max-width: 1360px; margin: 0 auto; padding: 34px 36px 20px; }
     .smm-bar-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
     .smm-bar-actions { display: flex; align-items: center; gap: 12px; flex: none; }
-    .smm-filters { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 0; }
-    .smm-chip { height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+    .smm-filters { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; min-width: 0; margin: 0 0 18px; }
+    .smm-chip {
+      height: 32px; box-sizing: border-box; display: inline-flex; align-items: center; padding: 0 14px;
+      background: #fff; border: 1px solid var(--border, rgba(28,29,34,0.14)); border-radius: 999px;
+      font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7);
+      cursor: pointer; transition: background .15s, border-color .15s, color .15s;
+    }
     .smm-chip:hover { border-color: rgba(var(--violet-rgb),0.4); }
     .smm-chip.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     /* .ash-content.hub-skin prefix beats hub-tokens.css's ".hub-skin label{display:block}"
