@@ -4298,13 +4298,22 @@ export default {
          us, and a CRM contact carrying the interest tag. */
       if (path.endsWith("/smm/waitlist") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
-        const { first_name, last_name, business, email, phone, message, marketing_opt_in, turnstile_token, hp } = b || {};
+        const { business, email, phone, message, marketing_opt_in, turnstile_token, hp } = b || {};
         if (hp) return json({ ok: true }, 200, request, env);   // bot; look successful, save nothing
         const ip = request.headers.get("CF-Connecting-IP") || "";
         if (!(await verifyTurnstile(env, turnstile_token, ip))) return json({ error: "Spam check failed - please try again." }, 400, request, env);
-        if (!first_name || !last_name || !email)
-          return json({ error: "Please give us your name and email." }, 400, request, env);
-        const fullName = `${first_name} ${last_name}`.trim();
+
+        /* One "Full name" field on the form, because asking a waitlist to fill
+           two boxes for a name is friction for nothing. The lead table wants
+           the halves, so the last word is the surname and everything before it
+           is the first name — which handles "Anne Marie Smith" and leaves a
+           single-word name as a first name rather than inventing a surname. */
+        const rawName = String(b.full_name || `${b.first_name || ""} ${b.last_name || ""}`).trim().replace(/\s+/g, " ");
+        if (!rawName || !email) return json({ error: "Please give us your name and email." }, 400, request, env);
+        const nameBits = rawName.split(" ");
+        const first_name = nameBits.length > 1 ? nameBits.slice(0, -1).join(" ") : rawName;
+        const last_name = nameBits.length > 1 ? nameBits[nameBits.length - 1] : "";
+        const fullName = rawName;
         const source = ["website", "hub", "email"].includes(String(b.source || "")) ? b.source : "website";
         const SOURCE_LABEL = { website: "the website", hub: "the member hub", email: "an email link" };
 

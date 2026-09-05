@@ -4,6 +4,7 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
+import SMMForms from "../../components/SMMForms.astro";
 import { SOCIAL_SERVICES, SOCIAL_EXTRAS, PRICE_NOTE } from "../../lib/smm-config.js";
 import { gbpFromPence } from "../../lib/supabase.js";
 ---
@@ -72,7 +73,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
                   </ul>
                   {sv.note && <p class="soc-svc-note">{sv.note}</p>}
                   {!sv.openToNewClients && (
-                    <p class="soc-svc-wait">We&rsquo;re full on this one at the moment &mdash; tell us you&rsquo;re interested and we&rsquo;ll come to you when a space opens.</p>
+                    <p class="soc-svc-wait">We&rsquo;re not taking on new social media management clients right now. Join the waitlist and we&rsquo;ll be in touch when a space opens up.</p>
                   )}
                   <div class="soc-svc-foot">
                     <div class="soc-price">
@@ -80,7 +81,9 @@ import { gbpFromPence } from "../../lib/supabase.js";
                       <span class="soc-price-val">from {gbpFromPence(sv.from_pence)}</span>
                       <span class="soc-price-unit">+VAT / {sv.unit}</span>
                     </div>
-                    <a class="ws-btn ws-btn--primary" href={`/account/contact?from=${sv.key}`}>{sv.openToNewClients ? "Talk to us" : "Join the list"}</a>
+                    {sv.openToNewClients
+                      ? <a class="ws-btn ws-btn--primary" href={`/account/contact?from=${sv.key}`}>Talk to us</a>
+                      : <button type="button" class="ws-btn ws-btn--primary" data-smm-form="waitlist">Join the waitlist</button>}
                   </div>
                 </article>
               ))}
@@ -160,6 +163,16 @@ import { gbpFromPence } from "../../lib/supabase.js";
       </footer>
     </main>
   </div>
+
+  <!-- The site's own lead-capture modal, so the hub's waitlist form is the
+       same form people meet on the website rather than a second one built to
+       look like it. `source` tells the Worker which funnel this was. -->
+  <SMMForms />
+  <script>
+    // Same modal, different funnel. Set on the form so the Worker records where
+    // the sign-up came from — website, hub, or an email link later.
+    document.querySelector('[data-kind="waitlist"]')?.setAttribute("data-source", "hub");
+  </script>
 
   <style is:global>
     /* The wine the takeaways panel uses. The hub theme resolves
@@ -249,8 +262,13 @@ import { gbpFromPence } from "../../lib/supabase.js";
     .soc-svc-list li { position: relative; padding-left: 18px; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-ink); }
     .soc-svc-list li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--ws-accent); }
     .soc-svc-note { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-faint); margin: 0 0 16px; }
-    /* Said plainly rather than left for someone to find out after enquiring. */
-    .soc-svc-wait { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-ink); margin: 0 0 16px; padding: 10px 12px; border: 1px solid var(--ws-line); border-left: 3px solid var(--ws-accent); border-radius: var(--ws-r); background: #fff; }
+    /* Said plainly rather than left for someone to find out after enquiring,
+       and in the wine so it is the thing the eye lands on in that card. */
+    .soc-svc-wait {
+      font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.55;
+      color: var(--paper); margin: 0 0 16px; padding: 12px 14px;
+      border-radius: var(--ws-r); background: rgb(var(--violet-rgb, 55,30,40));
+    }
     /* Pinned, so the two cards' buttons line up however long the lists are. */
     .soc-svc-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--ws-line); display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
     .soc-price { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }

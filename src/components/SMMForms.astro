@@ -71,6 +71,32 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
       <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
     </form>
 
+    <!-- ===== Join the Social Media Management waitlist ===== -->
+    <!-- No account step. Someone asking to be told when a space opens should
+         not be made to make an account first; the enquiry and brochure forms
+         earn theirs by giving something back. -->
+    <form class="smf-form" data-smf-pane="waitlist" data-kind="waitlist" data-endpoint="/smm/waitlist" novalidate hidden>
+      <p class="smf-eyebrow">TMKE &mdash; Social Media</p>
+      <h2 class="smf-title">Join the waitlist.</h2>
+      <p class="smf-lead">We&rsquo;re not taking on new social media management clients right now. Leave your details and we&rsquo;ll be in touch when a space opens up.</p>
+
+      <label class="smf-field">Full name <span>*</span><input name="full_name" required autocomplete="name" /></label>
+      <label class="smf-field">Business name <span>*</span><input name="business" required autocomplete="organization" /></label>
+      <div class="smf-row2">
+        <label class="smf-field">Email <span>*</span><input type="email" name="email" required autocomplete="email" /></label>
+        <label class="smf-field">Telephone<input type="tel" name="phone" autocomplete="tel" /></label>
+      </div>
+
+      <label class="smf-check"><input type="checkbox" name="optin" /> <span>Sign me up to the TMKE newsletter and marketing emails</span></label>
+
+      <div class="smf-hp" aria-hidden="true"><label>Leave this field blank<input type="text" name="hp" tabindex="-1" autocomplete="off" /></label></div>
+
+      <div class="smf-turnstile"></div>
+      <p class="smf-error" hidden></p>
+      <button type="submit" class="smf-submit">Join the waitlist <span aria-hidden="true">&rarr;</span></button>
+      <p class="smf-privacy">By submitting this form you agree to our <a href={PRIVACY_URL}>Privacy Policy</a>.</p>
+    </form>
+
     <!-- ===== Download a Brochure ===== -->
     <form class="smf-form" data-smf-pane="brochure" data-kind="brochure" data-endpoint="/smm/brochure" novalidate hidden>
       <p class="smf-eyebrow">TMKE — Social Media</p>
@@ -414,6 +440,10 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
           ? "We've emailed your confirmation with a calendar invite, and created your TMKE account — sign in any time at tmke.co.uk/login."
           : "We've emailed your confirmation with a calendar invite. See you then.";
         action.hidden = true;
+      } else if (kind === "waitlist") {
+        title.textContent = "You're on the list";
+        msg.textContent = "We'll be in touch the moment a space opens up. In the meantime, our Social Media Marketing service does have space — check your inbox, we've mentioned it there.";
+        action.hidden = true;
       } else {
         title.textContent = "Thanks — message received";
         msg.textContent = data && data.account_created
@@ -624,6 +654,15 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
           return runBrochureCheck(form, submitBtn, emailv);
         }
 
+        // The waitlist has one step: details in, done. Nothing to reveal, no
+        // password, so it validates and sends in the same submit.
+        if (kind === "waitlist") {
+          const emailv = String(fd.get("email") || "").trim();
+          if (!String(fd.get("full_name") || "").trim()) return showErr(form, "Please add your name.");
+          if (!String(fd.get("business") || "").trim()) return showErr(form, "Please add your business name.");
+          if (!/.+@.+\..+/.test(emailv)) return showErr(form, "Please add a valid email.");
+        }
+
         // STEP 1 → validate the details, then move to the account/confirm step
         // (which decides signed-in / sign-in / create-account by the email).
         if ((kind === "discovery" || kind === "contact") && submitBtn.dataset.stage === "details") {
@@ -665,6 +704,8 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
             ? { first_name: fd.get("first_name"), last_name: fd.get("last_name"), business: fd.get("business"), email: fd.get("email"), phone: fd.get("phone"), message: fd.get("message") }
             : kind === "discovery"
             ? { first_name: fd.get("first_name"), last_name: fd.get("last_name"), business: fd.get("business"), email: fd.get("email"), phone: fd.get("phone"), date: fd.get("date"), start: fd.get("start"), duration: fd.get("duration") || "30" }
+            : kind === "waitlist"
+            ? { full_name: fd.get("full_name"), business: fd.get("business"), email: fd.get("email"), phone: fd.get("phone"), source: form.dataset.source || "website" }
             : { full_name: fd.get("full_name"), email: fd.get("email") };
           payload.password = pwv || undefined;
           payload.marketing_opt_in = !!fd.get("optin");
