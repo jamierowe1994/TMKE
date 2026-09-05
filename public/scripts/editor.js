@@ -9460,6 +9460,63 @@
   // Same as above, but returns BOTH preview assets (full-res PNG + light JPEG)
   // from a single pass — used by the admin "Regenerate previews" tool to backfill
   // render_url + thumb_url across every template without re-opening each design.
+  // Studio "Brand inspo": render a template as it would look in the member's
+  // brand kit — logo into the logo slot, the kit's colours in place of the
+  // design's own, the kit's fonts by serif/sans — without anyone opening it.
+  // Driven over postMessage from a hidden editor iframe on the Studio page
+  // (see the listener below): the template never leaves this editor's state,
+  // and the member gets an image back, not a file.
+  function applyKitToCurrentPage() {
+    fillTemplateLogos();
+    const kitCols = (BRAND && Array.isArray(BRAND.colors) ? BRAND.colors : [])
+      .map(function (c) { return normHexSafe(c && (c.hex || c)); }).filter(Boolean);
+    if (kitCols.length) {
+      // Whites and near-blacks are canvas and ink, not brand; leave them be.
+      const neutral = function (hex) {
+        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        return (max - min) < 18 && (max > 235 || max < 40);
+      };
+      designColours().filter(function (c) { return !neutral(c.hex); }).forEach(function (c, i) {
+        const to = kitCols[i % kitCols.length];
+        if (to && to !== c.hex) recolourDesign(c.hex, to);
+      });
+    }
+    const kitSerif = BRAND && BRAND.fonts && BRAND.fonts.heading;
+    const kitSans = BRAND && BRAND.fonts && BRAND.fonts.body;
+    designFonts().forEach(function (f) {
+      const to = f.serif ? kitSerif : kitSans;
+      if (to && to !== f.name) refontDesign(f.name, to);
+    });
+  }
+  window.__TMKE_RENDER_BRANDED__ = async function (canvasObj, elementsArr) {
+    const savePages = state.pages, saveCur = state.currentPage;
+    try {
+      // The logo goes in as an image; give it a moment to load before drawing.
+      const logo = brandLogoSrc();
+      if (logo) await new Promise(function (r) { const im = new Image(); im.onload = im.onerror = r; im.src = logo; setTimeout(r, 2500); });
+      state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
+      state.currentPage = 0;
+      applyKitToCurrentPage();
+      await new Promise(function (r) { setTimeout(r, 250); });
+      return await _renderThumbDataUrl();
+    } catch (_) {
+      return null;
+    } finally {
+      state.pages = savePages; state.currentPage = saveCur;
+      fullRender();
+    }
+  };
+  if (window.parent && window.parent !== window) {
+    window.addEventListener("message", async function (e) {
+      const d = e.data || {};
+      if (e.origin !== location.origin || d.type !== "tmke-render-branded") return;
+      const thumb = await window.__TMKE_RENDER_BRANDED__(d.canvas, d.elements);
+      try { e.source.postMessage({ type: "tmke-rendered-branded", id: d.id, thumb: thumb }, e.origin); } catch (_) {}
+    });
+    try { window.parent.postMessage({ type: "tmke-editor-ready" }, location.origin); } catch (_) {}
+  }
+
   window.__TMKE_RENDER_PAIR_FROM__ = async function (canvasObj, elementsArr) {
     const savePages = state.pages, saveCur = state.currentPage;
     try {

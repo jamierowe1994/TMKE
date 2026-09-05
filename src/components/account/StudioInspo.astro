@@ -3,11 +3,14 @@
 //
 //   trending  "See what's working"  — the current Trending month, five topics
 //                                     stepped through like a carousel.
-//   seasonal  "Seasonal moments"    — the pack for this time of year, with its
-//                                     cover, contents, price and a Buy button.
-//   brand     "Brand inspo"         — our templates shown in the member's own
-//                                     brand kit. Previews only; buying the pack
-//                                     is what opens them.
+//   seasonal  "Seasonal moments"    — the pack for this time of year, laid out
+//                                     the way the website's pack page is: hero
+//                                     image with switchable thumbnails, the
+//                                     open previews, the locked teasers, Buy.
+//   brand     "Brand inspo"         — our templates rendered in the member's
+//                                     own brand kit by a hidden editor iframe.
+//                                     Previews only; buying the pack is what
+//                                     opens them.
 //
 // "Content ideas" is deliberately not a view: 48 ideas is a read, so that card
 // links to the guide instead. Everything here keeps the member on the Studio
@@ -31,7 +34,9 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
       </div>
       <button type="button" class="si-x" data-si-close aria-label="Close">&times;</button>
     </header>
-    <div class="si-body" id="si-body"><p class="si-loading">Loading&hellip;</p></div>
+    <!-- data-lenis-prevent: the hub's smooth scroll otherwise eats the wheel
+         and scrolls the page behind the pop-out instead of the pop-out. -->
+    <div class="si-body" id="si-body" data-lenis-prevent><p class="si-loading">Loading&hellip;</p></div>
   </section>
 </div>
 
@@ -55,42 +60,54 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   .si-title { margin: 0; font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2vw, 28px); letter-spacing: -0.015em; color: var(--ws-ink, #1c1d22); }
   .si-x { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: 50%; background: #fff; color: var(--ws-ink, #1c1d22); font-size: 20px; line-height: 1; cursor: pointer; }
   .si-x:hover { border-color: var(--ws-accent, #4a2a3c); color: var(--ws-accent, #4a2a3c); }
-  .si-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 26px; }
+  .si-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 26px; }
   .si-loading, .si-note { font-family: var(--sans); font-size: var(--ws-t-body, 13px); color: var(--ws-faint, rgba(28,29,34,0.5)); margin: 0; }
   .si-note { margin-top: 18px; }
-  .si-btn { display: inline-flex; align-items: center; gap: 8px; height: var(--ws-btn-h, 30px); padding: 0 16px; border-radius: var(--ws-r, 4px); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; cursor: pointer; border: 1px solid transparent; }
+  .si-btn { display: inline-flex; align-items: center; gap: 8px; height: var(--ws-btn-h, 30px); padding: 0 16px; border-radius: var(--ws-r, 4px); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; cursor: pointer; border: 1px solid transparent; white-space: nowrap; }
   .si-btn--primary { background: var(--ws-accent, #4a2a3c); color: #fff; }
   .si-btn--ghost { background: #fff; color: var(--ws-ink, #1c1d22); border-color: var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-btn[disabled] { opacity: 0.4; cursor: default; }
   .si-empty { max-width: 46ch; margin: 40px auto; text-align: center; }
   .si-empty h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; margin: 0 0 10px; color: var(--ws-ink, #1c1d22); }
   .si-empty p { font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; }
+  .si-label { margin: 0 0 6px; font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent, #4a2a3c); }
 
-  /* ---- trending: one topic per screen ---- */
+  /* ---- trending: one topic per screen. The copy column is as tall as the
+     image; the tip sits on its floor, so both columns start and finish on the
+     same lines and the space between the sections is what gives. ---- */
   .si-trend { display: flex; flex-direction: column; height: 100%; }
-  .si-slide { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 32px; align-items: start; }
-  .si-copy { display: flex; flex-direction: column; gap: 16px; }
-  .si-topic-no { font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent, #4a2a3c); margin: 0; }
-  .si-topic-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0; }
-  .si-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; padding: 12px 0; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-bottom: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-slide { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 36px; align-items: stretch; }
+  .si-copy { display: flex; flex-direction: column; gap: 0; min-height: 0; }
+  .si-topic-no { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent, #4a2a3c); margin: 0 0 8px; }
+  .si-topic-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 14px; }
+  .si-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; padding: 9px 0; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-bottom: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-facts div { padding: 0 14px 0 0; }
-  .si-facts dt { font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5)); margin: 0 0 3px; }
+  .si-facts dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5)); margin: 0 0 1px; }
   .si-facts dd { font-family: var(--sans); font-size: var(--ws-t-body, 13px); font-weight: 600; color: var(--ws-ink, #1c1d22); margin: 0; }
-  .si-about { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.65; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0; }
-  .si-tip { padding: 14px 16px; border-radius: var(--ws-r, 4px); background: var(--ws-accent, #4a2a3c); color: #fff; }
-  .si-tip strong { display: block; font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.8; margin-bottom: 6px; }
+  .si-sections { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 14px; padding: 8px 0; }
+  .si-sec p { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0; }
+  .si-tip { flex: 0 0 auto; padding: 14px 16px; border-radius: var(--ws-r, 4px); background: var(--ws-accent, #4a2a3c); color: #fff; }
+  .si-tip strong { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.8; margin-bottom: 5px; }
   .si-tip p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.6; }
-  .si-media { position: relative; aspect-ratio: 4 / 5; max-height: 100%; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); justify-self: end; width: 100%; max-width: 440px; }
+  .si-media { position: relative; aspect-ratio: 4 / 5; height: 100%; max-height: 100%; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); justify-self: end; }
   .si-media img, .si-media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
   .si-media-empty { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--sans); font-size: var(--ws-t-body, 13px); color: var(--ws-faint, rgba(28,29,34,0.5)); text-align: center; padding: 20px; }
-  .si-nav { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 18px; margin-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-nav { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; margin-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-dots { display: flex; gap: 8px; }
   .si-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(28,29,34,0.18); border: 0; padding: 0; cursor: pointer; }
   .si-dot.is-on { background: var(--ws-accent, #4a2a3c); }
   .si-sample { display: inline-block; margin-left: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(227,160,8,0.16); color: #7a5300; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: middle; }
 
-  /* ---- seasonal: the pack ---- */
-  .si-pack { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 32px; align-items: start; }
-  .si-pack-cover { aspect-ratio: 4 / 5; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1 center/cover no-repeat; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  /* ---- seasonal: the pack, the way the website shows one ---- */
+  .si-pack { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 32px; align-items: start; }
+  .si-pack-hero { aspect-ratio: 4 / 5; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-pack-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .si-pack-thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; }
+  .si-pack-thumbs::-webkit-scrollbar { display: none; }
+  .si-pack-thumb { flex: 0 0 64px; aspect-ratio: 4 / 5; border-radius: 3px; overflow: hidden; border: 2px solid transparent; padding: 0; background: #e6e3e1; cursor: pointer; opacity: 0.7; transition: opacity 0.2s, border-color 0.2s; }
+  .si-pack-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .si-pack-thumb:hover { opacity: 1; }
+  .si-pack-thumb.is-active { opacity: 1; border-color: var(--ws-accent, #4a2a3c); }
   .si-pack-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 12px; }
   .si-pack-p { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.65; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; }
   .si-pack-list { list-style: none; margin: 0 0 22px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
@@ -99,34 +116,47 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   .si-pack-foot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-price { font-family: var(--serif); font-size: 26px; font-weight: 600; color: var(--ws-ink, #1c1d22); }
   .si-price small { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 400; color: var(--ws-tx, rgba(28,29,34,0.72)); margin-left: 6px; }
-  .si-previews { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
-  .si-previews div { aspect-ratio: 4 / 5; border-radius: var(--ws-r, 4px); background: #e6e3e1 center/cover no-repeat; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-inside { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-inside-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+  .si-inside-head h3 { font-family: var(--serif); font-weight: 400; font-size: 22px; letter-spacing: -0.01em; color: var(--ws-ink, #1c1d22); margin: 0; }
+  .si-inside-head p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body, 13px); color: var(--ws-faint, rgba(28,29,34,0.5)); }
+  .si-tpl-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .si-tplc { position: relative; margin: 0; border-radius: 3px; overflow: hidden; background: rgba(28,29,34,0.05); border: 1px solid #fff; box-shadow: 0 1px 8px -5px rgba(28,29,34,0.2); }
+  .si-tplc img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
+  .si-tplc figcaption { padding: 7px 9px 9px; background: var(--paper, #f4f2f1); display: flex; flex-direction: column; gap: 1px; }
+  .si-tplc-cat { font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ws-accent, #4a2a3c); }
+  .si-tplc-name { font-family: var(--sans); font-weight: 700; font-size: 12px; line-height: 1.3; color: var(--ws-ink, #1c1d22); }
+  .si-tplc--locked img { filter: blur(14px) saturate(0.7); transform: scale(1.08); }
+  .si-tplc--locked::before { content: ""; position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 3 / 4; background: rgba(28,29,34,0.5); pointer-events: none; }
+  .si-tplc-lock { position: absolute; top: 10px; right: 10px; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(28,29,34,0.78); color: var(--paper, #f4f2f1); backdrop-filter: blur(8px); }
+  .si-tplc-lock svg { width: 16px; height: 16px; }
+  .si-tplc--locked .si-tplc-name { color: rgba(28,29,34,0.5); }
 
-  /* ---- brand: our templates, their kit ---- */
+  /* ---- brand: our templates rendered in their kit ---- */
   .si-kit { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 22px; background: #fff; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px); }
+  .si-kit-logo { height: 28px; max-width: 120px; object-fit: contain; }
   .si-kit-name { font-family: var(--serif); font-size: 18px; color: var(--ws-ink, #1c1d22); }
   .si-kit-sw { display: flex; gap: 6px; }
   .si-kit-sw span { width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.12); }
   .si-kit-fonts { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); color: var(--ws-tx, rgba(28,29,34,0.72)); }
-  .si-kit a { margin-left: auto; }
+  .si-kit .si-btn { margin-left: auto; }
   .si-tpls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-  .si-tpl { position: relative; border-radius: var(--ws-r, 4px); overflow: hidden; border: 3px solid var(--si-c1, #4a2a3c); background: #e6e3e1; aspect-ratio: 4 / 5; }
-  .si-tpl-img { position: absolute; inset: 0; background: center/cover no-repeat; }
-  .si-tpl-tint { position: absolute; inset: 0; background: linear-gradient(to top, var(--si-c1, #4a2a3c) 0%, transparent 55%); opacity: 0.85; }
-  .si-tpl-band { position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 12px 10px; display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; color: #fff; }
-  .si-tpl-band strong { font-family: var(--serif); font-weight: 400; font-size: 15px; letter-spacing: 0.02em; line-height: 1.1; }
-  .si-tpl-band em { font-family: var(--sans); font-style: normal; font-size: 10px; opacity: 0.8; display: block; margin-top: 3px; }
-  .si-tpl-sw { display: flex; gap: 4px; }
-  .si-tpl-sw span { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5); }
-  .si-tpl-tag { position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.92); color: var(--ws-ink, #1c1d22); font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .si-tpl { position: relative; margin: 0; border-radius: 3px; overflow: hidden; background: #e6e3e1; border: 1px solid #fff; box-shadow: 0 1px 8px -5px rgba(28,29,34,0.2); }
+  .si-tpl img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; transition: opacity 0.4s; }
+  .si-tpl.is-rendering img { opacity: 0.35; filter: saturate(0.4); }
+  .si-tpl-wait { position: absolute; left: 0; right: 0; top: 0; aspect-ratio: 3 / 4; display: grid; place-items: center; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-ink, #1c1d22); pointer-events: none; }
+  .si-tpl:not(.is-rendering) .si-tpl-wait { display: none; }
+  .si-tpl figcaption { padding: 7px 9px 9px; background: var(--paper, #f4f2f1); display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .si-tpl-tag { position: absolute; top: 10px; left: 10px; z-index: 2; padding: 3px 8px; border-radius: 999px; background: rgba(255,255,255,0.92); color: var(--ws-ink, #1c1d22); font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .si-render-frame { position: fixed; width: 1200px; height: 900px; left: -3000px; top: 0; opacity: 0; pointer-events: none; border: 0; }
 
   @media (max-width: 860px) {
     .si { padding: 0; }
     .si-panel { height: 100%; border-radius: 0; }
     .si-slide, .si-pack { grid-template-columns: 1fr; }
-    .si-media { max-width: none; justify-self: stretch; }
-    .si-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 0; }
-    .si-previews { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .si-media { height: auto; width: 100%; justify-self: stretch; }
+    .si-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 0; }
+    .si-tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .si-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>
@@ -142,6 +172,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const gbp = (p) => "£" + (Math.round((p || 0) / 100)).toLocaleString("en-GB");
   const monthLabel = (m) => { const d = new Date(String(m || "").slice(0, 10) + "T00:00:00"); return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { month: "long", year: "numeric" }); };
+  const LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
   let openKind = null;
   let onKey = null;
@@ -150,6 +181,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     openKind = kind;
     root.hidden = false;
     document.body.style.overflow = "hidden";
+    body.scrollTop = 0;
     body.innerHTML = '<p class="si-loading">Loading&hellip;</p>';
     ({ trending, seasonal, brand })[kind]?.();
   }
@@ -193,6 +225,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
         : `<img src="${esc(t.media_url)}" alt="">`;
     };
     const fact = (label, v) => v ? `<div><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
+    const sec = (label, v) => v ? `<div class="si-sec"><p class="si-label">${label}</p><p>${esc(v)}</p></div>` : "";
 
     function paint() {
       const t = topics[i];
@@ -203,7 +236,10 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
               <p class="si-topic-no">${String(i + 1).padStart(2, "0")} / ${String(topics.length).padStart(2, "0")}</p>
               <h3 class="si-topic-h">${esc(t.title || "Untitled")}</h3>
               <dl class="si-facts">${fact("Format", t.format)}${fact("Platform", t.platform)}${fact("Length", t.length)}${fact("Effort", t.effort)}</dl>
-              ${t.about ? `<p class="si-about">${esc(t.about)}</p>` : ""}
+              <div class="si-sections">
+                ${sec("What is it", t.what)}
+                ${sec("Why it works", t.about)}
+              </div>
               ${t.tip ? `<div class="si-tip"><strong>TMKE tip</strong><p>${esc(t.tip)}</p></div>` : ""}
             </div>
             <div class="si-media">${media(t)}</div>
@@ -229,26 +265,25 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   }
 
   /* ---------------- seasonal ---------------- */
+  const PACK_COLS = "id, slug, title, description, contents, cover_image_url, preview_images, preview_reveal_count, price_pence, category, status";
   async function seasonal() {
     eyebrow.textContent = "Seasonal moments";
     title.textContent = "In season";
-    let pack = null, owned = false;
+    let pack = null, owned = false, tpls = [];
     try {
       const { data: { session } } = await supabase.auth.getSession();
       // The newest active pack filed under "In Season" — the category the pack
       // editor already has. Flick the category and this card follows.
-      let q = supabase.from("packs").select("id, slug, title, description, contents, cover_image_url, preview_images, price_pence, category, status")
-        .eq("status", "active").eq("category", "In Season").order("created_at", { ascending: false }).limit(1);
-      let { data } = await q.maybeSingle();
-      if (!data) {
-        const r = await supabase.from("packs").select("id, slug, title, description, contents, cover_image_url, preview_images, price_pence, category, status").eq("status", "active").order("created_at", { ascending: false }).limit(1).maybeSingle();
-        data = r.data;
-      }
+      let { data } = await supabase.from("packs").select(PACK_COLS).eq("status", "active").eq("category", "In Season").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!data) ({ data } = await supabase.from("packs").select(PACK_COLS).eq("status", "active").order("created_at", { ascending: false }).limit(1).maybeSingle());
       pack = data || null;
-      if (pack && session) {
-        const email = session.user.email || "";
-        const { data: orders } = await supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`);
-        owned = (orders || []).some((o) => o.status === "paid" && o.pack_id === pack.id);
+      if (pack) {
+        const [{ data: t }, ordersRes] = await Promise.all([
+          supabase.from("templates").select("id, name, category, thumb_url, render_url, sort_order").eq("pack_id", pack.id).eq("status", "active").order("sort_order", { ascending: true }),
+          session ? supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.eq.${session.user.email || ""}`) : Promise.resolve({ data: [] }),
+        ]);
+        tpls = t || [];
+        owned = (ordersRes.data || []).some((o) => o.status === "paid" && o.pack_id === pack.id);
       }
     } catch (_) { pack = null; }
 
@@ -256,69 +291,152 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
       body.innerHTML = `<div class="si-empty"><h3>Nothing in season just yet</h3><p>The seasonal pack appears here the moment it goes live in The Edit.</p><a class="si-btn si-btn--primary" href="/edit">Browse the packs &rarr;</a></div>`;
       return;
     }
+    // Same rules as the website's pack page: the hover gallery is the hero
+    // strip when there is one, the cover otherwise; N open previews then up
+    // to six locked, blurred teasers.
+    const gallery = (Array.isArray(pack.preview_images) ? pack.preview_images : []).filter((u) => typeof u === "string" && u.trim());
+    const coverSrc = pack.cover_image_url || (tpls[0] && (tpls[0].render_url || tpls[0].thumb_url)) || "";
+    const hero = gallery.length ? gallery : (coverSrc ? [coverSrc] : []);
+    const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 6));
+    const openTpls = tpls.slice(0, reveal);
+    const lockedAll = tpls.slice(reveal);
+    const lockedTpls = lockedAll.slice(0, 6);
     const contents = Array.isArray(pack.contents) ? pack.contents : [];
-    const previews = Array.isArray(pack.preview_images) ? pack.preview_images.slice(0, 6) : [];
+    const img = (t) => t.thumb_url || t.render_url || "";
+
     title.textContent = pack.title;
     body.innerHTML = `
       <div class="si-pack">
-        <div class="si-pack-cover" style="${pack.cover_image_url ? `background-image:url('${esc(pack.cover_image_url)}')` : ""}"></div>
         <div>
+          <div class="si-pack-hero">${hero[0] ? `<img id="si-hero-img" src="${esc(hero[0])}" alt="${esc(pack.title)}">` : ""}</div>
+          ${hero.length > 1 ? `<div class="si-pack-thumbs">${hero.map((u, k) => `<button type="button" class="si-pack-thumb ${k === 0 ? "is-active" : ""}" data-hero="${esc(u)}" aria-label="Show image ${k + 1}"><img src="${esc(u)}" alt=""></button>`).join("")}</div>` : ""}
+        </div>
+        <div>
+          <p class="si-label">${esc(pack.category || "Pack")}</p>
           <h3 class="si-pack-h">${esc(pack.title)}</h3>
           ${pack.description ? `<p class="si-pack-p">${esc(pack.description)}</p>` : ""}
           ${contents.length ? `<ul class="si-pack-list">${contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
           <div class="si-pack-foot">
             ${owned
               ? `<a class="si-btn si-btn--primary" href="/account/editor?pack=${encodeURIComponent(pack.id)}">Open in the Studio &rarr;</a><span class="si-note" style="margin:0">You own this pack.</span>`
-              : `<span class="si-price">${gbp(pack.price_pence)}<small>+VAT</small></span><a class="si-btn si-btn--primary" href="/edit?buy=${encodeURIComponent(pack.id)}">Buy this pack &rarr;</a><a class="si-btn si-btn--ghost" href="/edit">See all packs</a>`}
+              : `<span class="si-price">${gbp(pack.price_pence)}<small>+VAT</small></span><a class="si-btn si-btn--primary" href="/edit?buy=${encodeURIComponent(pack.id)}">Buy this pack &rarr;</a><a class="si-btn si-btn--ghost" href="/edit/${encodeURIComponent(pack.slug)}">See it on the website</a>`}
           </div>
         </div>
-        ${previews.length ? `<div class="si-previews">${previews.map((u) => `<div style="background-image:url('${esc(u)}')"></div>`).join("")}</div>` : ""}
-      </div>`;
+      </div>
+      ${tpls.length ? `
+      <div class="si-inside">
+        <div class="si-inside-head">
+          <h3>${tpls.length} editable template${tpls.length === 1 ? "" : "s"}</h3>
+          <p>${lockedAll.length ? `Showing ${openTpls.length} previews · ${lockedAll.length} more unlock when you buy.` : `All ${tpls.length} templates included.`}</p>
+        </div>
+        <div class="si-tpl-grid">
+          ${openTpls.map((t) => `<figure class="si-tplc">${img(t) ? `<img src="${esc(img(t))}" alt="${esc(t.name)}" loading="lazy">` : ""}<figcaption>${t.category ? `<span class="si-tplc-cat">${esc(t.category)}</span>` : ""}<span class="si-tplc-name">${esc(t.name)}</span></figcaption></figure>`).join("")}
+          ${lockedTpls.map((t) => `<figure class="si-tplc si-tplc--locked" aria-label="Locked — buy the pack to unlock">${img(t) ? `<img src="${esc(img(t))}" alt="" loading="lazy">` : ""}<span class="si-tplc-lock">${LOCK}</span><figcaption>${t.category ? `<span class="si-tplc-cat">${esc(t.category)}</span>` : ""}<span class="si-tplc-name">Locked</span></figcaption></figure>`).join("")}
+        </div>
+      </div>` : ""}`;
+
+    const heroImg = document.getElementById("si-hero-img");
+    body.querySelectorAll(".si-pack-thumb").forEach((b) => b.addEventListener("click", () => {
+      if (heroImg) heroImg.src = b.dataset.hero;
+      body.querySelectorAll(".si-pack-thumb").forEach((x) => x.classList.toggle("is-active", x === b));
+    }));
   }
 
   /* ---------------- brand ---------------- */
+  // The kit as the editor stores it: colours may be strings or {hex, name}.
+  function readKit() {
+    let kit = null;
+    try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+    if (!kit) return null;
+    const colors = (Array.isArray(kit.colors) ? kit.colors : []).map((c) => (c && typeof c === "object" ? c.hex : c)).filter((c) => typeof c === "string" && /^#?[0-9a-f]{3,8}$/i.test(c)).map((c) => (c.startsWith("#") ? c : "#" + c));
+    const logos = Array.isArray(kit.logos) ? kit.logos.filter((l) => l && l.src) : [];
+    const logo = (logos.find((l) => l.primary) || logos[0] || {}).src || "";
+    return { company: kit.company || "", colors, fonts: kit.fonts || {}, logo };
+  }
+
+  // A hidden copy of the editor does the rendering: it already knows how to
+  // put the logo in the logo slot, swap the design's colours for the kit's
+  // and set the kit's fonts, and how to draw the result. We hand it each
+  // template's JSON and get an image back. If it never answers (signed out,
+  // slow network) the tile keeps the template's own thumbnail.
+  let frame = null, frameReady = null;
+  function renderer() {
+    if (frameReady) return frameReady;
+    frameReady = new Promise((resolve) => {
+      frame = document.createElement("iframe");
+      frame.className = "si-render-frame";
+      frame.setAttribute("aria-hidden", "true");
+      frame.tabIndex = -1;
+      const onMsg = (e) => { if (e.origin === location.origin && e.data?.type === "tmke-editor-ready") { window.removeEventListener("message", onMsg); resolve(frame); } };
+      window.addEventListener("message", onMsg);
+      frame.src = "/account/editor?mode=render";
+      document.body.appendChild(frame);
+      setTimeout(() => { window.removeEventListener("message", onMsg); resolve(null); }, 10000);
+    });
+    return frameReady;
+  }
+  let seq = 0;
+  function renderBranded(t) {
+    return new Promise(async (resolve) => {
+      const f = await renderer();
+      if (!f || !f.contentWindow) return resolve(null);
+      const id = "r" + (++seq);
+      const onMsg = (e) => { if (e.origin === location.origin && e.data?.type === "tmke-rendered-branded" && e.data.id === id) { window.removeEventListener("message", onMsg); resolve(e.data.thumb || null); } };
+      window.addEventListener("message", onMsg);
+      f.contentWindow.postMessage({ type: "tmke-render-branded", id, canvas: t.canvas, elements: t.elements }, location.origin);
+      setTimeout(() => { window.removeEventListener("message", onMsg); resolve(null); }, 20000);
+    });
+  }
+
   async function brand() {
     eyebrow.textContent = "Brand inspo";
     title.textContent = "Our templates, your brand";
-    let kit = null;
-    try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
-    const colors = (kit && Array.isArray(kit.colors) ? kit.colors : []).filter(Boolean);
-    if (!kit || !colors.length) {
+    const kit = readKit();
+    if (!kit || (!kit.colors.length && !kit.logo)) {
       body.innerHTML = `<div class="si-empty"><h3>Set up your brand kit first</h3><p>Add your colours, fonts and logo once, and this space shows our templates the way they'd look as yours.</p><a class="si-btn si-btn--primary" href="/account/profile">Set up your brand kit &rarr;</a></div>`;
       return;
     }
-    // Two templates per pack, from the live templates table when it has
-    // them; the library stills otherwise, so the shell is never empty.
+    // Two templates per pack, with their design JSON so the editor can
+    // re-render them; the library stills otherwise, so the shell is never empty.
     let tpls = [];
     try {
-      const { data } = await supabase.from("templates").select("id, name, thumb_url, pack_id").eq("status", "active").order("sort_order", { ascending: true }).limit(60);
+      const { data } = await supabase.from("templates").select("id, name, thumb_url, pack_id, canvas, elements").eq("status", "active").order("sort_order", { ascending: true }).limit(80);
       const perPack = {};
       (data || []).forEach((t) => { if (!t.thumb_url) return; const k = t.pack_id || "none"; (perPack[k] = perPack[k] || []); if (perPack[k].length < 2) perPack[k].push(t); });
       tpls = Object.values(perPack).flat().slice(0, 8);
     } catch (_) {}
+    const canRender = tpls.length > 0;
     if (!tpls.length) tpls = (DATA.thumbs || []).map((u, i) => ({ id: "s" + i, name: "Template", thumb_url: u }));
 
     const heading = kit.fonts?.heading || "", bodyFont = kit.fonts?.body || "";
-    const company = kit.company || "Your agency";
     body.innerHTML = `
       <div class="si-kit">
-        <span class="si-kit-name">${esc(company)}</span>
-        <span class="si-kit-sw">${colors.slice(0, 6).map((c) => `<span style="background:${esc(c)}"></span>`).join("")}</span>
+        ${kit.logo ? `<img class="si-kit-logo" src="${esc(kit.logo)}" alt="">` : ""}
+        <span class="si-kit-name">${esc(kit.company || "Your brand")}</span>
+        ${kit.colors.length ? `<span class="si-kit-sw">${kit.colors.slice(0, 6).map((c) => `<span style="background:${esc(c)}"></span>`).join("")}</span>` : ""}
         ${heading || bodyFont ? `<span class="si-kit-fonts">${esc([heading, bodyFont].filter(Boolean).join(" · "))}</span>` : ""}
         <a class="si-btn si-btn--ghost" href="/account/profile">Edit brand kit</a>
       </div>
       <div class="si-tpls">
         ${tpls.map((t) => `
-          <div class="si-tpl" style="--si-c1:${esc(colors[0])}">
-            <div class="si-tpl-img" style="background-image:url('${esc(t.thumb_url)}')"></div>
-            <div class="si-tpl-tint"></div>
+          <figure class="si-tpl ${canRender ? "is-rendering" : ""}" data-id="${esc(t.id)}">
+            <img src="${esc(t.thumb_url)}" alt="${esc(t.name || "Template")}">
+            <span class="si-tpl-wait">Applying your brand&hellip;</span>
             <span class="si-tpl-tag">Preview</span>
-            <div class="si-tpl-band">
-              <div><strong>${esc(company)}</strong><em>${esc(t.name || "Template")}</em></div>
-              <span class="si-tpl-sw">${colors.slice(0, 4).map((c) => `<span style="background:${esc(c)}"></span>`).join("")}</span>
-            </div>
-          </div>`).join("")}
+            <figcaption><span class="si-tplc-name">${esc(t.name || "Template")}</span></figcaption>
+          </figure>`).join("")}
       </div>
       <p class="si-note">Previews only. Buy the pack and these open in the Studio with your kit already applied. <a href="/edit" style="color:var(--ws-accent);font-weight:700;text-decoration:none">Browse the packs &rarr;</a></p>`;
+
+    if (!canRender) return;
+    // One at a time — the renderer is a single editor instance.
+    for (const t of tpls) {
+      if (openKind !== "brand") return;
+      const tile = body.querySelector(`.si-tpl[data-id="${CSS.escape(String(t.id))}"]`);
+      const thumb = await renderBranded(t);
+      if (!tile) continue;
+      if (thumb) tile.querySelector("img").src = thumb;
+      tile.classList.remove("is-rendering");
+    }
   }
 </script>

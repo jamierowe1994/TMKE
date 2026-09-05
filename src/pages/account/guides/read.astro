@@ -104,7 +104,47 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
         var(--ws-bg);
     }
 
-    .gr-main { max-width: 820px; }
+    /* The reader is its own page: it has to carry the Learn landing's
+       gutters itself, or the article hugs the left edge of the window. */
+    .gr-main { width: 100%; max-width: 1100px; margin: 0 auto; padding: clamp(20px, 3vh, 38px) clamp(22px, 2.6vw, 56px) 120px; }
+    .gr-article { max-width: 820px; }
+
+    /* ---- Course cover: the hub's block colour, so the start of a course
+       looks designed rather than like a page that hasn't loaded. ---- */
+    .gc-slide--intro { padding: clamp(28px, 4vw, 52px) clamp(24px, 4vw, 56px); background: var(--english-violet, #4a2a3c); border-radius: var(--ws-r-lg); color: #fff; }
+    .gc-slide--intro .gr-topic { color: rgba(255,255,255,0.7); }
+    .gc-slide--intro .gc-intro-title { color: #fff; }
+    .gc-slide--intro .gc-intro-sum { color: rgba(255,255,255,0.82); }
+    .gc-slide--intro .gc-intro-meta span { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); color: #fff; }
+    .gc-slide--intro .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
+
+    /* ---- Content-ideas guide (ci-*) — cards, image placeholders, pillars ---- */
+    .ci-lead { font-size: clamp(16px, 1.3vw, 19px); line-height: 1.55; color: var(--ws-ink); }
+    .ci-ph { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: var(--ws-r); border: 1px dashed rgba(28,29,34,0.22); background: repeating-linear-gradient(135deg, rgba(28,29,34,0.03) 0 10px, transparent 10px 20px), #fff; display: grid; place-items: center; }
+    .ci-ph span { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); }
+    .ci-ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
+    .ci-intro { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr); gap: 28px; align-items: start; margin-bottom: 28px; }
+    .ci-intro .ci-ph { aspect-ratio: 3 / 2; }
+    .ci-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 8px; }
+    .ci-card { position: relative; margin: 0; padding: 16px 16px 16px 52px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .ci-card h4 { margin: 0 0 5px; font-family: var(--serif); font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .ci-card p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ws-tx); }
+    .ci-no { position: absolute; left: 16px; top: 17px; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--ws-accent); }
+    .ci-card--new { background: #fff; border-style: dashed; }
+    .ci-more { margin: 26px 0 12px; font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .ci-pillars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 26px 0; }
+    .ci-pillar { display: block; padding: 12px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); text-decoration: none; color: inherit; transition: border-color 0.2s, transform 0.2s; }
+    .ci-pillar:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
+    .ci-pillar .ci-ph { aspect-ratio: 16 / 9; margin-bottom: 12px; }
+    .ci-pillar strong { display: block; font-family: var(--serif); font-weight: 500; font-size: 18px; line-height: 1.15; color: var(--ws-ink); margin-bottom: 4px; }
+    .ci-pillar span { font-size: 13px; line-height: 1.5; color: var(--ws-tx); }
+    .ci-rhythm { padding: 14px 16px; border-left: 3px solid var(--ws-accent); background: #fff; border-radius: var(--ws-r); }
+    .ci-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
+    .ci-col { padding: 16px 18px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .ci-col h3 { margin: 0 0 8px; font-family: var(--serif); font-weight: 500; font-size: 18px; color: var(--ws-ink); }
+    .ci-col p, .ci-col li { font-size: 13.5px; line-height: 1.55; color: var(--ws-tx); }
+    .ci-col ul { margin: 0; padding-left: 18px; }
+    @media (max-width: 720px) { .ci-intro, .ci-grid, .ci-pillars, .ci-cols { grid-template-columns: 1fr; } }
     .gr-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ws-tx); text-decoration: none; margin-bottom: 4px; }
     .gr-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .gr-back:hover { color: var(--ws-ink); }
@@ -290,6 +330,9 @@ import { GUIDE_TOPICS } from "../../../data/guide-topics.js";
       // Rail = one dot per content part.
       rail.innerHTML = lessons.map((_, i)=> `<button type="button" class="gc-dot" data-go="${i+1}" title="Part ${i+1}"></button>`).join("");
       rail.querySelectorAll("[data-go]").forEach((b)=> b.addEventListener("click", ()=> show(+b.dataset.go)));
+      // Links inside a slide can jump to a part too (the content-ideas cover's
+      // four pillar cards do).
+      stage.addEventListener("click", (e)=>{ const a = e.target.closest("[data-go]"); if (!a || a.closest("#gc-rail")) return; e.preventDefault(); show(+a.dataset.go); });
 
       const introHtml = () => {
         const chips = [];
