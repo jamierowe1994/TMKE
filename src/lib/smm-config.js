@@ -44,6 +44,140 @@ export const SERVICE_TIERS = [
   },
 ];
 
+/* ============================================================================
+   WHAT WE ACTUALLY SELL  (Dani, 5 Sep 2026)
+   ----------------------------------------------------------------------------
+   Two services. Prices in PENCE, excluding VAT, matching videography-config.js.
+
+   1. SOCIAL MEDIA MANAGEMENT — from £599. Not packaged or priced in detail
+      yet, and deliberately so: there is no capacity, so nobody is being
+      onboarded onto it right now. SERVICE_TIERS below already carries the
+      three shapes it will eventually split into — Planned and Posted, Present
+      and Performing, Managed and Moving — but until they are priced they all
+      sit under this one service at one "from" figure.
+
+   2. SOCIAL MEDIA MARKETING — from £455. The brochure's name for the tier the
+      public site calls "Shot and Scheduled": videography plus socials. This
+      one IS packaged, into the three below, whose names are still being
+      decided.
+
+   HOW THIS RELATES TO SERVICE_TIERS ABOVE. The public services page renders
+   SERVICE_TIERS as four peers, which is not the shape of the offering — three
+   of those four are unlaunched sub-packages of the first service. That page is
+   unchanged for now and shows no prices, so it misleads on structure rather
+   than on money. Deciding what it should show is Dani's call, not a
+   refactor's.
+
+   THE THREE PRICE COLUMNS are who is buying, not what they get; the spec is
+   identical across them. Nothing member-facing picks a column — the hub cannot
+   tell who someone is, and plenty of early users are tagged as members before
+   anyone has decided what they are. So member-facing surfaces show "from" the
+   lowest, and the full grid is an internal reference on the admin rate card.
+   ========================================================================== */
+
+export const SOCIAL_VAT_NOTE = "+VAT";
+
+/** Who is buying. Columns on the internal rate card; never shown to a member. */
+export const PRICE_COLUMNS = [
+  { key: "teg",        label: "TEG brand / agent", note: "No studio hire" },
+  { key: "standard",   label: "External — standard agency" },
+  { key: "scaleable",  label: "External — scaleable agency" },
+];
+
+export const SOCIAL_SERVICES = [
+  {
+    key: "social-media-management",
+    name: "Social Media Management",
+    strap: "The marketing agency that doesn't want you to go viral.",
+    summary: "Fully managed social media, including strategy, content creation, scheduling and reporting.",
+    blurb:
+      "From strategy and content creation to scheduling and reporting, we manage the entire process for you. Every client works with the same marketing manager from start to finish, giving you consistent communication, a clear strategy, and content that genuinely reflects your business.",
+    includes: [
+      "Strategy built for your agency, your audience and your local market",
+      "Content creation — video and static, designed not templated",
+      "Community management and engagement",
+      "Scheduling and publishing handled for you",
+      "One marketing manager from start to finish",
+      "Monthly reporting you can actually read",
+    ],
+    from_pence: 59900,
+    unit: "month",
+    /* No spaces at the moment, so this is not being sold. Kept visible because
+       people ask what we do, not only what they can buy today. */
+    openToNewClients: false,
+    /* Priced and separated out later; listed so the intent is on the record. */
+    futurePackages: ["Planned and Posted", "Present and Performing", "Managed and Moving"],
+  },
+  {
+    key: "social-media-marketing",
+    alias: "Shot and Scheduled",
+    name: "Social Media Marketing",
+    strap: "Shot and scheduled.",
+    summary: "Professionally filmed video content, edited, captioned and scheduled for you.",
+    blurb:
+      "A shoot day every quarter with a TMKE videographer builds a library of content that actually looks like you. From there we edit every video, write the captions, schedule the posts and manage the publishing across the three months — so you show up consistently without the time or the commitment of doing it yourself.",
+    includes: [
+      "A studio shoot day every quarter with a TMKE videographer",
+      "Every video edited, captioned and scheduled across the three months",
+      "Instagram, Facebook and TikTok",
+      "A quarterly strategy meeting and an audience-targeted plan",
+      "Monthly content planning and a videography brief",
+      "A monthly insights report",
+    ],
+    from_pence: 45500,
+    unit: "month",
+    openToNewClients: true,
+    note: "Built for agents who are happy managing their own listings but want a consistent video presence.",
+    /* The three it splits into. Names still being decided — labelled by what
+       they contain rather than given a working title that would end up on a
+       page and stay there. */
+    packages: [
+      {
+        key: "smm-1", name: null, spec: "3 hrs quarterly",
+        videos: 24, postsPerWeek: 2, amends: "1 request",
+        hours: { videography: 3, editing: 3, brief: 3, management: 12 },
+        maxClientsPerSmm: 12,
+        price_pence: { teg: 45500, standard: 67000, scaleable: 79500 },
+      },
+      {
+        key: "smm-2", name: null, spec: "5 hrs quarterly",
+        videos: 36, postsPerWeek: 3, amends: "2 requests",
+        hours: { videography: 5, editing: 5, brief: 4, management: 18 },
+        maxClientsPerSmm: 9,
+        price_pence: { teg: 65500, standard: 95000, scaleable: 112500 },
+      },
+      {
+        key: "smm-3", name: null, spec: "8 hrs quarterly",
+        videos: 60, postsPerWeek: 5, amends: "Unlimited",
+        hours: { videography: 8, editing: 8, brief: 5, management: 25 },
+        maxClientsPerSmm: 6,
+        price_pence: { teg: 84500, standard: 134000, scaleable: 158000 },
+      },
+    ],
+    onboarding_pence: 11000,   // one-off, same on every package
+    platforms: ["Instagram", "Facebook", "TikTok"],
+  },
+];
+
+/** Also social. Smaller, so shown smaller. Brochure p12. */
+export const SOCIAL_EXTRAS = [
+  {
+    key: "property-marketing-campaign",
+    name: "Property Marketing Campaign",
+    summary: "A professionally planned social media campaign designed to maximise listing exposure.",
+    from_pence: 12500, unit: "month",
+  },
+  {
+    key: "profile-optimisation",
+    name: "Profile Optimisation",
+    summary: "A quarterly review to optimise your social profiles, branding and visibility across every platform.",
+    from_pence: 15500, unit: "quarter",
+  },
+];
+
+export const PRICE_NOTE =
+  "Prices start from these figures and vary depending on your agency, your package and how much you need from us. Get in touch and we'll talk you through what fits.";
+
 // ---- Lead kinds, CRM tags & pipeline stages --------------------------------
 // stage values are FREE-TEXT (the smm_leads.stage column has no CHECK constraint).
 export const LEAD = {
