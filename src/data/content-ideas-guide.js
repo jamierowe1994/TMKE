@@ -18,10 +18,13 @@ const ph = (label) => `<figure class="ci-ph" data-ph="${label}"><span>${label}</
 const card = (n, title, body, extra = "") => `<article class="ci-card ${extra}"><span class="ci-no">${String(n).padStart(2, "0")}</span><h4>${title}</h4><p>${body}</p></article>`;
 const grid = (items) => `<div class="ci-grid">${items.join("")}</div>`;
 const more = (items) => `<h3 class="ci-more">Four more from us</h3>${grid(items)}`;
+// The pack that carries this pillar's templates. `slug` empty until the pack
+// exists in The Edit; the card then links to the shop rather than nowhere.
+const packCard = (title, slug, line) => `<a class="ci-pack" href="${slug ? `/edit/${slug}` : "/edit"}">${ph("Pack image")}<span class="ci-pack-tx"><span class="ci-pack-eyebrow">Templates for this pillar</span><strong>${title}</strong><span>${line}</span><em>${slug ? "See the pack" : "Coming to The Edit"} &rarr;</em></span></a>`;
 
 export const CONTENT_IDEAS_GUIDE = {
   slug: "content-ideas",
-  title: "48 evergreen content ideas",
+  title: "48 Evergreen Content Ideas",
   topic: "content-strategy",
   kind: "course",
   audience: "members",
@@ -31,20 +34,20 @@ export const CONTENT_IDEAS_GUIDE = {
   cover_url: "",
   lessons: [
     {
-      title: "Start with the pillars",
+      title: "Start With the Pillars",
       body_html: `
 <p class="ci-lead">Evergreen content stays relevant, useful and engaging no matter when it's posted. It isn't tied to a date, a season or a trend; it's about the things that consistently matter to the people who might one day sell or let through you. Because it has no expiry date, it can be reused, refreshed and repurposed as your audience grows.</p>
 <p>It's the answer to the quiet week. Rather than a blank planner, you have four pillars to pick from — and every idea here can be designed in the Studio in your own colours.</p>
 <div class="ci-pillars">
-  <a class="ci-pillar" href="#" data-go="2">${ph("Pillar image")}<strong>The person behind the business</strong><span>Before people buy into your service, they buy into you.</span></a>
-  <a class="ci-pillar" href="#" data-go="3">${ph("Pillar image")}<strong>Educate and empower</strong><span>When people understand the process, they feel confident taking the next step.</span></a>
-  <a class="ci-pillar" href="#" data-go="4">${ph("Pillar image")}<strong>Promote your service with purpose</strong><span>Show how you work and why it matters, without ever feeling 'sold to'.</span></a>
-  <a class="ci-pillar" href="#" data-go="5">${ph("Pillar image")}<strong>Connect with the community</strong><span>You're not just an agent, you're part of the neighbourhood.</span></a>
+  <a class="ci-pillar" href="#" data-go="2">${ph("Pillar image")}<strong>The Person Behind the Business</strong><span>Before people buy into your service, they buy into you.</span></a>
+  <a class="ci-pillar" href="#" data-go="3">${ph("Pillar image")}<strong>Educate and Empower</strong><span>When people understand the process, they feel confident taking the next step.</span></a>
+  <a class="ci-pillar" href="#" data-go="4">${ph("Pillar image")}<strong>Promote Your Service With Purpose</strong><span>Show how you work and why it matters, without ever feeling 'sold to'.</span></a>
+  <a class="ci-pillar" href="#" data-go="5">${ph("Pillar image")}<strong>Connect With the Community</strong><span>You're not just an agent, you're part of the neighbourhood.</span></a>
 </div>
 <p class="ci-rhythm"><strong>A simple rhythm.</strong> One post from each pillar a week gives you four evergreen posts, leaving the rest of the week for listings and anything timely.</p>`,
     },
     {
-      title: "The person behind the business",
+      title: "The Person Behind the Business",
       body_html: `
 <div class="ci-intro">
   <div>
@@ -68,10 +71,11 @@ ${more([
   card(10, "A lesson from my first ever sale", "What went wrong or right, and what you'd do differently now. Self-aware beats polished.", "ci-card--new"),
   card(11, "What clients are surprised by", "The small things people don't expect — the follow-ups, the honesty on price, the Saturday call.", "ci-card--new"),
   card(12, "The tools I couldn't work without", "The apps, the camera, the notebook. Practical, personal and easy to film.", "ci-card--new"),
-])}`,
+])}
+${packCard("The Self-Employed Pack", "", "Introductions, day-in-the-life and story posts, ready for your face and your words.")}`,
     },
     {
-      title: "Educate and empower",
+      title: "Educate and Empower",
       body_html: `
 <div class="ci-intro">
   <div>
@@ -95,10 +99,11 @@ ${more([
   card(10, "What a survey actually checks", "The difference between the levels, what's included, and what to do with the findings.", "ci-card--new"),
   card(11, "Leasehold vs freehold, plainly", "What each means day to day: ground rent, service charges, what you can change and what you can't.", "ci-card--new"),
   card(12, "Stamp duty in thirty seconds", "The thresholds, who pays, and one worked example on a local price. Refresh when the rules change.", "ci-card--new"),
-])}`,
+])}
+${packCard("The Educate and Inform Pack", "", "Explainers, checklists and step-by-steps, designed so the advice is the star.")}`,
     },
     {
-      title: "Promote your service with purpose",
+      title: "Promote Your Service With Purpose",
       body_html: `
 <div class="ci-intro">
   <div>
@@ -122,10 +127,11 @@ ${more([
   card(10, "What's included in my fee", "Spell it out. Transparency here removes the biggest objection before it's raised.", "ci-card--new"),
   card(11, "How I prepare a home for photographs", "The ten minutes before the photographer arrives. Useful to sellers, and it shows your standards.", "ci-card--new"),
   card(12, "Questions to ask any agent before you instruct", "And your answers to each. Confident, generous, and it frames the comparison in your favour.", "ci-card--new"),
-])}`,
+])}
+${packCard("The Proof Is in the Posts", "the-proof-is-in-the-posts", "Testimonials, results and service-led posts that make the case for you.")}`,
     },
     {
-      title: "Connect with the community",
+      title: "Connect With the Community",
       body_html: `
 <div class="ci-intro">
   <div>
@@ -149,18 +155,18 @@ ${more([
   card(10, "The best walk within ten minutes", "One route, filmed on your phone, with where to stop for coffee. Repeatable for every patch you cover.", "ci-card--new"),
   card(11, "Commute check", "[Area] to the city, door to door, timed. The question every relocating buyer asks first.", "ci-card--new"),
   card(12, "Weekend in [area]", "Saturday morning to Sunday night: the market, the pub, the park. Sell the life, not the house.", "ci-card--new"),
-])}`,
+])}
+${packCard("The Local Life Pack", "", "Area spotlights, shout-outs and neighbourhood guides in your colours.")}`,
     },
     {
-      title: "Make your content work harder",
+      title: "Make Your Content Work Harder",
       body_html: `
 <p class="ci-lead">Good content strategies balance evergreen posts — the educational, trust-building pieces that stay relevant — with timely content tied to news, market shifts or the season. Knowing when to use each keeps you delivering value and top of mind.</p>
-<div class="ci-cols">
-  <section class="ci-col"><h3>Evergreen vs timely</h3><p>Evergreen posts stay valuable long-term: think 'How to prepare for a valuation'. Timely content covers news, market updates and seasonal moments, and dates quickly. You need both; the Studio's seasonal packs cover the second.</p></section>
-  <section class="ci-col"><h3>Smart repurposing</h3><ul><li>Trim a Reel into a 15-second Story clip.</li><li>Design a static summary post for your grid.</li><li>Turn a Reel into a carousel.</li></ul></section>
-  <section class="ci-col"><h3>Cross-platform</h3><ul><li><strong>LinkedIn</strong> — in-depth captions, professional tone.</li><li><strong>Instagram</strong> — branded visuals with short, punchy copy.</li><li><strong>Facebook</strong> — conversational, mixed media.</li></ul></section>
-  <section class="ci-col"><h3>When to refresh</h3><p>Every three to six months, go back to your best-performing posts. Swap in fresh images, update any figures, tweak the caption. A simple refresh keeps it current long after it was first posted.</p></section>
-  <section class="ci-col"><h3>Measure and iterate</h3><p>Compare original against repurposed: reach, saves, shares, comments. Double down on the versions that keep engaging, and refine from real numbers rather than instinct.</p></section>
+<div class="ci-pillars">
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Evergreen vs Timely</strong><span>Evergreen posts stay valuable long-term: think 'How to prepare for a valuation'. Timely content covers news, market updates and seasonal moments, and dates quickly. You need both; the Studio's seasonal packs cover the second.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Smart Repurposing</strong><span>Get more from one piece: trim a Reel into a 15-second Story clip, design a static summary post for your grid, or turn the Reel into a carousel. One idea, three posts.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>When to Refresh</strong><span>Every three to six months, go back to your best-performing posts. Swap in fresh images, update any figures, tweak the caption. A simple refresh keeps it current long after it was first posted.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Measure and Iterate</strong><span>Compare original against repurposed: reach, saves, shares, comments. Double down on the versions that keep engaging, and refine from real numbers rather than instinct.</span></div>
 </div>`,
     },
   ],

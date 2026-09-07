@@ -7100,8 +7100,8 @@
      Inter and a two-line title drops onto one; swap the other way and it
      spills to three. So when a font changes under a heading, its size moves
      to whatever keeps the line count the template gave it — the largest size
-     that still fits those lines. Headings only: three lines or fewer at the
-     time. Body copy is left to reflow; a paragraph's line count is nobody's
+     that still fits those lines. Headings only: two or three lines at the
+     time (a one-line title is left alone). Body copy is left to reflow; a paragraph's line count is nobody's
      design decision. Measured with the same wrap the export uses, once the
      new font has actually loaded (fallback metrics would fit the wrong face). */
   const _fitCtx = document.createElement("canvas").getContext("2d");
@@ -7143,7 +7143,9 @@
     state.elements.forEach(function (el) {
       if (el && el.type === "text" && el.font === fromName) {
         const lines = textLineCount(el, el.size || 16);
-        if (lines <= 3) heads.push({ el: el, lines: lines });
+        // Two or three lines: a one-line title changing width doesn't disturb
+        // the design, and refitting it would only move the size for nothing.
+        if (lines >= 2 && lines <= 3) heads.push({ el: el, lines: lines });
         el.font = toName; n++;
       }
     });

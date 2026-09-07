@@ -134,12 +134,15 @@ const DEFAULT_COVER = (await getImage({
     .gc-intro-card .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
 
     /* ---- Content-ideas guide (ci-*) — cards, image placeholders, pillars ---- */
+    /* Full-width text stops at about the middle of the last of four cards —
+       88% of the panel — so a line never runs the whole way across. */
+    .gc-slide-body > p, .gc-slide-body > .ci-rhythm { max-width: 88%; }
     .ci-lead { font-size: 15px; line-height: 1.6; font-weight: 600; color: var(--ws-ink); }
     .ci-ph { position: relative; margin: 0; aspect-ratio: 4 / 3; border-radius: var(--ws-r); border: 1px dashed rgba(28,29,34,0.22); background: repeating-linear-gradient(135deg, rgba(28,29,34,0.03) 0 10px, transparent 10px 20px), #fff; display: grid; place-items: center; }
     .ci-ph span { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); }
     .ci-ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
-    .ci-intro { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr); gap: 28px; align-items: start; margin-bottom: 28px; }
-    .ci-intro .ci-ph { aspect-ratio: 3 / 2; }
+    .ci-intro { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr); gap: 28px; align-items: center; margin-bottom: 28px; }
+    .ci-intro .ci-ph { aspect-ratio: 16 / 10; }
     .ci-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 8px; }
     .ci-card { position: relative; margin: 0; padding: 16px 16px 16px 52px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
     .ci-card h4 { margin: 0 0 5px; font-family: var(--serif); font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
@@ -154,13 +157,24 @@ const DEFAULT_COVER = (await getImage({
     .ci-pillar strong { display: block; font-family: var(--sans); font-weight: 700; font-size: 14px; line-height: 1.3; color: var(--ws-ink); margin-bottom: 4px; }
     .ci-pillar span { font-size: 13px; line-height: 1.5; color: var(--ws-tx); }
     .ci-rhythm { padding: 14px 16px; border-left: 3px solid var(--ws-accent); background: #fff; border-radius: var(--ws-r); }
+    .ci-pillar--static { cursor: default; }
+    .ci-pillar--static:hover { border-color: var(--ws-line); transform: none; }
+    /* The pack that carries a pillar's templates: a card at the foot of the part. */
+    .ci-pack { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: center; margin-top: 26px; padding: 14px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); text-decoration: none; color: inherit; transition: border-color 0.2s; }
+    .ci-pack:hover { border-color: var(--ws-accent); }
+    .ci-pack .ci-ph { aspect-ratio: 4 / 5; margin: 0; }
+    .ci-pack-tx { display: flex; flex-direction: column; gap: 4px; }
+    .ci-pack-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); margin-bottom: 4px; }
+    .ci-pack-tx strong { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.15; color: var(--ws-ink); }
+    .ci-pack-tx > span { font-size: 14px; line-height: 1.55; color: var(--ws-tx); max-width: 60ch; }
+    .ci-pack-tx em { font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ws-accent); margin-top: 8px; }
     .ci-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 22px; }
     .ci-col { padding: 16px 18px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
     .ci-col h3 { margin: 0 0 8px; font-family: var(--sans); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; color: var(--ws-ink); }
     .ci-col p, .ci-col li { font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
     .ci-col ul { margin: 0; padding-left: 18px; }
     @media (max-width: 1000px) { .ci-pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 720px) { .ci-intro, .ci-grid, .ci-pillars, .ci-cols { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .ci-intro, .ci-grid, .ci-pillars, .ci-cols, .ci-pack { grid-template-columns: 1fr; } .gc-slide-body > p, .gc-slide-body > .ci-rhythm { max-width: none; } }
     .gr-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--ws-tx); text-decoration: none; margin-bottom: 4px; }
     .gr-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .gr-back:hover { color: var(--ws-ink); }
@@ -230,7 +244,7 @@ const DEFAULT_COVER = (await getImage({
     .gc-intro-meta span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ws-tx); background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: 999px; padding: 6px 14px; }
     .gc-intro-cover { margin: 28px 0 0; border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh); }
     .gc-intro-cover img { display: block; width: 100%; height: auto; }
-    .gc-intro-start { margin-top: 24px; }
+    .gc-intro-start { margin-top: 24px; display: flex; justify-content: flex-end; }
 
     /* Completion slide */
     .gc-slide--done { text-align: center; padding: 34px 0 8px; }
