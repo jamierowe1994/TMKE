@@ -81,8 +81,19 @@
     .ws-hero-photo { background-image: var(--ws-hero-img, none); background-size: cover; background-position: center; min-height: clamp(280px, 30vw, 380px); }
     /* Subpages carry less in the hero than the dashboard does, so it comes
        down to suit — and Studio and the library then agree with each other. */
-    .ws-hero--sub .ws-hero-photo { min-height: clamp(200px, 20vw, 260px); }
-    .ws-hero--sub .ws-hero-copy { padding: clamp(24px, 2.6vw, 38px); }
+    /* ---- The hub's header, one geometry for both styles ----
+       Two header styles now: this split one (copy left, photograph right) on
+       Studio, Planner, Orders, Bookings and Socials, and the full-photograph
+       banner on Brand kit and Learn (profile.astro, guides.astro). Different
+       type, deliberately; the same box. The numbers below are the shared
+       ones — the banners copy them — so the pages read as one system:
+         height   clamp(220px, 20.7vw, 298px)     corners 6px, hairline border
+         padding  clamp(24px, 2.6vw, 38px)        copy stacked bottom-left
+         eyebrow → title  clamp(14px, 1.8vh, 22px)   title → sub  clamp(16px, 2vh, 24px)
+         button row       padding-top clamp(24px, 3vh, 36px), height --ws-btn-h */
+    .ws-hero--sub { min-height: clamp(220px, 20.7vw, 298px); }
+    .ws-hero--sub .ws-hero-photo { min-height: 0; }
+    .ws-hero--sub .ws-hero-copy { padding: clamp(24px, 2.6vw, 38px); justify-content: flex-end; }
     /* ---- One hero height across every subpage ----
        Studio, Planner, Orders, Bookings and Your SMM sit next to each other in
        the same navigation, so a banner that changes height as you move between
@@ -100,11 +111,16 @@
        Studio and Bookings do not, which is a 24px step between pages that sit
        next to each other in the nav. Reserving the second line costs a little
        space under the shorter ones and buys the same banner everywhere. */
-    .ws-hero--sub .ws-hero-sub { min-height: 3.1em; }   /* 2 lines at 1.55 */
-    .ws-hero-cta { margin-top: auto; padding-top: clamp(24px, 3vh, 36px); }
+    /* The copy now stacks on the floor of a box whose height is pinned, so the
+       old two-line reservation (there to keep five banners level while their
+       intros wrapped differently) is no longer needed: the box is level by
+       construction, and the intro takes the lines it needs. */
+    .ws-hero-cta { margin-top: 0; padding-top: clamp(24px, 3vh, 36px); }
+    /* A hero without a button reserves the button row anyway, so the intro
+       sits at the same height off the floor on every page. */
     .ws-hero--sub .ws-hero-copy:not(:has(.ws-hero-cta))::after {
       content: ""; display: block; height: var(--ws-btn-h);
-      margin-top: auto; padding-top: clamp(24px, 3vh, 36px);
+      padding-top: clamp(24px, 3vh, 36px);
     }
     @media (max-width: 860px) {
       .ws-hero { grid-template-columns: 1fr; }
