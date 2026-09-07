@@ -279,7 +279,17 @@ function gbp(pence) {
     }
     @media (max-width: 980px) {
       .pack-hero-grid { grid-template-columns: 1fr; gap: 28px; }
+      /* Once the two columns stack, a full-width 4:5 cover is a whole screen
+         of picture before a word of copy. So the cover keeps a sensible size
+         and the thumbnails move up beside it in a column — image and picker
+         on one row, then the copy. */
+      .pack-cover { display: grid; grid-template-columns: minmax(0, 380px) 92px; gap: 14px; align-items: start; }
+      .pack-hero-thumbs { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: 1fr; gap: 10px; margin-top: 0; }
     }
+    /* The page's bottom is the wine footer. On a touch screen the rubber-band
+       past it revealed white; paint the root the same wine and stop the
+       overscroll where the browser lets us. */
+    html { background: var(--english-violet); overscroll-behavior-y: none; }
 
     .pack-cover { max-width: 100%; }
     .pack-cover-frame {
@@ -341,6 +351,10 @@ function gbp(pence) {
       color: rgba(28,29,34,0.65);
       margin: 4px 0 10px; max-width: 52ch;
     }
+    /* Stacked (≤980px) the copy column had its laptop measure on a page a
+       third narrower than a laptop, which left the right half empty. After
+       the rule above on purpose: same specificity, order decides. */
+    @media (max-width: 980px) { .pack-stand { max-width: 68ch; } }
 
     .pack-pricerow {
       display: flex; align-items: baseline; gap: 12px;
@@ -421,7 +435,9 @@ function gbp(pence) {
       grid-template-columns: repeat(6, 1fr);
       gap: 14px;
     }
-    @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(4, 1fr); } }
+    /* Five across between laptop and phone: four made each tile a quarter of
+       the screen, which read as big rather than as a grid of previews. */
+    @media (max-width: 1100px) { .pack-tpl-grid { grid-template-columns: repeat(5, 1fr); gap: 12px; } }
     @media (max-width: 720px)  {
       .pack-tpl-grid { grid-template-columns: repeat(3, 1fr); }
       /* Six locked teasers is one tidy row at 6-across, but two rows of blurred tiles
