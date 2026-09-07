@@ -35,7 +35,7 @@ export async function signUpMember({ fullName, email, password, marketing }) {
     res = await fetch(`${WORKER}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, full_name: fullName }),
+      body: JSON.stringify({ email, password, full_name: fullName, marketing: !!marketing }),
     });
     body = await res.json().catch(() => ({}));
   } catch (e) {

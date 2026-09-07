@@ -2947,6 +2947,24 @@ export default {
             return json({ error: "Something went wrong creating your account. Please try again." }, 502, request, env);
           }
 
+          // The account exists now, so the person exists in the CRM now. This
+          // used to happen only if they ticked the marketing box (via
+          // /newsletter), so anyone who left it unticked had an account and no
+          // contact — invisible in Contacts. Linked to the auth user, tagged as
+          // a member, consent recorded either way. Best-effort: a CRM hiccup
+          // must not stop the confirmation email going out.
+          try {
+            const nameParts = fullName.split(/\s+/).filter(Boolean);
+            const newUserId = (gj && ((gj.user && gj.user.id) || gj.id)) || null;
+            const optedIn = !!(b && b.marketing);
+            await fireTrigger(env, "member_signup", {
+              email, first_name: nameParts.shift() || null, last_name: nameParts.join(" ") || null,
+              source: "signup", lifecycle: "member", marketing_opt_in: optedIn,
+              tags: crmTags(email, [], { optIn: optedIn, member: true }),
+              user_id: newUserId,
+            }, { form: "signup" }, "join_signup");
+          } catch (e) { console.error("signup: contact upsert", String((e && e.message) || e).slice(0, 200)); }
+
           const link = `${site}/auth/callback?token_hash=${encodeURIComponent(hashed)}&type=signup`;
           const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const first = (fullName.split(/\s+/)[0] || "there").trim();

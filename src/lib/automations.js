@@ -22,6 +22,10 @@ export const TRIGGERS = [
   { key: "custom_date",     label: "Custom date reminder", group: "Contact" },
   // Engagement / events
   { key: "form_submitted",  label: "Form submitted", group: "Engagement" },
+  // Fired by the Worker the moment a member account is created (before the
+  // email is confirmed). The contact is created on this trigger whether or not
+  // marketing was ticked; a welcome sequence built here reaches every joiner.
+  { key: "member_signup",   label: "Member signed up", group: "Engagement" },
   // The public /contact form has its own trigger rather than sharing
   // form_submitted, so an acknowledgement built here reaches contact-form
   // enquirers only and can't widen an existing funnel by accident.
