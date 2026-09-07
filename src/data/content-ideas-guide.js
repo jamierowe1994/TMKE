@@ -36,23 +36,25 @@ export const CONTENT_IDEAS_GUIDE = {
     {
       title: "Start With the Pillars",
       body_html: `
-<p class="ci-lead">Evergreen content stays relevant, useful and engaging no matter when it's posted. It isn't tied to a date, a season or a trend; it's about the things that consistently matter to the people who might one day sell or let through you. Because it has no expiry date, it can be reused, refreshed and repurposed as your audience grows.</p>
-<p>It's the answer to the quiet week. Rather than a blank planner, you have four pillars to pick from — and every idea here can be designed in the Studio in your own colours.</p>
+<p class="ci-lead">Evergreen content stays useful long after it's posted. It isn't tied to a particular date, season or trend. Instead, it focuses on the things your audience consistently cares about, giving you a reliable foundation for what to post throughout the year.</p>
+<p>For an estate agent, most of that content can be built around four simple pillars: you, your expertise, your service and your community. Together, they help people get to know you, trust what you know, understand why they should choose you and associate your name with the area you serve.</p>
+<p>And because these subjects don't expire, you don't need to constantly reinvent them. Revisit the same ideas with a new story, example, format or perspective, then layer in listings, market updates and timely content around them.</p>
 <div class="ci-pillars">
   <a class="ci-pillar" href="#" data-go="2">${ph("Pillar image")}<strong>The Person Behind the Business</strong><span>Before people buy into your service, they buy into you.</span></a>
   <a class="ci-pillar" href="#" data-go="3">${ph("Pillar image")}<strong>Educate and Empower</strong><span>When people understand the process, they feel confident taking the next step.</span></a>
   <a class="ci-pillar" href="#" data-go="4">${ph("Pillar image")}<strong>Promote Your Service With Purpose</strong><span>Show how you work and why it matters, without ever feeling 'sold to'.</span></a>
   <a class="ci-pillar" href="#" data-go="5">${ph("Pillar image")}<strong>Connect With the Community</strong><span>You're not just an agent, you're part of the neighbourhood.</span></a>
 </div>
-<p class="ci-rhythm"><strong>A simple rhythm.</strong> One post from each pillar a week gives you four evergreen posts, leaving the rest of the week for listings and anything timely.</p>`,
+<p class="ci-rhythm"><strong>A simple rhythm.</strong> Rotate through the four pillars consistently and you'll always have something relevant to talk about, without starting from scratch every week.</p>`,
     },
     {
       title: "The Person Behind the Business",
       body_html: `
 <div class="ci-intro">
   <div>
-    <p class="ci-lead">Sharing personal stories, values and day-to-day moments helps your audience feel connected to the person behind the business.</p>
-    <p>These posts build trust and relatability, they're low-effort and repeatable, and they remind people why they should work with you over any other agent.</p>
+    <p class="ci-lead">People might need an estate agent, but ultimately they choose a person. This pillar is about making sure your audience gets to know the individual behind the listings, valuations and For Sale boards.</p>
+    <p>That doesn't mean sharing every part of your private life. Personal content can be your story, experiences, opinions, values, motivations and the everyday moments that show how you work and what matters to you.</p>
+    <p>Over time, those small insights create familiarity. And when someone eventually needs an agent, being the person they already recognise, understand and trust gives you a considerable head start.</p>
   </div>
   ${ph("Hero image")}
 </div>
@@ -67,7 +69,7 @@ ${grid([
   card(8, "What working for yourself has given me", "The wins and lessons: flexibility, purpose, stronger client relationships. New followers are curious about the 'why'."),
 ])}
 ${more([
-  card(9, "Three things I wish every seller knew", "Honest, useful, and it positions you as the agent who tells people the truth.", "ci-card--new"),
+  card(9, "Three things I've learned working in property", "The lessons that have shaped how you work today. Personal experience, rather than generic advice.", "ci-card--new"),
   card(10, "A lesson from my first ever sale", "What went wrong or right, and what you'd do differently now. Self-aware beats polished.", "ci-card--new"),
   card(11, "What clients are surprised by", "The small things people don't expect — the follow-ups, the honesty on price, the Saturday call.", "ci-card--new"),
   card(12, "The tools I couldn't work without", "The apps, the camera, the notebook. Practical, personal and easy to film.", "ci-card--new"),
@@ -79,8 +81,9 @@ ${packCard("The Self-Employed Pack", "", "Introductions, day-in-the-life and sto
       body_html: `
 <div class="ci-intro">
   <div>
-    <p class="ci-lead">When people understand the process they feel confident taking the next step.</p>
-    <p>Educational content demystifies everything from viewings and valuations to legal terms and moving day, and positions you as the go-to expert when it's time to move. Clarity, not complexity — helpful advice from a friend who knows their stuff.</p>
+    <p class="ci-lead">Your audience doesn't deal with property every day. You do. Processes, terminology and decisions that feel completely normal to you can be confusing or intimidating to someone who hasn't moved home for years.</p>
+    <p>This pillar turns your knowledge into useful content. Think common questions, confusing terminology, buying and selling processes, misconceptions and the things you regularly find yourself explaining to clients.</p>
+    <p>The goal isn't to prove how much you know. It's to make property feel easier to understand. Do that consistently and you're demonstrating your expertise long before someone needs to instruct an agent.</p>
   </div>
   ${ph("Hero image")}
 </div>
@@ -98,17 +101,18 @@ ${more([
   card(9, "Jargon buster", "One term a post: exchange, chain, gazumping, under offer. A series that never runs out.", "ci-card--new"),
   card(10, "What a survey actually checks", "The difference between the levels, what's included, and what to do with the findings.", "ci-card--new"),
   card(11, "Leasehold vs freehold, plainly", "What each means day to day: ground rent, service charges, what you can change and what you can't.", "ci-card--new"),
-  card(12, "Stamp duty in thirty seconds", "The thresholds, who pays, and one worked example on a local price. Refresh when the rules change.", "ci-card--new"),
+  card(12, "Stamp duty, explained", "The thresholds, who pays, and one worked example on a local price. Refresh when the rules change.", "ci-card--new"),
 ])}
-${packCard("The Educate and Inform Pack", "", "Explainers, checklists and step-by-steps, designed so the advice is the star.")}`,
+<blockquote class="ci-quote">Expertise isn't demonstrated by making something sound complicated. It's demonstrated by making something complicated feel simple.</blockquote>`,
     },
     {
       title: "Promote Your Service With Purpose",
       body_html: `
 <div class="ci-intro">
   <div>
-    <p class="ci-lead">People don't just want to know that you're an estate agent — they want to understand how you work, what makes you different and why it matters to them.</p>
-    <p>Explain your process clearly and confidently and you remove friction and build trust, turning followers into enquiries without ever feeling 'sold to'.</p>
+    <p class="ci-lead">Promoting your service isn't something you need to avoid. People following you should understand what you offer, how you work and why choosing you could make a difference to their move.</p>
+    <p>The strongest service content goes beyond saying "book a valuation." It shows the process behind your service, the standards you work to, the decisions you make and the things a client actually gets when they choose you.</p>
+    <p>Done consistently, this content turns everything you've already built through personality and expertise into a reason to enquire. You're not just telling people you're different. You're giving them the evidence to decide for themselves.</p>
   </div>
   ${ph("Hero image")}
 </div>
@@ -135,8 +139,9 @@ ${packCard("The Proof Is in the Posts", "the-proof-is-in-the-posts", "Testimonia
       body_html: `
 <div class="ci-intro">
   <div>
-    <p class="ci-lead">Community content highlights the people, places and businesses that make your local area special.</p>
-    <p>It builds trust and visibility, supports other businesses, and shows you live in — and care about — where you work. Warm, grounded and approachable.</p>
+    <p class="ci-lead">Local expertise is about more than knowing house prices. People don't just buy a property, they buy into the area around it, and community content helps you demonstrate that you understand both.</p>
+    <p>This pillar covers the people, places, businesses and everyday details that make your patch what it is. Think schools, independent businesses, walks, commutes, neighbourhoods, events and the things only somebody who genuinely knows the area would think to mention.</p>
+    <p>It also gives people a reason to follow you when they aren't thinking about moving. Over time, consistently useful local content builds an association between you and your area, so when property eventually enters the conversation, you're already a familiar local voice.</p>
   </div>
   ${ph("Hero image")}
 </div>
@@ -161,13 +166,16 @@ ${packCard("The Local Life Pack", "", "Area spotlights, shout-outs and neighbour
     {
       title: "Make Your Content Work Harder",
       body_html: `
-<p class="ci-lead">Good content strategies balance evergreen posts — the educational, trust-building pieces that stay relevant — with timely content tied to news, market shifts or the season. Knowing when to use each keeps you delivering value and top of mind.</p>
+<p class="ci-lead">You now have four content pillars and dozens of ideas to work from. But the goal isn't to publish each one once, tick it off and start searching for another idea. The best content strategies get more from the ideas that already work.</p>
+<p>Combine your evergreen pillars with listings, market updates, seasonal moments and timely content. Then revisit your strongest evergreen ideas regularly, changing the format, example, hook or perspective rather than constantly starting again.</p>
+<p>One good idea shouldn't create one post. It should give you somewhere to keep going.</p>
 <div class="ci-pillars">
-  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Evergreen vs Timely</strong><span>Evergreen posts stay valuable long-term: think 'How to prepare for a valuation'. Timely content covers news, market updates and seasonal moments, and dates quickly. You need both; the Studio's seasonal packs cover the second.</span></div>
-  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Smart Repurposing</strong><span>Get more from one piece: trim a Reel into a 15-second Story clip, design a static summary post for your grid, or turn the Reel into a carousel. One idea, three posts.</span></div>
-  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>When to Refresh</strong><span>Every three to six months, go back to your best-performing posts. Swap in fresh images, update any figures, tweak the caption. A simple refresh keeps it current long after it was first posted.</span></div>
-  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Measure and Iterate</strong><span>Compare original against repurposed: reach, saves, shares, comments. Double down on the versions that keep engaging, and refine from real numbers rather than instinct.</span></div>
-</div>`,
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Evergreen vs Timely</strong><span>Evergreen content stays useful long-term. Timely content responds to market changes, seasons, news and what's happening now. You need both. Evergreen gives your strategy consistency; timely content keeps it current.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Smart Repurposing</strong><span>One idea can become several posts. Turn a Reel into a carousel, pull one point into a Story, expand it on LinkedIn or revisit the same subject with a different example. Repurpose the idea, don't simply repost it.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>When to Refresh</strong><span>Return to your strongest evergreen posts every few months. Update anything that's changed, replace the imagery, rewrite the hook or approach the subject from another angle. Your newer followers probably never saw the original anyway.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Measure and Iterate</strong><span>Look at what people actually respond to. Saves and shares can highlight useful educational content, while comments, profile activity and enquiries tell you something different. Use those signals to decide which subjects deserve another version.</span></div>
+</div>
+<p class="ci-rhythm">You don't need 100 new ideas. You need a handful of good ones that you know how to use.</p>`,
     },
   ],
 };
