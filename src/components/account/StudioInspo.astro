@@ -106,8 +106,17 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   .si-sample { display: inline-block; margin-left: 10px; padding: 2px 8px; border-radius: 999px; background: rgba(227,160,8,0.16); color: #7a5300; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; vertical-align: middle; }
 
   /* ---- seasonal: the pack, the way the website shows one ---- */
-  .si-pack { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 32px; align-items: start; }
-  .si-pack-hero { aspect-ratio: 4 / 5; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  /* The copy column is as tall as the hero image and spreads across it the
+     way the Trending slide does: title block at the top, the contents list
+     in the middle, the price and button on the image's bottom line. Before,
+     everything sat in the top third and the rest of the column was empty. */
+  .si-pack { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: stretch; }
+  .si-pack-copy { display: flex; flex-direction: column; min-height: 0; }
+  .si-pack-pic { align-self: start; }
+  /* The hero is a fixed height and as wide as 4:5 makes it — the Trending
+     image's rule — rather than a column-width picture that ran to 700px
+     tall and left the copy stranded beside it. */
+  .si-pack-hero { height: min(440px, 52vh); aspect-ratio: 4 / 5; width: auto; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-pack-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .si-pack-thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; }
   .si-pack-thumbs::-webkit-scrollbar { display: none; }
@@ -117,10 +126,10 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   .si-pack-thumb.is-active { opacity: 1; border-color: var(--ws-accent, #4a2a3c); }
   .si-pack-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 12px; }
   .si-pack-p { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.65; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; }
-  .si-pack-list { list-style: none; margin: 0 0 22px; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+  .si-pack-list { list-style: none; margin: 0; padding: 22px 0; flex: 1 1 auto; align-content: center; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; }
   .si-pack-list li { position: relative; padding-left: 16px; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.5; color: var(--ws-ink, #1c1d22); }
   .si-pack-list li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--ws-accent, #4a2a3c); }
-  .si-pack-foot { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-pack-foot { margin-top: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-price { font-family: var(--serif); font-size: 26px; font-weight: 600; color: var(--ws-ink, #1c1d22); }
   .si-price small { font-family: var(--sans); font-size: var(--ws-t-meta, 12px); font-weight: 400; color: var(--ws-tx, rgba(28,29,34,0.72)); margin-left: 6px; }
   .si-inside { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
@@ -314,11 +323,11 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     title.textContent = pack.title;
     body.innerHTML = `
       <div class="si-pack">
-        <div>
+        <div class="si-pack-pic">
           <div class="si-pack-hero">${hero[0] ? `<img id="si-hero-img" src="${esc(hero[0])}" alt="${esc(pack.title)}">` : ""}</div>
           ${hero.length > 1 ? `<div class="si-pack-thumbs">${hero.map((u, k) => `<button type="button" class="si-pack-thumb ${k === 0 ? "is-active" : ""}" data-hero="${esc(u)}" aria-label="Show image ${k + 1}"><img src="${esc(u)}" alt=""></button>`).join("")}</div>` : ""}
         </div>
-        <div>
+        <div class="si-pack-copy">
           <p class="si-label">${esc(pack.category || "Pack")}</p>
           <h3 class="si-pack-h">${esc(pack.title)}</h3>
           ${pack.description ? `<p class="si-pack-p">${esc(pack.description)}</p>` : ""}
