@@ -110,23 +110,35 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
      way the Trending slide does: title block at the top, the contents list
      in the middle, the price and button on the image's bottom line. Before,
      everything sat in the top third and the rest of the column was empty. */
-  .si-pack { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 32px; align-items: stretch; }
+  /* Thumbnails down the side, the picture bigger, the copy in what's left —
+     the way a good shop page does it. The copy column matches the picture's
+     height and fills its middle with hairline rows (what's included, how to
+     use it), the price and button on the picture's bottom line. */
+  .si-pack { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 24px 28px; align-items: stretch; }
+  .si-pack--nothumbs { grid-template-columns: auto minmax(0, 1fr); }
   .si-pack-copy { display: flex; flex-direction: column; min-height: 0; }
   .si-pack-pic { align-self: start; }
   /* The hero is a fixed height and as wide as 4:5 makes it — the Trending
      image's rule — rather than a column-width picture that ran to 700px
      tall and left the copy stranded beside it. */
-  .si-pack-hero { height: min(440px, 52vh); aspect-ratio: 4 / 5; width: auto; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-pack-hero { height: min(520px, 58vh); aspect-ratio: 4 / 5; width: auto; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-pack-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .si-pack-thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; scrollbar-width: none; }
-  .si-pack-thumbs::-webkit-scrollbar { display: none; }
-  .si-pack-thumb { flex: 0 0 64px; aspect-ratio: 4 / 5; border-radius: 3px; overflow: hidden; border: 2px solid transparent; padding: 0; background: #e6e3e1; cursor: pointer; opacity: 0.7; transition: opacity 0.2s, border-color 0.2s; }
+  .si-pack-thumbs { display: flex; flex-direction: column; gap: 10px; align-self: start; }
+  .si-pack-thumb { flex: 0 0 auto; width: 72px; aspect-ratio: 4 / 5; border-radius: 3px; overflow: hidden; border: 2px solid transparent; padding: 0; background: #e6e3e1; cursor: pointer; opacity: 0.7; transition: opacity 0.2s, border-color 0.2s; }
   .si-pack-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .si-pack-thumb:hover { opacity: 1; }
   .si-pack-thumb.is-active { opacity: 1; border-color: var(--ws-accent, #4a2a3c); }
   .si-pack-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 12px; }
   .si-pack-p { font-family: var(--sans); font-size: var(--ws-t-row, 14px); line-height: 1.65; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; }
-  .si-pack-list { list-style: none; margin: 0; padding: 22px 0; flex: 1 1 auto; align-content: center; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 20px; }
+  .si-pack-rows { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; margin-top: 18px; }
+  .si-pack-row { border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
+  .si-pack-row summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0; font-family: var(--sans); font-size: var(--ws-t-body, 13px); font-weight: 700; letter-spacing: 0.04em; color: var(--ws-ink, #1c1d22); }
+  .si-pack-row summary::-webkit-details-marker { display: none; }
+  .si-pack-row summary::after { content: ""; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); margin-right: 4px; transition: transform 0.2s; opacity: 0.6; }
+  .si-pack-row[open] summary::after { transform: rotate(-135deg); }
+  .si-pack-row-body { padding: 0 0 16px; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.72)); }
+  .si-pack-row-body p { margin: 0; }
+  .si-pack-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
   .si-pack-list li { position: relative; padding-left: 16px; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.5; color: var(--ws-ink, #1c1d22); }
   .si-pack-list li::before { content: ""; position: absolute; left: 0; top: 7px; width: 5px; height: 5px; border-radius: 50%; background: var(--ws-accent, #4a2a3c); }
   .si-pack-foot { margin-top: auto; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
@@ -169,7 +181,9 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   @media (max-width: 860px) {
     .si { padding: 0; }
     .si-panel { height: 100%; border-radius: 0; }
-    .si-slide, .si-pack { grid-template-columns: 1fr; }
+    .si-slide, .si-pack, .si-pack--nothumbs { grid-template-columns: 1fr; }
+    .si-pack-thumbs { flex-direction: row; overflow-x: auto; }
+    .si-pack-hero { height: auto; width: 100%; }
     .si-media { height: auto; width: 100%; }
     .si-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 0; }
     .si-tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -322,16 +336,20 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
 
     title.textContent = pack.title;
     body.innerHTML = `
-      <div class="si-pack">
+      <div class="si-pack ${hero.length > 1 ? "" : "si-pack--nothumbs"}">
+        ${hero.length > 1 ? `<div class="si-pack-thumbs">${hero.map((u, k) => `<button type="button" class="si-pack-thumb ${k === 0 ? "is-active" : ""}" data-hero="${esc(u)}" aria-label="Show image ${k + 1}"><img src="${esc(u)}" alt=""></button>`).join("")}</div>` : ""}
         <div class="si-pack-pic">
           <div class="si-pack-hero">${hero[0] ? `<img id="si-hero-img" src="${esc(hero[0])}" alt="${esc(pack.title)}">` : ""}</div>
-          ${hero.length > 1 ? `<div class="si-pack-thumbs">${hero.map((u, k) => `<button type="button" class="si-pack-thumb ${k === 0 ? "is-active" : ""}" data-hero="${esc(u)}" aria-label="Show image ${k + 1}"><img src="${esc(u)}" alt=""></button>`).join("")}</div>` : ""}
         </div>
         <div class="si-pack-copy">
           <p class="si-label">${esc(pack.category || "Pack")}</p>
           <h3 class="si-pack-h">${esc(pack.title)}</h3>
           ${pack.description ? `<p class="si-pack-p">${esc(pack.description)}</p>` : ""}
-          ${contents.length ? `<ul class="si-pack-list">${contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : ""}
+          <div class="si-pack-rows">
+            ${contents.length ? `<details class="si-pack-row" open><summary>What's included</summary><div class="si-pack-row-body"><ul class="si-pack-list">${contents.map((c) => `<li>${esc(c)}</li>`).join("")}</ul></div></details>` : ""}
+            <details class="si-pack-row"><summary>How to use it</summary><div class="si-pack-row-body"><p>Open the pack in the Studio, pick a design and it arrives in your brand kit's colours and fonts. Change the words, swap the photo, then download it or add it to your planner.</p></div></details>
+            <details class="si-pack-row"><summary>Good to know</summary><div class="si-pack-row-body"><p>Every design is fully editable and yours to keep. Buy once; use it as often as you like across your accounts.</p></div></details>
+          </div>
           <div class="si-pack-foot">
             ${owned
               ? `<a class="si-btn si-btn--primary" href="/account/editor?pack=${encodeURIComponent(pack.id)}">Open in the Studio &rarr;</a><span class="si-note" style="margin:0">You own this pack.</span>`
