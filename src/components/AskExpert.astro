@@ -893,6 +893,72 @@
     }));
     if (!$dock) $panel.querySelectorAll<HTMLElement>("[data-ae-dock]").forEach((b) => b.setAttribute("hidden", ""));
 
+    // Tiny "markdown-lite" — preserves the line breaks Claude emits
+    // and bolds the "Step 1:" / "Step 2:" prefixes the system prompt
+    // asks for. Anything else is treated as plain text (escaped).
+    function escapeHtml(s: string): string {
+      return s.replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c] as string));
+    }
+    function renderReply(text: string): string {
+      const escaped = escapeHtml(text);
+      // Bold any "Step N:" / "Step N." prefix at the start of a line.
+      return escaped.replace(
+        /(^|\n)(Step\s+\d+[:.])/g,
+        '$1<strong>$2</strong>'
+      );
+    }
+    function append($log: HTMLElement, role: "user" | "assistant" | "error", text: string): HTMLDivElement {
+      const div = document.createElement("div");
+      div.className = "ae-msg ae-msg--" + (role === "user" ? "user" : role === "error" ? "error" : "bot");
+      const p = document.createElement("p");
+      // Bot replies get the lightweight formatter; user / error stay plain.
+      if (role === "assistant") p.innerHTML = renderReply(text);
+      else p.textContent = text;
+      div.appendChild(p);
+      $log.appendChild(div);
+      $log.scrollTop = $log.scrollHeight;
+      return div;
+    }
+    function appendTyping($log: HTMLElement): HTMLDivElement {
+      const div = document.createElement("div");
+      div.className = "ae-msg ae-msg--bot ae-msg--typing";
+      div.innerHTML = "<span></span><span></span><span></span>";
+      $log.appendChild(div);
+      $log.scrollTop = $log.scrollHeight;
+      return div;
+    }
+
+    // Backend URL — points at the Supabase Edge Function in production
+    // (set PUBLIC_ASK_EXPERT_URL in .env / Railway vars) or falls back
+    // to a same-origin /api route when an SSR adapter is configured.
+    const BACKEND_URL =
+      (import.meta.env.PUBLIC_ASK_EXPERT_URL as string | undefined) ||
+      "/api/ask-expert";
+
+    type Msg = { role: "user" | "assistant"; content: string };
+
+    async function askBackend(messages: Msg[], mode: string): Promise<string> {
+      try {
+        const res = await fetch(BACKEND_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ messages, mode }),
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        return data.reply || "(no reply)";
+      } catch (err) {
+        // No backend yet — return a stub so the UI is usable.
+        return (
+          "I'm not wired up to the AI service yet — but when I am, I'll " +
+          "walk you through whatever you're trying to do. In the meantime, " +
+          "drop us a line at hello@tmke.co.uk and we'll get you sorted."
+        );
+      }
+    }
+
     $trigger.addEventListener("click", () => {
       if ($panel.classList.contains("is-docked")) { undock(); openPanel(); return; }
       if ($panel.hidden) openPanel();
