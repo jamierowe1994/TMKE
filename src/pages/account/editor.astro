@@ -438,6 +438,13 @@ const googleFonts = [
 
     <!-- =================== TOOL FLYOUT PANEL =================== -->
     <aside class="ed-panel" id="ed-panel">
+      <!-- Phone only: the panel is a sheet that rises from above the bottom
+           tab bar, and this is its grip and its Done button. Desktop never
+           shows it. -->
+      <div class="ed-sheet-bar">
+        <span class="ed-sheet-grip"></span>
+        <button type="button" class="ed-sheet-close" id="ed-sheet-close">Done</button>
+      </div>
       <!-- Selection — auto-opens when an element is selected, replacing
            the right-hand properties panel that used to live in this layout. -->
       <section class="ed-panel-pane" data-pane="selection">
@@ -552,6 +559,12 @@ const googleFonts = [
       <!-- Elements -->
       <section class="ed-panel-pane" data-pane="elements">
         <div class="ed-pane-header"><h3>Elements</h3><p>Add shapes, lines, icons and frames to your canvas.</p></div>
+        <!-- Phone only: Images lives inside Elements, so the bottom bar stays
+             four tabs wide. -->
+        <button type="button" class="ed-start-btn ed-m-only ed-m-images" data-start-tool="photos">
+          <span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span>
+          <span class="ed-start-tx"><b>Images</b><i>Search royalty-free photos or upload your own</i></span>
+        </button>
         <div class="ed-section-title">Shapes</div>
         <div class="ed-shape-grid">
           <button class="ed-shape" data-shape="rect"><div class="sh sh-rect"></div><span>Rectangle</span></button>
@@ -698,6 +711,7 @@ const googleFonts = [
       <!-- Images — stock search (Pexels + Unsplash) with your uploads underneath.
            Merged from the old separate Photos + Uploads panes. -->
       <section class="ed-panel-pane" data-pane="photos">
+        <button type="button" class="ed-m-back ed-m-only" data-start-tool="elements">&larr; Elements</button>
         <div class="ed-pane-header">
           <h3>Images</h3>
           <p>Search royalty-free images or upload your own.</p>
@@ -4477,6 +4491,90 @@ const googleFonts = [
     .ed-ob-cta-btn:hover { background: var(--ink); border-color: var(--ink); transform: translateY(-2px); }
     .ed-ob-cta-btn .btn-arrow { display: inline-block; transition: transform 0.3s cubic-bezier(.2,.7,.2,1); }
     .ed-ob-cta-btn:hover .btn-arrow { transform: translateX(4px); }
+
+    /* ============ Studio on a phone ============
+       Canva's shape: the canvas fills the screen, four tabs sit along the
+       bottom (Start, Templates, Elements, Text), and whichever one you tap
+       rises as a sheet over the lower half. Selecting something on the canvas
+       raises the same sheet with that item's controls. Editing, not
+       building — the Creative Assistant, Layers, Guides, Pages and the zoom
+       controls stay on the desktop. Phones only: tablets keep the desktop
+       layout. */
+    .ed-m-only, .ed-sheet-bar { display: none; }
+    @media (max-width: 760px) {
+      .editor {
+        --ed-bar-h: calc(58px + env(safe-area-inset-bottom, 0px));
+        --ed-sheet-h: min(52vh, 460px);
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-areas: "top" "ctx" "stage" "pages";
+        padding-bottom: var(--ed-bar-h);
+        transition: padding-bottom 0.28s cubic-bezier(.2,.75,.2,1);
+      }
+      .editor.ed-sheet-open { padding-bottom: calc(var(--ed-bar-h) + var(--ed-sheet-h)); }
+      .editor.ed-sheet-open.ed-sheet-sel { --ed-sheet-h: min(44vh, 400px); }
+
+      /* Top bar: back, name, undo/redo, save, download. */
+      .ed-topbar { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; height: 48px; margin: 8px 8px 0; padding: 0 8px 0 6px; }
+      .ed-topbar-left { gap: 6px; min-width: 0; }
+      .ed-logo, .ed-topbar-left .ed-divider, .ed-topbar-mid .ed-divider,
+      #ed-zoom-out, #ed-zoom-in, #ed-zoom-display, #ed-zoom-fit,
+      #ed-schedule, #ed-review-btn, .ed-canvas-size-pill { display: none !important; }
+      .ed-filename { min-width: 0; width: 100%; font-size: 14px; }
+      .ed-topbar-right { gap: 6px; }
+      .ed-topbar-right .ed-btn-ghost, .ed-topbar-right .ed-btn-solid { padding-left: 12px; padding-right: 12px; }
+
+      /* The rail becomes the bottom bar. */
+      .ed-rail {
+        position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+        height: var(--ed-bar-h);
+        flex-direction: row; align-items: stretch; justify-content: space-around;
+        padding: 0 0 env(safe-area-inset-bottom, 0px);
+        gap: 0; border-right: 0; z-index: 45;
+      }
+      .ed-rail .ed-rail-btn { flex: 1 1 0; width: auto; padding: 6px 0; border-left: 0; border-top: 2px solid transparent; gap: 4px; }
+      .ed-rail .ed-rail-btn svg { width: 21px; height: 21px; }
+      .ed-rail .ed-rail-btn span { font-size: 10px; }
+      html.editor-light .ed-rail .ed-rail-btn.is-active { border-left-color: transparent; border-top-color: #fff; }
+      .ed-rail .ed-rail-btn[hidden],
+      .ed-rail [data-tool="brand"], .ed-rail [data-tool="photos"], .ed-rail [data-tool="background"],
+      .ed-rail [data-tool="layers"], .ed-rail [data-tool="resize"], .ed-rail [data-tool="guides"],
+      .ed-rail-toggle, .ed-rail-spacer { display: none !important; }
+      .editor.is-onboarding .ed-rail { transform: translateY(110%); }
+      .editor.show-rail .ed-rail { transform: none; }
+
+      /* The panel becomes the sheet. */
+      .ed-panel {
+        position: fixed; left: 0; right: 0; bottom: var(--ed-bar-h); top: auto;
+        height: var(--ed-sheet-h);
+        border-right: 0; border-top: 1px solid rgba(28,29,34,0.1);
+        border-radius: 14px 14px 0 0;
+        box-shadow: 0 -12px 34px -22px rgba(28,29,34,0.35);
+        padding: 6px 16px 28px;
+        z-index: 40;
+        transition: transform 0.28s cubic-bezier(.2,.75,.2,1), opacity 0.2s;
+        -webkit-overflow-scrolling: touch;
+      }
+      .editor .ed-panel, .editor.show-panel .ed-panel { transform: translateY(105%); opacity: 1; }
+      .editor.ed-sheet-open .ed-panel, .editor.ed-sheet-open.show-panel .ed-panel { transform: none; }
+      .ed-sheet-bar { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 2; margin: 0 -16px 8px; padding: 6px 12px 6px 16px; background: inherit; }
+      .ed-sheet-grip { width: 38px; height: 4px; border-radius: 999px; background: rgba(28,29,34,0.18); position: absolute; left: 50%; top: 6px; transform: translateX(-50%); }
+      .ed-sheet-close { margin-left: auto; appearance: none; border: 0; background: transparent; padding: 6px 4px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--english-violet); cursor: pointer; }
+      .ed-m-only { display: block; }
+      .ed-m-images { margin-bottom: 14px; }
+      .ed-m-back { appearance: none; border: 0; background: transparent; padding: 0 0 10px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--english-violet); cursor: pointer; }
+      .ed-start-btn:hover { transform: none; }
+      /* What to post is a desktop thing. */
+      .ed-start-ask, .ae-trigger, .ae-panel, #ae-dock { display: none !important; }
+
+      /* Colour picker rides over the sheet. */
+      .ed-colorpanel { position: fixed; left: 0; right: 0; top: auto; bottom: var(--ed-bar-h); width: auto; height: var(--ed-sheet-h); border-right: 0; border-top: 1px solid rgba(28,29,34,0.1); border-radius: 14px 14px 0 0; z-index: 42; }
+
+      /* The canvas gets the room. */
+      .ed-stage { padding: 14px; }
+      .ed-context { padding: 0 6px; }
+      .ed-pages { padding: 10px 12px; }
+    }
   </style>
 
   <!--
@@ -6746,6 +6844,9 @@ const googleFonts = [
       if (!grid) return;
 
       const IC = {
+        newdesign:  '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/>',
+        template:   '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+        resize:     '<path d="M21 3h-7M21 3v7M3 21h7M3 21v-7"/><path d="M3 3l18 18"/>',
         brand:      '<path d="M12 3v18M5 8l7-5 7 5M5 8v8l7 5 7-5V8"/>',
         background: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/>',
         text:       '<path d="M5 6h14M9 6v13M12 6v6"/>',
@@ -6754,6 +6855,12 @@ const googleFonts = [
         page:       '<rect x="3" y="3" width="13" height="18" rx="2"/><path d="M19 8v13H8"/>',
       };
       const ACTIONS = {
+        // Phone only — the three things a phone is for: pick up a template,
+        // start fresh, change the size. Desktop has these on the rail and the
+        // launcher, so they'd be noise there.
+        newdesign:  { href: "/account/editor?new=1", label: "Create a new design", note: "Pick a size, start blank" },
+        template:   { tool: "templates",  label: "Edit a template", note: "From the packs you own" },
+        resize:     { tool: "resize",     label: "Change the size", note: "Story, square, post" },
         brand:      { tool: "brand",      label: "Make it yours", note: "Your colours &amp; fonts" },
         background: { tool: "background", label: "Background",    note: "Photo, crop &amp; overlay" },
         text:       { tool: "text",       label: "Text",          note: "Headlines &amp; captions" },
@@ -6797,21 +6904,44 @@ const googleFonts = [
         },
       };
 
+      const PHONE = window.matchMedia("(max-width: 760px)");
+      let lastCtx = ctx;
       function render(which) {
+        lastCtx = which;
         const L = LAYOUT[which] || LAYOUT.template;
         if (title) title.textContent = L.title;
         if (sub) sub.textContent = L.sub;
-        grid.innerHTML = L.order.map(function (key) {
+        let order = L.order;
+        if (PHONE.matches) {
+          // Templates only once the owned-packs lookup has shown the tab.
+          const tplBtn = document.getElementById("ed-rail-templates");
+          const extra = ["newdesign"].concat(tplBtn && !tplBtn.hidden ? ["template"] : []).concat(["resize"]);
+          order = extra.concat(order);
+        }
+        grid.innerHTML = order.map(function (key) {
           const a = ACTIONS[key];
           if (!a) return "";
+          const cls = "ed-start-btn" + (["newdesign","template","resize"].includes(key) ? " ed-start-btn--phone" : "");
+          if (a.href) {
+            return '<a class="' + cls + '" href="' + a.href + '">' +
+              '<span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[key] + '</svg></span>' +
+              '<span class="ed-start-tx"><b>' + a.label + '</b><i>' + a.note + '</i></span>' +
+            '</a>';
+          }
           const attr = a.addPage ? "data-add-page" : 'data-start-tool="' + a.tool + '"';
-          return '<button type="button" class="ed-start-btn" ' + attr + '>' +
+          return '<button type="button" class="' + cls + '" ' + attr + '>' +
             '<span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[key] + '</svg></span>' +
             '<span class="ed-start-tx"><b>' + a.label + '</b><i>' + a.note + '</i></span>' +
           '</button>';
         }).join("");
       }
       render(ctx);
+      // The Templates tab appears once the paid-orders lookup finishes; the
+      // phone shortcut list follows it.
+      const tplBtnWatch = document.getElementById("ed-rail-templates");
+      if (tplBtnWatch) new MutationObserver(function () { if (PHONE.matches) render(lastCtx); })
+        .observe(tplBtnWatch, { attributes: true, attributeFilter: ["hidden"] });
+      PHONE.addEventListener("change", function () { render(lastCtx); });
 
       // Choosing from the launcher doesn't change the URL, so the query string
       // can't be the only thing that decides this. The launcher says which.
@@ -7001,6 +7131,95 @@ const googleFonts = [
        backend route /api/ask-expert needs an SSR runtime (or a
        separate edge function). Until that's wired the widget shows
        a friendly fallback message so the UI is still usable. -->
+  <!-- Studio on a phone: the tab bar and the sheet. Everything the engine
+       does stays as it is; this only decides when the panel is up. -->
+  <script>
+    (function phoneStudio() {
+      const PHONE = window.matchMedia("(max-width: 760px)");
+      const editor = document.getElementById("editor");
+      const stage = document.getElementById("ed-stage");
+      const selPane = document.querySelector('.ed-panel-pane[data-pane="selection"]');
+      if (!editor || !stage || !selPane) return;
+      let mode = "";
+      // Which tab lights up for a tool that has no tab of its own.
+      const OWNER = { photos: "elements", background: "start", brand: "start", layers: "start", resize: "start", guides: "start" };
+
+      // The stage row changes size over the sheet's slide (0.28s), so the
+      // design is refitted once the slide is over, not while it runs.
+      let refitTimer = 0;
+      function refit() {
+        clearTimeout(refitTimer);
+        refitTimer = setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 340);
+      }
+      function openSheet(m) {
+        mode = m;
+        editor.classList.add("ed-sheet-open");
+        editor.classList.toggle("ed-sheet-sel", m === "sel");
+        const panel = document.getElementById("ed-panel");
+        if (panel) panel.scrollTop = 0;
+        refit();
+      }
+      function closeSheet() {
+        mode = "";
+        editor.classList.remove("ed-sheet-open", "ed-sheet-sel");
+        refit();
+      }
+      function light(tool) {
+        const own = OWNER[tool];
+        if (!own) return;
+        document.querySelectorAll(".ed-rail-btn").forEach(function (b) {
+          b.classList.toggle("is-active", b.dataset.tool === own);
+        });
+      }
+
+      // A tab press. The engine has already switched the pane by the time this
+      // runs; this raises the sheet, or drops it if the tab was already up.
+      let pressedActive = false;
+      document.addEventListener("pointerdown", function (e) {
+        const b = e.target && e.target.closest && e.target.closest(".ed-rail-btn");
+        pressedActive = !!(b && b.classList.contains("is-active") && mode === "tool");
+      }, true);
+      document.addEventListener("click", function (e) {
+        if (!PHONE.matches) return;
+        const b = e.target && e.target.closest && e.target.closest(".ed-rail-btn");
+        if (!b) return;
+        const direct = e.target.closest(".ed-rail") !== null;
+        if (direct && pressedActive) { closeSheet(); return; }
+        light(b.dataset.tool);
+        openSheet("tool");
+      });
+
+      const done = document.getElementById("ed-sheet-close");
+      if (done) done.addEventListener("click", closeSheet);
+
+      // Something selected on the canvas raises its controls; deselecting
+      // drops them again.
+      new MutationObserver(function () {
+        if (!PHONE.matches) return;
+        if (selPane.classList.contains("is-active")) openSheet("sel");
+        else if (mode === "sel") closeSheet();
+      }).observe(selPane, { attributes: true, attributeFilter: ["class"] });
+
+      // A tap on the canvas: on an item whose controls were dismissed, bring
+      // them back; on empty space with a tool sheet up, drop the sheet.
+      let downX = 0, downY = 0;
+      stage.addEventListener("pointerdown", function (e) {
+        downX = e.clientX; downY = e.clientY;
+        if (PHONE.matches && mode === "tool" && !e.target.closest(".ed-layer")) closeSheet();
+      });
+      stage.addEventListener("pointerup", function (e) {
+        if (!PHONE.matches) return;
+        if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
+        if (!e.target.closest(".ed-layer")) return;
+        setTimeout(function () {
+          if (selPane.classList.contains("is-active") && mode !== "sel") openSheet("sel");
+        }, 0);
+      });
+
+      PHONE.addEventListener("change", function () { if (!PHONE.matches) closeSheet(); else refit(); });
+    })();
+  </script>
+
   <AskExpert />
 
   <!-- Browse-packs shop modal — opened from the onboarding "Need more

@@ -129,8 +129,18 @@
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
-    try { return JSON.parse(localStorage.getItem("tmke.brand") || "null"); }
+    let kit = null;
+    try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); }
     catch (_) { return null; }
+    // Older kits saved colours as bare strings; every reader here expects
+    // { hex, name }. One bare string used to stop the whole engine booting.
+    if (kit && Array.isArray(kit.colors)) {
+      kit.colors = kit.colors.map(function (c) {
+        if (typeof c === "string") return { hex: c, name: c };
+        return (c && typeof c === "object" && typeof c.hex === "string") ? c : null;
+      }).filter(Boolean);
+    }
+    return kit;
   }
   let BRAND = loadBrand();
 
@@ -5164,7 +5174,8 @@
   }
   function fitZoom() {
     const stageRect = stageEl.getBoundingClientRect();
-    const pad = 80;
+    // A phone has no room to give away around the design.
+    const pad = window.innerWidth <= 760 ? 28 : 80;
     const zw = (stageRect.width - pad) / state.canvas.width;
     const zh = (stageRect.height - pad) / state.canvas.height;
     setZoom(Math.min(zw, zh, 1));
