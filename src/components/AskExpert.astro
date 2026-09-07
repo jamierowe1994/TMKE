@@ -46,7 +46,18 @@
       <p class="ae-eyebrow">Your designer, on tap</p>
       <h3 id="ae-panel-title" class="ae-title">Creative Assistant</h3>
     </div>
-    <button type="button" id="ask-expert-close" class="ae-close" aria-label="Close">&times;</button>
+    <div class="ae-head-actions">
+      <!-- Dock: the same panel, moved into the editor's left tool panel at
+           full height (the rail's Assistant tab does the same). Expand: a
+           bigger floating panel for a longer conversation. -->
+      <button type="button" class="ae-iconbtn" data-ae-dock title="Open in the side panel" aria-label="Open in the side panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      </button>
+      <button type="button" class="ae-iconbtn" data-ae-expand title="Expand" aria-label="Expand" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      </button>
+      <button type="button" id="ask-expert-close" class="ae-close" aria-label="Close">&times;</button>
+    </div>
   </header>
 
   <!-- Three tabs: a demo you can watch, and two assistants that answer
@@ -60,7 +71,7 @@
     <button type="button" class="ae-tab" data-tab="help" role="tab" aria-selected="false">
       <span aria-hidden="true">&#63;</span> Studio help
     </button>
-    <button type="button" class="ae-tab" data-tab="ideas" role="tab" aria-selected="false">
+    <button type="button" class="ae-tab ae-tab--accent" data-tab="ideas" role="tab" aria-selected="false">
       <span aria-hidden="true">&#9998;</span> What to post
     </button>
   </div>
@@ -84,7 +95,7 @@
       <textarea
         class="ae-input"
         data-input
-        rows="2"
+        rows="3"
         placeholder="How do I…?"
         aria-label="Your question about the Studio"
       ></textarea>
@@ -111,7 +122,7 @@
       <textarea
         class="ae-input"
         data-input
-        rows="2"
+        rows="3"
         placeholder="What should I post about…?"
         aria-label="Your content question"
       ></textarea>
@@ -229,7 +240,9 @@
     bottom: 92px;
     z-index: 201;
     width: min(460px, calc(100vw - 48px));
-    max-height: min(720px, calc(100vh - 140px));
+    /* A fixed height, not a maximum: switching tabs used to resize the whole
+       panel as each view's content changed. The views fill whatever is spare. */
+    height: min(720px, calc(100vh - 140px));
     display: flex;
     flex-direction: column;
     background: var(--paper);
@@ -252,6 +265,39 @@
     transform: translateY(0) scale(1);
     pointer-events: auto;
   }
+  /* Expanded: a bigger floating panel for a longer conversation. */
+  .ae-panel.is-wide {
+    width: min(780px, calc(100vw - 48px));
+    height: min(920px, calc(100vh - 120px));
+  }
+  /* Docked: the same panel living inside the editor's left tool panel, at
+     the panel's full height, with the floating chrome taken off. */
+  .ae-panel.is-docked {
+    position: static; width: auto; height: auto; max-height: none;
+    flex: 1 1 auto; min-height: 0;
+    border: 0; border-radius: 0; box-shadow: none;
+    opacity: 1; transform: none; pointer-events: auto;
+  }
+  .ae-panel.is-docked[hidden] { display: none; }
+  .ae-panel.is-docked [data-ae-expand] { display: none; }
+  /* The tool panel is narrower than the floating panel: tighter tabs, no
+     icons, so the three sit on one line. */
+  .ae-panel.is-docked .ae-tabs { padding: 0 10px; }
+  .ae-panel.is-docked .ae-tab { padding: 12px 8px; font-size: 11px; letter-spacing: 0.04em; }
+  .ae-panel.is-docked .ae-tab span { display: none; }
+  .ae-panel.is-docked .ae-tab--accent { padding: 0 12px; }
+  .ae-head-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .ae-iconbtn {
+    appearance: none; background: transparent; border: 0; cursor: pointer;
+    width: 30px; height: 30px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center;
+    color: rgba(28, 29, 34, 0.55); transition: background 0.2s, color 0.2s;
+  }
+  .ae-iconbtn svg { width: 16px; height: 16px; }
+  .ae-iconbtn:hover, .ae-iconbtn[aria-pressed="true"] { background: rgba(var(--violet-rgb), 0.08); color: var(--ink); }
+  /* The editor's tool panel, while it hosts the assistant: no padding, no
+     scroll of its own — the chat scrolls inside itself and fills the height. */
+  .ed-panel:has(> .ed-panel-pane[data-pane="assistant"].is-active) { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+  .ed-panel-pane[data-pane="assistant"].is-active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 
   .ae-head {
     display: flex;
@@ -383,6 +429,17 @@
     border-bottom-color: var(--english-violet);
   }
   .ae-tab span { margin-right: 6px; }
+  /* "What to post" is the one to notice: a wine button on the tab strip. */
+  .ae-tab--accent {
+    margin: 7px 0 7px auto; padding: 0 14px; height: 30px;
+    display: inline-flex; align-items: center;
+    background: var(--english-violet); color: var(--paper);
+    border-radius: 999px; border-bottom: 0;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .ae-tab--accent:hover { color: var(--paper); background: var(--ink); }
+  .ae-tab--accent.is-active { color: var(--paper); background: var(--ink); border-bottom: 0; }
+  .ae-tabs { align-items: center; }
 
   /* Each view fills the remaining panel height. Only the active one
      is visible; the chat view has its own internal scroll. */
@@ -414,7 +471,9 @@
     gap: 8px;
     /* Roughly six rows, then scroll. Enough to see there is a list and to
        reach the common ones without the panel growing into the design. */
-    max-height: min(354px, 46vh);
+    /* Fills the view: the panel is a fixed height now, so the list takes
+       what's spare rather than deciding the panel's size. */
+    flex: 1 1 auto; min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     /* Room for the scrollbar so it never sits on the chips. */
@@ -505,6 +564,7 @@
   }
   .ae-input {
     flex: 1;
+    min-height: 74px;
     resize: none;
     padding: 10px 12px;
     background: #fff;
@@ -762,11 +822,61 @@
       });
     }
     function closePanel() {
+      if ($panel.classList.contains("is-docked")) { undock(); }
       $panel.classList.remove("is-open");
       $trigger.setAttribute("aria-expanded", "false");
       setTimeout(() => {
         if (!$panel.classList.contains("is-open")) $panel.hidden = true;
       }, 320);
+    }
+
+    // ---- Expand: a bigger floating panel --------------------------------
+    const $expand = $panel.querySelector<HTMLButtonElement>("[data-ae-expand]");
+    $expand?.addEventListener("click", () => {
+      const wide = $panel.classList.toggle("is-wide");
+      $expand.setAttribute("aria-pressed", wide ? "true" : "false");
+      $expand.setAttribute("title", wide ? "Shrink" : "Expand");
+    });
+
+    // ---- Dock: live in the editor's left tool panel ------------------------
+    // The editor page carries an empty pane (data-pane="assistant") and a
+    // rail button for it. Docking moves this very panel into that pane, so
+    // the conversation carries over; undocking moves it back under the
+    // floating trigger. The rail button and the header's dock button both
+    // land here; on a page with no dock (the Studio home) they do nothing.
+    const $dock = document.getElementById("ae-dock");
+    const floatingHome = $panel.parentElement;
+    const railBtn = document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="assistant"]');
+    function dock() {
+      if (!$dock) return;
+      $panel.classList.remove("is-wide");
+      $expand?.setAttribute("aria-pressed", "false");
+      $dock.appendChild($panel);
+      $panel.hidden = false;
+      $panel.classList.add("is-docked", "is-open");
+      $trigger.setAttribute("aria-expanded", "true");
+      // Show the pane the way the rail does, so the rail highlights it too.
+      if (railBtn && !railBtn.classList.contains("is-active")) railBtn.click();
+      inputOf(chatViews.find((v) => !v.hidden))?.focus();
+    }
+    function undock() {
+      if (!$dock || !floatingHome) return;
+      floatingHome.appendChild($panel);
+      $panel.classList.remove("is-docked");
+      // Hand the tool panel back to the tool that was there before.
+      if (railBtn?.classList.contains("is-active")) {
+        (document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="start"]') || document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="brand"]'))?.click();
+      }
+    }
+    $panel.querySelector("[data-ae-dock]")?.addEventListener("click", () => {
+      if ($panel.classList.contains("is-docked")) { undock(); openPanel(); } else dock();
+    });
+    // The rail's Assistant tab: editor.js shows the pane; we fill it.
+    railBtn?.addEventListener("click", () => { if (!$panel.classList.contains("is-docked")) dock(); });
+    if ($dock) {
+      $panel.querySelector("[data-ae-dock]")?.setAttribute("title", "Open in the side panel");
+    } else {
+      $panel.querySelector<HTMLElement>("[data-ae-dock]")?.setAttribute("hidden", "");
     }
 
     // Tiny "markdown-lite" — preserves the line breaks Claude emits
@@ -836,6 +946,7 @@
     }
 
     $trigger.addEventListener("click", () => {
+      if ($panel.classList.contains("is-docked")) { undock(); openPanel(); return; }
       if ($panel.hidden) openPanel();
       else closePanel();
     });
