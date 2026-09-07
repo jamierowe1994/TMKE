@@ -373,10 +373,10 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
         </div>
       </div>` : ""}`;
 
-    // The picture ends where the button ends: its height is the copy column's
-    // natural height (measured with the picture collapsed, so the row is the
-    // copy's), re-measured when a row opens or closes or the window resizes.
-    // Widening the picture narrows the copy, which can rewrap it — hence twice.
+    // The picture ends where the button ends when the pop-out opens: its
+    // height is the copy column's natural height then, re-measured only on a
+    // window resize. Opening a row is deliberately NOT a re-measure — the
+    // picture stays put and only the things below the row move.
     const heroEl = body.querySelector(".si-pack-hero"), copyEl = body.querySelector(".si-pack-copy");
     function fitHero() {
       if (!heroEl || !copyEl || openKind !== "seasonal") return;
@@ -396,7 +396,6 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     }
     if (window.matchMedia("(min-width: 861px)").matches) {
       fitHero();
-      body.querySelectorAll(".si-pack-row").forEach((d) => d.addEventListener("toggle", fitHero));
       window.addEventListener("resize", fitHero);
     }
     const heroImg = document.getElementById("si-hero-img");
