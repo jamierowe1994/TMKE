@@ -53,11 +53,12 @@ const TOOL_ICONS = {
 
 // The four inspiration cards. Three open the StudioInspo pop-out (data-inspo);
 // Content ideas is a proper read, so it links to the guide instead.
+const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
 const inspo = [
-  { key: "trending", name: "See what's working", desc: "Five formats performing right now, updated monthly.", thumb: templates[1]?.thumb },
-  { key: "seasonal", name: "Seasonal moments",   desc: "The pack for this time of year.",                  thumb: templates[2]?.thumb },
-  { key: "ideas",    name: "Content ideas",      desc: "48 evergreen post ideas across four pillars.",     thumb: templates[3]?.thumb, href: "/account/guides/read?g=content-ideas" },
-  { key: "brand",    name: "Brand inspo",        desc: "Our templates, in your colours.",                  thumb: templates[4]?.thumb },
+  { key: "trending", name: "See what's working", desc: "Five formats performing right now, updated monthly.", thumb: R2("living-1") },
+  { key: "seasonal", name: "Seasonal moments",   desc: "The pack for this time of year.",                  thumb: R2("orange-1") },
+  { key: "ideas",    name: "Content ideas",      desc: "48 evergreen post ideas across four pillars.",     thumb: R2("table"), href: "/account/guides/read?g=content-ideas" },
+  { key: "brand",    name: "Brand inspo",        desc: "Our templates, in your colours.",                  thumb: R2("white-1") },
 ];
 ---
 <BaseLayout
@@ -184,11 +185,15 @@ const inspo = [
         <div class="st-row st-row--inspo">
           {inspo.map((c) => (
             c.href
-              ? <a class="st-insp" href={c.href} style={`background-image:url('${c.thumb}')`}>
-                  <span class="st-insp-tx"><strong>{c.name}</strong><span>{c.desc}</span></span>
+              ? <a class="st-insp" href={c.href}>
+                  <span class="st-insp-img" style={`background-image:url('${c.thumb}')`}></span>
+                  <span class="st-insp-name">{c.name}</span>
+                  <span class="st-insp-desc">{c.desc}</span>
                 </a>
-              : <button type="button" class="st-insp" data-inspo={c.key} style={`background-image:url('${c.thumb}')`}>
-                  <span class="st-insp-tx"><strong>{c.name}</strong><span>{c.desc}</span></span>
+              : <button type="button" class="st-insp" data-inspo={c.key}>
+                  <span class="st-insp-img" style={`background-image:url('${c.thumb}')`}></span>
+                  <span class="st-insp-name">{c.name}</span>
+                  <span class="st-insp-desc">{c.desc}</span>
                 </button>
           ))}
           <button type="button" class="st-arrow st-arrow--inspo" aria-label="More inspiration">
@@ -308,19 +313,20 @@ const inspo = [
 
     /* Inspiration — a picture with the words laid over it. */
     .st-row--inspo { --st-across: 4; }
+    /* The inspiration cards in the pack cards' clothes — picture on top, name
+       and line beneath on white — rather than words printed over a photograph,
+       which put white titles on whatever the picture happened to be. */
     .st-insp {
-      position: relative; display: flex; align-items: flex-end; min-height: 168px; padding: 16px;
-      border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center;
-      background-color: #2a2126; text-decoration: none; color: #fff;
-      transition: transform 0.25s var(--ws-ease);
+      display: flex; flex-direction: column; gap: 4px; padding: 12px; width: 100%;
+      border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
+      text-decoration: none; color: var(--ws-ink); text-align: left;
+      transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
     }
-    /* Three of the cards are buttons now (they open the pop-out); same look. */
-    button.st-insp { border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; appearance: none; }
-    .st-insp::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,16,20,0.82), rgba(20,16,20,0.12) 62%); }
-    .st-insp:hover { transform: translateY(-3px); }
-    .st-insp-tx { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 3px; }
-    .st-insp-tx strong { font-family: var(--serif); font-size: var(--ws-t-row); font-weight: 400; letter-spacing: -0.01em; }
-    .st-insp-tx span { font-size: var(--ws-t-meta); color: rgba(255,255,255,0.76); line-height: 1.4; }
+    button.st-insp { font: inherit; cursor: pointer; appearance: none; }
+    .st-insp:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    .st-insp-img { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 4px; background: #e9e6e2 center / cover no-repeat; margin-bottom: 8px; }
+    .st-insp-name { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
+    .st-insp-desc { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.4; }
 
     /* Shelf navigation: an arrow either side of one dot per pack, underneath
        where it can be reached, rather than an arrow floating over the last card. */

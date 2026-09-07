@@ -9,6 +9,8 @@ const HERO_BG = (await getImage({
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import { GUIDE_TOPICS } from "../../data/guide-topics.js";
+import StudioInspo from "../../components/account/StudioInspo.astro";
+import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
 ---
 
 <!--
@@ -63,7 +65,26 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       </section>
 
       <!-- ============ Guides (real — hydrated from the guides table) ============ -->
-      <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="cont-h">
+      <!-- ============ This month — See what's working ============
+           The Trending month lives in the Studio's inspiration pop-out; it is
+           training as much as inspiration, and it changes every month, so it
+           gets a place of its own here. The button opens the same pop-out. -->
+      <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="month-h">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="month-h">This Month</h2>
+        </header>
+        <button type="button" class="lrn-month" data-inspo="trending" id="lrn-month">
+          <span class="lrn-month-art" id="lrn-month-art" style={`background-image:url('${TRENDING_SAMPLE.topics[0].media_url}')`}></span>
+          <span class="lrn-month-tx">
+            <span class="lrn-month-eyebrow">See what&rsquo;s working &middot; <span id="lrn-month-name">{monthLabel(TRENDING_SAMPLE.month)}</span></span>
+            <strong class="lrn-month-title" id="lrn-month-title">{TRENDING_SAMPLE.intro}</strong>
+            <span class="lrn-month-sub">Five formats pulling reach for agents right now &mdash; what each is, why it works, and how to use it. Updated monthly.</span>
+            <span class="lrn-month-cta">Open this month &rarr;</span>
+          </span>
+        </button>
+      </section>
+
+      <section class="lrn-sec ws-rise" style="--i:3" aria-labelledby="cont-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="cont-h">Guides</h2>
           <button type="button" class="ws-textlink" id="lrn-clear" hidden>Clear filter ✕</button>
@@ -73,7 +94,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       </section>
 
       <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
-      <section class="lrn-sec ws-rise lrn-soon" style="--i:3" aria-labelledby="paths-h">
+      <section class="lrn-sec ws-rise lrn-soon" style="--i:4" aria-labelledby="paths-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="paths-h">Featured Learning Paths</h2>
         </header>
@@ -101,7 +122,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
       </section>
 
       <!-- ============ Quick lessons (hidden until real video lessons exist) ============ -->
-      <section class="lrn-sec ws-rise lrn-soon" style="--i:4" aria-labelledby="quick-h">
+      <section class="lrn-sec ws-rise lrn-soon" style="--i:5" aria-labelledby="quick-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="quick-h">Quick Lessons</h2>
           <a class="ws-textlink" href="#">Browse all →</a>
@@ -169,6 +190,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
         </ol>
       </section>
     </main>
+    <StudioInspo />
   </div>
 
   <style is:global>
@@ -252,6 +274,16 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .lrn-soon { display: none; }   /* mock sections parked until real content exists */
 
     /* ---------- Real guides grid ---------- */
+    /* This month: one wide card — picture left, the month's line right. */
+    .lrn-month { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 0; width: 100%; padding: 0; text-align: left; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; cursor: pointer; font: inherit; color: inherit; transition: border-color 0.2s, transform 0.25s var(--ws-ease); }
+    .lrn-month:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
+    .lrn-month-art { display: block; min-height: 200px; background: #e6e3e1 center / cover no-repeat; }
+    .lrn-month-tx { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: clamp(20px, 2.4vw, 32px); }
+    .lrn-month-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); }
+    .lrn-month-title { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.1; letter-spacing: -0.015em; color: var(--ws-ink); }
+    .lrn-month-sub { font-size: 14px; line-height: 1.6; color: var(--ws-tx); max-width: 60ch; }
+    .lrn-month-cta { margin-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ws-accent); }
+    @media (max-width: 720px) { .lrn-month { grid-template-columns: 1fr; } .lrn-month-art { aspect-ratio: 16 / 9; min-height: 0; } }
     .lrn-guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: clamp(14px, 1.4vw, 20px); }
     .lrn-guides-empty { font-size: var(--ws-t-row); color: var(--ws-faint); padding: 6px 0; }
     .lrn-gcard { display: flex; flex-direction: column; background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--ws-sh); transition: transform 0.22s var(--ws-ease), box-shadow 0.22s; }
@@ -474,6 +506,19 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     }));
     clearBtn?.addEventListener('click', () => { activeTopic = ''; const u = new URL(location.href); u.searchParams.delete('topic'); history.replaceState({}, '', u); renderGrid(document.querySelector('.lrn-search input')?.value || ''); });
     document.querySelector('.lrn-search input')?.addEventListener('input', (e) => renderGrid(e.target.value));
+
+    // This month's card: the latest published Trending month, when there is one.
+    (async () => {
+      try {
+        const { data } = await supabase.from('trending_months').select('month, intro, topics').eq('status', 'published').order('month', { ascending: false }).limit(1).maybeSingle();
+        if (!data) return;
+        const d = new Date(String(data.month).slice(0, 10) + 'T00:00:00');
+        const name = document.getElementById('lrn-month-name'); if (name && !Number.isNaN(d.getTime())) name.textContent = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+        const title = document.getElementById('lrn-month-title'); if (title && data.intro) title.textContent = data.intro;
+        const first = Array.isArray(data.topics) ? data.topics.find((t) => t && t.media_url && (t.media_type || 'image') === 'image') : null;
+        const art = document.getElementById('lrn-month-art'); if (art && first) art.style.backgroundImage = `url('${first.media_url}')`;
+      } catch (_) { /* the sample stays */ }
+    })();
 
     (async () => {
       let session = null;
