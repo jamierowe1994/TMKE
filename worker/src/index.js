@@ -2953,9 +2953,26 @@ export default {
           // contact — invisible in Contacts. Linked to the auth user, tagged as
           // a member, consent recorded either way. Best-effort: a CRM hiccup
           // must not stop the confirmation email going out.
+          // The name has to be written onto the account by hand. generate_link
+          // is handed it in `options.data` and does not keep it — Angel's
+          // account came out as {"email_verified": true} and nothing else,
+          // so nothing downstream (the hub greeting, the CRM, a personalised
+          // email) had a name to use. Look the user up if the reply doesn't
+          // carry the id, then set the metadata the way every other door does.
+          let newUserId = (gj && ((gj.user && gj.user.id) || gj.id)) || null;
+          try {
+            if (!newUserId) { const found = await findUserByEmail(env, email); newUserId = (found && found.id) || null; }
+            if (newUserId && fullName) {
+              await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${newUserId}`, {
+                method: "PUT",
+                headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ user_metadata: { full_name: fullName } }),
+              });
+            }
+          } catch (e) { console.error("signup: set name", String((e && e.message) || e).slice(0, 200)); }
+
           try {
             const nameParts = fullName.split(/\s+/).filter(Boolean);
-            const newUserId = (gj && ((gj.user && gj.user.id) || gj.id)) || null;
             const optedIn = !!(b && b.marketing);
             await fireTrigger(env, "member_signup", {
               email, first_name: nameParts.shift() || null, last_name: nameParts.join(" ") || null,
