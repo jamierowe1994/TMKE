@@ -384,6 +384,14 @@ const googleFonts = [
         <span class="ed-rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
         <span>Start</span>
       </button>
+      <!-- Your templates: every design from the packs you own, reachable from
+           wherever you are — a blank canvas is often the moment you remember a
+           template would do the job. Hidden until the owned-packs lookup in the
+           script below finds any; someone with no packs never sees it. -->
+      <button class="ed-rail-btn" data-tool="templates" id="ed-rail-templates" title="Your templates" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>Templates</span>
+      </button>
       <button class="ed-rail-btn is-active" data-tool="brand" title="Your brand kit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
         <span>Brand</span>
@@ -496,9 +504,10 @@ const googleFonts = [
            opened it has been removed. -->
       <section class="ed-panel-pane" data-pane="templates">
         <div class="ed-pane-header">
-          <h3>Designs from your pack</h3>
-          <p>Tap a design to load it onto the canvas.</p>
+          <h3>Your templates</h3>
+          <p>Every design from the packs you own. Tap one to start a new design from it.</p>
         </div>
+        <p class="ed-tpl-note" id="ed-template-note" hidden></p>
         <div class="ed-template-grid" id="ed-template-grid"></div>
       </section>
 
@@ -1211,6 +1220,8 @@ const googleFonts = [
 
     /* Starting panel — "choose something to edit" (customer Studio only). */
     .ed-start-grid { display: flex; flex-direction: column; gap: 10px; }
+    .ed-tpl-note { font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.55); margin: 0 0 12px; }
+    .ed-tpl-note[hidden] { display: none; }
     .ed-start-btn {
       display: flex; align-items: center; gap: 14px; width: 100%; text-align: left;
       padding: 14px; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px;
@@ -6799,6 +6810,56 @@ const googleFonts = [
       // Choosing from the launcher doesn't change the URL, so the query string
       // can't be the only thing that decides this. The launcher says which.
       (window as any).__TMKE_START_CONTEXT__ = render;
+    })();
+
+    /* ---- Your templates, from the rail ------------------------------------
+       The launcher only offers pack designs on the way in. Start a blank
+       design, remember a template would do, and you had to leave and come back.
+       This puts the same designs on the rail: hidden until the member's paid
+       orders show they own a pack, then filled on first click with every active
+       template from every pack they own, through the engine's own pack hook so
+       the switcher grid, the confirm and the fresh load all behave as they do
+       from the launcher. */
+    (async () => {
+      const railBtn = document.getElementById("ed-rail-templates");
+      const note = document.getElementById("ed-template-note");
+      if (!railBtn || new URLSearchParams(location.search).get("mode") === "admin") return;
+      let session = null;
+      try { ({ data: { session } } = await supabase.auth.getSession()); } catch (_) {}
+      if (!session) return;
+      const email = session.user.email || "";
+      let packIds = [];
+      try {
+        const { data: orders } = await supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`);
+        packIds = Array.from(new Set((orders || []).filter((o) => o.status === "paid" && o.pack_id).map((o) => o.pack_id)));
+      } catch (_) {}
+      if (!packIds.length) return;
+      railBtn.hidden = false;
+
+      let loaded = false, loading = false;
+      railBtn.addEventListener("click", async () => {
+        if (loaded || loading) return;
+        loading = true;
+        if (note) { note.textContent = "Loading your templates…"; note.hidden = false; }
+        try {
+          const { data: tpls } = await supabase
+            .from("templates")
+            .select("id, name, category, thumb_url, canvas, elements, pack_id, sort_order")
+            .in("pack_id", packIds)
+            .eq("status", "active")
+            .order("sort_order", { ascending: true });
+          if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+            (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
+            if (note) note.hidden = true;
+            loaded = true;
+          } else if (note) {
+            note.textContent = "No designs in your packs yet — they're being added.";
+          }
+        } catch (_) {
+          if (note) note.textContent = "Couldn't load your templates — try again in a moment.";
+        }
+        loading = false;
+      });
     })();
 
     (async () => {

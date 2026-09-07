@@ -8233,6 +8233,11 @@
           b.style.opacity = prevOpacity || "";
         }
         loadTemplate(t.id, true);
+        // A fresh design from a template: the Start pane's template list is
+        // the right next thing to see, not the switcher you just used.
+        if (typeof window.__TMKE_START_CONTEXT__ === "function") window.__TMKE_START_CONTEXT__("template");
+        var startBtn = document.querySelector('.ed-rail-btn[data-tool="start"]');
+        if (startBtn) startBtn.click();
       });
       tplGridEl.appendChild(b);
     });
