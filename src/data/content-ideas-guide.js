@@ -103,7 +103,7 @@ ${more([
   card(11, "Leasehold vs freehold, plainly", "What each means day to day: ground rent, service charges, what you can change and what you can't.", "ci-card--new"),
   card(12, "Stamp duty, explained", "The thresholds, who pays, and one worked example on a local price. Refresh when the rules change.", "ci-card--new"),
 ])}
-<blockquote class="ci-quote">Expertise isn't demonstrated by making something sound complicated. It's demonstrated by making something complicated feel simple.</blockquote>`,
+<blockquote class="ci-quote">Expertise isn't demonstrated by making something sound complicated.<br>It's demonstrated by making something complicated feel simple.</blockquote>`,
     },
     {
       title: "Promote Your Service With Purpose",
@@ -167,13 +167,12 @@ ${packCard("The Local Life Pack", "", "Area spotlights, shout-outs and neighbour
       title: "Make Your Content Work Harder",
       body_html: `
 <p class="ci-lead">You now have four content pillars and dozens of ideas to work from. But the goal isn't to publish each one once, tick it off and start searching for another idea. The best content strategies get more from the ideas that already work.</p>
-<p>Combine your evergreen pillars with listings, market updates, seasonal moments and timely content. Then revisit your strongest evergreen ideas regularly, changing the format, example, hook or perspective rather than constantly starting again.</p>
-<p>One good idea shouldn't create one post. It should give you somewhere to keep going.</p>
+<p>Combine your evergreen pillars with listings, market updates, seasonal moments and timely content. Then revisit your strongest evergreen ideas regularly, changing the format, example, hook or perspective rather than constantly starting again. One good idea shouldn't create one post. It should give you somewhere to keep going.</p>
 <div class="ci-pillars">
   <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Evergreen vs Timely</strong><span>Evergreen content stays useful long-term. Timely content responds to market changes, seasons, news and what's happening now. You need both. Evergreen gives your strategy consistency; timely content keeps it current.</span></div>
   <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Smart Repurposing</strong><span>One idea can become several posts. Turn a Reel into a carousel, pull one point into a Story, expand it on LinkedIn or revisit the same subject with a different example. Repurpose the idea, don't simply repost it.</span></div>
   <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>When to Refresh</strong><span>Return to your strongest evergreen posts every few months. Update anything that's changed, replace the imagery, rewrite the hook or approach the subject from another angle. Your newer followers probably never saw the original anyway.</span></div>
-  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Measure and Iterate</strong><span>Look at what people actually respond to. Saves and shares can highlight useful educational content, while comments, profile activity and enquiries tell you something different. Use those signals to decide which subjects deserve another version.</span></div>
+  <div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>Measure and Iterate</strong><span>Look at what people respond to. Saves and shares can highlight useful educational content, while comments, profile activity and enquiries tell you something different. Use those signals to decide which subjects deserve another version.</span></div>
 </div>
 <p class="ci-rhythm">You don't need 100 new ideas. You need a handful of good ones that you know how to use.</p>`,
     },
