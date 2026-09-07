@@ -384,13 +384,6 @@ const googleFonts = [
         <span class="ed-rail-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
         <span>Start</span>
       </button>
-      <!-- Creative Assistant, docked: the pane below is an empty host that the
-           assistant's own panel moves into (AskExpert.astro). Same chat, same
-           conversation, at the tool panel's full height. -->
-      <button class="ed-rail-btn" data-tool="assistant" title="Creative Assistant">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.7 1.9 1.9.7-1.9.7L19 20.2l-.7-1.9-1.9-.7 1.9-.7z"/></svg>
-        <span>Assistant</span>
-      </button>
       <button class="ed-rail-btn is-active" data-tool="brand" title="Your brand kit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
         <span>Brand</span>
@@ -449,7 +442,6 @@ const googleFonts = [
 
       <!-- Customer Studio starting panel — a calm "choose something to edit"
            shown when nothing is selected. Admin keeps brand-kit-first (editor.js). -->
-      <section class="ed-panel-pane" data-pane="assistant" id="ae-dock"></section>
       <section class="ed-panel-pane" data-pane="start">
         <!-- Only when arriving from a prompt (?prompt=<key>). Closed to start:
              on a laptop the panel has little room, and the brief is a reminder
@@ -481,6 +473,20 @@ const googleFonts = [
         <div class="ed-pane-header">
           <h3 id="ed-start-title">Choose something to edit</h3>
           <p id="ed-start-sub">Tap an item on your design, or start here.</p>
+        </div>
+        <!-- What to post — the content assistant, in Start rather than a tab
+             of its own. The wine card drops down and the assistant's own panel
+             (AskExpert.astro) moves into the host below it, on its What to
+             post view only: this is the planning help, not the training.
+             Static, above the grid, so re-rendering the shortcuts for a
+             different arrival can't wipe a conversation in progress. -->
+        <div class="ed-start-ask">
+          <button type="button" class="ed-start-btn ed-start-btn--ask" id="ae-dock-toggle" aria-expanded="false" aria-controls="ae-dock">
+            <span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/><path d="M19 15l.7 1.9 1.9.7-1.9.7L19 20.2l-.7-1.9-1.9-.7 1.9-.7z"/></svg></span>
+            <span class="ed-start-tx"><b>What to post</b><i>Plan the week, write the caption</i></span>
+            <span class="ed-start-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+          </button>
+          <div id="ae-dock" class="ed-start-dock" hidden></div>
         </div>
         <div class="ed-start-grid" id="ed-start-grid"></div>
       </section>
@@ -1217,6 +1223,21 @@ const googleFonts = [
     .ed-start-tx { display: flex; flex-direction: column; gap: 1px; }
     .ed-start-tx b { font-size: var(--ws-t-row); font-weight: 600; color: var(--ink); }
     .ed-start-tx i { font-size: var(--ws-t-meta); font-style: normal; color: rgba(28,29,34,0.5); }
+    /* The What to post card: ink, so it reads as the one different thing in the
+       list (the pane header above it is already wine), with a chevron that
+       turns when the assistant is dropped down. After the base .ed-start-btn
+       rules on purpose: same specificity, order decides. */
+    .ed-start-ask { margin-bottom: 10px; }
+    .ed-start-btn--ask { width: 100%; background: var(--ink); border-color: var(--ink); color: var(--paper); }
+    .ed-start-btn--ask:hover { border-color: var(--english-violet); background: var(--english-violet); }
+    .ed-start-btn--ask .ed-start-ic { background: rgba(255,255,255,0.14); color: var(--paper); }
+    .ed-start-btn--ask .ed-start-tx b { color: var(--paper); }
+    .ed-start-btn--ask .ed-start-tx i { color: rgba(244,242,241,0.72); }
+    .ed-start-chev { margin-left: auto; flex: 0 0 auto; width: 18px; height: 18px; display: inline-flex; color: rgba(244,242,241,0.8); transition: transform 0.25s var(--ws-ease, ease); }
+    .ed-start-chev svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .ed-start-btn--ask[aria-expanded="true"] .ed-start-chev { transform: rotate(180deg); }
+    .ed-start-dock { margin-top: 10px; }
+    .ed-start-dock[hidden] { display: none; }
     /* The Elements pane used to be hidden here, on the basis that it had been
        merged into an Assets pane. There is no Assets pane, and the shapes live
        nowhere else — so the rail button and the start card both opened onto

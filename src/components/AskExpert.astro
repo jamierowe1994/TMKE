@@ -41,6 +41,12 @@
   aria-labelledby="ae-panel-title"
   hidden
 >
+  <!-- Shown only while docked in Start: the card above it is the heading,
+       this just says which assistant this is and offers the way back out. -->
+  <div class="ae-dockbar">
+    <span>What to post &middot; Creative Assistant</span>
+    <button type="button" class="ae-dockbar-btn" data-ae-dock>Pop out</button>
+  </div>
   <header class="ae-head">
     <div>
       <p class="ae-eyebrow">Your designer, on tap</p>
@@ -50,7 +56,7 @@
       <!-- Dock: the same panel, moved into the editor's left tool panel at
            full height (the rail's Assistant tab does the same). Expand: a
            bigger floating panel for a longer conversation. -->
-      <button type="button" class="ae-iconbtn" data-ae-dock title="Open in the side panel" aria-label="Open in the side panel">
+      <button type="button" class="ae-iconbtn" data-ae-dock title="Open in Start" aria-label="Open in Start">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
       </button>
       <button type="button" class="ae-iconbtn" data-ae-expand title="Expand" aria-label="Expand" aria-pressed="false">
@@ -270,22 +276,26 @@
     width: min(780px, calc(100vw - 48px));
     height: min(920px, calc(100vh - 120px));
   }
-  /* Docked: the same panel living inside the editor's left tool panel, at
-     the panel's full height, with the floating chrome taken off. */
+  /* Docked: the same panel, dropped down under the What to post card in the
+     editor's Start pane. Its own header and tab strip go — the card is the
+     heading and the view is fixed to What to post — and it takes a hairline
+     card of its own inside the pane, at a height that leaves the shortcuts
+     below reachable. */
   .ae-panel.is-docked {
-    position: static; width: auto; height: auto; max-height: none;
-    flex: 1 1 auto; min-height: 0;
-    border: 0; border-radius: 0; box-shadow: none;
+    position: static; width: auto; max-height: none;
+    height: min(560px, calc(100vh - 330px));
+    border: 1px solid rgba(28, 29, 34, 0.12); border-radius: 4px; box-shadow: none;
     opacity: 1; transform: none; pointer-events: auto;
   }
-  .ae-panel.is-docked[hidden] { display: none; }
-  .ae-panel.is-docked [data-ae-expand] { display: none; }
-  /* The tool panel is narrower than the floating panel: tighter tabs, no
-     icons, so the three sit on one line. */
-  .ae-panel.is-docked .ae-tabs { padding: 0 10px; }
-  .ae-panel.is-docked .ae-tab { padding: 12px 8px; font-size: 11px; letter-spacing: 0.04em; }
-  .ae-panel.is-docked .ae-tab span { display: none; }
-  .ae-panel.is-docked .ae-tab--accent { padding: 0 12px; }
+  .ae-panel.is-docked .ae-head, .ae-panel.is-docked .ae-tabs { display: none; }
+  .ae-dockbar { display: none; }
+  .ae-panel.is-docked .ae-dockbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 8px 12px; border-bottom: 1px solid rgba(28, 29, 34, 0.08);
+    font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28, 29, 34, 0.5);
+  }
+  .ae-dockbar-btn { appearance: none; border: 0; background: none; cursor: pointer; font: inherit; color: var(--english-violet); padding: 2px 0; }
+  .ae-dockbar-btn:hover { color: var(--ink); }
   .ae-head-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
   .ae-iconbtn {
     appearance: none; background: transparent; border: 0; cursor: pointer;
@@ -294,10 +304,6 @@
   }
   .ae-iconbtn svg { width: 16px; height: 16px; }
   .ae-iconbtn:hover, .ae-iconbtn[aria-pressed="true"] { background: rgba(var(--violet-rgb), 0.08); color: var(--ink); }
-  /* The editor's tool panel, while it hosts the assistant: no padding, no
-     scroll of its own — the chat scrolls inside itself and fills the height. */
-  .ed-panel:has(> .ed-panel-pane[data-pane="assistant"].is-active) { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
-  .ed-panel-pane[data-pane="assistant"].is-active { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
 
   .ae-head {
     display: flex;
@@ -822,7 +828,7 @@
       });
     }
     function closePanel() {
-      if ($panel.classList.contains("is-docked")) { undock(); }
+      if ($panel.classList.contains("is-docked")) { undock(); return; }
       $panel.classList.remove("is-open");
       $trigger.setAttribute("aria-expanded", "false");
       setTimeout(() => {
@@ -838,112 +844,46 @@
       $expand.setAttribute("title", wide ? "Shrink" : "Expand");
     });
 
-    // ---- Dock: live in the editor's left tool panel ------------------------
-    // The editor page carries an empty pane (data-pane="assistant") and a
-    // rail button for it. Docking moves this very panel into that pane, so
-    // the conversation carries over; undocking moves it back under the
-    // floating trigger. The rail button and the header's dock button both
-    // land here; on a page with no dock (the Studio home) they do nothing.
+    // ---- Dock: drop down inside the editor's Start pane ---------------------
+    // The Start pane carries a wine "What to post" card with an empty host
+    // (#ae-dock) under it. Opening the card moves this very panel into the
+    // host, fixed on the What to post view — the planning help, not the
+    // training — so a conversation carries over; closing the card, or popping
+    // out, moves it back under the floating trigger. On a page without the
+    // card (the Studio home) none of this applies.
     const $dock = document.getElementById("ae-dock");
+    const $dockToggle = document.getElementById("ae-dock-toggle");
     const floatingHome = $panel.parentElement;
-    const railBtn = document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="assistant"]');
+    const startRail = document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="start"]');
     function dock() {
-      if (!$dock) return;
+      if (!$dock || !floatingHome) return;
       $panel.classList.remove("is-wide");
       $expand?.setAttribute("aria-pressed", "false");
       $dock.appendChild($panel);
+      $dock.hidden = false;
       $panel.hidden = false;
       $panel.classList.add("is-docked", "is-open");
-      $trigger.setAttribute("aria-expanded", "true");
-      // Show the pane the way the rail does, so the rail highlights it too.
-      if (railBtn && !railBtn.classList.contains("is-active")) railBtn.click();
-      inputOf(chatViews.find((v) => !v.hidden))?.focus();
+      switchTab("ideas");
+      $dockToggle?.setAttribute("aria-expanded", "true");
+      $trigger.setAttribute("aria-expanded", "false");
+      // Make sure the Start pane is the one showing.
+      if (startRail && !startRail.classList.contains("is-active")) startRail.click();
     }
     function undock() {
       if (!$dock || !floatingHome) return;
       floatingHome.appendChild($panel);
-      $panel.classList.remove("is-docked");
-      // Hand the tool panel back to the tool that was there before.
-      if (railBtn?.classList.contains("is-active")) {
-        (document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="start"]') || document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="brand"]'))?.click();
-      }
+      $panel.classList.remove("is-docked", "is-open");
+      $panel.hidden = true;
+      $dock.hidden = true;
+      $dockToggle?.setAttribute("aria-expanded", "false");
     }
-    $panel.querySelector("[data-ae-dock]")?.addEventListener("click", () => {
-      if ($panel.classList.contains("is-docked")) { undock(); openPanel(); } else dock();
+    $dockToggle?.addEventListener("click", () => {
+      if ($panel.classList.contains("is-docked")) undock(); else dock();
     });
-    // The rail's Assistant tab: editor.js shows the pane; we fill it.
-    railBtn?.addEventListener("click", () => { if (!$panel.classList.contains("is-docked")) dock(); });
-    if ($dock) {
-      $panel.querySelector("[data-ae-dock]")?.setAttribute("title", "Open in the side panel");
-    } else {
-      $panel.querySelector<HTMLElement>("[data-ae-dock]")?.setAttribute("hidden", "");
-    }
-
-    // Tiny "markdown-lite" — preserves the line breaks Claude emits
-    // and bolds the "Step 1:" / "Step 2:" prefixes the system prompt
-    // asks for. Anything else is treated as plain text (escaped).
-    function escapeHtml(s: string): string {
-      return s.replace(/[&<>"']/g, (c) => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-      }[c] as string));
-    }
-    function renderReply(text: string): string {
-      const escaped = escapeHtml(text);
-      // Bold any "Step N:" / "Step N." prefix at the start of a line.
-      return escaped.replace(
-        /(^|\n)(Step\s+\d+[:.])/g,
-        '$1<strong>$2</strong>'
-      );
-    }
-    function append($log: HTMLElement, role: "user" | "assistant" | "error", text: string): HTMLDivElement {
-      const div = document.createElement("div");
-      div.className = "ae-msg ae-msg--" + (role === "user" ? "user" : role === "error" ? "error" : "bot");
-      const p = document.createElement("p");
-      // Bot replies get the lightweight formatter; user / error stay plain.
-      if (role === "assistant") p.innerHTML = renderReply(text);
-      else p.textContent = text;
-      div.appendChild(p);
-      $log.appendChild(div);
-      $log.scrollTop = $log.scrollHeight;
-      return div;
-    }
-    function appendTyping($log: HTMLElement): HTMLDivElement {
-      const div = document.createElement("div");
-      div.className = "ae-msg ae-msg--bot ae-msg--typing";
-      div.innerHTML = "<span></span><span></span><span></span>";
-      $log.appendChild(div);
-      $log.scrollTop = $log.scrollHeight;
-      return div;
-    }
-
-    // Backend URL — points at the Supabase Edge Function in production
-    // (set PUBLIC_ASK_EXPERT_URL in .env / Railway vars) or falls back
-    // to a same-origin /api route when an SSR adapter is configured.
-    const BACKEND_URL =
-      (import.meta.env.PUBLIC_ASK_EXPERT_URL as string | undefined) ||
-      "/api/ask-expert";
-
-    type Msg = { role: "user" | "assistant"; content: string };
-
-    async function askBackend(messages: Msg[], mode: string): Promise<string> {
-      try {
-        const res = await fetch(BACKEND_URL, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages, mode }),
-        });
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        const data = await res.json();
-        return data.reply || "(no reply)";
-      } catch (err) {
-        // No backend yet — return a stub so the UI is usable.
-        return (
-          "I'm not wired up to the AI service yet — but when I am, I'll " +
-          "walk you through whatever you're trying to do. In the meantime, " +
-          "drop us a line at hello@tmke.co.uk and we'll get you sorted."
-        );
-      }
-    }
+    $panel.querySelectorAll("[data-ae-dock]").forEach((b) => b.addEventListener("click", () => {
+      if ($panel.classList.contains("is-docked")) { undock(); openPanel(); } else dock();
+    }));
+    if (!$dock) $panel.querySelectorAll<HTMLElement>("[data-ae-dock]").forEach((b) => b.setAttribute("hidden", ""));
 
     $trigger.addEventListener("click", () => {
       if ($panel.classList.contains("is-docked")) { undock(); openPanel(); return; }
