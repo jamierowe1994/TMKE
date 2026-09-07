@@ -76,7 +76,12 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
      image; the tip sits on its floor, so both columns start and finish on the
      same lines and the space between the sections is what gives. ---- */
   .si-trend { display: flex; flex-direction: column; height: 100%; }
-  .si-slide { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 36px; align-items: stretch; }
+  /* The image column is exactly as wide as the 4:5 image at the slide's
+     height, and the copy takes everything else. With two fractional columns
+     the image sat at the far edge of a column wider than itself, which on a
+     laptop left a hole between the words and the picture and squeezed the
+     words into the left half. */
+  .si-slide { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 32px; align-items: stretch; }
   .si-copy { display: flex; flex-direction: column; gap: 0; min-height: 0; }
   .si-topic-no { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent, #4a2a3c); margin: 0 0 8px; }
   .si-topic-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 14px; }
@@ -89,7 +94,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   .si-tip { flex: 0 0 auto; padding: 14px 16px; border-radius: var(--ws-r, 4px); background: var(--ws-accent, #4a2a3c); color: #fff; }
   .si-tip strong { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.8; margin-bottom: 5px; }
   .si-tip p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body, 13px); line-height: 1.6; }
-  .si-media { position: relative; aspect-ratio: 4 / 5; height: 100%; max-height: 100%; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); justify-self: end; }
+  .si-media { position: relative; aspect-ratio: 4 / 5; height: 100%; max-height: 100%; width: auto; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-media img, .si-media video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
   .si-media-empty { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--sans); font-size: var(--ws-t-body, 13px); color: var(--ws-faint, rgba(28,29,34,0.5)); text-align: center; padding: 20px; }
   .si-nav { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 16px; margin-top: 18px; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
@@ -154,7 +159,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     .si { padding: 0; }
     .si-panel { height: 100%; border-radius: 0; }
     .si-slide, .si-pack { grid-template-columns: 1fr; }
-    .si-media { height: auto; width: 100%; justify-self: stretch; }
+    .si-media { height: auto; width: 100%; }
     .si-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 0; }
     .si-tpl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .si-tpls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
