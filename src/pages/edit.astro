@@ -919,6 +919,16 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       .stk-body--pad .pcard-type { font-size: 11px; margin-top: 3px; }
     }
 
+    /* ---- Between phone and laptop (761–900px): two across, but not two
+       laptop-sized cards. The two-column rule alone left each card the width
+       it has on a 1280px screen, which read as enormous at this size. Cap the
+       grid instead and centre it, so the pair sit at roughly three-quarters of
+       their laptop size with air either side. Sits after the desktop
+       .stk-body--pad rules on purpose — same specificity, order decides. */
+    @media (min-width: 761px) and (max-width: 900px) {
+      .stk-body--pad .edit-shows { max-width: 600px; gap: 24px; margin: auto; }
+    }
+
     .show { position: relative; }
     .show-inner {
       display: flex;
@@ -2246,7 +2256,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       // sections, and Lenis's floaty inertia is worse on a touch surface.
       // Clearing the runway leaves .stk (sticky, 100svh) with nothing to slide
       // against, so it just sits as one screen and the bars do the work.
-      const MOBILE = window.matchMedia('(max-width: 760px)');
+      // Tablets count as phones here: an iPad is wide enough for the desktop
+      // layout but scrolls by touch, and the runway on a touch surface was the
+      // page that "scrolled white and glitched" — the sticky screen sliding
+      // against 680svh of nothing under a finger. No runway, bars do the work.
+      const MOBILE = window.matchMedia('(max-width: 760px), (hover: none) and (pointer: coarse)');
       const isMobile = () => MOBILE.matches;
       function applyRunway() {
         // Runway = the last panel's parking spot + its own screen + the tail. (Any
