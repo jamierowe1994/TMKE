@@ -5068,6 +5068,58 @@ export default {
         return json({ ok: true, matched: matched.length, enrolled, already: matched.length - enrolled }, 200, request, env);
       }
 
+      // ---- Email: send one published template to one contact, now -----------
+      // The contact file's "Send an email". Same road as an automation's send
+      // step — the opt-in gate, the branded render, the per-recipient
+      // unsubscribe link for marketing, tracking for transactional, and the
+      // event log — so "did they get it?" has the same answer here.
+      if (path.endsWith("/email/send-to-contact") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!b.contact_id || !b.template_id) return json({ error: "Need a contact and a template." }, 400, request, env);
+        const cRows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(b.contact_id)}&select=*`);
+        const contact = cRows && cRows[0];
+        if (!contact || !contact.email) return json({ error: "Contact not found." }, 404, request, env);
+        const tRows = await sbGet(env, "email_templates", `id=eq.${encodeURIComponent(b.template_id)}&select=*`);
+        const t = tRows && tRows[0];
+        if (!t) return json({ error: "That email template no longer exists." }, 404, request, env);
+        const sendKind = b.send_kind === "marketing" ? "marketing" : "transactional";
+        // The gate says no to marketing without opt-in, and to anyone
+        // unsubscribed, suppressed or do-not-contact. `force` overrides ONLY
+        // the opt-in check, for a one-off the admin has decided on; the rest
+        // still stands.
+        const gate = await gateEmail(env, contact, sendKind, null, null);
+        if (!gate.ok && !(b.force && /opt/i.test(String(gate.reason || "")))) return json({ error: "Not sent: " + gate.reason, blocked: true }, 409, request, env);
+        const brand = { ...defaultBrand(), ...(t.branding || {}), ...(await brandMasterSocials(env)) };
+        const recipient = { name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email, first_name: contact.first_name || "", email: contact.email, company: contact.company || "" };
+        Object.assign(recipient, await agentFunnelContext(env, contact));
+        const unsubUrl = sendKind === "marketing" ? await unsubUrlFor(env, contact.email) : null;
+        if (unsubUrl) { recipient.unsubscribeUrl = unsubUrl; recipient.unsubscribe_url = unsubUrl; }
+        const { subject, html } = renderTemplate(
+          { subject: (b.subject && String(b.subject).trim()) || t.subject, preheader: t.preheader, mode: t.mode, blocks: t.blocks, customHtml: t.custom_html, branding: t.branding },
+          { brand, mergeCtx: mergeContextFor(recipient, brand) }
+        );
+        let htmlOut = html, m365Id = null;
+        if (sendKind !== "marketing") {
+          m365Id = "m365-" + crypto.randomUUID();
+          try { htmlOut = await injectTracking(env, html, { email: contact.email, messageId: m365Id }); } catch (_) { htmlOut = html; }
+        }
+        const sent = sendKind === "marketing"
+          ? await sendMarketingEmail(env, { to: [contact.email], subject, html, unsubUrl })
+          : await sendEmail(env, { to: [contact.email], subject, html: htmlOut });
+        await logEmailEvent(env, {
+          contact, email: contact.email,
+          event: (sent && sent.ok) ? "sent" : "blocked",
+          provider: sendKind === "marketing" ? "resend" : "m365",
+          messageId: (sent && sent.id) || m365Id,
+          subject,
+          detail: (sent && sent.ok) ? `Sent by hand from the contact file by ${user.email || "an admin"}` : String((sent && sent.error) || "send failed").slice(0, 200),
+        });
+        if (!(sent && sent.ok)) return json({ error: String((sent && sent.error) || "The send failed.") }, 502, request, env);
+        return json({ ok: true, subject, to: contact.email }, 200, request, env);
+      }
+
       // ---- Automations: enrol hand-picked contacts ----------------------------
       // The "Chosen contacts" start, and a way to add specific people to any
       // active funnel. Idempotent: someone already in the funnel is skipped and

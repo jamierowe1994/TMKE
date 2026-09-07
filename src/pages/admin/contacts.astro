@@ -109,8 +109,24 @@ import "../../styles/admin.css";
           <p id="ct-d-email" class="ct-d-sub">—</p>
         </div>
       </div>
+      <button type="button" class="admin-btn ct-send-open" id="ct-send-open">Send an email</button>
       <button type="button" class="ct-drawer-x" id="ct-close" aria-label="Close">&times;</button>
     </header>
+    <!-- Send one email, now. A published template, a kind, an optional
+         subject of your own; the Worker renders it for this person and logs
+         the send on their timeline like any automation would. -->
+    <div class="ct-send" id="ct-send" hidden>
+      <div class="ct-send-row">
+        <label class="ct-send-f"><span>Email</span><select id="ct-send-tpl"><option value="">Loading templates…</option></select></label>
+        <label class="ct-send-f"><span>Kind</span><select id="ct-send-kind"><option value="transactional">Service — something they expect</option><option value="marketing">Marketing — needs their opt-in</option></select></label>
+      </div>
+      <label class="ct-send-f"><span>Subject (leave blank to use the template's)</span><input id="ct-send-subject" placeholder="" /></label>
+      <div class="ct-send-row ct-send-foot">
+        <button type="button" class="admin-btn admin-btn-primary" id="ct-send-go">Send now</button>
+        <button type="button" class="admin-btn" id="ct-send-cancel">Cancel</button>
+        <span class="ct-send-status" id="ct-send-status"></span>
+      </div>
+    </div>
     <nav class="ct-tabs" id="ct-tabs" role="tablist">
       <button type="button" class="ct-tab is-active" data-tab="info" role="tab">Information</button>
       <button type="button" class="ct-tab" data-tab="teg" role="tab">TEG</button>
@@ -302,6 +318,16 @@ import "../../styles/admin.css";
     .ct-drawer { position: fixed; top: var(--ct-drawer-top, 84px); right: 20px; bottom: 20px; height: auto; width: min(52vw, 980px); min-width: 460px; max-width: calc(100vw - 40px); background: #fff; z-index: 61; border-radius: 10px; box-shadow: -24px 0 70px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow: hidden; }
     @media (max-width: 900px) { .ct-drawer { right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
     .ct-drawer[hidden] { display: none; }
+    .ct-send-open { margin-left: auto; margin-right: 10px; }
+    .ct-send { display: grid; gap: 10px; padding: 14px 22px 16px; background: #faf9f8; border-bottom: 1px solid rgba(28,29,34,0.1); }
+    .ct-send[hidden] { display: none; }
+    .ct-send-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+    .ct-send-f { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; min-width: 0; }
+    .ct-send-f > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ct-send-f select, .ct-send-f input { width: 100%; box-sizing: border-box; }
+    .ct-send-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
+    .ct-send-status.is-ok { color: #2b6b44; }
+    .ct-send-status.is-err { color: #9a2a2a; }
     .ct-drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 18px 22px 16px; border-bottom: 1px solid rgba(28,29,34,0.08); background: rgba(55,30,40,0.04); flex: none; }
     .ct-drawer-ident { display: flex; align-items: center; gap: 14px; min-width: 0; }
     .ct-drawer-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0; }
@@ -703,6 +729,56 @@ import "../../styles/admin.css";
       drawNote(notes || [], tasks || [], orders, bookings, activity);
     }
     function closeDrawer() { $("ct-scrim").hidden = true; $("ct-drawer").hidden = true; current = null; }
+    // ---- Send one email from the file ----
+    let sendTplsLoaded = false;
+    async function loadSendTemplates() {
+      if (sendTplsLoaded) return;
+      const sel = $("ct-send-tpl");
+      try {
+        const { data } = await supabase.from("email_templates").select("id, name, subject").eq("status", "active").order("name");
+        sel.innerHTML = (data && data.length)
+          ? `<option value="">Choose an email…</option>` + data.map((t) => `<option value="${t.id}" data-subject="${esc(t.subject || "")}">${esc(t.name)}</option>`).join("")
+          : `<option value="">No active email templates yet</option>`;
+        sendTplsLoaded = true;
+      } catch (_) { sel.innerHTML = `<option value="">Couldn't load templates</option>`; }
+    }
+    $("ct-send-open").addEventListener("click", async () => {
+      const box = $("ct-send"); box.hidden = !box.hidden;
+      $("ct-send-status").textContent = ""; $("ct-send-status").className = "ct-send-status";
+      if (!box.hidden) { await loadSendTemplates(); $("ct-send-tpl").focus(); }
+    });
+    $("ct-send-cancel").addEventListener("click", () => { $("ct-send").hidden = true; });
+    $("ct-send-tpl").addEventListener("change", () => { const o = $("ct-send-tpl").selectedOptions[0]; $("ct-send-subject").placeholder = o && o.dataset.subject ? o.dataset.subject : ""; });
+    $("ct-send-go").addEventListener("click", async () => {
+      const c = current; if (!c) return;
+      const tplId = $("ct-send-tpl").value;
+      const status = $("ct-send-status");
+      const say = (m, cls) => { status.textContent = m; status.className = "ct-send-status" + (cls ? " " + cls : ""); };
+      if (!tplId) { say("Choose an email first.", "is-err"); return; }
+      if (!WORKER) { say("The Worker isn't configured.", "is-err"); return; }
+      const send = async (force) => {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        const r = await fetch(`${WORKER}/email/send-to-contact`, {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" },
+          body: JSON.stringify({ contact_id: c.id, template_id: tplId, send_kind: $("ct-send-kind").value, subject: $("ct-send-subject").value.trim() || null, force: !!force }),
+        });
+        return { r, d: await r.json().catch(() => ({})) };
+      };
+      const btn = $("ct-send-go"); btn.disabled = true; say("Sending…");
+      try {
+        let { r, d } = await send(false);
+        if (r.status === 409 && d.blocked && /opt/i.test(d.error || "")) {
+          if (confirm(`${d.error}\n\nSend it anyway? Only do this for an email they'd expect.`)) ({ r, d } = await send(true));
+        }
+        if (!r.ok) { say(d.error || "Couldn't send.", "is-err"); }
+        else {
+          say(`Sent to ${d.to} — "${d.subject}".`, "is-ok");
+          try { await supabase.from("contact_notes").insert({ contact_id: c.id, body: `Sent email by hand: "${d.subject}"`, author: "Admin" }); } catch (_) {}
+        }
+      } catch (_) { say("Couldn't reach the server.", "is-err"); }
+      btn.disabled = false;
+    });
     $("ct-close").addEventListener("click", closeDrawer);
     $("ct-scrim").addEventListener("click", closeDrawer);
 
