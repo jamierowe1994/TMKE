@@ -232,7 +232,16 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   body:has(.dash-shell--top) .cal-popup-backdrop { display: none !important; }
 
   @media (max-width: 820px) {
-    .ws-tabs { gap: 14px; font-size: 14px; overflow-x: auto; }
+    /* On a phone the tab strip is wider than the screen. Centred, an
+       overflowing flex row is cut at BOTH ends and can't be scrolled to its
+       start — "nner  Orders" — and its width forced the whole page wider
+       than the phone. So: it starts at the left, scrolls sideways under a
+       finger with no scrollbar, and never sets the page's width. */
+    .ws-nav { gap: 10px; padding: 14px 16px 10px; }
+    .ws-tabs { min-width: 0; gap: 18px; font-size: 14px; justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 8px; margin-bottom: -8px; }
+    .ws-tabs::-webkit-scrollbar { display: none; }
+    .ws-tab { flex: 0 0 auto; white-space: nowrap; }
+    .ws-nav-right { flex: 0 0 auto; gap: 4px; }
   }
 </style>
 
@@ -250,6 +259,18 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   function openDrawer() { if (!drawer) return; clearTimeout(drawerTimer); drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add("is-open")); burger?.setAttribute("aria-expanded", "true"); }
   function closeDrawer() { if (!drawer) return; drawer.classList.remove("is-open"); burger?.setAttribute("aria-expanded", "false"); drawerTimer = setTimeout(() => { drawer.hidden = true; }, 340); }
   burger?.addEventListener("click", openDrawer);
+
+  // A phone's tab strip scrolls; land with the current page's tab in view.
+  (() => {
+    const strip = document.querySelector(".ws-tabs") as HTMLElement | null;
+    const active = strip?.querySelector<HTMLElement>(".ws-tab.is-active");
+    if (!strip || !active || strip.scrollWidth <= strip.clientWidth) return;
+    // The current tab at the strip's left edge, the rest following — centring
+    // it cut the words either side in half.
+    // Measured against the strip itself: offsetLeft is relative to the nav,
+    // which is 60px further left, and overshot.
+    strip.scrollLeft = Math.max(0, active.getBoundingClientRect().left - strip.getBoundingClientRect().left + strip.scrollLeft - 4);
+  })();
   document.querySelectorAll("[data-drawer-close]").forEach((b) => b.addEventListener("click", closeDrawer));
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer && !drawer.hidden) closeDrawer(); });
 
