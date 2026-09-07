@@ -1521,10 +1521,10 @@ const googleFonts = [
       border-right: 1px solid rgba(28,29,34,0.08);
       display: flex;
       flex-direction: column;
-      /* The bottom padding matches the Creative Assistant's own offset, so the
-         last icon in the rail and the button share one baseline instead of
-         missing each other by sixteen pixels. */
-      padding: 8px 0 24px;
+      /* The bottom padding matches the Creative Assistant's own offset (40px,
+         the stage's own padding under the design), so the last icon in the
+         rail, the button and the canvas's bottom edge share one line. */
+      padding: 8px 0 40px;
       gap: 2px;
       z-index: 25;
     }
@@ -1800,6 +1800,12 @@ const googleFonts = [
       transform: scale(1.02);
       box-shadow: 0 6px 16px -8px rgba(28,29,34,0.4);
     }
+    /* Rail Templates, grouped by pack: a group spans the grid and carries its
+       own two-across grid inside, so the tiles line up with the ungrouped case. */
+    .ed-tpl-group { grid-column: 1 / -1; }
+    .ed-tpl-group + .ed-tpl-group { margin-top: 6px; }
+    .ed-tpl-group h4 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .ed-tpl-group-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .ed-template-grid button.is-current::after {
       content: ""; position: absolute; inset: 0;
       border: 2px solid var(--english-violet); border-radius: 4px;
@@ -6852,6 +6858,33 @@ const googleFonts = [
             (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
             if (note) note.hidden = true;
             loaded = true;
+            // Group by pack when they own more than one: the engine renders a
+            // flat grid of buttons (with its own click handling), so the
+            // buttons are moved, not rebuilt — under a heading per pack, in
+            // the packs' own order.
+            if (packIds.length > 1) {
+              try {
+                const { data: packs } = await supabase.from("packs").select("id, title, sort_order").in("id", packIds).order("sort_order", { ascending: true });
+                const grid = document.getElementById("ed-template-grid");
+                if (grid && packs && packs.length > 1) {
+                  const packOf = new Map(tpls.map((t) => [t.id, t.pack_id]));
+                  const buttons = Array.from(grid.querySelectorAll(":scope > button"));
+                  packs.forEach((pk) => {
+                    const mine = buttons.filter((b) => packOf.get(b.dataset.id) === pk.id);
+                    if (!mine.length) return;
+                    const group = document.createElement("div");
+                    group.className = "ed-tpl-group";
+                    const h = document.createElement("h4");
+                    h.textContent = pk.title || "Pack";
+                    const inner = document.createElement("div");
+                    inner.className = "ed-tpl-group-grid";
+                    mine.forEach((b) => inner.appendChild(b));
+                    group.appendChild(h); group.appendChild(inner);
+                    grid.appendChild(group);
+                  });
+                }
+              } catch (_) { /* flat grid is fine */ }
+            }
           } else if (note) {
             note.textContent = "No designs in your packs yet — they're being added.";
           }
