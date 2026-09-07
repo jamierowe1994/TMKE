@@ -7095,15 +7095,79 @@
     }).sort(function (a, b) { return b.count - a.count; });
   }
 
+  /* ---- A heading keeps its lines when its font changes ----
+     A 32px heading is a different width in every face: swap The Seasons for
+     Inter and a two-line title drops onto one; swap the other way and it
+     spills to three. So when a font changes under a heading, its size moves
+     to whatever keeps the line count the template gave it — the largest size
+     that still fits those lines. Headings only: three lines or fewer at the
+     time. Body copy is left to reflow; a paragraph's line count is nobody's
+     design decision. Measured with the same wrap the export uses, once the
+     new font has actually loaded (fallback metrics would fit the wrong face). */
+  const _fitCtx = document.createElement("canvas").getContext("2d");
+  let _refontSettle = Promise.resolve();
+  function textLineCount(el, size) {
+    const font = (FONTS.find(function (f) { return f.name === el.font; }) || FONTS[0]).stack;
+    _fitCtx.font = (el.italic ? "italic " : "") + (el.weight || 400) + " " + size + "px " + font;
+    try { _fitCtx.letterSpacing = ((Number(el.letterSpacing) || 0)) + "px"; } catch (_) {}
+    return wrapText(_fitCtx, el.text || "", el.w).length;
+  }
+  function sizeForLines(el, target) {
+    const base = Math.round(el.size || 16);
+    const now = textLineCount(el, base);
+    if (now === target) return base;
+    const lo = Math.max(6, Math.round(base * 0.5)), hi = Math.round(base * 1.8);
+    // Whole pixels, one at a time, checked at the size that will be returned —
+    // a fractional answer rounded up can tip a line over, and wrapping isn't
+    // monotonic enough to trust a bisection near the edge.
+    if (now > target) {
+      // Too many lines: come down until it fits.
+      for (let sz = base - 1; sz >= lo; sz--) if (textLineCount(el, sz) <= target) return sz;
+      return lo;
+    }
+    // Too few lines: go up while it still fits, and keep the last size that
+    // actually sat on the target lines. Never reaching them means the title is
+    // too short to fill them at any sensible size — keep what it had.
+    let best = null;
+    for (let sz = base + 1; sz <= hi; sz++) {
+      const n = textLineCount(el, sz);
+      if (n > target) break;
+      if (n === target) best = sz;
+    }
+    return best == null ? base : best;
+  }
   function refontDesign(fromName, toName) {
     if (!toName) return 0;
     let n = 0;
+    const heads = [];
     state.elements.forEach(function (el) {
-      if (el && el.type === "text" && el.font === fromName) { el.font = toName; n++; }
+      if (el && el.type === "text" && el.font === fromName) {
+        const lines = textLineCount(el, el.size || 16);
+        if (lines <= 3) heads.push({ el: el, lines: lines });
+        el.font = toName; n++;
+      }
     });
-    if (n) { loadGoogleFont(toName); fullRender(); pushHistory(); }
+    if (n) {
+      loadGoogleFont(toName); fullRender(); pushHistory();
+      _refontSettle = ensureTextFontsLoaded().then(function () {
+        let changed = 0;
+        heads.forEach(function (h) {
+          if (h.el.font !== toName) return;
+          const size = sizeForLines(h.el, h.lines);
+          if (size && size !== h.el.size) { h.el.size = size; changed++; }
+        });
+        if (changed) {
+          fullRender();
+          heads.forEach(function (h) { try { fitTextHeight(h.el); } catch (_) {} });
+          pushHistory();
+        }
+      }).catch(function () {});
+    }
     return n;
   }
+  // Studio "Brand inspo" and tests reach the fitter directly.
+  window.__TMKE_SIZE_FOR_LINES__ = sizeForLines;
+  window.__TMKE_TEXT_LINES__ = textLineCount;
 
   /* Drop the member's logo onto a design they are building themselves, on the
      same footing the packs use: 200x75, centred, 108px from the edge. Without
@@ -9503,6 +9567,8 @@
       state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
       state.currentPage = 0;
       applyKitToCurrentPage();
+      // The refont fits headings to their lines once the kit's fonts load.
+      try { await _refontSettle; } catch (_) {}
       await new Promise(function (r) { setTimeout(r, 250); });
       return await _renderThumbDataUrl();
     } catch (_) {
