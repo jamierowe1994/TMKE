@@ -1,4 +1,11 @@
 ---
+import { getImage } from "astro:assets";
+// The header photograph (Dani, 7 Sep): 3600×620 in the assets bucket, served
+// as WebP. Same banner as the Brand kit page — the two are meant to match.
+const HERO_BG = (await getImage({
+  src: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/Training.png",
+  width: 3600, height: 620, format: "webp", quality: 82,
+})).src;
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import { GUIDE_TOPICS } from "../../data/guide-topics.js";
@@ -24,7 +31,7 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     <main class="lrn-main">
       <!-- ============ Hero — full-width header, on-brand R2 image behind ============ -->
       <section class="lrn-hero ws-rise" style="--i:0">
-        <div class="lrn-hero-bg" style="background-image:url('https://assets.tmke.co.uk/Smm%20hero.jpg')"></div>
+        <div class="lrn-hero-bg" style={`background-image:url('${HERO_BG}')`}></div>
         <div class="lrn-hero-inner">
           <h1 class="lrn-title">Learn. Apply. Grow.</h1>
           <p class="lrn-lede">Practical playbooks and expert guidance to grow your brand on social media.</p>
@@ -214,21 +221,23 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     }
 
     /* ---------- Hero — full-width header, on-brand image behind ---------- */
-    .lrn-hero { position: relative; isolation: isolate; display: flex; align-items: center; min-height: clamp(320px, 44vh, 470px); border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh-hero); }
-    .lrn-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center 38%; transform: scale(1.02); transition: transform 1.8s var(--ws-ease); }
+    /* The hub's banner: the subpage heroes' height, copy bottom-left. The Brand
+       kit page carries the same values (profile.astro) — keep the two together. */
+    .lrn-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: clamp(220px, 20.7vw, 298px); border-radius: var(--ws-r-lg); overflow: hidden; box-shadow: var(--ws-sh-hero); }
+    .lrn-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; transform: scale(1.02); transition: transform 1.8s var(--ws-ease); }
     .lrn-hero:hover .lrn-hero-bg { transform: scale(1.06); }
     .lrn-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(96deg, rgba(22,15,19,0.9) 0%, rgba(22,15,19,0.66) 34%, rgba(22,15,19,0.28) 62%, rgba(22,15,19,0.04) 100%); }
-    .lrn-hero-inner { padding: clamp(28px, 4.4vw, 64px); max-width: 640px; }
-    .lrn-title { font-family: var(--serif); font-weight: 400; font-size: clamp(40px, 5.4vw, 72px); line-height: 1.0; letter-spacing: -0.02em; margin: 0; color: #fff; }
-    .lrn-lede { font-size: clamp(15px, 1.4vw, 17px); line-height: 1.6; color: rgba(255,255,255,0.84); margin: 18px 0 0; max-width: 42ch; }
-    .lrn-search { display: flex; align-items: center; gap: 8px; margin-top: 28px; max-width: 440px; padding: 6px 6px 6px 18px; background: rgba(255,255,255,0.96); border: 1px solid rgba(255,255,255,0.5); border-radius: 999px; box-shadow: 0 18px 40px -20px rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: box-shadow 0.25s var(--ws-ease); }
+    .lrn-hero-inner { padding: clamp(24px, 2.6vw, 38px); max-width: none; }
+    .lrn-title { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 4.2vw, 64px); line-height: 1.0; letter-spacing: -0.02em; margin: 0; color: #fff; }
+    .lrn-lede { font-size: clamp(15px, 1.4vw, 17px); line-height: 1.6; color: rgba(255,255,255,0.84); margin: 14px 0 0; max-width: none; }
+    .lrn-search { display: flex; align-items: center; gap: 8px; margin-top: 18px; max-width: 440px; padding: 6px 6px 6px 18px; background: rgba(255,255,255,0.96); border: 1px solid rgba(255,255,255,0.5); border-radius: 999px; box-shadow: 0 18px 40px -20px rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: box-shadow 0.25s var(--ws-ease); }
     .lrn-search:focus-within { box-shadow: 0 22px 46px -20px rgba(0,0,0,0.55); }
     .lrn-search input { flex: 1; border: 0; outline: 0; background: transparent; font-family: inherit; font-size: var(--ws-t-row); color: var(--ws-ink); min-width: 0; }
     .lrn-search input::placeholder { color: var(--ws-faint); }
     .lrn-search-btn { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: var(--ws-accent); color: #fff; transition: transform 0.2s var(--ws-ease); }
     .lrn-search-btn:hover { transform: translateY(-1px) scale(1.04); }
     .lrn-search-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-    @media (max-width: 620px) { .lrn-hero { min-height: 360px; } }
+    @media (max-width: 620px) { .lrn-hero { min-height: 300px; } }
 
     /* ---------- Section scaffolding ---------- */
     .lrn-sec { display: flex; flex-direction: column; gap: 16px; }

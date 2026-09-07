@@ -3,6 +3,14 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
+import { getImage } from "astro:assets";
+
+// The header photograph (Dani, 7 Sep): a 3600×620 PNG in the assets bucket,
+// served as a WebP at the same size so a 2 MB banner becomes a few hundred KB.
+const HERO_BG = (await getImage({
+  src: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/Brand%20Kit.png",
+  width: 3600, height: 620, format: "webp", quality: 82,
+})).src;
 ---
 
 <BaseLayout
@@ -21,7 +29,7 @@ import "../../styles/account-sections.css";
            beside the cards below, and Brand kit and Learn are the two pages
            a member sets up from, so they should read as a pair. -->
       <section class="bk-hero">
-        <div class="bk-hero-bg" style="background-image:url('/assets/home%20kitchen.jpg')"></div>
+        <div class="bk-hero-bg" style={`background-image:url('${HERO_BG}')`}></div>
         <div class="bk-hero-inner">
           <p class="bk-hero-eyebrow"><a href="/account" class="bk-hero-back">&larr; Workspace</a></p>
           <h1 class="bk-hero-title">Your Brand Kit.</h1>
@@ -603,7 +611,7 @@ import "../../styles/account-sections.css";
        the two stay a pair. Tokens spelled out because this page doesn't carry
        the .ws token set. ---- */
     .bk-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: clamp(220px, 20.7vw, 298px); /* the subpage heroes' height (Orders, Bookings, Studio) */ border-radius: 4px; overflow: hidden; box-shadow: 0 2px 4px rgba(28,29,34,0.03), 0 34px 64px -34px rgba(28,29,34,0.30), 0 14px 30px -22px rgba(28,29,34,0.20); margin: clamp(14px, 2vh, 22px) 0 clamp(26px, 4vh, 48px); }
-    .bk-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center 45%; transform: scale(1.02); transition: transform 1.8s cubic-bezier(.2,.8,.2,1); }
+    .bk-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; transform: scale(1.02); transition: transform 1.8s cubic-bezier(.2,.8,.2,1); }
     .bk-hero:hover .bk-hero-bg { transform: scale(1.06); }
     .bk-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(96deg, rgba(22,15,19,0.9) 0%, rgba(22,15,19,0.66) 34%, rgba(22,15,19,0.28) 62%, rgba(22,15,19,0.04) 100%); }
     .bk-hero-inner { padding: clamp(24px, 2.6vw, 38px); max-width: none; }
