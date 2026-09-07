@@ -35,6 +35,20 @@ import "../../../styles/admin.css";
           <div class="af-dd-menu" hidden></div>
         </div>
       </div>
+      <!-- Chosen contacts: search, tick, enrol. The chosen list rides in
+           trigger_config so it survives a save; Enrol sends it to the Worker. -->
+      <div class="af-setup-q af-cpick-wrap" id="af-cpick-wrap" hidden>
+        <span>Who?</span>
+        <div class="af-cpick" id="af-cpick">
+          <input type="search" class="af-select af-cpick-search" id="af-cpick-search" placeholder="Search contacts by name, email or company…" autocomplete="off" />
+          <div class="af-cpick-results" id="af-cpick-results" hidden></div>
+          <div class="af-cpick-chosen" id="af-cpick-chosen"></div>
+          <div class="af-cpick-foot">
+            <button type="button" class="af-btn af-btn--solid" id="af-cpick-enrol" disabled>Enrol 0 people</button>
+            <span class="af-cpick-note" id="af-cpick-note">Pick people, save the automation as Active, then press Enrol. You can add more any time.</span>
+          </div>
+        </div>
+      </div>
       <div class="af-setup-q" id="af-tagpick-wrap" hidden>
         <span id="af-tagpick-label">Which tags?</span>
         <div class="af-tagpick" id="af-tagpick">
@@ -96,6 +110,23 @@ import "../../../styles/admin.css";
     .af-dd-item.is-on { background: rgba(55,30,40,0.08); font-weight: 600; }
     .af-setup-q > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .af-setup-note { flex: 1 1 240px; font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0 0 4px; min-width: 220px; }
+    /* The picker is a full-width row under the questions, not a fourth column. */
+    .af-cpick-wrap { order: 9; flex: 1 1 100%; }
+    .af-cpick { position: relative; display: flex; flex-direction: column; gap: 10px; max-width: 720px; }
+    .af-cpick-search { width: 100%; box-sizing: border-box; }
+    .af-cpick-results { position: absolute; top: 40px; left: 0; right: 0; z-index: 60; max-height: 280px; overflow-y: auto; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 6px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.4); }
+    .af-cpick-results[hidden] { display: none; }
+    .af-cpick-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 9px 12px; border: 0; border-bottom: 1px solid rgba(28,29,34,0.06); background: none; text-align: left; cursor: pointer; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .af-cpick-row:hover { background: rgba(var(--violet-rgb, 74,42,60), 0.06); }
+    .af-cpick-row small { color: rgba(28,29,34,0.5); }
+    .af-cpick-row.is-on::after { content: "\2713"; color: var(--english-violet); font-weight: 700; }
+    .af-cpick-chosen { display: flex; flex-wrap: wrap; gap: 6px; }
+    .af-cpick-chosen:empty { display: none; }
+    .af-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 10px; border-radius: 999px; background: rgba(var(--violet-rgb, 74,42,60), 0.08); font-family: var(--sans); font-size: 12px; color: var(--ink); }
+    .af-chip button { border: 0; background: none; cursor: pointer; font-size: 14px; line-height: 1; color: rgba(28,29,34,0.5); padding: 0 2px; }
+    .af-chip button:hover { color: var(--ink); }
+    .af-cpick-foot { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .af-cpick-note { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
     .af-tagpick { position: relative; }
     .af-tagpick-btn { text-align: left; min-width: 180px; }
     .af-tagpick-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; width: 300px; box-shadow: 0 24px 50px -22px rgba(20,18,26,0.35); }
@@ -211,8 +242,77 @@ import "../../../styles/admin.css";
       const tags = triggerConfig.tags || [];
       $("af-tagpick-btn").textContent = tags.length ? `${tags.length} tag${tags.length === 1 ? "" : "s"}: ${tags.join(", ").slice(0, 40)}${tags.join(", ").length > 40 ? "…" : ""}` : "Choose tags…";
     }
+    // ---- Chosen contacts: the picker ----
+    function chosenList() { return Array.isArray(triggerConfig.contacts) ? triggerConfig.contacts : []; }
+    function renderChosen() {
+      const list = chosenList();
+      $("af-cpick-chosen").innerHTML = list.map((c) => `<span class="af-chip">${esc(c.name || c.email)}<button type="button" data-unpick="${esc(c.id)}" aria-label="Remove">&times;</button></span>`).join("");
+      $("af-cpick-chosen").querySelectorAll("[data-unpick]").forEach((b) => b.addEventListener("click", () => {
+        triggerConfig = { contacts: chosenList().filter((c) => c.id !== b.dataset.unpick) };
+        renderChosen(); render();
+      }));
+      const btn = $("af-cpick-enrol");
+      btn.disabled = !list.length;
+      btn.textContent = `Enrol ${list.length} ${list.length === 1 ? "person" : "people"}`;
+    }
+    let cpickTimer = null;
+    async function cpickSearch(q) {
+      const box = $("af-cpick-results");
+      q = (q || "").trim();
+      if (q.length < 2) { box.hidden = true; box.innerHTML = ""; return; }
+      const like = `%${q.replace(/[%,]/g, "")}%`;
+      let rows = [];
+      try {
+        const { data } = await supabase.from("contacts").select("id, first_name, last_name, email, company")
+          .or(`first_name.ilike.${like},last_name.ilike.${like},email.ilike.${like},company.ilike.${like}`)
+          .order("updated_at", { ascending: false }).limit(12);
+        rows = data || [];
+      } catch (_) {}
+      const on = new Set(chosenList().map((c) => c.id));
+      box.innerHTML = rows.length
+        ? rows.map((r) => { const name = [r.first_name, r.last_name].filter(Boolean).join(" "); return `<button type="button" class="af-cpick-row ${on.has(r.id) ? "is-on" : ""}" data-pick="${esc(r.id)}" data-name="${esc(name)}" data-email="${esc(r.email)}"><span>${esc(name || r.email)}${r.company ? ` <small>· ${esc(r.company)}</small>` : ""}<br><small>${esc(r.email)}</small></span></button>`; }).join("")
+        : `<div class="af-cpick-row" style="cursor:default">No contacts match "${esc(q)}".</div>`;
+      box.hidden = false;
+      box.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => {
+        const id = b.dataset.pick, list = chosenList();
+        triggerConfig = { contacts: list.some((c) => c.id === id) ? list.filter((c) => c.id !== id) : list.concat([{ id, name: b.dataset.name, email: b.dataset.email }]) };
+        b.classList.toggle("is-on"); renderChosen(); render();
+      }));
+    }
+    $("af-cpick-search").addEventListener("input", (e) => { clearTimeout(cpickTimer); cpickTimer = setTimeout(() => cpickSearch(e.target.value), 220); });
+    $("af-cpick-search").addEventListener("focus", (e) => { if (e.target.value.trim().length >= 2) cpickSearch(e.target.value); });
+    document.addEventListener("click", (e) => { if (!e.target.closest("#af-cpick")) $("af-cpick-results").hidden = true; });
+    $("af-cpick-enrol").addEventListener("click", async () => {
+      const list = chosenList();
+      if (!list.length) return;
+      if (!savedId || !automationId) { alert("Save the automation first (as Active), then press Enrol."); return; }
+      if ($("af-status").value !== "active") { alert("Set the status to Active and save, then press Enrol — a draft can't enrol anyone."); return; }
+      if (!WORKER) { alert("The Worker isn't configured."); return; }
+      const btn = $("af-cpick-enrol"); btn.disabled = true; btn.textContent = "Enrolling…";
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        const r = await fetch(`${WORKER}/automations/enroll-contacts`, {
+          method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" },
+          body: JSON.stringify({ automation_id: savedId, contact_ids: list.map((c) => c.id) }),
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) { alert(d.error || "Couldn't enrol them."); }
+        else {
+          alert(`${d.enrolled} enrolled now${d.already ? `, ${d.already} already in the funnel` : ""}${d.missing ? `, ${d.missing} no longer in Contacts` : ""}. They'll get the first step on the next run.`);
+          // Enrolled: clear the pick list so it can't be enrolled twice by accident.
+          triggerConfig = { contacts: [] };
+          try { await supabase.from("automations").update({ trigger_config: triggerConfig }).eq("id", savedId); } catch (_) {}
+        }
+      } catch (_) { alert("Couldn't reach the server."); }
+      renderChosen();
+    });
+
     function renderTriggerExtras() {
       const trig = $("af-trigger").value;
+      const isManual = trig === "manual";
+      $("af-cpick-wrap").hidden = !isManual;
+      if (isManual) renderChosen();
       const isAudience = trig === "audience";
       const isTagEvent = trig === "tag_added" || trig === "tag_removed";
       $("af-tagpick-wrap").hidden = !(isAudience || isTagEvent);
@@ -248,6 +348,10 @@ import "../../../styles/admin.css";
       const bits = [];
       if (kindVal() === "marketing") bits.push("Marketing: sends from hello@tmke.co.uk with an unsubscribe link — only contacts with marketing opt-in receive it, everyone else is skipped and logged.");
       else bits.push("Service: sends from the TMKE mailbox with no unsubscribe footer — for emails the contact expects. Not blocked by a marketing opt-out.");
+      if ($("af-trigger").value === "manual") {
+        const n = chosenList().length;
+        bits.push(n ? `${n} ${n === 1 ? "person" : "people"} chosen — save as Active, then press Enrol.` : "Nobody enters this funnel on their own: pick the people above and press Enrol. Good for testing on yourself first.");
+      }
       if ($("af-trigger").value === "audience") {
         const n = await audienceCount();
         bits.push(n == null ? "Everyone with any chosen tag is enrolled when you save as Active — plus anyone who gains one later." : `${n} ${n === 1 ? "person" : "people"} currently match — they're enrolled when you save as Active, plus anyone who gains a tag later.`);
@@ -271,6 +375,7 @@ import "../../../styles/admin.css";
         const t = TRIGGERS.find((x) => x.key === $("af-trigger").value);
         if (!t) return "Answer the questions above";
         if (t.key === "audience" && (triggerConfig.tags || []).length) return `Everyone tagged: ${triggerConfig.tags.join(", ")}`.slice(0, 60);
+        if (t.key === "manual") { const n = chosenList().length; return n ? `${n} ${n === 1 ? "person" : "people"} chosen, by hand` : "People you choose, by hand"; }
         if ((t.key === "tag_added" || t.key === "tag_removed") && triggerConfig.tag) return `${t.label}: ${triggerConfig.tag}`;
         return t.label;
       }

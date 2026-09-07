@@ -6,6 +6,10 @@
 
 // What can ENROL a contact into an automation. `group` is just for the picker.
 export const TRIGGERS = [
+  // Nobody enters this one by themselves: you pick the people, in the editor,
+  // and press Enrol. For testing a funnel on yourself and a few colleagues
+  // before it goes near a real trigger, and for any hand-picked group.
+  { key: "manual",          label: "Chosen contacts — you pick who", group: "Hand-picked" },
   // Audience — the send-to-a-group starting point: everyone already carrying
   // any of the chosen tags is enrolled on activation (Worker
   // /automations/enroll-audience), and anyone gaining one later joins too.

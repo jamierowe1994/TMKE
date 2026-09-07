@@ -5068,6 +5068,35 @@ export default {
         return json({ ok: true, matched: matched.length, enrolled, already: matched.length - enrolled }, 200, request, env);
       }
 
+      // ---- Automations: enrol hand-picked contacts ----------------------------
+      // The "Chosen contacts" start, and a way to add specific people to any
+      // active funnel. Idempotent: someone already in the funnel is skipped and
+      // counted as `already`.
+      if (path.endsWith("/automations/enroll-contacts") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const ids = Array.isArray(b.contact_ids) ? b.contact_ids.filter((x) => typeof x === "string" && x).slice(0, 500) : [];
+        if (!b.automation_id || !ids.length) return json({ error: "Need an automation and at least one contact." }, 400, request, env);
+        const aRows = await sbGet(env, "automations", `id=eq.${encodeURIComponent(b.automation_id)}&select=id,status,graph,trigger_type`);
+        const auto = aRows && aRows[0];
+        if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        if (auto.status !== "active") return json({ error: "Set the automation to Active first - a draft can't enrol anyone." }, 400, request, env);
+        const firstId = autoEdgeTo(auto.graph, "trigger", "next");
+        if (!firstId) return json({ error: "Add a first step to the funnel before enrolling anyone." }, 400, request, env);
+        const list = `(${ids.map((x) => `"${x.replace(/"/g, "")}"`).join(",")})`;
+        const found = (await sbGet(env, "contacts", `id=in.${encodeURIComponent(list)}&select=id,email`)) || [];
+        let enrolled = 0;
+        for (const ct of found) {
+          const res = await sbPost(env, "automation_enrollments", {
+            automation_id: auto.id, contact_id: ct.id, status: "active",
+            current_node_id: firstId, next_run_at: nowISO(), context: { manual: true, by: user.email || null },
+          });
+          if (res && res.ok) enrolled++;
+        }
+        return json({ ok: true, matched: found.length, enrolled, already: found.length - enrolled, missing: ids.length - found.length }, 200, request, env);
+      }
+
       // ---- Automations: inbound email webhook -------------------------------
       // Point an inbound email provider (Cloudflare Email Routing → Worker, or
       // Resend/Mailgun inbound) at this URL. It fires the "inbound_email" trigger
