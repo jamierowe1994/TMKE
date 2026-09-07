@@ -226,7 +226,9 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-saved.is-dirty { color:#a05a3c; }
 
     /* Shell */
-    .eb-shell { display:grid; grid-template-columns:288px 1fr; min-height:calc(100vh - 56px); align-items:stretch; }
+    /* 340px, up from 288: the inspectors carry a lot, and at 288 two fields
+       side by side were too narrow to read their own labels. */
+    .eb-shell { display:grid; grid-template-columns:340px 1fr; min-height:calc(100vh - 56px); align-items:stretch; }
     @media (max-width:920px){ .eb-shell { grid-template-columns:1fr; }
       /* Stacked single column — let the rail flow with the page again. */
       .eb-rail { position:static; height:auto; overflow:visible; } }
@@ -392,6 +394,17 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-field-chip { padding:6px 11px; border:1px solid var(--eb-line); border-radius:999px; background:#fff; cursor:pointer; font-family:var(--sans); font-size:11.5px; font-weight:600; color:var(--english-violet); }
     .eb-field-chip:hover { border-color:var(--english-violet); background:rgba(55,30,40,0.05); }
     .eb-sec { margin:4px 0 14px; }
+    /* One card for anything repeated — a column, a product, a question. */
+    .eb-item-card { border:1px solid var(--eb-line); border-radius:8px; padding:12px; margin-bottom:10px; background:#fff; }
+    .eb-item-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+    .eb-item-title { font-family:var(--sans); font-size:12px; font-weight:700; color:var(--ink); }
+    .eb-item-title small { font-weight:500; color:rgba(28,29,34,0.45); margin-left:4px; }
+    .eb-item-ctl { display:flex; align-items:center; gap:6px; font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:rgba(28,29,34,0.45); }
+    .eb-item-ctl select { font-size:12px; padding:5px 7px; }
+    .eb-colour-row { display:flex; align-items:center; gap:8px; }
+    .eb-colour-row input[type="color"] { width:38px; height:32px; padding:2px; flex:0 0 auto; }
+    .eb-colour-row input[type="text"] { flex:1; min-width:0; }
+    .eb-field-select { width:100%; }
     .eb-pad { margin-bottom:12px; }
     .eb-pad-row { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
     .eb-pad-cell { display:flex; flex-direction:column; align-items:center; gap:3px; }
@@ -914,10 +927,12 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         </div></div>`;
     }
     // Insert-field chips — its own section (not grey).
+    // Insert field — one dropdown. A chip per field ran to a dozen rows and
+    // pushed everything under it off the bottom of the rail.
     function insertFieldSection(){
       return `<div class="eb-sec"><span class="eb-f-sub">Insert field</span>
-        <div class="eb-fmt-btns">${FIELD_CHIPS.map(f=>`<button type="button" class="eb-field-chip" data-token="${f.token}">${f.label}</button>`).join("")}</div>
-        <p class="eb-note" style="margin-top:6px;">Click into the text, place your cursor, then insert. Fields fill from each contact on send.</p></div>`;
+        <select class="eb-field-select" data-field-select><option value="">Choose a field to insert…</option>${FIELD_CHIPS.map(f=>`<option value="${f.token}">${f.label}</option>`).join("")}</select>
+        <p class="eb-note" style="margin-top:6px;">Click into the text where you want it, then choose. Fields fill from each contact on send.</p></div>`;
     }
     // Grey "Font" card — font, size, line height, letter spacing, alignment,
     // format, colour (size/lh/ls/align are per-device). Text + heading.
@@ -1052,7 +1067,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
           <p class="eb-note">Uses company, website &amp; socials from <strong>Brand</strong>.</p>`;
         case "faq": {
           const items = Array.isArray(b.items)?b.items:[];
-          const rows = items.map((it,i)=>`<div class="eb-faq-row" style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;">
+          const rows = items.map((it,i)=>`<div class="eb-faq-row eb-item-card">
             <label class="eb-f"><span>Q${i+1}</span><input type="text" data-faq="${i}.q" value="${esc(it.q||"")}" /></label>
             <label class="eb-f"><span>A${i+1}</span><textarea data-faq="${i}.a" rows="2">${esc(it.a||"")}</textarea></label>
             <button type="button" class="eb-mini-btn" data-faq-del="${i}">Remove</button></div>`).join("");
@@ -1073,10 +1088,12 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
           const colBg = Array.isArray(b.colBg)?b.colBg:[];
           const colBgImage = Array.isArray(b.colBgImage)?b.colBgImage:[];
           const colVAlign = Array.isArray(b.colVAlign)?b.colVAlign:[];
-          const bgRows = layout.w.map((w,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="flex:1;font-family:var(--sans);font-size:12px;font-weight:600;">Column ${i+1}</span><span style="font-family:var(--sans);font-size:10px;color:rgba(28,29,34,0.45);">Align</span><select data-colva="${i}" style="flex:0 0 auto;font-size:12px;padding:5px 7px;">${[["top","Top"],["middle","Middle"],["bottom","Bottom"]].map(([v,l])=>`<option value="${v}"${(colVAlign[i]||"top")===v?" selected":""}>${l}</option>`).join("")}</select></div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" style="width:38px;height:32px;padding:2px;flex:0 0 auto;" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="background colour (blank = none)" style="flex:1;" /></div>
-            <input type="url" data-colbg-img="${i}" value="${esc(colBgImage[i]||"")}" placeholder="Background image URL (blank = none)" style="width:100%;margin-bottom:6px;" />
+          const bgRows = layout.w.map((w,i)=>`<div class="eb-item-card">
+            <div class="eb-item-head"><span class="eb-item-title">Column ${i+1} <small>${w}%</small></span>
+              <label class="eb-item-ctl"><span>Align</span><select data-colva="${i}">${[["top","Top"],["middle","Middle"],["bottom","Bottom"]].map(([v,l])=>`<option value="${v}"${(colVAlign[i]||"top")===v?" selected":""}>${l}</option>`).join("")}</select></label></div>
+            <label class="eb-f"><span>Background colour (blank = none)</span>
+              <span class="eb-colour-row"><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="#f4f2f1" /></span></label>
+            <label class="eb-f"><span>Background image (blank = none)</span><input type="url" data-colbg-img="${i}" value="${esc(colBgImage[i]||"")}" placeholder="https://…" /></label>
             ${uploadControl("col"+i)}</div>`).join("");
           return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
             <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it.</p>
@@ -1088,7 +1105,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         case "products": {
           if(!Array.isArray(b.items)) b.items=[];
           const colSel = `<label class="eb-f"><span>Columns</span><select data-field="columns">${opts(["1","2","3","4"],String(b.columns||2))}</select></label>`;
-          const rows = b.items.map((it,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;"><strong style="font-size:12px;color:var(--english-violet);">Item ${i+1}</strong>
+          const rows = b.items.map((it,i)=>`<div class="eb-item-card"><strong class="eb-item-title" style="color:var(--english-violet);">Item ${i+1}</strong>
             <label class="eb-f"><span>Title</span><input type="text" data-item="${i}.title" value="${esc(it.title||"")}" /></label>
             <label class="eb-f"><span>Price</span><input type="text" data-item="${i}.price" value="${esc(it.price||"")}" placeholder="£49" /></label>
             <label class="eb-f"><span>Image URL</span><input type="url" data-item="${i}.image" value="${esc(it.image||"")}" /></label>
@@ -1100,7 +1117,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         case "services": {
           if(!Array.isArray(b.items)) b.items=[];
           const colSel = `<label class="eb-f"><span>Columns</span><select data-field="columns">${opts(["1","2","3","4"],String(b.columns||3))}</select></label>`;
-          const rows = b.items.map((it,i)=>`<div style="border:1px solid var(--eb-line);border-radius:8px;padding:10px;margin-bottom:8px;"><strong style="font-size:12px;color:var(--english-violet);">Service ${i+1}</strong>
+          const rows = b.items.map((it,i)=>`<div class="eb-item-card"><strong class="eb-item-title" style="color:var(--english-violet);">Service ${i+1}</strong>
             <label class="eb-f"><span>Title</span><input type="text" data-item="${i}.title" value="${esc(it.title||"")}" /></label>
             <label class="eb-f"><span>Text</span><textarea data-item="${i}.text" rows="2">${esc(it.text||"")}</textarea></label>
             <label class="eb-f"><span>Button text</span><input type="text" data-item="${i}.btnText" value="${esc(it.btnText||"")}" /></label>
@@ -1355,13 +1372,16 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
             b.html = ed.innerHTML; b.text = ed.innerText;
           });
         });
-        // Merge-field chips — insert a token at the cursor (keep canvas selection).
-        wrap.querySelectorAll("[data-token]").forEach((chip)=>{
-          chip.addEventListener("mousedown", (e)=>e.preventDefault());
-          chip.addEventListener("click", ()=>{
+        // Merge-field dropdown — insert the chosen token at the cursor, then
+        // reset so it reads as a menu rather than a setting.
+        wrap.querySelectorAll("[data-field-select]").forEach((sel)=>{
+          sel.addEventListener("mousedown", ()=>{ const ed = blocksWrap.querySelector(`[data-edit][data-id="${bid}"]`); if (ed) lastEditable = ed; });
+          sel.addEventListener("change", ()=>{
+            const token = sel.value; if (!token) return;
             const ed = blocksWrap.querySelector(`[data-edit][data-id="${bid}"]`);
             if (ed) { lastEditable = ed; if (document.activeElement !== ed) ed.focus(); }
-            insertToken(chip.dataset.token);
+            insertToken(token);
+            sel.value = "";
           });
         });
       }
