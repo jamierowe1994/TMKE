@@ -36,16 +36,17 @@ const DASHBOARD_STEPS = [
 // and a tick marks the ones already done.
 const HUB_MENU = {
   path: "*", target: null, placement: "center", menu: [
-    { walk: "dashboard",   label: "Dashboard",  note: "Home, and today at a glance" },
-    { walk: "studio-tour", label: "Studio",     note: "Packs, designs and the editor" },
-    { walk: "planner",     label: "Planner",    note: "The month, and adding a post" },
-    { walk: "orders",      label: "Orders",     note: "Packs you've bought, receipts" },
-    { walk: "bookings",    label: "Bookings",   note: "Shoots booked and delivered" },
-    { walk: "smm",         label: "Your SMM",   note: "Managed social, if we run yours" },
-    { walk: "learn",       label: "Learn",      note: "Guides, training, this month" },
+    { walk: "dashboard",   label: "Dashboard", note: "Home. Today's date, what's planned this week, and the way back into whatever you were working on." },
+    { walk: "studio-tour", label: "Studio",    note: "Where designs are made: the packs you own, the designs you've saved, and the editor." },
+    { walk: "planner",     label: "Planner",   note: "A month of days. Add a post to any of them, or schedule straight from the Studio." },
+    { walk: "orders",      label: "Orders",    note: "Every pack you've bought, with its receipt and a link back into the Studio." },
+    { walk: "bookings",    label: "Bookings",  note: "Your videography: shoots booked, shoots in progress, and delivered galleries." },
+    { walk: "smm",         label: "Your SMM",  note: "Your window on managed social media, or what's included if we don't run yours yet." },
+    { walk: "learn",       label: "Learn",     note: "Guides, these training courses, and what's working on social this month." },
+    { walk: "brand-kit",   label: "Brand kit", note: "Your logo, colours and fonts, set once so every design opens looking like you." },
   ],
   eyebrow: "Around the hub", title: "Where <em>next?</em>",
-  body: "Pick an area for a short walk of it. Each one brings you back here; Done takes you back to the lesson.",
+  body: "Pick an area for a short walk of it. Each one brings you back to this page, with a tick on the ones you've done. Done takes you back to the lesson.",
 };
 
 export const WALKS = {

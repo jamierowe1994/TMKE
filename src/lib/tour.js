@@ -183,6 +183,27 @@ function injectStyles() {
   if (document.getElementById('tmke-tour-styles')) return;
   const css = `
   .tmke-tour { position: fixed; inset: 0; z-index: 9000; font-family: var(--sans, system-ui, sans-serif); }
+  /* During a training walk the page sits in the reader's frame: paper
+     around it, a hairline card, and the course progress bar on top. */
+  html.tmke-walk { background: var(--ws-bg, #f6f4f2); overflow-y: auto; }
+  html.tmke-walk body {
+    margin: 72px clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
+    border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: 8px; overflow: clip;
+    min-height: calc(100vh - 72px - clamp(16px, 2.6vw, 40px));
+  }
+  html.tmke-walk .editor, html.tmke-walk .ed-onboard {
+    top: 72px; right: clamp(16px, 2.6vw, 40px); bottom: clamp(16px, 2.6vw, 40px); left: clamp(16px, 2.6vw, 40px);
+    border-radius: 8px; overflow: hidden;
+  }
+  .tmke-tour-top {
+    position: fixed; top: 0; left: 0; right: 0; height: 72px; z-index: 2;
+    padding: 18px clamp(16px, 2.6vw, 40px) 0; background: var(--ws-bg, #f6f4f2);
+    font-family: var(--sans, system-ui, sans-serif);
+  }
+  .tmke-tour-top[hidden] { display: none; }
+  .tmke-tour-top-bar { height: 4px; border-radius: 999px; background: var(--ws-line, rgba(28,29,34,0.13)); overflow: hidden; }
+  .tmke-tour-top-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--ws-accent, #4a2a3c); transition: width .55s cubic-bezier(.2,.7,.3,1); }
+  .tmke-tour-top-meta { display: flex; justify-content: space-between; margin-top: 9px; font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ws-faint, rgba(28,29,34,0.5)); }
   .tmke-tour, .tmke-tour * { box-sizing: border-box; }
   /* Four panels frame the spotlight cutout — far cheaper to paint than a giant
      box-shadow, and they animate smoothly as the hole moves between steps. */
@@ -231,19 +252,36 @@ function injectStyles() {
     color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 16px;
   }
   .tmke-tour-card.is-center .tmke-tour-body { max-width: 52ch; }
-  /* The menu: one button per area of the hub. */
-  .tmke-tour-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 16px; }
+  /* The menu: a page of cards, one per area, like a part of a guide. */
+  .tmke-tour-card.is-menu {
+    width: min(1180px, calc(100vw - 2 * clamp(16px, 2.6vw, 40px) - 24px)); max-height: calc(100vh - 72px - 48px); overflow: auto;
+    padding: clamp(22px, 2.4vw, 36px) clamp(22px, 2.4vw, 36px) 22px;
+  }
+  .tmke-tour-card.is-menu .tmke-tour-eyebrow, .tmke-tour-card.is-menu .tmke-tour-title, .tmke-tour-card.is-menu .tmke-tour-body { display: none; }
+  .tmke-tour-menu { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 0 0 18px; }
   .tmke-tour-menu button {
     appearance: none; cursor: pointer; text-align: left;
-    display: flex; flex-direction: column; gap: 2px; padding: 11px 12px;
-    background: #fff; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
+    display: flex; flex-direction: column; padding: 14px;
+    background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
     font-family: var(--sans, system-ui, sans-serif); color: var(--ws-ink, #1c1d22);
     transition: border-color .2s, transform .2s;
   }
-  .tmke-tour-menu button:hover { border-color: var(--ws-accent, #4a2a3c); transform: translateY(-1px); }
-  .tmke-tour-menu button b { font-size: 13px; font-weight: 600; }
-  .tmke-tour-menu button i { font-style: normal; font-size: 11.5px; line-height: 1.35; color: var(--ws-faint, rgba(28,29,34,0.5)); }
+  .tmke-tour-menu button:hover { border-color: rgba(28,29,34,0.22); transform: translateY(-2px); }
+  .tmke-tour-menu .tmke-tour-ph {
+    position: relative; aspect-ratio: 16 / 9; margin: 0 0 12px; border-radius: var(--ws-r, 4px);
+    border: 1px dashed rgba(28,29,34,0.22);
+    background: repeating-linear-gradient(135deg, rgba(28,29,34,0.05) 0 12px, transparent 12px 24px) #f4f2f1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5));
+  }
+  .tmke-tour-menu .tmke-tour-ph.has-art { border: 0; background-size: cover; background-position: center; color: transparent; }
+  .tmke-tour-menu button b { font-family: var(--serif, Georgia, serif); font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; margin-bottom: 5px; }
+  .tmke-tour-menu button i { font-style: normal; font-size: 13px; line-height: 1.55; color: var(--ws-tx, rgba(28,29,34,0.72)); }
   .tmke-tour-menu button.is-done b::after { content: " ✓"; color: var(--ws-accent, #4a2a3c); }
+  .tmke-tour-menu-intro { font-size: 14px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; max-width: 70ch; }
+  .tmke-tour-menu-intro[hidden] { display: none; }
+  @media (max-width: 980px) { .tmke-tour-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .tmke-tour-menu { grid-template-columns: 1fr; } html.tmke-walk body { margin: 72px 8px 8px; } }
   .tmke-tour-skipto {
     appearance: none; background: none; border: 0; padding: 0; cursor: pointer; margin: -6px 0 16px;
     font-family: var(--sans, system-ui, sans-serif); font-size: 12.5px; font-weight: 600; color: var(--ws-accent, #4a2a3c);
@@ -289,6 +327,10 @@ function buildDOM() {
   root.setAttribute('role', 'dialog');
   root.setAttribute('aria-modal', 'true');
   root.innerHTML = `
+    <div class="tmke-tour-top" data-top hidden>
+      <div class="tmke-tour-top-bar"><span class="tmke-tour-top-fill" data-top-fill></span></div>
+      <div class="tmke-tour-top-meta"><span data-top-step></span><span data-top-pct></span></div>
+    </div>
     <div class="tmke-tour-mask" data-mask="t"></div>
     <div class="tmke-tour-mask" data-mask="r"></div>
     <div class="tmke-tour-mask" data-mask="b"></div>
@@ -300,6 +342,7 @@ function buildDOM() {
       <p class="tmke-tour-body" data-body></p>
       <button type="button" class="tmke-tour-skipto" data-skipto hidden>Skip to the menu &rarr;</button>
       <div class="tmke-tour-menu" data-menu hidden></div>
+      <p class="tmke-tour-menu-intro" data-menu-intro hidden></p>
       <div class="tmke-tour-foot">
         <button type="button" class="tmke-tour-skip" data-skip>Skip tour</button>
         <span class="tmke-tour-spacer"></span>
@@ -322,6 +365,11 @@ function buildDOM() {
     body: root.querySelector('[data-body]'),
     skipto: root.querySelector('[data-skipto]'),
     menu: root.querySelector('[data-menu]'),
+    menuIntro: root.querySelector('[data-menu-intro]'),
+    top: root.querySelector('[data-top]'),
+    topFill: root.querySelector('[data-top-fill]'),
+    topStep: root.querySelector('[data-top-step]'),
+    topPct: root.querySelector('[data-top-pct]'),
     progress: root.querySelector('[data-progress]'),
     skip: root.querySelector('[data-skip]'),
     back: root.querySelector('[data-back]'),
@@ -345,6 +393,7 @@ function buildDOM() {
 }
 
 function teardownDOM() {
+  document.documentElement.classList.remove('tmke-walk');
   document.removeEventListener('keydown', onKey, true);
   window.removeEventListener('resize', scheduleReflow);
   window.removeEventListener('scroll', scheduleReflow, true);
@@ -517,18 +566,36 @@ async function render(index) {
   els.back.style.visibility = index === 0 ? 'hidden' : 'visible';
   els.next.textContent = (step.isFinish || index === STEPS.length - 1) ? 'Finish' : 'Next';
   els.skip.textContent = activeWalk ? 'Stop' : 'Skip tour';
-  // A menu step: the areas as buttons, Done instead of Next, no Back.
+  // Training walks run inside the reader's frame with its progress bar.
+  if (activeWalk) {
+    document.documentElement.classList.add('tmke-walk');
+    const walkTitle = (WALKS[activeWalk] && WALKS[activeWalk].title) || '';
+    const pct = Math.round(((index + 1) / STEPS.length) * 100);
+    els.top.hidden = false;
+    els.topFill.style.width = pct + '%';
+    els.topStep.textContent = step.menu ? walkTitle : `${walkTitle} · Step ${index + 1} of ${STEPS.length}`;
+    els.topPct.textContent = step.menu ? '' : pct + '%';
+    els.progress.textContent = '';
+  } else {
+    els.top.hidden = true;
+  }
+  // A menu step: a page of cards, one per area, Done instead of Next.
   els.skipto.hidden = !step.skipToMenu;
+  els.card.classList.toggle('is-menu', !!step.menu);
   if (step.menu) {
     const done = walkedSet();
     els.menu.innerHTML = step.menu.map((m) =>
-      `<button type="button" data-walk="${m.walk}" class="${done.has(m.walk) ? 'is-done' : ''}"><b>${m.label}</b>${m.note ? `<i>${m.note}</i>` : ''}</button>`).join('');
+      `<button type="button" data-walk="${m.walk}" class="${done.has(m.walk) ? 'is-done' : ''}">` +
+        `<span class="tmke-tour-ph${m.art ? ' has-art' : ''}"${m.art ? ` style="background-image:url('${m.art}')"` : ''}>Image</span>` +
+        `<b>${m.label}</b>${m.note ? `<i>${m.note}</i>` : ''}</button>`).join('');
     els.menu.hidden = false;
+    els.menuIntro.textContent = step.body || '';
+    els.menuIntro.hidden = !step.body;
     els.next.textContent = 'Done';
     els.back.style.visibility = 'hidden';
-    els.progress.textContent = '';
   } else {
     els.menu.hidden = true;
+    els.menuIntro.hidden = true;
   }
 
   positionFor(step);
