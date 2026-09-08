@@ -5,7 +5,7 @@
 // same slug takes over, so any of them can be edited in Admin → Guides.
 //
 // `training: true` keeps them out of the Learn grid: they live in the
-// Training section at the top of Learn instead.
+// Getting Started row on Learn instead.
 
 const p = (t) => `<p>${t}</p>`;
 const ph = (label) => `<figure class="ci-ph" data-ph="${label}"><span>${label}</span></figure>`;

@@ -75,10 +75,9 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
            gets a place of its own here. The button opens the same pop-out. -->
       <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="training-h" id="training">
         <header class="lrn-sec-head">
-          <h2 class="ws-eyebrow" id="training-h">Training</h2>
-          <p class="lrn-sec-sub">How to use the hub, in four short courses. Each has a guided look at the real page.</p>
+          <h2 class="ws-eyebrow" id="training-h">Getting Started</h2>
         </header>
-        <div class="lrn-paths lrn-paths--four" id="lrn-training" aria-busy="true"></div>
+        <div class="lrn-guides-grid lrn-guides-grid--four" id="lrn-training" aria-busy="true"></div>
       </section>
 
       <section class="lrn-sec ws-rise" style="--i:3" aria-labelledby="month-h">
@@ -293,6 +292,9 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     .lrn-month-cta { margin-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ws-accent); }
     @media (max-width: 720px) { .lrn-month { grid-template-columns: 1fr; } .lrn-month-art { aspect-ratio: 16 / 9; min-height: 0; } }
     .lrn-guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: clamp(14px, 1.4vw, 20px); }
+    .lrn-guides-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width: 1000px) { .lrn-guides-grid--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { .lrn-guides-grid--four { grid-template-columns: 1fr; } }
     .lrn-guides-empty { font-size: var(--ws-t-row); color: var(--ws-faint); padding: 6px 0; }
     .lrn-gcard { display: flex; flex-direction: column; background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--ws-sh); transition: transform 0.22s var(--ws-ease), box-shadow 0.22s; }
     .lrn-gcard:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(28,29,34,0.02), 0 24px 48px -30px rgba(28,29,34,0.24); }
@@ -492,26 +494,16 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     // The Training row: four courses on using the hub, with each member's
     // progress. Built-in guides, or a published copy from the database when
     // one exists (same slug).
+    // The same card the guides grid uses, four in a row, with each member's
+    // progress. Built-in guides, or a published copy from the database when
+    // one exists (same slug).
     function renderTraining() {
       const host = document.getElementById('lrn-training'); if (!host) return;
       host.innerHTML = TRAINING_GUIDES.map((t) => {
         const g = ALL.find((x) => x.slug === t.slug) || t;
-        const n = Array.isArray(g.lessons) ? g.lessons.length : 0;
-        const pr = PROGRESS[g.slug];
-        let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`, cta = 'Start', meta = `${n} lessons · ~${g.est_minutes || t.est_minutes || 5} min`;
-        if (pr && pr.completed) { cta = 'Read again'; meta = 'Completed'; }
-        else if (pr && pr.total > 0 && pr.furthest >= 1) { const at = Math.min(pr.furthest, pr.total); href += `&p=${pr.furthest}`; cta = 'Resume'; meta = `Part ${at} of ${pr.total}`; }
-        const art = g.cover_url || t.art || '';
-        return `<a class="lrn-path${pr && pr.completed ? ' is-done' : ''}" href="${href}">
-          <div class="lrn-path-body">
-            <span class="lrn-path-eyebrow">${esc(meta)}</span>
-            <h3 class="lrn-path-title">${esc(g.title)}</h3>
-            <p class="lrn-path-desc">${esc(g.summary || '')}</p>
-            <span class="lrn-path-cta">${cta} <em>→</em></span>
-          </div>
-          <span class="lrn-path-art" style="background-image:url('${esc(art)}')"></span>
-        </a>`;
+        return cardHtml({ ...g, cover_url: g.cover_url || t.art || '' });
       }).join('');
+      host.setAttribute('aria-busy', 'false');
     }
 
     function renderGrid(query) {
