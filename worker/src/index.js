@@ -7321,6 +7321,16 @@ export default {
         await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}`, {
           archive_folder: folder, archive_url: dash || null,
         });
+        // The link on the card too, so it's to hand when something has to be
+        // sent by hand. Internal note: the client never sees these.
+        if (dash) {
+          await logBookingMessage(env, {
+            booking_id: id, booking_source: "videography", channel: "system", kind: "audit",
+            subject: "Storage folder created",
+            body: `Content folder in our storage: ${dash}`,
+            is_automated: true, created_by: "system",
+          });
+        }
         return json({ ok: true, created: made, url: dash }, 200, request, env);
       }
 

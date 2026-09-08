@@ -1630,6 +1630,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         number: (invSettings.invoice_prefix || "TMKE") + (invSettings.next_number || 1001),
         issued_date: $("siv-issued").value || null, due_date: $("siv-due").value || null,
         bill_to_name: $("siv-name").value.trim(), bill_to_email: $("siv-email").value.trim(), bill_to_address: $("siv-address").value.trim(),
+        client_name: ($("siv-client")?.value || "").trim() || null,
         notes: ($("siv-notes")?.value || "").trim() || null,
         line_items: sivItems.map((it) => ({ description: it.description, qty: 1, unit_pence: Math.round((parseFloat(it.amount) || 0) * 100) })),
         subtotal_pence: t.subtotal, vat_pence: t.vat, total_pence: t.total,
@@ -1660,6 +1661,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const uploaded = docs.filter((d) => d.category === "invoice");
       const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
       const billName = r.business || (nameOf(r) === "—" ? "" : nameOf(r));
+      // Inter-brand: the payer is another TEG brand, so the invoice names the
+      // client it was for (that is what the month-end report groups by). Billed
+      // to the client themselves, the line is left off.
+      const clientName = nameOf(r) === "—" ? (r.business || "") : nameOf(r);
       panel.innerHTML = `
         <div class="smm-panel-head"><h4>Invoicing</h4></div>
         ${r.direct_debit ? `<div class="siv-dd-banner">💳 <span><strong>Direct Debit client${r.direct_debit_day ? ` — collected on the ${r.direct_debit_day}${ordinal(r.direct_debit_day)}` : ""}.</strong> Invoices are raised to your accounts team as reminders (not emailed to the customer), then you mark them paid.</span></div>` : ""}
@@ -1690,6 +1695,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <label class="siv-f"><span>Bill to</span><input id="siv-name" value="${esc(billName)}"></label>
             <label class="siv-f"><span>Email</span><input id="siv-email" type="email" value="${esc(r.email || "")}"></label>
           </div>
+          <label class="siv-f"><span>Client <small style="font-weight:400;opacity:.7">only when billing another brand - blank leaves it off the invoice</small></span><input id="siv-client" value="${esc(r.inter_brand_invoice ? clientName : "")}" placeholder="Who the work was for, if different"></label>
           <label class="siv-f"><span>Billing address</span><textarea id="siv-address" rows="2" placeholder="Optional">${esc(r.business_address || "")}</textarea></label>
           <label class="siv-f"><span>CC</span><input id="siv-cc" value="${esc(invSettings.accounts_cc_email || "")}" placeholder="Accounts, comma-separated"></label>
           <div class="siv-grid2">
@@ -1842,7 +1848,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (isDemo(r)) { r._invoices = r._invoices || []; const demoInv = { id: "iv" + Date.now(), number: inv.number, due_date: inv.due_date, total_pence: inv.total_pence, status: "draft", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email, cc_email: ccVal }; r._invoices.unshift(demoInv); loadSmmInvoices(r); btn.disabled = false; btn.textContent = label; if (send) openSmmEmailModal(demoInv, r); else show(`Invoice ${inv.number} saved as a draft.`, true); return; }
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ccVal, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, pay_by_card: sivPayByCard, line_items: inv.line_items }) });
+        const res = await fetch(`${WORKER}/invoicing/invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id, booking_source: "smm", bill_to_name: inv.bill_to_name, client_name: inv.client_name || null, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: ccVal, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: sivTemplate, pay_by_card: sivPayByCard, line_items: inv.line_items }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.invoice) throw new Error(j.error || "Couldn't create the invoice.");
         invSettings.next_number = (invSettings.next_number || 1001) + 1;
