@@ -133,6 +133,11 @@ const total = 7;
           </figure>
         </section>
 
+        <!-- Phones only: the ethos photo held still behind slides 2-4, so the
+             words slide in over it as they do on a desktop (where the hero's
+             long image does this job). Sits above the hero, below the slides. -->
+        <div class="sm-phone-bg" aria-hidden="true"></div>
+
         <!-- Slides 2-4 — the three ethos texts. None carries a backdrop: the
              hero's long image has just grown to fill the screen, and these slide
              in from the right over it. One scene, three thoughts. -->
@@ -341,6 +346,7 @@ const total = 7;
        three slides. Shown only while a feature slide is up (the deck toggles
        [hidden]). */
     .sm-hud { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+    .sm-phone-bg { display: none; }
     .sm-hud[hidden] { display: none; }
     .sm-line { position: absolute; left: 0; right: 0; top: 44%; height: 1px; background: rgba(240,238,235,0.3); }
     .sm-line-fill { position: absolute; left: 0; top: 0; height: 1px; background: var(--paper); width: 0; transition: width 1.1s cubic-bezier(.16,1,.3,1); }
@@ -757,10 +763,27 @@ const total = 7;
        double-scroll before the deck would advance). ===== */
     @media (max-width: 600px) {
       .sm-hero-pic { display: none; }
-      /* No grown hero to sit on here, so each ethos slide paints the same photo
-         and shade itself — same scene, just carried by the panel. */
-      .sm-feature--over { background: #2a2733 var(--sm-hero-bg) center / cover no-repeat; }
-      .sm-feature--over::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
+      /* The ethos photo is one held layer; the three slides are transparent
+         over it, so only the words move. */
+      .sm-phone-bg {
+        display: block; position: absolute; inset: 0; opacity: 0; pointer-events: none;
+        background: #2a2733 var(--sm-hero-bg) center / cover no-repeat;
+        transition: opacity 0.45s ease;
+      }
+      .sm-phone-bg::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,26,0.28) 0%, rgba(20,18,26,0.4) 44%, rgba(20,18,26,0.66) 100%); }
+      .pf-stage.is-ethos .sm-phone-bg { opacity: 1; }
+      .sm-feature--over { background: transparent; }
+      /* Phone gutters match the rest of the site (22px), and the copy sits
+         higher. Tall slides scroll inside themselves on a vertical drag; a
+         sideways drag is what moves the deck. */
+      .pf-panel { padding: 84px 22px 56px; overflow-y: auto; touch-action: pan-y; }
+      .sm-feature-inner { left: 22px; right: 22px; top: 40%; }
+      .sm-tag { left: 22px; }
+      .sm-services-text { padding: 76px 22px 20px; }
+      /* The final slide: one picture, then the three offers. */
+      .sm-cta-card { padding: 32px 22px; }
+      .sm-cta-card:not(:first-child) .sm-cta-img { display: none; }
+      .sm-cta-card:first-child .sm-cta-img { height: 26vh; }
       .sm-hero { height: 100%; display: flex; flex-direction: column; }
       .sm-hero-header { flex: 1; display: flex; padding: 84px 22px 0; box-sizing: border-box; }
       .sm-hero-wrap { display: flex; flex-direction: column; flex: 1; width: 100%; max-width: none; }
@@ -966,6 +989,7 @@ const total = 7;
         if (cur !== lastCur) {
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
+          stage.classList.toggle("is-ethos", cur >= 1 && cur <= 3);
           if (curEl) curEl.textContent = pad(cur);
           syncHud(panels[cur]);
           // Slide 1 is light → ink nav; the dark image slides → white nav; and
@@ -1068,7 +1092,11 @@ const total = 7;
       stage.addEventListener("touchmove", (ev) => {
         if (portfolioOpen || tScroll) return;
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
-        const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
+        // Phones: only a sideways drag moves across; an up-and-down drag is
+        // left to the slide, which scrolls itself. Both together used to send
+        // the deck off in two directions at once.
+        if (isPhone() && Math.abs(dy) >= Math.abs(dx)) return;
+        const dom = isPhone() ? dx : (Math.abs(dx) > Math.abs(dy) ? dx : dy);
         // Slide 1: a drag raises the long image to full-page first (then advance).
         // Skipped on phones — one swipe advances straight to slide 2.
         if (!isPhone() && Math.round(anchor) === 0) {
@@ -1106,7 +1134,9 @@ const total = 7;
       items.forEach((it, i) => {
         it.addEventListener("mousemove", () => openItem(i));
         it.addEventListener("focus", () => openItem(i));          // keyboard = deliberate
-        it.addEventListener("click", () => openItem(i));
+        // A tap on the open one closes it again (on a phone there is no hover
+        // to reopen it, so this is the only way to shut the list).
+        it.addEventListener("click", () => { if (cur === i) { cur = -1; collapse(); } else openItem(i); });
       });
       list.addEventListener("mouseleave", () => { cur = -1; collapse(); });
 
