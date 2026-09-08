@@ -11,6 +11,10 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 import StudioInspo from "../../components/account/StudioInspo.astro";
 import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
+import { getMembersPosts } from "../../data/blog.js";
+// The two newest members' posts, so the blog is reachable from Learn too.
+const NOTES = ((await getMembersPosts()) || []).slice(0, 2);
+const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); } catch (_) { return ""; } };
 ---
 
 <!--
@@ -102,6 +106,29 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
       </section>
 
       <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
+      <!-- ============ Notes from the Desk: the blog, from here too ============ -->
+      {NOTES.length > 0 && (
+      <section class="lrn-sec ws-rise" style="--i:5" aria-labelledby="notes-h" id="notes">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="notes-h">Notes from the Desk</h2>
+          <a class="ws-textlink" href="/account/blog">All notes &rarr;</a>
+        </header>
+        <div class="lrn-paths">
+          {NOTES.map((n) => (
+            <a class="lrn-path" href={`/account/blog#${n.slug}`}>
+              <div class="lrn-path-body">
+                <span class="lrn-path-eyebrow">{n.category}{n.date ? ` · ${fmtDate(n.date)}` : ""}</span>
+                <h3 class="lrn-path-title">{n.title}</h3>
+                {n.standfirst && <p class="lrn-path-desc">{n.standfirst}</p>}
+                <span class="lrn-path-cta">Read <em>→</em></span>
+              </div>
+              <span class="lrn-path-art" style={n.hero ? `background-image:url('${n.hero}')` : ""}></span>
+            </a>
+          ))}
+        </div>
+      </section>
+      )}
+
       <!-- ============ Quick lessons (hidden until real video lessons exist) ============ -->
       <section class="lrn-sec ws-rise lrn-soon" style="--i:5" aria-labelledby="quick-h">
         <header class="lrn-sec-head">

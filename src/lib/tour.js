@@ -261,7 +261,7 @@ function injectStyles() {
     padding: clamp(22px, 2.4vw, 36px) clamp(22px, 2.4vw, 36px) 22px;
   }
   .tmke-tour-card.is-menu .tmke-tour-eyebrow, .tmke-tour-card.is-menu .tmke-tour-title, .tmke-tour-card.is-menu .tmke-tour-body { display: none; }
-  .tmke-tour-menu { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin: 0 0 18px; }
+  .tmke-tour-menu { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; }
   .tmke-tour-menu button {
     appearance: none; cursor: pointer; text-align: left;
     display: flex; flex-direction: column; padding: 14px;
@@ -281,7 +281,7 @@ function injectStyles() {
   .tmke-tour-menu button b { font-family: var(--serif, Georgia, serif); font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; margin-bottom: 5px; }
   .tmke-tour-menu button i { font-style: normal; font-size: 13px; line-height: 1.55; color: var(--ws-tx, rgba(28,29,34,0.72)); }
   .tmke-tour-menu button.is-done b::after { content: " ✓"; color: var(--ws-accent, #4a2a3c); }
-  .tmke-tour-menu-intro { font-size: 14px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; max-width: 70ch; }
+  .tmke-tour-menu-intro { font-size: 14px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tmke-tour-menu-intro[hidden] { display: none; }
   @media (max-width: 980px) { .tmke-tour-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 560px) { .tmke-tour-menu { grid-template-columns: 1fr; } html.tmke-walk body { margin: 92px 8px 8px; } }
@@ -344,8 +344,8 @@ function buildDOM() {
       <h2 class="tmke-tour-title" data-title></h2>
       <p class="tmke-tour-body" data-body></p>
       <button type="button" class="tmke-tour-skipto" data-skipto hidden>Skip to the menu &rarr;</button>
-      <div class="tmke-tour-menu" data-menu hidden></div>
       <p class="tmke-tour-menu-intro" data-menu-intro hidden></p>
+      <div class="tmke-tour-menu" data-menu hidden></div>
       <div class="tmke-tour-foot">
         <button type="button" class="tmke-tour-skip" data-skip>Skip tour</button>
         <span class="tmke-tour-spacer"></span>

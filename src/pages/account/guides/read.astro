@@ -206,11 +206,23 @@ const DEFAULT_COVER = (await getImage({
     .gr-video { position: relative; aspect-ratio: 16 / 9; margin: 18px 0 6px; border-radius: var(--ws-r); overflow: hidden; background: #1c1d22; }
     .gr-video iframe, .gr-video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
     /* "Show me": the walkthrough offer under a lesson. */
-    .gr-walk { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 16px 18px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; }
+    /* Wine, so it stands out from the copy: this is the thing to press. */
+    .gr-walk { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 18px 20px; border-radius: var(--ws-r); background: var(--ws-accent); color: #fff; }
     .gr-walk-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-    .gr-walk-tx strong { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: var(--ws-ink); }
-    .gr-walk-tx span { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.45; }
-    .gr-walk .ws-btn { flex: 0 0 auto; }
+    .gr-walk-tx strong { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: #fff; }
+    .gr-walk-tx span { font-size: var(--ws-t-meta); color: rgba(255,255,255,0.72); line-height: 1.45; }
+    .gr-walk .ws-btn { flex: 0 0 auto; background: #fff; color: var(--ws-accent); border-color: #fff; }
+    .gr-walk .ws-btn:hover { background: #f4f2f1; color: var(--ws-accent); }
+    .gr-body--after { margin-top: 18px; }
+    /* Where to go first: a wide card and a picture, the row a link. */
+    .ci-go { display: grid; grid-template-columns: 3fr 1fr; gap: 14px; margin: 0 0 14px; text-decoration: none; color: inherit; }
+    .ci-go-card { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-height: 150px; padding: 22px 26px 22px 62px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); transition: border-color .2s; }
+    .ci-go-card .ci-no { position: absolute; left: 22px; top: 22px; }
+    .ci-go-card strong { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .ci-go-card span { font-size: 14px; line-height: 1.55; color: var(--ws-tx); }
+    .ci-go .ci-ph { aspect-ratio: auto; height: 100%; min-height: 150px; margin: 0; }
+    .ci-go:hover .ci-go-card { border-color: rgba(28,29,34,0.28); }
+    @media (max-width: 720px) { .ci-go { grid-template-columns: 1fr; } .ci-go .ci-ph { aspect-ratio: 16 / 9; min-height: 0; } }
     @media (max-width: 560px) { .gr-walk { flex-direction: column; align-items: flex-start; } }
     /* Captioned hub screenshot. Uses a background-image so a not-yet-added shot
        shows a clean tinted placeholder rather than a broken-image icon; drop the
@@ -426,12 +438,17 @@ const DEFAULT_COVER = (await getImage({
       };
       const partHtml = (i) => {
         const l = lessons[i-1];
+        // A tip that closes the lesson sits under the Show me box, not above it.
+        let body = l.body_html || "", trailingTip = "";
+        const m = body.match(/(<p class="ci-rhythm">[\s\S]*?<\/p>)\s*$/);
+        if (m && l.walk && WALKS[l.walk]) { trailingTip = m[1]; body = body.slice(0, m.index); }
         return `<div class="gc-slide gc-slide--part">
           <span class="gc-part">Part ${i} of ${N}</span>
           ${l.title ? `<h2 class="gc-slide-title">${esc(l.title)}</h2>` : ""}
           ${videoHtml(l.video_url)}
-          <div class="gc-slide-body gr-body">${l.body_html || ""}</div>
+          <div class="gc-slide-body gr-body">${body}</div>
           ${walkHtml(l.walk, i)}
+          ${trailingTip ? `<div class="gc-slide-body gr-body gr-body--after">${trailingTip}</div>` : ""}
         </div>`;
       };
       stage.addEventListener("click", (e)=>{

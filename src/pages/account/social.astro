@@ -53,7 +53,10 @@ import { gbpFromPence } from "../../lib/supabase.js";
             <!-- The services brochure, opened in the browser's own PDF viewer
                  rather than saved: they're signed in, so no form, and from the
                  viewer they can read it or download it as they like. -->
-            <a class="ws-btn ws-btn--ghost soc-lede-cta" href={BROCHURE_URL} target="_blank" rel="noopener">View services</a>
+            <span class="soc-lede-ctas">
+              <button type="button" class="ws-btn ws-btn--primary" id="soc-sample">See what a plan looks like</button>
+              <a class="ws-btn ws-btn--ghost soc-lede-cta" href={BROCHURE_URL} target="_blank" rel="noopener">View services</a>
+            </span>
           </div>
 
           <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-svc-h">
@@ -116,6 +119,11 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
         <!-- ============ Managed-social client ============ -->
         <div id="soc-client" hidden>
+          <!-- Only while a prospect is looking at the sample. -->
+          <div class="soc-card soc-sample-note" id="soc-sample-note" hidden>
+            <p class="soc-lede"><strong>This is a sample.</strong> It shows what your page looks like on a plan with us: your package, and a monthly report of how it's going.</p>
+            <button type="button" class="ws-btn ws-btn--ghost" id="soc-sample-back">Back</button>
+          </div>
 
           <!-- Chapter 01 — what you are on -->
           <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-plan-h">
@@ -254,6 +262,9 @@ import { gbpFromPence } from "../../lib/supabase.js";
        strip above, as everywhere else in the hub. */
     #soc-noclient:not([hidden]) { display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 46px); }
     .soc-lede-card { border-left: 3px solid var(--ws-accent); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .soc-lede-ctas { display: flex; gap: 10px; flex-wrap: wrap; flex: 0 0 auto; }
+    .soc-sample-note { border-left: 3px solid var(--ws-accent); display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .soc-sample-note[hidden] { display: none; }
     .soc-lede-cta { flex: 0 0 auto; white-space: nowrap; }
     .soc-lede { font-family: var(--sans); font-size: var(--ws-t-row); line-height: 1.6; color: var(--ws-tx); margin: 0; max-width: 78ch; }
     .soc-lede strong { color: var(--ws-ink); font-weight: 700; }
@@ -515,6 +526,20 @@ import { gbpFromPence } from "../../lib/supabase.js";
       wrap.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => { tab = b.getAttribute("data-tab"); renderInsights(); }));
     }
 
+    // A prospect can see the client view filled with sample numbers, and come back.
+    const SAMPLE = { client: { package_name: "Growth", platforms: ["Instagram", "Facebook", "LinkedIn"], start_date: "2026-02-01" }, reports: DEMO_REPORTS };
+    $("soc-sample")?.addEventListener("click", () => {
+      $("soc-noclient").hidden = true;
+      $("soc-sample-note").hidden = false;
+      show(SAMPLE);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    $("soc-sample-back")?.addEventListener("click", () => {
+      $("soc-client").hidden = true; $("soc-sample-note").hidden = true;
+      const st = $("soc-status"); if (st) st.hidden = true;
+      $("soc-noclient").hidden = false;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
     function show(data) {
       $("soc-loading").hidden = true;
       if (!data || !data.client) { $("soc-noclient").hidden = false; return; }
