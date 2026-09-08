@@ -36,14 +36,14 @@ const DASHBOARD_STEPS = [
 // and a tick marks the ones already done.
 const HUB_MENU = {
   path: "*", target: null, placement: "center", menu: [
-    { walk: "dashboard",   label: "Dashboard", note: "Home. Today's date, what's planned this week, and the way back into whatever you were working on." },
-    { walk: "studio-tour", label: "Studio",    note: "Where designs are made: the packs you own, the designs you've saved, and the editor." },
-    { walk: "planner",     label: "Planner",   note: "A month of days. Add a post to any of them, or schedule straight from the Studio." },
-    { walk: "orders",      label: "Orders",    note: "Every pack you've bought, with its receipt and a link back into the Studio." },
-    { walk: "bookings",    label: "Bookings",  note: "Your videography: shoots booked, shoots in progress, and delivered galleries." },
-    { walk: "smm",         label: "Your SMM",  note: "Your window on managed social media, or what's included if we don't run yours yet." },
-    { walk: "learn",       label: "Learn",     note: "Guides, these training courses, and what's working on social this month." },
-    { walk: "brand-kit",   label: "Brand kit", note: "Your logo, colours and fonts, set once so every design opens looking like you." },
+    { walk: "dashboard",   label: "Dashboard", note: "Home. See what's coming up, what's been planned and quickly jump back into the things you're working on." },
+    { walk: "studio-tour", label: "Studio",    note: "Create and customise your social media content. Access the packs you own, your saved designs and the Studio editor." },
+    { walk: "planner",     label: "Planner",   note: "See your content calendar, add upcoming posts and plan what you're publishing throughout the month." },
+    { walk: "orders",      label: "Orders",    note: "Find everything you've purchased from The Edit, including your packs, order details and receipts." },
+    { walk: "bookings",    label: "Bookings",  note: "Manage your TMKE videography bookings, follow their progress and access your finished galleries." },
+    { walk: "smm",         label: "Your SMM",  note: "Everything relating to Social Media Management, from what's included to your current package and monthly performance." },
+    { walk: "learn",       label: "Learn",     note: "Your training and insights library. Find practical guides, Member Hub courses and our latest social media trends." },
+    { walk: "brand-kit",   label: "Brand kit", note: "Save your logo, colours and fonts so Studio templates automatically adapt to your brand." },
   ],
   eyebrow: "Around the hub", title: "Where <em>next?</em>",
   body: "Pick an area for a short walk of it. Each one brings you back to this page, with a tick on the ones you've done. Done takes you back to the lesson.",

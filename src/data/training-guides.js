@@ -28,31 +28,31 @@ export const TRAINING_GUIDES = [
     lessons: [
       { title: "The hub at a glance", walk: "hub-tour", video_url: "",
         body_html:
-          p("Your hub is one place for the four things that make marketing happen: designs, a plan, your brand, and bookings. The tabs along the top take you between them; the dashboard shows you what needs attention today.") +
-          p("The quickest way to learn it is to walk it. <strong>Show me</strong> below opens the dashboard and points out each part, then offers a menu of the hub's areas: Studio, Planner, Orders, Bookings, Your SMM and Learn. Walk the ones you want, in any order; each brings you back to the menu, and Done brings you back here.") +
-          tip("Nothing in a walkthrough changes anything. Click about as much as you like.") },
+          p("Your Member Hub brings your TMKE tools, content and services together in one place. From creating designs and planning content to managing bookings and accessing training, everything has its own area and is always easy to get back to.") +
+          p("The quickest way to get familiar with it is to explore it. Use <strong>Show me</strong> for a guided tour of the dashboard, then choose the areas you'd like to look at in more detail. You can explore them in any order and return here whenever you're ready.") +
+          tip("Nothing in the walkthrough will make changes to your account, so click around and get familiar with where everything lives.") },
       { title: "Eight areas, one job each",
         body_html:
-          p("Everything in the hub is one of these. Know what each is for and you'll never wonder where something lives.") +
+          p("Everything in your Member Hub has a clear purpose. Once you know what each area does, finding what you need becomes much quicker.") +
           pillars([
-            ["Dashboard", "Home. Today's date, what's planned this week, and the way back into whatever you were working on."],
-            ["Studio", "Where designs are made: the packs you own, the designs you've saved, and the editor."],
-            ["Planner", "A month of days. Add a post to any of them, or schedule straight from the Studio."],
-            ["Orders", "Every pack you've bought, with its receipt and a link back into the Studio."],
-            ["Bookings", "Your videography: shoots booked, shoots in progress, and delivered galleries."],
-            ["Your SMM", "Your window on managed social media, or what's included if we don't run yours yet."],
-            ["Learn", "Guides, these training courses, and what's working on social this month."],
-            ["Brand kit", "Your logo, colours and fonts, set once so every design opens looking like you. In your menu, top right."],
+            ["Dashboard", "Home. See what's coming up, what's been planned and quickly jump back into the things you're working on."],
+            ["Studio", "Create and customise your social media content. Access the packs you own, your saved designs and the Studio editor."],
+            ["Planner", "See your content calendar, add upcoming posts and plan what you're publishing throughout the month."],
+            ["Orders", "Find everything you've purchased from The Edit, including your packs, order details and receipts."],
+            ["Bookings", "Manage your TMKE videography bookings, follow their progress and access your finished galleries."],
+            ["Your SMM", "Everything relating to Social Media Management, from what's included to your current package and monthly performance."],
+            ["Learn", "Your training and insights library. Find practical guides, Member Hub courses and our latest social media trends."],
+            ["Brand kit", "Save your logo, colours and fonts so Studio templates automatically adapt to your brand."],
           ]) },
       { title: "Where to go first",
         body_html:
-          p("Three things, in this order, and everything after gets easier. Each has its own course on the Training row.") +
+          p("If you're new to the Member Hub, start with these three things. They'll set up the basics and make everything else considerably easier.") +
           steps([
-            ["Set up your brand kit", "Logo, colours and fonts. Five minutes, once. From then on every template opens already looking like you."],
-            ["Make one design", "Open a pack in the Studio, change the words, download it. The first one takes ten minutes; the tenth takes two."],
-            ["Plan a week", "Three posts on three days in the Planner. A plan you can see is a plan you keep to."],
+            ["Set up your brand kit", "Add your logo, colours and fonts once, then let the Studio apply them to your templates automatically."],
+            ["Make one design", "Choose a template, make it your own and download your finished post. The more you use the Studio, the quicker it becomes."],
+            ["Plan a week", "Add a few posts to your Planner so you can see what's coming up and start building a consistent rhythm."],
           ]) +
-          tip("Stuck at any point? The bell top right has what's new, and Learn has a guide for most things. If it isn't there, the team is a message away from the dashboard.") },
+          tip("Need help later? Head to Learn for guides and training, or contact the TMKE team from your dashboard if you can't find what you need.") },
     ],
   }),
 
