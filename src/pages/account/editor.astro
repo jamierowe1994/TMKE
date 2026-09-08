@@ -443,6 +443,8 @@ const googleFonts = [
            shows it. -->
       <div class="ed-sheet-bar">
         <span class="ed-sheet-grip"></span>
+        <span class="ed-sheet-title" id="ed-sheet-title"></span>
+        <button type="button" class="ed-sheet-up" id="ed-sheet-up">Options <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
         <button type="button" class="ed-sheet-close" id="ed-sheet-close">Done</button>
       </div>
       <!-- Selection — auto-opens when an element is selected, replacing
@@ -4504,15 +4506,22 @@ const googleFonts = [
     @media (max-width: 760px) {
       .editor {
         --ed-bar-h: calc(58px + env(safe-area-inset-bottom, 0px));
-        --ed-sheet-h: min(52vh, 460px);
+        /* Half of what's left between the top bar and the tab bar. */
+        --ed-sheet-h: calc((100vh - 64px - var(--ed-bar-h)) / 2);
+        --ed-sheet-h: calc((100dvh - 64px - var(--ed-bar-h)) / 2);
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: auto auto minmax(0, 1fr) auto;
         grid-template-areas: "top" "ctx" "stage" "pages";
         padding-bottom: var(--ed-bar-h);
-        transition: padding-bottom 0.28s cubic-bezier(.2,.75,.2,1);
       }
       .editor.ed-sheet-open { padding-bottom: calc(var(--ed-bar-h) + var(--ed-sheet-h)); }
-      .editor.ed-sheet-open.ed-sheet-sel { --ed-sheet-h: min(44vh, 400px); }
+      /* Peek: something is selected but the controls stay out of the way, so
+         there is room to move it with a finger. One strip with an arrow. */
+      .editor.ed-sheet-open.ed-sheet-peek { --ed-sheet-h: 48px; }
+      /* The design animates to its new size with the sheet, instead of
+         jumping after it. */
+      .ed-canvas-shadow { transition: transform 0.28s cubic-bezier(.2,.75,.2,1); }
+      .ed-canvas-sizer { transition: width 0.28s cubic-bezier(.2,.75,.2,1), height 0.28s cubic-bezier(.2,.75,.2,1); }
 
       /* Top bar: back, name, undo/redo, save, download. */
       .ed-topbar { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; height: 48px; margin: 8px 8px 0; padding: 0 8px 0 6px; }
@@ -4537,7 +4546,7 @@ const googleFonts = [
       .ed-rail .ed-rail-btn span { font-size: 10px; }
       html.editor-light .ed-rail .ed-rail-btn.is-active { border-left-color: transparent; border-top-color: #fff; }
       .ed-rail .ed-rail-btn[hidden],
-      .ed-rail [data-tool="brand"], .ed-rail [data-tool="photos"], .ed-rail [data-tool="background"],
+      .ed-rail [data-tool="brand"], .ed-rail [data-tool="photos"],
       .ed-rail [data-tool="layers"], .ed-rail [data-tool="resize"], .ed-rail [data-tool="guides"],
       .ed-rail-toggle, .ed-rail-spacer { display: none !important; }
       .editor.is-onboarding .ed-rail { transform: translateY(110%); }
@@ -4557,9 +4566,17 @@ const googleFonts = [
       }
       .editor .ed-panel, .editor.show-panel .ed-panel { transform: translateY(105%); opacity: 1; }
       .editor.ed-sheet-open .ed-panel, .editor.ed-sheet-open.show-panel .ed-panel { transform: none; }
-      .ed-sheet-bar { display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 2; margin: 0 -16px 8px; padding: 6px 12px 6px 16px; background: inherit; }
+      .ed-sheet-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; position: sticky; top: 0; z-index: 2; margin: 0 -16px 8px; padding: 6px 12px 6px 16px; min-height: 36px; background: inherit; }
       .ed-sheet-grip { width: 38px; height: 4px; border-radius: 999px; background: rgba(28,29,34,0.18); position: absolute; left: 50%; top: 6px; transform: translateX(-50%); }
-      .ed-sheet-close { margin-left: auto; appearance: none; border: 0; background: transparent; padding: 6px 4px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--english-violet); cursor: pointer; }
+      .ed-sheet-title { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ed-sheet-close, .ed-sheet-up { appearance: none; border: 0; background: transparent; padding: 6px 4px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--english-violet); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+      .ed-sheet-close { margin-left: auto; }
+      .ed-sheet-up svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+      .ed-sheet-up { display: none; }
+      .editor.ed-sheet-peek .ed-sheet-up { display: inline-flex; margin-left: auto; }
+      .editor.ed-sheet-peek .ed-sheet-close { display: none; }
+      .editor.ed-sheet-peek .ed-panel { overflow: hidden; padding-bottom: 0; }
+      .editor.ed-sheet-peek .ed-sheet-bar { margin-bottom: 0; }
       .ed-m-only { display: block; }
       .ed-m-images { margin-bottom: 14px; }
       .ed-m-back { appearance: none; border: 0; background: transparent; padding: 0 0 10px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--english-violet); cursor: pointer; }
@@ -6858,7 +6875,7 @@ const googleFonts = [
         // Phone only — the three things a phone is for: pick up a template,
         // start fresh, change the size. Desktop has these on the rail and the
         // launcher, so they'd be noise there.
-        newdesign:  { href: "/account/editor?new=1", label: "Create a new design", note: "Pick a size, start blank" },
+        newdesign:  { href: "/account/editor?new=1", label: "Create a design", note: "Pick a size, start blank" },
         template:   { tool: "templates",  label: "Edit a template", note: "From the packs you own" },
         resize:     { tool: "resize",     label: "Change the size", note: "Story, square, post" },
         brand:      { tool: "brand",      label: "Make it yours", note: "Your colours &amp; fonts" },
@@ -6912,16 +6929,13 @@ const googleFonts = [
         if (title) title.textContent = L.title;
         if (sub) sub.textContent = L.sub;
         let order = L.order;
-        if (PHONE.matches) {
-          // Templates only once the owned-packs lookup has shown the tab.
-          const tplBtn = document.getElementById("ed-rail-templates");
-          const extra = ["newdesign"].concat(tplBtn && !tplBtn.hidden ? ["template"] : []).concat(["resize"]);
-          order = extra.concat(order);
-        }
+        // A phone's Start is four things; Templates, Text, Elements and
+        // Background have tabs of their own down there.
+        if (PHONE.matches) order = ["newdesign", "resize", "page", "brand"];
         grid.innerHTML = order.map(function (key) {
           const a = ACTIONS[key];
           if (!a) return "";
-          const cls = "ed-start-btn" + (["newdesign","template","resize"].includes(key) ? " ed-start-btn--phone" : "");
+          const cls = "ed-start-btn";
           if (a.href) {
             return '<a class="' + cls + '" href="' + a.href + '">' +
               '<span class="ed-start-ic"><svg viewBox="0 0 24 24" aria-hidden="true">' + IC[key] + '</svg></span>' +
@@ -6938,9 +6952,6 @@ const googleFonts = [
       render(ctx);
       // The Templates tab appears once the paid-orders lookup finishes; the
       // phone shortcut list follows it.
-      const tplBtnWatch = document.getElementById("ed-rail-templates");
-      if (tplBtnWatch) new MutationObserver(function () { if (PHONE.matches) render(lastCtx); })
-        .observe(tplBtnWatch, { attributes: true, attributeFilter: ["hidden"] });
       PHONE.addEventListener("change", function () { render(lastCtx); });
 
       // Choosing from the launcher doesn't change the URL, so the query string
@@ -7142,26 +7153,42 @@ const googleFonts = [
       if (!editor || !stage || !selPane) return;
       let mode = "";
       // Which tab lights up for a tool that has no tab of its own.
-      const OWNER = { photos: "elements", background: "start", brand: "start", layers: "start", resize: "start", guides: "start" };
+      const OWNER = { photos: "elements", brand: "start", layers: "start", resize: "start", guides: "start" };
 
-      // The stage row changes size over the sheet's slide (0.28s), so the
-      // design is refitted once the slide is over, not while it runs.
-      let refitTimer = 0;
-      function refit() {
-        clearTimeout(refitTimer);
-        refitTimer = setTimeout(function () { window.dispatchEvent(new Event("resize")); }, 340);
+      // iOS zooms the page when a small text field is focused, and stays
+      // zoomed after the keyboard goes. Editing text on the canvas is exactly
+      // that, so the page is pinned at 1x here. Pinch-zoom of the design is
+      // the editor's own job, not the browser's.
+      if (PHONE.matches) {
+        const vp = document.querySelector('meta[name="viewport"]');
+        if (vp) vp.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover");
+      }
+
+      // The stage changes size the moment the sheet opens; the design's scale
+      // transitions to the new fit, so the two move together.
+      function refit() { window.dispatchEvent(new Event("resize")); }
+      const TYPE_LABEL = { text: "Text", image: "Image", shape: "Shape", rect: "Shape", ellipse: "Shape", line: "Line", icon: "Icon", logo: "Logo", frame: "Frame", group: "Group" };
+      function selectedLabel() {
+        const n = document.querySelectorAll(".ed-layer.is-multiselected").length;
+        if (n > 1) return n + " items selected";
+        const l = document.querySelector(".ed-layer.is-selected, .ed-layer.is-multiselected");
+        const t = l && l.dataset.type;
+        return (t && TYPE_LABEL[t]) || (t ? t.charAt(0).toUpperCase() + t.slice(1) : "Selected");
       }
       function openSheet(m) {
         mode = m;
         editor.classList.add("ed-sheet-open");
         editor.classList.toggle("ed-sheet-sel", m === "sel");
+        editor.classList.toggle("ed-sheet-peek", m === "peek");
+        const title = document.getElementById("ed-sheet-title");
+        if (title) title.textContent = (m === "peek" || m === "sel") ? selectedLabel() : "";
         const panel = document.getElementById("ed-panel");
         if (panel) panel.scrollTop = 0;
         refit();
       }
       function closeSheet() {
         mode = "";
-        editor.classList.remove("ed-sheet-open", "ed-sheet-sel");
+        editor.classList.remove("ed-sheet-open", "ed-sheet-sel", "ed-sheet-peek");
         refit();
       }
       function light(tool) {
@@ -7189,16 +7216,36 @@ const googleFonts = [
         openSheet("tool");
       });
 
+      // Done on the full controls drops back to the strip; on a tool sheet it
+      // closes. The arrow on the strip brings the controls up.
       const done = document.getElementById("ed-sheet-close");
-      if (done) done.addEventListener("click", closeSheet);
+      if (done) done.addEventListener("click", function () { if (mode === "sel") openSheet("peek"); else closeSheet(); });
+      const up = document.getElementById("ed-sheet-up");
+      if (up) up.addEventListener("click", function () { openSheet("sel"); });
 
-      // Something selected on the canvas raises its controls; deselecting
-      // drops them again.
+      // Something selected on the canvas shows the strip (not the full
+      // controls - there has to be room to move it); deselecting drops it.
       new MutationObserver(function () {
         if (!PHONE.matches) return;
-        if (selPane.classList.contains("is-active")) openSheet("sel");
-        else if (mode === "sel") closeSheet();
+        if (selPane.classList.contains("is-active")) { if (mode !== "sel") openSheet("peek"); }
+        else if (mode === "sel" || mode === "peek") closeSheet();
       }).observe(selPane, { attributes: true, attributeFilter: ["class"] });
+      // Adding from a tool sheet (a heading from Text, a square from Elements)
+      // selects the new item but the engine keeps that tool's pane up. The
+      // sheet drops to the strip so the item can be moved straight away.
+      const canvasEl = document.getElementById("ed-canvas");
+      if (canvasEl) new MutationObserver(function (muts) {
+        if (!PHONE.matches || mode !== "tool") return;
+        for (const m of muts) {
+          const t = m.target;
+          if (t && t.classList && t.classList.contains("ed-layer") && (t.classList.contains("is-selected") || t.classList.contains("is-multiselected"))) { openSheet("peek"); return; }
+        }
+      }).observe(canvasEl, { subtree: true, attributes: true, attributeFilter: ["class"] });
+      // A different item picked while the strip is up: the label follows it.
+      stage.addEventListener("pointerup", function () {
+        if (!PHONE.matches || (mode !== "peek" && mode !== "sel")) return;
+        setTimeout(function () { const t = document.getElementById("ed-sheet-title"); if (t) t.textContent = selectedLabel(); }, 0);
+      });
 
       // A tap on the canvas: on an item whose controls were dismissed, bring
       // them back; on empty space with a tool sheet up, drop the sheet.
@@ -7212,7 +7259,7 @@ const googleFonts = [
         if (Math.hypot(e.clientX - downX, e.clientY - downY) > 8) return;
         if (!e.target.closest(".ed-layer")) return;
         setTimeout(function () {
-          if (selPane.classList.contains("is-active") && mode !== "sel") openSheet("sel");
+          if (selPane.classList.contains("is-active") && !mode) openSheet("peek");
         }, 0);
       });
 

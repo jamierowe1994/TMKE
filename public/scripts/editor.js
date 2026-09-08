@@ -5642,10 +5642,25 @@
 
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
     const ext = type === "png-transparent" ? "png" : type;
+    const name = (filenameEl.value || "design") + "." + ext;
+    // On a phone a download lands in Files, which is not where anyone looks
+    // for a picture. The share sheet offers Save Image, which puts it in
+    // Photos - so that is the route there.
+    if (window.innerWidth <= 760 && navigator.canShare) {
+      const blob = await new Promise(function (r) { c.toBlob(r, mime, 0.95); });
+      if (blob) {
+        const file = new File([blob], name.replace(/[^a-z0-9-_.]+/gi, "-"), { type: mime });
+        if (navigator.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title: filenameEl.value || "TMKE design" }); }
+          catch (e) { /* cancelled */ }
+          return;
+        }
+      }
+    }
     const url = c.toDataURL(mime, 0.95);
     const a = document.createElement("a");
     a.href = url;
-    a.download = (filenameEl.value || "design") + "." + ext;
+    a.download = name;
     a.click();
     toast("Exported " + ext.toUpperCase() + (type === "png-transparent" ? " (transparent)" : ""));
   }
