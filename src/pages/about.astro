@@ -158,6 +158,21 @@ const services = [
           need to go viral to grow locally. You need marketing that genuinely
           reflects the quality of your business.
         </p>
+        <!-- Phones read a shorter version (Dani, 8 Sep); the two above are
+             desktop only. -->
+        <p class="about-marketing-phone">
+          Too much marketing is reactive, inconsistent and created simply to keep
+          things ticking over. We take a more considered approach, understanding
+          your audience, creating with purpose and building marketing that works
+          together rather than simply adding more to your feed.
+        </p>
+        <p class="about-marketing-phone">
+          From social media and content creation to branding, design, websites and
+          videography, everything we create is shaped around your business and
+          designed to reflect the quality of what you do. Because you don&rsquo;t
+          need to go viral to grow locally. You need marketing that gives people a
+          reason to notice, trust and remember you.
+        </p>
       </div>
       <div
         class="about-marketing-media"
@@ -401,6 +416,7 @@ const services = [
   }
   /* Swipe hint is mobile-only (shown in the ≤600px block). */
   .about-team-hint { display: none; }
+  .about-marketing-phone { display: none; }
   /* Three equal portrait cards. */
   .about-team-wrap {
     max-width: 1360px;
@@ -721,14 +737,23 @@ const services = [
     .about-lede-grid { flex: 1; grid-template-rows: auto 1fr; gap: 22px; }
     /* Subtext a couple of sizes bigger than the tiny clamp default. */
     .about-lede-text { font-size: 16px; line-height: 1.62; max-width: none; }
-    .about-lede-media { display: flex; margin: 0 -22px; }   /* bleed past the 22px gutters */
-    .about-lede-media img { flex: 1; width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 46svh; }
+    /* No studio photo under Discover on a phone: the page goes straight from
+       the hero copy into the team. */
+    .about-lede { min-height: 0; padding-bottom: 8px; }
+    .about-lede-grid { grid-template-rows: auto; }
+    .about-lede-media { display: none; }
 
     /* Straight from Meet the Team → Marketing: hide the "Women Behind TMKE"
        block, but keep the #about-intro section as a 0-height anchor so the
        hero's "Discover" button still has somewhere to land. */
     .about-intro { padding: 0; }
     .about-intro-wrap { display: none; }
+    /* What We Do: the two paragraphs read as two. */
+    .about-services-intro + .about-services-intro { margin-top: 16px; }
+    /* Marketing: the shorter copy, and no promo video after it. */
+    .about-marketing-text > p:not(.about-marketing-phone) { display: none; }
+    .about-marketing-phone { display: block; }
+    .about-feature { display: none; }
 
     /* Team — a flat, flickable snap carousel: the first card starts near the
        left edge so the next one clearly peeks (there's more to swipe). No tilt,
@@ -753,7 +778,7 @@ const services = [
       opacity: 1; max-height: 16em; transform: none; margin: 10px 0 12px;
     }
     .about-team-hint {
-      display: block; margin: 14px 0 0; text-align: center;
+      display: block; margin: 14px 0 0 calc(5vw - 22px); text-align: left;
       font-family: var(--sans); font-size: 11px; font-weight: 600;
       letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
