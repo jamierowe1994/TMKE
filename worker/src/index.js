@@ -481,25 +481,84 @@ async function cancelAgentStarter(env, contactId) {
   return true;
 }
 
-// Write the booked shoot date/time back to the TEG sheet's "Shoot Booked" column
-// for the row matching this email. Best-effort — needs the sheet shared with EDIT
-// access to the service account.
-async function agentSheetWriteBooked(env, email, whenText) {
-  if (!env.GOOGLE_SHEETS_SA_JSON) return;
-  const rows = await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`);
-  if (!rows || !rows.length) return;
+// The sheet's write-back columns, found by header name (case-insensitive) so a
+// reworded header doesn't silently drop the write. Whoever owns the sheet can
+// call the link column any of these.
+const SHEET_BOOKED_HEADERS = ["shoot booked", "shoot booked date", "booked", "shoot date"];
+const SHEET_LINK_HEADERS = ["headshot link", "headshots link", "headshot links", "headshots", "content link", "gallery link", "delivery link", "shoot link", "link"];
+function sheetColAny(headers, names) {
+  for (const n of names) { const i = headers.indexOf(n); if (i >= 0) return i; }
+  return -1;
+}
+
+// Write cells back into the TEG sheet for the row matching this email.
+// `fields` is { booked?: text, link?: url }. Only cells that would change are
+// written, so a re-run costs nothing. Best-effort — needs the sheet shared
+// with EDIT access to the service account. Returns what happened, for the
+// sync summary: { row, wrote: [...], missing: [...] }.
+async function agentSheetWrite(env, email, fields, pre) {
+  if (!env.GOOGLE_SHEETS_SA_JSON) return null;
+  const rows = pre || await googleSheetRows(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!A2:Z`);
+  if (!rows || !rows.length) return null;
   const headers = (rows[0] || []).map((h) => String(h || "").trim().toLowerCase());
   const emailCol = headers.indexOf("email");
-  const bookedCol = headers.indexOf("shoot booked");
-  if (emailCol < 0 || bookedCol < 0) return;
+  if (emailCol < 0) return null;
+  const cols = { booked: sheetColAny(headers, SHEET_BOOKED_HEADERS), link: sheetColAny(headers, SHEET_LINK_HEADERS) };
   const want = String(email || "").toLowerCase();
   for (let i = 1; i < rows.length; i++) {
     const val = (rows[i] && rows[i][emailCol]) ? String(rows[i][emailCol]).trim().toLowerCase() : "";
-    if (val === want) {
-      await googleSheetUpdate(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!${colLetter(bookedCol)}${2 + i}`, [[whenText]]);
-      return;
+    if (val !== want) continue;
+    const out = { row: 2 + i, wrote: [], missing: [] };
+    for (const k of Object.keys(fields)) {
+      const v = fields[k]; if (v == null || v === "") continue;
+      const c = cols[k];
+      if (c < 0) { out.missing.push(k); continue; }
+      const cur = (rows[i] && rows[i][c]) ? String(rows[i][c]).trim() : "";
+      // A booked date typed by hand stays; a link is corrected if it differs.
+      if (k === "booked" && cur) continue;
+      if (cur === String(v)) continue;
+      await googleSheetUpdate(env, AGENT_SHEET_ID, `${AGENT_SHEET_TAB}!${colLetter(c)}${2 + i}`, [[String(v)]]);
+      out.wrote.push(k);
     }
+    return out;
   }
+  return null;
+}
+async function agentSheetWriteBooked(env, email, whenText) {
+  return agentSheetWrite(env, email, { booked: whenText });
+}
+
+// "Tuesday 8 September 2026, 10:00" from a booking's shoot_date, in UK time.
+function sheetWhenText(iso) {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const date = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" });
+    const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/London" });
+    return `${date}, ${time}`;
+  } catch (_) { return ""; }
+}
+
+// What the sheet should say for one new starter: the booked slot, and once
+// the shoot has been delivered, the link to OUR gallery (/deliver?d=token) —
+// not the Pixieset one, which gates downloads. Reads the newest booking under
+// either of their addresses.
+async function agentSheetFieldsFor(env, emails) {
+  const list = emails.filter(Boolean).map((e) => String(e).toLowerCase());
+  if (!list.length) return {};
+  const q = `client_email=in.(${list.map((e) => `"${e.replace(/"/g, "")}"`).join(",")})&order=created_at.desc&limit=1&select=id,shoot_date,stage`;
+  const bks = await sbGet(env, "videography_bookings", q);
+  const bk = bks && bks[0];
+  if (!bk) return {};
+  const fields = {};
+  if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
+  const dls = await sbGet(env, "videography_deliveries", `booking_id=eq.${encodeURIComponent(bk.id)}&select=token,status`);
+  const dl = dls && dls[0];
+  if (dl && dl.token && (dl.status === "sent" || dl.status === "paid")) {
+    const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+    fields.link = `${site}/deliver?d=${dl.token}`;
+  }
+  return fields;
 }
 
 async function syncAgentSheet(env) {
@@ -522,7 +581,13 @@ async function syncAgentSheet(env) {
     postcode: col("Post Code"), package: col("Package"), induction: col("Induction Date"),
     month: col("Preferred Shoot Month"), cancelled: col("Cancelled"),
   };
-  let processed = 0, enrolled = 0, cancelled = 0, skipped = 0;
+  let processed = 0, enrolled = 0, cancelled = 0, skipped = 0, written = 0;
+  const columns = {
+    headers: headers.filter(Boolean),
+    booked: (() => { const i = sheetColAny(headers, SHEET_BOOKED_HEADERS); return i >= 0 ? headers[i] : null; })(),
+    link: (() => { const i = sheetColAny(headers, SHEET_LINK_HEADERS); return i >= 0 ? headers[i] : null; })(),
+  };
+  let writeError = null;
   // Per-row trace so "added to the sheet but never enrolled" is diagnosable —
   // it's returned by POST /agent/sync (admin only). Enrolment needs a promo
   // code, which needs a parseable Preferred Shoot Month, so that's the usual
@@ -569,13 +634,23 @@ async function syncAgentSheet(env) {
         is_new_starter: true, induction_month: month, package: pkg,
       });
       processed++; if (res._enrolled) enrolled++;
-      details.push({
+      const detail = {
         row: i + 2, email, package: pkg,
         month_raw: monthRaw || null, month, code: res.promo_code || null, enrolled: !!res._enrolled,
         note: res._enrolled ? null : (!month
           ? ('couldn\'t read Preferred Shoot Month: "' + (monthRaw || "") + '" - no code, so no funnel')
           : "no promo code"),
-      });
+      };
+      // Write-back: the booked slot, and once delivered, the gallery link.
+      // Reads the sheet rows already in hand, so one sync is one read.
+      try {
+        const fields = await agentSheetFieldsFor(env, [email, sec]);
+        if (fields.booked || fields.link) {
+          const w = await agentSheetWrite(env, email, fields, rows);
+          if (w) { detail.wrote = w.wrote; if (w.missing.length) detail.missing_columns = w.missing; written += w.wrote.length; }
+        }
+      } catch (e) { writeError = String((e && e.message) || e).slice(0, 160); }
+      details.push(detail);
     } catch (e) {
       skipped++;
       details.push({ row: i + 2, email, skipped: String((e && e.message) || e).slice(0, 120) });
@@ -627,7 +702,7 @@ async function syncAgentSheet(env) {
     }
   } catch (_) { /* the flag is a bonus - never break the sync */ }
 
-  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped, missing, details };
+  return { ok: true, rows: rows.length - 1, processed, enrolled, cancelled, skipped, missing, columns, written, write_error: writeError, details };
 }
 
 // Admin gate for staff-only endpoints (e.g. sending email). Mirrors the client

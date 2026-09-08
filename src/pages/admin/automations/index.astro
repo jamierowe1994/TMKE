@@ -242,7 +242,14 @@ import "../../../styles/admin.css";
         const res = await fetch(`${WORKER}/agent/sync`, { method: "POST", headers: { Authorization: "Bearer " + session.access_token } });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.ok) { alert("Sync failed: " + (j.error || res.status)); return; }
-        alert(`Synced.\n\nRows read: ${j.rows}\nNew starters processed: ${j.processed}\nEnrolled in a funnel: ${j.enrolled}\nCancelled (code voided + DND): ${j.cancelled || 0}\nSkipped (not Pro/Academy or no email): ${j.skipped}`);
+        const cols = j.columns || {};
+        const wb = [
+          `Shoot Booked column: ${cols.booked ? `"${cols.booked}"` : "NOT FOUND - add a column headed \"Shoot Booked\""}`,
+          `Gallery link column: ${cols.link ? `"${cols.link}"` : "NOT FOUND - add a column headed \"Headshot Link\""}`,
+          `Cells written this run: ${j.written || 0}`,
+          j.write_error ? `Write failed: ${j.write_error}\n(The sheet needs to be shared with EDIT access to the service account.)` : null,
+        ].filter(Boolean).join("\n");
+        alert(`Synced.\n\nRows read: ${j.rows}\nNew starters processed: ${j.processed}\nEnrolled in a funnel: ${j.enrolled}\nCancelled (code voided + DND): ${j.cancelled || 0}\nSkipped (not Pro/Academy or no email): ${j.skipped}\n\nWrite-back\n${wb}`);
         await load();
       } catch (e) { alert("Sync failed: " + (e && e.message || e)); }
       finally { btn.disabled = false; btn.textContent = prev; }
