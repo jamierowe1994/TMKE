@@ -249,7 +249,7 @@ function injectStyles() {
     font-size: clamp(20px, 1.8vw, 24px); line-height: 1.12; color: var(--ws-ink, #1c1d22); margin: 0 0 8px;
   }
   .tmke-tour-card.is-center .tmke-tour-title { font-size: clamp(24px, 2.4vw, 30px); margin-bottom: 10px; }
-  .tmke-tour-title em { font-style: italic; color: var(--ws-accent, #4a2a3c); }
+  .tmke-tour-title em { font-style: normal; color: inherit; }
   .tmke-tour-body {
     font-family: var(--sans, system-ui, sans-serif); font-size: 14px; line-height: 1.45;
     color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 16px;
@@ -538,8 +538,9 @@ function positionFor(step) {
   else { left = hx - cw - gap; top = hy + hh / 2 - ch / 2; } // left
   // Clamp into the viewport, and below the progress strip during a walk.
   const topMin = activeWalk ? FRAME_TOP + 12 : 16;
-  left = Math.max(16, Math.min(left, vw - cw - 16));
-  top = Math.max(topMin, Math.min(top, vh - ch - 16));
+  const edge = activeWalk ? 32 : 16;   // a walk's card keeps well off the frame's edge
+  left = Math.max(edge, Math.min(left, vw - cw - edge));
+  top = Math.max(topMin, Math.min(top, vh - ch - edge));
   card.style.left = left + 'px';
   card.style.top = top + 'px';
 }
