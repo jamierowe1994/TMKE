@@ -424,6 +424,10 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-pad-cell input:focus { outline:none; border-color:var(--english-violet); }
     .eb-resp { margin:0 0 12px; padding:13px 12px 4px; border:1px solid var(--eb-line); border-radius:10px; background:rgba(28,29,34,0.015); }
     .eb-resp .eb-check { margin-bottom:12px; }
+    .eb-resp .eb-checks { margin-bottom:12px; }
+    .eb-resp .eb-checks .eb-check { margin-bottom:0; }
+    .eb-resp .eb-item-card { background:#fff; }
+    .eb-card-foot { display:flex; gap:6px; flex-wrap:wrap; padding-bottom:10px; }
     .eb-resp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
     .eb-resp-head .eb-f-sub { margin-bottom:0; }
     .eb-resp-dev { flex:0 0 auto; }
@@ -925,9 +929,6 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     function imageRespFields(b, device){
       return respWrap(device, `<div class="eb-f2">${dField(b,device,"width","Width (px)",'type="number" min="20" max="1200"',"auto")}${dField(b,device,"height","Height (px)",'type="number" min="10" max="1200"',"auto")}</div>${dAlign(b,device)}${spacingGrids(b,device)}`);
     }
-    function dividerRespFields(b, device){
-      return respWrap(device, `${dAlign(b,device)}${spacingGrids(b,device)}`);
-    }
 
     // Inline rich-text format buttons for the text block (execCommand — email-safe
     // tags). Merge fields come from the Variable menu above the subject line.
@@ -992,17 +993,18 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
         case "text": return `${fontCard(b, device)}
           ${backgroundCard(b, "textbg")}
           ${spacingBox(b, device)}`;
-        case "image": return `
-          <label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
-          ${uploadControl("image")}
-          <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
-          <label class="eb-f"><span>Link URL (optional)</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
-          <span class="eb-f-sub">Border</span>
-          <div class="eb-f2">
-            <label class="eb-f"><span>Width (px)</span><input type="number" min="0" max="12" data-field="borderWidth" value="${b.borderWidth!=null?b.borderWidth:""}" placeholder="0" /></label>
-            <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#1c1d22')}" /></label>
-          </div>
-          <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>
+        case "image": return `${card("Image", `
+            <label class="eb-f"><span>Image URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://…/image.jpg" /></label>
+            ${uploadControl("image")}
+            <label class="eb-f"><span>Alt text</span><input type="text" data-field="alt" value="${esc(b.alt||"")}" /></label>
+            <label class="eb-f"><span>Link</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>`)}
+          ${card("Style", `
+            <span class="eb-f-sub">Border</span>
+            <div class="eb-f2">
+              <label class="eb-f"><span>Width (px)</span><input type="number" min="0" max="12" data-field="borderWidth" value="${b.borderWidth!=null?b.borderWidth:""}" placeholder="0" /></label>
+              <label class="eb-f"><span>Colour</span><input type="color" data-field="borderColor" value="${validHex(b.borderColor,'#1c1d22')}" /></label>
+            </div>
+            <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="borderRadius" value="${b.borderRadius!=null?b.borderRadius:""}" placeholder="8" /></label>`)}
           ${imageRespFields(b, device)}`;
         case "button": {
           const clear = b.color === "transparent";
@@ -1029,69 +1031,65 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
             <label class="eb-check"><input type="checkbox" data-field="fullWidth"${b.fullWidth?" checked":""}/> Full width</label>`)}
           ${card("Spacing", `${dAlign(b,device)}${spacingGrids(b,device)}`, device)}`;
         }
-        case "divider": return `
-          <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,'#E2E8F0')}" /></label>
-          <div class="eb-f2">
-            <label class="eb-f"><span>Thickness (px)</span><input type="number" min="1" max="12" data-field="thickness" value="${b.thickness!=null?b.thickness:""}" placeholder="1" /></label>
-            <label class="eb-f"><span>Width (%)</span><input type="number" min="10" max="100" data-field="width" value="${b.width!=null?b.width:""}" placeholder="100" /></label>
-          </div>
-          ${dividerRespFields(b, device)}`;
-        case "spacer": return `<label class="eb-f"><span>Height (px)</span><input type="number" min="4" max="160" data-field="height" value="${Number(b.height)||24}" /></label>`;
-        case "logo": return `<label class="eb-f"><span>Size</span><select data-field="size">${opts(["sm","md","lg"],b.size||"md")}</select></label>${align}
-          <label class="eb-f"><span>Link URL</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>
-          <p class="eb-note">Uses the logo from <strong>Brand</strong>.</p>`;
+        case "divider": return `${card("Line", `
+            <label class="eb-f"><span>Colour</span><input type="color" data-field="color" value="${validHex(b.color,'#E2E8F0')}" /></label>
+            <div class="eb-f2">
+              <label class="eb-f"><span>Thickness (px)</span><input type="number" min="1" max="12" data-field="thickness" value="${b.thickness!=null?b.thickness:""}" placeholder="1" /></label>
+              <label class="eb-f"><span>Width (%)</span><input type="number" min="10" max="100" data-field="width" value="${b.width!=null?b.width:""}" placeholder="100" /></label>
+            </div>`)}
+          ${card("Spacing", `${dAlign(b,device)}${spacingGrids(b,device)}`, device)}`;
+        case "spacer": return card("Spacer", `<label class="eb-f"><span>Height (px)</span><input type="number" min="4" max="160" data-field="height" value="${Number(b.height)||24}" /></label>`);
+        case "logo": return card("Logo", `<label class="eb-f"><span>Size</span><select data-field="size">${opts(["sm","md","lg"],b.size||"md")}</select></label>${align}
+            <label class="eb-f"><span>Link</span><input type="url" data-field="linkUrl" value="${esc(b.linkUrl||"")}" /></label>`);
         case "social": {
           const show=b.show||{}; const nets=["website","linkedin","instagram","facebook","twitter","youtube"];
           const bare = b.iconStyle==="bare";
-          return `<div class="eb-checks">${nets.map(n=>`<label class="eb-check"><input type="checkbox" data-field="show.${n}"${show[n]!==false?" checked":""}/> ${n}</label>`).join("")}</div>${align}
-          <div class="eb-sec"><span class="eb-f-sub">Caption above icons (optional)</span>
+          return `${card("Networks", `<div class="eb-checks">${nets.map(n=>`<label class="eb-check"><input type="checkbox" data-field="show.${n}"${show[n]!==false?" checked":""}/> ${n}</label>`).join("")}</div>`)}
+          ${card("Caption", `
             <label class="eb-f"><span>Text</span><input type="text" data-field="caption" value="${esc(b.caption||"")}" placeholder="e.g. Follow us" /></label>
             <div class="eb-f2">
-              <label class="eb-f"><span>Text colour</span><input type="color" data-field="captionColor" value="${validHex(b.captionColor,'#1c1d22')}" /></label>
-              <label class="eb-f"><span>Text size (px)</span><input type="number" min="8" max="40" data-field="captionSize" value="${b.captionSize!=null?b.captionSize:""}" placeholder="14" /></label>
+              <label class="eb-f"><span>Colour</span><input type="color" data-field="captionColor" value="${validHex(b.captionColor,'#1c1d22')}" /></label>
+              <label class="eb-f"><span>Size (px)</span><input type="number" min="8" max="40" data-field="captionSize" value="${b.captionSize!=null?b.captionSize:""}" placeholder="14" /></label>
             </div>
-            <label class="eb-f"><span>Gap to icons (px)</span><input type="number" min="0" max="60" data-field="captionGap" value="${b.captionGap!=null?b.captionGap:""}" placeholder="8" /></label>
-          </div>
-          <span class="eb-f-sub">Icon style</span>
-          <label class="eb-f"><span>Style</span><select data-field="iconStyle"><option value="circle"${(b.iconStyle||"circle")==="circle"?" selected":""}>In circles</option><option value="bare"${b.iconStyle==="bare"?" selected":""}>Standalone</option></select></label>
-          <div class="eb-f2">
-            <label class="eb-f"><span>Icon colour</span><input type="color" data-field="iconColor" value="${validHex(b.iconColor, bare ? (state.branding.accentColor||'#371e28') : '#ffffff')}" /></label>
-            <label class="eb-f"${bare?' style="opacity:.45;pointer-events:none;"':''}><span>Circle colour</span><input type="color" data-field="iconBg" value="${validHex(b.iconBg, state.branding.accentColor||'#371e28')}" /></label>
-          </div>
-          <label class="eb-f"><span>Line thickness</span><input type="number" min="0.5" max="3" step="0.25" data-field="iconStroke" value="${b.iconStroke!=null?b.iconStroke:""}" placeholder="1.5" /></label>
-          <div class="eb-sec"><span class="eb-f-sub">Block background</span>
+            <label class="eb-f"><span>Gap to icons (px)</span><input type="number" min="0" max="60" data-field="captionGap" value="${b.captionGap!=null?b.captionGap:""}" placeholder="8" /></label>`)}
+          ${card("Icons", `
+            <label class="eb-f"><span>Style</span><select data-field="iconStyle"><option value="circle"${(b.iconStyle||"circle")==="circle"?" selected":""}>In circles</option><option value="bare"${b.iconStyle==="bare"?" selected":""}>Standalone</option></select></label>
             <div class="eb-f2">
-              <label class="eb-f"><span>Fill (hex, blank = none)</span><input type="text" data-field="bg" value="${esc(b.bg||"")}" placeholder="#f4f2f1" /></label>
-              <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="60" data-field="radius" value="${b.radius!=null?b.radius:""}" placeholder="8" /></label>
+              <label class="eb-f"><span>Icon colour</span><input type="color" data-field="iconColor" value="${validHex(b.iconColor, bare ? (state.branding.accentColor||'#371e28') : '#ffffff')}" /></label>
+              <label class="eb-f"${bare?' style="opacity:.45;pointer-events:none;"':''}><span>Circle colour</span><input type="color" data-field="iconBg" value="${validHex(b.iconBg, state.branding.accentColor||'#371e28')}" /></label>
             </div>
-            <p class="eb-note" style="margin:2px 0 0;">Space around the icons is set by <strong>Padding · inside</strong> below (nothing is hard-coded).</p></div>
-          ${respWrap(device, `<div class="eb-f2">${dField(b,device,"iconSize","Icon size (px)",'type="number" min="14" max="72"', bare?24:34)}${dField(b,device,"iconGap","Space between (px)",'type="number" min="0" max="60"', 12)}</div>${spacingGrids(b,device)}`)}
-          <p class="eb-note">Only networks with a URL in <strong>Brand</strong> show.</p>`;
+            <div class="eb-f2">
+              <label class="eb-f"><span>Line thickness</span><input type="number" min="0.5" max="3" step="0.25" data-field="iconStroke" value="${b.iconStroke!=null?b.iconStroke:""}" placeholder="1.5" /></label>
+              ${align}
+            </div>`)}
+          ${card("Background", `
+            <div class="eb-f2">
+              <label class="eb-f"><span>Colour</span><input type="color" data-field="bg" data-clear="" data-clear-on="${b.bg?"0":"1"}" value="${validHex(b.bg,'#f4f2f1')}" /></label>
+              <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="60" data-field="radius" value="${b.radius!=null?b.radius:""}" placeholder="8" /></label>
+            </div>`)}
+          ${respWrap(device, `<div class="eb-f2">${dField(b,device,"iconSize","Icon size (px)",'type="number" min="14" max="72"', bare?24:34)}${dField(b,device,"iconGap","Space between (px)",'type="number" min="0" max="60"', 12)}</div>${spacingGrids(b,device)}`)}`;
         }
-        case "video": return `<label class="eb-f"><span>Video link</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
-          <label class="eb-f"><span>Thumbnail URL</span><input type="url" data-field="thumbnail" value="${esc(b.thumbnail||"")}" /></label>${align}`;
-        case "footer": return `<label class="eb-f"><span>Note</span><input type="text" data-field="note" value="${esc(b.note||"")}" /></label>
-          <label class="eb-f"><span>Address (optional)</span><input type="text" data-field="address" value="${esc(b.address||"")}" placeholder="Kettering, Northants" /></label>
+        case "video": return card("Video", `<label class="eb-f"><span>Video link</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
+          <label class="eb-f"><span>Thumbnail URL</span><input type="url" data-field="thumbnail" value="${esc(b.thumbnail||"")}" /></label>${align}`);
+        case "footer": return card("Footer", `<label class="eb-f"><span>Note</span><input type="text" data-field="note" value="${esc(b.note||"")}" /></label>
+          <label class="eb-f"><span>Address</span><input type="text" data-field="address" value="${esc(b.address||"")}" placeholder="Kettering, Northants" /></label>
           <label class="eb-check"><input type="checkbox" data-field="showSocial"${b.showSocial!==false?" checked":""}/> Show social icons</label>
-          <label class="eb-check"><input type="checkbox" data-field="unsubscribe"${b.unsubscribe!==false?" checked":""}/> Show unsubscribe link</label>
-          <p class="eb-note">Uses company, website &amp; socials from <strong>Brand</strong>.</p>`;
+          <label class="eb-check"><input type="checkbox" data-field="unsubscribe"${b.unsubscribe!==false?" checked":""}/> Show unsubscribe link</label>`);
         case "faq": {
           const items = Array.isArray(b.items)?b.items:[];
           const rows = items.map((it,i)=>`<div class="eb-faq-row eb-item-card">
             <label class="eb-f"><span>Q${i+1}</span><input type="text" data-faq="${i}.q" value="${esc(it.q||"")}" /></label>
             <label class="eb-f"><span>A${i+1}</span><textarea data-faq="${i}.a" rows="2">${esc(it.a||"")}</textarea></label>
             <button type="button" class="eb-mini-btn" data-faq-del="${i}">Remove</button></div>`).join("");
-          return `<label class="eb-f"><span>Section title</span><input type="text" data-field="title" value="${esc(b.title||"")}" /></label>
-            ${rows}<button type="button" class="eb-mini-btn" id="eb-faq-add">+ Add question</button>`;
+          return `${card("FAQ", `<label class="eb-f"><span>Section title</span><input type="text" data-field="title" value="${esc(b.title||"")}" /></label>`)}
+            ${card("Questions", `${rows}<div class="eb-card-foot"><button type="button" class="eb-mini-btn" id="eb-faq-add">+ Add question</button></div>`)}`;
         }
-        case "countdown": return `<label class="eb-f"><span>Label</span><input type="text" data-field="label" value="${esc(b.label||"")}" placeholder="Offer ends" /></label>
-          <label class="eb-f"><span>Deadline date</span><input type="date" data-field="deadline" value="${esc(b.deadline||"")}" /></label>${align}`;
-        case "reviewlink": return `<label class="eb-f"><span>Prompt</span><input type="text" data-field="prompt" value="${esc(b.prompt||"")}" /></label>
+        case "countdown": return card("Countdown", `<label class="eb-f"><span>Label</span><input type="text" data-field="label" value="${esc(b.label||"")}" placeholder="Offer ends" /></label>
+          <label class="eb-f"><span>Deadline</span><input type="date" data-field="deadline" value="${esc(b.deadline||"")}" /></label>${align}`);
+        case "reviewlink": return card("Review link", `<label class="eb-f"><span>Prompt</span><input type="text" data-field="prompt" value="${esc(b.prompt||"")}" /></label>
           <label class="eb-f"><span>Button text</span><input type="text" data-field="text" value="${esc(b.text||"")}" /></label>
-          <label class="eb-f"><span>Review URL (blank = brand default)</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="https://tmke.co.uk/review" /></label>${align}
-          <p class="eb-note">No reviews link is live yet — set one here or in <strong>Brand</strong> once it's ready.</p>`;
-        case "code": return `<label class="eb-f"><span>Custom HTML</span><textarea data-field="html" rows="8" style="font-family:monospace;font-size:12px;">${esc(b.html||"")}</textarea></label>
-          <p class="eb-note">Email-safe HTML only (inline styles, tables). Merge tokens work here too.</p>`;
+          <label class="eb-f"><span>Review URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" placeholder="Blank = the Brand default" /></label>${align}`);
+        case "code": return card("HTML", `<label class="eb-f"><span>Custom HTML</span><textarea data-field="html" rows="8" style="font-family:monospace;font-size:12px;">${esc(b.html||"")}</textarea></label>`);
         case "columns": {
           const lay = b.layout || "50-50";
           const layout = COLUMN_LAYOUTS.find(l=>l.key===lay) || COLUMN_LAYOUTS[1];
@@ -1105,11 +1103,10 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
               <span class="eb-colour-row"><input type="color" data-colbg-sw="${i}" value="${validHex(colBg[i],'#f4f2f1')}" /><input type="text" data-colbg="${i}" value="${esc(colBg[i]||"")}" placeholder="#f4f2f1" /></span></label>
             <label class="eb-f"><span>Background image (blank = none)</span><input type="url" data-colbg-img="${i}" value="${esc(colBgImage[i]||"")}" placeholder="https://…" /></label>
             ${uploadControl("col"+i)}</div>`).join("");
-          return `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
-            <p class="eb-note">Drag any block from the left into a column. Click a block inside a column to edit it.</p>
-            <label class="eb-check" style="margin:2px 0 10px;"><input type="checkbox" data-field="stackMobile"${b.stackMobile!==false?" checked":""}/> Stack columns on mobile (uncheck to keep them side by side)</label>
+          return `${card("Layout", `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
             <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="colRadius" value="${b.colRadius!=null?b.colRadius:""}" placeholder="6" /></label>
-            <div class="eb-sec"><span class="eb-f-sub">Per-column settings</span>${bgRows}<p class="eb-note" style="margin-top:2px;"><strong>Align</strong> sets whether the column's content sits at the top, middle or bottom (handy when one column is a tall image). Each column can also have its own background colour and/or image.</p></div>
+            <label class="eb-check"><input type="checkbox" data-field="stackMobile"${b.stackMobile!==false?" checked":""}/> Stack columns on mobile</label>`)}
+            ${card("Columns", bgRows)}
             ${spacingBox(b, device)}`;
         }
         case "products": {
@@ -1122,7 +1119,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
             <label class="eb-f"><span>Link URL</span><input type="url" data-item="${i}.url" value="${esc(it.url||"")}" /></label>
             <label class="eb-f"><span>Button text</span><input type="text" data-item="${i}.cta" value="${esc(it.cta||"")}" /></label>
             <button type="button" class="eb-mini-btn" data-item-del="${i}">Remove</button></div>`).join("");
-          return colSel + rows + `<button type="button" class="eb-mini-btn" id="eb-pack-load">Add from packs</button> <button type="button" class="eb-mini-btn" data-item-add>+ Blank item</button>`;
+          return card("Layout", colSel) + card("Items", rows + `<div class="eb-card-foot"><button type="button" class="eb-mini-btn" id="eb-pack-load">Add from packs</button> <button type="button" class="eb-mini-btn" data-item-add>+ Blank item</button></div>`);
         }
         case "services": {
           if(!Array.isArray(b.items)) b.items=[];
@@ -1133,22 +1130,21 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
             <label class="eb-f"><span>Button text</span><input type="text" data-item="${i}.btnText" value="${esc(it.btnText||"")}" /></label>
             <label class="eb-f"><span>Button URL</span><input type="url" data-item="${i}.btnUrl" value="${esc(it.btnUrl||"")}" /></label>
             <button type="button" class="eb-mini-btn" data-item-del="${i}">Remove</button></div>`).join("");
-          return colSel + rows + `<button type="button" class="eb-mini-btn" data-item-add>+ Add service</button>`;
+          return card("Layout", colSel) + card("Services", rows + `<div class="eb-card-foot"><button type="button" class="eb-mini-btn" data-item-add>+ Add service</button></div>`);
         }
         case "slider": {
           if(!Array.isArray(b.images)) b.images=[];
           const colSel = `<label class="eb-f"><span>Across</span><select data-field="columns">${opts(["2","3","4"],String(b.columns||3))}</select></label>`;
           const rows = b.images.map((u,i)=>`<div class="eb-f" style="flex-direction:row;gap:6px;align-items:center;"><input type="url" data-img="${i}" value="${esc(u||"")}" placeholder="https://…/image.jpg" style="flex:1;" /><button type="button" class="eb-mini-btn" data-img-del="${i}">×</button></div>`).join("");
-          return colSel + rows + `<button type="button" class="eb-mini-btn" id="eb-img-add">+ Add image</button><p class="eb-note">A static gallery row — email can't auto-slide, so images sit side by side.</p>`;
+          return card("Gallery", colSel + rows + `<div class="eb-card-foot"><button type="button" class="eb-mini-btn" id="eb-img-add">+ Add image</button></div>`);
         }
         case "form": {
           const fields = Array.isArray(b.fields)?b.fields.join("\n"):"";
-          return `<label class="eb-f"><span>Heading</span><input type="text" data-field="heading" value="${esc(b.heading||"")}" /></label>
+          return card("Form", `<label class="eb-f"><span>Heading</span><input type="text" data-field="heading" value="${esc(b.heading||"")}" /></label>
             <label class="eb-f"><span>Intro</span><textarea data-field="intro" rows="2">${esc(b.intro||"")}</textarea></label>
             <label class="eb-f"><span>Fields (one per line)</span><textarea data-formfields rows="4">${esc(fields)}</textarea></label>
             <label class="eb-f"><span>Button text</span><input type="text" data-field="btnText" value="${esc(b.btnText||"")}" /></label>
-            <label class="eb-f"><span>Form URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>
-            <p class="eb-note">Email can't host a live form, so this links to a hosted form page. The fields are a preview of what it asks.</p>`;
+            <label class="eb-f"><span>Form URL</span><input type="url" data-field="url" value="${esc(b.url||"")}" /></label>`);
         }
         default: return "";
       }
