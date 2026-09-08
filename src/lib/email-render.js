@@ -283,12 +283,15 @@ export function textInlineStyle(block = {}, brand = {}) {
 /** Inline style for a button's <a> — shared by renderer + canvas. Background =
  *  block.color (falls back to brand accent); text = block.textColor. */
 export function buttonInlineStyle(block = {}, brand = {}) {
-  const bg = block.color || brand.accentColor || ACCENT_DEFAULT;
-  const txt = block.textColor || '#ffffff';
+  // "transparent" is a real choice: a ghost button, its edge drawn by the
+  // border (which then defaults to the text colour rather than the fill).
+  const clear = block.color === 'transparent';
+  const bg = clear ? 'transparent' : (block.color || brand.accentColor || ACCENT_DEFAULT);
+  const txt = block.textColor || (clear ? (brand.accentColor || ACCENT_DEFAULT) : '#ffffff');
   const size = sizeOr(block.size, sizeOr(brand.buttonSize, 14));
   const br = sizeOr(block.borderRadius, sizeOr(brand.buttonRadius, 8));
   const bw = pxNum(block.borderWidth, 0);
-  const bc = block.borderColor || bg;
+  const bc = block.borderColor || (clear ? txt : bg);
   const p = resolvePad(block);
   const pad = `${p.t}px ${p.r}px ${p.b}px ${p.l}px`;
   const parts = [
