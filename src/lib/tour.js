@@ -16,8 +16,9 @@
 //   maybeStartTour({ firstName });    // /account only — kicks it off first-login
 //
 import { supabase } from './supabase.js';
+import { WALKS } from '../data/walkthroughs.js';
 
-const LS_STATE = 'tmke.tour';        // { active: true, index: N }
+const LS_STATE = 'tmke.tour';        // { active: true, index: N, walk?: id, returnTo?: url }
 const LS_DONE  = 'tmke.tour.done';   // fast/offline "already seen" guard
 
 // ---------- Step definitions ----------
@@ -25,7 +26,7 @@ const LS_DONE  = 'tmke.tour.done';   // fast/offline "already seen" guard
 // placement: where the card sits relative to the hole (auto picks the roomiest side).
 // preAction: optional async fn run before the step shows (open a menu, dismiss
 //            the editor's pack-picker, …). Receives no args.
-const STEPS = [
+const FIRST_LOGIN = [
   // ---- Hub ----
   {
     path: '/account', target: null, placement: 'center',
@@ -130,6 +131,21 @@ const STEPS = [
 ];
 
 // ---------- State helpers ----------
+// The steps in play: the first-login tour, or a training walkthrough loaded
+// by name. Walks are plain data (src/data/walkthroughs.js); their `pre`
+// names map to the setup helpers below.
+let STEPS = FIRST_LOGIN;
+let activeWalk = null;   // walk id, or null for the first-login tour
+let returnTo = null;     // where a walk goes back to when it finishes
+const PRE = { dismissEditorOnboarding: () => dismissEditorOnboarding() };
+function loadWalk(id) {
+  const w = WALKS[id];
+  if (!w) return false;
+  STEPS = w.steps.map((st) => ({ ...st, preAction: st.pre ? PRE[st.pre] : undefined }));
+  activeWalk = id;
+  return true;
+}
+
 function readState() {
   try { return JSON.parse(localStorage.getItem(LS_STATE) || 'null'); } catch (_) { return null; }
 }
@@ -459,7 +475,8 @@ async function render(index) {
   els.body.textContent = step.body || '';
   els.progress.textContent = (index + 1) + ' / ' + STEPS.length;
   els.back.style.visibility = index === 0 ? 'hidden' : 'visible';
-  els.next.textContent = step.isFinish ? 'Finish' : 'Next';
+  els.next.textContent = (step.isFinish || index === STEPS.length - 1) ? 'Finish' : 'Next';
+  els.skip.textContent = activeWalk ? 'Stop' : 'Skip tour';
 
   positionFor(step);
   nextTick(() => els.card.classList.add('is-in'));
@@ -472,10 +489,10 @@ function advance(fromIndex, dir, autoSkipped) {
   if (nextIndex < 0) return; // already at start
   if (nextIndex >= STEPS.length) return finish(true);
   const next = STEPS[nextIndex];
-  writeState({ active: true, index: nextIndex });
+  writeState({ active: true, index: nextIndex, walk: activeWalk, returnTo });
   if (next.path !== path()) {
     if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
-    location.assign(next.path);
+    location.assign(next.href || next.path);
     return;
   }
   render(nextIndex);
@@ -490,6 +507,14 @@ function goBack() { if (activeIndex > 0) advance(activeIndex, -1); }
 
 function finish(completed) {
   if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
+  if (activeWalk) {
+    clearState();
+    const back = returnTo;
+    activeWalk = null; returnTo = null; STEPS = FIRST_LOGIN;
+    if (els) { els.card.classList.remove('is-in'); setTimeout(teardownDOM, 260); }
+    if (back) setTimeout(() => location.assign(back), completed ? 280 : 0);
+    return;
+  }
   markDone(); // both completing and skipping mean "don't show again"
   if (els) {
     els.card.classList.remove('is-in');
@@ -503,11 +528,17 @@ let firstStepName = '';
 
 // Resume an in-progress tour on whatever page we just landed on. Inert if no
 // tour is active. Call this on every included page.
+let booted = false;
 export function initTour(opts = {}) {
   if (opts.firstName) firstStepName = String(opts.firstName);
+  if (booted) return;
+  booted = true;
   const state = readState();
   if (!state || !state.active) return;
-  if (isDone()) { clearState(); return; }
+  if (state.walk) {
+    if (!loadWalk(state.walk)) { clearState(); return; }
+    returnTo = state.returnTo || null;
+  } else if (isDone()) { clearState(); return; }
   const step = STEPS[state.index];
   if (!step) { clearState(); return; }
   // Only render if this step belongs to the current page. (If state points at
@@ -533,3 +564,17 @@ export function maybeStartTour(opts = {}) {
 }
 
 function markLocalDone() { try { localStorage.setItem(LS_DONE, '1'); } catch (_) {} }
+
+// Open a training walkthrough by name. `returnTo` is where Finish (or Stop)
+// takes the member afterwards - normally the lesson that offered it. Moves to
+// the walk's first page if it isn't this one.
+export function startWalk(id, opts = {}) {
+  if (!loadWalk(id)) return false;
+  returnTo = opts.returnTo || null;
+  if (els) teardownDOM();
+  writeState({ active: true, index: 0, walk: id, returnTo });
+  const first = STEPS[0];
+  if (first.path !== path()) { location.assign(first.href || first.path); return true; }
+  nextTick(() => render(0));
+  return true;
+}
