@@ -78,9 +78,10 @@ const navLinks = [
           <div class="sms-body sms-body--flush">
             <div class="sms-hscroll">
               <div class="sms-hslide">
-                <p class="sms-eyebrow">Videography &mdash; {p.num}</p>
-                <h2 class="sms-h">{p.name}</h2>
-                <div class="sms-pic sms-pic--cta" style={`background-image:url('${p.hero}')`} role="img" aria-label={p.name}></div>
+                <h2 class="sms-h sms-h--dash">{p.name}</h2>
+                {(() => { const v = (p.media || []).find((m) => m.type === "video"); return v
+                  ? <video class="sms-vid" src={v.src} poster={v.thumb || p.hero} autoplay muted loop playsinline preload="metadata" aria-label={p.name}></video>
+                  : <div class="sms-pic sms-pic--cta" style={`background-image:url('${p.hero}')`} role="img" aria-label={p.name}></div>; })()}
                 <p class="sms-p-copy"><strong>{p.slideCopy}</strong></p>
                 <p class="sms-p-copy">{p.slideBlurb}</p>
                 <p class="sms-price">from <strong data-price-svc={p.slug} data-tier="0">{gbpFromPence(tierPrice(p.priceTiers[0], "direct"))}</strong> +VAT</p>
@@ -88,8 +89,8 @@ const navLinks = [
                 <p class="sms-swipe">Swipe to {p.ctaLabel.replace(/^Discover /i, "discover ")} &rarr;</p>
               </div>
               <div class="sms-hslide">
-                <p class="sms-eyebrow">{p.name}</p>
-                <h2 class="sms-h">{p.popLede}</h2>
+                <h2 class="sms-h sms-h--dash">{p.name}</h2>
+                <p class="sms-lede">{p.popLede}</p>
                 {p.popIntro.map((para) => <p class="sms-p-copy">{para}</p>)}
                 <h3 class="sms-sub">{p.includedHeading || "What's Included"}</h3>
                 <ul class="sms-included">{p.included.map((d) => <li>{d}</li>)}</ul>
@@ -511,6 +512,13 @@ const navLinks = [
       .sms-tierrow-price { white-space: nowrap; font-size: 12.5px; color: rgba(28,29,34,0.65); }
       .sms-tierrow-price b { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--ink); }
       .sms-note { margin: 8px 0 0; font-size: 12px; color: rgba(28,29,34,0.5); }
+      /* No serif headings on the service screens: the name and every
+         sub-head take the chapter line's type, with the dash. */
+      .sms-h--dash, .sms-sub { margin: 0 0 12px; font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); line-height: 1.4; }
+      .sms-sub { margin-top: 22px; }
+      .sms-h--dash::before, .sms-sub::before { content: "\2014"; margin-right: 8px; }
+      .sms-hslide .sms-lede { margin: 0 0 12px; font-size: 15.5px; line-height: 1.5; color: var(--ink); }
+      .sms-vid { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 2px; margin: 0 0 18px; background: #1c1d22; }
     }
   </style>
 
