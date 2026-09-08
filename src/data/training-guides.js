@@ -64,25 +64,23 @@ export const TRAINING_GUIDES = [
     lessons: [
       { title: "Why it matters", walk: "brand-kit", video_url: "",
         body_html:
-          p("Every template in the Studio reads your brand kit. Open one and the logo is yours, the colours are yours, the fonts are yours. Without a kit you'd be doing that by hand on every design.") +
-          p("<strong>Show me</strong> opens your Brand kit page and points out each section. Then come back and the next three lessons cover them one by one.") },
+          p("Your Brand Kit stores the visual ingredients that make your content recognisably yours: your logo, colours and fonts.") +
+          p("Once they're added, the Studio can automatically apply them when you open compatible templates. That means less time changing colours and fonts manually, and a much more consistent look across your content.") },
       { title: "Your logo",
         body_html:
-          p("Upload a PNG or SVG with a transparent background, so it sits on any colour. A JPG has a white box behind it and will look wrong on a dark template.") +
-          ul("Add a light and a dark version if you have them. The first one is the one templates use automatically; you can swap in the Studio.",
-             "A wide wordmark and a square mark are both fine. Templates fit the logo to the space, whole, never cropped.") +
-          tip("If your logo is only in a Word document or an email signature, ask whoever made it for the original file. It's worth the ask.") },
+          p("Upload the highest-quality version of your logo you have, ideally a PNG or SVG with a transparent background. This allows it to sit cleanly over different colours and images without a white box around it.") +
+          p("If your branding includes alternative versions, such as light, dark, landscape or icon versions, add those too. You'll then have the right version available when you need it.") +
+          tip("Only have your logo in a document or email signature? Ask whoever created your branding for the original files. They'll give you much better results.") },
       { title: "Your colours",
         body_html:
-          p("Add your brand colours as hex codes, the six characters after a hash, like <code>#371E28</code>. If you only know them by sight, the picker lets you choose on screen.") +
-          ul("The first two colours do most of the work: templates use them for the main fills and the text on them.",
-             "Add a light neutral (an off-white or pale grey) as well as your strong colours. It gives designs somewhere to breathe.",
-             "Order matters. Put the colour you'd paint the office first.") },
+          p("Add your main brand colours using their hex codes, such as <code>#371E28</code>. If you don't know the codes, you can also use the colour picker to find the closest match.") +
+          p("Start with the colours you use most often, then add any supporting or neutral colours in your palette. A lighter neutral can be particularly useful for backgrounds and creating contrast in your designs.") +
+          p("The order matters because your primary colours will be prioritised when templates adapt to your brand.") },
       { title: "Fonts, and saving",
         body_html:
-          p("Pick a heading font and a body font. The preview shows them together, so you can see whether they get on. If you're unsure, a serif heading with a plain sans body is a safe, expensive-looking pair.") +
-          p("The kit saves as you go. The dot next to the title shows it working; once it's settled, open the Studio and your next template is already yours.") +
-          tip("You can change the kit any time. Designs you've already saved keep their look; new ones pick up the change.") },
+          p("Choose a heading font and a body font that reflect your existing branding. The preview lets you see how they work together before you start using them across your designs.") +
+          p("Your Brand Kit saves automatically as you make changes. Once everything is set, head into the Studio and your brand will be ready to use.") +
+          tip("You can update your brand kit any time. Existing saved designs will keep their current styling, while new designs will use your latest settings.") },
     ],
   }),
 
@@ -94,12 +92,12 @@ export const TRAINING_GUIDES = [
     lessons: [
       { title: "The Studio page", walk: "studio-first-design", video_url: "",
         body_html:
-          p("The Studio has two parts. The Studio page is your shelf: packs you own and designs you've saved. The editor is where a design is actually made.") +
-          p("<strong>Show me</strong> walks the shelf, then opens a blank canvas in the editor and points out the toolbox, the panel, the canvas and the Download button. It's the longest walk in Training, about two minutes.") },
+          p("The Studio is where your content comes together. From the main Studio page, you can access the packs you own, return to designs you've already started or create something new.") +
+          p("Once you open a design, you'll move into the editor. That's where you can change the text, imagery, colours and other elements before saving or downloading your finished content.") },
       { title: "Open a template, or start blank",
         body_html:
           ul("<strong>From a pack:</strong> open the pack on the Studio page and click a design. It opens already in your brand kit.",
-             "<strong>From nothing:</strong> Create a design, pick a size (Instagram post, story, square), and you're on a blank canvas.",
+             "<strong>Start from scratch:</strong> Create a design, pick a size (Instagram post, story, square), and you're on a blank canvas.",
              "<strong>From a prompt:</strong> the dashboard's content ideas open the editor with a brief to work to.") +
           p("Either way, the Start panel on the left lists the handful of things people change most, so you don't have to hunt.") },
       { title: "Changing what's there",
@@ -107,11 +105,11 @@ export const TRAINING_GUIDES = [
           ul("<strong>Text:</strong> double-click it and type. The font, size and colour are in the panel beside the canvas. Highlight part of a line to change just that part.",
              "<strong>Photos:</strong> click one and use Replace, or drop a new one on from Images. Search free photos at the top of the panel; your own uploads sit below.",
              "<strong>Moving things:</strong> click to select, drag to move, pull a corner to resize. Guides snap it into line with everything else.") +
-          tip("Gone wrong? Undo is at the top, or Ctrl+Z. You cannot break a template: Start over is always there.") },
+          tip("Made a mistake? Use Undo at the top of the editor or Ctrl/Cmd + Z. Don't worry about experimenting, you can always undo a change or start again.") },
       { title: "Make it yours",
         body_html:
-          p("A pack design opens in your colours already. If you've changed your kit since, or you're on a design from before you had one, the Brand tab has <strong>Make this design yours</strong>: one click recolours every fill and every line of text into your palette.") +
-          p("The same tab lists the fonts on the design and offers your brand fonts in their place.") },
+          p("Templates from your packs will usually open using the colours saved in your Brand Kit. If they don't, or you've updated your branding since the design was created, open the Brand tab and select <strong>Make this design yours</strong>.") +
+          p("The Studio will adapt the design to your current colour palette, and you can also replace the existing fonts with those saved in your Brand Kit.") },
       { title: "Save, download, schedule",
         body_html:
           ul("<strong>Save</strong> keeps it in your designs on the Studio page, so you can come back to it.",
@@ -129,23 +127,22 @@ export const TRAINING_GUIDES = [
     lessons: [
       { title: "The Planner", walk: "planner", video_url: "",
         body_html:
-          p("The Planner is a month of days. Every post you plan sits on its day, so you can see at a glance where the gaps are and what's coming up.") +
+          p("The Planner gives you one place to see what you're posting and when. Each planned post sits on its publishing date, making it easy to spot gaps, balance different types of content and see what's coming up.") +
           p("<strong>Show me</strong> opens the Planner and points out the month, the grid and how to move around it.") },
       { title: "Adding a post",
         body_html:
           p("Click a day. Give the post a caption, choose the platform, and attach a design from your Studio if there is one. It appears on the day; click it again to edit or move it.") +
-          tip("Write the caption when you plan it, not on the day. Future you will thank present you.") },
+          tip("Add your caption while you're planning the post. It means everything is ready when publishing day arrives.") },
       { title: "Scheduling from the Studio",
         body_html:
           p("The faster route: finish a design in the Studio and press <strong>Schedule</strong>. Pick the day and platform, add the caption, and it's in the Planner without leaving the editor.") +
           p("The dashboard's This week strip shows the next few days from the Planner, so what's due is the first thing you see.") },
       { title: "A rhythm you can keep",
         body_html:
-          p("Three posts a week, planned a week ahead, beats seven posts one week and none the next. A simple pattern that works for most agents:") +
-          ul("<strong>Monday:</strong> something on the market or just sold.",
-             "<strong>Wednesday:</strong> something useful: a tip, a local fact, a myth busted.",
-             "<strong>Friday:</strong> something human: you, the team, the area.") +
-          p("The 48 Evergreen Content Ideas guide in Learn fills the useful and human days for months.") },
+          p("Consistency doesn't mean posting every day. It means finding a rhythm you can realistically maintain.") +
+          p("Use the Planner to balance different types of content across the month. You might combine properties and results with educational posts, local content, personal posts and timely updates.") +
+          p("Don't worry about filling every day. Start with a manageable plan, stay consistent with it and build from there.") +
+          p("Need ideas? Head to Learn for our Evergreen Content course, monthly social trends and practical content guides.") },
     ],
   }),
 ];
