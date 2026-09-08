@@ -138,6 +138,7 @@ let STEPS = FIRST_LOGIN;
 let activeWalk = null;   // walk id, or null for the first-login tour
 let returnTo = null;     // where a walk goes back to when it finishes
 let menuBack = null;     // a walk with a menu to return to when this one finishes
+const FRAME_TOP = 72;    // the progress strip's height; the framed page starts below it
 const onThisPage = (step) => step.path === '*' || step.path === path();
 const LS_WALKED = 'tmke.walked';  // which area walks this member has finished (this browser)
 function walkedSet() { try { return new Set(JSON.parse(localStorage.getItem(LS_WALKED) || '[]')); } catch (_) { return new Set(); } }
@@ -187,14 +188,16 @@ function injectStyles() {
      around it, a hairline card, and the course progress bar on top. */
   html.tmke-walk { background: var(--ws-bg, #f6f4f2); overflow-y: auto; }
   html.tmke-walk body {
-    margin: 72px clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
+    margin: 92px clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
     border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: 8px; overflow: clip;
-    min-height: calc(100vh - 72px - clamp(16px, 2.6vw, 40px));
+    min-height: calc(100vh - 92px - clamp(16px, 2.6vw, 40px));
   }
   html.tmke-walk .editor, html.tmke-walk .ed-onboard {
-    top: 72px; right: clamp(16px, 2.6vw, 40px); bottom: clamp(16px, 2.6vw, 40px); left: clamp(16px, 2.6vw, 40px);
+    top: 92px; right: clamp(16px, 2.6vw, 40px); bottom: clamp(16px, 2.6vw, 40px); left: clamp(16px, 2.6vw, 40px);
     border-radius: 8px; overflow: hidden;
   }
+  /* Centred cards sit in the middle of the framed page, not the whole screen. */
+  html.tmke-walk .tmke-tour-card.is-center { top: calc(72px + (100vh - 72px) / 2); }
   .tmke-tour-top {
     position: fixed; top: 0; left: 0; right: 0; height: 72px; z-index: 2;
     padding: 18px clamp(16px, 2.6vw, 40px) 0; background: var(--ws-bg, #f6f4f2);
@@ -254,7 +257,7 @@ function injectStyles() {
   .tmke-tour-card.is-center .tmke-tour-body { max-width: 52ch; }
   /* The menu: a page of cards, one per area, like a part of a guide. */
   .tmke-tour-card.is-menu {
-    width: min(1180px, calc(100vw - 2 * clamp(16px, 2.6vw, 40px) - 24px)); max-height: calc(100vh - 72px - 48px); overflow: auto;
+    width: min(1180px, calc(100vw - 2 * clamp(16px, 2.6vw, 40px) - 24px)); max-height: calc(100vh - 72px - 56px); overflow: auto;
     padding: clamp(22px, 2.4vw, 36px) clamp(22px, 2.4vw, 36px) 22px;
   }
   .tmke-tour-card.is-menu .tmke-tour-eyebrow, .tmke-tour-card.is-menu .tmke-tour-title, .tmke-tour-card.is-menu .tmke-tour-body { display: none; }
@@ -281,7 +284,7 @@ function injectStyles() {
   .tmke-tour-menu-intro { font-size: 14px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 18px; max-width: 70ch; }
   .tmke-tour-menu-intro[hidden] { display: none; }
   @media (max-width: 980px) { .tmke-tour-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 560px) { .tmke-tour-menu { grid-template-columns: 1fr; } html.tmke-walk body { margin: 72px 8px 8px; } }
+  @media (max-width: 560px) { .tmke-tour-menu { grid-template-columns: 1fr; } html.tmke-walk body { margin: 92px 8px 8px; } }
   .tmke-tour-skipto {
     appearance: none; background: none; border: 0; padding: 0; cursor: pointer; margin: -6px 0 16px;
     font-family: var(--sans, system-ui, sans-serif); font-size: 12.5px; font-weight: 600; color: var(--ws-accent, #4a2a3c);
@@ -490,8 +493,12 @@ function positionFor(step) {
   const vw = window.innerWidth, vh = window.innerHeight;
   if (!step.target || step.placement === 'center') {
     // Full-screen dim, no cutout: top panel covers everything, others collapse.
+    // A targeted step leaves its coordinates inline; a centred card must not
+    // inherit them, or it lands wherever the last spotlight was.
     els.root.classList.add('is-center');
     card.classList.add('is-center');
+    card.style.left = '';
+    card.style.top = '';
     setMask(els.maskT, 0, 0, vw, vh);
     setMask(els.maskR, vw, 0, 0, 0);
     setMask(els.maskB, 0, vh, vw, 0);
@@ -529,9 +536,10 @@ function positionFor(step) {
   else if (placement === 'top') { left = hx + hw / 2 - cw / 2; top = hy - ch - gap; }
   else if (placement === 'right') { left = hx + hw + gap; top = hy + hh / 2 - ch / 2; }
   else { left = hx - cw - gap; top = hy + hh / 2 - ch / 2; } // left
-  // Clamp into viewport.
+  // Clamp into the viewport, and below the progress strip during a walk.
+  const topMin = activeWalk ? FRAME_TOP + 12 : 16;
   left = Math.max(16, Math.min(left, vw - cw - 16));
-  top = Math.max(16, Math.min(top, vh - ch - 16));
+  top = Math.max(topMin, Math.min(top, vh - ch - 16));
   card.style.left = left + 'px';
   card.style.top = top + 'px';
 }

@@ -8,6 +8,9 @@
 // Training section at the top of Learn instead.
 
 const p = (t) => `<p>${t}</p>`;
+const ph = (label) => `<figure class="ci-ph" data-ph="${label}"><span>${label}</span></figure>`;
+const pillars = (items) => `<div class="ci-pillars">${items.map(([t, b]) => `<div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
+const steps = (items) => `<div class="ci-grid">${items.map(([t, b], i) => `<article class="ci-card"><span class="ci-no">${String(i + 1).padStart(2, "0")}</span><h4>${t}</h4><p>${b}</p></article>`).join("")}</div>`;
 const ul = (...items) => `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
 const tip = (t) => `<div class="ci-rhythm"><strong>Tip</strong><p>${t}</p></div>`;
 
@@ -20,35 +23,36 @@ export const TRAINING_GUIDES = [
   guide({
     slug: "training-hub",
     title: "Getting around your hub",
-    summary: "Where everything lives, what each tab is for, and where to go first.",
-    est_minutes: 5, sort_order: 1, art: "https://assets.tmke.co.uk/living-1.webp",
+    summary: "Where everything lives, what each area is for, and where to go first.",
+    est_minutes: 4, sort_order: 1, art: "https://assets.tmke.co.uk/living-1.webp",
     lessons: [
       { title: "The hub at a glance", walk: "hub-tour", video_url: "",
         body_html:
           p("Your hub is one place for the four things that make marketing happen: designs, a plan, your brand, and bookings. The tabs along the top take you between them; the dashboard shows you what needs attention today.") +
           p("The quickest way to learn it is to walk it. <strong>Show me</strong> below opens the dashboard and points out each part, then offers a menu of the hub's areas: Studio, Planner, Orders, Bookings, Your SMM and Learn. Walk the ones you want, in any order; each brings you back to the menu, and Done brings you back here.") +
           tip("Nothing in a walkthrough changes anything. Click about as much as you like.") },
-      { title: "The tabs, and what each is for",
+      { title: "Eight areas, one job each",
         body_html:
-          ul(
-            "<strong>Dashboard</strong> is home: today's date, what's planned this week, and a way back into whatever you were working on.",
-            "<strong>Studio</strong> is where you make things: your packs, your saved designs, and the editor.",
-            "<strong>Planner</strong> is your calendar of posts. Anything you schedule from the Studio lands here.",
-            "<strong>Orders</strong> holds every pack you've bought, with receipts.",
-            "<strong>Bookings</strong> is your videography: shoots booked, shoots delivered, and the button to book another.",
-            "<strong>Your SMM</strong> is your window on managed social media, if we run your channels.",
-            "<strong>Shop</strong> is The Edit, where the packs are."
-          ) },
-      { title: "Notifications, and your menu",
-        body_html:
-          p("Top right, the bell collects order and booking updates, and anything new in the hub. The dot means there's something you haven't seen.") +
-          p("Your name opens your menu: <strong>Brand kit</strong>, billing, your profile, and sign out. The Brand kit is the one to visit first: the next course is about it.") },
+          p("Everything in the hub is one of these. Know what each is for and you'll never wonder where something lives.") +
+          pillars([
+            ["Dashboard", "Home. Today's date, what's planned this week, and the way back into whatever you were working on."],
+            ["Studio", "Where designs are made: the packs you own, the designs you've saved, and the editor."],
+            ["Planner", "A month of days. Add a post to any of them, or schedule straight from the Studio."],
+            ["Orders", "Every pack you've bought, with its receipt and a link back into the Studio."],
+            ["Bookings", "Your videography: shoots booked, shoots in progress, and delivered galleries."],
+            ["Your SMM", "Your window on managed social media, or what's included if we don't run yours yet."],
+            ["Learn", "Guides, these training courses, and what's working on social this month."],
+            ["Brand kit", "Your logo, colours and fonts, set once so every design opens looking like you. In your menu, top right."],
+          ]) },
       { title: "Where to go first",
         body_html:
-          p("If you're new, do these two things in this order, and everything after gets easier:") +
-          ul("<strong>Set up your brand kit.</strong> Logo, colours, fonts. Five minutes, once.",
-             "<strong>Make one design in the Studio.</strong> Open a pack, change the words, download it.") +
-          p("There's a course for each, next on the Training row. Learn also has guides on posting, platforms and strategy when you're ready for them.") },
+          p("Three things, in this order, and everything after gets easier. Each has its own course on the Training row.") +
+          steps([
+            ["Set up your brand kit", "Logo, colours and fonts. Five minutes, once. From then on every template opens already looking like you."],
+            ["Make one design", "Open a pack in the Studio, change the words, download it. The first one takes ten minutes; the tenth takes two."],
+            ["Plan a week", "Three posts on three days in the Planner. A plan you can see is a plan you keep to."],
+          ]) +
+          tip("Stuck at any point? The bell top right has what's new, and Learn has a guide for most things. If it isn't there, the team is a message away from the dashboard.") },
     ],
   }),
 
