@@ -109,7 +109,7 @@ import "../../styles/admin.css";
           <p id="ct-d-email" class="ct-d-sub">—</p>
         </div>
       </div>
-      <button type="button" class="admin-btn ct-send-open" id="ct-send-open">Send an email</button>
+      <button type="button" class="ct-mini ct-send-open" id="ct-send-open">Send an email</button>
       <button type="button" class="ct-drawer-x" id="ct-close" aria-label="Close">&times;</button>
     </header>
     <!-- Send one email, now. A published template, a kind, an optional
@@ -319,6 +319,11 @@ import "../../styles/admin.css";
     @media (max-width: 900px) { .ct-drawer { right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
     .ct-drawer[hidden] { display: none; }
     .ct-send-open { margin-left: auto; margin-right: 10px; }
+    .ct-linkbtn { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--english-violet); cursor: pointer; text-decoration: none; }
+    .ct-linkbtn:hover { text-decoration: underline; }
+    .teg-link { display: flex; gap: 6px; align-items: center; }
+    .teg-link input { flex: 1; min-width: 0; font-family: var(--sans); font-size: 12.5px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.15); border-radius: 6px; background: var(--paper); color: var(--ink); }
+    .teg-link .ct-mini { flex: 0 0 auto; display: inline-flex; align-items: center; text-decoration: none; }
     .ct-send { display: grid; gap: 10px; padding: 14px 22px 16px; background: #faf9f8; border-bottom: 1px solid rgba(28,29,34,0.1); }
     .ct-send[hidden] { display: none; }
     .ct-send-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -831,7 +836,18 @@ import "../../styles/admin.css";
         return j.profile || null;
       } catch (_) { return null; }
     }
-    function tegPanelHtml(p, detect) {
+    // The personalised booking link the funnel emails carry — the code alone is
+    // no use to anyone without it. Same shape as the Worker's {{bookingLink}}.
+    function newStarterLink(p, c) {
+      if (!p || !p.promo_code || !c) return "";
+      const params = new URLSearchParams({ code: p.promo_code });
+      const nm = [c.first_name, c.last_name].filter(Boolean).join(" ");
+      if (nm) params.set("name", nm);
+      if (c.email) params.set("email", c.email);
+      if (p.induction_month) params.set("month", p.induction_month);
+      return `${location.origin}/videography/new-starter?${params.toString()}`;
+    }
+    function tegPanelHtml(p, detect, c) {
       // Auto-detect from the email domain when there's no saved profile yet, so
       // the TEG card appears for anyone in a TEG brand (incl. Fine & Country).
       const detectedBrand = detect ? detect.brand : null;      // brand name | "" (generic TEG) | null (not TEG)
@@ -861,6 +877,10 @@ import "../../styles/admin.css";
               <div class="ct-field"><label>Induction month</label><input type="month" id="teg-month" value="${val(p && p.induction_month)}" /></div>
               <div class="ct-field"><label>Package</label><select id="teg-package"><option value="">—</option><option value="academy" ${p && p.package === "academy" ? "selected" : ""}>Academy</option><option value="pro" ${p && p.package === "pro" ? "selected" : ""}>Pro</option></select></div>
               <div class="ct-field"><label>Free videography code</label><div class="teg-code">${p && p.promo_code ? `<code>${esc(p.promo_code)}</code>` : '<span class="ct-meta">Generated on save — Academy/Pro only</span>'}</div></div>
+              ${newStarterLink(p, c) ? `<div class="ct-field"><label>Booking link</label>
+                <div class="teg-link"><input type="text" readonly value="${esc(newStarterLink(p, c))}" id="teg-link" />
+                  <button type="button" class="ct-mini" id="teg-link-copy">Copy</button>
+                  <a class="ct-mini" href="${esc(newStarterLink(p, c))}" target="_blank" rel="noopener">Open</a></div></div>` : ""}
             </div>
           </div>
           <button type="button" class="ct-mini" id="teg-save">Save agent details</button>
@@ -868,6 +888,12 @@ import "../../styles/admin.css";
         </div>`;
     }
     const tegVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+    document.addEventListener("click", (e) => {
+      const b = e.target && e.target.closest && e.target.closest("#teg-link-copy");
+      if (!b) return;
+      const inp = document.getElementById("teg-link"); if (!inp) return;
+      navigator.clipboard.writeText(inp.value).then(() => { b.textContent = "Copied"; setTimeout(() => { b.textContent = "Copy"; }, 1400); });
+    });
     function tegMsg(t, ok) { const m = document.getElementById("teg-msg"); if (!m) return; m.textContent = t; m.className = "ct-teg-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
     function wireTeg() {
       const c = current;
@@ -909,7 +935,7 @@ import "../../styles/admin.css";
             try { await supabase.from("contacts").update({ tags: c.tags }).eq("id", c.id); } catch (_) {}
             render();
           }
-          document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) });
+          document.getElementById("ct-teg-panel").innerHTML = tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) }, c);
           wireTeg();
           tegMsg(c.agentProfile && c.agentProfile.promo_code ? `Saved. Their free code is ${c.agentProfile.promo_code}.` : "Saved.", true);
         } catch (err) { tegMsg(err.message || "Couldn't save agent details.", false); }
@@ -974,8 +1000,7 @@ import "../../styles/admin.css";
             ${emailHealth.length ? `<div class="ct-emailhealth">${emailHealth.map((l) => `<p>${esc(l)}</p>`).join("")}</div>` : ""}
             ${c.user_id ? "" : `
             <div class="ct-acct" id="ct-acct">
-              <p class="ct-meta" style="margin:12px 0 8px">Not linked to a member account yet.</p>
-              <button class="ct-mini" id="ct-acct-check">Check for a member account</button>
+              <p class="ct-meta" style="margin:12px 0 0">Not linked to a member account yet. <button type="button" class="ct-linkbtn" id="ct-acct-check">Check for a member account &rarr;</button></p>
             </div>`}
           </div>
           <div class="ct-sec">
@@ -1015,7 +1040,7 @@ import "../../styles/admin.css";
               <label class="ct-meta" for="ct-sec-email" style="flex:0 0 auto; margin:0">Secondary email</label>
               <input id="ct-sec-email" type="email" placeholder="e.g. personal address (optional)" value="${esc(c.secondary_email || "")}" />
             </div>
-            <p class="ct-meta" style="margin:6px 0 0">Extra delivery address for funnel emails only — they also go to ${esc(c.email || "their email above")}. Handy for a new starter who can't read their work inbox yet. Never used for marketing: that always uses the email above.</p>
+            <p class="ct-meta" style="margin:6px 0 0">Extra delivery address for funnel emails only.</p>
           </div>
           </div>
           <div class="ct-col">
@@ -1046,7 +1071,7 @@ import "../../styles/admin.css";
           </div>
         </div>
         <div class="ct-tabpanel" data-panel="teg"${activeTab !== "teg" ? " hidden" : ""}>
-          <div id="ct-teg-panel">${tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) })}</div>
+          <div id="ct-teg-panel">${tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) }, c)}</div>
         </div>
         <div class="ct-tabpanel" data-panel="purchases"${activeTab !== "purchases" ? " hidden" : ""}>
           <div class="ct-sec">
