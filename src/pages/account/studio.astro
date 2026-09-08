@@ -55,10 +55,10 @@ const TOOL_ICONS = {
 // Content ideas is a proper read, so it links to the guide instead.
 const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
 const inspo = [
-  { key: "trending", name: "See what's working", desc: "Five formats performing right now, updated monthly.", thumb: R2("living-1") },
-  { key: "seasonal", name: "Seasonal moments",   desc: "The pack for this time of year.",                  thumb: R2("orange-1") },
-  { key: "ideas",    name: "Content ideas",      desc: "48 evergreen post ideas across four pillars.",     thumb: R2("table"), href: "/account/guides/read?g=content-ideas" },
-  { key: "brand",    name: "Brand inspo",        desc: "Our templates, in your colours.",                  thumb: R2("white-1") },
+  { key: "trending", name: "See what's working", desc: "Five formats performing right now, updated monthly.", thumb: R2("living-1"), cta: "View" },
+  { key: "seasonal", name: "Seasonal moments",   desc: "The pack for this time of year.",                  thumb: R2("orange-1"), cta: "Browse" },
+  { key: "ideas",    name: "Content ideas",      desc: "48 evergreen post ideas across four pillars.",     thumb: R2("table"), href: "/account/guides/read?g=content-ideas", cta: "Read" },
+  { key: "brand",    name: "Brand inspo",        desc: "Our templates, in your colours.",                  thumb: R2("white-1"), cta: "See" },
 ];
 ---
 <BaseLayout
@@ -189,11 +189,13 @@ const inspo = [
                   <span class="st-insp-img" style={`background-image:url('${c.thumb}')`}></span>
                   <span class="st-insp-name">{c.name}</span>
                   <span class="st-insp-desc">{c.desc}</span>
+                  <span class="st-insp-cta">{c.cta || "View"}</span>
                 </a>
               : <button type="button" class="st-insp" data-inspo={c.key}>
                   <span class="st-insp-img" style={`background-image:url('${c.thumb}')`}></span>
                   <span class="st-insp-name">{c.name}</span>
                   <span class="st-insp-desc">{c.desc}</span>
+                  <span class="st-insp-cta">{c.cta || "View"}</span>
                 </button>
           ))}
           <button type="button" class="st-arrow st-arrow--inspo" aria-label="More inspiration">
@@ -327,6 +329,15 @@ const inspo = [
     .st-insp-img { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 4px; background: #e9e6e2 center / cover no-repeat; margin-bottom: 8px; }
     .st-insp-name { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
     .st-insp-desc { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.4; }
+    /* One word, bottom-right, in the accent: the card's call to action. */
+    .st-insp-cta {
+      align-self: flex-end; margin-top: auto; padding-top: 10px;
+      display: inline-flex; align-items: center; height: 26px; padding-left: 12px; padding-right: 12px;
+      border-radius: 999px; background: var(--ws-accent); color: #fff;
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      transition: transform 0.25s var(--ws-ease);
+    }
+    .st-insp:hover .st-insp-cta { transform: translateX(2px); }
 
     /* Shelf navigation: an arrow either side of one dot per pack, underneath
        where it can be reached, rather than an arrow floating over the last card. */
