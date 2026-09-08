@@ -94,31 +94,12 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
       </section>
 
       <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
-      <section class="lrn-sec ws-rise lrn-soon" style="--i:4" aria-labelledby="paths-h">
+      <section class="lrn-sec ws-rise" style="--i:4" aria-labelledby="training-h" id="training">
         <header class="lrn-sec-head">
-          <h2 class="ws-eyebrow" id="paths-h">Featured Learning Paths</h2>
+          <h2 class="ws-eyebrow" id="training-h">Training</h2>
+          <p class="lrn-sec-sub">How to use the hub, in four short courses. Each has a guided look at the real page.</p>
         </header>
-        <div class="lrn-paths">
-          <a class="lrn-path lrn-path--dark" href="#">
-            <div class="lrn-path-body">
-              <span class="lrn-path-eyebrow">8 lessons</span>
-              <h3 class="lrn-path-title">The Foundation</h3>
-              <p class="lrn-path-desc">Everything you need to build a strong, on-brand presence.</p>
-              <span class="lrn-path-cta">Start path <em>→</em></span>
-            </div>
-            <span class="lrn-path-art" style="background-image:url('/assets/home%20forest.jpg')"></span>
-          </a>
-          <a class="lrn-path" href="#">
-            <div class="lrn-path-body">
-              <span class="lrn-path-eyebrow">6 lessons</span>
-              <h3 class="lrn-path-title">Content That Converts</h3>
-              <p class="lrn-path-desc">Create content that attracts, engages and gets results.</p>
-              <span class="lrn-path-cta">Start path <em>→</em></span>
-            </div>
-            <span class="lrn-path-art" style="background-image:url('/assets/home%20window.jpg')"></span>
-          </a>
-        </div>
-        <div class="lrn-dots" aria-hidden="true"><span class="is-on"></span><span></span><span></span></div>
+        <div class="lrn-paths lrn-paths--four" id="lrn-training" aria-busy="true"></div>
       </section>
 
       <!-- ============ Quick lessons (hidden until real video lessons exist) ============ -->
@@ -336,6 +317,9 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
 
     /* Featured learning paths */
     .lrn-paths { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 1.8vw, 26px); }
+    .lrn-sec-sub { font-size: var(--ws-t-body); color: var(--ws-faint); margin: 6px 0 0; }
+    .lrn-path.is-done .lrn-path-eyebrow { color: var(--ws-accent); }
+    .lrn-paths--four .lrn-path { min-height: 200px; }
     @media (max-width: 860px) { .lrn-paths { grid-template-columns: 1fr; } }
     .lrn-path { position: relative; display: grid; grid-template-columns: 1.05fr 0.95fr; align-items: stretch; min-height: 230px; border-radius: var(--ws-r-lg); overflow: hidden; background: var(--ws-card); box-shadow: var(--ws-sh-hero); text-decoration: none; transition: transform 0.28s var(--ws-ease); }
     .lrn-path:hover { transform: translateY(-4px); }
@@ -423,7 +407,8 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
     import { supabase } from "../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
-    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE];
+    import { TRAINING_GUIDES } from "../../data/training-guides.js";
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES];
     const DEV = import.meta.env.DEV;
     const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -477,8 +462,33 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
         </span></a>`;
     }
 
+    // The Training row: four courses on using the hub, with each member's
+    // progress. Built-in guides, or a published copy from the database when
+    // one exists (same slug).
+    function renderTraining() {
+      const host = document.getElementById('lrn-training'); if (!host) return;
+      host.innerHTML = TRAINING_GUIDES.map((t) => {
+        const g = ALL.find((x) => x.slug === t.slug) || t;
+        const n = Array.isArray(g.lessons) ? g.lessons.length : 0;
+        const pr = PROGRESS[g.slug];
+        let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`, cta = 'Start', meta = `${n} lessons · ~${g.est_minutes || t.est_minutes || 5} min`;
+        if (pr && pr.completed) { cta = 'Read again'; meta = 'Completed'; }
+        else if (pr && pr.total > 0 && pr.furthest >= 1) { const at = Math.min(pr.furthest, pr.total); href += `&p=${pr.furthest}`; cta = 'Resume'; meta = `Part ${at} of ${pr.total}`; }
+        const art = g.cover_url || t.art || '';
+        return `<a class="lrn-path${pr && pr.completed ? ' is-done' : ''}" href="${href}">
+          <div class="lrn-path-body">
+            <span class="lrn-path-eyebrow">${esc(meta)}</span>
+            <h3 class="lrn-path-title">${esc(g.title)}</h3>
+            <p class="lrn-path-desc">${esc(g.summary || '')}</p>
+            <span class="lrn-path-cta">${cta} <em>→</em></span>
+          </div>
+          <span class="lrn-path-art" style="background-image:url('${esc(art)}')"></span>
+        </a>`;
+      }).join('');
+    }
+
     function renderGrid(query) {
-      let list = ALL.slice();
+      let list = ALL.filter((g) => !g.training && !TRAINING_GUIDES.some((t) => t.slug === g.slug));
       if (activeTopic) list = list.filter((g) => g.topic === activeTopic);
       if (query) { const q = query.toLowerCase(); list = list.filter((g) => (g.title||'').toLowerCase().includes(q) || (g.summary||'').toLowerCase().includes(q)); }
       grid.innerHTML = list.map(cardHtml).join('');
@@ -491,7 +501,7 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
 
     function hydrateCounts() {
       const counts = {};
-      ALL.forEach((g) => { counts[g.topic] = (counts[g.topic] || 0) + 1; });
+      ALL.forEach((g) => { if (g.training || TRAINING_GUIDES.some((t) => t.slug === g.slug)) return; counts[g.topic] = (counts[g.topic] || 0) + 1; });
       document.querySelectorAll('.lrn-topic-count[data-count]').forEach((el) => {
         const n = counts[el.dataset.count] || 0;
         el.textContent = n === 1 ? '1 guide' : `${n} guides`;
@@ -566,7 +576,7 @@ import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
         PROGRESS['your-first-week-on-social'] = { guide_slug:'your-first-week-on-social', completed:false, furthest:2, total:5 };
       }
 
-      hydrateCounts(); renderGrid('');
+      hydrateCounts(); renderGrid(''); renderTraining();
     })();
   </script>
 </BaseLayout>

@@ -123,6 +123,10 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     .gadm-mini:hover { border-color: var(--english-violet); color: var(--english-violet); }
     .gadm-lesson textarea { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; line-height: 1.5; }
     .gadm-lesson-hint { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); margin: 6px 0 0; }
+    .gadm-l-extras { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .gadm-l-extras label { display: flex; flex-direction: column; gap: 4px; font-family: var(--sans); font-size: 11px; font-weight: 700; color: rgba(28,29,34,0.55); }
+    .gadm-l-extras input, .gadm-l-extras select { font-family: var(--sans); font-size: 12.5px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.15); border-radius: 6px; background: #fff; }
+    @media (max-width: 640px) { .gadm-l-extras { grid-template-columns: 1fr; } }
     .gadm-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 18px; border-radius: 8px; font-family: var(--sans); font-size: 13px; z-index: 100; }
   </style>
 
@@ -141,7 +145,8 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 
     let list = [];
     let cur = null;            // current guide id (null = new/unsaved)
-    let lessons = [];          // [{ title, body_html }]
+    import { WALK_LIST } from "../../data/walkthroughs.js";
+    let lessons = [];          // [{ title, body_html, video_url?, walk? }]
 
     /* ---------- lessons editor ---------- */
     function renderLessons() {
@@ -156,10 +161,16 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
           </div>
           <input class="gadm-l-title" data-i="${i}" placeholder="Lesson title" value="${esc(l.title || "")}" />
           <textarea class="gadm-l-body" data-i="${i}" rows="8" placeholder="Lesson content — HTML: <p>…</p>, <h3>…</h3>, <ul><li>…</li></ul>, <strong>…</strong>">${esc(l.body_html || "")}</textarea>
+          <div class="gadm-l-extras">
+            <label><span>Video URL</span><input class="gadm-l-video" data-i="${i}" placeholder="YouTube, Vimeo or an MP4 link — optional" value="${esc(l.video_url || "")}" /></label>
+            <label><span>Show me walkthrough</span><select class="gadm-l-walk" data-i="${i}"><option value="">None</option>${WALK_LIST.map((w) => `<option value="${w.id}"${l.walk === w.id ? " selected" : ""}>${esc(w.title)}</option>`).join("")}</select></label>
+          </div>
           <p class="gadm-lesson-hint">Write in simple HTML: paragraphs &lt;p&gt;, sub-heads &lt;h3&gt;, lists &lt;ul&gt;&lt;li&gt;, bold &lt;strong&gt;, links &lt;a href&gt;.</p>
         </div>`).join("");
       wrap.querySelectorAll(".gadm-l-title").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].title = el.value; markDirty(); }));
       wrap.querySelectorAll(".gadm-l-body").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].body_html = el.value; markDirty(); }));
+      wrap.querySelectorAll(".gadm-l-video").forEach((el) => el.addEventListener("input", () => { lessons[+el.dataset.i].video_url = el.value; markDirty(); }));
+      wrap.querySelectorAll(".gadm-l-walk").forEach((el) => el.addEventListener("change", () => { lessons[+el.dataset.i].walk = el.value; markDirty(); }));
       wrap.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => { lessons.splice(+b.dataset.del, 1); renderLessons(); markDirty(); }));
       wrap.querySelectorAll("[data-up]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.up; [lessons[i-1],lessons[i]]=[lessons[i],lessons[i-1]]; renderLessons(); markDirty(); }));
       wrap.querySelectorAll("[data-down]").forEach((b) => b.addEventListener("click", () => { const i=+b.dataset.down; [lessons[i+1],lessons[i]]=[lessons[i],lessons[i+1]]; renderLessons(); markDirty(); }));
@@ -203,7 +214,12 @@ import { GUIDE_TOPICS } from "../../data/guide-topics.js";
     }
 
     function gather() {
-      const cleanLessons = lessons.map((l) => ({ title: (l.title||"").trim(), body_html: (l.body_html||"").trim() })).filter((l) => l.title || l.body_html);
+      const cleanLessons = lessons.map((l) => {
+        const row = { title: (l.title||"").trim(), body_html: (l.body_html||"").trim() };
+        if ((l.video_url || "").trim()) row.video_url = l.video_url.trim();
+        if (l.walk) row.walk = l.walk;
+        return row;
+      }).filter((l) => l.title || l.body_html);
       return {
         title: ($("#g-title").value || "").trim() || "Untitled guide",
         slug: slugify($("#g-slug").value || $("#g-title").value || "guide-" + Date.now()),

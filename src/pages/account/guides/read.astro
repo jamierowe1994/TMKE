@@ -202,6 +202,16 @@ const DEFAULT_COVER = (await getImage({
     .gr-body ul, .gr-body ol { margin: 0 0 16px; padding-left: 22px; }
     .gr-body li { margin: 0 0 8px; }
     .gr-body img { max-width: 100%; height: auto; border-radius: var(--ws-r); margin: 8px 0; }
+    /* A lesson's video, 16:9, above its copy. */
+    .gr-video { position: relative; aspect-ratio: 16 / 9; margin: 18px 0 6px; border-radius: var(--ws-r); overflow: hidden; background: #1c1d22; }
+    .gr-video iframe, .gr-video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    /* "Show me": the walkthrough offer under a lesson. */
+    .gr-walk { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 16px 18px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; }
+    .gr-walk-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .gr-walk-tx strong { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: var(--ws-ink); }
+    .gr-walk-tx span { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.45; }
+    .gr-walk .ws-btn { flex: 0 0 auto; }
+    @media (max-width: 560px) { .gr-walk { flex-direction: column; align-items: flex-start; } }
     /* Captioned hub screenshot. Uses a background-image so a not-yet-added shot
        shows a clean tinted placeholder rather than a broken-image icon; drop the
        real PNG in and it fills automatically. */
@@ -279,7 +289,10 @@ const DEFAULT_COVER = (await getImage({
     import { supabase } from "../../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
-    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE];
+    import { TRAINING_GUIDES } from "../../../data/training-guides.js";
+    import { startWalk } from "../../../lib/tour.js";
+    import { WALKS } from "../../../data/walkthroughs.js";
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES];
 
     const $ = (s) => document.querySelector(s);
     const DEV = import.meta.env.DEV;
@@ -390,14 +403,42 @@ const DEFAULT_COVER = (await getImage({
           </div>
         </div>`;
       };
+      // A lesson can carry a video (YouTube, Vimeo or a plain file) above its
+      // copy, and a walkthrough - a spotlight tour of the real page - offered
+      // as "Show me" beneath it.
+      const videoHtml = (url) => {
+        const u = String(url || "").trim(); if (!u) return "";
+        let m;
+        if ((m = u.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/)))
+          return `<div class="gr-video"><iframe src="https://www.youtube-nocookie.com/embed/${m[1]}" title="Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+        if ((m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/)))
+          return `<div class="gr-video"><iframe src="https://player.vimeo.com/video/${m[1]}" title="Video" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+        return `<div class="gr-video"><video controls preload="metadata" src="${esc(u)}"></video></div>`;
+      };
+      const walkHtml = (id, i) => {
+        if (!id || !WALKS[id]) return "";
+        return `<div class="gr-walk">
+          <span class="gr-walk-tx"><strong>See it on the page</strong><span>A guided look at the real thing: ${esc(WALKS[id].title)}, ${WALKS[id].steps.length} steps. Finish brings you back here.</span></span>
+          <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${esc(id)}" data-part="${i}">Show me
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>`;
+      };
       const partHtml = (i) => {
         const l = lessons[i-1];
         return `<div class="gc-slide gc-slide--part">
           <span class="gc-part">Part ${i} of ${N}</span>
           ${l.title ? `<h2 class="gc-slide-title">${esc(l.title)}</h2>` : ""}
+          ${videoHtml(l.video_url)}
           <div class="gc-slide-body gr-body">${l.body_html || ""}</div>
+          ${walkHtml(l.walk, i)}
         </div>`;
       };
+      stage.addEventListener("click", (e)=>{
+        const b = e.target.closest("[data-walk]"); if (!b) return;
+        const back = `/account/guides/read?g=${encodeURIComponent(guide.slug)}&p=${b.dataset.part}`;
+        startWalk(b.dataset.walk, { returnTo: back });
+      });
       const doneHtml = () => `<div class="gc-slide gc-slide--done">
         <div class="gc-done-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></div>
         <h2>That's a wrap</h2>
