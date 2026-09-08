@@ -4,6 +4,7 @@ import { getImage } from "astro:assets";
 import VideographyBooking from "../../components/VideographyBooking.astro";
 import VideoShowcase from "../../components/VideoShowcase.astro";
 import NavDrawer from "../../components/NavDrawer.astro";
+import Nav from "../../components/Nav.astro";
 import VideographyBrochureForm from "../../components/VideographyBrochureForm.astro";
 import { PRODUCTS, tierPrice, VIDEOGRAPHY_BROCHURE } from "../../data/videography.js";
 import { gbpFromPence } from "../../lib/supabase.js";
@@ -57,6 +58,92 @@ const navLinks = [
     </header>
 
     <!-- Horizontal deck — each panel is one "page"; scroll right to advance. -->
+    <!-- Phones: The Edit's stack instead of the deck. A title screen, then a
+         bar per service and Get in touch, each opening in place. A service
+         shows its slide first; a swipe across is the full story. -->
+    <div class="sm-sitenav"><Nav /></div>
+    <div class="sms" id="sms" aria-label="Videography">
+      <section class="sms-p is-open" data-i="0">
+        <div class="sms-body sms-title">
+          <h1 class="sms-mark">Videography</h1>
+          <p class="sms-pron"><span>/&thinsp;vid.i&#712;&#594;g.r&#601;.fi&thinsp;/</span> <em>noun</em></p>
+          <figure class="sms-pic"><img src={VID_BOX_IMG} alt="TMKE videography" loading="eager" /></figure>
+          <p class="sms-lede">Professional property video and photography for agents who understand that first impressions are made online. From tours to short-form content, delivered to a standard that wins instructions.</p>
+        </div>
+      </section>
+
+      {PRODUCTS.map((p, pi) => (
+        <section class="sms-p" data-i={pi + 1}>
+          <button type="button" class="sms-bar"><span class="sms-dash"></span><span class="sms-name">{p.name}</span><span class="sms-chev" aria-hidden="true">&#9662;</span></button>
+          <div class="sms-body sms-body--flush">
+            <div class="sms-hscroll">
+              <div class="sms-hslide">
+                <p class="sms-eyebrow">Videography &mdash; {p.num}</p>
+                <h2 class="sms-h">{p.name}</h2>
+                <div class="sms-pic sms-pic--cta" style={`background-image:url('${p.hero}')`} role="img" aria-label={p.name}></div>
+                <p class="sms-p-copy"><strong>{p.slideCopy}</strong></p>
+                <p class="sms-p-copy">{p.slideBlurb}</p>
+                <p class="sms-price">from <strong data-price-svc={p.slug} data-tier="0">{gbpFromPence(tierPrice(p.priceTiers[0], "direct"))}</strong> +VAT</p>
+                <button type="button" class="sms-btn" data-vbook={serviceKey(p)}>Book now <span aria-hidden="true">&rarr;</span></button>
+                <p class="sms-swipe">Swipe to {p.ctaLabel.replace(/^Discover /i, "discover ")} &rarr;</p>
+              </div>
+              <div class="sms-hslide">
+                <p class="sms-eyebrow">{p.name}</p>
+                <h2 class="sms-h">{p.popLede}</h2>
+                {p.popIntro.map((para) => <p class="sms-p-copy">{para}</p>)}
+                <h3 class="sms-sub">{p.includedHeading || "What's Included"}</h3>
+                <ul class="sms-included">{p.included.map((d) => <li>{d}</li>)}</ul>
+                {p.extras && p.extras.length > 0 && (
+                  <>
+                    <h3 class="sms-sub">{p.extrasHeading}</h3>
+                    <ul class="sms-extras">{p.extras.map((x) => <li><span>{x.label}</span><span>{x.price}</span></li>)}</ul>
+                  </>
+                )}
+                <h3 class="sms-sub">{p.pricingHeading}</h3>
+                {p.pricingMode === "tiers" ? (
+                  <div>
+                    {p.priceTiers.map((t, i) => (
+                      <div class="sms-tierrow">
+                        <span class="sms-tierrow-label">{t.label}{t.sub && <small>{t.sub}</small>}</span>
+                        <span class="sms-tierrow-price">from <b data-price-svc={p.slug} data-tier={i}>{gbpFromPence(tierPrice(t, "direct"))}</b> +VAT</span>
+                      </div>
+                    ))}
+                    <p class="sms-note" data-note-svc={p.slug}>Standard rates</p>
+                  </div>
+                ) : (
+                  <div>{p.pricingProse.map((para) => <p class="sms-p-copy">{para}</p>)}</div>
+                )}
+                <button type="button" class="sms-btn" data-vbook={serviceKey(p)}>{p.bookCtaLabel} <span aria-hidden="true">&rarr;</span></button>
+                <h3 class="sms-sub">{p.aboutHeading}</h3>
+                {p.about.map((para) => <p class="sms-p-copy">{para}</p>)}
+              </div>
+            </div>
+          </div>
+        </section>
+      ))}
+
+      <section class="sms-p" data-i={PRODUCTS.length + 1}>
+        <button type="button" class="sms-bar"><span class="sms-dash"></span><span class="sms-name">Get in touch</span><span class="sms-chev" aria-hidden="true">&#9662;</span></button>
+        <div class="sms-body">
+          <div class="sms-pic sms-pic--cta" style={`background-image:url('${R2("white-1")}')`} role="img" aria-label=""></div>
+          <div class="sms-block">
+            <h2 class="sms-h">Download a Brochure</h2>
+            <p class="sms-p-copy">{VIDEOGRAPHY_BROCHURE.cardBody}</p>
+            <button type="button" class="sms-btn" data-vid-brochure>Download a brochure <span aria-hidden="true">&rarr;</span></button>
+          </div>
+          <div class="sms-block">
+            <h2 class="sms-h">Book a Consultation</h2>
+            <p class="sms-p-copy">Not sure which service is right for you? Jump on a quick call with Jack and talk it through, no pressure.</p>
+            <button type="button" class="sms-btn" data-vbook="discovery">Book a time that suits you <span aria-hidden="true">&rarr;</span></button>
+          </div>
+          <div class="sms-block">
+            <h2 class="sms-h">Book a Shoot</h2>
+            <p class="sms-p-copy">Ready to go? Choose the service that works for you and secure your session in minutes.</p>
+            <button type="button" class="sms-btn" data-vbook="choose">Book a shoot <span aria-hidden="true">&rarr;</span></button>
+          </div>
+        </div>
+      </section>
+    </div>
     <div class="pf-deck" id="pf-deck">
       <!-- Slide 1 — like /services slide 1 (About lede pinned to the top: copy
            left, photo right) with one long element below that rises up over the
@@ -337,6 +424,95 @@ const navLinks = [
   <VideographyBooking />
   <VideographyBrochureForm />
   <NavDrawer />
+
+  <style>
+    .sm-sitenav { display: none; }
+    @media (max-width: 600px) { .pf-top { display: none !important; } .sm-sitenav { display: block; } }
+    /* ===== Phones: The Edit's stack ===================================
+       The deck is hidden; this is the page. One 100svh screen: the title,
+       then three wine bars in the homepage's chapter-line type. A tapped
+       bar's section grows to fill the screen (flex-grow does the slide) and
+       scrolls inside itself; tap the bar again and the title comes back. */
+    .sms { display: none; }
+    @media (max-width: 600px) {
+      .pf-deck, .pf-counter { display: none !important; }
+      .sms {
+        --bar: 40px;
+        display: flex; flex-direction: column;
+        position: fixed; inset: 0; height: 100svh; box-sizing: border-box; padding-top: 68px;
+        background: var(--paper); color: var(--ink); font-family: var(--sans);
+      }
+      .sms-p { display: flex; flex-direction: column; min-height: 0; overflow: hidden; flex: 0 1 var(--bar); transition: flex-grow 0.7s cubic-bezier(.2,.8,.2,1); }
+      .sms-p.is-open { flex-grow: 1; }
+      .sms-p[data-i="0"] { flex-basis: 0; }
+      .sms-bar {
+        flex: none; height: var(--bar); box-sizing: border-box;
+        display: grid; grid-template-columns: auto 1fr 14px; align-items: center; gap: 8px;
+        padding: 0 22px; border: 0; border-top: 1px solid rgba(244,242,241,0.16);
+        background: var(--english-violet); color: var(--paper); cursor: pointer; text-align: left;
+        font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
+      }
+      .sms-dash::before { content: "\2014"; }
+      .sms-meta { justify-self: end; text-align: right; color: rgba(244,242,241,0.62); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .sms-chev { justify-self: end; font-size: 10px; color: rgba(244,242,241,0.62); transition: transform 0.4s ease; }
+      .sms-p.is-open .sms-chev { transform: rotate(180deg); }
+      .sms-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 24px 22px 32px; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+      .sms-body--flush { padding: 0; overflow: hidden; }
+      /* The title screen, on the About page's line. */
+      .sms-title { padding-top: 24px; }
+      .sms-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 9vw, 54px); line-height: 0.94; letter-spacing: 0.02em; margin: 0 0 10px; color: var(--ink); }
+      .sms-pron { margin: 0 0 22px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+      .sms-pron em { font-style: italic; text-transform: none; letter-spacing: 0; color: rgba(28,29,34,0.55); }
+      .sms-lede { margin: 0; font-size: 15.5px; line-height: 1.6; color: rgba(28,29,34,0.78); }
+      .sms-pic { margin: 0 0 22px; }
+      .sms-pic img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 2px; }
+      .sms-pic--cta { aspect-ratio: 16 / 10; background-size: cover; background-position: center; background-color: #e9e4da; border-radius: 2px; }
+      /* Sections. */
+      .sms-block { margin-bottom: 30px; }
+      .sms-block:last-child { margin-bottom: 0; }
+      .sms-eyebrow { margin: 0 0 8px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+      .sms-eyebrow::before { content: "\2014"; margin-right: 8px; }
+      .sms-h { margin: 0 0 10px; font-family: var(--serif); font-weight: 400; font-size: 24px; line-height: 1.14; letter-spacing: -0.01em; color: var(--ink); }
+      .sms-p-copy { margin: 0 0 12px; font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.72); }
+      .sms-choose { margin: 14px 0 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); }
+      .sms-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 6px; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.25); padding: 12px 0; min-width: 240px; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); }
+      /* Services: two screens side by side, swiped. */
+      .sms-hscroll { display: flex; height: 100%; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; touch-action: pan-x pan-y; }
+      .sms-hscroll::-webkit-scrollbar { display: none; }
+      .sms-hslide { flex: 0 0 100%; min-width: 100%; box-sizing: border-box; scroll-snap-align: start; overflow-y: auto; padding: 24px 22px 32px; }
+      .sms-hslide--centre { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+      .sms-hslide--centre .sms-eyebrow::before { content: none; }
+      .sms-hslide--centre .sms-btn { align-self: center; }
+      .sms-swipe { margin: 22px 0 0; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+      .sms-tiers { display: flex; flex-direction: column; margin-top: 4px; }
+      .sms-tier { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; width: 100%; padding: 14px 0; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.1); text-align: left; cursor: pointer; font-family: var(--sans); }
+      .sms-tier:last-child { border-bottom: 0; }
+      .sms-tier-num { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; color: var(--english-violet); padding-top: 3px; }
+      .sms-tier-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+      .sms-tier-name { font-family: var(--serif); font-weight: 500; font-size: 18px; color: var(--ink); }
+      .sms-tier-sub { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+      .sms-tier-blurb { display: none; margin-top: 6px; font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.72); }
+      .sms-tier.is-open .sms-tier-blurb { display: block; }
+      .sms-tier-chev { font-size: 10px; color: rgba(28,29,34,0.45); padding-top: 4px; transition: transform 0.3s; }
+      .sms-tier.is-open .sms-tier-chev { transform: rotate(180deg); }
+    }
+    @media (max-width: 600px) {
+      /* Product screens: the deck's slide, then a swipe to the full story. */
+      .sms-price { margin: 4px 0 14px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.72); }
+      .sms-price strong { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0 4px; }
+      .sms-included { margin: 0 0 18px; padding-left: 18px; font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.72); }
+      .sms-included li { margin-bottom: 6px; }
+      .sms-sub { margin: 20px 0 8px; font-family: var(--serif); font-weight: 500; font-size: 18px; color: var(--ink); }
+      .sms-extras { list-style: none; margin: 0 0 18px; padding: 0; }
+      .sms-extras li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(28,29,34,0.1); font-size: 13.5px; color: rgba(28,29,34,0.78); }
+      .sms-tierrow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.1); }
+      .sms-tierrow-label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 600; color: var(--ink); }
+      .sms-tierrow-label small { font-weight: 400; font-size: 12px; color: rgba(28,29,34,0.55); }
+      .sms-tierrow-price { white-space: nowrap; font-size: 12.5px; color: rgba(28,29,34,0.65); }
+      .sms-tierrow-price b { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--ink); }
+      .sms-note { margin: 8px 0 0; font-size: 12px; color: rgba(28,29,34,0.5); }
+    }
+  </style>
 
   <style>
     .pf {
@@ -1119,6 +1295,19 @@ const navLinks = [
     // --- Horizontal deck controller ---------------------------------------
     // Play the first-slide entrance once we're on the page (after it loads in),
     // not while it's still loading — so the animation isn't missed.
+    // Phones: the stack. Tap a bar to open its section; tap it again to go
+    // back to the title.
+    (function stack() {
+      const sms = document.getElementById("sms");
+      if (!sms) return;
+      const panels = Array.from(sms.querySelectorAll(".sms-p"));
+      let open = 0;
+      const setOpen = (i) => { open = i; panels.forEach((p, n) => p.classList.toggle("is-open", n === i)); };
+      panels.forEach((p, i) => {
+        const bar = p.querySelector(".sms-bar");
+        if (bar) bar.addEventListener("click", () => setOpen(open === i ? 0 : i));
+      });
+    })();
     if (window.__lenis && typeof window.__lenis.destroy === "function") {
       try { window.__lenis.destroy(); } catch (e) {}
     }
