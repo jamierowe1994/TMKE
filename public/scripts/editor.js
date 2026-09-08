@@ -353,6 +353,7 @@
   function popoverIconButton(opts) {
     const wrap = document.createElement("div");
     wrap.className = "ed-pop-wrap";
+    if (opts.key) wrap.dataset.key = opts.key;
 
     const btn = document.createElement("button");
     btn.type = "button";
@@ -3791,11 +3792,13 @@
     function onUp() {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
       clearGuides();
       if (moved) pushHistory();
     }
     document.addEventListener("pointermove", onMove);
     document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
   }
 
   // Re-measure a single text element's height to its content and update the
@@ -6460,6 +6463,11 @@
         <button data-arrange="back">To back</button>
       </div>
     </div>`);
+    // On a phone the top bar has no room for the Position popover, so the
+    // same form sits here, under Arrange.
+    if (window.innerWidth <= 760) {
+      html.push('<div class="ed-props-section ed-props-section--position"><h4>Position</h4>' + positionFormHtml(el) + '</div>');
+    }
 
     // Lock is admin-only — customer flow doesn't get the affordance.
     html.push(`<div class="ed-props-section">
@@ -6500,6 +6508,7 @@
     // Position popover via bindGenericPropInputs so both surfaces stay
     // in lockstep.
     bindGenericPropInputs(body);
+    if (body.querySelector("#ed-pos-w")) bindRatioPair(body);
 
     // Circular colour swatches (open the rich colour panel — brand + recent +
     // design colours) in place of the native "long square" colour inputs.
@@ -7362,7 +7371,22 @@
     slot.src = src;
     const probe = new Image();
     probe.onload = function () {
-      const ratio = probe.naturalWidth / probe.naturalHeight || 1;
+      let ratio = probe.naturalWidth / probe.naturalHeight;
+      // Safari reports 0 x 0 for an SVG with no width/height of its own, which
+      // used to fall through to "square" - a wide wordmark then sat in a 75px
+      // box with its ends cut off. Measure it laid out instead.
+      if (!ratio || !isFinite(ratio)) {
+        try {
+          probe.style.cssText = "position:absolute;left:-9999px;top:0;height:100px;width:auto;visibility:hidden";
+          document.body.appendChild(probe);
+          const r = probe.getBoundingClientRect();
+          ratio = r.height ? r.width / r.height : 0;
+          probe.remove();
+        } catch (_) { ratio = 0; }
+      }
+      if (!ratio || !isFinite(ratio)) ratio = 1;
+      // A logo is shown whole, whatever box it ends up in.
+      slot.imgFit = "contain";
       let w = LOGO_MAX_W, h = LOGO_MAX_W / ratio;
       if (h > LOGO_MAX_H) { h = LOGO_MAX_H; w = LOGO_MAX_H * ratio; }
       slot.w = Math.round(w);
@@ -7402,6 +7426,9 @@
       else if (slot.autoHidden) { slot.hidden = false; delete slot.autoHidden; }
     });
 
+    // Slots filled before the fit was fixed may be cropping the logo: let
+    // them show the whole mark from now on.
+    slots.forEach(function (slot) { if (slot.type === "image" && slot.src && slot.imgFit !== "contain") slot.imgFit = "contain"; });
     if (!src) return;   // no logo in the kit — the name, or the hide above, covers it
     // Still text = still a placeholder. Once a slot has become an image it is
     // left alone, so reopening a design cannot overwrite a logo you swapped or
@@ -7681,6 +7708,27 @@
   }
 
   // ---------- Context bar (top, when element selected) ----------
+  // X / Y / W / H / rotation - the top bar's Position popover on a desktop,
+  // a section of the selection sheet on a phone. One markup for both.
+  function positionFormHtml(el) {
+    return '<div class="ed-props-row">' +
+        '<div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="' + el.x + '"></div>' +
+        '<div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="' + el.y + '"></div>' +
+      '</div>' +
+      '<div class="ed-props-row ed-props-row--wh">' +
+        '<div class="ed-props-field"><label>Width</label><input type="number" id="ed-pos-w" value="' + el.w + '"></div>' +
+        '<button type="button" class="ed-ratio-lock' + (ratioLocked ? " is-on" : "") + '" id="ed-pos-lock"' +
+          ' aria-pressed="' + (ratioLocked ? "true" : "false") + '"' +
+          ' title="' + (ratioLocked ? "Ratio locked — click to unlock" : "Lock the ratio") + '">' +
+          (ratioLocked ? LOCK_SHUT : LOCK_OPEN) + '</button>' +
+        '<div class="ed-props-field"><label>Height</label><input type="number" id="ed-pos-h" value="' + el.h + '"></div>' +
+      '</div>' +
+      '<div class="ed-props-row">' +
+        '<div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="' + (el.rotation || 0) + '"></div>' +
+        '<div class="ed-props-field"></div>' +
+      '</div>';
+  }
+
   function renderContextBar() {
     // Remember which panel was open, then take the old ones down with their
     // buttons. Restored at the end against the newly selected element.
@@ -7929,23 +7977,7 @@
       render: function () {
         const panel = document.createElement("div");
         panel.className = "ed-pop-panel ed-pop-form";
-        panel.innerHTML =
-          '<div class="ed-props-row">' +
-            '<div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="' + el.x + '"></div>' +
-            '<div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="' + el.y + '"></div>' +
-          '</div>' +
-          '<div class="ed-props-row ed-props-row--wh">' +
-            '<div class="ed-props-field"><label>Width</label><input type="number" id="ed-pos-w" value="' + el.w + '"></div>' +
-            '<button type="button" class="ed-ratio-lock' + (ratioLocked ? " is-on" : "") + '" id="ed-pos-lock"' +
-              ' aria-pressed="' + (ratioLocked ? "true" : "false") + '"' +
-              ' title="' + (ratioLocked ? "Ratio locked — click to unlock" : "Lock the ratio") + '">' +
-              (ratioLocked ? LOCK_SHUT : LOCK_OPEN) + '</button>' +
-            '<div class="ed-props-field"><label>Height</label><input type="number" id="ed-pos-h" value="' + el.h + '"></div>' +
-          '</div>' +
-          '<div class="ed-props-row">' +
-            '<div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="' + (el.rotation || 0) + '"></div>' +
-            '<div class="ed-props-field"></div>' +
-          '</div>';
+        panel.innerHTML = positionFormHtml(el);
         bindGenericPropInputs(panel);
         bindRatioPair(panel);
         return panel;
@@ -9728,6 +9760,10 @@
   // The customer studio's bundled library doesn't contain them, so inject the
   // rows into TEMPLATES first, then scope. Returns the design list; honours
   // { load: false } the same way as __TMKE_OPEN_PACK__.
+  // What is selected, by type - the phone's strip names it ("Shape selected").
+  window.__TMKE_SELECTED_TYPES__ = function () {
+    return state.selectedIds.map(function (id) { const e = getEl(id); return e ? e.type : null; }).filter(Boolean);
+  };
   window.__TMKE_OPEN_PACK_TEMPLATES__ = function (rows, opts) {
     const list = Array.isArray(rows) ? rows : [];
     const shaped = list.map((r) => ({
