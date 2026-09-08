@@ -4,6 +4,7 @@ import { getImage } from "astro:assets";
 import DiscoveryPanel from "../components/DiscoveryPanel.astro";
 import SMMForms from "../components/SMMForms.astro";
 import NavDrawer from "../components/NavDrawer.astro";
+import Nav from "../components/Nav.astro";
 import { COPY, SERVICE_TIERS, SHOW_TIER_PRICES } from "../lib/smm-config.js";
 import { gbpFromPence } from "../lib/supabase.js";
 
@@ -92,6 +93,9 @@ const total = 7;
       <button type="button" class="pf-top-menu" id="pf-top-menu" aria-label="Menu" aria-expanded="false" data-nav-drawer-open><span></span><span></span><span></span></button>
     </header>
 
+    <!-- Phones use the site's own top bar, as About does; the deck's bar is
+         for larger screens. -->
+    <div class="sm-sitenav"><Nav /></div>
     <div class="pf-stage" id="pf-deck" style={`--sm-hero-bg:url('${SMM_HERO_BG}')`}>
       <div class="pf-plane" id="pf-plane">
         <!-- Slide 1 (col 0,row 0) — uses the About lede layout EXACTLY (term +
@@ -347,6 +351,7 @@ const total = 7;
        [hidden]). */
     .sm-hud { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
     .sm-phone-bg { display: none; }
+    .sm-sitenav { display: none; }
     .sm-hud[hidden] { display: none; }
     .sm-line { position: absolute; left: 0; right: 0; top: 44%; height: 1px; background: rgba(240,238,235,0.3); }
     .sm-line-fill { position: absolute; left: 0; top: 0; height: 1px; background: var(--paper); width: 0; transition: width 1.1s cubic-bezier(.16,1,.3,1); }
@@ -776,27 +781,37 @@ const total = 7;
       /* Phone gutters match the rest of the site (22px), and the copy sits
          higher. Tall slides scroll inside themselves on a vertical drag; a
          sideways drag is what moves the deck. */
-      .pf-panel { padding: 84px 22px 56px; overflow-y: auto; touch-action: pan-y; }
+      .pf-panel { padding: 92px 22px 56px; overflow-y: auto; touch-action: pan-y; }
       .sm-feature-inner { left: 22px; right: 22px; top: 40%; }
       .sm-tag { left: 22px; }
-      .sm-services-text { padding: 76px 22px 20px; }
-      /* The final slide: one picture, then the three offers. */
-      .sm-cta-card { padding: 32px 22px; }
+      /* The site's top bar in place of the deck's; content starts 92px down,
+         the same line as the About page's, on the 22px gutter. */
+      .pf-top { display: none; }
+      .sm-sitenav { display: block; }
+      .sm-hero { padding: 0; }
+      .sm-cta-desc { max-width: none; }
+      .sm-services-text { padding: 0 0 20px; }
+      /* The final slide: one picture, then the three offers, on the gutter. */
+      .sm-ctas { padding: 92px 22px 56px; }
+      .sm-cta-card { padding: 0 0 32px; }
+      .sm-cta-card:not(:first-child) { padding-top: 32px; }
       .sm-cta-card:not(:first-child) .sm-cta-img { display: none; }
       .sm-cta-card:first-child .sm-cta-img { height: 26vh; }
       .sm-hero { height: 100%; display: flex; flex-direction: column; }
-      .sm-hero-header { flex: 1; display: flex; padding: 84px 22px 0; box-sizing: border-box; }
+      .sm-hero-header { flex: 1; display: flex; padding: 68px 22px 0; box-sizing: border-box; }
       .sm-hero-wrap { display: flex; flex-direction: column; flex: 1; width: 100%; max-width: none; }
       .sm-lede-grid { flex: 1; grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 20px; align-items: stretch; }
       .sm-lede-copy { display: block; width: auto; max-width: none; }
       .sm-lede-text { font-size: 15.5px; line-height: 1.6; max-width: none; }
-      .sm-lede-media { justify-self: stretch; display: flex; margin: 0 -22px; }
-      .sm-lede-media img { flex: 1; width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 42svh; }
+      .sm-lede-media { justify-self: stretch; display: flex; margin: 0; }
+      .sm-lede-media img { flex: 1 1 0; width: 100%; min-width: 0; max-width: 100%; height: auto; aspect-ratio: auto; object-fit: cover; min-height: 42svh; }
     }
   </style>
 
   <script>
     if (window.__lenis && typeof window.__lenis.destroy === "function") { try { window.__lenis.destroy(); } catch (e) {} }
+    // Phones show the site's top bar; it needs its on-paper look here.
+    if (window.innerWidth <= 600) document.body.classList.add("has-page-hero");
 
     // Portfolio pop-out
     const scrim = document.getElementById("sm-scrim");
