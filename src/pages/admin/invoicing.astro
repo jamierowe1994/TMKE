@@ -540,7 +540,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const body = {};
       for (const k of FIELDS) { const el = f.elements[k]; const v = el ? el.value.trim() : ""; body[k] = (["vat_rate", "payment_terms_days", "next_number"].includes(k)) ? (v === "" ? null : Number(v)) : (v || null); }
       btn.disabled = true; btn.textContent = "Saving…";
-      try { await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }); msg("inv-msg", "Saved.", true); }
+      try {
+        await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        // The preview and the builder on this page read from currentSettings;
+        // without this they showed the old details until the page was reloaded.
+        currentSettings = { ...currentSettings, ...body };
+        try { renderPreview(); } catch (_) {}
+        msg("inv-msg", "Saved.", true);
+      }
       catch (err) { msg("inv-msg", err.message, false); }
       finally { btn.disabled = false; btn.textContent = "Save details"; }
     });

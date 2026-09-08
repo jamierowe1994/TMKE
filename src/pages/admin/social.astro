@@ -1651,6 +1651,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       $("siv-items").querySelectorAll(".siv-del").forEach((el) => el.addEventListener("click", (e) => { sivItems.splice(+e.currentTarget.getAttribute("data-i"), 1); if (!sivItems.length) sivItems.push({ description: "", amount: "" }); sivRefreshItems(); }));
     }
     async function renderInvoicing(r, panel, docs, loading, warn) {
+      // Fresh every time the tab opens: the details may have been changed on
+      // the Invoicing page since this page loaded.
+      invSettings = null;
       await ensureInvSettings();
       const dt = { classic: "minimal", editorial: "minimal", modern: "banded" }[invSettings.template] || invSettings.template;
       sivTemplate = ["minimal", "banded"].includes(dt) ? dt : "minimal";
