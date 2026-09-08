@@ -259,11 +259,13 @@ const DEFAULT_COVER = (await getImage({
        the finish keep the flowing layout. */
     body.gr-fixed { overflow: hidden; }
     body.gr-fixed .gr-main { padding-bottom: 0; }
-    .gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - 14px); }
+    .gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - clamp(20px, 2.4vh, 34px)); }
     .gc.is-part .gc-progress { position: static; margin: 8px 0 12px; }
     .gc.is-part .gc-stage { flex: 1 1 auto; min-height: 0; }
     .gc.is-part .gc-slide--part { box-sizing: border-box; height: 100%; overflow-y: auto; padding-bottom: 96px; scrollbar-width: thin; }
-    .gc.is-part .gc-nav { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 14px clamp(26px, 3vw, 40px); background: var(--ws-card); border-top: 1px solid var(--ws-line); border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
+    .gc.is-part .gc-nav { position: absolute; left: 1px; right: 1px; bottom: 1px; margin: 0; padding: 14px clamp(26px, 3vw, 40px) 18px; background: var(--ws-card); border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
+    /* No rule above the buttons: the copy fades into the foot instead. */
+    .gc.is-part .gc-nav::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 28px; background: linear-gradient(to top, var(--ws-card), rgba(255,255,255,0)); pointer-events: none; }
     .gc-stage.is-centered { justify-content: center; }
     .gc-slide { animation: gcIn .42s cubic-bezier(.2,.7,.3,1); }
     @keyframes gcIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -515,7 +517,8 @@ const DEFAULT_COVER = (await getImage({
           const fit = () => { gc.style.setProperty("--gc-top", Math.max(0, Math.round(gc.getBoundingClientRect().top + window.scrollY)) + "px"); };
           fit(); requestAnimationFrame(fit);
           if (!gc._fitBound) { gc._fitBound = true; window.addEventListener("resize", fit); }
-          const slide = stage.querySelector(".gc-slide--part"); if (slide) slide.scrollTop = 0;
+          const slide = stage.querySelector(".gc-slide--part");
+          if (slide) { slide.scrollTop = 0; slide.setAttribute("data-lenis-prevent", ""); }
         }
         if (onPart){
           prevBtn.classList.toggle("gc-prev-hidden", false);
@@ -540,6 +543,16 @@ const DEFAULT_COVER = (await getImage({
 
       prevBtn.addEventListener("click", ()=> show(pos - 1));
       nextBtn.addEventListener("click", ()=> show(pos + 1));
+
+      // The page doesn't scroll on a part, so a wheel anywhere on it - over
+      // the header, the progress bar, the margins - moves the card's copy.
+      // Over the card itself the browser already does this.
+      window.addEventListener("wheel", (e)=>{
+        if (!document.body.classList.contains("gr-fixed")) return;
+        const slide = stage.querySelector(".gc-slide--part"); if (!slide) return;
+        if (slide.contains(e.target)) return;
+        slide.scrollTop += e.deltaY;
+      }, { passive: true });
 
       // Resume from the Learn card (?p=<part>) when asked; otherwise the overview.
       const jump = parseInt(new URLSearchParams(location.search).get("p"), 10);
