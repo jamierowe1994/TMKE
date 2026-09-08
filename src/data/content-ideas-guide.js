@@ -20,7 +20,9 @@ const grid = (items) => `<div class="ci-grid">${items.join("")}</div>`;
 const more = (items) => `<h3 class="ci-more">Four more from us</h3>${grid(items)}`;
 // The pack that carries this pillar's templates. `slug` empty until the pack
 // exists in The Edit; the card then links to the shop rather than nowhere.
-const packCard = (title, slug, line) => `<a class="ci-pack" href="${slug ? `/edit/${slug}` : "/edit"}">${ph("Pack image")}<span class="ci-pack-tx"><span class="ci-pack-eyebrow">Templates for this pillar</span><strong>${title}</strong><span>${line}</span><em>${slug ? "See the pack" : "Coming to The Edit"} &rarr;</em></span></a>`;
+// A pillar's pack. No slug = not in The Edit yet: the card is a teaser with
+// its own line ("Coming mid-October") rather than a link to nothing.
+const packCard = (title, slug, line, soon) => `<a class="ci-pack" href="${slug ? `/edit/${slug}` : "/edit"}">${ph("Pack image")}<span class="ci-pack-tx"><span class="ci-pack-eyebrow">${slug ? "Templates for this pillar" : "Coming soon"}</span><strong>${title}</strong><span>${line}</span><em>${slug ? "See the pack" : (soon || "Coming to The Edit")} &rarr;</em></span></a>`;
 
 export const CONTENT_IDEAS_GUIDE = {
   slug: "content-ideas",
@@ -74,7 +76,7 @@ ${more([
   card(11, "What clients are surprised by", "The small things people don't expect — the follow-ups, the honesty on price, the Saturday call.", "ci-card--new"),
   card(12, "The tools I couldn't work without", "The apps, the camera, the notebook. Practical, personal and easy to film.", "ci-card--new"),
 ])}
-${packCard("The Self-Employed Pack", "", "Introductions, day-in-the-life and story posts, ready for your face and your words.")}`,
+${packCard("The Self-Employed Pack", "", "Introductions, day-in-the-life and story posts, ready for your face and your words.", "Coming to The Edit mid-October")}`,
     },
     {
       title: "Educate and Empower",
@@ -161,7 +163,7 @@ ${more([
   card(11, "Commute check", "[Area] to the city, door to door, timed. The question every relocating buyer asks first.", "ci-card--new"),
   card(12, "Weekend in [area]", "Saturday morning to Sunday night: the market, the pub, the park. Sell the life, not the house.", "ci-card--new"),
 ])}
-${packCard("The Local Life Pack", "", "Area spotlights, shout-outs and neighbourhood guides in your colours.")}`,
+${packCard("Become The Name They Know", "become-the-name-they-know", "Area spotlights, shout-outs and neighbourhood guides in your colours.")}`,
     },
     {
       title: "Make Your Content Work Harder",
