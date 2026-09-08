@@ -4609,6 +4609,9 @@ const googleFonts = [
       .ed-pages { padding: 10px 12px; position: relative; }
       .ed-pages-close { position: absolute; top: 6px; right: 10px; appearance: none; border: 0; background: rgba(28,29,34,0.06); border-radius: 999px; padding: 4px 10px; font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--ink); cursor: pointer; }
       html, body { overscroll-behavior: none; }
+      .ed-pages-pill { position: fixed; right: 12px; bottom: calc(var(--ed-bar-h) + 12px); z-index: 44; appearance: none; border: 1px solid rgba(28,29,34,0.12); background: #fff; border-radius: 999px; padding: 7px 12px; font-family: var(--sans); font-size: 12px; font-weight: 600; color: var(--ink); box-shadow: 0 6px 18px -10px rgba(28,29,34,0.35); cursor: pointer; }
+      .editor.ed-sheet-open .ed-pages-pill { bottom: calc(var(--ed-bar-h) + var(--ed-sheet-h) + 12px); }
+      .ed-pages-pill[hidden] { display: none; }
     }
     .ed-pages-close { display: none; }
     @media (max-width: 760px) { .editor.show-pages .ed-pages-close { display: inline-block; } }
@@ -7006,7 +7009,7 @@ const googleFonts = [
       // templates arrive; showing that first read as the wrong templates
       // flashing up. Kept out of sight until the real ones are in.
       const gridEl = document.getElementById("ed-template-grid");
-      if (gridEl) gridEl.hidden = true;
+      if (gridEl) gridEl.style.display = "none";
 
       let loaded = false, loading = false;
       railBtn.addEventListener("click", async () => {
@@ -7023,7 +7026,7 @@ const googleFonts = [
           if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
             (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
             if (note) note.hidden = true;
-            if (gridEl) gridEl.hidden = false;
+            if (gridEl) gridEl.style.display = "";
             loaded = true;
             // Group by pack when they own more than one: the engine renders a
             // flat grid of buttons (with its own click handling), so the
@@ -7259,12 +7262,39 @@ const googleFonts = [
       // Adding from a tool sheet (a heading from Text, a square from Elements)
       // selects the new item but the engine keeps that tool's pane up. The
       // sheet drops to the strip so the item can be moved straight away.
+      // Whatever is selected - a shape, a text, anything added from a tool
+      // sheet - shows the strip; text never reaches the selection pane (the
+      // engine keeps the Text pane for it), so the canvas is watched rather
+      // than the panel. Nothing selected drops the strip.
       const canvasEl = document.getElementById("ed-canvas");
-      if (canvasEl) new MutationObserver(function () {
-        if (!PHONE.matches || mode !== "tool") return;
+      function syncSelection() {
+        if (!PHONE.matches) return;
         const types = (typeof window.__TMKE_SELECTED_TYPES__ === "function") ? window.__TMKE_SELECTED_TYPES__() : [];
-        if (types.length) openSheet("peek");
-      }).observe(canvasEl, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+        if (types.length) {
+          if (mode === "sel") { const t = document.getElementById("ed-sheet-title"); if (t) t.textContent = selectedLabel(); }
+          else if (mode === "peek") { const t = document.getElementById("ed-sheet-title"); if (t) t.textContent = selectedLabel(); }
+          else openSheet("peek");
+        } else if (mode === "peek" || mode === "sel") closeSheet();
+        syncPagesPill();
+      }
+      if (canvasEl) new MutationObserver(syncSelection).observe(canvasEl, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+
+      // More than one page: a pill above the tabs says which you are on and
+      // brings the strip back after Hide.
+      let pill = null;
+      function syncPagesPill() {
+        const info = (typeof window.__TMKE_PAGE_INFO__ === "function") ? window.__TMKE_PAGE_INFO__() : { count: 1, current: 0 };
+        const want = PHONE.matches && info.count > 1 && !editor.classList.contains("show-pages");
+        if (!want) { if (pill) pill.hidden = true; return; }
+        if (!pill) {
+          pill = document.createElement("button");
+          pill.type = "button"; pill.id = "ed-pages-pill"; pill.className = "ed-pages-pill";
+          pill.addEventListener("click", function () { const t = document.getElementById("ed-pages-toggle"); if (t) t.click(); });
+          editor.appendChild(pill);
+        }
+        pill.hidden = false;
+        pill.textContent = "Page " + (info.current + 1) + " of " + info.count;
+      }
       // A different item picked while the strip is up: the label follows it.
       stage.addEventListener("pointerup", function () {
         if (!PHONE.matches || (mode !== "peek" && mode !== "sel")) return;
@@ -7302,7 +7332,8 @@ const googleFonts = [
         new MutationObserver(ensurePagesClose).observe(pages, { childList: true });
       }
       // The strip opening or closing changes the room the design has.
-      new MutationObserver(function () { if (PHONE.matches) refit(); }).observe(editor, { attributes: true, attributeFilter: ["class"] });
+      new MutationObserver(function () { if (PHONE.matches) { refit(); syncPagesPill(); } }).observe(editor, { attributes: true, attributeFilter: ["class"] });
+      syncPagesPill();
 
       PHONE.addEventListener("change", function () { if (!PHONE.matches) closeSheet(); else refit(); });
     })();

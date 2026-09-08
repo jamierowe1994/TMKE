@@ -9761,6 +9761,9 @@
   // rows into TEMPLATES first, then scope. Returns the design list; honours
   // { load: false } the same way as __TMKE_OPEN_PACK__.
   // What is selected, by type - the phone's strip names it ("Shape selected").
+  window.__TMKE_PAGE_INFO__ = function () {
+    return { count: state.pages.length, current: state.currentPage };
+  };
   window.__TMKE_SELECTED_TYPES__ = function () {
     return state.selectedIds.map(function (id) { const e = getEl(id); return e ? e.type : null; }).filter(Boolean);
   };
