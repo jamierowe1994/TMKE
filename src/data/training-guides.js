@@ -15,7 +15,7 @@ const ul = (...items) => `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>
 const tip = (t) => `<p class="ci-rhythm"><strong>Tip.</strong> ${t}</p>`;
 // "Where to go first": a wide card with a picture beside it, the whole row a
 // link to the place it talks about.
-const go = (items) => items.map(([t, b, href], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><span class="ci-no">${String(i + 1).padStart(2, "0")}</span><strong>${t}</strong><span>${b}</span></span>${ph("Image")}</a>`).join("");
+const go = (items) => items.map(([t, b, href], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><strong><span class="ci-no">${String(i + 1).padStart(2, "0")}</span>${t}</strong><span>${b}</span></span>${ph("Image")}</a>`).join("");
 
 const guide = (o) => ({
   kind: "course", topic: "getting-started", status: "published", audience: "members",
