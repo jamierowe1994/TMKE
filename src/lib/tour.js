@@ -137,6 +137,11 @@ const FIRST_LOGIN = [
 let STEPS = FIRST_LOGIN;
 let activeWalk = null;   // walk id, or null for the first-login tour
 let returnTo = null;     // where a walk goes back to when it finishes
+let menuBack = null;     // a walk with a menu to return to when this one finishes
+const onThisPage = (step) => step.path === '*' || step.path === path();
+const LS_WALKED = 'tmke.walked';  // which area walks this member has finished (this browser)
+function walkedSet() { try { return new Set(JSON.parse(localStorage.getItem(LS_WALKED) || '[]')); } catch (_) { return new Set(); } }
+function markWalked(id) { try { const st = walkedSet(); st.add(id); localStorage.setItem(LS_WALKED, JSON.stringify([...st])); } catch (_) {} }
 const PRE = { dismissEditorOnboarding: () => dismissEditorOnboarding() };
 function loadWalk(id) {
   const w = WALKS[id];
@@ -194,58 +199,80 @@ function injectStyles() {
                 width .36s cubic-bezier(.4,.7,.2,1), height .36s cubic-bezier(.4,.7,.2,1);
   }
   .tmke-tour.is-center .tmke-tour-ring { display: none; }
+  /* The card wears the pop-outs' scale (Trending, Seasonal): small-caps
+     eyebrow, serif title in the low twenties, 14px sans body. */
   .tmke-tour-card {
-    position: fixed; width: min(380px, calc(100vw - 32px));
-    background: #f7f6f2; color: var(--ink, #1c1d22);
-    border: 1px solid rgba(55, 30, 40,0.18); border-radius: 6px;
-    box-shadow: 0 30px 70px -28px rgba(28,29,34,0.55);
-    padding: 24px 24px 18px;
+    position: fixed; width: min(360px, calc(100vw - 32px));
+    background: #fff; color: var(--ws-ink, #1c1d22);
+    border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
+    box-shadow: 0 30px 70px -28px rgba(28,29,34,0.5);
+    padding: 20px 22px 16px;
     opacity: 0; transform: translateY(8px);
     transition: opacity .35s ease, transform .35s cubic-bezier(.2,.75,.2,1), top .3s ease, left .3s ease;
   }
   .tmke-tour-card.is-in { opacity: 1; transform: translateY(0); }
   .tmke-tour-card.is-center {
-    left: 50%; top: 50%; transform: translate(-50%, calc(-50% + 8px)); width: min(560px, calc(100vw - 32px));
-    text-align: left; padding: 38px 40px 26px;
+    left: 50%; top: 50%; transform: translate(-50%, calc(-50% + 8px)); width: min(520px, calc(100vw - 32px));
+    text-align: left; padding: 28px 30px 22px;
   }
   .tmke-tour-card.is-center.is-in { transform: translate(-50%, -50%); }
   .tmke-tour-eyebrow {
-    font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; font-weight: 700;
-    color: var(--english-violet, #371e28); margin: 0 0 12px;
+    font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
+    color: var(--ws-accent, #4a2a3c); margin: 0 0 8px;
   }
   .tmke-tour-title {
-    font-family: var(--serif, Georgia, serif); font-weight: 400; letter-spacing: -0.02em;
-    font-size: clamp(26px, 3.4vw, 34px); line-height: 1.06; color: var(--ink, #1c1d22); margin: 0 0 12px;
+    font-family: var(--serif, Georgia, serif); font-weight: 400; letter-spacing: -0.015em;
+    font-size: clamp(20px, 1.8vw, 24px); line-height: 1.12; color: var(--ws-ink, #1c1d22); margin: 0 0 8px;
   }
-  .tmke-tour-card.is-center .tmke-tour-title { font-size: clamp(34px, 5vw, 52px); margin-bottom: 16px; }
-  .tmke-tour-title em { font-style: italic; color: var(--english-violet, #371e28); }
+  .tmke-tour-card.is-center .tmke-tour-title { font-size: clamp(24px, 2.4vw, 30px); margin-bottom: 10px; }
+  .tmke-tour-title em { font-style: italic; color: var(--ws-accent, #4a2a3c); }
   .tmke-tour-body {
-    font-family: var(--serif, Georgia, serif); font-size: 16px; line-height: 1.55;
-    color: rgba(28,29,34,0.72); margin: 0 0 22px;
+    font-family: var(--sans, system-ui, sans-serif); font-size: 14px; line-height: 1.45;
+    color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 16px;
   }
-  .tmke-tour-card.is-center .tmke-tour-body { font-size: 18px; max-width: 46ch; }
-  .tmke-tour-foot { display: flex; align-items: center; gap: 14px; }
-  .tmke-tour-progress { font-size: 12px; letter-spacing: 0.18em; font-weight: 700; color: rgba(28,29,34,0.4); }
+  .tmke-tour-card.is-center .tmke-tour-body { max-width: 52ch; }
+  /* The menu: one button per area of the hub. */
+  .tmke-tour-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 16px; }
+  .tmke-tour-menu button {
+    appearance: none; cursor: pointer; text-align: left;
+    display: flex; flex-direction: column; gap: 2px; padding: 11px 12px;
+    background: #fff; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
+    font-family: var(--sans, system-ui, sans-serif); color: var(--ws-ink, #1c1d22);
+    transition: border-color .2s, transform .2s;
+  }
+  .tmke-tour-menu button:hover { border-color: var(--ws-accent, #4a2a3c); transform: translateY(-1px); }
+  .tmke-tour-menu button b { font-size: 13px; font-weight: 600; }
+  .tmke-tour-menu button i { font-style: normal; font-size: 11.5px; line-height: 1.35; color: var(--ws-faint, rgba(28,29,34,0.5)); }
+  .tmke-tour-menu button.is-done b::after { content: " ✓"; color: var(--ws-accent, #4a2a3c); }
+  .tmke-tour-skipto {
+    appearance: none; background: none; border: 0; padding: 0; cursor: pointer; margin: -6px 0 16px;
+    font-family: var(--sans, system-ui, sans-serif); font-size: 12.5px; font-weight: 600; color: var(--ws-accent, #4a2a3c);
+  }
+  .tmke-tour-skipto:hover { text-decoration: underline; }
+  .tmke-tour-foot { display: flex; align-items: center; gap: 12px; }
+  .tmke-tour-progress { font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.18em; font-weight: 700; color: var(--ws-faint, rgba(28,29,34,0.45)); }
   .tmke-tour-spacer { flex: 1; }
   .tmke-tour-skip {
-    appearance: none; background: none; border: 0; padding: 6px 2px; cursor: pointer;
-    font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700;
-    color: rgba(28,29,34,0.45); transition: color .2s;
+    appearance: none; background: none; border: 0; padding: 6px 0; cursor: pointer;
+    font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
+    color: var(--ws-faint, rgba(28,29,34,0.45)); transition: color .2s;
   }
-  .tmke-tour-skip:hover { color: var(--english-violet, #371e28); }
+  .tmke-tour-skip:hover { color: var(--ws-accent, #4a2a3c); }
   .tmke-tour-back {
-    appearance: none; background: none; border: 0; padding: 9px 4px; cursor: pointer;
-    font-family: var(--serif, Georgia, serif); font-style: italic; font-size: 15px;
-    color: rgba(28,29,34,0.55); transition: color .2s;
+    appearance: none; cursor: pointer; height: 30px; padding: 0 14px; border-radius: var(--ws-r, 4px);
+    background: #fff; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); color: var(--ws-ink, #1c1d22);
+    font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+    transition: border-color .2s;
   }
-  .tmke-tour-back:hover { color: var(--ink, #1c1d22); }
+  .tmke-tour-back:hover { border-color: var(--ws-accent, #4a2a3c); }
   .tmke-tour-next {
-    appearance: none; cursor: pointer; border: 0; border-radius: 3px;
-    background: var(--english-violet, #371e28); color: #fff;
-    font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
-    padding: 11px 20px; transition: background .2s, transform .2s;
+    appearance: none; cursor: pointer; border: 0; height: 30px; padding: 0 16px; border-radius: var(--ws-r, 4px);
+    background: var(--ws-accent, #4a2a3c); color: #fff;
+    font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+    transition: background .2s, transform .2s;
   }
-  .tmke-tour-next:hover { background: var(--ink, #1c1d22); transform: translateY(-1px); }
+  .tmke-tour-next:hover { background: var(--ws-ink, #1c1d22); transform: translateY(-1px); }
+  .tmke-tour-next[hidden], .tmke-tour-back[hidden] { display: none; }
   @media (prefers-reduced-motion: reduce) {
     .tmke-tour-mask, .tmke-tour-ring, .tmke-tour-card { transition: opacity .2s ease; }
   }`;
@@ -271,6 +298,8 @@ function buildDOM() {
       <p class="tmke-tour-eyebrow" data-eyebrow></p>
       <h2 class="tmke-tour-title" data-title></h2>
       <p class="tmke-tour-body" data-body></p>
+      <button type="button" class="tmke-tour-skipto" data-skipto hidden>Skip to the menu &rarr;</button>
+      <div class="tmke-tour-menu" data-menu hidden></div>
       <div class="tmke-tour-foot">
         <button type="button" class="tmke-tour-skip" data-skip>Skip tour</button>
         <span class="tmke-tour-spacer"></span>
@@ -291,6 +320,8 @@ function buildDOM() {
     eyebrow: root.querySelector('[data-eyebrow]'),
     title: root.querySelector('[data-title]'),
     body: root.querySelector('[data-body]'),
+    skipto: root.querySelector('[data-skipto]'),
+    menu: root.querySelector('[data-menu]'),
     progress: root.querySelector('[data-progress]'),
     skip: root.querySelector('[data-skip]'),
     back: root.querySelector('[data-back]'),
@@ -299,6 +330,15 @@ function buildDOM() {
   els.skip.addEventListener('click', () => finish(false));
   els.back.addEventListener('click', goBack);
   els.next.addEventListener('click', goNext);
+  els.skipto.addEventListener('click', () => {
+    const i = STEPS.findIndex((st) => st.menu);
+    if (i >= 0) { writeState({ active: true, index: i, walk: activeWalk, returnTo, menu: menuBack }); render(i); }
+  });
+  els.menu.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-walk]'); if (!b) return;
+    // The chosen area's walk; when it finishes it comes back to this menu.
+    startWalk(b.dataset.walk, { returnTo, menu: activeWalk });
+  });
   document.addEventListener('keydown', onKey, true);
   window.addEventListener('resize', scheduleReflow, { passive: true });
   window.addEventListener('scroll', scheduleReflow, { passive: true, capture: true });
@@ -477,6 +517,19 @@ async function render(index) {
   els.back.style.visibility = index === 0 ? 'hidden' : 'visible';
   els.next.textContent = (step.isFinish || index === STEPS.length - 1) ? 'Finish' : 'Next';
   els.skip.textContent = activeWalk ? 'Stop' : 'Skip tour';
+  // A menu step: the areas as buttons, Done instead of Next, no Back.
+  els.skipto.hidden = !step.skipToMenu;
+  if (step.menu) {
+    const done = walkedSet();
+    els.menu.innerHTML = step.menu.map((m) =>
+      `<button type="button" data-walk="${m.walk}" class="${done.has(m.walk) ? 'is-done' : ''}"><b>${m.label}</b>${m.note ? `<i>${m.note}</i>` : ''}</button>`).join('');
+    els.menu.hidden = false;
+    els.next.textContent = 'Done';
+    els.back.style.visibility = 'hidden';
+    els.progress.textContent = '';
+  } else {
+    els.menu.hidden = true;
+  }
 
   positionFor(step);
   nextTick(() => els.card.classList.add('is-in'));
@@ -489,8 +542,8 @@ function advance(fromIndex, dir, autoSkipped) {
   if (nextIndex < 0) return; // already at start
   if (nextIndex >= STEPS.length) return finish(true);
   const next = STEPS[nextIndex];
-  writeState({ active: true, index: nextIndex, walk: activeWalk, returnTo });
-  if (next.path !== path()) {
+  writeState({ active: true, index: nextIndex, walk: activeWalk, returnTo, menu: menuBack });
+  if (!onThisPage(next)) {
     if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
     location.assign(next.href || next.path);
     return;
@@ -500,7 +553,7 @@ function advance(fromIndex, dir, autoSkipped) {
 
 function goNext() {
   const step = STEPS[activeIndex];
-  if (step && step.isFinish) return finish(true);
+  if (step && (step.isFinish || step.menu)) return finish(true);
   advance(activeIndex, +1);
 }
 function goBack() { if (activeIndex > 0) advance(activeIndex, -1); }
@@ -509,9 +562,17 @@ function finish(completed) {
   if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
   if (activeWalk) {
     clearState();
-    const back = returnTo;
-    activeWalk = null; returnTo = null; STEPS = FIRST_LOGIN;
+    const back = returnTo, menu = menuBack, walked = activeWalk;
+    if (completed) markWalked(walked);
+    activeWalk = null; returnTo = null; menuBack = null; STEPS = FIRST_LOGIN;
     if (els) { els.card.classList.remove('is-in'); setTimeout(teardownDOM, 260); }
+    // An area walk opened from a menu goes back to that menu, wherever we
+    // are now; the menu itself, and a walk opened from a lesson, go home.
+    if (menu && WALKS[menu]) {
+      const at = WALKS[menu].steps.findIndex((st) => st.menu);
+      setTimeout(() => startWalk(menu, { returnTo: back, at: at >= 0 ? at : 0 }), 280);
+      return;
+    }
     if (back) setTimeout(() => location.assign(back), completed ? 280 : 0);
     return;
   }
@@ -538,12 +599,13 @@ export function initTour(opts = {}) {
   if (state.walk) {
     if (!loadWalk(state.walk)) { clearState(); return; }
     returnTo = state.returnTo || null;
+    menuBack = state.menu || null;
   } else if (isDone()) { clearState(); return; }
   const step = STEPS[state.index];
   if (!step) { clearState(); return; }
   // Only render if this step belongs to the current page. (If state points at
   // another page we likely arrived mid-navigation — leave it for that page.)
-  if (step.path !== path()) return;
+  if (!onThisPage(step)) return;
   // Defer one tick so the page's own bootstrap/layout settles first.
   nextTick(() => render(state.index));
 }
@@ -571,10 +633,12 @@ function markLocalDone() { try { localStorage.setItem(LS_DONE, '1'); } catch (_)
 export function startWalk(id, opts = {}) {
   if (!loadWalk(id)) return false;
   returnTo = opts.returnTo || null;
+  menuBack = opts.menu || null;
   if (els) teardownDOM();
-  writeState({ active: true, index: 0, walk: id, returnTo });
-  const first = STEPS[0];
-  if (first.path !== path()) { location.assign(first.href || first.path); return true; }
-  nextTick(() => render(0));
+  const at = Math.max(0, Math.min(STEPS.length - 1, opts.at || 0));
+  writeState({ active: true, index: at, walk: id, returnTo, menu: menuBack });
+  const first = STEPS[at];
+  if (!onThisPage(first)) { location.assign(first.href || first.path); return true; }
+  nextTick(() => render(at));
   return true;
 }

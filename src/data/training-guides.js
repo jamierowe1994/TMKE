@@ -26,7 +26,7 @@ export const TRAINING_GUIDES = [
       { title: "The hub at a glance", walk: "hub-tour", video_url: "",
         body_html:
           p("Your hub is one place for the four things that make marketing happen: designs, a plan, your brand, and bookings. The tabs along the top take you between them; the dashboard shows you what needs attention today.") +
-          p("The quickest way to learn it is to walk it. <strong>Show me</strong> below opens the dashboard and points out each part in turn, one card at a time. Press Next to move on and Finish to come back here.") +
+          p("The quickest way to learn it is to walk it. <strong>Show me</strong> below opens the dashboard and points out each part, then offers a menu of the hub's areas: Studio, Planner, Orders, Bookings, Your SMM and Learn. Walk the ones you want, in any order; each brings you back to the menu, and Done brings you back here.") +
           tip("Nothing in a walkthrough changes anything. Click about as much as you like.") },
       { title: "The tabs, and what each is for",
         body_html:
