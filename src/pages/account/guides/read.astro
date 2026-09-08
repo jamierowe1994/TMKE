@@ -253,6 +253,17 @@ const DEFAULT_COVER = (await getImage({
        (and the completion slide) so the course reads like a click-through deck.
        The overview slide stays top-aligned. */
     .gc-stage { position: relative; min-height: min(56vh, 520px); display: flex; flex-direction: column; justify-content: flex-start; }
+    /* A part fills the screen: the page stops scrolling, the white card runs
+       from under the progress bar to just off the bottom, the copy scrolls
+       inside it, and Previous / Next sit on the card's foot. The cover and
+       the finish keep the flowing layout. */
+    body.gr-fixed { overflow: hidden; }
+    body.gr-fixed .gr-main { padding-bottom: 0; }
+    .gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - 14px); }
+    .gc.is-part .gc-progress { position: static; margin: 8px 0 12px; }
+    .gc.is-part .gc-stage { flex: 1 1 auto; min-height: 0; }
+    .gc.is-part .gc-slide--part { box-sizing: border-box; height: 100%; overflow-y: auto; padding-bottom: 96px; scrollbar-width: thin; }
+    .gc.is-part .gc-nav { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; padding: 14px clamp(26px, 3vw, 40px); background: var(--ws-card); border-top: 1px solid var(--ws-line); border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
     .gc-stage.is-centered { justify-content: center; }
     .gc-slide { animation: gcIn .42s cubic-bezier(.2,.7,.3,1); }
     @keyframes gcIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -494,6 +505,18 @@ const DEFAULT_COVER = (await getImage({
         // Bottom nav shows on content parts only; intro/done have their own buttons.
         const onPart = pos >= 1 && pos <= N;
         nav.hidden = !onPart;
+        // Parts fill the screen and scroll inside the card; the page itself
+        // holds still. Measured, because the header and the main's padding
+        // above the course differ by screen.
+        const gc = $("#gr-course");
+        document.body.classList.toggle("gr-fixed", onPart);
+        gc.classList.toggle("is-part", onPart);
+        if (onPart) {
+          const fit = () => { gc.style.setProperty("--gc-top", Math.max(0, Math.round(gc.getBoundingClientRect().top + window.scrollY)) + "px"); };
+          fit(); requestAnimationFrame(fit);
+          if (!gc._fitBound) { gc._fitBound = true; window.addEventListener("resize", fit); }
+          const slide = stage.querySelector(".gc-slide--part"); if (slide) slide.scrollTop = 0;
+        }
         if (onPart){
           prevBtn.classList.toggle("gc-prev-hidden", false);
           prevLabel.textContent = pos === 1 ? "Overview" : "Previous";
@@ -507,7 +530,7 @@ const DEFAULT_COVER = (await getImage({
           d.classList.toggle("is-done", part < pos || pos === LAST);
         });
 
-        if (pos !== 0) window.scrollTo({ top: 0, behavior: "smooth" });
+        window.scrollTo({ top: 0, behavior: onPart ? "auto" : "smooth" });
 
         // Save progress once they've actually started (past the overview).
         maxReached = Math.max(maxReached, pos);
