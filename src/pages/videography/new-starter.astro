@@ -75,7 +75,7 @@ const termsHtml =
         <!-- 1. Day -->
         <section class="dc-step" id="ns-step-day" hidden>
           <h2 class="dc-step-title">Choose your <em>day.</em></h2>
-          <p class="dc-step-sub">These are your two studio days — the last Tuesday and Wednesday of the month.</p>
+          <p class="dc-step-sub" id="ns-days-sub">These are your two studio days — the last Tuesday and Wednesday of the month.</p>
           <div class="dc-choices" id="ns-days"></div>
         </section>
 
@@ -210,9 +210,15 @@ const termsHtml =
     }
     const mMatch = (params.get("month") || "").match(/^(\d{4})-(\d{2})$/);
     const shootMonth = mMatch ? new Date(+mMatch[1], +mMatch[2] - 1, 1) : new Date();
-    const NEW_STARTER_DATES = lastTueWed(shootMonth.getFullYear(), shootMonth.getMonth());
+    // Months that break the pattern (mirrored in the Worker, which enforces it).
+    // September 2026: one day, 9:30 and 2:30, around Jack's noon shoot.
+    const OVERRIDES = { "2026-09": { dates: ["2026-09-29"], slots: [["09:30", "Morning · 9:30am"], ["14:30", "Afternoon · 2:30pm"]] } };
+    const monthKey = `${shootMonth.getFullYear()}-${String(shootMonth.getMonth() + 1).padStart(2, "0")}`;
+    const override = OVERRIDES[monthKey] || null;
+    const NEW_STARTER_DATES = override ? override.dates : lastTueWed(shootMonth.getFullYear(), shootMonth.getMonth());
     // Half-day sessions — a morning and an afternoon slot on each day.
-    const SLOTS = [["10:00", "Morning · 10:00am"], ["14:00", "Afternoon · 2:00pm"]];
+    const SLOTS = override ? override.slots : [["10:00", "Morning · 10:00am"], ["14:00", "Afternoon · 2:00pm"]];
+    if (NEW_STARTER_DATES.length === 1) { const sub = document.getElementById("ns-days-sub"); if (sub) sub.textContent = "This month there is one studio day."; }
 
     const fmtDay = (iso) => { const d = new Date(iso + "T00:00:00"); return { dow: d.toLocaleDateString("en-GB", { weekday: "long" }), day: d.toLocaleDateString("en-GB", { day: "numeric", month: "long" }), full: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) }; };
     const hm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;

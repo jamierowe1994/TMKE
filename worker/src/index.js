@@ -415,6 +415,13 @@ async function ensureAgentProfile(env, contactId, contact, input) {
   return { ...row, _enrolled: enrol };
 }
 
+// Months where the studio days aren't the usual last Tuesday + Wednesday with
+// 10:00 / 14:00 halves. September 2026: one day, morning ends at 12:00 because
+// Jack has a shoot at noon. [start, minutes]. Mirrored on the booking page.
+const NEW_STARTER_OVERRIDES = {
+  "2026-09": { dates: ["2026-09-29"], slots: [["09:30", 150], ["14:30", 180]] },
+};
+
 // ── TEG new-starter Google Sheet → CRM sync ────────────────────────────────
 // The TEG-owned sheet is the single entry point: adding a Pro/Academy row auto-
 // creates the contact + agent_profile + code and enrols them into the funnel.
@@ -544,19 +551,25 @@ function sheetWhenText(iso) {
 // not the Pixieset one, which gates downloads. Reads the newest booking under
 // either of their addresses.
 async function agentSheetFieldsFor(env, emails) {
-  const list = emails.filter(Boolean).map((e) => String(e).toLowerCase());
-  if (!list.length) return {};
-  const q = `client_email=in.(${list.map((e) => `"${e.replace(/"/g, "")}"`).join(",")})&order=created_at.desc&limit=1&select=id,shoot_date,stage`;
+  const list = emails.filter(Boolean).map((e) => String(e).toLowerCase().replace(/[(),"]/g, ""));
+  if (!list.length) return { _why: "no email" };
+  // Case-insensitive: a booking typed by hand may carry capitals the sheet doesn't.
+  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=1&select=id,shoot_date,stage,archive_url,client_email`;
   const bks = await sbGet(env, "videography_bookings", q);
   const bk = bks && bks[0];
-  if (!bk) return {};
-  const fields = {};
+  if (!bk) return { _why: "no booking under " + list.join(" / ") };
+  const fields = { _booking: bk.id, _stage: bk.stage };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
-  const dls = await sbGet(env, "videography_deliveries", `booking_id=eq.${encodeURIComponent(bk.id)}&select=token,status`);
-  const dl = dls && dls[0];
-  if (dl && dl.token && (dl.status === "sent" || dl.status === "paid")) {
-    const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
-    fields.link = `${site}/deliver?d=${dl.token}`;
+  // The Content Link is the person's folder in our storage; failing that, the
+  // gallery page once the delivery has been sent. Never the Pixieset link.
+  if (bk.archive_url) fields.link = bk.archive_url;
+  else {
+    const dls = await sbGet(env, "videography_deliveries", `booking_id=eq.${encodeURIComponent(bk.id)}&select=token,status`);
+    const dl = dls && dls[0];
+    if (dl && dl.token && (dl.status === "sent" || dl.status === "paid")) {
+      const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+      fields.link = `${site}/deliver?d=${dl.token}`;
+    } else fields._why = dl ? `delivery is ${dl.status}, no folder link yet` : "no folder or delivery yet";
   }
   return fields;
 }
@@ -645,11 +658,12 @@ async function syncAgentSheet(env) {
       // Reads the sheet rows already in hand, so one sync is one read.
       try {
         const fields = await agentSheetFieldsFor(env, [email, sec]);
+        detail.writeback = { booking: fields._booking || null, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
         if (fields.booked || fields.link) {
-          const w = await agentSheetWrite(env, email, fields, rows);
-          if (w) { detail.wrote = w.wrote; if (w.missing.length) detail.missing_columns = w.missing; written += w.wrote.length; }
+          const w = await agentSheetWrite(env, email, { booked: fields.booked, link: fields.link }, rows);
+          if (w) { detail.writeback.wrote = w.wrote; detail.writeback.missing_columns = w.missing; written += w.wrote.length; }
         }
-      } catch (e) { writeError = String((e && e.message) || e).slice(0, 160); }
+      } catch (e) { writeError = String((e && e.message) || e).slice(0, 160); detail.writeback = { error: writeError }; }
       details.push(detail);
     } catch (e) {
       skipped++;
@@ -4089,7 +4103,13 @@ export default {
         const em = String((b && b.email) || "").trim().toLowerCase();
         if (!date || !start || !name || !em) return json({ error: "Missing booking details." }, 400, request, env);
         if (!password || String(password).length < 8) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
-        const dur = 180; // half-day = 3 hours
+        // Half-day = 3 hours, except where the day is squeezed around another
+        // shoot (kept in step with NEW_STARTER_OVERRIDES on the booking page).
+        const ov = NEW_STARTER_OVERRIDES[String(date).slice(0, 7)];
+        if (ov && !ov.dates.includes(date)) return json({ error: "That date isn't a studio day this month - please pick from the dates shown." }, 400, request, env);
+        const ovSlot = ov && ov.slots.find((x) => x[0] === start);
+        if (ov && !ovSlot) return json({ error: "That time isn't available on this studio day - please pick from the times shown." }, 400, request, env);
+        const dur = ovSlot ? ovSlot[1] : 180;
         const endHm = minToHm(hmToMin(start) + dur);
 
         // 0) The single-use code must exist and still be live. It's voided when an

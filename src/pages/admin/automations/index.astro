@@ -249,7 +249,19 @@ import "../../../styles/admin.css";
           `Cells written this run: ${j.written || 0}`,
           j.write_error ? `Write failed: ${j.write_error}\n(The sheet needs to be shared with EDIT access to the service account.)` : null,
         ].filter(Boolean).join("\n");
-        alert(`Synced.\n\nRows read: ${j.rows}\nNew starters processed: ${j.processed}\nEnrolled in a funnel: ${j.enrolled}\nCancelled (code voided + DND): ${j.cancelled || 0}\nSkipped (not Pro/Academy or no email): ${j.skipped}\n\nWrite-back\n${wb}`);
+        const perRow = (j.details || []).filter((d) => d.writeback).map((d) => {
+          const w = d.writeback;
+          if (w.error) return `Row ${d.row} ${d.email}: write failed - ${w.error}`;
+          if (!w.booking) return `Row ${d.row} ${d.email}: ${w.why || "no booking"}`;
+          const bits = [];
+          bits.push(w.booked ? `booked ${w.booked}` : "no shoot date on the booking");
+          bits.push(w.link ? "link ready" : (w.why || "no link yet"));
+          if (w.wrote && w.wrote.length) bits.push(`wrote: ${w.wrote.join(", ")}`);
+          else if (w.booked || w.link) bits.push("already on the sheet");
+          if (w.missing_columns && w.missing_columns.length) bits.push(`no column for: ${w.missing_columns.join(", ")}`);
+          return `Row ${d.row} ${d.email}: ${bits.join(" · ")}`;
+        }).join("\n");
+        alert(`Synced.\n\nRows read: ${j.rows}\nNew starters processed: ${j.processed}\nEnrolled in a funnel: ${j.enrolled}\nCancelled (code voided + DND): ${j.cancelled || 0}\nSkipped (not Pro/Academy or no email): ${j.skipped}\n\nWrite-back\n${wb}${perRow ? "\n\n" + perRow : ""}`);
         await load();
       } catch (e) { alert("Sync failed: " + (e && e.message || e)); }
       finally { btn.disabled = false; btn.textContent = prev; }
