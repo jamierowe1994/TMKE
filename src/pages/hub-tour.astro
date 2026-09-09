@@ -1,0 +1,282 @@
+---
+/**
+ * A Clearer Way — the Member Hub, shown as a short film that plays itself.
+ *
+ * Two journeys, not a list of features: "I need something to post" and
+ * "I want to get better at this". Each scene is a real screen from the hub
+ * with one headline and one line. The film runs on its own with a progress
+ * strip along the top; tap or arrow to move, hold or press space to pause.
+ * Public and unlisted, meant to be linked from emails.
+ *
+ * Scenes are the SCENES array below. `img` is a JPEG in /public/hub-tour
+ * (captured from the hub's demo views); `focus` is where the slow drift
+ * settles (CSS object-position); `kind` "card" scenes carry no picture.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const SCENES = [
+  { kind: "card", eyebrow: "The TMKE Member Hub", h: "It doesn’t give estate agents more marketing tools.", p: "It gives them a clearer way to actually do their marketing.", secs: 6.5 },
+
+  { kind: "card", act: "01", h: "“I need something to post.”", secs: 4 },
+  { img: "planner", focus: "50% 40%", eyebrow: "Planner", h: "A planner that already has ideas in it.", p: "Not another blank calendar. Property-specific prompts sit on the days, so there is somewhere to start.", secs: 7 },
+  { img: "dash-prompt", focus: "64% 18%", zoom: 1.35, eyebrow: "Today’s prompt", h: "A prompt you can act on.", p: "Choose one and go straight to making it. The plan and the post are the same journey.", secs: 7 },
+  { img: "studio", focus: "50% 70%", eyebrow: "The Edit", h: "Start with something already built for the job.", p: "Packs of property, community, lifestyle and seasonal content, designed by people who know the industry.", secs: 7 },
+  { img: "editor-templates", focus: "18% 45%", zoom: 1.25, eyebrow: "Studio", h: "Open the right starting point.", p: "Every design from the packs you own, one tap from the canvas.", secs: 6.5 },
+  { img: "editor-text", focus: "16% 30%", zoom: 1.25, eyebrow: "Studio", h: "Make it yours without becoming a designer.", p: "Change the words, the pictures and the colours. What matters to your business, nothing you don’t need.", secs: 7 },
+  { kind: "chat", eyebrow: "Creative Assistant", h: "Stuck on the wording? Ask.", p: "A marketing assistant that understands property. A rough thought in, a usable caption out.", secs: 8 },
+  { img: "editor", focus: "62% 55%", zoom: 1.2, eyebrow: "Studio", h: "Ready to use.", p: "Download it, schedule it or send it to your planner. From “I need to post” to “it’s done”.", secs: 7 },
+
+  { kind: "card", act: "02", h: "“I want to get better at this.”", secs: 4 },
+  { img: "guides", focus: "50% 30%", eyebrow: "Learning Centre", h: "Training made for estate agency.", p: "Mini-courses and guides written for agents, not for every business on the internet.", secs: 7 },
+  { img: "dash-prompt", focus: "50% 78%", zoom: 1.3, eyebrow: "Insights", h: "Current ideas alongside the fundamentals.", p: "Monthly insights on the formats and trends worth your time, next to the guides that don’t date.", secs: 7 },
+  { img: "dash", focus: "40% 45%", eyebrow: "Dashboard", h: "And back to making something.", p: "Everything you learn leads somewhere: a prompt, a template, a post.", secs: 6.5 },
+
+  { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
+];
+---
+
+<BaseLayout title="A Clearer Way — the TMKE Member Hub" description="A short film of the TMKE Member Hub: from 'I need something to post' to 'it's ready'." hideNav hideFooter noindex pageTransition={false}>
+  <main class="film" id="film" data-scenes={SCENES.length}>
+    <div class="film-progress" id="film-progress" aria-hidden="true">
+      {SCENES.map(() => <span class="film-seg"><i></i></span>)}
+    </div>
+
+    {SCENES.map((s, i) => (
+      <section class={`scene scene--${s.kind || "shot"}`} data-i={i} data-secs={s.secs} aria-hidden={i === 0 ? "false" : "true"}>
+        {s.kind === "card" && (
+          <div class="scene-card">
+            {s.act && <p class="scene-act">Part {s.act}</p>}
+            {s.eyebrow && <p class="scene-eyebrow">{s.eyebrow}</p>}
+            <h2 class="scene-h scene-h--big">{s.h}</h2>
+            {s.p && <p class="scene-p scene-p--big">{s.p}</p>}
+          </div>
+        )}
+        {s.kind === "chat" && (
+          <div class="scene-shot">
+            <div class="frame">
+              <div class="chat">
+                <div class="chat-head"><span class="chat-dot"></span>Creative Assistant</div>
+                <div class="chat-msg chat-msg--me">Just listed a three-bed in Hartley Green, needs a caption, nothing cheesy.</div>
+                <div class="chat-msg chat-msg--ai">
+                  <p>Three bedrooms, a garden that gets the evening sun, and a five-minute walk to the station. Hartley Green does not stay on the market long.</p>
+                  <p>Viewings from Saturday. Message us for the details.</p>
+                </div>
+                <div class="chat-msg chat-msg--me">Shorter. And make it sound like us.</div>
+                <div class="chat-typing"><i></i><i></i><i></i></div>
+              </div>
+            </div>
+            <div class="caption">
+              <p class="scene-eyebrow">{s.eyebrow}</p>
+              <h2 class="scene-h">{s.h}</h2>
+              <p class="scene-p">{s.p}</p>
+            </div>
+          </div>
+        )}
+        {s.kind === "close" && (
+          <div class="scene-card scene-card--close">
+            <p class="scene-eyebrow">{s.eyebrow}</p>
+            <h2 class="scene-h scene-h--big">{s.h}</h2>
+            <ol class="route">
+              {s.steps.map((t) => <li>{t}</li>)}
+            </ol>
+            <div class="close-actions">
+              <a class="film-btn" href="/memberships">See the Member Hub <span aria-hidden="true">&rarr;</span></a>
+              <button type="button" class="film-link" id="film-replay">Play again</button>
+            </div>
+          </div>
+        )}
+        {!s.kind && (
+          <div class="scene-shot">
+            <div class="frame">
+              <img src={`/hub-tour/${s.img}.jpg`} alt="" style={`--focus:${s.focus}; --zoom:${s.zoom || 1.12}`} loading={i < 4 ? "eager" : "lazy"} />
+            </div>
+            <div class="caption">
+              <p class="scene-eyebrow">{s.eyebrow}</p>
+              <h2 class="scene-h">{s.h}</h2>
+              <p class="scene-p">{s.p}</p>
+            </div>
+          </div>
+        )}
+      </section>
+    ))}
+
+    <button type="button" class="film-tap film-tap--prev" id="film-prev" aria-label="Previous"></button>
+    <button type="button" class="film-tap film-tap--next" id="film-next" aria-label="Next"></button>
+    <div class="film-hud" id="film-hud" aria-hidden="true"><span>Paused</span></div>
+    <a class="film-mark" href="/">TMKE</a>
+  </main>
+</BaseLayout>
+
+<style>
+  .film {
+    position: fixed; inset: 0; overflow: hidden;
+    background: var(--english-violet); color: var(--paper); font-family: var(--sans);
+    user-select: none; -webkit-user-select: none;
+  }
+  .film-mark { position: absolute; top: 22px; left: 28px; z-index: 5; font-family: var(--logo-serif, var(--serif)); font-size: 20px; letter-spacing: 0.06em; color: rgba(244,242,241,0.7); text-decoration: none; }
+  /* Progress: one segment a scene, the current one filling over its seconds. */
+  .film-progress { position: absolute; top: 12px; left: 28px; right: 28px; z-index: 5; display: flex; gap: 5px; }
+  .film-seg { flex: 1; height: 2px; background: rgba(244,242,241,0.22); overflow: hidden; border-radius: 2px; }
+  .film-seg i { display: block; height: 100%; width: 100%; background: var(--paper); transform: scaleX(0); transform-origin: left; }
+  .film-seg.is-done i { transform: scaleX(1); }
+  .film-seg.is-live i { transition: transform linear; transition-duration: var(--secs, 6s); transform: scaleX(1); }
+  .film.is-paused .film-seg.is-live i { transition: none; transform: scaleX(var(--at, 0)); }
+
+  .scene { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; visibility: hidden; transition: opacity 0.9s ease, visibility 0s linear 0.9s; }
+  .scene.is-on { opacity: 1; visibility: visible; transition: opacity 0.9s ease; }
+
+  /* Cards: a line or two in the middle of the wine. */
+  .scene-card { max-width: 900px; padding: 0 40px; text-align: center; }
+  .scene-act { margin: 0 0 22px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,242,241,0.6); }
+  .scene-act::before { content: "\2014"; margin-right: 8px; }
+  .scene-eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,242,241,0.62); }
+  .scene-eyebrow::before { content: "\2014"; margin-right: 8px; }
+  .scene-h { margin: 0; font-family: var(--sans); font-size: clamp(24px, 3vw, 38px); font-weight: 500; line-height: 1.15; letter-spacing: -0.015em; color: var(--paper); }
+  .scene-h--big { font-family: var(--subhead); font-weight: 400; font-size: clamp(32px, 5vw, 64px); line-height: 1.1; letter-spacing: -0.01em; }
+  .scene-p { margin: 12px 0 0; font-size: clamp(15px, 1.35vw, 19px); line-height: 1.5; color: rgba(244,242,241,0.78); max-width: 46ch; }
+  .scene-p--big { margin: 20px auto 0; font-size: clamp(18px, 2vw, 26px); max-width: 32ch; color: rgba(244,242,241,0.85); }
+  .scene.is-on .scene-h, .scene.is-on .scene-p, .scene.is-on .scene-eyebrow, .scene.is-on .scene-act { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) both; }
+  .scene.is-on .scene-p { animation-delay: 0.15s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  /* Shots: the screen in a frame, the words beneath, on the gutter. */
+  /* The frame is 16:10 and must fit beneath the strip with room for the
+     words: its width is the smaller of the page's and what the height allows. */
+  .scene-shot { width: min(1180px, 100vw - 80px, (100vh - 230px) * 1.6); display: grid; grid-template-rows: auto auto; gap: 24px; }
+  .frame { position: relative; aspect-ratio: 16 / 10; overflow: hidden; border-radius: 10px; background: #2a1620; box-shadow: 0 30px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(244,242,241,0.12); }
+  .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); transform-origin: var(--focus, 50% 50%); transform: scale(1); }
+  .scene.is-on .frame img { animation: drift var(--drift, 9s) linear both; }
+  @keyframes drift { from { transform: scale(1.02); } to { transform: scale(var(--zoom, 1.12)); } }
+  .scene.is-on .frame { animation: settle 1s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes settle { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
+  .caption { display: grid; grid-template-columns: auto 1fr; gap: 6px 40px; align-items: baseline; }
+  .caption .scene-eyebrow { grid-column: 1 / -1; margin: 0; }
+  .caption .scene-h { grid-column: 1; }
+  .caption .scene-p { grid-column: 2; margin: 0; max-width: 52ch; }
+
+  /* The assistant, drawn rather than captured. */
+  .chat { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 14px; padding: 32px clamp(24px, 12%, 180px) 36px; background: var(--paper); color: var(--ink); }
+  .chat-head { position: absolute; top: 0; left: 0; right: 0; padding: 16px 28px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); border-bottom: 1px solid rgba(28,29,34,0.08); display: flex; align-items: center; gap: 10px; }
+  .chat-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--english-violet); }
+  .chat-msg { max-width: 62%; padding: 14px 18px; border-radius: 14px; font-size: clamp(14px, 1.3vw, 18px); line-height: 1.5; opacity: 0; transform: translateY(10px); }
+  .chat-msg p { margin: 0 0 8px; } .chat-msg p:last-child { margin: 0; }
+  .chat-msg--me { align-self: flex-end; background: var(--english-violet); color: var(--paper); border-bottom-right-radius: 4px; }
+  .chat-msg--ai { align-self: flex-start; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-bottom-left-radius: 4px; }
+  .scene.is-on .chat-msg { animation: rise 0.6s cubic-bezier(.2,.7,.2,1) both; }
+  .scene.is-on .chat-msg:nth-child(2) { animation-delay: 0.6s; }
+  .scene.is-on .chat-msg:nth-child(3) { animation-delay: 2.4s; }
+  .scene.is-on .chat-msg:nth-child(4) { animation-delay: 5s; }
+  .chat-typing { align-self: flex-start; display: flex; gap: 5px; padding: 12px 16px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 14px; opacity: 0; }
+  .scene.is-on .chat-typing { animation: rise 0.4s 6.2s both; }
+  .chat-typing i { width: 6px; height: 6px; border-radius: 50%; background: rgba(28,29,34,0.4); animation: blink 1s infinite; }
+  .chat-typing i:nth-child(2) { animation-delay: 0.2s; } .chat-typing i:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+
+  /* The close: the route as one line of steps, then the button. */
+  .scene-card--close { max-width: 1100px; }
+  .route { list-style: none; margin: 34px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 0; counter-reset: step; }
+  .route li { font-size: clamp(13px, 1.2vw, 16px); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,242,241,0.85); display: flex; align-items: center; opacity: 0; }
+  .route li + li::before { content: "\2192"; margin: 0 14px; color: rgba(244,242,241,0.45); }
+  .scene.is-on .route li { animation: rise 0.6s cubic-bezier(.2,.7,.2,1) both; }
+  .scene.is-on .route li:nth-child(1) { animation-delay: 0.6s; } .scene.is-on .route li:nth-child(2) { animation-delay: 1.1s; }
+  .scene.is-on .route li:nth-child(3) { animation-delay: 1.6s; } .scene.is-on .route li:nth-child(4) { animation-delay: 2.1s; }
+  .scene.is-on .route li:nth-child(5) { animation-delay: 2.6s; } .scene.is-on .route li:nth-child(6) { animation-delay: 3.1s; }
+  .scene.is-on .route li:nth-child(7) { animation-delay: 3.6s; }
+  .close-actions { margin-top: 44px; display: flex; gap: 22px; align-items: center; justify-content: center; opacity: 0; }
+  .scene.is-on .close-actions { animation: rise 0.7s 4.4s both; }
+  .film-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; background: var(--paper); color: var(--english-violet); text-decoration: none; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 2px; }
+  .film-link { background: none; border: 0; padding: 0; color: rgba(244,242,241,0.7); font-family: var(--sans); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+
+  /* Tap zones either side, and a small paused note. */
+  .film-tap { position: absolute; top: 0; bottom: 0; width: 22%; background: none; border: 0; cursor: pointer; z-index: 4; }
+  .film-tap--prev { left: 0; } .film-tap--next { right: 0; }
+  .film-hud { position: absolute; bottom: 22px; right: 28px; z-index: 5; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,242,241,0.6); opacity: 0; transition: opacity 0.3s; }
+  .film.is-paused .film-hud { opacity: 1; }
+  .film.is-paused .scene * { animation-play-state: paused !important; }
+
+  @media (max-width: 760px) {
+    .film-mark { top: 18px; left: 22px; }
+    .film-progress { left: 22px; right: 22px; }
+    .scene-shot { width: calc(100vw - 44px); gap: 20px; }
+    .scene { align-content: start; padding-top: 72px; }
+    .frame { aspect-ratio: 4 / 3; }
+    .caption { grid-template-columns: 1fr; gap: 6px; }
+    .caption .scene-h, .caption .scene-p { grid-column: 1; }
+    .scene-h { font-size: 22px; }
+    .chat-msg { max-width: 82%; }
+    .route { flex-direction: column; align-items: center; gap: 6px; }
+    .route li + li::before { display: none; }
+    .close-actions { flex-direction: column; gap: 16px; }
+    .film-tap { width: 30%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scene.is-on * { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+  }
+</style>
+
+<script>
+  (function () {
+    const film = document.getElementById("film");
+    if (!film) return;
+    const scenes = Array.from(film.querySelectorAll(".scene"));
+    const segs = Array.from(film.querySelectorAll(".film-seg"));
+    const hud = document.getElementById("film-hud");
+    let i = -1, timer = 0, startedAt = 0, remaining = 0, paused = false;
+
+    function secsOf(n) { return Number(scenes[n].dataset.secs || 6) * 1000; }
+    function show(n) {
+      if (n < 0 || n >= scenes.length) return;
+      clearTimeout(timer);
+      i = n;
+      scenes.forEach((s, k) => { s.classList.toggle("is-on", k === n); s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
+      segs.forEach((g, k) => {
+        g.classList.toggle("is-done", k < n);
+        g.classList.remove("is-live");
+        g.style.removeProperty("--at");
+        if (k === n) { g.style.setProperty("--secs", secsOf(n) + "ms"); void g.offsetWidth; g.classList.add("is-live"); }
+      });
+      scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
+      remaining = secsOf(n); startedAt = Date.now();
+      if (!paused) arm();
+    }
+    function arm() {
+      clearTimeout(timer);
+      if (i >= scenes.length - 1) return;                // the close holds
+      timer = setTimeout(() => show(i + 1), remaining);
+    }
+    function pause() {
+      if (paused) return;
+      paused = true; clearTimeout(timer);
+      remaining = Math.max(0, remaining - (Date.now() - startedAt));
+      const g = segs[i]; if (g) g.style.setProperty("--at", String(1 - remaining / secsOf(i)));
+      film.classList.add("is-paused");
+    }
+    function resume() {
+      if (!paused) return;
+      paused = false; startedAt = Date.now();
+      film.classList.remove("is-paused");
+      const g = segs[i];
+      if (g) { g.classList.remove("is-live"); g.style.removeProperty("--at"); g.style.setProperty("--secs", remaining + "ms"); void g.offsetWidth; g.classList.add("is-live"); }
+      arm();
+    }
+    function toggle() { paused ? resume() : pause(); }
+
+    document.getElementById("film-next").addEventListener("click", () => { if (paused) resume(); show(Math.min(scenes.length - 1, i + 1)); });
+    document.getElementById("film-prev").addEventListener("click", () => { if (paused) resume(); show(Math.max(0, i - 1)); });
+    const replay = document.getElementById("film-replay");
+    if (replay) replay.addEventListener("click", () => { paused = false; film.classList.remove("is-paused"); show(0); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") { if (paused) resume(); show(Math.min(scenes.length - 1, i + 1)); }
+      else if (e.key === "ArrowLeft") { if (paused) resume(); show(Math.max(0, i - 1)); }
+      else if (e.key === " ") { e.preventDefault(); toggle(); }
+    });
+    // Hold to pause on a touch screen; the tap zones still step.
+    let holdT = 0, held = false;
+    film.addEventListener("touchstart", () => { held = false; holdT = setTimeout(() => { held = true; pause(); }, 350); }, { passive: true });
+    film.addEventListener("touchend", () => { clearTimeout(holdT); if (held) resume(); }, { passive: true });
+    film.querySelectorAll(".film-tap").forEach((b) => b.addEventListener("click", (e) => { if (held) e.stopImmediatePropagation(); }, true));
+    document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); else resume(); });
+
+    show(0);
+  })();
+</script>
