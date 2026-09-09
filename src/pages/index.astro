@@ -441,7 +441,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       /* The gallery grid gives way to four cards to swipe. */
       .edit-grid { display: none; }
       /* The chapter line sits on the gutter, as every other chapter's does. */
-      .edit-swipe-chapter { display: block; margin: 0 22px 32px; }
+      .edit-swipe-chapter { display: flex; margin: 0 22px 32px; }
       .edit-swipe {
         display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory;
         scroll-padding-left: 22px; padding: 0 22px 12px; scrollbar-width: none;
@@ -1332,6 +1332,15 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const html = document.documentElement;
         const prevOverflow = html.style.overflow;
         html.style.overflow = "hidden";
+        // The opening always lands at the top of the page: a reload or a
+        // return to the tab must not restore a scroll position from before.
+        const toTop = () => {
+          if (window.__lenis && typeof window.__lenis.scrollTo === "function") window.__lenis.scrollTo(0, { immediate: true });
+          window.scrollTo(0, 0);
+        };
+        try { history.scrollRestoration = "manual"; } catch (e) {}
+        toTop();
+        window.addEventListener("load", toTop, { once: true });
         let started = false;
         // TMKE, then the line; held for a good three seconds; then the circle
         // appears and grows out, unhurried; the wine fades to leave the page.
@@ -1341,8 +1350,8 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
           if (started) return; started = true;
           setTimeout(() => opening.classList.add("is-hole"), 0);
           setTimeout(() => opening.classList.add("is-grow"), 900);
-          setTimeout(() => opening.classList.add("is-done"), 2500);
-          setTimeout(() => { opening.remove(); html.style.overflow = prevOverflow; }, 3300);
+          setTimeout(() => { toTop(); opening.classList.add("is-done"); }, 2500);
+          setTimeout(() => { opening.remove(); html.style.overflow = prevOverflow; toTop(); }, 3300);
         };
         // Not before the line has had its three seconds, and not before the page has loaded.
         const ready = new Promise((r) => { if (document.readyState === "complete") r(); else { window.addEventListener("load", r, { once: true }); setTimeout(r, 4000); } });
