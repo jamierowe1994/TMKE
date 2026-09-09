@@ -67,19 +67,29 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
          and show this single-image composition instead: one portrait brand
          still with the copy stacked over the top-left. Desktop/tablet never
          render this (display:none above 600px). -->
+    <!-- The opening (phones): ink, the line, then a circle of the hero photo
+         that grows to fill the frame before the page shows through. -->
+    <div class="hi-open" id="hi-open" aria-hidden="true">
+      <p class="hi-open-title">The social media agency that doesn&rsquo;t want you to go viral.</p>
+      <span class="hi-open-ring"></span>
+      <div class="hi-open-hole" style="background-image:url('https://assets.tmke.co.uk/Copy%20of%20TMKE-%20brand.png')"></div>
+    </div>
     <div class="hi-mobile" aria-label="TMKE">
       <div class="him-bg" style="background-image:url('https://assets.tmke.co.uk/Copy%20of%20TMKE-%20brand.png')"></div>
       <div class="him-inner">
-        <p class="him-eyebrow">&mdash; Chapter 01 &mdash; Welcome</p>
-        <p class="him-tagline"><span>The social media agency that</span><span>doesn&rsquo;t want you to go viral</span></p>
-        <span class="him-word">TMKE</span>
-        <nav class="him-nav" aria-label="Sections">
-          <a href="/about">Studio</a>
-          <a href="/edit">Templates</a>
-          <a href="/services">Management</a>
-          <a href="/contact">Discover</a>
-        </nav>
-        <a class="him-scroll" href="#about" aria-label="Scroll down">&#9662;</a>
+        <div class="him-top">
+          <p class="him-eyebrow">&mdash; Chapter 01 &mdash; Welcome</p>
+          <p class="him-lead">We work with estate agents, lettings businesses, and property brands across the UK to improve how they show up online.</p>
+        </div>
+        <div class="him-foot">
+          <nav class="him-nav" aria-label="Sections">
+            <a href="/about">Studio</a>
+            <a href="/edit">Templates</a>
+            <a href="/services">Management</a>
+            <a href="/contact">Discover</a>
+          </nav>
+          <a class="him-scroll" href="#about" aria-label="Scroll down">&#9662;</a>
+        </div>
       </div>
     </div>
   </section>
@@ -983,6 +993,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
 
     /* ===== MOBILE-ONLY hero (phones ≤600px) ===== */
     .hi-mobile { display: none; }
+    .hi-open { display: none; }
     @media (max-width: 600px) {
       /* Fill the phone screen exactly — svh is the stable "bars visible" height,
          so the hero never overshoots the viewport (which made the scroll bounce). */
@@ -996,18 +1007,58 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       .hero-intro .hi-scroll { display: none !important; }
 
       .hi-mobile { display: block; position: absolute; inset: 0; z-index: 3; }
+      /* The photo sits in Chapter 03's frame: 14px of paper all round. */
       .him-bg {
-        position: absolute; inset: 0; z-index: 0;
+        position: absolute; inset: 14px; z-index: 0;
         background-size: cover; background-position: center;
         background-color: var(--violet-deep);
       }
       .him-inner {
-        position: absolute; inset: 0; z-index: 1;
+        position: absolute; inset: 14px; z-index: 1;
         display: flex; flex-direction: column; align-items: flex-start;
-        justify-content: flex-start;
-        padding: calc(24vh - 20px) 26px 0 28px;
+        justify-content: space-between;
+        padding: 88px 24px 26px;
         color: var(--paper);
       }
+      .him-lead {
+        margin: 0; max-width: 92%;
+        font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
+        font-size: 24px; line-height: 1.32; font-weight: 500; letter-spacing: -0.01em;
+        color: var(--paper); text-shadow: 0 1px 20px rgba(0,0,0,0.28);
+      }
+      .him-foot { display: flex; flex-direction: column; align-items: flex-start; }
+
+      /* ---- The opening ---- */
+      .hi-open {
+        position: fixed; inset: 0; z-index: 9000;
+        display: flex; align-items: center; justify-content: center; padding: 40px;
+        background: #1c1d22; color: var(--paper);
+        transition: opacity 0.5s ease;
+      }
+      .hi-open-title {
+        position: relative; z-index: 2; margin: 0; max-width: 20ch; text-align: center;
+        font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.3; letter-spacing: 0.02em;
+        transition: opacity 0.45s ease, transform 0.45s ease;
+      }
+      .hi-open-ring {
+        position: absolute; left: 50%; top: 50%; width: 80vw; height: 80vw; border-radius: 50%;
+        transform: translate(-50%, -50%); border: 1px solid rgba(244,242,241,0.14); pointer-events: none;
+      }
+      /* The photo, in the hero's own frame, seen through a circle that grows. */
+      .hi-open-hole {
+        position: absolute; inset: 14px; z-index: 1;
+        background-size: cover; background-position: center; background-color: var(--violet-deep);
+        clip-path: circle(0 at 50% 50%);
+        transition: clip-path 1.25s cubic-bezier(.2,.8,.2,1);
+      }
+      .hi-open.is-hole .hi-open-title { opacity: 0; transform: translateY(-6px); }
+      .hi-open.is-hole .hi-open-hole { clip-path: circle(15vw at 50% 50%); }
+      .hi-open.is-grow .hi-open-hole { clip-path: circle(120vmax at 50% 50%); }
+      .hi-open.is-grow .hi-open-ring { opacity: 0; }
+      .hi-open.is-done { opacity: 0; pointer-events: none; }
+      /* Chapter 02's lead now opens the page in Chapter 01. */
+      .editorial-lead { display: none; }
+      .him-tagline, .him-word { display: none; }
       .him-eyebrow {
         margin: 0 0 16px; font-family: var(--sans), "Helvetica Neue", Arial, sans-serif;
         font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase;
@@ -1202,12 +1253,37 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const nav = document.getElementById("nav");
       if (!hero || !nav) return;
       const pb = document.querySelector(".page-body");
+      const phone = window.matchMedia("(max-width: 600px)");
       const update = () => {
         // nav stays light while the hero is still showing above the page body
         const overHero = pb ? pb.getBoundingClientRect().top > 80 : hero.getBoundingClientRect().bottom > 80;
         nav.classList.toggle("nav--over-hero", overHero);
         nav.classList.toggle("nav--on-image", overHero);
+        // On a phone the TMKE in the bar waits until Chapter 01 is behind you.
+        nav.classList.toggle("nav--hold-logo", phone.matches && overHero);
       };
+
+      // The opening, phones only: ink and the line; once the page has loaded,
+      // a circle of the hero photo appears, grows to fill the frame, and the
+      // ink fades to leave the page. Skipped for reduced motion.
+      const opening = document.getElementById("hi-open");
+      if (opening && phone.matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const html = document.documentElement;
+        const prevOverflow = html.style.overflow;
+        html.style.overflow = "hidden";
+        let started = false;
+        const start = () => {
+          if (started) return; started = true;
+          setTimeout(() => opening.classList.add("is-hole"), 500);
+          setTimeout(() => opening.classList.add("is-grow"), 1500);
+          setTimeout(() => opening.classList.add("is-done"), 2750);
+          setTimeout(() => { opening.remove(); html.style.overflow = prevOverflow; }, 3300);
+        };
+        if (document.readyState === "complete") start();
+        else { window.addEventListener("load", start, { once: true }); setTimeout(start, 2200); }
+      } else if (opening) {
+        opening.remove();
+      }
       update();
       if (window.__lenis && typeof window.__lenis.on === "function") {
         window.__lenis.on("scroll", update);
