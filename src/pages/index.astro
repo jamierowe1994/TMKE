@@ -1330,7 +1330,9 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       const opening = document.getElementById("hi-open");
       if (opening && phone.matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         const html = document.documentElement;
-        const prevOverflow = html.style.overflow;
+        // Cleared, not restored, when the opening ends: arriving by the page
+        // transition, the html overflow is "hidden" while its panels lift,
+        // and putting that back left the homepage unable to scroll.
         html.style.overflow = "hidden";
         // The opening always lands at the top of the page: a reload or a
         // return to the tab must not restore a scroll position from before.
@@ -1351,7 +1353,7 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
           setTimeout(() => opening.classList.add("is-hole"), 0);
           setTimeout(() => opening.classList.add("is-grow"), 900);
           setTimeout(() => { toTop(); opening.classList.add("is-done"); }, 2500);
-          setTimeout(() => { opening.remove(); html.style.overflow = prevOverflow; toTop(); }, 3300);
+          setTimeout(() => { opening.remove(); html.style.overflow = ""; toTop(); }, 3300);
         };
         // Not before the line has had its three seconds, and not before the page has loaded.
         const ready = new Promise((r) => { if (document.readyState === "complete") r(); else { window.addEventListener("load", r, { once: true }); setTimeout(r, 4000); } });
