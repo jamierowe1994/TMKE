@@ -1328,7 +1328,11 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       // a circle of the hero photo appears, grows to fill the frame, and the
       // ink fades to leave the page. Skipped for reduced motion.
       const opening = document.getElementById("hi-open");
-      if (opening && phone.matches && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // Once a visit: coming back to the homepage later in the same session
+      // goes straight to the page.
+      const seenOpening = (() => { try { return sessionStorage.getItem("tmke_opening"); } catch (e) { return null; } })();
+      if (opening && phone.matches && !seenOpening && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        try { sessionStorage.setItem("tmke_opening", "1"); } catch (e) {}
         const html = document.documentElement;
         // Cleared, not restored, when the opening ends: arriving by the page
         // transition, the html overflow is "hidden" while its panels lift,

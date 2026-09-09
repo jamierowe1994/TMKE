@@ -77,6 +77,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
        ?layout=stack, so the normal page is untouched. -->
   <div class="stk-wrap" id="edit-stack" hidden>
     <div class="stk" id="stk"><!-- panels built by setupStack: one per pack, then Why / Shop / Studio --></div>
+    <script src="/scripts/stack-swipe.js" is:inline></script>
   </div>
 
   <section class="edit-wrap" id="edit-catalogue" aria-busy="true">
@@ -550,6 +551,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       transition: flex-grow 0.7s cubic-bezier(.2,.8,.2,1);
     }
     .stk-p.is-open { flex-grow: 1; }
+    /* Phones: a short grey row under the last bar, half a bar tall. */
+    .stk-foot { display: none; flex: none; height: 19px; background: rgba(28,29,34,0.10); }
+    @media (max-width: 760px), (hover: none) and (pointer: coarse) { .stk-foot { display: block; } }
     /* Wine bands with light text. */
     .stk-bar {
       flex: none; height: var(--bar); box-sizing: border-box;
@@ -2154,6 +2158,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         +   `</div></div>`
         +   `<div class="stk-pgrid" id="stk-feat"></div>`
         + `</div></section>`;
+      html += '<div class="stk-foot" aria-hidden="true"></div>';
       stk.innerHTML = html;
       stk.style.setProperty('--cols', String(cols));
 
