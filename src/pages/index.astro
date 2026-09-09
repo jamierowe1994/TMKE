@@ -70,8 +70,10 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
     <!-- The opening (phones): ink, the line, then a circle of the hero photo
          that grows to fill the frame before the page shows through. -->
     <div class="hi-open" id="hi-open" aria-hidden="true">
-      <p class="hi-open-title">The social media agency that doesn&rsquo;t want you to go viral.</p>
-      <span class="hi-open-ring"></span>
+      <div class="hi-open-copy">
+        <span class="hi-open-mark">TMKE</span>
+        <p class="hi-open-title">The social media agency that doesn&rsquo;t want you to go viral.</p>
+      </div>
       <div class="hi-open-hole" style="background-image:url('https://assets.tmke.co.uk/Copy%20of%20TMKE-%20brand.png')"></div>
     </div>
     <div class="hi-mobile" aria-label="TMKE">
@@ -1032,30 +1034,36 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
       .hi-open {
         position: fixed; inset: 0; z-index: 9000;
         display: flex; align-items: center; justify-content: center; padding: 40px;
-        background: #1c1d22; color: var(--paper);
-        transition: opacity 0.5s ease;
+        background: var(--english-violet); color: var(--paper);
+        transition: opacity 0.7s ease;
+      }
+      /* TMKE first, then the line beneath it. */
+      .hi-open-copy { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; transition: opacity 0.5s ease, transform 0.5s ease; }
+      .hi-open-mark {
+        font-family: var(--serif); font-weight: 500; font-size: 44px; line-height: 1; letter-spacing: 0.06em;
+        opacity: 0; transform: translateY(8px); transition: opacity 0.7s ease, transform 0.7s ease;
       }
       .hi-open-title {
-        position: relative; z-index: 2; margin: 0; max-width: 20ch; text-align: center;
-        font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.3; letter-spacing: 0.02em;
-        transition: opacity 0.45s ease, transform 0.45s ease;
+        margin: 0; max-width: 22ch;
+        font-family: var(--sans); font-weight: 500; font-size: 12px; line-height: 1.5; letter-spacing: 0.14em; text-transform: uppercase;
+        color: rgba(244,242,241,0.85);
+        opacity: 0; transform: translateY(6px); transition: opacity 0.7s ease, transform 0.7s ease;
       }
-      .hi-open-ring {
-        position: absolute; left: 50%; top: 50%; width: 80vw; height: 80vw; border-radius: 50%;
-        transform: translate(-50%, -50%); border: 1px solid rgba(244,242,241,0.14); pointer-events: none;
-      }
+      .hi-open.is-mark .hi-open-mark { opacity: 1; transform: none; }
+      .hi-open.is-line .hi-open-title { opacity: 1; transform: none; }
       /* The photo, in the hero's own frame, seen through a circle that grows. */
       .hi-open-hole {
         position: absolute; inset: 14px; z-index: 1;
         background-size: cover; background-position: center; background-color: var(--violet-deep);
         clip-path: circle(0 at 50% 50%);
-        transition: clip-path 1.25s cubic-bezier(.2,.8,.2,1);
+        transition: clip-path 1.7s cubic-bezier(.2,.8,.2,1);
       }
-      .hi-open.is-hole .hi-open-title { opacity: 0; transform: translateY(-6px); }
-      .hi-open.is-hole .hi-open-hole { clip-path: circle(15vw at 50% 50%); }
-      .hi-open.is-grow .hi-open-hole { clip-path: circle(120vmax at 50% 50%); }
-      .hi-open.is-grow .hi-open-ring { opacity: 0; }
+      .hi-open.is-hole .hi-open-copy { opacity: 0; transform: translateY(-6px); }
+      .hi-open.is-hole .hi-open-hole { clip-path: circle(15vw at 50% 50%); transition-duration: 0.8s; }
+      .hi-open.is-grow .hi-open-hole { clip-path: circle(120vmax at 50% 50%); transition-duration: 1.7s; }
       .hi-open.is-done { opacity: 0; pointer-events: none; }
+      /* The frame round the hero is the page's own paper, never wine. */
+      .hero-intro, .hero-static { background: var(--paper); }
       /* Chapter 02's lead now opens the page in Chapter 01. */
       .editorial-lead { display: none; }
       .him-tagline, .him-word { display: none; }
@@ -1272,15 +1280,21 @@ if (ctaIdx !== -1) editCells[ctaIdx] = { cta: true };
         const prevOverflow = html.style.overflow;
         html.style.overflow = "hidden";
         let started = false;
+        // TMKE, then the line; held for a good three seconds; then the circle
+        // appears and grows out, unhurried; the wine fades to leave the page.
+        requestAnimationFrame(() => opening.classList.add("is-mark"));
+        setTimeout(() => opening.classList.add("is-line"), 900);
         const start = () => {
           if (started) return; started = true;
-          setTimeout(() => opening.classList.add("is-hole"), 500);
-          setTimeout(() => opening.classList.add("is-grow"), 1500);
-          setTimeout(() => opening.classList.add("is-done"), 2750);
+          setTimeout(() => opening.classList.add("is-hole"), 0);
+          setTimeout(() => opening.classList.add("is-grow"), 900);
+          setTimeout(() => opening.classList.add("is-done"), 2500);
           setTimeout(() => { opening.remove(); html.style.overflow = prevOverflow; }, 3300);
         };
-        if (document.readyState === "complete") start();
-        else { window.addEventListener("load", start, { once: true }); setTimeout(start, 2200); }
+        // Not before the line has had its three seconds, and not before the page has loaded.
+        const ready = new Promise((r) => { if (document.readyState === "complete") r(); else { window.addEventListener("load", r, { once: true }); setTimeout(r, 4000); } });
+        const held = new Promise((r) => setTimeout(r, 3300));
+        Promise.all([ready, held]).then(start);
       } else if (opening) {
         opening.remove();
       }
