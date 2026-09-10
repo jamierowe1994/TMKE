@@ -113,11 +113,16 @@ const SCENES = [
         )}
         {s.kind === "clip" && (
           <div class="wall-scene">
-            <video class="clip-bg" src={`/hub-tour/${s.video}.mp4`} muted playsinline loop preload="auto" data-clip></video>
-            <div class="box box--late box--bl">
-              <h2 class="box-h">{s.h}</h2>
-              <p class="box-p">{s.p1}</p>
-              <p class="box-p">{s.p2}</p>
+            <div class="clip-left">
+              <div class="box box--late">
+                <h2 class="box-h">{s.h}</h2>
+                <p class="box-p">{s.p1}</p>
+                <p class="box-p">{s.p2}</p>
+              </div>
+            </div>
+            <div class="clip-wrap">
+              <div class="clip-shell"><video src={`/hub-tour/${s.video}.mp4`} muted playsinline loop preload="auto" data-clip></video></div>
+              <div class="clip-foot" aria-hidden="true"></div>
             </div>
           </div>
         )}
@@ -253,8 +258,8 @@ const SCENES = [
   .frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); transform-origin: var(--focus, 50% 50%); transform: scale(1); }
   .scene.is-on .frame img { animation: drift var(--drift, 9s) linear both; }
   @keyframes drift { from { transform: scale(1.02); } to { transform: scale(var(--zoom, 1.12)); } }
-  .scene.is-on .frame { animation: settle 1s cubic-bezier(.2,.7,.2,1) both; }
-  @keyframes settle { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
+  .scene.is-on .frame { animation: settleFrame 1s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes settleFrame { from { opacity: 0; transform: translateY(18px) scale(0.985); } to { opacity: 1; transform: none; } }
   .caption { display: grid; grid-template-columns: auto 1fr; gap: 6px 40px; align-items: baseline; }
   .caption .scene-eyebrow { grid-column: 1 / -1; margin: 0; }
   .caption .scene-h { grid-column: 1; }
@@ -373,10 +378,17 @@ const SCENES = [
   .phone-in i { width: 70px; height: 70px; border-radius: 12px; background: var(--english-violet); color: var(--paper); display: grid; place-items: center; font-style: normal; font-size: 24px; align-self: flex-end; }
   .phone-foot { margin: 0; padding: 20px 12px 24px; text-align: center; font-size: 12px; color: rgba(28,29,34,0.45); }
 
-  /* A screen recording behind a box. */
-  .clip-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #f2f0ee; }
-  .scene--clip .box--late { --box: 1.4s; }
+  /* A screen recording in a laptop, on the right; the box on the left. */
   .scene--clip { display: block; }
+  .clip-left { position: absolute; left: 5.6%; top: 50%; transform: translateY(-50%); width: min(30vw, 520px); }
+  .scene--clip .box { position: relative; left: auto; bottom: auto; width: 100%; }
+  .scene--clip .box--late { --box: 1.4s; }
+  .clip-wrap { position: absolute; right: 5.6%; top: 50%; transform: translateY(-50%); width: min(56vw, 1040px); }
+  .clip-shell { position: relative; background: #1c1d22; border-radius: 16px; padding: 12px 12px 10px; box-shadow: 0 30px 80px rgba(28,29,34,0.28); }
+  .clip-shell video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; background: #000; }
+  .clip-foot { height: 12px; margin: 0 -3%; background: linear-gradient(#dedad7, #bdb8b4); border-radius: 0 0 14px 14px; }
+  .scene.is-on .clip-wrap { animation: settle 1s cubic-bezier(.2,.7,.2,1) both; }
+  @keyframes settle { from { opacity: 0; transform: translateY(calc(-50% + 18px)) scale(0.985); } to { opacity: 1; transform: translateY(-50%); } }
 
   /* The Studio behind the last two boxes. */
   .studio-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }
@@ -394,6 +406,9 @@ const SCENES = [
     .box--c { width: calc(100% - 44px); }
     .box-h { font-size: 22px; } .box-p { font-size: 11px; line-height: 1.7; }
     .phone { width: calc(100vw - 44px); height: 78vh; }
+    .clip-wrap { left: 22px; right: 22px; width: auto; top: 76px; transform: none; }
+    .scene.is-on .clip-wrap { animation: settleFrame 1s cubic-bezier(.2,.7,.2,1) both; }
+    .clip-left { left: 22px; right: 22px; width: auto; top: auto; bottom: 6%; transform: none; }
     .phone-in span { padding: 22px 16px 40px; } .phone-in i { width: 56px; height: 56px; }
     .film-progress { left: 22px; right: 22px; }
     .scene-shot { width: calc(100vw - 44px); gap: 20px; }
