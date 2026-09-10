@@ -42,7 +42,6 @@ const SCENES = [
   { kind: "clip", video: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 12 },
   { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 10 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
-  { kind: "phone", secs: 10 },
   { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
   { kind: "studio", img: "editor", focus: "62% 55%", h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own.", secs: 9 },
 
@@ -424,13 +423,16 @@ const SCENES = [
      video frame (measured from the last frame), so the chat lands on it at
      any size. */
   .scene--associate { display: block; }
-  .assoc-video { position: absolute; top: 0; bottom: 0; left: 23%; height: 100%; aspect-ratio: 16 / 9; overflow: hidden;
+  .assoc-video { position: absolute; top: 4%; left: 30%; height: 92%; aspect-ratio: 16 / 9; overflow: hidden;
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 93%, transparent 100%);
     -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 93%, transparent 100%); mask-composite: intersect; }
   .assoc-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(1.04); }   /* lifts its off-white to white before the paper tint */
   .assoc-tint { position: absolute; inset: 0; background: #f2f0ee; mix-blend-mode: multiply; }   /* the video's white becomes our paper */
   .scene.is-on .assoc-video { animation: stillIn 0.9s ease both; }
-  .assoc-tab { position: absolute; left: 37.4%; top: 26%; width: 25.1%; height: 31.6%; opacity: 0; transition: opacity 0.7s ease; }
+  /* The tablet's screen as fractions of the video frame, measured from the
+     last frame. Adjust these four when the video changes. */
+  .assoc-video { --tab-l: 38.2%; --tab-t: 27%; --tab-w: 23.6%; --tab-h: 29.6%; }
+  .assoc-tab { position: absolute; left: var(--tab-l); top: var(--tab-t); width: var(--tab-w); height: var(--tab-h); border-radius: 0.6vw; overflow: hidden; opacity: 0; transition: opacity 0.7s ease; }
   .scene.is-ended .assoc-tab { opacity: 1; }
   .assoc-meta { position: absolute; left: 5.6%; bottom: 9%; color: var(--ink); font-family: var(--sans); }
   .assoc-meta .mission-k { color: var(--ink); margin-top: 18px; }
@@ -468,9 +470,9 @@ const SCENES = [
   .still:nth-child(2) { left: 35.4%; top: 10%; }
   .still:nth-child(3) { left: 65.6%; top: 39.5%; }
   /* Everything on the stills scene fades in together. */
-  .scene.is-on .still { animation: stillIn 0.9s ease both; animation-delay: 0.3s; }
+  .scene.is-on .still { animation: stillIn 1.8s ease both; animation-delay: 0.3s; }
   @keyframes stillIn { from { opacity: 0; } to { opacity: 1; } }
-  .scene--clip .box--stills { --box: 0.3s; }
+  .scene.is-on .box--stills { animation: stillIn 1.8s ease both; animation-delay: 0.3s; }
   .scene--clip .box--stills { position: absolute; left: 5.6%; bottom: 7.4%; width: min(36vw, 680px); }
   .film[data-variant="laptop"] .stills, .film[data-variant="laptop"] .box--stills { display: none; }
   .film:not([data-variant="laptop"]) .clip-left, .film:not([data-variant="laptop"]) .clip-wrap { display: none; }
