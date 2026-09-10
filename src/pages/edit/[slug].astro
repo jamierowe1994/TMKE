@@ -33,6 +33,9 @@ export async function getStaticPaths() {
     .select("*")
     .in("status", ["active", "draft"]);
   if (error || !packs) return import.meta.env.DEV ? devSamplePaths() : [];
+  // The demo pack has no page of its own.
+  const forSale = packs.filter((p) => p.demo !== true);
+  packs.length = 0; forSale.forEach((p) => packs.push(p));
   if (!packs.length && import.meta.env.DEV) return devSamplePaths();
 
   // Fetch templates per-pack in a single round-trip.

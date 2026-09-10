@@ -1978,16 +1978,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     (async () => {
       const { data, error } = await supabase
         .from('packs')
-        .select('id, slug, title, description, price_pence, cover_image_url, preview_images, contents, category, sort_order')
+        .select('*')
         .eq('status', 'active')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })
-        .limit(8);
+        .limit(9);
+      // The demo pack is not for sale: it is the demo's and free with every account.
+      const packsForSale = (data || []).filter((p) => p.demo !== true).slice(0, 8);
 
       loading.hidden = true;
       wrap.setAttribute('aria-busy', 'false');
 
-      let packs = (!error && data) ? data : [];
+      let packs = (!error && data) ? packsForSale : [];
       // Show the sample showcase locally when there's no live data yet.
       if (packs.length === 0 && import.meta.env.DEV) packs = SAMPLE_PACKS;
 

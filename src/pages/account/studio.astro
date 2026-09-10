@@ -525,7 +525,7 @@ const inspo = [
           // The demo: the pack made for it (a slug or title starting "demo"), and the shop.
           let card = '';
           try {
-            const { data } = await supabase.from('packs').select('id, slug, title, cover_image_url').eq('status', 'active').or('slug.ilike.demo%,title.ilike.demo%').order('sort_order', { ascending: true }).limit(1);
+            const { data } = await supabase.from('packs').select('*').eq('demo', true).eq('status', 'active').limit(1);
             const p = data && data[0];
             if (p) card = `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
@@ -541,12 +541,13 @@ const inspo = [
         if (!session) { done(); return; } // signed out (preview) → keep the SSR sample packs
         const email = session.user.email || '';
         const [packsRes, ordersRes] = await Promise.all([
-          supabase.from('packs').select('id, slug, title, cover_image_url').eq('status', 'active').order('sort_order', { ascending: true }),
+          supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
           supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`),
         ]);
         const allPacks = packsRes.data || [];
         const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
-        const owned = allPacks.filter((p) => ownedIds.has(p.id));
+        // The demo pack is free with every account, so it counts as owned.
+        const owned = allPacks.filter((p) => ownedIds.has(p.id) || p.demo === true);
         if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         row.innerHTML = owned.map((p) => `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">

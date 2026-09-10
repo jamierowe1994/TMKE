@@ -17,6 +17,24 @@ import "../../styles/admin.css";
       </div>
     </div>
   </div>
+  <div class="ash-panel demo-pack" id="demo-pack">
+    <div class="demo-pack-head">
+      <div>
+        <h2>The demo pack</h2>
+        <p>Hidden from the shop. Shown in the demo for visitors to try the Studio with, and free with every account. Three to five templates is plenty; each is a copy of the original, so the original pack is untouched.</p>
+      </div>
+      <div id="demo-pack-actions"></div>
+    </div>
+    <p class="demo-pack-note" id="demo-pack-note" hidden></p>
+    <div class="demo-pack-body" id="demo-pack-body" hidden>
+      <div class="demo-pack-list" id="demo-pack-list"></div>
+      <div class="demo-pack-add">
+        <label><span>Add a copy of</span><select id="demo-pack-pick" class="admin-select"><option value="">Choose a template…</option></select></label>
+        <button type="button" class="admin-btn" id="demo-pack-addbtn">Add to the demo pack</button>
+      </div>
+    </div>
+  </div>
+
   <div class="ash-panel ash-page">
 
   <section class="catalogue-controls">
@@ -135,6 +153,22 @@ import "../../styles/admin.css";
       color: var(--ink);
     }
     .catalogue-title em { font-style: italic; color: var(--english-violet); }
+    .demo-pack { margin-bottom: 16px; }
+    .demo-pack-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-wrap: wrap; }
+    .demo-pack-head h2 { margin: 0 0 4px; font-size: 16px; }
+    .demo-pack-head p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--muted, #6b6670); max-width: 70ch; }
+    .demo-pack-note { margin: 12px 0 0; font-size: 13px; color: var(--muted, #6b6670); }
+    .demo-pack-body { margin-top: 16px; }
+    .demo-pack-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .demo-pack-item { border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; padding: 8px; background: #fff; display: grid; gap: 6px; }
+    .demo-pack-item .dp-thumb { aspect-ratio: 3 / 4; background: #e9e6e2 center / cover; border-radius: 4px; }
+    .demo-pack-item .dp-name { font-size: 13px; line-height: 1.3; }
+    .demo-pack-item .dp-from { font-size: 11px; color: var(--muted, #6b6670); }
+    .demo-pack-item button { justify-self: start; background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: #8a2a2a; cursor: pointer; }
+    .demo-pack-empty { font-size: 13px; color: var(--muted, #6b6670); }
+    .demo-pack-add { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+    .demo-pack-add label { display: grid; gap: 4px; min-width: 320px; }
+    .demo-pack-add label span { font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted, #6b6670); }
     .catalogue-sub {
       font-family: var(--sans);
       font-size: 13px;
@@ -621,7 +655,7 @@ import "../../styles/admin.css";
     }
 
     function visiblePacks() {
-      let rows = allPacks.slice();
+      let rows = allPacks.filter((p) => p.demo !== true);   // the demo pack has its own panel above
       if (filter !== "all") rows = rows.filter((p) => p.status === filter);
       switch (sortBy) {
         case "newest":
@@ -799,6 +833,72 @@ import "../../styles/admin.css";
       toast("Pack restored.");
     }
 
+    // ---- The demo pack: one flagged pack, copies of chosen templates ----
+    let demoPack = null;
+    const dpEl = (id) => document.getElementById(id);
+    function dpNote(text) { const n = dpEl("demo-pack-note"); n.textContent = text || ""; n.hidden = !text; }
+    async function loadDemoPack() {
+      const actions = dpEl("demo-pack-actions"), body = dpEl("demo-pack-body");
+      actions.innerHTML = "";
+      const { data, error } = await supabase.from("packs").select("*").eq("demo", true).limit(1);
+      if (error) {
+        body.hidden = true;
+        dpNote("The catalogue has no demo flag yet. Run supabase/packs_demo.sql in the Supabase SQL editor, then reload this page.");
+        return;
+      }
+      demoPack = (data && data[0]) || null;
+      if (!demoPack) {
+        body.hidden = true;
+        dpNote("");
+        actions.innerHTML = `<button type="button" class="admin-btn admin-btn-primary" id="demo-pack-create">Create the demo pack</button>`;
+        dpEl("demo-pack-create").addEventListener("click", async () => {
+          const { error: e } = await supabase.from("packs").insert({ slug: "demo-pack", title: "Demo pack", description: "A few templates to try the Studio with.", price_pence: 0, category: "free", status: "active", demo: true, sort_order: 9999, contents: [] });
+          if (e) { dpNote("Couldn't create it: " + e.message); return; }
+          loadDemoPack();
+        });
+        return;
+      }
+      actions.innerHTML = `<span class="demo-pack-note" style="margin:0">Live · ${escapeHtml(demoPack.title)}</span>`;
+      body.hidden = false;
+      dpNote("");
+      const [{ data: inPack }, { data: all }, { data: packs }] = await Promise.all([
+        supabase.from("templates").select("id, name, thumb_url, category, sort_order").eq("pack_id", demoPack.id).order("sort_order", { ascending: true }),
+        supabase.from("templates").select("id, name, pack_id").eq("status", "active").neq("pack_id", demoPack.id).order("name", { ascending: true }),
+        supabase.from("packs").select("id, title").eq("demo", false),
+      ]);
+      const packTitle = new Map((packs || []).map((p) => [p.id, p.title]));
+      const list = dpEl("demo-pack-list");
+      list.innerHTML = (inPack || []).length ? (inPack || []).map((t) => `
+        <div class="demo-pack-item">
+          <div class="dp-thumb"${t.thumb_url ? ` style="background-image:url('${escapeHtml(t.thumb_url)}')"` : ""}></div>
+          <div class="dp-name">${escapeHtml(t.name)}</div>
+          <div class="dp-from">${escapeHtml(t.category || "")}</div>
+          <button type="button" data-dp-remove="${escapeHtml(t.id)}">Remove</button>
+        </div>`).join("") : `<p class="demo-pack-empty">Nothing in it yet. Add a template below.</p>`;
+      list.querySelectorAll("[data-dp-remove]").forEach((b) => b.addEventListener("click", async () => {
+        const { error: e } = await supabase.from("templates").delete().eq("id", b.getAttribute("data-dp-remove")).eq("pack_id", demoPack.id);
+        if (e) { dpNote("Couldn't remove it: " + e.message); return; }
+        loadDemoPack();
+      }));
+      const pick = dpEl("demo-pack-pick");
+      pick.innerHTML = `<option value="">Choose a template…</option>` + (all || []).filter((t) => t.pack_id).map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(packTitle.get(t.pack_id) || "Pack")} — ${escapeHtml(t.name)}</option>`).join("");
+    }
+    dpEl("demo-pack-addbtn").addEventListener("click", async () => {
+      const id = dpEl("demo-pack-pick").value;
+      if (!id || !demoPack) return;
+      const { data: src, error: e1 } = await supabase.from("templates").select("*").eq("id", id).single();
+      if (e1 || !src) { dpNote("Couldn't read that template."); return; }
+      const copy = { ...src };
+      delete copy.created_at; delete copy.updated_at;
+      copy.id = "tmpl-" + Math.random().toString(36).slice(2, 8);
+      copy.pack_id = demoPack.id;
+      copy.status = "active";
+      copy.sort_order = Date.now() % 100000;
+      const { error: e2 } = await supabase.from("templates").insert(copy);
+      if (e2) { dpNote("Couldn't add it: " + e2.message); return; }
+      loadDemoPack();
+    });
+
     async function loadPacks() {
       const { data, error } = await supabase
         .from("packs")
@@ -839,6 +939,7 @@ import "../../styles/admin.css";
       if (!session) return;
       syncInitialUI();
       await loadPacks();
+      loadDemoPack();
       loadCustomerEmails();
     })();
 

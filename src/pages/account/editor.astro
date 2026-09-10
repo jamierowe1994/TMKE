@@ -7033,6 +7033,11 @@ const googleFonts = [
         const { data: orders } = await supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`);
         packIds = Array.from(new Set((orders || []).filter((o) => o.status === "paid" && o.pack_id).map((o) => o.pack_id)));
       } catch (_) {}
+      // The demo pack is free with every account.
+      try {
+        const { data: free } = await supabase.from("packs").select("id").eq("demo", true).eq("status", "active");
+        (free || []).forEach((p) => { if (!packIds.includes(p.id)) packIds.push(p.id); });
+      } catch (_) {}
       if (!packIds.length) return;
       railBtn.hidden = false;
       // The grid holds the engine's starter set until the member's own
@@ -7139,8 +7144,8 @@ const googleFonts = [
         if (!(import.meta.env.DEV && params.has("demo"))) {
           demoPacks = [];
           try {
-            const { data } = await supabase.from("packs").select("id, slug, title, cover_image_url").eq("status", "active").or("slug.ilike.demo%,title.ilike.demo%").order("sort_order", { ascending: true }).limit(1);
-            if (data && data.length) demoPacks = data.map((p) => ({ ...p, category: "Try it" }));
+            const { data } = await supabase.from("packs").select("*").eq("demo", true).eq("status", "active").limit(1);
+            if (data && data.length) demoPacks = data.map((p) => ({ id: p.id, slug: p.slug, title: p.title, cover_image_url: p.cover_image_url, category: "Try it" }));
           } catch (_) {}
         }
         grid.innerHTML = demoPacks.length ? demoPacks.map(packCard).join("") : '<p class="ed-onboard-note">The demo pack is on its way. Start with a blank canvas for now.</p>';
@@ -7174,7 +7179,7 @@ const googleFonts = [
       const [packsRes, ordersRes] = await Promise.all([
         supabase
           .from("packs")
-          .select("id, slug, title, category, cover_image_url")
+          .select("*")
           .eq("status", "active")
           .order("sort_order", { ascending: true }),
         session
@@ -7199,7 +7204,8 @@ const googleFonts = [
           .filter((o) => o.status === "paid" && o.pack_id)
           .map((o) => o.pack_id)
       );
-      const owned = allPacks.filter((p) => ownedIds.has(p.id));
+      // The demo pack is free with every account, so it counts as owned.
+      const owned = allPacks.filter((p) => ownedIds.has(p.id) || p.demo === true);
 
       // Deep-link /editor?pack=<id> jumps straight to that pack's designs.
       const packParam = params.get("pack");

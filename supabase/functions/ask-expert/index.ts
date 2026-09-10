@@ -485,9 +485,10 @@ async function memberContext(m: Member, note: string): Promise<Ctx> {
     const orFilter = m.email ? `or=(user_id.eq.${m.id},buyer_email.eq.${encodeURIComponent(m.email)})` : `user_id=eq.${m.id}`;
     const orders = await get(`orders?${orFilter}&status=eq.paid&select=pack_id`);
     const ownedIds = Array.from(new Set((orders || []).map((o: { pack_id?: string }) => o.pack_id).filter(Boolean)));
-    const packs = await get(`packs?status=eq.active&select=id,title&order=sort_order.asc`);
-    const owned = (packs || []).filter((p: { id: string }) => ownedIds.includes(p.id));
-    const others = (packs || []).filter((p: { id: string }) => !ownedIds.includes(p.id));
+    const packs = await get(`packs?status=eq.active&select=*&order=sort_order.asc`);
+    // The demo pack is free with every account.
+    const owned = (packs || []).filter((p: { id: string; demo?: boolean }) => ownedIds.includes(p.id) || p.demo === true);
+    const others = (packs || []).filter((p: { id: string; demo?: boolean }) => !ownedIds.includes(p.id) && p.demo !== true);
     out.packs = owned.length;
     if (owned.length) {
       const ids = owned.map((p: { id: string }) => p.id).join(",");
