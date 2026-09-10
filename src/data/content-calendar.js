@@ -113,8 +113,9 @@ export const CONTENT_DAYS = [
     // Macmillan set this each year; it has landed on the last Friday of
     // September. Confirm against their date before the week itself.
     nth: { month: 9, weekday: 5, n: -1 }, name: "World's Biggest Coffee Morning",
-    angle: "Back a Coffee Morning near you",
-    brief: "Support Macmillan by promoting a local Coffee Morning or encouraging your audience to get involved. If you're attending one yourself, share a photo and tag the organisers.",
+    angle: "Show your support for a Coffee Morning near you.",
+    brief: "Macmillan's Coffee Morning is an easy opportunity to support something happening in your local community and encourage your audience to get involved.",
+    detail: "Going along?\nShare a photo from the Coffee Morning and tag the organisers.\nKnow one happening locally?\nShare the details and help give it some extra visibility.\nNothing planned nearby?\nUse the post to raise awareness and point people towards getting involved.",
   },
   {
     on: "09-27", name: "World Tourism Day",

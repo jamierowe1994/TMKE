@@ -485,7 +485,7 @@ const googleFonts = [
             <span class="ed-prompt-brief" id="ed-prompt-brief"></span>
             <span class="ed-prompt-part" id="ed-prompt-say" hidden><b>What to say on camera</b><i></i></span>
             <span class="ed-prompt-part" id="ed-prompt-cover" hidden><b>Your cover</b><i></i></span>
-            <span class="ed-prompt-part" id="ed-prompt-detail" hidden><b>What to put in it</b><i></i></span>
+            <span class="ed-prompt-part" id="ed-prompt-detail" hidden><b>Make it yours</b><i></i></span>
           </span></span>
         </button>
 
@@ -1231,12 +1231,20 @@ const googleFonts = [
     .ed-prompt-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s cubic-bezier(.2,.8,.2,1); }
     .ed-prompt[aria-expanded="true"] .ed-prompt-body { grid-template-rows: 1fr; }
     .ed-prompt-inner { display: block; min-height: 0; overflow: hidden; }
-    .ed-prompt-angle { display: block; padding-top: 15px; font-size: var(--ws-t-body); font-weight: 600; line-height: 1.45; color: #fff; }
+    /* Opened: a short rule under the name, the angle as a line rather than a
+       second heading, the brief, then the parts. */
+    .ed-prompt-angle { display: block; padding-top: 16px; margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.22); font-size: var(--ws-t-body); font-weight: 500; line-height: 1.45; color: #fff; }
+    .ed-prompt-angle::before { content: ""; display: block; width: 36px; height: 1px; background: rgba(255,255,255,0.55); margin: -17px 0 16px; }
     .ed-prompt-brief { display: block; padding-top: 8px; font-size: var(--ws-t-meta); line-height: 1.55; color: rgba(255,255,255,0.76); }
-    .ed-prompt-part { display: block; padding-top: 13px; }
+    .ed-prompt-part { display: block; padding-top: 16px; }
     .ed-prompt-part[hidden] { display: none; }
     .ed-prompt-part b { display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
-    .ed-prompt-part i { display: block; margin-top: 4px; font-style: normal; font-size: var(--ws-t-meta); line-height: 1.55; color: rgba(255,255,255,0.82); }
+    .ed-prompt-part i { display: block; margin-top: 6px; font-style: normal; font-size: var(--ws-t-meta); line-height: 1.55; color: rgba(255,255,255,0.82); }
+    /* "Make it yours" as questions and answers: a line ending in ? is the
+       question, the line after it the answer. */
+    .ed-prompt-q { display: block; margin-top: 8px; font-weight: 600; color: #fff; }
+    .ed-prompt-q:first-child { margin-top: 0; }
+    .ed-prompt-a { display: block; color: rgba(255,255,255,0.76); }
     /* Breathing room at the foot of the opened panel, or the last line sits on
        the edge of the box. */
     .ed-prompt-inner { padding-bottom: 4px; }
@@ -7440,9 +7448,17 @@ const googleFonts = [
         cov.hidden = false;
         document.getElementById("ed-prompt-name").textContent = p.name + " \u00b7 Reel";
       } else if (p.detail) {
-        // The static equivalent: one job, but more than one line's worth of it.
+        // "Make it yours": one job, more than one line's worth of it. Written
+        // as lines; a line ending in ? is a question, the next its answer.
         const det = document.getElementById("ed-prompt-detail");
-        det.querySelector("i").textContent = p.detail;
+        const holder = det.querySelector("i");
+        holder.textContent = "";
+        String(p.detail).split(/\n+/).map((l) => l.trim()).filter(Boolean).forEach((line) => {
+          const el = document.createElement("span");
+          el.className = /\?$/.test(line) ? "ed-prompt-q" : "ed-prompt-a";
+          el.textContent = line;
+          holder.appendChild(el);
+        });
         det.hidden = false;
       }
       box.hidden = false;
