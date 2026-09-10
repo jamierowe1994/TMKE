@@ -1,0 +1,230 @@
+---
+/**
+ * Admin -> Insights -> Assistant.
+ *
+ * The Creative Assistant that members open in the Studio: what it is told,
+ * what it knows, what it may and may not do, and a place to try it. Each of
+ * its two modes has a row in assistant_config (supabase/assistant_config.sql);
+ * the edge function reads the row on each request and falls back to the
+ * prompt in its code when there is none.
+ */
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
+---
+
+<AdminShell active="assistant" title="Assistant" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Assistant</div>
+          <div class="page-header-sub">The Creative Assistant members open in the Studio: what it is told, what it knows, and what it will not do.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="as-status" id="as-status">Loading…</p>
+
+  <section class="ash-panel as-facts">
+    <h2 class="as-h">How it works today</h2>
+    <div class="as-grid">
+      <div>
+        <h3>Where members meet it</h3>
+        <p>In the Studio editor, from the <b>Creative Assistant</b> panel. It has two tabs, and each tab is its own assistant with its own instructions below: <b>Studio help</b> (how do I do this in the editor) and <b>Ideas</b> (what should I post, and write it).</p>
+        <h3>What it knows</h3>
+        <p>Only its instructions and the conversation in front of it. The instructions carry TMKE's description of the Studio, of who the members are and of how to answer. Change them here and it changes for everyone within a minute.</p>
+      </div>
+      <div>
+        <h3>What it cannot see or do</h3>
+        <ul>
+          <li>The member's brand kit, designs, packs, planner or orders. It is not connected to any member data.</li>
+          <li>The website, the blog, the guides or the internet. It cannot look anything up.</li>
+          <li>The canvas. It cannot make or change a design; it explains how the member can.</li>
+          <li>Remember. Each conversation starts fresh, and only the last <span id="as-cap">20</span> messages of it are sent.</li>
+        </ul>
+        <h3>The model</h3>
+        <p id="as-model-line">Set per mode below.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="as-empty ash-panel" id="as-empty" hidden>
+    <h2>The settings table is empty</h2>
+    <p>The assistant is running on the prompts built into its code. Load them in and they become editable here.</p>
+    <button type="button" class="admin-btn admin-btn-primary" id="as-import">Load the shipped prompts</button>
+  </div>
+  <div class="as-empty ash-panel" id="as-notable" hidden>
+    <h2>The settings table is not there yet</h2>
+    <p>Run <code>supabase/assistant_config.sql</code> in the Supabase SQL editor, then reload this page. Until then the assistant runs on the prompts in its code, shown read-only below.</p>
+  </div>
+
+  <div class="as-modes" id="as-modes"></div>
+
+  <section class="ash-panel as-try">
+    <h2 class="as-h">Try it</h2>
+    <p class="as-sub">Sends one message to the live assistant, the same way the Studio does. Replies come from whatever is saved above.</p>
+    <div class="as-try-row">
+      <select id="as-try-mode" class="admin-select"><option value="studio">Studio help</option><option value="content">Ideas</option></select>
+      <input type="text" id="as-try-q" class="admin-input" placeholder="Ask it something a member might…" />
+      <button type="button" class="admin-btn admin-btn-primary" id="as-try-go">Send</button>
+    </div>
+    <div class="as-try-out" id="as-try-out" hidden></div>
+  </section>
+</AdminShell>
+
+<style>
+  .as-status { margin: 0 0 14px; color: var(--muted, #6b6670); font-size: 13px; }
+  .as-h { margin: 0 0 12px; font-size: 16px; font-weight: 600; }
+  .as-sub { margin: -6px 0 14px; color: var(--muted, #6b6670); font-size: 13px; }
+  .as-facts { margin-bottom: 16px; }
+  .as-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
+  .as-grid h3 { margin: 10px 0 4px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted, #6b6670); }
+  .as-grid p, .as-grid li { margin: 0; font-size: 14px; line-height: 1.55; }
+  .as-grid ul { margin: 0; padding-left: 18px; }
+  .as-empty { margin-bottom: 16px; }
+  .as-empty h2 { margin: 0 0 6px; font-size: 16px; }
+  .as-empty p { margin: 0 0 12px; font-size: 14px; }
+  .as-empty code { font-size: 12px; background: rgba(28,29,34,0.06); padding: 2px 6px; border-radius: 4px; }
+  .as-modes { display: grid; gap: 16px; margin-bottom: 16px; }
+  .as-mode { padding: 0; }
+  .as-mode-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .as-mode-head h2 { margin: 0; font-size: 16px; }
+  .as-mode-head p { margin: 2px 0 0; font-size: 13px; color: var(--muted, #6b6670); }
+  .as-mode-src { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted, #6b6670); }
+  .as-fields { display: grid; grid-template-columns: 1.4fr 1.4fr 0.8fr auto; gap: 12px; margin: 14px 0; align-items: end; }
+  .as-field { display: grid; gap: 4px; }
+  .as-field span { font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted, #6b6670); }
+  .as-field input, .as-field select, .as-prompt { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; background: #fff; font: inherit; font-size: 14px; }
+  .as-toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; padding-bottom: 8px; }
+  .as-prompt { min-height: 320px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; line-height: 1.5; resize: vertical; }
+  .as-notes { min-height: 70px; font-family: inherit; font-size: 13.5px; }
+  .as-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+  .as-saved { font-size: 13px; color: var(--muted, #6b6670); }
+  .as-try-row { display: grid; grid-template-columns: 160px 1fr auto; gap: 10px; }
+  .as-try-out { margin-top: 14px; padding: 14px 16px; background: rgba(28,29,34,0.04); border-radius: 8px; font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+  @media (max-width: 900px) { .as-grid, .as-fields, .as-try-row { grid-template-columns: 1fr; } }
+</style>
+
+<script define:vars={{ BACKEND }}>
+  window.__AS_BACKEND__ = BACKEND;
+</script>
+<script>
+  import { supabase } from "../../lib/supabase.js";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const BACKEND = window.__AS_BACKEND__ || "/api/ask-expert";
+  const LABEL = { studio: { name: "Studio help", what: "How do I do this in the editor. Walks members through the rails, the panels and the toolbar." }, content: { name: "Ideas", what: "What should I post, and write it. Captions, hooks and ideas for UK agents." } };
+  const MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-5", "claude-opus-5"];
+
+  let info = null;     // from the function: effective config + shipped defaults
+  let rows = null;     // from the table (null = table missing)
+
+  async function loadInfo() {
+    try {
+      const r = await fetch(BACKEND + (BACKEND.includes("?") ? "&" : "?") + "info=1");
+      if (r.ok) info = await r.json();
+    } catch (_) {}
+  }
+  async function loadRows() {
+    const { data, error } = await supabase.from("assistant_config").select("*").order("mode");
+    if (error) { rows = null; return error; }
+    rows = data || [];
+    return null;
+  }
+
+  function render() {
+    const wrap = $("as-modes"); wrap.innerHTML = "";
+    const tableMissing = rows === null;
+    const tableEmpty = Array.isArray(rows) && rows.length === 0;
+    $("as-notable").hidden = !tableMissing;
+    $("as-empty").hidden = !tableEmpty;
+    if (info && info.history_cap) $("as-cap").textContent = String(info.history_cap);
+    const modes = ["studio", "content"];
+    const modelLine = modes.map((m) => {
+      const eff = (info && info.modes && info.modes[m]) || {};
+      return `${LABEL[m].name}: ${esc(eff.model || "—")}`;
+    }).join(" · ");
+    $("as-model-line").textContent = modelLine;
+
+    modes.forEach((m) => {
+      const row = Array.isArray(rows) ? rows.find((r) => r.mode === m) : null;
+      const eff = (info && info.modes && info.modes[m]) || null;
+      const def = (info && info.defaults && info.defaults[m]) || null;
+      const src = row ? "Saved here" : (eff && eff.source === "table" ? "Saved here" : "From the code");
+      const v = row || eff || def || { name: LABEL[m].name, system_prompt: "", model: MODELS[0], max_tokens: 1000, enabled: true };
+      const editable = !tableMissing && !!row;
+      const sec = document.createElement("section");
+      sec.className = "ash-panel as-mode";
+      sec.innerHTML = `
+        <div class="as-mode-head">
+          <div><h2>${esc(LABEL[m].name)} <span class="as-mode-src">· ${esc(src)}</span></h2><p>${esc(LABEL[m].what)}</p></div>
+        </div>
+        <div class="as-fields">
+          <label class="as-field"><span>Name members see</span><input type="text" data-f="name" value="${esc(v.name || LABEL[m].name)}" ${editable ? "" : "disabled"} /></label>
+          <label class="as-field"><span>Model</span><select data-f="model" ${editable ? "" : "disabled"}>${MODELS.concat(MODELS.includes(v.model) ? [] : [v.model]).map((x) => `<option value="${esc(x)}" ${x === v.model ? "selected" : ""}>${esc(x)}</option>`).join("")}</select></label>
+          <label class="as-field"><span>Longest reply (tokens)</span><input type="number" min="100" max="4000" step="50" data-f="max_tokens" value="${esc(v.max_tokens || 1000)}" ${editable ? "" : "disabled"} /></label>
+          <label class="as-toggle"><input type="checkbox" data-f="enabled" ${v.enabled !== false ? "checked" : ""} ${editable ? "" : "disabled"} /> Switched on</label>
+        </div>
+        <label class="as-field"><span>Its instructions (the system prompt)</span><textarea class="as-prompt" data-f="system_prompt" ${editable ? "" : "disabled"}>${esc(v.system_prompt || "")}</textarea></label>
+        <label class="as-field" style="margin-top:12px"><span>Notes for us (not sent to the assistant)</span><textarea class="as-prompt as-notes" data-f="notes" ${editable ? "" : "disabled"} placeholder="What it knows, what it may reference, what to add next…">${esc(row ? (row.notes || "") : "")}</textarea></label>
+        <div class="as-actions">
+          <button type="button" class="admin-btn admin-btn-primary" data-save ${editable ? "" : "disabled"}>Save</button>
+          <span class="as-saved" data-saved>${row && row.updated_at ? "Last saved " + new Date(row.updated_at).toLocaleString("en-GB") : ""}</span>
+        </div>`;
+      sec.querySelector("[data-save]").addEventListener("click", async () => {
+        const get = (f) => sec.querySelector(`[data-f="${f}"]`);
+        const payload = {
+          mode: m,
+          name: get("name").value.trim() || LABEL[m].name,
+          model: get("model").value,
+          max_tokens: Math.max(100, Math.min(4000, Number(get("max_tokens").value) || 1000)),
+          enabled: get("enabled").checked,
+          system_prompt: get("system_prompt").value,
+          notes: get("notes").value,
+          updated_at: new Date().toISOString(),
+        };
+        if (!payload.system_prompt.trim()) { alert("The instructions can't be empty."); return; }
+        const { error } = await supabase.from("assistant_config").upsert(payload, { onConflict: "mode" });
+        const s = sec.querySelector("[data-saved]");
+        if (error) { s.textContent = "Couldn't save: " + error.message; return; }
+        s.textContent = "Saved. The Studio picks it up within a minute.";
+        await loadRows(); await loadInfo(); render();
+      });
+      wrap.appendChild(sec);
+    });
+  }
+
+  $("as-import").addEventListener("click", async () => {
+    if (!info || !info.defaults) { $("as-status").textContent = "Couldn't reach the assistant to read its shipped prompts."; return; }
+    const payload = Object.keys(info.defaults).map((m) => {
+      const d = info.defaults[m];
+      return { mode: m, name: d.name || LABEL[m].name, system_prompt: d.system_prompt, model: d.model, max_tokens: d.max_tokens, enabled: true, notes: "", updated_at: new Date().toISOString() };
+    });
+    const { error } = await supabase.from("assistant_config").upsert(payload, { onConflict: "mode" });
+    if (error) { $("as-status").textContent = "Couldn't load them: " + error.message; return; }
+    await loadRows(); render();
+    $("as-status").textContent = "Loaded. Edit either one below.";
+  });
+
+  $("as-try-go").addEventListener("click", async () => {
+    const q = $("as-try-q").value.trim(); if (!q) return;
+    const out = $("as-try-out"); out.hidden = false; out.textContent = "…";
+    try {
+      const r = await fetch(BACKEND, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: q }], mode: $("as-try-mode").value }) });
+      const d = await r.json();
+      out.textContent = d.reply || d.error || "(no reply)";
+    } catch (e) { out.textContent = "Couldn't reach the assistant: " + (e && e.message); }
+  });
+  $("as-try-q").addEventListener("keydown", (e) => { if (e.key === "Enter") $("as-try-go").click(); });
+
+  (async () => {
+    await Promise.all([loadInfo(), loadRows()]);
+    render();
+    const st = $("as-status");
+    if (rows === null) st.textContent = "Showing the prompts from the code. Run the SQL to make them editable.";
+    else if (!info) st.textContent = "The assistant's address isn't set here (PUBLIC_ASK_EXPERT_URL), so the live view and Try it are off. Saved settings still edit.";
+    else st.textContent = "";
+  })();
+</script>

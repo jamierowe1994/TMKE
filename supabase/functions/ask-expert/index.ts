@@ -270,7 +270,58 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "content-type, authorization",
 };
 
+// ---- Settings from the assistant_config table --------------------------
+// Admin -> Insights -> Assistant edits a row per mode. Read with the service
+// role on each request, cached a minute, falling back to the prompts above
+// when the table or the row is missing, so the assistant never goes quiet
+// because of a settings problem.
+type Cfg = { name: string | null; system_prompt: string; model: string; max_tokens: number; enabled: boolean; source: "table" | "code" };
+const DEFAULTS: Record<string, Cfg> = {
+  studio: { name: "Studio help", system_prompt: STUDIO_PROMPT, model: MODEL, max_tokens: MAX_TOKENS, enabled: true, source: "code" },
+  content: { name: "Ideas", system_prompt: CONTENT_PROMPT, model: MODEL, max_tokens: MAX_TOKENS, enabled: true, source: "code" },
+};
+let cfgCache: { at: number; rows: Record<string, Cfg> } | null = null;
+async function loadConfig(): Promise<Record<string, Cfg>> {
+  if (cfgCache && Date.now() - cfgCache.at < 60_000) return cfgCache.rows;
+  const rows: Record<string, Cfg> = { ...DEFAULTS };
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (url && key) {
+    try {
+      const r = await fetch(`${url}/rest/v1/assistant_config?select=mode,name,system_prompt,model,max_tokens,enabled`, {
+        headers: { apikey: key, authorization: `Bearer ${key}` },
+      });
+      if (r.ok) {
+        const list = await r.json();
+        for (const row of Array.isArray(list) ? list : []) {
+          if (!row || !DEFAULTS[row.mode] || typeof row.system_prompt !== "string" || !row.system_prompt.trim()) continue;
+          rows[row.mode] = {
+            name: row.name ?? DEFAULTS[row.mode].name,
+            system_prompt: row.system_prompt,
+            model: (typeof row.model === "string" && row.model.trim()) || MODEL,
+            max_tokens: Number.isFinite(Number(row.max_tokens)) && Number(row.max_tokens) > 0 ? Math.min(4000, Number(row.max_tokens)) : MAX_TOKENS,
+            enabled: row.enabled !== false,
+            source: "table",
+          };
+        }
+      }
+    } catch (_) { /* the shipped prompts stand */ }
+  }
+  cfgCache = { at: Date.now(), rows };
+  return rows;
+}
+
 serve(async (req) => {
+  // GET ?info=1 — what the assistant is running on right now, and the shipped
+  // prompts, for the admin page. Nothing secret in it.
+  if (req.method === "GET") {
+    const u = new URL(req.url);
+    if (u.searchParams.has("info")) {
+      const rows = await loadConfig();
+      return json({ modes: rows, defaults: DEFAULTS, history_cap: 20 });
+    }
+    return json({ ok: true });
+  }
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
   }
@@ -305,7 +356,11 @@ serve(async (req) => {
   // Which assistant is asking. Anything unrecognised falls back to the
   // studio guide — an unknown mode is a front-end bug, and answering the
   // wrong kind of question is a better failure than answering none.
-  const system = body.mode === "content" ? CONTENT_PROMPT : STUDIO_PROMPT;
+  const cfg = (await loadConfig())[body.mode === "content" ? "content" : "studio"];
+  if (!cfg.enabled) {
+    return json({ reply: "The assistant is taking a break at the moment. Email hello@tmke.co.uk and a person will help." });
+  }
+  const system = cfg.system_prompt;
 
   const upstream = await fetch(ANTHROPIC_URL, {
     method: "POST",
@@ -315,8 +370,8 @@ serve(async (req) => {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
+      model: cfg.model,
+      max_tokens: cfg.max_tokens,
       system,
       messages: trimmed,
     }),
