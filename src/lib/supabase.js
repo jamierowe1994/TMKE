@@ -81,6 +81,18 @@ export const supabase = isConfigured
     })
   : makeStubClient();
 
+// The Member Hub demo (src/lib/demo.js): while the demo flag is set, the hub
+// pages see no session at all, so a signed-in member (or Dani) walking through
+// the demo sees it as a brand-new visitor would. Scoped to the hub's own
+// paths; the admin centre keeps the real session.
+try {
+  if (typeof window !== 'undefined' && window.localStorage.getItem('tmke_demo')
+      && /^\/(account|editor)(\/|$)/.test(window.location.pathname) && supabase && supabase.auth) {
+    supabase.auth.getSession = async () => ({ data: { session: null }, error: null });
+    supabase.auth.getUser = async () => ({ data: { user: null }, error: null });
+  }
+} catch (_) {}
+
 // The one key our session lives under. Exported so sign-out can purge it
 // directly rather than trusting the client to have done so.
 export const AUTH_STORAGE_KEY = 'tmke-admin-auth';

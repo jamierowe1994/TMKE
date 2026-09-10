@@ -309,7 +309,7 @@ const recentTemplates = templates.slice(0, 4);
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/cosy%20home.jpg')"></span>
           </a>
-          <a class="ws-news-card" href="/account/guides">
+          <a class="ws-news-card" href="/account/guides" data-demo-lock>
             <span class="ws-news-tx">
               <span class="ws-news-flag">New guide</span>
               <strong class="ws-news-h">Reels that actually get watched</strong>
@@ -327,7 +327,7 @@ const recentTemplates = templates.slice(0, 4);
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/home%20kitchen.jpg')"></span>
           </a>
-          <a class="ws-news-card" href="/account/schedule">
+          <a class="ws-news-card" href="/account/schedule" data-demo-lock>
             <span class="ws-news-tx">
               <span class="ws-news-flag">New feature</span>
               <strong class="ws-news-h">Bulk schedule your posts</strong>
@@ -565,6 +565,10 @@ const recentTemplates = templates.slice(0, 4);
     /* A wash rather than a flat panel: the template underneath still has to be
        recognisable, which is the whole point of showing it. */
     .ws-resume::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,16,20,0.82) 0%, rgba(20,16,20,0.36) 46%, rgba(20,16,20,0.06) 100%); }
+    /* The demo: no design to pick up, so a plain wine block. */
+    .ws-resume.is-demo-resume { background-color: var(--english-violet); }
+    .ws-resume.is-demo-resume::after { display: none; }
+    .ws-resume.is-demo-resume .ws-resume-h { font-size: clamp(20px, 1.8vw, 24px); }
     .ws-resume-body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; }
     /* The same size as the prompt beside it — it was reading as a headline
        against a body-sized neighbour. */
@@ -756,9 +760,23 @@ const recentTemplates = templates.slice(0, 4);
   <!-- Stage A migration: wire the real signed-in identity. Falls back to the
        mock preview when signed out (the hard login-gate lands at go-live). -->
   <script>
-    import { isDemo as demoOn, initDemoChrome } from "../../lib/demo.js";
+    import { isDemo as demoOn, initDemoChrome, lockClicks } from "../../lib/demo.js";
     // The dashboard draws its own header, so the demo chrome is set up here.
-    initDemoChrome();
+    if (initDemoChrome()) {
+      // Nothing saved yet, so the "pick up where you left off" card becomes
+      // the way in: a wine block that opens the Studio.
+      const resume = document.getElementById('ws-resume');
+      if (resume) {
+        resume.classList.add('is-demo-resume');
+        resume.style.backgroundImage = 'none';
+        resume.setAttribute('href', '/account/studio');
+        const rn = document.getElementById('ws-resume-name'); if (rn) rn.textContent = 'Get started';
+        const cta = resume.querySelector('.ws-resume-cta'); if (cta) cta.innerHTML = 'Open a template in the Studio <em aria-hidden="true">→</em>';
+      }
+      // Two of the Studio cards are for members.
+      document.querySelectorAll('[data-demo-lock]').forEach((a) => a.classList.add('is-demo-locked'));
+      lockClicks('[data-demo-lock]', 'That one is for members.', 'Reels guides and scheduling come with membership. In the demo, try the Studio, the Planner and the Getting Started guides.');
+    }
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { initTour } from '../../lib/tour.js';
