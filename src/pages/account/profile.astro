@@ -705,6 +705,7 @@ const HERO_BG = (await getImage({
   </style>
 
   <script>
+    import { isDemo as demoOn, lock } from "../../lib/demo.js";
     import { GOOGLE_FONTS, loadGoogleFont } from "../../data/google-fonts.js";
 
     (function () {
@@ -1067,6 +1068,7 @@ const HERO_BG = (await getImage({
       }
 
       form.addEventListener("submit", function (e) {
+        if (demoOn()) { e.preventDefault(); lock("Saving a brand kit is for members.", "This is everything a brand kit holds. Members set it once and every design in the Studio picks it up."); return; }
         e.preventDefault();
         clearTimeout(saveTimer);
         doSave(false);

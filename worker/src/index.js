@@ -5534,6 +5534,27 @@ export default {
         return json({ ok: true }, 200, request, env);
       }
 
+      // ---- Public: the Member Hub demo (NO auth) ----------------------------
+      // /demo asks for a name and an email before opening the hub without an
+      // account. The person becomes a lead tagged "Hub demo" on its own
+      // trigger, so a follow-up can be built for demo visitors alone. No
+      // marketing consent is implied by trying the demo.
+      if (path.endsWith("/hub-demo") && request.method === "POST") {
+        const b = await request.json().catch(() => ({}));
+        if (b && b.hp) return json({ ok: true }, 200, request, env); // honeypot
+        const email = String((b && b.email) || "").trim().toLowerCase();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Please add a valid email." }, 400, request, env);
+        const parts = String((b && b.name) || "").trim().split(/\s+/).filter(Boolean);
+        try {
+          await fireTrigger(env, "hub_demo_started", {
+            email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
+            source: "hub_demo", lifecycle: "lead",
+            tags: crmTags(email, ["Hub demo"], { optIn: false }),
+          }, { form: "hub-demo" }, "hub_demo");
+        } catch (_) {}
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Public: contact-form enquirer into the CRM (NO auth) -------------
       // /contact wrote the enquiry straight to Supabase from the browser and
       // stopped there, so an enquirer never became a contact at all and the

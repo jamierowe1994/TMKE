@@ -756,6 +756,9 @@ const recentTemplates = templates.slice(0, 4);
   <!-- Stage A migration: wire the real signed-in identity. Falls back to the
        mock preview when signed out (the hard login-gate lands at go-live). -->
   <script>
+    import { isDemo as demoOn, initDemoChrome } from "../../lib/demo.js";
+    // The dashboard draws its own header, so the demo chrome is set up here.
+    initDemoChrome();
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { initTour } from '../../lib/tour.js';
@@ -1029,7 +1032,7 @@ const recentTemplates = templates.slice(0, 4);
 
     (async () => {
       try {
-        const isDemo = import.meta.env.DEV;
+        const isDemo = import.meta.env.DEV || demoOn();
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) {
           // Live workspace — require sign-in. (Dev ?demo=1 still previews the mock.)

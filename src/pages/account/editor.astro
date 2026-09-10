@@ -6408,6 +6408,7 @@ const googleFonts = [
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
   <script>
+    import { isDemo as demoOn, lockClicks } from "../../lib/demo.js";
     import { supabase } from "../../lib/supabase.js";
 
     const overlay = document.getElementById("ed-onboard");
@@ -7094,7 +7095,11 @@ const googleFonts = [
       showView("home");
 
       // Dev-only preview: /editor?demo=1 fills the packs with example packs.
-      const isDemo = import.meta.env.DEV && params.has("demo");
+      const isDemo = (import.meta.env.DEV && params.has("demo")) || demoOn();
+      if (demoOn()) {
+        // The demo: play with anything, keep nothing.
+        lockClicks("#ed-save, #ed-schedule, #ed-download-trigger, #ed-download-menu button", "Saving and downloading are for members.", "Change anything you like in the demo. Members save designs, download them and send them to the planner.");
+      }
       if (isDemo) {
         loadSavedDesigns(null);
         loading.hidden = true;

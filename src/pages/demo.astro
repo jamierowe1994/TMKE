@@ -1,0 +1,73 @@
+---
+/**
+ * Try the Member Hub — a name and an email, then straight into the demo.
+ * See src/lib/demo.js for what the demo is and what it locks.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+---
+
+<BaseLayout title="Try the Member Hub — TMKE" description="Walk around the TMKE Member Hub: the Studio, the Planner, the guides. No account needed." hideFooter noindex>
+  <main class="demo">
+    <div class="demo-card">
+      <p class="demo-eyebrow">The Member Hub</p>
+      <h1 class="demo-h">Have a look around.</h1>
+      <p class="demo-p">The Studio, the Planner, the Shop and the Getting Started guides, as a member sees them. Nothing to set up. Saving and downloading wait for membership.</p>
+      <form class="demo-form" id="demo-form" novalidate>
+        <label class="demo-field"><span>Your name</span><input type="text" name="name" autocomplete="name" required /></label>
+        <label class="demo-field"><span>Email</span><input type="email" name="email" autocomplete="email" required /></label>
+        <input type="text" name="hp" tabindex="-1" autocomplete="off" class="demo-hp" aria-hidden="true" />
+        <p class="demo-err" id="demo-err" hidden></p>
+        <button type="submit" class="demo-btn" id="demo-go">Open the demo <span aria-hidden="true">&rarr;</span></button>
+        <p class="demo-small">We'll only use your email to follow up about the hub. <a href="/privacy">Privacy</a>.</p>
+      </form>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .demo { min-height: 100svh; display: grid; place-items: center; padding: 120px 22px 60px; background: var(--paper); color: var(--ink); font-family: var(--sans); }
+  .demo-card { width: min(520px, 100%); }
+  .demo-eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+  .demo-eyebrow::before { content: "\2014"; margin-right: 8px; }
+  .demo-h { margin: 0 0 14px; font-family: var(--subhead); font-weight: 400; font-size: clamp(38px, 6vw, 56px); line-height: 1.05; letter-spacing: -0.01em; }
+  .demo-p { margin: 0 0 30px; font-size: 17px; line-height: 1.55; color: rgba(28,29,34,0.72); }
+  .demo-form { display: grid; gap: 14px; }
+  .demo-field { display: grid; gap: 6px; }
+  .demo-field span { font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
+  .demo-field input { width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1px solid rgba(28,29,34,0.22); border-radius: 6px; background: #fff; color: var(--ink); font-family: var(--sans); font-size: 17px; }
+  .demo-field input:focus { outline: none; border-color: var(--english-violet); }
+  .demo-hp { position: absolute; left: -9999px; }
+  .demo-err { margin: 0; font-size: 14px; color: #8a2a2a; }
+  .demo-btn { margin-top: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 20px; background: var(--english-violet); color: var(--paper); border: 0; border-radius: 2px; font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+  .demo-btn[disabled] { opacity: 0.6; cursor: wait; }
+  .demo-small { margin: 4px 0 0; font-size: 13px; color: rgba(28,29,34,0.55); }
+  .demo-small a { color: inherit; }
+</style>
+
+<script define:vars={{ WORKER }}>
+  window.__TMKE_WORKER__ = WORKER;
+</script>
+<script>
+  import { startDemo, isDemo } from "../lib/demo.js";
+  const form = document.getElementById("demo-form");
+  const err = document.getElementById("demo-err");
+  const go = document.getElementById("demo-go");
+  if (isDemo()) go.textContent = "Back into the demo →";
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = (form.querySelector('[name="name"]').value || "").trim();
+    const email = (form.querySelector('[name="email"]').value || "").trim();
+    const hp = (form.querySelector('[name="hp"]').value || "").trim();
+    err.hidden = true;
+    if (!name) { err.textContent = "Add your name."; err.hidden = false; return; }
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = "That email doesn't look right."; err.hidden = false; return; }
+    go.disabled = true;
+    const WORKER = window.__TMKE_WORKER__ || "";
+    if (WORKER && !hp) {
+      try { await fetch(WORKER + "/hub-demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, hp }) }); } catch (_) {}
+    }
+    startDemo({ name, email });
+    location.href = "/account";
+  });
+</script>

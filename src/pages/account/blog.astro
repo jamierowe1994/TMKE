@@ -21,11 +21,20 @@ import "../../styles/account-sections.css";
   </div>
 
   <script>
+    import { isDemo as demoOn, lock, lockClicks } from "../../lib/demo.js";
     import { supabase, signOutEverywhere} from "../../lib/supabase.js";
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/blog'));
+        if (!import.meta.env.DEV && !demoOn()) location.replace('/login?next=' + encodeURIComponent('/account/blog'));
+        if (demoOn()) {
+          // The demo sees what is on the blog; reading is for members.
+          requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+          const note = () => lock("Reading the blog is for members.", "You can see what we write about. Members read every post, and the monthly insights.");
+          lockClicks('a[href*="#"]', "Reading the blog is for members.", "You can see what we write about. Members read every post, and the monthly insights.");
+          window.addEventListener('hashchange', () => { if (location.hash) { history.replaceState(null, '', location.pathname); note(); } });
+          if (location.hash) { history.replaceState(null, '', location.pathname); }
+        }
         return;
       }
       // getSession() is local-only - a cleared/revoked session can still look

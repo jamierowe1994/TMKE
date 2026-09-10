@@ -433,6 +433,7 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
   <!-- Auth gate + identity + real guides. Customers must be signed in to reach
        Guides; local dev keeps a small sample so the design stays viewable. -->
   <script>
+    import { isDemo as demoOn, lockClicks } from "../../lib/demo.js";
     import { supabase } from "../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
@@ -552,7 +553,12 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     (async () => {
       let session = null;
       try { const { data } = await supabase.auth.getSession(); session = data.session; } catch (_) {}
-      if (!session && !DEV) { location.replace('/login?next=' + encodeURIComponent('/account/guides')); return; }
+      if (!session && !DEV && !demoOn()) { location.replace('/login?next=' + encodeURIComponent('/account/guides')); return; }
+      if (!session && demoOn()) {
+        // The demo reads Getting Started; the other topics are for members.
+        lockClicks('.lrn-topic:not([data-topic="getting-started"])', "The other topics are for members.", "The demo includes the Getting Started guides. Members have the whole Learning Centre.");
+        document.querySelectorAll('.lrn-topic:not([data-topic="getting-started"])').forEach((t) => t.classList.add('is-demo-locked'));
+      }
       // getSession() is local-only - a cleared/revoked session can still look
       // valid to it. Confirm with the server before letting anyone in.
       if (session && !DEV) {

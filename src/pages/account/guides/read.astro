@@ -313,6 +313,7 @@ const DEFAULT_COVER = (await getImage({
 
   <script type="application/json" id="gr-defaults" set:html={JSON.stringify({ cover: DEFAULT_COVER })}></script>
   <script>
+    import { isDemo as demoOn, lock } from "../../lib/demo.js";
     import { supabase } from "../../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
@@ -560,6 +561,8 @@ const DEFAULT_COVER = (await getImage({
     }
 
     function render(guide){
+
+      if (demoOn() && guide && guide.topic && guide.topic !== "getting-started") { lock("That guide is for members.", "The demo includes the Getting Started guides. Members have the whole Learning Centre."); guide = null; }
       $("#gr-loading").hidden = true;
       if (!guide) { $("#gr-empty").hidden = false; $("#gr").setAttribute("aria-busy","false"); return; }
       $("#gr").setAttribute("aria-busy","false");
@@ -573,7 +576,7 @@ const DEFAULT_COVER = (await getImage({
       const slug = new URLSearchParams(location.search).get("g") || "";
       let session = null;
       try { const { data } = await supabase.auth.getSession(); session = data.session; } catch (_) {}
-      if (!session && !DEV) { location.replace("/login?next=" + encodeURIComponent(location.pathname + location.search)); return; }
+      if (!session && !DEV && !demoOn()) { location.replace("/login?next=" + encodeURIComponent(location.pathname + location.search)); return; }
       USER_ID = session?.user?.id || null;
 
       // Fill the header identity (mirrors the Learn page).

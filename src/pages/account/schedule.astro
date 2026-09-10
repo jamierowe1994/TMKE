@@ -776,6 +776,7 @@ import "../../styles/account-sections.css";
   </style>
 
   <script>
+    import { isDemo as demoOn, lock } from "../../lib/demo.js";
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
@@ -1133,6 +1134,7 @@ import "../../styles/account-sections.css";
     }
 
     async function savePost() {
+      if (demoOn()) { lock("Adding to the planner is for members.", "In the demo you can open any day and see how planning works. Members add posts, ideas and key dates here."); return; }
       if (!openPostId) return;
       clearPostError();
       const title   = ($postTitle.value || '').trim();
@@ -1230,10 +1232,10 @@ import "../../styles/account-sections.css";
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
+        if (!import.meta.env.DEV && !demoOn()) location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
         return;
       }
-      if (!sessionConfirmed && !import.meta.env.DEV) {
+      if (!sessionConfirmed && !import.meta.env.DEV && !demoOn()) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/schedule')); return; }
       }
