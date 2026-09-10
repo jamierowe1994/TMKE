@@ -139,6 +139,13 @@ const googleFonts = [
        The member's design library, shown when the Studio is opened without a
        design, a template or ?blank. Carries the hub's .ws class so it takes the
        shared system; the editor chrome underneath keeps its own look. -->
+  <!-- A design opened directly (?template, ?design, ?blank, ?prompt) must never
+       show the launcher first: this runs before paint and hides it, and shows a
+       plain veil until the canvas is up. -->
+  <script is:inline>
+    if (/[?&](template|design|blank|prompt)=/.test(location.search)) document.documentElement.classList.add("ed-direct");
+  </script>
+  <div class="ed-veil" id="ed-veil" aria-hidden="true"><span class="ed-veil-mark">TMKE</span><span class="ed-veil-text">Opening your design…</span></div>
   <div class="ed-onboard ws" id="ed-onboard">
     <WorkspaceHeader active="studio" />
 
@@ -4250,6 +4257,11 @@ const googleFonts = [
     }
     .ed-onboard.is-leaving { opacity: 0; transform: translateY(-30px); pointer-events: none; }
     .ed-onboard.is-gone { display: none; }
+    html.ed-direct .ed-onboard { display: none !important; }
+    .ed-veil { display: none; position: fixed; inset: 0; z-index: 2000; background: var(--paper, #f4f2f1); color: var(--ink, #1c1d22); place-items: center; align-content: center; gap: 10px; font-family: var(--sans); }
+    html.ed-direct .ed-veil { display: grid; }
+    .ed-veil-mark { font-family: var(--logo-serif, serif); font-size: 26px; letter-spacing: 0.08em; }
+    .ed-veil-text { font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.55; }
     /* The hub nav sits at the top of the flex column, on white. */
     .ed-onboard > .ws-nav { flex: 0 0 auto; background: #fff; border-bottom: 1px solid rgba(28,29,34,0.13); }
 
@@ -6416,7 +6428,16 @@ const googleFonts = [
 
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
   <script>
-    import { isDemo as demoOn, lockClicks } from "../../lib/demo.js";
+    import { isDemo as demoOn, lockClicks, lock } from "../../lib/demo.js";
+    // The demo's locks, set up here at the top of the module so they hold on
+    // every route into the editor: a template, a saved design, a prompt's
+    // blank canvas or the launcher. editor.js also guards the actions
+    // themselves (download, resize, pages, screen mockups) with the same note.
+    if (demoOn()) {
+      (window as any).__TMKE_DEMO_LOCK__ = lock;
+      lockClicks("#ed-save, #ed-schedule, #ed-download-trigger, #ed-download-menu button, #ed-review-btn", "Create an account to download your design.", "Everything you make here can be yours: join the Member Hub to save it, download it in any format and send it to your planner.");
+      lockClicks('.ed-rail-btn[data-tool="resize"], #ed-pages-toggle, .ed-shape[data-screen]', "Resizing, pages and screen mockups are for members.", "In the demo, open a template, change its words, pictures and colours, and see how the Studio feels.");
+    }
     import { supabase } from "../../lib/supabase.js";
 
     const overlay = document.getElementById("ed-onboard");
@@ -7076,6 +7097,8 @@ const googleFonts = [
 
     (async () => {
       const params = new URLSearchParams(location.search);
+      // Belt and braces: whatever route this turns out to be, the veil never outstays its welcome.
+      setTimeout(() => document.documentElement.classList.remove("ed-direct"), 4000);
 
       // Admin authors fresh (no pack-picker) — reveal the studio straight away.
       if (params.get("mode") === "admin") {
@@ -7094,6 +7117,8 @@ const googleFonts = [
         overlay.classList.add("is-gone");
         editor.classList.remove("is-onboarding");
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");
+        // The veil lifts once the canvas has had a moment to draw.
+        setTimeout(() => document.documentElement.classList.remove("ed-direct"), 900);
         return;
       }
 
@@ -7104,11 +7129,6 @@ const googleFonts = [
 
       // Dev-only preview: /editor?demo=1 fills the packs with example packs.
       const isDemo = (import.meta.env.DEV && params.has("demo")) || demoOn();
-      if (demoOn()) {
-        // The demo: play with anything, keep nothing.
-        lockClicks("#ed-save, #ed-schedule, #ed-download-trigger, #ed-download-menu button, #ed-review-btn", "Saving and downloading are for members.", "Change anything you like in the demo. Members save designs, download them and send them to the planner.");
-        lockClicks('.ed-rail-btn[data-tool="resize"], #ed-pages-toggle, .ed-shape[data-screen]', "Resizing, pages and screen mockups are for members.", "In the demo, open a template, change its words, pictures and colours, and see how the Studio feels.");
-      }
       if (isDemo) {
         loadSavedDesigns(null);
         loading.hidden = true;

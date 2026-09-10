@@ -50,3 +50,29 @@ export function adoptBrandCacheOrReload(uid) {
   }
   return kit;
 }
+
+/**
+ * A brand kit made in the demo (tmke.brand.demo) becomes the kit of the first
+ * account that signs in on this browser with no kit of its own: written to
+ * the server and to the cache, stamped with the owner. Returns true when it
+ * did so, so the page can redraw.
+ */
+export async function claimDemoBrandKit(supabase, uid) {
+  if (!uid) return false;
+  let demo = null;
+  try { demo = JSON.parse(localStorage.getItem("tmke.brand.demo") || "null"); } catch (_) {}
+  if (!demo || typeof demo !== "object") return false;
+  try {
+    const { data } = await supabase.from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
+    if (data && data.kit && typeof data.kit === "object" && Object.keys(data.kit).length) {
+      localStorage.removeItem("tmke.brand.demo");   // they already have one; the demo's is not needed
+      return false;
+    }
+    const kit = { ...demo, updatedAt: Date.now() };
+    delete kit.owner;
+    await supabase.from("member_brand_kits").upsert({ user_id: uid, kit, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+    writeBrandCache(kit, uid);
+    localStorage.removeItem("tmke.brand.demo");
+    return true;
+  } catch (_) { return false; }
+}

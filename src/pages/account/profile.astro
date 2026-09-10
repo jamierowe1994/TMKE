@@ -62,7 +62,7 @@ const HERO_BG = (await getImage({
             <label class="profile-field profile-field--full">
               <span>Company name</span>
               <div class="field-wrap">
-                <input type="text" name="company" placeholder="The Agency Co." autocomplete="organization" />
+                <input type="text" name="company" placeholder="e.g. The Agency Co." autocomplete="organization" />
                 <span class="field-ok" id="company-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
               </div>
             </label>
@@ -74,7 +74,7 @@ const HERO_BG = (await getImage({
             <label class="profile-field profile-field--full">
               <span>Area you cover</span>
               <div class="field-wrap">
-                <input type="text" name="location" placeholder="Banbury" autocomplete="address-level2" />
+                <input type="text" name="location" placeholder="e.g. Banbury" autocomplete="address-level2" />
                 <span class="field-ok" id="location-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
               </div>
             </label>
@@ -84,7 +84,7 @@ const HERO_BG = (await getImage({
             <label class="profile-field profile-field--full">
               <span>Slogan <span class="profile-optional">optional</span></span>
               <div class="field-wrap">
-                <input type="text" name="slogan" placeholder="Your move made simple" />
+                <input type="text" name="slogan" placeholder="e.g. Your move made simple" />
                 <span class="field-ok" id="slogan-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
               </div>
             </label>
@@ -706,6 +706,9 @@ const HERO_BG = (await getImage({
 
   <script>
     import { isDemo as demoOn, lock } from "../../lib/demo.js";
+    // In the demo the kit is kept under its own key for the visit, so the
+    // Studio can use it and an account created afterwards can claim it.
+    const BRAND_KEY = demoOn() ? "tmke.brand.demo" : "tmke.brand";
     import { GOOGLE_FONTS, loadGoogleFont } from "../../data/google-fonts.js";
 
     (function () {
@@ -742,7 +745,7 @@ const HERO_BG = (await getImage({
         { hex: "#FFFFFF", name: "White" },
       ];
       let brand = null;
-      try { brand = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+      try { brand = JSON.parse(localStorage.getItem(BRAND_KEY) || "null"); } catch (_) {}
       if (!brand) firstrun.hidden = false;
 
       const initialColours = (brand && brand.colors && brand.colors.length)
@@ -765,7 +768,7 @@ const HERO_BG = (await getImage({
       }
       function doSave(flashField) {
         const kit = collect();
-        try { localStorage.setItem("tmke.brand", JSON.stringify(kit)); } catch (_) {}
+        try { localStorage.setItem(BRAND_KEY, JSON.stringify(kit)); } catch (_) {}
         // Persist to the member's account too (server sync module listens for
         // this), so the kit follows their login into the Studio on any device.
         try { window.dispatchEvent(new CustomEvent("tmke:brand-changed", { detail: kit })); } catch (_) {}
@@ -1068,7 +1071,7 @@ const HERO_BG = (await getImage({
       }
 
       form.addEventListener("submit", function (e) {
-        if (demoOn()) { e.preventDefault(); lock("Saving a brand kit is for members.", "This is everything a brand kit holds. Members set it once and every design in the Studio picks it up."); return; }
+        if (demoOn()) { e.preventDefault(); lock("Kept for your visit.", "Your brand kit is saved for this visit and the Studio will use it. Create an account and it comes with you; without one it goes when you leave."); return; }
         e.preventDefault();
         clearTimeout(saveTimer);
         doSave(false);
@@ -1099,7 +1102,7 @@ const HERO_BG = (await getImage({
        follows their login into the Studio on any device) and, on load, adopts
        a newer server copy if they edited it on another device. -->
   <script>
-    import { adoptBrandCacheOrReload, writeBrandCache } from '../../lib/brand-cache.js';
+    import { adoptBrandCacheOrReload, writeBrandCache, claimDemoBrandKit } from '../../lib/brand-cache.js';
     import { supabase } from "../../lib/supabase.js";
     (async () => {
       let uid = null;
@@ -1108,6 +1111,8 @@ const HERO_BG = (await getImage({
       // the form redrawn from what the server holds for this user.
       adoptBrandCacheOrReload(uid);
       if (!uid) return;   // signed out — localStorage-only, nothing to sync
+      // A kit made in the demo, before this account existed, becomes theirs.
+      if (await claimDemoBrandKit(supabase, uid)) { location.reload(); return; }
 
       // Push local edits up to the member's row (debounced), on change.
       let t = null;

@@ -761,7 +761,7 @@ const recentTemplates = templates.slice(0, 4);
        mock preview when signed out (the hard login-gate lands at go-live). -->
   <script>
     import { isDemo as demoOn, initDemoChrome, lockClicks } from "../../lib/demo.js";
-    import { adoptBrandCacheOrReload } from "../../lib/brand-cache.js";
+    import { adoptBrandCacheOrReload, claimDemoBrandKit } from "../../lib/brand-cache.js";
     import { EVERGREEN_PROMPTS as DEMO_EVERGREEN, keyForEvergreen as demoKeyFor } from '../../data/content-calendar.js';
     // The dashboard draws its own header, so the demo chrome is set up here.
     if (initDemoChrome()) {
@@ -1090,6 +1090,7 @@ const recentTemplates = templates.slice(0, 4);
         // The cached brand kit must be this login's; a stranger's is dropped
         // (and the page redrawn) before anything reads it.
         adoptBrandCacheOrReload(session.user.id);
+        if (await claimDemoBrandKit(supabase, session.user.id)) { location.reload(); return; }
 
         const email = session.user.email ?? '';
         const meta = session.user.user_metadata ?? {};

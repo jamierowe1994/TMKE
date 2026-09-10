@@ -130,9 +130,9 @@
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
     let kit = null;
-    // The Member Hub demo has no brand kit, whatever this browser has cached.
-    try { if (localStorage.getItem("tmke_demo")) return null; } catch (_) {}
-    try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); }
+    // The Member Hub demo uses only the kit made during the demo, never one
+    // cached for a member on this browser.
+    try { kit = JSON.parse(localStorage.getItem(localStorage.getItem("tmke_demo") ? "tmke.brand.demo" : "tmke.brand") || "null"); }
     catch (_) { return null; }
     // Older kits saved colours as bare strings; every reader here expects
     // { hex, name }. One bare string used to stop the whole engine booting.
@@ -145,6 +145,17 @@
     return kit;
   }
   let BRAND = loadBrand();
+
+  // The Member Hub demo: some actions are for members, whichever button,
+  // shortcut or route reached them. The note is drawn by src/lib/demo.js,
+  // which editor.astro exposes on the window while the demo is on.
+  function demoLocked(title, message) {
+    let on = false;
+    try { on = !!localStorage.getItem("tmke_demo"); } catch (_) {}
+    if (!on) return false;
+    if (typeof window.__TMKE_DEMO_LOCK__ === "function") window.__TMKE_DEMO_LOCK__(title, message);
+    return true;
+  }
 
   // Pin brand fonts to the top of the font list (deduped, marked as brand).
   function buildFonts() {
@@ -2288,6 +2299,7 @@
   }
 
   function addPage() {
+    if (demoLocked("Pages are for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
     const cur = state.pages[state.currentPage].canvas;
     state.pages.splice(state.currentPage + 1, 0, {
       id: uid("page"), name: "Page " + (state.pages.length + 1),
@@ -4942,6 +4954,7 @@
   }
 
   function addScreen() {
+    if (demoLocked("Screen mockups are for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
     const w = 520, h = 320;
     addElement({
       type: "screen",
@@ -5638,6 +5651,7 @@
 
   // type can be: "png" | "jpg" | "png-transparent" | "pdf"
   async function exportImage(type) {
+    if (demoLocked("Create an account to download your design.", "Everything you have made here can be yours: join the Member Hub and download it in any format.")) return;
     const c = await _renderDesignToCanvas({ transparent: type === "png-transparent" });
 
     if (type === "pdf") {
@@ -9153,6 +9167,7 @@
     });
   });
   $("ed-resize-apply").addEventListener("click", () => {
+    if (demoLocked("Resizing is for members.", "In the demo, change the words, pictures and colours of a template and see how the Studio feels.")) return;
     const w = parseInt($("ed-resize-w").value, 10);
     const h = parseInt($("ed-resize-h").value, 10);
     if (!w || !h) return;
