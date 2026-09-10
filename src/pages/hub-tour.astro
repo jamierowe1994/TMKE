@@ -36,7 +36,8 @@ const SCENES = [
   { kind: "card", eyebrow: "The TMKE Member Hub", h: "It doesn’t give estate agents more marketing tools.", p: "It gives them a clearer way to actually do their marketing.", secs: 6.5 },
 
   { kind: "mission", secs: 7 },
-  { kind: "prompts", h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 10 },
+  { kind: "prompts", secs: 6 },
+  { kind: "clip", video: "prompts", h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 12 },
   { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 10 },
   { kind: "ask", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 7 },
   { kind: "phone", secs: 10 },
@@ -101,7 +102,19 @@ const SCENES = [
                 ))}
               </div>
             )}
-            <div class={`box box--late ${s.kind === "prompts" ? "box--bl" : "box--c"}`}>
+            {s.h && (
+              <div class={`box box--late ${s.kind === "prompts" ? "box--bl" : "box--c"}`}>
+                <h2 class="box-h">{s.h}</h2>
+                <p class="box-p">{s.p1}</p>
+                <p class="box-p">{s.p2}</p>
+              </div>
+            )}
+          </div>
+        )}
+        {s.kind === "clip" && (
+          <div class="wall-scene">
+            <video class="clip-bg" src={`/hub-tour/${s.video}.mp4`} muted playsinline loop preload="auto" data-clip></video>
+            <div class="box box--late box--bl">
               <h2 class="box-h">{s.h}</h2>
               <p class="box-p">{s.p1}</p>
               <p class="box-p">{s.p2}</p>
@@ -324,7 +337,7 @@ const SCENES = [
   .tile--blank i::before { content: ""; position: absolute; inset: 0; background: #c6e77c; border-radius: 50% 50% 0 0 / 60% 60% 0 0; transform: translate(-30%, 10%) scale(1.1, 0.8); }
   .scene.is-on .pcard, .scene.is-on .tile { animation: flash 0.45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.3s + var(--i) * 0.09s); }
   @keyframes flash { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
-  .scene.is-on .wall { animation: dim 0.9s ease both; animation-delay: var(--dim, 4.2s); }
+  .scene.is-on .box ~ .wall, .scene.is-on .wall:has(+ .box) { animation: dim 0.9s ease both; animation-delay: var(--dim, 4.2s); }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
@@ -359,6 +372,11 @@ const SCENES = [
   .phone-in span { flex: 1; padding: 30px 20px 60px; background: #f7f6f5; border-radius: 12px; color: rgba(28,29,34,0.45); font-size: 16px; }
   .phone-in i { width: 70px; height: 70px; border-radius: 12px; background: var(--english-violet); color: var(--paper); display: grid; place-items: center; font-style: normal; font-size: 24px; align-self: flex-end; }
   .phone-foot { margin: 0; padding: 20px 12px 24px; text-align: center; font-size: 12px; color: rgba(28,29,34,0.45); }
+
+  /* A screen recording behind a box. */
+  .clip-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #f2f0ee; }
+  .scene--clip .box--late { --box: 1.4s; }
+  .scene--clip { display: block; }
 
   /* The Studio behind the last two boxes. */
   .studio-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }
@@ -410,8 +428,8 @@ const SCENES = [
       clearTimeout(timer);
       i = n;
       scenes.forEach((s, k) => { s.classList.toggle("is-on", k === n); s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
-      film.classList.toggle("is-light", /scene--(prompts|edit|ask|phone|studio)\b/.test(scenes[n].className));
-      film.classList.toggle("is-shot", /scene--studio\b/.test(scenes[n].className));
+      film.classList.toggle("is-light", /scene--(prompts|edit|ask|phone|studio|clip)\b/.test(scenes[n].className));
+      film.classList.toggle("is-shot", /scene--(studio|clip)\b/.test(scenes[n].className));
       segs.forEach((g, k) => {
         g.classList.toggle("is-done", k < n);
         g.classList.remove("is-live");
@@ -419,6 +437,7 @@ const SCENES = [
         if (k === n) { g.style.setProperty("--secs", secsOf(n) + "ms"); void g.offsetWidth; g.classList.add("is-live"); }
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
+      scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { try { v.currentTime = 0; v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
       remaining = secsOf(n); startedAt = Date.now();
       if (!paused) arm();
     }
@@ -460,6 +479,12 @@ const SCENES = [
     film.querySelectorAll(".film-tap").forEach((b) => b.addEventListener("click", (e) => { if (held) e.stopImmediatePropagation(); }, true));
     document.addEventListener("visibilitychange", () => { if (document.hidden) pause(); else resume(); });
 
+    // A clip's scene lasts as long as the clip.
+    scenes.forEach((s) => s.querySelectorAll("video[data-clip]").forEach((v) => {
+      // A short clip loops under the box for the scene's own length; a longer
+      // one sets the length itself.
+      v.addEventListener("loadedmetadata", () => { if (isFinite(v.duration) && v.duration > Number(s.dataset.secs || 0)) s.dataset.secs = String(Math.round(v.duration * 10) / 10); });
+    }));
     show(0);
   })();
 </script>
