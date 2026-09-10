@@ -4631,6 +4631,7 @@ const googleFonts = [
     `__TMKE_BOOT_ADMIN__` handshake makes ordering robust regardless.
   -->
   <script>
+    import { adoptBrandCache, writeBrandCache } from '../../lib/brand-cache.js';
     import { supabase } from '../../lib/supabase.js';
     import { isAdminUser } from '../../lib/admin-gate.js';
 
@@ -5060,6 +5061,8 @@ const googleFonts = [
     } catch (_) {}
     try {
       const { data: { session: bkSession } } = await supabase.auth.getSession();
+      // Only this login's kit may stay cached; anyone else's goes.
+      const local = adoptBrandCache(bkSession ? bkSession.user.id : null);
       if (bkSession) {
         const { data: bk } = await supabase
           .from('member_brand_kits')
@@ -5067,15 +5070,11 @@ const googleFonts = [
           .eq('user_id', bkSession.user.id)
           .maybeSingle();
         if (bk && bk.kit && typeof bk.kit === 'object' && Object.keys(bk.kit).length) {
-          let local = null;
-          try { local = JSON.parse(localStorage.getItem('tmke.brand') || 'null'); } catch (_) {}
           const serverT = Number(bk.kit.updatedAt || 0);
           const localT = Number((local && local.updatedAt) || 0);
           // Server wins unless the browser cache is genuinely newer (edited on
           // this device and not yet synced up).
-          if (!local || serverT >= localT) {
-            try { localStorage.setItem('tmke.brand', JSON.stringify(bk.kit)); } catch (_) {}
-          }
+          if (!local || serverT >= localT) writeBrandCache(bk.kit, bkSession.user.id);
         }
       }
     } catch (_) { /* brand kit is optional — keep the editor usable */ }

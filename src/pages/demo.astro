@@ -178,6 +178,12 @@ const TILES = [
     let lastFocus = null;
 
     if (isDemo()) go.querySelector("[data-label]").textContent = "Back into the demo";
+    // /demo?go=1 opens the demo straight away, no form and no lead: for us,
+    // when checking it, rather than for anyone else.
+    if (new URLSearchParams(location.search).has("go")) {
+      startDemo({ name: "Demo", email: "" });
+      location.replace("/account");
+    }
 
     function openDrawer() {
       document.getElementById("jn-cursor")?.classList.remove("is-on");

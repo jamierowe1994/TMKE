@@ -121,6 +121,8 @@ export async function signOutEverywhere(redirectTo = '/login') {
   }
   try {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    // The brand kit belongs to the login, not the browser (src/lib/brand-cache.js).
+    localStorage.removeItem('tmke.brand'); localStorage.removeItem('tmke.brand.skipped');
     // Any stray default-keyed sessions from an older build.
     Object.keys(localStorage).filter((k) => k.startsWith('sb-')).forEach((k) => localStorage.removeItem(k));
     sessionStorage.clear();
