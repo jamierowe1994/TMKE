@@ -308,6 +308,9 @@ const DEFAULTS: Record<string, Cfg> = {
   site: { name: "About TMKE", system_prompt: SITE_SUMMARY, model: MODEL, max_tokens: 0, enabled: true, source: "code" },
   guides: { name: "Guides and courses", system_prompt: "", model: MODEL, max_tokens: 0, enabled: true, source: "code" },
   blog: { name: "Blog", system_prompt: "", model: MODEL, max_tokens: 0, enabled: true, source: "code" },
+  // The member's own context: brand kit and packs, read only for the signed-in
+  // member whose token arrives with the question.
+  member: { name: "The member's brand kit and packs", system_prompt: "", model: MODEL, max_tokens: 0, enabled: true, source: "code" },
 };
 let cfgCache: { at: number; rows: Record<string, Cfg> } | null = null;
 async function loadConfig(): Promise<Record<string, Cfg>> {
@@ -427,6 +430,83 @@ function knowledgeBlock(cfg: Record<string, Cfg>, question: string, docs: Doc[])
   return { block, sources: chosen.map((d) => ({ title: d.title, url: d.url, kind: d.kind })) };
 }
 
+// ---- The member's own context ------------------------------------------
+// The Studio sends the member's Supabase access token with each question.
+// It is verified with Supabase Auth, and only then are that one member's
+// brand kit and paid packs read (service role, filtered to their id and
+// email). What goes to the assistant is deliberately narrow: company,
+// location, slogan, tone of voice, colour names and hexes, font names, the
+// names of their packs and the templates in them, and the names of the other
+// packs in The Edit. Nothing about orders, money, bookings or other people.
+type Member = { id: string; email: string };
+type Ctx = { block: string; kit: boolean; packs: number };
+
+async function verifyMember(req: Request): Promise<Member | null> {
+  const auth = req.headers.get("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const url = Deno.env.get("SUPABASE_URL");
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!token || !url || !anon) return null;
+  try {
+    const r = await fetch(`${url}/auth/v1/user`, { headers: { apikey: anon, authorization: `Bearer ${token}` } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u && u.id ? { id: String(u.id), email: String(u.email || "").toLowerCase() } : null;
+  } catch (_) { return null; }
+}
+
+async function memberContext(m: Member, note: string): Promise<Ctx> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const out: Ctx = { block: "", kit: false, packs: 0 };
+  if (!url || !key) return out;
+  const h = { apikey: key, authorization: `Bearer ${key}` };
+  const get = async (path: string) => { const r = await fetch(`${url}/rest/v1/${path}`, { headers: h }); return r.ok ? r.json() : []; };
+  const lines: string[] = [];
+
+  // Brand kit.
+  try {
+    const rows = await get(`member_brand_kits?user_id=eq.${encodeURIComponent(m.id)}&select=kit&limit=1`);
+    const kit = rows && rows[0] && rows[0].kit;
+    if (kit && typeof kit === "object") {
+      const parts: string[] = [];
+      if (kit.company) parts.push(`Business: ${String(kit.company).slice(0, 80)}`);
+      if (kit.location) parts.push(`Location: ${String(kit.location).slice(0, 80)}`);
+      if (kit.slogan) parts.push(`Slogan: ${String(kit.slogan).slice(0, 120)}`);
+      if (Array.isArray(kit.colors) && kit.colors.length) parts.push("Brand colours: " + kit.colors.slice(0, 6).map((c: { name?: string; hex?: string }) => `${c.name || "Colour"} ${c.hex || ""}`.trim()).join(", "));
+      if (kit.fonts && (kit.fonts.heading || kit.fonts.body)) parts.push(`Fonts: headings ${kit.fonts.heading || "-"}, body ${kit.fonts.body || "-"}`);
+      if (kit.tone) parts.push(`Tone of voice, in their words: ${String(kit.tone).slice(0, 600)}`);
+      if (parts.length) { lines.push("THEIR BRAND KIT\n" + parts.join("\n")); out.kit = true; }
+    }
+  } catch (_) {}
+
+  // Packs they own, with the templates in them; and the rest of The Edit.
+  try {
+    const orFilter = m.email ? `or=(user_id.eq.${m.id},buyer_email.eq.${encodeURIComponent(m.email)})` : `user_id=eq.${m.id}`;
+    const orders = await get(`orders?${orFilter}&status=eq.paid&select=pack_id`);
+    const ownedIds = Array.from(new Set((orders || []).map((o: { pack_id?: string }) => o.pack_id).filter(Boolean)));
+    const packs = await get(`packs?status=eq.active&select=id,title&order=sort_order.asc`);
+    const owned = (packs || []).filter((p: { id: string }) => ownedIds.includes(p.id));
+    const others = (packs || []).filter((p: { id: string }) => !ownedIds.includes(p.id));
+    out.packs = owned.length;
+    if (owned.length) {
+      const ids = owned.map((p: { id: string }) => p.id).join(",");
+      const tpl = await get(`templates?pack_id=in.(${ids})&status=eq.published&select=name,category,pack_id&order=sort_order.asc&limit=200`);
+      const byPack: Record<string, string[]> = {};
+      for (const t of tpl || []) { (byPack[t.pack_id] ||= []).push(t.category ? `${t.name} (${t.category})` : t.name); }
+      lines.push("PACKS THEY OWN (templates inside)\n" + owned.map((p: { id: string; title: string }) => `- ${p.title}: ${(byPack[p.id] || []).slice(0, 40).join(", ") || "templates loading"}`).join("\n"));
+    } else {
+      lines.push("PACKS THEY OWN\nNone yet.");
+    }
+    if (others.length) lines.push("OTHER PACKS IN THE EDIT (the Shop)\n" + others.slice(0, 30).map((p: { title: string }) => `- ${p.title}`).join(", "));
+  } catch (_) {}
+
+  if (!lines.length) return out;
+  out.block = "\n\nABOUT THIS MEMBER\n\nYou are talking to a signed-in member. Use what follows naturally: write captions in their tone of voice when they have given one, suggest templates from packs they own by name for the job in hand, and when nothing they own fits, mention a pack from The Edit that would and that it is in the Shop. Do not read any of this back to them unprompted, and never mention data you were not given."
+    + (note && note.trim() ? "\n" + note.trim() : "") + "\n\n" + lines.join("\n\n");
+  return out;
+}
+
 serve(async (req) => {
   // GET ?info=1 — what the assistant is running on right now, and the shipped
   // prompts, for the admin page. Nothing secret in it.
@@ -483,7 +563,12 @@ serve(async (req) => {
   const userTurns = trimmed.filter((m) => m.role === "user");
   const question = userTurns.slice(-2).map((m) => m.content).join(" ");
   const { block, sources } = knowledgeBlock(all, question, await loadDocs());
-  const system = cfg.system_prompt + block;
+  let ctx: Ctx = { block: "", kit: false, packs: 0 };
+  if (all.member.enabled) {
+    const who = await verifyMember(req);
+    if (who) ctx = await memberContext(who, all.member.system_prompt);
+  }
+  const system = cfg.system_prompt + block + ctx.block;
 
   const upstream = await fetch(ANTHROPIC_URL, {
     method: "POST",
@@ -522,7 +607,7 @@ serve(async (req) => {
         .trim()
     : "(empty reply)";
 
-  return json({ reply, sources });
+  return json({ reply, sources, member: { kit: ctx.kit, packs: ctx.packs, signed_in: !!ctx.block } });
 });
 
 function json(body: unknown, status = 200) {

@@ -34,12 +34,12 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
         <h3>Where members meet it</h3>
         <p>In the Studio editor, from the <b>Creative Assistant</b> panel. It has two tabs, and each tab is its own assistant with its own instructions below: <b>Studio help</b> (how do I do this in the editor) and <b>Ideas</b> (what should I post, and write it).</p>
         <h3>What it knows</h3>
-        <p>Its instructions, a description of TMKE, and our own writing: with each question it is handed the few guides, courses and blog posts most relevant to it, each with its link, and told to answer in their spirit and to point the member to them by name. The sources it used appear under its reply. Everything is set in the panels below and changes for everyone within a minute.</p>
+        <p>Its instructions, a description of TMKE, and our own writing: with each question it is handed the few guides, courses and blog posts most relevant to it, each with its link, and told to answer in their spirit and to point the member to them by name. The sources it used appear under its reply. For a signed-in member it is also given their brand kit (business, location, slogan, colours, fonts, tone of voice) and the packs they own with the templates inside, plus the names of the other packs in The Edit, so it can write in their voice and point to the right template or pack. Everything is set in the panels below and changes for everyone within a minute.</p>
       </div>
       <div>
         <h3>What it cannot see or do</h3>
         <ul>
-          <li>The member's brand kit, designs, packs, planner or orders. It is not connected to any member data yet.</li>
+          <li>Anything about money, orders, bookings, the planner, saved designs or other members. From a signed-in member it is given only their brand kit and the names of their packs and templates, and only after their sign-in has been checked with Supabase.</li>
           <li>The internet. It cannot look anything up beyond what is listed below.</li>
           <li>The canvas. It cannot make or change a design; it explains how the member can.</li>
           <li>Remember. Each conversation starts fresh, and only the last <span id="as-cap">20</span> messages of it are sent.</li>
@@ -65,7 +65,7 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
 
   <section class="ash-panel as-try">
     <h2 class="as-h">Try it</h2>
-    <p class="as-sub">Sends one message to the live assistant, the same way the Studio does. Replies come from whatever is saved above.</p>
+    <p class="as-sub">Sends one message to the live assistant, the same way the Studio does, signed in as you, so it can see your own brand kit and packs. Replies come from whatever is saved above.</p>
     <div class="as-try-row">
       <select id="as-try-mode" class="admin-select"><option value="studio">Studio help</option><option value="content">Ideas</option></select>
       <input type="text" id="as-try-q" class="admin-input" placeholder="Ask it something a member might…" />
@@ -122,8 +122,9 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
     site: { name: "About TMKE", what: "What it is told about TMKE: what we offer and where things are in the hub. Sent with every question." },
     guides: { name: "Guides and courses", what: "The Learning Centre: the courses built into the hub and the guides written in the admin. The most relevant few go with each question." },
     blog: { name: "Blog", what: "The website's posts and the members' blog. The most relevant few go with each question." },
+    member: { name: "The member's brand kit and packs", what: "For a signed-in member only: their brand kit and the packs they own with the templates inside, plus the other packs in The Edit. Never orders, money, bookings or other members." },
   };
-  const KNOW = ["site", "guides", "blog"];
+  const KNOW = ["site", "guides", "blog", "member"];
   const MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-5", "claude-opus-5"];
 
   let info = null;     // from the function: effective config + shipped defaults
@@ -268,9 +269,17 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
     const q = $("as-try-q").value.trim(); if (!q) return;
     const out = $("as-try-out"); out.hidden = false; out.textContent = "…";
     try {
-      const r = await fetch(BACKEND, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: q }], mode: $("as-try-mode").value }) });
+      const headers = { "content-type": "application/json" };
+      try { const { data } = await supabase.auth.getSession(); if (data && data.session) headers.authorization = "Bearer " + data.session.access_token; } catch (_) {}
+      const r = await fetch(BACKEND, { method: "POST", headers, body: JSON.stringify({ messages: [{ role: "user", content: q }], mode: $("as-try-mode").value }) });
       const d = await r.json();
       out.textContent = d.reply || d.error || "(no reply)";
+      if (d.member) {
+        const mi = document.createElement("div");
+        mi.style.cssText = "margin-top:10px;font-size:12px;color:#6b6670";
+        mi.textContent = d.member.signed_in ? `Answered as you: brand kit ${d.member.kit ? "seen" : "not set"}, ${d.member.packs} pack${d.member.packs === 1 ? "" : "s"} owned.` : "Answered as a visitor (no sign-in seen).";
+        out.appendChild(mi);
+      }
       if (Array.isArray(d.sources) && d.sources.length) {
         const src = document.createElement("div");
         src.style.cssText = "margin-top:10px;font-size:12px;color:#6b6670";

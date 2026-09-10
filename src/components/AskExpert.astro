@@ -807,6 +807,7 @@
 </style>
 
 <script>
+  import { supabase } from "../lib/supabase.js";
   // Client-side controller for the Ask an Expert widget.
   // Keeps a rolling conversation in memory and POSTs to the
   // backend on every send. The fallback when no /api endpoint
@@ -948,9 +949,16 @@
     async function askBackend(messages: Msg[], mode: string): Promise<string> {
       lastSources = [];
       try {
+        // A signed-in member's token goes with the question, so the assistant
+        // can be given their brand kit and packs (verified on the server).
+        const headers: Record<string, string> = { "content-type": "application/json" };
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data && data.session && data.session.access_token) headers.authorization = "Bearer " + data.session.access_token;
+        } catch (_) {}
         const res = await fetch(BACKEND_URL, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers,
           body: JSON.stringify({ messages, mode }),
         });
         if (!res.ok) throw new Error("HTTP " + res.status);
