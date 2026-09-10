@@ -37,7 +37,9 @@ const SCENES = [
 
   { kind: "mission", secs: 7 },
   { kind: "prompts", secs: 6 },
-  { kind: "clip", video: "prompts", h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 12 },
+  // Two treatments to compare: stills stepping behind the box (default), or
+  // the clip in a laptop on the right (?frame=1).
+  { kind: "clip", video: "prompts", stills: ["planner", "dash-prompt", "dash"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 12 },
   { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 10 },
   { kind: "ask", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 7 },
   { kind: "phone", secs: 10 },
@@ -113,6 +115,14 @@ const SCENES = [
         )}
         {s.kind === "clip" && (
           <div class="wall-scene">
+            <div class="stills" aria-hidden="true">
+              {(s.stills || []).map((img, k) => <img src={`/hub-tour/${img}.jpg`} alt="" style={`--i:${k}`} loading="lazy" />)}
+            </div>
+            <div class="box box--late box--bl box--stills">
+              <h2 class="box-h">{s.h}</h2>
+              <p class="box-p">{s.p1}</p>
+              <p class="box-p">{s.p2}</p>
+            </div>
             <div class="clip-left">
               <div class="box box--late">
                 <h2 class="box-h">{s.h}</h2>
@@ -380,6 +390,15 @@ const SCENES = [
 
   /* A screen recording in a laptop, on the right; the box on the left. */
   .scene--clip { display: block; }
+  /* The stills treatment (default): screenshots step behind the box every
+     few seconds. The laptop treatment shows with ?frame=1. */
+  .stills { position: absolute; inset: 0; }
+  .stills img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; opacity: 0; }
+  .scene.is-on .stills img { animation: still 0.9s ease both; animation-delay: calc(var(--i) * 3.6s); }
+  @keyframes still { from { opacity: 0; } to { opacity: 1; } }
+  .scene--clip .box--stills { position: absolute; left: 5.6%; bottom: 7.4%; width: min(36vw, 680px); }
+  .film[data-variant="laptop"] .stills, .film[data-variant="laptop"] .box--stills { display: none; }
+  .film:not([data-variant="laptop"]) .clip-left, .film:not([data-variant="laptop"]) .clip-wrap { display: none; }
   .clip-left { position: absolute; left: 5.6%; top: 50%; transform: translateY(-50%); width: min(30vw, 520px); }
   .scene--clip .box { position: relative; left: auto; bottom: auto; width: 100%; }
   .scene--clip .box--late { --box: 1.4s; }
@@ -432,6 +451,8 @@ const SCENES = [
   (function () {
     const film = document.getElementById("film");
     if (!film) return;
+    // ?frame=1 shows the clip in a laptop instead of the stills.
+    if (new URLSearchParams(location.search).has("frame")) film.dataset.variant = "laptop";
     const scenes = Array.from(film.querySelectorAll(".scene"));
     const segs = Array.from(film.querySelectorAll(".film-seg"));
     const hud = document.getElementById("film-hud");
