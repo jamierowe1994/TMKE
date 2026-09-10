@@ -761,6 +761,7 @@ const recentTemplates = templates.slice(0, 4);
        mock preview when signed out (the hard login-gate lands at go-live). -->
   <script>
     import { isDemo as demoOn, initDemoChrome, lockClicks } from "../../lib/demo.js";
+    import { EVERGREEN_PROMPTS as DEMO_EVERGREEN, keyForEvergreen as demoKeyFor } from '../../data/content-calendar.js';
     // The dashboard draws its own header, so the demo chrome is set up here.
     if (initDemoChrome()) {
       // Nothing saved yet, so the "pick up where you left off" card becomes
@@ -773,6 +774,26 @@ const recentTemplates = templates.slice(0, 4);
         const rn = document.getElementById('ws-resume-name'); if (rn) rn.textContent = 'Get started';
         const cta = resume.querySelector('.ws-resume-cta'); if (cta) cta.innerHTML = 'Open a template in the Studio <em aria-hidden="true">→</em>';
       }
+      // The week: two sample posts stay; two empty days carry a prompt each,
+      // so the strip shows what "idea ready" looks like.
+      const days = Array.from(document.querySelectorAll('.ws-week .ws-day'));
+      const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      [[days[1], DEMO_EVERGREEN[1]], [days[5], DEMO_EVERGREEN[6]], [days[4], null]].forEach(([card, pr]) => {
+        if (!card) return;
+        if (!pr) { // the third sample post goes, so the week reads two posts, two prompts
+          const head = (card.querySelector('.ws-day-name')?.outerHTML || '') + (card.querySelector('.ws-day-num')?.outerHTML || '');
+          card.classList.add('ws-day--empty'); card.innerHTML = `${head}<span class="ws-day-empty-msg">No post planned</span>`;
+          return;
+        }
+        const head = (card.querySelector('.ws-day-name')?.outerHTML || '') + (card.querySelector('.ws-day-num')?.outerHTML || '');
+        card.classList.add('ws-day--idea'); card.classList.remove('ws-day--empty');
+        card.setAttribute('href', `/account/editor?blank=1&prompt=${demoKeyFor(pr)}`);
+        card.innerHTML = `${head}
+          <span class="ws-day-flag">Idea ready</span>
+          <span class="ws-day-idea">${esc(pr[0])}</span>
+          <span class="ws-day-hint">${esc(pr[1])}</span>
+          <span class="ws-day-cta">Design this post <em aria-hidden="true">&rarr;</em></span>`;
+      });
       // Two of the Studio cards are for members.
       document.querySelectorAll('[data-demo-lock]').forEach((a) => a.classList.add('is-demo-locked'));
       lockClicks('[data-demo-lock]', 'That one is for members.', 'Reels guides and scheduling come with membership. In the demo, try the Studio, the Planner and the Getting Started guides.');

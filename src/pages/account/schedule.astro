@@ -1231,16 +1231,18 @@ import "../../styles/account-sections.css";
       const toYmd    = ymd(new Date(winEnd.getFullYear(), winEnd.getMonth(), 0)); // last day of viewMonth+1
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        if (!import.meta.env.DEV && !demoOn()) location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
+      // The demo has no session but still gets the month: the prompts on
+      // their days and the holidays, with nothing of anyone's on it.
+      if (!session && !demoOn()) {
+        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/schedule'));
         return;
       }
-      if (!sessionConfirmed && !import.meta.env.DEV && !demoOn()) {
+      if (session && !sessionConfirmed && !import.meta.env.DEV) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/schedule')); return; }
       }
       sessionConfirmed = true;
-      $footerEmail.textContent = session.user.email ?? '';
+      $footerEmail.textContent = session ? (session.user.email ?? '') : 'The demo';
 
       const [itemsRes, holsRes] = await Promise.all([
         supabase.from('calendar_items')

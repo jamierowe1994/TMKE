@@ -368,6 +368,16 @@ const inspo = [
   </style>
 
   <script>
+    import { isDemo as demoOn, lockClicks } from "../../lib/demo.js";
+    if (demoOn()) {
+      // The demo: the background remover and the content ideas are for members.
+      const locked = [];
+      document.querySelectorAll('.ws-tool, .st-insp').forEach((el) => {
+        const t = (el.textContent || '').toLowerCase();
+        if (t.includes('background remover') || t.includes('content ideas')) { el.setAttribute('data-demo-lock', ''); el.classList.add('is-demo-locked'); locked.push(el); }
+      });
+      if (locked.length) lockClicks('[data-demo-lock]', 'That one is for members.', 'The background remover and the 48 content ideas come with membership. In the demo, open the pack and try the editor.');
+    }
     import { supabase } from "../../lib/supabase.js";
 
     // Shelf navigation: one dot per card, plus an arrow either side. Rebuilt on
@@ -463,6 +473,13 @@ const inspo = [
       };
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        if (!session && demoOn()) {
+          // The demo has nothing saved: just the way to start one.
+          const row = document.querySelector('[data-designs]');
+          if (row) row.innerHTML = `<a class="st-design st-design--new" href="/account/editor?new=1" data-new-design><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
+          done(false);
+          return;
+        }
         if (!session) { done(false); return; } // signed out (preview) → keep the SSR starter samples
         // Fetch 5: enough to show the 4 most recent AND detect a 5th (→ "See all").
         const { data, error } = await supabase
@@ -487,6 +504,7 @@ const inspo = [
 
   <!-- "Pick from your packs" → the member's actually-purchased packs. -->
   <script>
+    import { isDemo as demoOn } from "../../lib/demo.js";
     import { supabase } from "../../lib/supabase.js";
     (async function wirePacks() {
       const row = document.querySelector('[data-packs]');
@@ -501,6 +519,23 @@ const inspo = [
       const done = () => { row.classList.add('is-ready'); window.__ST_REWIRE_RAILS__?.(); };
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        if (!session && demoOn()) {
+          // The demo: the pack made for it (a slug or title starting "demo"), and the shop.
+          let card = '';
+          try {
+            const { data } = await supabase.from('packs').select('id, slug, title, cover_image_url').eq('status', 'active').or('slug.ilike.demo%,title.ilike.demo%').order('sort_order', { ascending: true }).limit(1);
+            const p = data && data[0];
+            if (p) card = `
+          <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
+            <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
+            <span class="st-pack-name">${esc(p.title)}</span>
+            <span class="st-pack-count">Open pack &rarr;</span>
+          </a>`;
+          } catch (_) {}
+          row.innerHTML = card + shopTile;
+          done();
+          return;
+        }
         if (!session) { done(); return; } // signed out (preview) → keep the SSR sample packs
         const email = session.user.email || '';
         const [packsRes, ordersRes] = await Promise.all([

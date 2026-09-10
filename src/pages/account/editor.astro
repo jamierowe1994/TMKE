@@ -7103,9 +7103,20 @@ const googleFonts = [
       if (isDemo) {
         loadSavedDesigns(null);
         loading.hidden = true;
-        grid.innerHTML = DEMO_PACKS.map(packCard).join("");
+        // The dev preview keeps its example packs; the real demo offers the
+        // one pack made for it in the admin (a slug or title starting "demo"),
+        // whose templates load the way any bought pack's do.
+        let demoPacks = DEMO_PACKS;
+        if (!(import.meta.env.DEV && params.has("demo"))) {
+          demoPacks = [];
+          try {
+            const { data } = await supabase.from("packs").select("id, slug, title, cover_image_url").eq("status", "active").or("slug.ilike.demo%,title.ilike.demo%").order("sort_order", { ascending: true }).limit(1);
+            if (data && data.length) demoPacks = data.map((p) => ({ ...p, category: "Try it" }));
+          } catch (_) {}
+        }
+        grid.innerHTML = demoPacks.length ? demoPacks.map(packCard).join("") : '<p class="ed-onboard-note">The demo pack is on its way. Start with a blank canvas for now.</p>';
         grid.hidden = false;
-        wirePackGrid(DEMO_PACKS);
+        wirePackGrid(demoPacks);
         return;
       }
 
