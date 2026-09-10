@@ -1,73 +1,233 @@
 ---
 /**
- * Try the Member Hub — a name and an email, then straight into the demo.
- * See src/lib/demo.js for what the demo is and what it locks.
+ * Try the Member Hub — the sign-up page's grid, with a name and an email in
+ * the drawer instead of an account. See src/lib/demo.js for what the demo is
+ * and what it locks.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+
+// What the demo includes, one tile each. Portrait (1080×1440) imagery, the
+// sign-up page's placeholders until the final shots are ready.
+const TILES = [
+  { key: "Dashboard", a: "Your week, today's prompt, what needs attention.", b: "One place to start from.",                     img: "/assets/signup/8.webp" },
+  { key: "Studio",    a: "Open a template and make it yours.",              b: "Text, pictures, colours. No design degree.",     img: "/assets/signup/2.webp" },
+  { key: "Planner",   a: "A month you can see.",                             b: "Prompts on the days, so there's a place to start.", img: "/assets/signup/7.webp" },
+  { key: "Shop",      a: "Browse The Edit.",                                 b: "Packs of property, community and seasonal content.", img: "/assets/signup/9.webp" },
+  { key: "Guides",    a: "The Getting Started course.",                      b: "Find your way around, then set up.",             img: "/assets/signup/3.webp" },
+  { key: "Brand kit", a: "See what a brand kit holds.",                      b: "Colours, fonts and logos, set once.",            img: "/assets/signup/6.webp" },
+  { key: "Locked",    a: "Saving, downloading and your own brand.",          b: "Those come with membership.",                    img: "/assets/signup/5.webp" },
+  { key: "Join",      a: "Liked it?",                                        b: "Create your account and keep everything.",       img: "/assets/signup/4.webp", href: "/join" },
+];
 ---
 
-<BaseLayout title="Try the Member Hub — TMKE" description="Walk around the TMKE Member Hub: the Studio, the Planner, the guides. No account needed." hideFooter noindex>
-  <main class="demo">
-    <div class="demo-card">
-      <p class="demo-eyebrow">The Member Hub</p>
-      <h1 class="demo-h">Have a look around.</h1>
-      <p class="demo-p">The Studio, the Planner, the Shop and the Getting Started guides, as a member sees them. Nothing to set up. Saving and downloading wait for membership.</p>
-      <form class="demo-form" id="demo-form" novalidate>
-        <label class="demo-field"><span>Your name</span><input type="text" name="name" autocomplete="name" required /></label>
-        <label class="demo-field"><span>Email</span><input type="email" name="email" autocomplete="email" required /></label>
-        <input type="text" name="hp" tabindex="-1" autocomplete="off" class="demo-hp" aria-hidden="true" />
-        <p class="demo-err" id="demo-err" hidden></p>
-        <button type="submit" class="demo-btn" id="demo-go">Open the demo <span aria-hidden="true">&rarr;</span></button>
-        <p class="demo-small">We'll only use your email to follow up about the hub. <a href="/privacy">Privacy</a>.</p>
-      </form>
+<BaseLayout
+  dashboard
+  title="Try the Member Hub — TMKE"
+  description="Walk around the TMKE Member Hub: the Studio, the Planner, the Shop and the guides. No account needed."
+  hideNav={true}
+  hideFooter={true}
+  noindex
+>
+  <main class="jn">
+    <header class="jn-top">
+      <a href="/" class="jn-top-back" aria-label="Back to site"><span aria-hidden="true">&larr;</span> Back</a>
+      <a href="/" class="jn-top-mark" aria-label="TMKE — home">TMKE</a>
+    </header>
+
+    <div class="jn-grid">
+      <button type="button" class="jn-cell jn-cell--tile jn-cell--join" data-demo-open aria-label="Open the demo">
+        <span class="jn-tile-inner">
+          <span class="jn-thumb">
+            <img class="jn-thumb-img" src="/assets/signup/1.webp" alt="" loading="lazy" />
+          </span>
+          <span class="jn-cap">
+            <span class="jn-cap-key chapter">Try it</span>
+            <span class="jn-cap-lines">
+              <span class="jn-cap-line">Have a look around the Member Hub.</span>
+              <span class="jn-cap-line">A name and an email. Nothing to set up.</span>
+            </span>
+          </span>
+        </span>
+      </button>
+      {TILES.map((t) => (
+        t.href ? (
+          <a class="jn-cell jn-cell--tile" href={t.href}>
+            <span class="jn-tile-inner">
+              <span class="jn-thumb"><img class="jn-thumb-img" src={t.img} alt="" loading="lazy" /></span>
+              <span class="jn-cap">
+                <span class="jn-cap-key chapter">{t.key}</span>
+                <span class="jn-cap-lines"><span class="jn-cap-line">{t.a}</span><span class="jn-cap-line">{t.b}</span></span>
+              </span>
+            </span>
+          </a>
+        ) : (
+          <button type="button" class="jn-cell jn-cell--tile" data-demo-open>
+            <span class="jn-tile-inner">
+              <span class="jn-thumb"><img class="jn-thumb-img" src={t.img} alt="" loading="lazy" /></span>
+              <span class="jn-cap">
+                <span class="jn-cap-key chapter">{t.key}</span>
+                <span class="jn-cap-lines"><span class="jn-cap-line">{t.a}</span><span class="jn-cap-line">{t.b}</span></span>
+              </span>
+            </span>
+          </button>
+        )
+      ))}
+    </div>
+
+    <div class="jn-cursor" id="jn-cursor" aria-hidden="true"><span>[ Click to try ]</span></div>
+
+    <div class="jn-drawer" id="jn-drawer" hidden aria-hidden="true">
+      <div class="jn-drawer-scrim" data-demo-close></div>
+      <div class="jn-drawer-panel" role="dialog" aria-modal="true" aria-label="Open the demo">
+        <button type="button" class="jn-drawer-x" data-demo-close aria-label="Close">&times;</button>
+        <div class="chapter">The demo</div>
+        <h2 class="jn-form-title">Have a Look Around</h2>
+        <p class="jn-form-sub">The Studio, the Planner, the Shop and the Getting Started guides, as a member sees them. Change anything you like. Saving, downloading and your own brand come with membership.</p>
+
+        <form id="demo-form" class="jn-form" novalidate>
+          <label class="jn-field"><span>Your name</span>
+            <input type="text" name="name" autocomplete="name" required /></label>
+          <label class="jn-field"><span>Email</span>
+            <input type="email" name="email" autocomplete="email" required /></label>
+          <input type="text" name="hp" tabindex="-1" autocomplete="off" class="demo-hp" aria-hidden="true" />
+          <button type="submit" class="btn btn--solid jn-submit" id="demo-go"><span data-label>Open the demo</span> <span class="btn-arrow">&rarr;</span></button>
+          <p id="demo-err" class="jn-error" hidden></p>
+          <p class="jn-check demo-small">We'll only use your email to follow up about the hub. <a href="/privacy" class="jn-link">Privacy</a>.</p>
+        </form>
+
+        <p class="jn-alt">Already a member? <a href="/login" class="jn-link">Sign in</a></p>
+      </div>
     </div>
   </main>
-</BaseLayout>
 
-<style>
-  .demo { min-height: 100svh; display: grid; place-items: center; padding: 120px 22px 60px; background: var(--paper); color: var(--ink); font-family: var(--sans); }
-  .demo-card { width: min(520px, 100%); }
-  .demo-eyebrow { margin: 0 0 14px; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
-  .demo-eyebrow::before { content: "\2014"; margin-right: 8px; }
-  .demo-h { margin: 0 0 14px; font-family: var(--subhead); font-weight: 400; font-size: clamp(38px, 6vw, 56px); line-height: 1.05; letter-spacing: -0.01em; }
-  .demo-p { margin: 0 0 30px; font-size: 17px; line-height: 1.55; color: rgba(28,29,34,0.72); }
-  .demo-form { display: grid; gap: 14px; }
-  .demo-field { display: grid; gap: 6px; }
-  .demo-field span { font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
-  .demo-field input { width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1px solid rgba(28,29,34,0.22); border-radius: 6px; background: #fff; color: var(--ink); font-family: var(--sans); font-size: 17px; }
-  .demo-field input:focus { outline: none; border-color: var(--english-violet); }
-  .demo-hp { position: absolute; left: -9999px; }
-  .demo-err { margin: 0; font-size: 14px; color: #8a2a2a; }
-  .demo-btn { margin-top: 6px; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 20px; background: var(--english-violet); color: var(--paper); border: 0; border-radius: 2px; font-family: var(--sans); font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
-  .demo-btn[disabled] { opacity: 0.6; cursor: wait; }
-  .demo-small { margin: 4px 0 0; font-size: 13px; color: rgba(28,29,34,0.55); }
-  .demo-small a { color: inherit; }
-</style>
+  <style>
+    main.jn { --jn-line: rgba(28,29,34,0.12); background: var(--paper); min-height: 100vh; display: flex; flex-direction: column; }
+    .jn-top { display: flex; align-items: center; justify-content: space-between; padding: 16px clamp(18px, 2.4vw, 34px); flex: none; }
+    .jn-top-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-top-back:hover { color: var(--ink); }
+    .jn-top-mark { font-family: var(--serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); }
 
-<script define:vars={{ WORKER }}>
-  window.__TMKE_WORKER__ = WORKER;
-</script>
-<script>
-  import { startDemo, isDemo } from "../lib/demo.js";
-  const form = document.getElementById("demo-form");
-  const err = document.getElementById("demo-err");
-  const go = document.getElementById("demo-go");
-  if (isDemo()) go.textContent = "Back into the demo →";
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const name = (form.querySelector('[name="name"]').value || "").trim();
-    const email = (form.querySelector('[name="email"]').value || "").trim();
-    const hp = (form.querySelector('[name="hp"]').value || "").trim();
-    err.hidden = true;
-    if (!name) { err.textContent = "Add your name."; err.hidden = false; return; }
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = "That email doesn't look right."; err.hidden = false; return; }
-    go.disabled = true;
-    const WORKER = window.__TMKE_WORKER__ || "";
-    if (WORKER && !hp) {
-      try { await fetch(WORKER + "/hub-demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, hp }) }); } catch (_) {}
+    .jn-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--jn-line); border-left: 1px solid var(--jn-line); }
+    .jn-cell { border-right: 1px solid var(--jn-line); border-bottom: 1px solid var(--jn-line); min-height: clamp(320px, 36vh, 440px); position: relative; }
+
+    .jn-cursor { position: fixed; top: 0; left: 0; z-index: 2500; pointer-events: none; opacity: 0; transition: opacity 0.18s ease; }
+    .jn-cursor.is-on { opacity: 1; }
+    .jn-cursor span { position: absolute; transform: translate(-50%, -50%); color: var(--english-violet); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; white-space: nowrap; }
+    .jn.jn-has-cursor .jn-grid, .jn.jn-has-cursor .jn-cell--tile { cursor: none; }
+    @media (hover: none) { .jn-cursor { display: none; } }
+
+    .jn-cell--tile { display: flex; align-items: center; justify-content: center; padding: 30px 24px; cursor: pointer; background: none; border-top: 0; border-left: 0; text-decoration: none; color: inherit; font: inherit; }
+    .jn-tile-inner { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; width: min(66%, 210px); }
+    .jn-thumb { position: relative; width: 85%; aspect-ratio: 1080 / 1440; overflow: visible; }
+    .jn-thumb-img { width: 100%; height: 100%; object-fit: cover; display: block; will-change: filter; transition: filter 0.5s ease, opacity 0.5s ease; }
+    .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: blur(11px); opacity: 0.5; }
+    .jn-cap { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; text-align: left; width: 100%; }
+    .jn-cap-key { margin: 0; color: var(--english-violet); }
+    .jn-cap-lines { display: flex; flex-direction: column; gap: 2px; opacity: 0; transition: opacity 0.35s ease; }
+    .jn-cell--tile:hover .jn-cap-lines, .jn-cell--tile:focus-visible .jn-cap-lines { opacity: 1; }
+    .jn-cap-line { font-family: var(--sans); font-size: 12px; line-height: 1.2; color: rgba(28,29,34,0.6); }
+    .jn-cell--tile:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
+
+    .jn-drawer { position: fixed; inset: 0; z-index: 3000; }
+    .jn-drawer[hidden] { display: none; }
+    .jn-drawer-scrim { position: absolute; inset: 0; background: rgba(28,29,34,0.5); opacity: 0; transition: opacity 0.28s ease; }
+    .jn-drawer.is-open .jn-drawer-scrim { opacity: 1; }
+    .jn-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: clamp(400px, 50vw, 720px); background: var(--paper); box-shadow: -18px 0 60px rgba(28,29,34,0.3); padding: 84px clamp(30px, 3.2vw, 52px) 48px; overflow-y: auto; transform: translateX(100%); transition: transform 0.34s cubic-bezier(0.22,0.61,0.36,1); }
+    .jn-drawer.is-open .jn-drawer-panel { transform: translateX(0); }
+    .jn-drawer-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: rgba(28,29,34,0.55); font-size: 22px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .jn-drawer-x:hover { color: var(--ink); }
+    .jn-drawer-panel .chapter { margin-bottom: 36px; }
+    .jn-form-title { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.4vw, 36px); line-height: 1.05; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 12px; }
+    .jn-form-sub { font-family: var(--sans); font-size: 14px; font-weight: 500; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 44px; }
+    .jn-form { display: flex; flex-direction: column; gap: 14px; }
+    .jn-field { display: flex; flex-direction: column; gap: 7px; }
+    .jn-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .jn-field input { font-family: var(--sans); font-size: 16px; padding: 13px 15px; border: 1px solid rgba(28,29,34,0.18); border-radius: 3px; background: #fff; color: var(--ink); transition: border-color 0.2s, box-shadow 0.2s; }
+    .jn-field input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+    .demo-hp { position: absolute; left: -9999px; }
+    .jn-check { font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: rgba(28,29,34,0.62); margin: 2px 0 0; }
+    .jn-submit { width: 100%; justify-content: center; padding: 15px; margin-top: 6px; }
+    .jn-submit[disabled] { opacity: 0.7; }
+    .jn-error { font-family: var(--sans); font-size: 13px; color: #a05a3c; background: rgba(160,90,60,0.08); padding: 10px 13px; border-radius: 3px; margin: 2px 0 0; }
+    .jn-alt { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); text-align: center; margin: 18px 0 0; }
+    .jn-link { color: var(--english-violet); font-weight: 700; border-bottom: 1px solid currentColor; }
+
+    @media (max-width: 860px) { .jn-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) {
+      .jn-grid { grid-template-columns: repeat(2, 1fr); }
+      .jn-cell { min-height: clamp(200px, 44vw, 280px); }
+      .jn-cell--tile { padding: 24px 16px; }
+      .jn-tile-inner { width: min(82%, 150px); gap: 12px; }
+      .jn-cap-lines { display: none; }
+      .jn-cell--tile:hover .jn-thumb-img, .jn-cell--tile:focus-visible .jn-thumb-img { filter: none; opacity: 1; }
+      .jn-drawer-panel { width: 100vw; }
     }
-    startDemo({ name, email });
-    location.href = "/account";
-  });
-</script>
+  </style>
+
+  <script define:vars={{ WORKER }}>
+    window.__TMKE_WORKER__ = WORKER;
+  </script>
+  <script>
+    import { startDemo, isDemo } from "../lib/demo.js";
+
+    const drawer = document.getElementById("jn-drawer");
+    const form = document.getElementById("demo-form");
+    const err = document.getElementById("demo-err");
+    const go = document.getElementById("demo-go");
+    let lastFocus = null;
+
+    if (isDemo()) go.querySelector("[data-label]").textContent = "Back into the demo";
+
+    function openDrawer() {
+      document.getElementById("jn-cursor")?.classList.remove("is-on");
+      lastFocus = document.activeElement;
+      err.hidden = true;
+      drawer.hidden = false; drawer.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(() => drawer.classList.add("is-open"));
+      document.body.style.overflow = "hidden";
+      setTimeout(() => { const f = form.querySelector('input[name="name"]'); if (f) f.focus(); }, 80);
+    }
+    function closeDrawer() {
+      drawer.classList.remove("is-open"); drawer.setAttribute("aria-hidden", "true");
+      setTimeout(() => { drawer.hidden = true; }, 320);
+      document.body.style.overflow = "";
+      if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (_) {} }
+    }
+    document.querySelectorAll("[data-demo-open]").forEach((el) => el.addEventListener("click", openDrawer));
+    document.addEventListener("click", (e) => { if (e.target.closest("[data-demo-close]")) closeDrawer(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && drawer.classList.contains("is-open")) closeDrawer(); });
+
+    // The "[ Click to try ]" cursor over the grid, on fine-pointer devices only.
+    const jnMain = document.querySelector(".jn");
+    const jnGrid = document.querySelector(".jn-grid");
+    const jnCursor = document.getElementById("jn-cursor");
+    if (jnMain && jnGrid && jnCursor && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+      jnMain.classList.add("jn-has-cursor");
+      jnGrid.addEventListener("mousemove", (e) => {
+        jnCursor.style.transform = `translate3d(${e.clientX}px, ${e.clientY}px, 0)`;
+        if (!drawer.classList.contains("is-open")) jnCursor.classList.add("is-on");
+      });
+      jnGrid.addEventListener("mouseleave", () => jnCursor.classList.remove("is-on"));
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = (form.querySelector('[name="name"]').value || "").trim();
+      const email = (form.querySelector('[name="email"]').value || "").trim();
+      const hp = (form.querySelector('[name="hp"]').value || "").trim();
+      err.hidden = true;
+      if (!name) { err.textContent = "Add your name."; err.hidden = false; return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err.textContent = "That email doesn't look right."; err.hidden = false; return; }
+      go.setAttribute("disabled", "true");
+      go.querySelector("[data-label]").textContent = "Opening…";
+      const WORKER = window.__TMKE_WORKER__ || "";
+      if (WORKER && !hp) {
+        try { await fetch(WORKER + "/hub-demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, email, hp }) }); } catch (_) {}
+      }
+      startDemo({ name, email });
+      if (typeof window.tmkeSplash === "function") window.tmkeSplash("/account");
+      else location.href = "/account";
+    });
+  </script>
+</BaseLayout>
