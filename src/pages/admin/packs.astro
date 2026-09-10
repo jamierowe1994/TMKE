@@ -29,8 +29,9 @@ import "../../styles/admin.css";
     <div class="demo-pack-body" id="demo-pack-body" hidden>
       <div class="demo-pack-list" id="demo-pack-list"></div>
       <div class="demo-pack-add">
-        <label><span>Add a copy of</span><select id="demo-pack-pick" class="admin-select"><option value="">Choose a template…</option></select></label>
-        <button type="button" class="admin-btn" id="demo-pack-addbtn">Add to the demo pack</button>
+        <p class="demo-pack-add-h">Add a template</p>
+        <p class="demo-pack-add-sub">Click one to copy it into the demo pack.</p>
+        <div class="demo-pack-picker" id="demo-pack-picker"></div>
       </div>
     </div>
   </div>
@@ -166,9 +167,17 @@ import "../../styles/admin.css";
     .demo-pack-item .dp-from { font-size: 11px; color: var(--muted, #6b6670); }
     .demo-pack-item button { justify-self: start; background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: #8a2a2a; cursor: pointer; }
     .demo-pack-empty { font-size: 13px; color: var(--muted, #6b6670); }
-    .demo-pack-add { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
-    .demo-pack-add label { display: grid; gap: 4px; min-width: 320px; }
-    .demo-pack-add label span { font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted, #6b6670); }
+    .demo-pack-add { border-top: 1px solid rgba(28,29,34,0.1); padding-top: 14px; }
+    .demo-pack-add-h { margin: 0 0 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted, #6b6670); }
+    .demo-pack-add-sub { margin: 0 0 12px; font-size: 13px; color: var(--muted, #6b6670); }
+    .demo-pack-picker h3 { margin: 14px 0 8px; font-size: 13px; font-weight: 600; }
+    .demo-pack-picker h3:first-child { margin-top: 0; }
+    .dp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
+    .dp-pick { border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 4px; background: #fff; cursor: pointer; display: grid; gap: 5px; text-align: left; font: inherit; color: inherit; }
+    .dp-pick:hover { border-color: var(--english-violet, #371e28); }
+    .dp-pick .dp-thumb { aspect-ratio: 3 / 4; background: #e9e6e2 center / cover; border-radius: 4px; }
+    .dp-pick .dp-name { font-size: 10px; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--muted, #6b6670); }
+    .dp-pick[disabled] { opacity: 0.45; cursor: default; }
     .catalogue-sub {
       font-family: var(--sans);
       font-size: 13px;
@@ -863,8 +872,8 @@ import "../../styles/admin.css";
       dpNote("");
       const [{ data: inPack }, { data: all }, { data: packs }] = await Promise.all([
         supabase.from("templates").select("id, name, thumb_url, category, sort_order").eq("pack_id", demoPack.id).order("sort_order", { ascending: true }),
-        supabase.from("templates").select("id, name, pack_id").eq("status", "active").neq("pack_id", demoPack.id).order("name", { ascending: true }),
-        supabase.from("packs").select("id, title").eq("demo", false),
+        supabase.from("templates").select("id, name, pack_id, thumb_url, sort_order").eq("status", "active").neq("pack_id", demoPack.id).order("sort_order", { ascending: true }),
+        supabase.from("packs").select("id, title, sort_order").eq("demo", false).order("sort_order", { ascending: true }),
       ]);
       const packTitle = new Map((packs || []).map((p) => [p.id, p.title]));
       const list = dpEl("demo-pack-list");
@@ -880,11 +889,21 @@ import "../../styles/admin.css";
         if (e) { dpNote("Couldn't remove it: " + e.message); return; }
         loadDemoPack();
       }));
-      const pick = dpEl("demo-pack-pick");
-      pick.innerHTML = `<option value="">Choose a template…</option>` + (all || []).filter((t) => t.pack_id).map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(packTitle.get(t.pack_id) || "Pack")} — ${escapeHtml(t.name)}</option>`).join("");
+      // The picker: thumbnails, grouped by pack in the catalogue's order.
+      const picker = dpEl("demo-pack-picker");
+      const byPack = new Map();
+      (all || []).filter((t) => t.pack_id).forEach((t) => { if (!byPack.has(t.pack_id)) byPack.set(t.pack_id, []); byPack.get(t.pack_id).push(t); });
+      const order = (packs || []).map((p) => p.id).filter((id) => byPack.has(id));
+      picker.innerHTML = order.length ? order.map((pid) => `
+        <h3>${escapeHtml(packTitle.get(pid) || "Pack")}</h3>
+        <div class="dp-grid">${byPack.get(pid).map((t) => `
+          <button type="button" class="dp-pick" data-dp-add="${escapeHtml(t.id)}" title="${escapeHtml(t.name)}">
+            <span class="dp-thumb"${t.thumb_url ? ` style="background-image:url('${escapeHtml(t.thumb_url)}')"` : ""}></span>
+            <span class="dp-name">${escapeHtml(t.name)}</span>
+          </button>`).join("")}</div>`).join("") : `<p class="demo-pack-empty">No templates in the catalogue yet.</p>`;
+      picker.querySelectorAll("[data-dp-add]").forEach((b) => b.addEventListener("click", () => { b.disabled = true; addToDemoPack(b.getAttribute("data-dp-add")); }));
     }
-    dpEl("demo-pack-addbtn").addEventListener("click", async () => {
-      const id = dpEl("demo-pack-pick").value;
+    async function addToDemoPack(id) {
       if (!id || !demoPack) return;
       const { data: src, error: e1 } = await supabase.from("templates").select("*").eq("id", id).single();
       if (e1 || !src) { dpNote("Couldn't read that template."); return; }
@@ -897,7 +916,7 @@ import "../../styles/admin.css";
       const { error: e2 } = await supabase.from("templates").insert(copy);
       if (e2) { dpNote("Couldn't add it: " + e2.message); return; }
       loadDemoPack();
-    });
+    }
 
     async function loadPacks() {
       const { data, error } = await supabase
