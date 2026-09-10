@@ -31,21 +31,21 @@ const EDIT_TILES = [T(1), T(5), T(9), T(4), T(12), T(2), T(8), T(6), T(7), T(10)
 // The prompt cards appear in a scattered order, not one after another.
 const SCATTER = [7, 2, 13, 0, 10, 5, 16, 3, 11, 8, 1, 15, 6, 12, 4, 17, 9, 14];
 const MISSION_PHOTOS = ["/assets/signup/1.webp", "/assets/signup/4.webp", "/assets/signup/8.webp"];
+const MISSION_PHOTOS_2 = ["/assets/signup/5.webp", "/assets/signup/3.webp", "/assets/signup/6.webp"];
 
 const SCENES = [
   { kind: "card", eyebrow: "The TMKE Member Hub", h: "It doesn’t give estate agents more marketing tools.", p: "It gives them a clearer way to actually do their marketing.", secs: 6.5 },
 
-  { kind: "mission", secs: 3 },
-  { kind: "prompts", secs: 4 },
-  // Two treatments to compare: stills stepping behind the box (default), or
-  // the clip in a laptop on the right (?frame=1).
-  { kind: "clip", video: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 4 },
-  { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 5 },
+  { kind: "mission", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
+  // One scene: the wall of prompt cards flashes in and holds, fades out, then
+  // the three screens and the box fade in together.
+  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 7 },
+  { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 5.5 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
   { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
   { kind: "studio", img: "editor", focus: "62% 55%", h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own.", secs: 9 },
 
-  { kind: "card", act: "02", h: "“I want to get better at this.”", secs: 4 },
+  { kind: "mission", n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   { img: "guides", focus: "50% 30%", eyebrow: "Learning Centre", h: "Training made for estate agency.", p: "Mini-courses and guides written for agents, not for every business on the internet.", secs: 7 },
   { img: "dash-prompt", focus: "50% 78%", zoom: 1.3, eyebrow: "Insights", h: "Current ideas alongside the fundamentals.", p: "Monthly insights on the formats and trends worth your time, next to the guides that don’t date.", secs: 7 },
   { img: "dash", focus: "40% 45%", eyebrow: "Dashboard", h: "And back to making something.", p: "Everything you learn leads somewhere: a prompt, a template, a post.", secs: 6.5 },
@@ -76,26 +76,31 @@ const SCENES = [
             <span class="mission-conf">Confidential</span>
             <div class="mission-copy">
               <p class="mission-k">User objective</p>
-              <p class="mission-v">Create your next post</p>
+              <p class="mission-v">{s.objective}</p>
               <p class="mission-k">Primary goals</p>
-              <p class="mission-v">Find the idea.<br />Create the content.<br />Make it yours.</p>
+              <p class="mission-v" set:html={s.goals.join("<br />")}></p>
             </div>
             <span class="mission-brand">The Marketing Experts</span>
             <div class="mission-side">
               <p class="mission-k mission-k--big">Mission</p>
-              <p class="mission-n">1 | 2</p>
-              <div class="mission-strip">{MISSION_PHOTOS.map((src) => <img src={src} alt="" loading="lazy" />)}</div>
+              <p class="mission-n">{s.n}</p>
+              <div class="mission-strip">{s.photos.map((src) => <img src={src} alt="" loading="lazy" />)}</div>
             </div>
           </div>
         )}
         {(s.kind === "prompts" || s.kind === "edit") && (
           <div class="wall-scene">
             {s.kind === "prompts" ? (
-              <div class="wall wall--prompts" aria-hidden="true">
-                {PROMPT_CARDS.map((c, k) => (
-                  <div class="pcard" style={`--i:${SCATTER[k]}`}><span class="pcard-l">{c.label}</span><span class="pcard-t">{c.title}</span></div>
-                ))}
-              </div>
+              <>
+                <div class="wall wall--prompts wall--out" aria-hidden="true">
+                  {PROMPT_CARDS.map((c, k) => (
+                    <div class="pcard" style={`--i:${SCATTER[k]}`}><span class="pcard-l">{c.label}</span><span class="pcard-t">{c.title}</span></div>
+                  ))}
+                </div>
+                <div class="stills stills--after" aria-hidden="true">
+                  {(s.stills || []).map((img, k) => <span class="still" style={`--i:${k}`}><img src={`/hub-tour/${img}.jpg`} alt="" loading="lazy" /></span>)}
+                </div>
+              </>
             ) : (
               <div class="wall wall--edit" aria-hidden="true">
                 {EDIT_TILES.map((src, k) => (
@@ -104,7 +109,7 @@ const SCENES = [
               </div>
             )}
             {s.h && (
-              <div class={`box box--late ${s.kind === "prompts" ? "box--bl" : "box--c"}`}>
+              <div class={`box box--late ${s.kind === "prompts" ? "box--bl box--after" : "box--c"}`}>
                 <h2 class="box-h">{s.h}</h2>
                 <p class="box-p">{s.p1}</p>
                 <p class="box-p">{s.p2}</p>
@@ -272,8 +277,10 @@ const SCENES = [
   .film-seg.is-live i { transition: transform linear; transition-duration: var(--secs, 6s); transform: scaleX(1); }
   .film.is-paused .film-seg.is-live i { transition: none; transform: scaleX(var(--at, 0)); }
 
-  .scene { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; visibility: hidden; transition: opacity 0.9s ease, visibility 0s linear 0.9s; }
-  .scene.is-on { opacity: 1; visibility: visible; transition: opacity 0.9s ease; }
+  /* One scene fades fully out before the next fades in, so nothing of the
+     old scene lingers under the new. */
+  .scene { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; visibility: hidden; transition: opacity 0.45s ease, visibility 0s linear 0.45s; }
+  .scene.is-on { opacity: 1; visibility: visible; transition: opacity 0.6s ease 0.45s; }
 
   /* Cards: a line or two in the middle of the wine. */
   .scene-card { max-width: 900px; padding: 0 40px; text-align: center; }
@@ -381,7 +388,11 @@ const SCENES = [
   .tile--blank i::before { content: ""; position: absolute; inset: 0; background: #c6e77c; border-radius: 50% 50% 0 0 / 60% 60% 0 0; transform: translate(-30%, 10%) scale(1.1, 0.8); }
   .scene.is-on .pcard, .scene.is-on .tile { animation: flash 0.45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.3s + var(--i) * 0.09s); }
   @keyframes flash { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
-  .scene.is-on .box ~ .wall, .scene.is-on .wall:has(+ .box) { animation: dim 0.9s ease both; animation-delay: var(--dim, 2.4s); }
+  .scene.is-on .wall--edit { animation: dim 0.9s ease both; animation-delay: var(--dim, 2.4s); }
+  /* The prompt wall leaves before the screens arrive. */
+  .scene.is-on .wall--out { animation: wallOut 0.8s ease both; animation-delay: 3.4s; }
+  @keyframes wallOut { from { opacity: 1; } to { opacity: 0; } }
+  .scene.is-on .stills--after .still, .scene.is-on .box--after { animation: stillIn 1.8s ease both; animation-delay: 4s; }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
