@@ -13,18 +13,31 @@
  * settles (CSS object-position); `kind` "card" scenes carry no picture.
  */
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { EVERGREEN_PROMPTS, CONTENT_DAYS } from "../data/content-calendar.js";
+
+// Part 01 follows Dani's Canva boards (10 Sep 2026): a mission card, the
+// prompts as a wall of wine cards that flash in and dim behind the box, The
+// Edit as a wall of templates that does the same, the assistant's box and a
+// phone of the chat, then the Studio behind Make it yours and Get creative.
+const labelOf = (brief, extra) => extra ? "Reel" : /carousel/i.test(brief || "") ? "Carousel" : "Post";
+const PROMPT_CARDS = [
+  ...EVERGREEN_PROMPTS.map((p) => ({ label: labelOf(p[1], p[2]), title: p[0] })),
+  ...CONTENT_DAYS.filter((d) => ["Clocks Go Back", "World Mental Health Day"].includes(d.name)).map((d) => ({ label: labelOf(d.brief, d.video), title: d.angle })),
+].slice(0, 18);
+const T = (n) => `https://assets.tmke.co.uk/TMKE%20Home%20Page/Templates/${n}.png`;
+const EDIT_TILES = [T(1), null, null, T(4), null, T(2), null, T(6), T(7), null, null, T(9), T(11), null, T(12), null, T(3), null];
+const MISSION_PHOTOS = ["/assets/signup/1.webp", "/assets/signup/4.webp", "/assets/signup/8.webp"];
 
 const SCENES = [
   { kind: "card", eyebrow: "The TMKE Member Hub", h: "It doesn’t give estate agents more marketing tools.", p: "It gives them a clearer way to actually do their marketing.", secs: 6.5 },
 
-  { kind: "card", act: "01", h: "“I need something to post.”", secs: 4 },
-  { img: "planner", focus: "50% 40%", eyebrow: "Planner", h: "A planner that already has ideas in it.", p: "Not another blank calendar. Property-specific prompts sit on the days, so there is somewhere to start.", secs: 7 },
-  { img: "dash-prompt", focus: "64% 18%", zoom: 1.35, eyebrow: "Today’s prompt", h: "A prompt you can act on.", p: "Choose one and go straight to making it. The plan and the post are the same journey.", secs: 7 },
-  { img: "studio", focus: "50% 70%", eyebrow: "The Edit", h: "Start with something already built for the job.", p: "Packs of property, community, lifestyle and seasonal content, designed by people who know the industry.", secs: 7 },
-  { img: "editor-templates", focus: "18% 45%", zoom: 1.25, eyebrow: "Studio", h: "Open the right starting point.", p: "Every design from the packs you own, one tap from the canvas.", secs: 6.5 },
-  { img: "editor-text", focus: "16% 30%", zoom: 1.25, eyebrow: "Studio", h: "Make it yours without becoming a designer.", p: "Change the words, the pictures and the colours. What matters to your business, nothing you don’t need.", secs: 7 },
-  { kind: "chat", eyebrow: "Creative Assistant", h: "Stuck on the wording? Ask.", p: "A marketing assistant that understands property. A rough thought in, a usable caption out.", secs: 8 },
-  { img: "editor", focus: "62% 55%", zoom: 1.2, eyebrow: "Studio", h: "Ready to use.", p: "Download it, schedule it or send it to your planner. From “I need to post” to “it’s done”.", secs: 7 },
+  { kind: "mission", secs: 7 },
+  { kind: "prompts", h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 13 },
+  { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 13 },
+  { kind: "ask", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 7 },
+  { kind: "phone", secs: 10 },
+  { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
+  { kind: "studio", img: "editor", focus: "62% 55%", h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own.", secs: 9 },
 
   { kind: "card", act: "02", h: "“I want to get better at this.”", secs: 4 },
   { img: "guides", focus: "50% 30%", eyebrow: "Learning Centre", h: "Training made for estate agency.", p: "Mini-courses and guides written for agents, not for every business on the internet.", secs: 7 },
@@ -36,6 +49,7 @@ const SCENES = [
 ---
 
 <BaseLayout title="A Clearer Way — the TMKE Member Hub" description="A short film of the TMKE Member Hub: from 'I need something to post' to 'it's ready'." hideNav hideFooter noindex pageTransition={false}>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <main class="film" id="film" data-scenes={SCENES.length}>
     <div class="film-progress" id="film-progress" aria-hidden="true">
       {SCENES.map(() => <span class="film-seg"><i></i></span>)}
@@ -49,6 +63,81 @@ const SCENES = [
             {s.eyebrow && <p class="scene-eyebrow">{s.eyebrow}</p>}
             <h2 class="scene-h scene-h--big">{s.h}</h2>
             {s.p && <p class="scene-p scene-p--big">{s.p}</p>}
+          </div>
+        )}
+        {s.kind === "mission" && (
+          <div class="mission">
+            <span class="mission-conf">Confidential</span>
+            <div class="mission-copy">
+              <p class="mission-k">User objective</p>
+              <p class="mission-v">Create your next post</p>
+              <p class="mission-k">Primary goals</p>
+              <p class="mission-v">Find the idea.<br />Create the content.<br />Make it yours.</p>
+            </div>
+            <span class="mission-brand">The Marketing Experts</span>
+            <div class="mission-side">
+              <p class="mission-k mission-k--big">Mission</p>
+              <p class="mission-n">1 | 2</p>
+              <div class="mission-strip">{MISSION_PHOTOS.map((src) => <img src={src} alt="" loading="lazy" />)}</div>
+            </div>
+          </div>
+        )}
+        {(s.kind === "prompts" || s.kind === "edit") && (
+          <div class="wall-scene">
+            {s.kind === "prompts" ? (
+              <div class="wall wall--prompts" aria-hidden="true">
+                {PROMPT_CARDS.map((c, k) => (
+                  <div class="pcard" style={`--i:${k}`}><span class="pcard-l">{c.label}</span><span class="pcard-t">{c.title}</span></div>
+                ))}
+              </div>
+            ) : (
+              <div class="wall wall--edit" aria-hidden="true">
+                {EDIT_TILES.map((src, k) => (
+                  src ? <div class="tile" style={`--i:${k}; background-image:url('${src}')`}></div> : <div class="tile tile--blank" style={`--i:${k}`}><i></i></div>
+                ))}
+              </div>
+            )}
+            <div class={`box box--late ${s.kind === "prompts" ? "box--bl" : "box--c"}`}>
+              <h2 class="box-h">{s.h}</h2>
+              <p class="box-p">{s.p1}</p>
+              <p class="box-p">{s.p2}</p>
+            </div>
+          </div>
+        )}
+        {s.kind === "ask" && (
+          <div class="wall-scene">
+            <div class="box box--tl">
+              <h2 class="box-h">{s.h}</h2>
+              <p class="box-p">{s.p1}</p>
+              <p class="box-p">{s.p2}</p>
+            </div>
+          </div>
+        )}
+        {s.kind === "phone" && (
+          <div class="wall-scene">
+            <div class="phone">
+              <div class="phone-head"><span>What to post · Creative Assistant</span><b>Pop out</b></div>
+              <div class="phone-log">
+                <div class="pmsg pmsg--me">I need help launching my new property on social media</div>
+                <div class="pmsg pmsg--ai">
+                  <p>Here’s a simple launch sequence using what you’ve already got in the Studio:</p>
+                  <p><b>Day 1 – Coming Soon / Just Listed template.</b> Post the hero shot, keep the caption tight, don’t give away every detail.</p>
+                  <p><b>Day 2–3 – Feature post.</b> Pick the room buyers will remember and say why.</p>
+                </div>
+              </div>
+              <div class="phone-in"><span>What should I post about…?</span><i aria-hidden="true">&#10148;</i></div>
+              <p class="phone-foot">Powered by AI · it can’t see your listings, so fill in the blanks it leaves.</p>
+            </div>
+          </div>
+        )}
+        {s.kind === "studio" && (
+          <div class="wall-scene">
+            <img class="studio-bg" src={`/hub-tour/${s.img}.jpg`} alt="" style={`--focus:${s.focus}`} loading="lazy" />
+            <div class="box box--late box--bl">
+              <h2 class="box-h">{s.h}</h2>
+              <p class="box-p">{s.p1}</p>
+              <p class="box-p">{s.p2}</p>
+            </div>
           </div>
         )}
         {s.kind === "chat" && (
@@ -192,10 +281,95 @@ const SCENES = [
   .film-tap--prev { left: 0; } .film-tap--next { right: 0; }
   .film-hud { position: absolute; bottom: 22px; right: 28px; z-index: 5; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,242,241,0.6); opacity: 0; transition: opacity 0.3s; }
   .film.is-paused .film-hud { opacity: 1; }
+  /* On the light scenes the strip, the mark and the paused note go dark. */
+  .film.is-light .film-seg { background: rgba(28,29,34,0.16); }
+  .film.is-light .film-seg i { background: var(--english-violet); }
+  .film.is-light .film-mark, .film.is-light .film-hud { color: var(--english-violet); }
   .film.is-paused .scene * { animation-play-state: paused !important; }
+
+  /* ---- Part 01, from the Canva boards ---- */
+  .scene--mission, .scene--prompts, .scene--edit, .scene--ask, .scene--phone, .scene--studio { display: block; }
+  .wall-scene { position: absolute; inset: 0; background: #f2f0ee; overflow: hidden; }
+
+  .mission { position: absolute; inset: 0; background: var(--english-violet); color: var(--paper); font-family: var(--sans); }
+  .mission-conf { position: absolute; top: 9.5%; right: 5.6%; font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .mission-copy { position: absolute; top: 20%; left: 5.6%; }
+  .mission-k { margin: 0 0 6px; font-family: "Space Mono", ui-monospace, Menlo, monospace; font-size: clamp(14px, 1.5vw, 22px); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+  .mission-v { margin: 0 0 40px; font-size: clamp(14px, 1.35vw, 20px); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.7; }
+  .mission-brand { position: absolute; bottom: 9.5%; left: 5.6%; font-size: clamp(16px, 1.6vw, 24px); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+  .mission-side { position: absolute; right: 5.6%; bottom: 10%; text-align: right; }
+  .mission-k--big { font-size: clamp(16px, 1.6vw, 24px); }
+  .mission-n { margin: 0 0 26px; font-size: clamp(13px, 1.2vw, 18px); letter-spacing: 0.1em; }
+  .mission-strip { display: flex; gap: 8px; }
+  .mission-strip img { width: clamp(90px, 11vw, 214px); aspect-ratio: 210 / 240; object-fit: cover; display: block; }
+  .scene.is-on .mission-copy, .scene.is-on .mission-side, .scene.is-on .mission-brand, .scene.is-on .mission-conf { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) both; }
+  .scene.is-on .mission-side { animation-delay: 0.3s; }
+
+  /* The walls: cards flash in one after another, hold, then dim to half behind the box. */
+  .wall { position: absolute; inset: -4% -3%; display: grid; gap: 3.2vw 2.1vw; align-content: center; justify-content: center; }
+  .wall--prompts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.2vw; padding: 0 2%; }
+  .pcard { background: var(--english-violet); color: var(--paper); border-radius: 6px; padding: clamp(14px, 4vh, 44px) clamp(14px, 1.1vw, 22px) clamp(12px, 2vh, 22px); min-height: clamp(70px, 17vh, 190px); display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; box-shadow: 0 12px 30px rgba(28,29,34,0.18); opacity: 0; font-family: var(--sans); }
+  .pcard-l { font-size: clamp(10px, 0.9vw, 14px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .pcard-t { font-size: clamp(11px, 1.05vw, 19px); font-weight: 500; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wall--edit { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3vw 2.1vw; padding: 0 2%; }
+  .tile { aspect-ratio: 3 / 4; background-size: cover; background-position: center; background-color: #fff; border-radius: 4px; box-shadow: 0 10px 28px rgba(28,29,34,0.16); opacity: 0; }
+  .tile--blank { background: linear-gradient(#cfe6f6, #eef6fb 45%); position: relative; overflow: hidden; }
+  .tile--blank::before { content: ""; position: absolute; left: 22%; top: 24%; width: 46%; height: 24%; background: #fff; border-radius: 40%; box-shadow: 14% 8% 0 -2px #fff; }
+  .tile--blank i { position: absolute; left: -10%; right: -10%; bottom: -8%; height: 40%; background: #9ccf3a; border-radius: 50% 50% 0 0 / 60% 60% 0 0; }
+  .tile--blank i::before { content: ""; position: absolute; inset: 0; background: #c6e77c; border-radius: 50% 50% 0 0 / 60% 60% 0 0; transform: translate(-30%, 10%) scale(1.1, 0.8); }
+  .scene.is-on .pcard, .scene.is-on .tile { animation: flash 0.55s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.35s + var(--i) * 0.14s); }
+  @keyframes flash { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+  .scene.is-on .wall { animation: dim 0.9s ease both; animation-delay: var(--dim, 6.2s); }
+  @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
+
+  /* The wine box, three positions. */
+  .box { position: absolute; width: min(44vw, 850px); background: var(--english-violet); color: var(--paper); border-radius: 6px; padding: clamp(26px, 4.4vw, 48px) clamp(26px, 2.6vw, 50px); box-shadow: 0 18px 50px rgba(28,29,34,0.28); font-family: var(--sans); }
+  .box--bl { left: 5.6%; bottom: 7.4%; }
+  .box--tl { left: 5.6%; top: 9.5%; }
+  .box--c { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+  .box-h { margin: 0 0 clamp(16px, 3.6vh, 40px); font-family: var(--serif); font-size: clamp(24px, 2.7vw, 52px); font-weight: 700; line-height: 1.15; letter-spacing: -0.005em; text-transform: uppercase; }
+  .box-p { margin: 0 0 clamp(10px, 2vh, 22px); font-size: clamp(12px, 1.15vw, 20px); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.9; }
+  .box-p:last-child { margin-bottom: 0; }
+  .scene.is-on .box { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) both; }
+  .scene.is-on .box--c { animation-name: popc; }
+  .scene.is-on .box--late { animation-delay: var(--box, 6.6s); }
+  @keyframes pop { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes popc { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+  .scene--studio .box--late { --box: 1.6s; }
+
+  /* The phone of the chat. */
+  .phone { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, 88vw); height: min(850px, 82vh); background: #e9e6e4; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; font-family: var(--sans); color: var(--ink); box-shadow: 0 30px 80px rgba(28,29,34,0.25); }
+  .phone-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 12px 18px; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); border-bottom: 1px solid rgba(28,29,34,0.1); }
+  .phone-head b { font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ink); }
+  .phone-log { flex: 1; display: flex; flex-direction: column; gap: 22px; padding: 22px 12px; overflow: hidden; }
+  .pmsg { max-width: 80%; padding: 22px 26px; border-radius: 16px; font-size: clamp(15px, 1.2vw, 20px); line-height: 1.55; opacity: 0; }
+  .pmsg p { margin: 0 0 14px; } .pmsg p:last-child { margin: 0; }
+  .pmsg--me { align-self: flex-end; background: var(--english-violet); color: var(--paper); border-bottom-right-radius: 4px; }
+  .pmsg--ai { align-self: flex-start; background: #dcd8d6; border-bottom-left-radius: 4px; }
+  .scene.is-on .pmsg--me { animation: rise 0.6s cubic-bezier(.2,.7,.2,1) 0.5s both; }
+  .scene.is-on .pmsg--ai { animation: rise 0.6s cubic-bezier(.2,.7,.2,1) 2.2s both; }
+  .phone-in { margin: 0 12px; display: flex; align-items: center; gap: 12px; }
+  .phone-in span { flex: 1; padding: 30px 20px 60px; background: #f7f6f5; border-radius: 12px; color: rgba(28,29,34,0.45); font-size: 16px; }
+  .phone-in i { width: 70px; height: 70px; border-radius: 12px; background: var(--english-violet); color: var(--paper); display: grid; place-items: center; font-style: normal; font-size: 24px; align-self: flex-end; }
+  .phone-foot { margin: 0; padding: 20px 12px 24px; text-align: center; font-size: 12px; color: rgba(28,29,34,0.45); }
+
+  /* The Studio behind the last two boxes. */
+  .studio-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); transform-origin: var(--focus, 50% 50%); }
+  .scene.is-on .studio-bg { animation: drift var(--drift, 9s) linear both; --zoom: 1.08; }
 
   @media (max-width: 760px) {
     .film-mark { top: 18px; left: 22px; }
+    .mission-copy { top: 16%; } .mission-v { margin-bottom: 26px; }
+    .mission-side { bottom: 16%; } .mission-strip img { width: 26vw; }
+    .wall--prompts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 0 6%; }
+    .pcard { min-height: 84px; padding: 22px 12px 12px; }
+    .wall--edit { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 0 6%; }
+    .box { width: calc(100% - 44px); left: 22px !important; right: 22px; padding: 26px 22px; }
+    .box--c { top: auto; bottom: 7%; transform: none; }
+    .scene.is-on .box--c { animation-name: pop; }
+    .box-h { font-size: 24px; } .box-p { font-size: 12px; line-height: 1.7; }
+    .phone { width: calc(100vw - 44px); height: 78vh; }
+    .phone-in span { padding: 22px 16px 40px; } .phone-in i { width: 56px; height: 56px; }
     .film-progress { left: 22px; right: 22px; }
     .scene-shot { width: calc(100vw - 44px); gap: 20px; }
     .scene { align-content: start; padding-top: 72px; }
@@ -229,6 +403,7 @@ const SCENES = [
       clearTimeout(timer);
       i = n;
       scenes.forEach((s, k) => { s.classList.toggle("is-on", k === n); s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
+      film.classList.toggle("is-light", /scene--(prompts|edit|ask|phone|studio)\b/.test(scenes[n].className));
       segs.forEach((g, k) => {
         g.classList.toggle("is-done", k < n);
         g.classList.remove("is-live");
