@@ -276,9 +276,38 @@ const CORS_HEADERS = {
 // when the table or the row is missing, so the assistant never goes quiet
 // because of a settings problem.
 type Cfg = { name: string | null; system_prompt: string; model: string; max_tokens: number; enabled: boolean; source: "table" | "code" };
+
+// What the assistant is told about TMKE itself. Editable on the admin page
+// (the "site" row); this is the shipped version.
+const SITE_SUMMARY = `TMKE (The Marketing Experts) is a UK marketing studio for estate agents,
+letting agents and property businesses. Everything is built for property.
+
+What TMKE offers:
+- The Edit: professionally designed template packs (property, community,
+  lifestyle and seasonal content) bought from the Shop and edited in the Studio.
+- The Studio: the online design editor in the Member Hub, where members open
+  a template, change the words, pictures and colours, and download or schedule.
+- The Planner: a content calendar with property-specific post prompts on the
+  days, so there is always somewhere to start.
+- The Learning Centre: guides and mini-courses written for estate agency,
+  plus monthly insights on formats and trends.
+- Social Media Management: a fully managed service with one account manager
+  (Social Media page on the website; a discovery call can be booked).
+- Videography: property shoots and Content Studio sessions, booked through
+  the Member Hub.
+
+Where things are in the Member Hub: Dashboard, Studio, Planner, Orders,
+Bookings, Your SMM, Shop (The Edit), Guides (Learning Centre), Blog,
+Brand Kit (on the profile page). Help: hello@tmke.co.uk.`;
+
 const DEFAULTS: Record<string, Cfg> = {
   studio: { name: "Studio help", system_prompt: STUDIO_PROMPT, model: MODEL, max_tokens: MAX_TOKENS, enabled: true, source: "code" },
   content: { name: "Ideas", system_prompt: CONTENT_PROMPT, model: MODEL, max_tokens: MAX_TOKENS, enabled: true, source: "code" },
+  // Knowledge sources. system_prompt holds the text for "site"; for the
+  // others it is an optional note to the assistant about how to use them.
+  site: { name: "About TMKE", system_prompt: SITE_SUMMARY, model: MODEL, max_tokens: 0, enabled: true, source: "code" },
+  guides: { name: "Guides and courses", system_prompt: "", model: MODEL, max_tokens: 0, enabled: true, source: "code" },
+  blog: { name: "Blog", system_prompt: "", model: MODEL, max_tokens: 0, enabled: true, source: "code" },
 };
 let cfgCache: { at: number; rows: Record<string, Cfg> } | null = null;
 async function loadConfig(): Promise<Record<string, Cfg>> {
@@ -311,6 +340,93 @@ async function loadConfig(): Promise<Record<string, Cfg>> {
   return rows;
 }
 
+// ---- Knowledge: what TMKE has written -----------------------------------
+// The site publishes /knowledge.json at build time (the courses and posts in
+// its code); the guides and posts written in the admin live in Supabase. All
+// of it is fetched here, cached ten minutes, and the few pieces most relevant
+// to the question go into the prompt, each with its title and link so the
+// assistant can send the member to it.
+type Doc = { kind: "guide" | "course" | "post"; title: string; url: string; summary: string; text: string };
+const SITE_URL = (Deno.env.get("SITE_URL") || "https://tmke.co.uk").replace(/\/+$/, "");
+let docCache: { at: number; docs: Doc[] } | null = null;
+
+const stripHtml = (h: unknown) => String(h || "")
+  .replace(/<\/(p|h[1-6]|li|blockquote|div)>/gi, "\n").replace(/<[^>]+>/g, " ")
+  .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&rsquo;|&#8217;/g, "’").replace(/&mdash;/g, "—")
+  .replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n").trim();
+
+async function loadDocs(): Promise<Doc[]> {
+  if (docCache && Date.now() - docCache.at < 600_000) return docCache.docs;
+  const docs: Doc[] = [];
+  try {
+    const r = await fetch(`${SITE_URL}/knowledge.json`);
+    if (r.ok) {
+      const k = await r.json();
+      for (const c of k.courses || []) docs.push({ kind: "course", title: c.title, url: SITE_URL + c.url, summary: c.summary || "", text: c.text || "" });
+      for (const p of k.posts || []) docs.push({ kind: "post", title: p.title, url: SITE_URL + p.url, summary: p.summary || "", text: p.text || "" });
+    }
+  } catch (_) { /* the site is down or not built yet */ }
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (url && key) {
+    const h = { apikey: key, authorization: `Bearer ${key}` };
+    try {
+      const r = await fetch(`${url}/rest/v1/guides?status=eq.published&select=slug,title,summary,lessons`, { headers: h });
+      if (r.ok) for (const g of await r.json()) {
+        const lessons = Array.isArray(g.lessons) ? g.lessons : [];
+        docs.push({ kind: "guide", title: g.title, url: `${SITE_URL}/account/guides/read?g=${encodeURIComponent(g.slug)}`, summary: g.summary || "",
+          text: lessons.map((l: { title?: string; body_html?: string }) => `${l.title ? l.title + ". " : ""}${stripHtml(l.body_html)}`).join("\n") });
+      }
+    } catch (_) {}
+    try {
+      const r = await fetch(`${url}/rest/v1/blog_posts?status=eq.published&select=slug,title,standfirst,audience,body_html,body_markdown`, { headers: h });
+      if (r.ok) for (const p of await r.json()) {
+        const members = String(p.audience || "").toLowerCase() === "members";
+        docs.push({ kind: "post", title: p.title, url: members ? `${SITE_URL}/account/blog#${p.slug}` : `${SITE_URL}/blog/${p.slug}`, summary: p.standfirst || "",
+          text: p.body_html ? stripHtml(p.body_html) : String(p.body_markdown || "").replace(/[#*_`>]+/g, "") });
+      }
+    } catch (_) {}
+  }
+  docCache = { at: Date.now(), docs };
+  return docs;
+}
+
+const STOP = new Set("the and for you your are with that this what how can from have has not but our its into out about them they there their when which will just been more some very also than then like make made get post posts".split(" "));
+const terms = (s: string) => Array.from(new Set(String(s).toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w))));
+
+function pickDocs(question: string, docs: Doc[], n = 4): Doc[] {
+  const q = terms(question);
+  if (!q.length) return [];
+  const scored = docs.map((d) => {
+    const t = d.title.toLowerCase(), body = (d.summary + " " + d.text).toLowerCase();
+    let score = 0;
+    for (const w of q) { if (t.includes(w)) score += 3; if (body.includes(w)) score += 1; }
+    return { d, score };
+  }).filter((x) => x.score > 0);
+  scored.sort((a, b) => b.score - a.score || (a.d.kind === "post" ? 1 : 0) - (b.d.kind === "post" ? 1 : 0));
+  return scored.slice(0, n).map((x) => x.d);
+}
+
+function knowledgeBlock(cfg: Record<string, Cfg>, question: string, docs: Doc[]): { block: string; sources: { title: string; url: string; kind: string }[] } {
+  const allowed = docs.filter((d) => (d.kind === "post" ? cfg.blog.enabled : cfg.guides.enabled));
+  const chosen = pickDocs(question, allowed);
+  let block = "";
+  if (cfg.site.enabled && cfg.site.system_prompt.trim()) block += "\n\nABOUT TMKE\n\n" + cfg.site.system_prompt.trim();
+  if (chosen.length) {
+    block += "\n\nTMKE'S OWN GUIDANCE THAT MAY HELP\n\nThese are TMKE's guides, courses and posts. Answer from them where they apply, in their spirit, and when one would help the member, point them to it by its title as a Markdown link, e.g. [Setting up your brand kit](url). Never invent a guide, course or post that is not listed here.";
+    const note = [cfg.guides.system_prompt, cfg.blog.system_prompt].filter((x) => x && x.trim()).join("\n");
+    if (note) block += "\n" + note;
+    let budget = 7000;
+    for (const d of chosen) {
+      const excerpt = d.text.slice(0, Math.min(1400, budget));
+      budget -= excerpt.length;
+      block += `\n\n[${d.kind.toUpperCase()}] ${d.title}\nLink: ${d.url}\n${d.summary ? d.summary + "\n" : ""}${excerpt}${d.text.length > excerpt.length ? "…" : ""}`;
+      if (budget <= 0) break;
+    }
+  }
+  return { block, sources: chosen.map((d) => ({ title: d.title, url: d.url, kind: d.kind })) };
+}
+
 serve(async (req) => {
   // GET ?info=1 — what the assistant is running on right now, and the shipped
   // prompts, for the admin page. Nothing secret in it.
@@ -318,7 +434,9 @@ serve(async (req) => {
     const u = new URL(req.url);
     if (u.searchParams.has("info")) {
       const rows = await loadConfig();
-      return json({ modes: rows, defaults: DEFAULTS, history_cap: 20 });
+      const docs = await loadDocs();
+      const counts = { guides: docs.filter((d) => d.kind === "guide").length, courses: docs.filter((d) => d.kind === "course").length, posts: docs.filter((d) => d.kind === "post").length };
+      return json({ modes: rows, defaults: DEFAULTS, history_cap: 20, knowledge: counts });
     }
     return json({ ok: true });
   }
@@ -356,11 +474,16 @@ serve(async (req) => {
   // Which assistant is asking. Anything unrecognised falls back to the
   // studio guide — an unknown mode is a front-end bug, and answering the
   // wrong kind of question is a better failure than answering none.
-  const cfg = (await loadConfig())[body.mode === "content" ? "content" : "studio"];
+  const all = await loadConfig();
+  const cfg = all[body.mode === "content" ? "content" : "studio"];
   if (!cfg.enabled) {
     return json({ reply: "The assistant is taking a break at the moment. Email hello@tmke.co.uk and a person will help." });
   }
-  const system = cfg.system_prompt;
+  // The question is the latest user turn, with the one before for context.
+  const userTurns = trimmed.filter((m) => m.role === "user");
+  const question = userTurns.slice(-2).map((m) => m.content).join(" ");
+  const { block, sources } = knowledgeBlock(all, question, await loadDocs());
+  const system = cfg.system_prompt + block;
 
   const upstream = await fetch(ANTHROPIC_URL, {
     method: "POST",
@@ -399,7 +522,7 @@ serve(async (req) => {
         .trim()
     : "(empty reply)";
 
-  return json({ reply });
+  return json({ reply, sources });
 });
 
 function json(body: unknown, status = 200) {

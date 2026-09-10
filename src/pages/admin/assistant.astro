@@ -34,13 +34,13 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
         <h3>Where members meet it</h3>
         <p>In the Studio editor, from the <b>Creative Assistant</b> panel. It has two tabs, and each tab is its own assistant with its own instructions below: <b>Studio help</b> (how do I do this in the editor) and <b>Ideas</b> (what should I post, and write it).</p>
         <h3>What it knows</h3>
-        <p>Only its instructions and the conversation in front of it. The instructions carry TMKE's description of the Studio, of who the members are and of how to answer. Change them here and it changes for everyone within a minute.</p>
+        <p>Its instructions, a description of TMKE, and our own writing: with each question it is handed the few guides, courses and blog posts most relevant to it, each with its link, and told to answer in their spirit and to point the member to them by name. The sources it used appear under its reply. Everything is set in the panels below and changes for everyone within a minute.</p>
       </div>
       <div>
         <h3>What it cannot see or do</h3>
         <ul>
-          <li>The member's brand kit, designs, packs, planner or orders. It is not connected to any member data.</li>
-          <li>The website, the blog, the guides or the internet. It cannot look anything up.</li>
+          <li>The member's brand kit, designs, packs, planner or orders. It is not connected to any member data yet.</li>
+          <li>The internet. It cannot look anything up beyond what is listed below.</li>
           <li>The canvas. It cannot make or change a design; it explains how the member can.</li>
           <li>Remember. Each conversation starts fresh, and only the last <span id="as-cap">20</span> messages of it are sent.</li>
         </ul>
@@ -60,6 +60,7 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
     <p>Run <code>supabase/assistant_config.sql</code> in the Supabase SQL editor, then reload this page. Until then the assistant runs on the prompts in its code, shown read-only below.</p>
   </div>
 
+  <div class="as-modes" id="as-know"></div>
   <div class="as-modes" id="as-modes"></div>
 
   <section class="ash-panel as-try">
@@ -115,7 +116,14 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const BACKEND = window.__AS_BACKEND__ || "/api/ask-expert";
-  const LABEL = { studio: { name: "Studio help", what: "How do I do this in the editor. Walks members through the rails, the panels and the toolbar." }, content: { name: "Ideas", what: "What should I post, and write it. Captions, hooks and ideas for UK agents." } };
+  const LABEL = {
+    studio: { name: "Studio help", what: "How do I do this in the editor. Walks members through the rails, the panels and the toolbar." },
+    content: { name: "Ideas", what: "What should I post, and write it. Captions, hooks and ideas for UK agents." },
+    site: { name: "About TMKE", what: "What it is told about TMKE: what we offer and where things are in the hub. Sent with every question." },
+    guides: { name: "Guides and courses", what: "The Learning Centre: the courses built into the hub and the guides written in the admin. The most relevant few go with each question." },
+    blog: { name: "Blog", what: "The website's posts and the members' blog. The most relevant few go with each question." },
+  };
+  const KNOW = ["site", "guides", "blog"];
   const MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-5", "claude-opus-5"];
 
   let info = null;     // from the function: effective config + shipped defaults
@@ -138,10 +146,20 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
     const wrap = $("as-modes"); wrap.innerHTML = "";
     const tableMissing = rows === null;
     const tableEmpty = Array.isArray(rows) && rows.length === 0;
+    // Also offer the load when the table has rows but a newer setting (say, a
+    // knowledge source added since) has no row yet.
+    const wanted = Object.keys((info && info.defaults) || {});
+    const missing = Array.isArray(rows) && rows.length > 0 && wanted.some((m) => !rows.find((r) => r.mode === m));
     $("as-notable").hidden = !tableMissing;
-    $("as-empty").hidden = !tableEmpty;
+    $("as-empty").hidden = !(tableEmpty || missing);
+    if (missing) {
+      $("as-empty").querySelector("h2").textContent = "Some settings are still from the code";
+      $("as-empty").querySelector("p").textContent = "A newer setting has no row in the table yet. Load the shipped versions and they become editable; nothing you have already saved is touched.";
+      $("as-import").textContent = "Load the missing ones";
+    }
     if (info && info.history_cap) $("as-cap").textContent = String(info.history_cap);
     const modes = ["studio", "content"];
+    renderKnowledge();
     const modelLine = modes.map((m) => {
       const eff = (info && info.modes && info.modes[m]) || {};
       return `${LABEL[m].name}: ${esc(eff.model || "—")}`;
@@ -196,11 +214,49 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
     });
   }
 
+  function renderKnowledge() {
+    const wrap = $("as-know"); wrap.innerHTML = "";
+    const tableMissing = rows === null;
+    const counts = (info && info.knowledge) || {};
+    KNOW.forEach((m) => {
+      const row = Array.isArray(rows) ? rows.find((r) => r.mode === m) : null;
+      const eff = (info && info.modes && info.modes[m]) || null;
+      const def = (info && info.defaults && info.defaults[m]) || null;
+      const v = row || eff || def || { name: LABEL[m].name, system_prompt: "", enabled: true };
+      const editable = !tableMissing && !!row;
+      const count = m === "guides" ? `${(counts.courses || 0) + (counts.guides || 0)} in the hub` : m === "blog" ? `${counts.posts || 0} posts` : "";
+      const sec = document.createElement("section");
+      sec.className = "ash-panel as-mode";
+      sec.innerHTML = `
+        <div class="as-mode-head">
+          <div><h2>${esc(LABEL[m].name)} <span class="as-mode-src">· ${count ? esc(count) + " · " : ""}${editable ? "Saved here" : "From the code"}</span></h2><p>${esc(LABEL[m].what)}</p></div>
+          <label class="as-toggle"><input type="checkbox" data-f="enabled" ${v.enabled !== false ? "checked" : ""} ${editable ? "" : "disabled"} /> Switched on</label>
+        </div>
+        <label class="as-field" style="margin-top:12px"><span>${m === "site" ? "What it is told about TMKE" : "A note to the assistant about using these (optional)"}</span><textarea class="as-prompt ${m === "site" ? "" : "as-notes"}" data-f="system_prompt" ${editable ? "" : "disabled"}>${esc(v.system_prompt || "")}</textarea></label>
+        <div class="as-actions">
+          <button type="button" class="admin-btn admin-btn-primary" data-save ${editable ? "" : "disabled"}>Save</button>
+          <span class="as-saved" data-saved>${row && row.updated_at ? "Last saved " + new Date(row.updated_at).toLocaleString("en-GB") : ""}</span>
+        </div>`;
+      sec.querySelector("[data-save]").addEventListener("click", async () => {
+        const payload = { mode: m, name: LABEL[m].name, model: "-", max_tokens: 0, enabled: sec.querySelector('[data-f="enabled"]').checked, system_prompt: sec.querySelector('[data-f="system_prompt"]').value, updated_at: new Date().toISOString() };
+        if (m === "site" && !payload.system_prompt.trim()) { alert("The description of TMKE can't be empty. Switch it off instead."); return; }
+        if (!payload.system_prompt.trim()) payload.system_prompt = " ";
+        const { error } = await supabase.from("assistant_config").upsert(payload, { onConflict: "mode" });
+        const st = sec.querySelector("[data-saved]");
+        if (error) { st.textContent = "Couldn't save: " + error.message; return; }
+        st.textContent = "Saved. The assistant picks it up within a minute.";
+        await loadRows(); await loadInfo(); render();
+      });
+      wrap.appendChild(sec);
+    });
+  }
+
   $("as-import").addEventListener("click", async () => {
     if (!info || !info.defaults) { $("as-status").textContent = "Couldn't reach the assistant to read its shipped prompts."; return; }
-    const payload = Object.keys(info.defaults).map((m) => {
+    const have = new Set((rows || []).map((r) => r.mode));
+    const payload = Object.keys(info.defaults).filter((m) => !have.has(m)).map((m) => {
       const d = info.defaults[m];
-      return { mode: m, name: d.name || LABEL[m].name, system_prompt: d.system_prompt, model: d.model, max_tokens: d.max_tokens, enabled: true, notes: "", updated_at: new Date().toISOString() };
+      return { mode: m, name: d.name || (LABEL[m] || {}).name || m, system_prompt: d.system_prompt || " ", model: d.model, max_tokens: d.max_tokens, enabled: true, notes: "", updated_at: new Date().toISOString() };
     });
     const { error } = await supabase.from("assistant_config").upsert(payload, { onConflict: "mode" });
     if (error) { $("as-status").textContent = "Couldn't load them: " + error.message; return; }
@@ -215,6 +271,12 @@ const BACKEND = (import.meta.env.PUBLIC_ASK_EXPERT_URL || "/api/ask-expert");
       const r = await fetch(BACKEND, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: q }], mode: $("as-try-mode").value }) });
       const d = await r.json();
       out.textContent = d.reply || d.error || "(no reply)";
+      if (Array.isArray(d.sources) && d.sources.length) {
+        const src = document.createElement("div");
+        src.style.cssText = "margin-top:10px;font-size:12px;color:#6b6670";
+        src.textContent = "Drew on: " + d.sources.map((x) => x.title).join(" · ");
+        out.appendChild(src);
+      }
     } catch (e) { out.textContent = "Couldn't reach the assistant: " + (e && e.message); }
   });
   $("as-try-q").addEventListener("keydown", (e) => { if (e.key === "Enter") $("as-try-go").click(); });
