@@ -18,7 +18,14 @@ export function isDemo() { return !!demoUser(); }
 export function startDemo(u) {
   try { localStorage.setItem(KEY, JSON.stringify({ name: u.name || "", email: u.email || "", since: Date.now() })); } catch (_) {}
 }
-export function endDemo() { try { localStorage.removeItem(KEY); } catch (_) {} }
+export function endDemo() {
+  try {
+    localStorage.removeItem(KEY);
+    // A member's own brand kit was put aside for the demo (editor.astro); give it back.
+    const stash = sessionStorage.getItem("tmke.brand.stash");
+    if (stash) { localStorage.setItem("tmke.brand", stash); sessionStorage.removeItem("tmke.brand.stash"); }
+  } catch (_) {}
+}
 
 const STYLE = `
 .dm-lock{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;background:rgba(28,29,34,0.55);opacity:0;transition:opacity .25s}

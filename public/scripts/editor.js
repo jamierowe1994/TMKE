@@ -130,6 +130,8 @@
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   function loadBrand() {
     let kit = null;
+    // The Member Hub demo has no brand kit, whatever this browser has cached.
+    try { if (localStorage.getItem("tmke_demo")) return null; } catch (_) {}
     try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); }
     catch (_) { return null; }
     // Older kits saved colours as bare strings; every reader here expects
@@ -8529,7 +8531,11 @@
       const tool = btn.dataset.tool;
       activeToolPane = tool;
       showPane(tool);
-      if (tool === "text") { placeSelectionBody(); renderTextList(); renderFontBrowser(); }
+      if (tool === "text") {
+        placeSelectionBody(); renderTextList(); renderFontBrowser();
+        // Nothing to select on a page with no text: land on Add text instead.
+        if (!state.elements.some((e) => e.type === "text")) setTextTab("add");
+      }
       else placeSelectionBody();
       if (tool === "elements") mountLogoSlotTool();
       if (tool === "brand") renderRebrand();

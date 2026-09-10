@@ -5049,6 +5049,15 @@ const googleFonts = [
     // writing the cache here means editor.js's loadBrand() reads the live kit.
     // Applies to both member and admin logins — whoever is signed in gets their
     // own kit. (Admin authoring mode still leaves {brand …} tokens unfilled.)
+    // The demo has no brand kit. A member (or Dani) trying the demo on their
+    // own browser still has their kit cached locally, so it is put aside
+    // for the demo and given back when the demo ends (src/lib/demo.js).
+    try {
+      if (localStorage.getItem('tmke_demo')) {
+        const cached = localStorage.getItem('tmke.brand');
+        if (cached) { sessionStorage.setItem('tmke.brand.stash', cached); localStorage.removeItem('tmke.brand'); }
+      }
+    } catch (_) {}
     try {
       const { data: { session: bkSession } } = await supabase.auth.getSession();
       if (bkSession) {
@@ -7098,7 +7107,8 @@ const googleFonts = [
       const isDemo = (import.meta.env.DEV && params.has("demo")) || demoOn();
       if (demoOn()) {
         // The demo: play with anything, keep nothing.
-        lockClicks("#ed-save, #ed-schedule, #ed-download-trigger, #ed-download-menu button", "Saving and downloading are for members.", "Change anything you like in the demo. Members save designs, download them and send them to the planner.");
+        lockClicks("#ed-save, #ed-schedule, #ed-download-trigger, #ed-download-menu button, #ed-review-btn", "Saving and downloading are for members.", "Change anything you like in the demo. Members save designs, download them and send them to the planner.");
+        lockClicks('.ed-rail-btn[data-tool="resize"], #ed-pages-toggle, .ed-shape[data-screen]', "Resizing, pages and screen mockups are for members.", "In the demo, open a template, change its words, pictures and colours, and see how the Studio feels.");
       }
       if (isDemo) {
         loadSavedDesigns(null);
@@ -7117,6 +7127,20 @@ const googleFonts = [
         grid.innerHTML = demoPacks.length ? demoPacks.map(packCard).join("") : '<p class="ed-onboard-note">The demo pack is on its way. Start with a blank canvas for now.</p>';
         grid.hidden = false;
         wirePackGrid(demoPacks);
+        // The engine's built-in starter templates are not the demo's: the
+        // Templates panel shows the demo pack's designs, or nothing.
+        const demoGrid = document.getElementById("ed-template-grid");
+        if (demoGrid) demoGrid.style.display = "none";
+        if (demoPacks.length && demoPacks[0].id && !demoPacks[0].templateIds) {
+          try {
+            const { data: tpls } = await supabase.from("templates").select("id, name, category, thumb_url, canvas, elements, pack_id, sort_order").eq("pack_id", demoPacks[0].id).eq("status", "active").order("sort_order", { ascending: true });
+            if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+              (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
+              if (demoGrid) demoGrid.style.display = "";
+              railBtn.hidden = false;
+            }
+          } catch (_) {}
+        }
         return;
       }
 
