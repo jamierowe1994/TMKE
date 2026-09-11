@@ -2913,6 +2913,9 @@
       img.draggable = false;
       img.alt = "";
       img.crossOrigin = "anonymous";
+      // A logo (and anything set to "fit it all in") is shown whole and
+      // centred, never cropped to its box.
+      if (el.imgFit === "contain") img.style.objectFit = "contain";
       node.appendChild(img);
     } else if (el.type === "frame") {
       // Frame = masked container. The data-frame-shape attribute drives
@@ -5454,7 +5457,12 @@
       if (el.type === "image") {
         try {
           const img = await loadImage(el.src);
-          if (hasPerCorner(el) || el.radius) {
+          if (el.imgFit === "contain" && img.naturalWidth && img.naturalHeight) {
+            // Whole and centred, as on the canvas.
+            const k = Math.min(el.w / img.naturalWidth, el.h / img.naturalHeight);
+            const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+            ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
+          } else if (hasPerCorner(el) || el.radius) {
             ctx.save();
             roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
               cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
@@ -7429,6 +7437,9 @@
       slot.imgFit = "contain";
       let w = LOGO_MAX_W, h = LOGO_MAX_W / ratio;
       if (h > LOGO_MAX_H) { h = LOGO_MAX_H; w = LOGO_MAX_H * ratio; }
+      // A little air above and below: a measured ratio can be a hair out,
+      // and the mark must never lose the tops of its letters.
+      h = h * 1.12;
       slot.w = Math.round(w);
       slot.h = Math.round(h);
       slot.x = Math.round((state.canvas.width - w) / 2);
