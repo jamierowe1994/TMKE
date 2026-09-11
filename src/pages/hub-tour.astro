@@ -39,6 +39,7 @@ const C = (n) => `/hub-tour/course-${n}.jpg`;
 // the top; the hole for the screen is measured from it.
 const ST = (n) => `/hub-tour/studio/${n}.png`;
 const STUDIO_STILLS = [
+  { src: ST("bg"), secs: 1 },                 // while the scene pushes in
   { src: ST("bg"), type: "EDIT", secs: 1 },
   ...[1, 2, 3, 4, 5, 6, 7].map((n) => ({ src: ST(`edit-${n}`), secs: 0.4 })),
   { src: ST("bg"), type: "CREATE", secs: 1 },
@@ -58,7 +59,7 @@ const SCENES = [
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
-  { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
+  { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 7.5 },
   { kind: "associate", video: "associate", rate: 1.25, h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 13 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
@@ -256,7 +257,7 @@ const SCENES = [
           </div>
         )}
         {s.kind === "tablet" && (
-          <div class="wall-scene" style="--swap: 3.8s">
+          <div class="wall-scene" style="--swap: 4.8s">
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -573,7 +574,7 @@ const SCENES = [
      video frame (measured from the last frame), so the chat lands on it at
      any size. */
   .scene--associate { display: block; }
-  .assoc-video { position: absolute; top: 0; left: 30%; height: 100%; aspect-ratio: 1344 / 768; overflow: hidden;   /* full height, top to foot, at the render's own ratio; only its left edge fades into the paper */
+  .assoc-video { position: absolute; top: 0; left: 78.6%; transform: translateX(-50%); height: 100%; aspect-ratio: 1344 / 768; overflow: hidden;   /* full height, top to foot, at the render's own ratio, centred on her at any screen shape; only its left edge fades into the paper */
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); }
   .assoc-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(1.04); }   /* lifts its off-white to white before the paper tint */
   .assoc-tint { position: absolute; inset: 0; background: #f2f0ee; mix-blend-mode: multiply; }   /* the video's white becomes our paper */
@@ -584,7 +585,7 @@ const SCENES = [
   /* Her head in front of the progress strip: a canvas over the strip draws
      the top slice of the video with its white keyed out (script), so she
      covers the strip and the paper around her does not. */
-  .wall-scene > .assoc-key { position: absolute; top: 0; left: 30%; height: calc(100vh * 62 / 768); width: calc(100vh * 1344 / 768); z-index: 6; pointer-events: none; }
+  .wall-scene > .assoc-key { position: absolute; top: 0; left: 78.6%; transform: translateX(-50%); height: calc(100vh * 62 / 768); width: calc(100vh * 1344 / 768); z-index: 6; pointer-events: none; }
   .scene.is-on .assoc-key { animation: stillIn 0.9s ease both; }
   .assoc-tab { position: absolute; left: var(--tab-l); top: var(--tab-t); width: var(--tab-w); height: var(--tab-h); border-radius: 0.6vw; overflow: hidden; opacity: 0; transition: opacity 0.7s ease; }
   .scene.is-ended .assoc-tab { opacity: 1; }
@@ -679,13 +680,13 @@ const SCENES = [
   /* Dani's case PNG (1700x2200; the body from 2.9% in, 7.7% down, running
      off the foot; the screen hole at 10.2% / 13.4%, 79.3% by 84.3%) over
      the stills, placed so the iPad lands where it did. */
-  .tablet--stills { left: 52.3%; top: 3.4%; width: 42.2%; aspect-ratio: 1700 / 2200; background: none; padding: 0; border-radius: 0; box-shadow: none; }
-  .tablet--stills::before { left: 2.9%; right: 3%; top: 7.7%; bottom: 0; width: auto; aspect-ratio: auto; transform: none; background: none; border-radius: 2.5vw 2.5vw 0 0; box-shadow: 0 40px 90px rgba(28,29,34,0.35); }
+  .tablet--stills { left: auto; top: auto; right: 4%; bottom: 0; width: auto; height: min(92vh, 62vw); aspect-ratio: 1700 / 2200; background: none; padding: 0; border-radius: 0; box-shadow: none; }
+  .tablet--stills::before { left: 2.9%; right: 3%; top: 7.7%; bottom: 0; width: auto; aspect-ratio: auto; transform: none; background: none; border-radius: 8% 8% 0 0 / 6% 6% 0 0; box-shadow: 0 30px 60px -24px rgba(28,29,34,0.3); }
   .tcase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
-  .thole { position: absolute; left: 10.2%; top: 13.4%; width: 79.3%; height: 84.3%; overflow: hidden; background: var(--english-violet); z-index: 1; }
+  .thole { position: absolute; left: 9.6%; top: 12.8%; width: 80.5%; height: 85.5%; overflow: hidden; background: var(--english-violet); z-index: 1; }   /* a touch beyond the hole, under the bezel */
   .tstill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; opacity: 0; }
   .tstill.is-cur { opacity: 1; }
-  .ttype { position: absolute; left: 13.5%; top: 11.4%; z-index: 3; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 1.14vw, 24px); font-weight: 500; letter-spacing: 0.04em; color: var(--paper); }
+  .ttype { position: absolute; left: 13.5%; top: 11.4%; z-index: 3; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 2.4vh, 24px); font-weight: 500; letter-spacing: 0.04em; color: var(--paper); }
   @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
   @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .covers { position: absolute; left: 5.6%; right: 5.6%; bottom: 10.2%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.1vw; }
@@ -907,7 +908,7 @@ const SCENES = [
         for (let n = 0; n < list.length; n++) { if (t < acc + list[n].secs) { cur = n; into = t - acc; break; } acc += list[n].secs; }
         imgs.forEach((im, n) => im.classList.toggle("is-cur", n === cur));
         const e = list[cur];
-        if (e.type) { typ.textContent = e.type.slice(0, Math.min(e.type.length, Math.floor(into / 0.1))); typ.hidden = false; } else typ.hidden = true;
+        if (e.type) { typ.textContent = e.type.slice(0, Math.min(e.type.length, Math.floor(into / 0.07))); typ.hidden = false; } else typ.hidden = true;   /* typed in under half a second, then held */
       }
       function tick(now) {
         if (!running) return;
