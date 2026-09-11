@@ -48,8 +48,14 @@ const SCENES = [
   { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
-  { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
-  { kind: "studio", img: "editor", focus: "62% 55%", h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own.", secs: 9 },
+  // The Studio, to Dani's board: labels top-left, the box bottom-left, a
+  // tablet on the right. One scene; the words swap from Make it yours to
+  // Get creative at 9s while the box and the tablet stay. The tablet shows
+  // a template until her video arrives (then: video: "studio").
+  { kind: "tablet", tech: "The Studio", img: T(6),
+    a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
+    b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
+    secs: 18 },
 
   { kind: "mission", n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
@@ -236,14 +242,44 @@ const SCENES = [
             </div>
           </div>
         )}
+        {s.kind === "tablet" && (
+          <div class="wall-scene" style="--swap: 9s">
+            <div class="tab-meta">
+              <p class="mission-k">Tech</p>
+              <p class="mission-v">{s.tech}</p>
+              <p class="mission-k">Capabilities</p>
+              <div class="swap">
+                <p class="mission-v swap-a" set:html={s.a.caps.join("<br />")}></p>
+                <p class="mission-v swap-b" set:html={s.b.caps.join("<br />")}></p>
+              </div>
+            </div>
+            <div class="box box--bl box--p2 swap">
+              <div class="swap-a">
+                <h2 class="box-h">{s.a.h}</h2>
+                <p class="box-p">{s.a.p1}</p>
+                <p class="box-p">{s.a.p2}</p>
+              </div>
+              <div class="swap-b">
+                <h2 class="box-h">{s.b.h}</h2>
+                <p class="box-p">{s.b.p1}</p>
+                <p class="box-p">{s.b.p2}</p>
+              </div>
+            </div>
+            <div class="tablet" aria-hidden="true">
+              <div class="tablet-screen">
+                {s.video ? <video src={`/hub-tour/${s.video}.mp4`} muted playsinline loop preload="auto" data-clip></video> : <img src={s.img} alt="" loading="lazy" />}
+              </div>
+            </div>
+          </div>
+        )}
         {s.kind === "learn" && (
-          <div class="wall-scene">
-            <div class="box box--tl box--p2 box--swap">
-              <div class="box-text box-text--a">
+          <div class="wall-scene" style="--swap: 6.8s">
+            <div class="box box--tl box--p2 swap">
+              <div class="swap-a">
                 <h2 class="box-h">{s.h}</h2>
                 <p class="box-p">{s.p}</p>
               </div>
-              <div class="box-text box-text--b">
+              <div class="swap-b">
                 <h2 class="box-h">{s.h2}</h2>
                 <p class="box-p">{s.p2}</p>
               </div>
@@ -569,13 +605,26 @@ const SCENES = [
      right (6.5s) while the box's words fade to the next ones (6.8s / 7.5s);
      the phone slides up on the right (7.6s); the two screens pop in along
      the foot (9.2s, 9.8s). The box itself never goes. */
-  .scene--learn, .scene--complete { display: block; }
+  .scene--learn, .scene--complete, .scene--tablet { display: block; }
   .scene.is-on .box.box--p2 { animation-duration: 1.2s; animation-delay: 0.3s; }
-  .box--swap { display: grid; }
-  .box-text { grid-area: 1 / 1; }
-  .box-text--b { opacity: 0; }
-  .scene.is-on .box-text--a { animation: textOut 0.6s ease 6.8s both; }
-  .scene.is-on .box-text--b { animation: textIn 0.8s ease 7.5s both; }
+  /* Words that swap in place: the two sets share one cell, so the box keeps
+     its size; the first fades out at --swap, the second fades in after. */
+  .swap { display: grid; }
+  .swap-a, .swap-b { grid-area: 1 / 1; }
+  .swap-b { opacity: 0; }
+  .scene.is-on .swap-a { animation: textOut 0.6s ease var(--swap, 6.8s) both; }
+  .scene.is-on .swap-b { animation: textIn 0.8s ease calc(var(--swap, 6.8s) + 0.7s) both; }
+  /* The Studio: the labels top-left in the mission card's type, the box
+     bottom-left, the tablet on the right running off the foot. */
+  .tab-meta { position: absolute; left: 5.6%; top: 10%; color: var(--ink); }
+  .tab-meta .mission-k { color: var(--english-violet); }
+  .tab-meta .mission-v { margin-bottom: 30px; }
+  .scene.is-on .tab-meta { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
+  .tablet { position: absolute; left: 53.5%; top: 10.9%; width: 39.7%; aspect-ratio: 3 / 4; background: #202124; border-radius: 5.5% / 4.1%; padding: 3.6%; box-shadow: 0 40px 90px rgba(28,29,34,0.35), inset 0 0 0 1px rgba(255,255,255,0.12); opacity: 0; }
+  .tablet::before { content: ""; position: absolute; top: 1.6%; left: 50%; width: 1.3%; aspect-ratio: 1; border-radius: 50%; background: #0b0b0d; transform: translateX(-50%); box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+  .tablet-screen { width: 100%; height: 100%; border-radius: 2.4% / 1.8%; overflow: hidden; background: #000; }
+  .tablet-screen img, .tablet-screen video { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .scene.is-on .tablet { animation: pop 1.2s cubic-bezier(.2,.7,.2,1) 0.6s both; }
   @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
   @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .covers { position: absolute; left: 5.6%; right: 5.6%; bottom: 10.2%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.1vw; }
@@ -629,6 +678,8 @@ const SCENES = [
     .know-stills .still { width: 44%; bottom: 6%; }
     .know-stills .still:nth-child(1) { left: 22px; } .know-stills .still:nth-child(2) { left: auto; right: 22px; }
     .bphone { display: none; }
+    .tab-meta { top: 76px; } .tab-meta .mission-v { margin-bottom: 18px; }
+    .tablet { left: 50%; width: 46%; top: 76px; }
     .mission-p { max-width: none; }
     .mission-grid { left: 22px; right: 22px; width: auto; bottom: 20%; gap: 6px; }
     .assoc-meta { display: none; }
@@ -671,7 +722,7 @@ const SCENES = [
       clearTimeout(timer);
       i = n;
       scenes.forEach((s, k) => { s.classList.toggle("is-on", k === n); s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
-      film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn)\b/.test(scenes[n].className));
+      film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn|tablet)\b/.test(scenes[n].className));
       film.classList.toggle("is-shot", /scene--(studio|clip)\b/.test(scenes[n].className));
       segs.forEach((g, k) => {
         g.classList.toggle("is-done", k < n);
