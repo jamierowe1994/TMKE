@@ -45,7 +45,7 @@ const SCENES = [
   { kind: "mission", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 8.5 },
+  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 9.5 },
   { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 5.5 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
   { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
@@ -439,14 +439,20 @@ const SCENES = [
   @keyframes flash { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
   .scene.is-on .wall--edit { animation: dim 0.9s ease both; animation-delay: var(--dim, 2.4s); }
   /* The prompt wall leaves before the screens arrive. */
-  /* "Not sure what to post?", in order: every card pops in (0.3-2s) and
-     holds, the wall fades right out (2.5-3.4s), and only once it has gone
-     does the box pop in (3.5s), then the three screens one at a time
-     (4.9s, 5.5s, 6.1s). */
-  .scene.is-on .wall--out { animation: wallSeq 3.4s linear both; }
-  @keyframes wallSeq { 0%, 73% { opacity: 1; } 100% { opacity: 0; } }
-  .scene.is-on .box.box--after { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) 3.5s both; }   /* .box.box--after, so the plain .box rule below cannot cancel the delay */
-  .scene.is-on .stills--after .still { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(4.9s + var(--i) * 0.6s); }
+  /* "Not sure what to post?", in order: every card flashes in (0.3-2.3s)
+     and holds a second; the wall dims to half exactly as the Edit wall
+     does (0.9s ease, 3.3s); the box pops in 0.3s later (3.6s) and holds a
+     second; the wall fades right out the same way (0.9s ease, 4.7s); then
+     the three screens pop up one at a time (5.8s, 6.4s, 7.0s). One keyframe
+     run for the wall, eased on each move, so the two fades cannot fight. */
+  .scene.is-on .wall--out { animation: wallSeq 5.6s linear both; }
+  @keyframes wallSeq {
+    0%, 58.9% { opacity: 1; animation-timing-function: ease; }      /* 3.3s: dim, as the Edit wall */
+    75%, 83.9% { opacity: 0.45; animation-timing-function: ease; }  /* 4.2s-4.7s: hold at half behind the box */
+    100% { opacity: 0; }                                           /* 5.6s: gone */
+  }
+  .scene.is-on .box.box--after { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) 3.6s both; }   /* .box.box--after, so the plain .box rule below cannot cancel the delay */
+  .scene.is-on .stills--after .still { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(5.8s + var(--i) * 0.6s); }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
