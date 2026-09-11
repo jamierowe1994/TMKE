@@ -33,18 +33,18 @@ const SCATTER = [7, 2, 13, 0, 10, 5, 16, 3, 11, 8, 1, 15, 6, 12, 4, 17, 9, 14];
 const MISSION_PHOTOS = ["/assets/signup/1.webp", "/assets/signup/4.webp", "/assets/signup/8.webp"];
 const MISSION_PHOTOS_2 = ["/assets/signup/5.webp", "/assets/signup/3.webp", "/assets/signup/6.webp"];
 const C = (n) => `/hub-tour/course-${n}.jpg`;
-// The Studio on the iPad, as Dani's stills (11 Sep): the wine screen with a
-// word typed at the top for a second, then her screenshots at 0.4s each,
-// twice over, and the blank wine screen to close on. Her case PNG goes over
-// the top; the hole for the screen is measured from it.
-const ST = (n) => `/hub-tour/studio/${n}.png`;
+// The Studio on the iPad: the wine screen with a word typed at the top for a
+// second, then stills of the real Studio at twice iPad resolution (captured
+// headlessly, 11 Sep), at 0.4s each, Edit then Create, and the blank wine
+// screen to close on. Dani's case PNG goes over the top.
+const ST = (n) => `/hub-tour/studio/${n}`;
 const STUDIO_STILLS = [
-  { src: ST("bg"), secs: 1 },                 // while the scene pushes in
-  { src: ST("bg"), type: "EDIT", secs: 1 },
-  ...[1, 2, 3, 4, 5, 6, 7].map((n) => ({ src: ST(`edit-${n}`), secs: 0.4 })),
-  { src: ST("bg"), type: "CREATE", secs: 1 },
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({ src: ST(`create-${n}`), secs: 0.4 })),
-  { src: ST("bg"), secs: 1 },
+  { src: ST("bg.png"), secs: 1 },                 // while the scene pushes in
+  { src: ST("bg.png"), type: "EDIT", secs: 1 },
+  ...["edit-1.jpg", "edit-2.jpg", "edit-3.jpg", "edit-4.jpg", "edit-5.jpg", "edit-6.jpg"].map((n) => ({ src: ST(n), secs: 0.4 })),
+  { src: ST("bg.png"), type: "CREATE", secs: 1 },
+  ...["create-1.png", "create-2.png", "create-3.jpg", "create-4.jpg", "create-5.jpg", "create-6.jpg", "create-7.jpg", "create-8.jpg"].map((n) => ({ src: ST(n), secs: 0.4 })),
+  { src: ST("bg.png"), secs: 1 },
 ];
 const COURSES = [C("getting-started"), C("5-minutes"), C("before-you-post"), C("instagram"), C("reels"), C("certificate")];
 // The mission-complete grid: the lower two rows of Dani's nine, so it fits a
@@ -257,7 +257,7 @@ const SCENES = [
           </div>
         )}
         {s.kind === "tablet" && (
-          <div class="wall-scene" style="--swap: 4.8s">
+          <div class="wall-scene" style="--swap: 4.4s">
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -681,7 +681,7 @@ const SCENES = [
      off the foot; the screen hole at 10.2% / 13.4%, 79.3% by 84.3%) over
      the stills, placed so the iPad lands where it did. */
   .tablet--stills { left: auto; top: auto; right: 4%; bottom: 0; width: auto; height: min(92vh, 62vw); aspect-ratio: 1700 / 2200; background: none; padding: 0; border-radius: 0; box-shadow: none; }
-  .tablet--stills::before { left: 2.9%; right: 3%; top: 7.7%; bottom: 0; width: auto; aspect-ratio: auto; transform: none; background: none; border-radius: 8% 8% 0 0 / 6% 6% 0 0; box-shadow: 0 30px 60px -24px rgba(28,29,34,0.3); }
+  .tablet--stills::before { display: none; }   /* the case carries its own edge; no cast shadow */
   .tcase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
   .thole { position: absolute; left: 9.6%; top: 12.8%; width: 80.5%; height: 85.5%; overflow: hidden; background: var(--english-violet); z-index: 1; }   /* a touch beyond the hole, under the bezel */
   .tstill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; opacity: 0; }
