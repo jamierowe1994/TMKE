@@ -58,7 +58,7 @@ const SCENES = [
   { kind: "mission", enter: "push", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
+  { kind: "prompts", stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 7.5 },
   { kind: "associate", video: "associate", rate: 1.25, h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 13 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
@@ -125,7 +125,7 @@ const SCENES = [
                     <div class="pcard" style={`--i:${SCATTER[k]}`}><span class="pcard-l">{c.label}</span><span class="pcard-t">{c.title}</span></div>
                   ))}
                 </div>
-                <div class="stills stills--after" aria-hidden="true">
+                <div class={`stills stills--after${(s.stills || []).length === 1 ? " stills--one" : ""}`} aria-hidden="true">
                   {(s.stills || []).map((img, k) => <span class="still" style={`--i:${k}`}><img src={`/hub-tour/${img}.jpg`} alt="" loading="lazy" /></span>)}
                 </div>
               </>
@@ -532,6 +532,11 @@ const SCENES = [
   }
   .scene.is-on .box.box--after { animation: pop 1.2s cubic-bezier(.2,.7,.2,1) 3.6s both; }   /* .box.box--after, so the plain .box rule below cannot cancel the delay */
   .scene.is-on .stills--after .still { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(7.4s + var(--i) * 0.6s); }
+  /* One screen instead of three (Dani's board, 12 Sep): the planner from its
+     month bar down, in a rounded frame that runs off the foot, a touch
+     softened so the box reads over it. */
+  .stills--one .still { left: 4.7%; top: 4%; width: 84.4%; height: 120%; aspect-ratio: auto; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.1), 0 30px 60px -30px rgba(28,29,34,0.35); }
+  .stills--one .still img { opacity: 0.92; }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
