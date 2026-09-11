@@ -33,6 +33,18 @@ const SCATTER = [7, 2, 13, 0, 10, 5, 16, 3, 11, 8, 1, 15, 6, 12, 4, 17, 9, 14];
 const MISSION_PHOTOS = ["/assets/signup/1.webp", "/assets/signup/4.webp", "/assets/signup/8.webp"];
 const MISSION_PHOTOS_2 = ["/assets/signup/5.webp", "/assets/signup/3.webp", "/assets/signup/6.webp"];
 const C = (n) => `/hub-tour/course-${n}.jpg`;
+// The Studio on the iPad, as Dani's stills (11 Sep): the wine screen with a
+// word typed at the top for a second, then her screenshots at 0.4s each,
+// twice over, and the blank wine screen to close on. Her case PNG goes over
+// the top; the hole for the screen is measured from it.
+const ST = (n) => `/hub-tour/studio/${n}.png`;
+const STUDIO_STILLS = [
+  { src: ST("bg"), type: "EDIT", secs: 1 },
+  ...[1, 2, 3, 4, 5, 6, 7].map((n) => ({ src: ST(`edit-${n}`), secs: 0.4 })),
+  { src: ST("bg"), type: "CREATE", secs: 1 },
+  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => ({ src: ST(`create-${n}`), secs: 0.4 })),
+  { src: ST("bg"), secs: 1 },
+];
 const COURSES = [C("getting-started"), C("5-minutes"), C("before-you-post"), C("instagram"), C("reels"), C("certificate")];
 // The mission-complete grid: the lower two rows of Dani's nine, so it fits a
 // small laptop. Two of her tiles (the quote, Conversation) are not on the
@@ -49,10 +61,10 @@ const SCENES = [
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
   { kind: "associate", video: "associate", rate: 1.25, h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 13 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
-  // iPad video on the right. One scene; the words swap from Make it yours to
-  // Get creative halfway through the video, and the film moves on when the
-  // video has played once (secs is only the fallback).
-  { kind: "tablet", enter: "push", tech: "The Studio", video: "studio-2x",
+  // iPad on the right showing the stills. One scene; the words swap from
+  // Make it yours to Get creative as CREATE is typed, and the film moves on
+  // as the last still shows (secs is only the fallback).
+  { kind: "tablet", enter: "push", tech: "The Studio", stills: STUDIO_STILLS,
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
     secs: 11 },
@@ -244,7 +256,7 @@ const SCENES = [
           </div>
         )}
         {s.kind === "tablet" && (
-          <div class="wall-scene" style="--swap: 4.6s">
+          <div class="wall-scene" style="--swap: 3.8s">
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -266,7 +278,15 @@ const SCENES = [
                 <p class="box-p">{s.b.p2}</p>
               </div>
             </div>
-            {s.video ? (
+            {s.stills ? (
+              <div class="tablet tablet--stills" aria-hidden="true" data-stills={JSON.stringify(s.stills.map((e) => ({ secs: e.secs, type: e.type || "" })))}>
+                <div class="thole">
+                  {s.stills.map((e) => <img class="tstill" src={e.src} alt="" decoding="async" />)}
+                  <span class="ttype" hidden></span>
+                </div>
+                <img class="tcase" src="/hub-tour/studio/case.png" alt="" />
+              </div>
+            ) : s.video ? (
               <div class="tablet tablet--video" aria-hidden="true">
                 <video src={`/hub-tour/${s.video}.mp4`} muted playsinline preload="auto" data-clip data-advance></video>
               </div>
@@ -656,6 +676,16 @@ const SCENES = [
   .tablet--video { left: 53%; top: 2.8%; width: 40.9%; aspect-ratio: 822 / 1120; background: none; padding: 0; border-radius: 0; box-shadow: none; }
   .tablet--video::before { left: 1.2%; right: 1.7%; top: 8.2%; bottom: 0; width: auto; aspect-ratio: auto; transform: none; background: none; border-radius: 2.7vw 2.7vw 0 0; box-shadow: 0 40px 90px rgba(28,29,34,0.35); }
   .tablet--video video { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; clip-path: inset(8.2% 1.7% 0 1.2% round 2.7vw 2.7vw 0 0); }
+  /* Dani's case PNG (1700x2200; the body from 2.9% in, 7.7% down, running
+     off the foot; the screen hole at 10.2% / 13.4%, 79.3% by 84.3%) over
+     the stills, placed so the iPad lands where it did. */
+  .tablet--stills { left: 52.3%; top: 3.4%; width: 42.2%; aspect-ratio: 1700 / 2200; background: none; padding: 0; border-radius: 0; box-shadow: none; }
+  .tablet--stills::before { left: 2.9%; right: 3%; top: 7.7%; bottom: 0; width: auto; aspect-ratio: auto; transform: none; background: none; border-radius: 2.5vw 2.5vw 0 0; box-shadow: 0 40px 90px rgba(28,29,34,0.35); }
+  .tcase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
+  .thole { position: absolute; left: 10.2%; top: 13.4%; width: 79.3%; height: 84.3%; overflow: hidden; background: var(--english-violet); z-index: 1; }
+  .tstill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; opacity: 0; }
+  .tstill.is-cur { opacity: 1; }
+  .ttype { position: absolute; left: 13.5%; top: 11.4%; z-index: 3; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 1.14vw, 24px); font-weight: 500; letter-spacing: 0.04em; color: var(--paper); }
   @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
   @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .covers { position: absolute; left: 5.6%; right: 5.6%; bottom: 10.2%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.1vw; }
@@ -786,7 +816,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      keyStart();
+      keyStart(); stillsStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -861,6 +891,39 @@ const SCENES = [
       requestAnimationFrame(keyLoop);
     }
     function keyStart() { if (key && !keyOn && keyScene.classList.contains("is-on")) { keyOn = true; requestAnimationFrame(keyLoop); } }
+    // The Studio stills: a clock that stops while the film is paused shows
+    // each still for its seconds and types the word on the typing screens;
+    // the film moves on 0.7s before the last still ends, so the fade runs
+    // over it.
+    let stillsStart = () => {};
+    const stillsEl = film.querySelector(".tablet--stills");
+    if (stillsEl) {
+      const list = JSON.parse(stillsEl.dataset.stills), imgs = stillsEl.querySelectorAll(".tstill"), typ = stillsEl.querySelector(".ttype");
+      const k = scenes.indexOf(stillsEl.closest(".scene"));
+      const total = list.reduce((a, e) => a + e.secs, 0);
+      let clock = 0, last = 0, running = false, raf = 0;
+      function render(t) {
+        let acc = 0, cur = list.length - 1, into = 0;
+        for (let n = 0; n < list.length; n++) { if (t < acc + list[n].secs) { cur = n; into = t - acc; break; } acc += list[n].secs; }
+        imgs.forEach((im, n) => im.classList.toggle("is-cur", n === cur));
+        const e = list[cur];
+        if (e.type) { typ.textContent = e.type.slice(0, Math.min(e.type.length, Math.floor(into / 0.1))); typ.hidden = false; } else typ.hidden = true;
+      }
+      function tick(now) {
+        if (!running) return;
+        if (!paused) clock += (now - last) / 1000;
+        last = now;
+        render(clock);
+        if (clock >= total - 0.7 && i === k && !paused) { running = false; show(k + 1); return; }
+        raf = requestAnimationFrame(tick);
+      }
+      stillsStart = () => {
+        cancelAnimationFrame(raf);
+        if (i !== k) { running = false; return; }
+        clock = 0; last = performance.now(); running = true; render(0);
+        raf = requestAnimationFrame(tick);
+      };
+    }
     // A clip's scene lasts as long as the clip.
     scenes.forEach((s) => s.querySelectorAll("video[data-clip]").forEach((v) => {
       // A short clip loops under the box for the scene's own length; a longer
