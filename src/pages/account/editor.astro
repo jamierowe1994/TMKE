@@ -568,6 +568,12 @@ const googleFonts = [
       <!-- Elements -->
       <section class="ed-panel-pane" data-pane="elements">
         <div class="ed-pane-header"><h3>Elements</h3><p>Add shapes, lines, icons and frames to your canvas.</p></div>
+        <!-- The brand kit's logo, here as well as in the Brand pane: on a phone
+             the Brand pane is a step further away, and a logo is the thing most
+             often wanted on a fresh canvas. -->
+        <div class="ed-section-title">Your logo</div>
+        <div class="ed-photo-grid" id="elements-logo-grid"></div>
+        <p class="ed-brand-hint" id="elements-logo-hint">No logo in your brand kit yet. <a href="/account/profile">Add one</a> and it appears here.</p>
         <!-- Phone only: Images lives inside Elements, so the bottom bar stays
              four tabs wide. -->
         <button type="button" class="ed-start-btn ed-m-only ed-m-images" data-start-tool="photos">
@@ -4622,7 +4628,7 @@ const googleFonts = [
       .ed-start-ask, .ae-trigger, .ae-panel, #ae-dock { display: none !important; }
 
       /* Colour picker rides over the sheet. */
-      .ed-colorpanel { position: fixed; left: 0; right: 0; top: auto; bottom: var(--ed-bar-h); width: auto; height: var(--ed-sheet-h); border-right: 0; border-top: 1px solid rgba(28,29,34,0.1); border-radius: 14px 14px 0 0; z-index: 42; }
+      .ed-colorpanel { position: fixed; left: 0; right: 0; top: auto; bottom: var(--ed-bar-h); width: auto; height: calc((100dvh - 64px - var(--ed-bar-h)) / 2); border-right: 0; border-top: 1px solid rgba(28,29,34,0.1); border-radius: 14px 14px 0 0; z-index: 42; }
 
       /* The canvas gets the room. A finger on the design moves the design's
          item, never the page: no scrolling, no text selection, no long-press
@@ -7311,6 +7317,9 @@ const googleFonts = [
         editor.classList.remove("ed-sheet-open", "ed-sheet-sel", "ed-sheet-peek");
         refit();
       }
+      // The engine can raise the sheet on a tool's pane itself, for a control
+      // on the top bar (the font name, say) whose panel lives in the sheet.
+      (window as any).__TMKE_SHEET_TOOL__ = function (tool) { if (!PHONE.matches) return; light(tool); openSheet("tool"); };
       function light(tool) {
         const own = OWNER[tool];
         if (!own) return;

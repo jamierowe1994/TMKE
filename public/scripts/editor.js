@@ -5697,7 +5697,9 @@
     // On a phone a download lands in Files, which is not where anyone looks
     // for a picture. The share sheet offers Save Image, which puts it in
     // Photos - so that is the route there.
-    if (window.innerWidth <= 760 && navigator.canShare) {
+    // Only on a touch device: a narrow window on a Mac is still a Mac, and
+    // there a download belongs in Downloads, not in the share sheet.
+    if (window.innerWidth <= 760 && navigator.canShare && window.matchMedia("(pointer: coarse)").matches) {
       const blob = await new Promise(function (r) { c.toBlob(r, mime, 0.95); });
       if (blob) {
         const file = new File([blob], name.replace(/[^a-z0-9-_.]+/gi, "-"), { type: mime });
@@ -8473,6 +8475,9 @@
     if (!BRAND || ((!BRAND.colors || !BRAND.colors.length) && (!BRAND.logos || !BRAND.logos.length) && (!BRAND.fonts || (!BRAND.fonts.heading && !BRAND.fonts.body)))) {
       if (empty) empty.hidden = false;
       if (loaded) loaded.hidden = true;
+      const copy = document.getElementById("elements-logo-grid"), hint = document.getElementById("elements-logo-hint");
+      if (copy) copy.innerHTML = "";
+      if (hint) hint.hidden = false;
       return;
     }
     if (empty) empty.hidden = true;
@@ -8553,6 +8558,18 @@
       });
       logoGrid.appendChild(b);
     });
+    // The same logos in the Elements pane; each copy presses its original.
+    (function mirrorLogos() {
+      const copy = document.getElementById("elements-logo-grid"), hint = document.getElementById("elements-logo-hint");
+      if (!copy) return;
+      copy.innerHTML = "";
+      logoGrid.querySelectorAll("button").forEach(function (orig) {
+        const c = orig.cloneNode(true);
+        c.addEventListener("click", function () { orig.click(); });
+        copy.appendChild(c);
+      });
+      if (hint) hint.hidden = !!(BRAND.logos || []).length;
+    })();
     if (!BRAND.logos || !BRAND.logos.length) {
       logoGrid.innerHTML = isAdminMode()
         ? '<p class="ed-brand-hint" style="grid-column:1/-1">You have not uploaded any logos yet.</p>'
@@ -8817,6 +8834,8 @@
     showPane("text");
     // The browser lives behind the Fonts tab now — no scrolling-to-it needed.
     setTextTab("fonts");
+    // On a phone the pane is in the bottom sheet: bring it up.
+    if (typeof window.__TMKE_SHEET_TOOL__ === "function") window.__TMKE_SHEET_TOOL__("text");
   }
 
   // Admin authoring only: a Brand section at the head of Elements, so the logo
