@@ -8540,16 +8540,31 @@
         const tmp = new Image();
         tmp.onload = function () {
           const max = 480;
-          const ratio = tmp.naturalWidth / tmp.naturalHeight || 1;
+          let ratio = tmp.naturalWidth / tmp.naturalHeight;
+          // Safari reports 0 x 0 for an SVG with no size of its own; measure
+          // it laid out, as the logo slot does, rather than guessing square.
+          if (!ratio || !isFinite(ratio)) {
+            try {
+              tmp.style.cssText = "position:absolute;left:-9999px;top:0;height:100px;width:auto;visibility:hidden";
+              document.body.appendChild(tmp);
+              const r = tmp.getBoundingClientRect();
+              ratio = r.height ? r.width / r.height : 0;
+              tmp.remove();
+            } catch (_) { ratio = 0; }
+          }
+          if (!ratio || !isFinite(ratio)) ratio = 1;
           let w, h;
           if (ratio >= 1) { w = max; h = max / ratio; }
           else { h = max; w = max * ratio; }
+          // Shown whole, with a little air, so a rounded box can never crop it.
+          h = h * 1.08;
           addElement({
             type: "image",
             x: state.canvas.width / 2 - w / 2,
             y: state.canvas.height / 2 - h / 2,
             w: Math.round(w), h: Math.round(h),
             src: lg.src,
+            imgFit: "contain",
             opacity: 1, rotation: 0,
           });
         };
