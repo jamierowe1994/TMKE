@@ -45,8 +45,8 @@ const SCENES = [
   { kind: "mission", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 9.5 },
-  { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 5.5 },
+  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
+  { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
   { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
   { kind: "studio", img: "editor", focus: "62% 55%", h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own.", secs: 9 },
@@ -55,8 +55,8 @@ const SCENES = [
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
   // course covers along the foot; the box again with two hub screens and the
   // blog on a phone; then the mission-complete card with a grid of nine.
-  { kind: "learn", h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES, secs: 8 },
-  { kind: "know", h: "Stay in the know", p: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 9 },
+  { kind: "learn", h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
+    h2: "Stay in the know", p2: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 15 },
   { kind: "complete", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 8 },
 
   { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
@@ -236,26 +236,28 @@ const SCENES = [
             </div>
           </div>
         )}
-        {(s.kind === "learn" || s.kind === "know") && (
+        {s.kind === "learn" && (
           <div class="wall-scene">
-            <div class="box box--tl box--p2">
-              <h2 class="box-h">{s.h}</h2>
-              <p class="box-p">{s.p}</p>
-            </div>
-            {s.kind === "learn" ? (
-              <div class="covers" aria-hidden="true">
-                {s.covers.map((src, k) => <span class="cover" style={`--i:${k}`}><img src={src} alt="" loading="lazy" /></span>)}
+            <div class="box box--tl box--p2 box--swap">
+              <div class="box-text box-text--a">
+                <h2 class="box-h">{s.h}</h2>
+                <p class="box-p">{s.p}</p>
               </div>
-            ) : (
-              <>
-                <div class="know-stills" aria-hidden="true">
-                  {s.stills.map((img, k) => <span class="still" style={`--i:${k}`}><img src={`/hub-tour/${img}.jpg`} alt="" loading="lazy" /></span>)}
-                </div>
-                <div class="bphone" aria-hidden="true">
-                  <div class="bphone-screen"><img src={`/hub-tour/${s.phone}.jpg`} alt="" loading="lazy" /></div>
-                </div>
-              </>
-            )}
+              <div class="box-text box-text--b">
+                <h2 class="box-h">{s.h2}</h2>
+                <p class="box-p">{s.p2}</p>
+              </div>
+            </div>
+            <div class="covers" aria-hidden="true">
+              {s.covers.map((src, k) => <span class="cover" style={`--i:${k}`}><img src={src} alt="" loading="lazy" /></span>)}
+            </div>
+            <div class="bphone" aria-hidden="true">
+              <img class="bphone-frame" src="/hub-tour/phone.png" alt="" loading="lazy" />
+              <img class="bphone-screen" src={`/hub-tour/${s.phone}.jpg`} alt="" loading="lazy" />
+            </div>
+            <div class="know-stills" aria-hidden="true">
+              {s.stills.map((img, k) => <span class="still" style={`--i:${k}`}><img src={`/hub-tour/${img}.jpg`} alt="" loading="lazy" /></span>)}
+            </div>
           </div>
         )}
         {s.kind === "complete" && (
@@ -437,22 +439,22 @@ const SCENES = [
   .tile--blank i::before { content: ""; position: absolute; inset: 0; background: #c6e77c; border-radius: 50% 50% 0 0 / 60% 60% 0 0; transform: translate(-30%, 10%) scale(1.1, 0.8); }
   .scene.is-on .pcard, .scene.is-on .tile { animation: flash 0.45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.3s + var(--i) * 0.09s); }
   @keyframes flash { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
-  .scene.is-on .wall--edit { animation: dim 0.9s ease both; animation-delay: var(--dim, 2.4s); }
+  .scene.is-on .wall--edit { animation: dim 1.4s ease both; animation-delay: var(--dim, 2.4s); }
   /* The prompt wall leaves before the screens arrive. */
   /* "Not sure what to post?", in order: every card flashes in (0.3-2.3s)
      and holds a second; the wall dims to half exactly as the Edit wall
-     does (0.9s ease, 3.3s); the box pops in 0.3s later (3.6s) and holds a
-     second; the wall fades right out the same way (0.9s ease, 4.7s); then
-     the three screens pop up one at a time (5.8s, 6.4s, 7.0s). One keyframe
-     run for the wall, eased on each move, so the two fades cannot fight. */
-  .scene.is-on .wall--out { animation: wallSeq 5.6s linear both; }
+     does (1.4s ease, 3.3s); the box pops in 0.3s later (3.6s, 1.2s) and
+     holds a second; the wall fades right out the same way (1.4s ease,
+     5.8s); then the three screens pop up one at a time (7.4s, 8.0s, 8.6s).
+     One keyframe run for the wall, eased on each move. */
+  .scene.is-on .wall--out { animation: wallSeq 7.2s linear both; }
   @keyframes wallSeq {
-    0%, 58.9% { opacity: 1; animation-timing-function: ease; }      /* 3.3s: dim, as the Edit wall */
-    75%, 83.9% { opacity: 0.45; animation-timing-function: ease; }  /* 4.2s-4.7s: hold at half behind the box */
-    100% { opacity: 0; }                                           /* 5.6s: gone */
+    0%, 45.8% { opacity: 1; animation-timing-function: ease; }      /* 3.3s: dim, as the Edit wall */
+    65.3%, 80.6% { opacity: 0.45; animation-timing-function: ease; }  /* 4.7s-5.8s: hold at half behind the box */
+    100% { opacity: 0; }                                             /* 7.2s: gone */
   }
-  .scene.is-on .box.box--after { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) 3.6s both; }   /* .box.box--after, so the plain .box rule below cannot cancel the delay */
-  .scene.is-on .stills--after .still { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(5.8s + var(--i) * 0.6s); }
+  .scene.is-on .box.box--after { animation: pop 1.2s cubic-bezier(.2,.7,.2,1) 3.6s both; }   /* .box.box--after, so the plain .box rule below cannot cancel the delay */
+  .scene.is-on .stills--after .still { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(7.4s + var(--i) * 0.6s); }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
@@ -471,6 +473,7 @@ const SCENES = [
   @keyframes pop { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
   @keyframes popc { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
   .scene--studio .box--late { --box: 1.6s; }
+  .scene--edit.is-on .box--late { animation-duration: 1.2s; }
 
   /* The phone of the chat. */
   .phone { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, 88vw); height: min(850px, 82vh); background: #e9e6e4; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; font-family: var(--sans); color: var(--ink); box-shadow: 0 30px 80px rgba(28,29,34,0.25); }
@@ -561,30 +564,44 @@ const SCENES = [
   .studio-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }
 
   /* ---- Part 02, from the Canva boards ---- */
-  .scene--learn, .scene--know, .scene--complete { display: block; }
-  .scene.is-on .box.box--p2 { animation-delay: 0.3s; }
-  /* Learn what matters: the six covers along the foot, one after another. */
+  /* One scene, in order: the box pops in (0.3s) and the six covers along
+     the foot one after another (1.4-3.9s); they hold, then scoot off to the
+     right (6.5s) while the box's words fade to the next ones (6.8s / 7.5s);
+     the phone slides up on the right (7.6s); the two screens pop in along
+     the foot (9.2s, 9.8s). The box itself never goes. */
+  .scene--learn, .scene--complete { display: block; }
+  .scene.is-on .box.box--p2 { animation-duration: 1.2s; animation-delay: 0.3s; }
+  .box--swap { display: grid; }
+  .box-text { grid-area: 1 / 1; }
+  .box-text--b { opacity: 0; }
+  .scene.is-on .box-text--a { animation: textOut 0.6s ease 6.8s both; }
+  .scene.is-on .box-text--b { animation: textIn 0.8s ease 7.5s both; }
+  @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
+  @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .covers { position: absolute; left: 5.6%; right: 5.6%; bottom: 10.2%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.1vw; }
   .cover { display: block; aspect-ratio: 3 / 4; border-radius: 4px; overflow: hidden; background: #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.08), 0 18px 40px -18px rgba(28,29,34,0.35); opacity: 0; }
   .cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .scene.is-on .cover { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(1.4s + var(--i) * 0.35s); }
-  /* Stay in the know: two screens along the foot, the blog on a phone at the right. */
+  .scene.is-on .cover { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both, scoot 1s cubic-bezier(.5,0,.8,.3) forwards; animation-delay: calc(1.4s + var(--i) * 0.35s), calc(6.5s + var(--i) * 0.07s); }
+  @keyframes scoot { from { transform: none; } to { transform: translateX(120vw); } }
+  /* The phone is Dani's mock-up, with the blog laid over its screen so it
+     stays sharp; it starts below the frame and slides up. */
+  .bphone { position: absolute; left: 71.6%; top: 25%; width: 21.6%; aspect-ratio: 450 / 880; transform: translateY(100vh); }
+  .bphone-frame { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
+  .bphone-screen { position: absolute; left: 6.9%; width: 86%; top: 14.6%; height: 85.4%; object-fit: cover; object-position: 50% 0; z-index: 1; }
+  .scene.is-on .bphone { animation: slideUp 1.2s cubic-bezier(.2,.7,.2,1) 7.6s forwards; }
+  @keyframes slideUp { from { transform: translateY(100vh); } to { transform: none; } }
   .know-stills { position: absolute; inset: 0; }
   .know-stills .still { top: auto; bottom: 10%; }
   .know-stills .still:nth-child(1) { left: 5.6%; }
   .know-stills .still:nth-child(2) { left: 35.4%; }
-  .scene.is-on .know-stills .still { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(1.4s + var(--i) * 0.5s); }
-  .bphone { position: absolute; left: 71.6%; top: 25%; width: 21.6%; aspect-ratio: 1 / 2.05; background: #141416; border-radius: 12% / 5.8%; padding: 2.6%; box-shadow: 0 30px 80px rgba(28,29,34,0.3), inset 0 0 0 2px #3b3b3f; opacity: 0; }
-  .bphone-screen { position: relative; width: 100%; height: 100%; border-radius: 9.5% / 4.6%; overflow: hidden; background: #f4f2f1; }
-  .bphone-screen::before { content: ""; position: absolute; left: 50%; top: 2.2%; width: 34%; height: 3.2%; transform: translateX(-50%); background: #141416; border-radius: 999px; z-index: 2; }
-  .bphone-screen img { position: absolute; left: 0; top: 8%; width: 100%; height: 92%; object-fit: cover; object-position: 50% 0; }
-  .scene.is-on .bphone { animation: pop 0.9s cubic-bezier(.2,.7,.2,1) 2.5s both; }
+  .scene.is-on .know-stills .still { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(9.2s + var(--i) * 0.6s); }
   /* Mission complete: the objective and a line, "Mission / Complete" at the
      foot, the nine tiles on the right popping in one by one. */
   .mission-p { margin: 0; max-width: 26vw; font-size: clamp(13px, 1.2vw, 22px); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.5; }
   .mission-foot { position: absolute; left: 5.6%; bottom: 9.5%; }
   .mission-foot .mission-v { margin: 0; font-size: clamp(13px, 1.2vw, 22px); }
-  .mission-grid { position: absolute; right: 5.6%; top: 21.5%; width: 34%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55vw; }
+  /* Its foot sits where the mission strips sit (10% up), so it lines up with them; sized by height so three rows always fit. */
+  .mission-grid { position: absolute; right: 5.6%; bottom: 10%; width: min(32%, 56vh); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55vw; }
   .mission-grid img { display: block; width: 100%; aspect-ratio: 210 / 240; object-fit: cover; opacity: 0; }
   .scene.is-on .mission-foot { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
   .scene.is-on .mission-grid img { animation: flash 0.5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.6s + var(--i) * 0.14s); }
@@ -613,7 +630,7 @@ const SCENES = [
     .know-stills .still:nth-child(1) { left: 22px; } .know-stills .still:nth-child(2) { left: auto; right: 22px; }
     .bphone { display: none; }
     .mission-p { max-width: none; }
-    .mission-grid { left: 22px; right: 22px; width: auto; top: auto; bottom: 20%; gap: 6px; }
+    .mission-grid { left: 22px; right: 22px; width: auto; bottom: 20%; gap: 6px; }
     .assoc-meta { display: none; }
     .clip-wrap { left: 22px; right: 22px; width: auto; top: 76px; transform: none; }
     .scene.is-on .clip-wrap { animation: settleFrame 1s cubic-bezier(.2,.7,.2,1) both; }
@@ -654,7 +671,7 @@ const SCENES = [
       clearTimeout(timer);
       i = n;
       scenes.forEach((s, k) => { s.classList.toggle("is-on", k === n); s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
-      film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn|know)\b/.test(scenes[n].className));
+      film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn)\b/.test(scenes[n].className));
       film.classList.toggle("is-shot", /scene--(studio|clip)\b/.test(scenes[n].className));
       segs.forEach((g, k) => {
         g.classList.toggle("is-done", k < n);
