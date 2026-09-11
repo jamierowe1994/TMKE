@@ -39,7 +39,7 @@ const SCENES = [
   { kind: "mission", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 7 },
+  { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 8.5 },
   { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 5.5 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
   { kind: "studio", img: "editor-text", focus: "16% 30%", h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer.", secs: 9 },
@@ -109,7 +109,7 @@ const SCENES = [
               </div>
             )}
             {s.h && (
-              <div class={`box box--late ${s.kind === "prompts" ? "box--bl box--after" : "box--c"}`}>
+              <div class={s.kind === "prompts" ? "box box--bl box--after" : "box box--late box--c"}>
                 <h2 class="box-h">{s.h}</h2>
                 <p class="box-p">{s.p1}</p>
                 <p class="box-p">{s.p2}</p>
@@ -390,9 +390,14 @@ const SCENES = [
   @keyframes flash { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
   .scene.is-on .wall--edit { animation: dim 0.9s ease both; animation-delay: var(--dim, 2.4s); }
   /* The prompt wall leaves before the screens arrive. */
-  .scene.is-on .wall--out { animation: wallOut 0.8s ease both; animation-delay: 3.4s; }
-  @keyframes wallOut { from { opacity: 1; } to { opacity: 0; } }
-  .scene.is-on .stills--after .still, .scene.is-on .box--after { animation: stillIn 1.8s ease both; animation-delay: 4s; }
+  /* "Not sure what to post?", in order: the cards pop in (0.3-2s), dim to
+     half as the box comes in (2.6s / 2.9s), go once the box is in (4.2s),
+     then the three screens pop up one at a time (4.9s, 5.5s, 6.1s). One
+     keyframe run for the wall, so the two fades cannot fight. */
+  .scene.is-on .wall--out { animation: wallSeq 5s linear both; }
+  @keyframes wallSeq { 0%, 52% { opacity: 1; } 68%, 84% { opacity: 0.45; } 98%, 100% { opacity: 0; } }
+  .scene.is-on .box--after { animation: pop 0.8s cubic-bezier(.2,.7,.2,1) 2.9s both; }
+  .scene.is-on .stills--after .still { animation: pop 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(4.9s + var(--i) * 0.6s); }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
