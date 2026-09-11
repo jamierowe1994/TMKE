@@ -456,8 +456,8 @@ const SCENES = [
   /* The paper is never flat: a pool of light and a pool of shade, in the
      paper's own tones, drift slowly about behind everything. */
   .wall-scene::before, .wall-scene::after { content: ""; position: absolute; width: 80vmax; height: 80vmax; border-radius: 50%; pointer-events: none; z-index: 0; will-change: transform; }
-  .wall-scene::before { left: -30vmax; top: -34vmax; background: radial-gradient(circle, rgba(255,255,255,0.7), rgba(255,255,255,0) 62%); animation: driftA 36s ease-in-out infinite alternate; }
-  .wall-scene::after { right: -34vmax; bottom: -38vmax; background: radial-gradient(circle, rgba(55,30,40,0.07), rgba(55,30,40,0) 62%); animation: driftB 44s ease-in-out infinite alternate; }
+  .wall-scene::before { left: -26vmax; top: -30vmax; background: radial-gradient(circle, rgba(255,255,255,0.95), rgba(255,255,255,0) 64%); animation: driftA 28s ease-in-out infinite alternate; }
+  .wall-scene::after { right: -30vmax; bottom: -34vmax; background: radial-gradient(circle, rgba(55,30,40,0.15), rgba(55,30,40,0) 64%); animation: driftB 34s ease-in-out infinite alternate; }
   .wall-scene > * { z-index: 1; }
   @keyframes driftA { from { transform: translate(0, 0); } 50% { transform: translate(26vw, 8vh); } to { transform: translate(12vw, 24vh); } }
   @keyframes driftB { from { transform: translate(0, 0); } 50% { transform: translate(-14vw, -26vh); } to { transform: translate(-28vw, -8vh); } }
@@ -548,9 +548,8 @@ const SCENES = [
      video frame (measured from the last frame), so the chat lands on it at
      any size. */
   .scene--associate { display: block; }
-  .assoc-video { position: absolute; top: 11%; left: 30%; height: 89%; aspect-ratio: 16 / 9; overflow: hidden;   /* sits lower, so her collar clears the top fade */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 93%, transparent 100%);
-    -webkit-mask-composite: source-in; mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 93%, transparent 100%); mask-composite: intersect; }
+  .assoc-video { position: absolute; top: 0; left: 30%; height: 100%; aspect-ratio: 16 / 9; overflow: hidden;   /* full height, top to foot; only its left edge fades into the paper */
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); }
   .assoc-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(1.04); }   /* lifts its off-white to white before the paper tint */
   .assoc-tint { position: absolute; inset: 0; background: #f2f0ee; mix-blend-mode: multiply; }   /* the video's white becomes our paper */
   .scene.is-on .assoc-video { animation: stillIn 0.9s ease both; }
@@ -664,8 +663,7 @@ const SCENES = [
   .mission-p { margin: 0; max-width: 26vw; font-size: clamp(13px, 1.2vw, 22px); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.5; }
   .mission-foot { position: absolute; left: 5.6%; bottom: 9.5%; }
   .mission-foot .mission-v { margin: 0; font-size: clamp(13px, 1.2vw, 22px); }
-  /* Its foot sits where the mission strips sit (10% up), so it lines up with them; sized by height so three rows always fit. */
-  .mission-grid { position: absolute; right: 5.6%; bottom: 10%; width: min(32%, 56vh); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.55vw; }
+  .mission-grid { position: absolute; right: 5.6%; bottom: 10%; display: grid; grid-template-columns: repeat(3, clamp(90px, 11vw, 214px)); gap: 8px; }   /* each tile the size of a mission strip's, same gap, same foot line */
   .mission-grid img { display: block; width: 100%; aspect-ratio: 210 / 240; object-fit: cover; opacity: 0; }
   .scene.is-on .mission-foot { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
   .scene.is-on .mission-grid img { animation: flash 0.5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.6s + var(--i) * 0.14s); }
@@ -696,7 +694,7 @@ const SCENES = [
     .tab-meta { top: 76px; } .tab-meta .mission-v { margin-bottom: 18px; }
     .tablet { left: 50%; width: 46%; top: 76px; }
     .mission-p { max-width: none; }
-    .mission-grid { left: 22px; right: 22px; width: auto; bottom: 20%; gap: 6px; }
+    .mission-grid { left: 22px; right: 22px; bottom: 20%; gap: 6px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .assoc-meta { display: none; }
     .clip-wrap { left: 22px; right: 22px; width: auto; top: 76px; transform: none; }
     .scene.is-on .clip-wrap { animation: settleFrame 1s cubic-bezier(.2,.7,.2,1) both; }
