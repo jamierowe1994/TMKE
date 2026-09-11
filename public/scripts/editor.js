@@ -2410,11 +2410,20 @@
     const base = state.canvas.bgFit === "contain"
       ? Math.min(fw / nw, fh / nh)
       : Math.max(fw / nw, fh / nh);
-    const scale = base * (state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1);
+    let scale = base * (state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1);
+    // Rotation (bgRotate, degrees). A rotated photo would show its corners
+    // missing in a Fill frame, so in Fill it is scaled up by just enough for
+    // the turned picture to still cover the frame.
+    const deg = state.canvas.bgRotate || 0;
+    if (deg && state.canvas.bgFit !== "contain") {
+      const r = deg * Math.PI / 180, c = Math.abs(Math.cos(r)), sn = Math.abs(Math.sin(r));
+      const needW = fw * c + fh * sn, needH = fw * sn + fh * c;
+      scale *= Math.max(needW / (nw * scale), needH / (nh * scale), 1);
+    }
     const sw = nw * scale, sh = nh * scale;
     const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
     const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
-    return { sw, sh, ox: (fw - sw) * px, oy: (fh - sh) * py };
+    return { sw, sh, ox: (fw - sw) * px, oy: (fh - sh) * py, deg };
   }
 
   // ---------- Rendering ----------
@@ -2462,6 +2471,7 @@
         bg.style.left = lay.ox + "px"; bg.style.top = lay.oy + "px";
         bg.style.width = lay.sw + "px"; bg.style.height = lay.sh + "px";
         bg.style.objectFit = "fill";
+        bg.style.transform = lay.deg ? "rotate(" + lay.deg + "deg)" : "";
       } else {
         // Until we know the photo's natural size, fall back to cover + position
         // (identical to the old behaviour), and cache the dims on load.
@@ -2539,6 +2549,14 @@
     if (repo) repo.hidden = !hasImg;
     const detach = document.getElementById("ed-bg-detach");
     if (detach) detach.hidden = !hasImg;
+    const rot = document.getElementById("ed-bg-rot");
+    if (rot) {
+      rot.hidden = !hasImg;
+      const v = Math.round(state.canvas.bgRotate || 0);
+      const rng = document.getElementById("ed-bg-rot-range"), num = document.getElementById("ed-bg-rot-num");
+      if (rng && document.activeElement !== rng) rng.value = v;
+      if (num && document.activeElement !== num) num.value = v;
+    }
     const fit = document.getElementById("ed-bg-fit");
     if (fit) {
       fit.hidden = !hasImg;
@@ -5396,7 +5414,13 @@
         })();
         ctx.save();
         ctx.globalAlpha = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
-        ctx.drawImage(bg, lay.ox, lay.oy, lay.sw, lay.sh);
+        if (lay.deg) {
+          ctx.translate(lay.ox + lay.sw / 2, lay.oy + lay.sh / 2);
+          ctx.rotate(lay.deg * Math.PI / 180);
+          ctx.drawImage(bg, -lay.sw / 2, -lay.sh / 2, lay.sw, lay.sh);
+        } else {
+          ctx.drawImage(bg, lay.ox, lay.oy, lay.sw, lay.sh);
+        }
         ctx.restore();
       } catch (_) {}
     }
@@ -9006,6 +9030,24 @@
     }
     if (repoBtn) repoBtn.addEventListener("click", () => { if (state.canvas.backgroundImage) enterBgReposition(); });
 
+    // Rotate — a slider and a number for any angle, and quarter turns either way.
+    (function wireBgRotate() {
+      const rng = $("ed-bg-rot-range"), num = $("ed-bg-rot-num");
+      if (!rng || !num) return;
+      const norm = (v) => { v = Math.round(Number(v) || 0); while (v > 180) v -= 360; while (v < -180) v += 360; return v; };
+      const set = (v, commit) => {
+        if (!state.canvas.backgroundImage) return;
+        state.canvas.bgRotate = norm(v);
+        rng.value = state.canvas.bgRotate; num.value = state.canvas.bgRotate;
+        if (commit) pushHistory();
+        fullRender();
+      };
+      rng.addEventListener("input", () => set(rng.value, false));
+      rng.addEventListener("change", () => set(rng.value, true));
+      num.addEventListener("change", () => set(num.value, true));
+      $("ed-bg-rot").querySelectorAll("[data-bgrot]").forEach((b) => b.addEventListener("click", () => set((state.canvas.bgRotate || 0) + Number(b.getAttribute("data-bgrot")), true)));
+    })();
+
     // Fill / Fit toggle — "cover" crops to fill, "contain" shows the whole photo.
     const fitGroup = $("ed-bg-fit");
     if (fitGroup) fitGroup.querySelectorAll(".ed-bg-fit-btn").forEach((b) => b.addEventListener("click", () => {
@@ -9082,8 +9124,8 @@
         '<span style="position:absolute;top:66.666%;left:0;right:0;border-top:1px solid rgba(255,255,255,0.5)"></span>';
       canvasEl.appendChild(mask);
       toast(nudged
-        ? "Drag to move the photo, scroll to zoom — zoomed in slightly so it has room to move"
-        : "Drag to move the photo, scroll to zoom — click away or Esc when done", 3600);
+        ? "Drag to move the photo, scroll to zoom, turn it with the Rotate slider — zoomed in slightly so it has room to move"
+        : "Drag to move the photo, scroll to zoom, turn it with the Rotate slider — click away or Esc when done", 3600);
 
       function applyBg() {
         const img = canvasEl.querySelector(".ed-canvas-bg");
@@ -9092,6 +9134,7 @@
           img.style.left = lay.ox + "px"; img.style.top = lay.oy + "px";
           img.style.width = lay.sw + "px"; img.style.height = lay.sh + "px";
           img.style.objectFit = "fill";
+          img.style.transform = lay.deg ? "rotate(" + lay.deg + "deg)" : "";
         }
       }
       let dragging = false, lastX = 0, lastY = 0;
