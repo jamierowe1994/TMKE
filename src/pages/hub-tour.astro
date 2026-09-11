@@ -47,15 +47,15 @@ const SCENES = [
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
-  { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
-  // The Studio, to Dani's board: labels top-left, the box bottom-left, a
-  // tablet on the right. One scene; the words swap from Make it yours to
-  // Get creative at 9s while the box and the tablet stay. The tablet shows
-  // a template until her video arrives (then: video: "studio").
+  { kind: "associate", video: "associate", rate: 1.25, h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 13 },
+  // The Studio, to Dani's board: labels top-left, the box bottom-left, her
+  // iPad video on the right. One scene; the words swap from Make it yours to
+  // Get creative halfway through the video, and the film moves on when the
+  // video has played once (secs is only the fallback).
   { kind: "tablet", enter: "push", tech: "The Studio", video: "studio",
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
-    secs: 18 },
+    secs: 11 },
 
   { kind: "mission", enter: "push", n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
@@ -158,7 +158,7 @@ const SCENES = [
         {s.kind === "associate" && (
           <div class="wall-scene">
             <div class="assoc-video">
-              <video src={`/hub-tour/${s.video}.mp4`} muted playsinline preload="auto" data-clip data-once></video>
+              <video src={`/hub-tour/${s.video}.mp4`} muted playsinline preload="auto" data-clip data-once data-rate={s.rate || 1}></video>
               <div class="assoc-tint" aria-hidden="true"></div>
               <div class="assoc-tab" aria-hidden="true">
                 <div class="tchat">
@@ -172,6 +172,7 @@ const SCENES = [
                 </div>
               </div>
             </div>
+            <canvas class="assoc-key" width="1344" height="62" aria-hidden="true"></canvas>
             <div class="box box--tl">
               <h2 class="box-h">{s.h}</h2>
               <p class="box-p">{s.p1}</p>
@@ -243,7 +244,7 @@ const SCENES = [
           </div>
         )}
         {s.kind === "tablet" && (
-          <div class="wall-scene" style="--swap: 9s">
+          <div class="wall-scene" style="--swap: 4.6s">
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -267,7 +268,7 @@ const SCENES = [
             </div>
             {s.video ? (
               <div class="tablet tablet--video" aria-hidden="true">
-                <video src={`/hub-tour/${s.video}.mp4`} muted playsinline loop preload="auto" data-clip></video>
+                <video src={`/hub-tour/${s.video}.mp4`} muted playsinline preload="auto" data-clip data-advance></video>
               </div>
             ) : (
               <div class="tablet" aria-hidden="true">
@@ -552,14 +553,19 @@ const SCENES = [
      video frame (measured from the last frame), so the chat lands on it at
      any size. */
   .scene--associate { display: block; }
-  .assoc-video { position: absolute; top: 0; left: 30%; height: 100%; aspect-ratio: 16 / 9; overflow: hidden;   /* full height, top to foot; only its left edge fades into the paper */
+  .assoc-video { position: absolute; top: 0; left: 30%; height: 100%; aspect-ratio: 1344 / 768; overflow: hidden;   /* full height, top to foot, at the render's own ratio; only its left edge fades into the paper */
     -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); }
   .assoc-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(1.04); }   /* lifts its off-white to white before the paper tint */
   .assoc-tint { position: absolute; inset: 0; background: #f2f0ee; mix-blend-mode: multiply; }   /* the video's white becomes our paper */
   .scene.is-on .assoc-video { animation: stillIn 0.9s ease both; }
   /* The tablet's screen as fractions of the video frame, measured from the
      last frame. Adjust these four when the video changes. */
-  .assoc-video { --tab-l: 38.2%; --tab-t: 27%; --tab-w: 23.6%; --tab-h: 29.6%; }
+  .assoc-video { --tab-l: 36.8%; --tab-t: 26.8%; --tab-w: 25.6%; --tab-h: 30.7%; }   /* measured from the 11 Sep render's last frame */
+  /* Her head in front of the progress strip: a canvas over the strip draws
+     the top slice of the video with its white keyed out (script), so she
+     covers the strip and the paper around her does not. */
+  .wall-scene > .assoc-key { position: absolute; top: 0; left: 30%; height: calc(100vh * 62 / 768); width: calc(100vh * 1344 / 768); z-index: 6; pointer-events: none; }
+  .scene.is-on .assoc-key { animation: stillIn 0.9s ease both; }
   .assoc-tab { position: absolute; left: var(--tab-l); top: var(--tab-t); width: var(--tab-w); height: var(--tab-h); border-radius: 0.6vw; overflow: hidden; opacity: 0; transition: opacity 0.7s ease; }
   .scene.is-ended .assoc-tab { opacity: 1; }
   .assoc-meta { position: absolute; left: 5.6%; bottom: 9%; color: var(--ink); font-family: var(--sans); }
@@ -779,7 +785,8 @@ const SCENES = [
         if (k === n) { g.style.setProperty("--secs", secsOf(n) + "ms"); void g.offsetWidth; g.classList.add("is-live"); }
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
-      scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
+      scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
+      keyStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -824,6 +831,36 @@ const SCENES = [
     // A one-shot clip (the associate walking in) holds its last frame and
     // tells its scene it has ended, which brings the chat up on her tablet.
     scenes.forEach((s) => s.querySelectorAll("video[data-once]").forEach((v) => v.addEventListener("ended", () => s.classList.add("is-ended"))));
+    // A clip that carries the scene: when it has played once, the film moves on.
+    scenes.forEach((s, k) => s.querySelectorAll("video[data-advance]").forEach((v) => v.addEventListener("ended", () => { if (i === k && !paused) show(k + 1); })));
+    // Her head in front of the progress strip: the top slice of the associate
+    // video, drawn each frame with its white made transparent and the paper
+    // tint applied, on a canvas that sits above the strip.
+    const key = film.querySelector(".assoc-key");
+    const keyScene = key && key.closest(".scene");
+    const keyVideo = keyScene && keyScene.querySelector("video[data-clip]");
+    const keyCtx = key && key.getContext("2d", { willReadFrequently: true });
+    let keyOn = false;
+    function keyDraw() {
+      const W = key.width, H = key.height;
+      if (!keyVideo.videoWidth) return;
+      keyCtx.clearRect(0, 0, W, H);
+      keyCtx.drawImage(keyVideo, 0, 0, keyVideo.videoWidth, keyVideo.videoHeight * H / 768, 0, 0, W, H);
+      const img = keyCtx.getImageData(0, 0, W, H), d = img.data, fade = W * 0.24;
+      for (let p = 0; p < d.length; p += 4) {
+        const r = d[p], g = d[p + 1], b = d[p + 2], m = Math.min(r, g, b);
+        let a = m >= 250 ? 0 : m <= 226 ? 1 : (250 - m) / 24;
+        const x = (p >> 2) % W; if (x < fade) a *= x / fade;
+        d[p] = Math.min(255, r * 0.987); d[p + 1] = Math.min(255, g * 0.979); d[p + 2] = Math.min(255, b * 0.971); d[p + 3] = a * 255;
+      }
+      keyCtx.putImageData(img, 0, 0);
+    }
+    function keyLoop() {
+      if (!keyScene.classList.contains("is-on")) { keyOn = false; keyCtx.clearRect(0, 0, key.width, key.height); return; }
+      keyDraw();
+      requestAnimationFrame(keyLoop);
+    }
+    function keyStart() { if (key && !keyOn && keyScene.classList.contains("is-on")) { keyOn = true; requestAnimationFrame(keyLoop); } }
     // A clip's scene lasts as long as the clip.
     scenes.forEach((s) => s.querySelectorAll("video[data-clip]").forEach((v) => {
       // A short clip loops under the box for the scene's own length; a longer
