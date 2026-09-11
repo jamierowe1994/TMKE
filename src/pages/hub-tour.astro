@@ -53,7 +53,9 @@ const COURSES = [C("getting-started"), C("5-minutes"), C("before-you-post"), C("
 const DONE_TILES = [T(12), T(8), C("before-you-post"), T(11), C("instagram"), C("certificate")];
 
 const SCENES = [
-  { kind: "card", eyebrow: "The TMKE Member Hub", h: "It doesn’t give estate agents more marketing tools.", p: "It gives them a clearer way to actually do their marketing.", secs: 6.5 },
+  // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
+  // codename and the mission typed out beneath.
+  { kind: "cover", codename: "The Studio", mission: "Your mission is to take control of your agency’s marketing. Plan smarter socials, create better content and build the skills to make your marketing work harder.", secs: 9.5 },
 
   { kind: "mission", enter: "push", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
@@ -97,6 +99,17 @@ const SCENES = [
             {s.eyebrow && <p class="scene-eyebrow">{s.eyebrow}</p>}
             <h2 class="scene-h scene-h--big">{s.h}</h2>
             {s.p && <p class="scene-p scene-p--big">{s.p}</p>}
+          </div>
+        )}
+        {s.kind === "cover" && (
+          <div class="cov">
+            <span class="cov-brand">The Marketing Experts</span>
+            <span class="cov-conf">Confidential</span>
+            <div class="cov-mark" aria-label="TMKE">TMKE</div>
+            <dl class="cov-lines">
+              <dt>Codename</dt><dd><span data-type={s.codename} data-at="1.6"></span></dd>
+              <dt>Mission</dt><dd><span data-type={s.mission} data-at="2.5"></span></dd>
+            </dl>
           </div>
         )}
         {s.kind === "mission" && (
@@ -311,7 +324,7 @@ const SCENES = [
               </div>
             </div>
             <div class="covers" aria-hidden="true">
-              {s.covers.map((src, k) => <span class="cover" style={`--i:${k}`}><img src={src} alt="" loading="lazy" /></span>)}
+              {s.covers.map((src, k) => <span class="cov" style={`--i:${k}`}><img src={src} alt="" loading="lazy" /></span>)}
             </div>
             <div class="bphone" aria-hidden="true">
               <img class="bphone-frame" src="/hub-tour/phone.png" alt="" loading="lazy" />
@@ -476,6 +489,25 @@ const SCENES = [
   .film.is-paused .scene *, .film.is-paused .scene *::before, .film.is-paused .scene *::after { animation-play-state: paused !important; }
   :global(.cc-banner) { display: none !important; }
 
+  /* ---- The cover ---- */
+  .scene--cover { display: block; }
+  .cov { position: absolute; inset: 0; background: var(--english-violet); color: var(--paper); font-family: var(--sans); }
+  .cov-brand, .cov-conf { position: absolute; top: 11%; font-size: clamp(11px, 0.95vw, 17px); letter-spacing: 0.05em; text-transform: uppercase; }
+  .cov-brand { left: 5.6%; font-weight: 500; }
+  .cov-conf { right: 5.6%; font-weight: 700; }
+  /* The mark pressed into the wine: the wine itself for the face, a dark
+     edge up and to the left, a faint light one down and to the right. */
+  .cov-mark { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); font-family: var(--logo-serif, var(--serif)); font-size: clamp(120px, 15vw, 290px); line-height: 1; letter-spacing: -0.01em; color: #3a2029;
+    text-shadow: -2px -2px 3px rgba(0,0,0,0.55), 2px 2px 3px rgba(255,255,255,0.09), 0 0 18px rgba(0,0,0,0.18); }
+  .cov-lines { position: absolute; left: 5.6%; right: 5.6%; bottom: 10%; margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: clamp(18px, 1.6vw, 30px); row-gap: clamp(14px, 2.4vh, 26px); align-items: start; }
+  .cov-lines dt { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 1.1vw, 20px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+  .cov-lines dd { margin: 0; max-width: 66ch; font-size: clamp(12px, 1.05vw, 19px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.6; min-height: 1.6em; }
+  .cov-lines dd span::after { content: ""; display: inline-block; width: 0.55em; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--paper); opacity: 0; }
+  .cov-lines dd span.is-typing::after { opacity: 1; animation: caret 0.8s steps(2) infinite; }
+  @keyframes caret { to { opacity: 0; } }
+  .scene.is-on .cov-brand, .scene.is-on .cov-conf { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
+  .scene.is-on .cov-mark { animation: stillIn 1.6s ease 0.6s both; }
+
   /* ---- Part 01, from the Canva boards ---- */
   .scene--mission, .scene--prompts, .scene--edit, .scene--ask, .scene--phone, .scene--studio { display: block; }
   .wall-scene { position: absolute; inset: 0; background: #f2f0ee; overflow: hidden; }
@@ -535,7 +567,7 @@ const SCENES = [
   /* One screen instead of three (Dani's board, 12 Sep): the planner from its
      month bar down, in a rounded frame that runs off the foot, a touch
      softened so the box reads over it. */
-  .stills--one .still { left: 4.7%; top: 4%; width: 84.4%; height: 120%; aspect-ratio: auto; border-radius: 12px; background: #fff; box-shadow: 0 0 0 1px rgba(28,29,34,0.1), 0 30px 60px -30px rgba(28,29,34,0.35); }
+  .stills--one .still { left: 0; top: 0; width: 100%; height: 120%; aspect-ratio: auto; border-radius: 0; background: #fff; box-shadow: none; }   /* the full width, as a background rather than a shot */
   .stills--one .still img { opacity: 0.92; }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
@@ -822,7 +854,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      keyStart(); stillsStart();
+      keyStart(); stillsStart(); typeStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -897,6 +929,34 @@ const SCENES = [
       requestAnimationFrame(keyLoop);
     }
     function keyStart() { if (key && !keyOn && keyScene.classList.contains("is-on")) { keyOn = true; requestAnimationFrame(keyLoop); } }
+    // Typed lines: each [data-type] in the scene starts empty and is typed
+    // out from its data-at second, a character every 28ms, on a clock that
+    // stops while the film is paused.
+    let typeRaf = 0;
+    function typeStart() {
+      cancelAnimationFrame(typeRaf);
+      const els = Array.from(scenes[i].querySelectorAll("[data-type]"));
+      if (!els.length) return;
+      els.forEach((e) => { e.textContent = ""; e.classList.remove("is-typing"); });
+      let clock = 0, last = performance.now();
+      const scene = scenes[i];
+      const tick = (now) => {
+        if (!scene.classList.contains("is-on")) return;
+        if (!paused) clock += (now - last) / 1000;
+        last = now;
+        let done = true;
+        els.forEach((e) => {
+          const full = e.dataset.type, at = Number(e.dataset.at || 0);
+          const n = Math.max(0, Math.min(full.length, Math.floor((clock - at) / 0.028)));
+          if (e.textContent.length !== n) e.textContent = full.slice(0, n);
+          const typing = clock >= at && n < full.length;
+          e.classList.toggle("is-typing", typing);
+          if (n < full.length) done = false;
+        });
+        if (!done) typeRaf = requestAnimationFrame(tick);
+      };
+      typeRaf = requestAnimationFrame(tick);
+    }
     // The Studio stills: a clock that stops while the film is paused shows
     // each still for its seconds and types the word on the typing screens;
     // the film moves on 0.7s before the last still ends, so the fade runs
