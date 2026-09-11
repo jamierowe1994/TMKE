@@ -42,28 +42,28 @@ const DONE_TILES = [C("getting-started"), C("5-minutes"), T(6), T(12), T(8), C("
 const SCENES = [
   { kind: "card", eyebrow: "The TMKE Member Hub", h: "It doesn’t give estate agents more marketing tools.", p: "It gives them a clearer way to actually do their marketing.", secs: 6.5 },
 
-  { kind: "mission", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
+  { kind: "mission", enter: "push", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["still-planner", "still-planner-day", "still-studio"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
-  { kind: "edit", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
+  { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 6.5 },
   { kind: "associate", video: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 10 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, a
   // tablet on the right. One scene; the words swap from Make it yours to
   // Get creative at 9s while the box and the tablet stay. The tablet shows
   // a template until her video arrives (then: video: "studio").
-  { kind: "tablet", tech: "The Studio", img: T(6),
+  { kind: "tablet", enter: "push", tech: "The Studio", img: T(6),
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
     secs: 18 },
 
-  { kind: "mission", n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
+  { kind: "mission", enter: "push", n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
   // course covers along the foot; the box again with two hub screens and the
   // blog on a phone; then the mission-complete card with a grid of nine.
   { kind: "learn", h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
     h2: "Stay in the know", p2: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 15 },
-  { kind: "complete", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 8 },
+  { kind: "complete", enter: "push", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 8 },
 
   { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
 ];
@@ -77,7 +77,7 @@ const SCENES = [
     </div>
 
     {SCENES.map((s, i) => (
-      <section class={`scene scene--${s.kind || "shot"}`} data-i={i} data-secs={s.secs} aria-hidden={i === 0 ? "false" : "true"}>
+      <section class={`scene scene--${s.kind || "shot"}`} data-i={i} data-secs={s.secs} data-enter={s.enter || "fade"} aria-hidden={i === 0 ? "false" : "true"}>
         {s.kind === "card" && (
           <div class="scene-card">
             {s.act && <p class="scene-act">Part {s.act}</p>}
@@ -363,10 +363,17 @@ const SCENES = [
   .film-seg.is-live i { transition: transform linear; transition-duration: var(--secs, 6s); transform: scaleX(1); }
   .film.is-paused .film-seg.is-live i { transition: none; transform: scaleX(var(--at, 0)); }
 
-  /* One scene fades fully out before the next fades in, so nothing of the
-     old scene lingers under the new. */
-  .scene { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; visibility: hidden; transition: opacity 0.45s ease, visibility 0s linear 0.45s; }
-  .scene.is-on { opacity: 1; visibility: visible; transition: opacity 0.6s ease 0.45s; }
+  /* Scene changes, run by the script (see show()). A fade: the whole old
+     scene fades out together (0.7s), and only once it has gone does the new
+     one fade in and its pieces start arriving. A push: the old scene slides
+     off to the left as the new one slides in from the right, as one move. */
+  .scene { position: absolute; inset: 0; display: grid; place-items: center; opacity: 0; visibility: hidden; transition: opacity 0.7s ease, visibility 0s linear 0.7s; }
+  .scene.is-on { opacity: 1; visibility: visible; transition: opacity 0.6s ease; }
+  .scene.is-on.is-out { opacity: 0; transition: opacity 0.7s ease; }
+  .scene.is-on.is-push-out { animation: pushOut 1s cubic-bezier(.7,0,.3,1) both; }
+  .scene.is-push-in { transition: none; animation: pushIn 1s cubic-bezier(.7,0,.3,1) both; }
+  @keyframes pushOut { from { transform: none; } to { transform: translateX(-100%); } }
+  @keyframes pushIn { from { transform: translateX(100%); } to { transform: none; } }
 
   /* Cards: a line or two in the middle of the wine. */
   .scene-card { max-width: 900px; padding: 0 40px; text-align: center; }
@@ -440,12 +447,20 @@ const SCENES = [
   .film.is-light .film-seg i { background: var(--english-violet); }
   .film.is-light .film-mark, .film.is-light .film-hud { color: var(--english-violet); }
   .film.is-shot .film-mark { opacity: 0; }   /* the Studio's own mark is on screen */
-  .film.is-paused .scene * { animation-play-state: paused !important; }
+  .film.is-paused .scene *, .film.is-paused .scene *::before, .film.is-paused .scene *::after { animation-play-state: paused !important; }
   :global(.cc-banner) { display: none !important; }
 
   /* ---- Part 01, from the Canva boards ---- */
   .scene--mission, .scene--prompts, .scene--edit, .scene--ask, .scene--phone, .scene--studio { display: block; }
   .wall-scene { position: absolute; inset: 0; background: #f2f0ee; overflow: hidden; }
+  /* The paper is never flat: a pool of light and a pool of shade, in the
+     paper's own tones, drift slowly about behind everything. */
+  .wall-scene::before, .wall-scene::after { content: ""; position: absolute; width: 80vmax; height: 80vmax; border-radius: 50%; pointer-events: none; z-index: 0; will-change: transform; }
+  .wall-scene::before { left: -30vmax; top: -34vmax; background: radial-gradient(circle, rgba(255,255,255,0.7), rgba(255,255,255,0) 62%); animation: driftA 36s ease-in-out infinite alternate; }
+  .wall-scene::after { right: -34vmax; bottom: -38vmax; background: radial-gradient(circle, rgba(55,30,40,0.07), rgba(55,30,40,0) 62%); animation: driftB 44s ease-in-out infinite alternate; }
+  .wall-scene > * { z-index: 1; }
+  @keyframes driftA { from { transform: translate(0, 0); } 50% { transform: translate(26vw, 8vh); } to { transform: translate(12vw, 24vh); } }
+  @keyframes driftB { from { transform: translate(0, 0); } 50% { transform: translate(-14vw, -26vh); } to { transform: translate(-28vw, -8vh); } }
 
   .mission { position: absolute; inset: 0; background: var(--english-violet); color: var(--paper); font-family: var(--sans); }
   .mission-conf { position: absolute; top: 9.5%; right: 5.6%; font-size: clamp(11px, 0.8vw, 15px); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -717,11 +732,33 @@ const SCENES = [
     let i = -1, timer = 0, startedAt = 0, remaining = 0, paused = false;
 
     function secsOf(n) { return Number(scenes[n].dataset.secs || 6) * 1000; }
+    // A scene change. Fade: the old scene fades out whole, then the new one
+    // comes in (its pieces start arriving only then). Push: both move at once.
+    let transTimer = 0;
+    function settle(s) { s.style.transition = "none"; s.classList.remove("is-out", "is-push-out", "is-push-in"); void s.offsetWidth; s.style.transition = ""; }
     function show(n) {
       if (n < 0 || n >= scenes.length) return;
-      clearTimeout(timer);
-      i = n;
-      scenes.forEach((s, k) => { s.classList.toggle("is-on", k === n); s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
+      clearTimeout(timer); clearTimeout(transTimer);
+      const prev = i; i = n;
+      scenes.forEach((s, k) => { if (k !== prev && k !== n) { settle(s); s.classList.remove("is-on"); } s.setAttribute("aria-hidden", k === n ? "false" : "true"); });
+      let wait = 0;
+      const next = scenes[n];
+      if (prev >= 0 && prev !== n) {
+        // The old scene keeps is-on while it leaves, so its pieces leave with it.
+        const old = scenes[prev];
+        settle(old); settle(next);
+        if (next.dataset.enter === "push") {
+          old.classList.add("is-push-out");
+          next.classList.add("is-push-in", "is-on");
+          transTimer = setTimeout(() => { settle(old); old.classList.remove("is-on"); }, 1050);
+        } else {
+          old.classList.add("is-out");
+          wait = 700;
+          transTimer = setTimeout(() => { settle(old); old.classList.remove("is-on"); next.classList.add("is-on"); }, wait);
+        }
+      } else if (prev !== n) {
+        next.classList.add("is-on");
+      }
       film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn|tablet)\b/.test(scenes[n].className));
       film.classList.toggle("is-shot", /scene--(studio|clip)\b/.test(scenes[n].className));
       segs.forEach((g, k) => {
@@ -732,7 +769,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      remaining = secsOf(n); startedAt = Date.now();
+      remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
     function arm() {
