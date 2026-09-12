@@ -328,7 +328,7 @@ const SCENES = [
               </div>
             </div>
             <div class="covers" aria-hidden="true">
-              {s.covers.map((src, k) => <span class="cov" style={`--i:${k}`}><img src={src} alt="" loading="lazy" /></span>)}
+              {s.covers.map((src, k) => <span class="cover" style={`--i:${k}`}><img src={src} alt="" loading="lazy" /></span>)}
             </div>
             <div class="bphone" aria-hidden="true">
               <img class="bphone-frame" src="/hub-tour/phone.png" alt="" loading="lazy" />
@@ -395,7 +395,7 @@ const SCENES = [
   .film {
     position: fixed; inset: 0; overflow: hidden;
     background: var(--english-violet); color: var(--paper); font-family: var(--sans);
-    user-select: none; -webkit-user-select: none;
+    user-select: none; -webkit-user-select: none; cursor: pointer;   /* a click pauses */
   }
   .film-mark { position: absolute; top: 22px; left: 28px; z-index: 5; font-family: var(--logo-serif, var(--serif)); font-size: 20px; letter-spacing: 0.06em; color: rgba(244,242,241,0.7); text-decoration: none; }
   /* Progress: one segment a scene, the current one filling over its seconds. */
@@ -898,6 +898,12 @@ const SCENES = [
       if (e.key === "ArrowRight") { if (paused) resume(); show(Math.min(scenes.length - 1, i + 1)); }
       else if (e.key === "ArrowLeft") { if (paused) resume(); show(Math.max(0, i - 1)); }
       else if (e.key === " ") { e.preventDefault(); toggle(); }
+    });
+    // A click on the screen pauses; a second one plays. The edge zones, the
+    // buttons and the links keep their own jobs.
+    film.addEventListener("click", (e) => {
+      if (e.target.closest(".film-tap, a, button")) return;
+      toggle();
     });
     // Hold to pause on a touch screen; the tap zones still step.
     let holdT = 0, held = false;
