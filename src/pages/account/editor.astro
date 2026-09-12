@@ -1334,7 +1334,30 @@ const googleFonts = [
       border-color: rgba(var(--violet-rgb), 0.4);
     }
     .ed-canvas-size-pill svg { color: rgba(55, 30, 40, 0.55); flex: none; }
-    @media (max-width: 900px) { .ed-canvas-size-pill { display: none; } }
+    /* The top bar gives things up in order as the window narrows, so nothing
+       ever hangs off its right edge. Full width it needs about 1115px of
+       room; each tier below hands back what is least missed first. The
+       phone layout (760px) takes over at the end. */
+    .ed-topbar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    /* 1. The canvas format. It is a readout, and the size lives in Resize. */
+    @media (max-width: 1160px) { .ed-canvas-size-pill { display: none; } }
+    /* 2. Add and Send for review keep their icons and lose their words. */
+    @media (max-width: 1060px) {
+      #ed-schedule, #ed-review-btn { font-size: 0; gap: 0; padding-left: 10px; padding-right: 10px; }
+      #ed-schedule svg, #ed-review-btn svg { margin: 0; }
+    }
+    /* 3. The zoom cluster. Undo and redo stay; zoom has its keys and a pinch. */
+    @media (max-width: 980px) {
+      #ed-zoom-out, #ed-zoom-in, #ed-zoom-display, #ed-zoom-fit,
+      .ed-topbar-mid .ed-divider { display: none; }
+    }
+    /* 4. The design's name gives up its room before anything else goes. */
+    @media (max-width: 900px) {
+      .ed-topbar { padding: 0 12px; }
+      .ed-topbar-left { min-width: 0; }
+      .ed-filename { min-width: 0; flex: 1 1 auto; max-width: 150px; }
+    }
+    @media (max-width: 820px) { .ed-logo { display: none; } }
 
     .ed-back {
       width: 32px; height: 32px;
