@@ -45,10 +45,10 @@ const STUDIO_STILLS = [
   { src: ST(23), secs: 1.2 },                                           // and closed, under the fade out
 ];
 const COURSES = [C("getting-started"), C("5-minutes"), C("before-you-post"), C("instagram"), C("reels"), C("certificate")];
-// The mission-complete grid: the lower two rows of Dani's nine, so it fits a
-// small laptop. Two of her tiles (the quote, Conversation) are not on the
-// asset host yet; the homepage templates 8 and 11 stand in for them.
-const DONE_TILES = [T(12), T(8), C("before-you-post"), T(11), C("instagram"), C("certificate")];
+// The mission-complete grid: Dani's six (12 Sep), one photograph cut into a
+// grid - the chair, the bag, the folders and the lamp - 1 2 3 along the top,
+// 4 5 6 beneath.
+const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/tile-${n}.webp`);
 
 const SCENES = [
   // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
@@ -76,7 +76,7 @@ const SCENES = [
   // blog on a phone; then the mission-complete card with a grid of nine.
   { kind: "learn", h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
     h2: "Stay in the know", p2: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 14.5 },
-  { kind: "complete", enter: "push", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 8 },
+  { kind: "complete", enter: "push", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 10 },
 
   { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
 ];
@@ -353,6 +353,7 @@ const SCENES = [
               <p class="mission-k mission-k--big">Mission</p>
               <p class="mission-v">Complete</p>
             </div>
+            <div class="lamp" aria-hidden="true"></div>
             <div class="mission-grid" aria-hidden="true">
               {s.tiles.map((src, k) => <img src={src} alt="" style={`--i:${k}`} loading="lazy" />)}
             </div>
@@ -366,7 +367,8 @@ const SCENES = [
               {s.steps.map((t) => <li>{t}</li>)}
             </ol>
             <div class="close-actions">
-              <a class="film-btn" href="/memberships">See the Member Hub <span aria-hidden="true">&rarr;</span></a>
+              <a class="film-btn" href="/memberships">Become a member <span aria-hidden="true">&rarr;</span></a>
+              <a class="film-link" href="/demo">Look round the demo</a>
               <button type="button" class="film-link" id="film-replay">Play again</button>
             </div>
           </div>
@@ -480,7 +482,7 @@ const SCENES = [
   .close-actions { margin-top: 44px; display: flex; gap: 22px; align-items: center; justify-content: center; opacity: 0; }
   .scene.is-on .close-actions { animation: rise 0.7s 4.4s both; }
   .film-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; background: var(--paper); color: var(--english-violet); text-decoration: none; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 2px; }
-  .film-link { background: none; border: 0; padding: 0; color: rgba(244,242,241,0.7); font-family: var(--sans); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
+  .film-link { background: none; border: 0; padding: 0; text-decoration: none; color: rgba(244,242,241,0.7); font-family: var(--sans); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
 
   /* Tap zones either side, and a small paused note. */
   .film-tap { position: absolute; top: 0; bottom: 0; width: 22%; background: none; border: 0; cursor: pointer; z-index: 4; }
@@ -619,7 +621,7 @@ const SCENES = [
      what plays on it lands at any size: a TMKE splash, a password being
      typed, the codename, then the chat. */
   .scene--associate { display: block; }
-  .wall-scene > .assoc-fig { position: absolute; left: auto; right: -6%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
+  .wall-scene > .assoc-fig { position: absolute; left: auto; right: 11.2%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
   .assoc-fig { --tab-l: 25.44%; --tab-t: 30.34%; --tab-w: 49.09%; --tab-h: 29.08%; }   /* the screen, measured from her file */
   .assoc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
   .scene.is-on .assoc-fig { animation: stillIn 0.9s ease both; }
@@ -780,6 +782,12 @@ const SCENES = [
   .mission-grid img { display: block; width: 100%; aspect-ratio: 210 / 240; object-fit: cover; opacity: 0; }
   .scene.is-on .mission-foot { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
   .scene.is-on .mission-grid img { animation: flash 0.5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.6s + var(--i) * 0.14s); }
+  /* Someone turns the lamp off at the end: a flick, a moment of filament, and
+     the room goes dark - not black, since the screen is still awake. */
+  .lamp { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0;
+    background: radial-gradient(72% 62% at 76% 62%, rgba(12,7,10,0.7), rgba(6,3,5,0.93) 72%); }
+  .scene.is-on .lamp { animation: lampOff 0.85s linear 7.6s both; }
+  @keyframes lampOff { 0% { opacity: 0; } 7% { opacity: 0.88; } 13% { opacity: 0.5; } 22%, 100% { opacity: 1; } }
 
   @media (max-width: 760px) {
     .film-mark { top: 18px; left: 22px; }
