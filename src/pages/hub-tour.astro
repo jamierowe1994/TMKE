@@ -60,7 +60,7 @@ const SCENES = [
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
-  { kind: "associate", img: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 15 },
+  { kind: "associate", img: "assoc-1.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
@@ -182,7 +182,7 @@ const SCENES = [
         {s.kind === "associate" && (
           <div class="wall-scene">
             <div class="assoc-fig" aria-hidden="true">
-              <img class="assoc-img" src={`/hub-tour/${s.img}.png`} alt="" />
+              <img class="assoc-img" src={`/hub-tour/${s.img}`} alt="" />
               <div class="assoc-tab">
                 <div class="tscr tscr--splash"><span class="tscr-mark">TMKE</span></div>
                 <div class="tscr tscr--pass">
@@ -192,10 +192,17 @@ const SCENES = [
                 <div class="tscr tscr--studio"><span class="tscr-k">Codename</span><span class="tscr-v">The Studio</span></div>
                 <div class="tchat">
                   <div class="tchat-head"><span>What to post · Creative Assistant</span></div>
-                  <div class="tchat-log">
+                  <div class="tchat-log" id="tchat-log">
                     <div class="tmsg tmsg--me">I need help launching my new property on social media</div>
-                    <div class="tmsg tmsg--dots"><i></i><i></i><i></i></div>
-                    <div class="tmsg tmsg--ai"><b>Day 1 – Coming Soon.</b> Post the hero shot, keep the caption tight. <b>Day 2–3 –</b> the room buyers will remember, and why.</div>
+                    <div class="tmsg tmsg--dots"><i></i><i></i></div>
+                    <div class="tmsg tmsg--ai">
+                      <p>For the launch itself, use the <b>New To Market</b> or <b>Just Listed</b> template in <b>The Property Pack</b> &mdash; that&rsquo;s exactly the job it&rsquo;s built for.</p>
+                      <p>A simple launch sequence:</p>
+                      <p><b>Day 1 (listing goes live):</b> New To Market post &mdash; hero photo, headline stat (bedrooms, price, standout feature).</p>
+                      <p><b>Day 2&ndash;3:</b> A second angle &mdash; interior shot or garden/location, different hook (e.g. &ldquo;why this one won&rsquo;t hang around&rdquo;).</p>
+                      <p><b>End of week:</b> Reel or carousel walking through the rooms, if you&rsquo;ve got the footage.</p>
+                      <p>Give me the property type, price and one or two features and I&rsquo;ll write up the copy and captions properly.</p>
+                    </div>
                   </div>
                   <div class="tchat-in"><span>What should I post about…?</span><i>&#10148;</i></div>
                 </div>
@@ -612,9 +619,10 @@ const SCENES = [
      what plays on it lands at any size: a TMKE splash, a password being
      typed, the codename, then the chat. */
   .scene--associate { display: block; }
-  .wall-scene > .assoc-fig { position: absolute; top: 0; left: 78.6%; transform: translateX(-50%); height: 100%; aspect-ratio: 1344 / 768; z-index: 6; }
-  .assoc-fig { --tab-l: 36.8%; --tab-t: 26.8%; --tab-w: 25.6%; --tab-h: 30.7%; }   /* measured from the picture; adjust when it changes */
-  .assoc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0; }
+  .wall-scene > .assoc-fig { position: absolute; left: auto; right: 1%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
+  .assoc-fig { --tab-l: 25.44%; --tab-t: 30.34%; --tab-w: 49.09%; --tab-h: 29.08%; }   /* the screen, measured from her file */
+  .assoc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+  .assoc-fig { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 11%, #000 89%, transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 11%, #000 89%, transparent 100%); }
   .scene.is-on .assoc-fig { animation: stillIn 0.9s ease both; }
   /* Fade, not rise: she is standing still, and the words beside her should
      arrive the same way. The same on Learn what matters. */
@@ -623,16 +631,17 @@ const SCENES = [
   .assoc-tab { position: absolute; left: var(--tab-l); top: var(--tab-t); width: var(--tab-w); height: var(--tab-h); border-radius: 0.4vw; overflow: hidden; background: var(--english-violet); }
   /* The tablet's screens, one after another, from the scene's start. */
   .tscr { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6%; background: var(--english-violet); color: var(--paper); font-family: var(--sans); opacity: 0; }
-  .tscr-mark { font-family: var(--logo-serif, var(--serif)); font-size: clamp(22px, 2.6vw, 56px); line-height: 1; color: #3a2029; text-shadow: -1px -1px 2px rgba(0,0,0,0.55), 1px 1px 2px rgba(255,255,255,0.09); }
+  .tscr-mark { font-family: var(--logo-serif, var(--serif)); font-size: clamp(34px, 5.4vw, 116px); line-height: 1; color: #3a2029; text-shadow: -1px -1px 2px rgba(0,0,0,0.55), 1px 1px 2px rgba(255,255,255,0.09); }
   .tscr-k { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(7px, 0.62vw, 12px); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
-  .tscr-v { font-size: clamp(9px, 0.85vw, 16px); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
-  .tscr-dots { display: flex; gap: 6%; width: 52%; padding: 5% 8%; justify-content: center; border: 1px solid rgba(244,242,241,0.3); border-radius: 4px; }
+  .tscr-v { font-size: clamp(7px, 0.62vw, 12px); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+  .tscr-dots { display: flex; gap: 6%; width: 52%; padding: 2.2% 8%; justify-content: center; border: 1px solid rgba(244,242,241,0.3); border-radius: 4px; }
   .tscr-dots i { width: clamp(4px, 0.4vw, 8px); height: clamp(4px, 0.4vw, 8px); border-radius: 50%; background: var(--paper); opacity: 0; }
   .scene.is-on .tscr--splash { animation: hold 1.9s linear 0.6s both; }
   .scene.is-on .tscr--pass { animation: hold 2.6s linear 2.5s both; }
   .scene.is-on .tscr--pass i { animation: dotOn 0.1s linear both; }
   .scene.is-on .tscr--pass i:nth-child(1) { animation-delay: 3.1s; } .scene.is-on .tscr--pass i:nth-child(2) { animation-delay: 3.3s; } .scene.is-on .tscr--pass i:nth-child(3) { animation-delay: 3.5s; } .scene.is-on .tscr--pass i:nth-child(4) { animation-delay: 3.7s; }
   .scene.is-on .tscr--pass i:nth-child(5) { animation-delay: 3.9s; } .scene.is-on .tscr--pass i:nth-child(6) { animation-delay: 4.1s; } .scene.is-on .tscr--pass i:nth-child(7) { animation-delay: 4.3s; } .scene.is-on .tscr--pass i:nth-child(8) { animation-delay: 4.5s; }
+  .tscr--studio { gap: 3%; }
   .scene.is-on .tscr--studio { animation: hold 1.8s linear 5.1s both; }
   @keyframes hold { 0% { opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
   @keyframes dotOn { to { opacity: 1; } }
@@ -645,13 +654,15 @@ const SCENES = [
   .tchat { position: absolute; inset: 0; background: #e9e6e4; color: var(--ink); font-family: var(--sans); display: flex; flex-direction: column; overflow: hidden; opacity: 0; }
   .scene.is-on .tchat { animation: stillIn 0.7s ease 6.9s both; }
   .tchat-head { padding: 4% 5% 3%; font-size: clamp(6px, 0.5vw, 10px); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); border-bottom: 1px solid rgba(28,29,34,0.1); }
-  .tchat-log { flex: 1; display: flex; flex-direction: column; gap: 4%; padding: 4% 5%; }
-  .tmsg { max-width: 78%; padding: 3% 4%; border-radius: 8px; font-size: clamp(7px, 0.62vw, 12px); line-height: 1.4; opacity: 0; }
+  .tchat-log { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4%; padding: 4% 5%; overflow: hidden; }
+  .tmsg { flex: 0 0 auto; max-width: 78%; padding: 3% 4%; border-radius: 8px; font-size: clamp(7px, 0.62vw, 12px); line-height: 1.4; opacity: 0; }
   .tmsg--me { align-self: flex-end; background: var(--english-violet); color: var(--paper); border-bottom-right-radius: 2px; }
-  .tmsg--ai { align-self: flex-start; background: #dcd8d6; border-bottom-left-radius: 2px; }
+  .tmsg--ai { align-self: flex-start; max-width: 94%; background: #dcd8d6; border-bottom-left-radius: 2px; }
+  .tmsg--ai p { margin: 0 0 0.7em; } .tmsg--ai p:last-child { margin: 0; }
+  .tmsg--ai b { font-weight: 700; }
   .tmsg--dots { align-self: flex-start; background: #dcd8d6; display: flex; gap: 3px; padding: 3% 4%; }
   .tmsg--dots i { width: 4px; height: 4px; border-radius: 50%; background: rgba(28,29,34,0.4); animation: blink 1s infinite; }
-  .tmsg--dots i:nth-child(2) { animation-delay: 0.2s; } .tmsg--dots i:nth-child(3) { animation-delay: 0.4s; }
+  .tmsg--dots i:nth-child(2) { animation-delay: 0.2s; }
   .scene.is-on .tmsg--me { animation: rise 0.5s ease 7.5s both; }
   .scene.is-on .tmsg--dots { animation: dotsIn 3s linear 8.5s both; }
   .scene.is-on .tmsg--ai { animation: rise 0.5s ease 11.1s both; }
@@ -867,7 +878,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      stillsStart(); typeStart();
+      stillsStart(); typeStart(); chatStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -930,6 +941,30 @@ const SCENES = [
     scenes.forEach((s) => s.querySelectorAll("video[data-once]").forEach((v) => v.addEventListener("ended", () => s.classList.add("is-ended"))));
     // A clip that carries the scene: when it has played once, the film moves on.
     scenes.forEach((s, k) => s.querySelectorAll("video[data-advance]").forEach((v) => v.addEventListener("ended", () => { if (i === k && !paused) show(k + 1); })));
+    // The answer is taller than the tablet's screen, so once it has landed the
+    // log rolls up to the end of it, on a clock that stops with the film.
+    let chatRaf = 0;
+    function chatStart() {
+      cancelAnimationFrame(chatRaf);
+      const log = scenes[i].querySelector(".tchat-log");
+      if (!log) return;
+      log.scrollTop = 0;
+      const mine = i;
+      const AT = 12.4, RUN = 6.4;          // starts after the answer, takes this long
+      let clock = 0, last = performance.now();
+      const tick = (now) => {
+        if (i !== mine) return;
+        if (!paused) clock += (now - last) / 1000;
+        last = now;
+        const over = log.scrollHeight - log.clientHeight;
+        if (over > 1 && clock > AT) {
+          const k = Math.min(1, (clock - AT) / RUN);
+          log.scrollTop = over * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+        }
+        chatRaf = requestAnimationFrame(tick);
+      };
+      chatRaf = requestAnimationFrame(tick);
+    }
     // Typed lines: each [data-type] in the scene starts empty and is typed
     // out from its data-at second, a character every 28ms, on a clock that
     // stops while the film is paused.
@@ -940,9 +975,9 @@ const SCENES = [
       if (!els.length) return;
       els.forEach((e) => { e.textContent = ""; e.classList.remove("is-typing"); });
       let clock = 0, last = performance.now();
-      const scene = scenes[i];
+      const mine = i;
       const tick = (now) => {
-        if (!scene.classList.contains("is-on")) return;
+        if (i !== mine) return;
         if (!paused) clock += (now - last) / 1000;
         last = now;
         let done = true;
