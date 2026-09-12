@@ -312,7 +312,9 @@ const SCENES = [
         )}
         {s.kind === "learn" && (
           <div class="wall-scene wall-scene--motes" style="--swap: 6.8s">
-            <canvas class="motes" aria-hidden="true"></canvas>
+            <div class="pap pap--pulp" aria-hidden="true"></div>
+            <div class="pap pap--tooth" aria-hidden="true"></div>
+            <div class="pap pap--sheen" aria-hidden="true"></div>
             <div class="box box--tl box--p2 swap">
               <div class="swap-a">
                 <h2 class="box-h">{s.h}</h2>
@@ -502,7 +504,7 @@ const SCENES = [
   .cov-mark { position: absolute; left: 50%; top: 48%; transform: translate(-50%, -50%); font-family: var(--logo-serif, var(--serif)); font-size: clamp(96px, 12vw, 240px); line-height: 1; letter-spacing: -0.01em; color: #3a2029;
     text-shadow: -2px -2px 3px rgba(0,0,0,0.55), 2px 2px 3px rgba(255,255,255,0.09), 0 0 18px rgba(0,0,0,0.18); }
   .cov-lines { position: absolute; left: 5.6%; right: 5.6%; bottom: 10%; margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: clamp(18px, 1.6vw, 30px); row-gap: clamp(14px, 2.4vh, 26px); align-items: start; }
-  .cov-lines dt { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(11px, 0.95vw, 17px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+  .cov-lines dt { font-family: var(--sans); font-size: clamp(11px, 0.95vw, 17px); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
   .cov-lines dd { margin: 0; max-width: 66ch; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.6; min-height: 1.6em; }
   .cov-lines dd span::after { content: ""; display: inline-block; width: 0.55em; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--paper); opacity: 0; }
   .cov-lines dd span.is-typing::after { opacity: 1; animation: caret 0.8s steps(2) infinite; }
@@ -525,12 +527,12 @@ const SCENES = [
   .mission { position: absolute; inset: 0; background: var(--english-violet); color: var(--paper); font-family: var(--sans); }
   .mission-conf { position: absolute; top: 9.5%; right: 5.6%; font-size: clamp(11px, 0.8vw, 15px); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
   .mission-copy { position: absolute; top: 20%; left: 5.6%; }
-  .mission-k { margin: 0 0 6px; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 1.1vw, 20px); font-weight: 600; text-transform: uppercase; letter-spacing: 0.02em; }
+  .mission-k { margin: 0 0 6px; font-family: var(--sans); font-size: clamp(12px, 1.1vw, 20px); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
   .mission-v { margin: 0 0 34px; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.75; }
   .mission-brand { position: absolute; bottom: 9.5%; left: 5.6%; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
   .mission-side { position: absolute; right: 5.6%; bottom: 10%; text-align: right; }
   .mission-k--big { font-size: clamp(13px, 1.2vw, 22px); }
-  .mission-n { margin: 0 0 22px; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(11px, 0.9vw, 16px); letter-spacing: 0.1em; }
+  .mission-n { margin: 0 0 22px; font-family: var(--sans); font-weight: 500; font-size: clamp(11px, 0.9vw, 16px); letter-spacing: 0.1em; }
   .mission-strip { display: flex; gap: 8px; }
   .mission-strip img { width: clamp(90px, 11vw, 214px); aspect-ratio: 210 / 240; object-fit: cover; display: block; }
   .scene.is-on .mission-copy, .scene.is-on .mission-side, .scene.is-on .mission-brand, .scene.is-on .mission-conf { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) both; }
@@ -693,13 +695,30 @@ const SCENES = [
   /* The Studio behind the last two boxes. */
   .studio-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }
 
-  /* The paper on Learn what matters carries a slow wash, and over it a canvas
-     of concentric rings, ripples running out through them, and grain that
-     crackles frame to frame. K in the script is the dial for all of it. */
-  .wall-scene--motes::before { animation-duration: 19s; background: radial-gradient(circle, rgba(255,255,255,1), rgba(255,255,255,0) 64%); }
-  .wall-scene--motes::after { animation-duration: 23s; background: radial-gradient(circle, rgba(55,30,40,0.3), rgba(55,30,40,0) 64%); }
-  .wall-scene > .motes { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-  .scene.is-on .motes { animation: stillIn 2.4s ease both; }
+  /* Learn what matters sits on a richer paper: uneven pulp underneath, a fine
+     tooth over it, and a sheen that falls from the top left, with the wash
+     drifting slowly behind the lot. Nothing moves but the wash. */
+  .wall-scene--motes { background: #efece8; }
+  .wall-scene--motes::before { animation-duration: 30s; background: radial-gradient(circle, rgba(255,255,255,0.85), rgba(255,255,255,0) 62%); }
+  .wall-scene--motes::after { animation-duration: 38s; background: radial-gradient(circle, rgba(55,30,40,0.1), rgba(55,30,40,0) 62%); }
+  .wall-scene > .pap { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  /* The pulp: wide, soft unevenness, as though the sheet were couched by hand. */
+  .wall-scene > .pap--pulp {
+    opacity: 0.5; mix-blend-mode: multiply; background-size: 100% 100%;   /* one sheet, not tiled: a tiled turbulence leaves a seam */
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.5' intercept='0.25'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23p)'/%3E%3C/svg%3E");
+  }
+  /* The tooth: the grain you feel rather than see. */
+  .wall-scene > .pap--tooth {
+    opacity: 0.16; mix-blend-mode: multiply; background-size: 180px 180px;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23t)' opacity='0.6'/%3E%3C/svg%3E");
+  }
+  /* The sheen: light falling across the sheet, and its edges settling down. */
+  .wall-scene > .pap--sheen {
+    background:
+      radial-gradient(120% 95% at 22% -10%, rgba(255,255,255,0.75), rgba(255,255,255,0) 58%),
+      radial-gradient(150% 130% at 50% 50%, rgba(55,30,40,0) 52%, rgba(55,30,40,0.11) 100%);
+  }
+  .scene.is-on .pap { animation: stillIn 1.8s ease both; }
 
   /* ---- Part 02, from the Canva boards ---- */
   /* One scene, in order: the box pops in (0.3s) and the six covers along
@@ -755,7 +774,7 @@ const SCENES = [
   @keyframes scoot { from { transform: none; } to { transform: translateX(120vw); } }
   /* The phone is Dani's mock-up, with the blog laid over its screen so it
      stays sharp; it starts below the frame and slides up. */
-  .bphone { position: absolute; left: 71.6%; top: 25%; width: 21.6%; aspect-ratio: 450 / 880; transform: translateY(100vh); }
+  .bphone { position: absolute; left: auto; right: 7%; top: auto; bottom: -7%; height: 84%; width: auto; aspect-ratio: 450 / 880; transform: translateY(100vh); }
   .bphone-frame { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
   .bphone-screen { position: absolute; left: 6.9%; width: 86%; top: 14.6%; height: 85.4%; object-fit: cover; object-position: 50% 0; z-index: 1; }
   .scene.is-on .bphone { animation: slideUp 1.2s cubic-bezier(.2,.7,.2,1) 7.6s forwards; }
@@ -876,7 +895,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      stillsStart(); typeStart(); motesStart();
+      stillsStart(); typeStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -942,7 +961,6 @@ const SCENES = [
     // Typed lines: each [data-type] in the scene starts empty and is typed
     // out from its data-at second, a character every 28ms, on a clock that
     // stops while the film is paused.
-    let motesStart = () => {};
     let typeRaf = 0;
     function typeStart() {
       cancelAnimationFrame(typeRaf);
@@ -1019,116 +1037,6 @@ const SCENES = [
       // one sets the length itself.
       v.addEventListener("loadedmetadata", () => { if (isFinite(v.duration) && v.duration > Number(s.dataset.secs || 0)) s.dataset.secs = String(Math.round(v.duration * 10) / 10); });
     }));
-    // Learn what matters, behind the words: banks of concentric rings, a
-    // ripple running out through them every couple of seconds, and grain that
-    // crackles frame to frame like a projector. Nothing follows the cursor.
-    (function rings() {
-      const cv = film.querySelector(".motes");
-      if (!cv || !cv.getContext) return;
-      const scene = cv.closest(".scene");
-      const ctx = cv.getContext("2d");
-      const K = 2.6;                  // the dial: 1 is barely there, 3 is plain
-      const WINE = "55,30,40";
-      // Four tiles of noise, cycled and shoved about, make the crackle. One
-      // fill a frame, so it costs almost nothing.
-      const TILE = 220, tiles = [];
-      for (let n = 0; n < 4; n++) {
-        const c = document.createElement("canvas"); c.width = c.height = TILE;
-        const cc = c.getContext("2d"), im = cc.createImageData(TILE, TILE), d = im.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const v = Math.random();
-          d[i] = 55; d[i + 1] = 30; d[i + 2] = 40;
-          d[i + 3] = v > 0.5 ? Math.round((v - 0.5) * 2 * 255) : 0;
-        }
-        cc.putImageData(im, 0, 0);
-        tiles.push(ctx.createPattern(c, "repeat"));
-      }
-      // Three banks of rings, each breathing at its own rate.
-      const BANKS = [
-        { cx: 0.78, cy: 0.30, n: 11, gap: 54, r0: 40, sp: 0.22, w: 1.5 },
-        { cx: 0.26, cy: 0.72, n: 9,  gap: 68, r0: 70, sp: 0.16, w: 1.2 },
-        { cx: 0.54, cy: 0.06, n: 7,  gap: 92, r0: 120, sp: 0.11, w: 1.0 },
-      ];
-      const ripples = [];
-      let w = 0, h = 0, dpr = 1, raf = 0, t0 = 0, last = 0, enter = 0, nextRip = 1.2, tile = 0, tileT = 0;
-      function size() {
-        const r = cv.getBoundingClientRect();
-        dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-        w = r.width; h = r.height;
-        cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-      }
-      function frame(now) {
-        if (!scene.classList.contains("is-on")) { raf = 0; return; }
-        const dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
-        if (!paused) t0 += dt;
-        const lag = Math.max(0, 1 - (now - enter) / 1300);
-        const off = lag * lag * 90;                      // the layer catching up
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-        ctx.save();
-        ctx.translate(off, 0);
-        // The rings.
-        for (const b of BANKS) {
-          const cx = b.cx * w, cy = b.cy * h;
-          const breathe = Math.sin(t0 * b.sp) * 14;
-          for (let n = 0; n < b.n; n++) {
-            const r = b.r0 + n * b.gap + breathe * (1 + n * 0.12);
-            if (r <= 1) continue;
-            const fade = 1 - n / (b.n + 1.5);
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, r, r * 0.92, 0, 0, Math.PI * 2);
-            ctx.lineWidth = b.w;
-            ctx.strokeStyle = `rgba(${WINE},${0.05 * K * fade})`;
-            ctx.stroke();
-          }
-        }
-        // A ripple, now and then, running out through them.
-        if (!paused) {
-          nextRip -= dt;
-          if (nextRip <= 0) {
-            const b = BANKS[Math.floor(Math.random() * BANKS.length)];
-            ripples.push({ cx: b.cx, cy: b.cy, t: 0 });
-            nextRip = 1.9 + Math.random() * 1.4;
-          }
-        }
-        for (let n = ripples.length - 1; n >= 0; n--) {
-          const p = ripples[n];
-          if (!paused) p.t += dt;
-          const k = p.t / 4.6;
-          if (k >= 1) { ripples.splice(n, 1); continue; }
-          const ease = 1 - Math.pow(1 - k, 2.2);
-          const r = 30 + ease * Math.max(w, h) * 0.62;
-          ctx.beginPath();
-          ctx.ellipse(p.cx * w, p.cy * h, r, r * 0.92, 0, 0, Math.PI * 2);
-          ctx.lineWidth = 2.6 * (1 - k) + 0.5;
-          ctx.strokeStyle = `rgba(${WINE},${0.12 * K * (1 - k) * Math.min(1, k * 6)})`;
-          ctx.stroke();
-        }
-        ctx.restore();
-        // The crackle: a different tile, shoved to a different place, a dozen
-        // times a second, with its strength flickering.
-        if (!paused && now - tileT > 78) { tile = (tile + 1) % tiles.length; tileT = now; }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.save();
-        const jx = (tile * 61 + Math.floor(now / 78) * 37) % TILE, jy = (tile * 113 + Math.floor(now / 78) * 71) % TILE;
-        ctx.translate(-jx, -jy);
-        ctx.scale(2.4, 2.4);
-        ctx.globalAlpha = (0.045 + Math.sin(now / 140) * 0.012) * K;
-        ctx.fillStyle = tiles[tile];
-        ctx.fillRect(0, 0, (w + TILE * 3) / 2.4, (h + TILE * 3) / 2.4);
-        ctx.restore();
-        ctx.globalAlpha = 1;
-        raf = requestAnimationFrame(frame);
-      }
-      function start() {
-        if (!scene.classList.contains("is-on")) return;
-        if (!w || !h) size();
-        enter = performance.now(); last = enter;
-        if (!raf) raf = requestAnimationFrame(frame);
-      }
-      window.addEventListener("resize", () => { if (w) size(); });
-      motesStart = start;
-    })();
     show(holdOne >= 0 ? holdOne : 0);
   })();
 </script>
