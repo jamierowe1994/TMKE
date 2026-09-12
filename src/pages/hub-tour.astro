@@ -45,10 +45,9 @@ const STUDIO_STILLS = [
   { src: ST(23), secs: 1.2 },                                           // and closed, under the fade out
 ];
 const COURSES = [C("getting-started"), C("5-minutes"), C("before-you-post"), C("instagram"), C("reels"), C("certificate")];
-// The mission-complete grid: Dani's six (12 Sep), one photograph cut into a
-// grid - the chair, the bag, the folders and the lamp - 1 2 3 along the top,
-// 4 5 6 beneath.
-const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/tile-${n}.webp`);
+// The mission-complete grid: Dani's photograph (12 Sep), cut into six here
+// rather than by hand, so every seam meets - 1 2 3 along the top, 4 5 6 beneath.
+const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/grid-${n}.webp`);
 
 const SCENES = [
   // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
@@ -60,7 +59,7 @@ const SCENES = [
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
-  { kind: "associate", img: "assoc-3.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
+  { kind: "associate", img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
@@ -76,7 +75,7 @@ const SCENES = [
   // blog on a phone; then the mission-complete card with a grid of nine.
   { kind: "learn", h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
     h2: "Stay in the know", p2: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 14.5 },
-  { kind: "complete", enter: "push", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 10 },
+  { kind: "complete", enter: "push", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 4 },
 
   { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
 ];
@@ -353,24 +352,30 @@ const SCENES = [
               <p class="mission-k mission-k--big">Mission</p>
               <p class="mission-v">Complete</p>
             </div>
-            <div class="lamp" aria-hidden="true"></div>
             <div class="mission-grid" aria-hidden="true">
+              <div class="lamp"></div>
               {s.tiles.map((src, k) => <img src={src} alt="" style={`--i:${k}`} loading="lazy" />)}
             </div>
           </div>
         )}
         {s.kind === "close" && (
-          <div class="scene-card scene-card--close">
-            <p class="scene-eyebrow">{s.eyebrow}</p>
-            <h2 class="scene-h scene-h--big">{s.h}</h2>
-            <ol class="route">
-              {s.steps.map((t) => <li>{t}</li>)}
-            </ol>
-            <div class="close-actions">
-              <a class="film-btn" href="/memberships">Become a member <span aria-hidden="true">&rarr;</span></a>
-              <a class="film-link" href="/demo">Look round the demo</a>
-              <button type="button" class="film-link" id="film-replay">Play again</button>
+          <div class="cov cov--back">
+            <span class="cov-brand">The Marketing Experts</span>
+            <span class="cov-conf">Case closed</span>
+            <div class="cov-mid">
+              <div class="cov-mark" aria-label="TMKE">TMKE</div>
+              <h2 class="cov-h">{s.h}</h2>
             </div>
+            <dl class="cov-lines">
+              <dt>{s.eyebrow}</dt>
+              <dd><ol class="route">{s.steps.map((t) => <li>{t}</li>)}</ol></dd>
+              <dt>Next</dt>
+              <dd class="close-actions">
+                <a class="film-btn" href="/memberships">Become a member <span aria-hidden="true">&rarr;</span></a>
+                <a class="film-link" href="/demo">Look round the demo</a>
+                <button type="button" class="film-link" id="film-replay">Play again</button>
+              </dd>
+            </dl>
           </div>
         )}
         {!s.kind && (
@@ -470,17 +475,23 @@ const SCENES = [
   @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
 
   /* The close: the route as one line of steps, then the button. */
-  .scene-card--close { max-width: 1100px; }
-  .route { list-style: none; margin: 34px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 0; counter-reset: step; }
-  .route li { font-size: clamp(13px, 1.2vw, 16px); letter-spacing: 0.06em; text-transform: uppercase; color: rgba(244,242,241,0.85); display: flex; align-items: center; opacity: 0; }
-  .route li + li::before { content: "\2192"; margin: 0 14px; color: rgba(244,242,241,0.45); }
-  .scene.is-on .route li { animation: rise 0.6s cubic-bezier(.2,.7,.2,1) both; }
+  /* The last card is the back of the file: the cover's furniture, with the
+     route where the mission was and the three ways on beneath it. */
+  .cov--back .cov-mid { position: absolute; left: 5.6%; right: 5.6%; top: 30%; text-align: center; }
+  .cov--back .cov-mark { position: static; transform: none; font-size: clamp(80px, 10vw, 190px); }
+  .cov-h { margin: clamp(10px, 2vh, 26px) 0 0; font-family: var(--subhead); font-weight: 400; font-size: clamp(26px, 3.4vw, 52px); line-height: 1.1; letter-spacing: -0.01em; color: var(--paper); }
+  .cov--back .cov-lines { bottom: 9.5%; row-gap: clamp(12px, 2vh, 22px); align-items: baseline; }
+  .scene.is-on .cov--back .cov-mid { animation: stillIn 1.4s ease 0.5s both; }
+  .scene.is-on .cov--back .cov-lines { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 1.2s both; }
+  .route { list-style: none; margin: 0; padding: 0; }
+  .route li { display: inline; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.9; color: var(--paper); }
+  .route li:not(:last-child)::after { content: " \2192 "; margin: 0 8px; color: rgba(244,242,241,0.45); }
+
   .scene.is-on .route li:nth-child(1) { animation-delay: 0.6s; } .scene.is-on .route li:nth-child(2) { animation-delay: 1.1s; }
   .scene.is-on .route li:nth-child(3) { animation-delay: 1.6s; } .scene.is-on .route li:nth-child(4) { animation-delay: 2.1s; }
   .scene.is-on .route li:nth-child(5) { animation-delay: 2.6s; } .scene.is-on .route li:nth-child(6) { animation-delay: 3.1s; }
   .scene.is-on .route li:nth-child(7) { animation-delay: 3.6s; }
-  .close-actions { margin-top: 44px; display: flex; gap: 22px; align-items: center; justify-content: center; opacity: 0; }
-  .scene.is-on .close-actions { animation: rise 0.7s 4.4s both; }
+  .close-actions { margin: 0; display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
   .film-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; background: var(--paper); color: var(--english-violet); text-decoration: none; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 2px; }
   .film-link { background: none; border: 0; padding: 0; text-decoration: none; color: rgba(244,242,241,0.7); font-family: var(--sans); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
 
@@ -500,7 +511,7 @@ const SCENES = [
   :global(.cc-banner) { display: none !important; }
 
   /* ---- The cover ---- */
-  .scene--cover { display: block; }
+  .scene--cover, .scene--close { display: block; }
   .cov { position: absolute; inset: 0; background: var(--english-violet); color: var(--paper); font-family: var(--sans); }
   .cov-brand, .cov-conf { position: absolute; top: 11%; font-size: clamp(11px, 0.95vw, 17px); letter-spacing: 0.05em; text-transform: uppercase; }
   .cov-brand { left: 5.6%; font-weight: 500; }
@@ -621,7 +632,7 @@ const SCENES = [
      what plays on it lands at any size: a TMKE splash, a password being
      typed, the codename, then the chat. */
   .scene--associate { display: block; }
-  .wall-scene > .assoc-fig { position: absolute; left: auto; right: 11.2%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
+  .wall-scene > .assoc-fig { position: absolute; left: auto; right: 2.6%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
   .assoc-fig { --tab-l: 25.44%; --tab-t: 30.34%; --tab-w: 49.09%; --tab-h: 29.08%; }   /* the screen, measured from her file */
   .assoc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
   .scene.is-on .assoc-fig { animation: stillIn 0.9s ease both; }
@@ -785,8 +796,8 @@ const SCENES = [
   /* Someone turns the lamp off at the end: a flick, a moment of filament, and
      the room goes dark - not black, since the screen is still awake. */
   .lamp { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0;
-    background: radial-gradient(72% 62% at 76% 62%, rgba(12,7,10,0.7), rgba(6,3,5,0.93) 72%); }
-  .scene.is-on .lamp { animation: lampOff 0.85s linear 7.6s both; }
+    background: radial-gradient(90% 80% at 62% 42%, rgba(10,6,9,0.72), rgba(5,3,4,0.93) 78%); }
+  .scene.is-on .lamp { animation: lampOff 0.8s linear 2.4s both; }
   @keyframes lampOff { 0% { opacity: 0; } 7% { opacity: 0.88; } 13% { opacity: 0.5; } 22%, 100% { opacity: 1; } }
 
   @media (max-width: 760px) {
