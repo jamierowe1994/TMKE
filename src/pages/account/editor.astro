@@ -843,10 +843,9 @@ const googleFonts = [
             <div class="ed-bg-thumb" id="ed-bg-thumb"><span class="ed-bg-thumb-empty">No image</span></div>
             <div class="ed-bg-img-actions">
               <div class="ed-bg-change-wrap">
-                <button type="button" class="ed-bg-btn" id="ed-bg-change">Change image
+                <button type="button" class="ed-bg-btn" id="ed-bg-change" aria-expanded="false" aria-controls="ed-bg-imgmenu">Change image
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                 </button>
-                <div class="ed-bg-imgmenu" id="ed-bg-imgmenu" hidden></div>
               </div>
               <div class="ed-bg-fit" id="ed-bg-fit" hidden role="group" aria-label="Background fit">
                 <button type="button" class="ed-bg-fit-btn is-active" data-bgfit="cover" title="Fill the frame — crop to cover">Fill</button>
@@ -855,6 +854,10 @@ const googleFonts = [
               <button type="button" class="ed-bg-btn" id="ed-bg-reposition" hidden>Reposition</button>
               <button type="button" class="ed-bg-btn ed-bg-btn-danger" id="ed-bg-detach" hidden>Remove</button>
             </div>
+            <!-- The pictures to choose from open in the panel itself, beneath
+                 the row, rather than in a menu floating over the controls
+                 below. Choosing one closes it again. -->
+            <div class="ed-bg-imgmenu" id="ed-bg-imgmenu" hidden></div>
             <!-- Turn the photo: any angle by slider or number, or a quarter turn either way. -->
             <div class="ed-bg-rot" id="ed-bg-rot" hidden>
               <span class="ed-bg-rot-l">Rotate</span>
@@ -3065,14 +3068,18 @@ const googleFonts = [
     .ed-bg-fit-btn.is-active { background: var(--english-violet, #371e28); color: #fff; }
     .ed-bg-btn-danger { color: #a05a3c; border-color: rgba(160,90,60,0.4); }
     .ed-bg-btn-danger:hover { background: rgba(160,90,60,0.08); }
+    /* A card in the panel, not a menu over it: it opens under the row and
+       pushes what follows down, so nothing is ever hidden behind it. */
     .ed-bg-imgmenu {
-      position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
-      width: 232px; max-height: 300px; overflow-y: auto;
-      background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 12px;
-      box-shadow: 0 18px 44px -16px rgba(28,29,34,0.4); padding: 10px;
+      margin-top: 10px; padding: 10px;
+      background: rgba(28,29,34,0.035); border: 1px solid rgba(28,29,34,0.1); border-radius: 10px;
+      animation: edBgMenuIn 0.18s cubic-bezier(.2,.75,.2,1);
     }
+    @keyframes edBgMenuIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
     .ed-bg-imgmenu[hidden] { display: none; }
-    .ed-bg-imgmenu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    #ed-bg-change svg { transition: transform 0.18s ease; }
+    #ed-bg-change[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .ed-bg-imgmenu-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .ed-bg-imgmenu-grid button { aspect-ratio: 1; border-radius: 7px; border: 1px solid rgba(28,29,34,0.1); background-size: cover; background-position: center; cursor: pointer; }
     .ed-bg-imgmenu-grid button:hover { border-color: var(--english-violet); }
     .ed-bg-imgmenu-empty { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.45); margin: 0 0 8px; }

@@ -9047,18 +9047,26 @@
       menu.querySelectorAll("[data-idx]").forEach((b) => {
         const src = recent[parseInt(b.dataset.idx, 10)];
         b.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
-        b.addEventListener("click", () => { setCanvasBackgroundImage(src); menu.hidden = true; });
+        b.addEventListener("click", () => { setCanvasBackgroundImage(src); setImgMenu(false); });
       });
       const up = menu.querySelector("[data-upload]");
-      if (up) up.addEventListener("click", () => { menu.hidden = true; if (fileInput) fileInput.click(); });
+      if (up) up.addEventListener("click", () => { setImgMenu(false); if (fileInput) fileInput.click(); });
+    }
+    // The chooser opens in the panel under the row, so the chevron says which
+    // way it is and the button's aria-expanded goes with it.
+    function setImgMenu(open) {
+      if (!menu) return;
+      if (open) buildImgMenu();
+      menu.hidden = !open;
+      if (changeBtn) changeBtn.setAttribute("aria-expanded", open ? "true" : "false");
     }
     if (changeBtn && menu) {
       changeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (menu.hidden) { buildImgMenu(); menu.hidden = false; } else menu.hidden = true;
+        setImgMenu(menu.hidden);
       });
       document.addEventListener("click", (e) => {
-        if (!menu.hidden && !menu.contains(e.target) && !changeBtn.contains(e.target)) menu.hidden = true;
+        if (!menu.hidden && !menu.contains(e.target) && !changeBtn.contains(e.target)) setImgMenu(false);
       });
     }
     if (fileInput) {
