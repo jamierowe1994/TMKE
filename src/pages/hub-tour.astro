@@ -38,9 +38,9 @@ const C = (n) => `/hub-tour/course-${n}.jpg`;
 // screen opens, holds again between Edit and Create, and closes the run.
 const ST = (n) => `/hub-tour/studio/ipad-${n}.webp`;   // renamed: Cloudflare holds these for four hours, so a change needs a new name
 const STUDIO_STILLS = [
-  { src: ST(1), secs: 2 },                                              // the TMKE screen, over the push-in
+  { src: ST(1), type: "EDIT", secs: 2 },                                              // the TMKE screen, over the push-in
   ...[2, 3, 4, 5, 6, 7].map((n) => ({ src: ST(n), secs: 0.4 })),        // Edit
-  { src: ST(8), secs: 1.2 },                                            // TMKE again, as the words swap
+  { src: ST(8), type: "CREATE", secs: 1.2 },                                            // TMKE again, as the words swap
   ...[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map((n) => ({ src: ST(n), secs: 0.4 })),   // Create
   { src: ST(23), secs: 1.2 },                                           // and closed, under the fade out
 ];
@@ -60,7 +60,7 @@ const SCENES = [
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
-  { kind: "associate", img: "assoc-1.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
+  { kind: "associate", img: "assoc-3.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
@@ -210,7 +210,7 @@ const SCENES = [
             </div>
             <div class="box box--tl">
               <h2 class="box-h">{s.h}</h2>
-              <p class="box-p">{s.p1}</p>
+              <p class="box-p" set:html={s.p1}></p>
               <p class="box-p">{s.p2}</p>
             </div>
             <div class="assoc-meta">
@@ -619,10 +619,9 @@ const SCENES = [
      what plays on it lands at any size: a TMKE splash, a password being
      typed, the codename, then the chat. */
   .scene--associate { display: block; }
-  .wall-scene > .assoc-fig { position: absolute; left: auto; right: 1%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
+  .wall-scene > .assoc-fig { position: absolute; left: auto; right: -6%; top: auto; bottom: 0; height: 100%; width: auto; aspect-ratio: 3200 / 3800; z-index: 6; }
   .assoc-fig { --tab-l: 25.44%; --tab-t: 30.34%; --tab-w: 49.09%; --tab-h: 29.08%; }   /* the screen, measured from her file */
   .assoc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
-  .assoc-fig { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 11%, #000 89%, transparent 100%); mask-image: linear-gradient(to right, transparent 0, #000 11%, #000 89%, transparent 100%); }
   .scene.is-on .assoc-fig { animation: stillIn 0.9s ease both; }
   /* Fade, not rise: she is standing still, and the words beside her should
      arrive the same way. The same on Learn what matters. */
@@ -747,7 +746,12 @@ const SCENES = [
   .tstill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; opacity: 0; }
   .tstill.is-prev { opacity: 1; z-index: 1; }
   .tstill.is-cur { opacity: 1; z-index: 2; }
-  .ttype { position: absolute; left: 13.5%; top: 11.4%; z-index: 3; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 2.4vh, 24px); font-weight: 500; letter-spacing: 0.04em; color: var(--paper); }
+  /* The title on the two TMKE screens, small, in the body font, lying along
+     the tilt of her iPad: its screen's top-left corner sits at 4.3% / 13.9%
+     of the picture and the top edge rises 3.4 degrees. */
+  .ttype { position: absolute; left: 11%; top: 17.5%; z-index: 3; transform: rotate(-3.4deg); transform-origin: left center;
+    font-family: var(--sans); font-size: clamp(9px, 1.6vh, 18px); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(244,242,241,0.92); white-space: nowrap; }
+  .ttype::after { content: ""; display: inline-block; width: 0.5em; height: 1em; margin-left: 3px; vertical-align: -0.14em; background: rgba(244,242,241,0.92); animation: caret 0.8s steps(2) infinite; }
   @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
   @keyframes textIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
   .covers { position: absolute; left: 5.6%; right: 5.6%; bottom: 10.2%; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1.1vw; }
