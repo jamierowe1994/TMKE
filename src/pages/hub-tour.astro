@@ -52,30 +52,30 @@ const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/grid-${n}.webp`
 const SCENES = [
   // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
   // codename and the mission typed out beneath.
-  { kind: "cover", codename: "The Studio", mission: "Your mission is to take control of your agency’s marketing.\nPlan smarter socials, create better content and build the skills to make your marketing work harder.", secs: 9.5 },
+  { kind: "cover", mobile: { secs: 3 }, codename: "The Studio", mission: "Your mission is to take control of your agency’s marketing.\nPlan smarter socials, create better content and build the skills to make your marketing work harder.", secs: 9.5 },
 
-  { kind: "mission", enter: "push", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
+  { kind: "mission", enter: "push", mobile: { skip: true }, n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
-  { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
-  { kind: "associate", img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
+  { kind: "prompts", mobile: { secs: 5 }, stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
+  { kind: "edit", enter: "push", mobile: { secs: 4.5 }, h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
+  { kind: "associate", mobile: { secs: 4 }, img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
   // as the last still shows (secs is only the fallback).
-  { kind: "tablet", enter: "push", tech: "The Studio", stills: STUDIO_STILLS,
+  { kind: "tablet", enter: "push", mobile: { secs: 7.2 }, tech: "The Studio", stills: STUDIO_STILLS,
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
     secs: 12 },
 
-  { kind: "mission", enter: "push", n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
+  { kind: "mission", enter: "push", mobile: { skip: true }, n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
   // course covers along the foot; the box again with two hub screens and the
   // blog on a phone; then the mission-complete card with a grid of nine.
-  { kind: "learn", h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
+  { kind: "learn", mobile: { secs: 6 }, h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
     h2: "Stay in the know", p2: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 14.5 },
-  { kind: "complete", enter: "push", objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 4 },
+  { kind: "complete", enter: "push", mobile: { skip: true }, objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 4 },
 
   { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
 ];
@@ -89,7 +89,7 @@ const SCENES = [
     </div>
 
     {SCENES.map((s, i) => (
-      <section class={`scene scene--${s.kind || "shot"}`} data-i={i} data-secs={s.secs} data-enter={s.enter || "fade"} aria-hidden={i === 0 ? "false" : "true"}>
+      <section class={`scene scene--${s.kind || "shot"}`} data-i={i} data-secs={s.secs} data-enter={s.enter || "fade"} data-phone-skip={s.mobile && s.mobile.skip ? "1" : undefined} data-phone-secs={s.mobile && s.mobile.secs ? s.mobile.secs : undefined} aria-hidden={i === 0 ? "false" : "true"}>
         {s.kind === "card" && (
           <div class="scene-card">
             {s.act && <p class="scene-act">Part {s.act}</p>}
@@ -864,6 +864,61 @@ const SCENES = [
   @media (prefers-reduced-motion: reduce) {
     .scene.is-on * { animation-duration: 0.01s !important; animation-delay: 0s !important; }
   }
+  /* =================== THE PHONE FILM (760px and narrower) ===================
+     Mobile only: nothing in this block reaches the desktop film. About thirty
+     seconds - the cover, the prompts and Edit as one shape, a still of the
+     assistant, the demo quicker, Learn with its words changing over one set of
+     covers, and the back of the file. */
+  @media (max-width: 760px) {
+    /* The cover: the mark and the codename, no mission to read. */
+    .scene--cover .cov-lines dt:nth-of-type(2), .scene--cover .cov-lines dd:nth-of-type(2) { display: none; }
+    .cov-brand, .cov-conf { top: 7%; left: 22px; }
+    .cov-conf { left: auto; right: 22px; }
+    .cov-lines { left: 22px; right: 22px; bottom: 11%; }
+
+    /* Not sure what to post: the cards flash in, go, and the box stays to be
+       read. No planner. */
+    .scene--prompts .stills--after { display: none; }
+    .scene.is-on .pcard, .scene.is-on .tile { animation-delay: calc(0.3s + var(--i) * 0.055s); }
+    .scene.is-on .wall--out { animation: wallPhone 2s linear both; }
+    .scene.is-on .box.box--after { animation-duration: 0.8s; animation-delay: 1.9s; }
+    /* A better place to start: the same shape. */
+    .scene.is-on .wall--edit { animation: wallPhone 2s linear both; }
+    .scene--edit.is-on .box--late { animation-duration: 0.8s; animation-delay: 1.9s; }
+    @keyframes wallPhone { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+
+    /* Just ask: a still - her, holding the tablet with the chat already open. */
+    .scene--associate .tscr, .scene--associate .tmsg--dots { display: none !important; }
+    .scene--associate .tchat, .scene--associate .tmsg--me, .scene--associate .tmsg--ai { animation: none !important; opacity: 1 !important; }
+    .wall-scene > .assoc-fig { left: -12.5%; right: auto; top: auto; bottom: -4%; width: 125%; height: auto; transform: none; z-index: 1; }
+    .scene--associate .box { z-index: 7; }
+
+    /* The Studio: every frame of the demo, quicker; the iPad centred with the
+       words beneath, and the words change once CREATE is typed. */
+    .tab-meta { display: none; }
+    .tablet.tablet--stills { left: 0 !important; right: 0 !important; margin: 0 auto; top: 9% !important; bottom: auto !important; width: auto !important; height: 52% !important; }
+    .scene--tablet .wall-scene { --swap: 2.9s !important; }
+    .ttype { font-size: 9px; }
+    .scene-replay { top: 26px; right: 14px; padding: 5px 10px; }
+
+    /* Learn what matters: one set of covers, and the words change over them. */
+    .scene.is-on .cover { animation: pop 0.6s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.4s + var(--i) * 0.12s); }
+    .bphone, .know-stills { display: none !important; }
+    .scene--learn .wall-scene { --swap: 2.8s !important; }
+
+    /* The back of the file: the labelled lines stack. The route's items sit
+       with no space between them, so on a phone they wrap as a flex row, and
+       the three ways on sit together rather than Play again being shoved
+       off the right. */
+    .cov-foot { left: 22px; right: 22px; bottom: 7%; }
+    .cov--back .cov-lines { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+    .cov--back .cov-lines dd { margin-bottom: 12px; min-width: 0; }
+    .cov--back, .cov--back .cov-foot { text-align: left; }
+    .cov--back .cov-mark { top: 34%; }
+    .route { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: center; row-gap: 2px; }
+    .cov-lines dd.close-actions { flex-direction: row; justify-content: flex-start; align-items: center; flex-wrap: wrap; gap: 14px 18px; }
+    .film-link--end { margin-left: 0; }
+  }
 </style>
 
 <script>
@@ -874,10 +929,18 @@ const SCENES = [
     if (new URLSearchParams(location.search).has("frame")) film.dataset.variant = "laptop";
     const scenes = Array.from(film.querySelectorAll(".scene"));
     const segs = Array.from(film.querySelectorAll(".film-seg"));
+    // The phone film (760px and narrower) is its own cut: about thirty
+    // seconds, three scenes left out, the rest held for less time. Decided
+    // once, at load; the desktop film is untouched.
+    const PHONE = window.matchMedia("(max-width: 760px)").matches;
+    const skipped = (n) => PHONE && !!scenes[n] && scenes[n].dataset.phoneSkip === "1";
+    function nextIdx(k) { let n = k + 1; while (n < scenes.length - 1 && skipped(n)) n++; return Math.min(n, scenes.length - 1); }
+    function prevIdx(k) { let n = k - 1; while (n > 0 && skipped(n)) n--; return Math.max(n, 0); }
+    if (PHONE) segs.forEach((g, n) => { if (skipped(n)) g.style.display = "none"; });
     const hud = document.getElementById("film-hud");
     let i = -1, timer = 0, startedAt = 0, remaining = 0, paused = false;
 
-    function secsOf(n) { return Number(scenes[n].dataset.secs || 6) * 1000; }
+    function secsOf(n) { const ph = PHONE ? scenes[n].dataset.phoneSecs : ""; return Number(ph || scenes[n].dataset.secs || 6) * 1000; }
     // A scene change. Fade: the old scene fades out whole, then the new one
     // comes in (its pieces start arriving only then). Push: both move at once.
     let transTimer = 0;
@@ -935,7 +998,7 @@ const SCENES = [
       clearTimeout(timer);
       if (holdOne >= 0) return;                          // one scene, held
       if (i >= scenes.length - 1) return;                // the close holds
-      timer = setTimeout(() => show(i + 1), remaining);
+      timer = setTimeout(() => show(nextIdx(i)), remaining);
     }
     function pause() {
       if (paused) return;
@@ -954,13 +1017,13 @@ const SCENES = [
     }
     function toggle() { paused ? resume() : pause(); }
 
-    document.getElementById("film-next").addEventListener("click", () => { if (holdOne >= 0) return; if (paused) resume(); show(Math.min(scenes.length - 1, i + 1)); });
-    document.getElementById("film-prev").addEventListener("click", () => { if (holdOne >= 0) return; if (paused) resume(); show(Math.max(0, i - 1)); });
+    document.getElementById("film-next").addEventListener("click", () => { if (holdOne >= 0) return; if (paused) resume(); show(nextIdx(i)); });
+    document.getElementById("film-prev").addEventListener("click", () => { if (holdOne >= 0) return; if (paused) resume(); show(prevIdx(i)); });
     const replay = document.getElementById("film-replay");
     if (replay) replay.addEventListener("click", () => { paused = false; film.classList.remove("is-paused"); show(0); });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "ArrowRight") { if (holdOne >= 0) return; if (paused) resume(); show(Math.min(scenes.length - 1, i + 1)); }
-      else if (e.key === "ArrowLeft") { if (holdOne >= 0) return; if (paused) resume(); show(Math.max(0, i - 1)); }
+      if (e.key === "ArrowRight") { if (holdOne >= 0) return; if (paused) resume(); show(nextIdx(i)); }
+      else if (e.key === "ArrowLeft") { if (holdOne >= 0) return; if (paused) resume(); show(prevIdx(i)); }
       else if (e.key === " ") { e.preventDefault(); toggle(); }
     });
     // The replay control on a scene that plays itself through: the scene is
@@ -1051,7 +1114,8 @@ const SCENES = [
     let stillsStart = () => {};
     const stillsEl = film.querySelector(".tablet--stills");
     if (stillsEl) {
-      const list = JSON.parse(stillsEl.dataset.stills), imgs = stillsEl.querySelectorAll(".tstill"), typ = stillsEl.querySelector(".ttype");
+      // On a phone the demo still plays every frame, just quicker.
+      const list = JSON.parse(stillsEl.dataset.stills).map((e) => PHONE ? { ...e, secs: e.secs <= 0.5 ? 0.22 : e.secs >= 2 ? 1.2 : 0.8 } : e), imgs = stillsEl.querySelectorAll(".tstill"), typ = stillsEl.querySelector(".ttype");
       const k = scenes.indexOf(stillsEl.closest(".scene"));
       const total = list.reduce((a, e) => a + e.secs, 0);
       let clock = 0, last = 0, running = false, raf = 0;
@@ -1071,7 +1135,7 @@ const SCENES = [
         if (!paused) clock += (now - last) / 1000;
         last = now;
         render(clock);
-        if (clock >= total - 0.7 && i === k && !paused) { running = false; show(k + 1); return; }
+        if (clock >= total - 0.7 && i === k && !paused && holdOne < 0) { running = false; show(nextIdx(k)); return; }
         raf = requestAnimationFrame(tick);
       }
       // Decoded up front, and again before each run: a picture that decodes
@@ -1095,6 +1159,6 @@ const SCENES = [
       // one sets the length itself.
       v.addEventListener("loadedmetadata", () => { if (isFinite(v.duration) && v.duration > Number(s.dataset.secs || 0)) s.dataset.secs = String(Math.round(v.duration * 10) / 10); });
     }));
-    show(holdOne >= 0 ? holdOne : 0);
+    show(holdOne >= 0 ? holdOne : (skipped(0) ? nextIdx(0) : 0));
   })();
 </script>
