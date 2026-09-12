@@ -6362,7 +6362,10 @@
         </div>`);
       }
       html.push(`<div class="ed-props-section"><h4>Image</h4>
-        <button class="ed-btn-ghost" id="ed-replace-img" style="background:rgba(28,29,34,0.06); width:100%">Replace image</button>
+        <button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>
       </div>`);
       html.push(cornerRadiusSectionHtml());
     }
@@ -6746,22 +6749,34 @@
       });
     }
 
+    // Change image: the same chooser the background uses — the pictures in
+    // this design and your uploads, in a card under the button, with a file
+    // dialog behind "Upload a new image".
     const replaceBtn = body.querySelector("#ed-replace-img");
     if (replaceBtn) {
-      replaceBtn.addEventListener("click", () => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = "image/*";
-        input.onchange = () => {
-          const file = input.files[0];
-          if (!file) return;
-          fileToWebImage(file).then((src) => {
-            if (!src) return;
-            const tgt = getEl(state.selectedIds[0]);
-            if (tgt) { tgt.src = src; pushHistory(); fullRender(); }
-          });
-        };
-        input.click();
+      const put = (src) => {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt) return;
+        if (tgt.type === "frame") fillFrame(tgt, src);
+        else { tgt.src = src; fullRender(); }
+        pushHistory();
+        renderProps();
+      };
+      mountPicturePicker({
+        menu: body.querySelector("#ed-sel-imgmenu"),
+        button: replaceBtn,
+        onPick: put,
+        onUpload: () => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.onchange = () => {
+            const file = input.files[0];
+            if (!file) return;
+            fileToWebImage(file).then((src) => { if (src) put(src); });
+          };
+          input.click();
+        },
       });
     }
 
@@ -8992,6 +9007,60 @@
       });
     });
   })();
+
+  /* ---------- The picture chooser ----------
+     Pictures already in this design, then the uploads library. It opens as a
+     card in the panel under its button (never a menu floating over the
+     controls below) and closes as soon as one is chosen. The background pane
+     and a selected picture both use it. */
+  function picturesToPickFrom() {
+    const seen = {}, out = [];
+    const add = function (u) { if (!u || typeof u !== "string" || seen[u]) return; seen[u] = 1; out.push(u); };
+    state.elements.forEach(function (el) {
+      if (el && (el.type === "image" || el.type === "frame" || el.type === "screen") && el.src) add(el.src);
+    });
+    if (typeof state.canvas.backgroundImage === "string") add(state.canvas.backgroundImage);
+    (state.uploads || []).slice().reverse().forEach(add);
+    return out.slice(0, 12);
+  }
+  function mountPicturePicker(opts) {
+    const menu = opts.menu, button = opts.button;
+    if (!menu || !button) return;
+    function build() {
+      // The uploads library loads on demand; fetch it rather than showing an
+      // empty grid that fills in a moment later.
+      if (!(state.uploads || []).length && typeof window.__TMKE_UPLOADS_LIST__ === "function") {
+        window.__TMKE_UPLOADS_LIST__().then(function (urls) {
+          let added = false;
+          (urls || []).forEach(function (u) { if (state.uploads.includes(u)) return; state.uploads.push(u); addUploadTile(u); added = true; });
+          if (added && !menu.hidden) build();
+        }).catch(function () {});
+      }
+      const pics = picturesToPickFrom();
+      menu.innerHTML = (pics.length
+        ? '<div class="ed-bg-imgmenu-grid">' + pics.map(function (src, i) { return '<button type="button" data-idx="' + i + '"></button>'; }).join("") + "</div>"
+        : '<p class="ed-bg-imgmenu-empty">Nothing to pick from yet — upload an image and it will be here next time.</p>')
+        + '<button type="button" class="ed-bg-imgmenu-upload" data-upload>Upload a new image</button>';
+      // The picture goes on through the DOM: inline, the URL's own quotes
+      // close the style attribute and every tile draws as an empty grey box.
+      menu.querySelectorAll("[data-idx]").forEach(function (b) {
+        const src = pics[parseInt(b.dataset.idx, 10)];
+        b.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
+        b.addEventListener("click", function () { open(false); opts.onPick(src); });
+      });
+      const up = menu.querySelector("[data-upload]");
+      if (up) up.addEventListener("click", function () { open(false); opts.onUpload(); });
+    }
+    function open(on) {
+      if (on) build();
+      menu.hidden = !on;
+      button.setAttribute("aria-expanded", on ? "true" : "false");
+    }
+    button.addEventListener("click", function (e) { e.stopPropagation(); open(menu.hidden); });
+    document.addEventListener("click", function (e) {
+      if (!menu.hidden && !menu.contains(e.target) && !button.contains(e.target)) open(false);
+    });
+  }
 
   // ---------- Background pane: change/upload image, fade tint, gradient menu, reposition ----------
   (function () {

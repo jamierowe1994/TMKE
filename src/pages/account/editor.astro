@@ -1002,6 +1002,11 @@ const googleFonts = [
     </div>
 
     <!-- =================== CANVAS STAGE =================== -->
+    <!-- Fold the panel away to give the design the room. The rail stays, so
+         the tools are still there; pressing one brings the panel back. -->
+    <button type="button" class="ed-panel-fold" id="ed-panel-fold" aria-expanded="true" aria-controls="ed-panel" title="Hide the panel">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
     <main class="ed-stage" id="ed-stage" data-lenis-prevent>
       <!-- The sizer holds the canvas's SCALED footprint. A transform scales
            what you see but not the box the layout reserves, so at any zoom
@@ -1630,6 +1635,26 @@ const googleFonts = [
       padding: 20px;
       z-index: 20;
     }
+    /* Folded away: the panel keeps its place in the grid at no width, so the
+       stage takes the room and nothing jumps. The rail stays put. */
+    .editor { --ed-side: 436px; transition: grid-template-columns 0.24s cubic-bezier(.2,.75,.2,1); }
+    .editor.is-panel-folded { grid-template-columns: 76px 0px 1fr; --ed-side: 76px; }
+    .editor.is-panel-folded .ed-panel { overflow: hidden; padding-left: 0; padding-right: 0; border-right: 0; }
+    .ed-panel-fold {
+      position: fixed; top: 128px; left: var(--ed-side); z-index: 25;
+      width: 20px; height: 46px; padding: 0; display: grid; place-items: center;
+      background: #fff; color: rgba(28,29,34,0.55); cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.1); border-left: 0;
+      border-radius: 0 8px 8px 0;
+      box-shadow: 4px 4px 14px -8px rgba(28,29,34,0.35);
+      transition: left 0.24s cubic-bezier(.2,.75,.2,1), color 0.15s ease;
+    }
+    .ed-panel-fold:hover { color: var(--english-violet); }
+    .ed-panel-fold svg { transition: transform 0.24s ease; }
+    .editor.is-panel-folded .ed-panel-fold svg { transform: rotate(180deg); }
+    .editor.is-onboarding .ed-panel-fold { display: none; }
+    @media (max-width: 760px) { .ed-panel-fold { display: none; } }
+
     .ed-panel-pane { display: none; }
     .ed-panel-pane.is-active { display: block; }
 
@@ -7552,6 +7577,34 @@ const googleFonts = [
       const t = document.getElementById("ed-pages-toggle");
       if (t && t.getAttribute("aria-pressed") !== "true") t.click();
     });
+  </script>
+
+  <script>
+    // Folding the panel away. The rail keeps every tool a click away, and
+    // pressing one brings the panel back, so nothing is ever stranded. The
+    // canvas re-fits afterwards, because it sizes itself to the room it has.
+    const foldBtn = document.getElementById("ed-panel-fold");
+    const editorEl = document.querySelector(".editor");
+    if (foldBtn && editorEl) {
+      const setFolded = (on) => {
+        editorEl.classList.toggle("is-panel-folded", on);
+        foldBtn.setAttribute("aria-expanded", on ? "false" : "true");
+        foldBtn.title = on ? "Show the panel" : "Hide the panel";
+        setTimeout(() => window.dispatchEvent(new Event("resize")), 260);
+      };
+      foldBtn.addEventListener("click", () => setFolded(!editorEl.classList.contains("is-panel-folded")));
+      // A tool is what the panel is for: choosing one opens it again.
+      document.querySelectorAll(".ed-rail-btn").forEach((b) => {
+        b.addEventListener("click", () => { if (editorEl.classList.contains("is-panel-folded")) setFolded(false); });
+      });
+      document.addEventListener("keydown", (e) => {
+        const t = e.target as HTMLElement | null;
+        if (e.key !== "\\" || e.metaKey || e.ctrlKey || e.altKey) return;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        e.preventDefault();
+        setFolded(!editorEl.classList.contains("is-panel-folded"));
+      });
+    }
   </script>
 
   <CaptionGenerator />
