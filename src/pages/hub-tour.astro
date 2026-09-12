@@ -52,7 +52,7 @@ const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/grid-${n}.webp`
 const SCENES = [
   // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
   // codename and the mission typed out beneath.
-  { kind: "cover", codename: "The Studio", mission: "Your mission is to take control of your agency’s marketing. Plan smarter socials, create better content and build the skills to make your marketing work harder.", secs: 9.5 },
+  { kind: "cover", codename: "The Studio", mission: "Your mission is to take control of your agency’s marketing.\nPlan smarter socials, create better content and build the skills to make your marketing work harder.", secs: 9.5 },
 
   { kind: "mission", enter: "push", n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
@@ -278,7 +278,8 @@ const SCENES = [
           </div>
         )}
         {s.kind === "tablet" && (
-          <div class="wall-scene" style="--swap: 4.4s">
+          <div class="wall-scene" style="--swap: 5.1s">
+            <button type="button" class="scene-replay" data-replay aria-label="Play this scene again"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> Replay</button>
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -353,7 +354,6 @@ const SCENES = [
               <p class="mission-v">Complete</p>
             </div>
             <div class="mission-grid" aria-hidden="true">
-              <div class="lamp"></div>
               {s.tiles.map((src, k) => <img src={src} alt="" style={`--i:${k}`} loading="lazy" />)}
             </div>
           </div>
@@ -362,20 +362,20 @@ const SCENES = [
           <div class="cov cov--back">
             <span class="cov-brand">The Marketing Experts</span>
             <span class="cov-conf">Case closed</span>
-            <div class="cov-mid">
-              <div class="cov-mark" aria-label="TMKE">TMKE</div>
-              <h2 class="cov-h">{s.h}</h2>
+            <div class="cov-mark" aria-label="TMKE">TMKE</div>
+            <div class="cov-foot">
+              <p class="cov-line">{s.h}</p>
+              <dl class="cov-lines">
+                <dt>{s.eyebrow}</dt>
+                <dd><ol class="route">{s.steps.map((t) => <li>{t}</li>)}</ol></dd>
+                <dt>Next</dt>
+                <dd class="close-actions">
+                  <a class="film-btn" href="/memberships">Become a member <span aria-hidden="true">&rarr;</span></a>
+                  <a class="film-link" href="/demo">Discover our demo</a>
+                  <button type="button" class="film-link film-link--end" id="film-replay">Play again</button>
+                </dd>
+              </dl>
             </div>
-            <dl class="cov-lines">
-              <dt>{s.eyebrow}</dt>
-              <dd><ol class="route">{s.steps.map((t) => <li>{t}</li>)}</ol></dd>
-              <dt>Next</dt>
-              <dd class="close-actions">
-                <a class="film-btn" href="/memberships">Become a member <span aria-hidden="true">&rarr;</span></a>
-                <a class="film-link" href="/demo">Look round the demo</a>
-                <button type="button" class="film-link" id="film-replay">Play again</button>
-              </dd>
-            </dl>
           </div>
         )}
         {!s.kind && (
@@ -475,23 +475,23 @@ const SCENES = [
   @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
 
   /* The close: the route as one line of steps, then the button. */
-  /* The last card is the back of the file: the cover's furniture, with the
-     route where the mission was and the three ways on beneath it. */
-  .cov--back .cov-mid { position: absolute; left: 5.6%; right: 5.6%; top: 30%; text-align: center; }
-  .cov--back .cov-mark { position: static; transform: none; font-size: clamp(80px, 10vw, 190px); }
-  .cov-h { margin: clamp(10px, 2vh, 26px) 0 0; font-family: var(--subhead); font-weight: 400; font-size: clamp(26px, 3.4vw, 52px); line-height: 1.1; letter-spacing: -0.01em; color: var(--paper); }
-  .cov--back .cov-lines { bottom: 9.5%; row-gap: clamp(12px, 2vh, 22px); align-items: baseline; }
-  .scene.is-on .cov--back .cov-mid { animation: stillIn 1.4s ease 0.5s both; }
-  .scene.is-on .cov--back .cov-lines { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 1.2s both; }
+  /* The last card is the back of the file: the cover's mark in the cover's
+     place, the line above the route, and the three ways on at the foot. */
+  .cov-foot { position: absolute; left: 5.6%; right: 5.6%; bottom: 9.5%; }
+  .cov-line { margin: 0 0 clamp(18px, 3vh, 34px); font-size: clamp(12px, 1.05vw, 19px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; color: var(--paper); }
+  .cov--back .cov-lines { position: static; row-gap: clamp(12px, 2vh, 22px); align-items: baseline; }
+  .scene.is-on .cov--back .cov-mark { animation: stillIn 1.6s ease 0.6s both; }
+  .scene.is-on .cov-foot { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 1.1s both; }
+  .film-link--end { margin-left: auto; }
   .route { list-style: none; margin: 0; padding: 0; }
-  .route li { display: inline; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.9; color: var(--paper); }
+  .route li { display: inline; white-space: nowrap; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.9; color: var(--paper); }
   .route li:not(:last-child)::after { content: " \2192 "; margin: 0 8px; color: rgba(244,242,241,0.45); }
 
   .scene.is-on .route li:nth-child(1) { animation-delay: 0.6s; } .scene.is-on .route li:nth-child(2) { animation-delay: 1.1s; }
   .scene.is-on .route li:nth-child(3) { animation-delay: 1.6s; } .scene.is-on .route li:nth-child(4) { animation-delay: 2.1s; }
   .scene.is-on .route li:nth-child(5) { animation-delay: 2.6s; } .scene.is-on .route li:nth-child(6) { animation-delay: 3.1s; }
   .scene.is-on .route li:nth-child(7) { animation-delay: 3.6s; }
-  .close-actions { margin: 0; display: flex; gap: 22px; align-items: center; flex-wrap: wrap; }
+  .cov-lines dd.close-actions { margin: 0; max-width: none; display: flex; gap: 22px; align-items: center; flex-wrap: wrap; width: 100%; }
   .film-btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; background: var(--paper); color: var(--english-violet); text-decoration: none; font-size: 12px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 2px; }
   .film-link { background: none; border: 0; padding: 0; text-decoration: none; color: rgba(244,242,241,0.7); font-family: var(--sans); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; }
 
@@ -522,7 +522,7 @@ const SCENES = [
     text-shadow: -2px -2px 3px rgba(0,0,0,0.55), 2px 2px 3px rgba(255,255,255,0.09), 0 0 18px rgba(0,0,0,0.18); }
   .cov-lines { position: absolute; left: 5.6%; right: 5.6%; bottom: 10%; margin: 0; display: grid; grid-template-columns: max-content 1fr; column-gap: clamp(18px, 1.6vw, 30px); row-gap: clamp(14px, 2.4vh, 26px); align-items: start; }
   .cov-lines dt { font-family: var(--sans); font-size: clamp(11px, 0.95vw, 17px); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
-  .cov-lines dd { margin: 0; max-width: 66ch; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.6; min-height: 1.6em; }
+  .cov-lines dd { margin: 0; max-width: 66ch; white-space: pre-line; font-size: clamp(11px, 0.95vw, 17px); font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.6; min-height: 1.6em; }
   .cov-lines dd span::after { content: ""; display: inline-block; width: 0.55em; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--paper); opacity: 0; }
   .cov-lines dd span.is-typing::after { opacity: 1; animation: caret 0.8s steps(2) infinite; }
   @keyframes caret { to { opacity: 0; } }
@@ -588,8 +588,10 @@ const SCENES = [
   /* One screen instead of three (Dani's board, 12 Sep): the planner from its
      month bar down, in a rounded frame that runs off the foot, a touch
      softened so the box reads over it. */
-  .stills--one .still { left: 0; top: 0; width: 100%; height: 120%; aspect-ratio: auto; border-radius: 0; background: #fff; box-shadow: none; }   /* the full width, as a background rather than a shot */
-  .stills--one .still img { opacity: 0.92; }
+  .stills--one .still { left: 0; top: 2.4%; width: 100%; height: 120%; aspect-ratio: auto; border-radius: 0; background: #fff; box-shadow: none; }   /* the full width, as a background rather than a shot */
+  /* Full strength at the top, fading as it goes down, so the box at the
+     foot reads against it without the whole screen being knocked back. */
+  .stills--one .still img { opacity: 1; -webkit-mask-image: linear-gradient(to bottom, #000 0 22%, rgba(0,0,0,0.42) 100%); mask-image: linear-gradient(to bottom, #000 0 22%, rgba(0,0,0,0.42) 100%); }
   @keyframes dim { from { opacity: 1; } to { opacity: 0.45; } }
 
   /* The wine box, three positions. */
@@ -609,6 +611,9 @@ const SCENES = [
   @keyframes popc { from { opacity: 0; transform: translate(-50%, calc(-50% + 18px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
   .scene--studio .box--late { --box: 1.6s; }
   .scene--edit.is-on .box--late { animation-duration: 1.2s; }
+  /* One paragraph, not two, with the room the gap took given to the box. */
+  .scene--edit .box-p { margin-bottom: 0; }
+  .scene--edit .box { padding-top: clamp(24px, 3.2vw, 48px); padding-bottom: clamp(24px, 3.2vw, 48px); }
 
   /* The phone of the chat. */
   .phone { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, 88vw); height: min(850px, 82vh); background: #e9e6e4; border-radius: 4px; display: flex; flex-direction: column; overflow: hidden; font-family: var(--sans); color: var(--ink); box-shadow: 0 30px 80px rgba(28,29,34,0.25); }
@@ -677,7 +682,7 @@ const SCENES = [
   .tmsg--dots i:nth-child(2) { animation-delay: 0.2s; }
   .scene.is-on .tmsg--me { animation: rise 0.5s ease 7.5s both; }
   .scene.is-on .tmsg--dots { animation: dotsIn 3s linear 8.5s both; }
-  .scene.is-on .tmsg--ai { animation: rise 0.5s ease 11.1s both; }
+  .scene.is-on .tmsg--ai { animation: stillIn 0.6s ease 11.1s both; }
   @keyframes dotsIn { 0% { opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; display: none; } }
   .tchat-in { margin: 0 5% 4%; display: flex; align-items: center; gap: 4%; }
   .tchat-in span { flex: 1; padding: 3% 4%; background: #f7f6f5; border-radius: 6px; color: rgba(28,29,34,0.45); font-size: clamp(6px, 0.55vw, 11px); }
@@ -722,6 +727,12 @@ const SCENES = [
      the phone slides up on the right (7.6s); the two screens pop in along
      the foot (9.2s, 9.8s). The box itself never goes. */
   .scene--learn, .scene--complete, .scene--tablet { display: block; }
+  /* The Studio plays itself through, so it gets a way back to the start. */
+  .scene-replay { position: absolute; top: 5.2%; right: 5.6%; z-index: 8; display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 13px; border: 1px solid rgba(28,29,34,0.16); border-radius: 999px; background: rgba(255,255,255,0.7); cursor: pointer;
+    font-family: var(--sans); font-size: clamp(10px, 0.72vw, 13px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); }
+  .scene-replay:hover { background: #fff; border-color: rgba(55,30,40,0.4); }
+  .scene.is-on .scene-replay { animation: stillIn 0.6s ease 1.2s both; }
   .scene.is-on .box.box--p2 { animation-duration: 1.2s; animation-delay: 0.3s; }
   /* Words that swap in place: the two sets share one cell, so the box keeps
      its size; the first fades out at --swap, the second fades in after. */
@@ -774,7 +785,7 @@ const SCENES = [
   @keyframes scoot { from { transform: none; } to { transform: translateX(120vw); } }
   /* The phone is Dani's mock-up, with the blog laid over its screen so it
      stays sharp; it starts below the frame and slides up. */
-  .bphone { position: absolute; left: auto; right: 7%; top: auto; bottom: -7%; height: 84%; width: auto; aspect-ratio: 450 / 880; transform: translateY(100vh); }
+  .bphone { position: absolute; left: auto; right: 7%; top: auto; bottom: -9%; height: 94%; width: auto; aspect-ratio: 450 / 880; transform: translateY(100vh); }
   .bphone-frame { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
   .bphone-screen { position: absolute; left: 6.9%; width: 86%; top: 14.6%; height: 85.4%; object-fit: cover; object-position: 50% 0; z-index: 1; }
   .scene.is-on .bphone { animation: slideUp 1.2s cubic-bezier(.2,.7,.2,1) 7.6s forwards; }
@@ -792,13 +803,18 @@ const SCENES = [
   .mission-grid { position: absolute; right: 5.6%; bottom: 10%; display: grid; grid-template-columns: repeat(3, clamp(90px, 11vw, 214px)); gap: 8px; }   /* each tile the size of a mission strip's, same gap, same foot line */
   .mission-grid img { display: block; width: 100%; aspect-ratio: 210 / 240; object-fit: cover; opacity: 0; }
   .scene.is-on .mission-foot { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
-  .scene.is-on .mission-grid img { animation: flash 0.5s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.6s + var(--i) * 0.14s); }
   /* Someone turns the lamp off at the end: a flick, a moment of filament, and
      the room goes dark - not black, since the screen is still awake. */
-  .lamp { position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: 0;
-    background: radial-gradient(90% 80% at 62% 42%, rgba(10,6,9,0.72), rgba(5,3,4,0.93) 78%); }
-  .scene.is-on .lamp { animation: lampOff 0.8s linear 2.4s both; }
-  @keyframes lampOff { 0% { opacity: 0; } 7% { opacity: 0.88; } 13% { opacity: 0.5; } 22%, 100% { opacity: 1; } }
+  /* Someone turns the lamp off: the pictures go out, the wine between them
+     does not, and it is a flick rather than a fade - one blink of filament
+     and the room is dark, though not black. */
+  .scene.is-on .mission-grid img { animation: flash 0.5s cubic-bezier(.2,.7,.2,1) both, lampOff 0.36s steps(1, end) 2.9s forwards; animation-delay: calc(0.6s + var(--i) * 0.14s), 2.9s; }
+  @keyframes lampOff {
+    0% { filter: none; }
+    28% { filter: brightness(0.2) contrast(0.92) saturate(0.75); }
+    52% { filter: brightness(0.46) contrast(0.95); }
+    100% { filter: brightness(0.2) contrast(0.92) saturate(0.75); }
+  }
 
   @media (max-width: 760px) {
     .film-mark { top: 18px; left: 22px; }
@@ -946,6 +962,16 @@ const SCENES = [
       else if (e.key === "ArrowLeft") { if (holdOne >= 0) return; if (paused) resume(); show(Math.max(0, i - 1)); }
       else if (e.key === " ") { e.preventDefault(); toggle(); }
     });
+    // The replay control on a scene that plays itself through: the scene is
+    // taken off and put back, so the words and the pictures start over.
+    film.querySelectorAll("[data-replay]").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const sc = b.closest(".scene"), k = scenes.indexOf(sc);
+      if (k < 0) return;
+      if (paused) resume();
+      sc.classList.remove("is-on"); void sc.offsetWidth;
+      i = -1; show(k);
+    }));
     // A click on the screen pauses; a second one plays. The edge zones, the
     // buttons and the links keep their own jobs.
     film.addEventListener("click", (e) => {
