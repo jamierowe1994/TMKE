@@ -62,7 +62,7 @@ const SCENES = [
   // the three screens and the box fade in together.
   { kind: "prompts", stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
   { kind: "edit", enter: "push", h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 7.5 },
-  { kind: "associate", video: "associate", rate: 1.25, h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 13 },
+  { kind: "associate", img: "associate", h: "Not sure what you need? Just ask.", p1: "It starts with a question, an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 15 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
@@ -183,10 +183,15 @@ const SCENES = [
         )}
         {s.kind === "associate" && (
           <div class="wall-scene">
-            <div class="assoc-video">
-              <video src={`/hub-tour/${s.video}.mp4`} muted playsinline preload="auto" data-clip data-once data-rate={s.rate || 1}></video>
-              <div class="assoc-tint" aria-hidden="true"></div>
-              <div class="assoc-tab" aria-hidden="true">
+            <div class="assoc-fig" aria-hidden="true">
+              <img class="assoc-img" src={`/hub-tour/${s.img}.png`} alt="" />
+              <div class="assoc-tab">
+                <div class="tscr tscr--splash"><span class="tscr-mark">TMKE</span></div>
+                <div class="tscr tscr--pass">
+                  <span class="tscr-k">Enter password</span>
+                  <span class="tscr-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                </div>
+                <div class="tscr tscr--studio"><span class="tscr-k">Codename</span><span class="tscr-v">The Studio</span></div>
                 <div class="tchat">
                   <div class="tchat-head"><span>What to post · Creative Assistant</span></div>
                   <div class="tchat-log">
@@ -198,15 +203,14 @@ const SCENES = [
                 </div>
               </div>
             </div>
-            <canvas class="assoc-key" width="1344" height="62" aria-hidden="true"></canvas>
             <div class="box box--tl">
               <h2 class="box-h">{s.h}</h2>
               <p class="box-p">{s.p1}</p>
               <p class="box-p">{s.p2}</p>
             </div>
             <div class="assoc-meta">
-              <p class="mission-k">Your TMKE associate</p>
-              <p class="mission-v">Codename: Marketing Assistant</p>
+              <p class="mission-k">Codename</p>
+              <p class="mission-v">Marketing Assistant</p>
               <p class="mission-k">Skills</p>
               <p class="mission-v">Content intelligence<br />Industry expertise<br />Studio navigation</p>
             </div>
@@ -605,34 +609,40 @@ const SCENES = [
   .phone-in i { width: 70px; height: 70px; border-radius: 12px; background: var(--english-violet); color: var(--paper); display: grid; place-items: center; font-style: normal; font-size: 24px; align-self: flex-end; }
   .phone-foot { margin: 0; padding: 20px 12px 24px; text-align: center; font-size: 12px; color: rgba(28,29,34,0.45); }
 
-  /* The associate: her video on the right, full height, blended into the
-     paper; the box top-left; her card bottom-left; the chat on her tablet
-     once she has stopped. The tablet's screen is a fixed fraction of the
-     video frame (measured from the last frame), so the chat lands on it at
-     any size. */
+  /* The associate: her picture on the right, its background keyed out, in
+     front of the progress strip; the box top-left; her card bottom-left.
+     Her tablet's screen is a fixed fraction of the picture (--tab-*), so
+     what plays on it lands at any size: a TMKE splash, a password being
+     typed, the codename, then the chat. */
   .scene--associate { display: block; }
-  .assoc-video { position: absolute; top: 0; left: 78.6%; transform: translateX(-50%); height: 100%; aspect-ratio: 1344 / 768; overflow: hidden;   /* full height, top to foot, at the render's own ratio, centred on her at any screen shape; only its left edge fades into the paper */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); mask-image: linear-gradient(to right, transparent 0, #000 24%, #000 100%); }
-  .assoc-video video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(1.04); }   /* lifts its off-white to white before the paper tint */
-  .assoc-tint { position: absolute; inset: 0; background: #f2f0ee; mix-blend-mode: multiply; }   /* the video's white becomes our paper */
-  .scene.is-on .assoc-video { animation: stillIn 0.9s ease both; }
-  /* The tablet's screen as fractions of the video frame, measured from the
-     last frame. Adjust these four when the video changes. */
-  .assoc-video { --tab-l: 36.8%; --tab-t: 26.8%; --tab-w: 25.6%; --tab-h: 30.7%; }   /* measured from the 11 Sep render's last frame */
-  /* Her head in front of the progress strip: a canvas over the strip draws
-     the top slice of the video with its white keyed out (script), so she
-     covers the strip and the paper around her does not. */
-  .wall-scene > .assoc-key { position: absolute; top: 0; left: 78.6%; transform: translateX(-50%); height: calc(100vh * 62 / 768); width: calc(100vh * 1344 / 768); z-index: 6; pointer-events: none; }
-  .scene.is-on .assoc-key { animation: stillIn 0.9s ease both; }
-  .assoc-tab { position: absolute; left: var(--tab-l); top: var(--tab-t); width: var(--tab-w); height: var(--tab-h); border-radius: 0.6vw; overflow: hidden; opacity: 0; transition: opacity 0.7s ease; }
-  .scene.is-ended .assoc-tab { opacity: 1; }
+  .wall-scene > .assoc-fig { position: absolute; top: 0; left: 78.6%; transform: translateX(-50%); height: 100%; aspect-ratio: 1344 / 768; z-index: 6; }
+  .assoc-fig { --tab-l: 36.8%; --tab-t: 26.8%; --tab-w: 25.6%; --tab-h: 30.7%; }   /* measured from the picture; adjust when it changes */
+  .assoc-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: 50% 0; }
+  .scene.is-on .assoc-fig { animation: stillIn 0.9s ease both; }
+  .assoc-tab { position: absolute; left: var(--tab-l); top: var(--tab-t); width: var(--tab-w); height: var(--tab-h); border-radius: 0.4vw; overflow: hidden; background: var(--english-violet); }
+  /* The tablet's screens, one after another, from the scene's start. */
+  .tscr { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6%; background: var(--english-violet); color: var(--paper); font-family: var(--sans); opacity: 0; }
+  .tscr-mark { font-family: var(--logo-serif, var(--serif)); font-size: clamp(22px, 2.6vw, 56px); line-height: 1; color: #3a2029; text-shadow: -1px -1px 2px rgba(0,0,0,0.55), 1px 1px 2px rgba(255,255,255,0.09); }
+  .tscr-k { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(7px, 0.62vw, 12px); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .tscr-v { font-size: clamp(9px, 0.85vw, 16px); font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; }
+  .tscr-dots { display: flex; gap: 6%; width: 52%; padding: 5% 8%; justify-content: center; border: 1px solid rgba(244,242,241,0.3); border-radius: 4px; }
+  .tscr-dots i { width: clamp(4px, 0.4vw, 8px); height: clamp(4px, 0.4vw, 8px); border-radius: 50%; background: var(--paper); opacity: 0; }
+  .scene.is-on .tscr--splash { animation: hold 1.9s linear 0.6s both; }
+  .scene.is-on .tscr--pass { animation: hold 2.6s linear 2.5s both; }
+  .scene.is-on .tscr--pass i { animation: dotOn 0.1s linear both; }
+  .scene.is-on .tscr--pass i:nth-child(1) { animation-delay: 3.1s; } .scene.is-on .tscr--pass i:nth-child(2) { animation-delay: 3.3s; } .scene.is-on .tscr--pass i:nth-child(3) { animation-delay: 3.5s; } .scene.is-on .tscr--pass i:nth-child(4) { animation-delay: 3.7s; }
+  .scene.is-on .tscr--pass i:nth-child(5) { animation-delay: 3.9s; } .scene.is-on .tscr--pass i:nth-child(6) { animation-delay: 4.1s; } .scene.is-on .tscr--pass i:nth-child(7) { animation-delay: 4.3s; } .scene.is-on .tscr--pass i:nth-child(8) { animation-delay: 4.5s; }
+  .scene.is-on .tscr--studio { animation: hold 1.8s linear 5.1s both; }
+  @keyframes hold { 0% { opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes dotOn { to { opacity: 1; } }
   .assoc-meta { position: absolute; left: 5.6%; bottom: 9%; color: var(--ink); font-family: var(--sans); }
   .assoc-meta .mission-k { color: var(--ink); margin-top: 18px; }
   .assoc-meta .mission-k:first-child { margin-top: 0; }
   .assoc-meta .mission-v { margin: 0; color: rgba(28,29,34,0.75); }
   .scene.is-on .assoc-meta { animation: rise 0.9s cubic-bezier(.2,.7,.2,1) 0.3s both; }
   /* The chat on the tablet, landscape, tiny. */
-  .tchat { position: absolute; inset: 0; background: #e9e6e4; color: var(--ink); font-family: var(--sans); display: flex; flex-direction: column; overflow: hidden; }
+  .tchat { position: absolute; inset: 0; background: #e9e6e4; color: var(--ink); font-family: var(--sans); display: flex; flex-direction: column; overflow: hidden; opacity: 0; }
+  .scene.is-on .tchat { animation: stillIn 0.7s ease 6.9s both; }
   .tchat-head { padding: 4% 5% 3%; font-size: clamp(6px, 0.5vw, 10px); letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); border-bottom: 1px solid rgba(28,29,34,0.1); }
   .tchat-log { flex: 1; display: flex; flex-direction: column; gap: 4%; padding: 4% 5%; }
   .tmsg { max-width: 78%; padding: 3% 4%; border-radius: 8px; font-size: clamp(7px, 0.62vw, 12px); line-height: 1.4; opacity: 0; }
@@ -641,9 +651,9 @@ const SCENES = [
   .tmsg--dots { align-self: flex-start; background: #dcd8d6; display: flex; gap: 3px; padding: 3% 4%; }
   .tmsg--dots i { width: 4px; height: 4px; border-radius: 50%; background: rgba(28,29,34,0.4); animation: blink 1s infinite; }
   .tmsg--dots i:nth-child(2) { animation-delay: 0.2s; } .tmsg--dots i:nth-child(3) { animation-delay: 0.4s; }
-  .scene.is-ended .tmsg--me { animation: rise 0.5s ease 0.6s both; }
-  .scene.is-ended .tmsg--dots { animation: dotsIn 3s linear 1.6s both; }
-  .scene.is-ended .tmsg--ai { animation: rise 0.5s ease 4.2s both; }
+  .scene.is-on .tmsg--me { animation: rise 0.5s ease 7.5s both; }
+  .scene.is-on .tmsg--dots { animation: dotsIn 3s linear 8.5s both; }
+  .scene.is-on .tmsg--ai { animation: rise 0.5s ease 11.1s both; }
   @keyframes dotsIn { 0% { opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; display: none; } }
   .tchat-in { margin: 0 5% 4%; display: flex; align-items: center; gap: 4%; }
   .tchat-in span { flex: 1; padding: 3% 4%; background: #f7f6f5; border-radius: 6px; color: rgba(28,29,34,0.45); font-size: clamp(6px, 0.55vw, 11px); }
@@ -770,7 +780,7 @@ const SCENES = [
     .still:nth-child(1) { left: 22px; top: 76px; }
     .still:nth-child(2) { left: auto; right: 22px; top: 76px; }
     .still:nth-child(3) { left: 22px; top: calc(76px + 30vw); }
-    .assoc-video { left: auto; right: -30%; height: 62%; top: 30%; bottom: auto; }
+    .wall-scene > .assoc-fig { left: auto; right: -30%; height: 62%; top: 30%; transform: none; }
     .box--tl { top: 76px; }
     .covers { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; left: 22px; right: 22px; bottom: 6%; }
     .know-stills .still { width: 44%; bottom: 6%; }
@@ -854,7 +864,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      keyStart(); stillsStart(); typeStart();
+      stillsStart(); typeStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -901,34 +911,6 @@ const SCENES = [
     scenes.forEach((s) => s.querySelectorAll("video[data-once]").forEach((v) => v.addEventListener("ended", () => s.classList.add("is-ended"))));
     // A clip that carries the scene: when it has played once, the film moves on.
     scenes.forEach((s, k) => s.querySelectorAll("video[data-advance]").forEach((v) => v.addEventListener("ended", () => { if (i === k && !paused) show(k + 1); })));
-    // Her head in front of the progress strip: the top slice of the associate
-    // video, drawn each frame with its white made transparent and the paper
-    // tint applied, on a canvas that sits above the strip.
-    const key = film.querySelector(".assoc-key");
-    const keyScene = key && key.closest(".scene");
-    const keyVideo = keyScene && keyScene.querySelector("video[data-clip]");
-    const keyCtx = key && key.getContext("2d", { willReadFrequently: true });
-    let keyOn = false;
-    function keyDraw() {
-      const W = key.width, H = key.height;
-      if (!keyVideo.videoWidth) return;
-      keyCtx.clearRect(0, 0, W, H);
-      keyCtx.drawImage(keyVideo, 0, 0, keyVideo.videoWidth, keyVideo.videoHeight * H / 768, 0, 0, W, H);
-      const img = keyCtx.getImageData(0, 0, W, H), d = img.data, fade = W * 0.24;
-      for (let p = 0; p < d.length; p += 4) {
-        const r = d[p], g = d[p + 1], b = d[p + 2], m = Math.min(r, g, b);
-        let a = m >= 250 ? 0 : m <= 226 ? 1 : (250 - m) / 24;
-        const x = (p >> 2) % W; if (x < fade) a *= x / fade;
-        d[p] = Math.min(255, r * 0.987); d[p + 1] = Math.min(255, g * 0.979); d[p + 2] = Math.min(255, b * 0.971); d[p + 3] = a * 255;
-      }
-      keyCtx.putImageData(img, 0, 0);
-    }
-    function keyLoop() {
-      if (!keyScene.classList.contains("is-on")) { keyOn = false; keyCtx.clearRect(0, 0, key.width, key.height); return; }
-      keyDraw();
-      requestAnimationFrame(keyLoop);
-    }
-    function keyStart() { if (key && !keyOn && keyScene.classList.contains("is-on")) { keyOn = true; requestAnimationFrame(keyLoop); } }
     // Typed lines: each [data-type] in the scene starts empty and is typed
     // out from its data-at second, a character every 28ms, on a clock that
     // stops while the film is paused.
