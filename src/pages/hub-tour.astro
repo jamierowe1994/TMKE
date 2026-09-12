@@ -33,18 +33,16 @@ const SCATTER = [7, 2, 13, 0, 10, 5, 16, 3, 11, 8, 1, 15, 6, 12, 4, 17, 9, 14];
 const MISSION_PHOTOS = ["/assets/signup/1.webp", "/assets/signup/4.webp", "/assets/signup/8.webp"];
 const MISSION_PHOTOS_2 = ["/assets/signup/5.webp", "/assets/signup/3.webp", "/assets/signup/6.webp"];
 const C = (n) => `/hub-tour/course-${n}.jpg`;
-// The Studio on the iPad: the wine screen with a word typed at the top for a
-// second, then Dani's grabs of the real Studio at the iPad screen's own size
-// (1348x1854, 12 Sep) at 0.4s each, Edit then Create, and the blank wine
-// screen to close on. Her case PNG goes over the top.
-const ST = (n) => `/hub-tour/studio/${n}`;
+// The Studio on the iPad: Dani's finished mockups (12 Sep) — the Studio
+// already inside the iPad, on its own ground, 1600x1900 each. The TMKE
+// screen opens, holds again between Edit and Create, and closes the run.
+const ST = (n) => `/hub-tour/studio/mock-${n}.webp`;
 const STUDIO_STILLS = [
-  { src: ST("bg.png"), secs: 1 },                 // while the scene pushes in
-  { src: ST("bg.png"), type: "EDIT", secs: 1 },
-  ...[1, 2, 3, 4, 5, 6].map((n) => ({ src: ST(`edit-${n}.webp`), secs: 0.4 })),
-  { src: ST("bg.png"), type: "CREATE", secs: 1 },
-  ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((n) => ({ src: ST(`create-${n}.webp`), secs: 0.4 })),
-  { src: ST("bg.png"), secs: 1 },
+  { src: ST(1), secs: 2 },                                              // the TMKE screen, over the push-in
+  ...[2, 3, 4, 5, 6, 7].map((n) => ({ src: ST(n), secs: 0.4 })),        // Edit
+  { src: ST(8), secs: 1.2 },                                            // TMKE again, as the words swap
+  ...[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map((n) => ({ src: ST(n), secs: 0.4 })),   // Create
+  { src: ST(23), secs: 1.2 },                                           // and closed, under the fade out
 ];
 const COURSES = [C("getting-started"), C("5-minutes"), C("before-you-post"), C("instagram"), C("reels"), C("certificate")];
 // The mission-complete grid: the lower two rows of Dani's nine, so it fits a
@@ -298,11 +296,8 @@ const SCENES = [
             </div>
             {s.stills ? (
               <div class="tablet tablet--stills" aria-hidden="true" data-stills={JSON.stringify(s.stills.map((e) => ({ secs: e.secs, type: e.type || "" })))}>
-                <div class="thole">
-                  {s.stills.map((e) => <img class="tstill" src={e.src} alt="" decoding="async" />)}
-                  <span class="ttype" hidden></span>
-                </div>
-                <img class="tcase" src="/hub-tour/studio/case.png" alt="" />
+                {s.stills.map((e) => <img class="tstill" src={e.src} alt="" decoding="async" />)}
+                <span class="ttype" hidden></span>
               </div>
             ) : s.video ? (
               <div class="tablet tablet--video" aria-hidden="true">
@@ -724,20 +719,15 @@ const SCENES = [
   .tablet--video { left: 53%; top: 2.8%; width: 40.9%; aspect-ratio: 822 / 1120; background: none; padding: 0; border-radius: 0; box-shadow: none; }
   .tablet--video::before { left: 1.2%; right: 1.7%; top: 8.2%; bottom: 0; width: auto; aspect-ratio: auto; transform: none; background: none; border-radius: 2.7vw 2.7vw 0 0; box-shadow: 0 40px 90px rgba(28,29,34,0.35); }
   .tablet--video video { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; clip-path: inset(8.2% 1.7% 0 1.2% round 2.7vw 2.7vw 0 0); }
-  /* Dani's case PNG (1700x2200; the body from 2.9% in, 7.7% down, running
-     off the foot; the screen hole at 10.2% / 13.4%, 79.3% by 84.3%) over
-     the stills, placed so the iPad lands where it did. */
-  .tablet--stills { left: auto; top: auto; right: 4%; bottom: 0; width: auto; height: min(92vh, 62vw); aspect-ratio: 1700 / 2200; background: none; padding: 0; border-radius: 0; box-shadow: none; }
-  .tablet--stills::before { display: none; }   /* the case carries its own edge; no cast shadow */
-  .tcase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
-  /* The screen hole, measured from the case PNG: 174/1700 in, 297/2200 down,
-     1346 wide, and running to the case's foot. The paper behind it means a
-     picture that has not finished decoding flashes light, not dark. */
-  .thole { position: absolute; left: 10.24%; top: 13.5%; width: 79.18%; height: 86.5%; overflow: hidden; background: #f4f2f1; z-index: 1; }
-  /* Each grab is the width of the hole and aligned to its top; the hole runs
-     off the foot of the screen, so what falls past the bottom is simply
-     clipped. Scaled by height instead, the Studio's rail lost its edges. */
-  .tstill { position: absolute; left: 0; top: 0; width: 100%; height: auto; opacity: 0; transition: opacity 0.14s linear; }
+  /* Dani's finished mockups: the iPad, its screen and its ground in one
+     picture. Sized by the screen's height on the right; its ground is a hair
+     lighter than our paper, so it multiplies in and leaves no edge. */
+  .tablet--stills { left: auto; right: -3%; bottom: 0; top: auto; width: auto; height: 100%; aspect-ratio: 1600 / 1900; background: none; padding: 0; border-radius: 0; box-shadow: none; }   /* bled off the right, so its ground has no edge of its own */
+  .tablet--stills::before { display: none; }
+  .tstill { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; opacity: 0; transition: opacity 0.14s linear; }
+  /* Its ground is flat while the paper behind it drifts, so the left edge is
+     feathered away - short of the iPad itself, which starts 8% in. */
+  .tablet--stills { -webkit-mask-image: linear-gradient(to right, transparent 0, #000 7%); mask-image: linear-gradient(to right, transparent 0, #000 7%); }
   .tstill.is-cur { opacity: 1; }
   .ttype { position: absolute; left: 13.5%; top: 11.4%; z-index: 3; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 2.4vh, 24px); font-weight: 500; letter-spacing: 0.04em; color: var(--paper); }
   @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
