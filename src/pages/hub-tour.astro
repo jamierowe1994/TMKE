@@ -279,7 +279,6 @@ const SCENES = [
         )}
         {s.kind === "tablet" && (
           <div class="wall-scene" style="--swap: 5.1s">
-            <button type="button" class="scene-replay" data-replay aria-label="Play this scene again"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> Replay</button>
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -395,6 +394,7 @@ const SCENES = [
 
     <button type="button" class="film-tap film-tap--prev" id="film-prev" aria-label="Previous"></button>
     <button type="button" class="film-tap film-tap--next" id="film-next" aria-label="Next"></button>
+    <button type="button" class="scene-replay" id="film-scene-replay" hidden aria-label="Play this scene again"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> Replay</button>
     <div class="film-hud" id="film-hud" aria-hidden="true"><span>Paused</span></div>
     <a class="film-mark" href="/">TMKE</a>
   </main>
@@ -728,11 +728,11 @@ const SCENES = [
      the foot (9.2s, 9.8s). The box itself never goes. */
   .scene--learn, .scene--complete, .scene--tablet { display: block; }
   /* The Studio plays itself through, so it gets a way back to the start. */
-  .scene-replay { position: absolute; top: 5.2%; right: 5.6%; z-index: 8; display: inline-flex; align-items: center; gap: 7px;
+  .scene-replay { position: absolute; top: 4.4%; right: 5.6%; z-index: 20; display: inline-flex; align-items: center; gap: 7px;
     padding: 7px 13px; border: 1px solid rgba(28,29,34,0.16); border-radius: 999px; background: rgba(255,255,255,0.7); cursor: pointer;
     font-family: var(--sans); font-size: clamp(10px, 0.72vw, 13px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); }
   .scene-replay:hover { background: #fff; border-color: rgba(55,30,40,0.4); }
-  .scene.is-on .scene-replay { animation: stillIn 0.6s ease 1.2s both; }
+  .scene-replay[hidden] { display: none; }
   .scene.is-on .box.box--p2 { animation-duration: 1.2s; animation-delay: 0.3s; }
   /* Words that swap in place: the two sets share one cell, so the box keeps
      its size; the first fades out at --swap, the second fades in after. */
@@ -909,6 +909,7 @@ const SCENES = [
       }
       film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn|tablet)\b/.test(scenes[n].className));
       film.classList.toggle("is-shot", /scene--(studio|clip)\b/.test(scenes[n].className));
+      if (sceneReplay) sceneReplay.hidden = !scenes[n].classList.contains("scene--tablet");
       segs.forEach((g, k) => {
         g.classList.toggle("is-done", k < n);
         g.classList.remove("is-live");
@@ -964,14 +965,15 @@ const SCENES = [
     });
     // The replay control on a scene that plays itself through: the scene is
     // taken off and put back, so the words and the pictures start over.
-    film.querySelectorAll("[data-replay]").forEach((b) => b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const sc = b.closest(".scene"), k = scenes.indexOf(sc);
-      if (k < 0) return;
+    const sceneReplay = document.getElementById("film-scene-replay");
+    if (sceneReplay) sceneReplay.addEventListener("click", (e) => {
+      e.stopPropagation(); e.preventDefault();
+      const k = i, sc = scenes[k];
+      if (!sc) return;
       if (paused) resume();
       sc.classList.remove("is-on"); void sc.offsetWidth;
       i = -1; show(k);
-    }));
+    });
     // A click on the screen pauses; a second one plays. The edge zones, the
     // buttons and the links keep their own jobs.
     film.addEventListener("click", (e) => {
