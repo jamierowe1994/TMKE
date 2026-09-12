@@ -730,8 +730,14 @@ const SCENES = [
   .tablet--stills { left: auto; top: auto; right: 4%; bottom: 0; width: auto; height: min(92vh, 62vw); aspect-ratio: 1700 / 2200; background: none; padding: 0; border-radius: 0; box-shadow: none; }
   .tablet--stills::before { display: none; }   /* the case carries its own edge; no cast shadow */
   .tcase { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 2; pointer-events: none; }
-  .thole { position: absolute; left: 9.6%; top: 12.8%; width: 80.5%; height: 85.5%; overflow: hidden; background: var(--english-violet); z-index: 1; }   /* a touch beyond the hole, under the bezel */
-  .tstill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; opacity: 0; }
+  /* The screen hole, measured from the case PNG: 174/1700 in, 297/2200 down,
+     1346 wide, and running to the case's foot. The paper behind it means a
+     picture that has not finished decoding flashes light, not dark. */
+  .thole { position: absolute; left: 10.24%; top: 13.5%; width: 79.18%; height: 86.5%; overflow: hidden; background: #f4f2f1; z-index: 1; }
+  /* Each grab is the width of the hole and aligned to its top; the hole runs
+     off the foot of the screen, so what falls past the bottom is simply
+     clipped. Scaled by height instead, the Studio's rail lost its edges. */
+  .tstill { position: absolute; left: 0; top: 0; width: 100%; height: auto; opacity: 0; transition: opacity 0.14s linear; }
   .tstill.is-cur { opacity: 1; }
   .ttype { position: absolute; left: 13.5%; top: 11.4%; z-index: 3; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: clamp(12px, 2.4vh, 24px); font-weight: 500; letter-spacing: 0.04em; color: var(--paper); }
   @keyframes textOut { from { opacity: 1; } to { opacity: 0; } }
@@ -971,11 +977,19 @@ const SCENES = [
         if (clock >= total - 0.7 && i === k && !paused) { running = false; show(k + 1); return; }
         raf = requestAnimationFrame(tick);
       }
+      // Decoded up front, and again before each run: a picture that decodes
+      // mid-sequence shows as a flash where the screen should be.
+      const warm = () => Promise.all(Array.from(imgs).map((im) => (im.decode ? im.decode().catch(() => {}) : Promise.resolve())));
+      warm();
       stillsStart = () => {
         cancelAnimationFrame(raf);
         if (i !== k) { running = false; return; }
-        clock = 0; last = performance.now(); running = true; render(0);
-        raf = requestAnimationFrame(tick);
+        render(0);
+        warm().then(() => {
+          if (i !== k) return;
+          clock = 0; last = performance.now(); running = true;
+          raf = requestAnimationFrame(tick);
+        });
       };
     }
     // A clip's scene lasts as long as the clip.
