@@ -313,7 +313,6 @@ const SCENES = [
         {s.kind === "learn" && (
           <div class="wall-scene wall-scene--motes" style="--swap: 6.8s">
             <canvas class="motes" aria-hidden="true"></canvas>
-            <div class="grain" aria-hidden="true"></div>
             <div class="box box--tl box--p2 swap">
               <div class="swap-a">
                 <h2 class="box-h">{s.h}</h2>
@@ -694,27 +693,12 @@ const SCENES = [
   /* The Studio behind the last two boxes. */
   .studio-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: var(--focus, 50% 50%); }
 
-  /* The paper on Learn what matters is alive without asking to be looked at:
-     a slow wash over it, coarse grain above that, and a dozen faint shapes
-     drifting behind the words. The shapes give way to the cursor and lag a
-     moment behind the scene change. */
-  /* Turned up while Dani looks at it: --grain-a is the grain's strength and
-     K in the script is the shapes' - both dials, to be brought back down. */
-  .wall-scene--motes { --grain-a: 0.22; }
+  /* The paper on Learn what matters carries a slow wash, and over it a canvas
+     of concentric rings, ripples running out through them, and grain that
+     crackles frame to frame. K in the script is the dial for all of it. */
   .wall-scene--motes::before { animation-duration: 19s; background: radial-gradient(circle, rgba(255,255,255,1), rgba(255,255,255,0) 64%); }
-  .wall-scene--motes::after { background: radial-gradient(circle, rgba(55,30,40,0.38), rgba(55,30,40,0) 64%); }
-  .wall-scene--motes::after { animation-duration: 23s; }
-  .wall-scene > .motes, .wall-scene > .grain { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-  .wall-scene > .grain {
-    inset: -6%; width: 112%; height: 112%;
-    opacity: 0.05;
-    mix-blend-mode: multiply;
-    background-size: 560px 560px;
-    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.34' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    opacity: var(--grain-a);
-    animation: grainBreath 11s ease-in-out infinite alternate;
-  }
-  @keyframes grainBreath { from { opacity: calc(var(--grain-a) * 0.45); } to { opacity: var(--grain-a); } }
+  .wall-scene--motes::after { animation-duration: 23s; background: radial-gradient(circle, rgba(55,30,40,0.3), rgba(55,30,40,0) 64%); }
+  .wall-scene > .motes { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
   .scene.is-on .motes { animation: stillIn 2.4s ease both; }
 
   /* ---- Part 02, from the Canva boards ---- */
@@ -1035,81 +1019,103 @@ const SCENES = [
       // one sets the length itself.
       v.addEventListener("loadedmetadata", () => { if (isFinite(v.duration) && v.duration > Number(s.dataset.secs || 0)) s.dataset.secs = String(Math.round(v.duration * 10) / 10); });
     }));
-    // The shapes on Learn what matters. A dozen soft ellipses in the paper's
-    // own tones, each drifting about a home of its own, pulsing slowly, and
-    // pushed aside by the cursor before it springs back. The whole layer lags
-    // a moment behind the scene arriving, and leans away from the pointer, so
-    // it reads as depth rather than movement.
-    (function motes() {
+    // Learn what matters, behind the words: banks of concentric rings, a
+    // ripple running out through them every couple of seconds, and grain that
+    // crackles frame to frame like a projector. Nothing follows the cursor.
+    (function rings() {
       const cv = film.querySelector(".motes");
       if (!cv || !cv.getContext) return;
       const scene = cv.closest(".scene");
       const ctx = cv.getContext("2d");
-      const K = 5;            // the dial: 1 is subtle, 5 is Dani looking at it
-      const TONES = ["55,30,40", "126,103,101"];
-      // One sprite a tone, drawn once: a soft round fall-off, scaled and
-      // turned per shape, which costs almost nothing a frame.
-      const sprites = TONES.map((rgb) => {
-        const c = document.createElement("canvas"); c.width = c.height = 256;
-        const g = c.getContext("2d").createRadialGradient(128, 128, 0, 128, 128, 128);
-        g.addColorStop(0, `rgba(${rgb},1)`); g.addColorStop(0.55, `rgba(${rgb},0.42)`); g.addColorStop(1, `rgba(${rgb},0)`);
-        const cc = c.getContext("2d"); cc.fillStyle = g; cc.fillRect(0, 0, 256, 256);
-        return c;
-      });
-      const N = 12, blobs = [];
-      for (let n = 0; n < N; n++) {
-        const a = (n / N) * Math.PI * 2;
-        blobs.push({
-          hx: 0.5 + Math.cos(a) * (0.26 + (n % 3) * 0.09), hy: 0.5 + Math.sin(a * 1.3) * (0.3 + (n % 4) * 0.06),
-          x: 0, y: 0, vx: 0, vy: 0,
-          r: 90 + (n % 5) * 46, ar: 0.62 + (n % 4) * 0.16, rot: a * 0.8,
-          ph: a * 1.7, sp: 0.16 + (n % 3) * 0.07, tone: n % 2, al: (0.042 + (n % 3) * 0.015) * K,
-        });
+      const K = 2.6;                  // the dial: 1 is barely there, 3 is plain
+      const WINE = "55,30,40";
+      // Four tiles of noise, cycled and shoved about, make the crackle. One
+      // fill a frame, so it costs almost nothing.
+      const TILE = 220, tiles = [];
+      for (let n = 0; n < 4; n++) {
+        const c = document.createElement("canvas"); c.width = c.height = TILE;
+        const cc = c.getContext("2d"), im = cc.createImageData(TILE, TILE), d = im.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const v = Math.random();
+          d[i] = 55; d[i + 1] = 30; d[i + 2] = 40;
+          d[i + 3] = v > 0.5 ? Math.round((v - 0.5) * 2 * 255) : 0;
+        }
+        cc.putImageData(im, 0, 0);
+        tiles.push(ctx.createPattern(c, "repeat"));
       }
-      let w = 0, h = 0, dpr = 1, raf = 0, t0 = 0, last = 0, enter = 0;
-      let mx = -9e3, my = -9e3, leanX = 0, leanY = 0, tgtX = 0, tgtY = 0;
+      // Three banks of rings, each breathing at its own rate.
+      const BANKS = [
+        { cx: 0.78, cy: 0.30, n: 11, gap: 54, r0: 40, sp: 0.22, w: 1.5 },
+        { cx: 0.26, cy: 0.72, n: 9,  gap: 68, r0: 70, sp: 0.16, w: 1.2 },
+        { cx: 0.54, cy: 0.06, n: 7,  gap: 92, r0: 120, sp: 0.11, w: 1.0 },
+      ];
+      const ripples = [];
+      let w = 0, h = 0, dpr = 1, raf = 0, t0 = 0, last = 0, enter = 0, nextRip = 1.2, tile = 0, tileT = 0;
       function size() {
         const r = cv.getBoundingClientRect();
         dpr = Math.min(window.devicePixelRatio || 1, 1.5);
         w = r.width; h = r.height;
         cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        blobs.forEach((b) => { b.x = b.hx * w; b.y = b.hy * h; b.vx = b.vy = 0; });
       }
-      film.addEventListener("pointermove", (e) => {
-        const r = cv.getBoundingClientRect();
-        mx = e.clientX - r.left; my = e.clientY - r.top;
-        tgtX = (mx / r.width - 0.5) * -22 * K * 0.5; tgtY = (my / r.height - 0.5) * -14 * K * 0.5;
-      });
-      film.addEventListener("pointerleave", () => { mx = my = -9e3; tgtX = tgtY = 0; });
-      const R = 240 + 30 * K;
       function frame(now) {
         if (!scene.classList.contains("is-on")) { raf = 0; return; }
         const dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now;
         if (!paused) t0 += dt;
-        // The layer catches up to the scene, and leans away from the pointer.
-        const lag = Math.max(0, 1 - (now - enter) / 1300);   // the layer catching up
-        leanX += (tgtX - leanX) * 0.06; leanY += (tgtY - leanY) * 0.06;
+        const lag = Math.max(0, 1 - (now - enter) / 1300);
+        const off = lag * lag * 90;                      // the layer catching up
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
         ctx.save();
-        ctx.translate(leanX + lag * lag * 46 * K * 0.5, leanY);
-        for (const b of blobs) {
-          if (!paused) {
-            const dx = b.x - mx, dy = b.y - my, d = Math.hypot(dx, dy);
-            if (d < R && d > 0.001) { const f = (1 - d / R) * 34 * K * 0.6 * dt; b.vx += (dx / d) * f; b.vy += (dy / d) * f; }
-            b.vx += (b.hx * w - b.x) * 1.6 * dt + Math.cos(t0 * b.sp + b.ph) * 2.2 * dt;
-            b.vy += (b.hy * h - b.y) * 1.6 * dt + Math.sin(t0 * b.sp * 1.2 + b.ph) * 2.2 * dt;
-            b.vx *= 0.965; b.vy *= 0.965;
-            b.x += b.vx; b.y += b.vy;
+        ctx.translate(off, 0);
+        // The rings.
+        for (const b of BANKS) {
+          const cx = b.cx * w, cy = b.cy * h;
+          const breathe = Math.sin(t0 * b.sp) * 14;
+          for (let n = 0; n < b.n; n++) {
+            const r = b.r0 + n * b.gap + breathe * (1 + n * 0.12);
+            if (r <= 1) continue;
+            const fade = 1 - n / (b.n + 1.5);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, r, r * 0.92, 0, 0, Math.PI * 2);
+            ctx.lineWidth = b.w;
+            ctx.strokeStyle = `rgba(${WINE},${0.05 * K * fade})`;
+            ctx.stroke();
           }
-          const pulse = 1 + Math.sin(t0 * b.sp * 1.6 + b.ph) * 0.11 * Math.min(2.4, K);
-          const rw = b.r * pulse, rh = b.r * b.ar * pulse;
-          ctx.globalAlpha = b.al;
-          ctx.setTransform(dpr, 0, 0, dpr, (leanX + lag * lag * 46 * K * 0.5) * dpr, leanY * dpr);
-          ctx.translate(b.x, b.y); ctx.rotate(b.rot + Math.sin(t0 * 0.08 + b.ph) * 0.25);
-          ctx.drawImage(sprites[b.tone], -rw, -rh, rw * 2, rh * 2);
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
+        // A ripple, now and then, running out through them.
+        if (!paused) {
+          nextRip -= dt;
+          if (nextRip <= 0) {
+            const b = BANKS[Math.floor(Math.random() * BANKS.length)];
+            ripples.push({ cx: b.cx, cy: b.cy, t: 0 });
+            nextRip = 1.9 + Math.random() * 1.4;
+          }
+        }
+        for (let n = ripples.length - 1; n >= 0; n--) {
+          const p = ripples[n];
+          if (!paused) p.t += dt;
+          const k = p.t / 4.6;
+          if (k >= 1) { ripples.splice(n, 1); continue; }
+          const ease = 1 - Math.pow(1 - k, 2.2);
+          const r = 30 + ease * Math.max(w, h) * 0.62;
+          ctx.beginPath();
+          ctx.ellipse(p.cx * w, p.cy * h, r, r * 0.92, 0, 0, Math.PI * 2);
+          ctx.lineWidth = 2.6 * (1 - k) + 0.5;
+          ctx.strokeStyle = `rgba(${WINE},${0.12 * K * (1 - k) * Math.min(1, k * 6)})`;
+          ctx.stroke();
+        }
+        ctx.restore();
+        // The crackle: a different tile, shoved to a different place, a dozen
+        // times a second, with its strength flickering.
+        if (!paused && now - tileT > 78) { tile = (tile + 1) % tiles.length; tileT = now; }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.save();
+        const jx = (tile * 61 + Math.floor(now / 78) * 37) % TILE, jy = (tile * 113 + Math.floor(now / 78) * 71) % TILE;
+        ctx.translate(-jx, -jy);
+        ctx.scale(2.4, 2.4);
+        ctx.globalAlpha = (0.045 + Math.sin(now / 140) * 0.012) * K;
+        ctx.fillStyle = tiles[tile];
+        ctx.fillRect(0, 0, (w + TILE * 3) / 2.4, (h + TILE * 3) / 2.4);
         ctx.restore();
         ctx.globalAlpha = 1;
         raf = requestAnimationFrame(frame);
