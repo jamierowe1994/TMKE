@@ -52,7 +52,7 @@ const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/grid-${n}.webp`
 const SCENES = [
   // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
   // codename and the mission typed out beneath.
-  { kind: "cover", mobile: { secs: 3 }, codename: "The Studio", mission: "Your mission is to take control of your agency’s marketing.\nPlan smarter socials, create better content and build the skills to make your marketing work harder.", secs: 9.5 },
+  { kind: "cover", mobile: { secs: 4.5 }, codename: "The Studio", mission: "Take control of your estate agency’s marketing with better content, stronger strategy and the right tools.", secs: 9.5 },
 
   { kind: "mission", enter: "push", mobile: { skip: true }, n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
@@ -64,7 +64,7 @@ const SCENES = [
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
   // as the last still shows (secs is only the fallback).
-  { kind: "tablet", enter: "push", mobile: { secs: 7.2 }, tech: "The Studio", stills: STUDIO_STILLS,
+  { kind: "tablet", enter: "push", mobile: { secs: 10 }, tech: "The Studio", stills: STUDIO_STILLS,
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
     secs: 12 },
@@ -180,6 +180,26 @@ const SCENES = [
         )}
         {s.kind === "associate" && (
           <div class="wall-scene">
+            <!-- The phone film shows Dani's phone photo with the chat on its screen instead of the figure. -->
+            <div class="chatphone" aria-hidden="true"><div class="chatphone-frame">
+              <img class="chatphone-img" src="/hub-tour/phone/chat-phone.webp" alt="" />
+              <div class="chatphone-screen"><div class="tchat tchat--still">
+                  <div class="tchat-head"><span>What to post · Creative Assistant</span></div>
+                  <div class="tchat-log" id="tchat-log">
+                    <div class="tmsg tmsg--me">I need help launching my new property on social media</div>
+                    <div class="tmsg tmsg--dots"><i></i><i></i></div>
+                    <div class="tmsg tmsg--ai">
+                      <p>For the launch itself, use the <b>New To Market</b> or <b>Just Listed</b> template in <b>The Property Pack</b> &mdash; that&rsquo;s exactly the job it&rsquo;s built for.</p>
+                      <p>A simple launch sequence:</p>
+                      <p><b>Day 1 (listing goes live):</b> New To Market post &mdash; hero photo, headline stat (bedrooms, price, standout feature).</p>
+                      <p><b>Day 2&ndash;3:</b> A second angle &mdash; interior shot or garden/location, different hook (e.g. &ldquo;why this one won&rsquo;t hang around&rdquo;).</p>
+                      <p><b>End of week:</b> Reel or carousel walking through the rooms, if you&rsquo;ve got the footage.</p>
+                      <p>Give me the property type, price and one or two features and I&rsquo;ll write up the copy and captions properly.</p>
+                    </div>
+                  </div>
+                  <div class="tchat-in"><span>What should I post about…?</span><i>&#10148;</i></div>
+                </div></div>
+            </div></div>
             <div class="assoc-fig" aria-hidden="true">
               <img class="assoc-img" src={`/hub-tour/${s.img}`} alt="" />
               <div class="assoc-tab">
@@ -279,6 +299,15 @@ const SCENES = [
         )}
         {s.kind === "tablet" && (
           <div class="wall-scene" style="--swap: 5.1s">
+            <!-- The phone film's Studio: the words sit on a wine card, the card
+                 opens out to fill the screen, the iPad plays on the wine, and it
+                 closes back to a card for Get creative before opening again. -->
+            <div class="ps" aria-hidden="true" data-ph="a">
+              <div class="ps-wine"></div>
+              <div class="ps-card ps-card--a"><h2 class="box-h">{s.a.h}</h2><p class="box-p">{s.a.p1}</p><p class="box-p">{s.a.p2}</p></div>
+              <div class="ps-card ps-card--b"><h2 class="box-h">{s.b.h}</h2><p class="box-p">{s.b.p1}</p><p class="box-p">{s.b.p2}</p></div>
+              <div class="ps-pad">{Array.from({ length: 23 }, (_, n) => <img class="ps-frame" src={`/hub-tour/phone/pad-${n + 1}.webp`} alt="" decoding="async" />)}</div>
+            </div>
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
               <p class="mission-v">{s.tech}</p>
@@ -727,6 +756,8 @@ const SCENES = [
      the phone slides up on the right (7.6s); the two screens pop in along
      the foot (9.2s, 9.8s). The box itself never goes. */
   .scene--learn, .scene--complete, .scene--tablet { display: block; }
+  /* Phone-film pieces, shown only inside the phone breakpoint. */
+  .chatphone, .ps { display: none; }
   /* The Studio plays itself through, so it gets a way back to the start. */
   .scene-replay { position: absolute; top: 4.4%; right: 5.6%; z-index: 20; display: inline-flex; align-items: center; gap: 7px;
     padding: 7px 13px; border: 1px solid rgba(28,29,34,0.16); border-radius: 999px; background: rgba(255,255,255,0.7); cursor: pointer;
@@ -870,14 +901,14 @@ const SCENES = [
      assistant, the demo quicker, Learn with its words changing over one set of
      covers, and the back of the file. */
   @media (max-width: 760px) {
-    /* The cover: the mark and the codename, no mission to read. */
-    .scene--cover .cov-lines dt:nth-of-type(2), .scene--cover .cov-lines dd:nth-of-type(2) { display: none; }
+    /* The cover: the mark, the codename and one line of context, set at once
+       rather than typed, so it can be read in the time a phone gives it. */
     .cov-brand, .cov-conf { top: 7%; left: 22px; }
     .cov-conf { left: auto; right: 22px; }
     .cov-lines { left: 22px; right: 22px; bottom: 11%; }
 
-    /* Not sure what to post: the cards flash in, go, and the box stays to be
-       read. No planner. */
+    /* Not sure what to post: the cards flash in, dim to half, and the box
+       comes up over them to be read. No planner. */
     .scene--prompts .stills--after { display: none; }
     .scene.is-on .pcard, .scene.is-on .tile { animation-delay: calc(0.3s + var(--i) * 0.055s); }
     .scene.is-on .wall--out { animation: wallPhone 2s linear both; }
@@ -885,16 +916,40 @@ const SCENES = [
     /* A better place to start: the same shape. */
     .scene.is-on .wall--edit { animation: wallPhone 2s linear both; }
     .scene--edit.is-on .box--late { animation-duration: 0.8s; animation-delay: 1.9s; }
-    @keyframes wallPhone { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+    /* The wall dims to half and stays there under the box; the scene then
+       leaves as one. */
+    @keyframes wallPhone { 0%, 70% { opacity: 1; } 100% { opacity: 0.5; } }
 
-    /* Just ask: a still - her, holding the tablet with the chat already open. */
-    .scene--associate .tscr, .scene--associate .tmsg--dots { display: none !important; }
-    .scene--associate .tchat, .scene--associate .tmsg--me, .scene--associate .tmsg--ai { animation: none !important; opacity: 1 !important; }
-    .wall-scene > .assoc-fig { left: -12.5%; right: auto; top: auto; bottom: -4%; width: 125%; height: auto; transform: none; z-index: 1; }
+    /* Just ask: no figure - Dani's phone on the sofa, with the chat already
+       open on its screen. The screen is measured from her photo: centred
+       62.86% across and 68.55% down, 35.61% by 47.02%, turned 8.5 degrees. */
+    .wall-scene > .assoc-fig { display: none !important; }
+    .wall-scene > .chatphone { display: flex; position: absolute; inset: 0; justify-content: center; overflow: hidden; z-index: 1; }
+    .chatphone-frame { position: relative; flex: none; height: 100%; aspect-ratio: 1296 / 2304; }
+    .chatphone-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .chatphone-screen { position: absolute; left: calc(62.86% - 17.805%); top: calc(68.55% - 23.51%); width: 35.61%; height: 47.02%; transform: rotate(-8.5deg); border-radius: 13% / 6%; overflow: hidden; container-type: size; }
+    .chatphone .tchat { opacity: 1 !important; animation: none !important; padding-top: 9%; }
+    .chatphone .tmsg { opacity: 1 !important; animation: none !important; font-size: 4.4cqw; }
+    .chatphone .tmsg--dots { display: none !important; }
+    .chatphone .tchat-head { font-size: 3.2cqw; }
+    .chatphone .tchat-in span { font-size: 3.6cqw; }
     .scene--associate .box { z-index: 7; }
 
-    /* The Studio: every frame of the demo, quicker; the iPad centred with the
-       words beneath, and the words change once CREATE is typed. */
+    /* The Studio: the words on a wine card in the middle; the card opens out
+       to fill the screen and the iPad plays on the wine; it closes back to a
+       card for Get creative and opens again for the rest. */
+    .scene--tablet .tablet--stills, .scene--tablet .box--p2 { display: none !important; }
+    .wall-scene > .ps { display: block; position: absolute; inset: 0; z-index: 2; }
+    .ps-wine { position: absolute; inset: 0; background: var(--english-violet); clip-path: inset(33% 6% 33% 6% round 10px); transition: clip-path 0.55s cubic-bezier(.65,0,.35,1); }
+    .ps[data-ph="open"] .ps-wine, .ps[data-ph="pad"] .ps-wine { clip-path: inset(0 0 0 0 round 0); }
+    .ps-card { position: absolute; left: 6%; right: 6%; top: 33%; bottom: 33%; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; color: var(--paper); opacity: 0; transition: opacity 0.3s ease; }
+    .ps-card .box-p { margin-bottom: 8px; }
+    .ps[data-ph="a"] .ps-card--a, .ps[data-ph="b"] .ps-card--b { opacity: 1; transition-delay: 0.3s; }
+    .ps-pad { position: absolute; left: -2.35%; top: 50%; width: 100%; aspect-ratio: 1296 / 2304; transform: translateY(-50%); opacity: 0; transition: opacity 0.3s ease; }
+    .ps[data-ph="pad"] .ps-pad { opacity: 1; transition-delay: 0.1s; }
+    .ps-frame { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
+    .ps-frame.is-prev { opacity: 1; z-index: 1; }
+    .ps-frame.is-cur { opacity: 1; z-index: 2; }
     .tab-meta { display: none; }
     .tablet.tablet--stills { left: 0 !important; right: 0 !important; margin: 0 auto; top: 9% !important; bottom: auto !important; width: auto !important; height: 52% !important; }
     .scene--tablet .wall-scene { --swap: 2.9s !important; }
@@ -981,7 +1036,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      stillsStart(); typeStart(); chatStart();
+      stillsStart(); typeStart(); chatStart(); phoneStudioStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -1082,11 +1137,54 @@ const SCENES = [
     // Typed lines: each [data-type] in the scene starts empty and is typed
     // out from its data-at second, a character every 28ms, on a clock that
     // stops while the film is paused.
+    // The phone film's Studio. One clock (it stops with the film) steps through
+    // the phases - card, open out, iPad frames, back to a card, open out, iPad
+    // frames - and moves the film on when it is done.
+    let psRaf = 0;
+    function phoneStudioStart() {
+      cancelAnimationFrame(psRaf);
+      if (!PHONE) return;
+      const sc = scenes[i], ps = sc && sc.querySelector(".ps");
+      if (!ps) return;
+      const frames = Array.from(ps.querySelectorAll(".ps-frame"));
+      frames.forEach((im) => { im.classList.remove("is-cur", "is-prev"); if (im.decode) im.decode().catch(() => {}); });
+      const T = [
+        { ph: "a", s: 1.6 },
+        { ph: "open", f: 0, s: 0.55 },
+        { ph: "pad", f: 0, s: 0.45 },
+        ...[1, 2, 3, 4, 5, 6].map((f) => ({ ph: "pad", f, s: 0.18 })),
+        { ph: "b", f: 6, s: 2.0 },
+        { ph: "open", f: 7, s: 0.55 },
+        { ph: "pad", f: 7, s: 0.35 },
+        ...[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((f) => ({ ph: "pad", f, s: 0.18 })),
+        { ph: "pad", f: 22, s: 0.45 },
+      ];
+      const total = T.reduce((a, e) => a + e.s, 0);
+      const mine = i;
+      let clock = 0, last = performance.now(), shown = -1, lastPh = "";
+      ps.dataset.ph = "a";
+      const tick = (now) => {
+        if (i !== mine) return;
+        if (!paused) clock += (now - last) / 1000;
+        last = now;
+        let acc = 0, e = T[T.length - 1];
+        for (const x of T) { if (clock < acc + x.s) { e = x; break; } acc += x.s; }
+        if (e.ph !== lastPh) { ps.dataset.ph = e.ph; lastPh = e.ph; }
+        if (e.f !== undefined && e.f !== shown) {
+          const was = shown; shown = e.f;
+          frames.forEach((im, n) => { im.classList.toggle("is-cur", n === shown); im.classList.toggle("is-prev", n === was); });
+        }
+        if (clock >= total && !paused && holdOne < 0) { show(nextIdx(mine)); return; }
+        psRaf = requestAnimationFrame(tick);
+      };
+      psRaf = requestAnimationFrame(tick);
+    }
     let typeRaf = 0;
     function typeStart() {
       cancelAnimationFrame(typeRaf);
       const els = Array.from(scenes[i].querySelectorAll("[data-type]"));
       if (!els.length) return;
+      if (PHONE) { els.forEach((e) => { e.textContent = e.dataset.type; e.classList.remove("is-typing"); }); return; }
       els.forEach((e) => { e.textContent = ""; e.classList.remove("is-typing"); });
       let clock = 0, last = performance.now();
       const mine = i;
@@ -1144,6 +1242,7 @@ const SCENES = [
       warm();
       stillsStart = () => {
         cancelAnimationFrame(raf);
+        if (PHONE) { running = false; return; }   // the phone film runs its own Studio (phoneStudioStart)
         if (i !== k) { running = false; return; }
         shown = -1; render(0);
         warm().then(() => {
