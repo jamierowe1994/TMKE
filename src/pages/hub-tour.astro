@@ -57,25 +57,26 @@ const SCENES = [
   { kind: "mission", enter: "push", mobile: { skip: true }, n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", mobile: { secs: 6.5 }, stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
-  { kind: "edit", enter: "push", mobile: { secs: 6 }, h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
-  { kind: "associate", mobile: { secs: 4 }, img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
+  { kind: "prompts", mobile: { secs: 6.5 }, stills: ["planner-month"], h: "Not sure what to post?", p2: "Property-specific prompts give you ideas throughout the month, from educational and community content to timely opportunities.", mp2: "Your Planner is full of property-specific ideas to inspire you throughout the month.", secs: 11 },
+  { kind: "edit", enter: "push", mobile: { secs: 6 }, h: "A better place to start", p2: "Browse ready-made content packs designed specifically for estate agents. Choose the content you need, then make every template your own.", mp2: "Ready-made content packs designed specifically for estate agents, ready to make your own.", secs: 8 },
+  { kind: "associate", mobile: { secs: 4 }, img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "Start with a question,<br />an idea or even half a thought.", p2: "The Creative Assistant understands property and helps you take the idea further.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
   // as the last still shows (secs is only the fallback).
   { kind: "tablet", enter: "push", mobile: { secs: 10.5 }, tech: "The Studio", stills: STUDIO_STILLS,
-    a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
-    b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
+    a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding. No design experience needed." },
+    b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Go beyond the template with the tools to create something of your own.", p2: "" },
+    mob: "Edit a template or start from scratch. Your content, your branding, your way.",
     secs: 12 },
 
   { kind: "mission", enter: "push", mobile: { skip: true }, n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
   // course covers along the foot; the box again with two hub screens and the
   // blog on a phone; then the mission-complete card with a grid of nine.
-  { kind: "learn", mobile: { secs: 6 }, h: "Learn what matters", p: "Practical marketing courses created specifically for property professionals, covering the skills and knowledge you need to market your business better.", covers: COURSES,
-    h2: "Stay in the know", p2: "Stay on top of what’s changing, what’s trending and what you can use in your own property marketing with our latest insights and guides.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 14.5 },
-  { kind: "complete", enter: "push", mobile: { skip: true }, objective: "Learn it. Then use it", p: "From finding your next idea to understanding what works, the Member Hub connects the tools and knowledge you need to market your property business.", tiles: DONE_TILES, secs: 4 },
+  { kind: "learn", mobile: { secs: 6 }, h: "Learn what matters", p: "Practical marketing training for estate agents, focused on skills and knowledge you can put into practice.", mp: "Practical marketing training built for estate agents.", covers: COURSES,
+    h2: "Stay in the know", p2: "Discover what’s changing, what’s trending and what you can use in your property marketing.", mp2: "See what’s changing, what’s trending and what you can use.", stills: ["learn-courses", "learn-month"], phone: "blog-phone", secs: 14.5 },
+  { kind: "complete", enter: "push", mobile: { skip: true }, objective: "Learn it. Then use it", p: "The ideas, tools and knowledge you need to take control of your marketing, all in one place.", tiles: DONE_TILES, secs: 4 },
 
   { kind: "close", eyebrow: "One connected route", h: "A clearer way to do your marketing.", steps: ["Learn what works", "Find an idea", "Plan it", "Start with a template", "Make it yours", "Get help when stuck", "Post"], secs: 12 },
 ];
@@ -149,8 +150,9 @@ const SCENES = [
             {s.h && (
               <div class={s.kind === "prompts" ? "box box--bl box--after" : "box box--late box--c"}>
                 <h2 class="box-h">{s.h}</h2>
-                <p class="box-p">{s.p1}</p>
-                <p class="box-p">{s.p2}</p>
+                {s.p1 && <p class="box-p">{s.p1}</p>}
+                <p class={s.mp2 ? "box-p only-desk" : "box-p"}>{s.p2}</p>
+                {s.mp2 && <p class="box-p only-phone">{s.mp2}</p>}
               </div>
             )}
           </div>
@@ -230,7 +232,7 @@ const SCENES = [
             <div class="box box--tl">
               <h2 class="box-h">{s.h}</h2>
               <p class="box-p" set:html={s.p1}></p>
-              <p class="box-p">{s.p2}</p>
+              <p class="box-p only-desk">{s.p2}</p>
             </div>
             <div class="assoc-meta">
               <p class="mission-k">Codename</p>
@@ -306,7 +308,7 @@ const SCENES = [
               <div class="ps-stage">
                 <div class="ps-pad">{Array.from({ length: 23 }, (_, n) => <img class="ps-frame" src={`/hub-tour/phone/pad-${n + 1}.webp`} alt="" decoding="async" />)}</div>
               </div>
-              <div class="ps-card"><h2 class="box-h">{s.a.h}</h2><p class="box-p">{s.a.p1} {s.a.p2}</p><p class="box-p">{s.b.p1} {s.b.p2}</p></div>
+              <div class="ps-card"><h2 class="box-h">{s.a.h}</h2><p class="box-p">{s.mob}</p></div>
             </div>
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
@@ -326,7 +328,7 @@ const SCENES = [
               <div class="swap-b">
                 <h2 class="box-h">{s.b.h}</h2>
                 <p class="box-p">{s.b.p1}</p>
-                <p class="box-p">{s.b.p2}</p>
+                {s.b.p2 && <p class="box-p">{s.b.p2}</p>}
               </div>
             </div>
             {s.stills ? (
@@ -350,11 +352,13 @@ const SCENES = [
             <div class="box box--tl box--p2 swap">
               <div class="swap-a">
                 <h2 class="box-h">{s.h}</h2>
-                <p class="box-p">{s.p}</p>
+                <p class="box-p only-desk">{s.p}</p>
+                <p class="box-p only-phone">{s.mp}</p>
               </div>
               <div class="swap-b">
                 <h2 class="box-h">{s.h2}</h2>
-                <p class="box-p">{s.p2}</p>
+                <p class="box-p only-desk">{s.p2}</p>
+                <p class="box-p only-phone">{s.mp2}</p>
               </div>
             </div>
             <div class="covers" aria-hidden="true">
@@ -758,6 +762,8 @@ const SCENES = [
   .scene--learn, .scene--complete, .scene--tablet { display: block; }
   /* Phone-film pieces, shown only inside the phone breakpoint. */
   .chatphone, .ps { display: none; }
+  /* Copy with a phone version: the desktop wording shows by default, the phone wording inside the phone breakpoint. */
+  .only-phone { display: none; }
   /* The Studio plays itself through, so it gets a way back to the start. */
   .scene-replay { position: absolute; top: 4.4%; right: 5.6%; z-index: 20; display: inline-flex; align-items: center; gap: 7px;
     padding: 7px 13px; border: 1px solid rgba(28,29,34,0.16); border-radius: 999px; background: rgba(255,255,255,0.7); cursor: pointer;
@@ -901,6 +907,9 @@ const SCENES = [
      assistant, the demo quicker, Learn with its words changing over one set of
      covers, and the back of the file. */
   @media (max-width: 760px) {
+    .only-desk { display: none !important; }
+    .only-phone { display: block; }
+
     /* The cover: the mark, the codename and one line of context, set at once
        rather than typed, so it can be read in the time a phone gives it. */
     .cov-brand, .cov-conf { top: 7%; left: 22px; }
@@ -946,14 +955,14 @@ const SCENES = [
     .scene--tablet .tablet--stills, .scene--tablet .box--p2 { display: none !important; }
     .wall-scene > .ps { display: block; position: absolute; inset: 0; z-index: 2; }
     .ps.is-reset, .ps.is-reset * { transition: none !important; }
-    .ps-stage { position: absolute; inset: 0; overflow: hidden; background: var(--english-violet); clip-path: inset(28% 6% 28% 6% round 10px); transition: clip-path 0.7s cubic-bezier(.65,0,.35,1); }
+    .ps-stage { position: absolute; inset: 0; overflow: hidden; background: var(--english-violet); clip-path: inset(36% 6% 36% 6% round 10px); transition: clip-path 0.7s cubic-bezier(.65,0,.35,1); }
     .ps[data-ph="open"] .ps-stage, .ps[data-ph="pad"] .ps-stage { clip-path: inset(0 0 0 0 round 0); }
     .ps-pad { position: absolute; left: -2.35%; top: 50%; width: 100%; aspect-ratio: 1296 / 2304; transform: translateY(-50%); opacity: 0.22; transition: opacity 0.7s ease; }
     .ps[data-ph="open"] .ps-pad, .ps[data-ph="pad"] .ps-pad { opacity: 1; }
     .ps-frame { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
     .ps-frame.is-prev { opacity: 1; z-index: 1; }
     .ps-frame.is-cur { opacity: 1; z-index: 2; }
-    .ps-card { position: absolute; left: 6%; right: 6%; top: 28%; bottom: 28%; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; color: var(--paper); transition: opacity 0.35s ease; }
+    .ps-card { position: absolute; left: 6%; right: 6%; top: 36%; bottom: 36%; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; color: var(--paper); transition: opacity 0.35s ease; }
     .ps-card .box-p { margin-bottom: 10px; }
     .ps[data-ph="open"] .ps-card, .ps[data-ph="pad"] .ps-card { opacity: 0; }
     .scene.is-on .ps-card > * { animation: stillIn 0.8s ease 0.2s both; }
