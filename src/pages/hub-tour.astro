@@ -427,6 +427,7 @@ const SCENES = [
 
     <button type="button" class="film-tap film-tap--prev" id="film-prev" aria-label="Previous"></button>
     <button type="button" class="film-tap film-tap--next" id="film-next" aria-label="Next"></button>
+    <button type="button" class="film-sound" id="film-sound" aria-pressed="false" aria-label="Turn the sound effects on or off"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4z"/><path class="film-sound-waves" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg><span class="film-sound-l">Sound off</span></button>
     <button type="button" class="scene-replay" id="film-scene-replay" hidden aria-label="Play this scene again"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> Replay</button>
     <div class="film-hud" id="film-hud" aria-hidden="true"><span>Paused</span></div>
     <a class="film-mark" href="/">TMKE</a>
@@ -778,6 +779,13 @@ const SCENES = [
     font-family: var(--sans); font-size: clamp(10px, 0.72vw, 13px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--english-violet); }
   .scene-replay:hover { background: #fff; border-color: rgba(55,30,40,0.4); }
   .scene-replay[hidden] { display: none; }
+  /* The sound toggle: bottom right, above the step zones, in the colour of
+     whichever ground it sits on. */
+  .film-sound { position: absolute; right: 26px; bottom: 22px; z-index: 20; display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(244,242,241,0.28); background: rgba(28,29,34,0.22); color: rgba(244,242,241,0.85);
+    font-family: var(--sans); font-size: clamp(10px, 0.72vw, 13px); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+  .film.is-light .film-sound { border-color: rgba(28,29,34,0.16); background: rgba(255,255,255,0.7); color: var(--english-violet); }
+  .film-sound[aria-pressed="false"] .film-sound-waves { opacity: 0.25; }
   .scene.is-on .box.box--p2 { animation-duration: 1.2s; animation-delay: 0.3s; }
   /* Words that swap in place: the two sets share one cell, so the box keeps
      its size; the first fades out at --swap, the second fades in after. */
@@ -979,6 +987,7 @@ const SCENES = [
     .scene--tablet .wall-scene { --swap: 2.9s !important; }
     .ttype { font-size: 9px; }
     .scene-replay { top: 26px; right: 14px; padding: 5px 10px; }
+    .film-sound { right: 14px; bottom: 14px; padding: 5px 10px; }
 
     /* Learn what matters: one set of covers, and the words change over them. */
     .scene.is-on .cover { animation: pop 0.6s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.4s + var(--i) * 0.12s); }
@@ -1060,7 +1069,7 @@ const SCENES = [
       });
       scenes[n].style.setProperty("--drift", secsOf(n) + "ms");
       scenes.forEach((s, k) => s.querySelectorAll("video[data-clip]").forEach((v) => { if (k === n) { s.classList.remove("is-ended"); try { v.currentTime = 0; v.playbackRate = Number(v.dataset.rate || 1); v.play().catch(() => {}); } catch (_) {} } else { v.pause(); } }));
-      stillsStart(); typeStart(); chatStart(); phoneStudioStart();
+      stillsStart(); typeStart(); chatStart(); phoneStudioStart(); cueStart();
       remaining = secsOf(n) + wait; startedAt = Date.now();
       if (!paused) arm();
     }
@@ -1221,7 +1230,7 @@ const SCENES = [
         els.forEach((e) => {
           const full = e.dataset.type, at = Number((PHONE && e.dataset.atPhone) || e.dataset.at || 0);
           const n = Math.max(0, Math.min(full.length, Math.floor((clock - at) / 0.028)));
-          if (e.textContent.length !== n) e.textContent = full.slice(0, n);
+          if (e.textContent.length !== n) { const grew = n > e.textContent.length; e.textContent = full.slice(0, n); if (grew && full.charAt(n - 1).trim()) sfxType(); }
           const typing = clock >= at && n < full.length;
           e.classList.toggle("is-typing", typing);
           if (n < full.length) done = false;
@@ -1251,7 +1260,7 @@ const SCENES = [
           imgs.forEach((im, n) => { im.classList.toggle("is-cur", n === cur); im.classList.toggle("is-prev", n === was); });
         }
         const e = list[cur];
-        if (e.type) { typ.textContent = e.type.slice(0, Math.min(e.type.length, Math.floor(into / 0.07))); typ.hidden = false; } else typ.hidden = true;   /* typed in under half a second, then held */
+        if (e.type) { const was = typ.hidden ? 0 : typ.textContent.length, nextText = e.type.slice(0, Math.min(e.type.length, Math.floor(into / 0.07))); typ.textContent = nextText; typ.hidden = false; if (nextText.length > was && running) sfxType(); } else typ.hidden = true;   /* typed in under half a second, then held */
       }
       function tick(now) {
         if (!running) return;
@@ -1283,6 +1292,108 @@ const SCENES = [
       // one sets the length itself.
       v.addEventListener("loadedmetadata", () => { if (isFinite(v.duration) && v.duration > Number(s.dataset.secs || 0)) s.dataset.secs = String(Math.round(v.duration * 10) / 10); });
     }));
+    // ---------- Sound: effects only, synthesised here (no files, no licences) ----------
+    // Three options for each effect; SFX says which one the film uses. The same
+    // code drives the shortlist page Dani auditions them on.
+    const SOUNDS = (() => {
+      let noise = null;
+      const buf = (ctx) => {
+        if (noise && noise.sampleRate === ctx.sampleRate) return noise;
+        noise = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 1.2), ctx.sampleRate);
+        const d = noise.getChannelData(0); for (let k = 0; k < d.length; k++) d[k] = Math.random() * 2 - 1;
+        return noise;
+      };
+      // A burst of noise through a filter, with a quick envelope.
+      const burst = (ctx, out, t, { dur, type = "bandpass", f = 2000, f2 = null, q = 1, peak = 0.2, attack = 0.002 }) => {
+        const src = ctx.createBufferSource(); src.buffer = buf(ctx);
+        const flt = ctx.createBiquadFilter(); flt.type = type; flt.Q.value = q;
+        flt.frequency.setValueAtTime(f, t);
+        if (f2) flt.frequency.exponentialRampToValueAtTime(f2, t + dur);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + attack);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        src.connect(flt).connect(g).connect(out);
+        src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+      };
+      const tone = (ctx, out, t, { f, f2 = null, dur, peak = 0.1, wave = "sine" }) => {
+        const o = ctx.createOscillator(); o.type = wave; o.frequency.setValueAtTime(f, t);
+        if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+        const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(peak, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.02);
+      };
+      const vary = (x, amt) => x * (1 - amt + Math.random() * amt * 2);
+      return {
+        type: {
+          1: { name: "Soft key", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.03, f: vary(2300, 0.15), q: 1.6, peak: 0.16 }) },
+          2: { name: "Typewriter", play: (ctx, out, t) => { burst(ctx, out, t, { dur: 0.035, f: vary(3400, 0.12), q: 3, peak: 0.2 }); tone(ctx, out, t, { f: vary(140, 0.1), dur: 0.04, peak: 0.08 }); } },
+          3: { name: "Laptop key", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.014, type: "highpass", f: vary(4200, 0.1), q: 0.7, peak: 0.12 }) },
+        },
+        click: {
+          1: { name: "Light switch", play: (ctx, out, t) => { burst(ctx, out, t, { dur: 0.012, type: "highpass", f: 2200, q: 0.7, peak: 0.45 }); burst(ctx, out, t + 0.04, { dur: 0.03, f: 950, q: 2, peak: 0.32 }); tone(ctx, out, t + 0.04, { f: 190, dur: 0.05, peak: 0.12 }); } },
+          2: { name: "Soft click", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.02, f: 1500, q: 4, peak: 0.4 }) },
+          3: { name: "Heavy toggle", play: (ctx, out, t) => { tone(ctx, out, t, { f: 95, f2: 60, dur: 0.09, peak: 0.34 }); burst(ctx, out, t, { dur: 0.035, f: 720, q: 1.5, peak: 0.3 }); } },
+        },
+        whoosh: {
+          1: { name: "Airy sweep", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.75, f: 380, f2: 2600, q: 0.9, peak: 0.2, attack: 0.28 }) },
+          2: { name: "Low swish", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.55, type: "lowpass", f: 280, f2: 1400, q: 0.8, peak: 0.32, attack: 0.18 }) },
+          3: { name: "Quick swipe", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.36, f: 700, f2: 4200, q: 1.2, peak: 0.2, attack: 0.1 }) },
+        },
+      };
+    })();
+    const SFX = { type: 1, click: 1, whoosh: 1 };   // which option of each the film uses (Dani picks from the shortlist)
+    let audio = null, master = null, soundOn = false, lastType = 0;
+    try { soundOn = localStorage.getItem("tmke.film.sound") === "on"; } catch (_) {}
+    function audioCtx() {
+      if (!audio) {
+        const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+        audio = new C(); master = audio.createGain(); master.gain.value = 0.9; master.connect(audio.destination);
+      }
+      if (audio.state === "suspended") audio.resume();
+      return audio;
+    }
+    function sfx(kind) {
+      if (!soundOn || paused) return;
+      const ctx = audioCtx(); if (!ctx) return;
+      const pick = SOUNDS[kind] && SOUNDS[kind][SFX[kind]];
+      if (pick) pick.play(ctx, master, ctx.currentTime);
+    }
+    // Typing plays a key for each letter, never more often than every 40ms.
+    function sfxType() { const t = performance.now(); if (t - lastType < 40) return; lastType = t; sfx("type"); }
+    // The toggle: off until the viewer turns it on (browsers only allow sound after a click).
+    const soundBtn = document.getElementById("film-sound");
+    const paintSound = () => { if (!soundBtn) return; soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false"); soundBtn.querySelector(".film-sound-l").textContent = soundOn ? "Sound on" : "Sound off"; };
+    if (soundBtn) {
+      paintSound();
+      soundBtn.addEventListener("click", (e) => {
+        e.stopPropagation(); e.preventDefault();
+        soundOn = !soundOn; paintSound();
+        try { localStorage.setItem("tmke.film.sound", soundOn ? "on" : "off"); } catch (_) {}
+        if (soundOn) audioCtx();
+      });
+    }
+    // Moments tied to what happens on screen, on a clock that stops with the
+    // film: the lamp going off and the Learn covers sliding away (both desktop
+    // only - a phone cuts Mission complete and keeps its covers still). Learn
+    // fades in, so its covers move 0.7s after the scene starts.
+    const CUES = { complete: [{ at: 3.4, s: "click", desk: true }], learn: [{ at: 7.25, s: "whoosh", desk: true }] };
+    let cueRaf = 0;
+    function cueStart() {
+      cancelAnimationFrame(cueRaf);
+      const kind = (scenes[i].className.match(/scene--([a-z]+)/) || [])[1];
+      const list = (CUES[kind] || []).filter((c) => !(c.desk && PHONE));
+      if (!list.length) return;
+      const mine = i, fired = new Set();
+      let clock = 0, last = performance.now();
+      const tick = (now) => {
+        if (i !== mine) return;
+        if (!paused) clock += (now - last) / 1000;
+        last = now;
+        list.forEach((c, n) => { if (!fired.has(n) && clock >= c.at) { fired.add(n); sfx(c.s); } });
+        if (fired.size < list.length) cueRaf = requestAnimationFrame(tick);
+      };
+      cueRaf = requestAnimationFrame(tick);
+    }
     show(holdOne >= 0 ? holdOne : (skipped(0) ? nextIdx(0) : 0));
   })();
 </script>
