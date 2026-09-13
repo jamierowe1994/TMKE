@@ -38,7 +38,7 @@ const C = (n) => `/hub-tour/course-${n}.jpg`;
 // screen opens, holds again between Edit and Create, and closes the run.
 const ST = (n) => `/hub-tour/studio/ipad-${n}.webp`;   // renamed: Cloudflare holds these for four hours, so a change needs a new name
 const STUDIO_STILLS = [
-  { src: ST(1), type: "EDIT", secs: 2 },                                              // the TMKE screen, over the push-in
+  { src: ST(1), type: "EDIT", typeAt: 2, secs: 4 },                                   // the TMKE screen: held while the scene pushes in and the iPad settles, then EDIT is typed
   ...[2, 3, 4, 5, 6, 7].map((n) => ({ src: ST(n), secs: 0.4 })),        // Edit
   { src: ST(8), type: "CREATE", secs: 1.2 },                                            // TMKE again, as the words swap
   ...[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22].map((n) => ({ src: ST(n), secs: 0.4 })),   // Create
@@ -58,17 +58,16 @@ const SCENES = [
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
   { kind: "prompts", mobile: { secs: 6.5 }, stills: ["planner-month"], h: "Not sure what to post?", p2: "Property-specific prompts give you ideas throughout the month, from educational and community content to timely opportunities.", mp2: "Your Planner is full of property-specific ideas to inspire you throughout the month.", secs: 11 },
-  { kind: "edit", enter: "push", mobile: { secs: 6 }, h: "A better place to start", p2: "Browse ready-made content packs designed specifically for estate agents. Choose the content you need, then make every template your own.", mp2: "Ready-made content packs designed specifically for estate agents, ready to make your own.", secs: 8 },
+  { kind: "edit", enter: "push", mobile: { secs: 6.5 }, h: "A better place to start", p2: "Browse ready-made content packs designed specifically for estate agents. Choose the content you need, then make every template your own.", mp2: "Ready-made content packs designed specifically for estate agents, ready to make your own.", secs: 8 },
   { kind: "associate", mobile: { secs: 4 }, img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "Start with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, helping you take your ideas further.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
   // as the last still shows (secs is only the fallback).
-  { kind: "tablet", enter: "push", mobile: { secs: 10.5 }, tech: "The Studio", stills: STUDIO_STILLS,
+  { kind: "tablet", enter: "push", mobile: { secs: 10.5 }, tech: "The Studio", stills: STUDIO_STILLS, secs: 14,
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding. No design experience needed." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Go beyond the template with the tools to create something of your own.", p2: "" },
-    mob: "Edit a template or start from scratch. Your content, your branding, your way.",
-    secs: 12 },
+    mob: "Edit a template or start from scratch. Your content, your branding, your way." },
 
   { kind: "mission", enter: "push", mobile: { skip: true }, n: "2 | 2", objective: "Get better at marketing.", goals: ["Build your knowledge.", "Keep up with what’s working.", "Put it into practice."], photos: MISSION_PHOTOS_2, secs: 3 },
   // Part 02 follows Dani's boards (11 Sep 2026): the box top-left and the six
@@ -300,7 +299,7 @@ const SCENES = [
           </div>
         )}
         {s.kind === "tablet" && (
-          <div class="wall-scene" style="--swap: 5.1s">
+          <div class="wall-scene" style="--swap: 7.1s">
             <!-- The phone film's Studio: the iPad is already there, dimmed, behind
                  a wine card carrying both halves of the copy; the card opens out to
                  the edges and reveals it, and it plays straight through. -->
@@ -332,7 +331,7 @@ const SCENES = [
               </div>
             </div>
             {s.stills ? (
-              <div class="tablet tablet--stills" aria-hidden="true" data-stills={JSON.stringify(s.stills.map((e) => ({ secs: e.secs, type: e.type || "" })))}>
+              <div class="tablet tablet--stills" aria-hidden="true" data-stills={JSON.stringify(s.stills.map((e) => ({ secs: e.secs, type: e.type || "", typeAt: e.typeAt || 0 })))}>
                 {s.stills.map((e) => <img class="tstill" src={e.src} alt="" decoding="async" />)}
                 <span class="ttype" hidden></span>
               </div>
@@ -934,6 +933,9 @@ const SCENES = [
     .cov-brand, .cov-conf { top: 7%; left: 22px; }
     .cov-conf { left: auto; right: 22px; }
     .cov-lines { left: 22px; right: 22px; bottom: 6.5%; }
+    /* Mission sits half as far below Codename: the gap shrinks and the block
+       lifts by the same amount, so Codename stays put and Mission comes up. */
+    .cov:not(.cov--back) .cov-lines { row-gap: 0.6vh; bottom: calc(6.5% + 1.8vh); }
     /* No TMKE wordmark in the corner on a phone: the wine slides carry the
        embossed mark, and on the paper ones it was already off. */
     .film-mark { display: none !important; }
@@ -942,6 +944,9 @@ const SCENES = [
        comes up over them to be read. No planner. */
     .scene--prompts .stills--after { display: none; }
     .scene.is-on .pcard, .scene.is-on .tile { animation-delay: calc(0.3s + var(--i) * 0.055s); }
+    /* Edit pushes in over Prompts: its tiles land while it slides, all in by
+       the time it stops, so the new screen never arrives empty. */
+    .scene--edit.is-on .tile { animation-delay: calc(0.05s + var(--i) * 0.03s); }
     /* The last card lands at 1.7s; the wall holds for half a second, dims to
        half by 2.8s, and the box comes up over it. */
     .scene.is-on .wall--out { animation: wallPhone 2.8s linear both; }
@@ -976,7 +981,7 @@ const SCENES = [
     .ps.is-reset, .ps.is-reset * { transition: none !important; }
     .ps-stage { position: absolute; inset: 0; overflow: hidden; background: var(--english-violet); clip-path: inset(36% 6% 36% 6% round 10px); transition: clip-path 0.7s cubic-bezier(.65,0,.35,1); }
     .ps[data-ph="open"] .ps-stage, .ps[data-ph="pad"] .ps-stage { clip-path: inset(0 0 0 0 round 0); }
-    .ps-pad { position: absolute; left: -2.35%; top: 50%; width: 100%; aspect-ratio: 1296 / 2304; transform: translateY(-50%); opacity: 0.22; transition: opacity 0.7s ease; }
+    .ps-pad { position: absolute; left: -2.35%; top: 50%; width: 100%; aspect-ratio: 1296 / 2304; transform: translateY(-50%); opacity: 0; transition: opacity 0.7s ease; }
     .ps[data-ph="open"] .ps-pad, .ps[data-ph="pad"] .ps-pad { opacity: 1; }
     .ps-frame { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
     .ps-frame.is-prev { opacity: 1; z-index: 1; }
@@ -984,7 +989,6 @@ const SCENES = [
     .ps-card { position: absolute; left: 6%; right: 6%; top: 36%; bottom: 36%; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; color: var(--paper); transition: opacity 0.35s ease; }
     .ps-card .box-p { margin-bottom: 10px; }
     .ps[data-ph="open"] .ps-card, .ps[data-ph="pad"] .ps-card { opacity: 0; }
-    .scene.is-on .ps-card > * { animation: stillIn 0.8s ease 0.2s both; }
     .tab-meta { display: none; }
     .tablet.tablet--stills { left: 0 !important; right: 0 !important; margin: 0 auto; top: 9% !important; bottom: auto !important; width: auto !important; height: 52% !important; }
     .scene--tablet .wall-scene { --swap: 2.9s !important; }
@@ -996,6 +1000,8 @@ const SCENES = [
     .scene.is-on .cover { animation: pop 0.6s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(0.4s + var(--i) * 0.12s); }
     .bphone, .know-stills { display: none !important; }
     .scene--learn .wall-scene { --swap: 2.8s !important; }
+    /* The covers sit up under the box rather than on the foot. */
+    .covers { bottom: 20%; }
 
     /* The back of the file: the labelled lines stack. The route's items sit
        with no space between them, so on a phone they wrap as a flex row, and
@@ -1211,6 +1217,7 @@ const SCENES = [
         if (e.ph !== lastPh) { ps.dataset.ph = e.ph; lastPh = e.ph; }
         if (e.f !== undefined && e.f !== shown) {
           const was = shown; shown = e.f;
+          if (was >= 0) sfx("mouse");   // someone clicking, for the screen to change
           frames.forEach((im, n) => { im.classList.toggle("is-cur", n === shown); im.classList.toggle("is-prev", n === was); });
         }
         if (clock >= total && !paused && holdOne < 0) { show(nextIdx(mine)); return; }
@@ -1228,7 +1235,9 @@ const SCENES = [
       const mine = i;
       const tick = (now) => {
         if (i !== mine) return;
-        if (!paused) clock += (now - last) / 1000;
+        // On a phone a stalled frame (the page still loading) moves the clock
+        // on no more than 50ms, so a row types letter by letter, never at once.
+        if (!paused) clock += PHONE ? Math.min(0.05, (now - last) / 1000) : (now - last) / 1000;
         last = now;
         let done = true;
         els.forEach((e) => {
@@ -1264,7 +1273,7 @@ const SCENES = [
           imgs.forEach((im, n) => { im.classList.toggle("is-cur", n === cur); im.classList.toggle("is-prev", n === was); });
         }
         const e = list[cur];
-        if (e.type) { const was = typ.hidden ? 0 : typ.textContent.length, nextText = e.type.slice(0, Math.min(e.type.length, Math.floor(into / 0.07))); typ.textContent = nextText; typ.hidden = false; if (nextText.length > was && running) sfxType(); } else typ.hidden = true;   /* typed in under half a second, then held */
+        if (e.type && into >= (e.typeAt || 0)) { const was = typ.hidden ? 0 : typ.textContent.length, nextText = e.type.slice(0, Math.min(e.type.length, Math.floor((into - (e.typeAt || 0)) / 0.07))); typ.textContent = nextText; typ.hidden = false; if (nextText.length > was && running) sfxType(); } else typ.hidden = true;   /* typed in under half a second, then held */
       }
       function tick(now) {
         if (!running) return;
@@ -1343,9 +1352,13 @@ const SCENES = [
           2: { name: "Low swish", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.55, type: "lowpass", f: 280, f2: 1400, q: 0.8, peak: 0.32, attack: 0.18 }) },
           3: { name: "Quick swipe", play: (ctx, out, t) => burst(ctx, out, t, { dur: 0.36, f: 700, f2: 4200, q: 1.2, peak: 0.2, attack: 0.1 }) },
         },
+        // A mouse button: the press, then a lighter release.
+        mouse: {
+          1: { name: "Mouse click", play: (ctx, out, t) => { burst(ctx, out, t, { dur: 0.012, type: "highpass", f: 2600, q: 0.8, peak: 0.3 }); burst(ctx, out, t, { dur: 0.018, f: 1300, q: 3, peak: 0.18 }); burst(ctx, out, t + 0.065, { dur: 0.008, type: "highpass", f: 3200, q: 0.8, peak: 0.12 }); } },
+        },
       };
     })();
-    const SFX = { type: 1, click: 2, whoosh: 3 };   // which option of each the film uses (Dani picks from the shortlist)
+    const SFX = { type: 1, click: 2, whoosh: 3, mouse: 1 };   // which option of each the film uses (Dani picks from the shortlist)
     let audio = null, master = null, soundOn = false, lastType = 0;
     try { soundOn = localStorage.getItem("tmke.film.sound") === "on"; } catch (_) {}
     function audioCtx() {
