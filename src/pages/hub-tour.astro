@@ -532,6 +532,9 @@ const SCENES = [
   /* Tap zones either side, and a small paused note. */
   .film-tap { position: absolute; top: 0; bottom: 0; width: 22%; background: none; border: 0; cursor: pointer; z-index: 4; }
   .film.is-one .film-tap, .film.is-one .film-progress { display: none; }   /* one scene, held for a look */
+  /* The end slide holds, and its buttons sit where the edge zones would be:
+     the zones step aside so Become a member, the demo and Play again get the click. */
+  .film.is-end .film-tap { display: none; }
   .film-tap--prev { left: 0; } .film-tap--next { right: 0; }
   .film-hud { position: absolute; bottom: 22px; right: 28px; z-index: 5; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,242,241,0.6); opacity: 0; transition: opacity 0.3s; }
   .film.is-paused .film-hud { opacity: 1; }
@@ -1060,6 +1063,7 @@ const SCENES = [
       }
       film.classList.toggle("is-light", /scene--(prompts|edit|ask|associate|phone|studio|clip|learn|tablet)\b/.test(scenes[n].className));
       film.classList.toggle("is-shot", /scene--(studio|clip)\b/.test(scenes[n].className));
+      film.classList.toggle("is-end", n === scenes.length - 1);
       if (sceneReplay) sceneReplay.hidden = !scenes[n].classList.contains("scene--tablet");
       segs.forEach((g, k) => {
         g.classList.toggle("is-done", k < n);
