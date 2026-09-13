@@ -1235,9 +1235,9 @@ const SCENES = [
       const mine = i;
       const tick = (now) => {
         if (i !== mine) return;
-        // On a phone a stalled frame (the page still loading) moves the clock
-        // on no more than 50ms, so a row types letter by letter, never at once.
-        if (!paused) clock += PHONE ? Math.min(0.05, (now - last) / 1000) : (now - last) / 1000;
+        // A stalled frame (the page still loading) moves the clock on no more
+        // than 50ms, so a row types letter by letter with its keys, never at once.
+        if (!paused) clock += Math.min(0.05, (now - last) / 1000);
         last = now;
         let done = true;
         els.forEach((e) => {
@@ -1366,12 +1366,15 @@ const SCENES = [
         const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
         audio = new C(); master = audio.createGain(); master.gain.value = 0.9; master.connect(audio.destination);
       }
-      if (audio.state === "suspended") audio.resume();
+      if (audio.state !== "running") { try { const r = audio.resume(); if (r && r.catch) r.catch(() => {}); } catch (_) {} }
       return audio;
     }
     function sfx(kind) {
       if (!soundOn || paused) return;
-      const ctx = audioCtx(); if (!ctx) return;
+      // Only into a running context. One still waiting for the viewer's first
+      // tap holds every sound it is given and plays them all at once when it
+      // wakes - sounds turning up out of nowhere. Until then, they are dropped.
+      const ctx = audioCtx(); if (!ctx || ctx.state !== "running") return;
       const pick = SOUNDS[kind] && SOUNDS[kind][SFX[kind]];
       if (pick) pick.play(ctx, master, ctx.currentTime);
     }
@@ -1389,28 +1392,42 @@ const SCENES = [
         if (soundOn) audioCtx();
       });
     }
-    // Moments tied to what happens on screen, on a clock that stops with the
-    // film: the lamp going off and the Learn covers sliding away (both desktop
-    // only - a phone cuts Mission complete and keeps its covers still). Learn
-    // fades in, so its covers move 0.7s after the scene starts.
-    const CUES = { complete: [{ at: 3.4, s: "click", desk: true }], learn: [{ at: 7.25, s: "whoosh", desk: true }] };
-    let cueRaf = 0;
-    function cueStart() {
-      cancelAnimationFrame(cueRaf);
-      const kind = (scenes[i].className.match(/scene--([a-z]+)/) || [])[1];
-      const list = (CUES[kind] || []).filter((c) => !(c.desk && PHONE));
-      if (!list.length) return;
-      const mine = i, fired = new Set();
-      let clock = 0, last = performance.now();
-      const tick = (now) => {
-        if (i !== mine) return;
-        if (!paused) clock += (now - last) / 1000;
-        last = now;
-        list.forEach((c, n) => { if (!fired.has(n) && clock >= c.at) { fired.add(n); sfx(c.s); } });
-        if (fired.size < list.length) cueRaf = requestAnimationFrame(tick);
-      };
-      cueRaf = requestAnimationFrame(tick);
+    // Browsers keep sound asleep until the viewer touches the page, even with
+    // Sound left on from a visit before: the first tap, click or key wakes it.
+    {
+      const wake = () => { if (soundOn) audioCtx(); };
+      ["pointerdown", "touchend", "keydown"].forEach((ev) => document.addEventListener(ev, wake, { capture: true, passive: true }));
     }
+    // Sounds that belong to an animation play from that animation's own clock,
+    // not a timer beside it: they wait while the film is paused, and a late
+    // frame or a slow fade can't pull them apart. afterMs is how far into the
+    // animation the thing is seen - the lamp's first flick dark comes at 28% of
+    // its 0.36s steps; the covers ease in, so the swipe starts 0.3s into their
+    // 1s slide and peaks as they fly off. One sound for each group (six pictures go
+    // out together, six covers leave 70ms apart), each time the scene plays.
+    // The phone film has neither: it cuts Mission complete, and its covers stay.
+    const ANIM_SFX = [
+      { name: "lampOff", sel: ".mission-grid img", afterMs: 100, s: "click" },
+      { name: "scoot", sel: ".cover", afterMs: 300, s: "whoosh" },
+    ];
+    let cueRun = 0, cueFired = new Set();
+    function cueStart() { cueRun++; cueFired = new Set(); }
+    film.addEventListener("animationstart", (ev) => {
+      const cue = ANIM_SFX.find((c) => ev.animationName === c.name && ev.target.matches(c.sel));
+      if (!cue || cueFired.has(cue.name)) return;
+      const sc = ev.target.closest(".scene");
+      if (!sc || sc !== scenes[i]) return;
+      const anim = ev.target.getAnimations().find((a) => a.animationName === cue.name);
+      if (!anim) return;
+      cueFired.add(cue.name);
+      const run = cueRun, at = (Number(anim.effect.getTiming().delay) || 0) + cue.afterMs;
+      const wait = () => {
+        if (run !== cueRun || anim.playState === "idle") return;
+        if ((anim.currentTime || 0) >= at) { sfx(cue.s); return; }
+        requestAnimationFrame(wait);
+      };
+      wait();
+    });
     show(holdOne >= 0 ? holdOne : (skipped(0) ? nextIdx(0) : 0));
   })();
 </script>
