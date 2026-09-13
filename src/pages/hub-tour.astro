@@ -52,19 +52,19 @@ const DONE_TILES = [1, 2, 3, 4, 5, 6].map((n) => `/hub-tour/done/grid-${n}.webp`
 const SCENES = [
   // The cover (Dani's board, 12 Sep): the mark embossed into the wine, the
   // codename and the mission typed out beneath.
-  { kind: "cover", mobile: { secs: 4.5 }, codename: "The Studio", mission: "Take control of your estate agency’s marketing with better content, stronger strategy and the right tools.", secs: 9.5 },
+  { kind: "cover", mobile: { secs: 6 }, codename: "The Studio", mission: "Take control of your estate agency’s marketing with better content, stronger strategy and the right tools.", secs: 9.5 },
 
   { kind: "mission", enter: "push", mobile: { skip: true }, n: "1 | 2", objective: "Create your next post", goals: ["Find the idea.", "Create the content.", "Make it yours."], photos: MISSION_PHOTOS, secs: 3 },
   // One scene: the wall of prompt cards flashes in and holds, fades out, then
   // the three screens and the box fade in together.
-  { kind: "prompts", mobile: { secs: 5 }, stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
-  { kind: "edit", enter: "push", mobile: { secs: 4.5 }, h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
+  { kind: "prompts", mobile: { secs: 6.5 }, stills: ["planner-month"], h: "Not sure what to post?", p1: "Your planner is already full of ideas.", p2: "Property-specific prompts give you inspiration throughout the month, from educational and community content to timely opportunities.", secs: 11 },
+  { kind: "edit", enter: "push", mobile: { secs: 6 }, h: "A better place to start", p1: "Browse professionally designed content packs made specifically for property.", p2: "Purchase the ones that suit you, then make every template your own in the Studio.", secs: 8 },
   { kind: "associate", mobile: { secs: 4 }, img: "assoc-4.webp", h: "Not sure what you need? Just ask.", p1: "It starts with a question,<br />an idea or even half a thought.", p2: "Our Creative Assistant understands property, asks the right questions and helps you figure out what comes next.", secs: 21 },
   // The Studio, to Dani's board: labels top-left, the box bottom-left, her
   // iPad on the right showing the stills. One scene; the words swap from
   // Make it yours to Get creative as CREATE is typed, and the film moves on
   // as the last still shows (secs is only the fallback).
-  { kind: "tablet", enter: "push", mobile: { secs: 10 }, tech: "The Studio", stills: STUDIO_STILLS,
+  { kind: "tablet", enter: "push", mobile: { secs: 10.5 }, tech: "The Studio", stills: STUDIO_STILLS,
     a: { caps: ["Brand customisation", "Content editing", "Layout control"], h: "Make it yours", p1: "Editing has been made easy.", p2: "Change the words, switch the imagery and apply your branding, without needing to be a designer." },
     b: { caps: ["Blank canvas creation", "Creative asset tools", "AI-assisted creation"], h: "Get creative", p1: "Our Studio provides the tools to build beyond the template,", p2: "giving you more freedom when you want to create something of your own." },
     secs: 12 },
@@ -104,8 +104,8 @@ const SCENES = [
             <span class="cov-conf">Confidential</span>
             <div class="cov-mark" aria-label="TMKE">TMKE</div>
             <dl class="cov-lines">
-              <dt>Codename</dt><dd><span data-type={s.codename} data-at="1.6"></span></dd>
-              <dt>Mission</dt><dd><span data-type={s.mission} data-at="2.5"></span></dd>
+              <dt>Codename</dt><dd><span data-type={s.codename} data-at="1.6" data-at-phone="0.8"></span></dd>
+              <dt>Mission</dt><dd><span data-type={s.mission} data-at="2.5" data-at-phone="1.3"></span></dd>
             </dl>
           </div>
         )}
@@ -299,14 +299,14 @@ const SCENES = [
         )}
         {s.kind === "tablet" && (
           <div class="wall-scene" style="--swap: 5.1s">
-            <!-- The phone film's Studio: the words sit on a wine card, the card
-                 opens out to fill the screen, the iPad plays on the wine, and it
-                 closes back to a card for Get creative before opening again. -->
+            <!-- The phone film's Studio: the iPad is already there, dimmed, behind
+                 a wine card carrying both halves of the copy; the card opens out to
+                 the edges and reveals it, and it plays straight through. -->
             <div class="ps" aria-hidden="true" data-ph="a">
-              <div class="ps-wine"></div>
-              <div class="ps-card ps-card--a"><h2 class="box-h">{s.a.h}</h2><p class="box-p">{s.a.p1}</p><p class="box-p">{s.a.p2}</p></div>
-              <div class="ps-card ps-card--b"><h2 class="box-h">{s.b.h}</h2><p class="box-p">{s.b.p1}</p><p class="box-p">{s.b.p2}</p></div>
-              <div class="ps-pad">{Array.from({ length: 23 }, (_, n) => <img class="ps-frame" src={`/hub-tour/phone/pad-${n + 1}.webp`} alt="" decoding="async" />)}</div>
+              <div class="ps-stage">
+                <div class="ps-pad">{Array.from({ length: 23 }, (_, n) => <img class="ps-frame" src={`/hub-tour/phone/pad-${n + 1}.webp`} alt="" decoding="async" />)}</div>
+              </div>
+              <div class="ps-card"><h2 class="box-h">{s.a.h}</h2><p class="box-p">{s.a.p1} {s.a.p2}</p><p class="box-p">{s.b.p1} {s.b.p2}</p></div>
             </div>
             <div class="tab-meta">
               <p class="mission-k">Tech</p>
@@ -905,20 +905,25 @@ const SCENES = [
        rather than typed, so it can be read in the time a phone gives it. */
     .cov-brand, .cov-conf { top: 7%; left: 22px; }
     .cov-conf { left: auto; right: 22px; }
-    .cov-lines { left: 22px; right: 22px; bottom: 11%; }
+    .cov-lines { left: 22px; right: 22px; bottom: 6.5%; }
+    /* No TMKE wordmark in the corner on a phone: the wine slides carry the
+       embossed mark, and on the paper ones it was already off. */
+    .film-mark { display: none !important; }
 
     /* Not sure what to post: the cards flash in, dim to half, and the box
        comes up over them to be read. No planner. */
     .scene--prompts .stills--after { display: none; }
     .scene.is-on .pcard, .scene.is-on .tile { animation-delay: calc(0.3s + var(--i) * 0.055s); }
-    .scene.is-on .wall--out { animation: wallPhone 2s linear both; }
-    .scene.is-on .box.box--after { animation-duration: 0.8s; animation-delay: 1.9s; }
+    /* The last card lands at 1.7s; the wall holds for half a second, dims to
+       half by 2.8s, and the box comes up over it. */
+    .scene.is-on .wall--out { animation: wallPhone 2.8s linear both; }
+    .scene.is-on .box.box--after { animation-duration: 0.8s; animation-delay: 2.6s; }
     /* A better place to start: the same shape. */
-    .scene.is-on .wall--edit { animation: wallPhone 2s linear both; }
-    .scene--edit.is-on .box--late { animation-duration: 0.8s; animation-delay: 1.9s; }
+    .scene.is-on .wall--edit { animation: wallPhone 2.8s linear both; }
+    .scene--edit.is-on .box--late { animation-duration: 0.8s; animation-delay: 2.6s; }
     /* The wall dims to half and stays there under the box; the scene then
        leaves as one. */
-    @keyframes wallPhone { 0%, 70% { opacity: 1; } 100% { opacity: 0.5; } }
+    @keyframes wallPhone { 0%, 78.6% { opacity: 1; } 100% { opacity: 0.5; } }
 
     /* Just ask: no figure - Dani's phone on the sofa, with the chat already
        open on its screen. The screen is measured from her photo: centred
@@ -935,21 +940,23 @@ const SCENES = [
     .chatphone .tchat-in span { font-size: 3.6cqw; }
     .scene--associate .box { z-index: 7; }
 
-    /* The Studio: the words on a wine card in the middle; the card opens out
-       to fill the screen and the iPad plays on the wine; it closes back to a
-       card for Get creative and opens again for the rest. */
+    /* The Studio: the iPad is already there, dimmed, on the wine behind a card
+       carrying the words; the card's window opens out to the edges, the words
+       go, and the iPad plays straight through every frame. */
     .scene--tablet .tablet--stills, .scene--tablet .box--p2 { display: none !important; }
     .wall-scene > .ps { display: block; position: absolute; inset: 0; z-index: 2; }
-    .ps-wine { position: absolute; inset: 0; background: var(--english-violet); clip-path: inset(33% 6% 33% 6% round 10px); transition: clip-path 0.55s cubic-bezier(.65,0,.35,1); }
-    .ps[data-ph="open"] .ps-wine, .ps[data-ph="pad"] .ps-wine { clip-path: inset(0 0 0 0 round 0); }
-    .ps-card { position: absolute; left: 6%; right: 6%; top: 33%; bottom: 33%; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; color: var(--paper); opacity: 0; transition: opacity 0.3s ease; }
-    .ps-card .box-p { margin-bottom: 8px; }
-    .ps[data-ph="a"] .ps-card--a, .ps[data-ph="b"] .ps-card--b { opacity: 1; transition-delay: 0.3s; }
-    .ps-pad { position: absolute; left: -2.35%; top: 50%; width: 100%; aspect-ratio: 1296 / 2304; transform: translateY(-50%); opacity: 0; transition: opacity 0.3s ease; }
-    .ps[data-ph="pad"] .ps-pad { opacity: 1; transition-delay: 0.1s; }
+    .ps.is-reset, .ps.is-reset * { transition: none !important; }
+    .ps-stage { position: absolute; inset: 0; overflow: hidden; background: var(--english-violet); clip-path: inset(28% 6% 28% 6% round 10px); transition: clip-path 0.7s cubic-bezier(.65,0,.35,1); }
+    .ps[data-ph="open"] .ps-stage, .ps[data-ph="pad"] .ps-stage { clip-path: inset(0 0 0 0 round 0); }
+    .ps-pad { position: absolute; left: -2.35%; top: 50%; width: 100%; aspect-ratio: 1296 / 2304; transform: translateY(-50%); opacity: 0.22; transition: opacity 0.7s ease; }
+    .ps[data-ph="open"] .ps-pad, .ps[data-ph="pad"] .ps-pad { opacity: 1; }
     .ps-frame { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; }
     .ps-frame.is-prev { opacity: 1; z-index: 1; }
     .ps-frame.is-cur { opacity: 1; z-index: 2; }
+    .ps-card { position: absolute; left: 6%; right: 6%; top: 28%; bottom: 28%; z-index: 3; display: flex; flex-direction: column; justify-content: center; padding: 0 24px; color: var(--paper); transition: opacity 0.35s ease; }
+    .ps-card .box-p { margin-bottom: 10px; }
+    .ps[data-ph="open"] .ps-card, .ps[data-ph="pad"] .ps-card { opacity: 0; }
+    .scene.is-on .ps-card > * { animation: stillIn 0.8s ease 0.2s both; }
     .tab-meta { display: none; }
     .tablet.tablet--stills { left: 0 !important; right: 0 !important; margin: 0 auto; top: 9% !important; bottom: auto !important; width: auto !important; height: 52% !important; }
     .scene--tablet .wall-scene { --swap: 2.9s !important; }
@@ -1149,20 +1156,19 @@ const SCENES = [
       const frames = Array.from(ps.querySelectorAll(".ps-frame"));
       frames.forEach((im) => { im.classList.remove("is-cur", "is-prev"); if (im.decode) im.decode().catch(() => {}); });
       const T = [
-        { ph: "a", s: 1.6 },
-        { ph: "open", f: 0, s: 0.55 },
-        { ph: "pad", f: 0, s: 0.45 },
-        ...[1, 2, 3, 4, 5, 6].map((f) => ({ ph: "pad", f, s: 0.18 })),
-        { ph: "b", f: 6, s: 2.0 },
-        { ph: "open", f: 7, s: 0.55 },
-        { ph: "pad", f: 7, s: 0.35 },
-        ...[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((f) => ({ ph: "pad", f, s: 0.18 })),
-        { ph: "pad", f: 22, s: 0.45 },
+        { ph: "a", f: 0, s: 4.0 },
+        { ph: "open", f: 0, s: 0.7 },
+        { ph: "pad", f: 0, s: 0.5 },
+        ...[1, 2, 3, 4, 5, 6].map((f) => ({ ph: "pad", f, s: 0.2 })),
+        { ph: "pad", f: 7, s: 0.4 },
+        ...[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21].map((f) => ({ ph: "pad", f, s: 0.2 })),
+        { ph: "pad", f: 22, s: 0.5 },
       ];
       const total = T.reduce((a, e) => a + e.s, 0);
       const mine = i;
       let clock = 0, last = performance.now(), shown = -1, lastPh = "";
-      ps.dataset.ph = "a";
+      // Back to the card at once, not animating closed, when it starts or replays.
+      ps.classList.add("is-reset"); ps.dataset.ph = "a"; void ps.offsetWidth; ps.classList.remove("is-reset");
       const tick = (now) => {
         if (i !== mine) return;
         if (!paused) clock += (now - last) / 1000;
@@ -1184,7 +1190,6 @@ const SCENES = [
       cancelAnimationFrame(typeRaf);
       const els = Array.from(scenes[i].querySelectorAll("[data-type]"));
       if (!els.length) return;
-      if (PHONE) { els.forEach((e) => { e.textContent = e.dataset.type; e.classList.remove("is-typing"); }); return; }
       els.forEach((e) => { e.textContent = ""; e.classList.remove("is-typing"); });
       let clock = 0, last = performance.now();
       const mine = i;
@@ -1194,7 +1199,7 @@ const SCENES = [
         last = now;
         let done = true;
         els.forEach((e) => {
-          const full = e.dataset.type, at = Number(e.dataset.at || 0);
+          const full = e.dataset.type, at = Number((PHONE && e.dataset.atPhone) || e.dataset.at || 0);
           const n = Math.max(0, Math.min(full.length, Math.floor((clock - at) / 0.028)));
           if (e.textContent.length !== n) e.textContent = full.slice(0, n);
           const typing = clock >= at && n < full.length;
