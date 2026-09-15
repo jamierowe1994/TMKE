@@ -848,6 +848,7 @@ import "../../styles/admin.css";
 
     async function restorePack(id) {
       const { error } = await supabase.from("packs").update({ status: "active" }).eq("id", id);
+      try { await supabase.from("packs").update({ launched_at: new Date().toISOString() }).eq("id", id).is("launched_at", null); } catch (_) {}
       if (error) { alert("Restore failed: " + error.message); return; }
       const row = allPacks.find((p) => p.id === id);
       if (row) row.status = "active";

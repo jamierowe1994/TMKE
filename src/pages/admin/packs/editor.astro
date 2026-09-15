@@ -1188,6 +1188,15 @@ import "../../../styles/admin.css";
 
         const savedPackId = result.data?.id || editingId;
 
+        // First time this pack is live, note when - the hub says "just dropped"
+        // for a fortnight after. Harmless if the column isn't there yet.
+        if (payload.status === "active" && savedPackId) {
+          try {
+            await supabase.from("packs").update({ launched_at: new Date().toISOString() })
+              .eq("id", savedPackId).is("launched_at", null);
+          } catch (_) {}
+        }
+
         // Sync templates ↔ pack
         //   1. Templates newly selected → set pack_id = savedPackId
         //   2. Templates that used to belong to this pack but aren't selected now → clear pack_id

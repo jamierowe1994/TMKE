@@ -1276,6 +1276,19 @@ const recentTemplates = templates.slice(0, 4);
           return `<a class="ws-day ws-day--empty${isToday}" href="${href}"${dateAttr}>${nameHtml}<span class="ws-day-empty-msg">No post planned</span></a>`;
         }).join('');
 
+        // A pack that has just gone live takes a day nobody has planned.
+        try {
+          const { pickNewPackDay } = await import('../../lib/new-pack-card.js');
+          const { data: packRows } = await supabase.from('packs').select('*').eq('status', 'active');
+          const weekDates = [...week.querySelectorAll('.ws-day')].map((c) => c.getAttribute('data-date'));
+          const emptyDates = [...week.querySelectorAll('.ws-day--empty')].map((c) => c.getAttribute('data-date'));
+          const pick = pickNewPackDay({ packs: packRows || [], weekDates, emptyDates, todayYmd });
+          if (pick) {
+            const card = week.querySelector(`.ws-day[data-date="${pick.date}"]`);
+            if (card) paintStarter(card, pick);
+          }
+        } catch (_) { /* the week is fine without it */ }
+
         // Hero brief: live count of posts scheduled this week.
         const schedCount = (data || []).length;
         const sb = document.getElementById('brief-sched');
