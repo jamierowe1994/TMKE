@@ -638,6 +638,7 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
+    import { rebuildSite } from "../../lib/site-rebuild.js";
 
     // Network tag from the email domain (mirrors the Worker's crmTags).
     const netTag = (email) => { const d = (String(email || "").toLowerCase().match(/@([^@\s]+)$/) || [])[1] || ""; if (!d) return null; if (d.endsWith("experts.co.uk")) return "Network: TEG"; if (d === "fineandcountry.com") return "Network: Fine-and-Country"; return "Network: External"; };
@@ -802,8 +803,12 @@ import "../../styles/admin.css";
       el.textContent = msg;
       el.hidden = false;
       if (toastTimer) clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => { el.hidden = true; }, 1800);
+      toastTimer = setTimeout(() => { el.hidden = true; }, msg.length > 40 ? 5000 : 1800);
     }
+    // A note carried over from the pack editor (the site rebuild it started).
+    try { const n = sessionStorage.getItem("tmke.admin.packsNote"); if (n) { sessionStorage.removeItem("tmke.admin.packsNote"); setTimeout(() => toast(n), 300); } } catch (_) {}
+    // Archive, restore and reorder change the shop, which is built at deploy time.
+    async function rebuildAndSay(done) { const m = await rebuildSite(supabase); toast(m ? done + " " + m : done); }
 
     async function persistOrder() {
       const grid = document.getElementById("catalogue-grid");
@@ -828,7 +833,7 @@ import "../../styles/admin.css";
         console.error("[TMKE] reorder failures", failures);
         toast(`Couldn't save order (${failures.length} failed). Refresh to reset.`);
       } else {
-        toast("Order saved.");
+        rebuildAndSay("Order saved.");
       }
     }
 
@@ -838,7 +843,7 @@ import "../../styles/admin.css";
       const row = allPacks.find((p) => p.id === id);
       if (row) row.status = "archived";
       render();
-      toast("Pack archived.");
+      rebuildAndSay("Pack archived.");
     }
 
     async function restorePack(id) {
@@ -847,7 +852,7 @@ import "../../styles/admin.css";
       const row = allPacks.find((p) => p.id === id);
       if (row) row.status = "active";
       render();
-      toast("Pack restored.");
+      rebuildAndSay("Pack restored.");
     }
 
     // ---- The demo pack: one flagged pack, copies of chosen templates ----

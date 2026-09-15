@@ -740,6 +740,7 @@ import "../../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase, slugify } from "../../../lib/supabase.js";
+    import { rebuildSite } from "../../../lib/site-rebuild.js";
 
     const PACK_IMAGES_BUCKET = "pack-images";
 
@@ -1218,6 +1219,11 @@ import "../../../styles/admin.css";
           if (oErr) console.error("[order]", selectedOrder[i], oErr);
         }
 
+        // The pack's page on the shop is built at deploy time: rebuild so a new,
+        // renamed or newly live pack gets its page instead of a 404.
+        saveBtn.textContent = "Updating the site…";
+        const msg = await rebuildSite(supabase);
+        try { if (msg) sessionStorage.setItem("tmke.admin.packsNote", msg); } catch (_) {}
         location.href = "/admin/packs";
       } catch (err) {
         showError(err.message || "Could not save pack.");
@@ -1231,6 +1237,7 @@ import "../../../styles/admin.css";
       if (!confirm("Permanently delete this pack? This cannot be undone.")) return;
       const { error } = await supabase.from("packs").delete().eq("id", editingId);
       if (error) return alert(`Delete failed: ${error.message}`);
+      await rebuildSite(supabase);
       location.href = "/admin/packs";
     }
 
