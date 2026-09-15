@@ -92,6 +92,20 @@ const galleryImgs = (Array.isArray(pack.preview_images) ? pack.preview_images : 
 const heroImages = galleryImgs.length ? galleryImgs : (coverSrc ? [coverSrc] : []);
 const heroMain = heroImages[0] || null;
 
+// Pack images are uploaded full size (previews up to 21 MB PNGs), so the page
+// never loads them as they are: Supabase resizes on the fly to the width the
+// page shows, as WebP where the browser takes it (21.6 MB -> 173 KB at 1200).
+// resize=contain keeps each image's own shape. Anything not in Supabase storage
+// is left alone.
+function sized(src, width) {
+  const s = String(src || "");
+  const marker = "/storage/v1/object/public/";
+  const at = s.indexOf(marker);
+  if (!s || at === -1) return s || null;
+  const [path] = s.slice(at + marker.length).split("?");
+  return s.slice(0, at) + "/storage/v1/render/image/public/" + path + "?width=" + width + "&resize=contain&quality=72";
+}
+
 function gbp(pence) {
   if (pence == null) return "";
   return new Intl.NumberFormat("en-GB", {
@@ -115,7 +129,7 @@ function gbp(pence) {
         <div class="pack-cover">
           <div class="pack-cover-frame">
             {heroMain ? (
-              <img class="pack-cover-img" id="pack-hero-img" src={heroMain} alt={pack.title} />
+              <img class="pack-cover-img" id="pack-hero-img" src={sized(heroMain, 1400)} alt={pack.title} fetchpriority="high" />
             ) : (
               <div class="pack-cover-empty">No cover image yet.</div>
             )}
@@ -126,10 +140,10 @@ function gbp(pence) {
                 <button
                   type="button"
                   class={`pack-hero-thumb${i === 0 ? " is-active" : ""}`}
-                  data-hero-src={src}
+                  data-hero-src={sized(src, 1400)}
                   aria-label={`Show image ${i + 1} of ${heroImages.length}`}
                 >
-                  <img src={src} alt="" loading={i < 4 ? "eager" : "lazy"} />
+                  <img src={sized(src, 320)} alt="" loading={i < 4 ? "eager" : "lazy"} />
                 </button>
               ))}
             </div>
@@ -181,14 +195,14 @@ function gbp(pence) {
           <figure
             class="pack-tpl pack-tpl--open"
             data-zoom={(t.render_url || t.thumb_url) ? "" : undefined}
-            data-full={t.render_url || t.thumb_url || undefined}
+            data-full={sized(t.render_url || t.thumb_url, 1600) || undefined}
             data-name={t.name}
             tabindex={(t.render_url || t.thumb_url) ? "0" : undefined}
             role={(t.render_url || t.thumb_url) ? "button" : undefined}
             aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
           >
             {(t.thumb_url || t.render_url)
-              ? <img src={t.thumb_url || t.render_url} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
+              ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
               : <div class="pack-tpl-empty"></div>}
             <figcaption>
               {t.category && <span class="pack-tpl-cat">{t.category}</span>}
@@ -203,7 +217,7 @@ function gbp(pence) {
             aria-label="Locked — buy the pack to unlock"
           >
             {(t.thumb_url || t.render_url)
-              ? <img src={t.thumb_url || t.render_url} alt="" loading="lazy" />
+              ? <img src={sized(t.thumb_url || t.render_url, 500)} alt="" loading="lazy" />
               : <div class="pack-tpl-empty"></div>}
             <div class="pack-tpl-lock-overlay">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
