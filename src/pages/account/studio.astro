@@ -526,6 +526,8 @@ const inspo = [
           let card = '';
           try {
             const { data } = await supabase.from('packs').select('*').eq('demo', true).eq('status', 'active').limit(1);
+            const { fillPackCovers } = await import('../../lib/pack-cover.js');
+            await fillPackCovers(supabase, data || []);
             const p = data && data[0];
             if (p) card = `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
@@ -545,6 +547,9 @@ const inspo = [
           supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`),
         ]);
         const allPacks = packsRes.data || [];
+        // Packs with no cover set borrow one of their own templates.
+        const { fillPackCovers } = await import('../../lib/pack-cover.js');
+        await fillPackCovers(supabase, allPacks);
         const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
         // The demo pack is free with every account, so it counts as owned.
         const owned = allPacks.filter((p) => ownedIds.has(p.id) || p.demo === true);

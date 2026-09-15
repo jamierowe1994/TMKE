@@ -2978,8 +2978,28 @@ export default {
               status: "paid", payment_ref: pi || null,
             });
             // Pack purchaser → make/merge a CRM contact.
-            const orows = await sbGet(env, "orders", `id=eq.${encodeURIComponent(orderId)}&select=buyer_name,buyer_email,buyer_company,buyer_phone,pack_title,user_id&limit=1`);
+            const orows = await sbGet(env, "orders", `id=eq.${encodeURIComponent(orderId)}&select=buyer_name,buyer_email,buyer_company,buyer_phone,pack_title,pack_slug,total_pence,user_id&limit=1`);
             await contactFromOrder(env, orows && orows[0]);
+            // …and start the "Order placed" automation. Gifting a pack from the
+            // admin did this; a card purchase never did, so a real buyer got no
+            // purchase email and no automation ran for them.
+            const o = orows && orows[0];
+            if (o && o.buyer_email) {
+              const parts = String(o.buyer_name || "").trim().split(/\s+/);
+              try {
+                await fireTrigger(env, "order_placed", {
+                  email: o.buyer_email,
+                  first_name: parts.shift() || o.buyer_name || null,
+                  last_name: parts.join(" ") || null,
+                  phone: o.buyer_phone || null,
+                  company: o.buyer_company || null,
+                  source: "pack_purchase",
+                  lifecycle: "customer",
+                  tags: crmTags(o.buyer_email, ["Pack-Purchased", o.pack_title ? `Pack Name: ${o.pack_title}` : null], { member: !!o.user_id }),
+                  user_id: o.user_id || null,
+                }, { pack: o.pack_title || null, pack_slug: o.pack_slug || null, amount_pence: o.total_pence || 0 });
+              } catch (e) { console.error("order_placed trigger", String((e && e.message) || e).slice(0, 200)); }
+            }
           }
         }
         return json({ received: true }, 200, request, env);

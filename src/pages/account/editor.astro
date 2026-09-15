@@ -7246,6 +7246,8 @@ const googleFonts = [
           demoPacks = [];
           try {
             const { data } = await supabase.from("packs").select("*").eq("demo", true).eq("status", "active").limit(1);
+            const { fillPackCovers } = await import("../../lib/pack-cover.js");
+            await fillPackCovers(supabase, data || []);
             if (data && data.length) demoPacks = data.map((p) => ({ id: p.id, slug: p.slug, title: p.title, cover_image_url: p.cover_image_url, category: "Try it" }));
           } catch (_) {}
         }

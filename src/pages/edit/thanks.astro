@@ -206,6 +206,7 @@ import "../../styles/ws-system.css";
 
   <script>
     import { supabase, gbpFromPence } from '../../lib/supabase.js';
+    import { signUpMember } from '../../lib/member-signup.js';
 
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('order');
@@ -348,67 +349,41 @@ import "../../styles/ws-system.css";
       submitBtn.setAttribute('disabled', 'true');
       submitBtn.textContent = 'Creating account…';
 
-      // Create the auth account against the email captured at checkout.
-      const { data, error } = await supabase.auth.signUp({
+      // The account is created by the Worker, the same door /join uses, so the
+      // confirmation email is ours and its link survives a mail scanner. (The
+      // browser's own signUp() sends Supabase's email, whose link Microsoft's
+      // scanner spends before the buyer clicks it — they could never confirm.)
+      // The Worker also makes the CRM contact, so they are in Contacts as a
+      // member whether or not they get round to confirming.
+      const res = await signUpMember({
+        fullName: orderRow.buyer_name || orderRow.buyer_email,
         email: orderRow.buyer_email,
         password,
-        options: {
-          data: {
-            name: orderRow.buyer_name,
-            company: orderRow.buyer_company,
-            phone: orderRow.buyer_phone,
-          },
-        },
       });
 
       submitBtn.removeAttribute('disabled');
       submitBtn.innerHTML = 'Create my library <em>&rarr;</em>';
 
-      if (error) {
-        // Most common: account already exists. Offer sign-in route.
-        formError.innerHTML = error.message
+      if (res.existing) {
+        formError.innerHTML = 'You already have an account with this email address. &nbsp; '
+          + '<a class="thanks-link" href="/login">Sign in instead</a>.';
+        formError.hidden = false;
+        return;
+      }
+      if (!res.ok) {
+        formError.innerHTML = (res.error || 'Something went wrong creating your account.')
           + ' &nbsp; <a class="thanks-link" href="/login">Sign in instead</a>.';
         formError.hidden = false;
         return;
       }
 
-      // If a session was returned, link the order to the new user id.
-      if (data?.user?.id) {
-        await supabase
-          .from('orders')
-          .update({ user_id: data.user.id })
-          .eq('id', orderRow.id);
-      }
-
-      // Fire the "account created" marketing automation (welcome series).
-      // Best-effort + fire-and-forget; needs a session to authorise the call.
-      try {
-        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
-        const token = data?.session?.access_token;
-        if (WORKER && token) {
-          const parts = String(orderRow.buyer_name || '').trim().split(/\s+/);
-          fetch(`${WORKER}/automations/fire`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              trigger: 'account_created', email: orderRow.buyer_email,
-              first_name: parts.shift() || null, last_name: parts.join(' ') || null,
-              company: orderRow.buyer_company || null, phone: orderRow.buyer_phone || null,
-              source: 'pack_signup', lifecycle: 'customer', user_id: data.user.id,
-            }),
-          }).catch(() => {});
-        }
-      } catch (_) {}
-
-      // Show the success card. If we have a session, send them to /account.
+      // The account is deliberately created unconfirmed, so there's no session
+      // to sign them straight in with: the email is the last step.
       form.hidden = true;
       successEl.hidden = false;
-      if (data?.session) {
-        successMsg.textContent = "You're signed in — your library is unlocked. Jump straight in.";
-      } else {
-        successMsg.textContent =
-          'Check your inbox to verify your email, then sign in to open your library.';
-      }
+      successMsg.textContent = res.emailFailed
+        ? 'Your account is ready, but the confirmation email didn\'t send. Use "Forgot password" on the sign-in page, or reply to your receipt and we\'ll sort it.'
+        : 'Check your inbox to confirm your email, then sign in to open your library. Your pack is already waiting there.';
     });
 
     // Browser-side invoice "download" — opens print dialog scoped to the
