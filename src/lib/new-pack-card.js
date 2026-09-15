@@ -18,8 +18,11 @@ export function pickNewPackDay({ packs, weekDates, emptyDates, todayYmd, now = n
   const week = new Set(weekDates || []);
   const live = (packs || [])
     .filter((p) => p && p.status === "active" && p.demo !== true && p.slug)
+    // By the day, not the minute: a pack launched at nine this morning is new
+    // from midnight, not from nine - otherwise the hub spends the early hours
+    // announcing yesterday's pack instead.
     .map((p) => ({ pack: p, at: launchedAt(p), guessed: !p.launched_at }))
-    .filter((x) => x.at && x.at <= now && daysBetween(x.at, now) <= (x.guessed ? NEW_FOR_DAYS_GUESSED : NEW_FOR_DAYS))
+    .filter((x) => x.at && ymd(x.at) <= todayYmd && daysApart(x.at, now) <= (x.guessed ? NEW_FOR_DAYS_GUESSED : NEW_FOR_DAYS))
     .sort((a, b) => b.at - a.at);
   if (!live.length) return null;
 
@@ -64,4 +67,6 @@ export function oneLiner(text, max = 96) {
 }
 
 export const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const daysBetween = (a, b) => Math.floor((b - a) / 86400000);
+// Whole days between two dates, counted from midnight to midnight.
+const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const daysApart = (a, b) => Math.round((midnight(b) - midnight(a)) / 86400000);
