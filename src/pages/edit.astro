@@ -551,6 +551,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       transition: flex-grow 0.7s cubic-bezier(.2,.8,.2,1);
     }
     .stk-p.is-open { flex-grow: 1; }
+    .stk.is-jump .stk-p, .stk.is-jump .stk-chev { transition: none; }   /* a bar click: straight there */
     /* Phones: a short grey row under the last bar, half a bar tall. */
     .stk-foot { display: none; flex: none; height: 19px; background: var(--paper); }
     @media (max-width: 760px), (hover: none) and (pointer: coarse) { .stk-foot { display: block; } }
@@ -2091,7 +2092,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const designs = designsOf(p);
         const pick = (i) => designs.length ? designs[i % designs.length] : '';
         const SHOWN = 5;                                  // designs visible in the row
-        const hover = designs.length > SHOWN ? designs[SHOWN % designs.length] : (designs[designs.length - 1] || heroOf(p));
+        // Two white boxes (the name and Shop the Pack), so two different designs
+        // on hover - both off the row where the pack has enough of them.
+        const spare = designs.slice(SHOWN);
+        const hoverA = spare[0] || designs[designs.length - 1] || heroOf(p);
+        const hoverB = spare[1] || [p.cover_image_url, ...designs.slice().reverse()].find((u) => u && u !== hoverA) || hoverA;
         // The subheading is the pack's pillar on its own — no "Template Pack" tail
         // (the whole row is template packs) and the long category shortened, so it
         // stays one line in a box this size. The DB category is untouched; this is
@@ -2105,7 +2110,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         // num is optional now — the pack boxes drop "Pack One/Two/Three" and lead
         // with the name. Only box 8 still labels itself ("Next Pack"), because that
         // word is what tells you the box is a control rather than a pack.
-        const box = (num, main, sub) =>
+        const box = (num, main, sub, hover) =>
           `<a class="egh-tile egh-tile--pack" href="${href}" aria-label="${escapeHtml(p.title || '')}">`
           + `<span class="egh-tile-img" style="background-image:url('${edImg(hover, 700)}')"></span>`
           + `<span class="egh-tile-cap">`
@@ -2115,9 +2120,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           + `</span></a>`;
         const design = (i) => `<div class="egh-tile egh-tile--image"><span class="egh-img" style="background-image:url('${edImg(pick(i), 700)}')"></span></div>`;
 
-        return box('', p.title || '', pillar)             // 1
+        return box('', p.title || '', pillar, hoverA)     // 1
           + design(0) + design(1) + design(2) + design(3) // 2-5
-          + box('', 'Shop the Pack', pillar)              // 6
+          + box('', 'Shop the Pack', pillar, hoverB)      // 6
           + design(4)                                     // 7
           + `<button type="button" class="egh-tile egh-tile--next" data-nextpack>`
           +   `<span class="egh-tile-cap"><span class="egh-tile-num">Next Pack</span>`
@@ -2315,7 +2320,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         const bar = p.querySelector('.stk-bar');
         if (bar) bar.addEventListener('click', () => {
           if (isMobile()) setOpen(open === i ? 0 : i);
-          else goToPanel(i);
+          else jumpToPanel(i);
         });
       });
 
@@ -2353,6 +2358,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           window.scrollTo({ top: dest, behavior: 'smooth' });
         }
       }
+      // A bar click goes straight to its panel: opened at once, scroll jumped to
+      // its spot, no panels sliding open and shut on the way. The stacking
+      // effect stays for scrolling.
+      let jumping = false;
+      function jumpToPanel(i) {
+        const dest = wrapTop + i * stepCache;
+        clearTimeout(snapT);
+        jumping = true;
+        stk.classList.add('is-jump');
+        setOpen(i);
+        const L = window.__lenis;
+        if (L && typeof L.scrollTo === 'function') L.scrollTo(dest, { immediate: true, force: true });
+        else window.scrollTo({ top: dest, behavior: 'instant' });
+        requestAnimationFrame(() => requestAnimationFrame(() => { stk.classList.remove('is-jump'); jumping = false; }));
+      }
       function doSnap() {
         const y = window.scrollY;
         const p = (y - wrapTop) / stepCache;
@@ -2366,7 +2386,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         // On a phone the bars own which panel is open — there's no runway to
         // read, so letting scroll drive it would slam it back to panel 0 the
         // moment you scrolled the page.
-        if (isMobile()) return;
+        if (isMobile() || jumping) return;
         updateOpen();                                 // which panel is showing
         if (snapping || reduced) return;
         clearTimeout(snapT);

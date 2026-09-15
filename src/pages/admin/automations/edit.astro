@@ -181,7 +181,7 @@ import "../../../styles/admin.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGERS, NODE_TYPES, NODE_LABELS, emptyGraph } from "../../../lib/automations.js";
-    import { TAG_GROUPS } from "../../../lib/contact-tags.js";
+    import { TAG_GROUPS, loadPackTagGroup, withPackTags } from "../../../lib/contact-tags.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
@@ -199,7 +199,8 @@ import "../../../styles/admin.css";
 
     const WORKER = import.meta.env.PUBLIC_R2_WORKER_URL || "";
     let extraTags = [];   // tags in live use that aren't in the framework list (e.g. "Pack Name: …")
-    const tagGroupsAll = () => (extraTags.length ? [...TAG_GROUPS, ["Also in use", extraTags]] : TAG_GROUPS);
+    let packGroup = null; // "Pack Name: …" for every pack, ready before anyone has bought it
+    const tagGroupsAll = () => { const base = withPackTags(packGroup); return extraTags.length ? [...base, ["Also in use", extraTags]] : base; };
     const kindVal = () => ($("af-kind") ? $("af-kind").value : "service");
 
     // ---- trigger dropdown (grouped like the TRIGGERS catalogue) ----
@@ -585,7 +586,7 @@ import "../../../styles/admin.css";
           + field("Condition", `<select data-c="op">${ops.map(([val, lab]) => `<option value="${val}" ${(c.op || "is") === val ? "selected" : ""}>${lab}</option>`).join("")}</select>`);
         if (isTag) {
           const selected = new Set(Array.isArray(c.values) ? c.values : (c.value ? [c.value] : []));
-          const list = TAG_GROUPS.map(([g, tags]) =>
+          const list = tagGroupsAll().map(([g, tags]) =>
             `<div class="af-tags-group">${esc(g)}</div>` + tags.map((t) =>
               `<label class="af-tag"><input type="checkbox" data-tag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(t)}</span></label>`).join("")).join("");
           body += `<div class="af-field"><span>Tags (${selected.size} selected)</span><div class="af-tags">${list}</div></div>`
@@ -652,7 +653,8 @@ import "../../../styles/admin.css";
       // automatic "Pack Name: …" purchase tags) — the audience picker needs them.
       try {
         const { data: rows } = await supabase.from("contacts").select("tags").limit(2000);
-        const fw = new Set(TAG_GROUPS.flatMap(([, t]) => t));
+        packGroup = await loadPackTagGroup(supabase);
+        const fw = new Set(withPackTags(packGroup).flatMap(([, t]) => t));
         extraTags = [...new Set((rows || []).flatMap((r) => r.tags || []))].filter((t) => !fw.has(t)).sort();
       } catch (_) { extraTags = []; }
       if (!automationId) { renderTriggerExtras(); render(); syncDDs(); return; }
