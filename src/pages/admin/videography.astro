@@ -3472,7 +3472,7 @@ import "../../styles/admin.css";
         // an email, so a pattern match here could return somebody else and link
         // the shoot to the wrong person. The insert just failed on the unique
         // index over this exact value, so an exact match is what finds it.
-        const { data: existing } = await supabase.from("contacts").select("id").eq("email", email).maybeSingle();
+        const { data: existing } = await supabase.from("contacts").select("id").eq("email", String(email || "").trim().toLowerCase()).maybeSingle();
         if (!existing) { contactMsg("Couldn't create that contact: " + error.message, true); return; }
         await linkContact(b, existing.id, `${email} was already in the CRM — linked to them instead.`);
         return;

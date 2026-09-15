@@ -296,7 +296,7 @@
       const { data } = await supabase
         .from("orders")
         .select("pack_id, status")
-        .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`);
+        .or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`);
       (data || []).forEach((o) => {
         if (o.status === "paid" && o.pack_id) ownedPackIds.add(o.pack_id);
       });

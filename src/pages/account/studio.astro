@@ -544,7 +544,7 @@ const inspo = [
         const email = session.user.email || '';
         const [packsRes, ordersRes] = await Promise.all([
           supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
-          supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`),
+          supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`),
         ]);
         const allPacks = packsRes.data || [];
         // Packs with no cover set borrow one of their own templates.

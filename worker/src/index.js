@@ -1158,6 +1158,10 @@ function normalizeTags(tags) {
   return t;
 }
 
+// An email address is the same address whatever case it is typed in. Contacts
+// are stored lowercased (upsert_contact does it), so every lookup lowercases too.
+const lc = (v) => String(v == null ? "" : v).trim().toLowerCase();
+
 // Upsert a CRM contact from a paid order, so pack purchasers become contacts.
 // No marketing_opt_in (buying ≠ consent). Tags: Pack-Purchased + Pack Name.
 async function contactFromOrder(env, order) {
@@ -1941,7 +1945,7 @@ async function autoEvalCondition(env, cfg, contact) {
     return flip(want.some((w) => have.includes(w)));
   }
   if (cfg.field === "has_purchased") {
-    const rows = await sbGet(env, "orders", `buyer_email=eq.${encodeURIComponent(contact.email)}&status=eq.paid&select=id&limit=1`);
+    const rows = await sbGet(env, "orders", `buyer_email=ilike.${encodeURIComponent(contact.email)}&status=eq.paid&select=id&limit=1`);
     return flip(!!(rows && rows.length));
   }
   if (cfg.field === "marketing_opt_in") return flip(!!contact.marketing_opt_in === (v ? v === "true" : true));
@@ -2725,7 +2729,10 @@ export default {
         let body;
         try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
         const name = String(body.name || "").trim();
-        const email = String(body.email || "").trim();
+        // Lowercased, because an account's email always is: an order typed as
+        // "Jane@Example.co.uk" would never match the library's lookup, and the
+        // pack they paid for would not be there.
+        const email = String(body.email || "").trim().toLowerCase();
         const phone = String(body.phone || "").trim();
         const company = String(body.company || "").trim();
         const packId = String(body.pack_id || "").trim();
@@ -2802,7 +2809,7 @@ export default {
       if (path.endsWith("/unsubscribe/resubscribe") && request.method === "POST") {
         const addr = await unsubVerify(env, url.searchParams.get("t"));
         if (!addr) return new Response(unsubPage({ state: "error" }), { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
-        const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=*`);
+        const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=*`);
         const contact = rows && rows[0];
         if (contact) {
           await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contact.id)}`, {
@@ -2828,7 +2835,7 @@ export default {
           return new Response(unsubPage({ state: "error" }), { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
         }
 
-        const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=*`);
+        const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=*`);
         const contact = rows && rows[0];
         if (contact) {
           await unsubscribeContact(env, contact, oneClick ? "list_unsubscribe" : "footer_link");
@@ -4232,7 +4239,7 @@ export default {
           const fn = String(name || "").trim().split(/\s+/);
           const tags = crmTags(em, ["Videography-Client", videographyProductTag("content-studio"), "Videography-Booked"], { member: true });
           await sbRpc(env, "upsert_contact", { p_email: em, p_first_name: fn.shift() || name, p_last_name: fn.join(" ") || null, p_phone: phone || null, p_source: "new_starter_booking", p_lifecycle: "customer", p_tags: tags, p_user_id: accountUserId });
-          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(em)}&select=id`);
+          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(em))}&select=id`);
           const cid = cRows && cRows[0] && cRows[0].id;
           if (cid) {
             await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?contact_id=eq.${encodeURIComponent(cid)}`, {
@@ -4982,7 +4989,7 @@ export default {
           try {
             const meta = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
             const addr = String(meta.e || "").toLowerCase();
-            const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=id,email&limit=1`) : null;
+            const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=id,email&limit=1`) : null;
             await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "opened", provider: "m365", messageId: meta.m || null, automationId: meta.a || null, enrollmentId: meta.n || null });
           } catch (_) {}
         }
@@ -4997,7 +5004,7 @@ export default {
           try {
             const meta = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
             const addr = String(meta.e || "").toLowerCase();
-            const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=id,email&limit=1`) : null;
+            const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=id,email&limit=1`) : null;
             await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "clicked", provider: "m365", messageId: meta.m || null, url: u, automationId: meta.a || null, enrollmentId: meta.n || null });
           } catch (_) {}
         }
@@ -5099,7 +5106,7 @@ export default {
         const addr = String((Array.isArray(d.to) ? d.to[0] : d.to) || (sentRow && sentRow.email) || "").toLowerCase();
         let contact = null;
         if (addr) {
-          const cs = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(addr)}&select=*&limit=1`);
+          const cs = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=*&limit=1`);
           contact = cs && cs[0];
         }
         await logEmailEvent(env, {
@@ -6858,7 +6865,7 @@ export default {
         // Reflect on the CRM contact: one SMM-Status tag at a time.
         const statusTag = `SMM-Status: ${{ active: "Active", paused: "Paused", ended: "Ended" }[status]}`;
         if (lead.email) {
-          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lead.email)}&select=id,tags,lifecycle`);
+          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(lead.email))}&select=id,tags,lifecycle`);
           const c = cRows && cRows[0];
           if (c) {
             const tags = normalizeTags([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag]);
@@ -8007,7 +8014,7 @@ async function sendEditsCompleteEmail(env, bookingId) {
     if (addr) {
       try {
         const cs = await sbGet(env, "contacts",
-          `email=eq.${encodeURIComponent(addr)}&select=user_id&limit=1`);
+          `email=eq.${encodeURIComponent(lc(addr))}&select=user_id&limit=1`);
         hasAccount = !!(cs && cs[0] && cs[0].user_id);
       } catch (_) { /* can't tell — say nothing rather than nag */ hasAccount = true; }
     }

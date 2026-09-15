@@ -201,7 +201,7 @@ import "../../styles/account-sections.css";
       const { data: orders, error } = await supabase
         .from('orders')
         .select('id, pack_slug, pack_title, amount_pence, invoice_number, status, payment_method, created_at, buyer_company')
-        .or(`user_id.eq.${session.user.id},buyer_email.eq.${email}`)
+        .or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`)
         .order('created_at', { ascending: false });
 
       const $list = document.getElementById('orders-list');

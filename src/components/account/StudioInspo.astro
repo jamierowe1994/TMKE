@@ -314,7 +314,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
       if (pack) {
         const [{ data: t }, ordersRes] = await Promise.all([
           supabase.from("templates").select("id, name, category, thumb_url, render_url, sort_order").eq("pack_id", pack.id).eq("status", "active").order("sort_order", { ascending: true }),
-          session ? supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.eq.${session.user.email || ""}`) : Promise.resolve({ data: [] }),
+          session ? supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.ilike.${session.user.email || ""}`) : Promise.resolve({ data: [] }),
         ]);
         tpls = t || [];
         owned = (ordersRes.data || []).some((o) => o.status === "paid" && o.pack_id === pack.id);

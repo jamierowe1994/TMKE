@@ -6,6 +6,9 @@
 // in the week (or the week after) still sees it while the pack is new. A day
 // with a post on it is never touched - their own plan outranks our news.
 export const NEW_FOR_DAYS = 14;
+// Without packs.launched_at (supabase/pack_launch.sql) we go by when the pack
+// was made, which runs ahead of the day it went live - hence the longer window.
+export const NEW_FOR_DAYS_GUESSED = 21;
 
 // packs: rows from the packs table (select * so a missing launched_at column
 // simply isn't there). emptyDates: the ymd strings of day cards with nothing on
@@ -15,8 +18,8 @@ export function pickNewPackDay({ packs, weekDates, emptyDates, todayYmd, now = n
   const week = new Set(weekDates || []);
   const live = (packs || [])
     .filter((p) => p && p.status === "active" && p.demo !== true && p.slug)
-    .map((p) => ({ pack: p, at: launchedAt(p) }))
-    .filter((x) => x.at && daysBetween(x.at, now) <= NEW_FOR_DAYS && x.at <= now)
+    .map((p) => ({ pack: p, at: launchedAt(p), guessed: !p.launched_at }))
+    .filter((x) => x.at && x.at <= now && daysBetween(x.at, now) <= (x.guessed ? NEW_FOR_DAYS_GUESSED : NEW_FOR_DAYS))
     .sort((a, b) => b.at - a.at);
   if (!live.length) return null;
 
@@ -40,10 +43,12 @@ export function pickNewPackDay({ packs, weekDates, emptyDates, todayYmd, now = n
   };
 }
 
-// The launch date: the column when the database has it, else the last time the
-// pack row changed, which for a pack switched live is when that happened.
+// The launch date: the column when the database has it. Without it, when the
+// pack was created - NOT when the row last changed, which is the same moment
+// for every pack whenever anything touches them all (a reorder, say) and made
+// the hub announce whichever one happened to sort first.
 export function launchedAt(p) {
-  const raw = p.launched_at || p.updated_at || p.created_at;
+  const raw = p.launched_at || p.created_at;
   const d = raw ? new Date(raw) : null;
   return d && !isNaN(d) ? d : null;
 }
