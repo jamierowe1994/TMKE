@@ -4,5 +4,5 @@
 // Cloudflare holds an image for four hours, so a changed picture under the same
 // name never reaches anyone: every version gets a new filename. Bump this and
 // rename the files in public/images/learn/hub/areas/ together.
-export const AREA_IMG_V = "v3";
+export const AREA_IMG_V = "v4";
 export const areaImg = (name) => `/images/learn/hub/areas/${name}-${AREA_IMG_V}.jpg`;
