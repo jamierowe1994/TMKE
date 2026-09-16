@@ -159,10 +159,10 @@ const DEFAULT_COVER = (await getImage({
     .bk-card span { font-size: 13px; line-height: 1.6; color: var(--ws-tx); }
     /* A tip sits in the grid as a card of its own, coloured so it reads as an
        aside rather than another instruction. */
-    .bk-card--tip { background: var(--ws-soft, #faf8f7); border-color: color-mix(in srgb, var(--ws-accent) 30%, var(--ws-line)); }
-    .bk-card--tip strong { color: var(--ws-accent); letter-spacing: 0.06em; text-transform: uppercase; font-size: 11.5px; }
+    .bk-card--tip { background: rgba(201, 188, 183, 0.22); border-color: #c9bcb7; }
+    .bk-card--tip strong { color: #7e6765; letter-spacing: 0.08em; text-transform: uppercase; font-size: 11.5px; }
 
-    .bk-panel { margin: 22px 0; padding: 17px 22px; background: var(--ws-soft, #faf8f7);
+    .bk-panel { margin: 22px 0; padding: 17px 22px; background: rgba(55, 30, 40, 0.045);
       border-left: 3px solid var(--ws-accent); border-radius: var(--ws-r); }
     .bk-panel > strong { display: block; font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ws-ink); margin-bottom: 8px; }
     .bk-panel p { margin-bottom: 0; }
@@ -196,8 +196,11 @@ const DEFAULT_COVER = (await getImage({
     .bk-sheet-wrap[hidden] { display: none; }
     .bk-sheet { position: relative; width: min(640px, 100%); max-height: 84vh; overflow: auto; padding: 34px 36px 32px;
       background: var(--ws-card, #fff); border-radius: var(--ws-r-lg, 12px); box-shadow: 0 30px 70px rgba(28, 20, 24, 0.3); }
-    .bk-sheet h3 { font-family: var(--subhead, var(--serif)); font-weight: 400; font-size: 24px; line-height: 1.15;
-      color: var(--ws-ink); margin: 0 0 10px; }
+    /* Helios, the heading face - not The Seasons, which read as a different
+       kind of thing entirely on a card. (h3 swaps --serif for --subhead
+       globally, so the family is named here rather than inherited.) */
+    .bk-sheet h3, .bk-sheet .gr-body h3 { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 500;
+      font-size: 22px; line-height: 1.2; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0 0 12px; }
     .bk-sheet .gr-body { margin: 0; font-size: 14px; line-height: 1.68; }
     .bk-sheet p { margin-bottom: 12px; }
     .bk-sheet p:last-child, .bk-sheet .bk-panel:last-child, .bk-sheet .ci-rhythm:last-child { margin-bottom: 0; }
@@ -212,6 +215,8 @@ const DEFAULT_COVER = (await getImage({
     .bk-sheet-x:hover { color: var(--ws-ink); }
 
     .bk-eg { margin: 26px 0; padding: 24px; background: var(--ws-soft, #faf8f7); border-radius: var(--ws-r); }
+    .gr-body code, .bk-sheet code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em;
+      background: rgba(28, 29, 34, 0.05); border-radius: 4px; padding: 1px 5px; }
     .bk-eg-l { display: block; font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.12em;
       text-transform: uppercase; color: var(--ws-faint); }
     .bk-eg blockquote { margin: 20px 0 0; padding: 0; border: 0; font-style: italic; font-size: 15px; line-height: 1.65; color: var(--ws-ink); }
@@ -562,7 +567,10 @@ const DEFAULT_COVER = (await getImage({
       sheetWrap.className = "bk-sheet-wrap";
       sheetWrap.hidden = true;
       sheetWrap.innerHTML = `<div class="bk-sheet" role="dialog" aria-modal="true"><button type="button" class="bk-sheet-x" aria-label="Close">&times;</button><div class="bk-sheet-body gr-body"></div></div>`;
-      document.body.appendChild(sheetWrap);
+      // Inside the workspace, not on the body: the brand tokens (--ws-accent and
+      // the rest) are defined on .ws, so a panel appended outside it lost its
+      // wine line - the declaration referenced a variable that wasn't there.
+      (document.querySelector(".ws") || document.body).appendChild(sheetWrap);
       const closeSheet = () => { sheetWrap.hidden = true; sheetWrap.querySelector(".bk-sheet-body").innerHTML = ""; };
       sheetWrap.addEventListener("click", (e) => { if (e.target === sheetWrap || e.target.closest(".bk-sheet-x")) closeSheet(); });
       document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheetWrap.hidden) closeSheet(); });
