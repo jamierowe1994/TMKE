@@ -8,6 +8,7 @@ import NewDesignModal from "../../components/account/NewDesignModal.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../../data/library.js";
+import { TRAINING_DESIGN, TRAINING_KIT } from "../../data/training-demo.js";
 
 // Cache-buster for the static editor script. Files in public/ keep the same URL
 // forever (unlike Astro's content-hashed bundles), so browsers/CDN serve a stale
@@ -143,7 +144,7 @@ const googleFonts = [
        show the launcher first: this runs before paint and hides it, and shows a
        plain veil until the canvas is up. -->
   <script is:inline>
-    if (/[?&](template|design|blank|prompt)=/.test(location.search)) document.documentElement.classList.add("ed-direct");
+    if (/[?&](template|design|blank|prompt|training)=/.test(location.search)) document.documentElement.classList.add("ed-direct");
   </script>
   <div class="ed-veil" id="ed-veil" aria-hidden="true"><span class="ed-veil-mark">TMKE</span><span class="ed-veil-text">Opening your design…</span></div>
   <div class="ed-onboard ws" id="ed-onboard">
@@ -5103,7 +5104,10 @@ const googleFonts = [
       if (memberSession) {
         const memberUid = memberSession.user.id;
         let currentDesignId = params.get('design') || null;
-        window.__TMKE_DESIGN_SAVE__ = async (payload) => {
+        // A training demo is never anybody's design: no save hook means no
+        // autosave and no row in their library.
+        const trainingMode = /[?&]training=1/.test(location.search);
+        window.__TMKE_DESIGN_SAVE__ = trainingMode ? undefined : async (payload) => {
           try {
             // Externalise embedded data-URL images to storage (keeps the row small).
             try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (_) {}
@@ -5542,6 +5546,21 @@ const googleFonts = [
         setStatus('No stock photo API keys configured. Set PUBLIC_PEXELS_API_KEY / PUBLIC_UNSPLASH_ACCESS_KEY.', true);
         inputEl.disabled = true;
       }
+    }
+  </script>
+
+  <!-- Training mode (?training=1). The Studio course's walkthroughs open the
+       editor inside the lesson, and a walk about changing the words needs
+       words on the canvas: this loads a finished demo template, and a stand-in
+       brand kit for anyone who hasn't built their own. Runs before editor.js
+       (which reads both at boot), and nothing here can be saved - the
+       design-save hook is left undefined below in training mode. -->
+  <script is:inline define:vars={{ TRAINING_DESIGN, TRAINING_KIT }}>
+    if (/[?&]training=1/.test(location.search)) {
+      window.__TMKE_TRAINING__ = true;
+      window.__TMKE_TRAINING_KIT__ = TRAINING_KIT;
+      window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = TRAINING_DESIGN;
+      document.documentElement.classList.add("ed-training");
     }
   </script>
 
@@ -7237,7 +7256,7 @@ const googleFonts = [
       // ?blank=1 does the same for a fresh canvas - the dashboard's content
       // prompts use it, so "design this post" lands on a blank Instagram
       // portrait (the default 1080 x 1440) rather than on the launcher.
-      if (params.has("template") || params.has("design") || params.has("blank")) {
+      if (params.has("template") || params.has("design") || params.has("blank") || params.has("training")) {
         overlay.classList.add("is-gone");
         editor.classList.remove("is-onboarding");
         editor.classList.add("show-rail", "show-top", "show-stage", "show-panel", "show-props");

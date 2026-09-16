@@ -125,7 +125,10 @@ const DEFAULT_COVER = (await getImage({
        at its top-left. The hub's banner, taller, with the card doing the work
        the gradient does on the page headers. ---- */
     .gc-slide--intro { position: relative; min-height: min(620px, 68vh); padding: clamp(20px, 2.6vw, 32px); border-radius: 6px; border: 1px solid var(--ws-line); overflow: hidden; background: #e6e3e1 center / cover no-repeat; display: flex; align-items: flex-start; }
-    .gc-intro-card { max-width: 520px; padding: clamp(24px, 2.6vw, 34px); background: var(--english-violet, #4a2a3c); color: #fff; border-radius: 6px; }
+    /* Half the cover, whatever the course. Sized by the page rather than by
+       how long the summary happens to be, so the four cards match. */
+    .gc-intro-card { width: min(50%, 660px); max-width: 100%; padding: clamp(24px, 2.6vw, 34px); background: var(--english-violet, #4a2a3c); color: #fff; border-radius: 6px; }
+    @media (max-width: 900px) { .gc-intro-card { width: 100%; } }
     .gc-intro-card .gr-topic { color: rgba(255,255,255,0.72); }
     .gc-intro-card .gc-intro-title { color: #fff; }
     .gc-intro-card .gc-intro-sum { color: rgba(255,255,255,0.84); }
@@ -190,6 +193,25 @@ const DEFAULT_COVER = (await getImage({
     .bk-open-go { margin-top: 6px; font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em;
       text-transform: uppercase; color: var(--ws-accent); }
     .bk-open-body[hidden] { display: none; }
+    /* A picture worth seeing big: a wide button with a strip of it, opening
+       the whole thing (and its labels) in the pop-out. */
+    .bk-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px;
+      width: 100%; margin: 22px 0 6px; padding: 14px 18px 14px 14px; text-align: left; cursor: pointer;
+      background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); color: inherit;
+      transition: border-color .2s var(--ws-ease), transform .2s var(--ws-ease); }
+    .bk-shot:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
+    .bk-shot-img { display: block; width: 148px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; margin: 0; }
+    .bk-shot-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .bk-shot-t { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ws-ink); }
+    .bk-shot-b { font-size: 13px; line-height: 1.5; color: var(--ws-tx); }
+    .bk-shot-go { font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); white-space: nowrap; }
+    .bk-sheet--wide { width: min(1040px, 100%); }
+    .bk-sheet .bk-figure { margin: 0 0 20px; }
+    @media (max-width: 620px) {
+      .bk-shot { grid-template-columns: 96px minmax(0, 1fr); }
+      .bk-shot-img { width: 96px; }
+      .bk-shot-go { grid-column: 2; }
+    }
 
     /* The pop-out: one part of the kit, with room to read it. */
     .bk-sheet-wrap { position: fixed; inset: 0; z-index: 120; display: flex; align-items: center; justify-content: center;
@@ -587,6 +609,7 @@ const DEFAULT_COVER = (await getImage({
         const src = document.getElementById(opener.getAttribute("data-bk-open"));
         if (!src) return;
         sheetWrap.querySelector(".bk-sheet-body").innerHTML = src.innerHTML;
+        sheetWrap.querySelector(".bk-sheet").classList.toggle("bk-sheet--wide", src.hasAttribute("data-wide"));
         sheetWrap.hidden = false;
         sheetWrap.querySelector(".bk-sheet").scrollTop = 0;
       });

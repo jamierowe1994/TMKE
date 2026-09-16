@@ -146,6 +146,94 @@ const LS_WALKED = 'tmke.walked';  // which area walks this member has finished (
 function walkedSet() { try { return new Set(JSON.parse(localStorage.getItem(LS_WALKED) || '[]')); } catch (_) { return new Set(); } }
 function markWalked(id) { try { const st = walkedSet(); st.add(id); localStorage.setItem(LS_WALKED, JSON.stringify([...st])); } catch (_) {} }
 const PRE = { dismissEditorOnboarding: () => dismissEditorOnboarding() };
+
+// ---------- The demo stage ----------
+// A walk can carry `stage: "<url>"`: instead of navigating the member away from
+// the lesson, the page it talks about is loaded into a pop-out over the course
+// and every step's target is found inside it. A step's own `href` moves the
+// stage to another page mid-walk.
+let stage = null;        // { wrap, box, frame, url }
+const stageOn = () => !!(stage && stage.frame);
+const scope = () => {
+  if (!stageOn()) return document;
+  try { return stage.frame.contentDocument || document; } catch (_) { return document; }
+};
+const scopeWin = () => {
+  if (!stageOn()) return window;
+  try { return stage.frame.contentWindow || window; } catch (_) { return window; }
+};
+// Where the framed page sits on the screen, so a rect inside it can be drawn
+// over it by the spotlight.
+const stageOffset = () => {
+  if (!stageOn()) return { x: 0, y: 0, w: window.innerWidth, h: window.innerHeight };
+  const r = stage.frame.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
+};
+
+function openStage(title) {
+  if (stage) return;
+  injectStyles();
+  const wrap = document.createElement('div');
+  wrap.className = 'tmke-stage';
+  wrap.innerHTML = `
+    <div class="tmke-stage-box">
+      <div class="tmke-stage-head">
+        <b>The demo &middot; <span data-stage-title></span></b>
+        <button type="button" class="tmke-stage-x" data-stage-x>Close demo &times;</button>
+      </div>
+      <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+    </div>`;
+  document.body.appendChild(wrap);
+  stage = {
+    wrap, box: wrap.querySelector('.tmke-stage-box'),
+    frame: wrap.querySelector('[data-stage-frame]'), url: null,
+  };
+  wrap.querySelector('[data-stage-title]').textContent = title || '';
+  wrap.addEventListener('click', (e) => {
+    if (e.target === wrap || e.target.closest('[data-stage-x]')) finish(false);
+  });
+  document.documentElement.style.overflow = 'hidden';
+  nextTick(() => wrap.classList.add('is-in'));
+}
+
+function closeStage() {
+  if (!stage) return;
+  const wrap = stage.wrap;
+  stage = null;
+  document.documentElement.style.overflow = '';
+  wrap.classList.remove('is-in');
+  setTimeout(() => wrap.remove(), 280);
+}
+
+// Point the stage at a page and wait for it to be usable. Resolves either way -
+// a step that can't find its target is skipped, as it always was.
+function stageGo(url) {
+  return new Promise((resolve) => {
+    if (!stage) return resolve();
+    if (stage.url === url) return resolve();
+    stage.url = url;
+    let done = false;
+    const go = () => { if (done) return; done = true; dressStage(); setTimeout(resolve, 500); };
+    stage.frame.addEventListener('load', go, { once: true });
+    setTimeout(go, 14000);
+    stage.frame.src = url;
+  });
+}
+
+// The framed page is the real one, floating bits and all. Inside a lesson the
+// cookie bar and the assistant bubble are somebody else's furniture, so they
+// are hidden for the demo - hidden, not answered: nothing is stored.
+function dressStage() {
+  const d = scope();
+  if (!d || d === document) return;
+  try {
+    if (d.getElementById('tmke-stage-dress')) return;
+    const st = d.createElement('style');
+    st.id = 'tmke-stage-dress';
+    st.textContent = '#cc-banner, .cc-banner, .ae-trigger, .dm-pill { display: none !important; }';
+    (d.head || d.documentElement).appendChild(st);
+  } catch (_) {}
+}
 function loadWalk(id) {
   const w = WALKS[id];
   if (!w) return false;
@@ -200,6 +288,39 @@ function injectStyles() {
   }
   /* Centred cards sit in the middle of the framed page, not the whole screen. */
   html.tmke-walk .tmke-tour-card.is-center { top: calc(72px + (100vh - 72px) / 2); }
+  /* The demo stage: the real page, inside the lesson. Nearly full screen, but
+     plainly a pop-out - the course is still there behind it, and clicking the
+     paper around it (or Close) ends the demo. */
+  .tmke-stage {
+    position: fixed; inset: 0; z-index: 8990; display: flex; align-items: center; justify-content: center;
+    padding: clamp(10px, 2.4vh, 28px); background: rgba(28,29,34,0.55);
+    opacity: 0; transition: opacity .28s ease;
+  }
+  .tmke-stage.is-in { opacity: 1; }
+  .tmke-stage-box {
+    position: relative; display: flex; flex-direction: column; overflow: hidden;
+    width: min(1620px, 96vw); height: min(94vh, 1040px);
+    background: #fff; border-radius: 10px; box-shadow: 0 40px 90px -30px rgba(28,29,34,0.6);
+    transform: translateY(10px); transition: transform .3s cubic-bezier(.2,.75,.2,1);
+  }
+  .tmke-stage.is-in .tmke-stage-box { transform: none; }
+  .tmke-stage-head {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    height: 46px; padding: 0 10px 0 18px; background: var(--english-violet, #371e28); color: #fff;
+  }
+  .tmke-stage-head b {
+    font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; font-weight: 700;
+    letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.78);
+  }
+  .tmke-stage-head b span { color: #fff; }
+  .tmke-stage-x {
+    appearance: none; cursor: pointer; border: 1px solid rgba(255,255,255,0.35); background: none; color: #fff;
+    border-radius: 999px; padding: 6px 14px;
+    font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  }
+  .tmke-stage-x:hover { background: rgba(255,255,255,0.14); }
+  .tmke-stage-frame { flex: 1 1 auto; width: 100%; border: 0; display: block; background: #fff; }
+  @media (max-width: 700px) { .tmke-stage { padding: 0; } .tmke-stage-box { width: 100vw; height: 100vh; border-radius: 0; } }
   .tmke-tour-top {
     position: fixed; top: 0; left: 0; right: 0; height: 72px; z-index: 2;
     padding: 18px clamp(16px, 2.6vw, 40px) 0; background: var(--ws-bg, #f6f4f2);
@@ -399,6 +520,7 @@ function buildDOM() {
 
 function teardownDOM() {
   document.documentElement.classList.remove('tmke-walk');
+  closeStage();
   document.removeEventListener('keydown', onKey, true);
   window.removeEventListener('resize', scheduleReflow);
   window.removeEventListener('scroll', scheduleReflow, true);
@@ -421,11 +543,11 @@ function nextTick(fn) { setTimeout(fn, 16); }
 // dynamically-built header). Resolves with the element, or null on timeout.
 function waitFor(selector, timeout = 4000) {
   return new Promise((resolve) => {
-    const found = document.querySelector(selector);
+    const found = scope().querySelector(selector);
     if (found) return resolve(found);
     const start = Date.now();
     const id = setInterval(() => {
-      const el = document.querySelector(selector);
+      const el = scope().querySelector(selector);
       if (el) { clearInterval(id); return resolve(el); }
       if (Date.now() - start > timeout) { clearInterval(id); return resolve(null); }
     }, 80);
@@ -473,13 +595,33 @@ function scheduleReflow() {
 // spotlight always lands on-screen. No-op if the target is already comfortably
 // in view, to avoid jarring jumps for header/top-of-page targets.
 function scrollTargetIntoView(t) {
+  const w = scopeWin();
+  // Panels scroll inside themselves (the editor's tool panel is the obvious
+  // one), so bring the target into view in its own scroller first - scrolling
+  // the page alone leaves it exactly where it was, and the spotlight lands on
+  // nothing.
+  try {
+    let p = t.parentElement;
+    while (p && p !== t.ownerDocument.body) {
+      const cs = t.ownerDocument.defaultView.getComputedStyle(p);
+      const scrolls = /auto|scroll|overlay/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 4;
+      if (scrolls) {
+        const pr = p.getBoundingClientRect(), tr = t.getBoundingClientRect();
+        if (tr.top < pr.top + 8 || tr.bottom > pr.bottom - 8) {
+          p.scrollTop += (tr.top - pr.top) - (p.clientHeight - tr.height) / 2;
+        }
+        break;
+      }
+      p = p.parentElement;
+    }
+  } catch (_) {}
   const r = t.getBoundingClientRect();
-  const vh = window.innerHeight;
+  const vh = (stageOn() ? stageOffset().h : window.innerHeight);
   if (r.top >= 16 && r.bottom <= vh - 16) return; // already fully visible
-  const top = window.scrollY + r.top + r.height / 2 - vh / 2;
+  const top = (w.scrollY || 0) + r.top + r.height / 2 - vh / 2;
   // Instant, not smooth: the background is dimmed so the scroll is barely
   // perceptible, and instant lands the spotlight reliably across browsers.
-  window.scrollTo(0, Math.max(0, top));
+  w.scrollTo(0, Math.max(0, top));
 }
 
 function setMask(el, left, top, width, height) {
@@ -509,12 +651,21 @@ function positionFor(step) {
   }
   els.root.classList.remove('is-center');
   card.classList.remove('is-center');
-  const t = document.querySelector(step.target);
+  const t = scope().querySelector(step.target);
   if (!t) return;
-  const r = t.getBoundingClientRect();
+  const raw = t.getBoundingClientRect();
+  // A target inside the demo stage is measured in the frame's own coordinates;
+  // shift it onto the screen, and keep the cutout inside the frame.
+  const off = stageOffset();
+  const r = stageOn()
+    ? { left: raw.left + off.x, top: raw.top + off.y, width: raw.width, height: raw.height }
+    : raw;
   const pad = step.padding != null ? step.padding : 6;
-  const hx = Math.max(0, r.left - pad), hy = Math.max(0, r.top - pad);
-  const hw = Math.min(vw - hx, r.width + pad * 2), hh = Math.min(vh - hy, r.height + pad * 2);
+  const minX = stageOn() ? off.x : 0, minY = stageOn() ? off.y : 0;
+  const maxX = stageOn() ? off.x + off.w : vw, maxY = stageOn() ? off.y + off.h : vh;
+  const hx = Math.max(minX, r.left - pad), hy = Math.max(minY, r.top - pad);
+  const hw = Math.max(0, Math.min(maxX - hx, r.width + pad * 2));
+  const hh = Math.max(0, Math.min(maxY - hy, r.height + pad * 2));
 
   // Frame the cutout with four dim panels + the ring outline.
   setMask(els.maskT, 0, 0, vw, hy);
@@ -539,8 +690,8 @@ function positionFor(step) {
   else if (placement === 'right') { left = hx + hw + gap; top = hy + hh / 2 - ch / 2; }
   else { left = hx - cw - gap; top = hy + hh / 2 - ch / 2; } // left
   // Clamp into the viewport, and below the progress strip during a walk.
-  const topMin = activeWalk ? FRAME_TOP + 12 : 16;
-  const edge = activeWalk ? 32 : 16;   // a walk's card keeps well off the frame's edge
+  const topMin = (activeWalk && !stageOn()) ? FRAME_TOP + 12 : 16;
+  const edge = (activeWalk && !stageOn()) ? 32 : 16;   // a walk's card keeps well off the frame's edge
   left = Math.max(edge, Math.min(left, vw - cw - edge));
   top = Math.max(topMin, Math.min(top, vh - ch - edge));
   card.style.left = left + 'px';
@@ -560,12 +711,29 @@ async function render(index) {
   if (step.preAction) { try { await step.preAction(); } catch (_) {} }
   lastPostAction = step.postAction || null;
 
+  // A staged walk: make sure the pop-out is showing the page this step is about
+  // before anything is looked for inside it.
+  if (stageOn()) {
+    const want = step.href || (WALKS[activeWalk] && WALKS[activeWalk].stage);
+    if (want) await stageGo(want);
+  }
+
   // `open`: a control to click before the step shows - a rail button whose
   // panel the step is about, say - so the reader is looking at the thing the
   // card describes rather than being told to go and find it. Clicking the same
   // button twice is harmless, so stepping back through a walk still works.
+  // `select`: pick something on the demo canvas, so the step can talk about a
+  // selected photo or line of text - and its handles and controls are there to
+  // be seen. An empty string clears the selection again.
+  if (step.select !== undefined) {
+    const w = scopeWin();
+    for (let i = 0; i < 24 && !(w && w.__TMKE_TRAINING_SELECT__); i++) await new Promise((r) => setTimeout(r, 150));
+    try { if (w && w.__TMKE_TRAINING_SELECT__) w.__TMKE_TRAINING_SELECT__(step.select); } catch (_) {}
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
   if (step.open) {
-    const opener = await waitFor(step.open, 2000);
+    const opener = await waitFor(step.open, stageOn() ? 6000 : 2000);
     if (opener) {
       try { opener.click(); } catch (_) {}
       await new Promise((r) => setTimeout(r, 220));
@@ -574,7 +742,9 @@ async function render(index) {
 
   // Wait for / validate the target. Skip the step cleanly if it never shows.
   if (step.target) {
-    const t = await waitFor(step.target);
+    // The framed page is still booting on the first step of a staged walk, so
+    // give it longer than a target on a page that is already up.
+    const t = await waitFor(step.target, stageOn() ? 9000 : 4000);
     if (!t) return advance(index, +1, true);
     scrollTargetIntoView(t);
     await new Promise((r) => setTimeout(r, 120)); // let layout settle
@@ -589,8 +759,10 @@ async function render(index) {
   els.back.style.visibility = index === 0 ? 'hidden' : 'visible';
   els.next.textContent = (step.isFinish || index === STEPS.length - 1) ? 'Finish' : 'Next';
   els.skip.textContent = activeWalk ? 'Stop' : 'Skip tour';
-  // Training walks run inside the reader's frame with its progress bar.
-  if (activeWalk) {
+  // Training walks run inside the reader's frame with its progress bar - unless
+  // the walk has a stage, where the pop-out's own header says where you are and
+  // the reader is left exactly as it was behind it.
+  if (activeWalk && !stageOn()) {
     document.documentElement.classList.add('tmke-walk');
     const walkTitle = (WALKS[activeWalk] && WALKS[activeWalk].title) || '';
     const pct = Math.round(((index + 1) / STEPS.length) * 100);
@@ -601,6 +773,7 @@ async function render(index) {
     els.progress.textContent = '';
   } else {
     els.top.hidden = true;
+    document.documentElement.classList.remove('tmke-walk');
   }
   // A menu step: a page of cards, one per area, Done instead of Next.
   els.skipto.hidden = !step.skipToMenu;
@@ -633,7 +806,7 @@ function advance(fromIndex, dir, autoSkipped) {
   if (nextIndex >= STEPS.length) return finish(true);
   const next = STEPS[nextIndex];
   writeState({ active: true, index: nextIndex, walk: activeWalk, returnTo, menu: menuBack });
-  if (!onThisPage(next)) {
+  if (!stageOn() && !onThisPage(next)) {
     if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
     location.assign(next.href || next.path);
     return;
@@ -650,6 +823,8 @@ function goBack() { if (activeIndex > 0) advance(activeIndex, -1); }
 
 function finish(completed) {
   if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
+  const wasStaged = stageOn();
+  closeStage();
   if (activeWalk) {
     clearState();
     const back = returnTo, menu = menuBack, walked = activeWalk;
@@ -663,7 +838,8 @@ function finish(completed) {
       setTimeout(() => startWalk(menu, { returnTo: back, at: at >= 0 ? at : 0 }), 280);
       return;
     }
-    if (back) setTimeout(() => location.assign(back), completed ? 280 : 0);
+    // A staged walk never left the lesson, so there is nothing to go back to.
+    if (back && !wasStaged) setTimeout(() => location.assign(back), completed ? 280 : 0);
     return;
   }
   markDone(); // both completing and skipping mean "don't show again"
@@ -684,6 +860,9 @@ export function initTour(opts = {}) {
   if (opts.firstName) firstStepName = String(opts.firstName);
   if (booted) return;
   booted = true;
+  // The demo stage loads real hub pages in a frame. They run this too, and the
+  // saved state would have them start the walk again inside the pop-out.
+  try { if (window.self !== window.top) return; } catch (_) { return; }
   const state = readState();
   if (!state || !state.active) return;
   if (state.walk) {
@@ -693,6 +872,9 @@ export function initTour(opts = {}) {
   } else if (isDone()) { clearState(); return; }
   const step = STEPS[state.index];
   if (!step) { clearState(); return; }
+  // A staged walk lives in a pop-out on the lesson; after a reload there is no
+  // pop-out to resume into, so let it go rather than half-starting it.
+  if (state.walk && WALKS[state.walk] && WALKS[state.walk].stage) { clearState(); return; }
   // Only render if this step belongs to the current page. (If state points at
   // another page we likely arrived mid-navigation — leave it for that page.)
   if (!onThisPage(step)) return;
@@ -726,6 +908,15 @@ export function startWalk(id, opts = {}) {
   menuBack = opts.menu || null;
   if (els) teardownDOM();
   const at = Math.max(0, Math.min(STEPS.length - 1, opts.at || 0));
+  const walk = WALKS[id];
+  // A walk with a stage runs inside the lesson: the page opens in a pop-out
+  // over the course rather than taking the member off it.
+  if (walk && walk.stage) {
+    writeState({ active: true, index: at, walk: id, returnTo, menu: menuBack });
+    openStage(walk.title || '');
+    nextTick(() => render(at));
+    return true;
+  }
   writeState({ active: true, index: at, walk: id, returnTo, menu: menuBack });
   const first = STEPS[at];
   if (!onThisPage(first)) { location.assign(first.href || first.path); return true; }

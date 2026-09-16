@@ -133,7 +133,11 @@
     // The Member Hub demo uses only the kit made during the demo, never one
     // cached for a member on this browser.
     try { kit = JSON.parse(localStorage.getItem(localStorage.getItem("tmke_demo") ? "tmke.brand.demo" : "tmke.brand") || "null"); }
-    catch (_) { return null; }
+    catch (_) { kit = null; }
+    // A training walkthrough on a reader who hasn't built a kit yet: borrow the
+    // stand-in one so "Make this design yours" has rows to show. Never written
+    // anywhere - it lives on the window for the life of the demo.
+    if (!kit && typeof window !== "undefined" && window.__TMKE_TRAINING_KIT__) kit = window.__TMKE_TRAINING_KIT__;
     // Older kits saved colours as bare strings; every reader here expects
     // { hex, name }. One bare string used to stop the whole engine booting.
     if (kit && Array.isArray(kit.colors)) {
@@ -9998,6 +10002,9 @@
   const urlParams = new URLSearchParams(window.location.search);
   const explicitTpl = urlParams.get("template");
   const explicitDesign = urlParams.get("design");
+  // ?training=1 - the Studio course's demo template, handed over by
+  // editor.astro on the window. Same road as a saved design, minus the fetch.
+  const trainingDemo = urlParams.get("training") === "1";
   const adminPending = urlParams.get("mode") === "admin";
 
   // Re-read the templates blob from the DOM and mutate TEMPLATES *in place* so
@@ -10075,6 +10082,22 @@
         }
         if (typeof window.__TMKE_BOOT_DONE__ === "function") window.__TMKE_BOOT_DONE__();
       }, 6000);
+    }
+  } else if (trainingDemo) {
+    // The Studio course drives this editor inside a pop-out on the lesson. The
+    // canvas is real DOM, so a walk can spotlight an element by id - but
+    // selecting one happens on pointerdown, which a walk cannot fake, so it
+    // asks here instead. Pass nothing to clear the selection.
+    window.__TMKE_TRAINING_SELECT__ = function (id) {
+      if (!id) { state.selectedIds = []; fullRender(); return true; }
+      if (!getEl(id)) return false;
+      state.selectedIds = [id];
+      fullRender();
+      return true;
+    };
+    window.__TMKE_BOOT_DESIGN__ = function (d) { loadDesignData(d); };
+    if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
+      window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
     }
   } else if (explicitDesign) {
     // Customer re-opening their own saved design. editor.astro fetches the row

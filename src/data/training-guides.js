@@ -47,6 +47,14 @@ const showMe = (id, part, line) => `<div class="gr-walk">
   <span class="gr-walk-tx"><strong>See it on the page</strong><span>${line || "A guided look at the real thing. Finish brings you back here."}</span></span>
   <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${id}" data-part="${part}">Show me &rarr;</button>
 </div>`;
+// A picture that deserves a proper look: a wide button in the lesson, the
+// picture itself (and whatever goes with it) in the pop-out.
+const shotOpen = (id, title, line, src, extra = "") => `<button type="button" class="bk-shot" data-bk-open="${id}">
+    <img class="bk-shot-img" src="${src}" alt="" loading="lazy">
+    <span class="bk-shot-tx"><span class="bk-shot-t">${title}</span><span class="bk-shot-b">${line}</span></span>
+    <span class="bk-shot-go">Take a look &rarr;</span>
+  </button><div class="bk-open-body" id="${id}" data-wide hidden><h3>${title}</h3>
+    <figure class="bk-figure"><img src="${src}" alt="" loading="lazy"></figure>${extra}</div>`;
 // One picture, given room, at the end of a lesson.
 const bigShot = (src, caption) => `<figure class="bk-figure"><img src="${src}" alt="" loading="lazy">${caption ? `<figcaption>${caption}</figcaption>` : ""}</figure>`;
 
@@ -203,14 +211,15 @@ export const TRAINING_GUIDES = [
           p("The Studio gives you everything you need to create content, whether you're starting with one of your templates or building something completely from scratch.") +
           p("For your first design, we're going to start with a template. Every Member Account includes a selection of demo templates, so you can learn how the Studio works before you need to create anything yourself.") +
           p("Even if you don't plan on using the finished post, we'd recommend editing one. It's the quickest way to get familiar with the Studio and the tools you'll use most often.") +
-          p("<strong>Your Studio.</strong>") +
-          bigShot(areaImg("studio")) +
-          cards([
-            ["Your packs", "Find the content packs you own, including your free demo templates."],
-            ["Your designs", "Jump back into your most recent designs. Select See all designs to open your complete design library."],
-            ["Create a design", "Start something completely new with a blank canvas."],
-            ["Design tools", "Shortcuts to useful Studio tools, from the Caption Generator to your Brand Kit."],
-          ], 2) +
+          shotOpen("bkx-studio", "Your Studio",
+            "The Studio homepage, and what each part of it is for.",
+            areaImg("studio"),
+            cards([
+              ["Your packs", "Find the content packs you own, including your free demo templates."],
+              ["Your designs", "Jump back into your most recent designs. Select See all designs to open your complete design library."],
+              ["Create a design", "Start something completely new with a blank canvas."],
+              ["Design tools", "Shortcuts to useful Studio tools, from the Caption Generator to your Brand Kit."],
+            ], 2)) +
           p("<strong>Let's open your first template.</strong>") +
           p("Choose a pack to see all of the templates included within it. Select the template you want to use and the Studio will create your own editable copy, leaving the original untouched.") +
           "<!--WALK-->" +
