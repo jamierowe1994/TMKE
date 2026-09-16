@@ -462,7 +462,7 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
-    import { TAG_GROUPS, loadPackTagGroup, withPackTags } from "../../lib/contact-tags.js";
+    import { TAG_GROUPS, loadPackTagGroup, withPackTags, tagLabel } from "../../lib/contact-tags.js";
     // Framework tags plus a "Pack Name: …" tag for every pack in the shop.
     let packGroup = null;
     const tagGroups = () => withPackTags(packGroup);
@@ -1051,7 +1051,7 @@ import "../../styles/admin.css";
             <h3>Tags</h3>
             <div class="ct-chips" id="ct-tags">${(c.tags || []).map((t) => `<span class="ct-chip">${esc(t)}<button data-untag="${esc(t)}" title="Remove">&times;</button></span>`).join("") || '<span class="ct-meta">No tags</span>'}</div>
             <div class="ct-row" style="margin-top:12px">
-              <select id="ct-tag-input"><option value="">Add a tag…</option>${tagGroups().map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join("")}</select>
+              <select id="ct-tag-input"><option value="">Add a tag…</option>${tagGroups().map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(tagLabel(t))}</option>`).join("")}</optgroup>`).join("")}</select>
               <button class="ct-mini" id="ct-tag-add">Add</button>
             </div>
           </div>
@@ -1438,7 +1438,7 @@ import "../../styles/admin.css";
       const framework = new Set(tagGroups().flatMap(([, tags]) => tags));
       const extra = inUse.filter((t) => !framework.has(t)).sort((a, b) => a.localeCompare(b));
       const groups = extra.length ? [...tagGroups(), ["Other", extra]] : tagGroups();
-      const opt = (t) => `<label class="ct-tagfilter-opt"><input type="checkbox" value="${esc(t)}" ${selectedTags.has(t) ? "checked" : ""}/> ${esc(t)}</label>`;
+      const opt = (t) => `<label class="ct-tagfilter-opt"><input type="checkbox" value="${esc(t)}" ${selectedTags.has(t) ? "checked" : ""}/> ${esc(tagLabel(t))}</label>`;
       menu.innerHTML = groups.map(([g, tags]) => `<div class="ct-tagfilter-group"><div class="ct-tagfilter-group-h">${esc(g)}</div>${tags.map(opt).join("")}</div>`).join("")
         + `<div class="ct-tagfilter-foot"><button type="button" class="ct-tagfilter-clear" id="ct-tagfilter-clear">Clear tags</button></div>`;
       menu.querySelectorAll('input[type="checkbox"]').forEach((cb) => cb.addEventListener("change", () => {
@@ -1690,7 +1690,7 @@ import "../../styles/admin.css";
       if (field !== "" || row.length) { row.push(field); rows.push(row); }
       return rows.filter((r) => r.some((c) => String(c).trim() !== ""));
     }
-    const paintImportTags = () => { $("ct-import-tag").innerHTML = `<option value="">Add a tag…</option>` + tagGroups().map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</optgroup>`).join(""); };
+    const paintImportTags = () => { $("ct-import-tag").innerHTML = `<option value="">Add a tag…</option>` + tagGroups().map(([g, tags]) => `<optgroup label="${esc(g)}">${tags.map((t) => `<option value="${esc(t)}">${esc(tagLabel(t))}</option>`).join("")}</optgroup>`).join(""); };
     paintImportTags();
     loadPackTagGroup(supabase).then((g) => { packGroup = g; paintImportTags(); });
     // Batch tags — pick as many as you like; each becomes a removable chip.

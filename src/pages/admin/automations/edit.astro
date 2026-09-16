@@ -181,7 +181,7 @@ import "../../../styles/admin.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase } from "../../../lib/supabase.js";
     import { TRIGGERS, NODE_TYPES, NODE_LABELS, emptyGraph } from "../../../lib/automations.js";
-    import { TAG_GROUPS, loadPackTagGroup, withPackTags } from "../../../lib/contact-tags.js";
+    import { TAG_GROUPS, loadPackTagGroup, withPackTags, tagLabel } from "../../../lib/contact-tags.js";
 
     const DEV = import.meta.env.DEV;
     const $ = (id) => document.getElementById(id);
@@ -322,7 +322,7 @@ import "../../../styles/admin.css";
         const selected = new Set(isAudience ? (triggerConfig.tags || []) : (triggerConfig.tag ? [triggerConfig.tag] : []));
         $("af-trigger-tags").innerHTML = tagGroupsAll().map(([g, tags]) =>
           `<div class="af-tags-group">${esc(g)}</div>` + tags.map((t) =>
-            `<label class="af-tag"><input type="${isAudience ? "checkbox" : "radio"}" name="af-trig-tag" data-trigtag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(t)}</span></label>`).join("")).join("");
+            `<label class="af-tag"><input type="${isAudience ? "checkbox" : "radio"}" name="af-trig-tag" data-trigtag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(tagLabel(t))}</span></label>`).join("")).join("");
         $("af-trigger-tags").querySelectorAll("[data-trigtag]").forEach((cb) => cb.addEventListener("change", () => {
           if (isAudience) {
             const sel = new Set(triggerConfig.tags || []);
@@ -588,7 +588,7 @@ import "../../../styles/admin.css";
           const selected = new Set(Array.isArray(c.values) ? c.values : (c.value ? [c.value] : []));
           const list = tagGroupsAll().map(([g, tags]) =>
             `<div class="af-tags-group">${esc(g)}</div>` + tags.map((t) =>
-              `<label class="af-tag"><input type="checkbox" data-tag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(t)}</span></label>`).join("")).join("");
+              `<label class="af-tag"><input type="checkbox" data-tag="${esc(t)}" ${selected.has(t) ? "checked" : ""}/> <span>${esc(tagLabel(t))}</span></label>`).join("")).join("");
           body += `<div class="af-field"><span>Tags (${selected.size} selected)</span><div class="af-tags">${list}</div></div>`
             + `<p class="af-hint"><strong>Yes</strong> runs when the contact has ${(c.op || "is") === "is_not" ? "<em>none</em>" : "<em>any</em>"} of the ticked tags, <strong>No</strong> otherwise.</p>`;
         } else {

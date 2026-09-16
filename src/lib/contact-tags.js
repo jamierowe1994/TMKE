@@ -16,6 +16,22 @@ export const TAG_GROUPS = [
   ["Region", ["Region: Videography-Radius"]],
 ];
 
+// What some tags mean, for the pickers. The tag itself is what's stored and
+// matched; this is only what a person reading the list is shown. Consent is one
+// state - Unsubscribed, then Newsletter-Subscriber, then Marketing-Not-Opted-In
+// - so "everyone opted in to marketing" IS Newsletter-Subscriber, and there is
+// deliberately no second tag saying the same thing.
+export const TAG_NOTES = {
+  "Newsletter-Subscriber": "opted in to marketing",
+  "Marketing-Not-Opted-In": "never opted in",
+  "Unsubscribed": "opted out - never send marketing",
+  "Pack-Purchased": "has bought any pack",
+};
+export function tagLabel(tag) {
+  const note = TAG_NOTES[tag];
+  return note ? `${tag} (${note})` : tag;
+}
+
 // Flat list of every framework tag.
 export const ALL_TAGS = TAG_GROUPS.flatMap(([, tags]) => tags);
 
