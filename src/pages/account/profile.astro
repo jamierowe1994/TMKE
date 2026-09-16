@@ -110,20 +110,64 @@ const HERO_BG = (await getImage({
 
           <div class="logo-grid" id="logo-grid"></div>
 
-          <!-- Headshot (optional) — a photo of the user for their dashboard/profile. -->
-          <div class="headshot-block">
-            <h3 class="headshot-h">Headshot <span>· optional</span></h3>
-            <div class="headshot-row">
-              <label class="headshot-drop" id="headshot-drop">
-                <input type="file" id="headshot-input" accept="image/*" hidden />
-                <div class="headshot-circle" id="headshot-circle"><span class="headshot-plus" aria-hidden="true">+</span></div>
-              </label>
-              <div class="headshot-text">
-                <p>Add a photo of yourself if you like &mdash; it can show on your dashboard and review requests.</p>
-                <button type="button" class="headshot-remove" id="headshot-remove" hidden>Remove photo</button>
-              </div>
+        </section>
+
+        <!-- About you. The person, not the company: what goes on a contact
+             slide, an end card or a review request - so it is asked once here
+             rather than typed into every design. -->
+        <section class="profile-section">
+          <header class="profile-section-head">
+            <div>
+              <div class="eyebrow">03</div>
+              <h2>About you</h2>
+            </div>
+            <p>Your details for contact slides, end cards and anywhere a design signs off with a person.</p>
+          </header>
+
+          <div class="headshot-row">
+            <label class="headshot-drop" id="headshot-drop">
+              <input type="file" id="headshot-input" accept="image/*" hidden />
+              <div class="headshot-circle" id="headshot-circle"><span class="headshot-plus" aria-hidden="true">+</span></div>
+            </label>
+            <div class="headshot-text">
+              <p>A square photo works best &mdash; around 600&times;600, head and shoulders, centred.</p>
+              <button type="button" class="headshot-remove" id="headshot-remove" hidden>Remove photo</button>
             </div>
           </div>
+
+          <div class="profile-row profile-row--pair">
+            <label class="profile-field">
+              <span>Your name</span>
+              <div class="field-wrap">
+                <input type="text" name="about_name" placeholder="e.g. Danielle Cook" autocomplete="name" />
+                <span class="field-ok" id="about_name-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+            <label class="profile-field">
+              <span>Job title</span>
+              <div class="field-wrap">
+                <input type="text" name="about_role" placeholder="e.g. Branch Manager" autocomplete="organization-title" />
+                <span class="field-ok" id="about_role-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+          </div>
+          <div class="profile-row profile-row--pair">
+            <label class="profile-field">
+              <span>Telephone</span>
+              <div class="field-wrap">
+                <input type="tel" name="about_phone" placeholder="e.g. 01295 123456" autocomplete="tel" />
+                <span class="field-ok" id="about_phone-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+            <label class="profile-field">
+              <span>Email</span>
+              <div class="field-wrap">
+                <input type="email" name="about_email" placeholder="e.g. danielle@youragency.co.uk" autocomplete="email" />
+                <span class="field-ok" id="about_email-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
+              </div>
+            </label>
+          </div>
+          <p class="profile-hint">Designs that sign off with a person fill these in for you. Leave any of them blank and those designs simply won&rsquo;t ask.</p>
         </section>
       </div>
 
@@ -133,7 +177,7 @@ const HERO_BG = (await getImage({
         <section class="profile-section">
           <header class="profile-section-head">
             <div>
-              <div class="eyebrow">03</div>
+              <div class="eyebrow">04</div>
               <h2>Brand Colours</h2>
             </div>
             <p>Pick up to six. These appear as quick-swatches inside the editor.</p>
@@ -158,7 +202,7 @@ const HERO_BG = (await getImage({
         <section class="profile-section">
           <header class="profile-section-head">
             <div>
-              <div class="eyebrow">04</div>
+              <div class="eyebrow">05</div>
               <h2>Typography</h2>
             </div>
             <p>Search the full Google Fonts library. Set a heading and a body face &mdash; pinned to the top of the editor's font menu.</p>
@@ -205,7 +249,7 @@ const HERO_BG = (await getImage({
         <section class="profile-section">
           <header class="profile-section-head">
             <div>
-              <div class="eyebrow">05</div>
+              <div class="eyebrow">06</div>
               <h2>Tone of voice</h2>
             </div>
             <p>How your brand sounds. The AI caption generator blends this with our house rules, so captions come out in your voice.</p>
@@ -555,7 +599,9 @@ const HERO_BG = (await getImage({
        are created in JS, so Astro's scoped CSS would not reach them). */
 
     /* Headshot (optional) */
-    .headshot-block { margin-top: 30px; padding-top: 22px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .profile-row--pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    @media (max-width: 620px) { .profile-row--pair { grid-template-columns: 1fr; } }
+    .headshot-row + .profile-row { margin-top: 18px; }
     .headshot-h { font-family: var(--subhead); font-weight: 400; font-size: var(--ws-t-title); color: var(--ink); margin: 0; }
     .headshot-h span { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.45); letter-spacing: 0.02em; }
     .headshot-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
@@ -725,6 +771,11 @@ const HERO_BG = (await getImage({
       const locationInput = form.elements["location"];
       const sloganInput = form.elements["slogan"];
       const toneInput = form.elements["tone"];
+      // About you: the person a design signs off with.
+      const aboutInputs = {
+        name: form.elements["about_name"], role: form.elements["about_role"],
+        phone: form.elements["about_phone"], email: form.elements["about_email"],
+      };
       const companyOk = document.getElementById("company-ok");
       const saveEl = document.getElementById("brand-save");
       const saveText = saveEl.querySelector(".brand-save-text");
@@ -759,6 +810,9 @@ const HERO_BG = (await getImage({
       // Older kits stored this as `tagline`; read either.
       if (brand && sloganInput) sloganInput.value = brand.slogan || brand.tagline || "";
       if (brand && toneInput) toneInput.value = brand.tone || "";
+      if (brand && brand.about) {
+        Object.entries(aboutInputs).forEach(([k, el]) => { if (el) el.value = brand.about[k] || ""; });
+      }
 
       // ---- Autosave ----
       let saveTimer = null, okTimer = null, ready = false;
@@ -777,7 +831,9 @@ const HERO_BG = (await getImage({
         // Flash the tick beside whichever field was just typed in. Was
         // company-only; every field with a tick can use it now.
         const flashInput = flashField === "location" ? locationInput
-                        : flashField === "slogan" ? sloganInput : companyInput;
+                        : flashField === "slogan" ? sloganInput
+                        : (flashField && flashField.startsWith("about_")) ? form.elements[flashField]
+                        : companyInput;
         const flashOk = document.getElementById((flashField || "company") + "-ok");
         if (flashField && flashOk && flashInput && flashInput.value.trim()) {
           flashOk.hidden = false;
@@ -793,7 +849,8 @@ const HERO_BG = (await getImage({
         if (!ready) return;
         const flashField = (opts && opts.company) ? "company"
                          : (opts && opts.location) ? "location"
-                         : (opts && opts.slogan) ? "slogan" : null;
+                         : (opts && opts.slogan) ? "slogan"
+                         : (opts && opts.about) ? opts.about : null;
         setStatus("saving");
         clearTimeout(saveTimer);
         saveTimer = setTimeout(() => doSave(flashField), 450);
@@ -944,6 +1001,9 @@ const HERO_BG = (await getImage({
       locationInput?.addEventListener("input", function () { scheduleSave({ location: true }); });
       sloganInput?.addEventListener("input", function () { scheduleSave({ slogan: true }); });
       if (toneInput) toneInput.addEventListener("input", function () { scheduleSave(); });
+      Object.entries(aboutInputs).forEach(([k, el]) => {
+        if (el) el.addEventListener("input", function () { scheduleSave({ about: "about_" + k }); });
+      });
 
       // ---- Logos ----
       let logos = (brand && Array.isArray(brand.logos)) ? brand.logos.slice() : [];
@@ -987,20 +1047,46 @@ const HERO_BG = (await getImage({
         }
       });
 
+      // A kit is kept as text in this browser and in the member's row, and a
+      // phone photo or a print-resolution logo becomes several megabytes of it -
+      // enough to fill the browser's store and stop the kit saving at all. So a
+      // picture is shrunk to the largest size anything here shows it at before
+      // it goes in. An SVG is left alone: it is already small and scales itself.
+      async function shrink(file, { max = 1200, square = false, type = "image/png", quality = 0.9 } = {}) {
+        if (file.type === "image/svg+xml") return await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+        try {
+          const bmp = await createImageBitmap(file);
+          const side = Math.max(bmp.width, bmp.height);
+          const scale = Math.min(1, max / side);
+          const canvas = document.createElement("canvas");
+          if (square) {
+            const crop = Math.min(bmp.width, bmp.height);
+            canvas.width = canvas.height = Math.min(max, crop);
+            canvas.getContext("2d").drawImage(bmp, (bmp.width - crop) / 2, (bmp.height - crop) / 2, crop, crop, 0, 0, canvas.width, canvas.height);
+          } else {
+            canvas.width = Math.round(bmp.width * scale);
+            canvas.height = Math.round(bmp.height * scale);
+            canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+          }
+          bmp.close && bmp.close();
+          return canvas.toDataURL(type, quality);
+        } catch (_) {
+          return await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+        }
+      }
+
       function handleLogoFiles(files) {
-        Array.from(files || []).forEach(function (f) {
+        Array.from(files || []).forEach(async function (f) {
           if (!f.type.startsWith("image/")) return;
-          const reader = new FileReader();
-          reader.onload = function () {
-            logos.push({
-              name: f.name.replace(/\.[a-z0-9]+$/i, ""),
-              src: reader.result,
-              primary: logos.length === 0,
-            });
-            renderLogos();
-            scheduleSave();
-          };
-          reader.readAsDataURL(f);
+          // PNG out, so a logo keeps its transparent background.
+          const src = await shrink(f, { max: 1200, type: "image/png" });
+          logos.push({
+            name: f.name.replace(/\.[a-z0-9]+$/i, ""),
+            src: src,
+            primary: logos.length === 0,
+          });
+          renderLogos();
+          scheduleSave();
         });
       }
       logoInput.addEventListener("change", function () { handleLogoFiles(logoInput.files); logoInput.value = ""; });
@@ -1031,11 +1117,12 @@ const HERO_BG = (await getImage({
         }
       }
       renderHeadshot();
-      function setHeadshotFile(f) {
+      async function setHeadshotFile(f) {
         if (!f || !f.type.startsWith("image/")) return;
-        const reader = new FileReader();
-        reader.onload = function () { headshot = reader.result; renderHeadshot(); scheduleSave(); };
-        reader.readAsDataURL(f);
+        // Square, centred, 600px: what a round photo and a contact slide need.
+        headshot = await shrink(f, { max: 600, square: true, type: "image/jpeg", quality: 0.88 });
+        renderHeadshot();
+        scheduleSave();
       }
       if (headshotInput) headshotInput.addEventListener("change", function () { setHeadshotFile(headshotInput.files[0]); headshotInput.value = ""; });
       if (headshotDrop) {
@@ -1062,6 +1149,12 @@ const HERO_BG = (await getImage({
           location: locationInput ? locationInput.value.trim() : "",
           slogan: sloganInput ? sloganInput.value.trim() : "",
           tone: toneInput ? toneInput.value.trim() : "",
+          about: {
+            name: aboutInputs.name ? aboutInputs.name.value.trim() : "",
+            role: aboutInputs.role ? aboutInputs.role.value.trim() : "",
+            phone: aboutInputs.phone ? aboutInputs.phone.value.trim() : "",
+            email: aboutInputs.email ? aboutInputs.email.value.trim() : "",
+          },
           colors: colours,
           fonts: { heading: headingPicker.value(), body: bodyPicker.value() },
           logos: logos,
