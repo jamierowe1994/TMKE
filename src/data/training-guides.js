@@ -22,8 +22,8 @@ const go = (items) => items.map(([t, b, href, img], i) => `<a class="ci-go" href
 
 // A row of small cards: a heading and a line, nothing numbered. Used for the
 // three reasons, the four parts of a brand, and the four payoffs at the end.
-const cards = (items, cols = 3) => `<div class="bk-cards bk-cards--${cols}">${items.map(([t, b]) =>
-  `<div class="bk-card"><strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
+const cards = (items, cols = 3) => `<div class="bk-cards bk-cards--${cols}">${items.map(([t, b, kind]) =>
+  `<div class="bk-card${kind ? ` bk-card--${kind}` : ""}"><strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
 // A quiet panel for an aside that is not an instruction.
 const panel = (h, body) => `<div class="bk-panel">${h ? `<strong>${h}</strong>` : ""}${body}</div>`;
 // Something to go and read, at the end of a lesson.
@@ -91,20 +91,19 @@ export const TRAINING_GUIDES = [
         body_html:
           p("<strong>Set it once. Use it everywhere.</strong>") +
           p("Your Brand Kit gives the Member Hub the information it needs to recognise your business, from your logo and colours to the way your brand sounds.") +
-          p("Set it up before you start designing and the Studio can do more of the work for you. Templates can use your logo and business details, while Quick Edit can apply your colours and typography across an entire design in just a few clicks.") +
-          p("Your tone of voice also gives the Creative Assistant more context when generating captions, helping its suggestions better reflect how your business communicates.") +
+          p("Set it up before you start designing and the Studio can do more of the work for you. Templates can use your logo and business details, while Quick Edit can apply your colours and typography across an entire design in just a few clicks. Your tone of voice also gives the Creative Assistant more context when generating captions, helping its suggestions better reflect how your business communicates.") +
           p("<strong>Three reasons to set up your Brand Kit today.</strong>") +
           cards([
             ["Faster editing", "Apply your branding without changing every element individually."],
             ["More consistency", "Keep the same logos, colours and typography across your content."],
-            ["Better AI output", "Give the Creative Assistant more context about your business and how you communicate."],
+            ["Better AI output", "Give your Creative Assistant more context about your business."],
           ]) },
 
       { title: "Before You Build Your Brand Kit",
         body_html:
           p("<strong>First, know what you're building.</strong>") +
           p("Your brand isn't just your logo. It's the way your business looks, sounds and presents itself consistently, from the colours and typography you use to the language you communicate in.") +
-          p("For an estate agent, that consistency matters. People might see a For Sale board today, an Instagram post next week and a property listing months later. A clear brand helps those separate moments feel like they came from the same business.") +
+          p("For an estate agent, that consistency matters.<br>People might see a For Sale board today, an Instagram post next week and a property listing months later. A clear brand helps those separate moments feel like they came from the same business.") +
           p("<strong>What makes up your brand?</strong>") +
           cards([
             ["How you look", "Your logo, colours, typography and imagery."],
@@ -113,10 +112,9 @@ export const TRAINING_GUIDES = [
             ["What you stand for", "The impression you want people to have of your business."],
           ], 2) +
           panel("Why does it matter for an estate agent?",
-            p("Your brand does some of its work before you ever speak to someone. Sellers are forming an impression through your boards, listings, website, social media and marketing long before they book a valuation. A consistent brand helps make that impression recognisable and intentional.")) +
+            p("Your brand does some of its work before you ever speak to someone. Sellers are forming an impression through your boards, listings, website, social media and marketing long before they book a valuation.<br>A consistent brand helps make that impression recognisable and intentional.")) +
           p("<strong>Do you already have brand guidelines?</strong>") +
-          p("If you have brand guidelines, keep them nearby while setting up your Brand Kit. They should contain most of the information you'll need.") +
-          p("If you don't, don't guess your way through it. Take some time to decide how you want your business to look and sound before you start creating content.") +
+          p("If you have brand guidelines, keep them nearby while setting up your Brand Kit. They should contain most of the information you'll need.<br>If you don't, don't guess your way through it. Take some time to decide how you want your business to look and sound before you start creating content.") +
           ctaBox("Need to create your brand?",
             "Our Before You Post series covers the foundations behind your marketing, including your audience, positioning, brand and content strategy.",
             "/account/guides", "Read the series") },
@@ -163,8 +161,8 @@ export const TRAINING_GUIDES = [
             ["Your language", "Do you keep things simple and informal, or is your communication more considered and professional?"],
             ["Your market position", "Are you a premium agency, an approachable local independent, a personal agent or something different?"],
             ["What to avoid", "Are there words, phrases, clich&eacute;s, emojis or styles of writing that simply don't sound like you?"],
+            ["Tip", "That last one is worth keeping. Telling AI what you don't sound like can be just as useful as telling it what you do.", "tip"],
           ]) +
-          tip("That last one is worth keeping. Telling AI what you don't sound like can be just as useful as telling it what you do.") +
           example(
             p("We're a friendly, knowledgeable independent estate agency speaking mainly to homeowners and families in our local area. Our tone should feel confident and professional without being formal. We use straightforward language, keep property jargon to a minimum and want our social media to sound like a real person rather than corporate marketing. Avoid clich&eacute;s, excessive emojis and over-the-top sales language."),
             "Not a script to copy - it shows the kind of detail that's useful.") },
@@ -172,13 +170,12 @@ export const TRAINING_GUIDES = [
       { title: "Put Your Brand Kit to Work",
         body_html:
           p("Once your Brand Kit is set up, you don't need to rebuild your branding every time you create something.") +
-          cards([
-            ["Open a template", "Your saved logo and business information can already be applied."],
-            ["Quick Edit", "Apply your colours and typography across an entire design in a few clicks."],
-            ["Create a caption", "Your tone of voice gives the Creative Assistant more context about how your business communicates."],
-            ["Add your details", "Use your saved headshot and contact information to quickly create calls to action and closing slides."],
-          ], 2) +
-          bigShot(areaImg("brand-kit"), "Your Brand Kit, saved once and used everywhere") +
+          go([
+            ["Open a template", "Your saved logo and business information can already be applied.", "/account/studio"],
+            ["Quick Edit", "Apply your colours and typography across an entire design in a few clicks.", "/account/editor?new=1"],
+            ["Create a caption", "Your tone of voice gives the Creative Assistant more context about how your business communicates.", "/account/editor?new=1"],
+            ["Add your details", "Use your saved headshot and contact information to quickly create calls to action and closing slides.", "/account/profile"],
+          ]) +
           panel("Changed your branding?",
             p("Update your Brand Kit whenever you need to. Your latest details will then be ready for the next thing you create.")) },
     ],
