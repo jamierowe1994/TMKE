@@ -8,8 +8,10 @@
 // Getting Started row on Learn instead.
 
 const p = (t) => `<p>${t}</p>`;
-const ph = (label) => `<figure class="ci-ph" data-ph="${label}"><span>${label}</span></figure>`;
-const pillars = (items) => `<div class="ci-pillars">${items.map(([t, b]) => `<div class="ci-pillar ci-pillar--static">${ph("Image")}<strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
+const ph = (label, src) => src
+  ? `<figure class="ci-ph ci-ph--img"><img src="${src}" alt="" loading="lazy"></figure>`
+  : `<figure class="ci-ph" data-ph="${label}"><span>${label}</span></figure>`;
+const pillars = (items) => `<div class="ci-pillars">${items.map(([t, b, img]) => `<div class="ci-pillar ci-pillar--static">${ph("Image", img && `/images/learn/hub/areas/${img}.jpg`)}<strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
 const steps = (items) => `<div class="ci-grid">${items.map(([t, b], i) => `<article class="ci-card"><span class="ci-no">${String(i + 1).padStart(2, "0")}</span><h4>${t}</h4><p>${b}</p></article>`).join("")}</div>`;
 const ul = (...items) => `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
 const tip = (t) => `<p class="ci-rhythm"><strong>Tip.</strong> ${t}</p>`;
@@ -38,14 +40,14 @@ export const TRAINING_GUIDES = [
         body_html:
           p("Everything in your Member Hub has a clear purpose. Once you know what each area does, finding what you need becomes much quicker.") +
           pillars([
-            ["Dashboard", "Home. See what's coming up, what's been planned and quickly jump back into the things you're working on."],
-            ["Studio", "Create and customise your social media content. Access the packs you own, your saved designs and the Studio editor."],
-            ["Planner", "See your content calendar, add upcoming posts and plan what you're publishing throughout the month."],
-            ["Orders", "Find everything you've purchased from The Edit, including your packs, order details and receipts."],
-            ["Bookings", "Manage your TMKE videography bookings, follow their progress and access your finished galleries."],
-            ["Your SMM", "Everything relating to Social Media Management, from what's included to your current package and monthly performance."],
-            ["Learn", "Your training and insights library. Find practical guides, Member Hub courses and our latest social media trends."],
-            ["Brand kit", "Save your logo, colours and fonts so Studio templates automatically adapt to your brand."],
+            ["Dashboard", "Home. See what's coming up, what's been planned and quickly jump back into the things you're working on.", "dashboard"],
+            ["Studio", "Create and customise your social media content. Access the packs you own, your saved designs and the Studio editor.", "studio"],
+            ["Planner", "See your content calendar, add upcoming posts and plan what you're publishing throughout the month.", "planner"],
+            ["Orders", "Find everything you've purchased from The Edit, including your packs, order details and receipts.", "orders"],
+            ["Bookings", "Manage your TMKE videography bookings, follow their progress and access your finished galleries.", "bookings"],
+            ["Your SMM", "Everything relating to Social Media Management, from what's included to your current package and monthly performance.", "smm"],
+            ["Learn", "Your training and insights library. Find practical guides, Member Hub courses and our latest social media trends.", "learn"],
+            ["Brand kit", "Save your logo, colours and fonts so Studio templates automatically adapt to your brand.", "brand-kit"],
           ]) },
       { title: "Where to Go First",
         body_html:
