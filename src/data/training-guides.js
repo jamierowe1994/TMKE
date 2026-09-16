@@ -8,16 +8,21 @@
 // Getting Started row on Learn instead.
 
 const p = (t) => `<p>${t}</p>`;
+// Cloudflare holds an image for four hours, so a changed picture under the
+// same name never reaches anyone: every version gets a new filename. Bump
+// this and rename the files together.
+const IMG_V = "v2";
+const areaImg = (name) => `/images/learn/hub/areas/${name}-${IMG_V}.jpg`;
 const ph = (label, src) => src
   ? `<figure class="ci-ph ci-ph--img"><img src="${src}" alt="" loading="lazy"></figure>`
   : `<figure class="ci-ph" data-ph="${label}"><span>${label}</span></figure>`;
-const pillars = (items) => `<div class="ci-pillars">${items.map(([t, b, img]) => `<div class="ci-pillar ci-pillar--static">${ph("Image", img && `/images/learn/hub/areas/${img}.jpg`)}<strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
+const pillars = (items) => `<div class="ci-pillars">${items.map(([t, b, img]) => `<div class="ci-pillar ci-pillar--static">${ph("Image", img && areaImg(img))}<strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
 const steps = (items) => `<div class="ci-grid">${items.map(([t, b], i) => `<article class="ci-card"><span class="ci-no">${String(i + 1).padStart(2, "0")}</span><h4>${t}</h4><p>${b}</p></article>`).join("")}</div>`;
 const ul = (...items) => `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
 const tip = (t) => `<p class="ci-rhythm"><strong>Tip.</strong> ${t}</p>`;
 // "Where to go first": a wide card with a picture beside it, the whole row a
 // link to the place it talks about.
-const go = (items) => items.map(([t, b, href], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><strong><span class="ci-no">${String(i + 1).padStart(2, "0")}</span>${t}</strong><span>${b}</span></span>${ph("Image")}</a>`).join("");
+const go = (items) => items.map(([t, b, href, img], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><strong><span class="ci-no">${String(i + 1).padStart(2, "0")}</span>${t}</strong><span>${b}</span></span>${ph("Image", img && areaImg(img))}</a>`).join("");
 
 const guide = (o) => ({
   kind: "course", topic: "getting-started", status: "published", audience: "members",
@@ -53,9 +58,9 @@ export const TRAINING_GUIDES = [
         body_html:
           p("If you're new to the Member Hub, start with these three things. They'll set up the basics and make everything else considerably easier.") +
           go([
-            ["Set up your Brand Kit", "Add your logo, colours and fonts once, then let the Studio apply them to your templates automatically.", "/account/profile"],
-            ["Make one design", "Choose a template, make it your own and download your finished post. The more you use the Studio, the quicker it becomes.", "/account/editor?new=1"],
-            ["Plan a week", "Add a few posts to your Planner so you can see what's coming up and start building a consistent rhythm.", "/account/schedule"],
+            ["Set up your Brand Kit", "Add your logo, colours and fonts once, then let the Studio apply them to your templates automatically.", "/account/profile", "start-brand-kit"],
+            ["Make one design", "Choose a template, make it your own and download your finished post. The more you use the Studio, the quicker it becomes.", "/account/editor?new=1", "start-design"],
+            ["Plan a week", "Add a few posts to your Planner so you can see what's coming up and start building a consistent rhythm.", "/account/schedule", "start-plan"],
           ]) +
           tip("Need help later? Head to Learn for guides and training, or contact the TMKE team from your dashboard if you can't find what you need.") },
     ],
