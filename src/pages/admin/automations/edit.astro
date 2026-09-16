@@ -151,6 +151,13 @@ import "../../../styles/admin.css";
     .af-node-del:hover { color: #a05a3c; }
     .af-add { position: absolute; z-index: 3; width: 26px; height: 26px; border-radius: 999px; border: 1px solid var(--english-violet); background: #fff; color: var(--english-violet); font-size: 16px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transform: translate(-50%, -50%); }
     .af-add:hover { background: var(--english-violet); color: #fff; }
+    /* Which branch a line is: sits on the line, so a finished if/else can be
+       read without opening it. */
+    .af-branch { position: absolute; z-index: 3; transform: translate(-50%, -50%); pointer-events: none;
+      font-family: var(--sans); font-size: 9.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--border, #eae5e1); }
+    .af-branch--yes { color: var(--green, #2d5a3d); border-color: color-mix(in srgb, var(--green, #2d5a3d) 35%, var(--border, #eae5e1)); }
+    .af-branch--no { color: var(--red, #7a3535); border-color: color-mix(in srgb, var(--red, #7a3535) 35%, var(--border, #eae5e1)); }
     .af-add-label { position: absolute; z-index: 3; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); transform: translate(-50%, -50%); pointer-events: none; }
 
     .af-panel { width: 340px; flex: none; border-left: 1px solid rgba(28,29,34,0.1); background: #fff; display: flex; flex-direction: column; overflow-y: auto; }
@@ -432,16 +439,41 @@ import "../../../styles/admin.css";
 
     function drawEdgesAndAdds() {
       let paths = "";
+      const branchLabels = [];
       graph.edges.forEach((e) => {
         const a = nodeRect(e.from), b = nodeRect(e.to);
         if (!a || !b) return;
         const x1 = a.x + a.w / 2, y1 = a.y + a.h, x2 = b.x + b.w / 2, y2 = b.y;
         const my = (y1 + y2) / 2;
         paths += `<path d="M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}"></path>`;
+        // Which way this line goes. The Yes/No beside a "+" disappears the
+        // moment the branch is filled, so a finished if/else said nothing about
+        // which side was which - you had to remember.
+        const branch = e.branch || "next";
+        if (branch !== "yes" && branch !== "no") return;
+        // A point a third of the way down the curve, so the label sits on the
+        // line near where it leaves the question rather than out at the child.
+        const at = (t, p0, p1, p2, p3) => {
+          const u = 1 - t;
+          return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+        };
+        branchLabels.push({
+          branch,
+          x: at(0.34, x1, x1, x2, x2),
+          y: at(0.34, y1, my, my, y2),
+        });
       });
       edgesEl.innerHTML = paths;
       // "+" add buttons: one per open output of each node.
-      nodesEl.querySelectorAll(".af-add, .af-add-label").forEach((b) => b.remove());
+      nodesEl.querySelectorAll(".af-add, .af-add-label, .af-branch").forEach((b) => b.remove());
+      branchLabels.forEach((l) => {
+        const tag = document.createElement("span");
+        tag.className = `af-branch af-branch--${l.branch}`;
+        tag.textContent = l.branch === "yes" ? "Yes" : "No";
+        tag.style.left = l.x + "px";
+        tag.style.top = l.y + "px";
+        nodesEl.appendChild(tag);
+      });
       graph.nodes.forEach((n) => {
         const def = n.type === "trigger" ? { out: "next" } : NODE_TYPES.find((t) => t.type === n.type);
         if (!def || n.type === "goal") return;
