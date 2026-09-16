@@ -429,24 +429,42 @@ import "../../styles/admin.css";
     let shown = [];
     $("cnt-thumbs").addEventListener("click", async () => {
       const btn = $("cnt-thumbs");
+      const label0 = btn.textContent;
       const todo = shown.filter((f) => !f.thumb && (isVideo(f) || isImage(f)));
-      if (!todo.length) return;
+      if (!todo.length) { alert("Every file here already has one."); return; }
       const bar = $("cnt-loading"), label = $("cnt-loading-t");
       btn.disabled = true;
       bar.hidden = false;
       let made = 0, failed = 0;
-      for (const f of todo) {
-        label.textContent = `Making thumbnails ${made + failed + 1} of ${todo.length}…`;
-        try {
-          const links = await linksFor(f.key);
-          const blob = links ? await makeThumb(links.url, f.name, f.contentType) : null;
-          const ok = blob ? await putThumb(WORKER, await token(), thumbKeyFor(f.key), blob) : false;
-          ok ? (made += 1) : (failed += 1);
-        } catch (_) { failed += 1; }
+      const tick = () => {
+        const n = made + failed;
+        // On the button as well as the line above the files: whichever the
+        // person happens to be looking at, it is moving.
+        btn.textContent = `Making ${Math.min(n + 1, todo.length)} of ${todo.length}…`;
+        label.textContent = `Making thumbnails ${Math.min(n + 1, todo.length)} of ${todo.length}… (${made} done${failed ? `, ${failed} skipped` : ""})`;
+      };
+      try {
+        for (const f of todo) {
+          tick();
+          try {
+            const links = await linksFor(f.key);
+            const blob = links ? await makeThumb(links.url, f.name, f.contentType) : null;
+            if (!blob) { failed += 1; console.warn("[thumbs] couldn't read", f.name); continue; }
+            const ok = await putThumb(WORKER, await token(), thumbKeyFor(f.key), blob);
+            ok ? (made += 1) : (failed += 1);
+            if (!ok) console.warn("[thumbs] couldn't store", f.name);
+          } catch (err) { failed += 1; console.warn("[thumbs]", f.name, err); }
+        }
+      } catch (err) {
+        alert("Thumbnails stopped: " + ((err && err.message) || err));
       }
       bar.hidden = true;
       btn.disabled = false;
-      if (failed) alert(`${made} made, ${failed} couldn't be read. Those keep loading the full file.`);
+      btn.textContent = label0;
+      // Always says what happened: silence looked exactly like nothing working.
+      alert(failed
+        ? `${made} thumbnail${made === 1 ? "" : "s"} made. ${failed} couldn't be read, so those still load the full file.`
+        : `${made} thumbnail${made === 1 ? "" : "s"} made. Reopen the folder to see the difference.`);
       browse(prefix);
     });
 

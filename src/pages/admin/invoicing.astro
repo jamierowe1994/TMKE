@@ -430,6 +430,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
 
     /* Same treatment as Mark paid / Void / Delete - it was inheriting nothing
        and rendering as a bare browser button. */
+    /* When it went and to whom, under the client's name. */
+    .invsent { font-size: 11px; color: var(--muted, #887d77); margin-top: 2px; }
+    .invrow .invview { appearance: none; cursor: pointer; border: 1px solid rgba(28,29,34,0.16); background: none; border-radius: 8px;
+      padding: 6px 12px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--english-violet); }
+    .invrow .invview:hover { border-color: var(--english-violet); }
+    .invrow .invview:disabled { opacity: 0.6; cursor: default; }
     .invrow .invedit { appearance: none; cursor: pointer; border: 1px solid rgba(28,29,34,0.16); background: none; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); }
     .invrow .invedit:hover { background: rgba(55,30,40,0.07); border-color: rgba(var(--violet-rgb),0.4); color: var(--english-violet); }
     .invrow .markpaid { appearance: none; cursor: pointer; border: 1px solid rgba(28,29,34,0.16); background: none; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.7); }
@@ -916,11 +922,21 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         invList = invoices || [];
         if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
         const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div></span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">
+        // When it went and to whom, on the row: "was this ever sent?" should not
+        // need anyone's inbox to answer.
+        const sentLine = (v) => {
+          if (!v.sent_to && !v.sent_at) return "";
+          const when = v.sent_at
+            ? new Date(v.sent_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+            : "";
+          return `<div class="invsent">Sent${when ? " " + esc(when) : ""}${v.sent_to ? " to " + esc(v.sent_to) : ""}</div>`;
+        };
+        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div>${sentLine(v)}</span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">
             ${v.paid_date
               ? `<span class="paidon">Paid ${d(v.paid_date)}</span><span></span>`
               : `${v.status !== "void" && v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : "<span></span>"}
                  ${v.status !== "void" ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : "<span></span>"}`}
+            <button type="button" class="invview" data-viewid="${esc(v.id)}">View</button>
             ${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : "<span></span>"}
             <button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button>
             <button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button>
@@ -930,6 +946,21 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     $("inv-list").addEventListener("click", async (e) => {
       const paid = e.target.closest(".markpaid");
       if (paid) { paid.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: paid.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); paid.disabled = false; } return; }
+      const view = e.target.closest(".invview");
+      if (view) {
+        const was = view.textContent;
+        view.disabled = true; view.textContent = "Opening…";
+        // Opened from a click so the browser doesn't treat it as a popup.
+        const tab = window.open("", "_blank");
+        try {
+          const out = await api(`/invoicing/invoice-pdf?id=${encodeURIComponent(view.getAttribute("data-viewid"))}`);
+          if (tab) tab.location = out.url; else window.location = out.url;
+        } catch (err) {
+          if (tab) tab.close();
+          alert("Couldn't open the invoice: " + err.message);
+        } finally { view.disabled = false; view.textContent = was; }
+        return;
+      }
       const ed = e.target.closest(".invedit");
       if (ed) { editInvoice(ed.getAttribute("data-editid")); return; }
       const send = e.target.closest(".invsend");

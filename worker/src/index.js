@@ -1729,7 +1729,7 @@ async function sendMarketingEmail(env, { to, subject, html, unsubUrl, replyTo })
   }
 }
 
-async function sendEmail(env, { to, cc, subject, html, attachments, from, fromName }) {
+async function sendEmail(env, { to, cc, bcc, subject, html, attachments, from, fromName }) {
   if (!to) return { ok: false, error: "No recipient." };
   const sender = from || env.MAIL_SENDER || env.JACK_UPN;
   if (!sender) return { ok: false, error: "No sender mailbox configured." };
@@ -1749,6 +1749,8 @@ async function sendEmail(env, { to, cc, subject, html, attachments, from, fromNa
   };
   const ccList = cc ? toAddr(cc) : [];
   if (ccList.length) message.ccRecipients = ccList;
+  const bccList = bcc ? toAddr(bcc) : [];
+  if (bccList.length) message.bccRecipients = bccList;
   const dispName = fromName || env.MAIL_FROM_NAME;
   if (dispName) message.from = { emailAddress: { address: sender, name: dispName } };
   if (attachments && attachments.length) {
@@ -6633,9 +6635,16 @@ export default {
         const payUrl = (wantsCard && env.STRIPE_SECRET_KEY) ? await invoicePayUrl(env, inv.id) : null;
 
         const mail = invoiceMailTo(inv.bill_to_email, cc);
+        // We always get a copy of what went out. Blind, so the client sees only
+        // their own address - "did that invoice actually send" should be
+        // answerable from our own inbox, not only from the audit trail.
+        const already = `${mail.to || ""},${mail.cc || ""}`.toLowerCase();
+        const copyTo = String(env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "").trim();
+        const bcc = copyTo && !already.includes(copyTo.toLowerCase()) ? copyTo : null;
         const emailed = await sendEmail(env, {
           to: mail.to,
           cc: mail.cc,
+          bcc,
           subject,
           html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl, bk)),
           attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
@@ -6644,11 +6653,64 @@ export default {
 
         // Mark sent (don't downgrade an already-paid invoice). Persist any edited CC.
         const newStatus = inv.status === "paid" ? "paid" : "sent";
-        await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+        const sentAt = new Date().toISOString();
+        const patchInvoice = async (body) => fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc }),
+          body: JSON.stringify(body),
         });
-        return json({ ok: true, status: newStatus, sent_to: inv.bill_to_email }, 200, request, env);
+        // sent_at only exists once supabase/invoicing_sent_audit.sql has run, and
+        // PostgREST refuses the whole patch for one unknown column - so the
+        // invoice is still marked sent either way.
+        let pr = await patchInvoice({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc, sent_at: sentAt });
+        if (!pr.ok) await patchInvoice({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc });
+
+        // A footprint on the account: which invoice, to whom, when, by whom.
+        // Without this, "was TMKE1046 ever sent?" has no answer anywhere.
+        if (inv.booking_id) {
+          const when = new Date(sentAt).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+          const parts = [`Invoice ${inv.number} emailed to ${inv.bill_to_email}`];
+          if (cc) parts.push(`copied to ${cc}`);
+          if (bcc) parts.push(`copied to ${bcc}`);
+          await logBookingMessage(env, {
+            booking_id: inv.booking_id,
+            booking_source: inv.booking_source || "videography",
+            client_email: inv.bill_to_email,
+            channel: "note",
+            kind: "audit",
+            subject: `Invoice ${inv.number} sent`,
+            body: `${parts.join(", ")} on ${when}. Sent by ${user.email || "an admin"}. ${money(inv.total_pence || 0).replace("&mdash;", "-")} total.`,
+            is_automated: true,
+            created_by: user.email || "admin",
+          });
+        }
+        return json({ ok: true, status: newStatus, sent_to: inv.bill_to_email, sent_at: sentAt, copied_to: bcc }, 200, request, env);
+      }
+
+      // ---- A link to the PDF of an invoice (admins) ----
+      // The PDF is stored when the invoice is sent, so this is the document the
+      // client received. If it predates that, it is rendered and stored now.
+      if (path.endsWith("/invoicing/invoice-pdf") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const id = url.searchParams.get("id") || "";
+        const rows = id ? await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`) : null;
+        const inv = rows && rows[0];
+        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
+        const key = `invoices/${inv.number || inv.id}.pdf`;
+        let head = null;
+        try { head = await env.BUCKET.head(key); } catch (_) {}
+        if (!head) {
+          const st2 = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+          try {
+            const pdf2 = await renderInvoicePdf(env, { ...st2, template: inv.template || st2.template }, inv);
+            await env.BUCKET.put(key, pdf2, { httpMetadata: { contentType: "application/pdf" } });
+          } catch (err) { return json({ error: "Couldn't produce the PDF: " + ((err && err.message) || err) }, 502, request, env); }
+        }
+        const exp = Date.now() + 60 * 60 * 1000;
+        const sig = await mediaSig(env, key, exp);
+        if (!sig) return json({ error: "Links aren't configured on the Worker." }, 503, request, env);
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        return json({ url: `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}`, stored: !!head }, 200, request, env);
       }
 
       // One invoice, in full. The list select is lean and carries no line items,
@@ -6803,7 +6865,8 @@ export default {
         // PostgREST rejects the whole query for one unknown column, so if
         // supabase/invoicing_stripe.sql hasn't run yet, asking for pay_by_card
         // would blank the entire invoice list rather than just omitting a badge.
-        let rows = await sbGet(env, "invoices", `select=${BASE},payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
+        let rows = await sbGet(env, "invoices", `select=${BASE},sent_to,sent_at,payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
+        if (!rows) rows = await sbGet(env, "invoices", `select=${BASE},sent_to,payment_ref,pay_by_card,terms_days,release_on_payment${tail}`);
         if (!rows) rows = (await sbGet(env, "invoices", `select=${BASE}${tail}`)) || [];
         return json({ ok: true, invoices: rows }, 200, request, env);
       }

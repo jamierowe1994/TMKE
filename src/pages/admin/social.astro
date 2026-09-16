@@ -551,6 +551,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .vidx-step.is-now .vidx-dot { background: var(--english-violet); border-color: var(--english-violet); box-shadow: 0 0 0 3px color-mix(in srgb, var(--english-violet) 18%, transparent); }
     .vidx-cancelled { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 0; }
 
+    .siv-sent { display: block; font-size: 10.5px; color: var(--muted, #887d77); margin-top: 2px; }
     .smm-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
     .smm-panel-head h4 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
 
@@ -1776,7 +1777,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     async function loadSmmInvoices(r) {
       const wrap = $("siv-list"); if (!wrap) return;
       const fmtDate = (d) => { if (!d) return "—"; try { return new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return d; } };
-      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}<button type="button" class="smm-mini" data-sivvoid="${esc(v.id)}">Void</button><button type="button" class="smm-mini is-danger" data-sivdel="${esc(v.id)}">Delete</button></span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
+      // Was it sent, when, and to whom - on the row, not in someone's inbox.
+      const sentNote = (v) => {
+        if (!v.sent_to && !v.sent_at) return "";
+        const when = v.sent_at ? new Date(v.sent_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+        return `<span class="siv-sent">Sent${when ? " " + esc(when) : ""}${v.sent_to ? " to " + esc(v.sent_to) : ""}</span>`;
+      };
+      const rowsHtml = (list) => list.length ? list.map((v) => `<div class="siv-row"><span class="siv-num">${esc(v.number)}</span><span class="siv-due">Due ${fmtDate(v.due_date)}${sentNote(v)}</span><span class="siv-amt2">${gbp(v.total_pence)}</span><span class="smm-inv-status ${v.status === "paid" ? "is-paid" : "is-due"}">${esc(v.status)}</span><span class="siv-row-tools">${v.status !== "paid" && v.status !== "void" ? `${v.bill_to_email ? `<button type="button" class="smm-mini is-primary" data-sivsend="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : ""}<button type="button" class="smm-mini" data-sivpaid="${esc(v.id)}">Mark paid</button>` : ""}<button type="button" class="smm-mini" data-sivview="${esc(v.id)}">View</button><button type="button" class="smm-mini" data-sivvoid="${esc(v.id)}">Void</button><button type="button" class="smm-mini is-danger" data-sivdel="${esc(v.id)}">Delete</button></span></div>`).join("") : `<p class="smm-doc-empty">No invoices raised yet.</p>`;
       if (isDemo(r)) { sivInvoices = r._invoices || []; wrap.innerHTML = rowsHtml(sivInvoices); }
       else if (!WORKER) { wrap.innerHTML = '<p class="smm-doc-empty">Connect the Worker to raise invoices.</p>'; return; }
       else {
@@ -1787,6 +1794,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         b.disabled = true;
         if (isDemo(r)) { const v = (r._invoices || []).find((x) => x.id === b.getAttribute("data-sivpaid")); if (v) v.status = "paid"; loadSmmInvoices(r); return; }
         try { const token = await authToken(); await fetch(`${WORKER}/invoicing/invoices`, { method: "PATCH", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: b.getAttribute("data-sivpaid"), status: "paid" }) }); loadSmmInvoices(r); } catch (_) { b.disabled = false; }
+      }));
+      wrap.querySelectorAll("[data-sivview]").forEach((b) => b.addEventListener("click", async () => {
+        const was = b.textContent; b.disabled = true; b.textContent = "Opening…";
+        const tab = window.open("", "_blank");                    // opened on the click, or the browser blocks it
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/invoicing/invoice-pdf?id=${encodeURIComponent(b.getAttribute("data-sivview"))}`, { headers: { Authorization: "Bearer " + token } });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.url) throw new Error(j.error || "Couldn't open it.");
+          if (tab) tab.location = j.url; else window.location = j.url;
+        } catch (err) { if (tab) tab.close(); alert("Couldn't open the invoice: " + err.message); }
+        finally { b.disabled = false; b.textContent = was; }
       }));
       wrap.querySelectorAll("[data-sivsend]").forEach((b) => b.addEventListener("click", () => {
         const inv = (sivInvoices || []).find((x) => x.id === b.getAttribute("data-sivsend"));
