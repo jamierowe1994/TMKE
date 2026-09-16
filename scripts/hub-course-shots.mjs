@@ -20,11 +20,16 @@ await send("Page.enable"); await send("Runtime.enable");
 // first-visit nudge, the chat bubble. Hidden, not clicked, so nothing is stored.
 const CLEAN = `(() => {
   const gone = [];
+  // Anything laid over the page rather than part of it: the cookie bar, the
+  // first-visit nudge, a chat bubble. Position alone isn't enough - the nudge is
+  // absolute, not fixed - so it goes by what it says as well.
   document.querySelectorAll("body *").forEach((el) => {
     const cs = getComputedStyle(el);
-    if (cs.position !== "fixed" && cs.position !== "sticky") return;
-    const t = (el.innerText || "").toLowerCase();
-    if (/cookie|essential|new here\\?|hop into studio/.test(t) && el.offsetHeight < 400) { el.style.display = "none"; gone.push(t.slice(0, 30)); }
+    const floating = cs.position === "fixed" || cs.position === "sticky" || cs.position === "absolute";
+    if (!floating) return;
+    const t = (el.innerText || "").trim().toLowerCase();
+    if (!t || el.offsetHeight > 400) return;
+    if (/cookie|non-essential|new here|hop into studio|install app/.test(t)) { el.style.display = "none"; gone.push(t.slice(0, 40)); }
   });
   return gone.length;
 })()`;
