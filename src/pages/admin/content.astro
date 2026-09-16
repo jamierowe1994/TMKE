@@ -23,7 +23,7 @@ import "../../styles/admin.css";
     <section class="admin-bar">
       <div class="admin-bar-actions">
         <nav class="cnt-crumbs" id="cnt-crumbs" aria-label="Folder"></nav>
-        <span class="admin-bar-count" id="cnt-count">…</span>
+        <span class="cnt-count" id="cnt-count">…</span>
         <button type="button" class="admin-btn admin-btn-ghost" id="cnt-newfolder">New folder</button>
         <button type="button" class="admin-btn" id="cnt-upload">Upload here</button>
         <input type="file" id="cnt-file" multiple hidden />
@@ -55,51 +55,91 @@ import "../../styles/admin.css";
 
   <div class="cnt-viewer" id="cnt-viewer" hidden>
     <button type="button" class="cnt-viewer-close" id="cnt-viewer-close" aria-label="Close">&times;</button>
-    <div class="cnt-viewer-stage" id="cnt-viewer-stage"></div>
+    <div><div class="cnt-viewer-stage" id="cnt-viewer-stage"></div><p class="cnt-viewer-name" id="cnt-viewer-name"></p></div>
   </div>
 
-  <style>
-    .cnt-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 20px 0 40px; }
+  <!-- Global, not scoped: everything below the toolbar is drawn by the script,
+       and Astro's scoped styles only reach markup that exists at build time -
+       which is why the tiles first rendered as bare boxes and full-size video. -->
+  <style is:global>
+    .cnt-layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 26px; padding: 18px 0 40px; }
     @media (max-width: 900px) { .cnt-layout { grid-template-columns: 1fr; } }
-    .cnt-rail-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 0 0 10px; }
-    .cnt-rail-h + .cnt-rail-list { margin-bottom: 26px; }
-    .cnt-rail-list { display: flex; flex-direction: column; gap: 2px; }
-    .cnt-rail-item { text-align: left; font-family: var(--sans); font-size: 13px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--ink); }
-    .cnt-rail-item:hover { background: rgba(var(--violet-rgb),0.08); }
-    .cnt-rail-item.is-on { background: var(--english-violet); color: var(--paper); }
-    .cnt-rail-sub { display: block; font-size: 11px; opacity: 0.6; }
-    .cnt-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: var(--sans); font-size: 13px; }
-    .cnt-crumb { border: 0; background: transparent; padding: 4px 2px; cursor: pointer; color: var(--english-violet); font-weight: 600; }
-    .cnt-crumb:last-child { color: var(--ink); cursor: default; }
-    .cnt-crumb-sep { opacity: 0.4; }
-    .cnt-drop { min-height: 220px; border-radius: 10px; transition: background 0.2s, outline-color 0.2s; outline: 2px dashed transparent; outline-offset: 6px; }
-    .cnt-drop.is-over { background: rgba(var(--violet-rgb),0.05); outline-color: rgba(var(--violet-rgb),0.45); }
-    .cnt-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 18px; }
-    .cnt-folder { display: flex; align-items: center; gap: 10px; padding: 14px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); font-size: 13.5px; font-weight: 600; text-align: left; color: var(--ink); }
-    .cnt-folder:hover { border-color: rgba(var(--violet-rgb),0.5); }
-    .cnt-folder svg { flex: none; color: var(--english-violet); }
-    .cnt-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
-    .cnt-file { border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
-    .cnt-thumb { position: relative; aspect-ratio: 16/10; background: rgba(28,29,34,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .cnt-thumb video, .cnt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .cnt-thumb-kind { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
-    .cnt-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-    .cnt-play span { width: 38px; height: 38px; border-radius: 50%; background: rgba(28,29,34,0.55); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-    .cnt-meta { padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-family: var(--sans); }
-    .cnt-name { font-size: 12.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
-    .cnt-sub { font-size: 11px; color: rgba(28,29,34,0.55); }
-    .cnt-acts { display: flex; gap: 8px; padding: 0 12px 12px; }
-    .cnt-act { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.16); background: #fff; border-radius: 999px; padding: 6px 11px; cursor: pointer; color: var(--english-violet); text-decoration: none; }
-    .cnt-act:hover { border-color: var(--english-violet); }
-    .cnt-act--danger { color: #9b2c3a; }
-    .cnt-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
-    .cnt-uploads { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
-    .cnt-up { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.7); display: flex; justify-content: space-between; gap: 12px; border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 8px 12px; }
-    .cnt-viewer { position: fixed; inset: 0; z-index: 90; background: rgba(15,10,13,0.92); display: flex; align-items: center; justify-content: center; padding: 40px; }
+
+    /* The rail */
+    .cnt-rail-h { font-family: var(--sans); font-size: 10px; font-weight: 800; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted); margin: 0 0 9px; }
+    .cnt-rail-h + .cnt-rail-list { margin-bottom: 24px; }
+    .cnt-rail-list { display: flex; flex-direction: column; gap: 4px; }
+    .cnt-rail-item { display: block; width: 100%; text-align: left; cursor: pointer;
+      font-family: var(--sans); font-size: 12.5px; font-weight: 600; line-height: 1.35; color: var(--hub-text);
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 9px 11px; transition: border-color 0.15s, background 0.15s, color 0.15s; }
+    .cnt-rail-item:hover { border-color: var(--accent-light); background: var(--surface-2); }
+    .cnt-rail-item.is-on { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .cnt-rail-item.is-on .cnt-rail-sub { color: rgba(255,255,255,0.65); }
+    .cnt-rail-sub { display: block; font-size: 11px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+
+    /* Toolbar */
+    .cnt-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-family: var(--sans); min-width: 0; }
+    .cnt-crumb { border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--primary);
+      font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+    .cnt-crumb:hover { text-decoration: underline; }
+    .cnt-crumb:last-child { color: var(--hub-text); cursor: default; text-decoration: none; }
+    .cnt-crumb-sep { color: var(--accent-light); font-size: 11px; }
+    .cnt-count { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+
+    /* Folders */
+    .cnt-drop { min-height: 240px; border-radius: var(--radius); outline: 2px dashed transparent; outline-offset: 8px;
+      transition: background 0.2s, outline-color 0.2s; }
+    .cnt-drop.is-over { background: var(--primary-light); outline-color: var(--accent); }
+    .cnt-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(215px, 1fr)); gap: 10px; margin: 0 0 20px; }
+    .cnt-folder { display: flex; align-items: center; gap: 11px; text-align: left; cursor: pointer;
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-xs);
+      padding: 13px 14px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: var(--hub-text); line-height: 1.3; }
+    .cnt-folder:hover { border-color: var(--accent-light); box-shadow: var(--shadow-sm); }
+    .cnt-folder svg { flex: none; color: var(--accent); }
+
+    /* Files */
+    .cnt-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); gap: 14px; }
+    .cnt-file { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow-xs); overflow: hidden; }
+    .cnt-file:hover { box-shadow: var(--shadow-sm); }
+    .cnt-thumb { position: relative; display: block; width: 100%; aspect-ratio: 16 / 10; overflow: hidden;
+      background: var(--surface-2); cursor: pointer; }
+    .cnt-thumb video, .cnt-thumb img { position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; display: block; background: var(--surface-2); }
+    .cnt-kind { position: absolute; left: 8px; top: 8px; z-index: 2; font-family: var(--sans); font-size: 9.5px;
+      font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #fff;
+      background: rgba(43,34,38,0.62); border-radius: var(--radius-sm); padding: 3px 6px; }
+    .cnt-play { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .cnt-play span { width: 40px; height: 40px; border-radius: 50%; background: rgba(43,34,38,0.55);
+      color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; padding-left: 3px; }
+    .cnt-meta { padding: 10px 12px 8px; display: flex; flex-direction: column; gap: 3px; font-family: var(--sans); min-width: 0; }
+    .cnt-name { font-size: 12px; font-weight: 700; color: var(--hub-text); line-height: 1.3; word-break: break-word;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .cnt-sub { font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+    .cnt-acts { display: flex; gap: 6px; padding: 0 12px 12px; }
+    .cnt-acts .btn { flex: none; }
+    .cnt-note { font-family: var(--sans); font-size: 12.5px; color: var(--muted); line-height: 1.5; margin: 0; }
+
+    /* Uploads in progress */
+    .cnt-uploads { display: flex; flex-direction: column; gap: 6px; margin-top: 20px; }
+    .cnt-up { display: flex; justify-content: space-between; gap: 14px; font-family: var(--sans); font-size: 11.5px;
+      font-weight: 600; color: var(--hub-text); background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 9px 12px; }
+    .cnt-up span:last-child { color: var(--muted); white-space: nowrap; }
+
+    /* The viewer */
+    .cnt-viewer { position: fixed; inset: 0; z-index: 90; background: rgba(28,20,24,0.94);
+      display: flex; align-items: center; justify-content: center; padding: 48px; }
     .cnt-viewer[hidden] { display: none; }
-    .cnt-viewer-stage { max-width: min(1200px, 92vw); max-height: 86vh; }
-    .cnt-viewer-stage video, .cnt-viewer-stage img { max-width: 100%; max-height: 86vh; display: block; }
-    .cnt-viewer-close { position: absolute; top: 18px; right: 22px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
+    .cnt-viewer-stage { max-width: min(1200px, 92vw); max-height: 84vh; }
+    .cnt-viewer-stage video, .cnt-viewer-stage img { max-width: 100%; max-height: 84vh; display: block; border-radius: var(--radius); }
+    .cnt-viewer-name { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: rgba(255,255,255,0.7); margin: 14px 0 0; text-align: center; }
+    .cnt-viewer-close { position: absolute; top: 16px; right: 22px; background: transparent; border: 0;
+      color: #fff; font-size: 32px; line-height: 1; cursor: pointer; }
   </style>
 
   <script>
@@ -220,7 +260,7 @@ import "../../styles/admin.css";
       $("cnt-files").innerHTML = files.map((f) => `
         <article class="cnt-file" data-key="${esc(f.key)}">
           <div class="cnt-thumb" data-open>
-            <span class="cnt-thumb-kind">${isVideo(f) ? "Video" : isImage(f) ? "Image" : (f.name.split(".").pop() || "File").toUpperCase()}</span>
+            <span class="cnt-kind">${isVideo(f) ? "Video" : isImage(f) ? "Image" : (f.name.split(".").pop() || "File").toUpperCase()}</span>
             ${isVideo(f) ? '<div class="cnt-play"><span>&#9654;</span></div>' : ""}
           </div>
           <div class="cnt-meta">
@@ -228,8 +268,8 @@ import "../../styles/admin.css";
             <span class="cnt-sub">${fmtSize(f.size)} · ${esc(fmtDate(f.uploaded))}</span>
           </div>
           <div class="cnt-acts">
-            <a class="cnt-act" data-dl href="#">Download</a>
-            <button type="button" class="cnt-act cnt-act--danger" data-del>Delete</button>
+            <a class="btn btn-outline btn-sm" data-dl href="#">Download</a>
+            <button type="button" class="btn btn-danger btn-sm" data-del>Delete</button>
           </div>
         </article>`).join("");
 
@@ -246,8 +286,19 @@ import "../../styles/admin.css";
           const dl = e.target.querySelector("[data-dl]");
           if (dl) { dl.href = links.downloadUrl; dl.setAttribute("download", file.name); }
           const thumb = e.target.querySelector(".cnt-thumb");
-          if (isVideo(file)) thumb.insertAdjacentHTML("afterbegin", `<video preload="metadata" muted playsinline src="${esc(links.url)}#t=0.5"></video>`);
-          else if (isImage(file)) thumb.insertAdjacentHTML("afterbegin", `<img loading="lazy" alt="" src="${esc(links.url)}">`);
+          if (isVideo(file)) {
+            const v = document.createElement("video");
+            v.preload = "metadata"; v.muted = true; v.playsInline = true; v.src = links.url;
+            // Seek a little way in, then stop: the first frame of a clip is
+            // often black, and a still is all a tile needs.
+            v.addEventListener("loadedmetadata", () => {
+              const at = Math.min(1.5, (v.duration || 3) / 4);
+              try { v.currentTime = at; } catch (_) {}
+            }, { once: true });
+            thumb.insertAdjacentElement("afterbegin", v);
+          } else if (isImage(file)) {
+            thumb.insertAdjacentHTML("afterbegin", `<img loading="lazy" alt="" src="${esc(links.url)}">`);
+          }
         });
       }, { rootMargin: "300px" });
       document.querySelectorAll(".cnt-file").forEach((el) => io.observe(el));
@@ -262,9 +313,10 @@ import "../../styles/admin.css";
       stage.innerHTML = video
         ? `<video controls autoplay playsinline src="${esc(links.url)}"></video>`
         : `<img alt="${esc(name)}" src="${esc(links.url)}">`;
+      $("cnt-viewer-name").textContent = name;
       $("cnt-viewer").hidden = false;
     }
-    function closeViewer() { $("cnt-viewer").hidden = true; $("cnt-viewer-stage").innerHTML = ""; }
+    function closeViewer() { $("cnt-viewer").hidden = true; $("cnt-viewer-stage").innerHTML = ""; $("cnt-viewer-name").textContent = ""; }
     $("cnt-viewer-close").addEventListener("click", closeViewer);
     $("cnt-viewer").addEventListener("click", (e) => { if (e.target === $("cnt-viewer")) closeViewer(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });
