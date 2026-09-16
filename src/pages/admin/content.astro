@@ -1,0 +1,371 @@
+---
+// The internal content archive: what Jack has uploaded, where the team can see
+// and download it. One copy of every file - these are the same objects in the
+// same R2 bucket the videography deliveries use, browsed by folder. Nothing is
+// copied anywhere to make this page work.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="content" title="Client content" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Client content</div>
+          <div class="page-header-sub">Everything uploaded to our own storage, by folder. Social media clients first. Files stay where they are: viewing and downloading here moves nothing and costs no extra storage.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-actions">
+        <nav class="cnt-crumbs" id="cnt-crumbs" aria-label="Folder"></nav>
+        <span class="admin-bar-count" id="cnt-count">…</span>
+        <button type="button" class="admin-btn admin-btn-ghost" id="cnt-newfolder">New folder</button>
+        <button type="button" class="admin-btn" id="cnt-upload">Upload here</button>
+        <input type="file" id="cnt-file" multiple hidden />
+      </div>
+    </section>
+
+    <div class="cnt-layout">
+      <aside class="cnt-rail" id="cnt-rail">
+        <h3 class="cnt-rail-h">Social media clients</h3>
+        <div id="cnt-clients" class="cnt-rail-list"><p class="cnt-note">Loading…</p></div>
+        <h3 class="cnt-rail-h">Everything</h3>
+        <div class="cnt-rail-list">
+          <button type="button" class="cnt-rail-item" data-prefix="deliverables/">All folders</button>
+        </div>
+      </aside>
+
+      <section class="cnt-main">
+        <div id="cnt-drop" class="cnt-drop">
+          <div id="cnt-folders" class="cnt-folders"></div>
+          <div id="cnt-files" class="cnt-files"></div>
+          <p class="cnt-note" id="cnt-empty" hidden>This folder is empty. Drag files in, or use Upload here.</p>
+        </div>
+        <div id="cnt-uploads" class="cnt-uploads"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="cnt-viewer" id="cnt-viewer" hidden>
+    <button type="button" class="cnt-viewer-close" id="cnt-viewer-close" aria-label="Close">&times;</button>
+    <div class="cnt-viewer-stage" id="cnt-viewer-stage"></div>
+  </div>
+
+  <style>
+    .cnt-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; padding: 20px 0 40px; }
+    @media (max-width: 900px) { .cnt-layout { grid-template-columns: 1fr; } }
+    .cnt-rail-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin: 0 0 10px; }
+    .cnt-rail-h + .cnt-rail-list { margin-bottom: 26px; }
+    .cnt-rail-list { display: flex; flex-direction: column; gap: 2px; }
+    .cnt-rail-item { text-align: left; font-family: var(--sans); font-size: 13px; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; color: var(--ink); }
+    .cnt-rail-item:hover { background: rgba(var(--violet-rgb),0.08); }
+    .cnt-rail-item.is-on { background: var(--english-violet); color: var(--paper); }
+    .cnt-rail-sub { display: block; font-size: 11px; opacity: 0.6; }
+    .cnt-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: var(--sans); font-size: 13px; }
+    .cnt-crumb { border: 0; background: transparent; padding: 4px 2px; cursor: pointer; color: var(--english-violet); font-weight: 600; }
+    .cnt-crumb:last-child { color: var(--ink); cursor: default; }
+    .cnt-crumb-sep { opacity: 0.4; }
+    .cnt-drop { min-height: 220px; border-radius: 10px; transition: background 0.2s, outline-color 0.2s; outline: 2px dashed transparent; outline-offset: 6px; }
+    .cnt-drop.is-over { background: rgba(var(--violet-rgb),0.05); outline-color: rgba(var(--violet-rgb),0.45); }
+    .cnt-folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .cnt-folder { display: flex; align-items: center; gap: 10px; padding: 14px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); font-size: 13.5px; font-weight: 600; text-align: left; color: var(--ink); }
+    .cnt-folder:hover { border-color: rgba(var(--violet-rgb),0.5); }
+    .cnt-folder svg { flex: none; color: var(--english-violet); }
+    .cnt-files { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+    .cnt-file { border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+    .cnt-thumb { position: relative; aspect-ratio: 16/10; background: rgba(28,29,34,0.06); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .cnt-thumb video, .cnt-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cnt-thumb-kind { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .cnt-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .cnt-play span { width: 38px; height: 38px; border-radius: 50%; background: rgba(28,29,34,0.55); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .cnt-meta { padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font-family: var(--sans); }
+    .cnt-name { font-size: 12.5px; font-weight: 600; color: var(--ink); word-break: break-word; }
+    .cnt-sub { font-size: 11px; color: rgba(28,29,34,0.55); }
+    .cnt-acts { display: flex; gap: 8px; padding: 0 12px 12px; }
+    .cnt-act { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid rgba(28,29,34,0.16); background: #fff; border-radius: 999px; padding: 6px 11px; cursor: pointer; color: var(--english-violet); text-decoration: none; }
+    .cnt-act:hover { border-color: var(--english-violet); }
+    .cnt-act--danger { color: #9b2c3a; }
+    .cnt-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+    .cnt-uploads { display: flex; flex-direction: column; gap: 6px; margin-top: 18px; }
+    .cnt-up { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.7); display: flex; justify-content: space-between; gap: 12px; border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 8px 12px; }
+    .cnt-viewer { position: fixed; inset: 0; z-index: 90; background: rgba(15,10,13,0.92); display: flex; align-items: center; justify-content: center; padding: 40px; }
+    .cnt-viewer[hidden] { display: none; }
+    .cnt-viewer-stage { max-width: min(1200px, 92vw); max-height: 86vh; }
+    .cnt-viewer-stage video, .cnt-viewer-stage img { max-width: 100%; max-height: 86vh; display: block; }
+    .cnt-viewer-close { position: absolute; top: 18px; right: 22px; background: transparent; border: 0; color: #fff; font-size: 34px; line-height: 1; cursor: pointer; }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const ROOT = "deliverables/";
+    let prefix = ROOT;
+
+    const fmtSize = (n) => {
+      if (!n) return "0 B";
+      const u = ["B", "KB", "MB", "GB", "TB"];
+      const i = Math.min(u.length - 1, Math.floor(Math.log(n) / Math.log(1024)));
+      return (n / Math.pow(1024, i)).toFixed(i ? 1 : 0) + " " + u[i];
+    };
+    const fmtDate = (d) => { try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+    const isVideo = (f) => /^video\//.test(f.contentType || "") || /\.(mp4|mov|m4v|webm)$/i.test(f.name);
+    const isImage = (f) => /^image\//.test(f.contentType || "") || /\.(jpe?g|png|webp|avif|gif)$/i.test(f.name);
+
+    async function token() {
+      const { data } = await supabase.auth.getSession();
+      return data.session ? data.session.access_token : "";
+    }
+    async function api(path, opts = {}) {
+      const t = await token();
+      const res = await fetch(WORKER + path, {
+        ...opts,
+        headers: { ...(opts.headers || {}), Authorization: "Bearer " + t },
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `${res.status}`);
+      return res.json();
+    }
+    // A link the browser can use on its own: a <video> and a download can't send
+    // an auth header. Signed, and good for a few hours.
+    const linkCache = new Map();
+    async function linksFor(key) {
+      if (linkCache.has(key)) return linkCache.get(key);
+      const p = api(`/media-link?key=${encodeURIComponent(key)}`).catch(() => null);
+      linkCache.set(key, p);
+      return p;
+    }
+
+    /* ---------- The clients rail ---------- */
+    async function loadClients() {
+      const box = $("cnt-clients");
+      try {
+        const { data: bookings } = await supabase
+          .from("videography_bookings")
+          .select("id, client_name, client_company, brand, archive_folder, shoot_date, smm_lead_id")
+          .not("smm_lead_id", "is", null)
+          .order("shoot_date", { ascending: false });
+        const rows = (bookings || []).filter((b) => (b.archive_folder || "").trim());
+        if (!rows.length) {
+          box.innerHTML = '<p class="cnt-note">No social media shoots have a folder yet. Set one on the shoot in Videography.</p>';
+          return;
+        }
+        // One entry per client, newest shoot first, with its other folders under it.
+        const byClient = new Map();
+        rows.forEach((b) => {
+          const name = (b.client_company || b.brand || b.client_name || "Client").trim();
+          const list = byClient.get(name) || [];
+          list.push(b);
+          byClient.set(name, list);
+        });
+        box.innerHTML = [...byClient.entries()].map(([name, list]) => list.map((b) => `
+          <button type="button" class="cnt-rail-item" data-prefix="${esc(ROOT + b.archive_folder.trim() + "/")}">
+            ${esc(name)}
+            <span class="cnt-rail-sub">${esc(b.archive_folder.trim())}${b.shoot_date ? " · " + esc(fmtDate(b.shoot_date)) : ""}</span>
+          </button>`).join("")).join("");
+      } catch (_) {
+        box.innerHTML = '<p class="cnt-note">Couldn\'t load the client list.</p>';
+      }
+    }
+
+    /* ---------- Browsing ---------- */
+    function paintCrumbs() {
+      const parts = prefix.replace(/\/+$/, "").split("/");
+      const crumbs = parts.map((seg, i) => {
+        const to = parts.slice(0, i + 1).join("/") + "/";
+        const label = i === 0 ? "Archive" : seg;
+        return `<button type="button" class="cnt-crumb" data-prefix="${esc(to)}">${esc(label)}</button>`;
+      });
+      $("cnt-crumbs").innerHTML = crumbs.join('<span class="cnt-crumb-sep">/</span>');
+      document.querySelectorAll(".cnt-rail-item").forEach((b) => b.classList.toggle("is-on", b.getAttribute("data-prefix") === prefix));
+    }
+
+    async function browse(to) {
+      prefix = to.endsWith("/") ? to : to + "/";
+      paintCrumbs();
+      $("cnt-count").textContent = "Loading…";
+      $("cnt-folders").innerHTML = "";
+      $("cnt-files").innerHTML = "";
+      let data;
+      try {
+        data = await api(`/list?prefix=${encodeURIComponent(prefix)}`);
+      } catch (err) {
+        $("cnt-count").textContent = "";
+        $("cnt-empty").hidden = false;
+        $("cnt-empty").textContent = "Couldn't open that folder: " + err.message;
+        return;
+      }
+      const folderIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+      $("cnt-folders").innerHTML = (data.folders || []).map((p) => {
+        const name = p.slice(prefix.length).replace(/\/$/, "");
+        return `<button type="button" class="cnt-folder" data-prefix="${esc(p)}">${folderIcon}<span>${esc(name)}</span></button>`;
+      }).join("");
+
+      const files = data.files || [];
+      const bytes = files.reduce((a, f) => a + (f.size || 0), 0);
+      $("cnt-count").textContent = `${files.length} file${files.length === 1 ? "" : "s"} · ${fmtSize(bytes)}${(data.folders || []).length ? ` · ${data.folders.length} folder${data.folders.length === 1 ? "" : "s"}` : ""}`;
+      $("cnt-empty").hidden = !!(files.length || (data.folders || []).length);
+      $("cnt-empty").textContent = "This folder is empty. Drag files in, or use Upload here.";
+
+      $("cnt-files").innerHTML = files.map((f) => `
+        <article class="cnt-file" data-key="${esc(f.key)}">
+          <div class="cnt-thumb" data-open>
+            <span class="cnt-thumb-kind">${isVideo(f) ? "Video" : isImage(f) ? "Image" : (f.name.split(".").pop() || "File").toUpperCase()}</span>
+            ${isVideo(f) ? '<div class="cnt-play"><span>&#9654;</span></div>' : ""}
+          </div>
+          <div class="cnt-meta">
+            <span class="cnt-name">${esc(f.name)}</span>
+            <span class="cnt-sub">${fmtSize(f.size)} · ${esc(fmtDate(f.uploaded))}</span>
+          </div>
+          <div class="cnt-acts">
+            <a class="cnt-act" data-dl href="#">Download</a>
+            <button type="button" class="cnt-act cnt-act--danger" data-del>Delete</button>
+          </div>
+        </article>`).join("");
+
+      // Thumbnails and download links are fetched only for what's on screen: a
+      // folder of two-hour videos should not pull anything it doesn't show.
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(async (e) => {
+          if (!e.isIntersecting) return;
+          io.unobserve(e.target);
+          const key = e.target.getAttribute("data-key");
+          const file = files.find((f) => f.key === key);
+          const links = await linksFor(key);
+          if (!links) return;
+          const dl = e.target.querySelector("[data-dl]");
+          if (dl) { dl.href = links.downloadUrl; dl.setAttribute("download", file.name); }
+          const thumb = e.target.querySelector(".cnt-thumb");
+          if (isVideo(file)) thumb.insertAdjacentHTML("afterbegin", `<video preload="metadata" muted playsinline src="${esc(links.url)}#t=0.5"></video>`);
+          else if (isImage(file)) thumb.insertAdjacentHTML("afterbegin", `<img loading="lazy" alt="" src="${esc(links.url)}">`);
+        });
+      }, { rootMargin: "300px" });
+      document.querySelectorAll(".cnt-file").forEach((el) => io.observe(el));
+    }
+
+    /* ---------- The viewer ---------- */
+    async function openFile(key, name) {
+      const links = await linksFor(key);
+      if (!links) return;
+      const stage = $("cnt-viewer-stage");
+      const video = /\.(mp4|mov|m4v|webm)$/i.test(name);
+      stage.innerHTML = video
+        ? `<video controls autoplay playsinline src="${esc(links.url)}"></video>`
+        : `<img alt="${esc(name)}" src="${esc(links.url)}">`;
+      $("cnt-viewer").hidden = false;
+    }
+    function closeViewer() { $("cnt-viewer").hidden = true; $("cnt-viewer-stage").innerHTML = ""; }
+    $("cnt-viewer-close").addEventListener("click", closeViewer);
+    $("cnt-viewer").addEventListener("click", (e) => { if (e.target === $("cnt-viewer")) closeViewer(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeViewer(); });
+
+    /* ---------- Clicks ---------- */
+    document.addEventListener("click", async (e) => {
+      const nav = e.target.closest("[data-prefix]");
+      if (nav) { browse(nav.getAttribute("data-prefix")); return; }
+      const card = e.target.closest(".cnt-file");
+      if (!card) return;
+      const key = card.getAttribute("data-key");
+      const name = card.querySelector(".cnt-name").textContent;
+      if (e.target.closest("[data-open]")) { openFile(key, name); return; }
+      if (e.target.closest("[data-del]")) {
+        if (!confirm(`Delete ${name}? This removes the only copy.`)) return;
+        try {
+          await api(`/object?key=${encodeURIComponent(key)}`, { method: "DELETE" });
+          browse(prefix);
+        } catch (err) { alert("Couldn't delete: " + err.message); }
+      }
+    });
+
+    /* ---------- New folder ---------- */
+    $("cnt-newfolder").addEventListener("click", async () => {
+      const name = prompt("Name the folder");
+      if (!name) return;
+      try {
+        const out = await api("/folder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prefix, name }),
+        });
+        browse(out.prefix || prefix);
+      } catch (err) { alert("Couldn't make the folder: " + err.message); }
+    });
+
+    /* ---------- Uploading into the open folder ---------- */
+    const PART = 8 * 1024 * 1024;
+    function uploadRow(name) {
+      const row = document.createElement("div");
+      row.className = "cnt-up";
+      row.innerHTML = `<span>${esc(name)}</span><span data-stat>Preparing…</span>`;
+      $("cnt-uploads").appendChild(row);
+      return { stat: (t) => { row.querySelector("[data-stat]").textContent = t; }, done: () => setTimeout(() => row.remove(), 2500) };
+    }
+    async function uploadFile(file, into) {
+      const ui = uploadRow(file.name);
+      try {
+        const t = await token();
+        const create = await fetch(`${WORKER}/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+          body: JSON.stringify({ prefix: into, fileName: file.name, contentType: file.type || "application/octet-stream" }),
+        });
+        if (!create.ok) throw new Error("couldn't start (" + create.status + ")");
+        const { key, uploadId } = await create.json();
+        const parts = [];
+        const count = Math.max(1, Math.ceil(file.size / PART));
+        for (let i = 0; i < count; i++) {
+          const blob = file.slice(i * PART, Math.min((i + 1) * PART, file.size));
+          let attempt = 0;
+          for (;;) {
+            try {
+              const res = await fetch(`${WORKER}/part?key=${encodeURIComponent(key)}&uploadId=${encodeURIComponent(uploadId)}&partNumber=${i + 1}`, {
+                method: "PUT", headers: { Authorization: "Bearer " + t }, body: blob,
+              });
+              if (!res.ok) throw new Error("part " + (i + 1));
+              parts.push({ partNumber: i + 1, etag: (await res.json()).etag });
+              break;
+            } catch (err) {
+              if (++attempt >= 3) throw err;
+              await new Promise((r) => setTimeout(r, 800 * attempt));
+            }
+          }
+          ui.stat(`Uploading ${Math.round(((i + 1) / count) * 100)}%`);
+        }
+        const fin = await fetch(`${WORKER}/complete`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + t },
+          body: JSON.stringify({ key, uploadId, parts }),
+        });
+        if (!fin.ok) throw new Error("couldn't finish (" + fin.status + ")");
+        ui.stat(fmtSize(file.size) + " · done");
+        ui.done();
+        if (into === prefix) browse(prefix);
+      } catch (err) {
+        ui.stat("Failed: " + ((err && err.message) || "upload"));
+      }
+    }
+    const sendAll = (list) => { const into = prefix; Array.from(list || []).forEach((f) => uploadFile(f, into)); };
+    $("cnt-upload").addEventListener("click", () => $("cnt-file").click());
+    $("cnt-file").addEventListener("change", (e) => { sendAll(e.target.files); e.target.value = ""; });
+    const drop = $("cnt-drop");
+    ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("is-over"); }));
+    ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); if (ev === "drop") sendAll(e.dataTransfer.files); drop.classList.remove("is-over"); }));
+
+    /* ---------- Go ---------- */
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      if (!WORKER) { $("cnt-count").textContent = "Storage isn't configured (PUBLIC_R2_WORKER_URL)."; return; }
+      await loadClients();
+      const start = new URLSearchParams(location.search).get("folder");
+      browse(start ? (start.startsWith(ROOT) ? start : ROOT + start) : ROOT);
+    })();
+  </script>
+</AdminShell>

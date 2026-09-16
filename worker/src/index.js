@@ -946,6 +946,19 @@ function r2DashUrl(env, folder) {
 // Build a readable object key: <prefix>/<folder>/<category>/<file>. Slashes are
 // stripped from each part first - one inside a name would silently create an
 // extra level of folder, which is how a tidy scheme quietly stops being tidy.
+// A folder inside the archive, as a key prefix: always under deliverables/,
+// never climbing out of it, always ending in a slash.
+function archivePrefix(raw) {
+  const cleaned = String(raw || "")
+    .replace(/\\/g, "/")
+    .split("/")
+    .map((seg) => seg.replace(/^\.+$/, "").replace(/[\\:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .filter((seg) => seg !== "..");
+  const parts = cleaned[0] === PART_PREFIX ? cleaned.slice(1) : cleaned;
+  return [PART_PREFIX, ...parts].join("/") + "/";
+}
+
 function safeFolderKey(folder, category, fileName) {
   const part = (v, max) => String(v || "")
     .replace(/[\\/:*?"<>|]+/g, " ")
@@ -2302,6 +2315,24 @@ async function unsubscribeContact(env, contact, source) {
 // (open) and links routed through the Worker (click). Both are HMAC-signed so
 // events can't be forged and the click redirect can't be abused as an open
 // relay. p = b64url JSON {e,a,n,m}; the click sig also covers the raw URL.
+// A link to one archive object that stands on its own for a few hours: signed
+// over the key and the expiry, so it cannot be edited into a link to something
+// else, and it dies on its own.
+async function mediaSig(env, key, exp) {
+  const secret = unsubSecret(env);
+  if (!secret) return null;
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", k, enc.encode(`media:${key}:${exp}`));
+  return _b64url(mac);
+}
+async function mediaSigValid(env, key, exp, sig) {
+  if (!key || !exp || !sig) return false;
+  if (!/^\d+$/.test(String(exp)) || Number(exp) < Date.now()) return false;
+  const want = await mediaSig(env, key, exp);
+  return !!want && want === sig;
+}
+
 async function trackSig(env, data) {
   const secret = unsubSecret(env);
   if (!secret) return null;
@@ -5716,7 +5747,8 @@ export default {
     // next route added below doesn't fall into the same trap silently.
     const publicNoAuth = path.endsWith("/videography/edit-request/context")
       || path.endsWith("/videography/edit-request")
-      || path.endsWith("/assets/review-grid");
+      || path.endsWith("/assets/review-grid")
+      || (path.endsWith("/download") && url.searchParams.get("sig"));   // proof is in the link
     if (!publicNoAuth) {
       const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
       if (hot) {
@@ -5808,7 +5840,18 @@ export default {
 
       // ---- Create a multipart upload ----
       if (path.endsWith("/create") && request.method === "POST") {
-        const { bookingId, fileName, contentType, folder, category } = await request.json();
+        const { bookingId, fileName, contentType, folder, category, prefix } = await request.json();
+        // The internal archive browser uploads into whatever folder is open,
+        // which can be nested as deep as someone has made it - so it sends the
+        // prefix itself rather than a folder + category pair.
+        if (prefix) {
+          const user = await getUser(request, env);
+          if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+          const name = String(fileName || "file").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 120);
+          const key = archivePrefix(prefix) + `${Date.now()}-${name}`;
+          const mpx = await env.BUCKET.createMultipartUpload(key, { httpMetadata: contentType ? { contentType } : undefined });
+          return json({ key, uploadId: mpx.uploadId }, 200, request, env);
+        }
         // A booking id is unique but tells you nothing when you're looking
         // through storage months later. When the admin centre supplies a folder
         // name, files land under it - and under their category, so exteriors and
@@ -5856,6 +5899,62 @@ export default {
       }
 
       // ---- List a booking's files ----
+      // ---- List one folder of the archive (admins) ----
+      // ?prefix= lists that folder: the files in it, and the folders inside it.
+      // The internal library browses the same objects the deliveries do - one
+      // copy in R2, no second home for the same video.
+      if (path.endsWith("/list") && request.method === "GET" && url.searchParams.get("prefix") !== null) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const prefix = archivePrefix(url.searchParams.get("prefix"));
+        const out = { prefix, folders: [], files: [] };
+        let cursor;
+        do {
+          const page = await env.BUCKET.list({ prefix, delimiter: "/", cursor, include: ["httpMetadata"] });
+          (page.delimitedPrefixes || []).forEach((p) => out.folders.push(p));
+          (page.objects || []).forEach((o) => {
+            if (o.key.endsWith("/") || o.key.endsWith("/.keep")) return;   // folder markers aren't files
+            out.files.push({
+              key: o.key, name: o.key.slice(prefix.length), size: o.size, uploaded: o.uploaded,
+              contentType: (o.httpMetadata && o.httpMetadata.contentType) || "",
+            });
+          });
+          cursor = page.truncated ? page.cursor : null;
+        } while (cursor);
+        out.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        out.files.sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));
+        return json(out, 200, request, env);
+      }
+
+      // ---- A link to one file that a <video> or a download can use (admins) ----
+      if (path.endsWith("/media-link") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const key = url.searchParams.get("key") || "";
+        if (!key.startsWith(PART_PREFIX + "/")) return json({ error: "Not an archive file." }, 400, request, env);
+        const exp = Date.now() + 6 * 60 * 60 * 1000;                     // long enough to watch, short enough to matter
+        const sig = await mediaSig(env, key, exp);
+        if (!sig) return json({ error: "Links aren't configured on the Worker." }, 503, request, env);
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        const q = (dl) => `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}${dl ? "&dl=1" : ""}`;
+        return json({ url: q(false), downloadUrl: q(true), expires: exp }, 200, request, env);
+      }
+
+      // ---- Make a folder (admins) ----
+      // R2 has no folders, only key prefixes - so an empty one needs a marker to
+      // exist at all. Zero bytes, and the listing hides it.
+      if (path.endsWith("/folder") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const prefix = archivePrefix((b && b.prefix) || "");
+        const name = String((b && b.name) || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+        if (!name) return json({ error: "Give the folder a name." }, 400, request, env);
+        const key = `${prefix}${name}/.keep`;
+        await env.BUCKET.put(key, new Uint8Array(0));
+        return json({ ok: true, prefix: `${prefix}${name}/` }, 200, request, env);
+      }
+
       if (path.endsWith("/list") && request.method === "GET") {
         const bookingId = (url.searchParams.get("bookingId") || "").replace(/[^a-zA-Z0-9_-]/g, "");
         const prefix = `${PART_PREFIX}/${bookingId}/`;
@@ -5886,13 +5985,39 @@ export default {
       if (path.endsWith("/download") && request.method === "GET") {
         const key = url.searchParams.get("key");
         if (!key) return json({ error: "Missing key" }, 400, request, env);
-        const obj = await env.BUCKET.get(key);
+        const signed = await mediaSigValid(env, key, url.searchParams.get("exp"), url.searchParams.get("sig"));
+        if (!signed) {
+          const user = await getUser(request, env);
+          if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        }
+        // A browser plays a video by asking for pieces of it (Range). Without
+        // answering those, a two-hour file has to arrive whole before it plays
+        // and can never be scrubbed - so the range is passed through to R2 and
+        // answered with a 206.
+        const rangeHeader = request.headers.get("Range") || "";
+        const m = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+        let range;
+        if (m) {
+          if (m[1] === "" && m[2] !== "") range = { suffix: Number(m[2]) };
+          else if (m[1] !== "") range = { offset: Number(m[1]), ...(m[2] !== "" ? { length: Number(m[2]) - Number(m[1]) + 1 } : {}) };
+        }
+        const obj = await env.BUCKET.get(key, range ? { range } : undefined);
         if (!obj) return json({ error: "Not found" }, 404, request, env);
         const headers = new Headers(corsHeaders(request, env));
         obj.writeHttpMetadata(headers);
         headers.set("etag", obj.httpEtag);
-        const name = key.split("/").pop();
-        headers.set("Content-Disposition", `inline; filename="${name}"`);
+        headers.set("accept-ranges", "bytes");
+        const name = decodeURIComponent(key.split("/").pop() || "file");
+        const asFile = url.searchParams.get("dl") === "1";
+        headers.set("Content-Disposition", `${asFile ? "attachment" : "inline"}; filename="${name.replace(/"/g, "")}"`);
+        if (obj.range && typeof obj.range.offset === "number" && obj.size) {
+          const start = obj.range.offset;
+          const end = start + (obj.range.length || obj.size - start) - 1;
+          headers.set("content-range", `bytes ${start}-${end}/${obj.size}`);
+          headers.set("content-length", String(end - start + 1));
+          return new Response(obj.body, { status: 206, headers });
+        }
+        headers.set("content-length", String(obj.size));
         return new Response(obj.body, { headers });
       }
 
