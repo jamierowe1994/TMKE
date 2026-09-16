@@ -5988,6 +5988,7 @@ export default {
           <h1 style="${EM_H1}">${esc2(clientName)}'s content is ready</h1>
           <p style="${EM_P}">The ${esc2(bk.service || bk.service_type || "shoot")}${when ? ` from ${esc2(when)}` : ""} has been edited and is in the Library.</p>
           <p style="margin:0 0 24px;"><a href="${esc2(link)}" style="${EM_BTN}">Open it in the Library</a></p>
+          <p style="${EM_P}">If you need any edits, just message Jack - no form to fill in.</p>
           <p style="${EM_SMALL}">Nothing has gone to the client: this footage is ours to use for their social media.</p>`);
         const sent = await sendEmail(env, { to, subject: `Ready in the Library - ${clientName}`, html });
         if (!sent.ok) return json({ error: sent.error || "The email didn't send." }, 502, request, env);

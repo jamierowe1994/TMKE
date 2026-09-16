@@ -1624,6 +1624,23 @@ import "../../styles/admin.css";
       sent:          { sub: "Sent",          next: "They have their content. Waiting on payment and any edits.",              advance: { to: "delivered",     label: "Close this job" } },
       delivered:     { sub: "Delivered",     next: "Paid, edits settled, nothing left to do.",                                advance: null },
     };
+    // A shoot inside a social media package is a different job: the footage is
+    // ours to make their content from, so there is no client gallery, no PIN and
+    // nothing to pay - it was paid for in the package. Only the words change;
+    // the stages are the same ones.
+    const SMM_FLOW = {
+      booked:        { sub: "Booked in",     next: "Confirm the details. Nothing to invoice - it's covered by their package.", advance: { to: "shoot_day",     label: "Start shoot day" } },
+      invoiced:      { sub: "Invoiced",      next: "Invoiced for something extra. This moves to Shoot day when the day arrives.", advance: { to: "shoot_day",  label: "Start shoot day" } },
+      editing:       { sub: "In editing",    next: "Edit the footage, then upload it to the Library.",                          advance: { to: "gallery_ready", label: "Content ready" } },
+      gallery_ready: { sub: "Gallery ready", next: "Their social media manager has been told, with a link to the Library.",      advance: { to: "sent",          label: "Handed over" } },
+      sent:          { sub: "Sent",          next: "With the team. Any edits come straight to Jack - no forms, no email chain.", advance: { to: "delivered",     label: "Close this job" } },
+      delivered:     { sub: "Delivered",     next: "Covered by the package. Nothing to pay, nothing outstanding.",               advance: null },
+    };
+    function stageFlow(b) {
+      const base = STAGE_FLOW[b.stage] || STAGE_FLOW.booked;
+      return isSmmCovered(b) && SMM_FLOW[b.stage] ? SMM_FLOW[b.stage] : base;
+    }
+
     function fmtBig(iso) {
       return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
     }
@@ -1727,7 +1744,7 @@ import "../../styles/admin.css";
       const b = bookings.find((x) => x.id === candId);
       const el = document.getElementById("vid-cand");
       if (!b || !el) return;
-      const f = STAGE_FLOW[b.stage] || STAGE_FLOW.booked;
+      const f = stageFlow(b);
       const amount = b.amount_pence != null ? gbpFromPence(b.amount_pence) : "—";
       const isStudio = /content|studio/i.test((b.service_type || "") + " " + (b.service || ""));
       const whenStr = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
@@ -2341,7 +2358,20 @@ import "../../styles/admin.css";
 
           <!-- The second upload. Deliberately its own step with its own tick:
                the archive and the client gallery are different places, and a
-               single tick would hide which had been done. -->
+               single tick would hide which had been done. A package shoot has no
+               client gallery at all - the Library is the whole of it. -->
+          ${isSmmCovered(b) ? `
+          <div class="vid-pixieset is-done">
+            <div class="vid-gate-h">No client gallery on this one</div>
+            <p class="vid-hint" style="margin-bottom:10px">
+              This footage is ours, to make their content from - it doesn't go to the client,
+              so there's no Pixieset collection and no PIN. Upload it to our own storage above
+              and it's in the Library.
+            </p>
+            <p style="margin:0">
+              <a class="admin-btn admin-btn-ghost" href="/admin/content?folder=${encodeURIComponent(archiveFolderFor(b.id) || archiveFolderName(b))}">See it in the Library</a>
+            </p>
+          </div>` : `
           <div class="vid-pixieset ${b.pixieset_uploaded_at ? "is-done" : ""}">
             <div class="vid-gate-h">Then build the client gallery</div>
             <p class="vid-hint" style="margin-bottom:10px">
@@ -2359,7 +2389,7 @@ import "../../styles/admin.css";
             ${b.pixieset_uploaded_at
               ? `<p class="vid-hint">Uploaded ${escapeHtml(new Date(b.pixieset_uploaded_at).toLocaleDateString("en-GB"))}. Move to Gallery ready to add the links.</p>`
               : `<p class="vid-hint">Tick this once the collection is live, then move the shoot to Gallery ready.</p>`}
-          </div>`;
+          </div>`}`;
         document.getElementById("vd-archived").addEventListener("change", (e) => saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
         document.getElementById("vd-pixieset")?.addEventListener("change", (e) =>
           saveBookingPatch(b, { pixieset_uploaded_at: e.target.checked ? (b.pixieset_uploaded_at || new Date().toISOString()) : null }));
@@ -2369,6 +2399,43 @@ import "../../styles/admin.css";
         if (sel) { sel.value = b.id; sel.dispatchEvent(new Event("change")); }
         showPanel("deliver");
       });
+        return;
+      }
+
+      // A package shoot: no gallery, no PIN, nothing to pay. The handover is
+      // telling whoever runs that account it's in the Library.
+      if (isSmmCovered(b)) {
+        const folder = archiveFolderFor(b.id) || archiveFolderName(b);
+        host.innerHTML = `
+          <h4>Handed to the team</h4>
+          <p class="vid-hint" style="margin-bottom:14px">
+            The client never sees this footage - it's what their content gets made from. Marking
+            the shoot Gallery ready emails whoever runs their social media, with a link straight
+            to this folder in the Library. Any edits come back to Jack directly.
+          </p>
+          <p style="margin:0 0 14px">
+            <a class="admin-btn admin-btn-primary" href="/admin/content?folder=${encodeURIComponent(folder)}">Open it in the Library</a>
+          </p>
+          <label class="vid-check">
+            <input type="checkbox" id="vd-archived" ${b.archived_at ? "checked" : ""} />
+            <span>Archive copy uploaded to our own storage</span>
+          </label>
+          <div class="vid-cand-actions" style="margin-top:14px">
+            <button type="button" class="admin-btn admin-btn-ghost" id="vd-telagain">${b.gallery_sent_at ? "Tell them again" : "Tell them it's ready"}</button>
+          </div>
+          ${b.gallery_sent_at
+            ? `<p class="vid-hint">Told ${escapeHtml(new Date(b.gallery_sent_at).toLocaleString("en-GB"))}.</p>`
+            : `<p class="vid-hint">Nobody has been told yet.</p>`}
+          <p class="vid-hint">Nothing to invoice: this shoot is covered by their package. If something extra was agreed, raise an invoice from the Invoice tab.</p>`;
+        document.getElementById("vd-archived").addEventListener("change", (e) =>
+          saveBookingPatch(b, { archived_at: e.target.checked ? (b.archived_at || new Date().toISOString()) : null }));
+        document.getElementById("vd-telagain").addEventListener("click", async (e) => {
+          const btn = e.currentTarget, was = btn.textContent;
+          btn.disabled = true; btn.textContent = "Telling them…";
+          await tellSmmManager(b);
+          btn.disabled = false; btn.textContent = was;
+          renderDeliveryCard(b);
+        });
         return;
       }
 
@@ -3188,7 +3255,9 @@ import "../../styles/admin.css";
       // here it blocks rather than warns.
       // Delivered means finished, not "we sent it". A job with an unpaid
       // invoice or an outstanding amend is neither, so it cannot close.
-      if (to === "delivered") {
+      // A package shoot has no invoice to chase and no client edits to settle:
+      // the team sorts edits between themselves and Jack closes it.
+      if (to === "delivered" && !isSmmCovered(b)) {
         const missing = [];
         if (!b.paid_at) missing.push("• The invoice hasn't been marked paid.");
         if (!b.edits_settled_at) missing.push("• The client's round of edits hasn't been settled.");
@@ -3220,7 +3289,12 @@ import "../../styles/admin.css";
         });
         const d = await res.json().catch(() => ({}));
         if (!res.ok) { alert("The stage is saved, but nobody was told: " + (d.error || res.status)); return; }
-        if (d.to) alert(`${d.to} has been told the content is ready, with a link to the Library.`);
+        if (d.to) {
+          // The same field the client gallery uses for "they have it", because
+          // for a package shoot this IS the delivery.
+          await saveBookingPatch(b, { gallery_sent_at: new Date().toISOString() });
+          alert(`${d.to} has been told the content is ready, with a link to the Library.`);
+        }
       } catch (err) {
         alert("The stage is saved, but nobody was told: " + err.message);
       }
