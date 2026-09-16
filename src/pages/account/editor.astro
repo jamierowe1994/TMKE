@@ -563,6 +563,13 @@ const googleFonts = [
           <div class="ed-section-title">Logos</div>
           <p class="ed-brand-hint">Select a logo to add it to the canvas.</p>
           <div class="ed-photo-grid" id="brand-logo-grid"></div>
+
+          <!-- The headshot saved in the brand kit. Two shapes, because that is
+               the whole decision: a round photo for a profile-style credit, a
+               square one for a corner of the design. -->
+          <div class="ed-section-title">Headshot</div>
+          <p class="ed-brand-hint">Add the photo from your brand kit, then move and size it on the design.</p>
+          <div class="ed-shot-grid" id="brand-headshot-grid"></div>
         </div>
       </section>
 
@@ -2415,17 +2422,33 @@ const googleFonts = [
       border-top: 1px solid rgba(28,29,34,0.10); padding-top: 13px; margin: 13px 0 8px;
     }
     .ed-textlist-head[hidden] { display: none; }
+    /* The brand kit's headshot: the same photo offered two ways round. */
+    .ed-shot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .ed-shot-grid .ed-brand-hint { grid-column: 1 / -1; margin: 0; }
+    .ed-shot-btn {
+      position: relative; padding: 10px; cursor: pointer; background: #fff;
+      border: 1px solid rgba(28,29,34,0.12); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .ed-shot-btn:hover { border-color: var(--english-violet); transform: translateY(-1px); }
+    .ed-shot-btn img { width: 78px; height: 78px; object-fit: cover; display: block; }
+    .ed-shot-btn--circle img { border-radius: 50%; }
+    .ed-shot-btn--square img { border-radius: 3px; }
+
     /* Logo slot — authoring only. The dashed frame is the 200x75 the member's
        mark will be fitted into, so the reserved area is visible while you lay
        the design out rather than implied by a line of placeholder text. */
     .ed-element.is-logoslot { outline: 1px dashed rgba(var(--violet-rgb), 0.85); outline-offset: 2px; }
-    .ed-element.is-logoslot::after {
+    .ed-element.is-shotslot { outline: 1px dashed rgba(var(--violet-rgb), 0.85); outline-offset: 2px; }
+    .ed-element.is-logoslot::after, .ed-element.is-shotslot::after {
       content: "LOGO"; position: absolute; top: -16px; left: 0;
       font-family: var(--sans); font-size: 9px; font-weight: 700;
       letter-spacing: 0.14em; color: var(--english-violet);
       background: rgba(255,255,255,0.9); padding: 1px 4px; border-radius: 2px;
       pointer-events: none;
     }
+    .ed-element.is-shotslot::after { content: "HEADSHOT"; }
     /* Sits over the stage, clear of the panel and the context bar. Quiet
        enough to ignore, present enough to explain a {brand name} on screen. */
     .ed-brandnudge {

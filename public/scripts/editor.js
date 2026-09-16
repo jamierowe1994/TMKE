@@ -2200,7 +2200,7 @@
           // tags only touch text that still contains a tag, and a logo slot
           // only fills while it is still text — anything you have typed or
           // replaced yourself is left exactly as you left it.
-          if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); nudgeIfBrandNameMissing(); }
+          if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); nudgeIfBrandNameMissing(); }
           normalizeLegacySize();
           pushHistory();
           fullRender();
@@ -2219,7 +2219,7 @@
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
-    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); nudgeIfBrandNameMissing(); }
+    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); nudgeIfBrandNameMissing(); }
     normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
@@ -3078,6 +3078,7 @@
     // Authoring aid: show which element is the logo slot. Admin only — a
     // customer sees their own logo there, not a marked-up box.
     if (el.brandRole === "logo" && isAdminMode()) node.classList.add("is-logoslot");
+    if (el.brandRole === "headshot" && isAdminMode()) node.classList.add("is-shotslot");
     if (el.hidden) node.classList.add("is-hidden");
     if (el.type === "text" && el.vcenter) node.classList.add("ed-text-vcenter");
 
@@ -7475,6 +7476,89 @@
     probe.src = src;
   }
 
+  /* ---- Headshots -----------------------------------------------------------
+     The brand kit holds a headshot alongside the logos (see /account/profile).
+     It is used the same two ways a logo is: dropped on a design from the Brand
+     pane, or filled into a slot a template author drew for it. */
+  function brandHeadshotSrc() {
+    const src = BRAND && typeof BRAND.headshot === "string" ? BRAND.headshot.trim() : "";
+    return src || null;
+  }
+
+  // A headshot arrives in a frame, so it is cropped to the shape rather than
+  // squashed into it, and can be nudged about inside it afterwards.
+  const HEADSHOT_SIZE = 420;
+  function addHeadshot(shape) {
+    const src = brandHeadshotSrc();
+    if (!src) { toast("Add a headshot to your brand kit first"); return; }
+    const el = {
+      type: "frame",
+      frameShape: shape === "square" ? "square" : "circle",
+      brandRole: "headshot",
+      x: Math.round(state.canvas.width / 2 - HEADSHOT_SIZE / 2),
+      y: Math.round(state.canvas.height / 2 - HEADSHOT_SIZE / 2),
+      w: HEADSHOT_SIZE, h: HEADSHOT_SIZE,
+      rotation: 0, opacity: 1,
+      src: src, imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgNaturalW: 0, imgNaturalH: 0,
+    };
+    addElement(el);
+    const probe = new Image();
+    probe.crossOrigin = "anonymous";
+    probe.onload = function () {
+      el.imgNaturalW = probe.naturalWidth; el.imgNaturalH = probe.naturalHeight;
+      partialRenderElement(el);
+    };
+    probe.src = src;
+  }
+
+  /* Authoring: the space where a member's headshot will go. Empty, so the
+     author sees the hole; a member with a headshot in their kit gets it filled
+     when the design opens, and a member without one never sees the slot. */
+  const HEADSHOT_SLOT = 360;
+  function addHeadshotSlot(shape) {
+    addElement({
+      type: "frame",
+      frameShape: shape === "square" ? "square" : "circle",
+      brandRole: "headshot",
+      x: Math.round(state.canvas.width / 2 - HEADSHOT_SLOT / 2),
+      y: Math.round(state.canvas.height / 2 - HEADSHOT_SLOT / 2),
+      w: HEADSHOT_SLOT, h: HEADSHOT_SLOT,
+      rotation: 0, opacity: 1,
+      src: null, imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgNaturalW: 0, imgNaturalH: 0,
+    });
+    toast("Headshot slot added — " + HEADSHOT_SLOT + " \u00d7 " + HEADSHOT_SLOT + ", " + (shape === "square" ? "square" : "circle"));
+  }
+
+  // Fill every headshot slot in a design with the member's own photo - or hide
+  // the slot, because an empty circle on a finished post looks like a mistake.
+  // Marked as ours, so it comes back the moment they add one.
+  function fillTemplateHeadshots() {
+    if (isAdminMode()) return;
+    const src = brandHeadshotSrc();
+    const slots = state.elements.filter(function (el) { return el && el.brandRole === "headshot"; });
+    if (!slots.length) return;
+    slots.forEach(function (slot) {
+      if (!src) {
+        if (!slot.src) { slot.hidden = true; slot.autoHidden = true; }
+        return;
+      }
+      if (slot.autoHidden) { slot.hidden = false; delete slot.autoHidden; }
+      // Already filled - by the author, or by the member moving it about on a
+      // design they saved earlier. Leave it alone.
+      if (slot.src) return;
+      slot.src = src;
+      slot.imgScale = 1; slot.imgOffsetX = 0; slot.imgOffsetY = 0;
+      slot.imgNaturalW = 0; slot.imgNaturalH = 0;
+      const probe = new Image();
+      probe.crossOrigin = "anonymous";
+      probe.onload = function () {
+        slot.imgNaturalW = probe.naturalWidth; slot.imgNaturalH = probe.naturalHeight;
+        partialRenderElement(slot);
+      };
+      probe.src = src;
+    });
+  }
+
   function fillTemplateLogos() {
     const src = brandLogoSrc();
     const slots = state.elements.filter(function (el) {
@@ -8609,6 +8693,28 @@
         ? '<p class="ed-brand-hint" style="grid-column:1/-1">You have not uploaded any logos yet.</p>'
         : '<p class="ed-brand-hint" style="grid-column:1/-1">You have not uploaded any logos yet.</p>';
     }
+
+    // Headshot - the photo from the brand kit, as a circle or a square.
+    const shotGrid = $("brand-headshot-grid");
+    if (shotGrid) {
+      const shot = brandHeadshotSrc();
+      shotGrid.innerHTML = "";
+      if (!shot) {
+        shotGrid.innerHTML = '<p class="ed-brand-hint" style="grid-column:1/-1">Add a headshot to your brand kit and it will be here.</p>';
+      } else {
+        [["circle", "Circle"], ["square", "Square"]].forEach(function (pair) {
+          const b = document.createElement("button");
+          b.title = "Add your headshot \u2014 " + pair[1].toLowerCase();
+          b.className = "ed-shot-btn ed-shot-btn--" + pair[0];
+          const img = document.createElement("img");
+          img.src = shot;
+          img.alt = "";
+          b.appendChild(img);
+          b.addEventListener("click", function () { addHeadshot(pair[0]); });
+          shotGrid.appendChild(b);
+        });
+      }
+    }
     renderRebrand();
   }
 
@@ -8900,10 +9006,18 @@
         '<button type="button" class="ed-logoslot-btn" data-logoslot="top">Logo slot &middot; top</button>' +
         '<button type="button" class="ed-logoslot-btn" data-logoslot="bottom">Logo slot &middot; bottom</button>' +
       '</div>' +
-      '<p class="ed-brand-hint">200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>';
+      '<p class="ed-brand-hint">200 &times; 75, centred, 108px in. Holds {brand name} for members with no logo, and their mark for those who have one.</p>' +
+      '<div class="ed-logoslot-row" style="margin-top:12px">' +
+        '<button type="button" class="ed-logoslot-btn" data-shotslot="circle">Headshot slot &middot; circle</button>' +
+        '<button type="button" class="ed-logoslot-btn" data-shotslot="square">Headshot slot &middot; square</button>' +
+      '</div>' +
+      '<p class="ed-brand-hint">The space where the member&rsquo;s headshot goes. Filled from their brand kit when the design opens, and hidden for anyone who hasn&rsquo;t added one.</p>';
     head.insertAdjacentElement("afterend", wrap);
     wrap.querySelectorAll("[data-logoslot]").forEach(function (b) {
       b.addEventListener("click", function () { addLogoSlot(b.getAttribute("data-logoslot")); });
+    });
+    wrap.querySelectorAll("[data-shotslot]").forEach(function (b) {
+      b.addEventListener("click", function () { addHeadshotSlot(b.getAttribute("data-shotslot")); });
     });
     _logoToolMounted = true;
   }
@@ -9787,6 +9901,7 @@
   // and the member gets an image back, not a file.
   function applyKitToCurrentPage() {
     fillTemplateLogos();
+    fillTemplateHeadshots();
     const kitCols = (BRAND && Array.isArray(BRAND.colors) ? BRAND.colors : [])
       .map(function (c) { return normHexSafe(c && (c.hex || c)); }).filter(Boolean);
     if (kitCols.length) {
