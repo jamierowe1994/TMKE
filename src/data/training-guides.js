@@ -1,3 +1,4 @@
+import { areaImg } from "./hub-art.js";
 // Training — how to use the hub. Four short courses, one per part of the
 // hub, each lesson a page of the reader with, where it helps, a "Show me"
 // walkthrough on the real page (src/data/walkthroughs.js) and room for a
@@ -8,11 +9,6 @@
 // Getting Started row on Learn instead.
 
 const p = (t) => `<p>${t}</p>`;
-// Cloudflare holds an image for four hours, so a changed picture under the
-// same name never reaches anyone: every version gets a new filename. Bump
-// this and rename the files together.
-const IMG_V = "v3";
-const areaImg = (name) => `/images/learn/hub/areas/${name}-${IMG_V}.jpg`;
 const ph = (label, src) => src
   ? `<figure class="ci-ph ci-ph--img"><img src="${src}" alt="" loading="lazy"></figure>`
   : `<figure class="ci-ph" data-ph="${label}"><span>${label}</span></figure>`;
