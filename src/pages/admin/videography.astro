@@ -1103,6 +1103,22 @@ import "../../styles/admin.css";
     }
     .vid-catgrid.is-disabled { opacity: 0.5; pointer-events: none; }
     .vid-catbox-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    /* The name takes the room, the count and the folder button sit to the right. */
+    .vid-catbox-top .vid-catbox-name { flex: 1 1 auto; min-width: 0; }
+    .vid-catbox-add {
+      flex: none; cursor: pointer; font-family: var(--sans); font-size: 10px; font-weight: 800;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted, #887d77);
+      background: none; border: 1px solid var(--border, #eae5e1); border-radius: var(--radius-sm, 3px);
+      padding: 4px 7px; transition: color 0.15s, border-color 0.15s;
+    }
+    .vid-catbox-add:hover { color: var(--primary, #371e28); border-color: var(--accent-light, #c9bcb7); }
+    /* The tile that makes a new folder: same card, dashed, quieter. */
+    .vid-catbox--new {
+      align-items: flex-start; justify-content: center; gap: 4px; cursor: pointer; text-align: left;
+      border-style: dashed; background: var(--surface-2, #faf8f7);
+    }
+    .vid-catbox--new:hover { border-color: var(--accent, #7e6765); background: var(--surface, #fff); }
+    .vid-catbox-hint { font-family: var(--sans); font-size: 11px; color: var(--muted, #887d77); }
     /* Normal size, bold - the Hub's card-title treatment. */
     .vid-catbox-name {
       font-family: var(--sans); font-size: 13px; font-weight: 700;
@@ -2115,33 +2131,105 @@ import "../../styles/admin.css";
         const input = box.querySelector(".vid-catbox-input");
         const pick = box.querySelector(".vid-catbox-pick");
         pick?.addEventListener("click", () => { if (deliverGuard()) input?.click(); });
-        input?.addEventListener("change", () => { handleFiles(input.files, category); input.value = ""; });
+        const boxPrefix = box.getAttribute("data-prefix") || "";
+        input?.addEventListener("change", () => { handleFiles(input.files, category, boxPrefix); input.value = ""; });
         ["dragenter", "dragover"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.add("is-drag"); }));
         ["dragleave", "drop"].forEach((ev) => box.addEventListener(ev, (e) => { e.preventDefault(); box.classList.remove("is-drag"); }));
-        box.addEventListener("drop", (e) => { if (deliverGuard()) handleFiles(e.dataTransfer.files, category); });
+        box.addEventListener("drop", (e) => { if (deliverGuard()) handleFiles(e.dataTransfer.files, category, boxPrefix); });
       });
     }
 
     // The drop boxes follow the shoot: a studio session has no drone footage,
     // an agent shoot has no interiors. Rendered from the same list that names
     // the folders, so a box and its folder can never disagree.
-    function renderCatBoxes(b) {
+    // The shoot's own folder in storage, as a key prefix.
+    function shootPrefix(b) {
+      const folder = archiveFolderFor(b.id) || archiveFolderName(b);
+      return folder ? `deliverables/${folder}/` : "";
+    }
+
+    // Every folder under the shoot, however deep, as paths relative to it
+    // ("Other", "Other/Interviews"). Folders Jack makes by hand show up here.
+    async function shootFolders(b) {
+      const base = shootPrefix(b);
+      if (!base) return [];
+      const seen = new Set();
+      const walk = async (prefix, depth) => {
+        if (depth > 2) return;                       // deep enough for a shoot
+        let data;
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/list?prefix=${encodeURIComponent(prefix)}`, { headers: { Authorization: "Bearer " + token } });
+          if (!res.ok) return;
+          data = await res.json();
+        } catch (_) { return; }
+        for (const f of data.folders || []) {
+          const rel = f.slice(base.length).replace(/\/$/, "");
+          if (rel) seen.add(rel);
+          await walk(f, depth + 1);
+        }
+      };
+      await walk(base, 0);
+      return [...seen].sort((a, b2) => a.localeCompare(b2, undefined, { numeric: true }));
+    }
+
+    async function renderCatBoxes(b) {
       const grid = document.getElementById("vid-catgrid");
       if (!grid) return;
       if (!b) { grid.innerHTML = `<p class="vid-loading">Pick a booking to see where files go.</p>`; return; }
       const cats = archiveFoldersFor(b.service_type, b.service);
-      grid.innerHTML = cats.map((cat) => `
-        <div class="vid-catbox" data-category="${escapeHtml(cat)}">
+      const base = shootPrefix(b);
+      const draw = (names) => {
+        grid.innerHTML = names.map((cat) => `
+        <div class="vid-catbox" data-category="${escapeHtml(cat)}" data-prefix="${escapeHtml(base + cat + "/")}">
           <div class="vid-catbox-top">
             <span class="vid-catbox-name">${escapeHtml(cat)}</span>
             <span class="vid-catbox-count" data-cat-count>0</span>
+            <button type="button" class="vid-catbox-add" data-subfolder="${escapeHtml(cat)}" title="Folder inside ${escapeHtml(cat)}">+ Folder</button>
           </div>
           <div class="vid-catbox-drop">
             <input type="file" class="vid-catbox-input" multiple hidden />
             <button type="button" class="vid-catbox-pick">+ Add files</button>
           </div>
-        </div>`).join("");
-      wireCatBoxes();
+        </div>`).join("")
+        + (base ? `
+        <button type="button" class="vid-catbox vid-catbox--new" id="vid-newfolder">
+          <span class="vid-catbox-name">+ New folder</span>
+          <span class="vid-catbox-hint">Somewhere else to put files</span>
+        </button>` : "");
+        wireCatBoxes();
+        wireFolderButtons(b);
+      };
+      draw(cats);
+      // Folders made by hand are added as they come back, so the boxes appear
+      // straight away rather than waiting on storage.
+      const found = await shootFolders(b);
+      const all = [...cats, ...found.filter((f) => !cats.includes(f))];
+      if (all.length !== cats.length) draw(all);
+    }
+
+    // Make a folder: beside the categories, or inside one of them.
+    function wireFolderButtons(b) {
+      const base = shootPrefix(b);
+      const make = async (inside) => {
+        const name = prompt(inside ? `Name the folder inside ${inside}` : "Name the folder");
+        if (!name || !name.trim()) return;
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/folder`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify({ prefix: base + (inside ? inside + "/" : ""), name: name.trim() }),
+          });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) { alert(d.error || "Couldn't make the folder."); return; }
+          renderCatBoxes(b);
+        } catch (err) { alert("Couldn't reach storage: " + err.message); }
+      };
+      document.getElementById("vid-newfolder")?.addEventListener("click", () => make(""));
+      document.querySelectorAll("[data-subfolder]").forEach((btn) => {
+        btn.addEventListener("click", (e) => { e.stopPropagation(); make(btn.getAttribute("data-subfolder")); });
+      });
     }
 
     function renderArchiveBox(b) {
@@ -4090,10 +4178,10 @@ import "../../styles/admin.css";
       document.getElementById("vid-dlv-paid")?.addEventListener("click", () => setDeliveryStatus("paid"));
     }
 
-    function handleFiles(fileList, category) {
+    function handleFiles(fileList, category, prefix) {
       const bookingId = deliverBooking();
       if (!WORKER_URL || !bookingId) return;
-      Array.from(fileList || []).forEach((file) => uploadFile(file, bookingId, category || null));
+      Array.from(fileList || []).forEach((file) => uploadFile(file, bookingId, category || null, prefix || null));
     }
 
     function uploadRowUI(file, category) {
@@ -4135,7 +4223,7 @@ import "../../styles/admin.css";
       });
     }
 
-    async function uploadFile(file, bookingId, category) {
+    async function uploadFile(file, bookingId, category, prefix) {
       const ui = uploadRowUI(file, category);
       try {
         const token = await authToken();
@@ -4146,11 +4234,15 @@ import "../../styles/admin.css";
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + token },
           // Send the folder so the file lands somewhere a person can find,
           // rather than under a booking id nobody can read.
-          body: JSON.stringify({
-            bookingId, fileName: file.name,
-            contentType: file.type || "application/octet-stream",
-            folder: archiveFolderFor(bookingId), category,
-          }),
+          // A box knows its own folder, which can be one inside another
+          // ("Other/Interviews") - a folder + category pair cannot say that.
+          body: JSON.stringify(prefix
+            ? { prefix, fileName: file.name, contentType: file.type || "application/octet-stream" }
+            : {
+              bookingId, fileName: file.name,
+              contentType: file.type || "application/octet-stream",
+              folder: archiveFolderFor(bookingId), category,
+            }),
         });
         if (!cRes.ok) throw new Error("Create failed (" + cRes.status + ")");
         const { key, uploadId } = await cRes.json();
