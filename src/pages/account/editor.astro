@@ -4530,13 +4530,31 @@ const googleFonts = [
     .ed-ob-backlink { color: inherit; text-decoration: none; }
     .ed-ob-sec { display: flex; flex-direction: column; gap: var(--ws-gap); }
     #ed-ob-shop-sec[hidden], #ed-ob-cta[hidden] { display: none; }
-    /* Pack covers are whatever shape they were designed in, and "cover" was
-       cropping them to fit a slot. "contain" shows the design whole — nothing
-       is cut — and the words take the rest of the bar. */
-    #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) 104px; }
+    /* Four packs, two by two, so each card has the width to show its cover at
+       the shape it was designed in: a portrait template, big enough to read,
+       edge to edge. The art box IS 1080x1440, so "cover" crops nothing. */
+    #ed-ob-shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) 216px; min-height: 0; }
     #ed-ob-shop-grid .ws-news-art {
-      background-size: contain; background-repeat: no-repeat; background-position: center;
-      background-color: #f2f0ef; margin: 10px 10px 10px 0; border-radius: 3px;
+      background-size: cover; background-repeat: no-repeat; background-position: center;
+      background-color: #f2f0ef; margin: 0; border-radius: 0;
+      width: 216px; aspect-ratio: 1080 / 1440;
+    }
+    /* The copy sits against a tall cover, so centre it rather than leaving it
+       stranded at the top of the card. */
+    #ed-ob-shop-grid .ws-news-tx { padding: 20px 24px; gap: 8px; justify-content: center; }
+    #ed-ob-shop-grid .ws-news-h { font-size: 19px; }
+    /* Pack descriptions run to a paragraph or a sentence depending on the pack;
+       clamped, every card is the same card. */
+    #ed-ob-shop-grid .ws-news-desc {
+      font-size: 12.5px; line-height: 1.5; margin-top: 10px;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 7; overflow: hidden;
+    }
+    @media (max-width: 1100px) { #ed-ob-shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 760px) {
+      #ed-ob-shop-grid { grid-template-columns: 1fr; }
+      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) 150px; }
+      #ed-ob-shop-grid .ws-news-art { width: 150px; }
     }
 
     /* Design cards, on the same grid the rest of the hub uses. */
