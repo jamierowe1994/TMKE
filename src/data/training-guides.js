@@ -20,6 +20,25 @@ const tip = (t) => `<p class="ci-rhythm"><strong>Tip.</strong> ${t}</p>`;
 // link to the place it talks about.
 const go = (items) => items.map(([t, b, href, img], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><strong><span class="ci-no">${String(i + 1).padStart(2, "0")}</span>${t}</strong><span>${b}</span></span>${ph("Image", img && areaImg(img))}</a>`).join("");
 
+// A row of small cards: a heading and a line, nothing numbered. Used for the
+// three reasons, the four parts of a brand, and the four payoffs at the end.
+const cards = (items, cols = 3) => `<div class="bk-cards bk-cards--${cols}">${items.map(([t, b]) =>
+  `<div class="bk-card"><strong>${t}</strong><span>${b}</span></div>`).join("")}</div>`;
+// A quiet panel for an aside that is not an instruction.
+const panel = (h, body) => `<div class="bk-panel">${h ? `<strong>${h}</strong>` : ""}${body}</div>`;
+// Something to go and read, at the end of a lesson.
+const ctaBox = (h, body, href, label) =>
+  `<a class="bk-cta" href="${href}"><span class="bk-cta-tx"><strong>${h}</strong><span>${body}</span></span><span class="bk-cta-go">${label} &rarr;</span></a>`;
+// The six parts of the kit: a card each, opening onto the detail.
+const openers = (items) => `<div class="bk-open-grid">${items.map(([t, b, detail], i) =>
+  `<button type="button" class="bk-open" data-bk-open="bk-${i}">
+     <span class="bk-open-t">${t}</span><span class="bk-open-b">${b}</span><span class="bk-open-go">Read more &rarr;</span>
+   </button><div class="bk-open-body" id="bk-${i}" hidden><h3>${t}</h3>${detail}</div>`).join("")}</div>`;
+// An example, set apart so nobody reads it as an instruction.
+const example = (body, note) => `<div class="bk-eg"><span class="bk-eg-l">For example</span><blockquote>${body}</blockquote>${note ? `<span class="bk-eg-n">${note}</span>` : ""}</div>`;
+// One picture, given room, at the end of a lesson.
+const bigShot = (src, caption) => `<figure class="bk-figure"><img src="${src}" alt="" loading="lazy">${caption ? `<figcaption>${caption}</figcaption>` : ""}</figure>`;
+
 const guide = (o) => ({
   kind: "course", topic: "getting-started", status: "published", audience: "members",
   training: true, cover_url: null, ...o,
@@ -65,28 +84,103 @@ export const TRAINING_GUIDES = [
   guide({
     slug: "training-brand-kit",
     title: "Your Brand Kit",
-    summary: "Logo, colours and fonts, set once, so every design opens looking like you.",
-    est_minutes: 6, sort_order: 2, art: "https://assets.tmke.co.uk/white-1.webp",
+    summary: "Set up the logos, colours and fonts behind your brand, then use them to personalise your designs, content and Creative Assistant.",
+    est_minutes: 8, sort_order: 2, art: "https://assets.tmke.co.uk/white-1.webp",
     lessons: [
-      { title: "Why It Matters", walk: "brand-kit", video_url: "",
+      { title: "Why Your Brand Kit Matters", walk: "brand-kit", video_url: "",
         body_html:
-          p("Your Brand Kit stores the visual ingredients that make your content recognisably yours: your logo, colours and fonts.") +
-          p("Once they're added, the Studio can automatically apply them when you open compatible templates. That means less time changing colours and fonts manually, and a much more consistent look across your content.") },
-      { title: "Your Logo",
+          p("<strong>Set it once. Use it everywhere.</strong>") +
+          p("Your Brand Kit gives the Member Hub the information it needs to recognise your business, from your logo and colours to the way your brand sounds.") +
+          p("Set it up before you start designing and the Studio can do more of the work for you. Templates can use your logo and business details, while Quick Edit can apply your colours and typography across an entire design in just a few clicks.") +
+          p("Your tone of voice also gives the Creative Assistant more context when generating captions, helping its suggestions better reflect how your business communicates.") +
+          p("<strong>Three reasons to set up your Brand Kit today.</strong>") +
+          cards([
+            ["Faster editing", "Apply your branding without changing every element individually."],
+            ["More consistency", "Keep the same logos, colours and typography across your content."],
+            ["Better AI output", "Give the Creative Assistant more context about your business and how you communicate."],
+          ]) },
+
+      { title: "Before You Build Your Brand Kit",
         body_html:
-          p("Upload the highest-quality version of your logo you have, ideally a PNG or SVG with a transparent background. This allows it to sit cleanly over different colours and images without a white box around it.") +
-          p("If your branding includes alternative versions, such as light, dark, landscape or icon versions, add those too. You'll then have the right version available when you need it.") +
-          tip("Only have your logo in a document or email signature? Ask whoever created your branding for the original files. They'll give you much better results.") },
-      { title: "Your Colours",
+          p("<strong>First, know what you're building.</strong>") +
+          p("Your brand isn't just your logo. It's the way your business looks, sounds and presents itself consistently, from the colours and typography you use to the language you communicate in.") +
+          p("For an estate agent, that consistency matters. People might see a For Sale board today, an Instagram post next week and a property listing months later. A clear brand helps those separate moments feel like they came from the same business.") +
+          p("<strong>What makes up your brand?</strong>") +
+          cards([
+            ["How you look", "Your logo, colours, typography and imagery."],
+            ["How you sound", "Your language, personality and tone of voice."],
+            ["Who you're for", "The audience you're trying to reach and the market you operate in."],
+            ["What you stand for", "The impression you want people to have of your business."],
+          ], 2) +
+          panel("Why does it matter for an estate agent?",
+            p("Your brand does some of its work before you ever speak to someone. Sellers are forming an impression through your boards, listings, website, social media and marketing long before they book a valuation. A consistent brand helps make that impression recognisable and intentional.")) +
+          p("<strong>Do you already have brand guidelines?</strong>") +
+          p("If you have brand guidelines, keep them nearby while setting up your Brand Kit. They should contain most of the information you'll need.") +
+          p("If you don't, don't guess your way through it. Take some time to decide how you want your business to look and sound before you start creating content.") +
+          ctaBox("Need to create your brand?",
+            "Our Before You Post series covers the foundations behind your marketing, including your audience, positioning, brand and content strategy.",
+            "/account/guides", "Read the series") },
+
+      { title: "Build Your Brand Kit",
         body_html:
-          p("Add your main brand colours using their hex codes, such as <code>#371E28</code>. If you don't know the codes, you can also use the colour picker to find the closest match.") +
-          p("Start with the colours you use most often, then add any supporting or neutral colours in your palette. A lighter neutral can be particularly useful for backgrounds and creating contrast in your designs.") +
-          p("The order matters because your primary colours will be prioritised when templates adapt to your brand.") },
-      { title: "Fonts, and Saving",
+          p("Six parts to fill in. Open any of them for what to add and why it matters.") +
+          openers([
+            ["Business", "Your name, location and slogan",
+              p("Add your business name, the area you cover and your slogan if you use one.") +
+              p("Make sure they're written exactly as you'd want them to appear publicly. Your business information can be used elsewhere in the Member Hub and within your content.")],
+            ["Logos", "Light and dark versions of your logo",
+              p("Upload at least two versions of your logo: one dark and one light. This gives you an option that works against both light and dark backgrounds.") +
+              p("Use high-quality files with transparent backgrounds wherever possible. This avoids unwanted boxes around your logo and gives you much more flexibility when designing.") +
+              tip("Templates you've purchased can automatically use the logo saved in your Brand Kit, so it's worth getting this right before you start creating.")],
+            ["Colours", "Up to six brand colours",
+              p("Add up to six colours from your existing brand palette. Enter the hex code for each colour to make sure you're using the exact shade.") +
+              panel("What's a hex code?",
+                p("A hex code is the six-character reference used to identify a specific digital colour, for example <code>#E32237</code>. You'll usually find yours in your brand guidelines, or you can ask whoever created your branding.")) +
+              tip("You don't need to fill all six spaces. Add the colours your business actually uses, including any neutral shades that regularly appear in your designs.")],
+            ["Typography", "Your heading and body fonts",
+              p("Choose one font for headings and one for body copy. The Studio uses Google Fonts, so start by searching for the fonts already used in your branding.") +
+              p("Can't find yours? Look for a similar Google Font rather than choosing something completely different. Aim for a similar shape, weight and overall feel.") +
+              tip("If you already have brand guidelines, use them as your starting point rather than choosing new fonts simply because you prefer them.")],
+            ["Tone of voice", "How your brand should sound",
+              p("Your tone of voice describes how your business communicates, from the personality behind your writing to the language you use with your audience.") +
+              p("Add as much useful detail as you can. The Creative Assistant uses this information alongside its knowledge of property when generating captions, helping the content it creates better reflect your business.") +
+              p("Not sure what to write? The next part covers what makes a useful tone of voice, what to include and an example.")],
+            ["Your details", "Headshot, email and telephone number",
+              p("Add your headshot, email address and telephone number. These details can then be used within selected Studio designs and your contact presets for calls to action and closing slides.") +
+              ul("<strong>Headshot:</strong> a clear, recent image you're happy to use across your marketing. Square works best, around 600&times;600.",
+                 "<strong>Email:</strong> the address you want customers to contact you on.",
+                 "<strong>Telephone:</strong> the number you'd normally publish across your marketing.")],
+          ]) },
+
+      { title: "Finding Your Voice",
         body_html:
-          p("Choose a heading font and a body font that reflect your existing branding. The preview lets you see how they work together before you start using them across your designs.") +
-          p("Your Brand Kit saves automatically as you make changes. Once everything is set, head into the Studio and your brand will be ready to use.") +
-          tip("You can update your brand kit any time. Existing saved designs will keep their current styling, while new designs will use your latest settings.") },
+          p("<strong>Your tone of voice is how your business sounds.</strong>") +
+          p("Tell us how you communicate with your audience and the Creative Assistant can use that context when helping you write captions. The more useful detail you provide, the better it can understand how your business should sound.") +
+          p("<strong>Think about:</strong>") +
+          cards([
+            ["Your audience", "Who are you usually speaking to? First-time buyers, families, landlords, downsizers, premium homeowners or a broad local market?"],
+            ["Your personality", "Should you sound friendly, confident, knowledgeable, conversational, polished, direct or something else?"],
+            ["Your language", "Do you keep things simple and informal, or is your communication more considered and professional?"],
+            ["Your market position", "Are you a premium agency, an approachable local independent, a personal agent or something different?"],
+            ["What to avoid", "Are there words, phrases, clich&eacute;s, emojis or styles of writing that simply don't sound like you?"],
+          ]) +
+          tip("That last one is worth keeping. Telling AI what you don't sound like can be just as useful as telling it what you do.") +
+          example(
+            p("We're a friendly, knowledgeable independent estate agency speaking mainly to homeowners and families in our local area. Our tone should feel confident and professional without being formal. We use straightforward language, keep property jargon to a minimum and want our social media to sound like a real person rather than corporate marketing. Avoid clich&eacute;s, excessive emojis and over-the-top sales language."),
+            "Not a script to copy - it shows the kind of detail that's useful.") },
+
+      { title: "Put Your Brand Kit to Work",
+        body_html:
+          p("Once your Brand Kit is set up, you don't need to rebuild your branding every time you create something.") +
+          cards([
+            ["Open a template", "Your saved logo and business information can already be applied."],
+            ["Quick Edit", "Apply your colours and typography across an entire design in a few clicks."],
+            ["Create a caption", "Your tone of voice gives the Creative Assistant more context about how your business communicates."],
+            ["Add your details", "Use your saved headshot and contact information to quickly create calls to action and closing slides."],
+          ], 2) +
+          bigShot(areaImg("brand-kit"), "Your Brand Kit, saved once and used everywhere") +
+          panel("Changed your branding?",
+            p("Update your Brand Kit whenever you need to. Your latest details will then be ready for the next thing you create.")) },
     ],
   }),
 
