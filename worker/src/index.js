@@ -1114,11 +1114,11 @@ function videographyProductTag(serviceType) {
   const p = map[serviceType]; return p ? `Videography-Product: ${p}` : null;
 }
 // Compose the standard CRM tags: service tag(s) + consent + membership + network.
-// optIn: true → Newsletter-Subscriber; false → Marketing-Not-Opted-In;
+// optIn: true → Marketing-Opt-In; false → Marketing-Not-Opted-In;
 // undefined → neither (flows with no opt-in choice, e.g. a purchase).
 function crmTags(email, service, { optIn, member } = {}) {
   const t = (Array.isArray(service) ? service.slice() : service ? [service] : []).filter(Boolean);
-  if (optIn === true) t.push("Newsletter-Subscriber");
+  if (optIn === true) t.push("Marketing-Opt-In");
   else if (optIn === false) t.push("Marketing-Not-Opted-In");
   if (member) t.push("TMKE-Account-Member");
   const n = networkTag(email); if (n) t.push(n);
@@ -1143,8 +1143,14 @@ function normalizeTags(tags) {
   const has = (x) => t.includes(x);
   const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
 
-  if (has("Unsubscribed")) dropAll("Newsletter-Subscriber", "Marketing-Not-Opted-In");
-  else if (has("Newsletter-Subscriber")) dropAll("Marketing-Not-Opted-In");
+  // Consent is one state. Newsletter-Subscriber is not one of them: it says
+  // which of the opted-in asked for the newsletter, and it carries consent with
+  // it, so it implies Marketing-Opt-In. Unsubscribing takes all of it away.
+  if (has("Unsubscribed")) dropAll("Marketing-Opt-In", "Marketing-Not-Opted-In", "Newsletter-Subscriber");
+  else {
+    if (has("Newsletter-Subscriber") && !has("Marketing-Opt-In")) t.push("Marketing-Opt-In");
+    if (has("Marketing-Opt-In")) dropAll("Marketing-Not-Opted-In");
+  }
 
   if (t.filter((v) => v.startsWith("SMM-Status:")).length > 1) {
     const keep = has("SMM-Status: Active") ? "SMM-Status: Active"
@@ -5552,10 +5558,13 @@ export default {
           // the distinction, because "they subscribed" and "they ticked a box
           // while joining" are not the same evidence.
           const joined = String((b && b.source) || "").trim() === "signup";
+          // Both acts give consent (Marketing-Opt-In). Only the footer box is a
+          // request for the newsletter itself, so only that one is tagged
+          // Newsletter-Subscriber - which is what the newsletter will go to.
           await fireTrigger(env, "form_submitted", {
             email, first_name: parts.shift() || null, last_name: parts.join(" ") || null,
             source: "newsletter", lifecycle: "lead", marketing_opt_in: true,
-            tags: crmTags(email, [], { optIn: true }),
+            tags: crmTags(email, joined ? [] : ["Newsletter-Subscriber"], { optIn: true }),
           }, { form: "newsletter" }, joined ? "join_signup" : "newsletter_footer");
         } catch (_) {}
         return json({ ok: true }, 200, request, env);
@@ -8769,7 +8778,7 @@ async function sendGalleryPinEmail(env, bookingId) {
           const rowOptIn = optIn || isTeg;   // TEG is always marketing YES
           const rowTags = Array.isArray(r.tags) ? r.tags : (r.tags ? String(r.tags).split(/[;,]/).map((s) => s.trim()) : []);
           const netTag = isTeg ? "Network: TEG" : networkTag(email);
-          const tags = Array.from(new Set([...rowTags, ...batchTags, rowOptIn ? "Newsletter-Subscriber" : null, netTag].filter(Boolean)));
+          const tags = Array.from(new Set([...rowTags, ...batchTags, rowOptIn ? "Marketing-Opt-In" : null, netTag].filter(Boolean)));
           // Checked before the upsert, so a re-import doesn't log everyone a
           // second time. One indexed lookup per opted-in row: imports are an
           // occasional admin action, not a hot path.

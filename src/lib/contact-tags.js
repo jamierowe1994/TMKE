@@ -4,7 +4,8 @@
 // truth so the two never drift. No free-text: tags are picked from this list.
 // ============================================================================
 export const TAG_GROUPS = [
-  ["Consent", ["Newsletter-Subscriber", "Marketing-Not-Opted-In", "Unsubscribed"]],
+  ["Consent", ["Marketing-Opt-In", "Marketing-Not-Opted-In", "Unsubscribed"]],
+  ["Newsletter", ["Newsletter-Subscriber"]],
   ["Interest", ["Interest: SMM", "Interest: Videography"]],
   ["Discovery calls", ["Discovery-Call-Booked: SMM", "Discovery-Call-Booked: Videography"]],
   ["Purchases", ["Pack-Purchased"]],
@@ -17,14 +18,19 @@ export const TAG_GROUPS = [
 ];
 
 // What some tags mean, for the pickers. The tag itself is what's stored and
-// matched; this is only what a person reading the list is shown. Consent is one
-// state - Unsubscribed, then Newsletter-Subscriber, then Marketing-Not-Opted-In
-// - so "everyone opted in to marketing" IS Newsletter-Subscriber, and there is
-// deliberately no second tag saying the same thing.
+// matched; this is only what a person reading the list is shown.
+//
+// Consent is one state: Unsubscribed, then Marketing-Opt-In, then
+// Marketing-Not-Opted-In. Newsletter-Subscriber is NOT a consent state - it
+// says which of the opted-in asked for the newsletter itself, so the newsletter
+// can go to them rather than to everyone we are allowed to email. Anyone
+// carrying it is opted in (the rules add Marketing-Opt-In alongside), and
+// unsubscribing takes both away.
 export const TAG_NOTES = {
-  "Newsletter-Subscriber": "opted in to marketing",
+  "Marketing-Opt-In": "opted in to marketing - the audience for anything we send",
   "Marketing-Not-Opted-In": "never opted in",
   "Unsubscribed": "opted out - never send marketing",
+  "Newsletter-Subscriber": "subscribed to the newsletter itself",
   "Pack-Purchased": "has bought any pack",
 };
 export function tagLabel(tag) {

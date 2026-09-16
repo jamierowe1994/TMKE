@@ -509,8 +509,12 @@ import "../../styles/admin.css";
       let t = Array.from(new Set((tags || []).map((x) => String(x || "").trim()).filter(Boolean).map((x) => TAG_ALIASES[x] || x)));
       const has = (x) => t.includes(x);
       const dropAll = (...xs) => { t = t.filter((v) => !xs.includes(v)); };
-      if (has("Unsubscribed")) dropAll("Newsletter-Subscriber", "Marketing-Not-Opted-In");
-      else if (has("Newsletter-Subscriber")) dropAll("Marketing-Not-Opted-In");
+      // Mirrors normalize_contact_tags in SQL and normalizeTags in the Worker.
+      if (has("Unsubscribed")) dropAll("Marketing-Opt-In", "Marketing-Not-Opted-In", "Newsletter-Subscriber");
+      else {
+        if (has("Newsletter-Subscriber") && !has("Marketing-Opt-In")) t.push("Marketing-Opt-In");
+        if (has("Marketing-Opt-In")) dropAll("Marketing-Not-Opted-In");
+      }
       if (t.filter((v) => v.startsWith("SMM-Status:")).length > 1) {
         const keep = has("SMM-Status: Active") ? "SMM-Status: Active" : has("SMM-Status: Paused") ? "SMM-Status: Paused" : "SMM-Status: Ended";
         t = t.filter((v) => !v.startsWith("SMM-Status:")).concat(keep);
@@ -591,8 +595,9 @@ import "../../styles/admin.css";
       const picked = [
         t.find((x) => x.startsWith("Network:")),
         t.includes("Unsubscribed") ? "Unsubscribed"
-          : t.includes("Newsletter-Subscriber") ? "Newsletter-Subscriber"
+          : t.includes("Marketing-Opt-In") ? "Marketing-Opt-In"
           : t.includes("Marketing-Not-Opted-In") ? "Marketing-Not-Opted-In" : null,
+        t.includes("Newsletter-Subscriber") ? "Newsletter-Subscriber" : null,
         t.includes("Pack-Purchased") ? "Pack-Purchased" : null,
         t.includes("Videography-Client") ? "Videography-Client" : null,
         t.find((x) => x.startsWith("SMM-Status:")),
@@ -1303,11 +1308,13 @@ import "../../styles/admin.css";
         if (c.dnd) fire("dnd_set", c, {}); render();
       });
       // Marketing opt-in — editable here (e.g. flip a TEG agent to Yes). Keeps the
-      // consent tags in step: Yes → Newsletter-Subscriber, No → Marketing-Not-Opted-In.
+      // consent tags in step: Yes → Marketing-Opt-In, No → Marketing-Not-Opted-In.
+      // Turning it off also drops Newsletter-Subscriber: a newsletter is marketing.
       $("ct-mkt").addEventListener("change", async (e) => {
         c.marketing_opt_in = e.target.checked;
-        const base = (c.tags || []).filter((t) => t !== "Newsletter-Subscriber" && t !== "Marketing-Not-Opted-In");
-        c.tags = normalizeTags([...base, c.marketing_opt_in ? "Newsletter-Subscriber" : "Marketing-Not-Opted-In"]);
+        const base = (c.tags || []).filter((t) => t !== "Marketing-Opt-In" && t !== "Marketing-Not-Opted-In"
+          && !(t === "Newsletter-Subscriber" && !c.marketing_opt_in));
+        c.tags = normalizeTags([...base, c.marketing_opt_in ? "Marketing-Opt-In" : "Marketing-Not-Opted-In"]);
         await supabase.from("contacts").update({ marketing_opt_in: c.marketing_opt_in, tags: c.tags }).eq("id", c.id);
         // The only place a human sets consent by hand, so the trail records who.
         // Best-effort: never block the toggle on the audit write.
