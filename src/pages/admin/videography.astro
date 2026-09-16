@@ -3205,7 +3205,26 @@ import "../../styles/admin.css";
       const { error } = await supabase.from("videography_bookings").update({ stage: to }).eq("id", b.id);
       if (error) { b.stage = prev; renderCandidate(); alert("Couldn't update stage: " + error.message); return; }
       renderClients(document.getElementById("vid-client-search")?.value || "");
+      // A social media shoot has no client gallery: the delivery is telling
+      // whoever runs that account that the content is in the Library.
+      if (to === "gallery_ready" && b.smm_lead_id) await tellSmmManager(b);
     }
+    async function tellSmmManager(b) {
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/videography/smm-ready`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+          body: JSON.stringify({ booking_id: b.id }),
+        });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { alert("The stage is saved, but nobody was told: " + (d.error || res.status)); return; }
+        if (d.to) alert(`${d.to} has been told the content is ready, with a link to the Library.`);
+      } catch (err) {
+        alert("The stage is saved, but nobody was told: " + err.message);
+      }
+    }
+
     function candAction(act) {
       const b = bookings.find((x) => x.id === candId);
       if (!b) return;

@@ -5926,6 +5926,55 @@ export default {
         return json(out, 200, request, env);
       }
 
+      // ---- A social media shoot is ready: tell whoever runs that account ----
+      // Sent when the shoot reaches "gallery ready". The client never sees these
+      // videos, so there is no Pixieset gallery and no client email - what is
+      // needed is for the account's manager to know the footage is in the
+      // Library, and a link straight to that client's folder.
+      if (path.endsWith("/videography/smm-ready") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "");
+        if (!id) return json({ error: "Which shoot?" }, 400, request, env);
+        const rows = await sbGet(env, "videography_bookings",
+          `id=eq.${encodeURIComponent(id)}&select=id,client_name,client_company,brand,service,service_type,shoot_date,archive_folder,smm_lead_id&limit=1`);
+        const bk = rows && rows[0];
+        if (!bk) return json({ error: "Shoot not found." }, 404, request, env);
+        if (!bk.smm_lead_id) return json({ ok: true, skipped: "not a social media shoot" }, 200, request, env);
+
+        const leads = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(bk.smm_lead_id)}&select=id,business_name,contact_name,social_media_manager&limit=1`);
+        const lead = (leads && leads[0]) || {};
+        const clientName = lead.business_name || lead.contact_name || bk.client_company || bk.client_name || "the client";
+
+        // The manager is held as a name, and admins are held as addresses, so
+        // the name is matched against them. No match means the social media
+        // inbox, which is better than nobody being told.
+        const manager = String(lead.social_media_manager || "").trim();
+        const admins = (await sbGet(env, "admins", "select=email")) || [];
+        const wanted = manager.toLowerCase().split(/\s+/).filter(Boolean);
+        const match = manager && admins.find((a2) => {
+          const local = String(a2.email || "").toLowerCase().split("@")[0].replace(/[._-]+/g, " ");
+          return wanted.every((w) => local.includes(w)) || (wanted[0] && local.split(" ")[0] === wanted[0]);
+        });
+        const to = (match && match.email) || env.SMM_NOTIFY || env.MAIL_SENDER;
+        if (!to) return json({ error: "No one to tell - set SMM_NOTIFY on the Worker." }, 503, request, env);
+
+        const folder = String(bk.archive_folder || "").trim();
+        const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const link = folder ? `${site}/admin/content?folder=${encodeURIComponent(folder)}` : `${site}/admin/content`;
+        const esc2 = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        const when = bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : "";
+        const html = await wrapInBrandedBase(env, `
+          <h1 style="${EM_H1}">${esc2(clientName)}'s content is ready</h1>
+          <p style="${EM_P}">The ${esc2(bk.service || bk.service_type || "shoot")}${when ? ` from ${esc2(when)}` : ""} has been edited and is in the Library.</p>
+          <p style="margin:0 0 24px;"><a href="${esc2(link)}" style="${EM_BTN}">Open it in the Library</a></p>
+          <p style="${EM_SMALL}">Nothing has gone to the client: this footage is ours to use for their social media.</p>`);
+        const sent = await sendEmail(env, { to, subject: `Ready in the Library - ${clientName}`, html });
+        if (!sent.ok) return json({ error: sent.error || "The email didn't send." }, 502, request, env);
+        return json({ ok: true, to, link }, 200, request, env);
+      }
+
       // ---- A link to one file that a <video> or a download can use (admins) ----
       if (path.endsWith("/media-link") && request.method === "GET") {
         const user = await getUser(request, env);

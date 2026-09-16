@@ -530,6 +530,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .vidx-when { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 3px 0 0; }
     .vidx-open { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: none; white-space: nowrap; }
     .vidx-open:hover { text-decoration: underline; }
+    /* The one thing the team actually needs from a social media shoot. */
+    .vidx-library {
+      display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+      font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.08em;
+      text-transform: uppercase; text-decoration: none; color: var(--primary, #371e28);
+      background: var(--primary-light, #f3eeef); border-radius: var(--radius-sm, 3px); padding: 7px 11px;
+    }
+    .vidx-library:hover { background: var(--accent-light, #c9bcb7); }
     /* The track reads left to right; the line is drawn behind the dots so a
        step's state is carried by the dot rather than by two separate things. */
     .vidx-track { list-style: none; display: flex; margin: 0; padding: 0; }
@@ -1040,17 +1048,20 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        really "your gallery is up". Kept identical on purpose — a client asking
        "where is my video" should get the same answer from either side. */
     const VID_TRACK = [
-      { key: "booked",    label: "Booked" },
-      { key: "shoot_day", label: "Shoot day" },
-      { key: "editing",   label: "Editing" },
-      { key: "amends",    label: "Amends" },
-      { key: "delivered", label: "Delivered" },
+      { key: "booked",       label: "Booked" },
+      { key: "shoot_day",    label: "Shoot day" },
+      { key: "editing",      label: "Editing" },
+      // The content is edited and in the Library: for a social media client
+      // that IS the delivery, since they never receive the footage themselves.
+      { key: "gallery_ready", label: "In the Library" },
+      { key: "amends",       label: "Amends" },
+      { key: "delivered",    label: "Delivered" },
     ];
     const VID_STAGE_TO_STEP = {
       booked: "booked", invoiced: "booked",
       shoot_day: "shoot_day",
       editing: "editing", final_draft: "editing",
-      gallery_ready: "amends", sent: "amends",
+      gallery_ready: "gallery_ready", sent: "amends",
       delivered: "delivered", complete: "delivered",
     };
     function vidTrackHtml(b) {
@@ -1060,6 +1071,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         `<li class="vidx-step ${i < at ? "is-done" : i === at ? "is-now" : ""}"><span class="vidx-dot"></span><span>${esc(t.label)}</span></li>`
       ).join("")}</ol>`;
     }
+    // Straight to this client's folder, once there is something in it. The
+    // team never needs the storage itself, only this.
+    function libraryLink(b) {
+      const folder = String(b.archive_folder || "").trim();
+      const ready = ["gallery_ready", "sent", "delivered", "complete"].includes(b.stage);
+      if (!folder || !ready) return "";
+      return `<a class="vidx-library" href="/admin/content?folder=${encodeURIComponent(folder)}">Open the content in the Library &rarr;</a>`;
+    }
+
     const vidWhen = (iso) => {
       if (!iso) return "Date to confirm";
       try { return new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
@@ -1071,7 +1091,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (!panel) return;
       const { data, error } = await supabase
         .from("videography_bookings")
-        .select("id, service, service_type, shoot_date, stage, location, property_address, notes")
+        .select("id, service, service_type, shoot_date, stage, location, property_address, notes, archive_folder, client_name")
         .eq("smm_lead_id", r.id)
         .order("shoot_date", { ascending: false, nullsFirst: true });
 
@@ -1089,6 +1109,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <a class="vidx-open" href="/admin/videography?booking=${encodeURIComponent(b.id)}">Open &rarr;</a>
           </header>
           ${vidTrackHtml(b)}
+          ${libraryLink(b)}
         </article>`).join("");
 
       panel.innerHTML = `
