@@ -151,7 +151,8 @@ const DEFAULT_COVER = (await getImage({
        across a wide screen is a strip, and six openers came out five and one. */
     .bk-cards { display: grid; gap: 14px; margin: 20px 0 22px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .bk-cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    @media (max-width: 1040px) { .bk-cards, .bk-cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .bk-cards--1 { grid-template-columns: minmax(0, 1fr); }
+    @media (max-width: 1040px) { .bk-cards, .bk-cards--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bk-cards--1 { grid-template-columns: minmax(0, 1fr); } }
     @media (max-width: 620px) { .bk-cards, .bk-cards--2 { grid-template-columns: 1fr; } }
     .bk-card { display: flex; flex-direction: column; gap: 7px; padding: 20px 22px; background: var(--ws-card, #fff);
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
@@ -548,16 +549,22 @@ const DEFAULT_COVER = (await getImage({
       };
       const partHtml = (i) => {
         const l = lessons[i-1];
+        let body = l.body_html || "", trailingTip = "", inlineWalk = false;
+        // <!--WALK--> in the copy puts the "Show me" box exactly there, in the
+        // middle of the lesson, rather than at the end of it.
+        if (body.indexOf("<!--WALK-->") !== -1) {
+          body = body.replace("<!--WALK-->", walkHtml(l.walk, i));
+          inlineWalk = true;
+        }
         // A tip that closes the lesson sits under the Show me box, not above it.
-        let body = l.body_html || "", trailingTip = "";
         const m = body.match(/(<p class="ci-rhythm">[\s\S]*?<\/p>)\s*$/);
-        if (m && l.walk && WALKS[l.walk]) { trailingTip = m[1]; body = body.slice(0, m.index); }
+        if (m && !inlineWalk && l.walk && WALKS[l.walk]) { trailingTip = m[1]; body = body.slice(0, m.index); }
         return `<div class="gc-slide gc-slide--part">
           <span class="gc-part">Part ${i} of ${N}</span>
           ${l.title ? `<h2 class="gc-slide-title">${esc(l.title)}</h2>` : ""}
           ${videoHtml(l.video_url)}
           <div class="gc-slide-body gr-body">${body}</div>
-          ${walkHtml(l.walk, i)}
+          ${inlineWalk ? "" : walkHtml(l.walk, i)}
           ${trailingTip ? `<div class="gc-slide-body gr-body gr-body--after">${trailingTip}</div>` : ""}
         </div>`;
       };
@@ -584,11 +591,15 @@ const DEFAULT_COVER = (await getImage({
         sheetWrap.querySelector(".bk-sheet").scrollTop = 0;
       });
 
-      stage.addEventListener("click", (e)=>{
+      // "Show me" - in the lesson itself, or inside one of the pop-outs.
+      const wireWalks = (root) => root.addEventListener("click", (e) => {
         const b = e.target.closest("[data-walk]"); if (!b) return;
         const back = `/account/guides/read?g=${encodeURIComponent(guide.slug)}&p=${b.dataset.part}`;
+        if (!sheetWrap.hidden) closeSheet();
         startWalk(b.dataset.walk, { returnTo: back });
       });
+      wireWalks(stage);
+      wireWalks(sheetWrap);
       const doneHtml = () => `<div class="gc-slide gc-slide--done">
         <div class="gc-done-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></div>
         <h2>That's a wrap</h2>

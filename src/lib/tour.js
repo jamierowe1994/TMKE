@@ -26,6 +26,8 @@ const LS_DONE  = 'tmke.tour.done';   // fast/offline "already seen" guard
 // placement: where the card sits relative to the hole (auto picks the roomiest side).
 // preAction: optional async fn run before the step shows (open a menu, dismiss
 //            the editor's pack-picker, …). Receives no args.
+// open: optional selector clicked before the step shows, so a panel the step
+//       talks about is actually open behind the spotlight.
 const FIRST_LOGIN = [
   // ---- Hub ----
   {
@@ -557,6 +559,18 @@ async function render(index) {
 
   if (step.preAction) { try { await step.preAction(); } catch (_) {} }
   lastPostAction = step.postAction || null;
+
+  // `open`: a control to click before the step shows - a rail button whose
+  // panel the step is about, say - so the reader is looking at the thing the
+  // card describes rather than being told to go and find it. Clicking the same
+  // button twice is harmless, so stepping back through a walk still works.
+  if (step.open) {
+    const opener = await waitFor(step.open, 2000);
+    if (opener) {
+      try { opener.click(); } catch (_) {}
+      await new Promise((r) => setTimeout(r, 220));
+    }
+  }
 
   // Wait for / validate the target. Skip the step cleanly if it never shows.
   if (step.target) {

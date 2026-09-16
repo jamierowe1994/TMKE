@@ -36,6 +36,14 @@ const openers = (items) => `<div class="bk-open-grid">${items.map(([t, b, detail
    </button><div class="bk-open-body" id="bk-${i}" hidden><h3>${t}</h3>${detail}</div>`).join("")}</div>`;
 // An example, set apart so nobody reads it as an instruction.
 const example = (body, note) => `<div class="bk-eg"><span class="bk-eg-l">For example</span><blockquote>${body}</blockquote>${note ? `<span class="bk-eg-n">${note}</span>` : ""}</div>`;
+// A "Show me" offer that can sit anywhere in a lesson - including inside one
+// of the pop-out cards, which the reader page wires up the same way. The
+// reader replaces <!--WALK--> with the lesson's own walk box; this is for the
+// ones that need a second, or a different, walk in the middle of the copy.
+const showMe = (id, part, line) => `<div class="gr-walk">
+  <span class="gr-walk-tx"><strong>See it on the page</strong><span>${line || "A guided look at the real thing. Finish brings you back here."}</span></span>
+  <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${id}" data-part="${part}">Show me &rarr;</button>
+</div>`;
 // One picture, given room, at the end of a lesson.
 const bigShot = (src, caption) => `<figure class="bk-figure"><img src="${src}" alt="" loading="lazy">${caption ? `<figcaption>${caption}</figcaption>` : ""}</figure>`;
 
@@ -184,35 +192,109 @@ export const TRAINING_GUIDES = [
   guide({
     slug: "training-studio",
     title: "Your First Design",
-    summary: "From a pack to a finished post: open, edit, make it yours, download.",
-    est_minutes: 8, sort_order: 3, art: "https://assets.tmke.co.uk/table.webp",
+    summary: "Open your first template, make it your own and turn it into a finished post.",
+    est_minutes: 10, sort_order: 3, art: "https://assets.tmke.co.uk/table.webp",
     lessons: [
-      { title: "The Studio Page", walk: "studio-first-design", video_url: "",
+      { title: "Start With a Template", walk: "studio-template", video_url: "",
         body_html:
-          p("The Studio is where your content comes together. From the main Studio page, you can access the packs you own, return to designs you've already started or create something new.") +
-          p("Once you open a design, you'll move into the editor. That's where you can change the text, imagery, colours and other elements before saving or downloading your finished content.") },
-      { title: "Open a Template, or Start Blank",
+          p("The Studio gives you everything you need to create content, whether you're starting with one of your templates or building something completely from scratch.") +
+          p("For your first design, we're going to start with a template. Every Member Account includes a selection of demo templates, so you can learn how the Studio works before you need to create anything yourself.") +
+          p("Even if you don't plan on using the finished post, we'd recommend editing one. It's the quickest way to get familiar with the Studio and the tools you'll use most often.") +
+          p("<strong>Your Studio.</strong>") +
+          bigShot(areaImg("studio")) +
+          cards([
+            ["Your packs", "Find the content packs you own, including your free demo templates."],
+            ["Your designs", "Jump back into your most recent designs. Select See all designs to open your complete design library."],
+            ["Create a design", "Start something completely new with a blank canvas."],
+            ["Design tools", "Shortcuts to useful Studio tools, from the Caption Generator to your Brand Kit."],
+          ], 2) +
+          p("<strong>Let's open your first template.</strong>") +
+          p("Choose a pack to see all of the templates included within it. Select the template you want to use and the Studio will create your own editable copy, leaving the original untouched.") +
+          "<!--WALK-->" +
+          panel("Your demo templates are there to experiment with.",
+            p("Change things, move things around and see what happens. You can always open the original template again and start fresh.")) +
+          ctaBox("Ready to create your own?",
+            "Once you're comfortable editing templates, our Creating in the Studio course takes you through starting from scratch and the wider creative tools available to you.",
+            "/account/guides", "Explore the course") },
+
+      { title: "Make It Your Brand", walk: "studio-make-yours",
         body_html:
-          ul("<strong>From a pack:</strong> open the pack on the Studio page and click a design. It opens already in your brand kit.",
-             "<strong>Start from scratch:</strong> Create a design, pick a size (Instagram post, story, square), and you're on a blank canvas.",
-             "<strong>From a prompt:</strong> the dashboard's content ideas open the editor with a brief to work to.") +
-          p("Either way, the Start panel on the left lists the handful of things people change most, so you don't have to hunt.") },
-      { title: "Changing What's There",
+          p("<strong>Start with the basics.</strong>") +
+          p("Before you change the content, get the design looking like your brand.") +
+          p("If you've already set up your Brand Kit, open <strong>Brand</strong> in the editor and select <strong>Make this design yours</strong>. From here, you can apply your saved colours and typography to the template without changing every element individually.") +
+          p("Each row shows something the template already uses, a colour or a font, with your version beside it. Choose yours and everything using it updates in one go.") +
+          p("Your saved logo and business information may already have been applied when your copy of the template was created.") +
+          "<!--WALK-->" +
+          ctaBox("Haven't set up your Brand Kit yet?",
+            "It's worth doing that first. It'll make customising this template, and the ones you create afterwards, considerably quicker.",
+            "/account/profile", "Set up your Brand Kit") },
+
+      { title: "Make It Your Content",
         body_html:
-          ul("<strong>Text:</strong> double-click it and type. The font, size and colour are in the panel beside the canvas. Highlight part of a line to change just that part.",
-             "<strong>Photos:</strong> click one and use Replace, or drop a new one on from Images. Search free photos at the top of the panel; your own uploads sit below.",
-             "<strong>Moving things:</strong> click to select, drag to move, pull a corner to resize. Guides snap it into line with everything else.") +
-          tip("Made a mistake? Use Undo at the top of the editor or Ctrl/Cmd + Z. Don't worry about experimenting, you can always undo a change or start again.") },
-      { title: "Make It Yours",
+          p("<strong>Now change what's actually on the page.</strong>") +
+          p("Once the branding is in place, you can start adapting the template to the post you want to create.") +
+          p("You don't need to learn every tool in the Studio yet. For now, concentrate on the things you'll use most often when editing a template.") +
+          openers([
+            ["Change the words", "Edit the text already in your design",
+              p("Select any text on the canvas and type directly into it, or use the <strong>Text</strong> panel on the left to find and edit the text boxes within your design.") +
+              p("<strong>Text selection</strong> lists every text box on the page, so nothing gets missed on a busy template. Select one and its font, size, colour and alignment appear in the same panel.") +
+              p("You can also highlight part of a line to change only that part, and use <strong>Fonts</strong> to change the typeface across the whole design.") +
+              showMe("studio-text", 3)],
+            ["Change the background", "Replace the image behind everything else",
+              p("Open <strong>Background</strong> and choose <strong>Change image</strong> to replace the existing background. Pick one of your own uploads, search free photos, or add an image from your device.") +
+              p("Once your new image is in place, you can reposition it within the frame and adjust settings such as transparency to make it work with the rest of the design. <strong>Fill</strong> crops the photo to cover the whole page; <strong>Fit</strong> keeps all of it in view.") +
+              p("A background doesn't have to be a photo. Your brand colours are in the same panel, along with a custom colour picker and a gradient.") +
+              showMe("studio-background", 3)],
+            ["Change an image", "Swap a photo inside the design",
+              p("Where a template contains additional imagery, select the image you want to replace and choose <strong>Replace image</strong> from the panel beside the canvas. Your photo takes the place of the original at the same size and position.") +
+              p("Once it's added, reposition and resize it until it sits correctly within the design.") +
+              p("To add a photo that isn't there already, open <strong>Images</strong>: search the free photo libraries or upload your own, then click a picture to drop it onto the page.") +
+              showMe("studio-image", 3)],
+            ["Resize and reposition", "Make your words and pictures fit",
+              p("Templates are designed as a starting point, so don't worry if your wording or imagery doesn't fit exactly like the original.") +
+              p("Adjust font sizes, resize text boxes and move elements where necessary to make your version work.") +
+              p("Click to select, drag to move and pull a corner to resize. Guides appear as you move something so it lines up with everything else on the page.") +
+              showMe("studio-layout", 3)],
+          ]) },
+
+      { title: "A Few Things Worth Knowing",
         body_html:
-          p("Templates from your packs will usually open using the colours saved in your Brand Kit. If they don't, or you've updated your branding since the design was created, open the Brand tab and select <strong>Make this design yours</strong>.") +
-          p("The Studio will adapt the design to your current colour palette, and you can also replace the existing fonts with those saved in your Brand Kit.") },
-      { title: "Save, Download, Schedule",
+          p("A handful of things that come up on almost everybody's first design.") +
+          cards([
+            ["Text not fitting?", "Try adjusting the font size first. You can also resize the text box or reposition it within the design."],
+            ["Image not sitting right?", "Reposition or resize the image rather than immediately choosing another one. You can also adjust transparency where the design calls for it."],
+            ["Made a mistake?", "Use <strong>Undo</strong> at the top of the editor, or Ctrl/Cmd&nbsp;+&nbsp;Z. Experimenting isn't going to ruin the original template, because you're working on your own copy."],
+            ["Don't forget the other pages", "If you're editing a carousel, open <strong>Pages</strong> and check every one before downloading. Your branding, wording and contact details may need updating throughout."],
+          ], 2) +
+          panel("Need help while you're editing?",
+            p("Open the <strong>Creative Assistant</strong> from inside the Studio. Ask a question about what you're trying to do, or choose one of the built-in tutorials under <strong>Show me</strong> to be shown how a feature works on the screen in front of you.")) },
+
+      { title: "Finish Your Design", walk: "studio-finish",
         body_html:
-          ul("<strong>Save</strong> keeps it in your designs on the Studio page, so you can come back to it.",
-             "<strong>Download</strong> gives you a PNG or JPG ready to post, a PNG with a transparent background, or a PDF for print.",
-             "<strong>Schedule</strong> sends it to your Planner on the day you choose, with a caption, so posting is one job rather than two.") +
-          p("On a phone, Download opens the share sheet: Save Image puts it straight in your Photos.") },
+          p("<strong>Happy with it? You've got a few options.</strong>") +
+          p("Once your design is ready, you can download it immediately or turn it into a planned post.") +
+          cards([
+            ["Download", "Download your finished design when you're ready to publish or use it elsewhere. For social media graphics, we'd generally recommend PNG for the best balance of image quality and compatibility. Your file will be saved to your device's Downloads folder."],
+            ["Plan your post", "Select the calendar button at the top of the editor to take your finished design into the Planner. From there, you can add the post details, get help creating your caption and choose when you want to publish it."],
+          ], 2) +
+          "<!--WALK-->" +
+          panel("We'll cover this properly next.",
+            p("The next Getting Started course takes you through the Planner, from adding your content to setting reminders for when it's time to post.")) },
+
+      { title: "Saved and Ready When You Are", walk: "studio-designs",
+        body_html:
+          p("<strong>Your designs aren't going anywhere.</strong>") +
+          p("The Studio automatically saves your work as you create, and your saved designs appear under <strong>Your designs</strong> on the Studio homepage.") +
+          p("Your four most recent designs are shown there. Select <strong>See all designs</strong> to open your complete library, where you can return to previous designs, continue editing and download them again whenever you need to.") +
+          cards([
+            ["Tip", "Although the Studio autosaves your changes, we'd still recommend making sure the design has finished saving before you leave the editor. A marker at the top of the screen tells you when it has.", "tip"],
+          ], 1) +
+          "<!--WALK-->" +
+          p("<strong>Your first design is done.</strong>") +
+          p("You've opened a template, applied your branding, changed the content and created something of your own. The more you use the Studio, the more familiar the editor will become.") +
+          ctaBox("Next: Planning and Posting",
+            "Take your designs into the Planner: adding posts, writing your captions and building a rhythm you can keep to.",
+            "/account/guides/read?g=training-planner&p=1", "Start the course") },
     ],
   }),
 
