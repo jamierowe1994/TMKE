@@ -139,6 +139,7 @@ import "../../styles/admin.css";
         <div class="vid-cand-actions">
           <button type="button" class="admin-btn admin-btn-primary" id="vid-arch-save">Create these folders</button>
           <a class="admin-btn admin-btn-ghost" id="vid-arch-open" href="#" target="_blank" rel="noopener" hidden>Open in Cloudflare</a>
+          <a class="admin-btn admin-btn-ghost" id="vid-open-content" href="/admin/content" hidden>See the files in Client content</a>
         </div>
         <p class="vid-hint" id="vid-arch-path"></p>
         <p class="vid-hint" id="vid-arch-msg"></p>
@@ -1292,6 +1293,7 @@ import "../../styles/admin.css";
 
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
+    import { archiveFolderName } from "../../lib/archive-folder.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
@@ -2103,20 +2105,7 @@ import "../../styles/admin.css";
       return (b.archive_folder || archiveFolderName(b) || "").trim();
     }
 
-    /* ---- The internal archive folder ----
-       Built from what identifies a shoot at a glance, in the order you'd look
-       for it: type, who, when, where. Slashes and colons are stripped because
-       a slash in a name becomes a folder boundary in object storage. */
-    function archiveFolderName(b) {
-      if (!b) return "";
-      const clean = (v) => String(v || "").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
-      const when = b.shoot_date ? new Date(b.shoot_date).toISOString().slice(0, 10) : "";
-      const where = clean(b.property_address || b.location || b.postcode).split(",")[0];
-      // The person, not the brand: on a Fine & Country shoot the agent is who
-      // you'd look for, and every F&C folder would otherwise open the same way.
-      return [clean(b.service || b.service_type), clean(b.client_name || b.client_company), when, where]
-        .filter(Boolean).join(" - ");
-    }
+    /* The folder name rule lives in lib/archive-folder.js — Client content uses it too. */
 
     let deliverGuard = () => true;
 
@@ -2174,6 +2163,12 @@ import "../../styles/admin.css";
     // Say where files will land, so nobody has to guess what we did with them.
     function showArchivePath(b) {
       const el = document.getElementById("vid-arch-path");
+      const open = document.getElementById("vid-open-content");
+      const folderNow = (document.getElementById("vid-arch-folder")?.value || "").trim() || archiveFolderName(b);
+      if (open) {
+        open.hidden = !folderNow;
+        open.href = `/admin/content?folder=${encodeURIComponent(folderNow)}`;
+      }
       if (!el) return;
       const folder = (document.getElementById("vid-arch-folder")?.value || "").trim();
       el.textContent = folder

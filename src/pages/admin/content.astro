@@ -34,6 +34,8 @@ import "../../styles/admin.css";
       <aside class="cnt-rail" id="cnt-rail">
         <h3 class="cnt-rail-h">Social media clients</h3>
         <div id="cnt-clients" class="cnt-rail-list"><p class="cnt-note">Loading…</p></div>
+        <h3 class="cnt-rail-h">Other shoots</h3>
+        <div id="cnt-other" class="cnt-rail-list"></div>
         <h3 class="cnt-rail-h">Everything</h3>
         <div class="cnt-rail-list">
           <button type="button" class="cnt-rail-item" data-prefix="deliverables/">All folders</button>
@@ -103,6 +105,7 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
+    import { folderFor, isSmmShoot } from "../../lib/archive-folder.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
     const $ = (id) => document.getElementById(id);
@@ -149,27 +152,27 @@ import "../../styles/admin.css";
       try {
         const { data: bookings } = await supabase
           .from("videography_bookings")
-          .select("id, client_name, client_company, brand, archive_folder, shoot_date, smm_lead_id")
-          .not("smm_lead_id", "is", null)
+          .select("id, client_name, client_company, brand, service, service_type, location, property_address, postcode, archive_folder, shoot_date, smm_lead_id, payment_route")
           .order("shoot_date", { ascending: false });
-        const rows = (bookings || []).filter((b) => (b.archive_folder || "").trim());
-        if (!rows.length) {
-          box.innerHTML = '<p class="cnt-note">No social media shoots have a folder yet. Set one on the shoot in Videography.</p>';
-          return;
-        }
-        // One entry per client, newest shoot first, with its other folders under it.
-        const byClient = new Map();
-        rows.forEach((b) => {
-          const name = (b.client_company || b.brand || b.client_name || "Client").trim();
-          const list = byClient.get(name) || [];
-          list.push(b);
-          byClient.set(name, list);
-        });
-        box.innerHTML = [...byClient.entries()].map(([name, list]) => list.map((b) => `
-          <button type="button" class="cnt-rail-item" data-prefix="${esc(ROOT + b.archive_folder.trim() + "/")}">
-            ${esc(name)}
-            <span class="cnt-rail-sub">${esc(b.archive_folder.trim())}${b.shoot_date ? " · " + esc(fmtDate(b.shoot_date)) : ""}</span>
-          </button>`).join("")).join("");
+        const all = bookings || [];
+        // A shoot's folder is what was saved on it, or what the name would be -
+        // the uploader used that name either way, so the files are there.
+        const entry = (b) => {
+          const folder = folderFor(b);
+          if (!folder) return "";
+          const who = (b.client_name || b.client_company || b.brand || "Shoot").trim();
+          return `<button type="button" class="cnt-rail-item" data-prefix="${esc(ROOT + folder + "/")}">
+            ${esc(who)}${b.client_company && b.client_company !== who ? ` <span class="cnt-rail-sub">${esc(b.client_company)}</span>` : ""}
+            <span class="cnt-rail-sub">${esc(b.service || b.service_type || "Shoot")}${b.shoot_date ? " · " + esc(fmtDate(b.shoot_date)) : ""}</span>
+          </button>`;
+        };
+        const smm = all.filter(isSmmShoot).map(entry).filter(Boolean);
+        const other = all.filter((b) => !isSmmShoot(b)).map(entry).filter(Boolean);
+        box.innerHTML = smm.length
+          ? smm.join("")
+          : '<p class="cnt-note">No shoots are marked as part of a social media package yet. On the shoot in Videography, set the payment route to the SMM package, or link its social media client.</p>';
+        const otherBox = document.getElementById("cnt-other");
+        if (otherBox) otherBox.innerHTML = other.length ? other.join("") : '<p class="cnt-note">No other shoots yet.</p>';
       } catch (_) {
         box.innerHTML = '<p class="cnt-note">Couldn\'t load the client list.</p>';
       }
