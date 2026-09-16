@@ -18,7 +18,10 @@ const ul = (...items) => `<ul>${items.map((i) => `<li>${i}</li>`).join("")}</ul>
 const tip = (t) => `<p class="ci-rhythm"><strong>Tip.</strong> ${t}</p>`;
 // "Where to go first": a wide card with a picture beside it, the whole row a
 // link to the place it talks about.
-const go = (items) => items.map(([t, b, href, img], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><strong><span class="ci-no">${String(i + 1).padStart(2, "0")}</span>${t}</strong><span>${b}</span></span>${ph("Image", img && areaImg(img))}</a>`).join("");
+// `img` is either the name of one of the eight area pictures or, when a lesson
+// has its own, a path from /public.
+const rowImg = (img) => (!img ? null : img.charAt(0) === "/" ? img : areaImg(img));
+const go = (items) => items.map(([t, b, href, img], i) => `<a class="ci-go" href="${href}"><span class="ci-go-card"><strong><span class="ci-no">${String(i + 1).padStart(2, "0")}</span>${t}</strong><span>${b}</span></span>${ph("Image", rowImg(img))}</a>`).join("");
 
 // A row of small cards: a heading and a line, nothing numbered. Used for the
 // three reasons, the four parts of a brand, and the four payoffs at the end.
@@ -179,10 +182,10 @@ export const TRAINING_GUIDES = [
         body_html:
           p("Once your Brand Kit is set up, you don't need to rebuild your branding every time you create something.") +
           go([
-            ["Open a template", "Your saved logo and business information can already be applied.", "/account/studio"],
-            ["Quick Edit", "Apply your colours and typography across an entire design in a few clicks.", "/account/editor?new=1"],
-            ["Create a caption", "Your tone of voice gives the Creative Assistant more context about how your business communicates.", "/account/editor?new=1"],
-            ["Add your details", "Use your saved headshot and contact information to quickly create calls to action and closing slides.", "/account/profile"],
+            ["Open a template", "Your saved logo and business information can already be applied.", "/account/studio", "/images/learn/brand-kit/work-template-v1.jpg"],
+            ["Quick Edit", "Apply your colours and typography across an entire design in a few clicks.", "/account/editor?new=1", "/images/learn/brand-kit/work-quick-edit-v1.jpg"],
+            ["Create a caption", "Your tone of voice gives the Creative Assistant more context about how your business communicates.", "/account/editor?new=1", "/images/learn/brand-kit/work-caption-v1.jpg"],
+            ["Add your details", "Use your saved headshot and contact information to quickly create calls to action and closing slides.", "/account/profile", "/images/learn/brand-kit/work-details-v1.jpg"],
           ]) +
           panel("Changed your branding?",
             p("Update your Brand Kit whenever you need to. Your latest details will then be ready for the next thing you create.")) },
