@@ -213,7 +213,7 @@ export const TRAINING_GUIDES = [
           p("Even if you don't plan on using the finished post, we'd recommend editing one. It's the quickest way to get familiar with the Studio and the tools you'll use most often.") +
           shotOpen("bkx-studio", "Your Studio",
             "The Studio homepage, and what each part of it is for.",
-            areaImg("studio"),
+            "/images/learn/demo/studio-page-v1.jpg",
             cards([
               ["Your packs", "Find the content packs you own, including your free demo templates."],
               ["Your designs", "Jump back into your most recent designs. Select See all designs to open your complete design library."],

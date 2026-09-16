@@ -10203,14 +10203,36 @@
     // canvas is real DOM, so a walk can spotlight an element by id - but
     // selecting one happens on pointerdown, which a walk cannot fake, so it
     // asks here instead. Pass nothing to clear the selection.
-    window.__TMKE_TRAINING_SELECT__ = function (id) {
-      if (!id) { state.selectedIds = []; fullRender(); return true; }
-      if (!getEl(id)) return false;
-      state.selectedIds = [id];
+    // Takes an element id, or a role - "heading", "body", "image", "shape" -
+    // resolved against whatever design is loaded, so the same walk works on the
+    // built-in demo and on a real template out of the demo pack.
+    window.__TMKE_TRAINING_SELECT__ = function (what) {
+      if (!what) { state.selectedIds = []; fullRender(); return true; }
+      const els = (state.elements || []).filter(function (e) { return e && !e.hidden; });
+      const texts = els.filter(function (e) { return e.type === "text" && String(e.text || "").trim(); })
+        .sort(function (a, b) { return (b.size || 0) - (a.size || 0); });
+      let el = els.find(function (e) { return e.id === what; });
+      if (!el && what === "heading") el = texts[0];
+      if (!el && what === "body") el = texts[1] || texts[0];
+      if (!el && what === "image") {
+        el = els.find(function (e) { return (e.type === "image" || e.type === "frame") && e.src && e.brandRole !== "logo"; })
+          || els.find(function (e) { return e.type === "image" || e.type === "frame"; });
+      }
+      if (!el && what === "shape") {
+        el = els.find(function (e) { return ["rect", "ellipse", "triangle", "star"].indexOf(e.type) > -1 && e.role !== "gradient"; });
+      }
+      if (!el) return false;
+      state.selectedIds = [el.id];
       fullRender();
       return true;
     };
-    window.__TMKE_BOOT_DESIGN__ = function (d) { loadDesignData(d); };
+    // A demo template is opened the way a member opens one, so the merge tags,
+    // the logo slot and the headshot slot are filled in rather than showing
+    // their plumbing on screen.
+    window.__TMKE_BOOT_DESIGN__ = function (d) {
+      loadDesignData(d);
+      try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fullRender(); } catch (_) {}
+    };
     if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
       window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);
     }

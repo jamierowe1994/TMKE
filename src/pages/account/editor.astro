@@ -5123,13 +5123,44 @@ const googleFonts = [
     // and returns its id so the editor adopts it; later saves UPDATE that row.
     // The original template is never touched.
     if (!wantAdmin) {
+      // A training demo is never anybody's design: no save hook means no
+      // autosave and no row in their library.
+      const trainingMode = /[?&]training=1/.test(location.search);
+      // Training demo: the real thing beats a stand-in, so if there's a demo
+      // pack in the catalogue the walkthroughs open one of its templates. The
+      // built-in design (already handed over before this ran) is the fallback
+      // for a catalogue with no demo pack, or a slow network.
+      if (trainingMode) {
+        (async () => {
+          try {
+            const { data: packs } = await supabase.from('packs')
+              .select('id').eq('demo', true).eq('status', 'active').limit(1);
+            const packId = packs && packs[0] && packs[0].id;
+            if (!packId) return;
+            const { data: tpls } = await supabase.from('templates')
+              .select('id, name, canvas, elements')
+              .eq('pack_id', packId).eq('status', 'active')
+              .order('sort_order', { ascending: true }).limit(8);
+            const rows = (tpls || []).filter((t) => t && t.canvas && Array.isArray(t.elements) && t.elements.length);
+            if (!rows.length) return;
+            // One of the walks is about replacing a photo INSIDE a design, so
+            // prefer a template that has one - a background-only template
+            // leaves that walk with nothing to point at.
+            const withPhoto = rows.filter((t) => t.elements.some((e) =>
+              e && (e.type === 'image' || e.type === 'frame') && e.src && e.brandRole !== 'logo'));
+            const pool = withPhoto.length ? withPhoto : rows;
+            const pick = pool.find((t) => /property|market|listing/i.test(t.name || '')) || pool[0];
+            const design = { id: 'training-' + pick.id, name: pick.name || 'Demo template', canvas: pick.canvas, elements: pick.elements };
+            if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
+            else window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = design;
+          } catch (_) { /* the built-in demo design stands */ }
+        })();
+      }
+
       const { data: { session: memberSession } } = await supabase.auth.getSession();
       if (memberSession) {
         const memberUid = memberSession.user.id;
         let currentDesignId = params.get('design') || null;
-        // A training demo is never anybody's design: no save hook means no
-        // autosave and no row in their library.
-        const trainingMode = /[?&]training=1/.test(location.search);
         window.__TMKE_DESIGN_SAVE__ = trainingMode ? undefined : async (payload) => {
           try {
             // Externalise embedded data-URL images to storage (keeps the row small).
@@ -7375,7 +7406,12 @@ const googleFonts = [
       // Deep-link /editor?pack=<id> jumps straight to that pack's designs.
       const packParam = params.get("pack");
       if (packParam) {
-        const p = owned.find((x) => x.id === packParam) || allPacks.find((x) => x.id === packParam);
+        // "demo" isn't an id: it means whichever pack is flagged as the demo
+        // pack in the admin. The training walkthroughs link to it that way so
+        // they keep working if that flag moves to another pack.
+        const p = packParam === "demo"
+          ? (owned.find((x) => x.demo === true) || allPacks.find((x) => x.demo === true))
+          : (owned.find((x) => x.id === packParam) || allPacks.find((x) => x.id === packParam));
         if (p) {
           grid.innerHTML = owned.map(packCard).join("");
           grid.hidden = false;
