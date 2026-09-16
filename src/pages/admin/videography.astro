@@ -1310,6 +1310,7 @@ import "../../styles/admin.css";
   <script>
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { archiveFolderName } from "../../lib/archive-folder.js";
+    import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
@@ -4301,6 +4302,14 @@ import "../../styles/admin.css";
           body: JSON.stringify({ key, uploadId, parts }),
         });
         if (!fRes.ok) throw new Error("Complete failed (" + fRes.status + ")");
+
+        // A small picture of it, made here from the file in hand, so the Library
+        // can show the folder without pulling the originals.
+        try {
+          ui.setStat("Making a thumbnail…");
+          const small = await makeThumb(file, file.name, file.type);
+          if (small) await putThumb(WORKER_URL, token, thumbKeyFor(key), small);
+        } catch (_) { /* only means a slower tile later */ }
 
         // The file is in R2 by this point; this row is what makes it findable.
         // The error was previously discarded, so a rejected row - RLS, a missing

@@ -948,6 +948,9 @@ function r2DashUrl(env, folder) {
 // extra level of folder, which is how a tidy scheme quietly stops being tidy.
 // A folder inside the archive, as a key prefix: always under deliverables/,
 // never climbing out of it, always ending in a slash.
+// Where a folder's thumbnails live, beside the files they are of.
+const THUMB_DIR = ".thumbs";
+
 function archivePrefix(raw) {
   const cleaned = String(raw || "")
     .replace(/\\/g, "/")
@@ -5911,7 +5914,9 @@ export default {
         let cursor;
         do {
           const page = await env.BUCKET.list({ prefix, delimiter: "/", cursor, include: ["httpMetadata"] });
-          (page.delimitedPrefixes || []).forEach((p) => out.folders.push(p));
+          // The thumbnails live in a folder of their own; it is plumbing, not
+          // somewhere anyone browses.
+          (page.delimitedPrefixes || []).forEach((p) => { if (!p.endsWith(`/${THUMB_DIR}/`)) out.folders.push(p); });
           (page.objects || []).forEach((o) => {
             if (o.key.endsWith("/") || o.key.endsWith("/.keep")) return;   // folder markers aren't files
             out.files.push({
@@ -5923,6 +5928,18 @@ export default {
         } while (cursor);
         out.folders.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
         out.files.sort((a, b) => new Date(b.uploaded) - new Date(a.uploaded));
+        // Small pictures of the big ones, where they exist, so a folder of
+        // originals doesn't have to be downloaded to be looked at.
+        try {
+          const thumbs = new Map();
+          let tc;
+          do {
+            const tp = await env.BUCKET.list({ prefix: `${prefix}${THUMB_DIR}/`, cursor: tc });
+            (tp.objects || []).forEach((o) => thumbs.set(o.key.slice(`${prefix}${THUMB_DIR}/`.length), o.key));
+            tc = tp.truncated ? tp.cursor : null;
+          } while (tc);
+          out.files.forEach((f) => { const t = thumbs.get(f.name + ".jpg"); if (t) f.thumb = t; });
+        } catch (_) { /* no thumbnails is not an error */ }
         return json(out, 200, request, env);
       }
 
@@ -5987,6 +6004,22 @@ export default {
         const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
         const q = (dl) => `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}${dl ? "&dl=1" : ""}`;
         return json({ url: q(false), downloadUrl: q(true), expires: exp }, 200, request, env);
+      }
+
+      // ---- Put one thumbnail (admins) ----
+      // Deliberately narrow: only into a .thumbs folder, only small, so this is
+      // not a general "write anything anywhere" door.
+      if (path.endsWith("/thumb") && request.method === "PUT") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const key = url.searchParams.get("key") || "";
+        if (!key.startsWith(PART_PREFIX + "/") || !key.includes(`/${THUMB_DIR}/`) || !key.endsWith(".jpg")) {
+          return json({ error: "Not a thumbnail." }, 400, request, env);
+        }
+        const size = Number(request.headers.get("content-length") || 0);
+        if (size > 2 * 1024 * 1024) return json({ error: "Too big for a thumbnail." }, 413, request, env);
+        await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: "image/jpeg" } });
+        return json({ ok: true, key }, 200, request, env);
       }
 
       // ---- Make a folder (admins) ----

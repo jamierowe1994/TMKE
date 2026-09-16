@@ -24,6 +24,7 @@ import "../../styles/admin.css";
       <div class="admin-bar-actions">
         <nav class="cnt-crumbs" id="cnt-crumbs" aria-label="Folder"></nav>
         <span class="cnt-count" id="cnt-count">…</span>
+        <button type="button" class="admin-btn admin-btn-ghost" id="cnt-thumbs" hidden>Make thumbnails</button>
         <button type="button" class="admin-btn admin-btn-ghost" id="cnt-newfolder">New folder</button>
         <button type="button" class="admin-btn" id="cnt-upload">Upload here</button>
         <input type="file" id="cnt-file" multiple hidden />
@@ -164,6 +165,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from "../../lib/admin-gate.js";
     import { supabase } from "../../lib/supabase.js";
     import { folderFor, isSmmShoot } from "../../lib/archive-folder.js";
+    import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
     const $ = (id) => document.getElementById(id);
@@ -307,9 +309,14 @@ import "../../styles/admin.css";
           </div>
         </article>`).join("");
 
-      // Pictures are the originals - a folder of them is hundreds of megabytes -
-      // so they arrive a few at a time behind one loading line, and the grid is
-      // shown when they are in rather than filling in piece by piece.
+      shown = files;
+      const missing = files.filter((f) => !f.thumb && (isVideo(f) || isImage(f)));
+      const btn = $("cnt-thumbs");
+      btn.hidden = !missing.length;
+      btn.textContent = missing.length ? `Make ${missing.length} thumbnail${missing.length === 1 ? "" : "s"}` : "Make thumbnails";
+      // Where a thumbnail exists the tile loads that instead of the original,
+      // which is the difference between a folder opening in a second and in a
+      // minute. The rest arrive a few at a time behind one loading line.
       loadThumbs(files);
     }
 
@@ -363,6 +370,24 @@ import "../../styles/admin.css";
         const dl = card.querySelector("[data-dl]");
         if (dl) { dl.href = links.downloadUrl; dl.setAttribute("download", file.name); }
         const thumb = card.querySelector(".cnt-thumb");
+        // A small picture beside the file: 40KB instead of the whole thing.
+        if (file.thumb) {
+          const small = await linksFor(file.thumb);
+          if (small && run === loadRun) {
+            await new Promise((resolve) => {
+              const img = new Image();
+              img.alt = "";
+              const stop = setTimeout(resolve, 15000);
+              const finish = () => { clearTimeout(stop); resolve(); };
+              img.addEventListener("load", finish, { once: true });
+              img.addEventListener("error", finish, { once: true });
+              img.src = small.url;
+              thumb.insertAdjacentElement("afterbegin", img);
+            });
+            done += 1; say();
+            return;
+          }
+        }
         await new Promise((resolve) => {
           const stop = setTimeout(resolve, 20000);        // never hold the page on one bad file
           const finish = () => { clearTimeout(stop); resolve(); };
@@ -397,6 +422,33 @@ import "../../styles/admin.css";
       bar.hidden = true;
       drop.classList.remove("is-waiting");
     }
+
+    // Make the thumbnails this folder is missing. A video only needs a frame,
+    // so it streams the piece it needs; a photo has to come down once, and
+    // then never again.
+    let shown = [];
+    $("cnt-thumbs").addEventListener("click", async () => {
+      const btn = $("cnt-thumbs");
+      const todo = shown.filter((f) => !f.thumb && (isVideo(f) || isImage(f)));
+      if (!todo.length) return;
+      const bar = $("cnt-loading"), label = $("cnt-loading-t");
+      btn.disabled = true;
+      bar.hidden = false;
+      let made = 0, failed = 0;
+      for (const f of todo) {
+        label.textContent = `Making thumbnails ${made + failed + 1} of ${todo.length}…`;
+        try {
+          const links = await linksFor(f.key);
+          const blob = links ? await makeThumb(links.url, f.name, f.contentType) : null;
+          const ok = blob ? await putThumb(WORKER, await token(), thumbKeyFor(f.key), blob) : false;
+          ok ? (made += 1) : (failed += 1);
+        } catch (_) { failed += 1; }
+      }
+      bar.hidden = true;
+      btn.disabled = false;
+      if (failed) alert(`${made} made, ${failed} couldn't be read. Those keep loading the full file.`);
+      browse(prefix);
+    });
 
     /* ---------- Clicks ---------- */
     document.addEventListener("click", async (e) => {
@@ -476,6 +528,12 @@ import "../../styles/admin.css";
           body: JSON.stringify({ key, uploadId, parts }),
         });
         if (!fin.ok) throw new Error("couldn't finish (" + fin.status + ")");
+        // Made here from the file in hand, so it costs nothing to fetch.
+        try {
+          ui.stat("Making a thumbnail…");
+          const blob = await makeThumb(file, file.name, file.type);
+          if (blob) await putThumb(WORKER, t, thumbKeyFor(key), blob);
+        } catch (_) { /* a missing thumbnail only means a slower tile */ }
         ui.stat(fmtSize(file.size) + " · done");
         ui.done();
         if (into === prefix) browse(prefix);
