@@ -11,7 +11,7 @@ const p = (t) => `<p>${t}</p>`;
 // Cloudflare holds an image for four hours, so a changed picture under the
 // same name never reaches anyone: every version gets a new filename. Bump
 // this and rename the files together.
-const IMG_V = "v2";
+const IMG_V = "v3";
 const areaImg = (name) => `/images/learn/hub/areas/${name}-${IMG_V}.jpg`;
 const ph = (label, src) => src
   ? `<figure class="ci-ph ci-ph--img"><img src="${src}" alt="" loading="lazy"></figure>`
