@@ -91,7 +91,10 @@ import "../../styles/account-sections.css";
         <!-- Filled in by JS -->
       </div>
       <footer class="day-foot">
-        <a href="#" id="day-new" class="day-new-btn">+ Plan a post for this day</a>
+        <!-- Two ways in. Plan one you've already made, without leaving the
+             calendar; or start a new design for this day. -->
+        <button type="button" id="day-plan" class="day-new-btn">+ Plan a post for this day</button>
+        <a href="#" id="day-new" class="day-new-btn day-new-btn--ghost">Create a post for this day</a>
       </footer>
     </aside>
   </div>
@@ -144,6 +147,66 @@ import "../../styles/account-sections.css";
         <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
         <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
         <button type="button" class="post-btn post-btn--primary" id="post-save">Save changes</button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Plan a post: your design library, over the calendar. Pick one and the
+       planning steps follow in the same pop-out - the design isn't opened, and
+       the calendar is never left. -->
+  <div class="day-backdrop" id="pick-modal" hidden role="dialog" aria-modal="true" aria-labelledby="pick-h">
+    <aside class="pick-panel" aria-label="Plan a post">
+      <header class="day-head">
+        <div>
+          <p class="day-eyebrow" id="pick-eyebrow">Plan a post</p>
+          <h2 id="pick-h" class="day-h">Choose a design</h2>
+        </div>
+        <button type="button" class="day-close" id="pick-close" aria-label="Close">&times;</button>
+      </header>
+
+      <!-- Step one: the library. -->
+      <div class="pick-body" id="pick-step-designs">
+        <p class="pick-note" id="pick-note">Loading your designs…</p>
+        <div class="pick-grid" id="pick-grid"></div>
+      </div>
+
+      <!-- Step two: the same details the editor asks for. -->
+      <div class="pick-body pick-body--plan" id="pick-step-plan" hidden>
+        <figure class="pick-chosen">
+          <img id="pick-chosen-img" alt="" />
+          <figcaption id="pick-chosen-name">Your design</figcaption>
+          <button type="button" class="pick-back" id="pick-back">Choose another</button>
+        </figure>
+        <div class="post-fields">
+          <label class="post-field">
+            <span class="post-label">Title</span>
+            <input type="text" id="pick-title" class="post-input" placeholder="Mid-week new build reveal" maxlength="120" />
+          </label>
+          <div class="post-row">
+            <label class="post-field">
+              <span class="post-label">Date</span>
+              <input type="date" id="pick-date" class="post-input" />
+            </label>
+            <label class="post-field">
+              <span class="post-label">Reminder time</span>
+              <input type="time" id="pick-time" class="post-input" value="09:00" />
+            </label>
+          </div>
+          <label class="post-field">
+            <span class="post-label">Caption <span class="pick-optional">— optional</span></span>
+            <textarea id="pick-caption" class="post-textarea" rows="4" maxlength="2200" placeholder="The words you'll post alongside it."></textarea>
+          </label>
+          <label class="post-remind">
+            <input type="checkbox" id="pick-remind" checked />
+            <span>Remind me on the day <span class="post-remind-note">&mdash; we'll email the caption &amp; image at 8am on the morning of this post</span></span>
+          </label>
+          <div class="post-error" id="pick-error" hidden></div>
+        </div>
+      </div>
+
+      <footer class="day-foot post-foot" id="pick-foot" hidden>
+        <button type="button" class="post-btn post-btn--ghost" id="pick-cancel">Cancel</button>
+        <button type="button" class="post-btn post-btn--primary" id="pick-save">Plan post</button>
       </footer>
     </aside>
   </div>
@@ -642,6 +705,54 @@ import "../../styles/account-sections.css";
         0 16px 30px -10px rgba(var(--violet-rgb), 0.65),
         0 6px 12px -6px rgba(28, 29, 34, 0.3);
     }
+    /* The second way in: a new design for this day. Quieter than planning one
+       you already have, which is the commoner job. */
+    .day-new-btn--ghost {
+      margin-top: 10px; background: transparent; color: var(--violet-deep);
+      border: 1px solid rgba(var(--violet-rgb), 0.35); box-shadow: none;
+    }
+    .day-new-btn--ghost:hover { background: rgba(var(--violet-rgb), 0.07); color: var(--violet-deep); box-shadow: none; }
+    .day-foot button.day-new-btn { border: 0; cursor: pointer; }
+    .day-foot button.day-new-btn--ghost { border: 1px solid rgba(var(--violet-rgb), 0.35); }
+
+    /* ---- Plan a post: the library, over the calendar ---- */
+    .pick-panel {
+      position: relative; display: flex; flex-direction: column; overflow: hidden;
+      width: min(1020px, calc(100vw - 32px)); max-height: min(88vh, 900px);
+      margin: auto; background: var(--paper, #f4f2f1);
+      border-radius: 8px; box-shadow: 0 40px 90px -30px rgba(28,29,34,0.55);
+    }
+    #pick-modal { display: flex; align-items: center; justify-content: center; padding: 16px; }
+    #pick-modal[hidden] { display: none; }
+    .pick-body { padding: 22px 28px 26px; overflow: auto; }
+    .pick-note { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); margin: 0 0 16px; }
+    .pick-note a { color: var(--violet-deep); }
+    .pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+    .pick-card {
+      display: flex; flex-direction: column; gap: 6px; padding: 0; cursor: pointer; text-align: left;
+      background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 6px; overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .pick-card:hover { border-color: var(--violet-deep); transform: translateY(-2px); }
+    .pick-card img { display: block; width: 100%; aspect-ratio: 1080 / 1440; object-fit: cover; background: #e9e6e2; }
+    .pick-card b { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; padding: 0 10px; }
+    .pick-card span { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.5); padding: 0 10px 10px; }
+    .pick-body--plan { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 26px; align-items: start; }
+    /* A class that sets display beats the browser's own [hidden] rule, so say
+       it here: a step that is hidden is hidden. */
+    .pick-body[hidden], .pick-body--plan[hidden], #pick-foot[hidden] { display: none; }
+    .pick-chosen { margin: 0; }
+    .pick-chosen img { display: block; width: 100%; aspect-ratio: 1080 / 1440; object-fit: cover; border-radius: 6px; background: #e9e6e2; }
+    .pick-chosen figcaption { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); margin-top: 8px; }
+    .pick-back {
+      margin-top: 8px; padding: 0; background: none; border: 0; cursor: pointer;
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; color: var(--violet-deep); text-decoration: underline;
+    }
+    .pick-optional { color: rgba(28,29,34,0.45); font-weight: 400; }
+    @media (max-width: 720px) {
+      .pick-body--plan { grid-template-columns: 1fr; }
+      .pick-chosen img { max-width: 180px; }
+    }
 
     /* Planned posts are clickable — nudge on hover to signal it. */
     .day-item { cursor: pointer; transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s; }
@@ -795,6 +906,29 @@ import "../../styles/account-sections.css";
     const $dayH        = document.getElementById('day-h');
     const $dayBody     = document.getElementById('day-body');
     const $dayNew      = document.getElementById('day-new');
+    const $dayPlan     = document.getElementById('day-plan');
+
+    // Plan-a-post picker
+    const $pickModal   = document.getElementById('pick-modal');
+    const $pickClose   = document.getElementById('pick-close');
+    const $pickH       = document.getElementById('pick-h');
+    const $pickEyebrow = document.getElementById('pick-eyebrow');
+    const $pickNote    = document.getElementById('pick-note');
+    const $pickGrid    = document.getElementById('pick-grid');
+    const $pickDesigns = document.getElementById('pick-step-designs');
+    const $pickPlan    = document.getElementById('pick-step-plan');
+    const $pickFoot    = document.getElementById('pick-foot');
+    const $pickImg     = document.getElementById('pick-chosen-img');
+    const $pickName    = document.getElementById('pick-chosen-name');
+    const $pickBack    = document.getElementById('pick-back');
+    const $pickTitle   = document.getElementById('pick-title');
+    const $pickDate    = document.getElementById('pick-date');
+    const $pickTime    = document.getElementById('pick-time');
+    const $pickCaption = document.getElementById('pick-caption');
+    const $pickRemind  = document.getElementById('pick-remind');
+    const $pickError   = document.getElementById('pick-error');
+    const $pickCancel  = document.getElementById('pick-cancel');
+    const $pickSave    = document.getElementById('pick-save');
 
     // Planned-post detail modal
     const $postModal   = document.getElementById('post-modal');
@@ -988,7 +1122,11 @@ import "../../styles/account-sections.css";
         ? dayPrompts.map((p) => p.name).join(' · ')
         : (dayHols.length ? dayHols.map((h) => h.name).join(' · ') : 'No date markers');
       $dayH.textContent = fmtFullDate(d);
-      $dayNew.href = `/account/editor?schedule=${encodeURIComponent(dateStr)}`;
+      // "Create a post for this day" opens a blank canvas; `for` carries the
+      // day so the editor's own Plan post is already on it. (?schedule= is the
+      // older deep link, which opens the plan modal straight away - not what
+      // you want when you haven't designed anything yet.)
+      $dayNew.href = `/account/editor?blank=1&for=${encodeURIComponent(dateStr)}`;
 
       // The prompt, with the guidance and a way straight onto the canvas —
       // which is the whole point of it being here rather than a label.
@@ -1127,6 +1265,176 @@ import "../../styles/account-sections.css";
         if ($dayModal.hidden) document.body.style.overflow = '';
       }, 540);
     }
+
+    // ====== Plan a post: pick one you've already made ======
+    // The library in a pop-out over the calendar. Picking a design doesn't open
+    // it - the saved preview is the image the post carries - so planning is the
+    // three or four fields below and nothing else.
+    let pickDate = null, pickChosen = null, pickCache = null;
+
+    function openPick(dateStr) {
+      if (demoOn()) {
+        lock("Planning is for members.", "In the demo you can open any day and see how the planner works. Members plan posts from their own designs.");
+        return;
+      }
+      pickDate = dateStr;
+      pickChosen = null;
+      const d = new Date(dateStr + 'T00:00:00');
+      $pickEyebrow.textContent = fmtFullDate(d);
+      $pickH.textContent = 'Choose a design';
+      $pickDesigns.hidden = false;
+      $pickPlan.hidden = true;
+      $pickFoot.hidden = true;
+      $pickModal.hidden = false;
+      loadPickDesigns();
+    }
+
+    function closePick() {
+      $pickModal.hidden = true;
+      pickChosen = null;
+      $pickSave.disabled = false;
+      $pickSave.textContent = 'Plan post';
+      clearPickError();
+    }
+
+    function clearPickError() { $pickError.hidden = true; $pickError.textContent = ''; }
+    function showPickError(msg, ok) {
+      $pickError.hidden = false;
+      $pickError.textContent = msg;
+      $pickError.classList.toggle('is-ok', !!ok);
+    }
+
+    async function loadPickDesigns() {
+      if (pickCache) return renderPickGrid(pickCache);
+      $pickNote.textContent = 'Loading your designs…';
+      $pickGrid.innerHTML = '';
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { $pickNote.textContent = "You're signed out — sign in again to see your designs."; return; }
+      const { data, error } = await supabase
+        .from('user_designs')
+        .select('id, name, thumb_url, canvas, updated_at')
+        .eq('user_id', session.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(60);
+      if (error) { $pickNote.textContent = "Couldn't load your designs — try again in a moment."; return; }
+      pickCache = data || [];
+      renderPickGrid(pickCache);
+    }
+
+    function formatOfDesign(d) {
+      const c = d && d.canvas;
+      const w = Number(c && c.width), h = Number(c && c.height);
+      if (!w || !h) return 'Design';
+      const r = w / h;
+      if (Math.abs(r - 1) < 0.02) return 'Square post';
+      if (Math.abs(r - 0.75) < 0.03) return 'Instagram post';
+      if (Math.abs(r - 0.5625) < 0.03) return 'Story / Reel';
+      return r > 1.2 ? 'Landscape' : 'Portrait';
+    }
+
+    function renderPickGrid(rows) {
+      if (!rows.length) {
+        $pickNote.innerHTML = 'No saved designs yet. <a href="/account/editor?blank=1&for=' + encodeURIComponent(pickDate) + '">Create one for this day</a> and it will be here.';
+        $pickGrid.innerHTML = '';
+        return;
+      }
+      $pickNote.textContent = 'Click the one you want to plan. It goes on the calendar exactly as it is.';
+      $pickGrid.innerHTML = rows.map((d) => `
+        <button type="button" class="pick-card" data-design="${escapeHtml(String(d.id))}">
+          <img src="${escapeHtml(d.thumb_url || '')}" alt="" loading="lazy" />
+          <b>${escapeHtml(d.name || 'Untitled design')}</b>
+          <span>${escapeHtml(formatOfDesign(d))}</span>
+        </button>`).join('');
+    }
+
+    function choosePick(id) {
+      const d = (pickCache || []).find((x) => String(x.id) === String(id));
+      if (!d) return;
+      pickChosen = d;
+      $pickImg.src = d.thumb_url || '';
+      $pickName.textContent = d.name || 'Untitled design';
+      $pickTitle.value = d.name || '';
+      $pickDate.value = pickDate;
+      $pickDate.min = ymd(new Date());
+      if (!$pickTime.value) $pickTime.value = '09:00';
+      $pickCaption.value = '';
+      $pickRemind.checked = true;
+      clearPickError();
+      $pickH.textContent = 'Plan this post';
+      $pickDesigns.hidden = true;
+      $pickPlan.hidden = false;
+      $pickFoot.hidden = false;
+      setTimeout(() => $pickTitle.focus(), 50);
+    }
+
+    function backToPick() {
+      $pickH.textContent = 'Choose a design';
+      $pickDesigns.hidden = false;
+      $pickPlan.hidden = true;
+      $pickFoot.hidden = true;
+      pickChosen = null;
+    }
+
+    async function savePick() {
+      if (!pickChosen) return;
+      clearPickError();
+      const title = ($pickTitle.value || '').trim();
+      const dateStr = $pickDate.value;
+      const timeStr = $pickTime.value || '09:00';
+      const caption = ($pickCaption.value || '').trim();
+      if (!title) return showPickError('Give the post a short title — it shows on your calendar.');
+      if (!dateStr) return showPickError('Pick a date for the post.');
+      const asset = pickChosen.thumb_url || '';
+      if (!asset) return showPickError("That design has no preview saved yet. Open it in the Studio, let it save, then plan it.");
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return showPickError("You're signed out — sign in again.");
+
+      $pickSave.disabled = true;
+      $pickSave.textContent = 'Planning…';
+      const row = {
+        user_id: session.user.id,
+        scheduled_date: dateStr,
+        scheduled_time: timeStr,
+        title,
+        caption: caption || null,
+        asset_url: asset,
+        thumbnail_url: asset,
+        design_ref: String(pickChosen.id),
+        platform_hint: 'instagram',
+        status: 'scheduled',
+        reminder: !!$pickRemind.checked,
+      };
+      let { data, error } = await supabase.from('calendar_items').insert(row).select('*').single();
+      if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
+        const { reminder, ...rest } = row;
+        ({ data, error } = await supabase.from('calendar_items').insert(rest).select('*').single());
+      }
+      if (error) {
+        $pickSave.disabled = false;
+        $pickSave.textContent = 'Plan post';
+        return showPickError(error.message || "Couldn't add that to your calendar.");
+      }
+      if (data) items.push(data);
+      renderCalendar();
+      $pickSave.textContent = 'Planned ✓';
+      showPickError('On your calendar for ' + fmtFullDate(new Date(dateStr + 'T00:00:00')) + '.', true);
+      setTimeout(() => { closePick(); refreshDayUnder(); }, 800);
+    }
+
+    if ($dayPlan) $dayPlan.addEventListener('click', () => { if (openDayDate) openPick(openDayDate); });
+    if ($pickClose) $pickClose.addEventListener('click', closePick);
+    if ($pickCancel) $pickCancel.addEventListener('click', closePick);
+    if ($pickBack) $pickBack.addEventListener('click', backToPick);
+    if ($pickSave) $pickSave.addEventListener('click', savePick);
+    if ($pickModal) $pickModal.addEventListener('click', (e) => { if (e.target === $pickModal) closePick(); });
+    if ($pickGrid) $pickGrid.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-design]');
+      if (b) choosePick(b.getAttribute('data-design'));
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && $pickModal && !$pickModal.hidden) closePick();
+    });
 
     // Refresh the day modal beneath (it's static once rendered).
     function refreshDayUnder() {

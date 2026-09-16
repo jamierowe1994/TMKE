@@ -5671,7 +5671,9 @@ const googleFonts = [
     function defaultDate() {
       // Allow ?schedule=YYYY-MM-DD deep-link from the calendar's day drawer.
       const params = new URLSearchParams(location.search);
-      const pre = params.get("schedule");
+      // ?schedule= opens this modal straight away; ?for= just sets the day, for
+      // "Create a post for this day" - where you design first and plan after.
+      const pre = params.get("schedule") || params.get("for");
       if (pre && /^\d{4}-\d{2}-\d{2}$/.test(pre)) return pre;
       // Fall back to tomorrow — scheduling for today by default feels
       // panicked, and the reminder time defaults to 09:00 anyway.
