@@ -5057,6 +5057,72 @@ export default {
       // A plain-English read on how a funnel is performing, plus anything that
       // needs doing before the next email goes out. Regenerated on each request
       // from the live numbers, so it keeps up as sends happen.
+      // ---- Resend the emails a funnel failed to send ------------------------
+      // For when a send step errored for a reason that has since been fixed (a
+      // bad API key, say). Finds every contact whose most recent attempt at a
+      // send step ended in an error, and runs that step again for them - the
+      // same template, the same marketing gate (so anyone who has since opted
+      // out is still skipped). It does NOT move them in the funnel: the steps
+      // after a send don't depend on it having arrived, so they are already
+      // where they should be.
+      // A contact whose send was skipped by the gate (no opt-in, unsubscribed)
+      // is not a failure and is left alone. Works in small batches so no single
+      // request runs long; the page calls it until nothing is left.
+      // Body: { automation_id, dry_run?: true } -> { found, sent, failed, skipped, remaining }
+      if (path.endsWith("/automations/retry-failed-sends") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!b.automation_id) return json({ error: "No automation id." }, 400, request, env);
+        const aid = encodeURIComponent(b.automation_id);
+        const aRows = await sbGet(env, "automations", `id=eq.${aid}&select=id,graph`);
+        const auto = aRows && aRows[0];
+        if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        const nodes = ((auto.graph || {}).nodes) || [];
+        const runs = (await sbGet(env, "automation_runs", `automation_id=eq.${aid}&node_type=eq.send_email&select=enrollment_id,contact_id,node_id,outcome,created_at&order=created_at.asc&limit=10000`)) || [];
+        // The latest attempt per contact per send step decides it.
+        const last = new Map();
+        runs.forEach((r) => last.set(`${r.enrollment_id}|${r.node_id}`, r));
+        let todo = [...last.values()].filter((r) => r.outcome === "error" && nodes.some((n) => n.id === r.node_id));
+        // Someone taken out of the funnel on purpose isn't sent to.
+        if (todo.length) {
+          const ids = [...new Set(todo.map((r) => r.enrollment_id))];
+          const live = new Set();
+          for (let i = 0; i < ids.length; i += 150) {
+            const rows = (await sbGet(env, "automation_enrollments", `id=in.(${ids.slice(i, i + 150).map(encodeURIComponent).join(",")})&select=id,status`)) || [];
+            rows.filter((e) => e.status !== "stopped").forEach((e) => live.add(e.id));
+          }
+          todo = todo.filter((r) => live.has(r.enrollment_id));
+        }
+        if (b.dry_run) return json({ ok: true, found: todo.length }, 200, request, env);
+
+        const BATCH = 15;
+        const batch = todo.slice(0, BATCH);
+        let sent = 0, failed = 0, skipped = 0, lastError = null;
+        for (const r of batch) {
+          const node = nodes.find((n) => n.id === r.node_id);
+          const cRows = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(r.contact_id)}&select=*`);
+          const contact = cRows && cRows[0];
+          let acted;
+          if (!contact || !node) acted = { outcome: "skipped", detail: "contact or step no longer exists" };
+          else acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: r.enrollment_id });
+          const outcome = (acted && acted.outcome) || "ok";
+          if (outcome === "ok") sent++; else if (outcome === "error") { failed++; lastError = acted.detail; } else skipped++;
+          // Logged like any other run, marked as a resend, so the audit shows
+          // it - and so this contact is not picked up again next time.
+          await sbPost(env, "automation_runs", {
+            enrollment_id: r.enrollment_id, automation_id: auto.id, contact_id: r.contact_id,
+            node_id: r.node_id, node_type: "send_email", outcome,
+            detail: "Resent: " + ((acted && acted.detail) || outcome),
+          });
+          // Stop at once if it is still failing - no point burning through the
+          // list with the same error.
+          if (outcome === "error") break;
+        }
+        const done = sent + failed + skipped;
+        return json({ ok: true, found: todo.length, sent, failed, skipped, remaining: Math.max(0, todo.length - done), error: lastError }, 200, request, env);
+      }
+
       if (path.endsWith("/automations/insights") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

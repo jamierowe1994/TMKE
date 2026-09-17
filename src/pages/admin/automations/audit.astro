@@ -29,6 +29,9 @@ import "../../../styles/admin.css";
           <p class="aud-sub" id="aud-sub">Loading…</p>
         </div>
         <div class="admin-bar-tools">
+          <!-- Shown only when a send step errored for someone: runs it again for
+               them once whatever broke it has been fixed. -->
+          <button type="button" class="aud-retry" id="aud-retry" hidden>Resend missed emails</button>
           <select class="auto-filter" id="aud-filter" aria-label="Filter">
             <option value="all">Everything</option>
             <option value="send_email">Emails only</option>
@@ -43,6 +46,7 @@ import "../../../styles/admin.css";
     <div class="aud-stats" id="aud-stats" hidden></div>
     <!-- AI read on the numbers + anything to do before the next send. -->
     <div class="aud-ai" id="aud-ai" hidden></div>
+    <p class="aud-retry-msg" id="aud-retry-msg" hidden></p>
 
     <p class="aud-loading" id="aud-loading">Loading the audit…</p>
     <p class="aud-empty" id="aud-empty" hidden>Nobody has entered this funnel yet.</p>
@@ -52,6 +56,13 @@ import "../../../styles/admin.css";
   <style is:global>
     .aud-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); text-decoration: none; }
     .aud-back:hover { color: var(--english-violet); }
+    .aud-retry { appearance: none; cursor: pointer; margin-right: 10px; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--english-violet);
+      background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
+    .aud-retry:hover { opacity: 0.9; }
+    .aud-retry:disabled { opacity: 0.55; cursor: progress; }
+    .aud-retry-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 10px 14px; margin: 12px 0 0; background: rgba(55,30,40,0.06); color: var(--ink); }
+    .aud-retry-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; }
+    .aud-retry-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; }
     .aud-title { font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--ink); margin: 8px 0 2px; }
     .aud-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 0; }
     .aud-loading, .aud-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); padding: 24px 0; }
@@ -176,8 +187,63 @@ import "../../../styles/admin.css";
       } catch (_) { box.hidden = true; }
     }
 
+    // ---- Resend missed emails ----------------------------------------------
+    async function workerCall(path, body) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const r = await fetch(`${WORKER}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: session ? "Bearer " + session.access_token : "" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "Something went wrong.");
+      return d;
+    }
+    async function checkRetry() {
+      if (!WORKER || !id) return;
+      try {
+        const d = await workerCall("/automations/retry-failed-sends", { automation_id: id, dry_run: true });
+        const btn = $("aud-retry");
+        btn.hidden = !d.found;
+        btn.textContent = `Resend missed emails (${d.found})`;
+        btn.dataset.found = d.found;
+      } catch (_) { /* the button just stays hidden */ }
+    }
+    $("aud-retry").addEventListener("click", async () => {
+      const btn = $("aud-retry"), msg = $("aud-retry-msg");
+      const found = Number(btn.dataset.found || 0);
+      if (!found) return;
+      if (!confirm(`Send the email again to the ${found} ${found === 1 ? "person" : "people"} it failed for?\n\nOnly failed sends are retried. Anyone who has since opted out is still skipped, and nobody is moved in the funnel.`)) return;
+      btn.disabled = true;
+      msg.hidden = false; msg.className = "aud-retry-msg";
+      let sent = 0, failed = 0, skipped = 0, error = null;
+      try {
+        for (let guard = 0; guard < 200; guard++) {
+          const d = await workerCall("/automations/retry-failed-sends", { automation_id: id });
+          sent += d.sent || 0; skipped += d.skipped || 0; failed += d.failed || 0;
+          msg.textContent = `Sending… ${sent} sent${skipped ? `, ${skipped} skipped` : ""}.`;
+          if (d.failed) { error = d.error; break; }
+          if (!d.remaining || !(d.sent || d.skipped)) break;
+        }
+        if (failed) {
+          msg.className = "aud-retry-msg is-err";
+          msg.textContent = `Stopped after ${sent} sent: it's still failing - ${error || "send failed"}`;
+        } else {
+          msg.className = "aud-retry-msg is-ok";
+          msg.textContent = `Done: ${sent} sent${skipped ? `, ${skipped} skipped (opted out or suppressed since)` : ""}.`;
+        }
+      } catch (err) {
+        msg.className = "aud-retry-msg is-err";
+        msg.textContent = "Couldn't resend: " + err.message;
+      }
+      btn.disabled = false;
+      checkRetry();
+      load();
+    });
+
     async function load() {
       if (!id) { $("aud-loading").textContent = "No automation id in the link."; return; }
+      checkRetry();
       const { data: auto } = await supabase.from("automations").select("name, status").eq("id", id).maybeSingle();
       if (auto) { $("aud-name").textContent = auto.name; }
       loadStats();
