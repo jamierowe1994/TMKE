@@ -848,20 +848,33 @@
       const stage = document.getElementById("ed-stage");
       if (!stage) return;   // not the Studio: nothing to overlap
       let queued = false;
+      let lastHit = null;
       const measure = () => {
         queued = false;
-        const design = document.getElementById("ed-canvas-shadow") || document.getElementById("ed-canvas");
+        // Both: the page and the box drawn under it. Whichever exists, and the
+        // union of the two, so this doesn't depend on which one is the visible
+        // white rectangle.
+        const parts = ["ed-canvas-shadow", "ed-canvas"]
+          .map((idName) => document.getElementById(idName))
+          .filter((el) => el && el.getClientRects().length)
+          .map((el) => el.getBoundingClientRect());
         // (offsetParent is always null on a fixed element - ask for its boxes.)
-        if (!design || !$trigger.getClientRects().length) return;
+        if (!parts.length || !$trigger.getClientRects().length) return;
+        const d = {
+          left: Math.min(...parts.map((r) => r.left)),
+          right: Math.max(...parts.map((r) => r.right)),
+          top: Math.min(...parts.map((r) => r.top)),
+          bottom: Math.max(...parts.map((r) => r.bottom)),
+        };
         const wasCompact = $trigger.classList.contains("is-compact");
         // Measure the button at full width, so it can grow back once the
         // design no longer reaches it.
         if (wasCompact) $trigger.classList.remove("is-compact");
         const b = $trigger.getBoundingClientRect();
-        const d = design.getBoundingClientRect();
-        const GAP = 16;   // a margin of air either side counts as touching
+        const GAP = 20;   // a margin of air either side counts as touching
         const hits = d.right > b.left - GAP && d.left < b.right + GAP &&
                      d.bottom > b.top - GAP && d.top < b.bottom + GAP;
+        lastHit = hits;
         $trigger.classList.toggle("is-compact", hits);
       };
       const remeasure = () => { if (queued) return; queued = true; requestAnimationFrame(measure); };
@@ -887,6 +900,12 @@
       // rebuilt on every render, so watch the stage for changes too.
       try { new MutationObserver(remeasure).observe(stage, { attributes: true, childList: true, subtree: true, attributeFilter: ["style", "class"] }); } catch (_) {}
       setTimeout(measure, 600);
+      // And a steady check on top of all of that. Events told only half the
+      // story - between a design opening, the panel folding, the canvas being
+      // redrawn and the window being dragged, there was always a way to end up
+      // measured against the wrong moment. Two reads of a rectangle, four
+      // times a second, is cheaper than being wrong.
+      setInterval(() => { if (document.visibilityState === "visible") measure(); }, 250);
       remeasure();
     })();
 
