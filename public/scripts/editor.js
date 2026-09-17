@@ -2476,6 +2476,21 @@
         bg.style.width = lay.sw + "px"; bg.style.height = lay.sh + "px";
         bg.style.objectFit = "fill";
         bg.style.transform = lay.deg ? "rotate(" + lay.deg + "deg)" : "";
+        // Designs saved while the bug above existed carry the previous photo's
+        // measurements. Check them against the picture itself once it loads,
+        // and correct them if they disagree, so those designs mend on opening.
+        bg.addEventListener("load", function () {
+          const nw = bg.naturalWidth, nh = bg.naturalHeight;
+          if (!nw || !nh) return;
+          if (nw !== state.canvas.bgNatW || nh !== state.canvas.bgNatH) {
+            const wasRatio = state.canvas.bgNatW && state.canvas.bgNatH ? state.canvas.bgNatW / state.canvas.bgNatH : 0;
+            state.canvas.bgNatW = nw; state.canvas.bgNatH = nh;
+            // Pan and zoom set against the wrong shape are meaningless; a
+            // photo that is merely a different resolution keeps them.
+            if (!wasRatio || Math.abs(wasRatio - nw / nh) > 0.01) { delete state.canvas.bgScale; state.canvas.bgPosX = 50; state.canvas.bgPosY = 50; }
+            fullRender();
+          }
+        }, { once: true });
       } else {
         // Until we know the photo's natural size, fall back to cover + position
         // (identical to the old behaviour), and cache the dims on load.
@@ -2667,6 +2682,15 @@
 
   // Set or clear the canvas background image. Passing null clears it.
   function setCanvasBackgroundImage(src) {
+    // A different photo brings its own shape. The stored measurements, zoom,
+    // pan and rotation all described the OLD one - keep them and a landscape
+    // photo put in over a portrait one is drawn at the portrait's proportions:
+    // stretched, and "Fit" and "Reposition" both treat it as portrait.
+    if ((src || null) !== (state.canvas.backgroundImage || null)) {
+      delete state.canvas.bgNatW; delete state.canvas.bgNatH;
+      delete state.canvas.bgScale; delete state.canvas.bgRotate;
+      state.canvas.bgPosX = 50; state.canvas.bgPosY = 50;
+    }
     state.canvas.backgroundImage = src || null;
     pushHistory();
     fullRender();
