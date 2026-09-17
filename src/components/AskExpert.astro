@@ -221,6 +221,11 @@
       0 6px 14px -8px rgba(15, 12, 30, 0.30);
     transition: transform 0.25s cubic-bezier(.2,.7,.2,1), box-shadow 0.25s, background 0.25s;
   }
+  /* Shrinks to the icon when the design has grown far enough across the
+     screen to sit underneath it - better a small circle in the corner than a
+     button lying over someone's artwork. */
+  .ae-trigger.is-compact { width: 34px; padding: 0; gap: 0; border-radius: 999px; justify-content: center; }
+  .ae-trigger.is-compact .ae-trigger-label { display: none; }
   .ae-trigger:hover {
     transform: translateY(-2px);
     background: var(--ink);
@@ -832,6 +837,48 @@
     function inputOf(view: HTMLElement | null | undefined) {
       return view?.querySelector<HTMLTextAreaElement>("[data-input]") ?? null;
     }
+
+    /* Icon-only when it would cover the design.
+       The button floats in the bottom-right of the Studio, and on a wide
+       canvas (or a zoomed-in one) the design reaches under it. Rather than
+       move it - it has a fixed home people learn - it drops its label and
+       becomes the icon, which fits in the margin. Re-measured whenever the
+       window or the canvas changes size, and while the canvas is scrolled. */
+    (function keepClearOfTheDesign() {
+      const stage = document.getElementById("ed-stage");
+      if (!stage) return;   // not the Studio: nothing to overlap
+      let queued = false;
+      const measure = () => {
+        queued = false;
+        const design = document.getElementById("ed-canvas-shadow") || document.getElementById("ed-canvas");
+        // (offsetParent is always null on a fixed element - ask for its boxes.)
+        if (!design || !$trigger.getClientRects().length) return;
+        const wasCompact = $trigger.classList.contains("is-compact");
+        // Measure the button at full width, so it can grow back once the
+        // design no longer reaches it.
+        if (wasCompact) $trigger.classList.remove("is-compact");
+        const b = $trigger.getBoundingClientRect();
+        const d = design.getBoundingClientRect();
+        const GAP = 16;   // a margin of air either side counts as touching
+        const hits = d.right > b.left - GAP && d.left < b.right + GAP &&
+                     d.bottom > b.top - GAP && d.top < b.bottom + GAP;
+        $trigger.classList.toggle("is-compact", hits);
+      };
+      const remeasure = () => { if (queued) return; queued = true; requestAnimationFrame(measure); };
+      window.addEventListener("resize", remeasure, { passive: true });
+      stage.addEventListener("scroll", remeasure, { passive: true });
+      try {
+        const ro = new ResizeObserver(remeasure);
+        ro.observe(stage);
+        const design = document.getElementById("ed-canvas-shadow");
+        if (design) ro.observe(design);
+      } catch (_) { /* older browser: resize + scroll still cover it */ }
+      // Zoom moves the design without resizing the stage, and the canvas is
+      // rebuilt on every render, so watch the stage for changes too.
+      try { new MutationObserver(remeasure).observe(stage, { attributes: true, childList: true, subtree: true, attributeFilter: ["style", "class"] }); } catch (_) {}
+      setTimeout(measure, 600);
+      remeasure();
+    })();
 
     function openPanel() {
       $panel.hidden = false;
