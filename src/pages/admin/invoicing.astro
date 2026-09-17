@@ -90,6 +90,37 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       <div class="ash-card">
         <div class="ash-card-head"><div class="ash-card-title">Invoices</div></div>
         <div class="ash-card-body">
+          <!-- Filters: what state it's in, which month it went out, and which
+               date to put first. Applied to the list already loaded, so
+               changing one is instant. -->
+          <div class="inv-filters" id="inv-filters">
+            <label class="inv-filter">
+              <span>Status</span>
+              <select id="inv-f-status">
+                <option value="all">All</option>
+                <option value="unpaid">Unpaid (sent &amp; overdue)</option>
+                <option value="sent">Sent</option>
+                <option value="overdue">Overdue</option>
+                <option value="paid">Paid</option>
+                <option value="draft">Draft</option>
+                <option value="void">Void</option>
+              </select>
+            </label>
+            <label class="inv-filter">
+              <span>Sent in</span>
+              <select id="inv-f-month"><option value="all">Any month</option></select>
+            </label>
+            <label class="inv-filter">
+              <span>Order by</span>
+              <select id="inv-f-sort">
+                <option value="due-asc">Due date, soonest first</option>
+                <option value="due-desc">Due date, latest first</option>
+                <option value="sent-desc">Sent date, newest first</option>
+                <option value="sent-asc">Sent date, oldest first</option>
+              </select>
+            </label>
+            <span class="inv-f-count" id="inv-f-count"></span>
+          </div>
           <div class="inv-list" id="inv-list"><p class="inv-empty">Loading…</p></div>
         </div>
       </div>
@@ -407,18 +438,34 @@ import AdminShell from "../../components/admin/AdminShell.astro";
        width, so when the row overflows, the name column stops shrinking and
        every column after it moves by however wide THAT row's client name
        happens to be - which is why rows drifted a couple of pixels apart. */
-    .invrow { display: grid; grid-template-columns: 88px minmax(160px, 1fr) 86px 70px auto; gap: 12px; align-items: center; padding: 12px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 10px; font-family: var(--sans); font-size: 13.5px; }
+    .invrow { display: grid; grid-template-columns: 88px minmax(160px, 1fr) 86px 84px auto; gap: 12px; align-items: center; padding: 12px 16px; background: var(--paper); border: 1px solid rgba(28,29,34,0.09); border-radius: 10px; font-family: var(--sans); font-size: 13.5px; }
     /* Five fixed action slots. A row keeps every slot whether or not it has a
        button in it, so Edit sits under Edit and Delete under Delete all the way
        down - and Send and Resend are the same width despite different words. */
     /* Fixed width, not auto. Each row is its own grid, so an `auto` tools
        column is measured per row - which let rows drift a couple of pixels
        apart depending on their own contents. Pinned, they cannot. */
-    .invrow-tools { display: grid; grid-template-columns: repeat(5, 84px); gap: 8px; width: 452px; align-items: center; justify-self: end; }
+    /* Three worded actions - Resend, Paid, Void - then three icons: View, Edit,
+       Delete. Icons for the three everyone recognises keep the row on one line. */
+    .invrow-tools { display: grid; grid-template-columns: repeat(3, 84px) repeat(3, 32px); gap: 8px; width: 388px; align-items: center; justify-self: end; }
     .invrow-tools > button { width: 100%; justify-content: center; }
-    /* The paid date takes the first slot, so it starts where the first button
-       would have. */
-    .invrow .paidon { grid-column: 1; justify-self: start; font-size: 11.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
+    /* The paid date takes the first two slots, so it starts where Resend would
+       have and never pushes Void out of its column. */
+    .invrow .paidon { grid-column: 1 / span 2; justify-self: start; font-size: 11.5px; color: rgba(28,29,34,0.45); white-space: nowrap; }
+    .invrow-tools > button.inv-ico { width: 32px; height: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+    .inv-ico svg { width: 15px; height: 15px; display: block; }
+    .invrow .inv-ico.is-busy { opacity: 0.5; cursor: progress; }
+
+    /* The filter bar. */
+    .inv-filters { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin: 0 0 16px; }
+    .inv-filter { display: flex; flex-direction: column; gap: 5px; }
+    .inv-filter span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .inv-filter select {
+      min-width: 170px; padding: 8px 10px; border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 6px;
+      font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; cursor: pointer;
+    }
+    .inv-f-count { margin-left: auto; align-self: center; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
+    .inv-badge.overdue { background: rgba(227,160,8,0.16); color: #9a6a04; }
     @media (max-width: 1100px) { .invrow { grid-template-columns: 100px 1fr 100px 92px; } .invrow .invrow-tools { grid-column: 1 / -1; justify-self: start; } }
     .invrow .num { font-weight: 700; color: var(--ink); }
     .invrow .amt { text-align: right; font-weight: 700; }
@@ -914,42 +961,93 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       ciRefresh();
     }
 
+    // ---- The list: fetched once, then filtered and sorted in place --------
+    const ICONS = {
+      view: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+      edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+      del: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+    };
+    const todayIso = () => new Date().toISOString().slice(0, 10);
+    // Overdue isn't stored: it's a sent invoice whose due date has gone by.
+    const stateOf = (v) => (v.status === "sent" && v.due_date && String(v.due_date).slice(0, 10) < todayIso()) ? "overdue" : v.status;
+    // When it went out. Invoices sent before sent_at was recorded fall back to
+    // their issue date, so they still land in a month.
+    const sentIso = (v) => v.sent_at ? String(v.sent_at).slice(0, 10) : (v.status !== "draft" && v.issued_date ? String(v.issued_date).slice(0, 10) : "");
+    const monthLabel = (ym) => { const [y, m] = ym.split("-").map(Number); return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }); };
+
+    function fillMonths() {
+      const sel = $("inv-f-month");
+      const keep = sel.value;
+      const months = [...new Set(invList.map((v) => sentIso(v).slice(0, 7)).filter(Boolean))].sort().reverse();
+      sel.innerHTML = '<option value="all">Any month</option>' + months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join("");
+      sel.value = months.includes(keep) ? keep : "all";
+    }
+
+    function renderInvoices() {
+      const wrap = $("inv-list");
+      const fStatus = $("inv-f-status").value, fMonth = $("inv-f-month").value, fSort = $("inv-f-sort").value;
+      let rows = invList.filter((v) => {
+        const st = stateOf(v);
+        if (fStatus === "unpaid" && !(st === "sent" || st === "overdue")) return false;
+        if (fStatus !== "all" && fStatus !== "unpaid" && st !== fStatus) return false;
+        if (fMonth !== "all" && sentIso(v).slice(0, 7) !== fMonth) return false;
+        return true;
+      });
+      // Anything without the date being sorted on goes to the bottom either way.
+      const key = fSort.startsWith("due") ? (v) => String(v.due_date || "").slice(0, 10) : (v) => sentIso(v);
+      const dir = fSort.endsWith("asc") ? 1 : -1;
+      rows = rows.slice().sort((a, b) => {
+        const ka = key(a), kb = key(b);
+        if (!ka && !kb) return 0; if (!ka) return 1; if (!kb) return -1;
+        return ka < kb ? -dir : ka > kb ? dir : 0;
+      });
+      $("inv-f-count").textContent = rows.length === invList.length ? `${rows.length} invoice${rows.length === 1 ? "" : "s"}` : `Showing ${rows.length} of ${invList.length}`;
+      if (!rows.length) { wrap.innerHTML = '<p class="inv-empty">Nothing matches those filters.</p>'; return; }
+
+      const d = (x) => x ? new Date(String(x).slice(0, 10) + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+      // When it went and to whom, on the row: "was this ever sent?" should not
+      // need anyone's inbox to answer.
+      const sentLine = (v) => {
+        if (!v.sent_to && !v.sent_at) return "";
+        const when = v.sent_at
+          ? new Date(v.sent_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+          : "";
+        return `<div class="invsent">Sent${when ? " " + esc(when) : ""}${v.sent_to ? " to " + esc(v.sent_to) : ""}</div>`;
+      };
+      wrap.innerHTML = rows.map((v) => {
+        const st = stateOf(v);
+        const live = v.status !== "void";
+        return `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div>${sentLine(v)}</span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(st)}">${esc(st)}</span><span class="invrow-tools">
+          ${v.paid_date
+            ? `<span class="paidon">Paid ${d(v.paid_date)}</span>`
+            : `${live && v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : "<span></span>"}
+               ${live ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : "<span></span>"}`}
+          <button type="button" class="invvoid" data-voidid="${esc(v.id)}"${v.paid_date ? ' style="grid-column:3"' : ""}>Void</button>
+          <button type="button" class="invview inv-ico" data-viewid="${esc(v.id)}" title="View" aria-label="View invoice ${esc(v.number)}">${ICONS.view}</button>
+          ${live ? `<button type="button" class="invedit inv-ico" data-editid="${esc(v.id)}" title="Edit" aria-label="Edit invoice ${esc(v.number)}">${ICONS.edit}</button>` : "<span></span>"}
+          <button type="button" class="invdel inv-ico" data-delid="${esc(v.id)}" title="Delete" aria-label="Delete invoice ${esc(v.number)}">${ICONS.del}</button>
+        </span></div>`;
+      }).join("");
+    }
+
     async function loadInvoices() {
       const wrap = $("inv-list");
       if (!WORKER) { wrap.innerHTML = '<p class="inv-empty">Connect the Worker to view invoices.</p>'; return; }
       try {
         const { invoices } = await api("/invoicing/invoices");
         invList = invoices || [];
-        if (!invoices.length) { wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
-        const d = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
-        // When it went and to whom, on the row: "was this ever sent?" should not
-        // need anyone's inbox to answer.
-        const sentLine = (v) => {
-          if (!v.sent_to && !v.sent_at) return "";
-          const when = v.sent_at
-            ? new Date(v.sent_at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-            : "";
-          return `<div class="invsent">Sent${when ? " " + esc(when) : ""}${v.sent_to ? " to " + esc(v.sent_to) : ""}</div>`;
-        };
-        wrap.innerHTML = invoices.map((v) => `<div class="invrow"><span class="num">${esc(v.number)}</span><span>${esc(v.bill_to_name)}<div style="font-size:11.5px;color:rgba(28,29,34,0.5)">Due ${d(v.due_date)}</div>${sentLine(v)}</span><span class="amt">${gbp(v.total_pence)}</span><span class="inv-badge ${esc(v.status)}">${esc(v.status)}</span><span class="invrow-tools">
-            ${v.paid_date
-              ? `<span class="paidon">Paid ${d(v.paid_date)}</span><span></span>`
-              : `${v.status !== "void" && v.bill_to_email ? `<button type="button" class="invsend" data-sendid="${esc(v.id)}">${v.status === "sent" ? "Resend" : "Send"}</button>` : "<span></span>"}
-                 ${v.status !== "void" ? `<button type="button" class="markpaid" data-id="${esc(v.id)}">Paid</button>` : "<span></span>"}`}
-            <button type="button" class="invview" data-viewid="${esc(v.id)}">View</button>
-            ${v.status !== "void" ? `<button type="button" class="invedit" data-editid="${esc(v.id)}">Edit</button>` : "<span></span>"}
-            <button type="button" class="invvoid" data-voidid="${esc(v.id)}">Void</button>
-            <button type="button" class="invdel" data-delid="${esc(v.id)}">Delete</button>
-          </span></div>`).join("");
+        if (!invList.length) { $("inv-f-count").textContent = ""; wrap.innerHTML = '<p class="inv-empty">No invoices yet — create one.</p>'; return; }
+        fillMonths();
+        renderInvoices();
       } catch (err) { wrap.innerHTML = `<p class="inv-empty">${esc(err.message)}</p>`; }
     }
+    ["inv-f-status", "inv-f-month", "inv-f-sort"].forEach((id) => $(id).addEventListener("change", renderInvoices));
     $("inv-list").addEventListener("click", async (e) => {
       const paid = e.target.closest(".markpaid");
       if (paid) { paid.disabled = true; try { await api("/invoicing/invoices", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: paid.getAttribute("data-id"), status: "paid" }) }); loadInvoices(); } catch (err) { alert(err.message); paid.disabled = false; } return; }
       const view = e.target.closest(".invview");
       if (view) {
-        const was = view.textContent;
-        view.disabled = true; view.textContent = "Opening…";
+        view.disabled = true; view.classList.add("is-busy");
         // Opened from a click so the browser doesn't treat it as a popup.
         const tab = window.open("", "_blank");
         try {
@@ -958,7 +1056,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         } catch (err) {
           if (tab) tab.close();
           alert("Couldn't open the invoice: " + err.message);
-        } finally { view.disabled = false; view.textContent = was; }
+        } finally { view.disabled = false; view.classList.remove("is-busy"); }
         return;
       }
       const ed = e.target.closest(".invedit");
