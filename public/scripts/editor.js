@@ -9155,6 +9155,9 @@
      card in the panel under its button (never a menu floating over the
      controls below) and closes as soon as one is chosen. The background pane
      and a selected picture both use it. */
+  // How many pictures a chooser offers. Twelve cut a growing uploads library
+  // off after a dozen, which read as "my new uploads aren't here".
+  const PICKER_MAX = 40;
   function picturesToPickFrom() {
     const seen = {}, out = [];
     const add = function (u) { if (!u || typeof u !== "string" || seen[u]) return; seen[u] = 1; out.push(u); };
@@ -9162,8 +9165,8 @@
       if (el && (el.type === "image" || el.type === "frame" || el.type === "screen") && el.src) add(el.src);
     });
     if (typeof state.canvas.backgroundImage === "string") add(state.canvas.backgroundImage);
-    (state.uploads || []).slice().reverse().forEach(add);
-    return out.slice(0, 12);
+    (state.uploads || []).forEach(add);   // newest first
+    return out.slice(0, PICKER_MAX);
   }
   function mountPicturePicker(opts) {
     const menu = opts.menu, button = opts.button;
@@ -9227,8 +9230,8 @@
       state.elements.forEach(function (el) {
         if (el && (el.type === "image" || el.type === "frame" || el.type === "screen") && el.src) add(el.src);
       });
-      (state.uploads || []).slice().reverse().forEach(add);
-      return out.slice(0, 12);
+      (state.uploads || []).forEach(add);   // newest first
+      return out.slice(0, PICKER_MAX);
     }
 
     function buildImgMenu() {
@@ -9285,7 +9288,7 @@
         const f = fileInput.files && fileInput.files[0];
         fileInput.value = "";
         if (!f) return;
-        fileToWebImage(f).then((src) => { if (!src) return; state.uploads.push(src); setCanvasBackgroundImage(src); });
+        fileToWebImage(f).then((src) => { if (!src) return; state.uploads.unshift(src); setCanvasBackgroundImage(src); });
       });
     }
     if (tintColor) {
@@ -9543,7 +9546,9 @@
       if (!f.type.startsWith("image/")) return;
       fileToWebImage(f).then(async (src) => {
         if (!src) return;
-        state.uploads.push(src);
+        // On the front: the uploads list is newest first, so what you just
+        // added is the first thing every picture chooser offers.
+        state.uploads.unshift(src);
         const tile = addUploadTile(src);
         // Persist it so it's still here next time (signed-in members only).
         if (typeof window.__TMKE_UPLOAD_SAVE__ !== "function") return;
