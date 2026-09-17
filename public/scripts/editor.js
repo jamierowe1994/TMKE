@@ -2010,6 +2010,8 @@
   let _dbSaveTimer = null;
   let _dbSaving = false;
   let _dbRetries = 0;
+  let _lastSaveWhy = null;                 // why the last cloud save failed
+  const _saveWhyToldFor = new Set();       // each reason is said once, not per retry
 
   // Persistent save-status pill so a failed cloud save is never silent.
   function setSaveStatus(kind) {
@@ -2025,7 +2027,7 @@
     el.style.opacity = "1";
     if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
     else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
-    else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
+    else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = (_lastSaveWhy ? "Why: " + _lastSaveWhy + "\n\n" : "") + "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
   }
 
   function autosaveDraft() {
@@ -2072,9 +2074,10 @@
       };
       const res = await (adminHook ? window.__TMKE_ADMIN_SAVE__(payload) : window.__TMKE_DESIGN_SAVE__(payload));
       ok = res === true || (res && res.ok === true);
+      _lastSaveWhy = ok ? null : ((res && res.reason) || null);
       // Customer: adopt the new copy's id so subsequent saves update the same row.
       if (designHook && res && res.id && state.templateId !== res.id) state.templateId = res.id;
-    } catch (_) { ok = false; }
+    } catch (e) { ok = false; _lastSaveWhy = String((e && e.message) || "") || null; }
     _dbSaving = false;
     if (ok) { _dbRetries = 0; setSaveStatus("saved"); }
     else {
@@ -2082,6 +2085,13 @@
       // so a transient blip self-heals; then stop hammering (the next edit or a
       // manual Save tries again). The localStorage copy never depends on this.
       setSaveStatus("local");
+      // Say what went wrong, once - not on every retry. Without this the
+      // warning was permanent and unexplained: nobody could tell whether they
+      // had been signed out, were offline, or had a design too big to save.
+      if (_lastSaveWhy && !_saveWhyToldFor.has(_lastSaveWhy)) {
+        _saveWhyToldFor.add(_lastSaveWhy);
+        toast("Not saved to your account: " + _lastSaveWhy, 7000);
+      }
       _dbRetries++;
       if (_dbRetries <= 5) {
         clearTimeout(_dbSaveTimer);

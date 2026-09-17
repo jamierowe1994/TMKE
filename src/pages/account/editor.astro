@@ -5183,17 +5183,27 @@ const googleFonts = [
               updated_at: new Date().toISOString(),
             };
             if (thumbUrl) row.thumb_url = thumbUrl;
+            // A failed save says what went wrong: the editor shows it, rather
+            // than only "saved on this device" with no reason to act on.
+            const why = (e) => {
+              const m = String((e && e.message) || '').trim();
+              if (/jwt|token|expired|not authenticated/i.test(m)) return "you've been signed out - sign in again and press Save.";
+              if (/payload|too large|413/i.test(m)) return 'the design is too big to save in one go - try replacing the largest photos.';
+              if (/row-level security|permission|denied/i.test(m)) return "this design belongs to another account.";
+              if (/fetch|network|Failed to fetch/i.test(m)) return "the connection dropped - it'll try again on its own.";
+              return m || 'the server refused the save.';
+            };
             if (currentDesignId) {
               const { error } = await supabase.from('user_designs').update(row).eq('id', currentDesignId).eq('user_id', memberUid);
-              return error ? { ok: false } : { ok: true, id: currentDesignId };
+              return error ? { ok: false, reason: why(error) } : { ok: true, id: currentDesignId };
             }
             row.source_template_id = payload.templateId || null;
             const { data, error } = await supabase.from('user_designs').insert(row).select('id').single();
-            if (error || !data) return { ok: false };
+            if (error || !data) return { ok: false, reason: why(error) };
             currentDesignId = data.id;
             try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
             return { ok: true, id: currentDesignId };
-          } catch (_) { return { ok: false }; }
+          } catch (e) { return { ok: false, reason: String((e && e.message) || 'something went wrong saving.') }; }
         };
         // Re-open a saved design (?design=<id>): fetch the row + boot the editor onto it.
         if (currentDesignId) {
