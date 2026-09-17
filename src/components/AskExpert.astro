@@ -867,6 +867,16 @@
       const remeasure = () => { if (queued) return; queued = true; requestAnimationFrame(measure); };
       window.addEventListener("resize", remeasure, { passive: true });
       stage.addEventListener("scroll", remeasure, { passive: true });
+      // Browser zoom and a pinch on a trackpad change the visual viewport
+      // without firing a window resize, and that is exactly the "scaling your
+      // screen" case this is for.
+      try {
+        window.visualViewport?.addEventListener("resize", remeasure, { passive: true });
+        window.visualViewport?.addEventListener("scroll", remeasure, { passive: true });
+      } catch (_) {}
+      // A couple of late looks: fonts, images and the reveal animation all
+      // settle after the first measurement.
+      [1200, 2500].forEach((t) => setTimeout(measure, t));
       try {
         const ro = new ResizeObserver(remeasure);
         ro.observe(stage);
