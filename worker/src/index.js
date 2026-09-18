@@ -1456,10 +1456,16 @@ function unsubBase(env) {
   return "https://tmke-deliverables-api.tmke.workers.dev";
 }
 
-async function unsubUrlFor(env, email) {
+async function unsubUrlFor(env, email, from) {
   const token = await unsubSign(env, email);
   if (!token) return null;
-  return `${unsubBase(env)}/unsubscribe?t=${encodeURIComponent(token)}`;
+  // Which funnel and which email the link was in, so an unsubscribe counts
+  // against that campaign in the insights. Attribution only - the signed token
+  // alone decides WHO is unsubscribed, so editing these changes nothing but a
+  // number on a report.
+  const extra = (from && from.automationId ? `&a=${encodeURIComponent(from.automationId)}` : "")
+              + (from && from.nodeId ? `&s=${encodeURIComponent(from.nodeId)}` : "");
+  return `${unsubBase(env)}/unsubscribe?t=${encodeURIComponent(token)}${extra}`;
 }
 
 // The confirmation page. Branded rather than plain, but the unsubscribe has
@@ -2180,7 +2186,7 @@ const SOFT_BOUNCE_LIMIT = 3;
 async function logEmailEvent(env, {
   contact = null, email = null, event, provider = "resend",
   messageId = null, subject = null, url = null, detail = null,
-  raw = null, occurredAt = null, automationId = null, enrollmentId = null,
+  raw = null, occurredAt = null, automationId = null, enrollmentId = null, nodeId = null,
 } = {}) {
   try {
     const addr = String(email || (contact && contact.email) || "").toLowerCase();
@@ -2194,9 +2200,14 @@ async function logEmailEvent(env, {
     };
     if (automationId) row.automation_id = automationId;
     if (enrollmentId) row.enrollment_id = enrollmentId;
-    const res = await sbPost(env, "email_events", row);
-    // If the automation columns don't exist yet (migration not run), don't
-    // lose the event — record it without the attribution.
+    if (nodeId) row.node_id = String(nodeId);
+    let res = await sbPost(env, "email_events", row);
+    // If a newer column doesn't exist yet (its migration not run), don't lose
+    // the event - drop the step first, then the funnel attribution.
+    if (res && !res.ok && res.status !== 409 && row.node_id) {
+      delete row.node_id;
+      res = await sbPost(env, "email_events", row);
+    }
     if (res && !res.ok && res.status !== 409 && (row.automation_id || row.enrollment_id)) {
       delete row.automation_id; delete row.enrollment_id;
       await sbPost(env, "email_events", row);
@@ -2277,7 +2288,7 @@ async function gateEmail(env, contact, kind, subject, ctx) {
     await logEmailEvent(env, {
       contact, email: contact && contact.email, event: "blocked",
       provider: "internal", subject, detail: verdict.reason,
-      automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId,
+      automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId, nodeId: ctx && ctx.nodeId,
     });
   }
   return verdict;
@@ -2349,7 +2360,7 @@ async function trackSig(env, data) {
 async function injectTracking(env, html, meta) {
   const base = unsubBase(env);
   if (!base) return html;
-  const p = _b64urlStr(JSON.stringify({ e: meta.email, a: meta.automationId || null, n: meta.enrollmentId || null, m: meta.messageId || null }));
+  const p = _b64urlStr(JSON.stringify({ e: meta.email, a: meta.automationId || null, n: meta.enrollmentId || null, m: meta.messageId || null, s: meta.nodeId || null }));
   const openSig = await trackSig(env, p);
   if (!openSig) return html;
   let out = html;
@@ -2390,7 +2401,9 @@ async function autoExecAction(env, node, contact, ctx) {
       // {{unsubscribe}} token in a template falls back to a mailto:, which
       // nobody actions. Transactional mail deliberately gets none — an
       // unsubscribe footer on a booking confirmation is just confusing.
-      const unsubUrl = sendKind === "marketing" ? await unsubUrlFor(env, contact.email) : null;
+      const unsubUrl = sendKind === "marketing"
+        ? await unsubUrlFor(env, contact.email, { automationId: ctx && ctx.automationId, nodeId: ctx && ctx.nodeId })
+        : null;
       if (unsubUrl) { recipient.unsubscribeUrl = unsubUrl; recipient.unsubscribe_url = unsubUrl; }
       const { subject, html } = renderTemplate(
         // The step can override the template's subject — one template, four
@@ -2415,7 +2428,7 @@ async function autoExecAction(env, node, contact, ctx) {
       if (sendKind !== "marketing") {
         m365Id = "m365-" + crypto.randomUUID();
         try {
-          htmlOut = await injectTracking(env, html, { email: contact.email, automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId, messageId: m365Id });
+          htmlOut = await injectTracking(env, html, { email: contact.email, automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId, nodeId: ctx && ctx.nodeId, messageId: m365Id });
         } catch (_) { htmlOut = html; }
       }
       // Record what actually went out (and whether it did) — this is what the
@@ -2430,7 +2443,7 @@ async function autoExecAction(env, node, contact, ctx) {
         messageId: (sent && sent.id) || m365Id,
         subject,
         detail: (sent && sent.ok) ? null : String((sent && sent.error) || "send failed").slice(0, 200),
-        automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId,
+        automationId: ctx && ctx.automationId, enrollmentId: ctx && ctx.enrollmentId, nodeId: ctx && ctx.nodeId,
       });
       return (sent && sent.ok)
         ? { outcome: "ok", detail: `“${subject}” → ${to.join(", ")}` }
@@ -2521,7 +2534,7 @@ async function advanceEnrollment(env, enr) {
       branch = yes ? "yes" : "no";
       acted = { outcome: "ok", detail: yes ? "condition met → yes" : "condition not met → no" };
     } else {
-      acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: enr.id });
+      acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: enr.id, nodeId: cur });
     }
     await sbPost(env, "automation_runs", {
       enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id,
@@ -2880,11 +2893,20 @@ export default {
         const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=*`);
         const contact = rows && rows[0];
         if (contact) {
+          // Only the first click counts: a second visit to the same link (or the
+          // mailbox's one-click after the footer link) isn't a second unsubscribe.
+          const already = !!contact.unsubscribed_at;
           await unsubscribeContact(env, contact, oneClick ? "list_unsubscribe" : "footer_link");
-          await logEmailEvent(env, {
-            contact, email: addr, event: "unsubscribed", provider: "internal",
-            detail: oneClick ? "one-click via the mailbox provider" : "footer link",
-          });
+          if (!already) {
+            const aidRaw = url.searchParams.get("a"), sidRaw = url.searchParams.get("s");
+            const uuidish = (v) => /^[0-9a-f-]{8,40}$/i.test(String(v || ""));
+            await logEmailEvent(env, {
+              contact, email: addr, event: "unsubscribed", provider: "internal",
+              detail: oneClick ? "one-click via the mailbox provider" : "footer link",
+              automationId: uuidish(aidRaw) ? aidRaw : null,
+              nodeId: sidRaw ? String(sidRaw).slice(0, 80) : null,
+            });
+          }
         }
         // Unknown address: still report success. Confirming whether an address is
         // on the list would leak it, and there's nothing for them to fix anyway.
@@ -5032,7 +5054,7 @@ export default {
             const meta = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
             const addr = String(meta.e || "").toLowerCase();
             const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=id,email&limit=1`) : null;
-            await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "opened", provider: "m365", messageId: meta.m || null, automationId: meta.a || null, enrollmentId: meta.n || null });
+            await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "opened", provider: "m365", messageId: meta.m || null, automationId: meta.a || null, enrollmentId: meta.n || null, nodeId: meta.s || null });
           } catch (_) {}
         }
         const gif = Uint8Array.from(atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), (ch) => ch.charCodeAt(0));
@@ -5047,7 +5069,7 @@ export default {
             const meta = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
             const addr = String(meta.e || "").toLowerCase();
             const cs = addr ? await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=id,email&limit=1`) : null;
-            await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "clicked", provider: "m365", messageId: meta.m || null, url: u, automationId: meta.a || null, enrollmentId: meta.n || null });
+            await logEmailEvent(env, { contact: cs && cs[0], email: addr, event: "clicked", provider: "m365", messageId: meta.m || null, url: u, automationId: meta.a || null, enrollmentId: meta.n || null, nodeId: meta.s || null });
           } catch (_) {}
         }
         return Response.redirect(dest, 302);
@@ -5105,7 +5127,7 @@ export default {
           const contact = cRows && cRows[0];
           let acted;
           if (!contact || !node) acted = { outcome: "skipped", detail: "contact or step no longer exists" };
-          else acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: r.enrollment_id });
+          else acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: r.enrollment_id, nodeId: r.node_id });
           const outcome = (acted && acted.outcome) || "ok";
           if (outcome === "ok") sent++; else if (outcome === "error") { failed++; lastError = acted.detail; } else skipped++;
           // Logged like any other run, marked as a resend, so the audit shows
@@ -5152,11 +5174,16 @@ export default {
           scheduled_dates: sendSteps.map((x) => (x.config || {}).send_on).filter(Boolean),
           enrolments: byStatus, next_step_due: nextRun,
           sent: n("sent"), delivered: n("delivered"), opened_events: n("opened"), clicked_events: n("clicked"),
-          bounced: n("bounced"), spam_complaints: n("complained"), not_sent_blocked: n("blocked"),
+          bounced: n("bounced"), spam_complaints: n("complained"),
+          unsubscribed: n("unsubscribed"),
+          // Two very different things were being reported as one: people the
+          // funnel is right not to email, and sends that actually failed.
+          not_emailed_no_optin_or_unsubscribed: ev.filter((x) => x.event === "blocked" && /opt-?in|unsubscribed|do-not-contact|suppressed/i.test(x.detail || "")).length,
+          failed_to_send: ev.filter((x) => x.event === "blocked" && !/opt-?in|unsubscribed|do-not-contact|suppressed/i.test(x.detail || "")).length,
           recent_problems: problems,
           now: new Date().toISOString(),
         };
-        const prompt = `You are the email-marketing analyst for TMKE, a UK marketing agency. Below are the live numbers for one email funnel. Write a short plain-English summary for a non-technical marketer: first ONE paragraph (3-5 sentences, British English, no jargon, no bullet lists in this paragraph) on how the funnel is performing - be honest, specific and use the actual numbers, mention open/click rates only if delivery numbers exist, and don't invent anything not in the data. Then a line "Actions:" followed by either "none needed." or 1-3 short bullet points of things to do BEFORE the next email goes out (e.g. bounces to investigate, spam complaints, many contacts blocked for missing opt-in, nothing scheduled). If very little has happened yet, say so simply. Total under 160 words.\n\nDATA:\n${JSON.stringify(facts, null, 2)}`;
+        const prompt = `You are the email-marketing analyst for TMKE, a UK marketing agency. Below are the live numbers for one email funnel. Write a short plain-English summary for a non-technical marketer: first ONE paragraph (3-5 sentences, British English, no jargon, no bullet lists in this paragraph) on how the funnel is performing - be honest, specific and use the actual numbers, mention open/click rates only if delivery numbers exist, and don't invent anything not in the data. Then a line "Actions:" followed by either "none needed." or 1-3 short bullet points of things to do BEFORE the next email goes out (e.g. bounces to investigate, spam complaints, many contacts blocked for missing opt-in, nothing scheduled). If very little has happened yet, say so simply. Contacts "not emailed" for no opt-in or unsubscribing are the funnel working as intended, not a fault - only "failed_to_send" is a problem. Write plain text only: no markdown, no asterisks, no bold; bullets start with "- ". Total under 160 words.\n\nDATA:\n${JSON.stringify(facts, null, 2)}`;
         let text = "";
         try {
           const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -5168,6 +5195,9 @@ export default {
           if (!aiRes.ok) return json({ error: (j.error && j.error.message) || "AI request failed." }, 502, request, env);
           text = ((j.content || []).find((p) => p.type === "text") || {}).text || "";
         } catch (_) { return json({ error: "AI request failed." }, 502, request, env); }
+        // Belt and braces: the box shows plain text, so strip any markdown the
+        // model adds anyway rather than showing literal asterisks.
+        text = text.replace(/\*\*(.+?)\*\*/g, "$1").replace(/(^|\s)\*(\S.*?)\*(?=\s|$)/g, "$1$2").replace(/^#+\s*/gm, "");
         return json({ ok: true, summary: text.trim() }, 200, request, env);
       }
 
@@ -5208,7 +5238,10 @@ export default {
         // opens/bounces count against the right funnel in the insights.
         let sentRow = null;
         if (msgId) {
-          const rows = await sbGet(env, "email_events", `message_id=eq.${encodeURIComponent(msgId)}&event=eq.sent&select=automation_id,enrollment_id,subject,email&limit=1`);
+          const q = (cols) => sbGet(env, "email_events", `message_id=eq.${encodeURIComponent(msgId)}&event=eq.sent&select=${cols}&limit=1`);
+          let rows = await q("automation_id,enrollment_id,node_id,subject,email");
+          // node_id arrives with a migration; before it runs, ask without it.
+          if (!rows) rows = await q("automation_id,enrollment_id,subject,email");
           sentRow = rows && rows[0];
         }
         const addr = String((Array.isArray(d.to) ? d.to[0] : d.to) || (sentRow && sentRow.email) || "").toLowerCase();
@@ -5225,6 +5258,7 @@ export default {
           raw: evt, occurredAt: evt.created_at || null,
           automationId: (sentRow && sentRow.automation_id) || null,
           enrollmentId: (sentRow && sentRow.enrollment_id) || null,
+          nodeId: (sentRow && sentRow.node_id) || null,
         });
         // CRM actions, per the suppression plan.
         if (contact) {

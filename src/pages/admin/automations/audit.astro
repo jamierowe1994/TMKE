@@ -43,7 +43,15 @@ import "../../../styles/admin.css";
 
     <!-- Insights — what happened to this funnel's emails, fed by the Resend
          webhook. Hidden until there are events to show. -->
-    <div class="aud-stats" id="aud-stats" hidden></div>
+    <section class="aud-ins" id="aud-ins" hidden>
+      <div class="aud-ins-head">
+        <h2 class="aud-ins-h">Email insights</h2>
+        <span class="aud-ins-sub">Rates are out of emails delivered. Opens and clicks count each person once.</span>
+      </div>
+      <p class="aud-ins-warn" id="aud-ins-warn" hidden></p>
+      <div class="aud-stats" id="aud-stats"></div>
+      <div class="aud-ins-wrap"><table class="aud-ins-table" id="aud-ins-table"></table></div>
+    </section>
     <!-- AI read on the numbers + anything to do before the next send. -->
     <div class="aud-ai" id="aud-ai" hidden></div>
     <p class="aud-retry-msg" id="aud-retry-msg" hidden></p>
@@ -66,7 +74,24 @@ import "../../../styles/admin.css";
     .aud-title { font-family: var(--serif); font-size: 26px; font-weight: 500; color: var(--ink); margin: 8px 0 2px; }
     .aud-sub { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 0; }
     .aud-loading, .aud-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); padding: 24px 0; }
-    .aud-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 4px; }
+    .aud-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 4px; }
+    .aud-ins { margin: 18px 0 6px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 18px 20px 16px; }
+    .aud-ins-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .aud-ins-h { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); margin: 0; }
+    .aud-ins-sub { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); }
+    .aud-ins-warn { font-family: var(--sans); font-size: 13px; line-height: 1.5; margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: rgba(227,160,8,0.12); color: #7a5405; }
+    .aud-ins .aud-stat { background: var(--paper, #f4f2f1); border-color: transparent; }
+    .aud-ins-wrap { overflow-x: auto; margin-top: 14px; }
+    .aud-ins-table { width: 100%; min-width: 760px; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .aud-ins-table th { text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 0 12px 8px 0; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
+    .aud-ins-table th:first-child, .aud-ins-table td:first-child { text-align: left; }
+    .aud-ins-table td { text-align: right; padding: 11px 12px 11px 0; border-bottom: 1px solid rgba(28,29,34,0.07); vertical-align: top; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .aud-ins-table td:first-child { white-space: normal; }
+    .aud-ins-table td b { font-weight: 700; color: var(--ink); }
+    .aud-ins-table td small { display: block; font-size: 11px; color: rgba(28,29,34,0.45); margin-top: 2px; }
+    .aud-ins-table .ins-name { font-weight: 600; color: var(--ink); }
+    .aud-ins-table .ins-when { font-size: 11.5px; color: rgba(28,29,34,0.5); }
+    .aud-ins-table tr.is-waiting td { color: rgba(28,29,34,0.4); }
     .aud-stat { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 16px; min-width: 92px; }
     .aud-stat b { display: block; font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.1; }
     .aud-stat span { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
@@ -145,23 +170,131 @@ import "../../../styles/admin.css";
     // email_events_automation.sql migration hasn't run yet.
     async function loadStats() {
       try {
-        const { data: ev, error } = await supabase.from("email_events").select("event, contact_id").eq("automation_id", id).limit(10000);
-        if (error || !ev || !ev.length) return;
-        const count = (e) => ev.filter((x) => x.event === e).length;
-        const unique = (e) => new Set(ev.filter((x) => x.event === e).map((x) => x.contact_id || Math.random())).size;
-        const sent = count("sent"), delivered = count("delivered");
-        const opened = unique("opened"), clicked = unique("clicked");
-        const bounced = count("bounced"), complained = count("complained"), blocked = count("blocked");
-        const pct = (n, of) => (of ? ` <small>${Math.round((n / of) * 100)}%</small>` : "");
-        const stat = (label, n, extra = "", bad = false) => (n || label === "Sent" ? `<div class="aud-stat${bad && n ? " is-bad" : ""}"><b>${n}</b><span>${label}</span>${extra}</div>` : "");
+        // node_id arrives with a migration; before it has run, ask without it.
+        let res = await supabase.from("email_events")
+          .select("event, contact_id, email, node_id, subject, message_id, provider, detail, occurred_at")
+          .eq("automation_id", id).order("occurred_at", { ascending: true }).limit(20000);
+        if (res.error) {
+          res = await supabase.from("email_events")
+            .select("event, contact_id, email, subject, message_id, provider, detail, occurred_at")
+            .eq("automation_id", id).order("occurred_at", { ascending: true }).limit(20000);
+        }
+        const ev = (res.data || []);
+        const { data: autoRow } = await supabase.from("automations").select("graph").eq("id", id).maybeSingle();
+        const nodes = ((autoRow && autoRow.graph && autoRow.graph.nodes) || []);
+        const sendNodes = nodes.filter((n) => n.type === "send_email");
+        if (!ev.length && !sendNodes.length) return;
+
+        // Which email each event belongs to. Our own "sent" row knows the step
+        // (and the subject); the provider's delivered/opened/clicked reports
+        // are tied back to it through the message id.
+        const byMsg = new Map();
+        ev.filter((e) => e.event === "sent" && e.message_id).forEach((e) => byMsg.set(e.message_id, e));
+        const keyOf = (e) => {
+          if (e.node_id) return "n:" + e.node_id;
+          const s = e.message_id && byMsg.get(e.message_id);
+          if (s && s.node_id) return "n:" + s.node_id;
+          const subj = (s && s.subject) || e.subject;
+          return subj ? "s:" + subj : "";
+        };
+
+        // Template names, for steps that don't override the subject.
+        const tplIds = [...new Set(sendNodes.map((n) => n.config && n.config.template_id).filter(Boolean))];
+        const tplName = new Map();
+        if (tplIds.length) {
+          const { data: tpls } = await supabase.from("email_templates").select("id, name, subject").in("id", tplIds);
+          (tpls || []).forEach((t) => tplName.set(t.id, t));
+        }
+        const groups = new Map();
+        const group = (key) => {
+          if (!groups.has(key)) groups.set(key, { key, name: "", when: "", first: null, ev: [] });
+          return groups.get(key);
+        };
+        // Every email in the funnel gets a row, sent yet or not.
+        sendNodes.forEach((n) => {
+          const c = n.config || {};
+          const t = tplName.get(c.template_id);
+          const g = group("n:" + n.id);
+          g.name = (c.subject && String(c.subject).trim()) || (t && (t.subject || t.name)) || "Email";
+          g.when = c.send_on ? "Scheduled " + new Date(c.send_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }) + (c.send_at ? ", " + c.send_at : "") : "";
+          g.order = nodes.indexOf(n);
+        });
+        ev.forEach((e) => {
+          const k = keyOf(e);
+          const g = group(k || "other");
+          if (!g.name) g.name = k.startsWith("s:") ? k.slice(2) : "Across the funnel";
+          g.ev.push(e);
+          if (e.event === "sent" && (!g.first || e.occurred_at < g.first)) g.first = e.occurred_at;
+        });
+
+        const who = (e) => e.contact_id || e.email || Math.random();
+        const uniq = (list, name) => new Set(list.filter((x) => x.event === name).map(who)).size;
+        const count = (list, name) => list.filter((x) => x.event === name).length;
+        // "Not sent" splits two very different things: people the funnel is
+        // right not to email (no opt-in, unsubscribed), and sends that failed.
+        const gateReason = /opt-?in|unsubscribed|do-not-contact|suppressed/i;
+        const stats = (list) => {
+          const sent = count(list, "sent");
+          const delivered = uniq(list, "delivered");
+          return {
+            sent, delivered,
+            opened: uniq(list, "opened"), clicked: uniq(list, "clicked"),
+            unsub: uniq(list, "unsubscribed"),
+            bounced: uniq(list, "bounced"), spam: uniq(list, "complained"),
+            skipped: list.filter((x) => x.event === "blocked" && gateReason.test(x.detail || "")).length,
+            failed: list.filter((x) => x.event === "blocked" && !gateReason.test(x.detail || "")).length,
+            base: delivered || sent,
+          };
+        };
+        const pct = (n, of) => (of ? Math.round((n / of) * 100) + "%" : "");
+        const all = stats(ev);
+
+        const stat = (label, n, rate, bad) => `<div class="aud-stat${bad && n ? " is-bad" : ""}"><b>${n}</b><span>${label}</span>${rate ? `<small>${rate}</small>` : ""}</div>`;
         $("aud-stats").innerHTML =
-          stat("Sent", sent) + stat("Delivered", delivered, pct(delivered, sent)) +
-          stat("Opened", opened, pct(opened, delivered || sent)) + stat("Clicked", clicked, pct(clicked, delivered || sent)) +
-          stat("Bounced", bounced, "", true) + stat("Spam reports", complained, "", true) +
-          stat("Not sent", blocked, "<small>opt-out / suppressed</small>");
-        $("aud-stats").hidden = false;
-        loadAiSummary();   // only worth asking the AI once something has happened
-      } catch (_) { /* stats are a bonus, never break the audit */ }
+          stat("Sent", all.sent) +
+          stat("Delivered", all.delivered, pct(all.delivered, all.sent)) +
+          stat("Opened", all.opened, pct(all.opened, all.base)) +
+          stat("Clicked", all.clicked, pct(all.clicked, all.base)) +
+          stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true) +
+          (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true) : "") +
+          (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
+          (all.skipped ? stat("Not emailed", all.skipped, "no opt-in or unsubscribed") : "") +
+          (all.failed ? stat("Failed", all.failed, "didn't send", true) : "");
+
+        const rows = [...groups.values()]
+          .filter((g) => g.ev.length || g.key.startsWith("n:"))
+          .sort((x, y) => {
+            if (x.first && y.first) return x.first < y.first ? -1 : 1;
+            if (x.first) return -1; if (y.first) return 1;
+            return (x.order ?? 999) - (y.order ?? 999);
+          });
+        const cell = (n, rate) => `<td><b>${n}</b>${rate ? `<small>${rate}</small>` : ""}</td>`;
+        $("aud-ins-table").innerHTML = `<thead><tr><th>Email</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Unsubscribed</th><th>Bounced</th></tr></thead><tbody>` +
+          rows.map((g) => {
+            const t = stats(g.ev);
+            const sentOn = g.first ? "Sent " + new Date(g.first).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : (g.when || "Not sent yet");
+            return `<tr class="${t.sent ? "" : "is-waiting"}"><td><div class="ins-name">${esc(g.name)}</div><div class="ins-when">${esc(sentOn)}</div></td>` +
+              cell(t.sent) + cell(t.delivered, pct(t.delivered, t.sent)) + cell(t.opened, pct(t.opened, t.base)) +
+              cell(t.clicked, pct(t.clicked, t.base)) + cell(t.unsub, pct(t.unsub, t.base)) + cell(t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
+          }).join("") + `</tbody>`;
+
+        // Say so when the numbers can't be right, rather than showing zeros
+        // that look like nobody opened anything.
+        const resendSent = ev.filter((e) => e.event === "sent" && e.provider === "resend");
+        const oldest = resendSent.length ? new Date(resendSent[0].occurred_at).getTime() : 0;
+        const warn = $("aud-ins-warn");
+        const heard = ev.some((e) => e.provider === "resend" && e.event !== "sent");
+        if (resendSent.length && !heard && Date.now() - oldest > 60 * 60e3) {
+          warn.hidden = false;
+          warn.textContent = "Resend hasn't reported back on any of these emails yet, so delivered, opened and clicked can't be counted. That usually means the webhook isn't set up in the Resend account that sends them (Resend → Webhooks).";
+        } else if (all.delivered >= 20 && !all.opened && !all.clicked) {
+          warn.hidden = false;
+          warn.textContent = "Deliveries are coming through but no opens or clicks at all - open and click tracking are probably switched off for tmke.co.uk in Resend (Domains → tmke.co.uk → Configuration).";
+        } else warn.hidden = true;
+
+        $("aud-ins").hidden = false;
+        if (ev.length) loadAiSummary();   // only worth asking the AI once something has happened
+      } catch (_) { /* insights are a bonus, never break the audit */ }
     }
 
     // The AI's read on the funnel — only asked for once there are events, and
