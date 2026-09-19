@@ -173,12 +173,15 @@ import "../../../styles/admin.css";
       // Running funnels first, then the ones being built, with archived tucked
       // into a collapsed drawer so a long history never buries the live work.
       const running = rows.filter((a) => a.status === "active");
-      const building = rows.filter((a) => a.status === "draft" || a.status === "paused");
+      // Paused is a live funnel on hold, not one being built - its own group.
+      const paused = rows.filter((a) => a.status === "paused");
+      const building = rows.filter((a) => a.status === "draft");
       const archived = rows.filter((a) => a.status === "archived");
       const section = (title, items) => items.length ? `<div class="auto-sec-h">${title} (${items.length})</div><div class="auto-grid">${items.map(card).join("")}</div>` : "";
       $("auto-sections").innerHTML =
         section("Running", running)
-        + section("Drafts & paused", building)
+        + section("Paused", paused)
+        + section("Drafts", building)
         + (archived.length ? `<details class="auto-collapsed"><summary>Archived (${archived.length})</summary><div class="auto-grid">${archived.map(card).join("")}</div></details>` : "")
         + (!rows.length && ALL.length ? '<p class="auto-loading">Nothing matches that filter.</p>' : "");
     }
@@ -296,8 +299,12 @@ import "../../../styles/admin.css";
       if (dup) {
         const src = ALL.find((a) => a.id === dup);
         if (!src) return;
+        // A copy is a brand-new funnel: a draft, with none of the original's
+        // life story (went live, paused, archived) carried across.
+        const graphCopy = JSON.parse(JSON.stringify(src.graph || { nodes: [], edges: [] }));
+        if (graphCopy.meta) { ["went_live_at", "paused_at", "archived_at", "reactivated_at"].forEach((k) => delete graphCopy.meta[k]); }
         const { error } = await supabase.from("automations").insert({
-          name: src.name + " (copy)", trigger_type: src.trigger_type, trigger_config: src.trigger_config, graph: src.graph, status: "draft",
+          name: src.name + " (copy)", trigger_type: src.trigger_type, trigger_config: src.trigger_config, graph: graphCopy, status: "draft",
         });
         if (error) { alert("Couldn't duplicate: " + error.message); return; }
         await load();

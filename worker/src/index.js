@@ -2499,6 +2499,9 @@ async function advanceEnrollment(env, enr) {
   const stop = (status, extra) => sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { status, ...(extra || {}) });
   const aRows = await sbGet(env, "automations", `id=eq.${enr.automation_id}&select=id,status,graph`);
   const auto = aRows && aRows[0];
+  // Paused: nothing happens and nothing moves. The tick doesn't pick these
+  // up at all (see runAutomationsTick); this is the belt to that brace.
+  if (auto && auto.status === "paused") return null;
   if (!auto || auto.status !== "active") return stop("stopped");
   const cRows = await sbGet(env, "contacts", `id=eq.${enr.contact_id}&select=*`);
   const contact = cRows && cRows[0];
@@ -2550,9 +2553,77 @@ async function advanceEnrollment(env, enr) {
   return sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { current_node_id: cur, next_run_at: new Date(Date.now() + 60e3).toISOString() });
 }
 
+// ---- Funnel lifecycle: draft -> active <-> paused -> archived --------------
+// Draft exists only before a funnel first goes live. Paused freezes everyone
+// where they are. Archived is the end: everyone still in it is taken out, and
+// it never comes back (duplicate it to start again). The rules live here, not
+// only in the editor, so no other screen can break them.
+const FUNNEL_MOVES = {
+  draft: ["draft", "active"],
+  active: ["active", "paused", "archived"],
+  paused: ["paused", "active", "archived"],
+  archived: ["archived"],
+};
+function funnelHasBeenLive(auto) {
+  const meta = (auto && auto.graph && auto.graph.meta) || {};
+  return !!meta.went_live_at || (auto && auto.status && auto.status !== "draft");
+}
+
+// What reactivating a paused funnel would do, worked out without doing it.
+// Used twice: to show the review screen, and again when it's applied (so the
+// answer is current, not whatever was true when the screen opened).
+async function funnelReactivationPlan(env, auto) {
+  const aid = encodeURIComponent(auto.id);
+  const nodes = ((auto.graph || {}).nodes) || [];
+  const now = Date.now();
+  const enrs = ((await sbGet(env, "automation_enrollments", `automation_id=eq.${aid}&select=id,contact_id,status,current_node_id,next_run_at&limit=20000`)) || []);
+  const live = enrs.filter((e) => e.status === "active" || e.status === "waiting");
+  // Which send steps each person has already been through.
+  const runs = (await sbGet(env, "automation_runs", `automation_id=eq.${aid}&node_type=eq.send_email&select=enrollment_id,node_id&limit=50000`)) || [];
+  const passed = new Set(runs.map((r) => `${r.enrollment_id}|${r.node_id}`));
+
+  // Emails on a fixed date whose date has gone while it was paused, and who
+  // hasn't had them yet.
+  const missed = nodes.filter((n) => n.type === "send_email" && n.config && /^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || "")))
+    .filter((n) => msUntilSendMoment(n.config.send_on, n.config.send_at) === 0)
+    .map((n) => ({ node_id: n.id, send_on: n.config.send_on, send_at: n.config.send_at || "09:00", subject: n.config.subject || null, template_id: n.config.template_id || null,
+      waiting: live.filter((e) => !passed.has(`${e.id}|${n.id}`)).length }))
+    .filter((m) => m.waiting > 0);
+  const missedIds = new Set(missed.map((m) => m.node_id));
+
+  // Everyone else whose next step fell due during the pause: a wait ran out.
+  const overdue = live.filter((e) => e.status === "active" && e.next_run_at && new Date(e.next_run_at).getTime() < now && !missedIds.has(e.current_node_id));
+
+  // The audience, rechecked: a funnel that starts from a group of tags gains
+  // anyone who has joined the group and loses anyone who has left it.
+  let joiners = [], leavers = [];
+  if (auto.trigger_type === "audience") {
+    const tags = Array.isArray((auto.trigger_config || {}).tags) ? auto.trigger_config.tags.filter(Boolean) : [];
+    if (tags.length) {
+      const list = `{${tags.map((t) => `"${String(t).replace(/"/g, "")}"`).join(",")}}`;
+      const matched = (await sbGet(env, "contacts", `tags=ov.${encodeURIComponent(list)}&select=id&limit=20000`)) || [];
+      const matchedIds = new Set(matched.map((c) => c.id));
+      const everEnrolled = new Set(enrs.map((e) => e.contact_id));
+      joiners = matched.filter((c) => !everEnrolled.has(c.id)).map((c) => c.id);
+      leavers = live.filter((e) => !matchedIds.has(e.contact_id)).map((e) => e.id);
+    }
+  }
+  return {
+    missed, overdue: overdue.map((e) => e.id), overdue_count: overdue.length,
+    joiners, leavers, in_funnel: live.length,
+    paused_at: ((auto.graph || {}).meta || {}).paused_at || null,
+    audience: auto.trigger_type === "audience",
+  };
+}
+
 async function runAutomationsTick(env) {
   if (!env.SUPABASE_SERVICE_ROLE) return 0;
-  const due = (await sbGet(env, "automation_enrollments", `status=eq.active&next_run_at=lte.${encodeURIComponent(nowISO())}&select=*&order=next_run_at.asc&limit=50`)) || [];
+  // A paused funnel's people stay put, so leave them out of the query
+  // entirely - otherwise their overdue steps sit at the front of the queue
+  // every five minutes and crowd out the funnels that are running.
+  const paused = ((await sbGet(env, "automations", "status=eq.paused&select=id")) || []).map((a) => a.id);
+  const notPaused = paused.length ? `&automation_id=not.in.(${paused.map(encodeURIComponent).join(",")})` : "";
+  const due = (await sbGet(env, "automation_enrollments", `status=eq.active&next_run_at=lte.${encodeURIComponent(nowISO())}${notPaused}&select=*&order=next_run_at.asc&limit=50`)) || [];
   for (const enr of due) {
     try { await advanceEnrollment(env, enr); }
     catch (_) { await sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { status: "error" }); }
@@ -5079,6 +5150,110 @@ export default {
       // A plain-English read on how a funnel is performing, plus anything that
       // needs doing before the next email goes out. Regenerated on each request
       // from the live numbers, so it keeps up as sends happen.
+      // ---- Funnel lifecycle ------------------------------------------------
+      // Review: what reactivating a paused funnel would do. Nothing changes.
+      if (path.endsWith("/automations/reactivation-review") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const aRows = b.automation_id ? await sbGet(env, "automations", `id=eq.${encodeURIComponent(b.automation_id)}&select=id,status,graph,trigger_type,trigger_config`) : null;
+        const auto = aRows && aRows[0];
+        if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        if (auto.status !== "paused") return json({ error: "This funnel isn't paused." }, 400, request, env);
+        const plan = await funnelReactivationPlan(env, auto);
+        return json({ ok: true, missed: plan.missed, overdue: plan.overdue_count, joiners: plan.joiners.length, leavers: plan.leavers.length,
+          in_funnel: plan.in_funnel, paused_at: plan.paused_at, audience: plan.audience }, 200, request, env);
+      }
+
+      // Change a funnel's status, applying what the change means.
+      // Body: { automation_id, status, resume_at?, reschedule?: { [nodeId]: { send_on, send_at, at } } }
+      if (path.endsWith("/automations/set-status") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const aRows = b.automation_id ? await sbGet(env, "automations", `id=eq.${encodeURIComponent(b.automation_id)}&select=id,status,graph,trigger_type,trigger_config`) : null;
+        const auto = aRows && aRows[0];
+        if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        const from = auto.status || "draft", to = String(b.status || "");
+        if (!FUNNEL_MOVES[from] || !FUNNEL_MOVES[from].includes(to)) {
+          const why = from === "archived" ? "An archived funnel can't be changed - duplicate it to start a new one."
+            : to === "draft" ? "A funnel that has been live can't go back to draft. Pause it to make changes, or archive it to end it."
+            : `Can't go from ${from} to ${to}.`;
+          return json({ error: why }, 409, request, env);
+        }
+        const aid = encodeURIComponent(auto.id);
+        const graph = auto.graph || { nodes: [], edges: [] };
+        graph.meta = { ...(graph.meta || {}) };
+        const nowIso = nowISO();
+        const out = { ok: true, status: to };
+
+        if (to === "paused" && from !== "paused") {
+          graph.meta.paused_at = nowIso;
+        }
+        if (to === "archived" && from !== "archived") {
+          // The end of the funnel: everyone still in it leaves now.
+          graph.meta.archived_at = nowIso;
+          const r = await fetch(`${env.SUPABASE_URL}/rest/v1/automation_enrollments?automation_id=eq.${aid}&status=in.(active,waiting)`, {
+            method: "PATCH",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" },
+            body: JSON.stringify({ status: "stopped" }),
+          });
+          const stopped = r.ok ? await r.json().catch(() => []) : [];
+          out.taken_out = Array.isArray(stopped) ? stopped.length : 0;
+        }
+        if (to === "active" && from === "draft") {
+          graph.meta.went_live_at = graph.meta.went_live_at || nowIso;
+        }
+        if (to === "active" && from === "paused") {
+          const plan = await funnelReactivationPlan(env, auto);
+          const resumeAt = b.resume_at && !isNaN(new Date(b.resume_at)) ? new Date(b.resume_at).toISOString() : nowIso;
+          // Missed fixed-date emails: move each to the date and time chosen.
+          const re = b.reschedule || {};
+          for (const m of plan.missed) {
+            const pick = re[m.node_id] || {};
+            const node = (graph.nodes || []).find((n) => n.id === m.node_id);
+            if (!node) continue;
+            node.config = node.config || {};
+            if (/^\d{4}-\d{2}-\d{2}$/.test(String(pick.send_on || ""))) node.config.send_on = pick.send_on;
+            if (/^([01]?\d|2[0-3]):[0-5]\d$/.test(String(pick.send_at || ""))) node.config.send_at = pick.send_at;
+            // People already held at this email pick the new moment up now.
+            const at = pick.at && !isNaN(new Date(pick.at)) ? new Date(pick.at).toISOString() : resumeAt;
+            await sbPatch(env, "automation_enrollments", `automation_id=eq.${aid}&current_node_id=eq.${encodeURIComponent(m.node_id)}&status=eq.active`, { next_run_at: at });
+          }
+          // Waits that ran out during the pause carry on from the moment chosen.
+          for (let i = 0; i < plan.overdue.length; i += 150) {
+            const ids = plan.overdue.slice(i, i + 150).map(encodeURIComponent).join(",");
+            await sbPatch(env, "automation_enrollments", `id=in.(${ids})`, { next_run_at: resumeAt });
+          }
+          // The audience, rechecked.
+          if (plan.leavers.length) {
+            for (let i = 0; i < plan.leavers.length; i += 150) {
+              const ids = plan.leavers.slice(i, i + 150).map(encodeURIComponent).join(",");
+              await sbPatch(env, "automation_enrollments", `id=in.(${ids})`, { status: "stopped" });
+            }
+          }
+          let joined = 0;
+          if (plan.joiners.length) {
+            const firstId = autoEdgeTo(graph, "trigger", "next");
+            const tags = Array.isArray((auto.trigger_config || {}).tags) ? auto.trigger_config.tags.filter(Boolean) : [];
+            if (firstId) for (const cid of plan.joiners) {
+              const res = await sbPost(env, "automation_enrollments", {
+                automation_id: auto.id, contact_id: cid, status: "active",
+                current_node_id: firstId, next_run_at: resumeAt, context: { audience: tags },
+              });
+              if (res && res.ok) joined++;
+            }
+          }
+          delete graph.meta.paused_at;
+          graph.meta.reactivated_at = nowIso;
+          Object.assign(out, { rescheduled: plan.missed.length, carried_on: plan.overdue.length, joined, taken_out: plan.leavers.length });
+        }
+
+        const save = await sbPatch(env, "automations", `id=eq.${aid}`, { status: to, graph });
+        if (!save || !save.ok) return json({ error: "Couldn't save the funnel's status." }, 502, request, env);
+        return json(out, 200, request, env);
+      }
+
       // ---- Resend the emails a funnel failed to send ------------------------
       // For when a send step errored for a reason that has since been fixed (a
       // bad API key, say). Finds every contact whose most recent attempt at a
@@ -5097,9 +5272,10 @@ export default {
         const b = await request.json().catch(() => ({}));
         if (!b.automation_id) return json({ error: "No automation id." }, 400, request, env);
         const aid = encodeURIComponent(b.automation_id);
-        const aRows = await sbGet(env, "automations", `id=eq.${aid}&select=id,graph`);
+        const aRows = await sbGet(env, "automations", `id=eq.${aid}&select=id,status,graph`);
         const auto = aRows && aRows[0];
         if (!auto) return json({ error: "Automation not found." }, 404, request, env);
+        if (auto.status === "paused" && !b.dry_run) return json({ error: "This funnel is paused - reactivate it first." }, 409, request, env);
         const nodes = ((auto.graph || {}).nodes) || [];
         const runs = (await sbGet(env, "automation_runs", `automation_id=eq.${aid}&node_type=eq.send_email&select=enrollment_id,contact_id,node_id,outcome,created_at&order=created_at.asc&limit=10000`)) || [];
         // The latest attempt per contact per send step decides it.

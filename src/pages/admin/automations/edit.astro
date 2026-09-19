@@ -23,6 +23,43 @@ import "../../../styles/admin.css";
       </div>
     </section>
 
+    <!-- Where the funnel is in its life: paused since…, archived on… -->
+    <p class="af-life" id="af-life" hidden></p>
+
+    <!-- Reactivating a paused funnel: what fell due while it was paused, and
+         when it should carry on. Nothing goes live until Reactivate. -->
+    <div class="af-rv-wrap" id="af-rv" hidden>
+      <div class="af-rv" role="dialog" aria-modal="true" aria-labelledby="af-rv-h">
+        <h2 class="af-rv-h" id="af-rv-h">Reactivate this funnel</h2>
+        <p class="af-rv-sub" id="af-rv-sub"></p>
+        <div class="af-rv-sec">
+          <h3>Carry on from</h3>
+          <div class="af-rv-when">
+            <label><input type="radio" name="af-rv-mode" value="now" checked /> Now</label>
+            <label><input type="radio" name="af-rv-mode" value="at" /> A date and time</label>
+            <input type="date" id="af-rv-date" disabled />
+            <input type="time" id="af-rv-time" disabled />
+          </div>
+          <p class="af-rv-note" id="af-rv-overdue"></p>
+        </div>
+        <div class="af-rv-sec" id="af-rv-missed-sec" hidden>
+          <h3>Emails missed while it was paused</h3>
+          <p class="af-rv-note">Each one is set to go when the funnel carries on. Change the date or time if you'd rather it went later.</p>
+          <div id="af-rv-missed"></div>
+          <p class="af-rv-warn" id="af-rv-order" hidden></p>
+        </div>
+        <div class="af-rv-sec" id="af-rv-aud-sec" hidden>
+          <h3>Who's in it</h3>
+          <p class="af-rv-note" id="af-rv-aud"></p>
+        </div>
+        <p class="af-rv-msg" id="af-rv-msg" hidden></p>
+        <div class="af-rv-foot">
+          <button type="button" class="admin-btn admin-btn-ghost" id="af-rv-cancel">Cancel - keep it paused</button>
+          <button type="button" class="admin-btn admin-btn-primary" id="af-rv-go">Reactivate</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Mailchimp-style setup: answer the questions, then build the journey.
          All dropdowns are custom (open below, solid white) — the native OS
          menus looked translucent-grey and opened wherever they liked. -->
@@ -88,6 +125,28 @@ import "../../../styles/admin.css";
   </div>
 
   <style is:global>
+    /* ---- Funnel lifecycle ---- */
+    .af-life { font-family: var(--sans); font-size: 13px; margin: 10px 0 0; padding: 10px 14px; border-radius: 8px; background: rgba(227,160,8,0.12); color: #7a5405; }
+    .af-life.is-archived { background: rgba(28,29,34,0.06); color: rgba(28,29,34,0.7); display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+    .af-life[hidden] { display: none; }
+    .af-page.is-archived .af-setup, .af-page.is-archived .af-stage { pointer-events: none; opacity: 0.55; }
+    .af-rv-wrap { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(28,29,34,0.5); }
+    .af-rv-wrap[hidden] { display: none; }
+    .af-rv { width: min(620px, 100%); max-height: 88vh; overflow: auto; background: #fff; border-radius: 12px; padding: 26px 28px 22px; box-shadow: 0 40px 90px -30px rgba(28,29,34,0.55); font-family: var(--sans); }
+    .af-rv-h { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0 0 4px; }
+    .af-rv-sub { font-size: 13px; color: rgba(28,29,34,0.6); margin: 0 0 16px; }
+    .af-rv-sec { border-top: 1px solid rgba(28,29,34,0.08); padding: 14px 0 6px; }
+    .af-rv-sec h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); margin: 0 0 8px; }
+    .af-rv-when { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 13.5px; }
+    .af-rv-when input[type=date], .af-rv-when input[type=time], .af-rv-row input { padding: 7px 9px; border: 1px solid rgba(28,29,34,0.2); border-radius: 6px; font-family: var(--sans); font-size: 13px; }
+    .af-rv-note { font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 8px 0; }
+    .af-rv-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px dashed rgba(28,29,34,0.1); }
+    .af-rv-row b { display: block; font-size: 13.5px; color: var(--ink); }
+    .af-rv-row small { display: block; font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 2px; }
+    .af-rv-warn { font-size: 12.5px; color: #9a6a04; background: rgba(227,160,8,0.12); padding: 8px 10px; border-radius: 6px; }
+    .af-rv-msg { font-size: 13px; color: #a3372b; margin: 10px 0 0; }
+    .af-rv-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+    @media (max-width: 560px) { .af-rv-row { grid-template-columns: 1fr 1fr; } .af-rv-row > div { grid-column: 1 / -1; } }
     .af-page { padding: 0 !important; display: flex; flex-direction: column; height: calc(100vh - 64px); }
     .af-bar { display: flex; align-items: center; gap: 12px; padding: 16px 22px; border-bottom: 1px solid rgba(28,29,34,0.1); flex-wrap: wrap; }
     .af-name { flex: 1; min-width: 180px; font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); border: 1px solid transparent; border-radius: 6px; padding: 6px 10px; background: transparent; }
@@ -203,6 +262,8 @@ import "../../../styles/admin.css";
     let selectedId = null;
     let pendingAdd = null;    // { parentId, branch } when adding a node
     let triggerConfig = {};   // { tags: [...] } for audience, { tag } for tag added/removed
+    let funnelStatus = "draft";   // as saved - the status menu shows what it can move to
+    let funnelMeta = {};          // lifecycle stamps: went_live_at, paused_at, archived_at
 
     const WORKER = import.meta.env.PUBLIC_R2_WORKER_URL || "";
     let extraTags = [];   // tags in live use that aren't in the framework list (e.g. "Pack Name: …")
@@ -293,8 +354,8 @@ import "../../../styles/admin.css";
     $("af-cpick-enrol").addEventListener("click", async () => {
       const list = chosenList();
       if (!list.length) return;
-      if (!savedId || !automationId) { alert("Save the automation first (as Active), then press Enrol."); return; }
-      if ($("af-status").value !== "active") { alert("Set the status to Active and save, then press Enrol — a draft can't enrol anyone."); return; }
+      if (!savedId || !automationId) { alert("Save the funnel first, then put it live from the status menu (Active) before enrolling anyone."); return; }
+      if (funnelStatus !== "active") { alert(funnelStatus === "paused" ? "This funnel is paused - reactivate it before enrolling anyone." : funnelStatus === "archived" ? "This funnel is archived." : "Put the funnel live first (status menu → Active) - a draft can't enrol anyone."); return; }
       if (!WORKER) { alert("The Worker isn't configured."); return; }
       const btn = $("af-cpick-enrol"); btn.disabled = true; btn.textContent = "Enrolling…";
       try {
@@ -362,7 +423,7 @@ import "../../../styles/admin.css";
       }
       if ($("af-trigger").value === "audience") {
         const n = await audienceCount();
-        bits.push(n == null ? "Everyone with any chosen tag is enrolled when you save as Active — plus anyone who gains one later." : `${n} ${n === 1 ? "person" : "people"} currently match — they're enrolled when you save as Active, plus anyone who gains a tag later.`);
+        bits.push(n == null ? "Everyone with any chosen tag is enrolled when it goes live — plus anyone who gains one later." : `${n} ${n === 1 ? "person" : "people"} currently match — they're enrolled when it goes live, plus anyone who gains a tag later.`);
       }
       $("af-setup-note").textContent = bits.join(" ");
     }
@@ -695,13 +756,227 @@ import "../../../styles/admin.css";
       $("af-name").value = data.name || "";
       $("af-trigger").value = data.trigger_type || "";
       $("af-status").value = data.status || "draft";
+      funnelStatus = data.status || "draft";
+      funnelMeta = (data.graph && data.graph.meta) || {};
       triggerConfig = data.trigger_config || {};
       graph = (data.graph && data.graph.nodes && data.graph.nodes.length) ? data.graph : emptyGraph();
       $("af-kind").value = (graph.meta && graph.meta.kind) === "marketing" ? "marketing" : "service";
       renderTriggerExtras();
       render();
+      applyLifecycle();
       syncDDs();
     }
+
+    // ---- Funnel lifecycle ---------------------------------------------------
+    // Draft only until it first goes live; then Active, Paused, Archived.
+    // Archived is the end - read-only, duplicate it to start again.
+    const STATUS_LABEL = { draft: "Draft", active: "Active", paused: "Paused", archived: "Archived" };
+    const MOVES = { draft: ["draft", "active"], active: ["active", "paused", "archived"], paused: ["paused", "active", "archived"], archived: ["archived"] };
+    const fmtWhen = (iso) => new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+    function applyLifecycle() {
+      const sel = $("af-status");
+      const allowed = MOVES[funnelStatus] || MOVES.draft;
+      sel.innerHTML = allowed.map((v) => `<option value="${v}">${STATUS_LABEL[v]}</option>`).join("");
+      sel.value = funnelStatus;
+      const life = $("af-life");
+      const page = document.querySelector(".af-page");
+      page.classList.toggle("is-archived", funnelStatus === "archived");
+      $("af-save").disabled = funnelStatus === "archived";
+      $("af-name").readOnly = funnelStatus === "archived";
+      if (funnelStatus === "paused") {
+        life.className = "af-life";
+        life.textContent = `Paused${funnelMeta.paused_at ? " since " + fmtWhen(funnelMeta.paused_at) : ""}. Nothing sends and nobody moves until it's reactivated.`;
+        life.hidden = false;
+      } else if (funnelStatus === "archived") {
+        life.className = "af-life is-archived";
+        life.innerHTML = `<span>Archived${funnelMeta.archived_at ? " on " + esc(fmtWhen(funnelMeta.archived_at)) : ""}. This funnel has ended and can't be changed.</span><a class="admin-btn admin-btn-ghost" href="/admin/automations">Duplicate it from the list to start again</a>`;
+        life.hidden = false;
+      } else life.hidden = true;
+    }
+
+    async function workerPost(path, body) {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess?.session?.access_token;
+      const r = await fetch(`${WORKER}${path}`, {
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: token ? "Bearer " + token : "" },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || "Something went wrong.");
+      return d;
+    }
+    // Save the journey as it stands before changing status, so a status change
+    // never throws away edits (and the page reloads from the saved copy after).
+    async function saveFirst() {
+      if (!automationId) return false;
+      graph.meta = { ...funnelMeta, ...(graph.meta || {}) };
+      graph.meta.kind = kindVal();
+      const { error } = await supabase.from("automations").update({
+        name: $("af-name").value.trim() || "Untitled automation",
+        trigger_type: $("af-trigger").value || null, trigger_config: triggerConfig, graph,
+      }).eq("id", automationId);
+      if (error) { alert("Couldn't save first: " + error.message); return false; }
+      return true;
+    }
+    async function setStatus(status, extra) {
+      return workerPost("/automations/set-status", { automation_id: automationId, status, ...(extra || {}) });
+    }
+    async function enrolAudienceNow() {
+      if ($("af-trigger").value !== "audience") return;
+      try {
+        const d = await workerPost("/automations/enroll-audience", { automation_id: automationId });
+        alert(`${d.matched} ${d.matched === 1 ? "person" : "people"} match the chosen tags - ${d.enrolled} enrolled now${d.already ? `, ${d.already} already in the funnel` : ""}.`);
+      } catch (err) { alert("Live, but couldn't enrol the group: " + err.message); }
+    }
+    async function peopleInFunnel() {
+      const { count } = await supabase.from("automation_enrollments").select("id", { count: "exact", head: true })
+        .eq("automation_id", automationId).in("status", ["active", "waiting"]);
+      return count || 0;
+    }
+
+    async function onStatusChosen(next) {
+      const prev = funnelStatus;
+      // Put the menu back until the change has actually happened.
+      $("af-status").value = prev; syncDDs();
+      if (next === prev) return;
+      if (!automationId) { alert("Save the funnel first."); return; }
+      if (!WORKER) { alert("The Worker isn't configured."); return; }
+      const name = $("af-name").value.trim() || "this funnel";
+      try {
+        if (next === "active" && prev === "draft") {
+          if (!confirm(`Put "${name}" live?\n\nOnce it's live it can be paused or archived, but it can't go back to draft.`)) return;
+          if (!(await saveFirst())) return;
+          await setStatus("active");
+          await load();
+          await enrolAudienceNow();
+          return;
+        }
+        if (next === "paused") {
+          if (!confirm(`Pause "${name}"?\n\nNothing will send and nobody will move while it's paused - everyone stays exactly where they are.\n\nWhen you reactivate it, anything that fell due during the pause is shown to you first, to reschedule.`)) return;
+          if (!(await saveFirst())) return;
+          await setStatus("paused");
+          await load();
+          return;
+        }
+        if (next === "archived") {
+          const n = await peopleInFunnel();
+          if (!confirm(`Archive "${name}"?\n\nThis ends the funnel for good.${n ? ` The ${n} ${n === 1 ? "person" : "people"} still in it will be taken out now, and nothing more will be sent to them.` : ""}\n\nAn archived funnel can't be reactivated or edited. You can duplicate it to start a new one.`)) return;
+          const d = await setStatus("archived");
+          await load();
+          if (d.taken_out) alert(`Archived. ${d.taken_out} ${d.taken_out === 1 ? "person was" : "people were"} taken out of the funnel.`);
+          return;
+        }
+        if (next === "active" && prev === "paused") {
+          if (!(await saveFirst())) return;
+          await openReview();
+          return;
+        }
+      } catch (err) { alert(err.message); }
+    }
+    $("af-status").addEventListener("change", () => onStatusChosen($("af-status").value));
+
+    // ---- The reactivation review ---------------------------------------------
+    let rvMissed = [];
+    const pad = (n) => String(n).padStart(2, "0");
+    const localDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const localTime = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    function carryOnMoment() {
+      if (document.querySelector('input[name="af-rv-mode"]:checked').value === "now") return new Date();
+      const dt = $("af-rv-date").value, tm = $("af-rv-time").value || "09:00";
+      return dt ? new Date(`${dt}T${tm}`) : new Date();
+    }
+    function refreshMissedDefaults() {
+      const m = carryOnMoment();
+      document.querySelectorAll(".af-rv-row").forEach((row) => {
+        if (row.dataset.touched) return;
+        row.querySelector('[data-f="date"]').value = localDate(m);
+        row.querySelector('[data-f="time"]').value = localTime(m);
+      });
+      checkOrder();
+    }
+    // A rescheduled email landing after a later email's own date would send
+    // them out of order - say so.
+    function checkOrder() {
+      const warn = $("af-rv-order");
+      const later = (graph.nodes || []).filter((n) => n.type === "send_email" && n.config && n.config.send_on && !rvMissed.some((m) => m.node_id === n.id));
+      const clashes = [];
+      document.querySelectorAll(".af-rv-row").forEach((row) => {
+        const at = new Date(`${row.querySelector('[data-f="date"]').value}T${row.querySelector('[data-f="time"]').value || "09:00"}`);
+        later.forEach((n) => {
+          const theirs = new Date(`${n.config.send_on}T${n.config.send_at || "09:00"}`);
+          if (theirs > new Date() && at > theirs) clashes.push(`${row.dataset.name} would now go after "${n.config.subject || "a later email"}" (${fmtWhen(theirs.toISOString())}).`);
+        });
+      });
+      warn.hidden = !clashes.length;
+      warn.textContent = clashes.join(" ");
+    }
+    async function openReview() {
+      const d = await workerPost("/automations/reactivation-review", { automation_id: automationId });
+      rvMissed = d.missed || [];
+      const name = $("af-name").value.trim() || "this funnel";
+      $("af-rv-h").textContent = `Reactivate "${name}"`;
+      $("af-rv-sub").textContent = `Paused${d.paused_at ? " since " + fmtWhen(d.paused_at) : ""} · ${d.in_funnel} ${d.in_funnel === 1 ? "person" : "people"} in the funnel.`;
+      $("af-rv-overdue").textContent = d.overdue
+        ? `${d.overdue} ${d.overdue === 1 ? "person's" : "people's"} wait ran out while it was paused. They carry on from this moment, then every step after keeps its normal spacing.`
+        : "Nobody's wait ran out while it was paused.";
+      const tplName = (id) => (templates.find((t) => t.id === id) || {}).name;
+      $("af-rv-missed").innerHTML = rvMissed.map((m) => {
+        const label = m.subject || tplName(m.template_id) || "Email";
+        return `<div class="af-rv-row" data-node="${esc(m.node_id)}" data-name="${esc(label)}">
+          <div><b>${esc(label)}</b><small>Was due ${esc(fmtWhen(new Date(`${m.send_on}T${m.send_at || "09:00"}`).toISOString()))} · ${m.waiting} ${m.waiting === 1 ? "person" : "people"} waiting for it</small></div>
+          <input type="date" data-f="date" /><input type="time" data-f="time" />
+        </div>`;
+      }).join("");
+      $("af-rv-missed-sec").hidden = !rvMissed.length;
+      document.querySelectorAll(".af-rv-row input").forEach((inp) => inp.addEventListener("input", () => { inp.closest(".af-rv-row").dataset.touched = "1"; checkOrder(); }));
+      $("af-rv-aud-sec").hidden = !d.audience;
+      $("af-rv-aud").textContent = d.audience
+        ? (d.joiners || d.leavers
+          ? `The group has changed while it was paused: ${d.joiners} ${d.joiners === 1 ? "person now matches and will be added" : "people now match and will be added"}, ${d.leavers} ${d.leavers === 1 ? "no longer matches and will be taken out" : "no longer match and will be taken out"}.`
+          : "Nobody has joined or left the group while it was paused.")
+        : "";
+      // Default: carry on now.
+      document.querySelector('input[name="af-rv-mode"][value="now"]').checked = true;
+      $("af-rv-date").disabled = $("af-rv-time").disabled = true;
+      const tomorrow = new Date(Date.now() + 864e5);
+      $("af-rv-date").value = localDate(tomorrow); $("af-rv-time").value = "08:00";
+      $("af-rv-msg").hidden = true;
+      refreshMissedDefaults();
+      $("af-rv").hidden = false;
+    }
+    document.querySelectorAll('input[name="af-rv-mode"]').forEach((r) => r.addEventListener("change", () => {
+      const at = document.querySelector('input[name="af-rv-mode"]:checked').value === "at";
+      $("af-rv-date").disabled = $("af-rv-time").disabled = !at;
+      refreshMissedDefaults();
+    }));
+    ["af-rv-date", "af-rv-time"].forEach((idName) => $(idName).addEventListener("input", refreshMissedDefaults));
+    $("af-rv-cancel").addEventListener("click", () => { $("af-rv").hidden = true; });
+    $("af-rv").addEventListener("click", (e) => { if (e.target === $("af-rv")) $("af-rv").hidden = true; });
+    $("af-rv-go").addEventListener("click", async () => {
+      const btn = $("af-rv-go"), msg = $("af-rv-msg");
+      const resume = carryOnMoment();
+      const reschedule = {};
+      document.querySelectorAll(".af-rv-row").forEach((row) => {
+        const dt = row.querySelector('[data-f="date"]').value, tm = row.querySelector('[data-f="time"]').value || "09:00";
+        if (dt) reschedule[row.dataset.node] = { send_on: dt, send_at: tm, at: new Date(`${dt}T${tm}`).toISOString() };
+      });
+      btn.disabled = true; btn.textContent = "Reactivating…"; msg.hidden = true;
+      try {
+        const d = await setStatus("active", { resume_at: resume.toISOString(), reschedule });
+        $("af-rv").hidden = true;
+        await load();
+        const bits = [];
+        if (d.rescheduled) bits.push(`${d.rescheduled} missed ${d.rescheduled === 1 ? "email" : "emails"} rescheduled`);
+        if (d.carried_on) bits.push(`${d.carried_on} ${d.carried_on === 1 ? "person carries" : "people carry"} on from ${fmtWhen(resume.toISOString())}`);
+        if (d.joined) bits.push(`${d.joined} added`);
+        if (d.taken_out) bits.push(`${d.taken_out} taken out`);
+        alert("Live again." + (bits.length ? " " + bits.join(" · ") + "." : ""));
+      } catch (err) {
+        msg.hidden = false; msg.textContent = "Couldn't reactivate: " + err.message;
+      }
+      btn.disabled = false; btn.textContent = "Reactivate";
+    });
 
     $("af-save").addEventListener("click", async () => {
       const btn = $("af-save"); btn.disabled = true; btn.textContent = "Saving…";
@@ -709,13 +984,18 @@ import "../../../styles/admin.css";
       // send step with the kind, so the whole funnel behaves as declared.
       graph.meta = { ...(graph.meta || {}), kind: kindVal() };
       graph.nodes.forEach((n) => { if (n.type === "send_email") (n.config = n.config || {}).send_kind = kindVal() === "marketing" ? "marketing" : "transactional"; });
+      if (funnelStatus === "archived") { alert("An archived funnel can't be changed. Duplicate it from the Automations list to start a new one."); btn.disabled = false; btn.textContent = "Save"; return; }
+      // Keep the lifecycle stamps the server wrote (paused since, went live…).
+      graph.meta = { ...funnelMeta, ...(graph.meta || {}) };
       const patch = {
         name: $("af-name").value.trim() || "Untitled automation",
         trigger_type: $("af-trigger").value || null,
         trigger_config: triggerConfig,
-        status: $("af-status").value,
         graph,
       };
+      // Status is set here only when a funnel is first created. After that it
+      // changes through the status menu, which applies what each change means.
+      if (!automationId) patch.status = "draft";
       let saveErr = null, savedId = automationId;
       if (automationId) {
         ({ error: saveErr } = await supabase.from("automations").update(patch).eq("id", automationId));
@@ -726,9 +1006,9 @@ import "../../../styles/admin.css";
       btn.disabled = false; btn.textContent = "Save";
       if (saveErr) { alert("Couldn't save: " + saveErr.message); return; }
       btn.textContent = "Saved ✓"; setTimeout(() => (btn.textContent = "Save"), 1500);
-      // Audience funnel saved as Active → enrol everyone currently matching.
-      // Idempotent on the worker side: people already in the funnel are skipped.
-      if (patch.trigger_type === "audience" && patch.status === "active" && WORKER && savedId) {
+      // (Enrolling an audience now happens when the funnel goes live - see
+      // goLive() - rather than on every save.)
+      if (false) {
         try {
           const { data: sess } = await supabase.auth.getSession();
           const token = sess?.session?.access_token;
