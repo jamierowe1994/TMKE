@@ -9528,7 +9528,7 @@
   const RESIZE_MIN_TEXT = 8;          // smallest font size a resize will produce
   const RESIZE_STORY_TEXT = 1.25;     // words on a story, against the post they came from (30 -> 38)
   const RESIZE_TEXT_WIDEN = 1.5;      // how much wider a text box may get on a wider canvas
-  const RESIZE_TITLE_SIZE = 40;       // text this big (at a 1080 short side) is a title
+  const RESIZE_TITLE_SIZE = 50;       // text this big (at a 1080 short side) is a title, not a subheading
   const RESIZE_TITLE_SHRINK = 0.75;   // how far a title may come down to hold its line count
   const RESIZE_TITLE_LEADING = 0.9;   // line spacing for a title that has to take another line
 
@@ -9803,6 +9803,107 @@
     return { s, py, rows, pxs, plans };
   }
 
+  /* The grid posts, by hand.
+
+     Four pictures in a 2x2 grid is the shape we use most, and Dani has set
+     where it lands on a story or reel: the pictures keep their width and
+     become RESIZE_GRID_BOX tall, the top pair starting at RESIZE_GRID_TOP and
+     the bottom pair a hair below them; whatever sits under the grid (the rule
+     and the line of text) keeps its size and moves down as one, to sit
+     RESIZE_GRID_BOTTOM off the bottom. Measured at 1080 wide and scaled from
+     there. Anything above the grid stays where it is.
+
+     This runs instead of the general layout when the shape matches, so the
+     template we use most lands exactly as she wants it rather than nearly. */
+  const RESIZE_GRID_TOP = 200;
+  const RESIZE_GRID_BOX = 660;
+  const RESIZE_GRID_GAP = 4;
+  const RESIZE_GRID_BOTTOM = 200;
+
+  function resizeIsBleed(el, W, H) {
+    const tx = Math.max(4, W * 0.02), ty = Math.max(4, H * 0.02);
+    return (el.x || 0) <= tx && (el.x || 0) + (el.w || 0) >= W - tx &&
+           (el.y || 0) <= ty && (el.y || 0) + (el.h || 0) >= H - ty;
+  }
+
+  // The four pictures of a 2x2 grid, or null when this isn't one.
+  function resizeGridOf(elements, W, H) {
+    const pics = elements.filter((e) => (e.type === "image" || e.type === "frame") && !resizeIsBleed(e, W, H));
+    if (pics.length !== 4) return null;
+    const w0 = pics[0].w, h0 = pics[0].h;
+    if (!pics.every((e) => Math.abs(e.w - w0) <= 4 && Math.abs(e.h - h0) <= 4)) return null;
+    const xs = [...new Set(pics.map((e) => Math.round(e.x / 4)))];
+    const ys = [...new Set(pics.map((e) => Math.round(e.y / 4)))];
+    if (xs.length !== 2 || ys.length !== 2) return null;
+    const rows = [...new Set(pics.map((e) => e.y))].sort((a, b) => a - b);
+    if (rows.length !== 2) return null;
+    return { pics, rows };
+  }
+
+  function resizeGridPost(page, W2, H2) {
+    const W = page.canvas.width, H = page.canvas.height;
+    if (Math.abs(W2 / W - 1) > 0.02) return false;          // the width has to stay
+    if (!(H2 / W2 >= 1.7 && H / W < 1.7)) return false;     // going to a story or reel
+    const els = page.elements || [];
+    const grid = resizeGridOf(els, W, H);
+    if (!grid) return false;
+
+    const k = W2 / 1080;
+    const top = RESIZE_GRID_TOP * k, boxH = RESIZE_GRID_BOX * k;
+    const rowY = [top, top + boxH + RESIZE_GRID_GAP * k];
+    const gridTop0 = Math.min.apply(null, grid.pics.map((e) => e.y));
+    const gridBottom0 = Math.max.apply(null, grid.pics.map((e) => e.y + e.h));
+
+    // Anything sitting on a picture travels with it, keeping its distance from
+    // whichever edge of the picture it was nearest.
+    const riders = [];
+    els.forEach((el) => {
+      if (grid.pics.includes(el) || resizeIsBleed(el, W, H)) return;
+      const host = grid.pics.find((p) => el.x >= p.x - 2 && el.x + el.w <= p.x + p.w + 2 &&
+        el.y >= p.y - 2 && el.y + el.h <= p.y + p.h + 2);
+      if (host) riders.push({ el, host, fromTop: el.y - host.y, fromBottom: (host.y + host.h) - (el.y + el.h) });
+    });
+
+    grid.pics.forEach((p) => {
+      p.y = Math.round(rowY[p.y === grid.rows[0] ? 0 : 1]);
+      p.h = Math.round(boxH);
+    });
+    riders.forEach((r) => {
+      r.el.y = Math.round(r.fromTop <= r.fromBottom ? r.host.y + r.fromTop : r.host.y + r.host.h - r.fromBottom - r.el.h);
+    });
+
+    // Measure the words rather than trusting the height they were stored
+    // with, so "200 off the bottom" is 200 off what you can see.
+    els.forEach((el) => {
+      if (el.type !== "text" || !el.text) return;
+      const lines = resizeLineCount(el, el.size || 16, el.w || 1);
+      el.h = Math.ceil(lines * (el.size || 16) * (el.lineHeight || 1.3));
+    });
+    // The rule and the words under the grid: same size, moved down together.
+    const under = els.filter((el) => !grid.pics.includes(el) && !resizeIsBleed(el, W, H) &&
+      !riders.some((r) => r.el === el) && el.y >= gridBottom0 - 2);
+    if (under.length) {
+      const wasBottom = Math.max.apply(null, under.map((el) => el.y + el.h));
+      const dy = Math.round((H2 - RESIZE_GRID_BOTTOM * k) - wasBottom);
+      under.forEach((el) => { el.y += dy; });
+    }
+    // Anything above the grid keeps its place, unless the grid moved down from
+    // under it - then it travels with the gap it had.
+    const above = els.filter((el) => !grid.pics.includes(el) && !resizeIsBleed(el, W, H) &&
+      !riders.some((r) => r.el === el) && el.y + el.h <= gridTop0 + 2);
+    const dTop = Math.round(top - gridTop0);
+    if (dTop > 0) above.forEach((el) => { el.y += dTop; });
+
+    // Backgrounds fill the new page.
+    els.forEach((el) => {
+      if (!resizeIsBleed(el, W, H)) return;
+      el.x = 0; el.y = 0; el.w = W2; el.h = H2;
+    });
+    page.canvas.width = W2;
+    page.canvas.height = H2;
+    return true;
+  }
+
   // How many lines this text takes at a given size and box width.
   function resizeLineCount(el, size, w) {
     return textLineCount(Object.assign({}, el, { w: Math.max(1, w) }), Math.max(1, size));
@@ -9854,6 +9955,7 @@
     const M = RESIZE_MARGIN * Math.min(W, H) / 1080;
     const M2 = RESIZE_MARGIN * Math.min(W2, H2) / 1080;
     const live = W2 - 2 * M2;
+    if (resizeGridPost(page, W2, H2)) return;
     // Two passes: work out the scales, fit the words to them, then work the
     // scales out again from the heights the words will really have.
     for (let pass = 0; pass < 2; pass++) {

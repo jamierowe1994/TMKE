@@ -665,10 +665,16 @@ are the `RESIZE_*` constants at the top of that section.
   the pictures and gaps make the room. Story/Reel: words 25% larger (30 → 38).
   Landscape: words may spread up to half as wide again so they stay larger.
   Too many words to fit: they shrink only as far as they must.
+- ✅ **The 2x2 grid posts land where Dani says, on story and reel.** Four
+  pictures in a grid keep their width and become 660 tall, the top pair at
+  y200 and the bottom pair at y864; the rule and the line of text under them
+  keep their size and sit 200 off the bottom. Measured at 1080 wide and
+  scaled from there; the general rules still handle every other size. The
+  numbers are the `RESIZE_GRID_*` constants.
 - ✅ **Titles keep their line count.** A headline that would wrap onto an extra
   line comes down in size instead (up to a quarter); if it still has to wrap,
-  its line spacing closes to 0.9. Anything at 40px or more (at a 1080 short
-  side) counts as a title; body copy wraps as body copy does. Every text box's
+  its line spacing closes to 0.9. Anything at 50px or more (at a 1080 short
+  side) counts as a title, so 42px subheadings follow the ordinary rules. Every text box's
   height is now measured at its new width before the layout runs.
 - ✅ **The Creative Assistant's "Resize the canvas" walkthrough** covers the
   new steps, and both it and the Resize panel say plainly that a resize gets
