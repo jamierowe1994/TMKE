@@ -2127,6 +2127,8 @@
 
   function undo() {
     if (state.historyIndex <= 0) return;
+    const leaving = state.history[state.historyIndex];
+    if (leaving.otherPages) restoreOtherPages(leaving.otherPages.before);
     state.historyIndex--;
     const snap = state.history[state.historyIndex];
     state.canvas = deep(snap.canvas);
@@ -2141,6 +2143,7 @@
     if (state.historyIndex >= state.history.length - 1) return;
     state.historyIndex++;
     const snap = state.history[state.historyIndex];
+    if (snap.otherPages) restoreOtherPages(snap.otherPages.after);
     state.canvas = deep(snap.canvas);
     state.elements = deep(snap.elements);
     if (snap.guides) state.guides = deep(snap.guides);
@@ -2464,6 +2467,7 @@
       var _szName = location.search.indexOf("mode=admin") !== -1 ? null : _szNames[_W + "x" + _H];
       _szEl.textContent = _szName || (_W + " × " + _H);
     }
+    if (typeof syncResizePanel === "function") syncResizePanel();
 
     canvasEl.innerHTML = "";
 
@@ -9477,13 +9481,253 @@
   }
 
   // ---------- Resize ----------
+  /* Resizing a design rearranges it, not just the canvas.
+
+     Changing only the canvas size left every element at its old pixel position,
+     so portrait -> landscape pushed the bottom third off the page and portrait
+     -> story left the design in the top half. Now each page is laid out again
+     for the new size, one axis at a time:
+
+     - Anything spanning the whole axis edge to edge (a background photo, a
+       full-width band) stretches to the new edges.
+     - Everything else is scaled by ONE factor, so nothing is ever squashed.
+     - Elements are sorted into "bands" along each axis (runs of elements that
+       overlap there, e.g. a photo and the words on it). The bands keep their
+       order and the space between them takes most of the change, so a design
+       that is getting shorter loses gap before it loses type size.
+     - The margin is kept: RESIZE_MARGIN at a 1080 short side, scaled with the
+       short side, so 100 on a portrait post stays 100 on a square or a story.
+     - Anything centred on the canvas stays centred.
+
+     These are the rules to tune if a format needs its own treatment. */
+  const RESIZE_MARGIN = 100;          // px at a 1080 short side
+  const RESIZE_GAP_FLOOR = 0.5;       // gaps may shrink to half the overall shrink, no further
+  const RESIZE_MIN_TEXT = 8;          // smallest font size a resize will produce
+
+  function resizeUnits(elements) {
+    // A group moves and scales as one unit, so its members keep their layout.
+    const byGroup = new Map();
+    const units = [];
+    elements.forEach((el) => {
+      if (el.group) {
+        if (!byGroup.has(el.group)) { const u = { els: [] }; byGroup.set(el.group, u); units.push(u); }
+        byGroup.get(el.group).els.push(el);
+      } else units.push({ els: [el] });
+    });
+    units.forEach((u) => {
+      const x0 = Math.min.apply(null, u.els.map((e) => e.x || 0));
+      const y0 = Math.min.apply(null, u.els.map((e) => e.y || 0));
+      const x1 = Math.max.apply(null, u.els.map((e) => (e.x || 0) + (e.w || 0)));
+      const y1 = Math.max.apply(null, u.els.map((e) => (e.y || 0) + (e.h || 0)));
+      u.box = { x: [x0, x1], y: [y0, y1] };
+    });
+    return units;
+  }
+
+  // "left" / "right" when a unit is words aligned to that side, else null.
+  function textSide(u) {
+    const al = u.els.map((e) => e.type === "text" ? (e.align || "left") : null);
+    return al.every((v) => v === "left") ? "left" : al.every((v) => v === "right") ? "right" : null;
+  }
+
+  // Everything one axis needs: which units stretch, the bands the rest fall
+  // into, and the region they are laid out in before and after.
+  function resizeAxisPlan(units, ax, L, L2, M, M2) {
+    const tol = Math.max(4, L * 0.02);
+    const g = M > 0 ? M2 / M : L2 / L;          // how the margin itself scales
+    const live = [];
+    units.forEach((u) => {
+      const [a, b] = u.box[ax];
+      u[ax + "Bleed"] = a <= tol && b >= L - tol;
+      if (!u[ax + "Bleed"]) live.push(u);
+    });
+    live.sort((p, q) => p.box[ax][0] - q.box[ax][0]);
+    const bands = [];
+    live.forEach((u) => {
+      const [a, b] = u.box[ax];
+      const last = bands[bands.length - 1];
+      if (last && a < last.end) { last.end = Math.max(last.end, b); last.units.push(u); }
+      else bands.push({ start: a, end: b, units: [u] });
+      u[ax + "Band"] = bands[bands.length - 1];
+    });
+    const plan = { ax, L, L2, g, bands, pref: Infinity };
+    if (!bands.length) return plan;
+    const A = Math.min(M, bands[0].start);
+    const Z = Math.max(L - M, bands[bands.length - 1].end);
+    const A2 = A * g, Z2 = L2 - (L - Z) * g;
+    const sumB = bands.reduce((t, bd) => t + (bd.end - bd.start), 0);
+    const cur = Z - A, target = Z2 - A2;
+    Object.assign(plan, { A, Z, A2, Z2, sumB, sumD: cur - sumB, target });
+    const k = cur > 0 ? target / cur : 1;
+    // How much this axis would like the elements scaled. Growing: by the
+    // growth. Shrinking: by less than the shrink, letting the gaps give more.
+    let pref = k;
+    if (k < 1 && plan.sumD > 0.5 && sumB > 0) {
+      pref = Math.sqrt(k);
+      const floor = RESIZE_GAP_FLOOR * k;
+      if ((target - sumB * pref) / plan.sumD < floor) pref = (target - plan.sumD * floor) / sumB;
+      pref = clamp(pref, k, 1);
+    }
+    plan.pref = pref;
+    return plan;
+  }
+
+  // Place every unit along one axis, given the final element scale s.
+  function resizeAxisPlace(plan, units, s) {
+    const { ax, L, L2, g, bands } = plan;
+    units.forEach((u) => {
+      if (!u[ax + "Bleed"]) return;
+      const [a, b] = u.box[ax];
+      const a2 = a * g, b2 = L2 - (L - b) * g;
+      u[ax + "New"] = { start: a2, f: (b2 - a2) / Math.max(1, b - a) };
+    });
+    if (!bands.length) return;
+    // gaps[0] is before the first band, gaps[n] after the last.
+    const gaps = [bands[0].start - plan.A];
+    bands.forEach((bd, i) => gaps.push((bands[i + 1] ? bands[i + 1].start : plan.Z) - bd.end));
+    const spare = plan.target - plan.sumB * s;
+    let gaps2;
+    if (spare < plan.sumD) {
+      // Less room: every gap gives up the same share of itself.
+      const sg = plan.sumD > 0.5 ? Math.max(0, spare / plan.sumD) : 0;
+      gaps2 = gaps.map((d) => d * sg);
+      if (plan.sumD <= 0.5) { gaps2[0] += spare / 2; gaps2[gaps2.length - 1] += spare / 2; }
+    } else {
+      // More room: shared out evenly between the real gaps, so a design spreads
+      // down a story instead of all the new space landing in its biggest gap.
+      // Anything flush to a margin, or butted against its neighbour, stays so.
+      const extra = spare - plan.sumD;
+      const open = gaps.filter((d) => d >= 8).length;
+      gaps2 = gaps.map((d) => d + (open && d >= 8 ? extra / open : 0));
+      if (!open) {
+        // Nothing to share it between. Left-aligned words keep to the left
+        // margin (their box is often centred while the words are not), right-
+        // aligned to the right; anything else is centred.
+        const sides = ax === "x" ? units.filter((u) => !u.xBleed).map(textSide) : [];
+        const side = sides.length && sides.every((v) => v === sides[0]) ? sides[0] : null;
+        if (side === "left") gaps2[gaps2.length - 1] += extra;
+        else if (side === "right") gaps2[0] += extra;
+        else { gaps2[0] += extra / 2; gaps2[gaps2.length - 1] += extra / 2; }
+      }
+    }
+    let pos = plan.A2 + gaps2[0];
+    bands.forEach((bd, i) => {
+      bd.start2 = pos;
+      pos += (bd.end - bd.start) * s + gaps2[i + 1];
+    });
+    const ctol = Math.max(3, L * 0.01);
+    units.forEach((u) => {
+      if (u[ax + "Bleed"]) return;
+      const [a, b] = u.box[ax];
+      let start = u[ax + "Band"].start2 + (a - u[ax + "Band"].start) * s;
+      if (Math.abs((a + b) / 2 - L / 2) <= ctol && !(ax === "x" && textSide(u))) start = (L2 - (b - a) * s) / 2;
+      u[ax + "New"] = { start, f: s };
+    });
+  }
+
+  // Everything measured in pixels that is not position or size.
+  function resizeElementDetail(el, s) {
+    const r = (v) => Math.round(v * s * 100) / 100;
+    if (el.type === "text") {
+      if (el.size) el.size = Math.max(RESIZE_MIN_TEXT, Math.round(el.size * s));
+      if (el.letterSpacing) el.letterSpacing = r(el.letterSpacing);
+      if (el.textOutline && el.textOutline.width) el.textOutline.width = r(el.textOutline.width);
+      if (el.textBg) ["padX", "padY", "radius"].forEach((k) => { if (el.textBg[k]) el.textBg[k] = r(el.textBg[k]); });
+    }
+    [el.shadow, el.textShadow].forEach((sh) => {
+      if (sh) ["offsetX", "offsetY", "blur"].forEach((k) => { if (sh[k]) sh[k] = r(sh[k]); });
+    });
+    if (el.radius) el.radius = r(el.radius);
+    if (el.radii) Object.keys(el.radii).forEach((k) => { if (el.radii[k] != null) el.radii[k] = r(el.radii[k]); });
+    if (el.strokeWidth) el.strokeWidth = Math.max(1, r(el.strokeWidth));
+    if (el.imgOffsetX) el.imgOffsetX = r(el.imgOffsetX);
+    if (el.imgOffsetY) el.imgOffsetY = r(el.imgOffsetY);
+  }
+
+  function resizePage(page, W2, H2) {
+    const W = page.canvas.width, H = page.canvas.height;
+    if (W === W2 && H === H2) return;
+    const M = RESIZE_MARGIN * Math.min(W, H) / 1080;
+    const M2 = RESIZE_MARGIN * Math.min(W2, H2) / 1080;
+    const units = resizeUnits(page.elements || []);
+    // Vertical first, across the whole page. Across is then worked out row by
+    // row: a footer's headshot and logo spread to the margins of a landscape
+    // with the band they sit on, rather than being pulled in to line up with
+    // the photo above them.
+    const py = resizeAxisPlan(units, "y", H, H2, M, M2);
+    const rows = py.bands.map((bd) => bd.units).concat(units.filter((u) => u.yBleed).map((u) => [u]));
+    const pxs = rows.map((row) => resizeAxisPlan(row, "x", W, W2, M, M2));
+    let s = Math.min.apply(null, [py.pref].concat(pxs.map((p) => p.pref)));
+    if (!isFinite(s)) s = Math.min(W2 / W, H2 / H);
+    resizeAxisPlace(py, units, s);
+    pxs.forEach((p, i) => resizeAxisPlace(p, rows[i], s));
+    units.forEach((u) => {
+      const nx = u.xNew, ny = u.yNew;
+      u.els.forEach((el) => {
+        el.x = Math.round(nx.start + ((el.x || 0) - u.box.x[0]) * nx.f);
+        el.y = Math.round(ny.start + ((el.y || 0) - u.box.y[0]) * ny.f);
+        el.w = Math.max(1, Math.round((el.w || 0) * nx.f));
+        el.h = Math.max(1, Math.round((el.h || 0) * ny.f));
+        resizeElementDetail(el, s);
+      });
+    });
+    page.canvas.width = W2;
+    page.canvas.height = H2;
+  }
+
+  // Resize every page of the design. One undo step takes the whole design
+  // back: the history snapshot only holds the current page, so the others
+  // travel on the entry and undo/redo put them back.
+  function resizeDesign(W2, H2) {
+    W2 = Math.round(W2); H2 = Math.round(H2);
+    if (!(W2 > 0 && H2 > 0)) return;
+    const cur = state.pages[state.currentPage].canvas;
+    if (cur.width === W2 && cur.height === H2 && state.pages.every((p) => p.canvas.width === W2 && p.canvas.height === H2)) return;
+    const others = () => state.pages.map((p, i) => i === state.currentPage ? null
+      : { canvas: deep(p.canvas), elements: deep(p.elements) });
+    const before = others();
+    const W = cur.width, H = cur.height;
+    state.pages.forEach((p) => { resizePage(p, W2, H2); delete p._thumb; });
+    (state.guides || []).forEach((gd) => {
+      gd.pos = Math.round(gd.pos * (gd.axis === "v" ? W2 / W : H2 / H));
+    });
+    pushHistory();
+    state.history[state.historyIndex].otherPages = { before, after: others() };
+    fullRender();
+    fitZoom();
+    // Text heights follow the new width and size once the browser has laid it out.
+    state.elements.forEach((el) => { if (el.type === "text") fitTextHeight(el); });
+    renderHandles();
+    if (typeof refreshPageThumbs === "function" && state.pages.length > 1) refreshPageThumbs();
+  }
+
+  // Undo/redo carry the other pages of a whole-design resize.
+  function restoreOtherPages(list) {
+    if (!list) return;
+    list.forEach((p, i) => {
+      if (!p || !state.pages[i] || i === state.currentPage) return;
+      state.pages[i].canvas = deep(p.canvas);
+      state.pages[i].elements = deep(p.elements);
+      delete state.pages[i]._thumb;
+    });
+    if (state.pages.length > 1 && typeof refreshPageThumbs === "function") refreshPageThumbs();
+  }
+  window.__TMKE_RESIZE_DESIGN__ = resizeDesign;
+
+  // The panel shows the size you are on, and the custom boxes start from it.
+  function syncResizePanel() {
+    const W = Math.round(state.canvas.width), H = Math.round(state.canvas.height);
+    document.querySelectorAll(".ed-resize-card").forEach((btn) => {
+      btn.classList.toggle("is-current", btn.dataset.size === W + "," + H);
+    });
+    const wi = $("ed-resize-w"), hi = $("ed-resize-h");
+    if (wi && hi && document.activeElement !== wi && document.activeElement !== hi) { wi.value = W; hi.value = H; }
+  }
+
   document.querySelectorAll(".ed-resize-card").forEach((btn) => {
     btn.addEventListener("click", () => {
       const [w, h] = btn.dataset.size.split(",").map(Number);
-      state.canvas.width = w; state.canvas.height = h;
-      pushHistory();
-      fullRender();
-      fitZoom();
+      resizeDesign(w, h);
     });
   });
   $("ed-resize-apply").addEventListener("click", () => {
@@ -9491,10 +9735,7 @@
     const w = parseInt($("ed-resize-w").value, 10);
     const h = parseInt($("ed-resize-h").value, 10);
     if (!w || !h) return;
-    state.canvas.width = w; state.canvas.height = h;
-    pushHistory();
-    fullRender();
-    fitZoom();
+    resizeDesign(clamp(w, 100, 6000), clamp(h, 100, 6000));
   });
 
   // ---------- Uploads ----------
