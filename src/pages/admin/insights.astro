@@ -39,6 +39,14 @@ import "../../styles/admin.css";
         <span class="admin-bar-count" id="wi-count">Loading…</span>
       </div>
       <div class="admin-bar-actions">
+        <div class="order-filters" id="wi-area" role="tablist">
+          <button type="button" class="enquiry-chip is-active" data-area="site">Website</button>
+          <button type="button" class="enquiry-chip" data-area="hub">Member hub</button>
+          <button type="button" class="enquiry-chip" data-area="admin">Admin</button>
+          <button type="button" class="enquiry-chip" data-area="all">Everything</button>
+        </div>
+      </div>
+      <div class="admin-bar-actions">
         <button type="button" class="admin-btn admin-btn-ghost" id="wi-csv">Export CSV</button>
       </div>
     </section>
@@ -46,6 +54,7 @@ import "../../styles/admin.css";
     <!-- Nothing recorded: say why, and what to do about it, rather than
          showing a page of zeros. -->
     <p class="wi-empty" id="wi-empty" hidden></p>
+    <p class="wi-scope" id="wi-scope" hidden></p>
 
     <div id="wi-body" hidden>
       <section class="g4 order-stats-grid">
@@ -90,6 +99,7 @@ import "../../styles/admin.css";
   </div>
 
   <style is:global>
+    .wi-scope { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 12px 0 0; }
     .wi-empty { font-family: var(--sans); font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.7); background: rgba(227,160,8,0.1); border-radius: 10px; padding: 16px 18px; margin: 16px 0 0; }
     .wi-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px 18px; margin: 16px 0 0; }
     .wi-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
@@ -123,7 +133,14 @@ import "../../styles/admin.css";
     const el = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const num = (n) => Number(n || 0).toLocaleString("en-GB");
-    let days = 30, EVENTS = [];
+    let days = 30, area = "site", ALL = [], EVENTS = [];
+
+    // Where a page belongs. The tracker fires on every page the site serves,
+    // so the log holds the public site, the member hub and the admin centre
+    // together - and the admin ones are us, not customers.
+    const areaOf = (path) => /^\/admin(\/|$)/.test(path || "") ? "admin"
+      : /^\/account(\/|$)/.test(path || "") ? "hub" : "site";
+    const AREA_LABEL = { site: "the public website", hub: "the member hub", admin: "the admin centre", all: "everything" };
 
     // A referrer is only interesting as a source: the site it came from, with
     // our own pages folded into "Direct or from within the site".
@@ -146,6 +163,26 @@ import "../../styles/admin.css";
     const rows = (items, total) => items.length
       ? items.map(([label, n, sub]) => `<tr><td>${esc(label)}<span class="wi-bar" style="width:${total ? Math.max(2, Math.round((n / total) * 100)) : 0}%"></span></td><td class="num">${num(n)}${sub != null ? ` · ${num(sub)}` : ""}</td></tr>`).join("")
       : `<tr><td class="wi-none">Nothing recorded yet.</td></tr>`;
+
+    // Cut the log down to the area being looked at. For the public website
+    // that also means dropping whole visits that touched the admin centre:
+    // that is a member of staff, and counting our own browsing as customer
+    // traffic is how an insights page ends up lying to you.
+    function applyArea() {
+      const staff = new Set(ALL.filter((e) => areaOf(e.path) === "admin").map((e) => e.session_id || e.id));
+      EVENTS = ALL.filter((e) => {
+        if (area === "all") return true;
+        if (areaOf(e.path) !== area) return false;
+        if (area === "site" && staff.has(e.session_id || e.id)) return false;
+        return true;
+      });
+      const scope = el("wi-scope");
+      scope.hidden = false;
+      const dropped = area === "site" ? staff.size : 0;
+      scope.textContent = `Showing ${AREA_LABEL[area]}.` + (dropped
+        ? ` ${dropped} ${dropped === 1 ? "visit that" : "visits that"} also opened the admin centre ${dropped === 1 ? "is" : "are"} left out - that's us, not a customer.`
+        : "");
+    }
 
     function render() {
       const views = EVENTS.filter((e) => e.name === "pageview");
@@ -204,7 +241,9 @@ import "../../styles/admin.css";
       EVENTS.filter((e) => e.name !== "pageview").forEach((e) => acts.set(e.name, (acts.get(e.name) || 0) + 1));
       const topActs = [...acts.entries()].sort((a, b) => b[1] - a[1]);
       const pretty = (n) => String(n).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-      el("wi-events").innerHTML = rows(topActs.map(([n, c]) => [pretty(n), c]), topActs.length ? topActs[0][1] : 0);
+      el("wi-events").innerHTML = topActs.length
+        ? rows(topActs.map(([n, c]) => [pretty(n), c]), topActs[0][1])
+        : `<tr><td class="wi-none">Only page views are being recorded. The shop and checkout don't yet tell the site when someone adds a pack or starts paying, so there is nothing else to count.</td></tr>`;
 
       const last = EVENTS[0];
       el("wi-foot").textContent = last
@@ -227,7 +266,15 @@ import "../../styles/admin.css";
         el("wi-count").textContent = "";
         return;
       }
-      EVENTS = data || [];
+      ALL = data || [];
+      applyArea();
+      if (!EVENTS.length && ALL.length) {
+        el("wi-body").hidden = true;
+        el("wi-count").textContent = "Nothing here";
+        el("wi-empty").hidden = false;
+        el("wi-empty").textContent = `Nothing recorded for ${AREA_LABEL[area]} in this period. Try another area or a longer range.`;
+        return;
+      }
       if (!EVENTS.length) {
         el("wi-body").hidden = true;
         el("wi-count").textContent = "Nothing yet";
@@ -249,6 +296,23 @@ import "../../styles/admin.css";
       const a = document.createElement("a");
       a.href = url; a.download = `website-insights-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
       URL.revokeObjectURL(url);
+    });
+
+    el("wi-area").addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-area]"); if (!b) return;
+      el("wi-area").querySelectorAll(".enquiry-chip").forEach((x) => x.classList.remove("is-active"));
+      b.classList.add("is-active");
+      area = b.getAttribute("data-area") || "site";
+      if (!ALL.length) { load(); return; }
+      applyArea();
+      if (!EVENTS.length) {
+        el("wi-body").hidden = true; el("wi-empty").hidden = false;
+        el("wi-count").textContent = "Nothing here";
+        el("wi-empty").textContent = `Nothing recorded for ${AREA_LABEL[area]} in this period. Try another area or a longer range.`;
+        return;
+      }
+      el("wi-empty").hidden = true; el("wi-body").hidden = false;
+      render();
     });
 
     el("wi-range").addEventListener("click", (ev) => {
