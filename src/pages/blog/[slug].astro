@@ -594,4 +594,29 @@ const related = posts
         .catch(function () { /* any failure: keep the static content */ });
     })();
   </script>
+
+  <!-- A read, not a glance: recorded once someone has been on the article for
+       half a minute or has scrolled halfway down it, whichever comes first.
+       Counting the page view alone would count everyone who bounced. -->
+  <script>
+    import { track } from "../../lib/track.js";
+    (function () {
+      let done = false;
+      const body = document.querySelector(".post-body");
+      const mark = (how) => {
+        if (done) return;
+        done = true;
+        track("blog_read", { slug: location.pathname.replace(/^\/blog\//, "").replace(/\/$/, ""), how });
+        window.removeEventListener("scroll", onScroll);
+      };
+      const onScroll = () => {
+        if (!body) return;
+        const r = body.getBoundingClientRect();
+        const seen = Math.min(1, Math.max(0, (window.innerHeight - r.top) / Math.max(1, r.height)));
+        if (seen >= 0.5) mark("scrolled");
+      };
+      window.addEventListener("scroll", onScroll, { passive: true });
+      setTimeout(() => mark("stayed"), 30000);
+    })();
+  </script>
 </BaseLayout>

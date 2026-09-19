@@ -12,6 +12,14 @@ import { supabase, isConfigured } from './supabase.js';
 import { analyticsAllowed } from './consent.js';
 
 const SID_KEY = 'tmke-sid';
+// Set on a TEAM member's browser (Insights > Website > "Don't count this
+// browser"). Nothing from that browser is recorded again, on any page - the
+// only way to keep our own working out of the customer figures, since on the
+// public site, signed out, we look like anybody else.
+const OFF_KEY = 'tmke-notrack';
+function trackingOff() {
+  try { return localStorage.getItem(OFF_KEY) === '1'; } catch (_) { return false; }
+}
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
 
 // Tell the marketing-automations engine that a KNOWN contact did something on
@@ -60,7 +68,9 @@ function sessionId() {
  */
 export async function track(name, props = {}) {
   // No non-essential storage / behavioural logging without consent (PECR).
-  if (!name || !isConfigured || !analyticsAllowed()) return;
+  if (!name || !isConfigured || !analyticsAllowed() || trackingOff()) return;
+  // The admin centre is us at work, never a customer: not worth a row.
+  if (typeof location !== 'undefined' && /^\/admin(\/|$)/.test(location.pathname)) return;
   try {
     let userId = null;
     try {

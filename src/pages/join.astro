@@ -200,6 +200,7 @@ const TILES = [
   <script>
     import { supabase } from "../lib/supabase.js";
     import { signUpMember } from "../lib/member-signup.js";
+    import { track } from "../lib/track.js";
 
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
 
@@ -323,6 +324,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$
         errEl.hidden = false;
         return;
       }
+      // A new member. Counted whether they still have an email to confirm or
+      // are straight into the hub - the account exists either way.
+      track("member_joined", { confirm_needed: !!res.needsConfirm });
       if (res.needsConfirm) {
         form.hidden = true; altEl.hidden = true; doneEl.hidden = false;
         resendBtn.dataset.email = String(data.get("email") || "").trim();

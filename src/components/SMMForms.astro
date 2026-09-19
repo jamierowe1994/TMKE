@@ -332,6 +332,7 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
 </style>
 
 <script>
+  import { track } from "../lib/track.js";
   import { supabase } from "../lib/supabase.js";
 
   (function () {
@@ -439,6 +440,9 @@ const TURNSTILE_SITE = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || "";
     }
 
     function showDone(kind, data) {
+      // Which of the three: an enquiry, the waitlist, or the brochure.
+      track(kind === "brochure" ? "brochure_requested" : kind === "waitlist" ? "waitlist_joined" : "smm_enquiry",
+        { service: "social media management", form: kind });
       forms.forEach((f) => { f.hidden = true; });
       const title = document.getElementById("smf-done-title");
       const msg = document.getElementById("smf-done-msg");

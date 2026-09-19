@@ -129,6 +129,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
   </style>
 
   <script>
+    import { track } from "../../lib/track.js";
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const SERVICES = [
       { id: "consult", label: "Consultation call", minutes: 30 },
@@ -244,6 +245,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Booking failed");
+        track("shoot_booked", { service: state.service.label, date: state.date, minutes: state.service.minutes });
         const d = new Date(state.date + "T" + state.slot + ":00");
         $("bk-done-sub").textContent = `${state.service.label} on ${d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} at ${state.slot}. A calendar invite is on its way to ${fd.get("email")}.`;
         ["bk-step-service", "bk-step-when", "bk-step-details"].forEach((id) => ($(id).hidden = true));

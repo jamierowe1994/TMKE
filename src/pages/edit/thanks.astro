@@ -207,6 +207,7 @@ import "../../styles/ws-system.css";
 
   <script>
     import { supabase, gbpFromPence } from '../../lib/supabase.js';
+    import { track } from '../../lib/track.js';
     import { signUpMember } from '../../lib/member-signup.js';
 
     const params = new URLSearchParams(window.location.search);
@@ -270,6 +271,18 @@ import "../../styles/ws-system.css";
       }
 
       orderRow = data;
+
+      // The sale itself. Recorded once an order really exists, from the page
+      // Stripe sends people back to - and only once, however many times the
+      // receipt is reopened or refreshed.
+      try {
+        const seen = JSON.parse(sessionStorage.getItem('tmke.tracked.orders') || '[]');
+        if (!seen.includes(orderId)) {
+          track('pack_purchased', { order_id: orderId, pack_id: data.pack_id || null, amount_pence: data.amount_pence ?? data.total_pence ?? null });
+          seen.push(orderId);
+          sessionStorage.setItem('tmke.tracked.orders', JSON.stringify(seen.slice(-20)));
+        }
+      } catch (_) { track('pack_purchased', { order_id: orderId }); }
 
       // Hydrate
       elInvoice.textContent = data.invoice_number ?? '—';

@@ -42,11 +42,12 @@ import "../../styles/admin.css";
         <div class="order-filters" id="wi-area" role="tablist">
           <button type="button" class="enquiry-chip is-active" data-area="site">Website</button>
           <button type="button" class="enquiry-chip" data-area="hub">Member hub</button>
-          <button type="button" class="enquiry-chip" data-area="admin">Admin</button>
+
           <button type="button" class="enquiry-chip" data-area="all">Everything</button>
         </div>
       </div>
       <div class="admin-bar-actions">
+        <button type="button" class="admin-btn admin-btn-ghost" id="wi-notrack">…</button>
         <button type="button" class="admin-btn admin-btn-ghost" id="wi-csv">Export CSV</button>
       </div>
     </section>
@@ -140,7 +141,7 @@ import "../../styles/admin.css";
     // together - and the admin ones are us, not customers.
     const areaOf = (path) => /^\/admin(\/|$)/.test(path || "") ? "admin"
       : /^\/account(\/|$)/.test(path || "") ? "hub" : "site";
-    const AREA_LABEL = { site: "the public website", hub: "the member hub", admin: "the admin centre", all: "everything" };
+    const AREA_LABEL = { site: "the public website", hub: "the member hub", admin: "the admin centre", all: "the website and the member hub" };
 
     // A referrer is only interesting as a source: the site it came from, with
     // our own pages folded into "Direct or from within the site".
@@ -287,6 +288,25 @@ import "../../styles/admin.css";
       el("wi-body").hidden = false;
       render();
     }
+
+    // Stop this browser being recorded anywhere on the site. The admin centre
+    // and tmke.co.uk share an origin, so a flag set here is read by the
+    // tracker on the public pages too.
+    const OFF_KEY = "tmke-notrack";
+    const trackingOff = () => { try { return localStorage.getItem(OFF_KEY) === "1"; } catch (_) { return false; } };
+    function syncNotrack() {
+      const b = el("wi-notrack");
+      const off = trackingOff();
+      b.textContent = off ? "This browser isn't counted ✓" : "Don't count this browser";
+      b.title = off
+        ? "Nothing you do on tmke.co.uk from this browser is recorded. Click to start counting it again."
+        : "Stop your own browsing being recorded as customer traffic. Do this on each browser you use.";
+    }
+    el("wi-notrack").addEventListener("click", () => {
+      try { trackingOff() ? localStorage.removeItem(OFF_KEY) : localStorage.setItem(OFF_KEY, "1"); } catch (_) {}
+      syncNotrack();
+    });
+    syncNotrack();
 
     el("wi-csv").addEventListener("click", () => {
       const head = "when,event,path,source,visit,member\n";

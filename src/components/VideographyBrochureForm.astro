@@ -128,6 +128,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 </style>
 
 <script>
+  import { track } from "../lib/track.js";
   import { supabase } from "../lib/supabase.js";
 
   (function () {
@@ -209,6 +210,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
 
     function showDone(data) {
+      // They asked for the brochure and it's on its way: a real lead, not a
+      // page view. Recorded when the form comes back, not when they click.
+      track("brochure_requested", { service: "videography", account_created: !!(data && data.account_created) });
       form.hidden = true;
       const msg = document.getElementById("vbf-done-msg");
       const action = document.getElementById("vbf-done-action");
