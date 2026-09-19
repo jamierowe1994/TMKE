@@ -648,6 +648,48 @@ reading, the .astro alone tells you less than half.
   from when the rail was 100 wide (the comment above the grid still says so).
   It now starts where the rail ends and is exactly as wide as the panel.
 
+## 8c. Design Studio — resizing, templates, footer — raised 19 Sep
+
+The resize engine is in `public/scripts/editor.js` under "Resize"; its rules
+are the `RESIZE_*` constants at the top of that section.
+
+- ✅ **Resize rearranges the design, not just the canvas.** Full-bleed items
+  stretch, everything else scales by one factor, gaps give way first, the 100
+  margin holds, centred stays centred, left-aligned stays left, footers keep
+  their shape, dividers keep running margin to margin. All pages together;
+  one undo takes the lot back.
+- ✅ **Always scales from the original.** Clicking through sizes in any order
+  lands where one click would have; editing the design makes the edited
+  version the new starting point.
+- ✅ **Text rules.** Same width (portrait ↔ square): words keep their size and
+  the pictures and gaps make the room. Story/Reel: words 25% larger (30 → 38).
+  Landscape: words may spread up to half as wide again so they stay larger.
+  Too many words to fit: they shrink only as far as they must.
+- ✅ **Try sizes before keeping one.** Nothing saves while a different size is
+  showing; Save and the Resize panel ask: resize this design, save a copy at
+  this size, or go back. X (Twitter) preset removed; TikTok folded into Story.
+- ✅ **Reset to the original template** in Start, for a design opened from a
+  template on this visit. Undoable.
+- ✅ **Safe zones** in Guides: Instagram Story, Reel, and a 5mm print trim on
+  A-sizes. Shown over the canvas, never exported.
+- ⬜ **Check "Save as a copy" signed in on the live site.** Couldn't be tested
+  without a member login: it should leave the original design as it was and
+  open the copy, named e.g. "Just Listed (Story / Reel / TikTok)".
+- ⬜ **Test the resize on real pack templates**, especially text-heavy ones, and
+  tune the `RESIZE_*` rules from what they show.
+- ⬜ **Social media footer template** — the member's headshot and contact
+  details as a strip they can drop onto any post. Built and configured in the
+  Admin Centre first (template + settings), then added to the Studio as
+  "add to your design". Needs both chats.
+- ⬜ Reset only appears on a template opened this visit. A saved design
+  reopened later could offer it too, from `user_designs.source_template_id`.
+- ⬜ Landscape is fitted, not designed: the content sits in the middle with
+  space either side. A split layout (photo one side, words the other) would
+  look purpose-made.
+- ⬜ Safe-zone figures are Instagram's current layout (Story 250 top/bottom;
+  Reel 220 top, 420 bottom, 120 right). Recheck now and then; add TikTok if
+  wanted.
+
 ## 9. Security + infrastructure
 
 - ⬜ **The Worker's `AI_MODEL` may be a model that no longer exists.** It is set

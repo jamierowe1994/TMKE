@@ -514,6 +514,12 @@ const googleFonts = [
           <div id="ae-dock" class="ed-start-dock" hidden></div>
         </div>
         <div class="ed-start-grid" id="ed-start-grid"></div>
+        <!-- Only for a design opened from a template on this visit (editor.js,
+             _templateOrigin). Undoable, so a mis-click costs nothing. -->
+        <button type="button" class="ed-start-reset" id="ed-start-reset" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+          Reset to the original template
+        </button>
       </section>
 
       <!-- Templates pane kept in the DOM (the admin /admin/templates page
@@ -907,7 +913,18 @@ const googleFonts = [
 
       <!-- Resize -->
       <section class="ed-panel-pane" data-pane="resize">
-        <div class="ed-pane-header"><h3>Resize design</h3><p>Pick a size and your design is rearranged to fit it, on every page. Undo takes it back.</p></div>
+        <div class="ed-pane-header"><h3>Resize design</h3><p>Try any size: your design is rearranged to fit it, on every page. Nothing is saved until you choose.</p></div>
+        <!-- Shown while a size other than the saved one is on the canvas.
+             Autosave waits for this choice (editor.js, _sizePreview). -->
+        <div class="ed-resize-decide" id="ed-resize-decide" hidden>
+          <p>Showing <b data-size-now></b>. Your design is still saved as <b data-size-was></b>.</p>
+          <div class="ed-resize-decide-acts">
+            <button type="button" class="ed-btn-solid" data-size-act="keep">Resize this design</button>
+            <button type="button" class="ed-btn-ghost" data-size-act="copy">Save as a copy</button>
+            <button type="button" class="ed-resize-back" data-size-act="back">Back to <span data-size-was></span></button>
+          </div>
+        </div>
+        <button type="button" class="ed-resize-safe" id="ed-resize-safe" hidden>Check what the app or printer covers &rarr;</button>
         <div class="ed-resize-grid">
           <button class="ed-resize-card" data-size="1080,1440">
             <div class="ed-resize-vis" style="aspect-ratio:3/4"></div>
@@ -937,10 +954,6 @@ const googleFonts = [
             <div class="ed-resize-vis" style="aspect-ratio:1200/627"></div>
             <strong>LinkedIn Post</strong><span>1200 × 627</span>
           </button>
-          <button class="ed-resize-card" data-size="1200,675">
-            <div class="ed-resize-vis" style="aspect-ratio:1200/675"></div>
-            <strong>X (Twitter)</strong><span>1200 × 675</span>
-          </button>
           <button class="ed-resize-card" data-size="1000,1500">
             <div class="ed-resize-vis" style="aspect-ratio:2/3"></div>
             <strong>Pinterest</strong><span>1000 × 1500</span>
@@ -966,6 +979,21 @@ const googleFonts = [
            one pane (moved out of the top bar). -->
       <section class="ed-panel-pane" data-pane="guides">
         <div class="ed-pane-header"><h3>Guides &amp; margins</h3><p>Use margins and guides to align your design.</p></div>
+
+        <div class="ed-guide-block">
+          <div class="ed-guide-row">
+            <div>
+              <strong>Safe zones</strong>
+              <span>See what Instagram covers on a story or reel, or what a printer may trim, before you save.</span>
+            </div>
+          </div>
+          <div class="ed-safe-chips">
+            <button type="button" class="ed-safe-chip" data-safe-zone="story" aria-pressed="false">Story</button>
+            <button type="button" class="ed-safe-chip" data-safe-zone="reel" aria-pressed="false">Reel</button>
+            <button type="button" class="ed-safe-chip" data-safe-zone="print" aria-pressed="false">Print</button>
+          </div>
+          <p class="ed-guide-hint" id="ed-safe-hint">Story and Reel show on a 1080 × 1920 design, Print on A4. Change the size in Resize.</p>
+        </div>
 
         <div class="ed-guide-block">
           <div class="ed-guide-row">
@@ -1052,6 +1080,19 @@ const googleFonts = [
       <span class="ed-brandnudge-txt">This design fills in your business name automatically &mdash; there isn&rsquo;t one in your brand kit yet.</span>
       <a class="ed-brandnudge-go" href="/account/profile?next=/account/editor">Add it</a>
       <button type="button" class="ed-brandnudge-x" id="ed-brandnudge-x" aria-label="Dismiss">&times;</button>
+    </div>
+
+    <!-- Save while trying a different size: resize this one, or copy? -->
+    <div class="ed-modal" id="ed-size-modal" hidden>
+      <div class="ed-modal-card ed-size-card">
+        <header><h3>Keep this size?</h3><button class="ed-modal-close" data-size-act="cancel" aria-label="Close">×</button></header>
+        <p>You're looking at <b data-size-now></b>. Your design is still saved as <b data-size-was></b>.</p>
+        <div class="ed-size-acts">
+          <button type="button" class="ed-btn-solid" data-size-act="keep">Resize this design</button>
+          <button type="button" class="ed-btn-ghost" data-size-act="copy">Save a copy at this size</button>
+          <button type="button" class="ed-resize-back" data-size-act="back">Go back to <span data-size-was></span></button>
+        </div>
+      </div>
     </div>
 
     <!-- Shortcut modal -->
@@ -1666,6 +1707,23 @@ const googleFonts = [
     .ed-panel-pane.is-active { display: block; }
 
     /* Guides & margins pane */
+    .ed-safe-chips { display: flex; gap: 8px; margin-top: 12px; }
+    .ed-safe-chip {
+      flex: 1; padding: 8px 10px; border-radius: 999px; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.15); background: #fff;
+      font: inherit; font-size: var(--ws-t-meta); font-weight: 600; color: var(--ink);
+    }
+    .ed-safe-chip[aria-pressed="true"] { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ed-safe-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+    #ed-safe-hint[hidden] { display: none; }
+    .ed-start-reset {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 8px 4px;
+      background: none; border: 0; cursor: pointer;
+      font: inherit; font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.6);
+    }
+    .ed-start-reset:hover { color: var(--ink); }
+    .ed-start-reset[hidden] { display: none; }
+    .ed-start-reset svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
     .ed-guide-block { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px solid rgba(28,29,34,0.08); }
     .ed-guide-block:last-child { border-bottom: 0; margin-bottom: 0; }
     .ed-guide-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -2934,6 +2992,27 @@ const googleFonts = [
     .ed-resize-vis { background: rgba(var(--violet-rgb),0.2); border-radius: 2px; margin-bottom: 6px; max-height: 80px; }
     .ed-resize-card strong { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; color: var(--ink); }
     .ed-resize-card span { font-size: var(--ws-t-label); color: rgba(28,29,34,0.55); }
+    .ed-resize-decide {
+      margin: 0 0 14px; padding: 14px; border-radius: 8px;
+      background: rgba(var(--violet-rgb),0.08); border: 1px solid rgba(var(--violet-rgb),0.3);
+    }
+    .ed-resize-decide p { margin: 0 0 10px; font-size: var(--ws-t-meta); line-height: 1.45; color: var(--ink); }
+    .ed-resize-decide-acts, .ed-size-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .ed-resize-decide-acts [hidden], .ed-size-acts [hidden] { display: none; }
+    .ed-resize-back {
+      background: none; border: 0; padding: 6px 2px; cursor: pointer;
+      font: inherit; font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); text-decoration: underline; text-underline-offset: 3px;
+    }
+    .ed-resize-back:hover { color: var(--ink); }
+    .ed-resize-safe {
+      display: block; width: 100%; margin: 0 0 14px; padding: 10px 12px; text-align: left; cursor: pointer;
+      background: rgba(28,29,34,0.04); border: 1px dashed rgba(28,29,34,0.2); border-radius: 6px;
+      font: inherit; font-size: var(--ws-t-meta); color: var(--ink);
+    }
+    .ed-resize-safe[hidden] { display: none; }
+    .ed-size-card p { margin: 0 0 18px; font-size: var(--ws-t-body); line-height: 1.5; color: rgba(28,29,34,0.75); }
+    .ed-size-acts { flex-direction: column; align-items: stretch; }
+    .ed-size-acts .ed-btn-solid, .ed-size-acts .ed-btn-ghost { justify-content: center; }
     .ed-resize-custom {
       display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end;
     }
@@ -3862,6 +3941,20 @@ const googleFonts = [
 
     /* Safe-area / margin guides (toggle in the toolbar) */
     .ed-margins { position: absolute; inset: 0; pointer-events: none; z-index: 47; }
+    /* Safe zones: the app's own furniture on a story or reel, or a printer's
+       trim. Drawn over the canvas, never exported. */
+    .ed-safezones { position: absolute; inset: 0; pointer-events: none; z-index: 46; }
+    .ed-safezones[hidden] { display: none; }
+    .ed-safezone {
+      position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+      background: repeating-linear-gradient(135deg, rgba(214, 64, 69, 0.16) 0 14px, rgba(214, 64, 69, 0.06) 14px 28px);
+      border: 2px dashed rgba(214, 64, 69, 0.75);
+    }
+    .ed-safezone span {
+      font-family: var(--sans); font-weight: 700; color: #fff; text-align: center; line-height: 1.2;
+      background: rgba(214, 64, 69, 0.85); padding: 0.3em 0.7em; border-radius: 0.4em; max-width: 90%;
+    }
+    .ed-safezone--left span, .ed-safezone--right span { writing-mode: vertical-rl; max-width: none; max-height: 90%; }
     .ed-margins[hidden] { display: none; }
     .ed-margin-box { position: absolute; border: 1px dashed rgba(91, 70, 110, 0.7); box-sizing: border-box; }
     .ed-margins-size { width: 52px; height: 30px; margin-left: 2px; border: 1px solid rgba(28,29,34,0.15); border-radius: 8px; background: #fff; font: inherit; font-size: var(--ws-t-meta); text-align: center; color: var(--ink); }
@@ -5191,6 +5284,27 @@ const googleFonts = [
               if (/fetch|network|Failed to fetch/i.test(m)) return "the connection dropped - it'll try again on its own.";
               return m || 'the server refused the save.';
             };
+            // Save a copy at a new size: the design it came from goes back to
+            // how it was before the resize (the preview held autosave, so the
+            // row may lack the last few edits), and the resized one becomes a
+            // new design that the editor carries on with.
+            if (payload.saveAsCopy) {
+              let sourceTemplate = currentDesignId ? null : (payload.templateId || null);
+              if (currentDesignId && payload.original) {
+                try { await externalizePages([{ canvas: payload.original.canvas, elements: payload.original.elements }]); } catch (_) {}
+                const { data: was, error: oe } = await supabase.from('user_designs')
+                  .update({ canvas: payload.original.canvas, elements: payload.original.elements, pages: payload.original.pages || null, updated_at: new Date().toISOString() })
+                  .eq('id', currentDesignId).eq('user_id', memberUid).select('source_template_id').single();
+                if (oe) return { ok: false, reason: why(oe) };
+                sourceTemplate = (was && was.source_template_id) || null;
+              }
+              row.source_template_id = sourceTemplate;
+              const { data, error } = await supabase.from('user_designs').insert(row).select('id').single();
+              if (error || !data) return { ok: false, reason: why(error) };
+              currentDesignId = data.id;
+              try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
+              return { ok: true, id: currentDesignId };
+            }
             if (currentDesignId) {
               const { error } = await supabase.from('user_designs').update(row).eq('id', currentDesignId).eq('user_id', memberUid);
               return error ? { ok: false, reason: why(error) } : { ok: true, id: currentDesignId };
