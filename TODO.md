@@ -665,6 +665,14 @@ are the `RESIZE_*` constants at the top of that section.
   the pictures and gaps make the room. Story/Reel: words 25% larger (30 → 38).
   Landscape: words may spread up to half as wide again so they stay larger.
   Too many words to fit: they shrink only as far as they must.
+- ✅ **Titles keep their line count.** A headline that would wrap onto an extra
+  line comes down in size instead (up to a quarter); if it still has to wrap,
+  its line spacing closes to 0.9. Anything at 40px or more (at a 1080 short
+  side) counts as a title; body copy wraps as body copy does. Every text box's
+  height is now measured at its new width before the layout runs.
+- ✅ **The Creative Assistant's "Resize the canvas" walkthrough** covers the
+  new steps, and both it and the Resize panel say plainly that a resize gets
+  you most of the way and the text and spacing want checking before posting.
 - ✅ **Try sizes before keeping one.** Nothing saves while a different size is
   showing; Save and the Resize panel ask: resize this design, save a copy at
   this size, or go back. X (Twitter) preset removed; TikTok folded into Story.
@@ -672,9 +680,8 @@ are the `RESIZE_*` constants at the top of that section.
   template on this visit. Undoable.
 - ✅ **Safe zones** in Guides: Instagram Story, Reel, and a 5mm print trim on
   A-sizes. Shown over the canvas, never exported.
-- ⬜ **Check "Save as a copy" signed in on the live site.** Couldn't be tested
-  without a member login: it should leave the original design as it was and
-  open the copy, named e.g. "Just Listed (Story / Reel / TikTok)".
+- ✅ (19 Sep) **"Save as a copy" confirmed on the live site** by Dani: the copy
+  lands in My Designs and the original is untouched.
 - ⬜ **Test the resize on real pack templates**, especially text-heavy ones, and
   tune the `RESIZE_*` rules from what they show.
 - ⬜ **Social media footer template** — the member's headshot and contact

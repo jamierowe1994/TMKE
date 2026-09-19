@@ -9528,6 +9528,9 @@
   const RESIZE_MIN_TEXT = 8;          // smallest font size a resize will produce
   const RESIZE_STORY_TEXT = 1.25;     // words on a story, against the post they came from (30 -> 38)
   const RESIZE_TEXT_WIDEN = 1.5;      // how much wider a text box may get on a wider canvas
+  const RESIZE_TITLE_SIZE = 40;       // text this big (at a 1080 short side) is a title
+  const RESIZE_TITLE_SHRINK = 0.75;   // how far a title may come down to hold its line count
+  const RESIZE_TITLE_LEADING = 0.9;   // line spacing for a title that has to take another line
 
   function resizeUnits(elements) {
     // A group moves and scales as one unit, so its members keep their layout.
@@ -9746,17 +9749,12 @@
     if (el.imgOffsetY) el.imgOffsetY = r(el.imgOffsetY, k);
   }
 
-  function resizePage(page, W2, H2) {
-    const W = page.canvas.width, H = page.canvas.height;
-    if (W === W2 && H === H2) return;
-    const M = RESIZE_MARGIN * Math.min(W, H) / 1080;
-    const M2 = RESIZE_MARGIN * Math.min(W2, H2) / 1080;
-    const live = W2 - 2 * M2;
-    const units = resizeUnits(page.elements || []);
-    // Vertical first, across the whole page. Across is then worked out row by
-    // row: a footer's headshot and logo spread to the margins of a landscape
-    // with the band they sit on, rather than being pulled in to line up with
-    // the photo above them.
+  // Work out how much everything scales, and the plans that place it.
+  // Vertical first, across the whole page. Across is then worked out row by
+  // row: a footer's headshot and logo spread to the margins of a landscape
+  // with the band they sit on, rather than being pulled in to line up with
+  // the photo above them.
+  function resizeSolve(units, W, H, W2, H2, M, M2, live) {
     const py = resizeAxisPlan(units, "y", H, H2, M, M2);
     const rows = py.bands.map((bd) => bd.units).concat(units.filter((u) => u.yBleed).map((u) => [u]));
     const pxs = rows.map((row) => resizeAxisPlan(row, "x", W, W2, M, M2));
@@ -9802,6 +9800,69 @@
       if (!isFinite(s)) s = Math.min(W2 / W, H2 / H);
       resizeUnitFactors(units, s, null, live);
     }
+    return { s, py, rows, pxs, plans };
+  }
+
+  // How many lines this text takes at a given size and box width.
+  function resizeLineCount(el, size, w) {
+    return textLineCount(Object.assign({}, el, { w: Math.max(1, w) }), Math.max(1, size));
+  }
+
+  /* Fit the words to the width they are about to have, BEFORE the final
+     layout, so the layout works from the heights they will really be.
+
+     A title that wraps onto an extra line is the thing that looks wrong: "Your
+     Autumn Move" over two lines where it used to be one reads as a mistake
+     rather than a design. So a title comes down in size, a little, to keep the
+     number of lines it had. If it can't (RESIZE_TITLE_SHRINK is as far as it
+     goes), the extra line is accepted and the lines are closed up to
+     RESIZE_TITLE_LEADING, which is what a big two-line title wants anyway.
+     Body copy is left to wrap as body copy does. */
+  function resizeFitText(elements, units, W, H) {
+    const big = RESIZE_TITLE_SIZE * Math.min(W, H) / 1080;
+    let changed = false;
+    units.forEach((u) => {
+      u.els.forEach((el) => {
+        if (el.type !== "text" || !el.text) return;
+        const kt = u.kt || 1, kx = u.kx || 1, ky = u.ky || 1;
+        const w0 = el.w || 1, w2 = Math.max(1, w0 * kx);
+        let size = Math.max(RESIZE_MIN_TEXT, Math.round((el.size || 16) * kt));
+        const was = resizeLineCount(el, el.size || 16, w0);
+        let now = resizeLineCount(el, size, w2);
+        let lh = el.lineHeight || 1.3;
+        if ((el.size || 0) >= big && now > was) {
+          const floor = Math.max(RESIZE_MIN_TEXT, Math.round(size * RESIZE_TITLE_SHRINK));
+          for (let sz = size - 1; sz >= floor; sz--) {
+            if (resizeLineCount(el, sz, w2) <= was) { size = sz; now = was; break; }
+          }
+          if (now > was && lh > RESIZE_TITLE_LEADING) { lh = RESIZE_TITLE_LEADING; el.lineHeight = lh; changed = true; }
+        }
+        // Store what the factors will turn into the wanted size and height.
+        const h2 = Math.ceil(now * size * lh);
+        const nextSize = size / kt, nextH = h2 / ky;
+        if (Math.abs(nextSize - (el.size || 16)) > 0.01 || Math.abs(nextH - (el.h || 0)) > 0.5) changed = true;
+        el.size = nextSize;
+        el.h = nextH;
+      });
+    });
+    return changed;
+  }
+
+  function resizePage(page, W2, H2) {
+    const W = page.canvas.width, H = page.canvas.height;
+    if (W === W2 && H === H2) return;
+    const M = RESIZE_MARGIN * Math.min(W, H) / 1080;
+    const M2 = RESIZE_MARGIN * Math.min(W2, H2) / 1080;
+    const live = W2 - 2 * M2;
+    // Two passes: work out the scales, fit the words to them, then work the
+    // scales out again from the heights the words will really have.
+    for (let pass = 0; pass < 2; pass++) {
+      const u0 = resizeUnits(page.elements || []);
+      resizeSolve(u0, W, H, W2, H2, M, M2, live);
+      if (!resizeFitText(page.elements, u0, W, H)) break;
+    }
+    const units = resizeUnits(page.elements || []);
+    const { s, py, rows, pxs } = resizeSolve(units, W, H, W2, H2, M, M2, live);
     resizeAxisPlace(py, units, s);
     pxs.forEach((p, i) => resizeAxisPlace(p, rows[i], s));
     units.forEach((u) => {
