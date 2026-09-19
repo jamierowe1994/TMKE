@@ -1,0 +1,268 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<!--
+  Website insights — what the site itself records.
+
+  Reads public.site_events, the first-party log written by src/lib/track.js on
+  every front-end page (consent-gated: a visitor who declines cookies is never
+  recorded). No third party, no cookies of ours beyond the consent choice.
+
+  This is step one of the insights project. Search appearances (Google Search
+  Console) and the true visitor count including people who decline cookies
+  (Cloudflare) come next, and the page says where each number comes from so
+  nobody compares two that aren't the same thing.
+-->
+<AdminShell active="insights" title="Website insights" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Website insights</div>
+          <div class="page-header-sub">Visits, the pages people read and what they click, recorded by the site itself.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-actions">
+        <div class="order-filters" id="wi-range" role="tablist">
+          <button type="button" class="enquiry-chip" data-days="7">7 days</button>
+          <button type="button" class="enquiry-chip is-active" data-days="30">30 days</button>
+          <button type="button" class="enquiry-chip" data-days="90">90 days</button>
+          <button type="button" class="enquiry-chip" data-days="3650">Everything</button>
+        </div>
+        <span class="admin-bar-count" id="wi-count">Loading…</span>
+      </div>
+      <div class="admin-bar-actions">
+        <button type="button" class="admin-btn admin-btn-ghost" id="wi-csv">Export CSV</button>
+      </div>
+    </section>
+
+    <!-- Nothing recorded: say why, and what to do about it, rather than
+         showing a page of zeros. -->
+    <p class="wi-empty" id="wi-empty" hidden></p>
+
+    <div id="wi-body" hidden>
+      <section class="g4 order-stats-grid">
+        <div class="stat"><div class="stat-num" data-stat="visits">…</div><div class="stat-label">Visits</div></div>
+        <div class="stat"><div class="stat-num" data-stat="views">…</div><div class="stat-label">Page views</div></div>
+        <div class="stat"><div class="stat-num" data-stat="perVisit">…</div><div class="stat-label">Pages per visit</div></div>
+        <div class="stat"><div class="stat-num" data-stat="signedIn">…</div><div class="stat-label">Visits by members</div></div>
+      </section>
+
+      <section class="wi-card">
+        <div class="wi-card-head"><h2>Visits a day</h2><span id="wi-chart-note"></span></div>
+        <div class="wi-chart" id="wi-chart"></div>
+      </section>
+
+      <div class="wi-cols">
+        <section class="wi-card">
+          <div class="wi-card-head"><h2>Most-read pages</h2><span>Views · visits</span></div>
+          <table class="wi-table" id="wi-pages"></table>
+        </section>
+        <section class="wi-card">
+          <div class="wi-card-head"><h2>Where they came from</h2><span>Visits</span></div>
+          <table class="wi-table" id="wi-refs"></table>
+        </section>
+      </div>
+
+      <section class="wi-card">
+        <div class="wi-card-head"><h2>What they did</h2><span>Everything the site records beyond a page view</span></div>
+        <table class="wi-table" id="wi-events"></table>
+      </section>
+
+      <p class="wi-foot" id="wi-foot"></p>
+    </div>
+
+    <!-- The two sources still to come, and what each adds. -->
+    <section class="wi-card wi-next">
+      <div class="wi-card-head"><h2>Still to connect</h2></div>
+      <ul>
+        <li><strong>Google Search Console</strong> — what people searched to find you, how often you appeared, and which pages earned the clicks. Free; needs the domain verified once, and it only records from that day on.</li>
+        <li><strong>Cloudflare</strong> — the true visitor count, including the people who decline cookies and so never appear on this page.</li>
+      </ul>
+    </section>
+  </div>
+
+  <style is:global>
+    .wi-empty { font-family: var(--sans); font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.7); background: rgba(227,160,8,0.1); border-radius: 10px; padding: 16px 18px; margin: 16px 0 0; }
+    .wi-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px 18px; margin: 16px 0 0; }
+    .wi-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+    .wi-card-head h2 { font-family: var(--serif); font-size: 17px; font-weight: 500; color: var(--ink); margin: 0; }
+    .wi-card-head span { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.5); }
+    .wi-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    @media (max-width: 900px) { .wi-cols { grid-template-columns: 1fr; } }
+    .wi-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .wi-table td { padding: 8px 10px 8px 0; border-bottom: 1px solid rgba(28,29,34,0.07); vertical-align: middle; }
+    .wi-table td:first-child { width: 100%; color: var(--ink); word-break: break-word; }
+    .wi-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: rgba(28,29,34,0.7); }
+    .wi-table .wi-bar { display: block; height: 4px; border-radius: 999px; background: rgba(var(--violet-rgb), 0.35); margin-top: 5px; }
+    .wi-none { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); padding: 8px 0; }
+    /* One bar a day. Plain divs: a chart library for eleven bars is a library
+       to load, update and keep. */
+    .wi-chart { display: flex; align-items: flex-end; gap: 3px; height: 140px; }
+    .wi-chart .wi-col { flex: 1 1 0; background: rgba(var(--violet-rgb), 0.22); border-radius: 3px 3px 0 0; min-height: 2px; position: relative; }
+    .wi-chart .wi-col:hover { background: var(--english-violet); }
+    .wi-chart .wi-col::after { content: attr(data-label); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; white-space: nowrap;
+      font-family: var(--sans); font-size: 11px; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 5px; padding: 3px 7px; opacity: 0; pointer-events: none; transition: opacity .12s; }
+    .wi-chart .wi-col:hover::after { opacity: 1; }
+    .wi-foot { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin: 12px 0 0; }
+    .wi-next ul { margin: 0; padding-left: 18px; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.7); }
+    .wi-next li + li { margin-top: 6px; }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { requireAdmin } from "../../lib/admin-gate.js";
+
+    const el = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const num = (n) => Number(n || 0).toLocaleString("en-GB");
+    let days = 30, EVENTS = [];
+
+    // A referrer is only interesting as a source: the site it came from, with
+    // our own pages folded into "Direct or from within the site".
+    function sourceOf(ref) {
+      const r = String(ref || "").trim();
+      if (!r) return "Direct / typed in";
+      try {
+        const h = new URL(r).hostname.replace(/^www\./, "");
+        if (/(^|\.)tmke\.co\.uk$/.test(h) || /themarketingexperts\.co\.uk$/.test(h)) return "Within the site";
+        if (/google\./.test(h)) return "Google";
+        if (/bing\./.test(h)) return "Bing";
+        if (/facebook\.|fb\./.test(h)) return "Facebook";
+        if (/instagram\./.test(h)) return "Instagram";
+        if (/linkedin\./.test(h)) return "LinkedIn";
+        if (/t\.co$|twitter\.|x\.com$/.test(h)) return "X / Twitter";
+        return h;
+      } catch (_) { return "Direct / typed in"; }
+    }
+
+    const rows = (items, total) => items.length
+      ? items.map(([label, n, sub]) => `<tr><td>${esc(label)}<span class="wi-bar" style="width:${total ? Math.max(2, Math.round((n / total) * 100)) : 0}%"></span></td><td class="num">${num(n)}${sub != null ? ` · ${num(sub)}` : ""}</td></tr>`).join("")
+      : `<tr><td class="wi-none">Nothing recorded yet.</td></tr>`;
+
+    function render() {
+      const views = EVENTS.filter((e) => e.name === "pageview");
+      const visits = new Set(EVENTS.map((e) => e.session_id || e.id)).size;
+      const signedIn = new Set(EVENTS.filter((e) => e.user_id).map((e) => e.session_id || e.id)).size;
+      el("wi-count").textContent = `${num(visits)} ${visits === 1 ? "visit" : "visits"} · ${num(views.length)} page ${views.length === 1 ? "view" : "views"}`;
+      const stat = (k, v) => { const n = document.querySelector(`[data-stat="${k}"]`); if (n) n.textContent = v; };
+      stat("visits", num(visits));
+      stat("views", num(views.length));
+      stat("perVisit", visits ? (views.length / visits).toFixed(1) : "0");
+      stat("signedIn", num(signedIn));
+
+      // A bar a day, oldest first.
+      const byDay = new Map();
+      const dayKey = (iso) => String(iso).slice(0, 10);
+      EVENTS.forEach((e) => {
+        const k = dayKey(e.created_at);
+        if (!byDay.has(k)) byDay.set(k, new Set());
+        byDay.get(k).add(e.session_id || e.id);
+      });
+      const first = EVENTS.length ? dayKey(EVENTS[EVENTS.length - 1].created_at) : null;
+      const start = new Date(days > 400 && first ? first + "T00:00:00" : Date.now() - (days - 1) * 864e5);
+      const daysOut = [];
+      for (let d = new Date(start); d <= new Date(); d.setDate(d.getDate() + 1)) {
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        daysOut.push([k, (byDay.get(k) || new Set()).size]);
+      }
+      const peak = Math.max(1, ...daysOut.map(([, n]) => n));
+      el("wi-chart").innerHTML = daysOut.map(([k, n]) =>
+        `<div class="wi-col" style="height:${Math.round((n / peak) * 100)}%" data-label="${esc(new Date(k + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${num(n)}"></div>`).join("");
+      el("wi-chart-note").textContent = `Busiest day: ${num(peak)}`;
+
+      // Pages, by views, with how many separate visits saw each.
+      const pages = new Map();
+      views.forEach((e) => {
+        const p = e.path || "/";
+        if (!pages.has(p)) pages.set(p, { n: 0, who: new Set() });
+        const row = pages.get(p); row.n++; row.who.add(e.session_id || e.id);
+      });
+      const topPages = [...pages.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 12);
+      el("wi-pages").innerHTML = rows(topPages.map(([p, r]) => [p, r.n, r.who.size]), topPages.length ? topPages[0][1].n : 0);
+
+      // Sources, counted once per visit.
+      const srcSeen = new Map();
+      EVENTS.forEach((e) => {
+        const sid = e.session_id || e.id;
+        if (!srcSeen.has(sid)) srcSeen.set(sid, sourceOf(e.referrer));
+      });
+      const srcCount = new Map();
+      srcSeen.forEach((src) => srcCount.set(src, (srcCount.get(src) || 0) + 1));
+      const topSrc = [...srcCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+      el("wi-refs").innerHTML = rows(topSrc, topSrc.length ? topSrc[0][1] : 0);
+
+      // Everything that isn't a page view: clicks, carts, checkouts, orders.
+      const acts = new Map();
+      EVENTS.filter((e) => e.name !== "pageview").forEach((e) => acts.set(e.name, (acts.get(e.name) || 0) + 1));
+      const topActs = [...acts.entries()].sort((a, b) => b[1] - a[1]);
+      const pretty = (n) => String(n).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+      el("wi-events").innerHTML = rows(topActs.map(([n, c]) => [pretty(n), c]), topActs.length ? topActs[0][1] : 0);
+
+      const last = EVENTS[0];
+      el("wi-foot").textContent = last
+        ? `Last recorded ${new Date(last.created_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}. Only visitors who accept cookies are counted, so the real figures are higher.`
+        : "";
+    }
+
+    async function load() {
+      el("wi-empty").hidden = true;
+      el("wi-count").textContent = "Loading…";
+      const since = new Date(Date.now() - days * 864e5).toISOString();
+      let q = supabase.from("site_events").select("id, name, path, session_id, user_id, referrer, created_at")
+        .order("created_at", { ascending: false }).limit(50000);
+      if (days <= 400) q = q.gte("created_at", since);
+      const { data, error } = await q;
+      if (error) {
+        el("wi-body").hidden = true;
+        el("wi-empty").hidden = false;
+        el("wi-empty").textContent = "Couldn't read the site's event log: " + error.message;
+        el("wi-count").textContent = "";
+        return;
+      }
+      EVENTS = data || [];
+      if (!EVENTS.length) {
+        el("wi-body").hidden = true;
+        el("wi-count").textContent = "Nothing yet";
+        el("wi-empty").hidden = false;
+        el("wi-empty").innerHTML = days > 400
+          ? "<strong>The site hasn't recorded anything at all yet.</strong> Visits are only recorded once a visitor accepts cookies, so if the banner is being declined - or the tracking hasn't been reaching the database - there is nothing here to show. Open tmke.co.uk in a private window, accept cookies, look at a couple of pages, then reload this page: if your own visit doesn't appear, the tracking itself needs fixing."
+          : "Nothing recorded in this period. Try a longer range.";
+        return;
+      }
+      el("wi-body").hidden = false;
+      render();
+    }
+
+    el("wi-csv").addEventListener("click", () => {
+      const head = "when,event,path,source,visit,member\n";
+      const body = EVENTS.map((e) => [e.created_at, e.name, e.path || "", sourceOf(e.referrer), e.session_id || "", e.user_id ? "yes" : "no"]
+        .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const url = URL.createObjectURL(new Blob([head + body], { type: "text/csv" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = `website-insights-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    el("wi-range").addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-days]"); if (!b) return;
+      el("wi-range").querySelectorAll(".enquiry-chip").forEach((x) => x.classList.remove("is-active"));
+      b.classList.add("is-active");
+      days = Number(b.getAttribute("data-days")) || 30;
+      load();
+    });
+
+    (async () => {
+      const session = await requireAdmin();
+      if (!session && !import.meta.env.DEV) return;
+      load();
+    })();
+  </script>
+</AdminShell>
