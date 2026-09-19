@@ -85,7 +85,7 @@ const NAV = [
           <div class="ash-group">
             <div class="ash-group-label">{group.label}</div>
             {group.items.map((it) => (
-              <a href={it.href} class:list={["ash-link", active === it.key && "is-active"]} aria-current={active === it.key ? "page" : undefined}>
+              <a href={it.href} data-navkey={it.key} class:list={["ash-link", active === it.key && "is-active"]} aria-current={active === it.key ? "page" : undefined}>
                 <Fragment set:html={it.icon} />
                 <span class="ash-link-label">{it.label}</span>
               </a>
@@ -204,6 +204,17 @@ const NAV = [
       // Dev preview counts as management too, so the fuller Dashboard view is
       // what you see by default when building against it locally.
       const isManagement = import.meta.env.DEV ? true : await isManagementUser(session.user);
+
+      // Money is management-only: Payments (Stripe) and the parts of Invoicing
+      // that show the ledger. Hidden here as well as refused by the Worker, so
+      // an ordinary admin isn't shown a door that won't open.
+      if (!isManagement) {
+        document.querySelectorAll('[data-navkey="payments"]').forEach((el) => {
+          const group = el.closest(".ash-group");
+          el.remove();
+          if (group && !group.querySelector(".ash-link")) group.remove();
+        });
+      }
 
       // Let pages react once auth + profile are ready.
       document.dispatchEvent(new CustomEvent("ash:ready", { detail: { session, profile, isManagement } }));

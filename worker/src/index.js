@@ -3342,6 +3342,8 @@ export default {
       if (path.endsWith("/admin/payments/receipt") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        // Takings are management only, like the invoice ledger.
+        if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
         if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
 
         const b = await request.json().catch(() => ({}));
@@ -3488,6 +3490,8 @@ export default {
       if (path.endsWith("/admin/payments") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        // Takings are management only, like the invoice ledger.
+        if (!(await isManagement(env, user))) return json({ error: "Payments are management only." }, 403, request, env);
         if (!env.STRIPE_SECRET_KEY) return json({ error: "Stripe isn't configured on the Worker." }, 503, request, env);
 
         const u = new URL(request.url);

@@ -84,6 +84,7 @@ import "../../styles/admin.css";
   </div>
 
   <style is:global>
+    .pay-locked { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.65); padding: 28px 4px; }
     /* is:global on purpose. The rows below are built in JavaScript, so they
        carry none of Astro's scoping attributes and a scoped block would miss
        them entirely — which is exactly how this page first shipped as one long
@@ -224,7 +225,7 @@ import "../../styles/admin.css";
 
   <script>
     import { supabase } from "../../lib/supabase.js";
-    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { requireAdmin, isManagementUser } from "../../lib/admin-gate.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
 
@@ -456,6 +457,16 @@ import "../../styles/admin.css";
     (async () => {
       const session = await requireAdmin();
       if (!session) return;
+
+      // Takings are management only (Danielle and Samantha). The Worker refuses
+      // the data as well; this is so anyone else gets a sentence rather than an
+      // error, and the page doesn't sit there loading.
+      const mgmt = import.meta.env.DEV ? true : await isManagementUser(session.user);
+      if (!mgmt) {
+        const page = document.querySelector(".ash-page") || document.body;
+        page.innerHTML = '<p class="pay-locked">Payments is management only. If you need it, ask Danielle to change your access level in Settings &rsaquo; Access.</p>';
+        return;
+      }
 
       wireChips("pay-range", "days", (v) => { days = Number(v) || 90; load(); });
       wireChips("pay-source", "source", (v) => { source = v; render(); });
