@@ -63,6 +63,16 @@ const isEditing = Astro.url.searchParams.has("edit");
 // pageTransition so the cover↔reveal handshake stays symmetric site-wide;
 // otherwise default to "on unless hideNav". Backend/editing always off.
 const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav);
+
+// Keep the signed-in areas out of search. They are real, reachable pages, but
+// what a crawler sees is the empty shell before anyone signs in - nothing worth
+// showing, and a pile of near-identical blank pages is a poor signal for the
+// site as a whole. Set here by path rather than page by page, so a new hub or
+// admin page is covered the day it is added. Crawling is deliberately NOT
+// blocked in robots.txt: a blocked page is never read, so this tag would never
+// be seen and any already-known URL would linger in the results.
+const privateArea = /^\/(account|admin|deliver)(\/|$)/.test(path);
+const hideFromSearch = noindex || privateArea;
 ---
 
 <!DOCTYPE html>
@@ -74,7 +84,7 @@ const enableTransition = !isBackend && !isEditing && (pageTransition ?? !hideNav
 
     <title>{title}</title>
     <meta name="description" content={description} />
-    {noindex && <meta name="robots" content="noindex,nofollow" />}
+    {hideFromSearch && <meta name="robots" content="noindex,nofollow" />}
     <link rel="canonical" href={canonical} />
 
     {pwa && <link rel="manifest" href={pwa.manifest} />}

@@ -13,6 +13,18 @@ export default defineConfig({
       filter: (page) =>
         !/\/estate-agency(\/|$)/.test(page) &&
         !/\/deliver(\/|$)/.test(page) &&
+        // The member hub and the admin centre: real pages, but empty until you
+        // sign in, so there is nothing for a search engine to show. Listing
+        // them spent Google's attention on blank shells instead of the pack
+        // pages, and risked those shells turning up in results.
+        !/\/account(\/|$)/.test(page) &&
+        !/\/admin(\/|$)/.test(page) &&
+        // Redirects into the hub (/studio, /dashboard, /profile, /editor) -
+        // a sitemap should list the destination, not the signpost.
+        !/\/(studio|dashboard|profile|editor)(\/|$)/.test(page) &&
+        // Sign-in plumbing and one-off links sent to a person: nothing to find
+        // in search, and "forgot password" ranking for the brand looks broken.
+        !/\/(auth|forgot-password|reset-password|manage|edits|leave-a-review|review)(\/|$)/.test(page) &&
         !/\/privacy(\/|$)/.test(page) &&
         !/\/cookies(\/|$)/.test(page),
     }),
