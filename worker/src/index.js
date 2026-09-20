@@ -5154,6 +5154,64 @@ export default {
       // A plain-English read on how a funnel is performing, plus anything that
       // needs doing before the next email goes out. Regenerated on each request
       // from the live numbers, so it keeps up as sends happen.
+      // ---- Cloudflare: the visitors our own tracker can't see ---------------
+      // Every request to tmke.co.uk passes through Cloudflare, which counts it
+      // at the edge - no script on the page, no cookie, nothing to accept. So
+      // this includes the people who decline cookies and never appear in
+      // site_events, and it can't be blocked by an ad blocker.
+      //
+      // Needs two things on the Worker: CF_ANALYTICS_TOKEN (a read-only
+      // Analytics token) and CF_ZONE_ID (the zone id from the Cloudflare
+      // dashboard). Without them this says so rather than failing.
+      if (path.endsWith("/admin/insights/cloudflare") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.CF_ANALYTICS_TOKEN || !env.CF_ZONE_ID) {
+          return json({ ok: false, configured: false, error: "Cloudflare isn't connected yet - add CF_ANALYTICS_TOKEN and CF_ZONE_ID to the Worker." }, 200, request, env);
+        }
+        const u = new URL(request.url);
+        const days = Math.min(Math.max(parseInt(u.searchParams.get("days") || "30", 10) || 30, 1), 90);
+        const since = new Date(Date.now() - (days - 1) * 864e5).toISOString().slice(0, 10);
+        const query = `query ($zone: String!, $since: Date!) {
+          viewer { zones(filter: { zoneTag: $zone }) {
+            httpRequests1dGroups(limit: 90, filter: { date_geq: $since }, orderBy: [date_ASC]) {
+              dimensions { date }
+              sum { requests pageViews }
+              uniq { uniques }
+            }
+          } }
+        }`;
+        try {
+          const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ query, variables: { zone: env.CF_ZONE_ID, since } }),
+          });
+          const body = await res.json().catch(() => ({}));
+          const problem = (body.errors && body.errors[0] && body.errors[0].message)
+            || (Array.isArray(body.messages) && body.messages[0] && body.messages[0].message);
+          if (!res.ok || problem) {
+            // The two that actually happen: a token without Analytics:Read, or
+            // the wrong zone id. Say which rather than "request failed".
+            const why = /authentication|authorization|9109|permission/i.test(String(problem || res.status))
+              ? "Cloudflare refused the token - it needs Zone Analytics: Read for tmke.co.uk."
+              : /zone/i.test(String(problem || "")) ? "Cloudflare doesn't recognise that zone id."
+              : String(problem || `Cloudflare returned ${res.status}`);
+            return json({ ok: false, configured: true, error: why }, 200, request, env);
+          }
+          const zone = ((((body.data || {}).viewer || {}).zones || [])[0]) || {};
+          const days_out = (zone.httpRequests1dGroups || []).map((g) => ({
+            date: g.dimensions && g.dimensions.date,
+            visitors: (g.uniq && g.uniq.uniques) || 0,
+            views: (g.sum && g.sum.pageViews) || 0,
+            requests: (g.sum && g.sum.requests) || 0,
+          }));
+          return json({ ok: true, configured: true, days: days_out }, 200, request, env);
+        } catch (e) {
+          return json({ ok: false, configured: true, error: String((e && e.message) || "Couldn't reach Cloudflare.") }, 200, request, env);
+        }
+      }
+
       // ---- Funnel lifecycle ------------------------------------------------
       // Review: what reactivating a paused funnel would do. Nothing changes.
       if (path.endsWith("/automations/reactivation-review") && request.method === "POST") {

@@ -89,17 +89,63 @@ import "../../styles/admin.css";
       <p class="wi-foot" id="wi-foot"></p>
     </div>
 
+    <!-- Cloudflare: counted at the edge, so everyone is in it. -->
+    <section class="wi-card" id="wi-cf" hidden>
+      <div class="wi-card-head">
+        <h2>Everyone who visited</h2>
+        <span>Counted by Cloudflare, before the page loads &mdash; nobody can opt out or block it</span>
+      </div>
+      <p class="wi-cf-msg" id="wi-cf-msg" hidden></p>
+      <div id="wi-cf-body" hidden>
+        <div class="wi-cf-stats">
+          <div class="stat"><div class="stat-num" id="wi-cf-visitors">…</div><div class="stat-label">Visitors</div></div>
+          <div class="stat"><div class="stat-num" id="wi-cf-views">…</div><div class="stat-label">Page views</div></div>
+          <div class="stat"><div class="stat-num" id="wi-cf-share">…</div><div class="stat-label">Accepted cookies</div></div>
+        </div>
+        <div class="wi-chart" id="wi-cf-chart"></div>
+        <p class="wi-foot" id="wi-cf-foot"></p>
+      </div>
+    </section>
+
     <!-- The two sources still to come, and what each adds. -->
     <section class="wi-card wi-next">
       <div class="wi-card-head"><h2>Still to connect</h2></div>
       <ul>
         <li><strong>Google Search Console</strong> — what people searched to find you, how often you appeared, and which pages earned the clicks. Free; needs the domain verified once, and it only records from that day on.</li>
-        <li><strong>Cloudflare</strong> — the true visitor count, including the people who decline cookies and so never appear on this page.</li>
+
       </ul>
     </section>
   </div>
 
   <style is:global>
+    /* The filter chips and the bar they sit in. Each admin page carries its
+       own copy of these - this one was rendering as bare browser buttons. */
+    .admin-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 4px; }
+    .admin-bar-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .admin-bar-count { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); white-space: nowrap; }
+    .order-filters { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+    .enquiry-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: #fff; border: 1px solid rgba(var(--violet-rgb), 0.3);
+      border-radius: 999px; font-family: var(--sans); font-size: 11px;
+      letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700;
+      color: var(--english-violet); cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .enquiry-chip:hover { background: rgba(var(--violet-rgb), 0.06); }
+    .enquiry-chip.is-active { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+    /* The two plain actions match the chips rather than the browser's idea of
+       a button, and the "not counted" state is the same on/off as a chip. */
+    #wi-notrack, #wi-csv {
+      display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); border-radius: 999px;
+      font-family: var(--sans); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28,29,34,0.65); cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    #wi-notrack:hover, #wi-csv:hover { background: rgba(28,29,34,0.05); color: var(--ink); }
+    #wi-notrack.is-on { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+    #wi-notrack:focus-visible, #wi-csv:focus-visible, .enquiry-chip:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+
     .wi-scope { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 12px 0 0; }
     .wi-empty { font-family: var(--sans); font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.7); background: rgba(227,160,8,0.1); border-radius: 10px; padding: 16px 18px; margin: 16px 0 0; }
     .wi-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px 18px; margin: 16px 0 0; }
@@ -122,6 +168,11 @@ import "../../styles/admin.css";
     .wi-chart .wi-col::after { content: attr(data-label); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); margin-bottom: 4px; white-space: nowrap;
       font-family: var(--sans); font-size: 11px; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 5px; padding: 3px 7px; opacity: 0; pointer-events: none; transition: opacity .12s; }
     .wi-chart .wi-col:hover::after { opacity: 1; }
+    .wi-cf-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 14px; }
+    @media (max-width: 700px) { .wi-cf-stats { grid-template-columns: 1fr; } }
+    .wi-cf-stats .stat { background: var(--paper, #f4f2f1); border: 0; }
+    .wi-cf-msg { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.65); margin: 0; }
+    .wi-cf-msg code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 4px; }
     .wi-foot { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin: 12px 0 0; }
     .wi-next ul { margin: 0; padding-left: 18px; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.7); }
     .wi-next li + li { margin-top: 6px; }
@@ -287,6 +338,7 @@ import "../../styles/admin.css";
       }
       el("wi-body").hidden = false;
       render();
+      loadCloudflare();
     }
 
     // Stop this browser being recorded anywhere on the site. The admin centre
@@ -297,7 +349,8 @@ import "../../styles/admin.css";
     function syncNotrack() {
       const b = el("wi-notrack");
       const off = trackingOff();
-      b.textContent = off ? "This browser isn't counted ✓" : "Don't count this browser";
+      b.textContent = off ? "This browser isn't counted" : "Don't count this browser";
+      b.classList.toggle("is-on", off);
       b.title = off
         ? "Nothing you do on tmke.co.uk from this browser is recorded. Click to start counting it again."
         : "Stop your own browsing being recorded as customer traffic. Do this on each browser you use.";
@@ -334,6 +387,46 @@ import "../../styles/admin.css";
       el("wi-empty").hidden = true; el("wi-body").hidden = false;
       render();
     });
+
+    // ---- Cloudflare ---------------------------------------------------------
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    async function loadCloudflare() {
+      const card = el("wi-cf"), msg = el("wi-cf-msg"), body = el("wi-cf-body");
+      if (!WORKER) return;
+      card.hidden = false;
+      msg.hidden = false; body.hidden = true;
+      msg.textContent = "Asking Cloudflare…";
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        const r = await fetch(`${WORKER}/admin/insights/cloudflare?days=${Math.min(days, 90)}`, {
+          headers: { Authorization: token ? "Bearer " + token : "" },
+        });
+        const d = await r.json().catch(() => ({}));
+        if (!d.ok) {
+          msg.innerHTML = d.configured === false
+            ? "Not connected yet. It needs a read-only Cloudflare token and the zone id on the Worker (<code>CF_ANALYTICS_TOKEN</code> and <code>CF_ZONE_ID</code>)."
+            : esc(d.error || "Cloudflare didn't answer.");
+          return;
+        }
+        const rows = d.days || [];
+        const visitors = rows.reduce((n, x) => n + (x.visitors || 0), 0);
+        const views = rows.reduce((n, x) => n + (x.views || 0), 0);
+        el("wi-cf-visitors").textContent = num(visitors);
+        el("wi-cf-views").textContent = num(views);
+        // How much of the truth our own tracker sees: its visits over
+        // Cloudflare's visitors, for the same window.
+        const ours = new Set(ALL.filter((e) => areaOf(e.path) !== "admin").map((e) => e.session_id || e.id)).size;
+        el("wi-cf-share").textContent = visitors ? Math.round((ours / visitors) * 100) + "%" : "—";
+        const peak = Math.max(1, ...rows.map((x) => x.visitors || 0));
+        el("wi-cf-chart").innerHTML = rows.map((x) =>
+          `<div class="wi-col" style="height:${Math.round(((x.visitors || 0) / peak) * 100)}%" data-label="${esc(new Date(x.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${num(x.visitors || 0)}"></div>`).join("");
+        el("wi-cf-foot").textContent = `Cloudflare counted ${num(visitors)} ${visitors === 1 ? "visitor" : "visitors"}; the site's own tracker recorded ${num(ours)}. The difference is people who declined cookies, plus bots Cloudflare sees and the page never does.`;
+        msg.hidden = true; body.hidden = false;
+      } catch (err) {
+        msg.textContent = "Couldn't reach the Worker for Cloudflare's numbers.";
+      }
+    }
 
     el("wi-range").addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-days]"); if (!b) return;
