@@ -1,11 +1,13 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
-import { STUDIO_SIZES, ADMIN_EXTRA_SOCIAL } from "../../data/studio-sizes.js";
+import { STUDIO_SIZES } from "../../data/studio-sizes.js";
 
+// Every social size a member can resize into — the whole point is that this
+// page shows what they will actually be able to do.
 const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
-// Shown here, never offered in the Studio — see the note in studio-sizes.js.
-const EXTRA = ADMIN_EXTRA_SOCIAL.map((z) => ({ ...z, extra: true }));
+// The wide shapes ask the most of a resize, so they are worth their own look.
+const WIDE = new Set(["Landscape", "Facebook Link", "Facebook Cover", "LinkedIn Post"]);
 ---
 
 <AdminShell active="studio" title="Check the sizes" skin="hub">
@@ -39,7 +41,7 @@ const EXTRA = ADMIN_EXTRA_SOCIAL.map((z) => ({ ...z, extra: true }));
     <div id="sz-grid" class="sz-grid"></div>
   </div>
 
-  <script id="sz-sizes" type="application/json" set:html={JSON.stringify(SOCIAL.concat(EXTRA))}></script>
+  <script id="sz-sizes" type="application/json" set:html={JSON.stringify(SOCIAL.map((z) => ({ ...z, wide: WIDE.has(z.name) })))}></script>
 
   <style is:global>
     .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
@@ -274,9 +276,9 @@ const EXTRA = ADMIN_EXTRA_SOCIAL.map((z) => ({ ...z, extra: true }));
       els.grid.innerHTML = cards.map((c) => {
         // One divider, before the first format members can't choose.
         let lead = '';
-        if (c.sz.extra && !openedExtra) {
+        if (c.sz.wide && !openedExtra) {
           openedExtra = true;
-          lead = '<div class="sz-split"><span>Not offered to members</span><small>Worth a look before drawing a pack at one of these shapes</small></div>';
+          lead = '<div class="sz-split"><span>The wide ones</span><small>A portrait design has the furthest to travel to get here — check these hardest</small></div>';
         }
         return lead + card(c);
       }).join('');

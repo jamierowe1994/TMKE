@@ -24,33 +24,23 @@ const print = (name, wMm, hMm) => ({
   bleed: px(PRINT_BLEED_MM),
 });
 
-/* The social formats we no longer OFFER, but still want to look at.
-   Members can't resize to these — a post squeezed into a banner is worse than
-   the post it came from — but the admin size check shows them, because seeing
-   what a design does at a landscape shape is how you find out whether a
-   LinkedIn or cover pack is worth drawing properly one day. */
-export const ADMIN_EXTRA_SOCIAL = [
-  { name: "Landscape", w: 1920, h: 1080 },
-  { name: "Facebook Link", w: 1200, h: 628 },
-  { name: "Facebook Cover", w: 820, h: 312 },
-  { name: "LinkedIn Post", w: 1200, h: 627 },
-];
-
 export const STUDIO_SIZES = [
   {
     label: "Social",
     family: "social",
-    // Four, on purpose. A design redrawn from portrait to square needs a
-    // nudge; the same design forced into landscape needs rebuilding, and the
-    // result is worse than the template it came from. Nobody buying an
-    // Instagram pack needs a banner, so we don't offer one. If a LinkedIn or
-    // cover pack is ever worth drawing, it gets drawn at that shape from the
-    // start rather than squeezed out of this one.
+    // Every social shape a member can make a design at — and so every shape
+    // they can resize one into. The portraits and the square are the ones
+    // most designs are drawn for; the wide shapes below them ask more of a
+    // resize, which is what the admin size check is for.
     sizes: [
       { name: "Instagram Portrait", w: 1080, h: 1440 },
       { name: "Facebook Portrait", w: 1080, h: 1350 },
       { name: "Square", w: 1080, h: 1080 },
       { name: "Story / Reel / TikTok", w: 1080, h: 1920 },
+      { name: "Landscape", w: 1920, h: 1080 },
+      { name: "Facebook Link", w: 1200, h: 628 },
+      { name: "Facebook Cover", w: 820, h: 312 },
+      { name: "LinkedIn Post", w: 1200, h: 627 },
     ],
   },
   {
