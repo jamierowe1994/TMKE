@@ -13,7 +13,11 @@ import "../../styles/admin.css";
         </div>
       </div>
       <div class="page-header-actions">
-        <a href="/admin/packs/editor" class="admin-btn admin-btn-primary">+ New pack</a>
+        <nav class="cat-tabs">
+          <button type="button" class="cat-tab is-on" data-kind="social">Social</button>
+          <button type="button" class="cat-tab" data-kind="print">Print</button>
+        </nav>
+        <a href="/admin/packs/editor" class="admin-btn admin-btn-primary" id="cat-new">+ New pack</a>
       </div>
     </div>
   </div>
@@ -672,8 +676,39 @@ import "../../styles/admin.css";
       }[c]));
     }
 
+    // Which half of the catalogue is on show. Kept in the address so a reload,
+    // or coming back from the pack editor, lands where you were.
+    let kind = new URLSearchParams(location.search).get("kind") === "print" ? "print" : "social";
+
+    function syncKindTabs() {
+      document.querySelectorAll(".cat-tab").forEach((b) => {
+        b.classList.toggle("is-on", b.getAttribute("data-kind") === kind);
+      });
+      const nu = document.getElementById("cat-new");
+      if (nu) {
+        nu.href = kind === "print" ? "/admin/packs/editor?kind=print" : "/admin/packs/editor";
+        nu.textContent = kind === "print" ? "+ New print pack" : "+ New pack";
+      }
+      const demo = document.getElementById("demo-pack");
+      if (demo) demo.hidden = kind === "print";   // the demo pack is a social one
+    }
+
+    document.querySelectorAll(".cat-tab").forEach((b) => {
+      b.addEventListener("click", () => {
+        kind = b.getAttribute("data-kind") === "print" ? "print" : "social";
+        const u = new URL(location.href);
+        if (kind === "print") u.searchParams.set("kind", "print"); else u.searchParams.delete("kind");
+        history.replaceState(null, "", u);
+        render();
+      });
+    });
+
     function visiblePacks() {
       let rows = allPacks.filter((p) => p.demo !== true);   // the demo pack has its own panel above
+      // Print packs are a different trade from social ones — different
+      // questions when you make them, different people allowed to see them —
+      // so they get their own half of the catalogue rather than being mixed in.
+      rows = rows.filter((p) => (p.kind || "social") === kind);
       if (filter !== "all") rows = rows.filter((p) => p.status === filter);
       switch (sortBy) {
         case "newest":
@@ -754,6 +789,7 @@ import "../../styles/admin.css";
     }
 
     function render() {
+      syncKindTabs();
       const grid = document.getElementById("catalogue-grid");
       const emptyEl = document.getElementById("catalogue-empty");
       const sub = document.getElementById("catalogue-sub");
@@ -769,7 +805,12 @@ import "../../styles/admin.css";
       grid.className = `catalogue-grid is-view-${view}` + (sortBy === "manual" ? "" : " is-locked");
       if (rows.length === 0) {
         grid.innerHTML = "";
-        if (emptyEl) emptyEl.hidden = false;
+        if (emptyEl) {
+          emptyEl.hidden = false;
+          emptyEl.innerHTML = kind === "print"
+            ? 'No print packs yet \u2014 <strong>+ New print pack</strong> makes one. A print pack isn\u2019t sold: you pick the brands it is for, and only their agents ever see it.'
+            : 'No packs yet \u2014 click <strong>+ New pack</strong> to add the first one.';
+        }
       } else {
         if (emptyEl) emptyEl.hidden = true;
         grid.innerHTML = rows.map(packCardHtml).join("");

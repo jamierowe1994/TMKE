@@ -54,7 +54,41 @@ import "../../../styles/admin.css";
           </label>
         </section>
 
+        <!-- What this pack is, and who it is for. A print pack is not sold:
+             it is a set of print templates drawn for one or more TEG brands,
+             free to their agents and invisible to everyone else. -->
         <section class="editor-card">
+          <h2 class="editor-section-title">What this pack is</h2>
+          <div class="editor-row">
+            <label class="editor-field">
+              <span>Kind</span>
+              <select name="kind" id="pk-kind">
+                <option value="social">Social — designs for posts and stories</option>
+                <option value="print">Print — boards, brochures, cards</option>
+              </select>
+            </label>
+            <label class="editor-field">
+              <span>Who gets it</span>
+              <select name="access" id="pk-access">
+                <option value="buy">Anyone who buys it</option>
+                <option value="members">Every member, free</option>
+                <option value="brands">Only the brands below</option>
+              </select>
+            </label>
+          </div>
+          <div class="editor-field pk-brands-wrap" id="pk-brands-wrap" hidden>
+            <span>Brands</span>
+            <div class="pk-brands" id="pk-brands"></div>
+            <div class="pk-brand-add">
+              <input type="text" id="pk-brand-new" placeholder="Add another brand…" maxlength="60" />
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="pk-brand-add">Add</button>
+            </div>
+            <input type="hidden" name="brands" value="[]" />
+            <small>Only members whose TEG profile has one of these brands can see this pack or open its templates. The list is every brand already on an agent's profile.</small>
+          </div>
+        </section>
+
+        <section class="editor-card" id="pk-pricing">
           <h2 class="editor-section-title">Pricing &amp; classification</h2>
           <div class="editor-row">
             <label class="editor-field">
@@ -259,6 +293,29 @@ import "../../../styles/admin.css";
       margin-top: 28px;
     }
     .editor-main, .editor-side { display: flex; flex-direction: column; gap: 24px; }
+
+    /* Brand picker + the pricing card when nothing is being sold. */
+    .pk-brands { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+    .pk-brand {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 7px 13px; border-radius: 999px; cursor: pointer;
+      background: #fff; border: 1px solid rgba(28,29,34,0.18);
+      font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.7);
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
+    }
+    .pk-brand:hover { border-color: rgba(28,29,34,0.4); color: var(--ink); }
+    .pk-brand.is-on { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+    .pk-brand input { accent-color: currentColor; margin: 0; }
+    .pk-brand-add { display: flex; gap: 8px; align-items: center; }
+    .pk-brand-add input {
+      flex: 1; min-width: 0; padding: 9px 12px; border-radius: 6px;
+      border: 1px solid rgba(28,29,34,0.18); font-family: var(--sans); font-size: 13px;
+    }
+    .pk-brands-wrap[hidden] { display: none; }
+    /* Nobody is buying it, so the price and the shop preview step out of the
+       way rather than sitting there greyed and confusing. */
+    #pk-pricing.is-free .editor-field:has(input[name="price_gbp"]),
+    #pk-pricing.is-free .editor-field:has(input[name="preview_reveal_count"]) { display: none; }
 
     .editor-card {
       background: var(--paper);
@@ -745,6 +802,86 @@ import "../../../styles/admin.css";
     const PACK_IMAGES_BUCKET = "pack-images";
 
     const form = document.getElementById("pack-form");
+
+    /* ---- Kind, access and brands ------------------------------------------
+       A print pack for a brand has no price, no shop category and no "public
+       preview" — those questions only make sense for something on sale, and
+       asking them anyway is how a form teaches you to ignore it. */
+    let BRANDS = [];          // the brands this pack is for
+    let BRAND_OPTIONS = [];   // every brand already on an agent's profile
+
+    function setBrands(list) {
+      BRANDS = Array.from(new Set((list || []).filter(Boolean)));
+      const hidden = form.elements.brands;
+      if (hidden) hidden.value = JSON.stringify(BRANDS);
+      renderBrands();
+    }
+
+    function renderBrands() {
+      const box = document.getElementById("pk-brands");
+      if (!box) return;
+      const all = Array.from(new Set(BRAND_OPTIONS.concat(BRANDS))).sort();
+      box.innerHTML = all.length
+        ? all.map((b) => `
+            <label class="pk-brand${BRANDS.includes(b) ? " is-on" : ""}">
+              <input type="checkbox" value="${b.replace(/"/g, "&quot;")}"${BRANDS.includes(b) ? " checked" : ""} />
+              <span>${b.replace(/</g, "&lt;")}</span>
+            </label>`).join("")
+        : '<p class="editor-help">No brands on any agent profile yet — add one below.</p>';
+    }
+
+    document.getElementById("pk-brands")?.addEventListener("change", (e) => {
+      const cb = e.target;
+      if (!(cb instanceof HTMLInputElement)) return;
+      setBrands(cb.checked ? BRANDS.concat(cb.value) : BRANDS.filter((b) => b !== cb.value));
+    });
+
+    document.getElementById("pk-brand-add")?.addEventListener("click", () => {
+      const input = document.getElementById("pk-brand-new");
+      const val = (input.value || "").trim();
+      if (!val) return;
+      BRAND_OPTIONS = BRAND_OPTIONS.concat(val);
+      setBrands(BRANDS.concat(val));
+      input.value = "";
+    });
+
+    function syncKind() {
+      const kind = form.elements.kind ? form.elements.kind.value : "social";
+      const access = form.elements.access ? form.elements.access.value : "buy";
+      const brandsWrap = document.getElementById("pk-brands-wrap");
+      const pricing = document.getElementById("pk-pricing");
+      if (brandsWrap) brandsWrap.hidden = access !== "brands";
+      // Price and shop preview belong to a pack someone buys.
+      if (pricing) pricing.classList.toggle("is-free", access !== "buy");
+      const price = form.elements.price_gbp;
+      if (price) { price.required = access === "buy"; price.disabled = access !== "buy"; }
+      // A print pack for a brand is free by default — say so once, don't nag.
+      if (kind === "print" && access === "buy" && !editingId) {
+        form.elements.access.value = "brands";
+        syncKind();
+      }
+    }
+
+    // Arriving from the Print tab: start as a print pack for brands.
+    if (!new URLSearchParams(location.search).get("id")
+        && new URLSearchParams(location.search).get("kind") === "print") {
+      if (form.elements.kind) form.elements.kind.value = "print";
+      if (form.elements.access) form.elements.access.value = "brands";
+    }
+    syncKind();
+
+    form.elements.kind?.addEventListener("change", syncKind);
+    form.elements.access?.addEventListener("change", syncKind);
+
+    // Every brand we already know about, so the picker is a list, not a memory
+    // test. Free text still works for a brand nobody has joined yet.
+    (async () => {
+      try {
+        const { data } = await supabase.from("agent_profiles").select("brand").not("brand", "is", null);
+        BRAND_OPTIONS = Array.from(new Set((data || []).map((r) => (r.brand || "").trim()).filter(Boolean))).sort();
+      } catch (_) {}
+      renderBrands();
+    })();
     const errorEl = document.getElementById("editor-error");
     const titleEl = document.getElementById("editor-title");
     const subEl = document.getElementById("editor-sub");
@@ -1100,6 +1237,10 @@ import "../../../styles/admin.css";
       form.elements.slug.value = data.slug || "";
       form.elements.price_gbp.value = ((data.price_pence || 0) / 100).toFixed(2);
       form.elements.category.value = data.category || "";
+      form.elements.kind.value = data.kind || "social";
+      form.elements.access.value = data.access || "buy";
+      setBrands(Array.isArray(data.brands) ? data.brands : []);
+      syncKind();
       form.elements.status.value = data.status || "active";
       form.elements.description.value = data.description || "";
       form.elements.contents.value = (data.contents || []).join("\n");
@@ -1160,14 +1301,28 @@ import "../../../styles/admin.css";
         if (!title) throw new Error("Title is required.");
         if (!slug) throw new Error("Slug is required.");
         if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
-        if (Number.isNaN(priceGbp) || priceGbp < 0) throw new Error("Price must be 0 or more.");
+        if (String(fd.get("access") || "buy") === "buy" && (Number.isNaN(priceGbp) || priceGbp < 0)) {
+          throw new Error("Price must be 0 or more.");
+        }
 
         const previewCount = Math.max(0, Math.min(24, Number(fd.get("preview_reveal_count") || 3)));
+
+        const kind = String(fd.get("kind") || "social");
+        const access = String(fd.get("access") || "buy");
+        let brands = [];
+        try { brands = JSON.parse(String(fd.get("brands") || "[]")); } catch (_) {}
+        if (access === "brands" && !brands.length) {
+          throw new Error("Pick at least one brand, or change who gets it.");
+        }
 
         const payload = {
           title,
           slug,
-          price_pence: Math.round(priceGbp * 100),
+          kind,
+          access,
+          brands,
+          // Nothing to charge for a pack nobody buys.
+          price_pence: access === "buy" ? Math.round(priceGbp * 100) : 0,
           category: String(fd.get("category") || "") || null,
           status: String(fd.get("status") || "active"),
           description: String(fd.get("description") || "").trim() || null,
