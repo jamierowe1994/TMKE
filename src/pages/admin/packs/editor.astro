@@ -28,6 +28,40 @@ import "../../../styles/admin.css";
 
     <div class="editor-grid">
       <div class="editor-main">
+        <!-- What this pack is, and who it is for. A print pack is not sold:
+             it is a set of print templates drawn for one or more TEG brands,
+             free to their agents and invisible to everyone else. -->
+        <section class="editor-card">
+          <h2 class="editor-section-title">What this pack is</h2>
+          <div class="editor-row">
+            <label class="editor-field">
+              <span>Kind</span>
+              <select name="kind" id="pk-kind">
+                <option value="social">Social — designs for posts and stories</option>
+                <option value="print">Print — boards, brochures, cards</option>
+              </select>
+            </label>
+            <label class="editor-field" id="pk-access-field" hidden>
+              <span>Who gets it</span>
+              <select name="access" id="pk-access">
+                <option value="buy">Anyone who buys it</option>
+                <option value="members">Every member, free</option>
+                <option value="brands">Only the brands below</option>
+              </select>
+            </label>
+          </div>
+          <div class="editor-field pk-brands-wrap" id="pk-brands-wrap" hidden>
+            <span>Brands</span>
+            <div class="pk-brands" id="pk-brands"></div>
+            <div class="pk-brand-add">
+              <input type="text" id="pk-brand-new" placeholder="Add another brand…" maxlength="60" />
+              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="pk-brand-add">Add</button>
+            </div>
+            <input type="hidden" name="brands" value="[]" />
+            <small>Only members whose TEG profile has one of these brands can see this pack or open its templates. The list is every brand already on an agent's profile.</small>
+          </div>
+        </section>
+
         <section class="editor-card">
           <h2 class="editor-section-title">Basics</h2>
           <div class="editor-row">
@@ -54,42 +88,8 @@ import "../../../styles/admin.css";
           </label>
         </section>
 
-        <!-- What this pack is, and who it is for. A print pack is not sold:
-             it is a set of print templates drawn for one or more TEG brands,
-             free to their agents and invisible to everyone else. -->
-        <section class="editor-card">
-          <h2 class="editor-section-title">What this pack is</h2>
-          <div class="editor-row">
-            <label class="editor-field">
-              <span>Kind</span>
-              <select name="kind" id="pk-kind">
-                <option value="social">Social — designs for posts and stories</option>
-                <option value="print">Print — boards, brochures, cards</option>
-              </select>
-            </label>
-            <label class="editor-field">
-              <span>Who gets it</span>
-              <select name="access" id="pk-access">
-                <option value="buy">Anyone who buys it</option>
-                <option value="members">Every member, free</option>
-                <option value="brands">Only the brands below</option>
-              </select>
-            </label>
-          </div>
-          <div class="editor-field pk-brands-wrap" id="pk-brands-wrap" hidden>
-            <span>Brands</span>
-            <div class="pk-brands" id="pk-brands"></div>
-            <div class="pk-brand-add">
-              <input type="text" id="pk-brand-new" placeholder="Add another brand…" maxlength="60" />
-              <button type="button" class="admin-btn admin-btn-ghost admin-btn-sm" id="pk-brand-add">Add</button>
-            </div>
-            <input type="hidden" name="brands" value="[]" />
-            <small>Only members whose TEG profile has one of these brands can see this pack or open its templates. The list is every brand already on an agent's profile.</small>
-          </div>
-        </section>
-
         <section class="editor-card" id="pk-pricing">
-          <h2 class="editor-section-title">Pricing &amp; classification</h2>
+          <h2 class="editor-section-title" id="pk-pricing-title">Pricing &amp; classification</h2>
           <div class="editor-row">
             <label class="editor-field">
               <span>Price (£) <em>*</em></span>
@@ -314,8 +314,11 @@ import "../../../styles/admin.css";
     .pk-brands-wrap[hidden] { display: none; }
     /* Nobody is buying it, so the price and the shop preview step out of the
        way rather than sitting there greyed and confusing. */
+    /* Print: only Status survives in this card, so it becomes "Publishing". */
     #pk-pricing.is-free .editor-field:has(input[name="price_gbp"]),
+    #pk-pricing.is-free .editor-field:has(select[name="category"]),
     #pk-pricing.is-free .editor-field:has(input[name="preview_reveal_count"]) { display: none; }
+    #pk-access-field[hidden] { display: none; }
 
     .editor-card {
       background: var(--paper);
@@ -845,21 +848,32 @@ import "../../../styles/admin.css";
       input.value = "";
     });
 
+    /* The kind of pack decides the form. A social pack is a thing we sell, and
+       its form is exactly the one it has always been. A print pack is a set of
+       templates handed to a brand: no price, no shop category, no public
+       preview — and two questions a social pack never asks. */
     function syncKind() {
       const kind = form.elements.kind ? form.elements.kind.value : "social";
       const access = form.elements.access ? form.elements.access.value : "buy";
+      const isPrint = kind === "print";
+
+      // A print pack lands on "only these brands"; a social pack is bought.
+      if (form.elements.access && !isPrint && access !== "buy") form.elements.access.value = "buy";
+      if (form.elements.access && isPrint && access === "buy") form.elements.access.value = "brands";
+      const acc = form.elements.access ? form.elements.access.value : "buy";
+
+      const accessField = document.getElementById("pk-access-field");
+      if (accessField) accessField.hidden = !isPrint;
       const brandsWrap = document.getElementById("pk-brands-wrap");
+      if (brandsWrap) brandsWrap.hidden = !(isPrint && acc === "brands");
+
+      // Price, category and public preview are questions about a shop.
       const pricing = document.getElementById("pk-pricing");
-      if (brandsWrap) brandsWrap.hidden = access !== "brands";
-      // Price and shop preview belong to a pack someone buys.
-      if (pricing) pricing.classList.toggle("is-free", access !== "buy");
+      if (pricing) pricing.classList.toggle("is-free", isPrint);
+      const title = document.getElementById("pk-pricing-title");
+      if (title) title.textContent = isPrint ? "Publishing" : "Pricing & classification";
       const price = form.elements.price_gbp;
-      if (price) { price.required = access === "buy"; price.disabled = access !== "buy"; }
-      // A print pack for a brand is free by default — say so once, don't nag.
-      if (kind === "print" && access === "buy" && !editingId) {
-        form.elements.access.value = "brands";
-        syncKind();
-      }
+      if (price) { price.required = !isPrint; price.disabled = isPrint; }
     }
 
     // Arriving from the Print tab: start as a print pack for brands.
@@ -1301,7 +1315,7 @@ import "../../../styles/admin.css";
         if (!title) throw new Error("Title is required.");
         if (!slug) throw new Error("Slug is required.");
         if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
-        if (String(fd.get("access") || "buy") === "buy" && (Number.isNaN(priceGbp) || priceGbp < 0)) {
+        if (String(fd.get("kind") || "social") !== "print" && (Number.isNaN(priceGbp) || priceGbp < 0)) {
           throw new Error("Price must be 0 or more.");
         }
 
@@ -1322,7 +1336,7 @@ import "../../../styles/admin.css";
           access,
           brands,
           // Nothing to charge for a pack nobody buys.
-          price_pence: access === "buy" ? Math.round(priceGbp * 100) : 0,
+          price_pence: kind === "print" ? 0 : Math.round(priceGbp * 100),
           category: String(fd.get("category") || "") || null,
           status: String(fd.get("status") || "active"),
           description: String(fd.get("description") || "").trim() || null,
