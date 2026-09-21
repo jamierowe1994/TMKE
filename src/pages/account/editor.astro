@@ -595,6 +595,17 @@ const googleFonts = [
         <div class="ed-section-title ed-logo-title">Your logo</div>
         <div class="ed-photo-grid" id="elements-logo-grid"></div>
         <p class="ed-brand-hint" id="elements-logo-hint">No logo in your brand kit yet. <a href="/account/profile">Add one</a> and it appears here.</p>
+        <!-- Contact footers (templates with kind = 'block'). Closed until asked
+             for, so the panel stays tidy; each is previewed with the member's
+             own details. Built by editor.js (renderContactBlocks). -->
+        <div class="ed-cb" id="ed-cb" hidden>
+          <div class="ed-section-title">Your contact details</div>
+          <button type="button" class="ed-cb-toggle" id="ed-cb-toggle" aria-expanded="false" aria-controls="ed-cb-list">
+            <span class="ed-cb-tx"><b>Contact footers</b><i>Your name, photo and details, from your brand kit</i></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="ed-cb-list" id="ed-cb-list" hidden></div>
+        </div>
         <div class="ed-section-title">Shapes</div>
         <div class="ed-shape-grid">
           <button class="ed-shape" data-shape="rect"><div class="sh sh-rect"></div><span>Rectangle</span></button>
@@ -2990,6 +3001,32 @@ const googleFonts = [
     .ed-size-acts { flex-direction: column; align-items: stretch; }
     .ed-size-acts .ed-btn-solid, .ed-size-acts .ed-btn-ghost { justify-content: center; }
     .ed-resize-family[hidden] { display: none; }
+    /* Contact footers in Elements */
+    .ed-cb[hidden], .ed-cb-list[hidden] { display: none; }
+    .ed-cb-toggle {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+      padding: 12px 14px; text-align: left; cursor: pointer;
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; font-family: var(--sans);
+    }
+    .ed-cb-toggle:hover { border-color: rgba(28,29,34,0.25); }
+    .ed-cb-tx { display: flex; flex-direction: column; gap: 2px; }
+    .ed-cb-tx b { font-size: var(--ws-t-body); font-weight: 600; color: var(--ink); }
+    .ed-cb-tx i { font-style: normal; font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); }
+    .ed-cb-toggle svg { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; }
+    .ed-cb-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .ed-cb-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .ed-cb-card {
+      display: flex; flex-direction: column; gap: 6px; padding: 0; text-align: left; cursor: pointer;
+      background: none; border: 0; font-family: var(--sans);
+    }
+    .ed-cb-prev {
+      position: relative; overflow: hidden; border-radius: 8px; padding: 10px; box-sizing: border-box;
+      border: 1px solid rgba(28,29,34,0.12); transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ed-cb-card:hover .ed-cb-prev { border-color: var(--english-violet); box-shadow: 0 8px 18px -14px rgba(28,29,34,0.5); }
+    .ed-cb-stage { position: relative; transform-origin: top left; pointer-events: none; }
+    .ed-cb-stage .ed-element { position: absolute; }
+    .ed-cb-name { font-size: var(--ws-t-meta); font-weight: 600; color: var(--ink); }
     .ed-resize-note { margin: -4px 0 10px; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: rgba(28,29,34,0.6); }
     .ed-resize-caveat {
       margin: 14px 0; padding: 12px; border-radius: 6px;
@@ -5342,6 +5379,19 @@ const googleFonts = [
         window.__TMKE_BRAND_FONTS__ = bf;
       }
     } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
+
+    // Contact footers for Elements: template rows marked kind = 'block'
+    // (docs/contact-blocks-contract.md). The engine previews them with the
+    // member's own details and drops them in as one group.
+    try {
+      const { data: cb, error: cbErr } = await supabase.from('templates')
+        .select('id, name, canvas, elements, block_variant, block_box, sort_order')
+        .eq('kind', 'block').eq('status', 'active')
+        .order('sort_order', { ascending: true });
+      const rows = cbErr ? [] : (cb || []);
+      if (typeof (window as any).__TMKE_CONTACT_BLOCKS__ === 'function') (window as any).__TMKE_CONTACT_BLOCKS__(rows);
+      else (window as any).__TMKE_CONTACT_BLOCKS_DATA__ = rows;
+    } catch (_) { /* no footers is fine - the section stays hidden */ }
 
     // ---- Member brand kit — the logged-in person's own colours / fonts / logos.
     // Stored per user in member_brand_kits (RLS: own row only) so the Studio

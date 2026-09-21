@@ -10413,6 +10413,185 @@
     });
   });
 
+  // ---------- Contact blocks (footers) ----------
+  /* Footers the Admin Centre designs as template rows with kind = 'block'
+     (docs/contact-blocks-contract.md). Elements lists them under "Your contact
+     details", closed until asked for, each previewed with the member's OWN
+     details so they pick by what they'll actually get. Choosing one drops its
+     elements in as one group - scaled so it takes the same share of the width
+     it was drawn at, sitting at the bottom with the margins it was drawn with.
+     The canvas it was drawn on never comes across. */
+  const CB_VARIANTS = {
+    "contact-small": "Small",
+    "contact-small-photo": "Small, with your photo",
+    "contact-full": "Full width",
+    "contact-other": "More",
+  };
+  var _contactBlocks = [];
+
+  function cbBox(row) {
+    const c = row.canvas || {};
+    const b = row.block_box;
+    if (b && b.w > 0 && b.h > 0) {
+      return { x: b.x, y: b.y, w: b.w, h: b.h, canvasW: b.canvasW || c.width || 1080, canvasH: b.canvasH || c.height || 1350 };
+    }
+    // Not marked with a box yet: measure the elements themselves.
+    const els = (row.elements || []).filter((e) => e && !e.hidden && !e.backdrop);
+    const x0 = Math.min.apply(null, els.map((e) => e.x || 0)), y0 = Math.min.apply(null, els.map((e) => e.y || 0));
+    const x1 = Math.max.apply(null, els.map((e) => (e.x || 0) + (e.w || 0)));
+    const y1 = Math.max.apply(null, els.map((e) => (e.y || 0) + (e.h || 0)));
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0, canvasW: c.width || 1080, canvasH: c.height || 1350 };
+  }
+
+  // The block's elements with the brand kit filled in, at the block's own
+  // scale. A line whose details aren't in the kit yet is hidden rather than
+  // showing "{website}", and named so we can say what to add.
+  function cbFilled(row) {
+    const els = deep(row.elements || []).filter((e) => e && !e.backdrop && !e.hidden);
+    const headshot = brandHeadshotSrc(), logo = brandLogoSrc();
+    const missing = new Set();
+    els.forEach((el) => {
+      if (el.brandRole === "logo" && logo) {
+        // Shown whole, in the box the designer drew for it.
+        ["text", "runs", "font", "size", "weight", "color", "align", "lineHeight", "letterSpacing",
+          "textGradient", "textShadow", "textOutline", "textBg"].forEach((k) => { delete el[k]; });
+        el.type = "image"; el.src = logo; el.imgFit = "contain";
+      }
+      if (el.type === "text") {
+        if (el.text) el.text = applyMergeTags(el.text);
+        if (Array.isArray(el.runs)) el.runs.forEach((r) => { if (r && typeof r.text === "string") r.text = applyMergeTags(r.text); });
+        const left = String(el.text || "").match(/\{\s*[a-z][a-z ]*?\s*\}/gi);
+        if (left) {
+          el.hidden = true; el.autoHidden = true;
+          left.forEach((t) => missing.add(t.replace(/[{}]/g, "").trim().toLowerCase()));
+        }
+      }
+      if (el.brandRole === "headshot" && !el.src) {
+        if (headshot) {
+          el.src = headshot;
+          el.imgScale = 1; el.imgOffsetX = 0; el.imgOffsetY = 0; el.imgNaturalW = 0; el.imgNaturalH = 0;
+        } else { el.hidden = true; el.autoHidden = true; missing.add("headshot"); }
+      }
+    });
+    return { els, missing };
+  }
+
+  function cbMissingText(missing) {
+    const names = { "your name": "your name", name: "your name", "agent name": "your name", "job title": "job title",
+      role: "job title", phone: "phone number", telephone: "phone number", email: "email", website: "website",
+      location: "area", area: "area", town: "area", headshot: "headshot" };
+    const list = [...new Set([...missing].map((m) => names[m] || m))];
+    if (!list.length) return "";
+    const last = list.pop();
+    return list.length ? list.join(", ") + " and " + last : last;
+  }
+
+  function cbPreview(row) {
+    const box = cbBox(row);
+    const { els } = cbFilled(row);
+    const wrap = document.createElement("div");
+    wrap.className = "ed-cb-prev";
+    wrap.style.background = (row.canvas && row.canvas.background) || "#1c1d22";
+    const stage = document.createElement("div");
+    stage.className = "ed-cb-stage";
+    stage.style.width = box.w + "px";
+    stage.style.height = box.h + "px";
+    els.forEach((el) => {
+      if (el.hidden) return;
+      stage.appendChild(renderElement(Object.assign({}, el, { x: el.x - box.x, y: el.y - box.y })));
+    });
+    wrap.appendChild(stage);
+    return { wrap, stage, box };
+  }
+
+  function renderContactBlocks() {
+    const host = $("ed-cb"), list = $("ed-cb-list");
+    if (!host || !list) return;
+    host.hidden = !_contactBlocks.length;
+    if (list.hidden) return;                 // drawn when opened, so the kit has loaded
+    list.innerHTML = "";
+    const order = Object.keys(CB_VARIANTS);
+    const rows = _contactBlocks.slice().sort((a, b) =>
+      (order.indexOf(a.block_variant) + 1 || 99) - (order.indexOf(b.block_variant) + 1 || 99));
+    const missingAll = new Set();
+    rows.forEach((row) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "ed-cb-card";
+      card.title = "Add to your design";
+      const label = document.createElement("span");
+      label.className = "ed-cb-name";
+      label.textContent = CB_VARIANTS[row.block_variant] || row.name || "Contact details";
+      const p = cbPreview(row);
+      card.appendChild(p.wrap);
+      card.appendChild(label);
+      card.addEventListener("click", () => insertContactBlock(row));
+      list.appendChild(card);
+      cbFilled(row).missing.forEach((m) => missingAll.add(m));
+      // Fit the preview to the card once it has a width.
+      requestAnimationFrame(() => {
+        const avail = Math.max(40, p.wrap.clientWidth - 20);
+        const k = Math.min(1, avail / p.box.w);
+        p.stage.style.transform = "scale(" + k + ")";
+        p.wrap.style.height = Math.ceil(p.box.h * k + 20) + "px";
+      });
+    });
+    const gap = cbMissingText(missingAll);
+    if (gap) {
+      const n = document.createElement("p");
+      n.className = "ed-brand-hint";
+      n.innerHTML = "Add your " + escapeHtml(gap) + ' to your <a href="/account/profile">brand kit</a> and it fills in here.';
+      list.appendChild(n);
+    }
+  }
+
+  function insertContactBlock(row) {
+    const box = cbBox(row);
+    const { els, missing } = cbFilled(row);
+    const T = state.canvas;
+    const s = T.width / box.canvasW;
+    // Bottom of the design, with the margins it was drawn with.
+    const dropX = box.x * s;
+    let dropY = T.height - (box.canvasH - box.y) * s;
+    if (dropY < 0) dropY = Math.max(0, T.height - box.h * s - Math.max(0, box.x) * s);
+    const gid = uid("grp");
+    const added = els.map((src) => {
+      const el = Object.assign({}, src);
+      el.id = uid(el.type || "el");
+      el.x = Math.round(((el.x || 0) - box.x) * s + dropX);
+      el.y = Math.round(((el.y || 0) - box.y) * s + dropY);
+      el.w = Math.max(1, Math.round((el.w || 0) * s));
+      el.h = Math.max(1, Math.round((el.h || 0) * s));
+      resizeElementDetail(el, s, s);
+      el.group = gid;
+      return el;
+    });
+    if (!added.length) return;
+    added.forEach((el) => state.elements.push(el));
+    state.selectedIds = added.filter((el) => !el.hidden).map((el) => el.id);
+    preloadFontsForElements(added);
+    pushHistory();
+    fullRender();
+    added.forEach((el) => { if (el.type === "text" && !el.hidden) fitTextHeight(el); });
+    renderHandles();
+    const gap = cbMissingText(missing);
+    toast(gap ? "Added. Add your " + gap + " to your brand kit to fill in the rest."
+              : "Added as one piece: drag to move it, pull a corner to resize.", gap ? 5000 : 3000);
+  }
+
+  window.__TMKE_CONTACT_BLOCKS__ = function (rows) {
+    _contactBlocks = (Array.isArray(rows) ? rows : []).filter((r) => r && Array.isArray(r.elements) && r.elements.length);
+    renderContactBlocks();
+  };
+  if (Array.isArray(window.__TMKE_CONTACT_BLOCKS_DATA__)) window.__TMKE_CONTACT_BLOCKS__(window.__TMKE_CONTACT_BLOCKS_DATA__);
+  $("ed-cb-toggle")?.addEventListener("click", () => {
+    const t = $("ed-cb-toggle"), list = $("ed-cb-list");
+    const open = list.hidden;
+    list.hidden = !open;
+    t.setAttribute("aria-expanded", open ? "true" : "false");
+    renderContactBlocks();
+  });
+
   // ---------- Uploads ----------
   const uploadInput = $("ed-upload-input");
   uploadInput.addEventListener("change", () => handleFiles(uploadInput.files));
