@@ -98,12 +98,26 @@ import "../../styles/admin.css";
       <p class="wi-cf-msg" id="wi-cf-msg" hidden></p>
       <div id="wi-cf-body" hidden>
         <div class="wi-cf-stats">
-          <div class="stat"><div class="stat-num" id="wi-cf-visitors">…</div><div class="stat-label">Visitors</div></div>
+          <div class="stat"><div class="stat-num" id="wi-cf-visitors">…</div><div class="stat-label">Visitors a day, added up</div></div>
           <div class="stat"><div class="stat-num" id="wi-cf-views">…</div><div class="stat-label">Page views</div></div>
-          <div class="stat"><div class="stat-num" id="wi-cf-share">…</div><div class="stat-label">Accepted cookies</div></div>
+          <div class="stat"><div class="stat-num" id="wi-cf-share">…</div><div class="stat-label">Seen by our own tracker</div></div>
         </div>
         <div class="wi-chart" id="wi-cf-chart"></div>
         <p class="wi-foot" id="wi-cf-foot"></p>
+        <!-- Every reason the two numbers differ. A gap this size invites the
+             wrong conclusion in both directions, so none of it is implied. -->
+        <details class="wi-why">
+          <summary>Why is this so much bigger than the numbers above?</summary>
+          <ul>
+            <li><strong>Bots, crawlers and scanners.</strong> Usually most of it. Google and Bing crawling, link previews from WhatsApp, Slack and social posts, uptime checks, and a constant background of scanners trying addresses like /wp-admin. They fetch pages but never run the page's own code, so they can never appear in our figures.</li>
+            <li><strong>People who never answer the cookie banner.</strong> Our tracker only records after someone presses Accept. Ignoring the banner, or pressing Reject, means no record - and most people ignore it.</li>
+            <li><strong>Ad and tracker blockers.</strong> Common on phones and in browsers like Brave. They block the request our page makes to record a visit; they can't block Cloudflare, which counts before the page arrives.</li>
+            <li><strong>Someone who visits on several days.</strong> Cloudflare counts unique visitors <em>per day</em>, and this figure adds those days together. One person visiting on ten days counts ten times here, but as one visit in our own numbers.</li>
+            <li><strong>The admin centre and other non-customer traffic.</strong> Cloudflare counts every request to the domain, including the admin centre, the member hub, and anyone we have excluded with "Don't count this browser".</li>
+            <li><strong>Pages that never finished loading.</strong> Someone who leaves before the page is ready is a visit to Cloudflare and nothing to us.</li>
+          </ul>
+          <p>So the honest reading: Cloudflare is the ceiling - everything that touched the domain, human or not. Our own numbers are the floor - people who arrived, stayed, and agreed to be counted. The truth about real visitors sits between the two, nearer the bottom.</p>
+        </details>
       </div>
     </section>
 
@@ -172,6 +186,11 @@ import "../../styles/admin.css";
     @media (max-width: 700px) { .wi-cf-stats { grid-template-columns: 1fr; } }
     .wi-cf-stats .stat { background: var(--paper, #f4f2f1); border: 0; }
     .wi-cf-msg { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.65); margin: 0; }
+    .wi-why { margin-top: 12px; border-top: 1px solid rgba(28,29,34,0.08); padding-top: 10px; font-family: var(--sans); }
+    .wi-why summary { cursor: pointer; font-size: 12.5px; font-weight: 700; color: var(--english-violet); }
+    .wi-why ul { margin: 10px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.7); }
+    .wi-why li + li { margin-top: 6px; }
+    .wi-why p { font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.7); margin: 10px 0 2px; }
     .wi-raw { display: inline-block; margin-top: 6px; font-size: 12px; color: rgba(28,29,34,0.5); }
     .wi-cf-msg code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 4px; }
     .wi-foot { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin: 12px 0 0; }
@@ -415,14 +434,21 @@ import "../../styles/admin.css";
         const views = rows.reduce((n, x) => n + (x.views || 0), 0);
         el("wi-cf-visitors").textContent = num(visitors);
         el("wi-cf-views").textContent = num(views);
-        // How much of the truth our own tracker sees: its visits over
-        // Cloudflare's visitors, for the same window.
-        const ours = new Set(ALL.filter((e) => areaOf(e.path) !== "admin").map((e) => e.session_id || e.id)).size;
-        el("wi-cf-share").textContent = visitors ? Math.round((ours / visitors) * 100) + "%" : "—";
+        // Like for like: Cloudflare counts unique visitors PER DAY and this
+        // adds the days up, so our own side has to be counted the same way -
+        // one visit per session per day - or the share is nonsense.
+        const seen = new Set();
+        let ours = 0;
+        ALL.filter((e) => areaOf(e.path) !== "admin").forEach((e) => {
+          const k = (e.session_id || e.id) + "|" + String(e.created_at).slice(0, 10);
+          if (!seen.has(k)) { seen.add(k); ours++; }
+        });
+        const share = visitors ? (ours / visitors) * 100 : 0;
+        el("wi-cf-share").textContent = visitors ? (share < 1 && share > 0 ? "<1%" : Math.round(share) + "%") : "—";
         const peak = Math.max(1, ...rows.map((x) => x.visitors || 0));
         el("wi-cf-chart").innerHTML = rows.map((x) =>
           `<div class="wi-col" style="height:${Math.round(((x.visitors || 0) / peak) * 100)}%" data-label="${esc(new Date(x.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${num(x.visitors || 0)}"></div>`).join("");
-        el("wi-cf-foot").textContent = `Cloudflare counted ${num(visitors)} ${visitors === 1 ? "visitor" : "visitors"}; the site's own tracker recorded ${num(ours)}. The difference is people who declined cookies, plus bots Cloudflare sees and the page never does.`;
+        el("wi-cf-foot").textContent = `Counted the same way - a visitor once a day - Cloudflare saw ${num(visitors)} and the site's own tracker recorded ${num(ours)}. Most of the gap is machines rather than people; the rest is below.`;
         msg.hidden = true; body.hidden = false;
       } catch (err) {
         msg.textContent = "Couldn't reach the Worker for Cloudflare's numbers.";
