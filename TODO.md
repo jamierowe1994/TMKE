@@ -701,10 +701,9 @@ are the `RESIZE_*` constants at the top of that section.
   its template studio checks every size before a pack goes live, with saved
   layouts per size (`supabase/size_variants.sql`). Members' own designs rely on
   the automatic rules; they can adjust what they built themselves.
-- ⬜ **Social media footer template** — the member's headshot and contact
-  details as a strip they can drop onto any post. Built and configured in the
-  Admin Centre first (template + settings), then added to the Studio as
-  "add to your design". Needs both chats.
+- ✅ (21 Sep) **Contact footers**: built in the Admin Centre as blocks, listed in
+  Studio → Elements → Your contact details with live previews, dropped in as
+  one group and filled from the brand kit. Locks: see `docs/lock-states-brief.md`.
 - ✅ (21 Sep) **Reset works on a design reopened later**, from
   `user_designs.source_template_id`; a copy at another size resets to the
   template at that size.
