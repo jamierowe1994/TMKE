@@ -5154,6 +5154,75 @@ export default {
       // A plain-English read on how a funnel is performing, plus anything that
       // needs doing before the next email goes out. Regenerated on each request
       // from the live numbers, so it keeps up as sends happen.
+      // ---- Google Search Console: how the site does IN search ---------------
+      // Clicks, impressions and position, by day, query and page. Uses the
+      // service account the sheets already use, so the only setup is adding
+      // that address as a user on the Search Console property - which is why
+      // a refusal hands back the address to add.
+      if (path.endsWith("/admin/insights/search") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        let sa = null;
+        try { sa = JSON.parse(env.GOOGLE_SHEETS_SA_JSON || "null"); } catch (_) { sa = null; }
+        if (!sa || !sa.client_email) {
+          return json({ ok: false, configured: false, error: "No Google service account on the Worker (GOOGLE_SHEETS_SA_JSON)." }, 200, request, env);
+        }
+        const u = new URL(request.url);
+        const days = Math.min(Math.max(parseInt(u.searchParams.get("days") || "30", 10) || 30, 1), 480);
+        // Search Console data lags by 2-3 days; ask to yesterday and let it
+        // return what it has rather than showing empty days as a fall.
+        const end = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+        const start = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+        const site = env.GSC_SITE || "sc-domain:tmke.co.uk";
+        const api = `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/searchAnalytics/query`;
+        try {
+          const token = await googleAccessToken(env, "https://www.googleapis.com/auth/webmasters.readonly");
+          const ask = async (dimensions, rowLimit) => {
+            const r = await fetch(api, {
+              method: "POST",
+              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+              body: JSON.stringify({ startDate: start, endDate: end, dimensions, rowLimit, dataState: "all" }),
+            });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              const msg = (j.error && j.error.message) || `Search Console returned ${r.status}`;
+              const err = new Error(msg); err.status = r.status; throw err;
+            }
+            return j.rows || [];
+          };
+          const [byDay, byQuery, byPage] = await Promise.all([ask(["date"], 500), ask(["query"], 25), ask(["page"], 15)]);
+          const tot = byDay.reduce((a, r) => ({ clicks: a.clicks + (r.clicks || 0), impressions: a.impressions + (r.impressions || 0) }), { clicks: 0, impressions: 0 });
+          const posSource = byDay.length ? byDay : byQuery;
+          const position = posSource.length
+            ? posSource.reduce((a, r) => a + ((r.position || 0) * (r.impressions || 1)), 0) / Math.max(1, posSource.reduce((a, r) => a + (r.impressions || 1), 0))
+            : null;
+          return json({
+            ok: true, configured: true, site, start, end,
+            clicks: tot.clicks, impressions: tot.impressions,
+            ctr: tot.impressions ? tot.clicks / tot.impressions : 0,
+            position: position != null ? Math.round(position * 10) / 10 : null,
+            days: byDay.map((r) => ({ date: (r.keys || [])[0], clicks: r.clicks || 0, impressions: r.impressions || 0 })),
+            queries: byQuery.map((r) => ({ q: (r.keys || [])[0], clicks: r.clicks || 0, impressions: r.impressions || 0, position: Math.round((r.position || 0) * 10) / 10 })),
+            pages: byPage.map((r) => ({ url: (r.keys || [])[0], clicks: r.clicks || 0, impressions: r.impressions || 0 })),
+          }, 200, request, env);
+        } catch (e) {
+          const status = e && e.status;
+          const permission = status === 403 || /permission|not have access|forbidden/i.test(String(e && e.message));
+          const missingSite = status === 404 || /not found|does not exist/i.test(String(e && e.message));
+          return json({
+            ok: false, configured: true,
+            needs_access: !!(permission || missingSite),
+            service_account: sa.client_email,
+            site,
+            error: permission
+              ? "Google won't let this account read the Search Console property yet."
+              : missingSite
+                ? `Search Console has no property called ${site} that this account can see.`
+                : String((e && e.message) || "Search Console didn't answer."),
+          }, 200, request, env);
+        }
+      }
+
       // ---- Cloudflare: the visitors our own tracker can't see ---------------
       // Every request to tmke.co.uk passes through Cloudflare, which counts it
       // at the edge - no script on the page, no cookie, nothing to accept. So

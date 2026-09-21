@@ -121,14 +121,36 @@ import "../../styles/admin.css";
       </div>
     </section>
 
-    <!-- The two sources still to come, and what each adds. -->
-    <section class="wi-card wi-next">
-      <div class="wi-card-head"><h2>Still to connect</h2></div>
-      <ul>
-        <li><strong>Google Search Console</strong> — what people searched to find you, how often you appeared, and which pages earned the clicks. Free; needs the domain verified once, and it only records from that day on.</li>
-
-      </ul>
+    <!-- Google Search Console: the people who found you by searching. -->
+    <section class="wi-card" id="wi-gsc" hidden>
+      <div class="wi-card-head">
+        <h2>Found in Google</h2>
+        <span id="wi-gsc-range">Search Console &mdash; real people, no bots</span>
+      </div>
+      <p class="wi-cf-msg" id="wi-gsc-msg" hidden></p>
+      <div id="wi-gsc-body" hidden>
+        <div class="wi-cf-stats">
+          <div class="stat"><div class="stat-num" id="wi-gsc-clicks">…</div><div class="stat-label">Clicks to the site</div></div>
+          <div class="stat"><div class="stat-num" id="wi-gsc-impr">…</div><div class="stat-label">Times you appeared</div></div>
+          <div class="stat"><div class="stat-num" id="wi-gsc-pos">…</div><div class="stat-label">Average position</div></div>
+        </div>
+        <div class="wi-chart" id="wi-gsc-chart"></div>
+        <div class="wi-cols" style="margin-top:14px">
+          <div>
+            <div class="wi-card-head"><h2 style="font-size:15px">What they searched</h2><span>Clicks · shown</span></div>
+            <table class="wi-table" id="wi-gsc-queries"></table>
+          </div>
+          <div>
+            <div class="wi-card-head"><h2 style="font-size:15px">Which pages they landed on</h2><span>Clicks · shown</span></div>
+            <table class="wi-table" id="wi-gsc-pages"></table>
+          </div>
+        </div>
+        <p class="wi-foot" id="wi-gsc-foot"></p>
+      </div>
     </section>
+
+    <!-- The two sources still to come, and what each adds. -->
+
   </div>
 
   <style is:global>
@@ -358,7 +380,7 @@ import "../../styles/admin.css";
       }
       el("wi-body").hidden = false;
       render();
-      loadCloudflare();
+      loadCloudflare().then(loadSearch);
     }
 
     // Stop this browser being recorded anywhere on the site. The admin centre
@@ -448,10 +470,55 @@ import "../../styles/admin.css";
         const peak = Math.max(1, ...rows.map((x) => x.visitors || 0));
         el("wi-cf-chart").innerHTML = rows.map((x) =>
           `<div class="wi-col" style="height:${Math.round(((x.visitors || 0) / peak) * 100)}%" data-label="${esc(new Date(x.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${num(x.visitors || 0)}"></div>`).join("");
+        CF_VISITORS = visitors;
         el("wi-cf-foot").textContent = `Counted the same way - a visitor once a day - Cloudflare saw ${num(visitors)} and the site's own tracker recorded ${num(ours)}. Most of the gap is machines rather than people; the rest is below.`;
         msg.hidden = true; body.hidden = false;
       } catch (err) {
         msg.textContent = "Couldn't reach the Worker for Cloudflare's numbers.";
+      }
+    }
+
+    // ---- Google Search Console ----------------------------------------------
+    let CF_VISITORS = 0;
+    async function loadSearch() {
+      const card = el("wi-gsc"), msg = el("wi-gsc-msg"), body = el("wi-gsc-body");
+      if (!WORKER) return;
+      card.hidden = false; msg.hidden = false; body.hidden = true;
+      msg.textContent = "Asking Google…";
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        const r = await fetch(`${WORKER}/admin/insights/search?days=${days}`, { headers: { Authorization: token ? "Bearer " + token : "" } });
+        const d = await r.json().catch(() => ({}));
+        if (!d.ok) {
+          // The one that actually happens: the property hasn't been shared with
+          // the account yet. Give the address to add, and where to add it.
+          msg.innerHTML = d.needs_access
+            ? `${esc(d.error)}<br><span class="wi-raw">In Search Console: Settings &rsaquo; Users and permissions &rsaquo; Add user, paste <code>${esc(d.service_account)}</code> and give it Full access. Then reload this page.</span>`
+            : esc(d.error || "Search Console didn't answer.");
+          return;
+        }
+        el("wi-gsc-clicks").textContent = num(d.clicks);
+        el("wi-gsc-impr").textContent = num(d.impressions);
+        el("wi-gsc-pos").textContent = d.position != null ? d.position.toFixed(1) : "—";
+        el("wi-gsc-range").textContent = `Search Console · ${d.start} to ${d.end}`;
+        const rowsD = d.days || [];
+        const peak = Math.max(1, ...rowsD.map((x) => x.clicks || 0));
+        el("wi-gsc-chart").innerHTML = rowsD.map((x) =>
+          `<div class="wi-col" style="height:${Math.round(((x.clicks || 0) / peak) * 100)}%" data-label="${esc(new Date(x.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))} · ${num(x.clicks || 0)} ${x.clicks === 1 ? "click" : "clicks"}"></div>`).join("");
+        const topQ = (d.queries || []).filter((q) => q.impressions).slice(0, 12);
+        el("wi-gsc-queries").innerHTML = topQ.length
+          ? rows(topQ.map((q) => [q.q, q.clicks, q.impressions]), Math.max(1, ...topQ.map((q) => q.clicks || 1)))
+          : `<tr><td class="wi-none">No searches recorded yet. Search Console starts from the day it was verified, and takes a couple of days to catch up.</td></tr>`;
+        const topP = (d.pages || []).slice(0, 10);
+        el("wi-gsc-pages").innerHTML = rows(topP.map((p2) => [String(p2.url).replace(/^https?:\/\/[^/]+/, "") || "/", p2.clicks, p2.impressions]), Math.max(1, ...topP.map((p2) => p2.clicks || 1)));
+        const ctr = d.impressions ? Math.round((d.clicks / d.impressions) * 1000) / 10 : 0;
+        el("wi-gsc-foot").textContent =
+          `You appeared ${num(d.impressions)} times in search and ${num(d.clicks)} of those turned into a visit (${ctr}%).`
+          + (CF_VISITORS ? ` Cloudflare counted ${num(CF_VISITORS)} visitor-days over the same window, so search is a small, real slice of that - the rest is machines, direct visits and links from elsewhere.` : "");
+        msg.hidden = true; body.hidden = false;
+      } catch (_) {
+        msg.textContent = "Couldn't reach the Worker for Google's numbers.";
       }
     }
 
