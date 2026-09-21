@@ -5,11 +5,29 @@
 // Square is plain "Square" because it isn't an Instagram size we'd recommend -
 // it's for Facebook, LinkedIn and anywhere else that wants one.
 //
-// Print sizes are UK standard (what VistaPrint and the like print), at 300 dpi;
-// `mm` is what the printer calls them, and is what the cards show.
+// Print sizes are UK standard (what VistaPrint and the like print), at 300 dpi,
+// with PRINT_BLEED_MM added on every edge: the canvas is the size the printer
+// wants the file, and the card shows the finished (trimmed) size in mm.
+//
+// `family` keeps social and print apart in Resize: a post doesn't become a
+// business card, and the other way round, so each only offers its own.
+
+export const PRINT_DPI = 300;
+export const PRINT_BLEED_MM = 3;
+
+const px = (mm) => Math.round((mm * PRINT_DPI) / 25.4);
+const print = (name, wMm, hMm) => ({
+  name,
+  w: px(wMm + 2 * PRINT_BLEED_MM),
+  h: px(hMm + 2 * PRINT_BLEED_MM),
+  mm: `${wMm} × ${hMm} mm`,
+  bleed: px(PRINT_BLEED_MM),
+});
+
 export const STUDIO_SIZES = [
   {
     label: "Social",
+    family: "social",
     sizes: [
       { name: "Instagram Portrait", w: 1080, h: 1440 },
       { name: "Square", w: 1080, h: 1080 },
@@ -23,12 +41,16 @@ export const STUDIO_SIZES = [
   },
   {
     label: "Print",
+    family: "print",
+    note: `Print sizes include a ${PRINT_BLEED_MM}mm bleed on every edge, ready for the printer.`,
     sizes: [
-      { name: "A4 Portrait", w: 2480, h: 3508, mm: "210 × 297 mm" },
-      { name: "A4 Landscape", w: 3508, h: 2480, mm: "297 × 210 mm" },
-      { name: "Business Card", w: 1004, h: 650, mm: "85 × 55 mm" },
-      { name: "Postcard A5", w: 1748, h: 2480, mm: "148 × 210 mm" },
-      { name: "Postcard A6", w: 1240, h: 1748, mm: "105 × 148 mm" },
+      print("A4 Portrait", 210, 297),
+      print("A4 Landscape", 297, 210),
+      // A5 portrait is also the standard A5 postcard.
+      print("A5 Portrait", 148, 210),
+      print("A5 Landscape", 210, 148),
+      print("Business Card", 85, 55),
+      print("Postcard A6", 105, 148),
     ],
   },
 ];

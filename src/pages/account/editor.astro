@@ -926,18 +926,21 @@ const googleFonts = [
           </div>
         </div>
         <button type="button" class="ed-resize-safe" id="ed-resize-safe" hidden>Check what the app or printer covers &rarr;</button>
+        {/* Only the family the design is in shows (editor.js, syncResizePanel):
+             a post doesn't resize into a business card, or back. */}
         {STUDIO_SIZES.map((g) => (
-          <>
+          <div class="ed-resize-family" data-family={g.family}>
             <div class="ed-section-title">{g.label}</div>
+            {g.note && <p class="ed-resize-note">{g.note}</p>}
             <div class="ed-resize-grid">
               {g.sizes.map((z) => (
-                <button class="ed-resize-card" data-size={`${z.w},${z.h}`}>
+                <button class="ed-resize-card" data-size={`${z.w},${z.h}`} data-family={g.family} data-bleed={z.bleed}>
                   <div class="ed-resize-vis" style={`aspect-ratio:${z.w}/${z.h}`}></div>
                   <strong>{z.name}</strong><span>{z.mm || `${z.w} × ${z.h}`}</span>
                 </button>
               ))}
             </div>
-          </>
+          </div>
         ))}
         <p class="ed-resize-caveat">We move and rescale everything as closely as we can. Read the design through before you post: a headline or a gap often wants a nudge by hand.</p>
         <div class="ed-section-title">Custom</div>
@@ -2986,6 +2989,8 @@ const googleFonts = [
     .ed-size-card p { margin: 0 0 18px; font-size: var(--ws-t-body); line-height: 1.5; color: rgba(28,29,34,0.75); }
     .ed-size-acts { flex-direction: column; align-items: stretch; }
     .ed-size-acts .ed-btn-solid, .ed-size-acts .ed-btn-ghost { justify-content: center; }
+    .ed-resize-family[hidden] { display: none; }
+    .ed-resize-note { margin: -4px 0 10px; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: rgba(28,29,34,0.6); }
     .ed-resize-caveat {
       margin: 14px 0; padding: 12px; border-radius: 6px;
       background: rgba(28,29,34,0.04);
@@ -3928,6 +3933,7 @@ const googleFonts = [
       background: repeating-linear-gradient(135deg, rgba(214, 64, 69, 0.16) 0 14px, rgba(214, 64, 69, 0.06) 14px 28px);
       border: 2px dashed rgba(214, 64, 69, 0.75);
     }
+    .ed-safezone-trim { position: absolute; box-sizing: border-box; border: 2px solid rgba(214, 64, 69, 0.9); }
     .ed-safezone span {
       font-family: var(--sans); font-weight: 700; color: #fff; text-align: center; line-height: 1.2;
       background: rgba(214, 64, 69, 0.85); padding: 0.3em 0.7em; border-radius: 0.4em; max-width: 90%;

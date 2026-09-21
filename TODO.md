@@ -665,6 +665,9 @@ are the `RESIZE_*` constants at the top of that section.
   the pictures and gaps make the room. Story/Reel: words 25% larger (30 → 38).
   Landscape: words may spread up to half as wide again so they stay larger.
   Too many words to fit: they shrink only as far as they must.
+- ✅ (21 Sep) **One size list** (`src/data/studio-sizes.js`) for the new-design
+  pop-out and Resize. Print sizes carry a 3mm bleed and show their trimmed
+  size in mm; Resize only offers the design's own family, social or print.
 - ✅ **The 2x2 grid posts land where Dani says, on story and reel.** Four
   pictures in a grid keep their width and become 660 tall, the top pair at
   y200 and the bottom pair at y864; the rule and the line of text under them

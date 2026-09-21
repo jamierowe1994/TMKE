@@ -10182,8 +10182,16 @@
   });
 
   // The panel shows the size you are on, and the custom boxes start from it.
+  // It offers only the family the design belongs to - judged from the size
+  // it started at, so trying sizes can't wander across - because a post
+  // doesn't become a business card, or a flyer an Instagram post.
   function syncResizePanel() {
     const W = Math.round(state.canvas.width), H = Math.round(state.canvas.height);
+    const from = sizePreviewPending() ? _sizePreview : { W: W, H: H };
+    const fam = sizeFamily(from.W, from.H);
+    document.querySelectorAll(".ed-resize-family").forEach((g) => {
+      g.hidden = g.getAttribute("data-family") !== fam;
+    });
     document.querySelectorAll(".ed-resize-card").forEach((btn) => {
       btn.classList.toggle("is-current", btn.dataset.size === W + "," + H);
     });
@@ -10266,19 +10274,40 @@
     },
     print: {
       label: "Print trim",
-      // Any A-size (1 : 1.414) or the UK business card (85 x 55mm).
-      fits: (W, H) => Math.abs(Math.max(W, H) / Math.min(W, H) - Math.SQRT2) < 0.01 ||
-        (Math.max(W, H) === 1004 && Math.min(W, H) === 650),
+      fits: (W, H) => sizeFamily(W, H) === "print",
+      // The bleed (printed, then cut off) plus the margin printers ask words
+      // and logos to keep inside the cut: 5mm on paper, 3mm on a business card.
       zones: (W, H) => {
         const mm = 300 / 25.4;                       // print sizes are 300 dpi
-        // 5mm clear of the trim on paper; a business card is small enough
-        // that printers ask for 3.
-        const px = Math.round(mm * (Math.min(W, H) <= 650 ? 3 : 5));
-        const note = "May be trimmed - keep words and logos inside";
+        const bleed = printBleed(W, H);
+        const trimShort = (Math.min(W, H) - 2 * bleed) / mm;
+        const px = bleed + Math.round(mm * (trimShort <= 60 ? 3 : 5));
+        const note = "Keep words and logos inside the dashed line";
         return ["top", "bottom", "left", "right"].map((side) => ({ side, px, note: side === "top" ? note : "" }));
       },
+      // Where the printer cuts.
+      trim: (W, H) => printBleed(W, H),
     },
   };
+  // Social or print, from the size list the Resize panel is built from
+  // (src/data/studio-sizes.js). Designs made before the list, at an A-size
+  // or the old business card with no bleed, count as print too.
+  function sizeCard(W, H) {
+    return document.querySelector('.ed-resize-card[data-size="' + Math.round(W) + "," + Math.round(H) + '"]');
+  }
+  function sizeFamily(W, H) {
+    const c = sizeCard(W, H);
+    if (c) return c.getAttribute("data-family") || "social";
+    const r = Math.max(W, H) / Math.min(W, H);
+    if (Math.abs(r - Math.SQRT2) < 0.01 && Math.min(W, H) >= 1200) return "print";
+    if (Math.max(W, H) === 1004 && Math.min(W, H) === 650) return "print";
+    return "social";
+  }
+  function printBleed(W, H) {
+    const c = sizeCard(W, H);
+    return c ? (parseInt(c.getAttribute("data-bleed"), 10) || 0) : 0;
+  }
+
   function safeZoneFor(W, H) {
     return Object.keys(SAFE_ZONES).filter((k) => SAFE_ZONES[k].fits(W, H));
   }
@@ -10306,6 +10335,14 @@
     if (!def || !def.fits(W, H)) { ov.hidden = true; return; }
     ov.hidden = false;
     const zones = typeof def.zones === "function" ? def.zones(W, H) : def.zones;
+    const trim = def.trim ? def.trim(W, H) : 0;
+    if (trim > 0) {
+      const t = document.createElement("div");
+      t.className = "ed-safezone-trim";
+      t.style.left = trim + "px"; t.style.top = trim + "px";
+      t.style.width = (W - 2 * trim) + "px"; t.style.height = (H - 2 * trim) + "px";
+      ov.appendChild(t);
+    }
     const fs = Math.round(Math.min(W, H) / 1080 * 26);
     zones.forEach((z) => {
       const d = document.createElement("div");
