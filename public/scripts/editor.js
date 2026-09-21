@@ -6560,7 +6560,7 @@
     // still get the merge-tag picker rendered here as its own section so
     // it doesn't disappear into the popover.
     if (el.type === "text" && isAdminMode()) {
-      const tagOpts = KNOWN_TAGS.map(function (k) {
+      const tagOpts = TAG_MENU.map(function (k) {
         return '<option value="' + k + '">{' + k + '}</option>';
       }).join("");
       html.push(
@@ -7106,8 +7106,9 @@
     const about = b.about || {};
     const person = (about.name || "").trim();
     if (person) {
-      m["your name"] = person;
-      m["name"]      = person;
+      m["agent name"] = person;
+      m["your name"]  = person;
+      m["name"]       = person;
     }
     const role = (about.role || "").trim();
     if (role) {
@@ -7124,11 +7125,21 @@
     if (b.website) m["website"] = b.website;
     return m;
   }
-  // Surface the keys so the admin "insert tag" UI can list them.
-  const KNOWN_TAGS = ["brand name", "brand", "company", "company name",
-    "your name", "name", "job title", "role",
-    "location", "area", "town", "slogan", "strapline", "tagline",
-    "email", "phone", "telephone", "website"];
+  /* The dropdown offers ONE tag per brand-kit field, named the way the field
+     is named. Anything else is a synonym for something already in this list,
+     and offering four ways to print the same value only invites templates
+     that disagree with each other. */
+  const TAG_MENU = ["company name", "area", "slogan", "website",
+    "agent name", "job title", "telephone", "email"];
+
+  /* Synonyms stay resolvable but stay off the menu: the catalogue is full of
+     templates already written with {location} and {company}, and they must
+     keep filling in. Never add one of these to TAG_MENU. */
+  const TAG_ALIASES = ["brand name", "brand", "company",
+    "your name", "name", "role",
+    "location", "town", "strapline", "tagline", "phone"];
+
+  const KNOWN_TAGS = TAG_MENU.concat(TAG_ALIASES);
 
   function applyMergeTags(text) {
     if (!text || typeof text !== "string") return text;
