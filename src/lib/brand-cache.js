@@ -52,6 +52,42 @@ export function adoptBrandCacheOrReload(uid) {
 }
 
 /**
+ * Make sure this browser holds the signed-in member's kit: fetch it from the
+ * server and cache it, unless the cache is genuinely newer (edited on this
+ * device and not yet synced up). A new laptop starts with no cache at all, so
+ * without this the dashboard and the caption generator had no kit until the
+ * Studio or the profile page happened to be opened first.
+ *
+ * Resolves true when the cache changed, so a page that has already drawn from
+ * it can redraw. One fetch per page load however many callers ask. The demo
+ * keeps its own kit and is left alone.
+ */
+let _sync = null;
+export function syncBrandCache(supabase, uid) {
+  if (!_sync) _sync = (async () => {
+    try { if (localStorage.getItem("tmke_demo")) return false; } catch (_) { return false; }
+    try {
+      if (!uid) {
+        const { data: { session } } = await supabase.auth.getSession();
+        uid = session ? session.user.id : null;
+      }
+      // Signed out: nobody's kit stays in the browser.
+      if (!uid) { adoptBrandCache(null); return false; }
+      const local = adoptBrandCache(uid);
+      const { data } = await supabase.from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
+      const kit = data && data.kit;
+      if (!kit || typeof kit !== "object" || !Object.keys(kit).length) return false;
+      if (local && Number(local.updatedAt || 0) > Number(kit.updatedAt || 0)) return false;
+      const strip = (k) => { const c = { ...(k || {}) }; delete c.owner; return JSON.stringify(c); };
+      if (local && strip(local) === strip(kit)) return false;
+      writeBrandCache(kit, uid);
+      return true;
+    } catch (_) { return false; }
+  })();
+  return _sync;
+}
+
+/**
  * A brand kit made in the demo (tmke.brand.demo) becomes the kit of the first
  * account that signs in on this browser with no kit of its own: written to
  * the server and to the cache, stamped with the owner. Returns true when it

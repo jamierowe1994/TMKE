@@ -599,8 +599,9 @@ the rendered output checking, not just a build.
 - ⬜ **The invite-to-join flow is broken at the last step.** Invites link to
   `/join?email=…&name=…`, but `join.astro` never reads those values, so the
   invitee has to retype everything.
-- ⬜ Brand kit doesn't reach the dashboard or caption generator on a new device
-  until the member opens the Studio or profile first.
+- ✅ (21 Sep) Brand kit reaches a new device straight away: the dashboard, the
+  caption generator and the Studio all fetch it through `syncBrandCache`
+  (`src/lib/brand-cache.js`); the dashboard redraws once when it arrives.
 - ✅ (21 Aug) The Studio upload library's save-and-reload — confirmed working
   against real storage by Dani: historic uploads reappear on returning.
 - ✅ (21 Aug) The Studio text list only covers the current page of a
