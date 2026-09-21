@@ -10961,9 +10961,17 @@ import { createResizeEngine } from "./resize-engine.js";
       thumb: r.thumb_url || null,
       canvas: r.canvas || { width: 1080, height: 1440, background: "#F2EFE9" },
       elements: r.elements || [],
+      // The layouts an admin saved for the other sizes. Dropping these here is
+      // what made a member's resize fall back to the automatic one even for a
+      // template whose sizes had been drawn by hand.
+      size_variants: r.size_variants || null,
     })).filter((t) => t.id);
     if (!shaped.length) return window.__TMKE_OPEN_PACK__([], opts); // fallback to library
-    shaped.forEach((t) => { if (!TEMPLATES.find((x) => x.id === t.id)) TEMPLATES.push(t); });
+    shaped.forEach((t) => {
+      const have = TEMPLATES.find((x) => x.id === t.id);
+      if (!have) TEMPLATES.push(t);
+      else if (t.size_variants && !have.size_variants) have.size_variants = t.size_variants;
+    });
     PACK_TEMPLATES = shaped;
     tplGridEl.innerHTML = "";
     renderTemplateGrid();
