@@ -1,5 +1,6 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
 import "../../styles/admin.css";
 ---
 
@@ -16,26 +17,16 @@ import "../../styles/admin.css";
   </div>
 
   <div class="ash-panel ash-page">
-    <section class="admin-bar">
-      <div class="admin-bar-top">
-        <span class="admin-bar-count" id="blk-count">…</span>
-        <div class="admin-bar-tools">
-          <button type="button" class="enquiry-chip is-on" data-view="all">All</button>
-          <button type="button" class="enquiry-chip" data-view="live">Live</button>
-          <button type="button" class="enquiry-chip" data-view="draft">Not published</button>
-        </div>
-      </div>
-      <div class="admin-bar-actions">
-      <nav class="studio-tabs">
-        <a class="studio-tab" href="/admin/templates">Templates</a>
-        <a class="studio-tab" href="/admin/templates?view=print">Print</a>
-        <a class="studio-tab is-on" href="/admin/blocks">Contact blocks</a>
-        <a class="studio-tab" href="/admin/brands">Brands</a>
-        <a class="studio-tab" href="/admin/fonts">Brand fonts</a>
-      </nav>
+    <StudioBar active="blocks" countId="blk-count">
+      <Fragment slot="filters">
+        <button type="button" class="enquiry-chip is-on" data-view="all">All</button>
+        <button type="button" class="enquiry-chip" data-view="live">Live</button>
+        <button type="button" class="enquiry-chip" data-view="draft">Not published</button>
+      </Fragment>
+      <Fragment slot="actions">
         <a href="/admin/templates" class="admin-btn admin-btn-primary">+ Draw a new one</a>
-      </div>
-    </section>
+      </Fragment>
+    </StudioBar>
 
     <p id="blk-loading" class="blk-note">Loading…</p>
 
@@ -49,12 +40,6 @@ import "../../styles/admin.css";
   </div>
 
   <style is:global>
-    /* Filter chips + bar, same as the other admin pages carry. */
-    .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
-    .admin-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    .admin-bar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .admin-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-    .admin-bar-count { font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .enquiry-chip {
       font-family: var(--sans); font-size: 12px; font-weight: 600;
       padding: 7px 14px; border-radius: 999px; cursor: pointer;
@@ -64,18 +49,6 @@ import "../../styles/admin.css";
     }
     .enquiry-chip:hover { color: var(--ink); border-color: rgba(28,29,34,0.4); }
     .enquiry-chip.is-on { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
-
-    /* Tabs inside the Design studio: templates now, contact blocks, print
-       later. Not sidebar entries — they are all the same part of the job. */
-    .studio-tabs { display: flex; gap: 4px; margin-right: auto; }
-    .studio-tab {
-      font-family: var(--sans); font-size: 12px; font-weight: 600;
-      padding: 8px 15px; border-radius: 999px; cursor: pointer; text-decoration: none;
-      color: rgba(28,29,34,0.6); background: transparent; border: 1px solid transparent;
-      transition: background 0.18s, color 0.18s;
-    }
-    .studio-tab:hover { color: var(--ink); background: rgba(28,29,34,0.05); }
-    .studio-tab.is-on { background: var(--english-violet); color: var(--paper); }
 
     .blk-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
 

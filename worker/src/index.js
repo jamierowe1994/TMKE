@@ -6940,7 +6940,8 @@ export default {
 
         const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim();
         const kit = {
-          company: brand || contact.company || "",
+          company: (bp && bp.company) || brand || contact.company || "",
+          slogan: (bp && bp.slogan) || "",
           website: (bp && bp.website) || "",
           tone: (bp && bp.tone) || "",
           colors: (bp && Array.isArray(bp.colors) && bp.colors.length) ? bp.colors : null,

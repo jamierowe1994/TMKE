@@ -1,0 +1,102 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
+import BrandKitForm from "../../components/admin/BrandKitForm.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="studio" title="Studio branding" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Studio branding</div>
+          <div class="page-header-sub">Ours. This is the kit anything drawn in the admin Studio uses — our colours, our fonts, our logo — so a template being designed shows TMKE's brand rather than borrowing a member's, or nothing at all.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <StudioBar active="studio" countId="sb-count">
+      <Fragment slot="actions">
+        <a class="admin-btn admin-btn-ghost" href="/admin/brands">Brands</a>
+      </Fragment>
+    </StudioBar>
+
+    <p id="sb-loading" class="sb-note">Loading…</p>
+
+    <div id="sb-kit" hidden>
+      <BrandKitForm idPrefix="sb" />
+    </div>
+  </div>
+
+  <style is:global>
+    .sb-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+    import { escapeHtml } from '../../lib/design-preview.js';
+    import { GOOGLE_FONTS } from '../../data/google-fonts.js';
+    import { fillForm, readForm, wireColors, wireLogos, fillFontList } from '../../lib/brand-kit-form.js';
+
+    /* Kept in brand_profiles under a reserved key rather than in a table of
+       its own: it is the same shape as a brand's kit and read the same way,
+       and a second table would be a second set of bugs. The Brands tab hides
+       this row; this tab is the only way in. */
+    const KEY = '__studio__';
+
+    const els = {
+      kit: document.getElementById('sb-kit'),
+      loading: document.getElementById('sb-loading'),
+      count: document.getElementById('sb-count'),
+    };
+    const root = els.kit.querySelector('[data-kit]');
+
+    const status = (msg) => {
+      const el = root.querySelector('[data-status]');
+      if (el) el.textContent = msg || '';
+    };
+
+    async function load() {
+      const { data, error } = await supabase
+        .from('brand_profiles').select('*').eq('brand', KEY).maybeSingle();
+      els.loading.hidden = true;
+      if (error && /brand_profiles|relation|column/i.test(error.message || '')) {
+        els.loading.hidden = false;
+        els.loading.innerHTML = 'The database hasn’t got the brands table yet. Run <strong>supabase/brand_profiles.sql</strong>, then reload.';
+        return;
+      }
+      els.kit.hidden = false;
+      els.count.textContent = data ? 'Set up' : 'Not set up yet';
+      fillForm(root, data || { company: 'The Marketing Experts' });
+    }
+
+    root.querySelector('[data-save]')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const payload = readForm(root, KEY);
+      btn.disabled = true;
+      status('Saving…');
+      const { error } = await supabase.from('brand_profiles').upsert(payload, { onConflict: 'brand' });
+      btn.disabled = false;
+      if (error) { status('Could not save: ' + escapeHtml(error.message)); return; }
+      status('Saved');
+      els.count.textContent = 'Set up';
+      setTimeout(() => status(''), 2200);
+    });
+
+    wireColors(root);
+    wireLogos(root, supabase, status);
+
+    (async () => {
+      if (!import.meta.env.DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+      }
+      fillFontList(root, supabase, GOOGLE_FONTS);
+      await load();
+    })();
+  </script>
+</AdminShell>

@@ -1,14 +1,15 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
 import "../../styles/admin.css";
 ---
 
-<AdminShell active="studio" title="Brand fonts" skin="hub">
+<AdminShell active="studio" title="Uploaded fonts" skin="hub">
   <div class="page-header">
     <div class="page-header-top">
       <div class="page-header-left">
         <div>
-          <div class="page-header-title">Brand fonts</div>
+          <div class="page-header-title">Uploaded fonts</div>
           <div class="page-header-sub">Typefaces that aren't on Google Fonts. Upload one here and it sits at the top of every font picker in the Studio — yours and every member's — so a brand whose font we can't link to can still be set in it.</div>
         </div>
       </div>
@@ -16,22 +17,12 @@ import "../../styles/admin.css";
   </div>
 
   <div class="ash-panel ash-page">
-  <section class="admin-bar">
-    <div class="admin-bar-top">
-      <span class="admin-bar-count" id="font-count">…</span>
-    </div>
-    <div class="admin-bar-actions">
-      <nav class="studio-tabs">
-        <a class="studio-tab" href="/admin/templates">Templates</a>
-        <a class="studio-tab" href="/admin/templates?view=print">Print</a>
-        <a class="studio-tab" href="/admin/blocks">Contact blocks</a>
-        <a class="studio-tab" href="/admin/brands">Brands</a>
-        <a class="studio-tab is-on" href="/admin/fonts">Brand fonts</a>
-      </nav>
+  <StudioBar active="fonts" countId="font-count">
+    <Fragment slot="actions">
       <button type="button" id="upload-btn" class="admin-btn admin-btn-primary">+ Upload font</button>
-      <input type="file" id="font-input" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/font-sfnt,application/x-font-ttf,application/x-font-otf,application/vnd.ms-fontobject" hidden />
-    </div>
-  </section>
+      <input type="file" id="font-input" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/font-sfnt,application/x-font-ttf,application/x-font-opentype" hidden />
+    </Fragment>
+  </StudioBar>
 
   <section class="font-list">
     <p class="font-loading" id="font-loading">Loading custom fonts…</p>
@@ -93,19 +84,6 @@ import "../../styles/admin.css";
   </div>
 
   <style is:global>
-    /* Studio tabs — the same strip the other studio pages carry. */
-    .studio-tabs { display: flex; gap: 4px; margin-right: auto; flex-wrap: wrap; }
-    .studio-tab {
-      font-family: var(--sans); font-size: 12px; font-weight: 600;
-      padding: 8px 15px; border-radius: 999px; cursor: pointer; text-decoration: none;
-      color: rgba(28,29,34,0.6); background: transparent; border: 1px solid transparent;
-      transition: background 0.18s, color 0.18s;
-    }
-    .studio-tab:hover { color: var(--ink); background: rgba(28,29,34,0.05); }
-    .studio-tab.is-on { background: var(--english-violet); color: var(--paper); }
-    .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
-    .admin-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    .admin-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
     .admin-bar {
       display: flex;

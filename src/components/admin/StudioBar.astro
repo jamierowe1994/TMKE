@@ -1,0 +1,38 @@
+---
+/* The design studio's bar. Every tab in the studio uses this one component,
+   so the page furniture never moves as you go between them — only what sits
+   in the two right-hand slots changes.
+
+     <StudioBar active="templates" count="111 active">
+       <Fragment slot="filters"> …search, dropdowns, chips… </Fragment>
+       <Fragment slot="actions">  …buttons…                 </Fragment>
+     </StudioBar>
+
+   `count` may be left out and filled in by script instead (#studio-count). */
+interface Props { active: string; count?: string; countId?: string }
+const { active, count = "…", countId = "studio-count" } = Astro.props;
+
+const TABS = [
+  { key: "templates", label: "Templates",      href: "/admin/templates" },
+  { key: "print",     label: "Print",          href: "/admin/templates?view=print" },
+  { key: "blocks",    label: "Contact blocks", href: "/admin/blocks" },
+  { key: "brands",    label: "Brands",         href: "/admin/brands" },
+  { key: "studio",    label: "Studio branding", href: "/admin/studio-branding" },
+  { key: "fonts",     label: "Uploaded fonts", href: "/admin/fonts" },
+];
+---
+
+<section class="studio-bar">
+  <div class="studio-bar-top">
+    <span class="studio-bar-count" id={countId}>{count}</span>
+    <div class="studio-bar-filters"><slot name="filters" /></div>
+  </div>
+  <div class="studio-bar-row">
+    <nav class="studio-tabs">
+      {TABS.map((t) => (
+        <a class={`studio-tab${t.key === active ? " is-on" : ""}`} href={t.href} data-tab={t.key}>{t.label}</a>
+      ))}
+    </nav>
+    <div class="studio-bar-actions"><slot name="actions" /></div>
+  </div>
+</section>

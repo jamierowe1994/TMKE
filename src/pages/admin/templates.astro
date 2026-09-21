@@ -1,7 +1,12 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
+import StudioBar from "../../components/admin/StudioBar.astro";
 import "../../styles/admin.css";
 import { templates as defaultLibrary } from "../../data/library.js";
+
+// Which half of the studio this is — read here so the right tab is lit on the
+// first paint rather than after the script runs.
+const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social";
 ---
 
 <AdminShell active="studio" title="Design studio" skin="hub">
@@ -16,39 +21,29 @@ import { templates as defaultLibrary } from "../../data/library.js";
     </div>
   </div>
   <div class="ash-panel ash-page">
-  <section class="admin-bar">
-    <div class="admin-bar-top">
-      <span class="admin-bar-count" id="tpl-count">…</span>
-      <div class="admin-bar-tools">
-        <label class="tpl-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input type="search" id="tpl-search" placeholder="Search templates…" aria-label="Search templates" />
-        </label>
-        <select class="tpl-filter" id="tpl-pack" aria-label="Filter by pack">
-          <option value="">All packs</option>
-        </select>
-        <select class="tpl-filter" id="tpl-filter" aria-label="Filter templates">
-          <option value="recent">Most recent</option>
-          <option value="oldest">Last added</option>
-          <option value="draft">Drafts only</option>
-          <option value="active">Published only</option>
-          <option value="archived">Archived</option>
-        </select>
-      </div>
-    </div>
-    <div class="admin-bar-actions">
-      <nav class="studio-tabs" id="studio-tabs">
-        <a class="studio-tab" href="/admin/templates" data-tab="social">Templates</a>
-        <a class="studio-tab" href="/admin/templates?view=print" data-tab="print">Print</a>
-        <a class="studio-tab" href="/admin/blocks" data-tab="blocks">Contact blocks</a>
-        <a class="studio-tab" href="/admin/brands" data-tab="brands">Brands</a>
-        <a class="studio-tab" href="/admin/fonts">Brand fonts</a>
-      </nav>
+  <StudioBar active={VIEW === "print" ? "print" : "templates"} countId="tpl-count">
+    <Fragment slot="filters">
+      <label class="tpl-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="search" id="tpl-search" placeholder="Search templates…" aria-label="Search templates" />
+      </label>
+      <select class="tpl-filter" id="tpl-pack" aria-label="Filter by pack">
+        <option value="">All packs</option>
+      </select>
+      <select class="tpl-filter" id="tpl-filter" aria-label="Filter templates">
+        <option value="recent">Most recent</option>
+        <option value="oldest">Last added</option>
+        <option value="draft">Drafts only</option>
+        <option value="active">Published only</option>
+        <option value="archived">Archived</option>
+      </select>
+    </Fragment>
+    <Fragment slot="actions">
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
       <button type="button" id="rebuild-thumbs-btn" class="admin-btn admin-btn-ghost">Sync local drafts</button>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
-    </div>
-  </section>
+    </Fragment>
+  </StudioBar>
 
   <section class="tpl-list wrap" id="tpl-list">
     <p class="tpl-loading" id="tpl-loading">Loading templates…</p>
@@ -874,7 +869,6 @@ import { templates as defaultLibrary } from "../../data/library.js";
       }
       // Packs first: restoreView can only re-select a pack once the options
       // it is choosing from exist.
-      document.querySelector('.studio-tab[data-tab="' + VIEW + '"]')?.classList.add('is-on');
       await loadPackFilter();
       restoreView();
       await loadTemplates();
