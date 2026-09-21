@@ -314,8 +314,10 @@
         await loadOwnership();
         const { data, error } = await supabase
           .from("packs")
-          .select("id, slug, title, description, price_pence, cover_image_url, contents, category, sort_order")
+          .select("id, slug, title, description, price_pence, cover_image_url, contents, category, sort_order, kind, access, demo")
           .eq("status", "active")
+          .eq("kind", "social")
+          .eq("access", "buy")
           .order("sort_order", { ascending: true });
         $shopLoading.hidden = true;
         if (error || !data || !data.length) {

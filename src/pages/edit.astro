@@ -1985,8 +1985,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })
         .limit(9);
-      // The demo pack is not for sale: it is the demo's and free with every account.
-      const packsForSale = (data || []).filter((p) => p.demo !== true).slice(0, 8);
+      // Not for sale: the demo (free with every account), and anything given
+      // rather than bought — a print pack drawn for a TEG brand is visible to
+      // that brand's agents, and a shop tile at £0 is not what it is.
+      const { shopPacks } = await import('../lib/pack-access.js');
+      const packsForSale = shopPacks(data || []).slice(0, 8);
 
       loading.hidden = true;
       wrap.setAttribute('aria-busy', 'false');

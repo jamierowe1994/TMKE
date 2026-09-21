@@ -37,9 +37,10 @@ import { templates as defaultLibrary } from "../../data/library.js";
       </div>
     </div>
     <div class="admin-bar-actions">
-      <nav class="studio-tabs">
-        <a class="studio-tab is-on" href="/admin/templates">Templates</a>
-        <a class="studio-tab" href="/admin/blocks">Contact blocks</a>
+      <nav class="studio-tabs" id="studio-tabs">
+        <a class="studio-tab" href="/admin/templates" data-tab="social">Templates</a>
+        <a class="studio-tab" href="/admin/templates?view=print" data-tab="print">Print</a>
+        <a class="studio-tab" href="/admin/blocks" data-tab="blocks">Contact blocks</a>
       </nav>
       <a href="/admin/fonts" class="admin-btn admin-btn-ghost">Brand fonts</a>
       <button type="button" id="seed-btn" class="admin-btn admin-btn-ghost" hidden>Seed from default library</button>
@@ -448,6 +449,19 @@ import { templates as defaultLibrary } from "../../data/library.js";
     let ALL = [];
     // Flipped off if the contact-block migration hasn't been run yet.
     let HAS_BLOCKS = true;
+    // The packs that are print packs, and which half of the studio is on show.
+    let PRINT_PACKS = new Set();
+    const VIEW = new URLSearchParams(location.search).get('view') === 'print' ? 'print' : 'social';
+
+    /* A template is print if it lives in a print pack, or if it is drawn at a
+       print size — because it has to be findable BEFORE it is put in a pack,
+       which is the whole of the time you are drawing it. */
+    const PRINT_SIZES = new Set(['2551x3579', '3579x2551', '1819x2551', '2551x1819', '1075x720', '1311x1819']);
+    function isPrint(t) {
+      if (t.pack_id && PRINT_PACKS.has(t.pack_id)) return true;
+      const cv = t.canvas || {};
+      return PRINT_SIZES.has(Math.round(cv.width) + 'x' + Math.round(cv.height));
+    }
 
     const defaultLibrary = JSON.parse(
       document.getElementById('tpl-default-library')?.textContent || '[]'
@@ -609,9 +623,13 @@ import { templates as defaultLibrary } from "../../data/library.js";
       if (!els.pack) return;
       let packs = [];
       try {
-        const { data } = await supabase.from('packs').select('id, title').order('title');
+        let { data, error } = await supabase.from('packs').select('id, title, kind').order('title');
+        // Before print_packs.sql has run there is no kind column.
+        if (error) ({ data } = await supabase.from('packs').select('id, title').order('title'));
         packs = data || [];
       } catch (_) { }
+      // Which packs are print, so the Print tab knows what belongs to it.
+      PRINT_PACKS = new Set(packs.filter((p) => p.kind === 'print').map((p) => p.id));
       const frag = packs.map((p) =>
         `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title || 'Untitled pack')}</option>`).join('');
       els.pack.innerHTML = '<option value="">All packs</option>' + frag +
@@ -634,6 +652,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
       // Contact blocks have their own tab: they are not designs anyone opens,
       // so they'd only be noise here.
       list = list.filter((t) => t.kind !== 'block');
+      // Print and social are different trades; each tab shows its own.
+      list = list.filter((t) => (VIEW === 'print') === isPrint(t));
 
       // Status filter (the sort-only options leave the status set untouched).
       if (f === 'draft') list = list.filter((t) => t.status === 'draft');
@@ -853,6 +873,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
       }
       // Packs first: restoreView can only re-select a pack once the options
       // it is choosing from exist.
+      document.querySelector('.studio-tab[data-tab="' + VIEW + '"]')?.classList.add('is-on');
       await loadPackFilter();
       restoreView();
       await loadTemplates();

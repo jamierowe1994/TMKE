@@ -7482,9 +7482,15 @@ const googleFonts = [
         const { data: orders } = await supabase.from("orders").select("pack_id, status").or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`);
         packIds = Array.from(new Set((orders || []).filter((o) => o.status === "paid" && o.pack_id).map((o) => o.pack_id)));
       } catch (_) {}
-      // The demo pack is free with every account.
+      // Packs nobody buys: the demo, anything free to members, and the print
+      // packs drawn for this member's brand. RLS has already decided which
+      // brand packs they may see, so asking for them IS the entitlement check.
       try {
-        const { data: free } = await supabase.from("packs").select("id").eq("demo", true).eq("status", "active");
+        const { data: free } = await supabase
+          .from("packs")
+          .select("id, demo, access")
+          .eq("status", "active")
+          .or("demo.eq.true,access.eq.members,access.eq.brands");
         (free || []).forEach((p) => { if (!packIds.includes(p.id)) packIds.push(p.id); });
       } catch (_) {}
       if (!packIds.length) return;

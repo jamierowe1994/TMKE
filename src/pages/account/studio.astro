@@ -551,8 +551,10 @@ const inspo = [
         const { fillPackCovers } = await import('../../lib/pack-cover.js');
         await fillPackCovers(supabase, allPacks);
         const ownedIds = new Set((ordersRes.data || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
-        // The demo pack is free with every account, so it counts as owned.
-        const owned = allPacks.filter((p) => ownedIds.has(p.id) || p.demo === true);
+        // Bought, the demo, free-to-members, or drawn for their brand — the
+        // brand check is the database's (src/lib/pack-access.js explains why).
+        const { ownedPacks } = await import('../../lib/pack-access.js');
+        const owned = ownedPacks(allPacks, ownedIds);
         if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         row.innerHTML = owned.map((p) => `
           <a class="st-pack" href="/account/editor?pack=${encodeURIComponent(p.id)}">
