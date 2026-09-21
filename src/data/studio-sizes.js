@@ -24,6 +24,18 @@ const print = (name, wMm, hMm) => ({
   bleed: px(PRINT_BLEED_MM),
 });
 
+/* The social formats we no longer OFFER, but still want to look at.
+   Members can't resize to these — a post squeezed into a banner is worse than
+   the post it came from — but the admin size check shows them, because seeing
+   what a design does at a landscape shape is how you find out whether a
+   LinkedIn or cover pack is worth drawing properly one day. */
+export const ADMIN_EXTRA_SOCIAL = [
+  { name: "Landscape", w: 1920, h: 1080 },
+  { name: "Facebook Link", w: 1200, h: 628 },
+  { name: "Facebook Cover", w: 820, h: 312 },
+  { name: "LinkedIn Post", w: 1200, h: 627 },
+];
+
 export const STUDIO_SIZES = [
   {
     label: "Social",

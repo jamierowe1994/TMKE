@@ -1,9 +1,11 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
-import { STUDIO_SIZES } from "../../data/studio-sizes.js";
+import { STUDIO_SIZES, ADMIN_EXTRA_SOCIAL } from "../../data/studio-sizes.js";
 
 const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
+// Shown here, never offered in the Studio — see the note in studio-sizes.js.
+const EXTRA = ADMIN_EXTRA_SOCIAL.map((z) => ({ ...z, extra: true }));
 ---
 
 <AdminShell active="studio" title="Check the sizes" skin="hub">
@@ -37,7 +39,7 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
     <div id="sz-grid" class="sz-grid"></div>
   </div>
 
-  <script id="sz-sizes" type="application/json" set:html={JSON.stringify(SOCIAL)}></script>
+  <script id="sz-sizes" type="application/json" set:html={JSON.stringify(SOCIAL.concat(EXTRA))}></script>
 
   <style is:global>
     .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
@@ -63,6 +65,13 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
     @media (max-width: 680px) { .sz-grid, .sz-grid.is-big { grid-template-columns: 1fr; } }
 
     .sz-card { display: flex; flex-direction: column; gap: 10px; }
+    /* The line between what members can pick and what they can't. */
+    .sz-split {
+      grid-column: 1 / -1; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+      margin: 26px 0 2px; padding-top: 20px; border-top: 1px solid rgba(28,29,34,0.12);
+    }
+    .sz-split span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .sz-split small { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); }
     .sz-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
     .sz-name { font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: var(--ink); }
     .sz-dims { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
@@ -261,7 +270,18 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
         return { sz, page, flags, changes, isSource, saved: !!saved };
       });
 
+      let openedExtra = false;
       els.grid.innerHTML = cards.map((c) => {
+        // One divider, before the first format members can't choose.
+        let lead = '';
+        if (c.sz.extra && !openedExtra) {
+          openedExtra = true;
+          lead = '<div class="sz-split"><span>Not offered to members</span><small>Worth a look before drawing a pack at one of these shapes</small></div>';
+        }
+        return lead + card(c);
+      }).join('');
+
+      function card(c) {
         if (c.error) {
           return `<div class="sz-card"><div class="sz-head"><span class="sz-name">${escapeHtml(c.sz.name)}</span></div>
             <p class="sz-flag is-bad">Could not lay this out: ${escapeHtml(c.error)}</p></div>`;
@@ -286,7 +306,7 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
                 : '<span class="sz-ok">Nothing to worry about here.</span>'}
           </div>
         </div>`;
-      }).join('');
+      }
     }
 
     document.querySelectorAll('[data-fit]').forEach((chip) => {
