@@ -1,0 +1,343 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="studio" title="Brands" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Brands</div>
+          <div class="page-header-sub">What each TEG brand's kit starts as. An agent from this brand opens the Studio already set up — these colours, these fonts, this logo — instead of an empty form and a hunt for their brand guidelines.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-top">
+        <span class="admin-bar-count" id="br-count">…</span>
+        <div class="admin-bar-tools">
+          <span class="br-saved" id="br-saved" hidden>Saved</span>
+        </div>
+      </div>
+      <div class="admin-bar-actions">
+        <nav class="studio-tabs">
+          <a class="studio-tab" href="/admin/templates">Templates</a>
+          <a class="studio-tab" href="/admin/templates?view=print">Print</a>
+          <a class="studio-tab" href="/admin/blocks">Contact blocks</a>
+          <a class="studio-tab is-on" href="/admin/brands">Brands</a>
+        </nav>
+        <a href="/admin/fonts" class="admin-btn admin-btn-ghost">Brand fonts</a>
+      </div>
+    </section>
+
+    <p id="br-loading" class="br-note">Loading…</p>
+    <div id="br-list"></div>
+    <p id="br-empty" class="br-note" hidden>
+      No brands yet. They appear here as soon as an agent's TEG profile names one — or run <strong>supabase/brand_profiles.sql</strong> if you haven't yet.
+    </p>
+  </div>
+
+  <style is:global>
+    .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
+    .admin-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .admin-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .admin-bar-count { font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+
+    .studio-tabs { display: flex; gap: 4px; margin-right: auto; }
+    .studio-tab {
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      padding: 8px 15px; border-radius: 999px; cursor: pointer; text-decoration: none;
+      color: rgba(28,29,34,0.6); background: transparent; border: 1px solid transparent;
+      transition: background 0.18s, color 0.18s;
+    }
+    .studio-tab:hover { color: var(--ink); background: rgba(28,29,34,0.05); }
+    .studio-tab.is-on { background: var(--english-violet); color: var(--paper); }
+
+    .br-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+    .br-saved {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: #2e6b4a;
+    }
+
+    .br-card {
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px;
+      padding: 22px 24px; margin-bottom: 18px;
+    }
+    .br-head {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .br-name { font-family: var(--serif); font-size: 23px; color: var(--ink); }
+    .br-agents { font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+
+    .br-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
+    @media (max-width: 760px) { .br-row { grid-template-columns: 1fr; } }
+    .br-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .br-field > span {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+    }
+    .br-field input, .br-field textarea {
+      width: 100%; box-sizing: border-box; padding: 10px 12px;
+      font-family: var(--sans); font-size: 13.5px; color: var(--ink);
+      background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px;
+    }
+    .br-field input:focus, .br-field textarea:focus {
+      outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12);
+    }
+    .br-field small { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); }
+
+    /* Colours: six wells, the same six a member's kit holds. */
+    .br-colors { display: flex; gap: 10px; flex-wrap: wrap; }
+    .br-swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .br-swatch input[type="color"] {
+      width: 46px; height: 46px; padding: 0; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.2); border-radius: 8px; background: #fff;
+    }
+    .br-swatch input[type="text"] {
+      width: 78px; padding: 5px 6px; text-align: center;
+      font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.65);
+      border: 1px solid rgba(28,29,34,0.14); border-radius: 5px;
+    }
+    .br-swatch button {
+      font-family: var(--sans); font-size: 10px; color: rgba(28,29,34,0.45);
+      background: none; border: 0; cursor: pointer; padding: 0;
+    }
+    .br-swatch button:hover { color: #8c2f24; }
+
+    .br-logo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+    .br-logo-img {
+      width: 132px; height: 74px; border-radius: 8px; background: #fff center/contain no-repeat;
+      border: 1px dashed rgba(28,29,34,0.25);
+    }
+    .br-acts { display: flex; gap: 8px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+    .br-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+    import { escapeHtml } from '../../lib/design-preview.js';
+
+    const LOGO_BUCKET = 'pack-images';   // already public, already used for artwork
+    const els = {
+      list: document.getElementById('br-list'),
+      empty: document.getElementById('br-empty'),
+      loading: document.getElementById('br-loading'),
+      count: document.getElementById('br-count'),
+      saved: document.getElementById('br-saved'),
+    };
+    let ROWS = [];
+    let AGENTS = {};   // brand -> how many agents are in it
+
+    async function load() {
+      els.loading.hidden = false;
+      const [bp, ap] = await Promise.all([
+        supabase.from('brand_profiles').select('*').order('brand'),
+        supabase.from('agent_profiles').select('brand').not('brand', 'is', null),
+      ]);
+      els.loading.hidden = true;
+
+      if (bp.error) {
+        els.list.innerHTML = /brand_profiles|relation|column/i.test(bp.error.message || '')
+          ? '<p class="br-note">The database hasn’t got the brands table yet. Run <strong>supabase/brand_profiles.sql</strong> in the Supabase SQL editor, then reload.</p>'
+          : '<p class="br-note">Could not load brands: ' + escapeHtml(bp.error.message) + '</p>';
+        return;
+      }
+
+      AGENTS = {};
+      (ap.data || []).forEach((r) => {
+        const b = (r.brand || '').trim();
+        if (b) AGENTS[b] = (AGENTS[b] || 0) + 1;
+      });
+
+      ROWS = bp.data || [];
+      // A brand with agents but no row yet still needs filling in.
+      Object.keys(AGENTS).forEach((b) => {
+        if (!ROWS.some((r) => r.brand === b)) ROWS.push({ brand: b, colors: [], fonts: {}, logos: [] });
+      });
+      ROWS.sort((a, b) => (AGENTS[b.brand] || 0) - (AGENTS[a.brand] || 0) || a.brand.localeCompare(b.brand));
+
+      els.count.textContent = ROWS.length ? `${ROWS.length} brand${ROWS.length === 1 ? '' : 's'}` : 'None yet';
+      els.empty.hidden = ROWS.length !== 0;
+      render();
+    }
+
+    function colorWell(brand, i, hex) {
+      const val = hex || '';
+      return `<div class="br-swatch">
+        <input type="color" data-color="${escapeHtml(brand)}" data-i="${i}" value="${escapeHtml(val || '#ffffff')}" />
+        <input type="text" data-hex="${escapeHtml(brand)}" data-i="${i}" value="${escapeHtml(val)}" placeholder="—" maxlength="7" />
+        ${val ? `<button type="button" data-clear="${escapeHtml(brand)}" data-i="${i}">clear</button>` : '<button type="button" style="visibility:hidden">clear</button>'}
+      </div>`;
+    }
+
+    function render() {
+      els.list.innerHTML = ROWS.map((r) => {
+        const colors = Array.isArray(r.colors) ? r.colors : [];
+        const fonts = r.fonts || {};
+        const logo = (Array.isArray(r.logos) && r.logos[0] && r.logos[0].url) || '';
+        const n = AGENTS[r.brand] || 0;
+        return `
+        <article class="br-card" data-brand="${escapeHtml(r.brand)}">
+          <div class="br-head">
+            <span class="br-name">${escapeHtml(r.brand)}</span>
+            <span class="br-agents">${n} agent${n === 1 ? '' : 's'}</span>
+          </div>
+
+          <div class="br-row">
+            <label class="br-field">
+              <span>Website</span>
+              <input type="text" data-f="website" value="${escapeHtml(r.website || '')}" placeholder="thepropertyexperts.co.uk" />
+              <small>Printed on footers as {website}.</small>
+            </label>
+            <label class="br-field">
+              <span>Tone of voice</span>
+              <input type="text" data-f="tone" value="${escapeHtml(r.tone || '')}" placeholder="Warm, straight-talking, never pushy" />
+              <small>Used by the Creative Assistant when it writes for them.</small>
+            </label>
+          </div>
+
+          <div class="br-row">
+            <label class="br-field">
+              <span>Heading font</span>
+              <input type="text" data-f="font_heading" value="${escapeHtml(fonts.heading || '')}" placeholder="Cormorant Garamond" />
+            </label>
+            <label class="br-field">
+              <span>Body font</span>
+              <input type="text" data-f="font_body" value="${escapeHtml(fonts.body || '')}" placeholder="Darker Grotesque" />
+            </label>
+          </div>
+
+          <div class="br-field" style="margin-bottom:14px">
+            <span>Colours</span>
+            <div class="br-colors">
+              ${[0, 1, 2, 3, 4, 5].map((i) => colorWell(r.brand, i, colors[i] || '')).join('')}
+            </div>
+            <small>The six wells a member's kit holds, in order. Leave the ones you don't need empty.</small>
+          </div>
+
+          <div class="br-field">
+            <span>Logo</span>
+            <div class="br-logo">
+              <span class="br-logo-img" style="${logo ? `background-image:url('${escapeHtml(logo)}')` : ''}"></span>
+              <label class="admin-btn admin-btn-ghost">
+                Upload a logo
+                <input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" data-logo hidden />
+              </label>
+              ${logo ? '<button type="button" class="admin-btn admin-btn-ghost" data-logo-clear>Remove</button>' : ''}
+            </div>
+            <small>PNG or SVG on a transparent background works best.</small>
+          </div>
+
+          <div class="br-acts">
+            <button type="button" class="admin-btn admin-btn-primary" data-save>Save ${escapeHtml(r.brand)}</button>
+            <span class="br-status" data-status></span>
+          </div>
+        </article>`;
+      }).join('');
+    }
+
+    const cardOf = (el) => el.closest('.br-card');
+    const brandOf = (el) => cardOf(el)?.getAttribute('data-brand');
+    const rowOf = (el) => ROWS.find((r) => r.brand === brandOf(el));
+
+    // Colour well and its hex box are two views of one value.
+    els.list.addEventListener('input', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement)) return;
+      const row = rowOf(el);
+      if (!row) return;
+      const i = Number(el.getAttribute('data-i'));
+      if (el.hasAttribute('data-color') || el.hasAttribute('data-hex')) {
+        row.colors = Array.isArray(row.colors) ? row.colors : [];
+        while (row.colors.length < 6) row.colors.push('');
+        const v = el.value.trim();
+        if (el.hasAttribute('data-hex') && v && !/^#[0-9a-f]{3,8}$/i.test(v)) return;
+        row.colors[i] = v;
+        const card = cardOf(el);
+        const pair = el.hasAttribute('data-hex')
+          ? card.querySelector(`[data-color][data-i="${i}"]`)
+          : card.querySelector(`[data-hex][data-i="${i}"]`);
+        if (pair && v) pair.value = v;
+      }
+    });
+
+    els.list.addEventListener('click', async (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+
+      if (el.hasAttribute('data-clear')) {
+        const row = rowOf(el);
+        const i = Number(el.getAttribute('data-i'));
+        if (row && Array.isArray(row.colors)) { row.colors[i] = ''; render(); }
+        return;
+      }
+
+      if (el.hasAttribute('data-logo-clear')) {
+        const row = rowOf(el);
+        if (row) { row.logos = []; render(); }
+        return;
+      }
+
+      if (el.hasAttribute('data-save')) {
+        const card = cardOf(el);
+        const row = rowOf(el);
+        if (!row) return;
+        const status = card.querySelector('[data-status]');
+        const get = (f) => card.querySelector(`[data-f="${f}"]`)?.value.trim() || '';
+        const payload = {
+          brand: row.brand,
+          website: get('website').replace(/^https?:\/\//i, '').replace(/\/$/, '') || null,
+          tone: get('tone') || null,
+          fonts: { heading: get('font_heading') || null, body: get('font_body') || null },
+          colors: (row.colors || []).filter(Boolean),
+          logos: row.logos || [],
+          updated_at: new Date().toISOString(),
+        };
+        el.disabled = true;
+        status.textContent = 'Saving…';
+        const { error } = await supabase.from('brand_profiles').upsert(payload, { onConflict: 'brand' });
+        el.disabled = false;
+        if (error) { status.textContent = 'Could not save: ' + error.message; return; }
+        status.textContent = 'Saved';
+        els.saved.hidden = false;
+        setTimeout(() => { status.textContent = ''; els.saved.hidden = true; }, 2200);
+        Object.assign(row, payload);
+      }
+    });
+
+    els.list.addEventListener('change', async (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-logo')) return;
+      const file = el.files && el.files[0];
+      if (!file) return;
+      const row = rowOf(el);
+      const card = cardOf(el);
+      const status = card.querySelector('[data-status]');
+      status.textContent = 'Uploading…';
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+      const path = `brand-logos/${row.brand.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from(LOGO_BUCKET)
+        .upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+      if (error) { status.textContent = 'Upload failed: ' + error.message; return; }
+      const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+      row.logos = [{ url: data.publicUrl, name: file.name }];
+      status.textContent = 'Uploaded — press Save to keep it.';
+      render();
+    });
+
+    (async () => {
+      if (!import.meta.env.DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+      }
+      await load();
+    })();
+  </script>
+</AdminShell>
