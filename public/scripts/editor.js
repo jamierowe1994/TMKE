@@ -2263,6 +2263,9 @@ import { createResizeEngine } from "./resize-engine.js";
     state.templateId = d.id;
     _templateOrigin = null;
     syncResetButton();
+    // The template it came from may have been found before the engine booted.
+    const po = window.__TMKE_TEMPLATE_ORIGIN_DATA__;
+    if (po && po[0] === d.id && typeof window.__TMKE_TEMPLATE_ORIGIN__ === "function") window.__TMKE_TEMPLATE_ORIGIN__(po[0], po[1]);
     if (d.pages && d.pages.length) { state.pages = d.pages; state.currentPage = 0; }
     else { if (d.canvas) state.canvas = d.canvas; state.elements = d.elements || []; }
     state.selectedIds = [];
@@ -9937,9 +9940,11 @@ import { createResizeEngine } from "./resize-engine.js";
   });
 
   // ---------- Reset to the template ----------
-  // Only for a design opened from a template on this visit: puts it back to
-  // the template as it arrived, brand kit filled in. One undo brings the
-  // changes back.
+  // For a design that came from a template: puts it back to the template as it
+  // arrived, brand kit filled in, at the size the design is now. A template
+  // opened this visit knows where it came from; a saved design reopened later
+  // is told by editor.astro, which looks up user_designs.source_template_id
+  // (window.__TMKE_TEMPLATE_ORIGIN__ below). One undo brings the changes back.
   var _templateOrigin = null;
   function syncResetButton() {
     const b = $("ed-start-reset");
@@ -9950,6 +9955,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!tpl) return;
     if (!confirm("Reset to the original template? Every change you've made is cleared. Undo brings them back.")) return;
     const before = snapshotPages(), curBefore = state.currentPage;
+    const W = state.canvas.width, H = state.canvas.height;
     putPages([{ id: uid("page"), name: "Page 1", canvas: deep(tpl.canvas), elements: deep(tpl.elements) }], 0);
     state.guides = [];
     state.selectedIds = [];
@@ -9958,10 +9964,37 @@ import { createResizeEngine } from "./resize-engine.js";
     preloadFontsForElements(state.elements);
     if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); }
     normalizeLegacySize();
+    // A copy saved at another size (a story made from a post) goes back to
+    // the template at THAT size - laid out the way the template's own saved
+    // layout, or the automatic resize, would do it - not back to the post.
+    const c = state.canvas;
+    if ((c.width !== W || c.height !== H) && sizeFamily(W, H) === sizeFamily(c.width, c.height)) {
+      const saved = savedLayoutFor(W, H);
+      state.pages.forEach((p) => {
+        resizePage(p, W, H);
+        if (saved) applySavedLayout(p, saved);
+      });
+    }
     pushDesignHistory(before, curBefore);
     afterDesignChange();
     toast("Back to the original template. Undo brings your changes back.", 4000);
   }
+  // A saved design, reopened: editor.astro found the template it came from.
+  // Ignored if another design has been opened since.
+  window.__TMKE_TEMPLATE_ORIGIN__ = function (designId, tpl) {
+    if (!tpl || !tpl.id) return;
+    if (designId && state.templateId !== designId) return;
+    const have = TEMPLATES.find((t) => t.id === tpl.id);
+    if (have) {
+      if (tpl.size_variants && !have.size_variants) have.size_variants = tpl.size_variants;
+    } else {
+      if (!tpl.canvas || !Array.isArray(tpl.elements) || !tpl.elements.length) return;
+      TEMPLATES.push({ id: tpl.id, name: tpl.name, canvas: tpl.canvas, elements: tpl.elements,
+        size_variants: tpl.size_variants || null });
+    }
+    _templateOrigin = tpl.id;
+    syncResetButton();
+  };
   $("ed-start-reset")?.addEventListener("click", resetToTemplate);
 
   // ---------- Platform safe zones ----------

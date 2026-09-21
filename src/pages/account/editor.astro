@@ -5171,11 +5171,9 @@ const googleFonts = [
         window.__TMKE_FETCH_TEMPLATE__ = async (id) => {
           if (!id) return null;
           try {
-            const { data } = await supabase
-              .from('templates')
-              .select('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants')
-              .eq('id', id)
-              .maybeSingle();
+            const q = (cols) => supabase.from('templates').select(cols).eq('id', id).maybeSingle();
+            let { data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants');
+            if (tErr) ({ data } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order'));
             return data ? shape(data) : null;
           } catch (_) { return null; }
         };
@@ -5232,11 +5230,9 @@ const googleFonts = [
         //    it to index 0 so the boot below loads exactly what was clicked.
         if (requestedId && tag) {
           try {
-            const { data: one } = await supabase
-              .from('templates')
-              .select('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants')
-              .eq('id', requestedId)
-              .maybeSingle();
+            const q = (cols) => supabase.from('templates').select(cols).eq('id', requestedId).maybeSingle();
+            let { data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants');
+            if (tErr) ({ data: one } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order'));
             if (one) {
               // Layouts saved for the other sizes, so the Resize panel can
               // show which sizes are already sorted and reopen them to edit.
@@ -5395,12 +5391,34 @@ const googleFonts = [
         // Re-open a saved design (?design=<id>): fetch the row + boot the editor onto it.
         if (currentDesignId) {
           let design = null;
+          let sourceTemplateId = null;
           try {
             const { data: d } = await supabase.from('user_designs').select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
             if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
+            if (d) sourceTemplateId = d.source_template_id || null;
           } catch (_) {}
           if (typeof window.__TMKE_BOOT_DESIGN__ === 'function') window.__TMKE_BOOT_DESIGN__(design);
           else window.__TMKE_DESIGN_BOOTSTRAP_DONE__ = design;
+          // The template it came from, so Start can offer "Reset to the
+          // original template" (and resizing can use the template's saved
+          // layouts) on a design reopened days later. Looked up after the
+          // design is on screen, so opening it is no slower.
+          if (design && sourceTemplateId) {
+            (async () => {
+              const cols = 'id, name, canvas, elements';
+              let t = null;
+              try {
+                const r1 = await supabase.from('templates').select(cols + ', size_variants').eq('id', sourceTemplateId).maybeSingle();
+                t = r1.data;
+                // Before size_variants.sql is run, ask without it.
+                if (r1.error) t = (await supabase.from('templates').select(cols).eq('id', sourceTemplateId).maybeSingle()).data;
+              } catch (_) {}
+              // A bundled library template isn't in the table; the engine knows it by id.
+              const origin = t || { id: sourceTemplateId };
+              window.__TMKE_TEMPLATE_ORIGIN_DATA__ = [design.id, origin];
+              if (typeof window.__TMKE_TEMPLATE_ORIGIN__ === 'function') window.__TMKE_TEMPLATE_ORIGIN__(design.id, origin);
+            })();
+          }
         }
       }
     }
@@ -7217,12 +7235,13 @@ const googleFonts = [
         // A real (published) pack — fetch its templates from Supabase.
         designsLoading.hidden = false;
         try {
-          const { data: tpls } = await supabase
-            .from("templates")
-            .select("id, name, category, thumb_url, canvas, elements, size_variants")
-            .eq("pack_id", selectedPack.id)
-            .eq("status", "active")
-            .order("sort_order", { ascending: true });
+          // size_variants only exists once supabase/size_variants.sql has run;
+          // asking for a column the table hasn't got fails the whole query, so
+          // ask again without it rather than show a member no templates.
+          const q = (cols) => supabase.from("templates").select(cols)
+            .eq("pack_id", selectedPack.id).eq("status", "active").order("sort_order", { ascending: true });
+          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants");
+          if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements"));
           if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
             designs = window.__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false }) || [];
           }
@@ -7461,12 +7480,11 @@ const googleFonts = [
         loading = true;
         if (note) { note.textContent = "Loading your templates…"; note.hidden = false; }
         try {
-          const { data: tpls } = await supabase
-            .from("templates")
-            .select("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order")
-            .in("pack_id", packIds)
-            .eq("status", "active")
-            .order("sort_order", { ascending: true });
+          // Without size_variants if the table hasn't got it yet (see above).
+          const q = (cols) => supabase.from("templates").select(cols)
+            .in("pack_id", packIds).eq("status", "active").order("sort_order", { ascending: true });
+          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order");
+          if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements, pack_id, sort_order"));
           if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
             (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
             if (note) note.hidden = true;
@@ -7568,7 +7586,9 @@ const googleFonts = [
         if (demoGrid) demoGrid.style.display = "none";
         if (demoPacks.length && demoPacks[0].id && !demoPacks[0].templateIds) {
           try {
-            const { data: tpls } = await supabase.from("templates").select("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order").eq("pack_id", demoPacks[0].id).eq("status", "active").order("sort_order", { ascending: true });
+            const q = (cols) => supabase.from("templates").select(cols).eq("pack_id", demoPacks[0].id).eq("status", "active").order("sort_order", { ascending: true });
+            let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order");
+            if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements, pack_id, sort_order"));
             if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
               (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
               if (demoGrid) demoGrid.style.display = "";
