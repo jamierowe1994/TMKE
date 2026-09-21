@@ -493,9 +493,16 @@ import "../../styles/admin.css";
         if (!d.ok) {
           // The one that actually happens: the property hasn't been shared with
           // the account yet. Give the address to add, and where to add it.
-          msg.innerHTML = d.needs_access
-            ? `${esc(d.error)}<br><span class="wi-raw">In Search Console: Settings &rsaquo; Users and permissions &rsaquo; Add user, paste <code>${esc(d.service_account)}</code> and give it Full access. Then reload this page.</span>`
-            : esc(d.error || "Search Console didn't answer.");
+          msg.innerHTML = d.needs_api
+            ? `${esc(d.error)}<br><span class="wi-raw">Open <a href="${esc(d.enable_url)}" target="_blank" rel="noopener">this Google page</a>, press Enable, wait a minute and reload here.</span>`
+            : d.needs_access
+              ? `${esc(d.error)}<br><span class="wi-raw">In Search Console: Settings &rsaquo; Users and permissions &rsaquo; Add user, paste <code>${esc(d.service_account)}</code> and give it Full access. Then reload this page.</span>`
+              : esc(d.error || "Search Console didn't answer.") + (d.raw && d.raw !== d.error ? `<br><span class="wi-raw">Google said: ${esc(d.raw)}</span>` : "");
+          return;
+        }
+        if (!d.impressions && !(d.days || []).length) {
+          msg.hidden = false; body.hidden = true;
+          msg.textContent = `Connected, but Google has nothing to report for ${d.start} to ${d.end}. It only counts from the day the property was verified and runs two to three days behind, so a newly verified site shows nothing at first.`;
           return;
         }
         el("wi-gsc-clicks").textContent = num(d.clicks);

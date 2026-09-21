@@ -5207,8 +5207,18 @@ export default {
           }, 200, request, env);
         } catch (e) {
           const status = e && e.status;
-          const permission = status === 403 || /permission|not have access|forbidden/i.test(String(e && e.message));
-          const missingSite = status === 404 || /not found|does not exist/i.test(String(e && e.message));
+          const raw = String((e && e.message) || "");
+          // The commonest first-run stumble: the service account's Google Cloud
+          // project has the Sheets API on but not this one. Google's message
+          // carries the link that switches it on - pass it straight through.
+          if (/has not been used in project|API has not been enabled|SERVICE_DISABLED/i.test(raw)) {
+            const link = (raw.match(/https:\/\/console\.developers\.google\.com\S*?(?=\s|$)/) || [])[0] || "https://console.cloud.google.com/apis/library/searchconsole.googleapis.com";
+            return json({ ok: false, configured: true, needs_api: true, enable_url: link.replace(/[.,]$/, ""),
+              service_account: sa.client_email, site,
+              error: "The Search Console API isn't switched on for this Google project yet.", raw: raw.slice(0, 300) }, 200, request, env);
+          }
+          const permission = status === 403 || /permission|not have access|forbidden/i.test(raw);
+          const missingSite = status === 404 || /not found|does not exist/i.test(raw);
           return json({
             ok: false, configured: true,
             needs_access: !!(permission || missingSite),
@@ -5218,7 +5228,8 @@ export default {
               ? "Google won't let this account read the Search Console property yet."
               : missingSite
                 ? `Search Console has no property called ${site} that this account can see.`
-                : String((e && e.message) || "Search Console didn't answer."),
+                : raw || "Search Console didn't answer.",
+            raw: raw.slice(0, 300),
           }, 200, request, env);
         }
       }
