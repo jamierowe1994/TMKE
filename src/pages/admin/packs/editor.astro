@@ -813,6 +813,23 @@ import "../../../styles/admin.css";
     let BRANDS = [];          // the brands this pack is for
     let BRAND_OPTIONS = [];   // every brand already on an agent's profile
 
+    /* The house brands, in the order Danielle thinks of them — not
+       alphabetical, which put Fine and Country first and buried the one we
+       sell most for. TMKE is here so she can test a brand pack on herself.
+       Anything else found on an agent profile is listed after these, so a
+       brand nobody has tidied up still shows rather than silently vanishing. */
+    const BRAND_ORDER = [
+      "The Property Experts",
+      "The Letting Experts",
+      "Prestige Property Experts",
+      "Fine and Country",
+      "TMKE",
+    ];
+    const brandRank = (b) => {
+      const i = BRAND_ORDER.findIndex((x) => x.toLowerCase() === String(b).toLowerCase());
+      return i === -1 ? BRAND_ORDER.length : i;
+    };
+
     function setBrands(list) {
       BRANDS = Array.from(new Set((list || []).filter(Boolean)));
       const hidden = form.elements.brands;
@@ -823,7 +840,16 @@ import "../../../styles/admin.css";
     function renderBrands() {
       const box = document.getElementById("pk-brands");
       if (!box) return;
-      const all = Array.from(new Set(BRAND_OPTIONS.concat(BRANDS))).sort();
+      // Case-insensitive dedupe, house order first, then anything unexpected.
+      const seen = new Map();
+      BRAND_ORDER.concat(BRAND_OPTIONS, BRANDS).forEach((b) => {
+        const k = String(b || "").trim().toLowerCase();
+        if (k && !seen.has(k)) seen.set(k, String(b).trim());
+      });
+      const all = Array.from(seen.values()).sort((a, b) => {
+        const d = brandRank(a) - brandRank(b);
+        return d !== 0 ? d : a.localeCompare(b);
+      });
       box.innerHTML = all.length
         ? all.map((b) => `
             <label class="pk-brand${BRANDS.includes(b) ? " is-on" : ""}">
