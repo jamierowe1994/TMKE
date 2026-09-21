@@ -33,6 +33,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
           <option value="draft">Drafts only</option>
           <option value="active">Published only</option>
           <option value="archived">Archived</option>
+          <option value="blocks">Contact blocks</option>
         </select>
       </div>
     </div>
@@ -280,6 +281,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
        percentage positions + container-query font units), so previews show
        even when no thumbnail image has been generated. */
     .tpl-canvas { position: absolute; inset: 0; }
+    /* Blocks sit on the member's own design, so show them on nothing. */
+    .tpl-canvas--block { background: #fff; }
     .tpl-canvas img { display: block; border: 0; }
     .tpl-canvas-empty { display: flex; align-items: center; justify-content: center; }
     .tpl-canvas-empty-mark {
@@ -329,6 +332,7 @@ import { templates as defaultLibrary } from "../../data/library.js";
     }
     .tpl-actions {
       display: flex;
+      flex-wrap: wrap;
       gap: 6px;
       padding: 0 16px 14px;
     }
@@ -376,6 +380,31 @@ import { templates as defaultLibrary } from "../../data/library.js";
     .tpl-ask-cancel:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
     .tpl-ask-ok { background: var(--english-violet); color: var(--paper); }
     .tpl-ask-ok:hover { background: var(--ink); }
+    /* The contact-block picker: same sheet, a list of four instead of a field. */
+    .tpl-ask--block { max-width: 520px; }
+    .tpl-block-opts { display: grid; gap: 8px; }
+    .tpl-block-opt {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-radius: 10px; cursor: pointer;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16);
+      font-family: var(--sans); font-size: 14px; color: var(--ink);
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .tpl-block-opt:hover { border-color: rgba(28,29,34,0.4); }
+    .tpl-block-opt.is-on { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+    .tpl-block-opt input { accent-color: var(--english-violet); width: 16px; height: 16px; margin: 0; }
+    .tpl-block-note {
+      margin: 16px 0 0; font-family: var(--sans); font-size: 12.5px; line-height: 1.55;
+      color: rgba(28,29,34,0.62);
+    }
+    .tpl-block-note strong { color: var(--ink); }
+    .tpl-ask-remove {
+      margin-right: auto;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+      padding: 12px 18px; border-radius: 999px; cursor: pointer;
+      background: transparent; color: rgba(28,29,34,0.6); border: 1px solid rgba(28,29,34,0.2);
+    }
+    .tpl-ask-remove:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
   </style>
 
   <script>
@@ -399,6 +428,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
     // from this + the current search text + filter, so searching/filtering never
     // needs another round-trip to Supabase.
     let ALL = [];
+    // Flipped off if the contact-block migration hasn't been run yet.
+    let HAS_BLOCKS = true;
 
     const defaultLibrary = JSON.parse(
       document.getElementById('tpl-default-library')?.textContent || '[]'
@@ -440,10 +471,29 @@ import { templates as defaultLibrary } from "../../data/library.js";
       return '';
     }
 
+    /* A contact block's card shows the block, not the canvas. We re-render the
+       elements against their own bounding box — which is exactly what a member
+       will get when they drop it in, and makes the thrown-away canvas visible
+       as thrown away. */
+    function renderBlockPreview(t) {
+      const box = t.block_box || {};
+      const W = Number(box.w) || 0, H = Number(box.h) || 0;
+      const els = Array.isArray(t.elements) ? t.elements : [];
+      if (!W || !H || !els.length) return '';
+      const shifted = els.map((el) => (el && el.x != null
+        ? Object.assign({}, el, { x: (Number(el.x) || 0) - (Number(box.x) || 0), y: (Number(el.y) || 0) - (Number(box.y) || 0) })
+        : el));
+      return `<div class="tpl-canvas tpl-canvas--block">${shifted.map((el) => renderEl(el, W, H)).join('')}</div>`;
+    }
+
     function renderPreview(t) {
       const cv = t.canvas || {};
       const W = Number(cv.width) || 1080, H = Number(cv.height) || 1440;
       const els = Array.isArray(t.elements) ? t.elements : [];
+      if (t.kind === 'block') {
+        const block = renderBlockPreview(t);
+        if (block) return block;
+      }
       const bgImg = cv.backgroundImage
         ? `<img src="${escapeHtml(cv.backgroundImage)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${cv.backgroundOpacity ?? 1};" />`
         : '';
@@ -465,7 +515,8 @@ import { templates as defaultLibrary } from "../../data/library.js";
 
     function renderCard(t) {
       const cv = t.canvas || {};
-      const arW = Number(cv.width) || 1080, arH = Number(cv.height) || 1440;
+      const bx = (t.kind === 'block' && t.block_box) ? t.block_box : null;
+      const arW = Number(bx ? bx.w : cv.width) || 1080, arH = Number(bx ? bx.h : cv.height) || 1440;
       const statusBadge = t.status === 'active'
         ? ''
         : `<span class="tpl-status is-${t.status}">${t.status}</span>`;
@@ -476,10 +527,11 @@ import { templates as defaultLibrary } from "../../data/library.js";
             <div class="tpl-thumb" style="aspect-ratio:${arW}/${arH}">${renderPreview(t)}${statusBadge}</div>
             <div class="tpl-body">
               <div class="tpl-name">${escapeHtml(t.name)}</div>
-              <div class="tpl-meta">${escapeHtml(t.category || '—')} · #${t.sort_order ?? 0}</div>
+              <div class="tpl-meta">${t.kind === 'block' ? escapeHtml(VARIANT_LABEL[t.block_variant] || 'Contact block') : escapeHtml(t.category || '—')} · #${t.sort_order ?? 0}</div>
             </div>
           </a>
           <div class="tpl-actions">
+            <button class="admin-btn admin-btn-ghost" data-block="${escapeHtml(t.id)}" title="${t.kind === 'block' ? 'Change which footer this is, or turn it back into a template' : 'Save this design as a footer members can drop into their own designs'}">${t.kind === 'block' ? 'Block settings' : 'Make a contact block'}</button>
             <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Edit</a>
             <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin" target="_blank" rel="noopener" title="Open in a new tab — handy for working from another design">New tab</a>
             ${t.status === 'archived'
@@ -500,11 +552,24 @@ import { templates as defaultLibrary } from "../../data/library.js";
 
     async function loadTemplates() {
       els.loading.hidden = false;
-      const { data, error } = await supabase
+      // The contact-block columns only exist once supabase/contact_blocks.sql
+      // has been run. Ask for them, and if the database hasn't got them yet,
+      // load the page without them rather than showing an error — the block
+      // controls then say what to run.
+      const BASE = 'id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at, pack_id';
+      let { data, error } = await supabase
         .from('templates')
-        .select('id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at, pack_id')
+        .select(BASE + ', kind, block_variant, block_box')
         .order('status', { ascending: true })
         .order('sort_order', { ascending: true });
+      if (error && /kind|block_variant|block_box|column/i.test(error.message || '')) {
+        HAS_BLOCKS = false;
+        ({ data, error } = await supabase
+          .from('templates')
+          .select(BASE)
+          .order('status', { ascending: true })
+          .order('sort_order', { ascending: true }));
+      }
 
       els.loading.hidden = true;
 
@@ -597,6 +662,11 @@ import { templates as defaultLibrary } from "../../data/library.js";
       if (packId === '__none__') list = list.filter((t) => !t.pack_id);
       else if (packId) list = list.filter((t) => t.pack_id === packId);
 
+      // Contact blocks live apart from the template library: they are not
+      // designs anyone opens, so they'd only be noise in every other view.
+      if (f === 'blocks') list = list.filter((t) => t.kind === 'block');
+      else list = list.filter((t) => t.kind !== 'block');
+
       // Status filter (the sort-only options leave the status set untouched).
       if (f === 'draft') list = list.filter((t) => t.status === 'draft');
       else if (f === 'active') list = list.filter((t) => t.status === 'active');
@@ -656,6 +726,122 @@ import { templates as defaultLibrary } from "../../data/library.js";
       const { error } = await supabase.from('templates').update({ status: 'active' }).eq('id', id);
       if (error) return alert(`Restore failed: ${error.message}`);
       await loadTemplates();
+    }
+
+    // ---- Contact blocks (footers) ----
+    /* A contact block is a design that members drop INTO their own designs —
+       the canvas it was drawn on is only a workspace. So alongside the usual
+       template row we store which of the four footers it is, and the bounding
+       box round its elements, measured against the canvas it was drawn on.
+       That box is all the Studio needs to scale the block onto any canvas:
+       it takes up the same share of the width it took up here. */
+    const VARIANT_LABEL = {
+      'contact-small': 'Small footer — no photo',
+      'contact-small-photo': 'Small footer — with headshot',
+      'contact-full': 'Full-page contact details',
+      'contact-other': 'Contact block',
+    };
+
+    // Tight box round every element, in the drawing canvas's own units.
+    function blockBoxOf(t) {
+      const cv = t.canvas || {};
+      const canvasW = Number(cv.width) || 1080;
+      const canvasH = Number(cv.height) || 1350;
+      const els = (Array.isArray(t.elements) ? t.elements : []).filter((el) => el && el.x != null);
+      if (!els.length) return null;
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      els.forEach((el) => {
+        const x = Number(el.x) || 0, y = Number(el.y) || 0;
+        const w = Number(el.w) || 0, h = Number(el.h) || 0;
+        if (x < x1) x1 = x;
+        if (y < y1) y1 = y;
+        if (x + w > x2) x2 = x + w;
+        if (y + h > y2) y2 = y + h;
+      });
+      return {
+        x: Math.round(x1), y: Math.round(y1),
+        w: Math.round(x2 - x1), h: Math.round(y2 - y1),
+        canvasW, canvasH,
+      };
+    }
+
+    async function openBlockSettings(id) {
+      const t = ALL.find((r) => r.id === id);
+      if (!t) return;
+      if (!HAS_BLOCKS) {
+        alert('The database hasn\u2019t got the contact-block columns yet. Run supabase/contact_blocks.sql in the Supabase SQL editor, then reload this page.');
+        return;
+      }
+      const box = blockBoxOf(t);
+      if (!box || !box.w || !box.h) {
+        alert('This design hasn\u2019t got any elements in it yet, so there is nothing to save as a contact block.');
+        return;
+      }
+      const chosen = await askBlockVariant({
+        name: t.name,
+        current: t.kind === 'block' ? (t.block_variant || 'contact-other') : null,
+        box,
+      });
+      if (!chosen) return;
+      const patch = chosen === '__remove__'
+        ? { kind: 'template', block_variant: null, block_box: null }
+        : { kind: 'block', block_variant: chosen, block_box: box };
+      const { error } = await supabase.from('templates').update(patch).eq('id', id);
+      if (error) return alert('Could not save that: ' + error.message);
+      await loadTemplates();
+    }
+
+    /* The picker. It also states, in plain words, how big the block will land
+       on a member's post — because that is the bit that surprises people:
+       the canvas is thrown away, the width share is kept. */
+    function askBlockVariant({ name, current, box }) {
+      return new Promise((resolve) => {
+        const share = Math.round((box.w / box.canvasW) * 100);
+        const opts = ['contact-small', 'contact-small-photo', 'contact-full', 'contact-other'];
+        const scrim = document.createElement('div');
+        scrim.className = 'tpl-ask-scrim';
+        scrim.innerHTML = `
+          <div class="tpl-ask tpl-ask--block" role="dialog" aria-modal="true">
+            <div class="tpl-ask-eyebrow">Contact block</div>
+            <label class="tpl-ask-label">Which footer is &ldquo;${escapeHtml(name)}&rdquo;?</label>
+            <div class="tpl-block-opts">
+              ${opts.map((v) => `
+                <label class="tpl-block-opt${current === v ? ' is-on' : ''}">
+                  <input type="radio" name="tpl-block-variant" value="${v}"${current === v ? ' checked' : ''} />
+                  <span>${escapeHtml(VARIANT_LABEL[v])}</span>
+                </label>`).join('')}
+            </div>
+            <p class="tpl-block-note">Only the elements travel — the canvas you drew on is thrown away. This one fills <strong>${share}%</strong> of the width, so it will fill ${share}% of the width of whatever a member drops it onto, and sit the same distance from the bottom.</p>
+            <div class="tpl-ask-actions">
+              ${current ? '<button type="button" class="tpl-ask-remove">Back to a template</button>' : ''}
+              <button type="button" class="tpl-ask-cancel">Cancel</button>
+              <button type="button" class="tpl-ask-ok">${current ? 'Save' : 'Save as a contact block'}</button>
+            </div>
+          </div>`;
+        document.body.appendChild(scrim);
+        const done = (val) => {
+          scrim.classList.remove('is-open');
+          setTimeout(() => scrim.remove(), 220);
+          resolve(val);
+        };
+        scrim.addEventListener('change', () => {
+          scrim.querySelectorAll('.tpl-block-opt').forEach((l) => {
+            l.classList.toggle('is-on', !!l.querySelector('input').checked);
+          });
+        });
+        scrim.querySelector('.tpl-ask-ok').addEventListener('click', () => {
+          const picked = scrim.querySelector('input[name="tpl-block-variant"]:checked');
+          if (!picked) return;
+          done(picked.value);
+        });
+        scrim.querySelector('.tpl-ask-remove')?.addEventListener('click', () => done('__remove__'));
+        scrim.querySelector('.tpl-ask-cancel').addEventListener('click', () => done(null));
+        scrim.addEventListener('mousedown', (e) => { if (e.target === scrim) done(null); });
+        document.addEventListener('keydown', function esc(e) {
+          if (e.key === 'Escape') { document.removeEventListener('keydown', esc); done(null); }
+        });
+        requestAnimationFrame(() => scrim.classList.add('is-open'));
+      });
     }
 
     // Centred, on-brand prompt modal (replaces the native browser prompt).
@@ -867,8 +1053,10 @@ import { templates as defaultLibrary } from "../../data/library.js";
       if (!(t instanceof HTMLElement)) return;
       const arch = t.getAttribute('data-archive');
       const rest = t.getAttribute('data-restore');
+      const blk = t.getAttribute('data-block');
       if (arch) { archiveTemplate(arch); return; }
       if (rest) { restoreTemplate(rest); return; }
+      if (blk) { openBlockSettings(blk); return; }
     });
 
     // ---- Bulk select + actions ----
