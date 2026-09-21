@@ -170,22 +170,30 @@ import "../../styles/admin.css";
 
     .font-card {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
+      /* Delete sits bottom-right, its baseline with the font's details, rather
+         than floating in the middle of the card. */
+      align-items: end;
       gap: 14px;
-      align-items: center;
       padding: 20px 22px;
       border: 1px solid rgba(var(--violet-rgb),0.3);
       border-radius: 2px;
       background: rgba(255,255,255,0.5);
+      min-width: 0;
     }
+    /* The specimen has to FIT the card — two cards across the page — so it is
+       sized to the column rather than set at a fixed 28px that pushed the
+       sentence out of its own box. */
     .font-preview {
-      font-size: 28px;
-      line-height: 1.1;
+      font-size: clamp(12px, 4.4cqw, 26px);
+      line-height: 1.15;
       color: var(--ink);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      margin-bottom: 2px;
     }
+    .font-card > div:first-child { min-width: 0; container-type: inline-size; }
     .font-meta {
       display: flex;
       flex-direction: column;
@@ -338,7 +346,7 @@ import "../../styles/admin.css";
               <span>${escapeHtml(f.family)} · ${weightLabel} · ${escapeHtml(f.style || 'normal')}</span>
             </div>
           </div>
-          <button class="admin-btn admin-btn-danger" data-delete="${f.id}" data-path="${escapeHtml(f.file_url)}">Delete</button>
+          <button class="admin-btn admin-btn-danger admin-btn-sm" data-delete="${f.id}" data-path="${escapeHtml(f.file_url)}">Delete</button>
         </article>
       `;
     }
