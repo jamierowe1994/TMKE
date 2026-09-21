@@ -35,8 +35,10 @@ create index if not exists packs_kind_idx on public.packs (kind, status, sort_or
 
 -- ------------------------------------------------------- which brand am I --
 -- A member signs in as an auth user; the brand lives on their CRM contact's
--- agent profile, matched on email. security definer so the lookup works for a
--- member who cannot read contacts themselves.
+-- agent profile. The contact carries user_id, so match on the ACCOUNT first —
+-- that is exact, and survives an agent changing their email. Email is only a
+-- fallback, for a contact whose account was never linked. security definer so
+-- the lookup works for a member who cannot read contacts themselves.
 create or replace function public.member_brand()
   returns text
   language sql
@@ -47,8 +49,13 @@ as $$
   select ap.brand
   from public.contacts c
   join public.agent_profiles ap on ap.contact_id = c.id
-  where lower(c.email) = lower(coalesce(auth.jwt() ->> 'email', ''))
-    and ap.brand is not null
+  where ap.brand is not null
+    and (
+      c.user_id = auth.uid()
+      or (c.user_id is null
+          and lower(c.email) = lower(coalesce(auth.jwt() ->> 'email', '')))
+    )
+  order by (c.user_id = auth.uid()) desc nulls last
   limit 1
 $$;
 
