@@ -9,6 +9,7 @@ import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../../data/library.js";
 import { TRAINING_DESIGN, TRAINING_KIT } from "../../data/training-demo.js";
+import { STUDIO_SIZES } from "../../data/studio-sizes.js";
 
 // Cache-buster for the static editor script. Files in public/ keep the same URL
 // forever (unlike Astro's content-hashed bundles), so browsers/CDN serve a stale
@@ -925,48 +926,19 @@ const googleFonts = [
           </div>
         </div>
         <button type="button" class="ed-resize-safe" id="ed-resize-safe" hidden>Check what the app or printer covers &rarr;</button>
-        <div class="ed-resize-grid">
-          <button class="ed-resize-card" data-size="1080,1440">
-            <div class="ed-resize-vis" style="aspect-ratio:3/4"></div>
-            <strong>Instagram Portrait</strong><span>1080 × 1440</span>
-          </button>
-          <button class="ed-resize-card" data-size="1080,1080">
-            <div class="ed-resize-vis" style="aspect-ratio:1/1"></div>
-            <strong>Instagram Square</strong><span>1080 × 1080</span>
-          </button>
-          <button class="ed-resize-card" data-size="1080,1920">
-            <div class="ed-resize-vis" style="aspect-ratio:9/16"></div>
-            <strong>Story / Reel / TikTok</strong><span>1080 × 1920</span>
-          </button>
-          <button class="ed-resize-card" data-size="1920,1080">
-            <div class="ed-resize-vis" style="aspect-ratio:16/9"></div>
-            <strong>Landscape</strong><span>1920 × 1080</span>
-          </button>
-          <button class="ed-resize-card" data-size="1200,628">
-            <div class="ed-resize-vis" style="aspect-ratio:1200/628"></div>
-            <strong>Facebook Link</strong><span>1200 × 628</span>
-          </button>
-          <button class="ed-resize-card" data-size="2480,3508">
-            <div class="ed-resize-vis" style="aspect-ratio:1/1.414"></div>
-            <strong>A4 Portrait</strong><span>2480 × 3508</span>
-          </button>
-          <button class="ed-resize-card" data-size="1200,627">
-            <div class="ed-resize-vis" style="aspect-ratio:1200/627"></div>
-            <strong>LinkedIn Post</strong><span>1200 × 627</span>
-          </button>
-          <button class="ed-resize-card" data-size="1000,1500">
-            <div class="ed-resize-vis" style="aspect-ratio:2/3"></div>
-            <strong>Pinterest</strong><span>1000 × 1500</span>
-          </button>
-          <button class="ed-resize-card" data-size="1280,720">
-            <div class="ed-resize-vis" style="aspect-ratio:16/9"></div>
-            <strong>YouTube Thumb</strong><span>1280 × 720</span>
-          </button>
-          <button class="ed-resize-card" data-size="820,312">
-            <div class="ed-resize-vis" style="aspect-ratio:820/312"></div>
-            <strong>FB Cover</strong><span>820 × 312</span>
-          </button>
-        </div>
+        {STUDIO_SIZES.map((g) => (
+          <>
+            <div class="ed-section-title">{g.label}</div>
+            <div class="ed-resize-grid">
+              {g.sizes.map((z) => (
+                <button class="ed-resize-card" data-size={`${z.w},${z.h}`}>
+                  <div class="ed-resize-vis" style={`aspect-ratio:${z.w}/${z.h}`}></div>
+                  <strong>{z.name}</strong><span>{z.mm || `${z.w} × ${z.h}`}</span>
+                </button>
+              ))}
+            </div>
+          </>
+        ))}
         <p class="ed-resize-caveat">We move and rescale everything as closely as we can. Read the design through before you post: a headline or a gap often wants a nudge by hand.</p>
         <div class="ed-section-title">Custom</div>
         <div class="ed-resize-custom">
@@ -993,7 +965,7 @@ const googleFonts = [
             <button type="button" class="ed-safe-chip" data-safe-zone="reel" aria-pressed="false">Reel</button>
             <button type="button" class="ed-safe-chip" data-safe-zone="print" aria-pressed="false">Print</button>
           </div>
-          <p class="ed-guide-hint" id="ed-safe-hint">Story and Reel show on a 1080 × 1920 design, Print on A4. Change the size in Resize.</p>
+          <p class="ed-guide-hint" id="ed-safe-hint">Story and Reel show on a 1080 × 1920 design, Print on the print sizes. Change the size in Resize.</p>
         </div>
 
         <div class="ed-guide-block">

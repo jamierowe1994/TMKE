@@ -2171,7 +2171,9 @@
   // 1080×1350) are left untouched.
   function normalizeLegacySize() {
     const fix = (cv, els) => {
-      if (!cv || cv.width !== 1080 || cv.height !== 1350) return;
+      // 1080x1350 is Facebook Portrait now. A canvas someone chose that size
+      // for (a new design or a resize) is marked, and left exactly as it is.
+      if (!cv || cv.sizeChosen || cv.width !== 1080 || cv.height !== 1350) return;
       cv.height = 1440;
       (els || []).forEach((el) => {
         if (el && el.y === 0 && el.h === 1350 && (el.type === "image" || el.type === "rect" || el.type === "frame")) el.h = 1440;
@@ -2306,7 +2308,7 @@
     const ch = Math.round(h) > 0 ? Math.round(h) : 1440;
     state.pages = [{
       id: uid("page"), name: "Page 1",
-      canvas: { width: cw, height: ch, background: bg || "#F2EFE9" },
+      canvas: Object.assign({ width: cw, height: ch, background: bg || "#F2EFE9" }, (w > 0 && h > 0) ? { sizeChosen: true } : {}),
       elements: [],
     }];
     state.currentPage = 0;
@@ -2472,14 +2474,18 @@
       var _W = Math.round(state.canvas.width), _H = Math.round(state.canvas.height);
       // Customer Studio shows the platform name (estate agents think in platforms,
       // not pixels); custom sizes fall back to W × H. Admin keeps exact dimensions.
+      // Names come from the Resize panel's cards (src/data/studio-sizes.js), so
+      // the badge and the panel always agree; these cover older sizes only.
       var _szNames = {
-        "1080x1920": "Instagram Story", "1080x1350": "Instagram Portrait",
-        "1080x1440": "Instagram Portrait", "1080x1080": "Instagram Square",
+        "1080x1920": "Instagram Story",
+        "1080x1440": "Instagram Portrait", "1080x1080": "Square",
         "1200x1200": "Instagram Square", "1200x630": "Facebook Cover",
         "1640x856": "Facebook Cover", "1584x396": "LinkedIn Banner",
         "1200x628": "LinkedIn Post", "600x200": "Email Header"
       };
-      var _szName = location.search.indexOf("mode=admin") !== -1 ? null : _szNames[_W + "x" + _H];
+      var _szCard = document.querySelector('.ed-resize-card[data-size="' + _W + "," + _H + '"] strong');
+      var _szName = location.search.indexOf("mode=admin") !== -1 ? null
+        : ((_szCard && _szCard.textContent.trim()) || _szNames[_W + "x" + _H]);
       _szEl.textContent = _szName || (_W + " × " + _H);
     }
     if (typeof syncResizePanel === "function") syncResizePanel();
@@ -9901,6 +9907,7 @@
     });
     page.canvas.width = W2;
     page.canvas.height = H2;
+    page.canvas.sizeChosen = true;
     return true;
   }
 
@@ -9979,6 +9986,7 @@
     });
     page.canvas.width = W2;
     page.canvas.height = H2;
+    page.canvas.sizeChosen = true;
   }
 
   // ---- Whole-design changes, and trying sizes before keeping one ----
@@ -10258,11 +10266,14 @@
     },
     print: {
       label: "Print trim",
-      // Any A-size portrait or landscape (1 : 1.414).
-      fits: (W, H) => Math.abs(Math.max(W, H) / Math.min(W, H) - Math.SQRT2) < 0.01,
+      // Any A-size (1 : 1.414) or the UK business card (85 x 55mm).
+      fits: (W, H) => Math.abs(Math.max(W, H) / Math.min(W, H) - Math.SQRT2) < 0.01 ||
+        (Math.max(W, H) === 1004 && Math.min(W, H) === 650),
       zones: (W, H) => {
-        const mm = Math.min(W, H) / 210;             // A4's short side is 210mm
-        const px = Math.round(mm * 5);
+        const mm = 300 / 25.4;                       // print sizes are 300 dpi
+        // 5mm clear of the trim on paper; a business card is small enough
+        // that printers ask for 3.
+        const px = Math.round(mm * (Math.min(W, H) <= 650 ? 3 : 5));
         const note = "May be trimmed - keep words and logos inside";
         return ["top", "bottom", "left", "right"].map((side) => ({ side, px, note: side === "top" ? note : "" }));
       },

@@ -8,30 +8,10 @@
 // It is a modal rather than a route because "what shape?" is one question, and
 // a whole page to ask it reads as a step in a process rather than a choice.
 
-const GROUPS = [
-  {
-    label: "Social",
-    sizes: [
-      { name: "Instagram Post",  w: 1080, h: 1440 },
-      { name: "Instagram Square", w: 1080, h: 1080 },
-      { name: "Story / Reel",    w: 1080, h: 1920 },
-      { name: "Facebook Link",   w: 1200, h: 628 },
-      { name: "Facebook Cover",  w: 820,  h: 312 },
-      { name: "LinkedIn Post",   w: 1200, h: 627 },
-      { name: "X (Twitter)",     w: 1200, h: 675 },
-      { name: "Pinterest",       w: 1000, h: 1500 },
-    ],
-  },
-  {
-    label: "Video & print",
-    sizes: [
-      { name: "YouTube Thumb", w: 1280, h: 720 },
-      { name: "Landscape",     w: 1920, h: 1080 },
-      { name: "A4 Portrait",   w: 2480, h: 3508 },
-      { name: "A4 Landscape",  w: 3508, h: 2480 },
-    ],
-  },
-];
+import { STUDIO_SIZES } from "../../data/studio-sizes.js";
+
+// One list with the Resize panel, so the two can't drift apart.
+const GROUPS = STUDIO_SIZES;
 
 // The little shape on each card, drawn to the real ratio and capped so a
 // 3508-wide A4 does not dwarf a Story.
@@ -57,7 +37,7 @@ const shape = (w: number, h: number) => {
             <button type="button" class="nd-size" data-w={s.w} data-h={s.h}>
               <span class="nd-shape" style={shape(s.w, s.h)}></span>
               <span class="nd-name">{s.name}</span>
-              <span class="nd-dim">{s.w} × {s.h}</span>
+              <span class="nd-dim">{s.mm || `${s.w} × ${s.h}`}</span>
             </button>
           ))}
         </div>
