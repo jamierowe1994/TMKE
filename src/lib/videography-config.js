@@ -15,8 +15,8 @@ export const VAT_RATE = 0.20;
 export const MEMBER_DOMAINS = {
   "thepropertyexperts.co.uk":       { brand: "tpe",      label: "The Property Experts" },
   "prestigepropertyexperts.co.uk":  { brand: "prestige", label: "Prestige Property Experts" },
-  "thelettingexperts.co.uk":        { brand: "tle",      label: "The Lettings Experts" },
-  "thelettingsexperts.co.uk":       { brand: "tle",      label: "The Lettings Experts" },
+  "thelettingexperts.co.uk":        { brand: "tle",      label: "The Letting Experts" },
+  "thelettingsexperts.co.uk":       { brand: "tle",      label: "The Letting Experts" },
   "themortgageexperts.co.uk":       { brand: "tme",      label: "The Mortgage Experts" },
   "therecruitmentexperts.co.uk":    { brand: "tre",      label: "The Recruitment Experts" },
   // .com is the live domain (confirmed 31 Jul). .co.uk is kept as a safety net
@@ -409,7 +409,7 @@ const TEG_STANDARD_ADDRESS = "5 Regent St, Rugby CV21 2PE";
 export const TEG_ACCOUNTS_EMAIL = "Paula@newman.uk.com";
 export const TEG_BRANDS = [
   { key: "property_experts",   label: "The Property Experts",        address: TEG_STANDARD_ADDRESS },
-  { key: "lettings_experts",   label: "The Lettings Experts",        address: TEG_STANDARD_ADDRESS },
+  { key: "lettings_experts",   label: "The Letting Experts",        address: TEG_STANDARD_ADDRESS },
   { key: "mortgage_experts",   label: "The Mortgage Experts",        address: "3 Regent Street, Rugby, England, CV21 2PE" },
   { key: "auction_company",    label: "The Auction Company",         address: TEG_STANDARD_ADDRESS },
   { key: "prestige_property",  label: "Prestige Property Experts",   address: TEG_STANDARD_ADDRESS },
