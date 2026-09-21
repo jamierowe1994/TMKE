@@ -20,6 +20,30 @@ const OFF_KEY = 'tmke-notrack';
 function trackingOff() {
   try { return localStorage.getItem(OFF_KEY) === '1'; } catch (_) { return false; }
 }
+
+// Where this visit came from, when the link said so. Marketing emails carry
+// ?utm_source=email&utm_campaign=... (added by the Worker as each one is sent),
+// so a visit that starts on one of those links can be credited to it - for the
+// whole visit, not just the page they landed on, which is why it is remembered.
+const CAMPAIGN_KEY = 'tmke-campaign';
+function campaign() {
+  try {
+    const q = new URLSearchParams(location.search);
+    const src = q.get('utm_source');
+    if (src) {
+      const c = {
+        source: src.slice(0, 40),
+        medium: (q.get('utm_medium') || '').slice(0, 40) || null,
+        campaign: (q.get('utm_campaign') || '').slice(0, 80) || null,
+        content: (q.get('utm_content') || '').slice(0, 80) || null,
+      };
+      sessionStorage.setItem(CAMPAIGN_KEY, JSON.stringify(c));
+      return c;
+    }
+    const saved = sessionStorage.getItem(CAMPAIGN_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch (_) { return null; }
+}
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
 
 // Tell the marketing-automations engine that a KNOWN contact did something on
@@ -83,7 +107,7 @@ export async function track(name, props = {}) {
       path: typeof location !== 'undefined' ? location.pathname : null,
       session_id: sessionId(),
       user_id: userId,
-      props: props && typeof props === 'object' ? props : {},
+      props: { ...(props && typeof props === 'object' ? props : {}), ...(campaign() ? { from: campaign() } : {}) },
       referrer: typeof document !== 'undefined' ? (document.referrer || null) : null,
     });
   } catch (_) {

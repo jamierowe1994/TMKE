@@ -2280,6 +2280,29 @@ function mayEmail(contact, kind = "marketing") {
   return { ok: true };
 }
 
+/* Marketing email links, stamped so a visit can be credited to the email that
+   sent it. Only our own pages, only when a link doesn't already carry a source,
+   and the campaign is the funnel's name - what somebody would look for in the
+   insights. Anything else (unsubscribe, a link to someone else's site) is left
+   exactly as the designer wrote it. */
+function tagMarketingLinks(html, { campaign, content } = {}) {
+  if (!html) return html;
+  const add = (url) => {
+    try {
+      const u = new URL(url);
+      if (!/(^|\.)tmke\.co\.uk$/i.test(u.hostname)) return url;
+      if (/\/unsubscribe/i.test(u.pathname)) return url;
+      if (u.searchParams.get("utm_source")) return url;
+      u.searchParams.set("utm_source", "email");
+      u.searchParams.set("utm_medium", "marketing");
+      if (campaign) u.searchParams.set("utm_campaign", String(campaign).slice(0, 80));
+      if (content) u.searchParams.set("utm_content", String(content).slice(0, 80));
+      return u.toString();
+    } catch (_) { return url; }
+  };
+  return html.replace(/href="(https?:\/\/[^"]+)"/gi, (m, url) => `href="${add(url.replace(/&amp;/g, "&")).replace(/&/g, "&amp;")}"`);
+}
+
 // mayEmail + an audit trail, so "why did this campaign only reach 340 people?"
 // has an answer instead of a shrug.
 async function gateEmail(env, contact, kind, subject, ctx) {
@@ -2425,6 +2448,9 @@ async function autoExecAction(env, node, contact, ctx) {
       // Resend — wrapping them too would double-count.) The generated message
       // id ties the pixel/click events back to this send in the insights.
       let htmlOut = html, m365Id = null;
+      if (sendKind === "marketing") {
+        htmlOut = tagMarketingLinks(html, { campaign: (ctx && ctx.campaign) || null, content: (ctx && ctx.nodeId) || null });
+      }
       if (sendKind !== "marketing") {
         m365Id = "m365-" + crypto.randomUUID();
         try {
@@ -2434,7 +2460,7 @@ async function autoExecAction(env, node, contact, ctx) {
       // Record what actually went out (and whether it did) — this is what the
       // funnel audit shows, and the only way to answer "did they get it?".
       const sent = sendKind === "marketing"
-        ? await sendMarketingEmail(env, { to, subject, html, unsubUrl })
+        ? await sendMarketingEmail(env, { to, subject, html: htmlOut, unsubUrl })
         : await sendEmail(env, { to, subject, html: htmlOut });
       await logEmailEvent(env, {
         contact, email: contact.email,
@@ -2497,7 +2523,7 @@ async function autoExecAction(env, node, contact, ctx) {
 
 async function advanceEnrollment(env, enr) {
   const stop = (status, extra) => sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { status, ...(extra || {}) });
-  const aRows = await sbGet(env, "automations", `id=eq.${enr.automation_id}&select=id,status,graph`);
+  const aRows = await sbGet(env, "automations", `id=eq.${enr.automation_id}&select=id,name,status,graph`);
   const auto = aRows && aRows[0];
   // Paused: nothing happens and nothing moves. The tick doesn't pick these
   // up at all (see runAutomationsTick); this is the belt to that brace.
@@ -2537,7 +2563,7 @@ async function advanceEnrollment(env, enr) {
       branch = yes ? "yes" : "no";
       acted = { outcome: "ok", detail: yes ? "condition met → yes" : "condition not met → no" };
     } else {
-      acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: enr.id, nodeId: cur });
+      acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: enr.id, nodeId: cur, campaign: auto.name || null });
     }
     await sbPost(env, "automation_runs", {
       enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id,
@@ -5442,7 +5468,7 @@ export default {
         const b = await request.json().catch(() => ({}));
         if (!b.automation_id) return json({ error: "No automation id." }, 400, request, env);
         const aid = encodeURIComponent(b.automation_id);
-        const aRows = await sbGet(env, "automations", `id=eq.${aid}&select=id,status,graph`);
+        const aRows = await sbGet(env, "automations", `id=eq.${aid}&select=id,name,status,graph`);
         const auto = aRows && aRows[0];
         if (!auto) return json({ error: "Automation not found." }, 404, request, env);
         if (auto.status === "paused" && !b.dry_run) return json({ error: "This funnel is paused - reactivate it first." }, 409, request, env);
@@ -5473,7 +5499,7 @@ export default {
           const contact = cRows && cRows[0];
           let acted;
           if (!contact || !node) acted = { outcome: "skipped", detail: "contact or step no longer exists" };
-          else acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: r.enrollment_id, nodeId: r.node_id });
+          else acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: r.enrollment_id, nodeId: r.node_id, campaign: auto.name || null });
           const outcome = (acted && acted.outcome) || "ok";
           if (outcome === "ok") sent++; else if (outcome === "error") { failed++; lastError = acted.detail; } else skipped++;
           // Logged like any other run, marked as a resend, so the audit shows

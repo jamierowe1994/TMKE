@@ -43,6 +43,7 @@ import "../../styles/admin.css";
           <button type="button" class="enquiry-chip is-active" data-area="site">Website</button>
           <button type="button" class="enquiry-chip" data-area="hub">Member hub</button>
 
+          <button type="button" class="enquiry-chip" data-area="email">From our emails</button>
           <button type="button" class="enquiry-chip" data-area="all">Everything</button>
         </div>
       </div>
@@ -182,8 +183,11 @@ import "../../styles/admin.css";
     #wi-notrack.is-on { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
     #wi-notrack:focus-visible, #wi-csv:focus-visible, .enquiry-chip:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
 
-    .wi-scope { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 12px 0 0; }
-    .wi-empty { font-family: var(--sans); font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.7); background: rgba(227,160,8,0.1); border-radius: 10px; padding: 16px 18px; margin: 16px 0 0; }
+    /* Double the air under the filter bar, so the controls read as one thing
+       and the figures as another. */
+    .wi-scope { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin: 28px 0 0; }
+    .wi-scope + .order-stats-grid, .wi-scope + #wi-body { margin-top: 10px; }
+    .wi-empty { font-family: var(--sans); font-size: 14px; line-height: 1.65; color: rgba(28,29,34,0.7); background: rgba(227,160,8,0.1); border-radius: 10px; padding: 16px 18px; margin: 28px 0 0; }
     .wi-card { background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 16px 18px; margin: 16px 0 0; }
     .wi-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
     .wi-card-head h2 { font-family: var(--serif); font-size: 17px; font-weight: 500; color: var(--ink); margin: 0; }
@@ -195,6 +199,10 @@ import "../../styles/admin.css";
     .wi-table td:first-child { width: 100%; color: var(--ink); word-break: break-word; }
     .wi-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: rgba(28,29,34,0.7); }
     .wi-table .wi-bar { display: block; height: 4px; border-radius: 999px; background: rgba(var(--violet-rgb), 0.35); margin-top: 5px; }
+    .wi-morerow td { border-bottom: 0; padding-top: 10px; }
+    .wi-morebtn { appearance: none; background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); }
+    .wi-morebtn:hover { text-decoration: underline; }
     .wi-none { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.45); padding: 8px 0; }
     /* One bar a day. Plain divs: a chart library for eleven bars is a library
        to load, update and keep. */
@@ -234,7 +242,14 @@ import "../../styles/admin.css";
     // together - and the admin ones are us, not customers.
     const areaOf = (path) => /^\/admin(\/|$)/.test(path || "") ? "admin"
       : /^\/account(\/|$)/.test(path || "") ? "hub" : "site";
-    const AREA_LABEL = { site: "the public website", hub: "the member hub", admin: "the admin centre", all: "the website and the member hub" };
+    // One visitor: the browser's session, or the row itself if there isn't one.
+    const who = (e) => e.session_id || e.id;
+    const AREA_LABEL = { site: "the public website", hub: "the member hub", admin: "the admin centre", email: "visits that came from our own marketing emails", all: "the website and the member hub" };
+    // Links in a marketing email are stamped utm_source=email as it is sent, and
+    // the tracker keeps that for the whole visit - so a visit counts as "from
+    // our emails" if any of its rows carries the stamp.
+    const fromEmail = (e) => ((e.props || {}).from || {}).source === "email";
+    const campaignOf = (e) => ((e.props || {}).from || {}).campaign || "(unnamed campaign)";
 
     // A referrer is only interesting as a source: the site it came from, with
     // our own pages folded into "Direct or from within the site".
@@ -254,8 +269,10 @@ import "../../styles/admin.css";
       } catch (_) { return "Direct / typed in"; }
     }
 
+    const SHOW = 8;   // enough to see the shape; the rest is one click away
     const rows = (items, total) => items.length
-      ? items.map(([label, n, sub]) => `<tr><td>${esc(label)}<span class="wi-bar" style="width:${total ? Math.max(2, Math.round((n / total) * 100)) : 0}%"></span></td><td class="num">${num(n)}${sub != null ? ` · ${num(sub)}` : ""}</td></tr>`).join("")
+      ? items.map(([label, n, sub], i) => `<tr${i >= SHOW ? ' class="wi-more" hidden' : ""}><td>${esc(label)}<span class="wi-bar" style="width:${total ? Math.max(2, Math.round((n / total) * 100)) : 0}%"></span></td><td class="num">${num(n)}${sub != null ? ` · ${num(sub)}` : ""}</td></tr>`).join("")
+        + (items.length > SHOW ? `<tr class="wi-morerow"><td colspan="2"><button type="button" class="wi-morebtn">Show the other ${items.length - SHOW}</button></td></tr>` : "")
       : `<tr><td class="wi-none">Nothing recorded yet.</td></tr>`;
 
     // Cut the log down to the area being looked at. For the public website
@@ -264,7 +281,11 @@ import "../../styles/admin.css";
     // traffic is how an insights page ends up lying to you.
     function applyArea() {
       const staff = new Set(ALL.filter((e) => areaOf(e.path) === "admin").map((e) => e.session_id || e.id));
+      // Whole visits, not single rows: someone who lands from an email and then
+      // clicks about the site is one email visit throughout.
+      const emailVisits = new Set(ALL.filter(fromEmail).map(who));
       EVENTS = ALL.filter((e) => {
+        if (area === "email") return emailVisits.has(who(e));
         if (area === "all") return true;
         if (areaOf(e.path) !== area) return false;
         if (area === "site" && staff.has(e.session_id || e.id)) return false;
@@ -316,7 +337,7 @@ import "../../styles/admin.css";
         if (!pages.has(p)) pages.set(p, { n: 0, who: new Set() });
         const row = pages.get(p); row.n++; row.who.add(e.session_id || e.id);
       });
-      const topPages = [...pages.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 12);
+      const topPages = [...pages.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 30);
       el("wi-pages").innerHTML = rows(topPages.map(([p, r]) => [p, r.n, r.who.size]), topPages.length ? topPages[0][1].n : 0);
 
       // Sources, counted once per visit.
@@ -327,14 +348,46 @@ import "../../styles/admin.css";
       });
       const srcCount = new Map();
       srcSeen.forEach((src) => srcCount.set(src, (srcCount.get(src) || 0) + 1));
-      const topSrc = [...srcCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
+      let topSrc = [...srcCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
+      let srcTitle = "Where they came from";
+      if (area === "email") {
+        const byCampaign = new Map();
+        const seenVisit = new Set();
+        EVENTS.filter(fromEmail).forEach((e) => {
+          if (seenVisit.has(who(e))) return;
+          seenVisit.add(who(e));
+          const c = campaignOf(e);
+          byCampaign.set(c, (byCampaign.get(c) || 0) + 1);
+        });
+        topSrc = [...byCampaign.entries()].sort((a, b) => b[1] - a[1]).slice(0, 30);
+        srcTitle = "Which email brought them";
+      }
+      document.querySelector("#wi-refs").closest(".wi-card").querySelector("h2").textContent = srcTitle;
       el("wi-refs").innerHTML = rows(topSrc, topSrc.length ? topSrc[0][1] : 0);
 
-      // Everything that isn't a page view: clicks, carts, checkouts, orders.
+      // Everything that isn't a page view. Checkout and purchase are two points
+      // in ONE journey, so counting both would count the same person twice:
+      // anyone who bought is a purchase, and only the ones who stopped are
+      // counted as a checkout started.
+      const bought = new Set(EVENTS.filter((e) => e.name === "pack_purchased").map(who));
       const acts = new Map();
-      EVENTS.filter((e) => e.name !== "pageview").forEach((e) => acts.set(e.name, (acts.get(e.name) || 0) + 1));
+      EVENTS.filter((e) => e.name !== "pageview").forEach((e) => {
+        if (e.name === "checkout_started" && bought.has(who(e))) return;   // they finished; counted as a purchase
+        acts.set(e.name, (acts.get(e.name) || 0) + 1);
+      });
       const topActs = [...acts.entries()].sort((a, b) => b[1] - a[1]);
-      const pretty = (n) => String(n).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+      const LABELS = {
+        checkout_started: "Checkout started, not finished",
+        pack_purchased: "Pack purchased",
+        member_joined: "Became a member",
+        shoot_booked: "Videography shoot booked",
+        brochure_requested: "Brochure requested",
+        smm_enquiry: "Social media enquiry",
+        waitlist_joined: "Joined the waitlist",
+        enquiry_sent: "Contact form sent",
+        blog_read: "Read a blog post",
+      };
+      const pretty = (n) => LABELS[n] || String(n).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
       el("wi-events").innerHTML = topActs.length
         ? rows(topActs.map(([n, c]) => [pretty(n), c]), topActs[0][1])
         : `<tr><td class="wi-none">Only page views are being recorded. The shop and checkout don't yet tell the site when someone adds a pack or starts paying, so there is nothing else to count.</td></tr>`;
@@ -402,6 +455,15 @@ import "../../styles/admin.css";
       syncNotrack();
     });
     syncNotrack();
+
+    // One button per table, revealing the rest of that table only.
+    document.addEventListener("click", (ev) => {
+      const b = ev.target.closest(".wi-morebtn"); if (!b) return;
+      const table = b.closest("table");
+      const hidden = table.querySelectorAll("tr.wi-more[hidden]");
+      if (hidden.length) { hidden.forEach((r) => (r.hidden = false)); b.textContent = "Show fewer"; }
+      else { table.querySelectorAll("tr.wi-more").forEach((r) => (r.hidden = true)); b.textContent = `Show the other ${table.querySelectorAll("tr.wi-more").length}`; }
+    });
 
     el("wi-csv").addEventListener("click", () => {
       const head = "when,event,path,source,visit,member\n";
