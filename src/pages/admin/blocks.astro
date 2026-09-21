@@ -1,0 +1,274 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="blocks" title="Contact blocks" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Contact blocks</div>
+          <div class="page-header-sub">Footers members drop into their own designs. The canvas they were drawn on is thrown away — only the elements travel.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <section class="admin-bar">
+      <div class="admin-bar-top">
+        <span class="admin-bar-count" id="blk-count">…</span>
+        <div class="admin-bar-tools">
+          <button type="button" class="enquiry-chip is-on" data-view="all">All</button>
+          <button type="button" class="enquiry-chip" data-view="live">Live</button>
+          <button type="button" class="enquiry-chip" data-view="draft">Not published</button>
+        </div>
+      </div>
+      <div class="admin-bar-actions">
+        <a href="/admin/templates" class="admin-btn admin-btn-ghost">Design studio</a>
+        <a href="/admin/templates" class="admin-btn admin-btn-primary">+ Draw a new one</a>
+      </div>
+    </section>
+
+    <p id="blk-loading" class="blk-note">Loading…</p>
+
+    <section id="blk-list"></section>
+
+    <section id="blk-empty" class="blk-empty" hidden>
+      <h2>No contact blocks yet</h2>
+      <p>A contact block starts life as an ordinary template. Draw the footer in the Design studio, send it to the catalogue without a pack, then press <strong>Make a contact block</strong> on its card and pick which of the four it is. It will land here.</p>
+      <a href="/admin/templates" class="admin-btn admin-btn-primary">Go to the Design studio</a>
+    </section>
+  </div>
+
+  <style is:global>
+    /* Filter chips + bar, same as the other admin pages carry. */
+    .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
+    .admin-bar-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .admin-bar-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .admin-bar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .admin-bar-count { font-family: var(--sans); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .enquiry-chip {
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      padding: 7px 14px; border-radius: 999px; cursor: pointer;
+      background: transparent; color: rgba(28,29,34,0.62);
+      border: 1px solid rgba(28,29,34,0.18);
+      transition: background 0.18s, color 0.18s, border-color 0.18s;
+    }
+    .enquiry-chip:hover { color: var(--ink); border-color: rgba(28,29,34,0.4); }
+    .enquiry-chip.is-on { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+
+    .blk-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+
+    .blk-group { margin-bottom: 40px; }
+    .blk-group-head {
+      display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px;
+      padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.1);
+    }
+    .blk-group-title { font-family: var(--serif); font-size: 21px; color: var(--ink); }
+    .blk-group-count { font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+
+    .blk-grid { display: grid; gap: 18px; }
+    .blk-card {
+      background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 12px;
+      overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 260px;
+    }
+    @media (max-width: 860px) { .blk-card { grid-template-columns: 1fr; } }
+
+    /* The preview draws the block at its own proportions, on nothing, because
+       that is what a member gets. */
+    .blk-stage {
+      position: relative; background:
+        linear-gradient(45deg, rgba(28,29,34,0.04) 25%, transparent 25%, transparent 75%, rgba(28,29,34,0.04) 75%),
+        linear-gradient(45deg, rgba(28,29,34,0.04) 25%, transparent 25%, transparent 75%, rgba(28,29,34,0.04) 75%) 10px 10px,
+        #fff;
+      background-size: 20px 20px; background-repeat: repeat;
+      display: flex; align-items: center; padding: 22px;
+    }
+    .blk-shot { position: relative; width: 100%; container-type: size; background: #fff; box-shadow: 0 1px 0 rgba(28,29,34,0.06); }
+
+    .blk-side { padding: 20px 22px; border-left: 1px solid rgba(28,29,34,0.1); display: flex; flex-direction: column; gap: 10px; }
+    @media (max-width: 860px) { .blk-side { border-left: 0; border-top: 1px solid rgba(28,29,34,0.1); } }
+    .blk-name { font-family: var(--serif); font-size: 20px; line-height: 1.2; color: var(--ink); }
+    .blk-meta { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); line-height: 1.6; }
+    .blk-meta strong { color: var(--ink); font-weight: 600; }
+    .blk-pill {
+      align-self: flex-start;
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 4px 10px; border-radius: 999px;
+    }
+    .blk-pill.is-live { background: rgba(46,107,74,0.14); color: #2e6b4a; }
+    .blk-pill.is-draft { background: rgba(138,122,54,0.16); color: #7a6a24; }
+    .blk-pill.is-archived { background: rgba(28,29,34,0.1); color: rgba(28,29,34,0.6); }
+    .blk-warn {
+      font-family: var(--sans); font-size: 12px; line-height: 1.55;
+      background: rgba(138,122,54,0.12); color: #6f6120;
+      padding: 10px 12px; border-radius: 8px;
+    }
+    .blk-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; padding-top: 12px; }
+    .blk-acts .admin-btn { padding: 7px 12px; font-size: 10.5px; }
+
+    .blk-empty { text-align: center; padding: 60px 24px; max-width: 560px; margin: 0 auto; }
+    .blk-empty h2 { font-family: var(--serif); font-size: 26px; color: var(--ink); margin: 0 0 10px; }
+    .blk-empty p { font-family: var(--sans); font-size: 14px; line-height: 1.7; color: rgba(28,29,34,0.6); margin: 0 0 22px; }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+    import {
+      escapeHtml, renderBlockPreview, blockBoxOf, sameBox,
+      VARIANT_LABEL, VARIANT_ORDER,
+    } from '../../lib/design-preview.js';
+
+    const els = {
+      list: document.getElementById('blk-list'),
+      empty: document.getElementById('blk-empty'),
+      loading: document.getElementById('blk-loading'),
+      count: document.getElementById('blk-count'),
+    };
+    let ALL = [];
+    let VIEW = 'all';
+
+    async function load() {
+      els.loading.hidden = false;
+      const { data, error } = await supabase
+        .from('templates')
+        .select('id, name, canvas, elements, status, sort_order, updated_at, kind, block_variant, block_box')
+        .eq('kind', 'block')
+        .order('sort_order', { ascending: true });
+      els.loading.hidden = true;
+
+      if (error) {
+        els.list.innerHTML = /kind|column/i.test(error.message || '')
+          ? '<p class="blk-note">The database hasn’t got the contact-block columns yet. Run <strong>supabase/contact_blocks.sql</strong> in the Supabase SQL editor, then reload.</p>'
+          : '<p class="blk-note">Could not load contact blocks: ' + escapeHtml(error.message) + '</p>';
+        return;
+      }
+      ALL = data || [];
+      render();
+    }
+
+    function render() {
+      const list = ALL.filter((t) => (
+        VIEW === 'all' ? true
+        : VIEW === 'live' ? t.status === 'active'
+        : t.status !== 'active'
+      ));
+      const live = ALL.filter((t) => t.status === 'active').length;
+      els.count.textContent = ALL.length
+        ? `${live} live · ${ALL.length} total`
+        : 'None yet';
+      els.empty.hidden = ALL.length !== 0;
+
+      if (!list.length) {
+        els.list.innerHTML = ALL.length
+          ? '<p class="blk-note">Nothing in this view.</p>'
+          : '';
+        return;
+      }
+
+      // Grouped by which footer they are, in the order they'd be offered.
+      const groups = VARIANT_ORDER
+        .map((v) => ({ v, items: list.filter((t) => (t.block_variant || 'contact-other') === v) }))
+        .filter((g) => g.items.length);
+
+      els.list.innerHTML = groups.map((g) => `
+        <div class="blk-group">
+          <div class="blk-group-head">
+            <span class="blk-group-title">${escapeHtml(VARIANT_LABEL[g.v])}</span>
+            <span class="blk-group-count">${g.items.length}</span>
+          </div>
+          <div class="blk-grid">${g.items.map(renderCard).join('')}</div>
+        </div>`).join('');
+    }
+
+    function renderCard(t) {
+      const stored = t.block_box || {};
+      const fresh = blockBoxOf(t);
+      // The box is measured when the block is marked, not when the design is
+      // saved — so an edit since then means the stored box is out of date and
+      // the block would land at the wrong size.
+      const stale = fresh && !sameBox(stored, fresh);
+      const box = stored.w ? stored : fresh;
+      const share = box && box.canvasW ? Math.round((box.w / box.canvasW) * 100) : null;
+      const pill = t.status === 'active'
+        ? '<span class="blk-pill is-live">Live to members</span>'
+        : t.status === 'archived'
+          ? '<span class="blk-pill is-archived">Archived</span>'
+          : '<span class="blk-pill is-draft">Not published</span>';
+      const ar = box && box.w && box.h ? `${box.w} / ${box.h}` : '4 / 1';
+
+      return `
+        <article class="blk-card" data-id="${escapeHtml(t.id)}">
+          <div class="blk-stage">
+            <div class="blk-shot" style="aspect-ratio:${ar}">${renderBlockPreview(t, box)}</div>
+          </div>
+          <div class="blk-side">
+            ${pill}
+            <div class="blk-name">${escapeHtml(t.name || 'Untitled')}</div>
+            <div class="blk-meta">
+              ${share != null ? `Fills <strong>${share}%</strong> of the width wherever it lands.` : 'Nothing drawn yet.'}
+              ${box && box.w ? `<br />${box.w} × ${box.h} on a ${box.canvasW} × ${box.canvasH} canvas.` : ''}
+            </div>
+            ${stale ? '<p class="blk-warn">This design has changed since it was measured. Re-measure it, or members will get the old size.</p>' : ''}
+            <div class="blk-acts">
+              <a class="admin-btn admin-btn-ghost" href="/account/editor?id=${encodeURIComponent(t.id)}&mode=admin">Edit</a>
+              ${stale ? `<button class="admin-btn admin-btn-primary" data-remeasure="${escapeHtml(t.id)}">Re-measure</button>` : ''}
+              ${t.status === 'active'
+                ? `<button class="admin-btn admin-btn-ghost" data-unpublish="${escapeHtml(t.id)}">Take off members</button>`
+                : `<button class="admin-btn admin-btn-primary" data-publish="${escapeHtml(t.id)}">Make it live</button>`}
+              <button class="admin-btn admin-btn-ghost" data-unblock="${escapeHtml(t.id)}">Back to a template</button>
+            </div>
+          </div>
+        </article>`;
+    }
+
+    async function patch(id, fields) {
+      const { error } = await supabase.from('templates').update(fields).eq('id', id);
+      if (error) { alert('Could not save that: ' + error.message); return false; }
+      await load();
+      return true;
+    }
+
+    els.list.addEventListener('click', async (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      const id = el.getAttribute('data-remeasure') || el.getAttribute('data-publish')
+        || el.getAttribute('data-unpublish') || el.getAttribute('data-unblock');
+      if (!id) return;
+      const t = ALL.find((r) => r.id === id);
+      if (!t) return;
+
+      if (el.hasAttribute('data-remeasure')) {
+        const box = blockBoxOf(t);
+        if (!box) return alert('There is nothing drawn on this design to measure.');
+        await patch(id, { block_box: box });
+      } else if (el.hasAttribute('data-publish')) {
+        await patch(id, { status: 'active' });
+      } else if (el.hasAttribute('data-unpublish')) {
+        await patch(id, { status: 'draft' });
+      } else if (el.hasAttribute('data-unblock')) {
+        if (!confirm('Turn this back into an ordinary template? It will leave this page and go back to the Design studio.')) return;
+        await patch(id, { kind: 'template', block_variant: null, block_box: null });
+      }
+    });
+
+    document.querySelectorAll('[data-view]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        VIEW = chip.getAttribute('data-view');
+        document.querySelectorAll('[data-view]').forEach((c) => c.classList.toggle('is-on', c === chip));
+        render();
+      });
+    });
+
+    (async () => {
+      if (!import.meta.env.DEV) {
+        const session = await requireAdmin();
+        if (!session) return;
+      }
+      await load();
+    })();
+  </script>
+</AdminShell>

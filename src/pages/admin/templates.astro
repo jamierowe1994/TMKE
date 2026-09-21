@@ -33,7 +33,6 @@ import { templates as defaultLibrary } from "../../data/library.js";
           <option value="draft">Drafts only</option>
           <option value="active">Published only</option>
           <option value="archived">Archived</option>
-          <option value="blocks">Contact blocks</option>
         </select>
       </div>
     </div>
@@ -410,6 +409,9 @@ import { templates as defaultLibrary } from "../../data/library.js";
   <script>
     import { requireAdmin } from '../../lib/admin-gate.js';
     import { supabase } from '../../lib/supabase.js';
+    import {
+      escapeHtml, renderEl, renderBlockPreview, blockBoxOf, VARIANT_LABEL,
+    } from '../../lib/design-preview.js';
 
     const els = {
       grid: document.getElementById('tpl-grid'),
@@ -436,63 +438,14 @@ import { templates as defaultLibrary } from "../../data/library.js";
     );
     const DEV = import.meta.env.DEV;
 
-    function escapeHtml(s) {
-      return String(s ?? '').replace(/[&<>"']/g, (c) => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-      }[c]));
-    }
-
-    function fontStack(f) {
-      const s = String(f || '');
-      return /garamond|seasons|helios|times|serif/i.test(s)
-        ? `'${s}', Georgia, serif`
-        : `'${s}', 'Darker Grotesque', system-ui, sans-serif`;
-    }
-
-    // Render one element as a positioned div/img. Coordinates are a % of the
-    // canvas; font + letter-spacing use cqw (1% of the thumb's width) so text
-    // scales with the preview at any size.
-    function renderEl(el, W, H) {
-      if (!el || el.x == null) return '';
-      const pos = `position:absolute;left:${(el.x / W * 100).toFixed(3)}%;top:${(el.y / H * 100).toFixed(3)}%;width:${(el.w / W * 100).toFixed(3)}%;height:${(el.h / H * 100).toFixed(3)}%;`;
-      const rot = el.rotation ? `transform:rotate(${el.rotation}deg);` : '';
-      if (el.type === 'image' && el.src) {
-        return `<img src="${escapeHtml(el.src)}" alt="" loading="lazy" style="${pos}${rot}object-fit:cover;opacity:${el.opacity ?? 1};" />`;
-      }
-      if (el.type === 'rect') {
-        const rad = el.radius ? `border-radius:${(el.radius / W * 100).toFixed(2)}cqw;` : '';
-        return `<div style="${pos}${rot}background:${escapeHtml(el.fill || 'transparent')};opacity:${el.opacity ?? 1};${rad}"></div>`;
-      }
-      if (el.type === 'text') {
-        const fs = (Number(el.size) || 16) / W * 100;
-        const ls = (Number(el.letterSpacing) || 0) / W * 100;
-        return `<div style="${pos}${rot}color:${escapeHtml(el.color || '#1c1d22')};font-family:${fontStack(el.font)};font-size:${fs.toFixed(3)}cqw;font-weight:${el.weight || 400};font-style:${el.italic ? 'italic' : 'normal'};text-align:${el.align || 'left'};letter-spacing:${ls.toFixed(3)}cqw;line-height:${el.lineHeight || 1.2};overflow:hidden;">${escapeHtml(el.text || '')}</div>`;
-      }
-      return '';
-    }
-
-    /* A contact block's card shows the block, not the canvas. We re-render the
-       elements against their own bounding box — which is exactly what a member
-       will get when they drop it in, and makes the thrown-away canvas visible
-       as thrown away. */
-    function renderBlockPreview(t) {
-      const box = t.block_box || {};
-      const W = Number(box.w) || 0, H = Number(box.h) || 0;
-      const els = Array.isArray(t.elements) ? t.elements : [];
-      if (!W || !H || !els.length) return '';
-      const shifted = els.map((el) => (el && el.x != null
-        ? Object.assign({}, el, { x: (Number(el.x) || 0) - (Number(box.x) || 0), y: (Number(el.y) || 0) - (Number(box.y) || 0) })
-        : el));
-      return `<div class="tpl-canvas tpl-canvas--block">${shifted.map((el) => renderEl(el, W, H)).join('')}</div>`;
-    }
 
     function renderPreview(t) {
       const cv = t.canvas || {};
       const W = Number(cv.width) || 1080, H = Number(cv.height) || 1440;
       const els = Array.isArray(t.elements) ? t.elements : [];
       if (t.kind === 'block') {
-        const block = renderBlockPreview(t);
-        if (block) return block;
+        const block = renderBlockPreview(t, t.block_box);
+        if (block) return `<div class="tpl-canvas tpl-canvas--block">${block}</div>`;
       }
       const bgImg = cv.backgroundImage
         ? `<img src="${escapeHtml(cv.backgroundImage)}" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:${cv.backgroundOpacity ?? 1};" />`
@@ -662,10 +615,9 @@ import { templates as defaultLibrary } from "../../data/library.js";
       if (packId === '__none__') list = list.filter((t) => !t.pack_id);
       else if (packId) list = list.filter((t) => t.pack_id === packId);
 
-      // Contact blocks live apart from the template library: they are not
-      // designs anyone opens, so they'd only be noise in every other view.
-      if (f === 'blocks') list = list.filter((t) => t.kind === 'block');
-      else list = list.filter((t) => t.kind !== 'block');
+      // Contact blocks have their own tab: they are not designs anyone opens,
+      // so they'd only be noise here.
+      list = list.filter((t) => t.kind !== 'block');
 
       // Status filter (the sort-only options leave the status set untouched).
       if (f === 'draft') list = list.filter((t) => t.status === 'draft');
@@ -735,36 +687,6 @@ import { templates as defaultLibrary } from "../../data/library.js";
        box round its elements, measured against the canvas it was drawn on.
        That box is all the Studio needs to scale the block onto any canvas:
        it takes up the same share of the width it took up here. */
-    const VARIANT_LABEL = {
-      'contact-small': 'Small footer — no photo',
-      'contact-small-photo': 'Small footer — with headshot',
-      'contact-full': 'Full-page contact details',
-      'contact-other': 'Contact block',
-    };
-
-    // Tight box round every element, in the drawing canvas's own units.
-    function blockBoxOf(t) {
-      const cv = t.canvas || {};
-      const canvasW = Number(cv.width) || 1080;
-      const canvasH = Number(cv.height) || 1350;
-      const els = (Array.isArray(t.elements) ? t.elements : []).filter((el) => el && el.x != null);
-      if (!els.length) return null;
-      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
-      els.forEach((el) => {
-        const x = Number(el.x) || 0, y = Number(el.y) || 0;
-        const w = Number(el.w) || 0, h = Number(el.h) || 0;
-        if (x < x1) x1 = x;
-        if (y < y1) y1 = y;
-        if (x + w > x2) x2 = x + w;
-        if (y + h > y2) y2 = y + h;
-      });
-      return {
-        x: Math.round(x1), y: Math.round(y1),
-        w: Math.round(x2 - x1), h: Math.round(y2 - y1),
-        canvasW, canvasH,
-      };
-    }
-
     async function openBlockSettings(id) {
       const t = ALL.find((r) => r.id === id);
       if (!t) return;
@@ -788,6 +710,9 @@ import { templates as defaultLibrary } from "../../data/library.js";
         : { kind: 'block', block_variant: chosen, block_box: box };
       const { error } = await supabase.from('templates').update(patch).eq('id', id);
       if (error) return alert('Could not save that: ' + error.message);
+      // It has just left this grid — take her to where it went rather than
+      // leaving her looking at the space it used to occupy.
+      if (chosen !== '__remove__') { location.href = '/admin/blocks'; return; }
       await loadTemplates();
     }
 
