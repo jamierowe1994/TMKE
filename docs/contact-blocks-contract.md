@@ -91,16 +91,24 @@ offer blocks when the design is at one of those sizes.
 Text placeholders are the merge tags the editor already resolves — nothing new
 in the format, `{like this}`. The set for footers:
 
+One tag per brand-kit field, named the way the field is named. These eight are
+the whole menu (`TAG_MENU` in `public/scripts/editor.js`):
+
 | tag | filled from the brand kit |
 | --- | --- |
-| `{company}`, `{company name}`, `{brand}`, `{brand name}` | `company` |
-| `{your name}`, `{name}` | `about.name` |
-| `{job title}`, `{role}` | `about.role` |
-| `{phone}`, `{telephone}` | `about.phone`, falling back to `phone` |
+| `{company name}` | `company` |
+| `{area}` | `location` |
+| `{slogan}` | `slogan` (or an older kit's `tagline`) |
+| `{website}` | `website` — added to the brand kit in this change |
+| `{agent name}` | `about.name` |
+| `{job title}` | `about.role` |
+| `{telephone}` | `about.phone`, falling back to `phone` |
 | `{email}` | `about.email`, falling back to `email` |
-| `{website}` | `website` — **new field, added to the brand kit in this change** |
-| `{location}`, `{area}`, `{town}` | `location` |
-| `{slogan}`, `{strapline}`, `{tagline}` | `slogan` (or an older kit's `tagline`) |
+
+Older spellings — `{company}`, `{brand}`, `{location}`, `{town}`, `{tagline}`,
+`{phone}`, `{your name}`, `{role}` — still resolve (`TAG_ALIASES`), because the
+catalogue is already written with them. They are off the menu and must stay
+off it: four ways to print the company only invites templates that disagree.
 
 Two are images, not text, and use the flag that already exists:
 
@@ -113,11 +121,8 @@ it in.
 
 ### What the Studio chat needs to add to `public/scripts/editor.js`
 
-1. `mergeTagMap()` currently reads `b.email`, `b.phone` and `b.website` from the
-   top of the kit, but the kit stores the personal ones under `about`. Add the
-   `about` fallbacks and the two new tags (`your name` / `name`,
-   `job title` / `role`), and add them to `KNOWN_TAGS` so they appear in the
-   admin "insert tag" dropdown.
+1. ~~The merge tags~~ — done: `mergeTagMap()` reads the `about` fields, and the
+   menu is the eight above.
 2. Elements panel: list `kind = 'block'`, `status = 'active'` templates,
    grouped by `block_variant`, and insert per the maths above.
 3. The Position/insert UI for a dropped group.
