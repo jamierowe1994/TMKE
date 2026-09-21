@@ -85,6 +85,14 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
     }
     .sz-flag.is-bad { background: rgba(163,55,43,0.12); color: #8c2f24; }
     .sz-ok { font-family: var(--sans); font-size: 11.5px; color: rgba(46,107,74,0.95); }
+    .sz-saved { font-family: var(--sans); font-size: 11px; font-weight: 700; color: #2e6b4a; }
+    .sz-changes { display: flex; flex-direction: column; gap: 3px; padding: 9px 10px; border-radius: 6px; background: rgba(28,29,34,0.04); }
+    .sz-ch-head { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 2px; }
+    .sz-ch-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.7); }
+    .sz-ch-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sz-ch-row b { flex: none; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .sz-ch-row.is-down b { color: #8c2f24; }
+    .sz-ch-more { font-family: var(--sans); font-size: 10.5px; color: rgba(28,29,34,0.45); }
   </style>
 
   <script>
@@ -155,6 +163,32 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
       return out;
     }
 
+    /* What the resize did to each element. The headline that quietly went
+       from 64px to 38px is the thing eyes miss, so it is written down. */
+    function changesFor(before, after) {
+      const byId = new Map((before.elements || []).filter((e) => e && e.id).map((e) => [e.id, e]));
+      const out = [];
+      (after.elements || []).forEach((el) => {
+        const b = byId.get(el.id);
+        if (!b) return;
+        const name = el.type === 'text'
+          ? '“' + String(el.text || '').replace(/\s+/g, ' ').trim().slice(0, 22) + '”'
+          : el.brandRole === 'headshot' ? 'Headshot'
+          : el.brandRole === 'logo' ? 'Logo'
+          : (el.type === 'image' || el.type === 'frame') ? 'Picture' : 'Shape';
+        if (el.type === 'text' && Math.round(b.size || 0) !== Math.round(el.size || 0)) {
+          out.push({ what: name, from: Math.round(b.size) + 'px', to: Math.round(el.size) + 'px', down: (el.size || 0) < (b.size || 0) });
+        } else {
+          const bw = Math.round(b.w || 0), aw = Math.round(el.w || 0);
+          const bh = Math.round(b.h || 0), ah = Math.round(el.h || 0);
+          if (Math.abs(bw - aw) > 2 || Math.abs(bh - ah) > 2) {
+            out.push({ what: name, from: bw + ' × ' + bh, to: aw + ' × ' + ah, down: aw * ah < bw * bh });
+          }
+        }
+      });
+      return out;
+    }
+
     function renderStage(page, W, H, label, isSource) {
       const cv = page.canvas || {};
       const bg = cv.backgroundImage
@@ -170,7 +204,7 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
       if (!id) { els.loading.textContent = 'No design chosen.'; return; }
       const { data, error } = await supabase
         .from('templates')
-        .select('id, name, canvas, elements, kind, block_variant, block_box')
+        .select('id, name, canvas, elements, kind, block_variant, block_box, size_variants')
         .eq('id', id)
         .maybeSingle();
       els.loading.hidden = true;
@@ -201,15 +235,30 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
         ? `Contact block · drawn at ${box ? box.w + ' × ' + box.h : '—'}`
         : `Drawn at ${W0} × ${H0}`;
 
+      // A size Danielle has already corrected by hand shows HER layout: the
+      // page is meant to show what a member gets, and that is what they get.
+      const variants = data.size_variants || {};
       const cards = SIZES.map((sz) => {
         const isSource = sz.w === W0 && sz.h === H0;
         const page = { canvas: clone(source.canvas), elements: clone(source.elements) };
+        const saved = variants[sz.w + 'x' + sz.h];
         if (!isSource) {
-          try { engine.resizePage(page, sz.w, sz.h); }
-          catch (e) { return { sz, error: e.message }; }
+          try {
+            engine.resizePage(page, sz.w, sz.h);
+            if (saved && Array.isArray(saved.elements)) {
+              const byId = new Map(saved.elements.filter((e) => e && e.id).map((e) => [e.id, e]));
+              page.elements.forEach((el) => {
+                const src = byId.get(el.id);
+                if (!src) return;
+                ['x', 'y', 'w', 'h', 'rotation', 'size', 'lineHeight', 'letterSpacing', 'align', 'radius', 'frameShape']
+                  .forEach((k) => { if (src[k] != null) el[k] = src[k]; });
+              });
+            }
+          } catch (e) { return { sz, error: e.message }; }
         }
         const flags = isSource ? [] : flagsFor(source, page, sz.w, sz.h);
-        return { sz, page, flags, isSource };
+        const changes = isSource ? [] : changesFor(source, page);
+        return { sz, page, flags, changes, isSource, saved: !!saved };
       });
 
       els.grid.innerHTML = cards.map((c) => {
@@ -223,6 +272,12 @@ const SOCIAL = STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [];
             <span class="sz-dims">${c.sz.w} × ${c.sz.h}</span>
           </div>
           ${renderStage(c.page, c.sz.w, c.sz.h, c.sz.name, c.isSource)}
+          ${c.saved ? '<span class="sz-saved">✓ Your saved layout</span>' : ''}
+          ${c.changes && c.changes.length ? `<div class="sz-changes">
+            <div class="sz-ch-head">What the resize did</div>
+            ${c.changes.slice(0, 6).map((r) => `<div class="sz-ch-row${r.down ? ' is-down' : ''}"><span>${escapeHtml(r.what)}</span><b>${escapeHtml(r.from)} → ${escapeHtml(r.to)}</b></div>`).join('')}
+            ${c.changes.length > 6 ? `<div class="sz-ch-more">and ${c.changes.length - 6} more</div>` : ''}
+          </div>` : ''}
           <div class="sz-flags">
             ${c.isSource
               ? '<span class="sz-ok">The size you drew it at.</span>'

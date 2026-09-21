@@ -932,9 +932,14 @@ const googleFonts = [
           <p>Showing <b data-size-now></b>. Your design is still saved as <b data-size-was></b>.</p>
           <div class="ed-resize-decide-acts">
             <button type="button" class="ed-btn-solid" data-size-act="keep">Resize this design</button>
+            <!-- Admin only (editor.js, syncSizeDecision): keeps this layout for
+                 this size on the template, and leaves the template as drawn. -->
+            <button type="button" class="ed-btn-solid" data-size-act="variant" hidden>Save how this looks</button>
             <button type="button" class="ed-btn-ghost" data-size-act="copy">Save as a copy</button>
+            <button type="button" class="ed-btn-ghost" data-size-act="forget" hidden>Forget the saved layout</button>
             <button type="button" class="ed-resize-back" data-size-act="back">Back to <span data-size-was></span></button>
           </div>
+          <div class="ed-resize-changes" id="ed-resize-changes" hidden></div>
         </div>
         <button type="button" class="ed-resize-safe" id="ed-resize-safe" hidden>Check what the app or printer covers &rarr;</button>
         {/* Only the family the design is in shows (editor.js, syncResizePanel):
@@ -2976,6 +2981,30 @@ const googleFonts = [
     .ed-resize-card:hover { background: rgba(var(--violet-rgb),0.1); border-color: rgba(var(--violet-rgb),0.3); }
     .ed-resize-card.is-current { background: rgba(var(--violet-rgb),0.12); border-color: rgba(var(--violet-rgb),0.6); cursor: default; }
     .ed-resize-card.is-current strong::after { content: " · current"; font-weight: 500; color: rgba(28,29,34,0.55); }
+    /* A size that already has a layout saved against it (admin). */
+    .ed-resize-card.has-layout { border-color: rgba(46,107,74,0.5); }
+    .ed-resize-card.has-layout strong::before {
+      content: "✓ "; color: #2e6b4a; font-weight: 700;
+    }
+    /* What the resize did — admin, under the decide bar. */
+    .ed-resize-changes {
+      margin-top: 10px; padding: 10px 12px; border-radius: 8px;
+      background: rgba(28,29,34,0.04); display: flex; flex-direction: column; gap: 4px;
+    }
+    .ed-resize-changes[hidden] { display: none; }
+    .ed-rc-head {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+      margin-bottom: 2px;
+    }
+    .ed-rc-row {
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+      font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.7);
+    }
+    .ed-rc-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ed-rc-row b { flex: none; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .ed-rc-row.is-down b { color: #8c2f24; }
+    .ed-rc-more { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .ed-resize-vis { background: rgba(var(--violet-rgb),0.2); border-radius: 2px; margin-bottom: 6px; max-height: 80px; }
     .ed-resize-card strong { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; color: var(--ink); }
     .ed-resize-card span { font-size: var(--ws-t-label); color: rgba(28,29,34,0.55); }
@@ -5109,6 +5138,28 @@ const googleFonts = [
           }
           return { ok: false, reason };
         };
+        /* Save the layout on show against the size it is at, on the template
+           row itself. Not a copy: the master design is untouched, and a member
+           who resizes to this size gets this layout instead of the automatic
+           one. Passing elements: null forgets the size again. */
+        window.__TMKE_SAVE_SIZE_VARIANT__ = async ({ templateId, key, canvas, elements }) => {
+          if (!templateId || !key) return { ok: false, reason: 'No template to save against.' };
+          const { data: row, error: readErr } = await supabase
+            .from('templates').select('size_variants').eq('id', templateId).maybeSingle();
+          if (readErr) {
+            return { ok: false, reason: /size_variants|column/i.test(readErr.message || '')
+              ? 'The database hasn\u2019t got the saved-layouts column yet — run supabase/size_variants.sql.'
+              : readErr.message };
+          }
+          const map = (row && row.size_variants) || {};
+          if (elements) map[key] = { canvas, elements, savedAt: new Date().toISOString() };
+          else delete map[key];
+          const { error } = await supabase.from('templates').update({ size_variants: map }).eq('id', templateId);
+          if (error) return { ok: false, reason: error.message };
+          window.__TMKE_SIZE_VARIANTS__ = map;
+          return { ok: true, variants: map };
+        };
+
         // Turn on autosave-as-draft (admin only for now) — editor.js persists a
         // draft to localStorage shortly after each change and before unload.
         window.__TMKE_AUTOSAVE__ = true;
@@ -5122,7 +5173,7 @@ const googleFonts = [
           try {
             const { data } = await supabase
               .from('templates')
-              .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+              .select('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants')
               .eq('id', id)
               .maybeSingle();
             return data ? shape(data) : null;
@@ -5183,10 +5234,13 @@ const googleFonts = [
           try {
             const { data: one } = await supabase
               .from('templates')
-              .select('id, name, category, thumb_url, canvas, elements, status, sort_order')
+              .select('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants')
               .eq('id', requestedId)
               .maybeSingle();
             if (one) {
+              // Layouts saved for the other sizes, so the Resize panel can
+              // show which sizes are already sorted and reopen them to edit.
+              window.__TMKE_SIZE_VARIANTS__ = one.size_variants || {};
               let arr = [];
               try { arr = JSON.parse(tag.textContent || '[]'); } catch (_) {}
               arr = arr.filter((t) => t.id !== one.id);
@@ -7165,7 +7219,7 @@ const googleFonts = [
         try {
           const { data: tpls } = await supabase
             .from("templates")
-            .select("id, name, category, thumb_url, canvas, elements")
+            .select("id, name, category, thumb_url, canvas, elements, size_variants")
             .eq("pack_id", selectedPack.id)
             .eq("status", "active")
             .order("sort_order", { ascending: true });
@@ -7409,7 +7463,7 @@ const googleFonts = [
         try {
           const { data: tpls } = await supabase
             .from("templates")
-            .select("id, name, category, thumb_url, canvas, elements, pack_id, sort_order")
+            .select("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order")
             .in("pack_id", packIds)
             .eq("status", "active")
             .order("sort_order", { ascending: true });
@@ -7514,7 +7568,7 @@ const googleFonts = [
         if (demoGrid) demoGrid.style.display = "none";
         if (demoPacks.length && demoPacks[0].id && !demoPacks[0].templateIds) {
           try {
-            const { data: tpls } = await supabase.from("templates").select("id, name, category, thumb_url, canvas, elements, pack_id, sort_order").eq("pack_id", demoPacks[0].id).eq("status", "active").order("sort_order", { ascending: true });
+            const { data: tpls } = await supabase.from("templates").select("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order").eq("pack_id", demoPacks[0].id).eq("status", "active").order("sort_order", { ascending: true });
             if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
               (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
               if (demoGrid) demoGrid.style.display = "";

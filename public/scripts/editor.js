@@ -9635,7 +9635,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const before = snapshotPages(), curBefore = state.currentPage;
     const base = _resizeBase;
     putPages(base.pages, curBefore);
-    state.pages.forEach((p) => resizePage(p, W2, H2));
+    const saved = savedLayoutFor(W2, H2);
+    state.pages.forEach((p) => {
+      resizePage(p, W2, H2);
+      if (saved) applySavedLayout(p, saved);
+    });
     state.guides = deep(base.guides).map((gd) => Object.assign(gd, {
       pos: Math.round(gd.pos * (gd.axis === "v" ? W2 / base.W : H2 / base.H)),
     }));
@@ -9645,6 +9649,110 @@ import { createResizeEngine } from "./resize-engine.js";
     afterDesignChange();
   }
   window.__TMKE_RESIZE_DESIGN__ = resizeDesign;
+
+  /* ---- Saved layouts for the other sizes ---------------------------------
+
+     The automatic resize is good, not perfect, and a template we sell has to
+     be right at every size it is offered at. So an admin can try a size, fix
+     what the automatic pass got wrong and save THAT layout against THAT size,
+     on the same template row (supabase/size_variants.sql).
+
+     A member who resizes to a size with a saved layout gets it. Not as a
+     wholesale swap — they may have changed the words and the photo by then,
+     and handing them the template's copy would throw their work away. The
+     automatic resize runs first, then every element the saved layout knows by
+     id takes ITS geometry: where it sits, how big it is, how big the type is.
+     The member's own content stays theirs, and anything they added themselves
+     is laid out automatically as before. */
+  const VARIANT_GEOM = ["x", "y", "w", "h", "rotation", "size", "lineHeight",
+    "letterSpacing", "align", "radius", "frameShape"];
+
+  function sizeKey(W, H) { return Math.round(W) + "x" + Math.round(H); }
+
+  function sizeVariants() {
+    if (isAdminMode()) return window.__TMKE_SIZE_VARIANTS__ || {};
+    const origin = _templateOrigin || state.templateId;
+    const tpl = origin && TEMPLATES.find(function (t) { return t && t.id === origin; });
+    return (tpl && (tpl.size_variants || tpl.sizeVariants)) || {};
+  }
+
+  function savedLayoutFor(W, H) {
+    const v = sizeVariants()[sizeKey(W, H)];
+    return v && Array.isArray(v.elements) && v.elements.length ? v : null;
+  }
+
+  function applySavedLayout(page, saved) {
+    const byId = new Map();
+    saved.elements.forEach(function (e) { if (e && e.id) byId.set(e.id, e); });
+    (page.elements || []).forEach(function (el) {
+      const src = el && byId.get(el.id);
+      if (!src) return;
+      VARIANT_GEOM.forEach(function (k) { if (src[k] != null) el[k] = src[k]; });
+    });
+    // How a background photo is cropped is part of the layout too.
+    const c = saved.canvas || {};
+    ["bgFit", "bgPosX", "bgPosY", "backgroundOpacity"].forEach(function (k) {
+      if (c[k] != null) page.canvas[k] = c[k];
+    });
+  }
+
+  /* What the resize did, in words. Reading a design at four sizes and spotting
+     that the headline quietly dropped from 64 to 38 is exactly the thing eyes
+     are bad at, so it is listed rather than left to be noticed. */
+  function resizeChanges(before, after) {
+    const out = [];
+    const byId = new Map();
+    (before.elements || []).forEach(function (e) { if (e && e.id) byId.set(e.id, e); });
+    (after.elements || []).forEach(function (el) {
+      const b = byId.get(el.id);
+      if (!b) return;
+      const name = el.type === "text"
+        ? '"' + String(el.text || "").replace(/\s+/g, " ").trim().slice(0, 24) + '"'
+        : el.brandRole === "headshot" ? "The headshot"
+        : el.brandRole === "logo" ? "The logo"
+        : el.type === "image" || el.type === "frame" ? "The picture"
+        : "The shape";
+      if (el.type === "text" && Math.round(b.size || 0) !== Math.round(el.size || 0)) {
+        out.push({ what: name, from: Math.round(b.size) + "px", to: Math.round(el.size) + "px",
+                   down: (el.size || 0) < (b.size || 0) });
+      } else {
+        const bw = Math.round(b.w || 0), aw = Math.round(el.w || 0);
+        const bh = Math.round(b.h || 0), ah = Math.round(el.h || 0);
+        if (Math.abs(bw - aw) > 2 || Math.abs(bh - ah) > 2) {
+          out.push({ what: name, from: bw + " × " + bh, to: aw + " × " + ah, down: aw * ah < bw * bh });
+        }
+      }
+    });
+    return out;
+  }
+
+  // Save the layout on show against the size it is at.
+  async function saveSizeLayout() {
+    const hook = window.__TMKE_SAVE_SIZE_VARIANT__;
+    if (typeof hook !== "function" || !sizePreviewPending()) return;
+    const key = sizeKey(state.canvas.width, state.canvas.height);
+    const res = await hook({
+      templateId: state.templateId,
+      key: key,
+      canvas: deep(state.canvas),
+      elements: deep(state.elements),
+    });
+    if (!res || !res.ok) { toast((res && res.reason) || "Could not save that layout."); return; }
+    toast("Saved how this looks at " + sizeName(state.canvas.width, state.canvas.height));
+    // Back to the design as drawn: the master is what the template still is.
+    backToSavedSize();
+    syncResizePanel();
+  }
+
+  async function forgetSizeLayout(key) {
+    const hook = window.__TMKE_SAVE_SIZE_VARIANT__;
+    if (typeof hook !== "function") return;
+    const res = await hook({ templateId: state.templateId, key: key, elements: null });
+    if (!res || !res.ok) { toast((res && res.reason) || "Could not forget that layout."); return; }
+    toast("Back to the automatic layout for that size");
+    syncResizePanel();
+    syncSizeDecision();
+  }
 
   // Keep the size on show: this is now the design.
   function keepPreviewSize() {
@@ -9725,6 +9833,36 @@ import { createResizeEngine } from "./resize-engine.js";
     document.querySelectorAll("[data-size-now]").forEach((n) => { n.textContent = now; });
     document.querySelectorAll("[data-size-was]").forEach((n) => { n.textContent = was; });
     document.querySelectorAll('[data-size-act="copy"]').forEach((b) => { b.hidden = !canCopy; });
+    // Admin: keep this layout for this size, rather than resizing the template
+    // itself or making a copy of it.
+    const admin = isAdminMode() && typeof window.__TMKE_SAVE_SIZE_VARIANT__ === "function";
+    const key = pending ? sizeKey(state.canvas.width, state.canvas.height) : "";
+    const hasSaved = admin && pending && !!sizeVariants()[key];
+    document.querySelectorAll('[data-size-act="variant"]').forEach((b) => {
+      b.hidden = !(admin && pending);
+      b.textContent = hasSaved ? "Update the saved " + now : "Save how this looks at " + now;
+    });
+    document.querySelectorAll('[data-size-act="forget"]').forEach((b) => {
+      b.hidden = !hasSaved;
+      b.setAttribute("data-size-key", key);
+    });
+    // In admin, resizing the template itself is not what this panel is for.
+    document.querySelectorAll('[data-size-act="keep"]').forEach((b) => { b.hidden = admin; });
+    const list = $("ed-resize-changes");
+    if (list) {
+      const show = admin && pending && _sizePreview;
+      list.hidden = !show;
+      if (show) {
+        const was = _sizePreview.pages[_sizePreview.cur] || _sizePreview.pages[0];
+        const rows = resizeChanges(was, { elements: state.elements });
+        list.innerHTML = rows.length
+          ? '<div class="ed-rc-head">What the resize did</div>' + rows.slice(0, 8).map(function (r) {
+              return '<div class="ed-rc-row' + (r.down ? " is-down" : "") + '"><span>' + escapeHtml(r.what) +
+                '</span><b>' + escapeHtml(r.from) + " \u2192 " + escapeHtml(r.to) + "</b></div>";
+            }).join("") + (rows.length > 8 ? '<div class="ed-rc-more">and ' + (rows.length - 8) + " more</div>" : "")
+          : '<div class="ed-rc-head">Nothing moved or changed size.</div>';
+      }
+    }
     if (!pending) { const m = $("ed-size-modal"); if (m) m.hidden = true; }
     // Safe zones are worth a look on the sizes that have them.
     const tip = $("ed-resize-safe");
@@ -9738,6 +9876,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const m = $("ed-size-modal");
     if (act === "cancel") { if (m) m.hidden = true; return; }
     if (act === "keep") keepPreviewSize();
+    else if (act === "variant") { b.disabled = true; try { await saveSizeLayout(); } finally { b.disabled = false; } return; }
+    else if (act === "forget") { await forgetSizeLayout(b.getAttribute("data-size-key")); return; }
     else if (act === "back") backToSavedSize();
     else if (act === "copy") { b.disabled = true; try { await saveSizeCopy(); } finally { b.disabled = false; } }
     if (m) m.hidden = true;
@@ -9757,9 +9897,19 @@ import { createResizeEngine } from "./resize-engine.js";
     document.querySelectorAll(".ed-resize-family").forEach((g) => {
       g.hidden = g.getAttribute("data-family") !== fam;
     });
+    const variants = sizeVariants();
     document.querySelectorAll(".ed-resize-card").forEach((btn) => {
       btn.classList.toggle("is-current", btn.dataset.size === W + "," + H);
+      // A size you have already sorted is worth seeing at a glance — you are
+      // looking for the ones you haven't done.
+      const parts = String(btn.dataset.size || "").split(",");
+      const saved = isAdminMode() && !!variants[sizeKey(parts[0], parts[1])];
+      btn.classList.toggle("has-layout", saved);
     });
+    // In admin the custom boxes are noise: a template is sold at the sizes we
+    // offer, and a one-off size isn't one of them.
+    const custom = document.querySelector(".ed-resize-custom");
+    if (custom) custom.hidden = isAdminMode();
     const wi = $("ed-resize-w"), hi = $("ed-resize-h");
     if (wi && hi && document.activeElement !== wi && document.activeElement !== hi) { wi.value = W; hi.value = H; }
     syncSizeDecision();
