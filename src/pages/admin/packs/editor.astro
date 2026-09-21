@@ -298,7 +298,9 @@ import "../../../styles/admin.css";
     .pk-brands { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
     .pk-brand {
       display: inline-flex; align-items: center; gap: 8px;
-      padding: 7px 13px; border-radius: 999px; cursor: pointer;
+      /* One line per brand: wrapped text turned every chip into a fat oval. */
+      white-space: nowrap;
+      padding: 8px 15px; border-radius: 999px; cursor: pointer;
       background: #fff; border: 1px solid rgba(28,29,34,0.18);
       font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.7);
       transition: border-color 0.18s, color 0.18s, background 0.18s;
@@ -826,7 +828,8 @@ import "../../../styles/admin.css";
       "TMKE",
     ];
     const brandRank = (b) => {
-      const i = BRAND_ORDER.findIndex((x) => x.toLowerCase() === String(b).toLowerCase());
+      const norm = (x) => String(x).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
+      const i = BRAND_ORDER.findIndex((x) => norm(x) === norm(b));
       return i === -1 ? BRAND_ORDER.length : i;
     };
 
@@ -840,10 +843,15 @@ import "../../../styles/admin.css";
     function renderBrands() {
       const box = document.getElementById("pk-brands");
       if (!box) return;
-      // Case-insensitive dedupe, house order first, then anything unexpected.
+      /* Dedupe on the SHAPE of the name, not the characters: "Fine and
+         Country" and "Fine & Country" are one brand offered twice, and the
+         chip that matched nobody would be the one you picked. The spelling
+         that wins is the one on the agent profiles, because that is what a
+         pack is matched against — the house list only sets the order. */
+      const key = (b) => String(b || "").toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
       const seen = new Map();
-      BRAND_ORDER.concat(BRAND_OPTIONS, BRANDS).forEach((b) => {
-        const k = String(b || "").trim().toLowerCase();
+      BRAND_OPTIONS.concat(BRANDS, BRAND_ORDER).forEach((b) => {
+        const k = key(b);
         if (k && !seen.has(k)) seen.set(k, String(b).trim());
       });
       const all = Array.from(seen.values()).sort((a, b) => {
