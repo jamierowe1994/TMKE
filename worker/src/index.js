@@ -5191,13 +5191,20 @@ export default {
           const problem = (body.errors && body.errors[0] && body.errors[0].message)
             || (Array.isArray(body.messages) && body.messages[0] && body.messages[0].message);
           if (!res.ok || problem) {
-            // The two that actually happen: a token without Analytics:Read, or
-            // the wrong zone id. Say which rather than "request failed".
-            const why = /authentication|authorization|9109|permission/i.test(String(problem || res.status))
-              ? "Cloudflare refused the token - it needs Zone Analytics: Read for tmke.co.uk."
-              : /zone/i.test(String(problem || "")) ? "Cloudflare doesn't recognise that zone id."
-              : String(problem || `Cloudflare returned ${res.status}`);
-            return json({ ok: false, configured: true, error: why }, 200, request, env);
+            // Say what Cloudflare actually said, plus the likely cause. Guessing
+            // silently sent Dani hunting for the wrong thing once already.
+            const zid = String(env.CF_ZONE_ID || "");
+            let hint = "";
+            if (zid && zid === String(env.CF_ACCOUNT_ID || "")) {
+              hint = "That's the ACCOUNT id, not the zone id - they sit next to each other on the Cloudflare overview page. The zone id is the one under the domain name.";
+            } else if (!/^[0-9a-f]{32}$/i.test(zid)) {
+              hint = `The zone id doesn't look right: it should be 32 letters and numbers, and this one is ${zid.length}.`;
+            } else if (/authentication|authorization|9109|permission|denied/i.test(String(problem || res.status))) {
+              hint = "Cloudflare refused the token - it needs Zone / Analytics / Read, and access to tmke.co.uk.";
+            } else if (/zone/i.test(String(problem || ""))) {
+              hint = "Cloudflare doesn't recognise that zone id, or this token can't see that zone.";
+            }
+            return json({ ok: false, configured: true, error: hint, raw: String(problem || `Cloudflare returned ${res.status}`).slice(0, 200) }, 200, request, env);
           }
           const zone = ((((body.data || {}).viewer || {}).zones || [])[0]) || {};
           const days_out = (zone.httpRequests1dGroups || []).map((g) => ({

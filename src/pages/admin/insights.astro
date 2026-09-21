@@ -172,6 +172,7 @@ import "../../styles/admin.css";
     @media (max-width: 700px) { .wi-cf-stats { grid-template-columns: 1fr; } }
     .wi-cf-stats .stat { background: var(--paper, #f4f2f1); border: 0; }
     .wi-cf-msg { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.65); margin: 0; }
+    .wi-raw { display: inline-block; margin-top: 6px; font-size: 12px; color: rgba(28,29,34,0.5); }
     .wi-cf-msg code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 4px; }
     .wi-foot { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin: 12px 0 0; }
     .wi-next ul { margin: 0; padding-left: 18px; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.7); }
@@ -406,7 +407,7 @@ import "../../styles/admin.css";
         if (!d.ok) {
           msg.innerHTML = d.configured === false
             ? "Not connected yet. It needs a read-only Cloudflare token and the zone id on the Worker (<code>CF_ANALYTICS_TOKEN</code> and <code>CF_ZONE_ID</code>)."
-            : esc(d.error || "Cloudflare didn't answer.");
+            : (d.error ? esc(d.error) : "") + (d.raw ? `${d.error ? "<br>" : ""}<span class="wi-raw">Cloudflare said: ${esc(d.raw)}</span>` : "") || "Cloudflare didn't answer.";
           return;
         }
         const rows = d.days || [];
