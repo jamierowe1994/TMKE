@@ -76,6 +76,16 @@ Give every inserted element a shared `groupId` so the block moves and scales as
 one thing. The member can move it, scale it and delete it; they do not restyle
 the parts.
 
+## Sizes a block isn't offered at
+
+`NO_BLOCK_SIZES` in `src/data/studio-sizes.js` lists the canvases a contact
+block is never offered on — a Facebook cover today. A footer is a strip of
+details that sits on a design; a cover is 820 × 312 of almost nothing but
+strip, so a footer scaled onto one stops being a footer.
+
+The admin size check already honours it. The Elements panel should too: don't
+offer blocks when the design is at one of those sizes.
+
 ## The placeholders
 
 Text placeholders are the merge tags the editor already resolves — nothing new

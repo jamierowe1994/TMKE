@@ -1,7 +1,7 @@
 ---
 import AdminShell from "../../components/admin/AdminShell.astro";
 import "../../styles/admin.css";
-import { STUDIO_SIZES } from "../../data/studio-sizes.js";
+import { STUDIO_SIZES, NO_BLOCK_SIZES } from "../../data/studio-sizes.js";
 
 // Every social size a member can resize into — the whole point is that this
 // page shows what they will actually be able to do.
@@ -41,7 +41,7 @@ const WIDE = new Set(["Landscape", "Facebook Link", "Facebook Cover", "LinkedIn 
     <div id="sz-grid" class="sz-grid"></div>
   </div>
 
-  <script id="sz-sizes" type="application/json" set:html={JSON.stringify(SOCIAL.map((z) => ({ ...z, wide: WIDE.has(z.name) })))}></script>
+  <script id="sz-sizes" type="application/json" set:html={JSON.stringify(SOCIAL.map((z) => ({ ...z, wide: WIDE.has(z.name), noBlock: NO_BLOCK_SIZES.includes(z.name) })))}></script>
 
   <style is:global>
     .admin-bar { display: flex; flex-direction: column; gap: 14px; margin-bottom: 26px; }
@@ -249,7 +249,9 @@ const WIDE = new Set(["Landscape", "Facebook Link", "Facebook Cover", "LinkedIn 
       // A size Danielle has already corrected by hand shows HER layout: the
       // page is meant to show what a member gets, and that is what they get.
       const variants = data.size_variants || {};
-      const cards = SIZES.map((sz) => {
+      // A footer has no business on some shapes — see NO_BLOCK_SIZES.
+      const sizes = isBlock ? SIZES.filter((sz) => !sz.noBlock) : SIZES;
+      const cards = sizes.map((sz) => {
         const isSource = sz.w === W0 && sz.h === H0;
         const page = { canvas: clone(source.canvas), elements: clone(source.elements) };
         const saved = variants[sz.w + 'x' + sz.h];

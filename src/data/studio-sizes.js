@@ -24,6 +24,11 @@ const print = (name, wMm, hMm) => ({
   bleed: px(PRINT_BLEED_MM),
 });
 
+/* Sizes a contact block is never offered at. A footer is a strip of details
+   that sits on a design; a Facebook cover is 820 × 312 of almost nothing but
+   strip, so a footer scaled onto one stops being a footer. */
+export const NO_BLOCK_SIZES = ["Facebook Cover"];
+
 export const STUDIO_SIZES = [
   {
     label: "Social",
