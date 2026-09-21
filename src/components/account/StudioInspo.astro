@@ -7,6 +7,9 @@
 //                                     the way the website's pack page is: hero
 //                                     image with switchable thumbnails, the
 //                                     open previews, the locked teasers, Buy.
+//   news      "What's new"          — the latest updates to the Member Hub
+//                                     (src/data/whats-new.js), stepped through
+//                                     in the same slides as the Trending month.
 //   brand     "Brand inspo"         — our templates rendered in the member's
 //                                     own brand kit by a hidden editor iframe.
 //                                     Previews only; buying the pack is what
@@ -16,10 +19,11 @@
 // links to the guide instead. Everything here keeps the member on the Studio
 // page, which is where the packs are — the point of the cards is to sell them.
 //
-// Opens from any [data-inspo="trending|seasonal|brand"] on the page, or from
+// Opens from any [data-inspo="trending|seasonal|news|brand"] on the page, or from
 // /account/studio?inspo=trending so the admin editor can link to a preview.
 import { templates } from "../../data/library.js";
 import { TRENDING_SAMPLE } from "../../data/trending-sample.js";
+import { whatsNewLatest } from "../../data/whats-new.js";
 
 // Fallback stills for the brand view when the templates table is empty.
 const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
@@ -40,7 +44,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   </section>
 </div>
 
-<script type="application/json" id="si-data" set:html={JSON.stringify({ sample: TRENDING_SAMPLE, thumbs: FALLBACK_THUMBS })}></script>
+<script type="application/json" id="si-data" set:html={JSON.stringify({ sample: TRENDING_SAMPLE, thumbs: FALLBACK_THUMBS, news: whatsNewLatest() })}></script>
 
 <style is:global>
   /* ---- shell ---- */
@@ -87,6 +91,8 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   .si-topic-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 14px; }
   .si-facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0; padding: 9px 0; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-bottom: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
   .si-facts div { padding: 0 14px 0 0; }
+  /* What's new: when, where, and the clicks to reach it - the last one runs longer. */
+  .si-facts--3 { grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 2fr); }
   .si-facts dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5)); margin: 0 0 1px; }
   .si-facts dd { font-family: var(--sans); font-size: var(--ws-t-body, 13px); font-weight: 600; color: var(--ws-ink, #1c1d22); margin: 0; }
   .si-sections { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; gap: 14px; padding: 8px 0; }
@@ -217,7 +223,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     document.body.style.overflow = "hidden";
     body.scrollTop = 0;
     body.innerHTML = '<p class="si-loading">Loading&hellip;</p>';
-    ({ trending, seasonal, brand })[kind]?.();
+    ({ trending, seasonal, news, brand })[kind]?.();
   }
   function close() {
     root.hidden = true;
@@ -235,7 +241,7 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   });
   // ?inspo=trending — the admin editor's "Preview in the Studio" link.
   const want = new URLSearchParams(location.search).get("inspo");
-  if (want && ["trending", "seasonal", "brand"].includes(want)) setTimeout(() => open(want), 300);
+  if (want && ["trending", "seasonal", "news", "brand"].includes(want)) setTimeout(() => open(want), 300);
 
   /* ---------------- trending ---------------- */
   async function trending() {
@@ -293,6 +299,59 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     onKey = (e) => {
       if (openKind !== "trending") return;
       if (e.key === "ArrowRight" && i < topics.length - 1) { i++; paint(); }
+      if (e.key === "ArrowLeft" && i > 0) { i--; paint(); }
+    };
+    document.addEventListener("keydown", onKey);
+  }
+
+  /* ---------------- news ----------------
+     What's new in the Member Hub: the same slide as a Trending topic, with
+     the facts strip saying when and where, and a button to go and try it. */
+  function news() {
+    const items = Array.isArray(DATA.news) ? DATA.news : [];
+    eyebrow.textContent = "What's new";
+    title.textContent = "In your Member Hub";
+    if (!items.length) {
+      body.innerHTML = `<div class="si-empty"><h3>Nothing new just yet</h3><p>Updates to the hub appear here as they go live.</p></div>`;
+      return;
+    }
+    let i = 0;
+    const when = (d) => { const x = new Date(String(d || "") + "T00:00:00"); return Number.isNaN(x.getTime()) ? "" : x.toLocaleDateString("en-GB", { day: "numeric", month: "long" }); };
+    const fact = (label, v) => v ? `<div><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
+    const sec = (label, v) => v ? `<div class="si-sec"><p class="si-label">${label}</p><p>${esc(v)}</p></div>` : "";
+    function paint() {
+      const t = items[i];
+      body.innerHTML = `
+        <div class="si-trend si-news">
+          <div class="si-slide">
+            <div class="si-copy">
+              <p class="si-topic-no">${String(i + 1).padStart(2, "0")} / ${String(items.length).padStart(2, "0")}</p>
+              <h3 class="si-topic-h">${esc(t.title || "")}</h3>
+              <dl class="si-facts si-facts--3">${fact("Added", when(t.date))}${fact("Area", t.area)}${fact("Find it", t.where)}</dl>
+              <div class="si-sections">
+                ${sec("What's new", t.what)}
+                ${sec("Why it helps", t.why)}
+                ${t.link && t.link.href ? `<div><a class="si-btn si-btn--ghost" href="${esc(t.link.href)}">${esc(t.link.label || "Take a look")} &rarr;</a></div>` : ""}
+              </div>
+              ${t.tip ? `<div class="si-tip"><strong>TMKE tip</strong><p>${esc(t.tip)}</p></div>` : ""}
+            </div>
+            <div class="si-media">${t.media ? `<img src="${esc(t.media)}" alt="">` : ""}</div>
+          </div>
+          <div class="si-nav">
+            <button type="button" class="si-btn si-btn--ghost" data-prev ${i === 0 ? "disabled" : ""}>&larr; Back</button>
+            <div class="si-dots">${items.map((_, k) => `<button type="button" class="si-dot ${k === i ? "is-on" : ""}" data-go="${k}" aria-label="Update ${k + 1}"></button>`).join("")}</div>
+            <button type="button" class="si-btn si-btn--primary" data-next>${i === items.length - 1 ? "Done" : "Next &rarr;"}</button>
+          </div>
+        </div>`;
+      body.querySelector("[data-prev]")?.addEventListener("click", () => { if (i > 0) { i--; paint(); } });
+      body.querySelector("[data-next]")?.addEventListener("click", () => { if (i < items.length - 1) { i++; paint(); } else close(); });
+      body.querySelectorAll("[data-go]").forEach((d) => d.addEventListener("click", () => { i = +d.dataset.go; paint(); }));
+    }
+    paint();
+    if (onKey) document.removeEventListener("keydown", onKey);
+    onKey = (e) => {
+      if (openKind !== "news") return;
+      if (e.key === "ArrowRight" && i < items.length - 1) { i++; paint(); }
       if (e.key === "ArrowLeft" && i > 0) { i--; paint(); }
     };
     document.addEventListener("keydown", onKey);

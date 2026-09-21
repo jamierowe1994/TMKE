@@ -5443,10 +5443,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // ---------- Export ----------
   // Internal: rasterize the current design to a fresh offscreen canvas.
   // Shared by exportImage (downloads) and the schedule-to-calendar hook
-  // (uploads). Keep this in sync if you add new element types — the Share
-  // button (further down) still inlines the same loop and will need
-  // updating too. TODO(refactor): collapse the Share button onto this
-  // helper as well once we're confident in the shape.
+  // (uploads). Share uses it too, so a new element type is drawn in one place.
   // Force every font used by a text element to finish loading before we draw to
   // a canvas. Canvas measureText/fillText silently fall back to a wider system
   // font if the real font isn't loaded yet, which makes a one-line title wrap
@@ -10939,12 +10936,6 @@ import { createResizeEngine } from "./resize-engine.js";
   // picks a design in the onboarding chooser).
   window.__TMKE_LOAD_TEMPLATE__ = function (id) {
     if (id) loadTemplate(id, false);
-  };
-
-  // Onboarding "start fresh" → open a blank canvas at the chosen size (falls
-  // back to the 1080×1440 house standard when no size is given).
-  window.__TMKE_LOAD_BLANK__ = function (w, h) {
-    loadBlank(w, h);
   };
 
   // If a stock-photo search panel is taking over the Photos tab, skip

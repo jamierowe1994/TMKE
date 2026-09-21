@@ -691,6 +691,12 @@ are the `RESIZE_*` constants at the top of that section.
   A-sizes. Shown over the canvas, never exported.
 - ✅ (19 Sep) **"Save as a copy" confirmed on the live site** by Dani: the copy
   lands in My Designs and the original is untouched.
+- ✅ (21 Sep) **Leftover editor code cleared**: the unreachable size chooser,
+  its unused hook, and the stale Share-button note.
+- ✅ (21 Sep) **Dashboard "New in The Studio" is real**: three cards - the
+  Property Pack, What's new in the Member Hub (latest five updates from
+  `src/data/whats-new.js`, in the Trending month's pop-out), and next month's
+  content calendar. Pictures still to supply.
 - ⏸ **Testing the resize on real pack templates** moves to the Admin Centre:
   its template studio checks every size before a pack goes live, with saved
   layouts per size (`supabase/size_variants.sql`). Members' own designs rely on

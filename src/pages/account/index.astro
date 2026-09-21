@@ -4,6 +4,11 @@ import { templates } from "../../data/library.js";
 import { getMembersPosts } from "../../data/blog.js";
 import "../../styles/ws-system.css";
 import NewDesignModal from "../../components/account/NewDesignModal.astro";
+import StudioInspo from "../../components/account/StudioInspo.astro";
+import { WHATS_NEW } from "../../data/whats-new.js";
+
+// The What's new card shows the latest update's picture and headline.
+const latestNews = WHATS_NEW[0];
 
 // Named on the "from the blog" starter card. Build-time is fine: the card
 // links to the blog either way, so a stale title is a stale title, not a
@@ -34,8 +39,9 @@ const recentTemplates = templates.slice(0, 4);
   The third hero stat is claimed by whatever most needs attention - see
   claimSlot() for the ranking. Everything else on the page is fixed.
 
-  Still placeholder, for a later content pass: the four "New in The Studio"
-  cards. Their links go to real pages but nothing fetches the items.
+  "New in The Studio" is three cards: the Property Pack (The Edit), What's new
+  in the Member Hub (the latest five updates, src/data/whats-new.js, opened in
+  the StudioInspo pop-out), and next month's content calendar.
 -->
 <BaseLayout
   dashboard
@@ -296,11 +302,12 @@ const recentTemplates = templates.slice(0, 4);
       <section class="ws-block" aria-labelledby="new-h">
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="new-h"><span class="ws-block-ch">Chapter 05</span>New in The Studio</h2>
-          <a class="ws-block-link" href="/account/guides">View All Updates
+          <a class="ws-block-link" href="#" data-inspo="news">What's New
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
         </header>
-        <div class="ws-news">
+        <!-- Three, not four, so each card has room for its picture. -->
+        <div class="ws-news ws-news--three">
           <a class="ws-news-card" href="/edit">
             <span class="ws-news-tx">
               <span class="ws-news-flag">Template pack</span>
@@ -309,13 +316,13 @@ const recentTemplates = templates.slice(0, 4);
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/cosy%20home.jpg')"></span>
           </a>
-          <a class="ws-news-card" href="/account/guides" data-demo-lock>
+          <a class="ws-news-card" href="#" data-inspo="news">
             <span class="ws-news-tx">
-              <span class="ws-news-flag">New guide</span>
-              <strong class="ws-news-h">Reels that actually get watched</strong>
-              <span class="ws-news-desc">Practical tips to boost reach and saves.</span>
+              <span class="ws-news-flag">What's new in the Member Hub</span>
+              <strong class="ws-news-h">{latestNews.title}</strong>
+              <span class="ws-news-desc">The latest five updates, and where to find them.</span>
             </span>
-            <span class="ws-news-art" style="background-image:url('/assets/home%20video.jpg')"></span>
+            <span class="ws-news-art" style={`background-image:url('${latestNews.media}')`}></span>
           </a>
           <!-- Month and link are set at runtime by wireNextMonth(): a card
                hard-coded to "September" is wrong for eleven months of the year. -->
@@ -327,19 +334,12 @@ const recentTemplates = templates.slice(0, 4);
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/home%20kitchen.jpg')"></span>
           </a>
-          <a class="ws-news-card" href="/account/schedule" data-demo-lock>
-            <span class="ws-news-tx">
-              <span class="ws-news-flag">New feature</span>
-              <strong class="ws-news-h">Bulk schedule your posts</strong>
-              <span class="ws-news-desc">Plan, schedule and publish with ease.</span>
-            </span>
-            <span class="ws-news-art" style="background-image:url('/assets/social%20media.jpg')"></span>
-          </a>
         </div>
       </section>
     </main>
 
     <NewDesignModal />
+    <StudioInspo />
 
     <!-- Contextual coach — one state-driven nudge, anchored to the relevant
          element, shown after the entrance settles. Rule list in the script. -->
