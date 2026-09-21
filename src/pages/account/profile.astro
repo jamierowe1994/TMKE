@@ -1256,6 +1256,60 @@ const HERO_BG = (await getImage({
           }
         }
       } catch (_) { /* server kit is optional */ }
+
+      /* A TEG agent's kit is not theirs to assemble from scratch: their brand
+         has colours, fonts, a logo and a website, and we already hold their
+         name, job title, phone and email. Ask the Worker once and fill in the
+         BLANKS only — anything they have typed wins, always, and a field they
+         deliberately cleared is not quietly refilled on the next visit. */
+      try {
+        const done = localStorage.getItem("tmke.brand.prefilled");
+        if (!done) {
+          const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+          const { data: sess } = await supabase.auth.getSession();
+          const token = sess?.session?.access_token;
+          if (WORKER && token) {
+            const res = await fetch(WORKER + "/member/brand-prefill", {
+              headers: { Authorization: "Bearer " + token },
+            });
+            const out = await res.json().catch(() => null);
+            if (out && out.ok && out.kit) {
+              let kit = {};
+              try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "{}") || {}; } catch (_) {}
+              const p = out.kit;
+              let changed = false;
+              const fill = (k, v) => {
+                if (v && !kit[k]) { kit[k] = v; changed = true; }
+              };
+              fill("company", p.company);
+              fill("website", p.website);
+              fill("tone", p.tone);
+              if (p.colors && !(kit.colors && kit.colors.length)) { kit.colors = p.colors; changed = true; }
+              if (p.fonts && !(kit.fonts && (kit.fonts.heading || kit.fonts.body))) { kit.fonts = p.fonts; changed = true; }
+              if (p.logos && !(kit.logos && kit.logos.length)) { kit.logos = p.logos; changed = true; }
+              if (p.about) {
+                kit.about = kit.about || {};
+                ["name", "role", "phone", "email"].forEach((k) => {
+                  if (p.about[k] && !kit.about[k]) { kit.about[k] = p.about[k]; changed = true; }
+                });
+              }
+              // Once asked, never again — even when nothing needed filling.
+              localStorage.setItem("tmke.brand.prefilled", "1");
+              if (changed) {
+                kit.updatedAt = Date.now();
+                writeBrandCache(kit, uid);
+                try {
+                  await supabase.from("member_brand_kits").upsert(
+                    { user_id: uid, kit, updated_at: new Date().toISOString() },
+                    { onConflict: "user_id" }
+                  );
+                } catch (_) {}
+                location.reload();
+              }
+            }
+          }
+        }
+      } catch (_) { /* a kit they fill in themselves still works */ }
     })();
   </script>
 

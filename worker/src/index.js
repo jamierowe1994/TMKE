@@ -382,6 +382,8 @@ async function ensureAgentProfile(env, contactId, contact, input) {
     brand,
     date_joined: coalesce(input.date_joined, existing && existing.date_joined),
     postcode: coalesce(input.postcode, existing && existing.postcode),
+    // Printed on their footer, so it comes from us rather than from them.
+    job_title: coalesce(input.job_title, existing && existing.job_title),
     // Don't demote an existing new-starter when re-touched by a non-new-starter
     // path (e.g. an internal-agent import of someone already flagged).
     is_new_starter: isNewStarter || !!(existing && existing.is_new_starter),
@@ -6898,6 +6900,62 @@ export default {
         return json({ ok: true, temp_password: tempPassword, email }, 200, request, env);
       }
 
+      /* ---- A member's brand kit, pre-filled from our own records ------------
+         A TEG agent opening the Studio for the first time should already be
+         set up: their brand's colours, fonts, logo and website, and their own
+         name, job title, phone and email. Asking an agent to go and find their
+         brand guidelines is how a brand kit ends up half-filled and wrong, and
+         a print asset with the wrong grey on it is money.
+
+         The member cannot read contacts or agent_profiles themselves — nor
+         should they — so the Worker does the lookup with the service key and
+         hands back a kit. It never overwrites: the hub asks only when a field
+         is empty, and anything the member has typed wins. Headshots are not
+         here yet, and come from somewhere else. */
+      if (path.endsWith("/member/brand-prefill") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const email = String(user.email || "").toLowerCase();
+
+        // Their contact: by account first, then by email for one never linked.
+        let contact = null;
+        const byUser = await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(user.id)}&select=id,first_name,last_name,email,phone,company&limit=1`);
+        contact = (byUser && byUser[0]) || null;
+        if (!contact && email) {
+          const byEmail = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(email)}&select=id,first_name,last_name,email,phone,company&limit=1`);
+          contact = (byEmail && byEmail[0]) || null;
+        }
+        if (!contact) return json({ ok: true, brand: null, kit: null }, 200, request, env);
+
+        const apRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,left_at&limit=1`);
+        const ap = (apRows && apRows[0]) || null;
+        // A leaver is not in the brand any more; they keep their own details.
+        const brand = ap && !ap.left_at ? (ap.brand || null) : null;
+
+        let bp = null;
+        if (brand) {
+          const bpRows = await sbGet(env, "brand_profiles", `brand=eq.${encodeURIComponent(brand)}&select=*&limit=1`);
+          bp = (bpRows && bpRows[0]) || null;
+        }
+
+        const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim();
+        const kit = {
+          company: brand || contact.company || "",
+          website: (bp && bp.website) || "",
+          tone: (bp && bp.tone) || "",
+          colors: (bp && Array.isArray(bp.colors) && bp.colors.length) ? bp.colors : null,
+          fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.body)) ? bp.fonts : null,
+          logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
+          about: {
+            name: name || "",
+            role: (ap && ap.job_title) || "",
+            phone: contact.phone || "",
+            email: contact.email || user.email || "",
+          },
+        };
+        return json({ ok: true, brand, kit }, 200, request, env);
+      }
+
       // ---- Admin: internal-agent (TEG) profile on a contact -------------------
       // Reads/writes the agent_profiles row for a contact. On save, when the
       // contact is a new starter on Academy/Pro and has no code yet, generates
@@ -6924,6 +6982,7 @@ export default {
 
         await ensureAgentProfile(env, contactId, contact, {
           brand: (b && b.brand) || null,
+          job_title: (b && b.job_title) || null,
           date_joined: (b && b.date_joined) || null,
           postcode: (b && b.postcode) || null,
           is_new_starter: !!(b && b.is_new_starter),
