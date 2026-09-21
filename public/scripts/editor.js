@@ -9929,9 +9929,10 @@ import { createResizeEngine } from "./resize-engine.js";
     resizeDesign(clamp(w, 100, 6000), clamp(h, 100, 6000));
   });
   $("ed-resize-safe")?.addEventListener("click", () => {
-    const z = safeZoneFor(state.canvas.width, state.canvas.height);
-    if (!z.length) return;
-    state.safeZone = z[0];
+    // Story, Reel or Print first when the size has one; the grid otherwise.
+    const all = safeZoneFor(state.canvas.width, state.canvas.height);
+    if (!all.length) return;
+    state.safeZone = all.filter((k) => k !== "grid")[0] || all[0];
     renderSafeZones();
     if (typeof showPane === "function") showPane("guides");
   });
@@ -10000,6 +10001,22 @@ import { createResizeEngine } from "./resize-engine.js";
      figures are Instagram's current layout (it moves now and then) and the
      usual 5mm printers ask to keep words and logos clear of the trim. */
   var SAFE_ZONES = {
+    /* Instagram's profile grid shows every post as a centred 3:4 crop
+       (1080 x 1440). A story or reel cover loses its top and bottom there; a
+       square or anything wider loses its sides. This shades what the grid
+       won't show and outlines what it will, for any social size. */
+    grid: {
+      label: "Instagram grid",
+      fits: (W, H) => sizeFamily(W, H) === "social",
+      zones: (W, H) => {
+        const f = gridFrame(W, H);
+        const note = "Not shown on your grid";
+        if (f.y > 0.5) return [{ side: "top", px: f.y, note }, { side: "bottom", px: f.y, note: "" }];
+        if (f.x > 0.5) return [{ side: "left", px: f.x, note }, { side: "right", px: f.x, note: "" }];
+        return [];
+      },
+      frame: (W, H) => Object.assign(gridFrame(W, H), { label: "Shows on your grid" }),
+    },
     story: {
       label: "Instagram Story",
       fits: (W, H) => W === 1080 && H === 1920,
@@ -10053,6 +10070,14 @@ import { createResizeEngine } from "./resize-engine.js";
     return c ? (parseInt(c.getAttribute("data-bleed"), 10) || 0) : 0;
   }
 
+  // The centred 3:4 slice of a W x H canvas that the Instagram grid shows.
+  function gridFrame(W, H) {
+    const r = 3 / 4;
+    if (W / H > r) { const w = H * r; return { x: (W - w) / 2, y: 0, w: w, h: H }; }
+    const h = W / r;
+    return { x: 0, y: (H - h) / 2, w: W, h: h };
+  }
+
   function safeZoneFor(W, H) {
     return Object.keys(SAFE_ZONES).filter((k) => SAFE_ZONES[k].fits(W, H));
   }
@@ -10089,6 +10114,20 @@ import { createResizeEngine } from "./resize-engine.js";
       ov.appendChild(t);
     }
     const fs = Math.round(Math.min(W, H) / 1080 * 26);
+    const fr = def.frame ? def.frame(W, H) : null;
+    if (fr) {
+      const f = document.createElement("div");
+      f.className = "ed-safezone-frame";
+      f.style.left = fr.x + "px"; f.style.top = fr.y + "px";
+      f.style.width = fr.w + "px"; f.style.height = fr.h + "px";
+      if (fr.label) {
+        const t = document.createElement("span");
+        t.textContent = fr.label;
+        t.style.fontSize = fs + "px";
+        f.appendChild(t);
+      }
+      ov.appendChild(f);
+    }
     zones.forEach((z) => {
       const d = document.createElement("div");
       d.className = "ed-safezone ed-safezone--" + z.side;

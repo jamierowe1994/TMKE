@@ -22,6 +22,17 @@ export const WHATS_NEW_COUNT = 5;
 export const WHATS_NEW = [
   {
     date: "2026-09-21",
+    title: "Check how it looks on your grid",
+    area: "Studio",
+    where: "Studio → Guides → Safe zones → IG grid",
+    what: "Your Instagram profile grid shows every post as a 3:4 crop. IG grid shades the part of your design that won't show there.",
+    why: "A story cover or a square post can lose its headline on your grid. Now you can see it before you post.",
+    tip: "Designing a reel or story cover? Keep the title and your face inside the green outline.",
+    link: { href: "/account/editor", label: "Open the Studio" },
+    media: "/images/learn/hub/areas/studio-v2.jpg",
+  },
+  {
+    date: "2026-09-21",
     title: "Your contact details, on any design",
     area: "Studio & brand kit",
     where: "Studio → Elements → Your contact details",
