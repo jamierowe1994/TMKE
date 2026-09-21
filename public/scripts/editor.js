@@ -7099,15 +7099,36 @@
       m["strapline"] = slogan;
       m["tagline"] = slogan;
     }
-    if (b.email)   m["email"]   = b.email;
-    if (b.phone)   m["phone"]   = b.phone;
+    // The person, not the business. Contact blocks are the reason these exist:
+    // a footer says who you are as well as who you work for. The brand kit
+    // keeps them under `about`; older kits put phone and email at the top, so
+    // read either.
+    const about = b.about || {};
+    const person = (about.name || "").trim();
+    if (person) {
+      m["your name"] = person;
+      m["name"]      = person;
+    }
+    const role = (about.role || "").trim();
+    if (role) {
+      m["job title"] = role;
+      m["role"]      = role;
+    }
+    const email = (about.email || b.email || "").trim();
+    const phone = (about.phone || b.phone || "").trim();
+    if (email) m["email"] = email;
+    if (phone) {
+      m["phone"]     = phone;
+      m["telephone"] = phone;
+    }
     if (b.website) m["website"] = b.website;
     return m;
   }
   // Surface the keys so the admin "insert tag" UI can list them.
   const KNOWN_TAGS = ["brand name", "brand", "company", "company name",
+    "your name", "name", "job title", "role",
     "location", "area", "town", "slogan", "strapline", "tagline",
-    "email", "phone", "website"];
+    "email", "phone", "telephone", "website"];
 
   function applyMergeTags(text) {
     if (!text || typeof text !== "string") return text;
