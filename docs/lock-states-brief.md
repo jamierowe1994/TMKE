@@ -102,3 +102,32 @@ it we didn't.
   `kind` / `access` / `brands` on `packs`, gated in RLS by the member's brand.
 - The admin size checker (`/admin/sizes`) renders from stored elements, so it
   will show locked elements correctly without changes.
+
+## Studio side: done (21 Sep, Design Studio chat)
+
+Built in `public/scripts/editor.js` (search "Locks (docs/lock-states-brief.md)").
+Decisions Danielle made along the way:
+
+- **Long words in a Fixed text box shrink to fit it** (never above the size it
+  was drawn at, never below 6px). The box keeps its size; the drawn size is
+  kept on the element as `lockSize` so shorter words grow back.
+- **Members can lock their own things** from Layers (`lockBy: "member"`,
+  always a dead lock) and unlock them again. A template's lock is shown in
+  Layers but can't be changed by a member.
+- **Resize is allowed.** Locked parts are placed by the saved layout for that
+  size, or the automatic resize, and stay locked. `lockSize` scales with them.
+- **Contact footers keep their locks.** If part of a footer is locked, the
+  footer is meant to stay where it is.
+
+How it behaves:
+
+- A member clicking a Fixed text goes straight into typing; a Fixed photo
+  opens the picture chooser. No handles, no toolbar, only plain-text paste.
+- Locked parts let clicks pass through to what's underneath, aren't in
+  select-all, the Text list or the right-click menu, and are skipped by
+  "Make this design yours" recolouring and font swaps.
+- Admin: the Lock section in the properties panel is Unlocked / Fixed /
+  Locked, for one element or a whole multi-selection. The toolbar and Layers
+  buttons cycle the same three. On the canvas, admins see a green FIXED or a
+  red LOCKED tag. In admin mode a lock only stops dragging; everything else,
+  the lock included, stays editable.

@@ -261,6 +261,8 @@ export function createResizeEngine(deps) {
       if (el.textOutline && el.textOutline.width) el.textOutline.width = r(el.textOutline.width, kt);
       if (el.textBg) ["padX", "padY", "radius"].forEach((p) => { if (el.textBg[p]) el.textBg[p] = r(el.textBg[p], kt); });
       if (el.textShadow) ["offsetX", "offsetY", "blur"].forEach((p) => { if (el.textShadow[p]) el.textShadow[p] = r(el.textShadow[p], kt); });
+      // A light-locked field's drawn size moves with it (see fitLockedText).
+      if (el.lockSize) el.lockSize = Math.max(RESIZE_MIN_TEXT, Math.round(el.lockSize * kt));
     }
     if (el.shadow) ["offsetX", "offsetY", "blur"].forEach((p) => { if (el.shadow[p]) el.shadow[p] = r(el.shadow[p], k); });
     if (el.radius) el.radius = r(el.radius, k);

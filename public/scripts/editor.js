@@ -321,6 +321,103 @@ import { createResizeEngine } from "./resize-engine.js";
     return typeof window.__TMKE_ADMIN_SAVE__ === "function";
   }
 
+  /* ---------- Locks (docs/lock-states-brief.md) ----------
+     Two kinds, set in the admin template builder:
+       "dead"  - nothing about it can change: place, size, style, content.
+       "light" - it stays exactly where and how it is, but its words or its
+                 photo can be changed: a name, a phone number, a headshot.
+     An older `locked: true` reads as dead, so nothing already drawn changes
+     meaning. A lock a member set on their own element (lockBy "member") is
+     theirs to undo; a template's lock is not. In admin mode a lock only stops
+     the element being dragged about by accident - everything else, the lock
+     included, can still be changed there. */
+  function lockState(el) {
+    if (!el) return null;
+    if (el.lock === "dead" || el.lock === "light") return el.lock;
+    return el.locked ? "dead" : null;
+  }
+  function isTemplateLock(el) { return !!lockState(el) && el.lockBy !== "member"; }
+  // The lock that binds a member right now: a template's.
+  function memberLock(el) { return !isAdminMode() && isTemplateLock(el) ? lockState(el) : null; }
+  function isLightForMember(el) { return memberLock(el) === "light"; }
+  // Any lock at all keeps an element where it is on the canvas.
+  function isPinned(el) { return !!lockState(el); }
+  function setLock(el, kind, by) {
+    delete el.locked;
+    if (kind === "dead" || kind === "light") {
+      el.lock = kind;
+      if (by) el.lockBy = by; else delete el.lockBy;
+      // The size the words were drawn at: a light-locked box shrinks longer
+      // words to fit, and grows them back to this when they get shorter.
+      if (kind === "light" && el.type === "text") el.lockSize = el.size; else delete el.lockSize;
+    } else {
+      delete el.lock; delete el.lockBy; delete el.lockSize;
+    }
+  }
+  // Refuse a change a lock forbids, and say why. True when blocked.
+  function lockBlocks(els) {
+    if (isAdminMode()) return false;
+    const pinned = (els || selectedElements()).filter(isPinned);
+    if (!pinned.length) return false;
+    toast(pinned.every((e) => e.lockBy === "member")
+      ? "That's locked. Unlock it from Layers first."
+      : "That part is fixed in this template.");
+    return true;
+  }
+
+  /* A light-locked text box keeps the size it was drawn at, so longer words
+     come down in size until they fit it (never past the size they were drawn
+     at, never below 6). Width counts too, so a long email address shrinks
+     rather than running off the side. */
+  // The admin's three-way control: one for a single element, or for the
+  // whole selection at once (a brochure means locking twenty things).
+  const LOCK_HINTS = {
+    none: "Members can change everything about it.",
+    light: "Stays put. They can change the words or the photo.",
+    dead: "Can't be touched.",
+  };
+  function lockControlHtml(els) {
+    const st = els.map((e) => lockState(e) || "none");
+    const cur = st.every((v) => v === st[0]) ? st[0] : null;
+    const opt = (k, label) => '<button type="button" data-lockset="' + k + '"' + (cur === k ? ' class="is-on"' : "") + ">" + label + "</button>";
+    return '<div class="ed-props-section"><h4>Lock</h4><div class="ed-lockset">' +
+      opt("none", "Unlocked") + opt("light", "Fixed") + opt("dead", "Locked") +
+      '</div><p class="ed-props-hint ed-props-hint--block">' + (cur ? LOCK_HINTS[cur] : "The selection is a mix.") + "</p></div>";
+  }
+  function wireLockControl(body, els) {
+    body.querySelectorAll("[data-lockset]").forEach((b) => b.addEventListener("click", () => {
+      const k = b.getAttribute("data-lockset");
+      els.forEach((e) => setLock(e, k === "none" ? null : k));
+      pushHistory();
+      fullRender();
+    }));
+  }
+  const LOCK_CYCLE = { none: "light", light: "dead", dead: "none" };
+  const LOCK_TITLE = { none: "Unlocked - click to fix in place", light: "Fixed: the words or photo can change - click to lock", dead: "Locked - click to unlock" };
+  var _lastFieldPick = null;   // the photo field whose chooser we opened for you
+
+  const _lockFit = new WeakMap();
+  function fitLockedText(el, inner, force) {
+    if (!inner || lockState(el) !== "light" || el.type !== "text" || !el.h) return;
+    const key = [el.text, el.w, el.h, el.lockSize, el.font, el.weight, el.lineHeight, el.letterSpacing].join("|");
+    if (!force && _lockFit.get(el) === key) return;
+    if (!el.lockSize) el.lockSize = el.size || 16;
+    const fits = () => inner.offsetHeight <= el.h + 1 && inner.scrollWidth <= inner.clientWidth + 1;
+    let hi = Math.round(el.lockSize), lo = 6, best = lo;
+    inner.style.fontSize = hi + "px";
+    if (fits()) best = hi;
+    else {
+      while (lo <= hi) {
+        const mid = (lo + hi) >> 1;
+        inner.style.fontSize = mid + "px";
+        if (fits()) { best = mid; lo = mid + 1; } else hi = mid - 1;
+      }
+    }
+    inner.style.fontSize = best + "px";
+    el.size = best;
+    _lockFit.set(el, key);
+  }
+
   /* Ratio lock. Sticky on purpose — it stays on until you turn it off, rather
      than resetting each time you select something, because the reason you turn
      it on is usually a run of elements rather than one. It governs both the
@@ -1468,6 +1565,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function showContextMenu(x, y, el) {
     if (!el) return;
+    if (memberLock(el)) return;
     // Make sure the right-clicked element is selected so subsequent actions
     // (which read state.selectedIds) target it.
     if (!state.selectedIds.includes(el.id)) {
@@ -1641,6 +1739,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function alignSelected(mode) {
     const els = selectedElements();
     if (!els.length) return;
+    if (lockBlocks(els)) return;
     const cw = state.canvas.width, ch = state.canvas.height;
     const minX = Math.min.apply(null, els.map(function (e) { return e.x; }));
     const minY = Math.min.apply(null, els.map(function (e) { return e.y; }));
@@ -1666,6 +1765,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function flipSelected(axis) {
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
+    if (lockBlocks([el])) return;
     if (axis === "h") el.flipX = !el.flipX;
     if (axis === "v") el.flipY = !el.flipY;
     pushHistory();
@@ -1677,6 +1777,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function copySelectedToClipboard() {
     const els = selectedElements();
     if (!els.length) return;
+    if (lockBlocks(els)) return;
     state.clipboard = els.map(deep);
     toast(els.length + " copied");
   }
@@ -2553,6 +2654,12 @@ import { createResizeEngine } from "./resize-engine.js";
     state.elements.forEach((el) => {
       canvasEl.appendChild(renderElement(el));
     });
+    // Light-locked words fitted to their box, now they can be measured.
+    state.elements.forEach((el) => {
+      if (lockState(el) !== "light" || el.type !== "text") return;
+      const inner = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"] .ed-text-inner');
+      fitLockedText(el, inner);
+    });
 
     // Blank-canvas hint: a DOM-only "Start building here" prompt shown while
     // a from-scratch canvas is still empty. It carries no element data, so
@@ -2712,6 +2819,11 @@ import { createResizeEngine } from "./resize-engine.js";
   function autosizeTextElements() {
     state.elements.forEach(function (el) {
       if (el.type !== "text") return;
+      if (lockState(el) === "light") {        // a field keeps its box; the words fit it
+        const inner = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"] .ed-text-inner');
+        fitLockedText(el, inner, true);
+        return;
+      }
       const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
       if (!node) return;
       const inner = node.querySelector(".ed-text-inner");
@@ -2877,7 +2989,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const wrap = document.getElementById("ed-textlist");
     if (!wrap) return;
     if (wrap.contains(document.activeElement)) return;   // never rebuild mid-type
-    const texts = state.elements.filter((e) => e.type === "text");
+    // A text the template has fixed outright isn't offered for rewording.
+    const texts = state.elements.filter((e) => e.type === "text" && memberLock(e) !== "dead");
     if (!texts.length) {
       wrap.innerHTML = '<p class="ed-textlist-empty">No text on this page yet — add one below.</p>';
       return;
@@ -3147,7 +3260,12 @@ import { createResizeEngine } from "./resize-engine.js";
     if (state.selectedIds.includes(el.id)) {
       node.classList.add(state.selectedIds.length > 1 ? "is-multiselected" : "is-selected");
     }
-    if (el.locked) node.classList.add("is-locked");
+    // Dead locks let clicks through to what's underneath; a light lock is a
+    // field you click into. Admins see which is which at a glance.
+    const _lk = lockState(el);
+    if (_lk === "dead") node.classList.add("is-locked");
+    if (_lk === "light" && !isAdminMode()) node.classList.add("is-field");
+    if (_lk && isAdminMode()) node.classList.add("is-lock-" + _lk);
     // Authoring aid: show which element is the logo slot. Admin only — a
     // customer sees their own logo there, not a marked-up box.
     if (el.brandRole === "logo" && isAdminMode()) node.classList.add("is-logoslot");
@@ -3472,7 +3590,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Multi-selection — a combined dashed box + the group action bar.
     if (state.selectedIds.length > 1) {
       hideFloatBar();
-      const els = selectedElements().filter((e) => !e.locked);
+      const els = selectedElements().filter((e) => !isPinned(e));
       if (!els.length) { hideGroupBar(); return; }
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       els.forEach((e) => { minX = Math.min(minX, e.x); minY = Math.min(minY, e.y); maxX = Math.max(maxX, e.x + e.w); maxY = Math.max(maxY, e.y + e.h); });
@@ -3506,7 +3624,20 @@ import { createResizeEngine } from "./resize-engine.js";
     hideGroupBar();
     if (state.selectedIds.length !== 1) { hideFloatBar(); return; }
     const el = getEl(state.selectedIds[0]);
-    if (!el || el.locked) { hideFloatBar(); return; }
+    if (!el || isPinned(el)) {
+      // A field (light lock) gets an outline so you can see what you picked,
+      // but no handles: it stays where it is.
+      if (el && lockState(el) === "light") {
+        const fb = document.createElement("div");
+        fb.className = "ed-bounds ed-bounds--field";
+        fb.style.left = el.x + "px"; fb.style.top = el.y + "px";
+        fb.style.width = el.w + "px"; fb.style.height = el.h + "px";
+        fb.style.transform = el.rotation ? "rotate(" + el.rotation + "deg)" : "";
+        handlesEl.appendChild(fb);
+      }
+      hideFloatBar();
+      return;
+    }
 
     // Bounds
     const bounds = document.createElement("div");
@@ -3735,6 +3866,7 @@ import { createResizeEngine } from "./resize-engine.js";
     else if (act === "delete") deleteSelected();
     else if (act === "group") {
       const els = selectedElements();
+      if (lockBlocks(els)) return;
       const allGrouped = els.length && els.every((e2) => e2.group && e2.group === els[0].group);
       if (allGrouped) { els.forEach((e2) => { delete e2.group; }); }   // ungroup
       else { const gid = uid("grp"); els.forEach((e2) => { e2.group = gid; }); } // group
@@ -3848,7 +3980,18 @@ import { createResizeEngine } from "./resize-engine.js";
       // Inside a screen's artwork mode, dragging moves the picture rather than
       // the element. Entered by double-clicking the screen, so the ordinary
       // drag - moving the whole thing - stays the default.
-      if (!el.locked) {
+      // A light-locked text field goes straight into typing: it's a field,
+      // not something to move.
+      if (isLightForMember(el) && el.type === "text") {
+        const pt = { x: ev.clientX, y: ev.clientY };
+        ev.preventDefault();
+        setTimeout(() => {
+          const n = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+          if (n && !n.classList.contains("is-editing")) startTextEdit(n, el, pt);
+        }, 0);
+        return;
+      }
+      if (!isPinned(el)) {
         if (el.type === "screen" && el.src && artworkEditId === el.id) startArtworkPan(ev, el);
         else startDrag(ev);
       }
@@ -3863,7 +4006,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // node, so this handler won't fire then); a second click on the already-
       // selected box drops the caret where you clicked — no double-click needed.
       node.addEventListener("click", (ev) => {
-        if (el.locked || node.classList.contains("is-editing")) return;
+        if ((lockState(el) === "dead" && !isAdminMode()) || node.classList.contains("is-editing")) return;
         if (isAddToSelection(ev) || _dragMoved) return;
         if (state.selectedIds.length === 1 && state.selectedIds[0] === el.id) {
           startTextEdit(node, el, { x: ev.clientX, y: ev.clientY });
@@ -3878,7 +4021,8 @@ import { createResizeEngine } from "./resize-engine.js";
     ev.preventDefault();
     _dragMoved = false;
     const startX = ev.clientX, startY = ev.clientY;
-    const initial = selectedElements().map((e) => ({ id: e.id, x: e.x, y: e.y }));
+    // Locked elements stay put, even when dragged along with others.
+    const initial = selectedElements().filter((e) => !isPinned(e)).map((e) => ({ id: e.id, x: e.x, y: e.y }));
     let moved = false;
 
     function onMove(e) {
@@ -3921,6 +4065,8 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!node) return;
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
+    // A light-locked box keeps its height; the words fit it instead.
+    if (lockState(el) === "light") { fitLockedText(el, inner, true); return; }
     const h = Math.ceil(inner.offsetHeight);
     if (h > 0) { el.h = h; node.style.height = h + "px"; }
   }
@@ -4561,6 +4707,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Grow (or shrink) the box live as lines are added/removed, and keep the
     // selection outline glued to it.
     function grow() {
+      if (lockState(el) === "light") { fitLockedText(el, inner, true); return; }
       const h = Math.ceil(inner.offsetHeight);
       if (h > 0 && h !== el.h) {
         el.h = h;
@@ -4570,6 +4717,14 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     inner.addEventListener("input", grow);
     grow();
+    // Into a field, only words: pasted formatting would restyle it.
+    function plainPaste(e) {
+      if (!isLightForMember(el)) return;
+      e.preventDefault();
+      const txt = (e.clipboardData || window.clipboardData).getData("text/plain");
+      document.execCommand("insertText", false, txt);
+    }
+    inner.addEventListener("paste", plainPaste);
 
     function commit() {
       inner.contentEditable = "false";
@@ -4579,6 +4734,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // so plain editing behaves exactly as before.
       commitTextFromDom(inner, el);
       inner.removeEventListener("input", grow);
+      inner.removeEventListener("paste", plainPaste);
       inner.removeEventListener("blur", commit);
       renderHandles(); // bring the floating toolbar back now editing is done
     }
@@ -4634,7 +4790,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const rx = Math.min(sx, cx), ry = Math.min(sy, cy), rw = Math.abs(cx - sx), rh = Math.abs(cy - sy);
       const ids = new Set();
       state.elements.forEach((el) => {
-        if (el.locked) return;
+        if (isPinned(el)) return;
         if (el.x < rx + rw && el.x + el.w > rx && el.y < ry + rh && el.y + el.h > ry) {
           groupIdsFor(el).forEach((id) => ids.add(id));
         }
@@ -5180,6 +5336,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // ---------- Delete / duplicate / clipboard ----------
   function deleteSelected() {
     if (!state.selectedIds.length) return;
+    if (lockBlocks()) return;
     // Two-stage delete for frames: a filled frame's first Delete empties just
     // the photo (the frame stays, still selected); a second Delete on the now
     // empty frame removes the frame itself. Only applies to a single frame.
@@ -5205,6 +5362,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function duplicateSelected() {
     if (!state.selectedIds.length) return;
+    if (lockBlocks()) return;
     const copies = selectedElements().map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
@@ -5218,6 +5376,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   function copySelected() {
+    if (lockBlocks()) return;
     state.clipboard = selectedElements().map(deep);
     toast("Copied " + state.clipboard.length + " element(s)");
   }
@@ -5238,6 +5397,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // ---------- Layer ordering ----------
   function bringForward() {
     if (state.selectedIds.length !== 1) return;
+    if (lockBlocks()) return;
     const id = state.selectedIds[0];
     const i = state.elements.findIndex((e) => e.id === id);
     if (i < 0 || i === state.elements.length - 1) return;
@@ -5247,6 +5407,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function sendBack() {
     if (state.selectedIds.length !== 1) return;
+    if (lockBlocks()) return;
     const id = state.selectedIds[0];
     const i = state.elements.findIndex((e) => e.id === id);
     if (i <= 0) return;
@@ -5256,6 +5417,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function bringToFront() {
     if (state.selectedIds.length !== 1) return;
+    if (lockBlocks()) return;
     const id = state.selectedIds[0];
     const i = state.elements.findIndex((e) => e.id === id);
     if (i < 0) return;
@@ -5266,6 +5428,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function sendToBack() {
     if (state.selectedIds.length !== 1) return;
+    if (lockBlocks()) return;
     const id = state.selectedIds[0];
     const i = state.elements.findIndex((e) => e.id === id);
     if (i < 0) return;
@@ -6248,6 +6411,39 @@ import { createResizeEngine } from "./resize-engine.js";
     return body;
   }
 
+    // Change image: the same chooser the background uses — the pictures in
+    // this design and your uploads, in a card under the button, with a file
+    // dialog behind "Upload a new image".
+  function wireReplaceImage(body) {
+    const replaceBtn = body.querySelector("#ed-replace-img");
+    if (replaceBtn) {
+      const put = (src) => {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt) return;
+        if (tgt.type === "frame") fillFrame(tgt, src);
+        else { tgt.src = src; fullRender(); }
+        pushHistory();
+        renderProps();
+      };
+      mountPicturePicker({
+        menu: body.querySelector("#ed-sel-imgmenu"),
+        button: replaceBtn,
+        onPick: put,
+        onUpload: () => {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.onchange = () => {
+            const file = input.files[0];
+            if (!file) return;
+            fileToWebImage(file).then((src) => { if (src) put(src); });
+          };
+          input.click();
+        },
+      });
+    }
+  }
+
   function renderProps() {
     const body = placeSelectionBody();
     if (!body) return;
@@ -6295,6 +6491,7 @@ import { createResizeEngine } from "./resize-engine.js";
               '<button type="button" data-galign="bottom" title="Bottom">' + ALIGN_ICONS.bottom + '</button>' +
             '</div>' +
           '</div>';
+        if (isAdminMode()) { body.insertAdjacentHTML("beforeend", lockControlHtml(gels)); wireLockControl(body, gels); }
         if (typeof showPane === "function") showPane("selection");
         body.querySelectorAll("[data-galign]").forEach(function (b) {
           b.addEventListener("click", function () { alignSelected(b.getAttribute("data-galign")); });
@@ -6322,6 +6519,35 @@ import { createResizeEngine } from "./resize-engine.js";
 
     const el = getEl(state.selectedIds[0]);
     if (!el) return;
+
+    // A template's locked part in a member's Studio: no styling controls at
+    // all. A field offers only what it's for - words on the canvas, or a new
+    // photo from the chooser, which opens as you pick it.
+    const ml = memberLock(el);
+    if (ml) {
+      closeColorPanel();
+      if (typeof showPane === "function") showPane("selection");
+      const isPic = el.type === "image" || el.type === "frame";
+      if (ml === "light" && isPic) {
+        body.innerHTML = '<p class="ed-selection-empty">This photo stays where it is in the template. You can change the picture.</p>' +
+          '<div class="ed-props-section"><h4>Photo</h4>' +
+          '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image ' +
+          '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
+          '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div></div>';
+        wireReplaceImage(body);
+        if (_lastFieldPick !== el.id) {
+          _lastFieldPick = el.id;
+          const rb = body.querySelector("#ed-replace-img");
+          if (rb) rb.click();
+        }
+      } else if (ml === "light") {
+        body.innerHTML = '<p class="ed-selection-empty">This text stays where it is in the template. Click it to change the words: if they run long, they shrink to fit.</p>';
+      } else {
+        body.innerHTML = '<p class="ed-selection-empty">This part is fixed in the template.</p>';
+      }
+      return;
+    }
+    _lastFieldPick = null;
 
     // Selected element — surface its controls and switch to Selection pane.
     // Exception: if you are already working in the Text pane and you pick
@@ -6598,9 +6824,9 @@ import { createResizeEngine } from "./resize-engine.js";
     }
 
     // Lock is admin-only — customer flow doesn't get the affordance.
+    if (isAdminMode()) html.push(lockControlHtml([el]));
     html.push(`<div class="ed-props-section">
       <div class="ed-props-actions">
-        ${isAdminMode() ? `<button data-action="lock">${el.locked ? "Unlock" : "Lock"}</button>` : ""}
         <button data-action="duplicate">Duplicate</button>
         <button data-action="delete" class="danger">Delete</button>
       </div>
@@ -6739,16 +6965,11 @@ import { createResizeEngine } from "./resize-engine.js";
         else if (a === "back") sendToBack();
       });
     });
+    wireLockControl(body, [el]);
     body.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const a = btn.dataset.action;
-        if (a === "lock") {
-          const tgt = getEl(state.selectedIds[0]);
-          if (!tgt) return;
-          tgt.locked = !tgt.locked;
-          pushHistory();
-          fullRender();
-        } else if (a === "duplicate") duplicateSelected();
+        if (a === "duplicate") duplicateSelected();
         else if (a === "delete") deleteSelected();
       });
     });
@@ -6824,36 +7045,7 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     }
 
-    // Change image: the same chooser the background uses — the pictures in
-    // this design and your uploads, in a card under the button, with a file
-    // dialog behind "Upload a new image".
-    const replaceBtn = body.querySelector("#ed-replace-img");
-    if (replaceBtn) {
-      const put = (src) => {
-        const tgt = getEl(state.selectedIds[0]);
-        if (!tgt) return;
-        if (tgt.type === "frame") fillFrame(tgt, src);
-        else { tgt.src = src; fullRender(); }
-        pushHistory();
-        renderProps();
-      };
-      mountPicturePicker({
-        menu: body.querySelector("#ed-sel-imgmenu"),
-        button: replaceBtn,
-        onPick: put,
-        onUpload: () => {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = "image/*";
-          input.onchange = () => {
-            const file = input.files[0];
-            if (!file) return;
-            fileToWebImage(file).then((src) => { if (src) put(src); });
-          };
-          input.click();
-        },
-      });
-    }
+    wireReplaceImage(body);
 
     // Frame controls
     const frameResetBtn = body.querySelector("#ed-frame-reset");
@@ -7249,7 +7441,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const map = {};
     const note = { text: "Text", rect: "Shapes", ellipse: "Shapes", triangle: "Shapes", star: "Shapes", line: "Lines" };
     state.elements.forEach(function (el) {
-      if (!el) return;
+      if (!el || memberLock(el)) return;   // a template's locked parts keep their colours
       ["color", "fill", "stroke"].forEach(function (k) {
         const c = normHexSafe(el[k]);
         if (!c) return;
@@ -7267,6 +7459,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!normHexSafe(toHex)) return 0;
     let n = 0;
     state.elements.forEach(function (el) {
+      if (memberLock(el)) return;
       ["color", "fill", "stroke"].forEach(function (k) {
         if (normHexSafe(el[k]) === fromHex) { el[k] = toHex; n++; }
       });
@@ -7295,7 +7488,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function designFonts() {
     const seen = {};
     state.elements.forEach(function (el) {
-      if (el && el.type === "text" && el.font) seen[el.font] = (seen[el.font] || 0) + 1;
+      if (el && el.type === "text" && el.font && !memberLock(el)) seen[el.font] = (seen[el.font] || 0) + 1;
     });
     return Object.keys(seen).map(function (name) {
       return { name: name, count: seen[name], serif: isSerifFont(name) };
@@ -7348,7 +7541,7 @@ import { createResizeEngine } from "./resize-engine.js";
     let n = 0;
     const heads = [];
     state.elements.forEach(function (el) {
-      if (el && el.type === "text" && el.font === fromName) {
+      if (el && el.type === "text" && el.font === fromName && !memberLock(el)) {
         const lines = textLineCount(el, el.size || 16);
         // Two or three lines: a one-line title changing width doesn't disturb
         // the design, and refitting it would only move the size for nothing.
@@ -8001,6 +8194,7 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const el = getEl(state.selectedIds[0]);
     if (!el) { ctxEl.hidden = true; _reopenPopoverKey = null; return; }
+    if (memberLock(el)) { ctxEl.hidden = true; _reopenPopoverKey = null; return; }
     ctxEl.hidden = false;
     ctxEl.innerHTML = "";
     _reopenPopoverKey = reopen;
@@ -8331,9 +8525,11 @@ import { createResizeEngine } from "./resize-engine.js";
 
     // Lock — admin only.
     if (isAdminMode()) {
-      gA.appendChild(toggleBtn(el.locked ? "🔒" : "🔓", el.locked, function () {
-        el.locked = !el.locked; pushHistory(); fullRender();
-      }, "Lock"));
+      const lk = lockState(el) || "none";
+      gA.appendChild(toggleBtn(lk === "dead" ? "🔒" : lk === "light" ? "🔏" : "🔓", lk !== "none", function () {
+        const next = LOCK_CYCLE[lk];
+        setLock(el, next === "none" ? null : next); pushHistory(); fullRender();
+      }, LOCK_TITLE[lk]));
     }
 
     // (Delete removed from the toolbar — use Backspace/Del or right-click → Delete.)
@@ -8425,22 +8621,35 @@ import { createResizeEngine } from "./resize-engine.js";
         ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
         : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
       hideBtn.title = el.hidden ? "Show" : "Hide";
+      if (memberLock(el)) { hideBtn.disabled = true; hideBtn.title = "Part of the template"; }
       hideBtn.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (lockBlocks([el])) return;
         el.hidden = !el.hidden;
         pushHistory();
         fullRender();
       });
 
       const lockBtn = document.createElement("button");
-      lockBtn.className = "ed-layer-action" + (el.locked ? " is-on" : "");
-      lockBtn.innerHTML = el.locked
+      const lk = lockState(el) || "none";
+      lockBtn.className = "ed-layer-action" + (lk !== "none" ? " is-on" : "") + (lk === "light" ? " is-light" : "");
+      lockBtn.innerHTML = lk !== "none"
         ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
         : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></svg>';
-      lockBtn.title = el.locked ? "Unlock" : "Lock";
+      // Admin: the three-way cycle. A member: their own things only - a
+      // template's lock is shown, not offered.
+      if (isAdminMode()) lockBtn.title = LOCK_TITLE[lk];
+      else if (isTemplateLock(el)) { lockBtn.disabled = true; lockBtn.title = lk === "light" ? "You can change what it says, not where it sits" : "Fixed in the template"; }
+      else lockBtn.title = lk === "none" ? "Lock" : "Unlock";
       lockBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        el.locked = !el.locked;
+        if (isAdminMode()) {
+          const next = LOCK_CYCLE[lk];
+          setLock(el, next === "none" ? null : next);
+        } else {
+          if (isTemplateLock(el)) return;
+          setLock(el, lk === "none" ? "dead" : null, "member");
+        }
         pushHistory();
         fullRender();
       });
@@ -8452,12 +8661,14 @@ import { createResizeEngine } from "./resize-engine.js";
 
       li.addEventListener("click", () => {
         if (li._dragged) { li._dragged = false; return; }   // a drag, not a click
+        if (memberLock(el) === "dead") { toast("That part is fixed in this template."); return; }
         state.selectedIds = [el.id];
         fullRender();
       });
 
       li.dataset.id = el.id;
-      bindLayerDrag(li, el);
+      if (memberLock(el)) li.classList.add("is-fixed");
+      else bindLayerDrag(li, el);
       layersEl.appendChild(li);
     }
 
@@ -8649,7 +8860,9 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // ---------- Brand pane ----------
   function applyBrandColour(hex) {
-    const sel = selectedElements();
+    const all = selectedElements();
+    const sel = all.filter((el) => !memberLock(el));
+    if (all.length && !sel.length) { lockBlocks(all); return; }
     if (!sel.length) {
       state.canvas.background = hex;
       pushHistory();
@@ -8720,7 +8933,9 @@ import { createResizeEngine } from "./resize-engine.js";
         btn.innerHTML = '<div><div class="ed-brand-font-role">' + label + '</div><div class="ed-brand-font-name">' + name + '</div></div><span class="ed-brand-font-role">Apply</span>';
         btn.querySelector(".ed-brand-font-name").style.fontFamily = '"' + name + '", sans-serif';
         btn.addEventListener("click", function () {
-          const sel = selectedElements().filter(function (e) { return e.type === "text"; });
+          const all = selectedElements().filter(function (e) { return e.type === "text"; });
+          const sel = all.filter(function (e) { return !memberLock(e); });
+          if (all.length && !sel.length) { lockBlocks(all); return; }
           if (!sel.length) { toast("Select a text element first"); return; }
           sel.forEach(function (e) { e.font = name; });
           pushHistory();
@@ -8913,10 +9128,10 @@ import { createResizeEngine } from "./resize-engine.js";
   // The text element the browser applies to: the selected text if any, else the
   // element the panel was opened for.
   function fontTextTarget() {
-    const sel = selectedElements().filter((e) => e.type === "text");
+    const sel = selectedElements().filter((e) => e.type === "text" && !memberLock(e));
     if (sel.length) return sel[0];
     const t = _fontTargetId && getEl(_fontTargetId);
-    return (t && t.type === "text") ? t : null;
+    return (t && t.type === "text" && !memberLock(t)) ? t : null;
   }
   function fbSignature() {
     const el = fontTextTarget();
@@ -10605,6 +10820,9 @@ import { createResizeEngine } from "./resize-engine.js";
       const editingInner = document.querySelector('.ed-text-inner[contenteditable="true"]');
       if (editingInner) {
         e.preventDefault();
+        // A field keeps its styling; only its words change.
+        const editingEl = getEl(editingInner.closest(".ed-element")?.dataset.id);
+        if (isLightForMember(editingEl)) return;
         try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
         document.execCommand("bold");
         return;
@@ -10625,13 +10843,14 @@ import { createResizeEngine } from "./resize-engine.js";
     if (ctrl && e.key.toLowerCase() === "v") { e.preventDefault(); paste(); return; }
     if (ctrl && e.key.toLowerCase() === "a") {
       e.preventDefault();
-      state.selectedIds = state.elements.map((el) => el.id);
+      state.selectedIds = state.elements.filter((el) => !memberLock(el)).map((el) => el.id);
       fullRender(); return;
     }
     if (ctrl && e.key.toLowerCase() === "b") {
       const texts = selectedElements().filter((el) => el.type === "text");
       if (texts.length) {
         e.preventDefault();
+        if (lockBlocks(texts)) return;
         // Toggle off only if every selected text is already bold; otherwise bold all.
         const allBold = texts.every((el) => (el.weight || 400) >= 700);
         texts.forEach((el) => { el.weight = allBold ? 400 : 700; loadGoogleFont(el.font); });
@@ -10665,7 +10884,8 @@ import { createResizeEngine } from "./resize-engine.js";
       else if (e.key === "ArrowRight") dx = step;
       if (dx || dy) {
         e.preventDefault();
-        selectedElements().forEach((el) => { el.x += dx; el.y += dy; });
+        if (lockBlocks()) return;
+        selectedElements().filter((el) => !isPinned(el)).forEach((el) => { el.x += dx; el.y += dy; });
         fullRender();
       }
     }
