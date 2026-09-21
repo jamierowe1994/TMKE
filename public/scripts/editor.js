@@ -3005,16 +3005,24 @@
         }
         node.appendChild(img);
       } else {
-        // Empty placeholder: friendly prompt to drop a photo.
+        // Empty placeholder. A brand slot isn't waiting for a photo from
+        // whoever is drawing the template — it is waiting for the member's
+        // own picture — so it says what it is instead of asking for one.
         const ph = document.createElement("div");
         ph.className = "fr-placeholder";
-        ph.innerHTML =
-          '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
-          '<rect x="3" y="3" width="18" height="18" rx="2"/>' +
-          '<circle cx="8.5" cy="8.5" r="1.5"/>' +
-          '<path d="M21 15l-5-5L5 21"/>' +
-          '</svg>' +
-          '<span>Drop a photo here</span>';
+        const shot = el.brandRole === "headshot";
+        const logo = el.brandRole === "logo";
+        const icon = shot
+          ? '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+              '<circle cx="12" cy="8" r="3.6"/><path d="M4.8 20c0-3.6 3.2-5.6 7.2-5.6s7.2 2 7.2 5.6"/>' +
+            '</svg>'
+          : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+              '<rect x="3" y="3" width="18" height="18" rx="2"/>' +
+              '<circle cx="8.5" cy="8.5" r="1.5"/>' +
+              '<path d="M21 15l-5-5L5 21"/>' +
+            '</svg>';
+        ph.innerHTML = icon +
+          '<span>' + (shot ? "Headshot" : logo ? "Logo" : "Drop a photo here") + '</span>';
         node.appendChild(ph);
       }
       // Drag-and-drop targets: a photo card from the Photos / Uploads
