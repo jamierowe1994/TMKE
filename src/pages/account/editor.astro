@@ -2968,12 +2968,14 @@ const googleFonts = [
     /* Resize */
     .ed-resize-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      /* minmax(0,…) not 1fr: a plain 1fr refuses to shrink below its content,
+         so the wide sizes pushed the second column off the edge of the panel. */
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
     }
     .ed-resize-card {
       display: flex; flex-direction: column; align-items: stretch; gap: 6px;
-      padding: 12px;
+      padding: 12px; min-width: 0; box-sizing: border-box; overflow: hidden;
       background: rgba(28,29,34,0.04);
       border: 1px solid transparent;
       border-radius: 4px; cursor: pointer; text-align: left;
@@ -3012,8 +3014,17 @@ const googleFonts = [
        every one of them look landscape. */
     .ed-resize-vis {
       background: rgba(var(--violet-rgb),0.2); border-radius: 2px;
-      height: 72px; width: auto; max-width: 100%;
-      margin: 0 auto 8px;
+      /* 46px, not more: the widest shape (a Facebook cover, 2.63:1) has to
+         fit the column at this height, and a shape clamped by the column is a
+         shape drawn at the wrong ratio — which is the one thing these can't be. */
+      height: 46px; width: auto; max-width: 100%;
+      margin: 3px auto 8px;
+    }
+    /* Every card is the same height whatever shape it holds, so the rows line
+       up: the shape sits in a fixed band rather than setting the card's size. */
+    .ed-resize-card > .ed-resize-vis { flex: none; }
+    .ed-resize-card strong, .ed-resize-card span {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
     .ed-resize-card strong { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; color: var(--ink); }
     .ed-resize-card span { font-size: var(--ws-t-label); color: rgba(28,29,34,0.55); }
