@@ -691,17 +691,19 @@ are the `RESIZE_*` constants at the top of that section.
   A-sizes. Shown over the canvas, never exported.
 - ✅ (19 Sep) **"Save as a copy" confirmed on the live site** by Dani: the copy
   lands in My Designs and the original is untouched.
-- ⬜ **Test the resize on real pack templates**, especially text-heavy ones, and
-  tune the `RESIZE_*` rules from what they show.
+- ⏸ **Testing the resize on real pack templates** moves to the Admin Centre:
+  its template studio checks every size before a pack goes live, with saved
+  layouts per size (`supabase/size_variants.sql`). Members' own designs rely on
+  the automatic rules; they can adjust what they built themselves.
 - ⬜ **Social media footer template** — the member's headshot and contact
   details as a strip they can drop onto any post. Built and configured in the
   Admin Centre first (template + settings), then added to the Studio as
   "add to your design". Needs both chats.
-- ⬜ Reset only appears on a template opened this visit. A saved design
-  reopened later could offer it too, from `user_designs.source_template_id`.
-- ⬜ Landscape is fitted, not designed: the content sits in the middle with
-  space either side. A split layout (photo one side, words the other) would
-  look purpose-made.
+- ✅ (21 Sep) **Reset works on a design reopened later**, from
+  `user_designs.source_template_id`; a copy at another size resets to the
+  template at that size.
+- ✅ Landscape layout: no longer needed; social sizes are now the four
+  portrait/square/story ones.
 - ⬜ Safe-zone figures are Instagram's current layout (Story 250 top/bottom;
   Reel 220 top, 420 bottom, 120 right). Recheck now and then; add TikTok if
   wanted.
