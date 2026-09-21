@@ -5166,8 +5166,29 @@ export default {
       if (path.endsWith("/admin/insights/cloudflare") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!env.CF_ANALYTICS_TOKEN || !env.CF_ZONE_ID) {
-          return json({ ok: false, configured: false, error: "Cloudflare isn't connected yet - add CF_ANALYTICS_TOKEN and CF_ZONE_ID to the Worker." }, 200, request, env);
+        if (!env.CF_ANALYTICS_TOKEN) {
+          return json({ ok: false, configured: false, error: "Cloudflare isn't connected yet - add CF_ANALYTICS_TOKEN to the Worker." }, 200, request, env);
+        }
+        // The zone id identifies the DOMAIN, and it looks exactly like the
+        // account id sitting beside it in the dashboard - an easy swap to make.
+        // So: ask Cloudflare for it by name, and only fall back to a saved
+        // CF_ZONE_ID when the token isn't allowed to list zones.
+        let zoneId = "";
+        const zoneName = env.CF_ZONE_NAME || "tmke.co.uk";
+        try {
+          const zr = await fetch(`https://api.cloudflare.com/client/v4/zones?name=${encodeURIComponent(zoneName)}&status=active`, {
+            headers: { Authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}` },
+          });
+          const zj = await zr.json().catch(() => ({}));
+          zoneId = (zj && zj.success && zj.result && zj.result[0] && zj.result[0].id) || "";
+        } catch (_) { /* fall through to the saved id */ }
+        const looksLikeZone = /^[0-9a-f]{32}$/i.test(String(env.CF_ZONE_ID || ""))
+          && String(env.CF_ZONE_ID) !== String(env.CF_ACCOUNT_ID || "");
+        if (!zoneId && looksLikeZone) zoneId = String(env.CF_ZONE_ID);
+        if (!zoneId) {
+          return json({ ok: false, configured: true,
+            error: `Couldn't work out the zone id for ${zoneName}. The token needs access to that domain - check "Zone Resources" on it includes tmke.co.uk.`,
+          }, 200, request, env);
         }
         const u = new URL(request.url);
         const days = Math.min(Math.max(parseInt(u.searchParams.get("days") || "30", 10) || 30, 1), 90);
@@ -5185,7 +5206,7 @@ export default {
           const res = await fetch("https://api.cloudflare.com/client/v4/graphql", {
             method: "POST",
             headers: { Authorization: `Bearer ${env.CF_ANALYTICS_TOKEN}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ query, variables: { zone: env.CF_ZONE_ID, since } }),
+            body: JSON.stringify({ query, variables: { zone: zoneId, since } }),
           });
           const body = await res.json().catch(() => ({}));
           const problem = (body.errors && body.errors[0] && body.errors[0].message)
@@ -5193,7 +5214,7 @@ export default {
           if (!res.ok || problem) {
             // Say what Cloudflare actually said, plus the likely cause. Guessing
             // silently sent Dani hunting for the wrong thing once already.
-            const zid = String(env.CF_ZONE_ID || "");
+            const zid = String(zoneId || "");
             let hint = "";
             if (zid && zid === String(env.CF_ACCOUNT_ID || "")) {
               hint = "That's the ACCOUNT id, not the zone id - they sit next to each other on the Cloudflare overview page. The zone id is the one under the domain name.";
