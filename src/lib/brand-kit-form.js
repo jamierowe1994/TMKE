@@ -152,7 +152,8 @@ export async function fillFontList(root, supabase, googleFonts) {
   let custom = [];
   try {
     const { data } = await supabase.from('brand_fonts').select('family').order('family');
-    custom = (data || []).map((r) => r.family).filter(Boolean);
+    // One entry per family: a font with six cuts is one font to choose.
+    custom = [...new Set((data || []).map((r) => r.family).filter(Boolean))];
   } catch (_) {}
   const all = custom.concat(googleFonts || []);
   list.innerHTML = all.map((f) => `<option value="${String(f).replace(/"/g, '&quot;')}"></option>`).join('');

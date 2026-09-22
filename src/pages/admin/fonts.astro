@@ -20,7 +20,7 @@ import "../../styles/admin.css";
   <StudioBar active="fonts" countId="font-count">
     <Fragment slot="actions">
       <button type="button" id="upload-btn" class="admin-btn admin-btn-primary">+ Upload font</button>
-      <input type="file" id="font-input" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/font-sfnt,application/x-font-ttf,application/x-font-opentype" hidden />
+      <input type="file" id="font-input" multiple accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/font-sfnt,application/x-font-ttf,application/x-font-opentype" hidden />
     </Fragment>
   </StudioBar>
 
@@ -44,40 +44,22 @@ import "../../styles/admin.css";
         <label class="field">
           <span>Font family name</span>
           <input type="text" name="family" required maxlength="80" />
-          <small>The CSS family. Use the exact name marketing types into design tools (e.g. <em>TMKE Sans</em>).</small>
+          <small>One name for the whole family — <em>The Seasons</em>, not <em>TheSeasons-BoldItalic</em>. Every file below is filed under it.</small>
         </label>
         <label class="field">
           <span>Display name (optional)</span>
           <input type="text" name="display_name" maxlength="80" />
           <small>How it appears in the font picker. Defaults to the family above.</small>
         </label>
-        <div class="field-row">
-          <label class="field">
-            <span>Weight</span>
-            <select name="weight">
-              <option value="100">Thin · 100</option>
-              <option value="200">Extra Light · 200</option>
-              <option value="300">Light · 300</option>
-              <option value="400" selected>Regular · 400</option>
-              <option value="500">Medium · 500</option>
-              <option value="600">Semibold · 600</option>
-              <option value="700">Bold · 700</option>
-              <option value="800">Extra Bold · 800</option>
-              <option value="900">Black · 900</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Style</span>
-            <select name="style">
-              <option value="normal" selected>Normal</option>
-              <option value="italic">Italic</option>
-            </select>
-          </label>
+        <div class="field">
+          <span>The files</span>
+          <div class="meta-files" id="meta-files"></div>
+          <small>A family is one font with several cuts in it. Upload every cut under the same family name and the Studio shows one font that can be bolded and italicised — the weights are read from the filenames, so check them here.</small>
         </div>
         <p class="form-error" id="meta-error" hidden></p>
         <footer class="modal-foot">
           <button type="button" class="admin-btn admin-btn-ghost" id="meta-cancel">Cancel</button>
-          <button type="submit" class="admin-btn admin-btn-primary" id="meta-save">Save font</button>
+          <button type="submit" class="admin-btn admin-btn-primary" id="meta-save">Save</button>
         </footer>
       </form>
     </div>
@@ -161,12 +143,38 @@ import "../../styles/admin.css";
       font-size: 12px;
     }
 
-    .font-grid {
+    .font-grid { display: block; }
+    .font-family { margin-bottom: 30px; }
+    .font-family-head {
+      display: flex; align-items: baseline; gap: 12px;
+      margin-bottom: 12px; padding-bottom: 9px;
+      border-bottom: 1px solid rgba(28,29,34,0.12);
+    }
+    .font-family-name { font-family: var(--serif); font-size: 21px; color: var(--ink); }
+    .font-family-count {
+      font-family: var(--sans); font-size: 10.5px; font-weight: 600;
+      letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+    .font-family-cuts {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 14px;
     }
-    @media (max-width: 720px) { .font-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .font-family-cuts { grid-template-columns: 1fr; } }
+
+    /* One file in the upload sheet: its name, and the cut we read from it. */
+    .meta-files { display: flex; flex-direction: column; gap: 8px; margin: 4px 0 8px; }
+    .meta-file {
+      display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center;
+    }
+    .meta-file-name {
+      font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.65);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .meta-file select {
+      font-family: var(--sans); font-size: 12px; padding: 6px 8px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 5px; background: #fff;
+    }
 
     .font-card {
       display: grid;
@@ -305,8 +313,45 @@ import "../../styles/admin.css";
       metaSave: document.getElementById('meta-save'),
     };
 
-    let pendingFile = null;
+    let pendingFiles = [];
     const _registered = new Set();
+
+    /* Read a font's cut from its filename. "TheSeasons-BoldItalic.otf" is a
+       bold italic of The Seasons, and typing that in eleven times by hand is
+       how a family ends up with three spellings and a wrong weight. Detected,
+       then shown for checking — never silently trusted. */
+    const WEIGHTS = [
+      [/\b(extra|ultra)[-_ ]?black\b|\bultra\b/i, 900],
+      [/\bblack\b|\bheavy\b/i, 900],
+      [/\b(extra|ultra)[-_ ]?bold\b|\bxbold\b|\bebold\b/i, 800],
+      [/\bsemi[-_ ]?bold\b|\bdemi[-_ ]?bold\b|\bsbold\b/i, 600],
+      [/\bbold\b|\bbd\b/i, 700],
+      [/\bmedium\b|\bmed\b/i, 500],
+      [/\b(extra|ultra)[-_ ]?light\b|\bxlight\b/i, 200],
+      [/\blight\b|\blt\b/i, 300],
+      [/\bthin\b|\bhairline\b/i, 100],
+      [/\bregular\b|\bnormal\b|\bbook\b|\breg\b|\brg\b/i, 400],
+    ];
+
+    function parseFontFile(name) {
+      const stem = String(name || '').replace(/\.(ttf|otf|woff2?)$/i, '');
+      // The cut usually follows a dash or an underscore: TheSeasons-BoldItalic.
+      const parts = stem.split(/[-_]/);
+      const head = parts.shift() || stem;
+      const tail = parts.join(' ');
+      const hay = ' ' + tail.replace(/([a-z])([A-Z])/g, '$1 $2') + ' ';
+      const italic = /\b(italic|oblique|it|bdit|ltit)\b/i.test(hay);
+      let weight = 400;
+      for (const [re, w] of WEIGHTS) { if (re.test(hay)) { weight = w; break; } }
+      // "TheSeasons" is The Seasons; a name someone already spaced is left alone.
+      const family = head.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
+      return { family, weight, style: italic ? 'italic' : 'normal' };
+    }
+
+    const WEIGHT_NAMES = {
+      100: 'Thin', 200: 'Extra Light', 300: 'Light', 400: 'Regular', 500: 'Medium',
+      600: 'Semibold', 700: 'Bold', 800: 'Extra Bold', 900: 'Black',
+    };
 
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
@@ -342,8 +387,8 @@ import "../../styles/admin.css";
               The quick brown fox jumps over the lazy dog.
             </div>
             <div class="font-meta">
-              <span class="font-meta-name">${escapeHtml(label)}</span>
-              <span>${escapeHtml(f.family)} · ${weightLabel} · ${escapeHtml(f.style || 'normal')}</span>
+              <span class="font-meta-name">${weightLabel}${f.style === 'italic' ? ' Italic' : ''}</span>
+              <span>${escapeHtml(f.family)} · ${f.weight}</span>
             </div>
           </div>
           <button class="admin-btn admin-btn-danger admin-btn-sm" data-delete="${f.id}" data-path="${escapeHtml(f.file_url)}">Delete</button>
@@ -368,65 +413,114 @@ import "../../styles/admin.css";
 
       const fonts = data ?? [];
       fonts.forEach(registerFontFace);
-      els.count.textContent = `${fonts.length} font${fonts.length === 1 ? '' : 's'}`;
+      const families = new Set(fonts.map((f) => f.family)).size;
+      els.count.textContent = fonts.length
+        ? `${families} font${families === 1 ? '' : 's'} · ${fonts.length} cut${fonts.length === 1 ? '' : 's'}`
+        : '0 fonts';
       els.empty.hidden = fonts.length !== 0;
-      els.grid.innerHTML = fonts.map(renderCard).join('');
+      // Grouped by family, because that is what a font IS: one name with
+      // several cuts under it, not six fonts that look alike.
+      const byFamily = new Map();
+      fonts.forEach((f) => {
+        if (!byFamily.has(f.family)) byFamily.set(f.family, []);
+        byFamily.get(f.family).push(f);
+      });
+      const order = { normal: 0, italic: 1 };
+      els.grid.innerHTML = [...byFamily.entries()].map(([family, cuts]) => {
+        cuts.sort((a, b) => (a.weight - b.weight) || (order[a.style] - order[b.style]));
+        const label = cuts[0].display_name || family;
+        return `<section class="font-family">
+          <div class="font-family-head">
+            <span class="font-family-name">${escapeHtml(label)}</span>
+            <span class="font-family-count">${cuts.length} cut${cuts.length === 1 ? '' : 's'}</span>
+          </div>
+          <div class="font-family-cuts">${cuts.map(renderCard).join('')}</div>
+        </section>`;
+      }).join('');
     }
 
-    function openModal(file) {
-      pendingFile = file;
+    function openModal(files) {
+      pendingFiles = Array.from(files || []);
+      if (!pendingFiles.length) return;
       els.metaError.hidden = true;
       els.metaForm.reset();
-      // Prefill family with filename stem
-      const stem = (file.name || '').replace(/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/, '');
-      els.metaForm.elements.family.value = stem || 'Custom font';
+
+      const parsed = pendingFiles.map((f) => parseFontFile(f.name));
+      // The family they share. If the files disagree, the commonest wins and
+      // she corrects it once instead of eleven times.
+      const tally = {};
+      parsed.forEach((p) => { if (p.family) tally[p.family] = (tally[p.family] || 0) + 1; });
+      const family = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0] || 'Custom font';
+      els.metaForm.elements.family.value = family;
+
+      document.getElementById('meta-files').innerHTML = pendingFiles.map((f, i) => `
+        <div class="meta-file" data-i="${i}">
+          <span class="meta-file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+          <select data-weight="${i}">
+            ${[100, 200, 300, 400, 500, 600, 700, 800, 900].map((w) =>
+              `<option value="${w}"${w === parsed[i].weight ? ' selected' : ''}>${WEIGHT_NAMES[w]} · ${w}</option>`).join('')}
+          </select>
+          <select data-style="${i}">
+            <option value="normal"${parsed[i].style === 'normal' ? ' selected' : ''}>Normal</option>
+            <option value="italic"${parsed[i].style === 'italic' ? ' selected' : ''}>Italic</option>
+          </select>
+        </div>`).join('');
+
+      document.getElementById('meta-title').textContent =
+        pendingFiles.length === 1 ? 'New font' : `${pendingFiles.length} font files`;
       els.modal.hidden = false;
       els.metaForm.elements.family.focus();
     }
     function closeModal() {
       els.modal.hidden = true;
-      pendingFile = null;
+      pendingFiles = [];
     }
 
     async function uploadFont(e) {
       e.preventDefault();
-      if (!pendingFile) return;
+      if (!pendingFiles.length) return;
       els.metaError.hidden = true;
       els.metaSave.setAttribute('disabled', 'true');
-      els.metaSave.textContent = 'Uploading…';
 
       try {
         const fd = new FormData(els.metaForm);
         const family = String(fd.get('family') || '').trim();
         const displayName = String(fd.get('display_name') || '').trim();
-        const weight = parseInt(fd.get('weight'), 10) || 400;
-        const style = String(fd.get('style') || 'normal');
-
         if (!family) throw new Error('Family name is required.');
 
-        const ext = (pendingFile.name.split('.').pop() || 'ttf').toLowerCase();
-        const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const rows = [];
+        for (let i = 0; i < pendingFiles.length; i++) {
+          const file = pendingFiles[i];
+          els.metaSave.textContent = pendingFiles.length > 1
+            ? `Uploading ${i + 1} of ${pendingFiles.length}…`
+            : 'Uploading…';
 
-        const { error: upErr } = await supabase.storage
-          .from(BUCKET)
-          .upload(path, pendingFile, {
-            cacheControl: '31536000', // 1 year — fonts rarely change once uploaded
-            contentType: pendingFile.type || `font/${ext}`,
-            upsert: false,
+          const weight = parseInt(document.querySelector(`[data-weight="${i}"]`)?.value, 10) || 400;
+          const style = document.querySelector(`[data-style="${i}"]`)?.value || 'normal';
+          const ext = (file.name.split('.').pop() || 'ttf').toLowerCase();
+          const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+          const { error: upErr } = await supabase.storage
+            .from(BUCKET)
+            .upload(path, file, {
+              cacheControl: '31536000', // 1 year — fonts rarely change once uploaded
+              contentType: file.type || `font/${ext}`,
+              upsert: false,
+            });
+          if (upErr) throw new Error(`${file.name}: ${upErr.message}`);
+
+          const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+          rows.push({
+            family,
+            display_name: displayName || null,
+            file_url: pub.publicUrl,
+            weight,
+            style,
           });
-        if (upErr) throw upErr;
+        }
 
-        const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-        const file_url = pub.publicUrl;
-
-        const row = {
-          family,
-          display_name: displayName || null,
-          file_url,
-          weight,
-          style,
-        };
-        const { error: insErr } = await supabase.from('brand_fonts').insert(row);
+        els.metaSave.textContent = 'Saving…';
+        const { error: insErr } = await supabase.from('brand_fonts').insert(rows);
         if (insErr) throw insErr;
 
         closeModal();
@@ -436,7 +530,7 @@ import "../../styles/admin.css";
         els.metaError.hidden = false;
       } finally {
         els.metaSave.removeAttribute('disabled');
-        els.metaSave.textContent = 'Save font';
+        els.metaSave.textContent = 'Save';
       }
     }
 
@@ -465,10 +559,10 @@ import "../../styles/admin.css";
 
     els.uploadBtn.addEventListener('click', () => els.fileInput.click());
     els.fileInput.addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
+      const files = Array.from(e.target.files || []);
       els.fileInput.value = '';
-      if (!file) return;
-      openModal(file);
+      if (!files.length) return;
+      openModal(files);
     });
 
     els.modalClose.addEventListener('click', closeModal);
