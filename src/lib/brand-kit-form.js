@@ -85,8 +85,10 @@ function drawLogos(root, logos) {
     const slot = root.querySelector(`[data-logo="${i}"]`);
     if (!slot) return;
     const url = (logos[i] && logos[i].url) || '';
+    // The tile's own background is the split paper/wine backdrop; the logo
+    // rides on top as a custom property so it can't overwrite it.
     const img = slot.querySelector('.bkf-logo-img');
-    if (img) img.style.backgroundImage = url ? `url('${url}')` : '';
+    if (img) img.style.setProperty('--bkf-logo', url ? `url('${url}')` : 'none');
     slot.setAttribute('data-url', url);
     const clear = slot.querySelector(`[data-logo-clear="${i}"]`);
     if (clear) clear.hidden = !url;
@@ -117,7 +119,7 @@ export function wireLogos(root, supabase, onStatus) {
     const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
     const slot = root.querySelector(`[data-logo="${i}"]`);
     slot.setAttribute('data-url', data.publicUrl);
-    slot.querySelector('.bkf-logo-img').style.backgroundImage = `url('${data.publicUrl}')`;
+    slot.querySelector('.bkf-logo-img').style.setProperty('--bkf-logo', `url('${data.publicUrl}')`);
     const clear = slot.querySelector(`[data-logo-clear="${i}"]`);
     if (clear) clear.hidden = false;
     onStatus?.('Uploaded — press Save to keep it.');
@@ -130,7 +132,7 @@ export function wireLogos(root, supabase, onStatus) {
     if (i == null) return;
     const slot = root.querySelector(`[data-logo="${i}"]`);
     slot.setAttribute('data-url', '');
-    slot.querySelector('.bkf-logo-img').style.backgroundImage = '';
+    slot.querySelector('.bkf-logo-img').style.setProperty('--bkf-logo', 'none');
     el.hidden = true;
   });
 }

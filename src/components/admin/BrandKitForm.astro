@@ -15,17 +15,17 @@ const { idPrefix = "bk" } = Astro.props;
     <div class="bkf-row">
       <label class="bkf-field">
         <span>Company name</span>
-        <input type="text" data-f="company" placeholder="The Property Experts" />
+        <input type="text" data-f="company" placeholder="e.g. The Property Experts" />
         <small>Printed wherever a template asks for {'{company name}'}.</small>
       </label>
       <label class="bkf-field">
         <span>Website</span>
-        <input type="text" data-f="website" placeholder="thepropertyexperts.co.uk" />
+        <input type="text" data-f="website" placeholder="e.g. thepropertyexperts.co.uk" />
       </label>
     </div>
     <label class="bkf-field">
       <span>Slogan</span>
-      <input type="text" data-f="slogan" placeholder="Your move, made simple" />
+      <input type="text" data-f="slogan" placeholder="e.g. Your move, made simple" />
       <small>Every brand has one. It fills {'{slogan}'}.</small>
     </label>
   </section>
@@ -50,15 +50,15 @@ const { idPrefix = "bk" } = Astro.props;
     <div class="bkf-row bkf-row--three">
       <label class="bkf-field">
         <span>Heading</span>
-        <input type="text" data-f="font_heading" placeholder="The Seasons" list={`${idPrefix}-fonts`} />
+        <input type="text" data-f="font_heading" placeholder="e.g. The Seasons" list={`${idPrefix}-fonts`} />
       </label>
       <label class="bkf-field">
         <span>Subheading</span>
-        <input type="text" data-f="font_subheading" placeholder="Unitext" list={`${idPrefix}-fonts`} />
+        <input type="text" data-f="font_subheading" placeholder="e.g. Unitext" list={`${idPrefix}-fonts`} />
       </label>
       <label class="bkf-field">
         <span>Body</span>
-        <input type="text" data-f="font_body" placeholder="Unitext" list={`${idPrefix}-fonts`} />
+        <input type="text" data-f="font_body" placeholder="e.g. Unitext" list={`${idPrefix}-fonts`} />
       </label>
     </div>
     <datalist id={`${idPrefix}-fonts`} data-fontlist></datalist>
@@ -150,9 +150,19 @@ const { idPrefix = "bk" } = Astro.props;
     display: flex; align-items: center; gap: 16px;
     border: 1px dashed rgba(28,29,34,0.22); border-radius: 10px; padding: 14px;
   }
+  /* Split down the diagonal: paper on one side, wine on the other. Most brand
+     logos come in a dark version and a white one, and a white mark on a white
+     tile is invisible — which is exactly the file you most need to check you
+     uploaded. Either version shows against one half. */
   .bkf-logo-img {
     flex: none; width: 116px; height: 78px; border-radius: 6px;
-    background: #faf9f8 center/contain no-repeat;
+    background-image: linear-gradient(115deg, #faf9f8 0 50%, var(--english-violet, #371e28) 50% 100%);
+    background-size: cover;
+    position: relative;
+  }
+  .bkf-logo-img::after {
+    content: ""; position: absolute; inset: 8px;
+    background: var(--bkf-logo, none) center/contain no-repeat;
   }
   .bkf-logo-acts { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
   .bkf-logo-acts strong {
