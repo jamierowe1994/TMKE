@@ -1358,7 +1358,16 @@ const HERO_BG = (await getImage({
               fill("website", p.website);
               fill("location", p.location);
               fill("tone", p.tone);
-              if (p.colors && !(kit.colors && kit.colors.length)) { kit.colors = p.colors; changed = true; }
+              // An array of six blanks is still "no colours" — the page saves a
+              // slot per well, so length alone would say the kit was full.
+              const hasColours = Array.isArray(kit.colors)
+                && kit.colors.some((c) => c && (typeof c === "string" ? c.trim() : c.hex));
+              if (p.colors && p.colors.length && !hasColours) {
+                kit.colors = p.colors.map((c, i) => (c && typeof c === "object")
+                  ? c
+                  : { hex: String(c).toUpperCase(), name: "Colour " + (i + 1) });
+                changed = true;
+              }
               if (p.fonts && !(kit.fonts && (kit.fonts.heading || kit.fonts.body))) { kit.fonts = p.fonts; changed = true; }
               if (p.logos && !(kit.logos && kit.logos.length)) { kit.logos = p.logos; changed = true; }
               if (p.about) {

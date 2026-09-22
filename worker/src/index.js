@@ -1048,7 +1048,15 @@ async function brandKitFor(env, { userId, email, brand: want }) {
     website: (bp && bp.website) || "",
     tone: (bp && bp.tone) || "",
     location: (ap && ap.area) || "",
-    colors: (bp && Array.isArray(bp.colors) && bp.colors.length) ? bp.colors : null,
+    /* A brand's colours are stored as plain hex strings; a member's kit wants
+       { hex, name } — that mismatch is why every other field prefilled and the
+       colours came through as six empty wells. Converted here, at the boundary,
+       so everything downstream gets the shape the hub actually reads. */
+    colors: (bp && Array.isArray(bp.colors) && bp.colors.length)
+      ? bp.colors.map((c, i) => (c && typeof c === "object")
+          ? c
+          : { hex: String(c).toUpperCase(), name: "Colour " + (i + 1) })
+      : null,
     fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
     logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
     about: {
