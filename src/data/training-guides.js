@@ -68,7 +68,9 @@ export const TRAINING_GUIDES = [
     slug: "training-hub",
     title: "Getting Around Your Hub",
     summary: "Where everything lives, what each area is for, and where to go first.",
-    est_minutes: 4, sort_order: 1, art: "https://assets.tmke.co.uk/living-1.webp",
+    // The course's own copy of the laptop photo: the "Make one design" card
+    // uses the same picture, and neither should follow the other's changes.
+    est_minutes: 4, sort_order: 1, art: "/images/learn/hub/cover-training-hub-v1.jpg",
     lessons: [
       { title: "The Hub at a Glance", walk: "hub-tour", video_url: "",
         body_html:
