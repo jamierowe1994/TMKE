@@ -360,8 +360,16 @@ async function generateAgentCode(env, { pkg, firstName, lastName, inductionMonth
 // (the contact-drawer TEG tab) and the Google-Sheet sync so the two never drift.
 // `contact` needs { first_name, last_name, email }. Returns the row + _enrolled.
 async function ensureAgentProfile(env, contactId, contact, input) {
-  const existingRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
-  const existing = (existingRows && existingRows[0]) || null;
+  /* A person can work for two brands, and each brand has its own join date,
+     job title, patch and work number — so a profile is per person PER BRAND.
+     Which row this writes to depends on the brand it is given; with no brand
+     it edits the one they already have, which is what every existing caller
+     means by it. */
+  const wantBrand = typeof input.brand === "string" ? input.brand.trim() : null;
+  const allRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`) || [];
+  const existing = (wantBrand
+    ? allRows.find((r) => String(r.brand || "").trim() === wantBrand)
+    : null) || (wantBrand ? allRows.find((r) => !r.brand) : null) || allRows[0] || null;
   const pkg = ["academy", "pro"].includes(String(input.package || "").toLowerCase()) ? String(input.package).toLowerCase() : null;
   const isNewStarter = !!input.is_new_starter;
   const inductionMonth = (typeof input.induction_month === "string" && /^\d{4}-\d{2}$/.test(input.induction_month)) ? input.induction_month : null;
@@ -397,11 +405,20 @@ async function ensureAgentProfile(env, contactId, contact, input) {
     trainer_name: coalesce(input.trainer_name, (existing && existing.trainer_name)) || tr.name,
     trainer_email: coalesce(input.trainer_email, (existing && existing.trainer_email)) || tr.email,
   };
-  await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=contact_id`, {
-    method: "POST",
-    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify(row),
-  });
+  // First brand a person gets is the one their Studio opens in.
+  row.is_primary = existing ? (existing.is_primary !== false) : !allRows.some((r) => r.is_primary);
+  /* Upsert on the pair when we know the brand; on the person when we don't,
+     which is the old behaviour and still right for a row with no brand yet. */
+  const conflict = row.brand ? "contact_id,brand" : "contact_id";
+  if (existing && existing.id) {
+    await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(existing.id)}`, row);
+  } else {
+    await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=${conflict}`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(row),
+    });
+  }
   // Identifying CRM tag for visibility/filtering (the funnel is trigger-driven,
   // NOT tag-driven). One package tag; the opposite is cleared so it never doubles.
   if (isNewStarter && pkg) {
@@ -954,15 +971,24 @@ function brandFromEmailDomain(email) {
 async function ensureTegFromDomain(env, { contactId, email }) {
   const brand = brandFromEmailDomain(email);
   if (!brand || !contactId) return null;
-  const have = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=contact_id,brand,left_at&limit=1`);
-  const row = have && have[0];
-  // Already known, or deliberately marked as having left: leave it alone.
-  if (row && (row.brand || row.left_at)) return row.left_at ? null : row.brand;
-  await sbPost(env, "agent_profiles", {
-    contact_id: contactId,
-    brand,
-    added_by: "email-domain",
-  }, "resolution=merge-duplicates,return=minimal");
+  const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=id,brand,left_at,is_primary`) || [];
+  const mine = rows.find((r) => String(r.brand || "").trim() === brand);
+  // Already known at this brand, or deliberately marked as having left it.
+  if (mine) return mine.left_at ? null : brand;
+  const blank = rows.find((r) => !r.brand);
+  if (blank) {
+    await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(blank.id)}`, {
+      brand, added_by: "email-domain",
+    });
+  } else {
+    await sbPost(env, "agent_profiles", {
+      contact_id: contactId,
+      brand,
+      added_by: "email-domain",
+      // Their first brand is the one the Studio opens in; a second one isn't.
+      is_primary: !rows.some((r) => r.is_primary),
+    }, "resolution=merge-duplicates,return=minimal");
+  }
   try {
     const crow = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(contactId)}&select=tags`);
     const cur = (crow && crow[0] && crow[0].tags) || [];
@@ -984,7 +1010,7 @@ async function ensureTegFromDomain(env, { contactId, email }) {
  * Returns { brand, kit } — or { brand: null, kit: null } for someone who
  * isn't in the CRM, which is most members and is fine.
  */
-async function brandKitFor(env, { userId, email }) {
+async function brandKitFor(env, { userId, email, brand: want }) {
   const mail = String(email || "").toLowerCase();
   let contact = null;
   if (userId) {
@@ -997,10 +1023,17 @@ async function brandKitFor(env, { userId, email }) {
   }
   if (!contact) return { brand: null, kit: null };
 
-  const apRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,area,left_at&limit=1`);
-  const ap = (apRows && apRows[0]) || null;
-  // A leaver is not in the brand any more; they keep their own details.
-  const brand = ap && !ap.left_at ? (ap.brand || null) : null;
+  /* A kit belongs to ONE brand — a Letting Experts board cannot go out in
+     Property Experts colours. So we build the kit for the brand they are
+     designing as, defaulting to the one their Studio opens in. */
+  const apRows = await sbGet(env, "agent_profiles",
+    `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,area,email,phone,left_at,is_primary&left_at=is.null`) || [];
+  const live = apRows.filter((r) => r.brand);
+  const wanted = String(want || "").trim().toLowerCase();
+  const ap = (wanted && live.find((r) => String(r.brand).trim().toLowerCase() === wanted))
+    || live.find((r) => r.is_primary) || live[0] || null;
+  const brand = ap ? String(ap.brand).trim() : null;
+  const brands = [...new Set(live.map((r) => String(r.brand).trim()))];
 
   let bp = null;
   if (brand) {
@@ -1021,11 +1054,12 @@ async function brandKitFor(env, { userId, email }) {
     about: {
       name: name || "",
       role: (ap && ap.job_title) || "",
-      phone: contact.phone || "",
-      email: contact.email || mail || "",
+      // The number and address for THIS brand, falling back to their own.
+      phone: (ap && ap.phone) || contact.phone || "",
+      email: (ap && ap.email) || contact.email || mail || "",
     },
   };
-  return { brand, kit };
+  return { brand, brands, kit };
 }
 
 /* Fill the blanks in a member's existing kit from their brand and record.
@@ -7163,8 +7197,10 @@ export default {
       if (path.endsWith("/member/brand-prefill") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in first." }, 401, request, env);
-        const { brand, kit } = await brandKitFor(env, { userId: user.id, email: user.email });
-        return json({ ok: true, brand, kit }, 200, request, env);
+        // ?brand=… for an agent who works for two: the kit is per brand.
+        const want = url.searchParams.get("brand");
+        const { brand, brands, kit } = await brandKitFor(env, { userId: user.id, email: user.email, brand: want });
+        return json({ ok: true, brand, brands, kit }, 200, request, env);
       }
 
       /* ---- "I work for one of these brands" --------------------------------
