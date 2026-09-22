@@ -5,7 +5,7 @@
 -- better than anything we could derive from a postcode, because it is what
 -- they tell the public they cover.
 --
--- 70 agents. Matched on EMAIL, which is exact; no name guessing.
+-- 69 agents. Matched on EMAIL, which is exact; no name guessing.
 --
 -- Run the three SELECTs first and read them. The UPDATE only fills an area
 -- that is empty, so nothing you have typed by hand is overwritten.
@@ -75,7 +75,6 @@ insert into tpe_site (email, name, area) values
   ('sean.mcmahon@thepropertyexperts.co.uk', 'Sean McMahon', 'Edinburgh'),
   ('shane.yu@thepropertyexperts.co.uk', 'Shane Yu', 'Sheffield & Doncaster'),
   ('shiny.g@thepropertyexperts.co.uk', 'Shiny Gottimukkala', 'Sutton'),
-  ('suzanne.lal@thepropertyexperts.co.uk', 'Suzanne Lal', 'Cotswolds'),
   ('suzanne.lal@thepropertyexperts.co.uk', 'Suzanne Lal', 'Cotswolds'),
   ('tarv.virk@thepropertyexperts.co.uk', 'Tarv Virk', 'Dudley and Bromsgrove'),
   ('thomas.wall@thepropertyexperts.co.uk', 'Thomas Wall', 'Staffordshire & Sutton Coldfield'),
