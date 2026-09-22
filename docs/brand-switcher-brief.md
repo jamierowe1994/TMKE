@@ -1,0 +1,110 @@
+# The brand switcher
+
+**For: the Design Studio chat. From: the Admin Centre chat. 22 Sep 2026.**
+
+Nine TEG agents work for two brands. Bernadine Williams is a Property Expert
+covering St Albans and a Letting Expert covering Hertfordshire & Bedfordshire —
+different colours, different logo, different job title, different patch,
+sometimes a different work number and email. One person, one account, and she
+is not going to keep two logins to get at both.
+
+So the Studio needs a way to say **which brand she is designing as**, and
+everything her design pulls from her kit has to follow it.
+
+## What already exists
+
+The data is done and live.
+
+- `agent_profiles` is now **one row per person per brand** — each carries its
+  own `job_title`, `area`, `date_joined`, `email`, `phone`, and `is_primary`.
+  (`supabase/dual_brand_agents.sql`)
+- `member_brands()` returns every brand they work for; `member_brand()` returns
+  the primary — the one their Studio should open in.
+- A brand pack reaches them if **any** of their brands is named on it, so pack
+  visibility needs nothing further.
+- `brand_profiles` holds each brand's kit: company name, slogan, website, tone
+  of voice, six colours, three fonts, two logos.
+
+## The endpoint
+
+`GET /member/brand-prefill` on the Worker (`api.tmke.co.uk`), with the member's
+Supabase token as a bearer.
+
+```
+GET /member/brand-prefill              → their primary brand
+GET /member/brand-prefill?brand=The%20Letting%20Experts
+```
+
+Returns:
+
+```json
+{
+  "ok": true,
+  "brand": "The Letting Experts",
+  "brands": ["The Property Experts", "The Letting Experts"],
+  "kit": {
+    "company": "The Letting Experts",
+    "slogan": "…", "website": "…", "tone": "…",
+    "location": "Hertfordshire & Bedfordshire",
+    "colors": ["#…"], "fonts": { "heading": "…", "subheading": "…", "body": "…" },
+    "logos": [{ "url": "…" }],
+    "about": { "name": "…", "role": "Letting Expert", "phone": "…", "email": "…" }
+  }
+}
+```
+
+`brands` is the whole list — **that is what tells you whether to show a
+switcher at all**. One entry, no switcher, nothing changes for the 99% of
+members who have one brand or none.
+
+`kit` is built for that brand alone: its colours, its logo, its tone, and
+*their* job title, patch, phone and email **at that brand**.
+
+## What the switcher does
+
+1. Shows the brands from `brands`, with the current one marked.
+2. On a change, fetches the kit for the chosen brand and makes it the active
+   kit — the same kit the editor already reads for colours, fonts, logo slots
+   and merge tags.
+3. Redraws the open design: `{company name}`, `{area}`, `{job title}`,
+   `{telephone}`, `{email}`, `{local expert}`, the logo slot and the headshot
+   all resolve from the new kit.
+4. Remembers the choice for the session. Their primary is the default on a
+   fresh visit.
+
+## The decisions that matter
+
+**Never merge two brands into one kit.** Both logos available at once invites a
+letting board with the property logo on it, and print cannot be taken back.
+One active brand, always.
+
+**A design saved while designing as a brand should remember it.** Reopening a
+Letting Experts board next week in Property Experts colours is the same
+mistake, one step later. A `brand` on the saved design, restored on open,
+solves it; the switcher then shows what it was made as.
+
+**Do not overwrite what they have typed.** A member may have edited their own
+kit — a different phone, a better slogan. Switching brands changes the brand
+half (colours, fonts, logo, company, tone) and their own details for that
+brand; it must not silently discard a personal edit. If that turns out to be
+hard to tell apart, ask rather than guess.
+
+**The member never sees the word "brand kit" twice.** They see "Designing as:
+The Letting Experts". The machinery stays out of it.
+
+## Where it should live
+
+A control in the Studio's own chrome — near the design's name, or in the Brand
+pane — that is visible while designing, not buried in settings. It answers the
+question "whose logo is about to go on this?", and that question should be
+answerable at a glance.
+
+## Notes
+
+- Nine people have two brands today; the rest have one or none. Build for the
+  many: no switcher unless `brands.length > 1`.
+- A leaver's brand disappears from `brands` the moment they are marked, so
+  someone who leaves one brand simply stops being offered it.
+- `{local expert}` renders "The Hertfordshire & Bedfordshire Letting Expert",
+  or "Your local Letting Expert" when we have no patch — so a switch always
+  produces a whole sentence, never a gap.
