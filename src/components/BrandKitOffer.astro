@@ -1,0 +1,104 @@
+---
+/* The one-time offer, for a member who built their own kit before their brand
+   had one to give. Nothing has been changed when this appears — it is a
+   question, and both answers are real. Drawn by script only when the Worker
+   says there is an offer to make. */
+---
+
+<div class="bko-scrim" id="bko" hidden>
+  <div class="bko" role="dialog" aria-modal="true" aria-labelledby="bko-title">
+    <div class="bko-eyebrow">Your brand</div>
+    <h2 class="bko-title" id="bko-title">There's a ready-made kit for <em id="bko-brand">your brand</em></h2>
+    <p class="bko-lede">
+      We've built brand kits for every TEG brand — the colours, fonts, logos and tone of voice,
+      set up and kept up to date. You already have a kit of your own, so nothing has changed.
+    </p>
+    <p class="bko-note">
+      Load it and your current colours, fonts, logos, slogan and tone are replaced by
+      <strong id="bko-brand-2">your brand's</strong>. You can edit anything afterwards — it's yours from then on,
+      and anything you change stays changed when the brand is updated.
+    </p>
+    <div class="bko-acts">
+      <button type="button" class="bko-btn bko-btn-solid" id="bko-load">Load my brand's kit</button>
+      <button type="button" class="bko-btn" id="bko-keep">Keep the one I made</button>
+    </div>
+    <p class="bko-small">Keeping your own means future brand updates won't reach you. You can ask us for it later.</p>
+  </div>
+</div>
+
+<style is:global>
+  .bko-scrim {
+    position: fixed; inset: 0; z-index: 600;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(16, 14, 22, 0.55);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  .bko-scrim[hidden] { display: none; }
+  .bko {
+    width: 100%; max-width: 520px; box-sizing: border-box;
+    background: var(--paper, #f4f2f1); color: var(--ink, #1c1d22);
+    border-radius: 16px; padding: 34px 34px 28px;
+    box-shadow: 0 30px 80px -20px rgba(16, 14, 22, 0.6);
+  }
+  .bko-eyebrow {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--english-violet); margin-bottom: 12px;
+  }
+  .bko-title { font-family: var(--serif); font-size: 28px; line-height: 1.15; margin: 0 0 14px; }
+  .bko-title em { font-style: normal; color: var(--english-violet); }
+  .bko-lede, .bko-note {
+    font-family: var(--sans); font-size: 14px; line-height: 1.65;
+    color: rgba(28,29,34,0.7); margin: 0 0 12px;
+  }
+  .bko-note strong { color: var(--ink); }
+  .bko-acts { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 12px; }
+  .bko-btn {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 700; letter-spacing: 0.06em;
+    padding: 13px 22px; border-radius: 999px; cursor: pointer;
+    background: transparent; color: rgba(28,29,34,0.65);
+    border: 1px solid rgba(28,29,34,0.22);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+  }
+  .bko-btn:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
+  .bko-btn-solid { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+  .bko-btn-solid:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .bko-small { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5); margin: 0; }
+</style>
+
+<script>
+  import { supabase } from '../lib/supabase.js';
+  import { syncBrandKit, adoptBrandKit, keepOwnBrandKit } from '../lib/brand-sync.js';
+
+  const scrim = document.getElementById('bko');
+  const setBrand = (b) => {
+    document.getElementById('bko-brand').textContent = b;
+    document.getElementById('bko-brand-2').textContent = b + "'s";
+  };
+
+  syncBrandKit(supabase, {
+    onOffer: (out, { token, uid }) => {
+      setBrand(out.brand);
+      scrim.hidden = false;
+
+      document.getElementById('bko-load').addEventListener('click', async (e) => {
+        e.currentTarget.disabled = true;
+        e.currentTarget.textContent = 'Loading…';
+        const res = await adoptBrandKit(token, out.brand);
+        if (res && res.ok) {
+          const { writeBrandCache } = await import('../lib/brand-cache.js');
+          writeBrandCache(res.kit, uid);
+          location.href = '/account/profile';
+        } else {
+          e.currentTarget.disabled = false;
+          e.currentTarget.textContent = 'Load my brand’s kit';
+        }
+      });
+
+      document.getElementById('bko-keep').addEventListener('click', async () => {
+        scrim.hidden = true;
+        await keepOwnBrandKit(token, out.brand, uid);
+      });
+    },
+  });
+</script>

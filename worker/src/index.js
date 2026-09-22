@@ -1070,6 +1070,91 @@ async function brandKitFor(env, { userId, email, brand: want }) {
   return { brand, brands, kit };
 }
 
+/* Keep a member's kit in step with their brand, without trampling their work.
+ *
+ * Three values per field: what the brand says now, what we handed over last
+ * time (the base, stored beside their kit), and what they actually have. Match
+ * the base and they never touched it, so it updates; differ and it is theirs.
+ * Field by field, so somebody who rewrote their slogan still gets the new
+ * colours.
+ *
+ * A kit with NO base predates all this — they built their own before we had
+ * brand kits to give. Nothing is merged into those; they are offered the
+ * brand's kit instead, and choose.
+ */
+const KIT_FIELDS = ["company", "slogan", "website", "tone", "location", "colors", "logos"];
+const KIT_FONTS = ["heading", "subheading", "body"];
+const KIT_ABOUT = ["name", "role", "phone", "email"];
+
+const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+async function syncBrandKit(env, { userId, email }) {
+  if (!userId) return { ok: true, state: "no-account" };
+  const { brand, brands, kit: fresh } = await brandKitFor(env, { userId, email });
+  if (!brand || !fresh) return { ok: true, state: "not-an-agent" };
+
+  const rows = await sbGet(env, "member_brand_kits",
+    `user_id=eq.${encodeURIComponent(userId)}&select=kit,base,base_brand,synced_at&limit=1`);
+  const row = rows && rows[0];
+
+  // Nothing yet: hand it over whole and remember what we gave.
+  if (!row || !row.kit || !Object.keys(row.kit).length) {
+    const kit = Object.assign({}, fresh, { updatedAt: Date.now() });
+    await sbPost(env, "member_brand_kits", {
+      user_id: userId, kit, base: fresh, base_brand: brand,
+      synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }, "resolution=merge-duplicates,return=minimal");
+    return { ok: true, state: "seeded", brand, brands };
+  }
+
+  // Built their own before brand kits existed. Ask, never assume.
+  if (!row.base) {
+    return { ok: true, state: "offer", brand, brands, kit: fresh };
+  }
+
+  const theirs = row.kit || {};
+  const base = row.base || {};
+  const next = JSON.parse(JSON.stringify(theirs));
+  const changed = [];
+
+  KIT_FIELDS.forEach((f) => {
+    if (same(fresh[f], base[f])) return;          // the brand did not change it
+    if (!same(theirs[f], base[f])) return;        // they did — it is theirs now
+    next[f] = fresh[f];
+    changed.push(f);
+  });
+
+  KIT_FONTS.forEach((f) => {
+    const a = (fresh.fonts || {})[f], b = (base.fonts || {})[f], c = (theirs.fonts || {})[f];
+    if (same(a, b) || !same(c, b)) return;
+    next.fonts = Object.assign({}, next.fonts, { [f]: a });
+    changed.push("fonts." + f);
+  });
+
+  KIT_ABOUT.forEach((f) => {
+    const a = (fresh.about || {})[f], b = (base.about || {})[f], c = (theirs.about || {})[f];
+    if (same(a, b) || !same(c, b)) return;
+    next.about = Object.assign({}, next.about, { [f]: a });
+    changed.push("about." + f);
+  });
+
+  if (!changed.length) {
+    // Still worth moving the base on, so a field they changed BACK to the
+    // brand's value counts as theirs no longer.
+    await sbPatch(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}`, {
+      base: fresh, base_brand: brand, synced_at: new Date().toISOString(),
+    });
+    return { ok: true, state: "current", brand, brands };
+  }
+
+  next.updatedAt = Date.now();
+  await sbPatch(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}`, {
+    kit: next, base: fresh, base_brand: brand,
+    synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  });
+  return { ok: true, state: "updated", brand, brands, changed };
+}
+
 /* Fill the blanks in a member's existing kit from their brand and record.
    Used when a brand request is approved: by then they may have typed things
    in, and those win. A kit is theirs; we only fill what is empty. */
@@ -7209,6 +7294,45 @@ export default {
         const want = url.searchParams.get("brand");
         const { brand, brands, kit } = await brandKitFor(env, { userId: user.id, email: user.email, brand: want });
         return json({ ok: true, brand, brands, kit }, 200, request, env);
+      }
+
+      /* Run whenever a member arrives: has their brand changed anything they
+         haven't made their own? Cheap, and it self-heals — nothing to schedule
+         and nothing to push. */
+      if (path.endsWith("/member/brand-sync") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const out = await syncBrandKit(env, { userId: user.id, email: user.email });
+        return json(out, 200, request, env);
+      }
+
+      /* They built their own kit before we had brand kits to give, and have
+         said yes to taking their brand's. Their own is replaced — which is why
+         it is only ever reached by somebody pressing a button that says so. */
+      if (path.endsWith("/member/brand-adopt") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const { brand, kit } = await brandKitFor(env, { userId: user.id, email: user.email, brand: b && b.brand });
+        if (!brand || !kit) return json({ error: "You're not in a brand we hold a kit for." }, 400, request, env);
+
+        if (b && b.decline) {
+          /* Keeping their own. We still record a base — the one we offered —
+             so the next brand change can be compared against something. They
+             keep everything they have; only a field they later set BACK to
+             the brand's value will follow it after that. */
+          await sbPatch(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(user.id)}`, {
+            base: kit, base_brand: brand, synced_at: new Date().toISOString(),
+          });
+          return json({ ok: true, state: "kept-their-own", brand }, 200, request, env);
+        }
+
+        const next = Object.assign({}, kit, { updatedAt: Date.now() });
+        await sbPost(env, "member_brand_kits", {
+          user_id: user.id, kit: next, base: kit, base_brand: brand,
+          synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        }, "resolution=merge-duplicates,return=minimal");
+        return json({ ok: true, state: "adopted", brand, kit: next }, 200, request, env);
       }
 
       /* ---- "I work for one of these brands" --------------------------------
