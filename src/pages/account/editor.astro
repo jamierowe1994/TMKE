@@ -275,6 +275,13 @@ const googleFonts = [
         <a href="/account" class="ed-logo">TMKE<em>Studio</em></a>
         <span class="ed-divider"></span>
         <input id="ed-filename" class="ed-filename" value="Untitled design" />
+        <!-- Only for someone who works for more than one brand
+             (docs/brand-switcher-brief.md). It answers "whose logo is about to
+             go on this?", so it sits with the design's name, not in settings. -->
+        <button type="button" class="ed-asbrand" id="ed-asbrand" hidden title="Designing as - change it in Brand kit">
+          <span class="ed-asbrand-l">Designing as</span>
+          <span class="ed-asbrand-n" id="ed-asbrand-name"></span>
+        </button>
       </div>
 
       <div class="ed-topbar-mid">
@@ -541,6 +548,14 @@ const googleFonts = [
 
       <!-- Brand kit -->
       <section class="ed-panel-pane is-active" data-pane="brand">
+        <!-- Only for someone who works for more than one brand
+             (docs/brand-switcher-brief.md): one active brand at a time, never
+             the two together. -->
+        <div class="ed-brand-as" id="ed-brand-as" hidden>
+          <label for="ed-asbrand-pick">Designing as</label>
+          <select id="ed-asbrand-pick"></select>
+          <p>Colours, fonts, logo and your details follow the brand you pick. Your designs remember which one they were made as.</p>
+        </div>
         <div class="ed-pane-header">
           <h3 id="brand-company">Your brand kit</h3>
           <p>Use the colours, fonts and logos saved to your profile.<br />Click <a href="/account/profile" id="brand-edit-link">Edit</a> to update your brand guidelines.</p>
@@ -1367,7 +1382,25 @@ const googleFonts = [
       box-shadow: none;
       z-index: 30;
     }
-    .ed-topbar-left { display: flex; align-items: center; gap: 14px; justify-self: start; }
+    .ed-topbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; justify-self: start; }
+    .ed-asbrand { display: flex; align-items: center; gap: 7px; min-width: 0; padding: 4px 4px 4px 12px; border: 0; border-left: 1px solid rgba(28,29,34,0.12); background: none; cursor: pointer; }
+    .ed-asbrand[hidden] { display: none; }
+    .ed-asbrand-n { min-width: 0; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ed-asbrand:hover .ed-asbrand-n { text-decoration: underline; text-underline-offset: 3px; }
+    .ed-asbrand-l { font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); white-space: nowrap; }
+    /* The switch itself lives in the Brand pane, where the kit does. */
+    .ed-brand-as { margin: 0 0 16px; padding: 12px 14px; border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 10px; background: rgba(var(--violet-rgb),0.06); }
+    .ed-brand-as[hidden] { display: none; }
+    .ed-brand-as label { display: block; margin-bottom: 6px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ed-brand-as select { width: 100%; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.15); border-radius: 6px; background: #fff; font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: var(--ink); cursor: pointer; }
+    .ed-brand-as p { margin: 8px 0 0; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: rgba(28,29,34,0.6); }
+    /* The bar is full by 1380: the readout goes rather than crowd the undo
+       and redo beside it. The switch itself is in the Brand pane either way,
+       so nothing is lost - see the note there. */
+    .ed-asbrand-n { max-width: 150px; }
+    @media (max-width: 1499px) { .ed-asbrand-l { display: none; } .ed-asbrand { padding-left: 10px; } }
+    @media (max-width: 1379px) { .ed-asbrand { display: none; } }
+
     .ed-topbar-mid { display: flex; align-items: center; gap: 4px; justify-self: center; }
     .ed-topbar-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
 
@@ -5499,6 +5532,65 @@ const googleFonts = [
         window.__TMKE_BRAND_FONTS__ = bf;
       }
     } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
+
+    /* Designing as (docs/brand-switcher-brief.md). The Worker says which
+       brands this member works for; one brand, or none, and nothing shows.
+       Their choice lasts the session, a design remembers what it was made as,
+       and their own saved kit is never written over. */
+    try {
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+      const { data: { session: bSess } } = await supabase.auth.getSession();
+      const token = bSess?.access_token;
+      const pick = document.getElementById('ed-asbrand-pick');
+      const wrap = document.getElementById('ed-asbrand');
+      if (WORKER && token && pick && wrap && !wantAdmin) {
+        const ask = async (brand) => {
+          const u = WORKER + '/member/brand-prefill' + (brand ? '?brand=' + encodeURIComponent(brand) : '');
+          const r = await fetch(u, { headers: { Authorization: 'Bearer ' + token } });
+          return await r.json().catch(() => null);
+        };
+        const first = await ask();
+        const brands = (first && first.ok && Array.isArray(first.brands)) ? first.brands : [];
+        if (brands.length > 1) {
+          pick.innerHTML = brands.map((b) => `<option value="${b.replace(/"/g, '&quot;')}">${b}</option>`).join('');
+          const paneBox = document.getElementById('ed-brand-as');
+          const chipName = document.getElementById('ed-asbrand-name');
+          if (paneBox) paneBox.hidden = false;
+          wrap.hidden = false;
+          // The chip in the bar is a readout; it opens the pane that changes it.
+          wrap.addEventListener('click', () => {
+            const rail = document.querySelector('.ed-rail-btn[data-tool="brand"]');
+            if (rail) rail.click();
+          });
+          const KEY = 'tmke.designing-as';
+          // What this design was made as wins; then this session's choice; then
+          // their primary brand.
+          // A saved design is fetched in parallel with this, so give it a
+          // moment to say what it was made as before falling back.
+          const askDesign = () => (typeof (window as any).__TMKE_DESIGN_BRAND__ === 'function' ? (window as any).__TMKE_DESIGN_BRAND__() : null);
+          let made = askDesign();
+          if (!made && params.get('design')) {
+            for (let i = 0; i < 20 && !made; i++) { await new Promise((r) => setTimeout(r, 150)); made = askDesign(); }
+          }
+          let want = (made && brands.includes(made)) ? made : null;
+          if (!want) { try { const s = sessionStorage.getItem(KEY); if (s && brands.includes(s)) want = s; } catch (_) {} }
+          const applyKit = async (brand, quiet) => {
+            const out = brand === first.brand ? first : await ask(brand);
+            if (!out || !out.ok || !out.kit) return false;
+            pick.value = out.brand || brand;
+            if (chipName) chipName.textContent = out.brand || brand;
+            try { sessionStorage.setItem(KEY, out.brand || brand); } catch (_) {}
+            if (typeof (window as any).__TMKE_SET_BRAND_KIT__ === 'function') (window as any).__TMKE_SET_BRAND_KIT__(out.kit, out.brand || brand);
+            return true;
+          };
+          pick.value = want || first.brand || brands[0];
+          if (chipName) chipName.textContent = pick.value;
+          // Only apply on load when it isn't already what they'd get anyway.
+          if (want && want !== first.brand) await applyKit(want, true);
+          pick.addEventListener('change', () => { applyKit(pick.value); });
+        }
+      }
+    } catch (_) { /* no switcher is the right failure: one brand is the norm */ }
 
     // Contact footers for Elements: template rows marked kind = 'block'
     // (docs/contact-blocks-contract.md). The engine previews them with the

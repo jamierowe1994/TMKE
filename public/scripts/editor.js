@@ -130,7 +130,16 @@ import { createResizeEngine } from "./resize-engine.js";
   const BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
+  /* ---------- Designing as (docs/brand-switcher-brief.md) ----------
+     Nine TEG agents work for two brands. One account, one active brand at a
+     time - never the two merged, or a letting board goes out with the property
+     logo on it. The kit for the brand they picked is held here for the
+     session; their own saved kit is never written over. */
+  var _brandKit = null;     // the brand they are designing as, if they switched
+  var _brandName = null;
+
   function loadBrand() {
+    if (_brandKit) return _brandKit;
     let kit = null;
     // The Member Hub demo uses only the kit made during the demo, never one
     // cached for a member on this browser.
@@ -7969,11 +7978,22 @@ import { createResizeEngine } from "./resize-engine.js";
     bar.hidden = false;
   }
 
+  /* A tag is replaced by its answer, and the question is gone: "{company
+     name}" becomes "Harbour & Hale" and nothing left on the element says it
+     was ever a tag. That is fine until the brand changes under it, so each
+     element keeps what it was written from, and what we last made of it. If
+     the words still match what we wrote, a brand switch can rewrite them; if
+     the member has typed since, they are theirs and we leave them alone. */
   function fillTemplateMergeTags() {
     state.elements.forEach(function (el) {
       if (el.type !== "text") return;
       if (el.text) {
-        const replaced = applyMergeTags(el.text);
+        const src = (el.mergeSrc != null && el.text === el.mergeOut) ? el.mergeSrc : el.text;
+        const replaced = applyMergeTags(src);
+        if (/[{(]\s*[a-zA-Z][a-zA-Z ]*?\s*[})]/.test(src) && replaced !== src) {
+          el.mergeSrc = src;
+          el.mergeOut = replaced;
+        }
         if (replaced !== el.text) el.text = replaced;
       }
       /* Formatted text keeps its wording a second time, in `runs` — one entry
@@ -10424,6 +10444,58 @@ import { createResizeEngine } from "./resize-engine.js";
       renderSafeZones();
     });
   });
+
+  /* Everything the open design takes from the kit, taken again from the new
+     one: the words that came from tags, and the logo in its slot. Their
+     headshot is theirs, not the brand's, so it stays. */
+  function reapplyBrandToDesign(prevLogo) {
+    state.pages.forEach(function (pg) {
+      (pg.elements || []).forEach(function (el) {
+        if (el.type === "text" && typeof el.text === "string") {
+          // Words we wrote from a tag get written again from the new kit; a
+          // tag that the last brand had no answer for gets one now; anything
+          // the member has typed is theirs and is left alone.
+          const mine = el.mergeSrc != null && el.text === el.mergeOut;
+          const stillTagged = /[{(]\s*[a-zA-Z][a-zA-Z ]*?\s*[})]/.test(el.text);
+          if (mine || stillTagged) {
+            const src = mine ? el.mergeSrc : el.text;
+            const next = applyMergeTags(src);
+            if (next !== src || mine) { el.mergeSrc = src; el.mergeOut = next; }
+            if (next !== el.text) { el.text = next; el.runs = null; }
+          }
+        }
+        // A logo slot still holding the last brand's mark takes the new one.
+        if (el.brandRole === "logo" && el.type === "image" && prevLogo && el.src === prevLogo) el.src = brandLogoSrc() || el.src;
+      });
+    });
+    if (!isAdminMode()) { fillTemplateLogos(); fillTemplateHeadshots(); }
+    state.elements.forEach(function (el) { if (el.type === "text") fitTextHeight(el); });
+  }
+
+  /* The switcher (editor.astro) hands the kit over; from here the editor knows
+     no difference between this and the member's own. The design remembers what
+     it was made as, so reopening it next week opens in the same brand. */
+  window.__TMKE_SET_BRAND_KIT__ = function (kit, name) {
+    if (!kit || typeof kit !== "object") return false;
+    const prevLogo = brandLogoSrc();
+    const mine = loadBrand() || {};
+    // Their headshot is theirs at either brand; the rest is the brand's.
+    _brandKit = Object.assign({}, kit, mine.headshot ? { headshot: mine.headshot } : {});
+    _brandName = name || kit.company || null;
+    BRAND = _brandKit;
+    FONTS = buildFonts();
+    state.pages.forEach(function (pg) { if (pg.canvas) pg.canvas.brand = _brandName; });
+    reapplyBrandToDesign(prevLogo);
+    renderBrandPane();
+    pushHistory();
+    fullRender();
+    toast("Designing as " + _brandName);
+    return true;
+  };
+  // What this design was made as, so the switcher can open on it.
+  window.__TMKE_DESIGN_BRAND__ = function () {
+    return (state.canvas && state.canvas.brand) || _brandName || null;
+  };
 
   // ---------- Contact blocks (footers) ----------
   /* Footers the Admin Centre designs as template rows with kind = 'block'

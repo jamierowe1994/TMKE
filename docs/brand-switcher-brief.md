@@ -108,3 +108,32 @@ answerable at a glance.
 - `{local expert}` renders "The Hertfordshire & Bedfordshire Letting Expert",
   or "Your local Letting Expert" when we have no patch — so a switch always
   produces a whole sentence, never a gap.
+
+## Studio side: done (22 Sep, Design Studio chat)
+
+- **Where.** "Designing as" sits at the top of the Brand pane — a select, with
+  a line saying what follows the choice. A readout of the current brand also
+  sits beside the design's name on a wide screen (≥1380px) and opens that pane;
+  the top bar has no room for a control of its own at laptop widths.
+- **Only for the nine.** Nothing shows unless `brands.length > 1`.
+- **Switching** fetches `/member/brand-prefill?brand=…`, makes that kit the
+  active one for the session (`__TMKE_SET_BRAND_KIT__` in editor.js) and
+  redraws the open design. Their own saved kit is never written to; their
+  headshot is carried across, since it is theirs at either brand.
+- **Words that came from tags** are rewritten from the new kit. Each text
+  element now keeps what it was written from (`mergeSrc`) and what we last made
+  of it (`mergeOut`): if the words still match, they follow the brand; if the
+  member has typed since, they are theirs and are left alone. A tag the old
+  brand had no answer for resolves on the switch.
+- **The logo slot** swaps only when it still holds the brand's own mark.
+- **The design remembers**: `canvas.brand` on every page, saved with the design
+  and restored on open, so reopening a Letting Experts board opens as one. The
+  switcher waits for a design to load before choosing, so a saved brand beats
+  the session's choice, which beats their primary.
+- **Undoable**: a switch is one history step.
+
+Tested with two stand-in kits: company, name and job title, `{local expert}`,
+the logo and the fonts all follow the brand; a website the member had typed
+over survived both switches; the design reported the brand it was made as.
+Not yet tested against the live endpoint with a real two-brand member — that
+needs one of the nine, or Danielle signed in as one.
