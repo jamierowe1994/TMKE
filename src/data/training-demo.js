@@ -72,7 +72,7 @@ export const TRAINING_KIT = {
     { hex: "#F4F2F1", name: "Paper" },
     { hex: "#1C1D22", name: "Ink" },
   ],
-  fonts: { heading: "Playfair Display", body: "Inter" },
+  fonts: { heading: "Playfair Display", subheading: "Montserrat", body: "Inter" },
   // A plain wordmark, drawn here rather than uploaded, so the logo row and the
   // logo grid have something in them during the walk.
   logos: [

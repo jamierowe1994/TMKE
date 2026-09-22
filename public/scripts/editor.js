@@ -163,12 +163,35 @@ import { createResizeEngine } from "./resize-engine.js";
     return true;
   }
 
+  // A brand kit's three type roles, in the order they're shown.
+  const BRAND_FONT_ROLES = ["heading", "subheading", "body"];
+
+  /* Which of the three a text is. A template can say (fontRole, set in the
+     admin template builder); otherwise its size decides, measured at a 1080
+     short side: 50 and over is a heading - the same line resizing draws - 36
+     to 49 a subheading, anything smaller body. */
+  const ROLE_HEADING_MIN = 50, ROLE_SUBHEADING_MIN = 36;
+  function textRole(el, W, H) {
+    if (!el || el.type !== "text") return null;
+    if (BRAND_FONT_ROLES.indexOf(el.fontRole) !== -1) return el.fontRole;
+    const short = Math.min(W || state.canvas.width || 1080, H || state.canvas.height || 1080);
+    const px = (el.size || 16) * 1080 / short;
+    return px >= ROLE_HEADING_MIN ? "heading" : px >= ROLE_SUBHEADING_MIN ? "subheading" : "body";
+  }
+  // The member's font for a role. A kit with no subheading font uses its body
+  // font there, so a two-font kit looks exactly as it did.
+  function kitFontFor(role) {
+    const f = (BRAND && BRAND.fonts) || {};
+    if (role === "subheading") return f.subheading || f.body || null;
+    return f[role] || null;
+  }
+
   // Pin brand fonts to the top of the font list (deduped, marked as brand).
   function buildFonts() {
     const seen = new Set();
     const out = [];
     if (BRAND && BRAND.fonts) {
-      ["heading", "body"].forEach(function (role) {
+      BRAND_FONT_ROLES.forEach(function (role) {
         const name = BRAND.fonts[role];
         if (!name || seen.has(name)) return;
         const base = BASE_FONTS.find((f) => f.name === name);
@@ -4886,6 +4909,13 @@ import { createResizeEngine } from "./resize-engine.js";
     if (kind === "body") preset = Object.assign(preset, { text: "Body copy that explains the story behind the post.", font: "Darker Grotesque", size: 18, weight: 400, w: 520, h: 100 });
     if (kind === "brand-eyebrow") preset = Object.assign(preset, { text: "CHAPTER MARKER", font: "Darker Grotesque", size: 16, weight: 700, letterSpacing: 6, color: "#474254", w: 480, h: 30 });
     if (kind === "brand-quote") preset = Object.assign(preset, { text: '"A pulled quote — italic Cormorant for emphasis."', italic: true, size: 38, w: 720, h: 140 });
+    // A heading, subheading or body box knows what it is, and arrives in the
+    // member's own font for it.
+    if (kind === "heading" || kind === "subheading" || kind === "body") {
+      preset.fontRole = kind;
+      const kf = !isAdminMode() && kitFontFor(kind);
+      if (kf) { preset.font = kf; loadGoogleFont(kf); }
+    }
     addElement(Object.assign({ type: "text", x: cx - preset.w / 2, y: cy - preset.h / 2, rotation: 0, opacity: 1 }, preset));
   }
 
@@ -6825,6 +6855,16 @@ import { createResizeEngine } from "./resize-engine.js";
 
     // Lock is admin-only — customer flow doesn't get the affordance.
     if (isAdminMode()) html.push(lockControlHtml([el]));
+    if (isAdminMode() && el.type === "text") {
+      // Which of the member's three fonts this text takes. Auto goes by size.
+      const auto = textRole(Object.assign({}, el, { fontRole: null }));
+      const cur = BRAND_FONT_ROLES.indexOf(el.fontRole) !== -1 ? el.fontRole : "";
+      const opt = function (v, label) { return '<button type="button" data-fontrole="' + v + '"' + (cur === v ? ' class="is-on"' : "") + ">" + label + "</button>"; };
+      html.push('<div class="ed-props-section"><h4>Type role</h4><div class="ed-lockset ed-lockset--4">' +
+        opt("", "Auto") + opt("heading", "Heading") + opt("subheading", "Sub") + opt("body", "Body") +
+        '</div><p class="ed-props-hint ed-props-hint--block">' +
+        (cur ? "Takes the member's " + cur + " font." : "Auto: by its size, this reads as " + auto + ".") + "</p></div>");
+    }
     html.push(`<div class="ed-props-section">
       <div class="ed-props-actions">
         <button data-action="duplicate">Duplicate</button>
@@ -6966,6 +7006,13 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     });
     wireLockControl(body, [el]);
+    body.querySelectorAll("[data-fontrole]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const v = b.getAttribute("data-fontrole");
+        if (v) el.fontRole = v; else delete el.fontRole;
+        pushHistory(); renderProps();
+      });
+    });
     body.querySelectorAll("[data-action]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const a = btn.dataset.action;
@@ -7473,28 +7520,6 @@ import { createResizeEngine } from "./resize-engine.js";
     return !state.canvas.backgroundImage && !!normHexSafe(state.canvas.background);
   }
 
-  /* Fonts follow the pack's own convention rather than asking twice: The
-     Seasons is the display face on a couple of things, Montserrat carries
-     everything else. So a serif in the kit takes the display role and a sans
-     takes the body, and a design maps across in one move. */
-  function isSerifFont(name) {
-    const f = FONTS.find(function (x) { return x.name === name; });
-    // "sans-serif" contains "serif", so it has to go before the test — without
-    // this, Montserrat reads as a serif and takes the display role.
-    const stack = ((f && f.stack) || "").toLowerCase().replace(/sans-serif/g, "");
-    return /serif|georgia|garamond|seasons|cormorant|times|playfair|baskerville/.test(stack);
-  }
-
-  function designFonts() {
-    const seen = {};
-    state.elements.forEach(function (el) {
-      if (el && el.type === "text" && el.font && !memberLock(el)) seen[el.font] = (seen[el.font] || 0) + 1;
-    });
-    return Object.keys(seen).map(function (name) {
-      return { name: name, count: seen[name], serif: isSerifFont(name) };
-    }).sort(function (a, b) { return b.count - a.count; });
-  }
-
   /* ---- A heading keeps its lines when its font changes ----
      A 32px heading is a different width in every face: swap The Seasons for
      Inter and a two-line title drops onto one; swap the other way and it
@@ -7536,12 +7561,16 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     return best == null ? base : best;
   }
-  function refontDesign(fromName, toName) {
+  // Every heading, subheading or body text on the page into one font.
+  function refontRole(role, toName) {
+    return refontWhere(function (el) { return textRole(el) === role; }, toName);
+  }
+  function refontWhere(match, toName) {
     if (!toName) return 0;
     let n = 0;
     const heads = [];
     state.elements.forEach(function (el) {
-      if (el && el.type === "text" && el.font === fromName && !memberLock(el)) {
+      if (el && el.type === "text" && el.font !== toName && match(el) && !memberLock(el)) {
         const lines = textLineCount(el, el.size || 16);
         // Two or three lines: a one-line title changing width doesn't disturb
         // the design, and refitting it would only move the size for nothing.
@@ -7647,20 +7676,24 @@ import { createResizeEngine } from "./resize-engine.js";
       '</div>');
     }
 
-    // Fonts follow the pack's own split rather than asking per font.
-    const fonts = designFonts();
-    const kitSerif = BRAND && BRAND.fonts && BRAND.fonts.heading;
-    const kitSans = BRAND && BRAND.fonts && BRAND.fonts.body;
-    const fontRows = fonts.map(function (f) {
-      const suggested = f.serif ? kitSerif : kitSans;
-      const opts = FONTS.map(function (x) {
-        return '<option value="' + escapeHtml(x.name) + '"' + (x.name === f.name ? " selected" : "") + '>' + escapeHtml(x.name) + '</option>';
+    // Fonts by what the text is for: headings, subheadings, body. Each row
+    // offers the kit's font for that role.
+    const ROLE_LABEL = { heading: "Headings", subheading: "Subheadings", body: "Body text" };
+    const fontRows = BRAND_FONT_ROLES.map(function (role) {
+      const texts = state.elements.filter(function (el) { return textRole(el) === role && !memberLock(el); });
+      if (!texts.length) return "";
+      const names = texts.map(function (el) { return el.font; }).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+      const current = names.length === 1 ? names[0] : "";
+      const suggested = kitFontFor(role);
+      const opts = (current ? "" : '<option value="" selected>Mixed</option>') + FONTS.map(function (x) {
+        return '<option value="' + escapeHtml(x.name) + '"' + (x.name === current ? " selected" : "") + '>' + escapeHtml(x.name) + '</option>';
       }).join("");
-      return '<div class="ed-rb-font" data-font-from="' + escapeHtml(f.name) + '">' +
-        '<span class="ed-rb-what"><b>' + escapeHtml(f.name) + '</b>' + f.count + ' text item' + (f.count === 1 ? "" : "s") + '</span>' +
+      return '<div class="ed-rb-font" data-font-role="' + role + '">' +
+        '<span class="ed-rb-what"><b>' + ROLE_LABEL[role] + '</b>' + texts.length + ' text item' + (texts.length === 1 ? "" : "s") +
+          (current ? " · " + escapeHtml(current) : "") + '</span>' +
         '<span class="ed-rb-fontctl">' +
           '<select>' + opts + '</select>' +
-          (suggested && suggested !== f.name
+          (suggested && suggested !== current
             ? '<button type="button" class="ed-rb-logo" data-font-to="' + escapeHtml(suggested) + '">Use ' + escapeHtml(suggested) + '</button>'
             : '') +
         '</span>' +
@@ -7688,13 +7721,14 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     });
 
-    mount.querySelectorAll("[data-font-from]").forEach(function (row) {
-      const from = row.getAttribute("data-font-from");
+    mount.querySelectorAll("[data-font-role]").forEach(function (row) {
+      const role = row.getAttribute("data-font-role");
       row.querySelector("select")?.addEventListener("change", function (e) {
-        refontDesign(from, e.target.value); renderRebrand();
+        if (e.target.value) refontRole(role, e.target.value);
+        renderRebrand();
       });
-      row.querySelector("[data-font-to]")?.addEventListener("click", function (b) {
-        refontDesign(from, row.querySelector("[data-font-to]").getAttribute("data-font-to")); renderRebrand();
+      row.querySelector("[data-font-to]")?.addEventListener("click", function () {
+        refontRole(role, row.querySelector("[data-font-to]").getAttribute("data-font-to")); renderRebrand();
       });
     });
   }
@@ -8890,7 +8924,7 @@ import { createResizeEngine } from "./resize-engine.js";
     BRAND = loadBrand();
     FONTS = buildFonts();
 
-    if (!BRAND || ((!BRAND.colors || !BRAND.colors.length) && (!BRAND.logos || !BRAND.logos.length) && (!BRAND.fonts || (!BRAND.fonts.heading && !BRAND.fonts.body)))) {
+    if (!BRAND || ((!BRAND.colors || !BRAND.colors.length) && (!BRAND.logos || !BRAND.logos.length) && (!BRAND.fonts || (!BRAND.fonts.heading && !BRAND.fonts.subheading && !BRAND.fonts.body)))) {
       if (empty) empty.hidden = false;
       if (loaded) loaded.hidden = true;
       const copy = document.getElementById("elements-logo-grid"), hint = document.getElementById("elements-logo-hint");
@@ -8924,7 +8958,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Fonts
     fontList.innerHTML = "";
     if (BRAND.fonts) {
-      [["heading", "Heading"], ["body", "Body"]].forEach(function (pair) {
+      [["heading", "Heading"], ["subheading", "Subheading"], ["body", "Body"]].forEach(function (pair) {
         const key = pair[0], label = pair[1];
         const name = BRAND.fonts[key];
         if (!name) return;
@@ -9235,7 +9269,7 @@ import { createResizeEngine } from "./resize-engine.js";
       // for — followed by anything starred here.
       const kit = [];
       if (BRAND && BRAND.fonts) {
-        ["heading", "body"].forEach(function (role) {
+        BRAND_FONT_ROLES.forEach(function (role) {
           const nm = BRAND.fonts[role];
           if (nm && kit.indexOf(nm) === -1) kit.push(nm);
         });
@@ -11016,11 +11050,9 @@ import { createResizeEngine } from "./resize-engine.js";
         if (to && to !== c.hex) recolourDesign(c.hex, to);
       });
     }
-    const kitSerif = BRAND && BRAND.fonts && BRAND.fonts.heading;
-    const kitSans = BRAND && BRAND.fonts && BRAND.fonts.body;
-    designFonts().forEach(function (f) {
-      const to = f.serif ? kitSerif : kitSans;
-      if (to && to !== f.name) refontDesign(f.name, to);
+    BRAND_FONT_ROLES.forEach(function (role) {
+      const to = kitFontFor(role);
+      if (to) refontRole(role, to);
     });
   }
   window.__TMKE_RENDER_BRANDED__ = async function (canvasObj, elementsArr) {
