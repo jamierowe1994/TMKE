@@ -19,6 +19,7 @@ export function fillForm(root, row) {
   set('tone', r.tone || '');
   const fonts = r.fonts || {};
   set('font_heading', fonts.heading || '');
+  set('font_subheading', fonts.subheading || '');
   set('font_body', fonts.body || '');
   drawColors(root, Array.isArray(r.colors) ? r.colors : []);
   drawLogos(root, Array.isArray(r.logos) ? r.logos : []);
@@ -32,7 +33,11 @@ export function readForm(root, brand) {
     website: get('website').replace(/^https?:\/\//i, '').replace(/\/$/, '') || null,
     slogan: get('slogan') || null,
     tone: get('tone') || null,
-    fonts: { heading: get('font_heading') || null, body: get('font_body') || null },
+    fonts: {
+      heading: get('font_heading') || null,
+      subheading: get('font_subheading') || null,
+      body: get('font_body') || null,
+    },
     colors: currentColors(root).filter(Boolean),
     logos: currentLogos(root),
     updated_at: new Date().toISOString(),

@@ -6945,7 +6945,7 @@ export default {
           website: (bp && bp.website) || "",
           tone: (bp && bp.tone) || "",
           colors: (bp && Array.isArray(bp.colors) && bp.colors.length) ? bp.colors : null,
-          fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.body)) ? bp.fonts : null,
+          fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
           logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
           about: {
             name: name || "",
