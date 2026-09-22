@@ -23,6 +23,9 @@ const LS_DONE  = 'tmke.tour.done';   // fast/offline "already seen" guard
 
 // ---------- Step definitions ----------
 // target: CSS selector to spotlight, or null for a centred card (welcome/finish).
+// box: false — point the card at the target without dimming or boxing it. For
+//      a page the reader can already take in at a glance, where a box round
+//      three things is clutter rather than help.
 // placement: where the card sits relative to the hole (auto picks the roomiest side).
 // preAction: optional async fn run before the step shows (open a menu, dismiss
 //            the editor's pack-picker, …). Receives no args.
@@ -667,15 +670,23 @@ function positionFor(step) {
   const hw = Math.max(0, Math.min(maxX - hx, r.width + pad * 2));
   const hh = Math.max(0, Math.min(maxY - hy, r.height + pad * 2));
 
-  // Frame the cutout with four dim panels + the ring outline.
-  setMask(els.maskT, 0, 0, vw, hy);
-  setMask(els.maskB, 0, hy + hh, vw, vh - (hy + hh));
-  setMask(els.maskL, 0, hy, hx, hh);
-  setMask(els.maskR, hx + hw, hy, vw - (hx + hw), hh);
-  els.ring.style.left = hx + 'px';
-  els.ring.style.top = hy + 'px';
-  els.ring.style.width = hw + 'px';
-  els.ring.style.height = hh + 'px';
+  if (step.box === false) {
+    // No dim, no ring: the card simply points at the thing.
+    setMask(els.maskT, 0, 0, 0, 0); setMask(els.maskB, 0, 0, 0, 0);
+    setMask(els.maskL, 0, 0, 0, 0); setMask(els.maskR, 0, 0, 0, 0);
+    els.ring.style.display = 'none';
+  } else {
+    // Frame the cutout with four dim panels + the ring outline.
+    els.ring.style.display = '';
+    setMask(els.maskT, 0, 0, vw, hy);
+    setMask(els.maskB, 0, hy + hh, vw, vh - (hy + hh));
+    setMask(els.maskL, 0, hy, hx, hh);
+    setMask(els.maskR, hx + hw, hy, vw - (hx + hw), hh);
+    els.ring.style.left = hx + 'px';
+    els.ring.style.top = hy + 'px';
+    els.ring.style.width = hw + 'px';
+    els.ring.style.height = hh + 'px';
+  }
 
   // Place the card on the roomiest side unless told otherwise.
   const cw = card.offsetWidth || 380, ch = card.offsetHeight || 220, gap = 16;

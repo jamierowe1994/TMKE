@@ -212,7 +212,8 @@ export const WALKS = {
       { target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
         eyebrow: "Your packs", title: "Open the Demo Pack.",
         body: "The templates that come with every account. Click a pack to see everything inside it." },
-      { href: "/account/editor?pack=demo", target: null, placement: "center",
+      // No box: the card sits beside the templates and leaves them in plain view.
+      { href: "/account/editor?pack=demo", target: "#ed-onboard-design-grid", placement: "right", box: false,
         eyebrow: "The pack", title: "Every Template in It.",
         body: "The designs in this pack, ready to use. Choose the one that suits the post you want to make." },
       { href: "/account/editor?training=1", target: "#ed-canvas-shadow", placement: "left",
