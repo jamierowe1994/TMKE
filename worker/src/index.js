@@ -384,6 +384,9 @@ async function ensureAgentProfile(env, contactId, contact, input) {
     postcode: coalesce(input.postcode, existing && existing.postcode),
     // Printed on their footer, so it comes from us rather than from them.
     job_title: coalesce(input.job_title, existing && existing.job_title),
+    // The patch they cover, in words a design can print: "Milton Keynes",
+    // not the postcode we hold beside it.
+    area: coalesce(input.area, existing && existing.area),
     // Don't demote an existing new-starter when re-touched by a non-new-starter
     // path (e.g. an internal-agent import of someone already flagged).
     is_new_starter: isNewStarter || !!(existing && existing.is_new_starter),
@@ -886,6 +889,83 @@ function colLetter(n) {
 }
 
 // Insert a row into Supabase with the service role.
+/* A member's brand kit, built from what we already know about them.
+ *
+ * Their brand's colours, fonts, logo, voice and website; their own name, job
+ * title, area, phone and email. Used at signup, so an agent's first visit to
+ * the Studio is already branded, and again from the hub for anyone who signed
+ * up before we could do it.
+ *
+ * Returns { brand, kit } — or { brand: null, kit: null } for someone who
+ * isn't in the CRM, which is most members and is fine.
+ */
+async function brandKitFor(env, { userId, email }) {
+  const mail = String(email || "").toLowerCase();
+  let contact = null;
+  if (userId) {
+    const byUser = await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(userId)}&select=id,first_name,last_name,email,phone,company&limit=1`);
+    contact = (byUser && byUser[0]) || null;
+  }
+  if (!contact && mail) {
+    const byEmail = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(mail)}&select=id,first_name,last_name,email,phone,company&limit=1`);
+    contact = (byEmail && byEmail[0]) || null;
+  }
+  if (!contact) return { brand: null, kit: null };
+
+  const apRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,area,left_at&limit=1`);
+  const ap = (apRows && apRows[0]) || null;
+  // A leaver is not in the brand any more; they keep their own details.
+  const brand = ap && !ap.left_at ? (ap.brand || null) : null;
+
+  let bp = null;
+  if (brand) {
+    const bpRows = await sbGet(env, "brand_profiles", `brand=eq.${encodeURIComponent(brand)}&select=*&limit=1`);
+    bp = (bpRows && bpRows[0]) || null;
+  }
+
+  const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim();
+  const kit = {
+    company: (bp && bp.company) || brand || contact.company || "",
+    slogan: (bp && bp.slogan) || "",
+    website: (bp && bp.website) || "",
+    tone: (bp && bp.tone) || "",
+    location: (ap && ap.area) || "",
+    colors: (bp && Array.isArray(bp.colors) && bp.colors.length) ? bp.colors : null,
+    fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
+    logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
+    about: {
+      name: name || "",
+      role: (ap && ap.job_title) || "",
+      phone: contact.phone || "",
+      email: contact.email || mail || "",
+    },
+  };
+  return { brand, kit };
+}
+
+/* Write that kit to a brand-new member, at signup. Only ever for a kit that
+ * does not exist yet: this must never tread on one someone has edited. */
+async function seedBrandKit(env, { userId, email }) {
+  if (!userId) return false;
+  try {
+    const have = await sbGet(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}&select=user_id&limit=1`);
+    if (have && have.length) return false;
+    const { brand, kit } = await brandKitFor(env, { userId, email });
+    if (!brand || !kit) return false;   // not a TEG agent: nothing to hand them
+    const clean = Object.fromEntries(Object.entries(kit).filter(([, v]) => v != null && v !== ""));
+    clean.updatedAt = Date.now();
+    await sbPost(env, "member_brand_kits", {
+      user_id: userId,
+      kit: clean,
+      updated_at: new Date().toISOString(),
+    }, "resolution=merge-duplicates,return=minimal");
+    return true;
+  } catch (e) {
+    console.error("seedBrandKit", String((e && e.message) || e).slice(0, 200));
+    return false;
+  }
+}
+
 async function sbPost(env, table, row, prefer) {
   return fetch(`${env.SUPABASE_URL}/rest/v1/${table}`, {
     method: "POST",
@@ -3259,6 +3339,11 @@ export default {
               tags: crmTags(email, [], { optIn: optedIn, member: true }),
               user_id: newUserId,
             }, { form: "signup" }, "join_signup");
+            /* Their brand kit, now rather than whenever they happen to open
+               the brand-kit page. An agent's first design should already be
+               in their brand; a kit that fills itself in later is a kit that
+               was empty exactly when it mattered. */
+            await seedBrandKit(env, { userId: newUserId, email });
           } catch (e) { console.error("signup: contact upsert", String((e && e.message) || e).slice(0, 200)); }
 
           const link = `${site}/auth/callback?token_hash=${encodeURIComponent(hashed)}&type=signup`;
@@ -6915,45 +7000,7 @@ export default {
       if (path.endsWith("/member/brand-prefill") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in first." }, 401, request, env);
-        const email = String(user.email || "").toLowerCase();
-
-        // Their contact: by account first, then by email for one never linked.
-        let contact = null;
-        const byUser = await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(user.id)}&select=id,first_name,last_name,email,phone,company&limit=1`);
-        contact = (byUser && byUser[0]) || null;
-        if (!contact && email) {
-          const byEmail = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(email)}&select=id,first_name,last_name,email,phone,company&limit=1`);
-          contact = (byEmail && byEmail[0]) || null;
-        }
-        if (!contact) return json({ ok: true, brand: null, kit: null }, 200, request, env);
-
-        const apRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,left_at&limit=1`);
-        const ap = (apRows && apRows[0]) || null;
-        // A leaver is not in the brand any more; they keep their own details.
-        const brand = ap && !ap.left_at ? (ap.brand || null) : null;
-
-        let bp = null;
-        if (brand) {
-          const bpRows = await sbGet(env, "brand_profiles", `brand=eq.${encodeURIComponent(brand)}&select=*&limit=1`);
-          bp = (bpRows && bpRows[0]) || null;
-        }
-
-        const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim();
-        const kit = {
-          company: (bp && bp.company) || brand || contact.company || "",
-          slogan: (bp && bp.slogan) || "",
-          website: (bp && bp.website) || "",
-          tone: (bp && bp.tone) || "",
-          colors: (bp && Array.isArray(bp.colors) && bp.colors.length) ? bp.colors : null,
-          fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
-          logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
-          about: {
-            name: name || "",
-            role: (ap && ap.job_title) || "",
-            phone: contact.phone || "",
-            email: contact.email || user.email || "",
-          },
-        };
+        const { brand, kit } = await brandKitFor(env, { userId: user.id, email: user.email });
         return json({ ok: true, brand, kit }, 200, request, env);
       }
 
@@ -6984,6 +7031,7 @@ export default {
         await ensureAgentProfile(env, contactId, contact, {
           brand: (b && b.brand) || null,
           job_title: (b && b.job_title) || null,
+          area: (b && b.area) || null,
           date_joined: (b && b.date_joined) || null,
           postcode: (b && b.postcode) || null,
           is_new_starter: !!(b && b.is_new_starter),

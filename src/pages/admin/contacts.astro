@@ -875,6 +875,8 @@ import "../../styles/admin.css";
             <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(brandVal)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
             <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
             <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
+            <div class="ct-field"><label>Area they cover</label><input id="teg-area" value="${val(p && p.area)}" placeholder="e.g. Milton Keynes" /><small>In words, as a design would print it. Fills {area} in their templates.</small></div>
+            <div class="ct-field"><label>Job title</label><input id="teg-job-title" value="${val(p && p.job_title)}" placeholder="e.g. Senior Property Expert" /><small>Printed on their contact footer.</small></div>
             <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
             <div class="ct-field"><label>Trainer email</label><input id="teg-trainer-email" type="email" value="${val((p && p.trainer_email) || "kelly@theexpertsgroup.co.uk")}" /></div>
           </div>
@@ -921,6 +923,8 @@ import "../../styles/admin.css";
           brand: tegVal("teg-brand"),
           date_joined: tegVal("teg-joined") || null,
           postcode: tegVal("teg-postcode"),
+          area: tegVal("teg-area"),
+          job_title: tegVal("teg-job-title"),
           is_new_starter: !!document.getElementById("teg-newstarter")?.checked,
           induction_month: tegVal("teg-month") || null,
           package: tegVal("teg-package") || null,
@@ -1016,6 +1020,8 @@ import "../../styles/admin.css";
             <dl class="ct-dl">
 
               ${c.agentProfile && c.agentProfile.postcode ? `<div><dt>Postcode</dt><dd>${esc(c.agentProfile.postcode)}</dd></div>` : ""}
+              ${c.agentProfile && c.agentProfile.area ? `<div><dt>Area</dt><dd>${esc(c.agentProfile.area)}</dd></div>` : ""}
+              ${c.agentProfile && c.agentProfile.job_title ? `<div><dt>Job title</dt><dd>${esc(c.agentProfile.job_title)}</dd></div>` : ""}
               <div><dt>Source</dt><dd>${esc(humanizeSource(c.source))}</dd></div>
             </dl>
             <!-- Editable details — some contacts arrive email-only (e.g. the
