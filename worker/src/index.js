@@ -1670,13 +1670,30 @@ async function unsubUrlFor(env, email, from) {
 
 // The confirmation page. Branded rather than plain, but the unsubscribe has
 // ALREADY happened by the time this renders — see the route for why.
-function unsubPage({ email, state, resubToken }) {
+function unsubPage({ email, state, resubToken, token }) {
   const gone = state === "done";
-  const title = gone ? "Sorry to see you go" : state === "resubscribed" ? "Welcome back" : "Something went wrong";
+  const title = gone ? "Sorry to see you go"
+    : state === "confirm" ? "Unsubscribe?"
+    : state === "resubscribed" ? "Welcome back" : "Something went wrong";
   // `email` is the RECIPIENT's own address, not ours. The wording keeps it that
   // way round: "...emails from us at <address>" read as though the mail came
   // FROM that address, which is the opposite of what it means.
-  const body = gone
+  /* A link in an email is fetched before anyone reads it. Microsoft, Mimecast
+     and the rest open every URL in the message to check where it goes — so an
+     unsubscribe that acts on being fetched unsubscribes people who never
+     touched it. That is exactly what happened to Danielle on 22 Sep 2026: she
+     released a mail from quarantine, Defender scanned the links, and her
+     contact card said she had unsubscribed.
+     So a GET asks, and only a POST — a button a human pressed, or the
+     provider's own one-click — actually does it. */
+  const confirm = state === "confirm"
+    ? `<p class="u-lede">Take <strong>${email || "your address"}</strong> off our marketing list?</p>
+       <p class="u-note">You'll still get anything you've asked us for — booking confirmations, receipts and the like.</p>
+       <form method="POST" action="/unsubscribe?t=${encodeURIComponent(token || "")}">
+         <button type="submit" class="u-btn">Yes, unsubscribe me</button>
+       </form>`
+    : "";
+  const body = state === "confirm" ? confirm : gone
     ? `<p class="u-lede">We've taken <strong>${email || "your address"}</strong> off our marketing list.</p>
        <p class="u-note">You'll still get anything you've actually asked us for - booking confirmations, receipts and the like. Those aren't marketing, and we won't stop them.</p>`
     : state === "resubscribed"
@@ -3199,19 +3216,35 @@ export default {
           return new Response(unsubPage({ state: "error" }), { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
         }
 
+        /* A GET only ASKS. Link scanners fetch every URL in an email before
+           anyone sees it, so an unsubscribe that acts on being fetched removes
+           people who never asked to go — which is exactly what happened on
+           22 Sep 2026: a mail released from quarantine, Defender scanning its
+           links, and a contact card saying she had unsubscribed.
+           A genuine one-click from the mailbox provider is a POST (RFC 8058),
+           and the button on the page posts too, so nothing a person does is
+           lost. */
+        if (!oneClick) {
+          return new Response(unsubPage({ email: addr, state: "confirm", token }), {
+            status: 200, headers: { "Content-Type": "text/html; charset=utf-8" },
+          });
+        }
+
+        // Our own page posts a form; the provider's one-click doesn't.
+        const fromPage = (request.headers.get("content-type") || "").includes("form");
         const rows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(addr))}&select=*`);
         const contact = rows && rows[0];
         if (contact) {
           // Only the first click counts: a second visit to the same link (or the
           // mailbox's one-click after the footer link) isn't a second unsubscribe.
           const already = !!contact.unsubscribed_at;
-          await unsubscribeContact(env, contact, oneClick ? "list_unsubscribe" : "footer_link");
+          await unsubscribeContact(env, contact, fromPage ? "footer_link" : "list_unsubscribe");
           if (!already) {
             const aidRaw = url.searchParams.get("a"), sidRaw = url.searchParams.get("s");
             const uuidish = (v) => /^[0-9a-f-]{8,40}$/i.test(String(v || ""));
             await logEmailEvent(env, {
               contact, email: addr, event: "unsubscribed", provider: "internal",
-              detail: oneClick ? "one-click via the mailbox provider" : "footer link",
+              detail: fromPage ? "the button on the unsubscribe page" : "one-click via the mailbox provider",
               automationId: uuidish(aidRaw) ? aidRaw : null,
               nodeId: sidRaw ? String(sidRaw).slice(0, 80) : null,
             });
@@ -3221,7 +3254,7 @@ export default {
         // on the list would leak it, and there's nothing for them to fix anyway.
 
         // RFC 8058 wants a bare 200 for the one-click POST — no page, no redirect.
-        if (oneClick) return new Response("unsubscribed", { status: 200 });
+        if (!fromPage) return new Response("unsubscribed", { status: 200 });
         return new Response(unsubPage({ email: addr, state: "done", resubToken: token }), {
           status: 200, headers: { "Content-Type": "text/html; charset=utf-8" },
         });
