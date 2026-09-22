@@ -251,9 +251,16 @@ import "../../styles/admin.css";
     const fromEmail = (e) => ((e.props || {}).from || {}).source === "email";
     const campaignOf = (e) => ((e.props || {}).from || {}).campaign || "(unnamed campaign)";
 
-    // A referrer is only interesting as a source: the site it came from, with
-    // our own pages folded into "Direct or from within the site".
-    function sourceOf(ref) {
+    /* A referrer is only interesting as a source: the site it came from, with
+       our own pages folded into "Direct or from within the site".
+
+       Email is the exception. Nearly every mail client strips the referrer, so
+       somebody arriving from one of our campaigns looks identical to somebody
+       typing the address in — and the one source we can prove, because we
+       stamped the link ourselves, was the one hiding inside "Direct". The
+       campaign tag wins over the referrer for exactly that reason. */
+    function sourceOf(ref, ev) {
+      if (ev && fromEmail(ev)) return "Our emails";
       const r = String(ref || "").trim();
       if (!r) return "Direct / typed in";
       try {
@@ -344,6 +351,9 @@ import "../../styles/admin.css";
       const srcSeen = new Map();
       EVENTS.forEach((e) => {
         const sid = e.session_id || e.id;
+        // A visit that carries a campaign tag anywhere in it came from the
+        // email, whatever its first page happened to say.
+        if (fromEmail(e)) { srcSeen.set(sid, "Our emails"); return; }
         if (!srcSeen.has(sid)) srcSeen.set(sid, sourceOf(e.referrer));
       });
       const srcCount = new Map();
@@ -402,7 +412,7 @@ import "../../styles/admin.css";
       el("wi-empty").hidden = true;
       el("wi-count").textContent = "Loading…";
       const since = new Date(Date.now() - days * 864e5).toISOString();
-      let q = supabase.from("site_events").select("id, name, path, session_id, user_id, referrer, created_at")
+      let q = supabase.from("site_events").select("id, name, path, session_id, user_id, referrer, props, created_at")
         .order("created_at", { ascending: false }).limit(50000);
       if (days <= 400) q = q.gte("created_at", since);
       const { data, error } = await q;
@@ -467,7 +477,7 @@ import "../../styles/admin.css";
 
     el("wi-csv").addEventListener("click", () => {
       const head = "when,event,path,source,visit,member\n";
-      const body = EVENTS.map((e) => [e.created_at, e.name, e.path || "", sourceOf(e.referrer), e.session_id || "", e.user_id ? "yes" : "no"]
+      const body = EVENTS.map((e) => [e.created_at, e.name, e.path || "", sourceOf(e.referrer, e), e.session_id || "", e.user_id ? "yes" : "no"]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
       const url = URL.createObjectURL(new Blob([head + body], { type: "text/csv" }));
       const a = document.createElement("a");
