@@ -321,7 +321,8 @@ const DEFAULT_COVER = (await getImage({
     .gr-video iframe, .gr-video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
     /* "Show me": the walkthrough offer under a lesson. */
     /* Wine, so it stands out from the copy: this is the thing to press. */
-    .gr-walk { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 18px 20px; border-radius: var(--ws-r); background: var(--ws-accent); color: #fff; }
+    /* The button's foot sits on the last line of the copy beside it. */
+    .gr-walk { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-top: 22px; padding: 18px 20px; border-radius: var(--ws-r); background: var(--ws-accent); color: #fff; }
     .gr-walk-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     /* Same size as a card title: the two sit together and used to differ. */
     .gr-walk-tx strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: #fff; }
@@ -383,7 +384,7 @@ const DEFAULT_COVER = (await getImage({
     .gc.is-part .gc-progress { position: static; margin: 8px 0 12px; }
     .gc.is-part .gc-stage { flex: 1 1 auto; min-height: 0; }
     .gc.is-part .gc-slide--part { box-sizing: border-box; height: 100%; overflow-y: auto; padding-bottom: 96px; scrollbar-width: thin; }
-    .gc.is-part .gc-nav { position: absolute; left: 1px; right: 1px; bottom: 1px; margin: 0; padding: 14px clamp(26px, 3vw, 40px) 18px; background: var(--ws-card); border-top: 0; border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
+    .gc.is-part .gc-nav { position: absolute; left: 1px; right: 1px; bottom: 1px; margin: 0; padding: 14px var(--gc-pad-r, clamp(26px, 3vw, 40px)) 18px clamp(26px, 3vw, 40px); background: var(--ws-card); border-top: 0; border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
     /* No rule above the buttons: the copy fades into the foot instead. */
     .gc.is-part .gc-nav::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 28px; background: linear-gradient(to top, var(--ws-card), rgba(255,255,255,0)); pointer-events: none; }
     .gc-stage.is-centered { justify-content: center; }
@@ -677,7 +678,17 @@ const DEFAULT_COVER = (await getImage({
           fit(); requestAnimationFrame(fit);
           if (!gc._fitBound) { gc._fitBound = true; window.addEventListener("resize", fit); }
           const slide = stage.querySelector(".gc-slide--part");
-          if (slide) { slide.scrollTop = 0; slide.setAttribute("data-lenis-prevent", ""); }
+          if (slide) {
+            slide.scrollTop = 0;
+            slide.setAttribute("data-lenis-prevent", "");
+            // Next sits over the scrolling copy, whose right edge stops short of
+            // the card's by the scrollbar's width and the card's own border.
+            // Measured off the copy itself, so the button ends where the cards
+            // above it end, whatever the browser draws.
+            const copy = slide.querySelector(".gr-body") || slide;
+            const padR = Math.max(0, gc.getBoundingClientRect().right - copy.getBoundingClientRect().right - 1);
+            gc.style.setProperty("--gc-pad-r", padR.toFixed(2) + "px");
+          }
         }
         if (onPart){
           prevBtn.classList.toggle("gc-prev-hidden", false);
