@@ -29,6 +29,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-brand">Brand</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-preview">Preview</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-sendtest">Send test</button>
+      <button type="button" class="eb-btn eb-btn-ghost" id="eb-copyhtml" title="The rendered HTML, exactly as it goes out — for a spam-score checker or a client preview">Copy HTML</button>
       <button type="button" class="eb-btn eb-btn-ghost" id="eb-save">Save</button>
       <button type="button" class="eb-btn eb-btn-solid" id="eb-activate">Activate</button>
     </div>
@@ -1707,6 +1708,23 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     setInterval(autosave, 15000);
     document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="hidden") autosave(); });
     window.addEventListener("beforeunload", ()=>{ if(dirty) autosave(); });
+
+    /* The rendered HTML, on the clipboard. Wanted whenever an email has to be
+       looked at by something that isn't us — a spam-score checker, a client
+       who asks "what will it look like" — and the alternative was digging it
+       out of the sending provider after the fact. */
+    $("#eb-copyhtml").addEventListener("click", async ()=>{
+      const brand=renderBrand();
+      const ctx=mergeContextFor(SAMPLE_RECIPIENT,brand);
+      const {html}=renderTemplate(state,{brand,mergeCtx:ctx});
+      try{ await navigator.clipboard.writeText(html); toast("HTML copied \u2014 paste it into the checker"); }
+      catch(_){
+        // Clipboard refused (it does, on some setups): show it to be copied by hand.
+        const w=window.open("","_blank");
+        if(w){ w.document.write("<textarea style='width:100%;height:100%;font:12px/1.5 monospace'>"+html.replace(/</g,"&lt;")+"</textarea>"); w.document.close(); }
+        else toast("Couldn't copy \u2014 allow pop-ups and try again");
+      }
+    });
 
     $("#eb-sendtest").addEventListener("click", async ()=>{
       if(!WORKER_URL){ toast("Set PUBLIC_R2_WORKER_URL to send."); return; }
