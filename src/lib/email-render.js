@@ -882,7 +882,7 @@ function renderSlider(block) {
   const images = (Array.isArray(block.images) ? block.images : []).filter(Boolean);
   if (!images.length) return '';
   return cardGrid(images.map((url) => ({ url })), block.columns || 3, (it) =>
-    `<img src="${escapeHtml(it.url)}" alt="" style="max-width:100%;border-radius:8px;display:block;border:0;" />`);
+    `<img src="${escapeHtml(it.url)}" alt="${escapeHtml(it.alt || it.title || '')}" style="max-width:100%;border-radius:8px;display:block;border:0;" />`);
 }
 
 function renderForm(block, brand, ctx) {
@@ -1031,7 +1031,7 @@ function wrapOuter(html, block) {
   return `<div${clsAttr} style="${style}">${html}</div>`;
 }
 
-function shell(brand, bodyHtml, preheader, responsiveCss) {
+function shell(brand, bodyHtml, preheader, responsiveCss, subject) {
   const pageBg = brand.bgColor || '#f4f2f1';
   const cardBg = brand.cardColor || '#ffffff';
   const outerPad = outerPadOf(brand);    // grey margin around the card
@@ -1039,8 +1039,12 @@ function shell(brand, bodyHtml, preheader, responsiveCss) {
   const pre = preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>`
     : '';
+  // A <title> is what a browser tab and some clients show when the email is
+  // opened on its own, and a document without one reads as machine-made to a
+  // spam filter. The subject is the right answer; it is the title of the thing.
+  const title = subject ? `<title>${escapeHtml(subject)}</title>` : '';
   return `<!DOCTYPE html>
-<html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />${title}
 <style>
   @media only screen and (max-width:600px) {
     .eb-hide-mobile { display:none !important; max-height:0 !important; overflow:hidden !important; mso-hide:all; }
@@ -1089,7 +1093,7 @@ export function renderTemplate(template = {}, opts = {}) {
   if (template.mode === 'html') {
     const merged = renderTokens(String(template.customHtml || ''), ctx);
     const isFullDoc = /^\s*(<!doctype|<html)/i.test(merged);
-    return { subject, html: isFullDoc ? merged : shell(brand, merged, template.preheader) };
+    return { subject, html: isFullDoc ? merged : shell(brand, merged, template.preheader, '', subject) };
   }
 
   const blocks = Array.isArray(template.blocks) ? template.blocks : [];
@@ -1111,5 +1115,5 @@ export function renderTemplate(template = {}, opts = {}) {
   });
   const bodyHtml = parts.join('\n');
 
-  return { subject, html: shell(brand, bodyHtml, template.preheader, responsive.join('\n    ')) };
+  return { subject, html: shell(brand, bodyHtml, template.preheader, responsive.join('\n    '), subject) };
 }
