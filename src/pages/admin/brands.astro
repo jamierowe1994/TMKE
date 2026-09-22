@@ -76,6 +76,7 @@ import "../../styles/admin.css";
     import { requireAdmin } from '../../lib/admin-gate.js';
     import { supabase } from '../../lib/supabase.js';
     import { escapeHtml } from '../../lib/design-preview.js';
+    import { byBrandOrder } from '../../data/brands.js';
     import { GOOGLE_FONTS } from '../../data/google-fonts.js';
     import { GOOGLE_FONTS_ALL } from '../../data/google-fonts-all.js';
     import { fillForm, readForm, wireColors, wireLogos, fillFontList } from '../../lib/brand-kit-form.js';
@@ -127,7 +128,8 @@ import "../../styles/admin.css";
       Object.keys(AGENTS).forEach((b) => {
         if (!ROWS.some((r) => r.brand === b)) ROWS.push({ brand: b, colors: [], fonts: {}, logos: [] });
       });
-      ROWS.sort((a, b) => (AGENTS[b.brand] || 0) - (AGENTS[a.brand] || 0) || a.brand.localeCompare(b.brand));
+      // House order, not agent count: the brand we are working on comes first.
+      ROWS.sort((a, b) => byBrandOrder(a.brand, b.brand));
 
       const done = ROWS.filter((r) => !isEmpty(r)).length;
       els.count.textContent = ROWS.length

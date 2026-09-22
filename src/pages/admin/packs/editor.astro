@@ -803,6 +803,7 @@ import "../../../styles/admin.css";
     import { requireAdmin } from "../../../lib/admin-gate.js";
     import { supabase, slugify } from "../../../lib/supabase.js";
     import { rebuildSite } from "../../../lib/site-rebuild.js";
+    import { BRAND_ORDER, brandRank as BRAND_RANK } from "../../../data/brands.js";
 
     const PACK_IMAGES_BUCKET = "pack-images";
 
@@ -815,23 +816,8 @@ import "../../../styles/admin.css";
     let BRANDS = [];          // the brands this pack is for
     let BRAND_OPTIONS = [];   // every brand already on an agent's profile
 
-    /* The house brands, in the order Danielle thinks of them — not
-       alphabetical, which put Fine and Country first and buried the one we
-       sell most for. TMKE is here so she can test a brand pack on herself.
-       Anything else found on an agent profile is listed after these, so a
-       brand nobody has tidied up still shows rather than silently vanishing. */
-    const BRAND_ORDER = [
-      "The Property Experts",
-      "The Letting Experts",
-      "Prestige Property Experts",
-      "Fine & Country",   // the spelling on the agent profiles — matched exactly
-      "TMKE",
-    ];
-    const brandRank = (b) => {
-      const norm = (x) => String(x).toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]/g, "");
-      const i = BRAND_ORDER.findIndex((x) => norm(x) === norm(b));
-      return i === -1 ? BRAND_ORDER.length : i;
-    };
+    // One house order, shared with the Brands page (src/data/brands.js).
+    const brandRank = (b) => BRAND_RANK(b);
 
     function setBrands(list) {
       BRANDS = Array.from(new Set((list || []).filter(Boolean)));
