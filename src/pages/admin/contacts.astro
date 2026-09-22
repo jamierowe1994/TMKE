@@ -1677,6 +1677,19 @@ import "../../styles/admin.css";
       mergePair = aBetter ? [a, b] : [b, a];
       renderMerge();
       $("ct-merge").hidden = false;
+      /* The list doesn't carry anybody's brands — they load with the drawer.
+         Fetch them for these two so the summary can say which brands are
+         about to move, which is the one thing a merge can quietly destroy. */
+      (async () => {
+        try {
+          const { data } = await supabase.from("agent_profiles")
+            .select("contact_id, brand, is_primary").in("contact_id", [a.id, b.id]);
+          [a, b].forEach((c) => {
+            c.agentProfiles = (data || []).filter((r) => r.contact_id === c.id);
+          });
+          renderMerge();
+        } catch (_) { /* the note is a bonus; the merge still works */ }
+      })();
     }
 
     function renderMerge() {
@@ -1707,7 +1720,20 @@ import "../../styles/admin.css";
         <b>${esc(fullName(k))}</b> stays, on <b>${esc(k.email || "no email")}</b>.
         ${gains.length ? `They gain ${esc(gains.join(", "))}.` : "Nothing needs filling in."}
         ${keepsEmail ? ` <b>${esc(lose.email)}</b> is kept as their second email, so that address still finds them.` : ""}
-        Notes, tasks, bookings and automation history from the other record move across.`;
+        Notes, tasks, bookings and automation history from the other record move across.
+        ${mergeBrandNote(k, lose)}`;
+    }
+
+    /* What the merge will do about brands — worth saying out loud, because
+       the record being deleted may be the one carrying somebody's second
+       brand, and that is not obvious from two cards side by side. */
+    function mergeBrandNote(keep, lose) {
+      const brands = (list) => (list || []).map((r) => String(r.brand || "").trim()).filter(Boolean);
+      const kb = brands(keep.agentProfiles || (keep.agentProfile ? [keep.agentProfile] : []));
+      const lb = brands(lose.agentProfiles || (lose.agentProfile ? [lose.agentProfile] : []));
+      const coming = lb.filter((b) => !kb.some((x) => x.toLowerCase() === b.toLowerCase()));
+      if (!coming.length) return "";
+      return ` Their <b>${esc(coming.join("</b> and <b>"))}</b> ${coming.length === 1 ? "brand comes" : "brands come"} across too.`;
     }
 
     function closeMerge() { $("ct-merge").hidden = true; $("ct-merge-status").textContent = ""; }
@@ -1753,11 +1779,29 @@ import "../../styles/admin.css";
             throw new Error(`Couldn't move ${t.replace(/_/g, " ")}: ${error.message}`);
           }
         }
-        // agent_profiles is keyed BY contact_id, so it can only move if the
-        // survivor hasn't got one already. If they have, theirs wins.
+        /* Brands. A person can work for more than one, so this is a row PER
+           BRAND — and the merge has to carry every brand the loser held that
+           the survivor hasn't got. The old version moved a profile only when
+           the survivor had none at all, which since dual agents means the
+           loser's brands would be cascade-deleted along with their contact.
+           That is how a merge quietly undoes a dual-brand setup. */
         try {
-          const { data: mine } = await supabase.from("agent_profiles").select("contact_id").eq("contact_id", keep.id).maybeSingle();
-          if (!mine) await supabase.from("agent_profiles").update({ contact_id: keep.id }).eq("contact_id", lose.id);
+          const [{ data: keepRows }, { data: loseRows }] = await Promise.all([
+            supabase.from("agent_profiles").select("id, brand, is_primary").eq("contact_id", keep.id),
+            supabase.from("agent_profiles").select("id, brand").eq("contact_id", lose.id),
+          ]);
+          const held = new Set((keepRows || []).map((r) => String(r.brand || "").trim().toLowerCase()));
+          const hasPrimary = (keepRows || []).some((r) => r.is_primary);
+          for (const r of (loseRows || [])) {
+            const b = String(r.brand || "").trim().toLowerCase();
+            // A brand they already have on the surviving record wins; the
+            // duplicate's copy of it goes with the contact.
+            if (b && held.has(b)) continue;
+            await supabase.from("agent_profiles")
+              .update({ contact_id: keep.id, is_primary: hasPrimary ? false : undefined })
+              .eq("id", r.id);
+            if (b) held.add(b);
+          }
         } catch (_) { /* table may not exist here */ }
 
         // 3. Now the other record is empty, remove it.
