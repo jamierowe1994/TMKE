@@ -212,7 +212,7 @@ const HERO_BG = (await getImage({
               <div class="eyebrow">05</div>
               <h2>Typography</h2>
             </div>
-            <p>Search the full Google Fonts library. Set a heading and a body face &mdash; pinned to the top of the editor's font menu.</p>
+            <p>Search the full Google Fonts library. Set a heading, a subheading and a body face &mdash; pinned to the top of the editor's font menu.</p>
           </header>
 
           <div class="profile-row">
@@ -222,6 +222,20 @@ const HERO_BG = (await getImage({
                 <input type="hidden" name="headingFont" value="Cormorant Garamond" />
                 <button type="button" class="font-picker-btn" aria-haspopup="listbox" aria-expanded="false">
                   <span class="font-picker-current">Cormorant Garamond</span>
+                  <span class="font-picker-caret" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="font-picker-pop" hidden>
+                  <input type="text" class="font-picker-search" placeholder="Search fonts…" autocomplete="off" />
+                  <ul class="font-picker-list" role="listbox"></ul>
+                </div>
+              </div>
+            </label>
+            <label class="profile-field">
+              <span>Subheading font</span>
+              <div class="font-picker" data-role="subheading">
+                <input type="hidden" name="subheadingFont" value="Darker Grotesque" />
+                <button type="button" class="font-picker-btn" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="font-picker-current">Darker Grotesque</span>
                   <span class="font-picker-caret" aria-hidden="true">&#9662;</span>
                 </button>
                 <div class="font-picker-pop" hidden>
@@ -248,6 +262,7 @@ const HERO_BG = (await getImage({
 
           <div class="type-preview" id="type-preview">
             <div class="type-preview-h">Headline goes here.</div>
+            <div class="type-preview-s">The line underneath it.</div>
             <div class="type-preview-b">A short paragraph in your body face — used for captions, CTAs and the readable bits.</div>
           </div>
         </section>
@@ -570,6 +585,10 @@ const HERO_BG = (await getImage({
       margin-bottom: 14px;
       color: var(--ink);
     }
+    .type-preview-s {
+      font-size: clamp(15px, 2.2vw, 19px); line-height: 1.35; font-weight: 600;
+      color: rgba(28,29,34,0.75); margin-bottom: 10px;
+    }
     .type-preview-b {
       font-family: "Darker Grotesque", sans-serif;
       font-size: var(--ws-t-title);
@@ -773,6 +792,7 @@ const HERO_BG = (await getImage({
       const logoGrid = document.getElementById("logo-grid");
       const preview = document.getElementById("type-preview");
       const previewH = preview.querySelector(".type-preview-h");
+      const previewS = preview.querySelector(".type-preview-s");
       const previewB = preview.querySelector(".type-preview-b");
       const companyInput = form.elements["company"];
       const locationInput = form.elements["location"];
@@ -813,6 +833,8 @@ const HERO_BG = (await getImage({
 
       const initialHeading = (brand && brand.fonts && brand.fonts.heading) || "Cormorant Garamond";
       const initialBody = (brand && brand.fonts && brand.fonts.body) || "Darker Grotesque";
+      // Older kits have no subheading: the body face is the sane place to start.
+      const initialSub = (brand && brand.fonts && brand.fonts.subheading) || initialBody;
       if (brand) companyInput.value = brand.company || "";
       if (brand && locationInput) locationInput.value = brand.location || "";
       // Older kits stored this as `tagline`; read either.
@@ -945,11 +967,16 @@ const HERO_BG = (await getImage({
         previewH.style.fontFamily = '"' + f + '", serif';
         scheduleSave();
       });
+      const subPicker = setupFontPicker("subheading", initialSub, (f) => {
+        if (previewS) previewS.style.fontFamily = '"' + f + '", sans-serif';
+        scheduleSave();
+      });
       const bodyPicker = setupFontPicker("body", initialBody, (f) => {
         previewB.style.fontFamily = '"' + f + '", sans-serif';
         scheduleSave();
       });
       previewH.style.fontFamily = '"' + initialHeading + '", serif';
+      if (previewS) previewS.style.fontFamily = '"' + initialSub + '", sans-serif';
       previewB.style.fontFamily = '"' + initialBody + '", sans-serif';
 
       // Hydrate colour slots
@@ -1171,7 +1198,11 @@ const HERO_BG = (await getImage({
             email: aboutInputs.email ? aboutInputs.email.value.trim() : "",
           },
           colors: colours,
-          fonts: { heading: headingPicker.value(), body: bodyPicker.value() },
+          fonts: {
+            heading: headingPicker.value(),
+            subheading: subPicker.value(),
+            body: bodyPicker.value(),
+          },
           logos: logos,
           headshot: headshot,
           updatedAt: Date.now(),

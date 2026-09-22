@@ -54,7 +54,6 @@ function drawColors(root, colors) {
     <div class="bkf-swatch">
       <input type="color" data-color="${i}" value="${hex || '#ffffff'}" aria-label="Colour ${i + 1}" />
       <input type="text" data-hex="${i}" value="${hex || ''}" placeholder="—" maxlength="7" aria-label="Colour ${i + 1} hex" />
-      <button type="button" data-color-clear="${i}"${hex ? '' : ' style="visibility:hidden"'}>clear</button>
     </div>`).join('');
 }
 
@@ -76,19 +75,6 @@ export function wireColors(root) {
       ? root.querySelector(`[data-color="${i}"]`)
       : root.querySelector(`[data-hex="${i}"]`);
     if (pair && v) pair.value = v;
-    const clear = root.querySelector(`[data-color-clear="${i}"]`);
-    if (clear) clear.style.visibility = v ? '' : 'hidden';
-  });
-  root.addEventListener('click', (e) => {
-    const el = e.target;
-    if (!(el instanceof HTMLElement)) return;
-    const i = el.getAttribute('data-color-clear');
-    if (i == null) return;
-    const hex = root.querySelector(`[data-hex="${i}"]`);
-    const well = root.querySelector(`[data-color="${i}"]`);
-    if (hex) hex.value = '';
-    if (well) well.value = '#ffffff';
-    el.style.visibility = 'hidden';
   });
 }
 
