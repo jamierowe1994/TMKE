@@ -269,11 +269,22 @@ import "../../../styles/admin.css";
            is — that is a queue being worked through, not a team all reading
            their post at once. A click inside 30 seconds is its own proof at
            any number. */
+        /* The behavioural rules need a crowd: one IP acting for several
+           recipients. A test to a single person gives them nothing to work
+           with — Danielle released one from quarantine, opened it, and
+           Microsoft then fetched the links four times from an address that
+           had only ever seen her. So: the ranges we have actually watched do
+           this, as a floor under the behaviour. Not a bot list to maintain —
+           two blocks of Microsoft's, added because we saw them. */
+        const SCANNER_RANGES = [/^172\.186\./, /^85\.210\./];
+        const knownScanner = (ip) => !!ip && SCANNER_RANGES.some((re) => re.test(ip));
+
         const MACHINE_SECONDS = 30;
         const MACHINE_IP_REACH = 3;
         const MACHINE_WINDOW_MIN = 60;
         function isMachine(e) {
           if (e.event !== "clicked" && e.event !== "opened") return false;
+          if (knownScanner(ipOf(e))) return true;
           const d = deliveredAt.get(e.email || e.contact_id);
           const mins = d ? (new Date(e.occurred_at) - new Date(d)) / 60000 : null;
           if (mins != null && mins * 60 < MACHINE_SECONDS) return true;
