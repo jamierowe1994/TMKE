@@ -122,8 +122,8 @@ import "../../styles/admin.css";
       </div>
       <label class="ct-send-f"><span>Subject (leave blank to use the template's)</span><input id="ct-send-subject" placeholder="" /></label>
       <div class="ct-send-row ct-send-foot">
-        <button type="button" class="admin-btn admin-btn-primary" id="ct-send-go">Send now</button>
-        <button type="button" class="admin-btn" id="ct-send-cancel">Cancel</button>
+        <button type="button" class="ct-mini ct-mini-solid" id="ct-send-go">Send now</button>
+        <button type="button" class="ct-mini ct-mini-ghost" id="ct-send-cancel">Cancel</button>
         <span class="ct-send-status" id="ct-send-status"></span>
       </div>
     </div>
@@ -318,7 +318,7 @@ import "../../styles/admin.css";
     .ct-drawer { position: fixed; top: var(--ct-drawer-top, 84px); right: 20px; bottom: 20px; height: auto; width: min(52vw, 980px); min-width: 460px; max-width: calc(100vw - 40px); background: #fff; z-index: 61; border-radius: 10px; box-shadow: -24px 0 70px -30px rgba(20,18,26,0.5); display: flex; flex-direction: column; overflow: hidden; }
     @media (max-width: 900px) { .ct-drawer { right: 12px; bottom: 12px; width: auto; left: 12px; min-width: 0; } }
     .ct-drawer[hidden] { display: none; }
-    .ct-send-open { margin-left: auto; margin-right: 10px; }
+    .ct-send-open { margin-left: auto; margin-right: 0; padding: 6px 12px; flex: none; }
     .ct-linkbtn { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--english-violet); cursor: pointer; text-decoration: none; }
     .ct-linkbtn:hover { text-decoration: underline; }
     .teg-link { display: flex; gap: 6px; align-items: center; }
@@ -329,15 +329,22 @@ import "../../styles/admin.css";
     .ct-send-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
     .ct-send-f { display: flex; flex-direction: column; gap: 5px; flex: 1 1 220px; min-width: 0; }
     .ct-send-f > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .ct-send-f select, .ct-send-f input { width: 100%; box-sizing: border-box; }
+    /* The drawer's own field style — these were bare browser controls sitting
+       in the middle of a branded page. */
+    .ct-send-f select, .ct-send-f input { width: 100%; box-sizing: border-box; font-family: var(--sans); font-size: 13.5px; padding: 8px 11px; border: 1px solid rgba(28,29,34,0.18); border-radius: 7px; background: #fff; color: var(--ink); }
+    .ct-send-f select:focus, .ct-send-f input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
     .ct-send-status { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); }
     .ct-send-status.is-ok { color: #2b6b44; }
     .ct-send-status.is-err { color: #9a2a2a; }
-    .ct-drawer-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 18px 22px 16px; border-bottom: 1px solid rgba(28,29,34,0.08); background: rgba(55,30,40,0.04); flex: none; }
+    /* The close sits in the corner you reach for it in; "Send an email" sits
+       on the same right margin as everything else below it, with its foot on
+       the email line rather than floating between the two. */
+    .ct-drawer-head { position: relative; display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; padding: 16px 22px; border-bottom: 1px solid rgba(28,29,34,0.08); background: rgba(55,30,40,0.04); flex: none; }
     .ct-drawer-ident { display: flex; align-items: center; gap: 14px; min-width: 0; }
     .ct-drawer-head h2 { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); margin: 0; }
     .ct-d-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 4px 0 0; }
-    .ct-drawer-x { border: 0; background: none; font-size: 24px; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; }
+    .ct-drawer-x { position: absolute; top: 4px; right: 8px; border: 0; background: none; font-size: 21px; width: 26px; height: 24px; display: grid; place-items: center; color: rgba(28,29,34,0.4); cursor: pointer; line-height: 1; border-radius: 6px; }
+    .ct-drawer-x:hover { color: var(--ink); background: rgba(28,29,34,0.06); }
     .ct-drawer-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 24px 40px; display: flex; flex-direction: column; gap: 20px; }
     /* The width bought by the wider drawer goes to a second column: the record
        on the left, what anyone actually writes about them on the right. */
@@ -372,6 +379,10 @@ import "../../styles/admin.css";
     .ct-item { padding: 10px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .ct-item-meta { font-size: 11px; color: rgba(28,29,34,0.45); margin-top: 2px; }
     .ct-mini-ghost { border-color: rgba(28,29,34,0.2); color: rgba(28,29,34,0.6); }
+    .ct-mini-ghost:hover { background: rgba(28,29,34,0.06); color: var(--ink); }
+    /* The one that actually does the thing. */
+    .ct-mini-solid { background: var(--english-violet); color: #fff; }
+    .ct-mini-solid:hover { background: var(--ink); border-color: var(--ink); color: #fff; }
     .ct-flag { color: #b0592e; font-size: 13px; cursor: help; }
     .ct-chip-review.is-active { background: #b0592e; border-color: #b0592e; color: #fff; }
     .ct-dup { border: 1px solid rgba(176,89,46,0.35); background: rgba(176,89,46,0.06); border-radius: 10px; padding: 14px 16px; }
