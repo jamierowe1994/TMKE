@@ -1330,7 +1330,12 @@ const HERO_BG = (await getImage({
          BLANKS only — anything they have typed wins, always, and a field they
          deliberately cleared is not quietly refilled on the next visit. */
       try {
-        const done = localStorage.getItem("tmke.brand.prefilled");
+        /* Per ACCOUNT, not per browser. The flag used to be one key, so a
+           second account signing in on the same machine — which is exactly
+           what happens when you test — found it already set and never asked
+           for its kit at all. */
+        const doneKey = "tmke.brand.prefilled." + uid;
+        const done = localStorage.getItem(doneKey);
         if (!done) {
           const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
           const { data: sess } = await supabase.auth.getSession();
@@ -1363,7 +1368,7 @@ const HERO_BG = (await getImage({
                 });
               }
               // Once asked, never again — even when nothing needed filling.
-              localStorage.setItem("tmke.brand.prefilled", "1");
+              localStorage.setItem(doneKey, "1");
               if (changed) {
                 kit.updatedAt = Date.now();
                 writeBrandCache(kit, uid);

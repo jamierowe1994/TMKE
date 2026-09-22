@@ -7348,6 +7348,34 @@ export default {
         return json({ ok: true, contact_id: contactId }, 200, request, env);
       }
 
+      /* Remove one of a person's brands. Only ever a brand they were added to
+         by mistake — somebody who has LEFT a brand is marked left_at, which
+         keeps the history and stops the access. Deleting is for "this was
+         never true". */
+      if (path.endsWith("/agent/profile/remove") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "").trim();
+        if (!id) return json({ error: "Missing profile id" }, 400, request, env);
+        const rows = await sbGet(env, "agent_profiles", `id=eq.${encodeURIComponent(id)}&select=contact_id,is_primary`);
+        const row = rows && rows[0];
+        if (!row) return json({ error: "That brand is already gone." }, 404, request, env);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?id=eq.${encodeURIComponent(id)}`, {
+          method: "DELETE",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        // Somebody has to be primary, or their Studio has no kit to open in.
+        if (row.is_primary) {
+          const left = await sbGet(env, "agent_profiles",
+            `contact_id=eq.${encodeURIComponent(row.contact_id)}&select=id&order=created_at.asc&limit=1`);
+          if (left && left[0]) {
+            await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(left[0].id)}`, { is_primary: true });
+          }
+        }
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: internal-agent (TEG) profile on a contact -------------------
       // Reads/writes the agent_profiles row for a contact. On save, when the
       // contact is a new starter on Academy/Pro and has no code yet, generates
@@ -7357,8 +7385,15 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const cid = (url.searchParams.get("contact_id") || "").trim();
         if (!cid) return json({ error: "Missing contact_id" }, 400, request, env);
-        const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(cid)}&select=*`);
-        return json({ ok: true, profile: (rows && rows[0]) || null }, 200, request, env);
+        // A person can work for two brands, so this returns all their rows.
+        // `profile` stays for callers that want one: the primary.
+        const rows = await sbGet(env, "agent_profiles",
+          `contact_id=eq.${encodeURIComponent(cid)}&select=*&order=is_primary.desc,created_at.asc`) || [];
+        return json({
+          ok: true,
+          profile: rows.find((r) => r.is_primary) || rows[0] || null,
+          profiles: rows,
+        }, 200, request, env);
       }
 
       if (path.endsWith("/agent/profile") && request.method === "POST") {
@@ -7378,14 +7413,35 @@ export default {
           area: (b && b.area) || null,
           date_joined: (b && b.date_joined) || null,
           postcode: (b && b.postcode) || null,
+          // Their number and address AT THIS BRAND — a dual agent often has
+          // one of each, and the footer has to print the right one.
+          email: (b && b.email) || null,
+          phone: (b && b.phone) || null,
           is_new_starter: !!(b && b.is_new_starter),
           induction_month: (b && b.induction_month) || null,
           package: (b && b.package) || null,
           trainer_name: (b && b.trainer_name) || null,
           trainer_email: (b && b.trainer_email) || null,
         });
-        const saved = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`);
-        return json({ ok: true, profile: (saved && saved[0]) || null }, 200, request, env);
+
+        /* Which brand their Studio opens in. Exactly one, so setting a new
+           primary has to clear the old one first — the index would refuse a
+           second, and the refusal would land as an unexplained save failure. */
+        const wantPrimary = String((b && b.brand) || "").trim();
+        if (b && b.make_primary && wantPrimary) {
+          await sbPatch(env, "agent_profiles",
+            `contact_id=eq.${encodeURIComponent(contactId)}&is_primary=is.true`, { is_primary: false });
+          await sbPatch(env, "agent_profiles",
+            `contact_id=eq.${encodeURIComponent(contactId)}&brand=eq.${encodeURIComponent(wantPrimary)}`, { is_primary: true });
+        }
+
+        const saved = await sbGet(env, "agent_profiles",
+          `contact_id=eq.${encodeURIComponent(contactId)}&select=*&order=is_primary.desc,created_at.asc`) || [];
+        return json({
+          ok: true,
+          profile: saved.find((r) => String(r.brand || "").trim() === wantPrimary) || saved[0] || null,
+          profiles: saved,
+        }, 200, request, env);
       }
 
       // ---- TEG new-starter sheet sync (manual "sync now" for testing) ---------

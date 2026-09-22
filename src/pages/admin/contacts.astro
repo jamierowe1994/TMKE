@@ -382,6 +382,37 @@ import "../../styles/admin.css";
     .ct-dup-acts { margin-top: 10px; }
     .ct-task { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .ct-task.done { opacity: 0.5; text-decoration: line-through; }
+    /* The brands a person works for, one tab each. Only ever shown when there
+       is a choice to make, so a single-brand agent's card is unchanged. */
+    .ct-brandtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px; }
+    .ct-brandtab {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--sans); font-size: 12px; font-weight: 600;
+      padding: 7px 13px; border-radius: 999px; cursor: pointer;
+      background: #fff; color: rgba(28,29,34,0.65);
+      border: 1px solid rgba(28,29,34,0.18);
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
+    }
+    .ct-brandtab:hover { border-color: rgba(28,29,34,0.45); color: var(--ink); }
+    .ct-brandtab.is-on { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+    .ct-brandtab em {
+      font-style: normal; font-size: 9.5px; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.65;
+    }
+    .ct-brandtab em.is-left { color: #a3372b; opacity: 1; }
+    .ct-brandtab.is-on em.is-left { color: #ffb4a8; }
+    .ct-brandtab-add { border-style: dashed; color: rgba(28,29,34,0.5); }
+    .ct-brand-of {
+      font-family: var(--sans); font-size: 11px; font-weight: 600;
+      letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45);
+    }
+    .ct-linkbtn {
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.5);
+      text-decoration: underline; text-underline-offset: 3px;
+    }
+    .ct-linkbtn:hover { color: #8c2f24; }
+
     .ct-toggle { font-family: var(--sans); font-size: 12px; color: var(--english-violet); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 
     /* Tag filter dropdown */
@@ -699,6 +730,8 @@ import "../../styles/admin.css";
         supabase.from("contact_consent_events").select("action, basis, source, occurred_at").eq("contact_id", id).order("occurred_at", { ascending: false }),
       ]);
       current.agentProfile = agentProfile;
+      // Every brand this person works for. The panel shows one at a time.
+      current.agentProfiles = (agentProfile && agentProfile.__all) || (agentProfile ? [agentProfile] : []);
       const orders = (ord && ord.data) || [], vrows = (vidb && vidb.data) || [], srows = (smmb && smmb.data) || [];
       // Empty until supabase/contact_consent_events.sql has been run.
       const crows = (consent && consent.data) || [];
@@ -841,7 +874,10 @@ import "../../styles/admin.css";
         const token = data?.session?.access_token;
         const r = await fetch(`${WORKER}/agent/profile?contact_id=${encodeURIComponent(id)}`, { headers: token ? { Authorization: "Bearer " + token } : {} });
         const j = await r.json().catch(() => ({}));
-        return j.profile || null;
+        const one = j.profile || null;
+        // Carried along so the drawer can show a dual agent's other brands.
+        if (one) one.__all = Array.isArray(j.profiles) && j.profiles.length ? j.profiles : [one];
+        return one;
       } catch (_) { return null; }
     }
     // The personalised booking link the funnel emails carry — the code alone is
@@ -863,6 +899,23 @@ import "../../styles/admin.css";
       const isAgent = !!p || isTegDetected;
       const val = (x) => esc(x == null ? "" : x);
       const brandVal = (p && p.brand) || (detectedBrand || "");
+      /* An agent can work for two brands — a Property Expert who is also a
+         Letting Expert — and each brand has its own job title, patch, join
+         date and work number. So the panel edits ONE brand at a time, and
+         these are the brands to choose between. Shown only when there is a
+         choice to make, or a brand to add. */
+      const all = (c && c.agentProfiles) || (p ? [p] : []);
+      const brandTabs = all.length ? `
+        <div class="ct-brandtabs">
+          ${all.map((r) => `
+            <button type="button" class="ct-brandtab${r.id === (p && p.id) ? " is-on" : ""}" data-brandtab="${esc(r.id)}">
+              ${esc(r.brand || "No brand yet")}
+              ${r.is_primary ? '<em title="The kit their Studio opens in">primary</em>' : ""}
+              ${r.left_at ? '<em class="is-left">left</em>' : ""}
+            </button>`).join("")}
+          <button type="button" class="ct-brandtab ct-brandtab-add" id="teg-add-brand" title="They work for another brand as well">+ Add a brand</button>
+        </div>` : "";
+
       return `
         <div class="ct-sec">
           <label class="ct-toggle"><input type="checkbox" id="teg-is-agent" ${isAgent ? "checked" : ""}/> Internal agent — TEG (The Experts Group)</label>
@@ -870,13 +923,18 @@ import "../../styles/admin.css";
           <p class="ct-meta" id="teg-empty" ${isAgent ? "hidden" : ""} style="margin-top:8px">Turn this on to record their agent details and (for new starters) generate their free videography code.</p>
         </div>
         <div id="teg-fields" ${isAgent ? "" : "hidden"}>
+          ${brandTabs}
           <div class="ct-sec">
-            <h3>Agent details</h3>
+            <h3>Agent details${all.length > 1 ? ` <span class="ct-brand-of">at ${esc((p && p.brand) || "this brand")}</span>` : ""}</h3>
             <div class="ct-field"><label>Brand</label><input id="teg-brand" list="teg-brand-list" value="${val(brandVal)}" placeholder="Select or type…" /><datalist id="teg-brand-list">${TEG_BRANDS.map((b) => `<option value="${esc(b)}"></option>`).join("")}</datalist></div>
             <div class="ct-field"><label>Date joined</label><input type="date" id="teg-joined" value="${val(p && p.date_joined)}" /></div>
             <div class="ct-field"><label>Postcode</label><input id="teg-postcode" value="${val(p && p.postcode)}" placeholder="e.g. NN14 1AA" /></div>
             <div class="ct-field"><label>Area they cover</label><input id="teg-area" value="${val(p && p.area)}" placeholder="e.g. Milton Keynes" /><small>In words, as a design would print it. Fills {area} in their templates.</small></div>
             <div class="ct-field"><label>Job title</label><input id="teg-job-title" value="${val(p && p.job_title)}" placeholder="e.g. Senior Property Expert" /><small>Printed on their contact footer.</small></div>
+            <div class="ct-field"><label>Work email at this brand</label><input id="teg-email" value="${val(p && p.email)}" placeholder="Leave blank to use their main one" /></div>
+            <div class="ct-field"><label>Work number at this brand</label><input id="teg-phone" value="${val(p && p.phone)}" placeholder="Leave blank to use their main one" /></div>
+            ${all.length > 1 ? `<label class="ct-toggle"><input type="checkbox" id="teg-primary" ${p && p.is_primary ? "checked" : ""} ${p && p.is_primary ? "disabled" : ""}/> Their Studio opens in this brand</label>` : ""}
+            ${all.length > 1 && p && !p.is_primary ? `<button type="button" class="ct-linkbtn" id="teg-remove-brand">Remove this brand</button>` : ""}
             <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
             <div class="ct-field"><label>Trainer email</label><input id="teg-trainer-email" type="email" value="${val((p && p.trainer_email) || "kelly@theexpertsgroup.co.uk")}" /></div>
           </div>
@@ -913,6 +971,74 @@ import "../../styles/admin.css";
         document.getElementById("teg-fields").hidden = !isAgentCb.checked;
         const em = document.getElementById("teg-empty"); if (em) em.hidden = isAgentCb.checked;
       });
+      /* Switching between someone's brands, and adding another. Each brand is
+         its own row with its own details, so this redraws the panel from the
+         row rather than trying to keep two sets of fields on screen. */
+      document.querySelectorAll("[data-brandtab]").forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const id = tab.getAttribute("data-brandtab");
+          const row = (c.agentProfiles || []).find((r) => String(r.id) === String(id));
+          if (!row) return;
+          c.agentProfile = Object.assign({}, row, { __all: c.agentProfiles });
+          document.getElementById("ct-teg-panel").innerHTML =
+            tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) }, c);
+          wireTeg();
+        });
+      });
+
+      document.getElementById("teg-add-brand")?.addEventListener("click", () => {
+        const taken = (c.agentProfiles || []).map((r) => String(r.brand || "").trim().toLowerCase());
+        const left = TEG_BRANDS.filter((b) => !taken.includes(b.toLowerCase()));
+        const pick = prompt(
+          "Which other brand do they work for?\n\n" + left.map((b, i) => (i + 1) + ". " + b).join("\n") +
+          "\n\nType the number, or the brand name.");
+        if (!pick) return;
+        const n = parseInt(pick, 10);
+        const brand = (n >= 1 && n <= left.length) ? left[n - 1] : pick.trim();
+        if (!brand) return;
+        if (taken.includes(brand.toLowerCase())) { tegMsg("They already have that brand.", false); return; }
+        // A blank row for the new brand: nothing is saved until Save is pressed,
+        // and the job title starts as that brand's, which is right nine times
+        // in ten and easy to change when it isn't.
+        const titles = {
+          "the property experts": "Property Expert",
+          "the letting experts": "Letting Expert",
+          "prestige property experts": "Prestige Property Expert",
+          "fine & country": "Partner Agent",
+        };
+        c.agentProfile = {
+          id: "new", brand, is_primary: false,
+          job_title: titles[brand.toLowerCase()] || "",
+          __all: (c.agentProfiles || []).concat([{ id: "new", brand, is_primary: false }]),
+        };
+        c.agentProfiles = c.agentProfile.__all;
+        document.getElementById("ct-teg-panel").innerHTML =
+          tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) }, c);
+        wireTeg();
+        tegMsg("Fill in their details at " + brand + ", then Save.", true);
+      });
+
+      document.getElementById("teg-remove-brand")?.addEventListener("click", async () => {
+        const row = c.agentProfile;
+        if (!row || !row.id || row.id === "new") return;
+        if (!confirm("Remove " + (row.brand || "this brand") + " from " + (c.first_name || "this contact") +
+          "?\n\nOnly do this if it was added by mistake. Somebody who has LEFT a brand should be marked as left instead, which keeps the history.")) return;
+        const { data } = await supabase.auth.getSession();
+        const res = await fetch(`${WORKER}/agent/profile/remove`, {
+          method: "POST",
+          headers: { Authorization: "Bearer " + data?.session?.access_token, "Content-Type": "application/json" },
+          body: JSON.stringify({ id: row.id }),
+        });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) { tegMsg(j.error || "Couldn't remove that brand.", false); return; }
+        c.agentProfiles = (c.agentProfiles || []).filter((r) => String(r.id) !== String(row.id));
+        c.agentProfile = c.agentProfiles[0] ? Object.assign({}, c.agentProfiles[0], { __all: c.agentProfiles }) : null;
+        document.getElementById("ct-teg-panel").innerHTML =
+          tegPanelHtml(c.agentProfile, { brand: tegBrandFromEmail(c.email) }, c);
+        wireTeg();
+        tegMsg("Removed.", true);
+      });
+
       const nsCb = document.getElementById("teg-newstarter");
       nsCb?.addEventListener("change", () => { document.getElementById("teg-ns-fields").hidden = !nsCb.checked; });
       document.getElementById("teg-save")?.addEventListener("click", async () => {
@@ -925,6 +1051,10 @@ import "../../styles/admin.css";
           postcode: tegVal("teg-postcode"),
           area: tegVal("teg-area"),
           job_title: tegVal("teg-job-title"),
+          // Blank means "use the contact's own" — nobody types it twice.
+          email: tegVal("teg-email"),
+          phone: tegVal("teg-phone"),
+          make_primary: !!document.getElementById("teg-primary")?.checked,
           is_new_starter: !!document.getElementById("teg-newstarter")?.checked,
           induction_month: tegVal("teg-month") || null,
           package: tegVal("teg-package") || null,
@@ -939,6 +1069,8 @@ import "../../styles/admin.css";
           const j = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(j.error || "Couldn't save agent details.");
           c.agentProfile = j.profile || null;
+          c.agentProfiles = j.profiles || (j.profile ? [j.profile] : []);
+          if (c.agentProfile) c.agentProfile.__all = c.agentProfiles;
           // Flag them TEG on the main list too. The list derives lifecycle from
           // the contact's OWN tags (agent_profiles isn't loaded there), so mark
           // "internal agent" with the Network: TEG tag the derivation recognises.
