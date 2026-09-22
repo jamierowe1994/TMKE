@@ -2358,21 +2358,30 @@ function monthLabel(ym) {
 // so the funnel emails resolve those tokens. Returns {} for non-funnel contacts.
 async function agentFunnelContext(env, contact) {
   try {
-    const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=promo_code,induction_month,trainer_name`);
+    const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,left_at,promo_code,induction_month,trainer_name`);
     const p = rows && rows[0];
-    if (!p || !p.promo_code) return {};
+    if (!p) return {};
+    /* Why they are getting this, in their own terms — a TEG agent is on the
+       list because of who they work for, not because they filled a form in.
+       Saying so is a legitimacy signal to a filter and simply true to them. */
+    const out = {};
+    if (p.brand && !p.left_at) {
+      out.brand = p.brand;
+      out.whyReceiving = `You're receiving this because you're part of ${p.brand}.`;
+    }
+    if (!p.promo_code) return out;
     const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
     const params = new URLSearchParams({ code: p.promo_code });
     const nm = [contact.first_name, contact.last_name].filter(Boolean).join(" ");
     if (nm) params.set("name", nm);
     if (contact.email) params.set("email", contact.email);
     if (p.induction_month) params.set("month", p.induction_month);
-    return {
+    return Object.assign(out, {
       bookingLink: `${site}/videography/new-starter?${params.toString()}`,
       code: p.promo_code,
       shootMonth: monthLabel(p.induction_month),
       trainerName: p.trainer_name || "Kelly Bailey",
-    };
+    });
   } catch (_) { return {}; }
 }
 

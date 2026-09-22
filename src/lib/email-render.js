@@ -79,6 +79,15 @@ export function mergeContextFor(recipient = {}, brand = {}) {
     code: recipient.code || '',
     shootMonth: recipient.shootMonth || '',
     trainerName: recipient.trainerName || '',
+    /* Why this person is getting this email. Filters look for it, and it is
+       simply true — but it isn't the same sentence for everyone. A TEG agent
+       gets these because of who they work for; everyone else asked for them.
+       The Worker sets `whyReceiving` when it knows better; this is the line
+       for anyone it doesn't. */
+    whyReceiving: recipient.whyReceiving
+      || (recipient.brand
+        ? `You're receiving this because you're part of ${recipient.brand}.`
+        : "You're receiving this because you signed up for marketing emails from TMKE."),
     // Unsubscribe: {{unsubscribe}} = a ready-made link; {{unsubscribe_url}} = the URL.
     unsubscribe: `<a href="${unsubUrl}" style="color:inherit;text-decoration:underline;">Unsubscribe</a>`,
     unsubscribeUrl: unsubUrl,
@@ -93,6 +102,7 @@ export const MERGE_FIELDS = [
   { token: 'fullName', label: 'Full name' },
   { token: 'email', label: 'Email address' },
   { token: 'company', label: 'Brand / business' },
+  { token: 'whyReceiving', label: 'Why they got this' },
   { token: 'location', label: 'Location' },
   { token: 'phone', label: 'Mobile / phone' },
   { token: 'packName', label: 'Purchased pack' },
