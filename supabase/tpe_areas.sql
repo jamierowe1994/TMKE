@@ -56,7 +56,7 @@ insert into tpe_site (email, name, area) values
   ('southam@thepropertyexperts.co.uk', 'Mark & Lorna Kermode', 'Southam'),
   ('mark.jones@thepropertyexperts.co.uk', 'Mark Jones', 'Derbyshire'),
   ('mark.moffat@thepropertyexperts.co.uk', 'Mark Moffat', 'Reading'),
-  ('matthew.harvey@thepropertyexperts.co.uk', 'Matt Harvey', 'Property Expert for South & West Devon'),
+  ('matthew.harvey@thepropertyexperts.co.uk', 'Matt Harvey', 'South & West Devon'),
   ('miranda@thepropertyexperts.co.uk', 'Miranda Menzies', 'Kettering'),
   ('morgan.nunns@thepropertyexperts.co.uk', 'Morgan Nunns', 'North Shropshire'),
   ('nathaniel@thepropertyexperts.co.uk', 'Nathaniel Cleaver', 'Leamington Spa & Warwick'),
