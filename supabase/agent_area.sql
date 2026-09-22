@@ -9,3 +9,8 @@
 
 alter table public.agent_profiles
   add column if not exists area text;
+
+-- Who filed this agent under this brand: a person in the admin centre, or the
+-- signup flow trusting their brand email address. Worth knowing later.
+alter table public.agent_profiles
+  add column if not exists added_by text;

@@ -889,6 +889,56 @@ function colLetter(n) {
 }
 
 // Insert a row into Supabase with the service role.
+/* Which TEG brand an email address proves. Only their employer's own mail
+   server can hand out one of these, which is why a matching domain is enough
+   to let someone in without anybody approving it by hand. A personal address
+   proves nothing and gets nothing. */
+const TEG_DOMAIN_BRANDS = [
+  [/(^|\.)thepropertyexperts\.co\.uk$/i,       "The Property Experts"],
+  [/(^|\.)prestigepropertyexperts\.co\.uk$/i,  "Prestige Property Experts"],
+  [/(^|\.)thelettingsexperts\.co\.uk$/i,       "The Letting Experts"],
+  [/(^|\.)thelettingexperts\.co\.uk$/i,        "The Letting Experts"],
+  [/(^|\.)themarketingexperts\.co\.uk$/i,      "The Marketing Experts"],
+  [/(^|\.)therecruitmentexperts\.co\.uk$/i,    "The Recruitment Experts"],
+  [/(^|\.)themortgageexperts\.co\.uk$/i,       "The Mortgage Experts"],
+  [/(^|\.)fineandcountry\.com$/i,               "Fine & Country"],
+];
+
+function brandFromEmailDomain(email) {
+  const dom = String(email || "").toLowerCase().split("@")[1] || "";
+  if (!dom) return null;
+  for (const [re, brand] of TEG_DOMAIN_BRANDS) if (re.test(dom)) return brand;
+  return null;
+}
+
+/* An agent whose brand address we can see, but who nobody has added to the
+   CRM as TEG yet. Every approved Property Experts person is supposed to be in
+   contacts; when one isn't, the choice is to strand them or to trust the
+   address. We trust the address, file them under that brand, and tag the
+   contact so it is visible in Contacts that we did it rather than a human. */
+async function ensureTegFromDomain(env, { contactId, email }) {
+  const brand = brandFromEmailDomain(email);
+  if (!brand || !contactId) return null;
+  const have = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=contact_id,brand,left_at&limit=1`);
+  const row = have && have[0];
+  // Already known, or deliberately marked as having left: leave it alone.
+  if (row && (row.brand || row.left_at)) return row.left_at ? null : row.brand;
+  await sbPost(env, "agent_profiles", {
+    contact_id: contactId,
+    brand,
+    added_by: "email-domain",
+  }, "resolution=merge-duplicates,return=minimal");
+  try {
+    const crow = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(contactId)}&select=tags`);
+    const cur = (crow && crow[0] && crow[0].tags) || [];
+    const tag = "TEG: added from email domain";
+    if (!cur.includes(tag)) {
+      await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { tags: cur.concat(tag) });
+    }
+  } catch (_) {}
+  return brand;
+}
+
 /* A member's brand kit, built from what we already know about them.
  *
  * Their brand's colours, fonts, logo, voice and website; their own name, job
@@ -950,7 +1000,17 @@ async function seedBrandKit(env, { userId, email }) {
   try {
     const have = await sbGet(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}&select=user_id&limit=1`);
     if (have && have.length) return false;
-    const { brand, kit } = await brandKitFor(env, { userId, email });
+    let { brand, kit } = await brandKitFor(env, { userId, email });
+    // No TEG profile, but a brand address: their employer vouched for them.
+    if (!brand) {
+      const byUser = await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(userId)}&select=id&limit=1`);
+      const byMail = byUser && byUser[0] ? null
+        : await sbGet(env, "contacts", `email=eq.${encodeURIComponent(String(email || "").toLowerCase())}&select=id&limit=1`);
+      const cid = (byUser && byUser[0] && byUser[0].id) || (byMail && byMail[0] && byMail[0].id) || null;
+      if (cid && await ensureTegFromDomain(env, { contactId: cid, email })) {
+        ({ brand, kit } = await brandKitFor(env, { userId, email }));
+      }
+    }
     if (!brand || !kit) return false;   // not a TEG agent: nothing to hand them
     const clean = Object.fromEntries(Object.entries(kit).filter(([, v]) => v != null && v !== ""));
     clean.updatedAt = Date.now();
