@@ -91,6 +91,9 @@ import "../../../styles/admin.css";
     .aud-ins-table td small { display: block; font-size: 11px; color: rgba(28,29,34,0.45); margin-top: 2px; }
     .aud-ins-table .ins-name { font-weight: 600; color: var(--ink); }
     .aud-ins-table .ins-when { font-size: 11.5px; color: rgba(28,29,34,0.5); }
+    /* What the filter took out, so a 0 reads as "nobody, and here is why"
+       rather than as a broken page. */
+    .aud-ins-table .ins-bot { display: block; font-size: 11px; color: #8a6a24; margin-top: 2px; }
     .aud-ins-table tr.is-waiting td { color: rgba(28,29,34,0.4); }
     .aud-stat { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 16px; min-width: 92px; }
     .aud-stat b { display: block; font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.1; }
@@ -261,13 +264,22 @@ import "../../../styles/admin.css";
           if (!ipReach.has(ip)) ipReach.set(ip, new Set());
           ipReach.get(ip).add(e.email || e.contact_id);
         });
+        /* Two recipients on one IP is not proof: a whole office can share one
+           address on the way out. Three or more, within the hour of delivery,
+           is — that is a queue being worked through, not a team all reading
+           their post at once. A click inside 30 seconds is its own proof at
+           any number. */
         const MACHINE_SECONDS = 30;
+        const MACHINE_IP_REACH = 3;
+        const MACHINE_WINDOW_MIN = 60;
         function isMachine(e) {
           if (e.event !== "clicked" && e.event !== "opened") return false;
-          const ip = ipOf(e);
-          if (ip && (ipReach.get(ip) || new Set()).size > 1) return true;
           const d = deliveredAt.get(e.email || e.contact_id);
-          if (d && (new Date(e.occurred_at) - new Date(d)) / 1000 < MACHINE_SECONDS) return true;
+          const mins = d ? (new Date(e.occurred_at) - new Date(d)) / 60000 : null;
+          if (mins != null && mins * 60 < MACHINE_SECONDS) return true;
+          const ip = ipOf(e);
+          const reach = ip ? (ipReach.get(ip) || new Set()).size : 0;
+          if (reach >= MACHINE_IP_REACH && (mins == null || mins < MACHINE_WINDOW_MIN)) return true;
           return false;
         }
 
@@ -321,14 +333,16 @@ import "../../../styles/admin.css";
             if (x.first) return -1; if (y.first) return 1;
             return (x.order ?? 999) - (y.order ?? 999);
           });
-        const cell = (n, rate) => `<td><b>${n}</b>${rate ? `<small>${rate}</small>` : ""}</td>`;
+        const cell = (n, rate, note) => `<td><b>${n}</b>${rate ? `<small>${rate}</small>` : ""}${note ? `<small class="ins-bot">${note}</small>` : ""}</td>`;
         $("aud-ins-table").innerHTML = `<thead><tr><th>Email</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Unsubscribed</th><th>Bounced</th></tr></thead><tbody>` +
           rows.map((g) => {
             const t = stats(g.ev);
             const sentOn = g.first ? "Sent " + new Date(g.first).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : (g.when || "Not sent yet");
             return `<tr class="${t.sent ? "" : "is-waiting"}"><td><div class="ins-name">${esc(g.name)}</div><div class="ins-when">${esc(sentOn)}</div></td>` +
-              cell(t.sent) + cell(t.delivered, pct(t.delivered, t.sent)) + cell(t.opened, pct(t.opened, t.base)) +
-              cell(t.clicked, pct(t.clicked, t.base)) + cell(t.unsub, pct(t.unsub, t.base)) + cell(t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
+              cell(t.sent) + cell(t.delivered, pct(t.delivered, t.sent)) +
+              cell(t.opened, pct(t.opened, t.base), t.botOpened ? "+" + t.botOpened + " scanners" : "") +
+              cell(t.clicked, pct(t.clicked, t.base), t.botClicked ? "+" + t.botClicked + " scanners" : "") +
+              cell(t.unsub, pct(t.unsub, t.base)) + cell(t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
           }).join("") + `</tbody>`;
 
         // Say so when the numbers can't be right, rather than showing zeros
