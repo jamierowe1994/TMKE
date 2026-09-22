@@ -9,7 +9,11 @@ import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/account-sections.css";   // dashboard shell + sidebar chrome for the Studio onboarding
 import { templates, packages } from "../../data/library.js";
 import { TRAINING_DESIGN, TRAINING_KIT } from "../../data/training-demo.js";
-import { STUDIO_SIZES, WIDE_SIZES } from "../../data/studio-sizes.js";
+import { STUDIO_SIZES, WIDE_SIZES, NO_BLOCK_SIZES } from "../../data/studio-sizes.js";
+
+// The sizes a contact footer has no business on, as "w,h" for the engine.
+const NO_BLOCK_WH = (STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [])
+  .filter((z) => NO_BLOCK_SIZES.includes(z.name)).map((z) => `${z.w},${z.h}`).join("|");
 
 // Cache-buster for the static editor script. Files in public/ keep the same URL
 // forever (unlike Astro's content-hashed bundles), so browsers/CDN serve a stale
@@ -598,7 +602,7 @@ const googleFonts = [
         <!-- Contact footers (templates with kind = 'block'). Closed until asked
              for, so the panel stays tidy; each is previewed with the member's
              own details. Built by editor.js (renderContactBlocks). -->
-        <div class="ed-cb" id="ed-cb" hidden>
+        <div class="ed-cb" id="ed-cb" hidden data-no-block={NO_BLOCK_WH}>
           <div class="ed-section-title">Your contact details</div>
           <button type="button" class="ed-cb-toggle" id="ed-cb-toggle" aria-expanded="false" aria-controls="ed-cb-list">
             <span class="ed-cb-tx"><b>Contact footers</b><i>Your name, photo and details, from your brand kit</i></span>

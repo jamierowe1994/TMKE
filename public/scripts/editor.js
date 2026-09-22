@@ -10152,15 +10152,18 @@ import { createResizeEngine } from "./resize-engine.js";
     const W = Math.round(state.canvas.width), H = Math.round(state.canvas.height);
     const from = sizePreviewPending() ? _sizePreview : { W: W, H: H };
     const fam = sizeFamily(from.W, from.H);
-    document.querySelectorAll(".ed-resize-family").forEach((g) => {
-      g.hidden = g.getAttribute("data-family") !== fam;
-    });
-    // Upright designs are offered upright shapes, and banners banners: a post
-    // forced into a banner comes out worse than the post it came from. Admin
-    // mode sees them all - that's where every size is checked.
+    /* One of our templates is drawn for a shape: upright posts go to upright
+       shapes, banners to banners, and a post doesn't become a business card.
+       A design the member built themselves is theirs - every preset is open to
+       it - and so is admin mode, where every size gets checked. Whatever the
+       design, the custom width and height below are always there. */
+    const restrict = !!_templateOrigin && !isAdminMode();
     const shape = from.W / from.H >= 1.2 ? "wide" : "upright";
+    document.querySelectorAll(".ed-resize-family").forEach((g) => {
+      g.hidden = restrict && g.getAttribute("data-family") !== fam;
+    });
     document.querySelectorAll(".ed-resize-card[data-shape]").forEach((b) => {
-      b.hidden = !isAdminMode() && b.getAttribute("data-shape") !== shape;
+      b.hidden = restrict && b.getAttribute("data-shape") !== shape;
     });
     const variants = sizeVariants();
     document.querySelectorAll(".ed-resize-card").forEach((btn) => {
@@ -10516,7 +10519,11 @@ import { createResizeEngine } from "./resize-engine.js";
   function renderContactBlocks() {
     const host = $("ed-cb"), list = $("ed-cb-list");
     if (!host || !list) return;
-    host.hidden = !_contactBlocks.length;
+    // Some shapes are no place for a footer (NO_BLOCK_SIZES): a Facebook cover
+    // is 820 x 312 of almost nothing but strip.
+    const noBlock = (host.getAttribute("data-no-block") || "").split("|").filter(Boolean);
+    const here = Math.round(state.canvas.width) + "," + Math.round(state.canvas.height);
+    host.hidden = !_contactBlocks.length || noBlock.indexOf(here) !== -1;
     if (list.hidden) return;                 // drawn when opened, so the kit has loaded
     list.innerHTML = "";
     const order = Object.keys(CB_VARIANTS);
