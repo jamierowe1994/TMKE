@@ -889,6 +889,41 @@ function colLetter(n) {
 }
 
 // Insert a row into Supabase with the service role.
+/* A plain-text version of an HTML email.
+ *
+ * Every real mail client sends both parts, so a message carrying only HTML
+ * stands out to a filter — and Outlook's judgement on this one was SCL 5,
+ * "spam", with the authentication perfect. This is one of the few signals in
+ * that judgement we can actually change.
+ *
+ * It also serves the people whose client shows text: a screen reader, a watch,
+ * a phone on a bad train line, an Outlook set to plain text by their IT.
+ */
+function htmlToText(html) {
+  if (!html) return "";
+  let t = String(html);
+  t = t.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<script[\s\S]*?<\/script>/gi, "");
+  t = t.replace(/<!--[\s\S]*?-->/g, "");
+  // A link becomes "the words (the address)", so nothing is lost by reading it.
+  t = t.replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi, (m, href, inner) => {
+    const words = inner.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+    if (!words) return href;
+    if (href.startsWith("mailto:") || words === href) return words;
+    return `${words} (${href})`;
+  });
+  t = t.replace(/<img\b[^>]*alt=["']([^"']+)["'][^>]*>/gi, "[$1]").replace(/<img\b[^>]*>/gi, "");
+  t = t.replace(/<\/(h[1-6]|p|div|tr|li|section|header|footer)>/gi, "\n\n");
+  t = t.replace(/<br\s*\/?>/gi, "\n").replace(/<li\b[^>]*>/gi, "- ");
+  t = t.replace(/<[^>]+>/g, "");
+  t = t.replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<")
+       .replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+       .replace(/&mdash;/gi, "\u2014").replace(/&ndash;/gi, "\u2013")
+       .replace(/&rsquo;/gi, "\u2019").replace(/&lsquo;/gi, "\u2018")
+       .replace(/&hellip;/gi, "\u2026");
+  t = t.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").split("\n").map((l) => l.trim()).join("\n");
+  return t.trim();
+}
+
 /* Which TEG brand an email address proves. Only their employer's own mail
    server can hand out one of these, which is why a matching domain is enough
    to let someone in without anybody approving it by hand. A personal address
@@ -1887,6 +1922,8 @@ async function sendMarketingEmail(env, { to, subject, html, unsubUrl, replyTo })
         to: Array.isArray(to) ? to : [to],
         subject,
         html,
+        // Both parts, always: an HTML-only message is a shape filters mark down.
+        text: htmlToText(html),
         headers: Object.keys(headers).length ? headers : undefined,
       }),
     });
@@ -1991,6 +2028,7 @@ async function sendPostEmail(env, { email, item, subject }) {
         to: email,
         subject: subject || `Your ${platform} post`,
         html: reminderHtml(item, platform, item.caption || ""),
+        text: htmlToText(reminderHtml(item, platform, item.caption || "")),
         attachments: attachments.length ? attachments : undefined,
       }),
     });
