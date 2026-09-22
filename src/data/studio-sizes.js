@@ -29,6 +29,13 @@ const print = (name, wMm, hMm) => ({
    strip, so a footer scaled onto one stops being a footer. */
 export const NO_BLOCK_SIZES = ["Facebook Cover"];
 
+/* The wide social shapes. A design drawn upright (portrait, square, story) has
+   to be rebuilt to work as a banner, not nudged, so a member's Resize panel
+   offers only the shapes near the one they are on: upright to upright, wide to
+   wide. New design still offers all eight - a banner drawn as a banner is
+   fine - and so does admin mode, which is where every size gets checked. */
+export const WIDE_SIZES = ["Landscape", "Facebook Link", "Facebook Cover", "LinkedIn Post"];
+
 export const STUDIO_SIZES = [
   {
     label: "Social",

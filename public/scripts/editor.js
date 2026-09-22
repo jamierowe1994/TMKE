@@ -10155,6 +10155,13 @@ import { createResizeEngine } from "./resize-engine.js";
     document.querySelectorAll(".ed-resize-family").forEach((g) => {
       g.hidden = g.getAttribute("data-family") !== fam;
     });
+    // Upright designs are offered upright shapes, and banners banners: a post
+    // forced into a banner comes out worse than the post it came from. Admin
+    // mode sees them all - that's where every size is checked.
+    const shape = from.W / from.H >= 1.2 ? "wide" : "upright";
+    document.querySelectorAll(".ed-resize-card[data-shape]").forEach((b) => {
+      b.hidden = !isAdminMode() && b.getAttribute("data-shape") !== shape;
+    });
     const variants = sizeVariants();
     document.querySelectorAll(".ed-resize-card").forEach((btn) => {
       btn.classList.toggle("is-current", btn.dataset.size === W + "," + H);
