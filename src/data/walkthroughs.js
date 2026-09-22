@@ -193,24 +193,26 @@ export const WALKS = {
   // ---------------------------------------------------------------------
   "studio-template": {
     title: "Opening a Template",
+    // Dani, 22 Sep: this walk is one thing - Studio, your packs, open the demo
+    // pack, and there are its templates. The blank canvas and "carry on with a
+    // design you've already made" belong in a course of their own, not here.
+    // The fewer things the spotlight boxes that a reader can already see, the
+    // better: a page with three templates on it doesn't need a box drawn round
+    // them.
+    lead: "Let's open your first template",
+    line: "Choose a pack to see the templates inside it. Pick one and the Studio makes you your own copy, leaving the original untouched.",
     stage: "/account/studio",
     steps: [
       { target: ".ws-hero", placement: "bottom",
         eyebrow: "Studio", title: "Where It All Starts.",
-        body: "The Studio homepage. Three ways to begin a design, and everything you've made already, on one page." },
-      { target: ".st-cta", placement: "bottom", padding: 8,
-        eyebrow: "From scratch", title: "A Blank Canvas.",
-        body: "Create New Design opens an empty page at the size you pick. It's the long way round for a first design, but it's there when you know what you want to build." },
-      { target: 'section[aria-labelledby="designs-h"]', placement: "top",
-        eyebrow: "Your designs", title: "Carry On With One.",
-        body: "Your four most recent designs. Open one and you pick up exactly where you left it - See All Designs opens the rest." },
+        body: "The Studio homepage. Your packs, your designs and the tools you'll use, all on one page." },
       { target: 'section[aria-labelledby="packs-h"]', placement: "top",
-        eyebrow: "Your packs", title: "Or Start From a Template.",
-        body: "Every pack you've bought sits on this shelf, along with the demo templates included with your Member Account. This is the quickest way in." },
-      { target: ".st-pack", placement: "bottom", padding: 8,
-        eyebrow: "Your packs", title: "Open a Pack.",
-        body: "Click a pack to see everything inside it." },
-      { href: "/account/editor?pack=demo", target: "#ed-onboard-design-grid", placement: "top", padding: 10,
+        eyebrow: "Your packs", title: "Start From a Template.",
+        body: "Every pack you own sits on this shelf, along with the demo templates that come with your Member Account." },
+      { target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
+        eyebrow: "Your packs", title: "Open the Demo Pack.",
+        body: "The templates that come with every account. Click a pack to see everything inside it." },
+      { href: "/account/editor?pack=demo", target: null, placement: "center",
         eyebrow: "The pack", title: "Every Template in It.",
         body: "The designs in this pack, ready to use. Choose the one that suits the post you want to make." },
       { href: "/account/editor?training=1", target: "#ed-canvas-shadow", placement: "left",

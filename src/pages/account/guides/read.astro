@@ -565,8 +565,12 @@ const DEFAULT_COVER = (await getImage({
       };
       const walkHtml = (id, i) => {
         if (!id || !WALKS[id]) return "";
+        // A walk can name itself (lead / line in walkthroughs.js) when the
+        // lesson has already said what it is about to show.
+        const lead = WALKS[id].lead || "See it on the page";
+        const line = WALKS[id].line || `A guided look at the real thing: ${WALKS[id].title}, ${WALKS[id].steps.length} steps. Finish brings you back here.`;
         return `<div class="gr-walk">
-          <span class="gr-walk-tx"><strong>See it on the page</strong><span>A guided look at the real thing: ${esc(WALKS[id].title)}, ${WALKS[id].steps.length} steps. Finish brings you back here.</span></span>
+          <span class="gr-walk-tx"><strong>${esc(lead)}</strong><span>${esc(line)}</span></span>
           <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${esc(id)}" data-part="${i}">Show me
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
