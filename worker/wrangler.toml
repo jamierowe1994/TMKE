@@ -13,6 +13,25 @@
 
 name = "tmke-deliverables-api"
 main = "src/index.js"
+
+# ---------------------------------------------------------------------------
+# The Worker's own address, on our domain.
+#
+# Every link in a marketing email has to be on tmke.co.uk. Outlook judged our
+# mail SCL 5 ("spam") with SPF, DKIM, DMARC and compauth all passing, and the
+# loudest thing left in the message was an unsubscribe link on a free
+# *.workers.dev subdomain — a shape filters associate with phishing.
+#
+# A CUSTOM DOMAIN, not a route: a route is what broke the site on 27 Jul (see
+# the note further down). workers_dev is pinned on here so declaring this
+# cannot take the subdomain away again — the whole site still reaches the
+# Worker there until PUBLIC_R2_WORKER_URL is moved across, deliberately and
+# separately.
+# ---------------------------------------------------------------------------
+# Inline, not a [[routes]] table: a table header here would swallow every
+# top-level key that follows it (compatibility_date and the rest).
+workers_dev = true
+routes = [ { pattern = "api.tmke.co.uk", custom_domain = true } ]
 compatibility_date = "2024-09-23"
 # node:buffer etc. for @cloudflare/puppeteer (invoice PDF rendering). Additive.
 compatibility_flags = ["nodejs_compat"]
@@ -43,6 +62,13 @@ binding = "BROWSER"
 # it is only used to build the "Open in Cloudflare" link to a shoot's archive
 # folder. Nothing authenticates with it.
 CF_ACCOUNT_ID = "5afd164b106fe75374dee2e68dd688e8"
+
+# The Worker's public address, now that it has one on our own domain. Read by
+# unsubBase() and by the payment / gallery links — everything a recipient can
+# see. Until now those were *.workers.dev, which reads as phishing to a spam
+# filter, and worse to a client being asked for card details.
+WORKER_PUBLIC_URL = "https://api.tmke.co.uk"
+UNSUB_BASE_URL = "https://api.tmke.co.uk"
 # Used to validate the caller's Supabase login (anon key is public — safe here).
 SUPABASE_URL = "https://tqqezhvjakohraiverei.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxcWV6aHZqYWtvaHJhaXZlcmVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMTUyODAsImV4cCI6MjA5NDU5MTI4MH0.Ng03JuGuJeI_Zg8J3sVZ_9EIEqQh_K44Bla03uR8-wk"
