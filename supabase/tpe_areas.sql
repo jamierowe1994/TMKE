@@ -10,6 +10,9 @@
 -- Run the three SELECTs first and read them. The UPDATE only fills an area
 -- that is empty, so nothing you have typed by hand is overwritten.
 
+-- The SQL editor keeps its session between runs, so a second attempt would
+-- trip over the table the first one left behind.
+drop table if exists tpe_site;
 create temporary table tpe_site (email text primary key, name text, area text);
 insert into tpe_site (email, name, area) values
   ('andrzej.mialkowski@thepropertyexperts.co.uk', 'AJ Mialkowski', 'Northamptonshire & Milton Keynes'),
