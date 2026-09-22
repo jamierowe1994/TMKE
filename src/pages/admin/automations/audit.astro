@@ -172,7 +172,7 @@ import "../../../styles/admin.css";
       try {
         // node_id arrives with a migration; before it has run, ask without it.
         let res = await supabase.from("email_events")
-          .select("event, contact_id, email, node_id, subject, message_id, provider, detail, occurred_at")
+          .select("event, contact_id, email, node_id, subject, message_id, provider, detail, occurred_at, raw")
           .eq("automation_id", id).order("occurred_at", { ascending: true }).limit(20000);
         if (res.error) {
           res = await supabase.from("email_events")
@@ -227,6 +227,50 @@ import "../../../styles/admin.css";
           if (e.event === "sent" && (!g.first || e.occurred_at < g.first)) g.first = e.occurred_at;
         });
 
+        /* Opens and clicks are not all people.
+           Microsoft Defender, Mimecast and the rest fetch every link in every
+           message before anyone sees it, and load the tracking pixel while
+           they are at it. Resend records each as a click or an open, from a
+           real IP with an ordinary Chrome user agent, so a campaign can report
+           80 clicks and the website see two visits.
+
+           Two tells, both from the data itself rather than a list of known
+           bots — lists go stale, behaviour doesn't:
+             · one IP acting for more than one recipient. A person has one
+               inbox; a scanner works through the queue.
+             · a click landing within 30 seconds of delivery. Nobody reads an
+               email and follows a link that fast.
+
+           What is left is reported as the number, because that is the number
+           you would plan against. The machines are still counted, and still
+           shown, just not mistaken for interest. */
+        const ipOf = (e) => {
+          const d = e.raw && e.raw.data;
+          return (d && ((d.click && d.click.ipAddress) || (d.open && d.open.ipAddress))) || null;
+        };
+        const deliveredAt = new Map();
+        ev.filter((e) => e.event === "delivered").forEach((e) => {
+          const k = e.email || e.contact_id;
+          if (k && (!deliveredAt.has(k) || e.occurred_at < deliveredAt.get(k))) deliveredAt.set(k, e.occurred_at);
+        });
+        const ipReach = new Map();
+        ev.forEach((e) => {
+          if (e.event !== "clicked" && e.event !== "opened") return;
+          const ip = ipOf(e);
+          if (!ip) return;
+          if (!ipReach.has(ip)) ipReach.set(ip, new Set());
+          ipReach.get(ip).add(e.email || e.contact_id);
+        });
+        const MACHINE_SECONDS = 30;
+        function isMachine(e) {
+          if (e.event !== "clicked" && e.event !== "opened") return false;
+          const ip = ipOf(e);
+          if (ip && (ipReach.get(ip) || new Set()).size > 1) return true;
+          const d = deliveredAt.get(e.email || e.contact_id);
+          if (d && (new Date(e.occurred_at) - new Date(d)) / 1000 < MACHINE_SECONDS) return true;
+          return false;
+        }
+
         const who = (e) => e.contact_id || e.email || Math.random();
         const uniq = (list, name) => new Set(list.filter((x) => x.event === name).map(who)).size;
         const count = (list, name) => list.filter((x) => x.event === name).length;
@@ -236,9 +280,12 @@ import "../../../styles/admin.css";
         const stats = (list) => {
           const sent = count(list, "sent");
           const delivered = uniq(list, "delivered");
+          const people = list.filter((x) => !isMachine(x));
           return {
             sent, delivered,
-            opened: uniq(list, "opened"), clicked: uniq(list, "clicked"),
+            opened: uniq(people, "opened"), clicked: uniq(people, "clicked"),
+            botOpened: uniq(list, "opened") - uniq(people, "opened"),
+            botClicked: uniq(list, "clicked") - uniq(people, "clicked"),
             unsub: uniq(list, "unsubscribed"),
             bounced: uniq(list, "bounced"), spam: uniq(list, "complained"),
             skipped: list.filter((x) => x.event === "blocked" && gateReason.test(x.detail || "")).length,
@@ -255,6 +302,12 @@ import "../../../styles/admin.css";
           stat("Delivered", all.delivered, pct(all.delivered, all.sent)) +
           stat("Opened", all.opened, pct(all.opened, all.base)) +
           stat("Clicked", all.clicked, pct(all.clicked, all.base)) +
+          ((all.botOpened || all.botClicked)
+            ? stat("Security scanners", all.botClicked || all.botOpened,
+                   (all.botClicked ? all.botClicked + " clicks" : "") +
+                   (all.botClicked && all.botOpened ? ", " : "") +
+                   (all.botOpened ? all.botOpened + " opens" : "") + " — not people")
+            : "") +
           stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true) +
           (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true) : "") +
           (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
