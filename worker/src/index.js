@@ -412,20 +412,29 @@ async function ensureAgentProfile(env, contactId, contact, input) {
     promo_code_id: promoCodeId,
     trainer_name: coalesce(input.trainer_name, (existing && existing.trainer_name)) || tr.name,
     trainer_email: coalesce(input.trainer_email, (existing && existing.trainer_email)) || tr.email,
+    // Their number and address AT THIS BRAND. Null means "use the contact's
+    // own" — most agents have one of each and shouldn't have to type it twice.
+    email: coalesce(input.email, existing && existing.email),
+    phone: coalesce(input.phone, existing && existing.phone),
   };
   // First brand a person gets is the one their Studio opens in.
   row.is_primary = existing ? (existing.is_primary !== false) : !allRows.some((r) => r.is_primary);
-  /* Upsert on the pair when we know the brand; on the person when we don't,
-     which is the old behaviour and still right for a row with no brand yet. */
-  const conflict = row.brand ? "contact_id,brand" : "contact_id";
-  if (existing && existing.id) {
-    await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(existing.id)}`, row);
-  } else {
-    await fetch(`${env.SUPABASE_URL}/rest/v1/agent_profiles?on_conflict=${conflict}`, {
-      method: "POST",
-      headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-      body: JSON.stringify(row),
-    });
+  /* Edit the row we found, or insert a new one — a plain insert, deliberately
+     not an upsert. Both unique indexes here are PARTIAL (one `where brand is
+     not null`, one `where brand is null`), and Postgres will not infer a
+     partial index for ON CONFLICT unless it is handed the index predicate too,
+     which PostgREST has no way to send. So every upsert came back 42P10, and
+     because nothing read the response, "add a brand" looked like it had saved
+     and had done nothing at all. We already know there is no row for this
+     brand — that is why we are here — so a plain insert is the honest write.
+
+     And it is checked. A write that fails now says so, out loud. */
+  const res = (existing && existing.id)
+    ? await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(existing.id)}`, row)
+    : await sbPost(env, "agent_profiles", row);
+  if (res && !res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Couldn't save the agent profile (${res.status}). ${detail.slice(0, 400)}`);
   }
   // Identifying CRM tag for visibility/filtering (the funnel is trigger-driven,
   // NOT tag-driven). One package tag; the opposite is cleared so it never doubles.
