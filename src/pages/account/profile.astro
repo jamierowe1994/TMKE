@@ -782,6 +782,13 @@ const HERO_BG = (await getImage({
     // Studio can use it and an account created afterwards can claim it.
     const BRAND_KEY = demoOn() ? "tmke.brand.demo" : "tmke.brand";
     import { GOOGLE_FONTS, loadGoogleFont } from "../../data/google-fonts.js";
+    import { GOOGLE_FONTS_ALL } from "../../data/google-fonts-all.js";
+    /* The curated few first — they are the ones worth suggesting — then every
+       other family Google serves, so searching for a font we did not think of
+       finds it instead of sending someone off to download 105 files. */
+    const FONT_CHOICES = GOOGLE_FONTS.concat(
+      GOOGLE_FONTS_ALL.filter((f) => !GOOGLE_FONTS.includes(f))
+    );
 
     (function () {
       const form = document.getElementById("brand-form");
@@ -919,7 +926,7 @@ const HERO_BG = (await getImage({
 
         function render(filter) {
           const q = (filter || "").trim().toLowerCase();
-          const matches = GOOGLE_FONTS.filter((f) => !q || f.toLowerCase().includes(q));
+          const matches = FONT_CHOICES.filter((f) => !q || f.toLowerCase().includes(q));
           list.innerHTML = "";
           if (!matches.length) {
             list.innerHTML = '<li class="font-picker-empty">No fonts match &ldquo;' + escapeHtml(filter) + '&rdquo;.</li>';

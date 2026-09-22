@@ -40,6 +40,7 @@ import "../../styles/admin.css";
     import { supabase } from '../../lib/supabase.js';
     import { escapeHtml } from '../../lib/design-preview.js';
     import { GOOGLE_FONTS } from '../../data/google-fonts.js';
+    import { GOOGLE_FONTS_ALL } from '../../data/google-fonts-all.js';
     import { fillForm, readForm, wireColors, wireLogos, fillFontList } from '../../lib/brand-kit-form.js';
 
     /* Kept in brand_profiles under a reserved key rather than in a table of
@@ -95,7 +96,8 @@ import "../../styles/admin.css";
         const session = await requireAdmin();
         if (!session) return;
       }
-      fillFontList(root, supabase, GOOGLE_FONTS);
+      fillFontList(root, supabase, GOOGLE_FONTS.concat(
+        GOOGLE_FONTS_ALL.filter((f) => !GOOGLE_FONTS.includes(f))));
       await load();
     })();
   </script>
