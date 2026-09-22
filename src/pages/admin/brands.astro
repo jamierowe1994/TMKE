@@ -30,6 +30,10 @@ import "../../styles/admin.css";
       </Fragment>
     </StudioBar>
 
+    <!-- Agents on personal addresses, asking to be placed. Hidden when empty,
+         which is most of the time. -->
+    <section class="br-reqs" id="br-reqs" hidden></section>
+
     <p id="br-loading" class="br-note">Loading…</p>
 
     <!-- Pick a brand, then fill its kit. One at a time, with room to work. -->
@@ -46,6 +50,41 @@ import "../../styles/admin.css";
 
   <style is:global>
     .br-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+
+    .br-reqs { margin-bottom: 30px; }
+    .br-reqs[hidden] { display: none; }
+    .br-reqs-head {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: #8a6a24;
+      margin-bottom: 12px;
+    }
+    .br-req {
+      background: #fff; border: 1px solid rgba(138,122,54,0.45); border-radius: 12px;
+      padding: 20px 22px; margin-bottom: 12px;
+    }
+    .br-req-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+    .br-req-who { font-family: var(--serif); font-size: 20px; color: var(--ink); }
+    .br-req-meta { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); }
+    .br-req-says { font-family: var(--sans); font-size: 13.5px; color: var(--ink); margin: 0 0 14px; }
+    .br-req-says strong { font-weight: 700; }
+    .br-cands { display: grid; gap: 8px; margin-bottom: 14px; }
+    .br-cand {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 11px 13px; border-radius: 8px; cursor: pointer;
+      border: 1px solid rgba(28,29,34,0.16); background: #fff;
+      font-family: var(--sans); font-size: 13px; color: var(--ink);
+    }
+    .br-cand:hover { border-color: rgba(28,29,34,0.4); }
+    .br-cand.is-on { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55,30,40,0.1); }
+    .br-cand input { accent-color: var(--english-violet); margin: 0; }
+    .br-cand em { font-style: normal; color: rgba(28,29,34,0.5); font-size: 12px; }
+    .br-cand-tag {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 999px; background: rgba(46,107,74,0.14); color: #2e6b4a;
+    }
+    .br-cand-tag.is-other { background: rgba(163,55,43,0.12); color: #8c2f24; }
+    .br-req-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .br-req-status { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); }
     .br-pills { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 26px; }
     .br-pill {
       display: inline-flex; align-items: baseline; gap: 8px;
@@ -210,11 +249,102 @@ import "../../styles/admin.css";
     wireColors(root);
     wireLogos(root, supabase, status);
 
+    /* Requests from agents we can't place: their sign-in email isn't one we
+       hold. Approving binds their account to the contact we already have —
+       which is what gives them back their real details — and files them under
+       the brand. Nothing is released until someone presses it. */
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+
+    async function loadRequests() {
+      const box = document.getElementById('br-reqs');
+      if (!WORKER || !box) return;
+      let token = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        token = data?.session?.access_token || null;
+      } catch (_) {}
+      if (!token) return;
+
+      let out = null;
+      try {
+        const res = await fetch(WORKER + '/admin/brand-requests', { headers: { Authorization: 'Bearer ' + token } });
+        out = await res.json().catch(() => null);
+      } catch (_) {}
+      const reqs = (out && out.ok && out.requests) || [];
+      box.hidden = !reqs.length;
+      if (!reqs.length) return;
+
+      box.innerHTML = `<div class="br-reqs-head">${reqs.length} waiting to be placed</div>` + reqs.map((r) => {
+        const cands = (r.candidates || []).map((c) => `
+          <label class="br-cand">
+            <input type="radio" name="cand-${escapeHtml(r.id)}" value="${escapeHtml(c.id)}" />
+            <span>${escapeHtml(c.name || '—')}</span>
+            <em>${escapeHtml(c.email)}${c.phone ? ' · ' + escapeHtml(c.phone) : ''}</em>
+            ${c.brand === r.brand ? '<span class="br-cand-tag">Same brand</span>'
+              : c.brand ? `<span class="br-cand-tag is-other">${escapeHtml(c.brand)}</span>` : ''}
+            ${c.left ? '<span class="br-cand-tag is-other">Has left</span>' : ''}
+            ${c.linked ? '<em>already linked to an account</em>' : ''}
+          </label>`).join('');
+        return `
+        <article class="br-req" data-req="${escapeHtml(r.id)}">
+          <div class="br-req-top">
+            <span class="br-req-who">${escapeHtml(r.name || r.email)}</span>
+            <span class="br-req-meta">${escapeHtml(r.email)}</span>
+          </div>
+          <p class="br-req-says">Says they work for <strong>${escapeHtml(r.brand)}</strong>.</p>
+          ${cands ? `<div class="br-cands">
+            <label class="br-cand"><input type="radio" name="cand-${escapeHtml(r.id)}" value="" checked /><span>No match — use the address they signed up with</span></label>
+            ${cands}
+          </div>` : '<p class="br-note" style="margin-bottom:14px">Nobody in Contacts shares their surname. Approving will use the address they signed up with.</p>'}
+          <div class="br-req-acts">
+            <button type="button" class="admin-btn admin-btn-primary" data-approve="${escapeHtml(r.id)}">Approve</button>
+            <button type="button" class="admin-btn admin-btn-ghost" data-reject="${escapeHtml(r.id)}">Not them</button>
+            <span class="br-req-status" data-status></span>
+          </div>
+        </article>`;
+      }).join('');
+
+      box.querySelectorAll('.br-cands').forEach((g) => {
+        g.addEventListener('change', () => {
+          g.querySelectorAll('.br-cand').forEach((l) => l.classList.toggle('is-on', !!l.querySelector('input').checked));
+        });
+      });
+
+      box.addEventListener('click', async (e) => {
+        const el = e.target;
+        if (!(el instanceof HTMLElement)) return;
+        const id = el.getAttribute('data-approve') || el.getAttribute('data-reject');
+        if (!id) return;
+        const card = el.closest('.br-req');
+        const status = card.querySelector('[data-status]');
+        const decision = el.hasAttribute('data-approve') ? 'approve' : 'reject';
+        const picked = card.querySelector(`input[name="cand-${id}"]:checked`);
+        el.disabled = true;
+        status.textContent = decision === 'approve' ? 'Setting them up…' : 'Closing…';
+        try {
+          const res = await fetch(WORKER + '/admin/brand-requests/decide', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, decision, contact_id: (picked && picked.value) || null }),
+          });
+          const o = await res.json().catch(() => null);
+          if (!o || !o.ok) throw new Error((o && o.error) || 'That did not go through.');
+          card.remove();
+          if (!document.querySelectorAll('.br-req').length) document.getElementById('br-reqs').hidden = true;
+          await load();
+        } catch (err) {
+          el.disabled = false;
+          status.textContent = err.message;
+        }
+      }, { once: false });
+    }
+
     (async () => {
       if (!import.meta.env.DEV) {
         const session = await requireAdmin();
         if (!session) return;
       }
+      loadRequests();
       fillFontList(root, supabase, GOOGLE_FONTS.concat(
         GOOGLE_FONTS_ALL.filter((f) => !GOOGLE_FONTS.includes(f))));
       await load();

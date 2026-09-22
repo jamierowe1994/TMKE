@@ -993,6 +993,29 @@ async function brandKitFor(env, { userId, email }) {
   return { brand, kit };
 }
 
+/* Fill the blanks in a member's existing kit from their brand and record.
+   Used when a brand request is approved: by then they may have typed things
+   in, and those win. A kit is theirs; we only fill what is empty. */
+async function mergeBrandKit(env, { userId, email }) {
+  const { brand, kit } = await brandKitFor(env, { userId, email });
+  if (!brand || !kit) return false;
+  const have = await sbGet(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}&select=kit&limit=1`);
+  const cur = (have && have[0] && have[0].kit) || {};
+  const next = Object.assign({}, cur);
+  ["company", "slogan", "website", "tone", "location"].forEach((k) => {
+    if (kit[k] && !next[k]) next[k] = kit[k];
+  });
+  if (kit.colors && !(Array.isArray(next.colors) && next.colors.length)) next.colors = kit.colors;
+  if (kit.fonts && !(next.fonts && (next.fonts.heading || next.fonts.body))) next.fonts = kit.fonts;
+  if (kit.logos && !(Array.isArray(next.logos) && next.logos.length)) next.logos = kit.logos;
+  next.about = Object.assign({}, kit.about, next.about || {});
+  next.updatedAt = Date.now();
+  await sbPost(env, "member_brand_kits", {
+    user_id: userId, kit: next, updated_at: new Date().toISOString(),
+  }, "resolution=merge-duplicates,return=minimal");
+  return true;
+}
+
 /* Write that kit to a brand-new member, at signup. Only ever for a kit that
  * does not exist yet: this must never tread on one someone has edited. */
 async function seedBrandKit(env, { userId, email }) {
@@ -7062,6 +7085,151 @@ export default {
         if (!user) return json({ error: "Sign in first." }, 401, request, env);
         const { brand, kit } = await brandKitFor(env, { userId: user.id, email: user.email });
         return json({ ok: true, brand, kit }, 200, request, env);
+      }
+
+      /* ---- "I work for one of these brands" --------------------------------
+         An agent on a personal address has no way to tell us who they are.
+         This is that way — and it releases nothing: it files a request, and a
+         person decides. The brands offered are only ones we hold a kit for,
+         so nobody asks for something that doesn't exist. */
+      if (path.endsWith("/member/brand-request") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const { brand } = await brandKitFor(env, { userId: user.id, email: user.email });
+        const rows = await sbGet(env, "brand_access_requests",
+          `user_id=eq.${encodeURIComponent(user.id)}&select=brand,status,created_at&order=created_at.desc&limit=1`);
+        const bps = await sbGet(env, "brand_profiles", "select=brand&order=brand");
+        const brands = (bps || [])
+          .map((b) => b.brand)
+          .filter((b) => b && b !== "__studio__");
+        return json({
+          ok: true,
+          brand: brand || null,                     // already in a brand: nothing to ask
+          request: (rows && rows[0]) || null,
+          brands,
+        }, 200, request, env);
+      }
+
+      if (path.endsWith("/member/brand-request") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const brand = String((b && b.brand) || "").trim();
+        if (!brand) return json({ error: "Pick a brand." }, 400, request, env);
+
+        const known = await sbGet(env, "brand_profiles", `brand=eq.${encodeURIComponent(brand)}&select=brand&limit=1`);
+        if (!known || !known.length) return json({ error: "We don't know that brand." }, 400, request, env);
+
+        const already = await brandKitFor(env, { userId: user.id, email: user.email });
+        if (already.brand) return json({ ok: true, alreadyIn: already.brand }, 200, request, env);
+
+        const open = await sbGet(env, "brand_access_requests",
+          `user_id=eq.${encodeURIComponent(user.id)}&status=eq.pending&select=id&limit=1`);
+        if (open && open.length) return json({ ok: true, pending: true }, 200, request, env);
+
+        const res = await sbPost(env, "brand_access_requests", {
+          user_id: user.id,
+          email: String(user.email || "").toLowerCase(),
+          name: String((b && b.name) || (user.user_metadata && user.user_metadata.full_name) || "").trim() || null,
+          brand,
+          note: String((b && b.note) || "").slice(0, 500) || null,
+        }, "return=minimal");
+        if (!res.ok) {
+          const msg = await res.text();
+          return json({ error: msg.slice(0, 200) || "Could not send that." }, 500, request, env);
+        }
+        return json({ ok: true, pending: true }, 200, request, env);
+      }
+
+      /* Admin: the queue, with the contacts each request might BE. Matching on
+         name within the brand they claim, because the whole point is that
+         their sign-in email is not the one we hold. */
+      if (path.endsWith("/admin/brand-requests") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = await sbGet(env, "brand_access_requests",
+          "status=eq.pending&select=*&order=created_at.asc") || [];
+
+        const out = [];
+        for (const r of rows) {
+          let candidates = [];
+          const name = String(r.name || "").trim();
+          const last = name.split(/\s+/).filter(Boolean).pop();
+          if (last && last.length > 2) {
+            const hits = await sbGet(env, "contacts",
+              `last_name=ilike.${encodeURIComponent(last)}&select=id,first_name,last_name,email,phone,user_id&limit=12`) || [];
+            for (const c of hits) {
+              const ap = await sbGet(env, "agent_profiles",
+                `contact_id=eq.${encodeURIComponent(c.id)}&select=brand,job_title,area,left_at&limit=1`);
+              const prof = (ap && ap[0]) || null;
+              candidates.push({
+                id: c.id,
+                name: [c.first_name, c.last_name].filter(Boolean).join(" "),
+                email: c.email,
+                phone: c.phone || null,
+                linked: !!c.user_id,
+                brand: prof ? prof.brand : null,
+                left: !!(prof && prof.left_at),
+              });
+            }
+            // The ones in the brand they claim, first.
+            candidates.sort((a, b) => (b.brand === r.brand) - (a.brand === r.brand));
+          }
+          out.push(Object.assign({}, r, { candidates }));
+        }
+        return json({ ok: true, requests: out }, 200, request, env);
+      }
+
+      if (path.endsWith("/admin/brand-requests/decide") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "").trim();
+        const decision = String((b && b.decision) || "").trim();   // approve | reject
+        if (!id || !["approve", "reject"].includes(decision)) {
+          return json({ error: "Missing request or decision." }, 400, request, env);
+        }
+        const rows = await sbGet(env, "brand_access_requests", `id=eq.${encodeURIComponent(id)}&select=*&limit=1`);
+        const req = rows && rows[0];
+        if (!req) return json({ error: "That request is gone." }, 404, request, env);
+
+        if (decision === "reject") {
+          await sbPatch(env, "brand_access_requests", `id=eq.${encodeURIComponent(id)}`, {
+            status: "rejected", decided_at: new Date().toISOString(), decided_by: user.email || null,
+          });
+          return json({ ok: true }, 200, request, env);
+        }
+
+        /* Approving means two things: this account IS that contact, and that
+           contact is in that brand. Binding the account to the contact we
+           already hold is what makes their old details — their real work
+           email, their phone, their area — theirs again. */
+        let contactId = String((b && b.contact_id) || req.contact_id || "").trim() || null;
+        if (!contactId) {
+          const mine = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(req.email)}&select=id&limit=1`);
+          contactId = (mine && mine[0] && mine[0].id) || null;
+        }
+        if (!contactId) {
+          const made = await sbPost(env, "contacts", {
+            email: req.email, user_id: req.user_id, lifecycle: "member", source: "brand request",
+          }, "return=representation");
+          const body = await made.json().catch(() => null);
+          contactId = body && body[0] && body[0].id;
+        }
+        if (!contactId) return json({ error: "Could not find or make a contact for them." }, 500, request, env);
+
+        await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { user_id: req.user_id });
+        await sbPost(env, "agent_profiles", {
+          contact_id: contactId,
+          brand: req.brand,
+          added_by: "brand request",
+        }, "resolution=merge-duplicates,return=minimal");
+        await mergeBrandKit(env, { userId: req.user_id, email: req.email });
+        await sbPatch(env, "brand_access_requests", `id=eq.${encodeURIComponent(id)}`, {
+          status: "approved", contact_id: contactId,
+          decided_at: new Date().toISOString(), decided_by: user.email || null,
+        });
+        return json({ ok: true, contact_id: contactId }, 200, request, env);
       }
 
       // ---- Admin: internal-agent (TEG) profile on a contact -------------------

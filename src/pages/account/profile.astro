@@ -46,6 +46,20 @@ const HERO_BG = (await getImage({
       First time in? Take a minute to load your brand. Everything saves as you go &mdash; no need to hit a button.
     </p>
 
+    <!-- For an agent whose account is on a personal address: we hold their
+         brand's kit, we just can't see that it is them. Filled in by script
+         and hidden for everyone else. -->
+    <section class="brand-ask" id="brand-ask" hidden>
+      <div class="brand-ask-body">
+        <h2>Work for one of these?</h2>
+        <p id="brand-ask-copy">Pick your brand and we'll set your kit up for you — colours, fonts, logo and all — once someone at TMKE has checked it's you.</p>
+        <div class="brand-ask-row" id="brand-ask-form">
+          <select id="brand-ask-pick" aria-label="Your brand"></select>
+          <button type="button" class="admin-btn admin-btn-primary" id="brand-ask-send">Send request</button>
+        </div>
+      </div>
+    </section>
+
     <div class="brand-grid">
       <!-- LEFT: company + logos -->
       <div class="brand-col">
@@ -464,6 +478,21 @@ const HERO_BG = (await getImage({
     }
 
     /* Searchable font picker */
+    /* The brand request. Quiet until it is relevant, which is rarely. */
+    .brand-ask {
+      background: #fff; border: 1px solid rgba(var(--violet-rgb),0.28); border-radius: 12px;
+      padding: 22px 24px; margin-bottom: 26px;
+    }
+    .brand-ask[hidden] { display: none; }
+    .brand-ask h2 { font-family: var(--serif); font-size: 21px; color: var(--ink); margin: 0 0 6px; }
+    .brand-ask p { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.62); margin: 0 0 14px; max-width: 62ch; }
+    .brand-ask-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .brand-ask-row[hidden] { display: none; }
+    .brand-ask select {
+      padding: 10px 14px; border-radius: 7px; border: 1px solid rgba(28,29,34,0.2);
+      font-family: var(--sans); font-size: 13.5px; color: var(--ink); background: #fff; min-width: 240px;
+    }
+
     .font-picker { position: relative; }
     .font-picker-btn {
       width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -1350,6 +1379,63 @@ const HERO_BG = (await getImage({
           }
         }
       } catch (_) { /* a kit they fill in themselves still works */ }
+
+      /* "Work for one of these?" — only for someone we can't already place.
+         It releases nothing: it files a request for a person to decide. */
+      try {
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        const ask = document.getElementById("brand-ask");
+        if (WORKER && token && ask) {
+          const res = await fetch(WORKER + "/member/brand-request", {
+            headers: { Authorization: "Bearer " + token },
+          });
+          const out = await res.json().catch(() => null);
+          const copy = document.getElementById("brand-ask-copy");
+          const form = document.getElementById("brand-ask-form");
+          const pick = document.getElementById("brand-ask-pick");
+          const send = document.getElementById("brand-ask-send");
+
+          if (out && out.ok && !out.brand) {
+            if (out.request && out.request.status === "pending") {
+              copy.textContent = "You've asked to be set up with " + out.request.brand +
+                ". Someone at TMKE is checking it's you — your kit fills itself in the moment they do.";
+              form.hidden = true;
+              ask.hidden = false;
+            } else if (Array.isArray(out.brands) && out.brands.length) {
+              pick.innerHTML = '<option value="">Pick your brand…</option>' +
+                out.brands.map((b) => '<option>' + b.replace(/</g, "&lt;") + '</option>').join("");
+              ask.hidden = false;
+              send.addEventListener("click", async () => {
+                const brand = pick.value;
+                if (!brand) return;
+                send.disabled = true;
+                send.textContent = "Sending…";
+                try {
+                  const r = await fetch(WORKER + "/member/brand-request", {
+                    method: "POST",
+                    headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+                    body: JSON.stringify({ brand }),
+                  });
+                  const o = await r.json().catch(() => null);
+                  if (o && o.ok) {
+                    copy.textContent = "Thanks — someone at TMKE is checking it's you. Your kit fills itself in the moment they do.";
+                    form.hidden = true;
+                  } else {
+                    send.disabled = false;
+                    send.textContent = "Send request";
+                    copy.textContent = (o && o.error) || "That didn't send. Try again in a minute.";
+                  }
+                } catch (_) {
+                  send.disabled = false;
+                  send.textContent = "Send request";
+                }
+              });
+            }
+          }
+        }
+      } catch (_) { /* no request panel is better than a broken one */ }
     })();
   </script>
 
