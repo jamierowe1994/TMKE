@@ -7364,6 +7364,15 @@ import { createResizeEngine } from "./resize-engine.js";
       m["job title"] = role;
       m["role"]      = role;
     }
+    /* "The Dudley and Bromsgrove Property Expert" — the line an agent puts
+       under their name. Written as one tag rather than three, because the
+       whole point is what it does when a piece is missing: no area gives
+       "Your local Property Expert", which is true, reads properly, and beats
+       a design that says "The  Property Expert" with a hole in it. */
+    if (role) {
+      const area = (b.location || "").trim();
+      m["local expert"] = area ? "The " + area + " " + role : "Your local " + role;
+    }
     const email = (about.email || b.email || "").trim();
     const phone = (about.phone || b.phone || "").trim();
     if (email) m["email"] = email;
@@ -7379,7 +7388,7 @@ import { createResizeEngine } from "./resize-engine.js";
      and offering four ways to print the same value only invites templates
      that disagree with each other. */
   const TAG_MENU = ["company name", "area", "slogan", "website",
-    "agent name", "job title", "telephone", "email"];
+    "agent name", "job title", "local expert", "telephone", "email"];
 
   /* Synonyms stay resolvable but stay off the menu: the catalogue is full of
      templates already written with {location} and {company}, and they must
