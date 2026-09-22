@@ -183,7 +183,7 @@ import "../../../styles/admin.css";
             .eq("automation_id", id).order("occurred_at", { ascending: true }).limit(20000);
         }
         const ev = (res.data || []);
-        const { data: autoRow } = await supabase.from("automations").select("graph").eq("id", id).maybeSingle();
+        const { data: autoRow } = await supabase.from("automations").select("graph, name").eq("id", id).maybeSingle();
         const nodes = ((autoRow && autoRow.graph && autoRow.graph.nodes) || []);
         const sendNodes = nodes.filter((n) => n.type === "send_email");
         if (!ev.length && !sendNodes.length) return;
@@ -288,6 +288,35 @@ import "../../../styles/admin.css";
         const count = (list, name) => list.filter((x) => x.event === name).length;
         // "Not sent" splits two very different things: people the funnel is
         // right not to email (no opt-in, unsubscribed), and sends that failed.
+        /* The one number no machine can fake.
+           Every link we send carries the funnel's name and the step's id, and
+           the site records a visit only when a real browser runs our code —
+           which a link scanner never does. So: who actually turned up. Opens
+           and clicks are what the mail world can see; this is what happened. */
+        const visitsByStep = new Map();
+        let visitsTotal = 0;
+        try {
+          const name = (autoRow && autoRow.name) || "";
+          if (name) {
+            const { data: visits } = await supabase
+              .from("site_events")
+              .select("session_id, id, props, created_at")
+              .eq("props->from->>campaign", name)
+              .limit(20000);
+            const seen = new Map();
+            (visits || []).forEach((v) => {
+              const sid = v.session_id || v.id;
+              const step = ((v.props || {}).from || {}).content || "";
+              if (!seen.has(sid)) seen.set(sid, step);
+            });
+            seen.forEach((step) => {
+              visitsTotal++;
+              const k = "n:" + step;
+              visitsByStep.set(k, (visitsByStep.get(k) || 0) + 1);
+            });
+          }
+        } catch (_) { /* the rest of the page still stands */ }
+
         const gateReason = /opt-?in|unsubscribed|do-not-contact|suppressed/i;
         const stats = (list) => {
           const sent = count(list, "sent");
@@ -320,6 +349,7 @@ import "../../../styles/admin.css";
                    (all.botClicked && all.botOpened ? ", " : "") +
                    (all.botOpened ? all.botOpened + " opens" : "") + " — not people")
             : "") +
+          stat("Came to the site", visitsTotal, pct(visitsTotal, all.base) + " · the real one") +
           stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true) +
           (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true) : "") +
           (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
@@ -334,7 +364,7 @@ import "../../../styles/admin.css";
             return (x.order ?? 999) - (y.order ?? 999);
           });
         const cell = (n, rate, note) => `<td><b>${n}</b>${rate ? `<small>${rate}</small>` : ""}${note ? `<small class="ins-bot">${note}</small>` : ""}</td>`;
-        $("aud-ins-table").innerHTML = `<thead><tr><th>Email</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Unsubscribed</th><th>Bounced</th></tr></thead><tbody>` +
+        $("aud-ins-table").innerHTML = `<thead><tr><th>Email</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Came to the site</th><th>Unsubscribed</th><th>Bounced</th></tr></thead><tbody>` +
           rows.map((g) => {
             const t = stats(g.ev);
             const sentOn = g.first ? "Sent " + new Date(g.first).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : (g.when || "Not sent yet");
@@ -342,6 +372,7 @@ import "../../../styles/admin.css";
               cell(t.sent) + cell(t.delivered, pct(t.delivered, t.sent)) +
               cell(t.opened, pct(t.opened, t.base), t.botOpened ? "+" + t.botOpened + " scanners" : "") +
               cell(t.clicked, pct(t.clicked, t.base), t.botClicked ? "+" + t.botClicked + " scanners" : "") +
+              cell(visitsByStep.get(g.key) || 0, pct(visitsByStep.get(g.key) || 0, t.base)) +
               cell(t.unsub, pct(t.unsub, t.base)) + cell(t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
           }).join("") + `</tbody>`;
 
