@@ -486,6 +486,43 @@ and the first newsletter goes to the wrong people.
 
 ## 7. Admin centre ⬜
 
+- ⬜ **Nothing tells anyone a brand-kit request has arrived** — raised 22 Sep.
+  An agent on a personal address can now ask to be placed in their brand
+  (`/member/brand-request`, and the queue on `/admin/brands`), but the only way
+  to learn about it is to open the Brands page and look. Fine for one a month;
+  useless during the TEG rollout, when they will arrive in a batch and someone
+  will sit unbranded for a week.
+
+  Send an email to the admins when a request is filed. The Worker already has
+  `sendEmail` and the branded wrapper; the request handler is the place
+  (`worker/src/index.js`, POST `/member/brand-request`). Keep it plain: who
+  asked, the brand they claim, and a link straight to `/admin/brands`. One
+  email per request, never a digest — a digest turns a person waiting into a
+  line in a list.
+
+- ⬜ **The admin centre has no notifications at all** — raised 22 Sep.
+  Everything that wants attention today is found by going to the page it lives
+  on and noticing: a brand-kit request, an enquiry, a failed send, a funnel
+  that stopped, an invoice gone overdue, a pack order needing fulfilment. That
+  works while one person holds the whole system in their head, and stops the
+  day it is two people.
+
+  What it needs to be, rather than a bell that lies:
+  · One table, one shape: what happened, where it points, when, who has seen
+    it. Written by the Worker and by admin pages alike.
+  · A count in the shell (`src/components/admin/AdminShell.astro`) so it is
+    visible from wherever you are, and a panel listing them newest first.
+  · Read state per admin, not global — Sam clearing one must not hide it from
+    Danielle.
+  · Every notification links to the thing itself, never to a page where you
+    then have to go hunting.
+  · Things worth notifying on, from what has already bitten: brand-kit
+    requests, a Resend send that failed, a funnel paused by an error, a new
+    enquiry, a pack order, an invoice past due.
+
+  Worth doing once and properly — every feature since has quietly assumed it
+  exists, and each one has shipped with "you'd see it next time you look".
+
 - ⬜ **Draft invoices can't be edited.** A draft is an invoice that hasn't been
   sent, so the obvious thing to want is a change before sending — but the only
   actions are Send, Mark paid, Void and Delete
