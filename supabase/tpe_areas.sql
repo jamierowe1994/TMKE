@@ -128,3 +128,23 @@ select c.email, c.first_name, c.last_name, ap.area
 --   join public.contacts c on lower(c.email) = s.email
 --  where ap.contact_id = c.id
 --    and coalesce(btrim(ap.area), '') = '';
+
+-- ---------------------------------------------------------------------------
+-- A. Same person, a different address
+--
+-- Their website gives these five a longer email than our CRM holds, and the
+-- couples one shared address between them. Matched by name and checked by
+-- hand, which is why they are written out one by one rather than joined.
+-- ---------------------------------------------------------------------------
+update public.agent_profiles ap
+   set area = v.area
+  from (values
+    ('joel@thepropertyexperts.co.uk',         'Northampton'),   -- site: joel.beardsmore@
+    ('paul@thepropertyexperts.co.uk',         'Warwickshire'),  -- site: paul.petticrew@
+    ('mark@thepropertyexperts.co.uk',         'Southam'),       -- site: Mark & Lorna Kermode, southam@
+    ('lorna@thepropertyexperts.co.uk',        'Southam'),       -- the other half of the same pair
+    ('david.kinnin@thepropertyexperts.co.uk', 'Rugby')          -- site: "David and Jenny", davidandjenny@
+  ) as v(email, area)
+  join public.contacts c on lower(c.email) = v.email
+ where ap.contact_id = c.id
+   and coalesce(btrim(ap.area), '') = '';
