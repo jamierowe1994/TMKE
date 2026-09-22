@@ -935,13 +935,13 @@ import "../../styles/admin.css";
             <div class="ct-field"><label>Work number at this brand</label><input id="teg-phone" value="${val(p && p.phone)}" placeholder="Leave blank to use their main one" /></div>
             ${all.length > 1 ? `<label class="ct-toggle"><input type="checkbox" id="teg-primary" ${p && p.is_primary ? "checked" : ""} ${p && p.is_primary ? "disabled" : ""}/> Their Studio opens in this brand</label>` : ""}
             ${all.length > 1 && p && !p.is_primary ? `<button type="button" class="ct-linkbtn" id="teg-remove-brand">Remove this brand</button>` : ""}
-            <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
-            <div class="ct-field"><label>Trainer email</label><input id="teg-trainer-email" type="email" value="${val((p && p.trainer_email) || "kelly@theexpertsgroup.co.uk")}" /></div>
           </div>
           <div class="ct-sec">
             <h3>New starter</h3>
             <label class="ct-toggle"><input type="checkbox" id="teg-newstarter" ${p && p.is_new_starter ? "checked" : ""}/> New-starter onboarding (free videography shoot)</label>
             <div id="teg-ns-fields" ${p && p.is_new_starter ? "" : "hidden"} style="margin-top:12px">
+              <div class="ct-field"><label>Trainer name</label><input id="teg-trainer-name" value="${val((p && p.trainer_name) || "Kelly Bailey")}" /></div>
+              <div class="ct-field"><label>Trainer email</label><input id="teg-trainer-email" type="email" value="${val((p && p.trainer_email) || "kelly@theexpertsgroup.co.uk")}" /></div>
               <div class="ct-field"><label>Induction month</label><input type="month" id="teg-month" value="${val(p && p.induction_month)}" /></div>
               <div class="ct-field"><label>Package</label><select id="teg-package"><option value="">—</option><option value="academy" ${p && p.package === "academy" ? "selected" : ""}>Academy</option><option value="pro" ${p && p.package === "pro" ? "selected" : ""}>Pro</option></select></div>
               <div class="ct-field"><label>Free videography code</label><div class="teg-code">${p && p.promo_code ? `<code>${esc(p.promo_code)}</code>` : '<span class="ct-meta">Generated on save — Academy/Pro only</span>'}</div></div>
@@ -1058,8 +1058,11 @@ import "../../styles/admin.css";
           is_new_starter: !!document.getElementById("teg-newstarter")?.checked,
           induction_month: tegVal("teg-month") || null,
           package: tegVal("teg-package") || null,
-          trainer_name: tegVal("teg-trainer-name"),
-          trainer_email: tegVal("teg-trainer-email"),
+          // The trainer only matters for a new starter's induction, so it is
+          // only sent when there is one — otherwise every save would stamp the
+          // default onto somebody who will never be inducted.
+          trainer_name: document.getElementById("teg-newstarter")?.checked ? tegVal("teg-trainer-name") : null,
+          trainer_email: document.getElementById("teg-newstarter")?.checked ? tegVal("teg-trainer-email") : null,
         };
         btn.disabled = true; btn.textContent = "Saving…";
         try {

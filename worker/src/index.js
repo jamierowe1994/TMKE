@@ -367,9 +367,17 @@ async function ensureAgentProfile(env, contactId, contact, input) {
      means by it. */
   const wantBrand = typeof input.brand === "string" ? input.brand.trim() : null;
   const allRows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=*`) || [];
-  const existing = (wantBrand
-    ? allRows.find((r) => String(r.brand || "").trim() === wantBrand)
-    : null) || (wantBrand ? allRows.find((r) => !r.brand) : null) || allRows[0] || null;
+  /* Which row this writes to. Asked for a brand: the row for THAT brand, or a
+     row with no brand yet to claim — and otherwise NOTHING, so a new brand is
+     inserted rather than written over the one they already had. Falling back
+     to their first row is what turned "add The Property Experts" into "rename
+     The Marketing Experts". Asked for no brand at all: their existing row,
+     which is what every older caller means. */
+  const existing = wantBrand
+    ? (allRows.find((r) => String(r.brand || "").trim() === wantBrand)
+       || allRows.find((r) => !r.brand)
+       || null)
+    : (allRows[0] || null);
   const pkg = ["academy", "pro"].includes(String(input.package || "").toLowerCase()) ? String(input.package).toLowerCase() : null;
   const isNewStarter = !!input.is_new_starter;
   const inductionMonth = (typeof input.induction_month === "string" && /^\d{4}-\d{2}$/.test(input.induction_month)) ? input.induction_month : null;
