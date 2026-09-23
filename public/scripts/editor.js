@@ -2436,9 +2436,18 @@ import { createResizeEngine } from "./resize-engine.js";
       } catch (e) {}
     }
 
-    preloadFontsForElements(tpl.elements);
-    state.canvas = deep(tpl.canvas);
-    state.elements = deep(tpl.elements);
+    /* One design is one design, however many sides it has. A postcard's front
+       and back arrive together in `pages`; `canvas`/`elements` still hold page
+       one, so a single-page template opens exactly as it always did. */
+    if (Array.isArray(tpl.pages) && tpl.pages.length) {
+      state.pages = pagesFromStore(tpl.pages, tpl.canvas);
+      state.currentPage = 0;
+      state.pages.forEach(function (pg) { preloadFontsForElements(pg.elements); });
+    } else {
+      preloadFontsForElements(tpl.elements);
+      state.canvas = deep(tpl.canvas);
+      state.elements = deep(tpl.elements);
+    }
     state.selectedIds = [];
     filenameEl.value = takeInitialTitle() || tpl.name;
     // Auto-substitute merge tags ({brand name}, etc.) from the customer's
@@ -2517,6 +2526,20 @@ import { createResizeEngine } from "./resize-engine.js";
       elements: [],
     }];
     state.currentPage = 0;
+  }
+
+  /* Pages as the database holds them are { canvas, elements } and no more.
+     The editor wants an id and a name on each as well, so a template's pages
+     and a member's own behave identically once they are open. */
+  function pagesFromStore(list, fallbackCanvas) {
+    return (Array.isArray(list) ? list : []).filter(Boolean).map(function (pg, i) {
+      return {
+        id: pg.id || uid("page"),
+        name: pg.name || ("Page " + (i + 1)),
+        canvas: deep(pg.canvas || fallbackCanvas || { width: 1080, height: 1440, background: "#F2EFE9" }),
+        elements: deep(pg.elements || []),
+      };
+    });
   }
 
   function loadPage(i) {
@@ -12125,6 +12148,8 @@ import { createResizeEngine } from "./resize-engine.js";
       thumb: r.thumb_url || null,
       canvas: r.canvas || { width: 1080, height: 1440, background: "#F2EFE9" },
       elements: r.elements || [],
+      // Every side of the design. One row, one card, however many pages.
+      pages: Array.isArray(r.pages) && r.pages.length ? r.pages : null,
       // The layouts an admin saved for the other sizes. Dropping these here is
       // what made a member's resize fall back to the automatic one even for a
       // template whose sizes had been drawn by hand.
@@ -12134,7 +12159,10 @@ import { createResizeEngine } from "./resize-engine.js";
     shaped.forEach((t) => {
       const have = TEMPLATES.find((x) => x.id === t.id);
       if (!have) TEMPLATES.push(t);
-      else if (t.size_variants && !have.size_variants) have.size_variants = t.size_variants;
+      else {
+        if (t.size_variants && !have.size_variants) have.size_variants = t.size_variants;
+        if (t.pages && !have.pages) have.pages = t.pages;
+      }
     });
     PACK_TEMPLATES = shaped;
     tplGridEl.innerHTML = "";
@@ -12146,6 +12174,8 @@ import { createResizeEngine } from "./resize-engine.js";
     return shaped.map((t) => ({
       id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null,
       w: (t.canvas && t.canvas.width) || null, h: (t.canvas && t.canvas.height) || null,
+      // Worth saying: "2 pages" reads as a postcard rather than a mystery.
+      pages: t.pages ? t.pages.length : 1,
     }));
   };
 

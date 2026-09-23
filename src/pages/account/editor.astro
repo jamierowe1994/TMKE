@@ -4728,6 +4728,15 @@ const googleFonts = [
     .ed-onboard-card { appearance: none; cursor: pointer; text-align: left; text-decoration: none; background: none; border: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
     .ed-onboard-card-cover { aspect-ratio: 4 / 5; border-radius: 12px; background-color: var(--platinum); background-size: cover; background-position: center; border: 1px solid rgba(28,29,34,0.13); transition: transform 0.28s, box-shadow 0.28s; }
     .ed-onboard-card:hover .ed-onboard-card-cover { transform: translateY(-3px); box-shadow: 0 22px 38px -24px rgba(28,29,34,0.42); }
+    /* How many sides this design has, on the picture rather than under it:
+       it belongs to the thing shown, not to its name. */
+    .ed-onboard-card-cover { position: relative; display: block; }
+    .ed-onboard-card-pages {
+      position: absolute; right: 8px; bottom: 8px;
+      padding: 3px 9px; border-radius: 999px;
+      background: rgba(28,29,34,0.74); color: #fff;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+    }
     .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; padding: 0; }
     .ed-onboard-card-title { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; letter-spacing: 0; color: var(--ink); margin: 0; line-height: 1.2; }
     .ed-onboard-card-cat { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.46); }
@@ -5302,6 +5311,9 @@ const googleFonts = [
           thumb: r.thumb_url,
           canvas: r.canvas || { width: 1080, height: 1440, background: '#f4f2f1' },
           elements: r.elements || [],
+          // Every side of the design, so reopening a postcard to edit it does
+          // not quietly lose its back the next time it is published.
+          pages: Array.isArray(r.pages) && r.pages.length ? r.pages : null,
         });
 
         // Install the save hook the editor will pick up. Editor.js passes
@@ -5407,7 +5419,8 @@ const googleFonts = [
           if (!id) return null;
           try {
             const q = (cols) => supabase.from('templates').select(cols).eq('id', id).maybeSingle();
-            let { data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants');
+            let { data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, pages, status, sort_order, size_variants');
+            if (tErr) ({ data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants'));
             if (tErr) ({ data } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order'));
             return data ? shape(data) : null;
           } catch (_) { return null; }
@@ -5466,7 +5479,8 @@ const googleFonts = [
         if (requestedId && tag) {
           try {
             const q = (cols) => supabase.from('templates').select(cols).eq('id', requestedId).maybeSingle();
-            let { data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants');
+            let { data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, pages, status, sort_order, size_variants');
+            if (tErr) ({ data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants'));
             if (tErr) ({ data: one } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order'));
             if (one) {
               // Layouts saved for the other sizes, so the Resize panel can
@@ -6679,14 +6693,44 @@ const googleFonts = [
         // to the chosen pack — moving it out of whatever pack it was in.
         const existingId = data.templateId && !String(data.templateId).startsWith("draft-") ? data.templateId : null;
 
-        if (existingId && data.pages.length === 1) {
-          const pg = data.pages[0];
-          const thumb_url = await thumbFor(pg);
-          const render_url = await renderFor(pg);
-          const patch = { name: data.filename, canvas: pg.canvas, elements: pg.elements, thumb_url, render_url, status: "active" };
+        /* One design is one row, however many sides it has (docs/one-design-
+           one-row-brief.md). A postcard has a front and a back the way a
+           letter has a first and a second sheet.
+
+           Every page goes into `pages`. Page one ALSO goes into
+           canvas/elements, which the catalogue, the shop, the thumbnails and
+           the size checker all still read, so none of them has to change.
+           The cover comes from page one too — it used to come from whichever
+           page happened to be open when you pressed Save, which is how a
+           postcard ended up advertised by its back. */
+        const first = data.pages[0];
+        const thumb_url = await thumbFor(first);
+        const render_url = await renderFor(first);
+        const pages = data.pages.map((pg) => ({ canvas: pg.canvas, elements: pg.elements }));
+        const body = {
+          name: data.filename,
+          canvas: first.canvas,
+          elements: first.elements,
+          pages,
+          thumb_url,
+          render_url,
+          status: "active",
+        };
+
+        if (existingId) {
+          // Re-publishing updates that row, at any page count. It used to do
+          // this only for a single page; two pages fell through to the insert
+          // below and left the originals sitting beside the new ones.
+          const patch = Object.assign({}, body);
           if (choice.mode !== "none") patch.pack_id = packId;   // move into the chosen pack
-          const { error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId);
-          if (uErr) throw uErr;
+          let { error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId);
+          if (uErr) {
+            // A database that hasn't run supabase/template_pages.sql yet.
+            const { pages: _drop, ...noPages } = patch;
+            ({ error: uErr } = await supabase.from("templates").update(noPages).eq("id", existingId));
+            if (uErr) throw uErr;
+            alert("Saved, but this database has no `pages` column yet, so only the first page was kept. Run supabase/template_pages.sql, then publish again.");
+          }
           publishBtn.textContent = "Re-published ✓";
           alert(choice.mode !== "none"
             ? "Updated this template in place and moved it to the chosen pack — no duplicate created."
@@ -6695,24 +6739,18 @@ const googleFonts = [
           return;
         }
 
-        // New design — write each page as a fresh template row, linked to the pack.
-        const rows = [];
-        for (let i = 0; i < data.pages.length; i++) {
-          const pg = data.pages[i];
-          rows.push({
-            id: "tmpl-" + Math.random().toString(36).slice(2, 9),
-            name: data.filename + (data.pages.length > 1 ? " — " + String(i + 1).padStart(2, "0") : ""),
-            canvas: pg.canvas,
-            elements: pg.elements,
-            thumb_url: await thumbFor(pg),
-            render_url: await renderFor(pg),
-            pack_id: packId,
-            status: "active",
-            sort_order: i,
-          });
+        const row = Object.assign({
+          id: "tmpl-" + Math.random().toString(36).slice(2, 9),
+          pack_id: packId,
+          sort_order: 0,
+        }, body);
+        let { error: tErr } = await supabase.from("templates").insert([row]);
+        if (tErr) {
+          const { pages: _drop, ...noPages } = row;
+          ({ error: tErr } = await supabase.from("templates").insert([noPages]));
+          if (tErr) throw tErr;
+          alert("Saved, but this database has no `pages` column yet, so only the first page was kept. Run supabase/template_pages.sql, then publish again.");
         }
-        const { error: tErr } = await supabase.from("templates").insert(rows);
-        if (tErr) throw tErr;
 
         publishBtn.textContent = "Sent to catalogue ✓";
         alert("Saved to the Catalogue as a draft. Add a cover, description and price in Admin → Catalogue, then set it Active to put it live.");
@@ -7490,12 +7528,17 @@ const googleFonts = [
          centred with space above and below rather than cropped to its middle
          third. */
       const cover = d.thumb ? `background-image:url('${escapeHtml(d.thumb)}')` : "";
+      /* One card per design, and the card says how many sides it has. "2
+         pages" reads as a postcard; a card that says nothing looks like a
+         design whose back you are about to lose. */
+      const sides = Number(d.pages) > 1 ? `${d.pages} pages` : "";
+      const cat = escapeHtml(d.category || "Template");
       return `
         <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
-          <span class="ed-onboard-card-cover"${cover ? ` style="${cover}"` : ""}></span>
+          <span class="ed-onboard-card-cover"${cover ? ` style="${cover}"` : ""}>${sides ? `<span class="ed-onboard-card-pages">${sides}</span>` : ""}</span>
           <span class="ed-onboard-card-body">
             <span class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</span>
-            <span class="ed-onboard-card-cat">${escapeHtml(d.category || "Template")}</span>
+            <span class="ed-onboard-card-cat">${cat}</span>
           </span>
         </button>`;
     }
@@ -7539,7 +7582,8 @@ const googleFonts = [
           // ask again without it rather than show a member no templates.
           const q = (cols) => supabase.from("templates").select(cols)
             .eq("pack_id", selectedPack.id).eq("status", "active").order("sort_order", { ascending: true });
-          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants");
+          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants");
+          if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants"));
           if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements"));
           if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
             designs = window.__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false }) || [];
@@ -7802,7 +7846,8 @@ const googleFonts = [
           // Without size_variants if the table hasn't got it yet (see above).
           const q = (cols) => supabase.from("templates").select(cols)
             .in("pack_id", packIds).eq("status", "active").order("sort_order", { ascending: true });
-          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order");
+          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants, pack_id, sort_order");
+          if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order"));
           if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements, pack_id, sort_order"));
           if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
             (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
@@ -7906,7 +7951,8 @@ const googleFonts = [
         if (demoPacks.length && demoPacks[0].id && !demoPacks[0].templateIds) {
           try {
             const q = (cols) => supabase.from("templates").select(cols).eq("pack_id", demoPacks[0].id).eq("status", "active").order("sort_order", { ascending: true });
-            let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order");
+            let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants, pack_id, sort_order");
+            if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order"));
             if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements, pack_id, sort_order"));
             if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
               (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
