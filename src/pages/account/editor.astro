@@ -4955,6 +4955,13 @@ const googleFonts = [
     .ed-ob-noresult { font-family: var(--sans); font-size: var(--ws-t-row); color: rgba(28,29,34,0.5); padding: 18px 0; }
     .ed-ob-noresult[hidden] { display: none; }
     #ed-ob-packs-sec[hidden] { display: none; }
+    /* A heading inside the pack grid spans it rather than taking a cell. */
+    .ed-ob-kind {
+      grid-column: 1 / -1; margin: 6px 0 0;
+      font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+    }
+    .ed-ob-kind:first-child { margin-top: 0; }
 
 
     /* ---- Footer CTA (home-page button: wine → black, sliding arrow) ---- */
@@ -7637,6 +7644,17 @@ const googleFonts = [
       designGrid.innerHTML = designs.map(designCard).join("");
     }
 
+    /* Print and social are different jobs. When a member has both, the grid
+       says which is which; with one kind a heading tells nobody anything. */
+    function packGridHtml(list) {
+      const printPacks  = list.filter((p) => p.kind === "print");
+      const socialPacks = list.filter((p) => p.kind !== "print");
+      if (!printPacks.length || !socialPacks.length) return list.map(packCard).join("");
+      const group = (label, packs) =>
+        `<h3 class="ed-ob-kind">${label}</h3>` + packs.map(packCard).join("");
+      return group("Social", socialPacks) + group("Print", printPacks);
+    }
+
     function packCard(p) {
       return `
         <button type="button" class="ed-onboard-card" data-pack-id="${p.id}">
@@ -8029,7 +8047,7 @@ const googleFonts = [
           ? (owned.find((x) => x.demo === true) || allPacks.find((x) => x.demo === true))
           : (owned.find((x) => x.id === packParam) || allPacks.find((x) => x.id === packParam));
         if (p) {
-          grid.innerHTML = owned.map(packCard).join("");
+          grid.innerHTML = packGridHtml(owned);
           grid.hidden = false;
           wirePackGrid(owned);
           showPackDesigns(p);
@@ -8043,7 +8061,7 @@ const googleFonts = [
         return;
       }
 
-      grid.innerHTML = owned.map(packCard).join("");
+      grid.innerHTML = packGridHtml(owned);
       grid.hidden = false;
       wirePackGrid(owned);
     })();

@@ -264,6 +264,13 @@ const inspo = [
     .st-design-img {
       background-size: contain; background-repeat: no-repeat;
     }
+    /* Which shelf is which, when a member owns both kinds of pack. */
+    .st-shelf-label {
+      font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      color: var(--ws-faint); margin: 0 0 10px;
+    }
+    .st-rail + .st-shelf-label { margin-top: 26px; }
     .st-pack-name, .st-design-name { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
     .st-pack-count, .st-design-type { font-size: var(--ws-t-meta); color: var(--ws-faint); }
     /* The state pill on a design. Packs carry no overlay: the name sits under
@@ -566,12 +573,44 @@ const inspo = [
         if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         // The demo pack is marked so the "Opening a template" walk can point at
         // the one every member has, not at whichever pack happens to be first.
-        row.innerHTML = owned.map((p) => `
+        const tile = (p) => `
           <a class="st-pack"${p.demo ? ' data-demo-pack' : ''} href="/account/editor?pack=${encodeURIComponent(p.id)}">
             <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
             <span class="st-pack-name">${esc(p.title)}</span>
             <span class="st-pack-count">Open pack &rarr;</span>
-          </a>`).join('') + shopTile;   // + a "Shop more packs" tile at the end
+          </a>`;
+
+        /* Print and social are different jobs, so they get different shelves.
+           A postcard and an Instagram post share a Studio but nothing else:
+           different sizes, different rules, and a member reaching for one is
+           not half-thinking about the other. Only split when they own both —
+           a heading over a single shelf tells nobody anything. */
+        const printPacks  = owned.filter((p) => p.kind === 'print');
+        const socialPacks = owned.filter((p) => p.kind !== 'print');
+        if (printPacks.length && socialPacks.length) {
+          const rail = row.closest('.st-rail');
+          const label = (text) => {
+            const h = document.createElement('h3');
+            h.className = 'st-shelf-label';
+            h.textContent = text;
+            return h;
+          };
+          row.innerHTML = socialPacks.map(tile).join('') + shopTile;
+          rail.parentNode.insertBefore(label('Social'), rail);
+
+          // The print shelf is the same furniture: the rail, its arrows and
+          // its dots, cloned rather than rebuilt so the two behave alike.
+          const printRail = rail.cloneNode(true);
+          const printRow = printRail.querySelector('[data-packs]');
+          printRow.removeAttribute('data-packs');
+          printRow.setAttribute('data-packs-print', '');
+          printRow.innerHTML = printPacks.map(tile).join('');
+          printRow.classList.add('is-ready');
+          rail.parentNode.insertBefore(label('Print'), rail.nextSibling);
+          rail.parentNode.insertBefore(printRail, rail.nextSibling.nextSibling);
+        } else {
+          row.innerHTML = owned.map(tile).join('') + shopTile;
+        }
         done();                           // the dot count follows the real packs
       } catch (_) { done(); /* keep the SSR sample packs on any error */ }
     })();
