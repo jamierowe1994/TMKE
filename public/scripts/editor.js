@@ -8530,7 +8530,7 @@ import { createResizeEngine } from "./resize-engine.js";
      the brand photo. */
   function fillTemplatePhotos() {
     if (isAdminMode()) return;
-    const slots = state.elements.filter(function (el) { return el && el.brandRole === "photo"; });
+    const slots = everyElement().filter(function (el) { return el.brandRole === "photo"; });
     if (!slots.length) return;
     const pick = photoForSlot("photo");
     slots.forEach(function (slot) {
@@ -8548,7 +8548,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const bar = document.getElementById("ed-photonudge");
     if (!bar) return;
     const needs = !isAdminMode() && isPrintDesign() && !brandPhotoSrc()
-      && state.elements.some(function (el) { return el && el.brandRole === "photo" && !el.src; });
+      && everyElement().some(function (el) { return el.brandRole === "photo" && !el.src; });
     bar.hidden = !needs;
   }
 
@@ -8608,7 +8608,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (isAdminMode()) return;
     // Their own picture first; the brand's stands in when they never set one.
     const src = photoForSlot("headshot");
-    const slots = state.elements.filter(function (el) { return el && el.brandRole === "headshot"; });
+    const slots = everyElement().filter(function (el) { return el.brandRole === "headshot"; });
     if (!slots.length) return;
     slots.forEach(function (slot) {
       if (!src) {
@@ -8634,9 +8634,7 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function fillTemplateLogos() {
     const src = brandLogoSrc();
-    const slots = state.elements.filter(function (el) {
-      return el && el.brandRole === "logo";
-    });
+    const slots = everyElement().filter(function (el) { return el.brandRole === "logo"; });
     if (!slots.length) return;
 
     /* A slot with nothing to go in it: no logo uploaded AND no company name in
@@ -8710,14 +8708,24 @@ import { createResizeEngine } from "./resize-engine.js";
      element keeps what it was written from, and what we last made of it. If
      the words still match what we wrote, a brand switch can rewrite them; if
      the member has typed since, they are theirs and we leave them alone. */
+  /* Every element in the whole design, not just the page on screen.
+
+     `state.elements` is a getter for the OPEN page's elements, which is right
+     for editing and wrong for filling a design in: a postcard's footer -- its
+     photograph, its logo, its {agent name} -- lives on the back, and the back
+     is not the page you land on. Everything that fills a design from the kit
+     walks this instead, so a design fills in when it opens or it does not
+     fill in at all. */
+  function everyElement() {
+    const all = [];
+    (state.pages || []).forEach(function (pg) {
+      (pg.elements || []).forEach(function (e) { if (e) all.push(e); });
+    });
+    return all;
+  }
+
   function fillTemplateMergeTags() {
-    /* Every page, not just the one on screen. `state.elements` is the open
-       page's elements, so a postcard's back kept its raw {agent name} until
-       somebody happened to turn to it -- and the footer is usually on the
-       back. A design fills in when it opens or it does not fill in. */
-    const every = [];
-    (state.pages || []).forEach(function (pg) { (pg.elements || []).forEach(function (e) { every.push(e); }); });
-    every.forEach(function (el) {
+    everyElement().forEach(function (el) {
       if (el.type !== "text") return;
       if (el.text) {
         const src = (el.mergeSrc != null && el.text === el.mergeOut) ? el.mergeSrc : el.text;
