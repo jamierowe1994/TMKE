@@ -11175,6 +11175,20 @@ import { createResizeEngine } from "./resize-engine.js";
     const hint = $("ed-safe-hint");
     if (hint) hint.hidden = !!safeZoneFor(W, H).length;
     ov.innerHTML = "";
+    /* On a print canvas the cut line is always drawn, whether or not the
+       print guide is switched on. It is where zero is: X and Y are measured
+       from the trim, and a measurement taken from an edge you cannot see is
+       just a number that looks wrong. */
+    if ((!def || !def.fits(W, H)) && sizeFamily(W, H) === "print" && printBleed(W, H) > 0) {
+      const b = printBleed(W, H);
+      const t = document.createElement("div");
+      t.className = "ed-safezone-trim";
+      t.style.left = b + "px"; t.style.top = b + "px";
+      t.style.width = (W - 2 * b) + "px"; t.style.height = (H - 2 * b) + "px";
+      ov.appendChild(t);
+      ov.hidden = false;
+      return;
+    }
     if (!def || !def.fits(W, H)) { ov.hidden = true; return; }
     ov.hidden = false;
     const zones = typeof def.zones === "function" ? def.zones(W, H) : def.zones;
