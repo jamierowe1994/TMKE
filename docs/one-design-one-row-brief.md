@@ -111,3 +111,32 @@ reports `pages: 2` and `pages: 1` respectively.
 **Not done, deliberately:** nothing has been published or merged against the
 live database. Merging the already-split designs is the step the brief puts
 afterwards, and it is Danielle's to trigger now the reader ships.
+
+## The merge: nothing to merge (23 Sep 2026)
+
+Danielle asked for the split designs to be merged. Checked against the live
+database first, and there are none:
+
+- `templates` holds **111 rows in total** (not a page — that is the exact
+  count the API reports), every one `status = active`
+- **none** is named with a `— 01` / `— 02` suffix, under any kind of dash
+- **none** carries `pages` yet
+
+The "TPE Just Listed Postcard - Test" rows that prompted the brief are gone,
+which fits a row with *Test* in its name. So there is nothing to fix up and
+no migration to run.
+
+**A near miss worth recording.** Three designs end in a number —
+`Testimonial 1`, `Testimonial 2`, `Testimonial 3 - Service - Static` — and a
+merge script matching "name ends in a digit" would have fused three separate
+designs into one three-page design and retired two of them. The SELECT at the
+foot of `template_pages.sql` is narrower than that (it requires the
+`\s+—\s+\d+$` form), so it would not have caught them, but anything written
+in a hurry against "ends in a number" would. If a merge is ever needed, match
+the em-dash form and read the list before writing.
+
+**Worth the Admin Centre checking:** whether the public anon key is permitted
+to UPDATE `templates`. A no-op PATCH returned 200, but that proves nothing
+either way — PostgREST reports the same for "denied" and "matched no rows" —
+and the only conclusive test is a real write to a real row, which is not
+something to do to the live catalogue to satisfy curiosity.
