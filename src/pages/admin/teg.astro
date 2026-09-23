@@ -1,0 +1,120 @@
+---
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="teg" title="TEG sync" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">TEG sync</div>
+          <div class="page-header-sub">The Experts Group's own team database — who works for which brand, under what title, on whose patch, and who has left. We read it; we never write to it.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <div class="teg-acts">
+      <button type="button" class="admin-btn admin-btn-primary" id="teg-ping">Test the connection</button>
+      <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
+      <span class="teg-status" id="teg-status"></span>
+    </div>
+
+    <!-- Nothing is written by either button. The dry run reads their roster
+         and ours and reports the difference; that is all it can do. -->
+    <p class="teg-note">Neither button changes anything, on our side or theirs. The dry run reads both rosters and reports the difference.</p>
+
+    <div id="teg-out"></div>
+  </div>
+
+  <style is:global>
+    .teg-acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .teg-status { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+    .teg-status.is-ok { color: #2b6b44; }
+    .teg-status.is-err { color: #9a2a2a; }
+    .teg-note { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); margin: 10px 0 0; }
+    .teg-sum { display: flex; gap: 10px; flex-wrap: wrap; margin: 20px 0 14px; }
+    .teg-stat { border: 1px solid var(--border, rgba(28,29,34,0.12)); border-radius: 8px; padding: 12px 16px; min-width: 120px; }
+    .teg-stat b { display: block; font-family: var(--serif); font-size: 24px; font-weight: 500; color: var(--ink); line-height: 1.1; }
+    .teg-stat span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .teg-tablewrap { overflow-x: auto; }
+    .teg-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 12.5px; }
+    .teg-table th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 8px 10px; border-bottom: 1px solid var(--border, rgba(28,29,34,0.12)); white-space: nowrap; }
+    .teg-table td { padding: 8px 10px; border-bottom: 1px solid rgba(28,29,34,0.06); vertical-align: top; }
+    .teg-new { color: #a05a3c; font-weight: 700; }
+    .teg-pill { display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); margin: 0 3px 3px 0; }
+    .teg-pill.is-add { background: rgba(63,148,104,0.14); color: #2b6b44; }
+    .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
+  </style>
+
+  <script>
+    import { requireAdmin } from '../../lib/admin-gate.js';
+    import { supabase } from '../../lib/supabase.js';
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    const out = document.getElementById('teg-out');
+    const statusEl = document.getElementById('teg-status');
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const say = (m, cls) => { statusEl.textContent = m || ''; statusEl.className = 'teg-status' + (cls ? ' ' + cls : ''); };
+
+    async function call(pathname) {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token;
+      const res = await fetch(WORKER + pathname, { headers: { Authorization: 'Bearer ' + token } });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    }
+
+    document.getElementById('teg-ping').addEventListener('click', async () => {
+      out.innerHTML = '';
+      say('Knocking…');
+      const { body } = await call('/teg/ping');
+      if (!body) { say("No answer from our own Worker.", 'is-err'); return; }
+      const db = body.dbApi || {};
+      say(db.ok ? 'Connected — their database answered.' : 'Not connected yet.', db.ok ? 'is-ok' : 'is-err');
+      out.innerHTML = '<div class="teg-raw">' + esc(JSON.stringify(body, null, 2)) + '</div>';
+    });
+
+    document.getElementById('teg-dry').addEventListener('click', async () => {
+      out.innerHTML = '';
+      say('Reading both rosters…');
+      const { body } = await call('/teg/preview?limit=500');
+      if (!body || !body.ok) {
+        say((body && body.error) || "That didn't run.", 'is-err');
+        if (body) out.innerHTML = '<div class="teg-raw">' + esc(JSON.stringify(body, null, 2)) + '</div>';
+        return;
+      }
+      say(`Read ${body.counted} of their people. Nothing was changed.`, 'is-ok');
+      const stat = (n, label) => `<div class="teg-stat"><b>${n}</b><span>${label}</span></div>`;
+      const rows = (body.preview || []).map((p) => `
+        <tr>
+          <td>${esc(p.name)}<br><span style="color:rgba(28,29,34,0.5)">${esc(p.email)}</span></td>
+          <td>${p.match === 'in our CRM' ? 'In our CRM' : '<span class="teg-new">New — no contact</span>'}</td>
+          <td>${(p.brands_theirs || []).map((b) => `<span class="teg-pill">${esc(b)}</span>`).join('') || '—'}</td>
+          <td>${(p.brands_to_add || []).map((b) => `<span class="teg-pill is-add">+ ${esc(b)}</span>`).join('') || '—'}</td>
+          <td>${esc(p.job_title) || '—'}</td>
+          <td>${(p.postcodes || []).join(', ') || '—'}</td>
+          <td>${p.leaver ? 'Left' : esc(p.status) || '—'}</td>
+          <td>${p.photo_provided ? 'Yes' : '—'}</td>
+        </tr>`).join('');
+      out.innerHTML = `
+        <div class="teg-sum">
+          ${stat(body.counted, 'Their people')}
+          ${stat(body.new_people, 'Not in our CRM')}
+          ${stat(body.brand_rows_to_add, 'Brand rows to add')}
+          ${stat(body.leavers, 'Marked as left')}
+          ${stat(body.with_photo_flag, 'Photo on file')}
+        </div>
+        <div class="teg-tablewrap"><table class="teg-table">
+          <thead><tr><th>Person</th><th>Match</th><th>Their brands</th><th>We would add</th><th>Job title</th><th>Postcodes</th><th>Status</th><th>Photo</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`;
+    });
+
+    (async () => {
+      if (!import.meta.env.DEV) { const s = await requireAdmin(); if (!s) return; }
+      if (!WORKER) say('The Worker URL is not set in this build.', 'is-err');
+    })();
+  </script>
+</AdminShell>
