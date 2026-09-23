@@ -132,7 +132,7 @@ export function adoptBrandCacheOrReload(uid) {
  * contact, or the row is not readable), which means "leave whatever the kit
  * already says". Returns null when we looked and there is no photo.
  */
-async function fetchBrandPhoto(supabase, uid, company) {
+async function fetchBrandPhoto(supabase, uid, brand) {
   /* Through a function, not the table. `agent_profiles` is staff-only and
      always will be -- it holds join dates, packages, trainer details and a
      100%-discount promo code, none of which anybody needs in order to load a
@@ -146,7 +146,7 @@ async function fetchBrandPhoto(supabase, uid, company) {
      a photograph in the database the whole time. */
   try {
     const { data, error } = await supabase
-      .rpc("member_brand_photo", { p_brand: company || null });
+      .rpc("member_brand_photo", { p_brand: brand || null });
     // A function that isn't there yet, or a refusal: leave the kit alone.
     if (error) return undefined;
     return data || null;
@@ -174,7 +174,19 @@ export function syncBrandCache(supabase, uid) {
          ago still gets the photo TMKE added five minutes ago. */
       const newerHere = local && Number(local.updatedAt || 0) > Number(kit.updatedAt || 0);
       const base = newerHere ? local : kit;
-      const photo = await fetchBrandPhoto(supabase, uid, base.company);
+      /* No brand named, so: the one they mainly work for.
+
+         This used to pass the kit's `company`, which is a brand-kit field a
+         member can type anything into -- "The Marketing Experts" while their
+         photograph sits on their Property Experts row. Asked for a brand, the
+         lookup matches it exactly and rightly found nothing, so a member with
+         a photograph on file saw the empty slot.
+
+         A brand switcher, when it swaps the kit, is the thing that knows
+         which brand is being designed as, and passes it here. Until then
+         their primary is the honest answer -- and never somebody else's
+         livery, because the function only ever looks at their own rows. */
+      const photo = await fetchBrandPhoto(supabase, uid);
       const full = photo === undefined ? base : { ...base, brandPhoto: photo };
       const strip = (k) => { const c = { ...(k || {}) }; delete c.owner; return JSON.stringify(c); };
       if (local && strip(local) === strip(full)) return false;
