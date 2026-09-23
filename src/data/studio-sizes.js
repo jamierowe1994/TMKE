@@ -67,9 +67,11 @@ export const STUDIO_SIZES = [
       print("A5 Landscape", 210, 148),
       /* A6 is the postcard size, and a postcard is as often landscape as it
          is upright -- an invitation with a cut-out down one edge and the copy
-         beside it only works the wide way round. Both, like A4 and A5. */
-      print("A6 Postcard Portrait", 105, 148),
-      print("A6 Postcard Landscape", 148, 105),
+         beside it only works the wide way round. Both, like A4 and A5, and
+         named like them: "A6 Postcard Landscape" was too long for the card it
+         has to fit on, and the mm line underneath says which way round it is. */
+      print("A6 Portrait", 105, 148),
+      print("A6 Landscape", 148, 105),
       print("Business Card", 85, 55),
     ],
   },
