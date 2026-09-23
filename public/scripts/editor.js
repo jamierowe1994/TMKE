@@ -5091,9 +5091,17 @@ import { createResizeEngine } from "./resize-engine.js";
     // Simple, monochrome, recognisable. Sized 200x200 by default so
     // they read as "icons" not "shapes" — small accents you drop onto
     // a design. User can resize freely afterwards.
-    ig:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='5'/><circle cx='12' cy='12' r='4'/><circle cx='17.5' cy='6.5' r='1' fill='#1c1d22' stroke='none'/></svg>` },
-    fb:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 2a10 10 0 0 0-1.5 19.9v-7H8v-3h2.5v-2.2c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2.2.2 2.2.2v2.4h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 3h-2.3v7A10 10 0 0 0 12 2z'/></svg>` },
-    li:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.3 18.3H5.7V9.5h2.6v8.8zM7 8.3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11.3 10h-2.6v-4.3c0-1-.4-1.7-1.3-1.7-.7 0-1.1.5-1.3 1-.1.2-.1.4-.1.6v4.4h-2.6V9.5h2.6v1.1c.3-.5 1-1.3 2.4-1.3 1.7 0 3 1.1 3 3.5v5.5z'/></svg>` },
+    // The camera is already a rounded square; a ring round it is a box in a box.
+    ig:   { w: 200, h: 200, only: ["plain", "thin"], svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='3' width='18' height='18' rx='5'/><circle cx='12' cy='12' r='4'/><circle cx='17.5' cy='6.5' r='1' fill='#1c1d22' stroke='none'/></svg>` },
+    /* A brand mark is a letter with a shape behind it, so the shape is the
+       choice and a ring drawn around the whole thing is a box in a box.
+       `container` says the styles are drawn in, not wrapped on. */
+    fb:   { w: 200, h: 200, only: ["circle", "square"], container: true,
+            svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 2a10 10 0 0 0-1.5 19.9v-7H8v-3h2.5v-2.2c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2.2.2 2.2.2v2.4h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 3h-2.3v7A10 10 0 0 0 12 2z'/></svg>`,
+            alt: { square: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22' fill-rule='evenodd'><path d='M6 2h12a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4zm4.5 19.9v-7H8v-3h2.5v-2.2c0-2.5 1.5-3.8 3.7-3.8 1.1 0 2.2.2 2.2.2v2.4h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 3h-2.3v6.9z'/></svg>` } },
+    li:   { w: 200, h: 200, only: ["square", "circle"], container: true,
+            svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.3 18.3H5.7V9.5h2.6v8.8zM7 8.3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11.3 10h-2.6v-4.3c0-1-.4-1.7-1.3-1.7-.7 0-1.1.5-1.3 1-.1.2-.1.4-.1.6v4.4h-2.6V9.5h2.6v1.1c.3-.5 1-1.3 2.4-1.3 1.7 0 3 1.1 3 3.5v5.5z'/></svg>`,
+            alt: { circle: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22' fill-rule='evenodd'><path d='M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM8.3 18.3H5.7V9.5h2.6v8.8zM7 8.3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm11.3 10h-2.6v-4.3c0-1-.4-1.7-1.3-1.7-.7 0-1.1.5-1.3 1-.1.2-.1.4-.1.6v4.4h-2.6V9.5h2.6v1.1c.3-.5 1-1.3 2.4-1.3 1.7 0 3 1.1 3 3.5v5.5z'/></svg>` } },
     tt:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M16 2v3.5a4.5 4.5 0 0 0 4.5 4.5V13a7.5 7.5 0 0 1-4.5-1.5V16a6 6 0 1 1-6-6v3a3 3 0 1 0 3 3V2h3z'/></svg>` },
     yt:   { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M22 7.6c-.2-1.6-1.4-2.8-3-3-2.2-.2-7-.2-7-.2s-4.8 0-7 .2c-1.6.2-2.8 1.4-3 3-.2 1.4-.2 4.4-.2 4.4s0 3 .2 4.4c.2 1.6 1.4 2.8 3 3 2.2.2 7 .2 7 .2s4.8 0 7-.2c1.6-.2 2.8-1.4 3-3 .2-1.4.2-4.4.2-4.4s0-3-.2-4.4zM10 15V9l5 3-5 3z'/></svg>` },
     x:    { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z'/></svg>` },
@@ -5113,7 +5121,8 @@ import { createResizeEngine } from "./resize-engine.js";
     bath: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 11h20v3a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5v-3z'/><path d='M6 11V7a2 2 0 0 1 4 0v1'/><path d='M6 19l-1.5 2'/><path d='M18 19l1.5 2'/></svg>` },
     sofa: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4'/><path d='M3 12a2 2 0 0 1 4 0v3h10v-3a2 2 0 0 1 4 0v6H3z'/><path d='M6 18v2'/><path d='M18 18v2'/></svg>` },
     area: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8V4a1 1 0 0 1 1-1h4'/><path d='M16 3h4a1 1 0 0 1 1 1v4'/><path d='M21 16v4a1 1 0 0 1-1 1h-4'/><path d='M8 21H4a1 1 0 0 1-1-1v-4'/><path d='M8 16l8-8'/><path d='M8 11.5V16h4.5'/></svg>` },
-    park: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z'/><path d='M10 17V7h3.2a3.2 3.2 0 0 1 0 6.4H10'/></svg>` },
+    // Already a P in a box - ringing it again just draws a box in a box.
+    park: { w: 200, h: 200, only: ["plain", "thin"], svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z'/><path d='M10 17V7h3.2a3.2 3.2 0 0 1 0 6.4H10'/></svg>` },
     tree: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21V8'/><path d='M12 14c0-3.3 2.4-6 6-6 0 3.3-2.4 6-6 6z'/><path d='M12 17c0-2.8-2-5-5-5 0 2.8 2 5 5 5z'/><path d='M8.5 21h7'/></svg>` },
   };
 
@@ -5150,11 +5159,25 @@ import { createResizeEngine } from "./resize-engine.js";
     return !!(def && /stroke-width='[\d.]+'/.test(def.svg));
   }
   function svgStylesFor(key) {
+    const def = SVG_SHAPES[key];
+    if (!def) return [];
+    // An icon can name the only styles that suit it.
+    if (def.only) return def.only.slice();
     if (!svgCanStyle(key)) return [];
     return svgHasStroke(key) ? SVG_STYLES : SVG_STYLES.filter(function (x) { return x !== "thin"; });
   }
+  // What this element is actually set to, once the icon has had its say.
+  function svgStyleOf(el) {
+    const opts = svgStylesFor(el && el.svgKey);
+    const st = (el && el.svgStyle) || "plain";
+    return opts.indexOf(st) !== -1 ? st : (opts[0] || "plain");
+  }
 
-  function styledSvg(svg, style) {
+  function styledSvg(def, style) {
+    // Drawn versions win: a brand mark's shape is part of its artwork.
+    if (def.alt && def.alt[style]) return def.alt[style];
+    if (def.container) return def.svg;
+    const svg = def.svg;
     if (!style || style === "plain") return svg;
     const m = svg.match(/^<svg([^>]*)>([\s\S]*)<\/svg>$/);
     if (!m) return svg;
@@ -5174,7 +5197,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const def = SVG_SHAPES[key];
     if (!def) return null;
     const safe = (fill && /^#[0-9a-f]{3,8}$/i.test(fill)) ? fill : SVG_DEFAULT_FILL;
-    return styledSvg(def.svg, style).split(SVG_DEFAULT_FILL).join(safe);
+    return styledSvg(def, style).split(SVG_DEFAULT_FILL).join(safe);
   }
   function svgKeyToDataUri(key, fill, style) {
     const svg = svgWithFill(key, fill, style);
@@ -5184,13 +5207,13 @@ import { createResizeEngine } from "./resize-engine.js";
   // Redraw an icon element from what it now says about itself.
   function restyleSvgElement(el) {
     if (!el || !el.svgKey) return;
-    el.src = svgKeyToDataUri(el.svgKey, el.svgFill, el.svgStyle);
+    el.src = svgKeyToDataUri(el.svgKey, el.svgFill, svgStyleOf(el));
   }
   // For the little style buttons: takes the colour of whatever it sits in.
   function svgStylePreview(key, style) {
     const def = SVG_SHAPES[key];
     if (!def) return "";
-    return styledSvg(def.svg, style).split(SVG_DEFAULT_FILL).join("currentColor");
+    return styledSvg(def, style).split(SVG_DEFAULT_FILL).join("currentColor");
   }
 
   // Insert an SVG-as-image element. The SVG is encoded as a data URI so
@@ -5202,12 +5225,14 @@ import { createResizeEngine } from "./resize-engine.js";
     const def = SVG_SHAPES[key];
     if (!def) return;
     const fill = SVG_DEFAULT_FILL;
-    const src = svgKeyToDataUri(key, fill);
+    const style = svgStylesFor(key)[0] || "plain";
+    const src = svgKeyToDataUri(key, fill, style);
     const w = def.w, h = def.h;
     addElement({
       type: "image",
       svgKey: key,
       svgFill: fill,
+      svgStyle: style,
       x: state.canvas.width / 2 - w / 2,
       y: state.canvas.height / 2 - h / 2,
       w, h, src,
@@ -6866,9 +6891,9 @@ import { createResizeEngine } from "./resize-engine.js";
            takes longer to read than a circle does. Each one is still the
            icon, so the colour below goes on whichever is chosen. */
         const _styles = svgStylesFor(el.svgKey);
-        const _cur = el.svgStyle || "plain";
+        const _cur = svgStyleOf(el);
         const _picker = _styles.length
-          ? '<div class="ed-props-field"><label>Style</label><div class="ed-icon-styles">' +
+          ? '<div class="ed-props-field ed-icon-styles-field"><label>Style</label><div class="ed-icon-styles">' +
               _styles.map(function (st) {
                 return '<button type="button" class="ed-icon-style' + (st === _cur ? " is-on" : "") +
                   '" data-svgstyle="' + st + '" title="' + SVG_STYLE_LABEL[st] +
