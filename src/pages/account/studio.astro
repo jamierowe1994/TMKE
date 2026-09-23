@@ -259,18 +259,28 @@ const inspo = [
     /* A design keeps its own shape. One frame for the grid, the picture whole
        inside it and the rest left grey — a postcard cropped to a portrait tile
        showed the middle third of itself, which is neither the design nor a
-       useful way to tell one from another. A pack's cover is artwork made for
-       the tile, so it still fills it. */
-    .st-design-img {
+       useful way to tell one from another. Packs too: a print pack's cover is
+       often borrowed from one of its own designs, so it was being stretched
+       the same way. */
+    .st-design-img, .st-pack-img {
       background-size: contain; background-repeat: no-repeat;
     }
-    /* Which shelf is which, when a member owns both kinds of pack. */
-    .st-shelf-label {
-      font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700;
-      letter-spacing: 0.14em; text-transform: uppercase;
-      color: var(--ws-faint); margin: 0 0 10px;
+    /* Social / Print over a shelf that holds both. The hub's own pill shape —
+       quiet until chosen, the way the rest of the workspace behaves. */
+    .st-kinds { display: inline-flex; gap: 4px; padding: 3px; margin: 0 0 14px; border-radius: 999px; background: rgba(28,29,34,0.05); }
+    .st-kind {
+      appearance: none; border: 0; cursor: pointer;
+      padding: 7px 18px; border-radius: 999px; background: transparent;
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase; color: var(--ws-faint);
+      transition: background 0.18s, color 0.18s, box-shadow 0.18s;
     }
-    .st-rail + .st-shelf-label { margin-top: 26px; }
+    .st-kind:hover { color: var(--ink); }
+    .st-kind.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.16); }
+    .st-kind:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    /* "See all designs" sits on the shelf now, so it reads as the last card
+       rather than a link in the heading the toggle has taken. */
+    .st-design--all .st-design-new { border-style: solid; }
     .st-pack-name, .st-design-name { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
     .st-pack-count, .st-design-type { font-size: var(--ws-t-meta); color: var(--ws-faint); }
     /* The state pill on a design. Packs carry no overlay: the name sits under
@@ -386,6 +396,7 @@ const inspo = [
 
   <script>
     import { isDemo as demoOn, lockClicks } from "../../lib/demo.js";
+    import { STUDIO_SIZES } from "../../data/studio-sizes.js";
     if (demoOn()) {
       // The demo: the background remover and the content ideas are for members.
       const locked = [];
@@ -463,6 +474,57 @@ const inspo = [
       window.addEventListener('resize', sync);
       sync();
     }
+    /* Print or social, from the canvas it was drawn at. The print sizes are
+       the ones the Studio offers (src/data/studio-sizes.js) at 300dpi, plus
+       the A-series ratio for anything drawn before that list existed — the
+       same test the Studio itself uses to decide which units to measure in. */
+    const PRINT_SIZES = new Set(
+      STUDIO_SIZES.filter((g) => g.family === 'print')
+        .flatMap((g) => g.sizes.map((z) => `${z.w}x${z.h}`))
+    );
+    function isPrintDesign(d) {
+      const c = d && d.canvas;
+      const w = Math.round(Number(c && c.width) || 0), h = Math.round(Number(c && c.height) || 0);
+      if (!w || !h) return false;
+      if (PRINT_SIZES.has(`${w}x${h}`) || PRINT_SIZES.has(`${h}x${w}`)) return true;
+      const r = Math.max(w, h) / Math.min(w, h);
+      return Math.abs(r - Math.SQRT2) < 0.01 && Math.min(w, h) >= 1200;
+    }
+
+    /* Social / Print, over a shelf that has both. Two pills, the hub's own
+       shape, not the browser's own buttons. Built here rather than in the
+       markup because a member with only social packs should never see it. */
+    function mountKindToggle(rail, name, onChange) {
+      if (!rail || rail.previousElementSibling?.classList.contains('st-kinds')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'st-kinds';
+      wrap.setAttribute('role', 'tablist');
+      wrap.setAttribute('aria-label', 'Social or print');
+      [['social', 'Social'], ['print', 'Print']].forEach(([k, label], i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'st-kind' + (i === 0 ? ' is-on' : '');
+        b.dataset.kind = k;
+        b.textContent = label;
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+        b.addEventListener('click', () => {
+          if (b.classList.contains('is-on')) return;
+          wrap.querySelectorAll('.st-kind').forEach((x) => {
+            const on = x === b;
+            x.classList.toggle('is-on', on);
+            x.setAttribute('aria-selected', on ? 'true' : 'false');
+          });
+          onChange(k);
+        });
+        wrap.appendChild(b);
+      });
+      rail.parentNode.insertBefore(wrap, rail);
+    }
+    // The packs shelf is wired from a different <script>, which is a different
+    // module: hand it over the way the rail re-wire is handed over.
+    window.__ST_KIND_TOGGLE__ = mountKindToggle;
+
     const rails = () => document.querySelectorAll('[data-rail]');
     rails().forEach(wireRail);
     // Re-wire after the real packs replace the sample ones.
@@ -498,22 +560,45 @@ const inspo = [
           return;
         }
         if (!session) { done(false); return; } // signed out (preview) → keep the SSR starter samples
-        // Fetch 5: enough to show the 4 most recent AND detect a 5th (→ "See all").
+        /* All of them, not five: the toggle has to be able to say whether they
+           have any print designs at all, and a shelf of three cannot answer
+           that from a page of five. `canvas` is what tells print from social. */
         const { data, error } = await supabase
           .from('user_designs')
-          .select('id, name, thumb_url, updated_at')
-          .order('updated_at', { ascending: false })
-          .limit(5);
+          .select('id, name, thumb_url, updated_at, canvas')
+          .order('updated_at', { ascending: false });
         if (error) { done(true); return; }
         const designs = data || [];
-        if (seeall) seeall.hidden = designs.length <= 4;   // only show "See all" when they have more than four
         if (!designs.length) { row.innerHTML = newCard; done(true); return; } // signed in, none yet → just "New design"
-        row.innerHTML = designs.slice(0, 4).map((d) => `
+
+        const seeAllCard = `
+          <a class="st-design st-design--all" href="/account/editor" data-seeall-card>
+            <span class="st-design-new"><span class="st-plus">&rarr;</span><span>See all designs</span></span>
+          </a>`;
+        const card = (d) => `
           <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}">
             <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
             <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
             <span class="st-design-type">Your design</span>
-          </a>`).join('') + newCard;
+          </a>`;
+        /* Three designs, then the two ways on: a new one, and the rest of
+           them. "See all" used to sit in the chapter heading, which is where
+           the toggle now goes, so it comes onto the shelf as a card. */
+        const draw = (list) => {
+          row.innerHTML = list.slice(0, 3).map(card).join('') + newCard
+            + (list.length > 3 ? seeAllCard : '');
+          window.__ST_REWIRE_RAILS__?.();
+        };
+
+        const printDesigns  = designs.filter(isPrintDesign);
+        const socialDesigns = designs.filter((d) => !isPrintDesign(d));
+        if (seeall) seeall.hidden = true;        // it lives on the shelf now
+        if (printDesigns.length && socialDesigns.length) {
+          mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns));
+          draw(socialDesigns);
+        } else {
+          draw(designs);
+        }
         done(true);
       } catch (_) { done(true); /* keep the SSR sample designs on any error */ }
     })();
@@ -580,36 +665,19 @@ const inspo = [
             <span class="st-pack-count">Open pack &rarr;</span>
           </a>`;
 
-        /* Print and social are different jobs, so they get different shelves.
-           A postcard and an Instagram post share a Studio but nothing else:
-           different sizes, different rules, and a member reaching for one is
-           not half-thinking about the other. Only split when they own both —
-           a heading over a single shelf tells nobody anything. */
+        /* Print and social are different jobs — different sizes, different
+           rules — and a member reaching for one is not half-thinking about the
+           other. One shelf, with a toggle over it, rather than two shelves:
+           the shelf stays the length of the screen and nobody scrolls past a
+           row they did not want. No print packs, no toggle. */
         const printPacks  = owned.filter((p) => p.kind === 'print');
         const socialPacks = owned.filter((p) => p.kind !== 'print');
+        const draw = (list) => { row.innerHTML = list.map(tile).join('') + shopTile; window.__ST_REWIRE_RAILS__?.(); };
         if (printPacks.length && socialPacks.length) {
-          const rail = row.closest('.st-rail');
-          const label = (text) => {
-            const h = document.createElement('h3');
-            h.className = 'st-shelf-label';
-            h.textContent = text;
-            return h;
-          };
-          row.innerHTML = socialPacks.map(tile).join('') + shopTile;
-          rail.parentNode.insertBefore(label('Social'), rail);
-
-          // The print shelf is the same furniture: the rail, its arrows and
-          // its dots, cloned rather than rebuilt so the two behave alike.
-          const printRail = rail.cloneNode(true);
-          const printRow = printRail.querySelector('[data-packs]');
-          printRow.removeAttribute('data-packs');
-          printRow.setAttribute('data-packs-print', '');
-          printRow.innerHTML = printPacks.map(tile).join('');
-          printRow.classList.add('is-ready');
-          rail.parentNode.insertBefore(label('Print'), rail.nextSibling);
-          rail.parentNode.insertBefore(printRail, rail.nextSibling.nextSibling);
+          window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks));
+          draw(socialPacks);
         } else {
-          row.innerHTML = owned.map(tile).join('') + shopTile;
+          draw(owned);
         }
         done();                           // the dot count follows the real packs
       } catch (_) { done(); /* keep the SSR sample packs on any error */ }
