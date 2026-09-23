@@ -7489,9 +7489,21 @@ export default {
         let photo = { ok: false, error: "not tried" };
         if (env.TEG_API_SECRET) {
           try {
-            const r = await fetch(`${TEG_API}/photoApi`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
+            const r = await fetch(`${TEG_API}/photoApi?limit=5`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
             const t = await r.text();
-            photo = { ok: r.ok, status: r.status, body: t.slice(0, 300) };
+            let o = null; try { o = JSON.parse(t); } catch (_) {}
+            const rows = (o && Array.isArray(o.data)) ? o.data : [];
+            /* Report the SHAPE, not the first 300 characters. A truncated
+               string told us a record exists and nothing about what is in it,
+               which cost a round trip we did not need to spend. */
+            photo = rows.length ? {
+              ok: r.ok, status: r.status, count: o.count ?? null, has_more: o.has_more ?? null,
+              fields: [...new Set(rows.flatMap((x) => Object.keys(x || {})))].sort(),
+              looks_like_an_image: [...new Set(rows.flatMap((x) => Object.keys(x || {})))]
+                .filter((f) => /photo|image|picture|avatar|headshot|thumb/i.test(f) ||
+                  rows.some((x) => typeof x[f] === "string" && /^https?:\/\/[^\s]+\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(x[f]))),
+              sample: rows[0],
+            } : { ok: r.ok, status: r.status, body: t.slice(0, 600) };
           } catch (e) { photo = { ok: false, error: String((e && e.message) || e) }; }
         }
         return json({ ok: db.ok, dbApi: db, photoApi: photo }, 200, request, env);
