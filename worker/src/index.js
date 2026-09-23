@@ -327,6 +327,51 @@ function genTempPassword() {
 const MONTH_ABBR = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
 const PACKAGE_PREFIX = { academy: "ACAD", pro: "PRO" };
 
+/* ── The TEG Team Hub (Base44) ─────────────────────────────────────────────
+   Their team database: every agent, their brand, their patch, their job
+   title, and whether they have left. One endpoint, one shared secret, and
+   that secret can delete their entire team -- so it lives here in the Worker
+   and never, under any circumstances, reaches a browser.
+
+   READ ONLY, deliberately. Every action this file sends is from their own
+   read list. We are a consumer of their roster, not an editor of it, and the
+   day that changes it should be a decision somebody made out loud.        */
+const TEG_API = "https://teg-team-hub.base44.app/functions";
+const TEG_READ_ACTIONS = new Set(["ping", "list", "get", "read", "search", "getValue"]);
+
+async function tegApi(env, fn, body) {
+  if (!env.TEG_API_SECRET) return { ok: false, status: 0, error: "No TEG_API_SECRET set on the Worker." };
+  if (body && body.action && !TEG_READ_ACTIONS.has(body.action)) {
+    return { ok: false, status: 0, error: `Refusing to send "${body.action}" — this client is read-only.` };
+  }
+  let res;
+  try {
+    res = await fetch(`${TEG_API}/${fn}`, {
+      method: "POST",
+      headers: { "x-api-secret": env.TEG_API_SECRET, "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
+  } catch (e) {
+    return { ok: false, status: 0, error: String((e && e.message) || e) };
+  }
+  const text = await res.text();
+  let out = null;
+  try { out = JSON.parse(text); } catch (_) {}
+  if (!res.ok || !out || out.success === false) {
+    return { ok: false, status: res.status, error: (out && out.error) || text.slice(0, 300) };
+  }
+  return { ok: true, status: res.status, data: out.data };
+}
+
+/* Their postcode lists are arrays of { code, level } -- NOT the array of
+   strings their documentation promises. Checked against the entity itself
+   (base44/entities/TeamMember.jsonc), because building to the document would
+   have failed on the first record. */
+function tegPostcodes(list) {
+  if (!Array.isArray(list)) return [];
+  return list.map((p) => (p && typeof p === "object" ? p.code : p)).filter(Boolean);
+}
+
 // Build a personalised free-videography code + create the single-use 100% promo
 // row (restricted to the agent service). Format: PACKAGE-INITIALS-MMMYY
 // (e.g. PRO-JB-AUG26); a numeric suffix is appended if that already exists so
@@ -7390,6 +7435,99 @@ export default {
       /* Run whenever a member arrives: has their brand changed anything they
          haven't made their own? Cheap, and it self-heals — nothing to schedule
          and nothing to push. */
+      /* Is the TEG connection alive? Proves the secret and the domain before
+         anybody builds anything on top of them. */
+      if (path.endsWith("/teg/ping") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const db = await tegApi(env, "dbApi", { action: "ping" });
+        // photoApi is a sibling function we have no documentation for yet, so
+        // we only ask whether it answers us, not what it can do.
+        let photo = { ok: false, error: "not tried" };
+        if (env.TEG_API_SECRET) {
+          try {
+            const r = await fetch(`${TEG_API}/photoApi`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
+            const t = await r.text();
+            photo = { ok: r.ok, status: r.status, body: t.slice(0, 300) };
+          } catch (e) { photo = { ok: false, error: String((e && e.message) || e) }; }
+        }
+        return json({ ok: db.ok, dbApi: db, photoApi: photo }, 200, request, env);
+      }
+
+      /* What the sync WOULD do, without doing any of it.
+
+         Their roster against ours, person by person: who we already hold, who
+         is new, which brands they would gain, what would change. Nothing is
+         written -- not here and not to them. A feed that reshapes 200 agent
+         records should be read before it is run once. */
+      if (path.endsWith("/teg/preview") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10)));
+
+        const [people, brands] = await Promise.all([
+          tegApi(env, "dbApi", { action: "search", entity: "TeamMember", query: { active: true }, limit }),
+          tegApi(env, "dbApi", { action: "list", entity: "Brand", limit: 100 }),
+        ]);
+        if (!people.ok) return json({ error: `TEG said: ${people.error}` }, 502, request, env);
+
+        const brandName = new Map();
+        (Array.isArray(brands.data) ? brands.data : []).forEach((b) => { if (b && b.id) brandName.set(b.id, b.name); });
+
+        const rows = Array.isArray(people.data) ? people.data : [];
+        const emails = rows.map((r) => String(r.email || "").toLowerCase()).filter(Boolean);
+        const ours = emails.length
+          ? (await sbGet(env, "contacts",
+              `email=in.(${emails.map((e) => `"${e}"`).join(",")})&select=id,email,first_name,last_name`) || [])
+          : [];
+        const byEmail = new Map(ours.map((c) => [String(c.email || "").toLowerCase(), c]));
+        const theirIds = ours.map((c) => c.id);
+        const profiles = theirIds.length
+          ? (await sbGet(env, "agent_profiles",
+              `contact_id=in.(${theirIds.map((i) => `"${i}"`).join(",")})&select=contact_id,brand,job_title,area,left_at`) || [])
+          : [];
+        const heldBrands = new Map();
+        profiles.forEach((p) => {
+          const l = heldBrands.get(p.contact_id) || [];
+          if (p.brand) l.push(String(p.brand).trim());
+          heldBrands.set(p.contact_id, l);
+        });
+
+        const preview = rows.map((r) => {
+          const email = String(r.email || "").toLowerCase();
+          const c = byEmail.get(email) || null;
+          const want = [brandName.get(r.primary_brand_id) || null]
+            .concat((Array.isArray(r.sub_brands) ? r.sub_brands : []).map((id) => brandName.get(id) || null))
+            .filter(Boolean);
+          const have = c ? (heldBrands.get(c.id) || []) : [];
+          return {
+            name: [r.first_name, r.last_name].filter(Boolean).join(" "),
+            email: r.email || null,
+            match: c ? "in our CRM" : "NEW — no contact",
+            brands_theirs: want,
+            brands_ours: have,
+            brands_to_add: want.filter((b) => !have.includes(b)),
+            job_title: r.job_title || null,
+            postcodes: tegPostcodes(r.territory_postcodes),
+            address: r.address || null,
+            status: r.status || null,
+            leaver: r.status === "Departed" || !!r.leave_date,
+            // Their schema records THAT a photo exists, not where it is.
+            photo_provided: !!r.photo_provided,
+          };
+        });
+
+        return json({
+          ok: true,
+          counted: preview.length,
+          new_people: preview.filter((p) => p.match !== "in our CRM").length,
+          brand_rows_to_add: preview.reduce((n, p) => n + p.brands_to_add.length, 0),
+          leavers: preview.filter((p) => p.leaver).length,
+          with_photo_flag: preview.filter((p) => p.photo_provided).length,
+          preview,
+        }, 200, request, env);
+      }
+
       /* Every brand's kit, for the admin studio's brand picker.
 
          Designing a Property Experts postcard in TMKE's colours and hoping is
