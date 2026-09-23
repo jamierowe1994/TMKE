@@ -202,3 +202,31 @@ being able to carry the Property picture.
 
 A member with no photo gets `null`, which your lookup already treats as
 "leave it alone".
+
+---
+
+## Merge tags were resolving in the admin studio (23 Sep 2026, Admin Centre)
+
+Designing as a brand wrote the *designer's own details* into the design.
+Danielle saw her name, job title, telephone and email — from the member kit
+cached in that browser, not from her admin account — filled into a template's
+footer in the admin studio.
+
+Two causes, both in `reapplyBrandToDesign` / `__TMKE_SET_BRAND_KIT__`:
+
+- The text loop that re-resolves tags had no `isAdminMode()` guard. Only the
+  logo/headshot/photo fills below it were guarded.
+- `__TMKE_SET_BRAND_KIT__` folds `ownBrand()` in so a member keeps their own
+  name and patch across a brand switch — right for a member, wrong for an
+  admin, whose own kit is cached in the same browser like anybody else's.
+
+**A tag IS the placeholder when you are the one making the template.** Fixed
+both, and added `restoreMergeTags()`: on opening a template in admin mode,
+any text where `mergeOut` still equals `text` is put back to `mergeSrc`, with
+a toast saying how many. That substitution was entirely ours, so undoing it
+is safe — and a template already saved with somebody's real name in it heals
+when an admin next opens it, rather than waiting to be noticed.
+
+Touched `public/scripts/editor.js`, which is yours — small and contained, but
+worth a look, and worth knowing a template saved earlier today may have had
+real details in it.

@@ -2427,6 +2427,7 @@ import { createResizeEngine } from "./resize-engine.js";
           // only fills while it is still text — anything you have typed or
           // replaced yourself is left exactly as you left it.
           if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); nudgeIfBrandNameMissing(); }
+    else restoreMergeTags();
           normalizeLegacySize();
           pushHistory();
           fullRender();
@@ -2455,6 +2456,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
     if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); nudgeIfBrandNameMissing(); }
+    else restoreMergeTags();
     normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
@@ -11264,13 +11266,42 @@ import { createResizeEngine } from "./resize-engine.js";
     });
   });
 
+  /* Put the tags back, for a template already saved with them resolved.
+
+     `mergeSrc` holds what the words were written FROM and `mergeOut` what we
+     last made of them; while those two still agree nothing has been typed
+     since, so the substitution is entirely ours to undo. An admin opening a
+     template that had a real name written into it gets {agent name} back, and
+     a poisoned save heals itself rather than waiting to be found. */
+  function restoreMergeTags() {
+    let healed = 0;
+    (state.pages || []).forEach(function (pg) {
+      (pg.elements || []).forEach(function (el) {
+        if (el && el.type === "text" && el.mergeSrc != null && el.text === el.mergeOut) {
+          el.text = el.mergeSrc; el.runs = null; healed += 1;
+        }
+      });
+    });
+    if (healed) {
+      (state.elements || []).forEach(function (el) { if (el.type === "text") fitTextHeight(el); });
+      toast("Put " + healed + (healed === 1 ? " merge tag" : " merge tags") + " back \u2014 this design had real details saved into it.", 5000);
+    }
+  }
+
   /* Everything the open design takes from the kit, taken again from the new
      one: the words that came from tags, and the logo in its slot. Their
      headshot is theirs, not the brand's, so it stays. */
   function reapplyBrandToDesign(prevLogo) {
+    /* NEVER in the admin studio. A tag IS the placeholder when you are the
+       one making the template: {agent name} is what the designer placed and
+       what every member must inherit. Resolving it here wrote whoever is
+       signed in on this browser into the design, and a save would have baked
+       one person's name and telephone number into a template shipped to
+       everybody. */
+    const resolveTags = !isAdminMode();
     state.pages.forEach(function (pg) {
       (pg.elements || []).forEach(function (el) {
-        if (el.type === "text" && typeof el.text === "string") {
+        if (resolveTags && el.type === "text" && typeof el.text === "string") {
           // Words we wrote from a tag get written again from the new kit; a
           // tag that the last brand had no answer for gets one now; anything
           // the member has typed is theirs and is left alone.
@@ -11312,7 +11343,11 @@ import { createResizeEngine } from "./resize-engine.js";
       if (kit.logos.length && !kit.logos.some(function (l) { return l.primary; })) kit.logos[0].primary = true;
     }
     const prevLogo = brandLogoSrc();
-    const mine = ownBrand() || {};
+    /* An admin designing as a brand is not a member of it. Their own kit is
+       cached in this browser like anybody else's, and folding it in put a
+       real person's name, job title, telephone and email into a template.
+       A member switching their own brands still carries theirs across. */
+    const mine = isAdminMode() ? {} : (ownBrand() || {});
     /* A person is the same person at either brand. Their name, job title,
        telephone, email and headshot are theirs; the colours, fonts, logo,
        website and company name are the brand's. Keeping only the headshot
