@@ -5124,16 +5124,73 @@ import { createResizeEngine } from "./resize-engine.js";
   // Cheap, no parser needed — and works for fill, stroke and any
   // attribute that references the colour.
   const SVG_DEFAULT_FILL = "#1c1d22";
-  function svgWithFill(key, fill) {
+
+  /* ---------- Icon styles ----------
+     One icon, four ways to set it: as drawn, ringed, in a rounded square, or
+     with a lighter line. A style is a rewrite of the artwork before the
+     colour goes in, so it recolours, renders and exports like any other icon
+     - the element gains nothing but the name of the style. */
+  const SVG_STYLES = ["plain", "circle", "square", "thin"];
+  const SVG_STYLE_LABEL = { plain: "As it is", circle: "In a circle", square: "In a square", thin: "Thinner line" };
+
+  // The ring is drawn in the space around the artwork rather than the
+  // artwork being shrunk inside it, so an icon keeps the weight it was drawn
+  // at and a row of ringed and plain icons still sits level.
+  const RING_BOX = "viewBox='-5 -5 34 34'";
+
+  // Only the 24x24 icons: the wide shapes (a banner, an arrow) have their own
+  // proportions, and a ring drawn for a square box is wrong around them.
+  function svgCanStyle(key) {
+    const def = SVG_SHAPES[key];
+    return !!(def && /viewBox='0 0 24 24'/.test(def.svg));
+  }
+  // A lighter line only means anything on an icon drawn with lines.
+  function svgHasStroke(key) {
+    const def = SVG_SHAPES[key];
+    return !!(def && /stroke-width='[\d.]+'/.test(def.svg));
+  }
+  function svgStylesFor(key) {
+    if (!svgCanStyle(key)) return [];
+    return svgHasStroke(key) ? SVG_STYLES : SVG_STYLES.filter(function (x) { return x !== "thin"; });
+  }
+
+  function styledSvg(svg, style) {
+    if (!style || style === "plain") return svg;
+    const m = svg.match(/^<svg([^>]*)>([\s\S]*)<\/svg>$/);
+    if (!m) return svg;
+    const attrs = m[1], body = m[2];
+    if (style === "thin") {
+      return "<svg" + attrs.replace(/stroke-width='[\d.]+'/, "stroke-width='1.05'") + ">" + body + "</svg>";
+    }
+    /* The ring carries the same colour token as the artwork, so one swap
+       recolours both and the picker needs to know nothing about styles. */
+    const ring = style === "square"
+      ? "<rect x='-3.5' y='-3.5' width='31' height='31' rx='6' fill='none' stroke='" + SVG_DEFAULT_FILL + "' stroke-width='1.8'/>"
+      : "<circle cx='12' cy='12' r='15.5' fill='none' stroke='" + SVG_DEFAULT_FILL + "' stroke-width='1.8'/>";
+    return "<svg" + attrs.replace(/viewBox='[^']*'/, RING_BOX) + ">" + ring + body + "</svg>";
+  }
+
+  function svgWithFill(key, fill, style) {
     const def = SVG_SHAPES[key];
     if (!def) return null;
     const safe = (fill && /^#[0-9a-f]{3,8}$/i.test(fill)) ? fill : SVG_DEFAULT_FILL;
-    return def.svg.split(SVG_DEFAULT_FILL).join(safe);
+    return styledSvg(def.svg, style).split(SVG_DEFAULT_FILL).join(safe);
   }
-  function svgKeyToDataUri(key, fill) {
-    const svg = svgWithFill(key, fill);
+  function svgKeyToDataUri(key, fill, style) {
+    const svg = svgWithFill(key, fill, style);
     if (!svg) return null;
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+  // Redraw an icon element from what it now says about itself.
+  function restyleSvgElement(el) {
+    if (!el || !el.svgKey) return;
+    el.src = svgKeyToDataUri(el.svgKey, el.svgFill, el.svgStyle);
+  }
+  // For the little style buttons: takes the colour of whatever it sits in.
+  function svgStylePreview(key, style) {
+    const def = SVG_SHAPES[key];
+    if (!def) return "";
+    return styledSvg(def.svg, style).split(SVG_DEFAULT_FILL).join("currentColor");
   }
 
   // Insert an SVG-as-image element. The SVG is encoded as a data URI so
@@ -6524,9 +6581,7 @@ import { createResizeEngine } from "./resize-engine.js";
         tgt[prop] = val;
         // SVG shapes/icons: recompute the data-URI src whenever the colour
         // changes so the visual updates in lockstep with the picker.
-        if (prop === "svgFill" && tgt.svgKey) {
-          tgt.src = svgKeyToDataUri(tgt.svgKey, val);
-        }
+        if (prop === "svgFill" && tgt.svgKey) restyleSvgElement(tgt);
         fullRender();
         if (input.type !== "range") pushHistory();
       });
@@ -6807,7 +6862,23 @@ import { createResizeEngine } from "./resize-engine.js";
       // and `svgFill` records the current colour. Raster images don't
       // get this picker because we'd have nothing meaningful to recolour.
       if (el.svgKey) {
-        html.push(`<div class="ed-props-section"><h4>Colour</h4>
+        /* Four ways to set the icon, shown rather than named: "In a circle"
+           takes longer to read than a circle does. Each one is still the
+           icon, so the colour below goes on whichever is chosen. */
+        const _styles = svgStylesFor(el.svgKey);
+        const _cur = el.svgStyle || "plain";
+        const _picker = _styles.length
+          ? '<div class="ed-props-field"><label>Style</label><div class="ed-icon-styles">' +
+              _styles.map(function (st) {
+                return '<button type="button" class="ed-icon-style' + (st === _cur ? " is-on" : "") +
+                  '" data-svgstyle="' + st + '" title="' + SVG_STYLE_LABEL[st] +
+                  '" aria-pressed="' + (st === _cur ? "true" : "false") + '">' +
+                  svgStylePreview(el.svgKey, st) + '</button>';
+              }).join("") +
+            '</div></div>'
+          : "";
+        html.push(`<div class="ed-props-section"><h4>Icon</h4>
+          ${_picker}
           <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="svg-fill"></span><label style="margin:0">Colour</label></div>
         </div>`);
       }
@@ -7062,6 +7133,23 @@ import { createResizeEngine } from "./resize-engine.js";
         function () { partialRenderElement(el); }));
     }
 
+    const styleBtns = body.querySelectorAll("[data-svgstyle]");
+    styleBtns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        const tgt = getEl(state.selectedIds[0]);
+        if (!tgt || !tgt.svgKey) return;
+        tgt.svgStyle = b.dataset.svgstyle;
+        restyleSvgElement(tgt);
+        styleBtns.forEach(function (x) {
+          const on = x === b;
+          x.classList.toggle("is-on", on);
+          x.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        fullRender();
+        pushHistory();
+      });
+    });
+
     const svgFillMount = body.querySelector('[data-mount="svg-fill"]');
     if (svgFillMount) {
       svgFillMount.appendChild(colorSwatchButton(
@@ -7069,7 +7157,7 @@ import { createResizeEngine } from "./resize-engine.js";
         { title: "Icon colour", onSolid: function (hex) {
             el.svgFill = hex;
             // The icon is a data-URI, so its colour is baked into the src.
-            if (el.svgKey) el.src = svgKeyToDataUri(el.svgKey, hex);
+            restyleSvgElement(el);
           } }
       ));
     }
