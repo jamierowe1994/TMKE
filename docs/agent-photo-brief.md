@@ -124,3 +124,52 @@ neither): print with no brand photo shows the ghost and the notice and never
 the headshot; social falls back to the headshot; the stand-in is ignored
 outside admin mode; and an exported PNG of an empty print slot is plain
 background, with nothing in the saved design data.
+
+---
+
+## The photo was never reaching the member (23 Sep 2026)
+
+Danielle set a brand-approved photo for The Property Experts in Contacts and
+it did not appear on a canvassing card. The Studio was not at fault and
+neither was Contacts — nothing joined them.
+
+- Contacts writes `agent_profiles.brand_photo_url`, per person per brand.
+- The Studio reads `kit.brandPhoto`.
+- The member's kit comes from `member_brand_kits.kit`, which only ever holds
+  what the member themselves saved. Nothing copied one to the other.
+
+`syncBrandCache` (src/lib/brand-cache.js) now looks it up alongside the kit:
+`contacts` by `user_id` → `agent_profiles` by `contact_id` → the row whose
+`brand` matches the kit's company, else `is_primary`, else the first one that
+has not `left_at`. It is refreshed on every sync rather than stored in the
+member's own kit, so someone at TMKE changing it reaches the member without
+them re-saving anything, and there is no field in the Brand Kit for them to
+edit it away. A failed lookup returns "leave it alone" rather than clearing
+what is there.
+
+### Two things this needs from the Admin Centre
+
+**1. A member has to be able to read their own rows.** The lookup runs in the
+member's browser under their own session. `contacts.astro` goes through the
+service role specifically to avoid `agent_profiles`'s `is_admin()` check,
+which suggests a member cannot read that table at all — in which case this
+lookup quietly returns nothing and the ghost still shows. It needs either a
+policy along the lines of *a member may read the `agent_profiles` rows whose
+`contact_id` is the contact carrying their `user_id`* (the photo url and
+brand are enough; nothing else on that table need be exposed), or a Worker
+endpoint that returns the photo for the signed-in member.
+
+I could not test which it is from here without a member session.
+
+**2. Switching brand does not swap the photo yet.** The switcher hands over a
+kit from `brand_profiles`, which holds no brand photo — the photo belongs to
+(person, brand), not to the brand. So a dual-brand agent gets whichever photo
+the sync put on the kit, on both brands. A Letting board must not carry the
+Property picture, so this wants solving before dual-brand print goes out:
+either `__TMKE_SET_BRAND_KIT__` is handed the right `brandPhoto` with the kit,
+or it looks it up per brand the way the sync does.
+
+Verified on the Studio side: a print design with a photo slot and a kit
+carrying `brandPhoto` fills the slot with it and hides the notice; the same
+design with no `brandPhoto` shows the ghost and the notice. The rule itself is
+unchanged — print takes the brand photo or nothing.

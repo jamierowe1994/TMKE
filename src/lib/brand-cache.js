@@ -119,6 +119,40 @@ export function adoptBrandCacheOrReload(uid) {
  * it can redraw. One fetch per page load however many callers ask. The demo
  * keeps its own kit and is left alone.
  */
+/**
+ * The brand-approved photo of this member, for the brand they design under.
+ *
+ * It is ours, not theirs: someone at TMKE sets it per person per brand in
+ * Contacts, on `agent_profiles.brand_photo_url`, and it is the only picture
+ * print may use. So it is read alongside the kit rather than kept in it — an
+ * admin changing it reaches the member without them re-saving anything, and
+ * there is no field in the Brand Kit for them to edit it away.
+ *
+ * Returns undefined when we could not look (no link from this login to a
+ * contact, or the row is not readable), which means "leave whatever the kit
+ * already says". Returns null when we looked and there is no photo.
+ */
+async function fetchBrandPhoto(supabase, uid, company) {
+  try {
+    const { data: contact, error: cErr } = await supabase
+      .from("contacts").select("id").eq("user_id", uid).maybeSingle();
+    if (cErr || !contact) return undefined;
+    const { data: rows, error: aErr } = await supabase
+      .from("agent_profiles")
+      .select("brand, is_primary, brand_photo_url, left_at")
+      .eq("contact_id", contact.id);
+    if (aErr || !Array.isArray(rows)) return undefined;
+    const here = rows.filter((r) => !r.left_at);
+    if (!here.length) return null;
+    const t = (v) => (v == null ? "" : String(v).trim().toLowerCase());
+    // The brand they are designing under, then the one they mainly work for.
+    const pick = here.find((r) => company && t(r.brand) === t(company))
+      || here.find((r) => r.is_primary)
+      || here[0];
+    return (pick && pick.brand_photo_url) || null;
+  } catch (_) { return undefined; }
+}
+
 let _sync = null;
 export function syncBrandCache(supabase, uid) {
   if (!_sync) _sync = (async () => {
@@ -134,10 +168,17 @@ export function syncBrandCache(supabase, uid) {
       const { data } = await supabase.from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
       const kit = data && data.kit;
       if (!kit || typeof kit !== "object" || !Object.keys(kit).length) return false;
-      if (local && Number(local.updatedAt || 0) > Number(kit.updatedAt || 0)) return false;
+      /* Ours to set, so it is refreshed on every sync rather than trusted from
+         whatever the kit was last saved with — including when the cache on
+         this device is the newer one. A member who edited their kit an hour
+         ago still gets the photo TMKE added five minutes ago. */
+      const newerHere = local && Number(local.updatedAt || 0) > Number(kit.updatedAt || 0);
+      const base = newerHere ? local : kit;
+      const photo = await fetchBrandPhoto(supabase, uid, base.company);
+      const full = photo === undefined ? base : { ...base, brandPhoto: photo };
       const strip = (k) => { const c = { ...(k || {}) }; delete c.owner; return JSON.stringify(c); };
-      if (local && strip(local) === strip(kit)) return false;
-      writeBrandCache(kit, uid);
+      if (local && strip(local) === strip(full)) return false;
+      writeBrandCache(full, uid);
       return true;
     } catch (_) { return false; }
   })();
