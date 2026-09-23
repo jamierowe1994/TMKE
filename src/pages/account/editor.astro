@@ -5575,6 +5575,22 @@ const googleFonts = [
           let want = (made && brands.includes(made)) ? made : null;
           if (!want) { try { const s = sessionStorage.getItem(KEY); if (s && brands.includes(s)) want = s; } catch (_) {} }
           const applyKit = async (brand, quiet) => {
+            // Their own kit for that brand if they have edited one (the Brand
+            // kit page keeps one per brand under byBrand); the brand's own
+            // otherwise.
+            let mine = null;
+            try {
+              const saved = JSON.parse(localStorage.getItem('tmke.brand') || 'null');
+              if (saved && saved.byBrand && saved.byBrand[brand]) mine = saved.byBrand[brand];
+              else if (saved && saved.activeBrand === brand) mine = saved;
+            } catch (_) {}
+            if (mine) {
+              pick.value = brand;
+              if (chipName) chipName.textContent = brand;
+              try { sessionStorage.setItem(KEY, brand); } catch (_) {}
+              if (typeof (window as any).__TMKE_SET_BRAND_KIT__ === 'function') (window as any).__TMKE_SET_BRAND_KIT__(mine, brand);
+              return true;
+            }
             const out = brand === first.brand ? first : await ask(brand);
             if (!out || !out.ok || !out.kit) return false;
             pick.value = out.brand || brand;

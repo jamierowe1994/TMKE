@@ -75,6 +75,17 @@ const HERO_BG = (await getImage({
       </div>
     </section>
 
+    <!-- Two brands, two kits. Only for someone who works for more than one
+         (docs/brand-switcher-brief.md): each brand keeps its own colours,
+         logos, photo, area and details, and this says which you are editing. -->
+    <section class="bk-brands" id="bk-brands" hidden>
+      <div class="bk-brands-tx">
+        <p class="bk-brands-l">Your brand kits</p>
+        <p class="bk-brands-n">You work for two brands, so you have a kit for each. Pick one to see and edit it.</p>
+      </div>
+      <div class="bk-brands-pills" id="bk-brands-pills"></div>
+    </section>
+
     <div class="brand-grid">
       <!-- LEFT: company + logos -->
       <div class="brand-col">
@@ -129,7 +140,7 @@ const HERO_BG = (await getImage({
         </section>
 
         <!-- Logos -->
-        <section class="profile-section">
+        <section class="profile-section profile-section--tint">
           <header class="profile-section-head">
             <div>
               <div class="eyebrow">02</div>
@@ -308,7 +319,7 @@ const HERO_BG = (await getImage({
         </section>
 
         <!-- Tone of voice -->
-        <section class="profile-section">
+        <section class="profile-section profile-section--tint">
           <header class="profile-section-head">
             <div>
               <div class="eyebrow">06</div>
@@ -385,6 +396,26 @@ const HERO_BG = (await getImage({
     }
     /* Flat white outline cards — matches the bookings/orders hub styling
        (hairline border, near-square corners, no shadow). */
+    .bk-brands {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+      margin: 0 0 22px; padding: 20px clamp(22px, 3vw, 32px);
+      /* The hub's own burgundy, as on the dashboard's chapter bars. On this
+         page --english-violet is remapped to the softer brown, which reads as
+         a muted panel rather than the one thing to look at. */
+      background: #371e28; color: #fff; border-radius: 6px;
+    }
+    .bk-brands[hidden] { display: none; }
+    .bk-brands-l { margin: 0 0 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
+    .bk-brands-n { margin: 0; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.82); max-width: 60ch; }
+    .bk-brands-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    .bk-brand-pill {
+      padding: 9px 16px; border-radius: 999px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.35); background: transparent; color: #fff;
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
+    }
+    .bk-brand-pill:hover { border-color: #fff; }
+    .bk-brand-pill.is-on { background: #fff; color: #371e28; border-color: #fff; }
+    .bk-brand-pill[disabled] { opacity: 0.6; cursor: default; }
     .profile-section {
       display: flex; flex-direction: column; gap: 22px;
       padding: 26px clamp(22px, 3vw, 32px) 30px;
@@ -393,6 +424,10 @@ const HERO_BG = (await getImage({
       border-radius: 6px;
       box-shadow: none;
     }
+    /* Logos and Tone of voice are pictures and words rather than fields, so
+       they sit on a warmer ground: the page reads as more than a column of
+       white boxes. (After .profile-section, which sets the white.) */
+    .profile-section.profile-section--tint { background: #f7f4f1; }
     .profile-optional {
       font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
       color: rgba(28,29,34,0.4); margin-left: 6px;
@@ -1326,6 +1361,12 @@ const HERO_BG = (await getImage({
              the save would quietly drop their brand photo from the kit every
              time they changed a colour. */
           brandPhoto: (brand && typeof brand.brandPhoto === "string" && brand.brandPhoto) || null,
+          /* Two brands, two kits. The kit on show is the top level one, so
+             every other reader of a kit carries on as before; the other
+             brand's sits beside it under byBrand, and activeBrand says which
+             is which. Carried, never edited from this form. */
+          byBrand: (brand && brand.byBrand && typeof brand.byBrand === "object") ? brand.byBrand : undefined,
+          activeBrand: (brand && brand.activeBrand) || undefined,
           updatedAt: Date.now(),
         };
       }
@@ -1362,7 +1403,78 @@ const HERO_BG = (await getImage({
        follows their login into the Studio on any device) and, on load, adopts
        a newer server copy if they edited it on another device. -->
   <script>
-    import { adoptBrandCacheOrReload, writeBrandCache, claimDemoBrandKit } from '../../lib/brand-cache.js';
+    import { adoptBrandCacheOrReload, writeBrandCache, claimDemoBrandKit, normaliseKit } from '../../lib/brand-cache.js';
+
+    /* Two brands, two kits (docs/brand-switcher-brief.md). Each keeps its own
+       colours, logos, photo, area and details; this picks which one the page
+       is showing. Switching saves what is on screen under the brand it belongs
+       to, then reloads on the other - a reload, because every field, swatch,
+       font picker and logo tile on this page is built once from the kit it
+       opened with. */
+    (async () => {
+      try {
+        const card = document.getElementById("bk-brands");
+        const pills = document.getElementById("bk-brands-pills");
+        if (!card || !pills) return;
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        const uid = session?.user?.id;
+        if (!WORKER || !token || !uid) return;
+        const ask = async (brand) => {
+          const r = await fetch(WORKER + "/member/brand-prefill" + (brand ? "?brand=" + encodeURIComponent(brand) : ""), {
+            headers: { Authorization: "Bearer " + token },
+          });
+          return await r.json().catch(() => null);
+        };
+        const first = await ask();
+        const brands = (first && first.ok && Array.isArray(first.brands)) ? first.brands : [];
+        if (brands.length < 2) return;
+
+        let kit = {};
+        try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "{}") || {}; } catch (_) {}
+        const active = (kit.activeBrand && brands.includes(kit.activeBrand)) ? kit.activeBrand : (first.brand || brands[0]);
+
+        pills.innerHTML = brands.map((b) =>
+          '<button type="button" class="bk-brand-pill' + (b === active ? " is-on" : "") + '" data-brand="' + b.replace(/"/g, "&quot;") + '">' + b.replace(/</g, "&lt;") + "</button>").join("");
+        card.hidden = false;
+
+        pills.addEventListener("click", async (e) => {
+          const btn = e.target.closest("[data-brand]");
+          if (!btn) return;
+          const want = btn.getAttribute("data-brand");
+          if (want === active) return;
+          pills.querySelectorAll("[data-brand]").forEach((b) => { b.disabled = true; });
+          btn.textContent = "Opening\u2026";
+          try {
+            // What is on screen belongs to the brand it was opened as.
+            const here = Object.assign({}, collect());
+            const byBrand = Object.assign({}, kit.byBrand || {});
+            delete here.byBrand; delete here.activeBrand;
+            byBrand[active] = here;
+            // Theirs for that brand if they have edited it before; the brand's
+            // own kit if this is the first time they have looked at it.
+            let next = byBrand[want];
+            if (!next) {
+              const out = await ask(want);
+              next = (out && out.ok && out.kit) ? normaliseKit(out.kit) : {};
+              // Their headshot is theirs at either brand.
+              if (here.headshot && !next.headshot) next.headshot = here.headshot;
+            }
+            const saved = Object.assign({}, next, { byBrand, activeBrand: want, updatedAt: Date.now() });
+            writeBrandCache(saved, uid);
+            await supabase.from("member_brand_kits").upsert(
+              { user_id: uid, kit: saved, updated_at: new Date().toISOString() },
+              { onConflict: "user_id" }
+            );
+            location.reload();
+          } catch (_) {
+            pills.querySelectorAll("[data-brand]").forEach((b) => { b.disabled = false; });
+            btn.textContent = want;
+          }
+        });
+      } catch (_) { /* one brand, or the Worker is quiet: no card, no harm */ }
+    })();
     import { supabase } from "../../lib/supabase.js";
     (async () => {
       let uid = null;

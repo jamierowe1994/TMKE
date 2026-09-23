@@ -137,3 +137,38 @@ the logo and the fonts all follow the brand; a website the member had typed
 over survived both switches; the design reported the brand it was made as.
 Not yet tested against the live endpoint with a real two-brand member — that
 needs one of the nine, or Danielle signed in as one.
+
+## Two kits, and where they live (23 Sep, Design Studio chat)
+
+Danielle: the Brand kit page needs the switch too — they may want to edit one
+brand's details, or simply see both. So the page now carries a burgundy card
+across the top with a pill per brand.
+
+Each brand keeps its own kit. Stored in the one `member_brand_kits` row, since
+that is one row per person:
+
+```
+kit = { …the brand on show…, activeBrand: "The Letting Experts",
+        byBrand: { "The Property Experts": { …that kit… } } }
+```
+
+The kit on show stays at the top level, so everything that reads a kit carries
+on unchanged; the other brand's sits beside it. Switching on the page saves
+what is on screen under the brand it belongs to, then reloads on the other —
+every field, swatch, font picker and logo tile is built once from the kit the
+page opened with, and a reload is honest about that. The Studio's switcher
+prefers `byBrand[brand]` when it exists, so an edit made on the page shows in
+the Studio.
+
+**Admin Centre, two things to know:**
+
+1. If `/member/brand-sync` or `/member/brand-adopt` ever writes the whole kit
+   back, `byBrand` and `activeBrand` must be carried, or one brand's edits are
+   lost. Patching named fields is fine.
+2. If you would rather this were a row per person per brand, say so and I'll
+   move to it — the page and the Studio both go through one helper.
+
+Also fixed on the way: a brand's logos are `{ url, name }` while a kit has
+always used `{ src }`, so a kit filled from a brand drew no logos at all.
+Converted on read and write (`normaliseKit`), so kits already saved wrong mend
+themselves.
