@@ -1105,6 +1105,30 @@ const KIT_ABOUT = ["name", "role", "phone", "email"];
 
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 
+/* Are they still wearing the kit their brand supplied?
+
+   Only the fields the brand owns count. Their name, headshot, job title and
+   contact details sit in the same kit but are theirs at every brand, so a
+   member who corrects their own phone number has not left the brand kit.
+
+   A blank and a missing field are the same thing here: brandKitFor drops
+   empty values, a saved kit keeps them as "", and neither means the member
+   changed anything. */
+function kitIsBrands(mine, brandKit) {
+  if (!mine || !brandKit) return false;
+  const n = (v) => (v === "" || v === undefined ? null : v);
+  /* The brand kit page stores a website bare, so a template can print it the
+     way it is written on a card; a brand profile often holds the same address
+     with its protocol on the front. Same website, and it must not read as a
+     member who has gone their own way. */
+  const web = (v) => (typeof v === "string"
+    ? v.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "")
+    : v);
+  const eq = (f, a, b) => (f === "website" ? same(n(web(a)), n(web(b))) : same(n(a), n(b)));
+  return KIT_FIELDS.every((f) => eq(f, mine[f], brandKit[f]))
+      && KIT_FONTS.every((f) => eq(f, (mine.fonts || {})[f], (brandKit.fonts || {})[f]));
+}
+
 async function syncBrandKit(env, { userId, email }) {
   if (!userId) return { ok: true, state: "no-account" };
   const { brand, brands, kit: fresh } = await brandKitFor(env, { userId, email });
@@ -7310,7 +7334,18 @@ export default {
         // ?brand=… for an agent who works for two: the kit is per brand.
         const want = url.searchParams.get("brand");
         const { brand, brands, kit } = await brandKitFor(env, { userId: user.id, email: user.email, brand: want });
-        return json({ ok: true, brand, brands, kit }, 200, request, env);
+        /* Whether the kit they are actually using is still the supplied one.
+           The brand kit page asks so it knows whether to offer the way back
+           -- to somebody who kept their own when offered, or has changed it
+           since. It is only ever an offer, so it does not read as a telling-off. */
+        const mineRows = await sbGet(env, "member_brand_kits",
+          `user_id=eq.${encodeURIComponent(user.id)}&select=kit&limit=1`);
+        const mine = (mineRows && mineRows[0] && mineRows[0].kit) || null;
+        return json({
+          ok: true, brand, brands, kit,
+          hasKit: !!(mine && Object.keys(mine).length),
+          matches: kitIsBrands(mine, kit),
+        }, 200, request, env);
       }
 
       /* Run whenever a member arrives: has their brand changed anything they
