@@ -134,3 +134,26 @@ the pixels it used to imply:
 Everything else in the brief stands: millimetres on print, points for type,
 the finished size on the top bar, the 0.5mm nudge, and pixels as the only
 thing stored.
+
+### And the bleed came off the canvas entirely, 23 Sep 2026
+
+Danielle put a 148mm-wide picture on a 148mm postcard and got a gap down
+both sides, because the canvas was 154mm: 148 plus 3mm of bleed on each
+edge. Her instruction:
+
+> The size of it has to be the size of a postcard that is printed. If it's
+> 148 mm by 105 mm, the entire canvas has to be 148 mm by 105 mm, and then
+> that 3 mm margin line is built within that.
+
+So the print sizes in `src/data/studio-sizes.js` are now exactly what they
+say — A6 landscape is 1748 x 1240, which is 148.0 x 105.0 mm at 300dpi — and
+`PRINT_BLEED_MM` is now `PRINT_MARGIN_MM`: a line drawn 3mm inside the
+canvas by the Print guide, reading "Keep words and logos inside this line —
+3mm in from the edge". Nothing is added to a canvas and nothing is taken off
+an axis.
+
+A design saved while print canvases carried a bleed still reads as print
+(`LEGACY_PRINT` in editor.js), so it keeps its millimetres.
+
+If a printer needs bleed on a supplied file, that is a conversation to have
+with the member — not something to do to their canvas behind their back.

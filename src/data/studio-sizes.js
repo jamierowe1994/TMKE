@@ -5,23 +5,29 @@
 // Square is plain "Square" because it isn't an Instagram size we'd recommend -
 // it's for Facebook, LinkedIn and anywhere else that wants one.
 //
-// Print sizes are UK standard (what VistaPrint and the like print), at 300 dpi,
-// with PRINT_BLEED_MM added on every edge: the canvas is the size the printer
-// wants the file, and the card shows the finished (trimmed) size in mm.
+// Print sizes are UK standard (what VistaPrint and the like print), at 300 dpi.
+// The canvas IS the finished piece: an A6 postcard is 148 x 105 mm of canvas,
+// nothing added. Drop a 148mm-wide picture on it and it fits edge to edge,
+// because a size that says 148mm and behaves like 154mm is a lie the person
+// designing has to find out about the hard way.
+//
+// PRINT_MARGIN_MM is a guide drawn inside that canvas, not a change to it -
+// the line words and logos should stay behind so nothing important sits where
+// a trim can find it. See the Print guide in the Studio.
 //
 // `family` keeps social and print apart in Resize: a post doesn't become a
 // business card, and the other way round, so each only offers its own.
 
 export const PRINT_DPI = 300;
-export const PRINT_BLEED_MM = 3;
+export const PRINT_MARGIN_MM = 3;
 
 const px = (mm) => Math.round((mm * PRINT_DPI) / 25.4);
 const print = (name, wMm, hMm) => ({
   name,
-  w: px(wMm + 2 * PRINT_BLEED_MM),
-  h: px(hMm + 2 * PRINT_BLEED_MM),
+  w: px(wMm),
+  h: px(hMm),
   mm: `${wMm} × ${hMm} mm`,
-  bleed: px(PRINT_BLEED_MM),
+  margin: px(PRINT_MARGIN_MM),
 });
 
 /* Sizes a contact block is never offered at. A footer is a strip of details
@@ -58,7 +64,7 @@ export const STUDIO_SIZES = [
   {
     label: "Print",
     family: "print",
-    note: `Print sizes include a ${PRINT_BLEED_MM}mm bleed on every edge, ready for the printer.`,
+    note: `The canvas is the finished size. Turn on the Print guide to see the ${PRINT_MARGIN_MM}mm margin to keep words and logos behind.`,
     sizes: [
       print("A4 Portrait", 210, 297),
       print("A4 Landscape", 297, 210),

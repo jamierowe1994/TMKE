@@ -11077,51 +11077,45 @@ import { createResizeEngine } from "./resize-engine.js";
       ],
     },
     print: {
-      label: "Print trim",
+      label: "Print margin",
       fits: (W, H) => sizeFamily(W, H) === "print",
-      // The bleed (printed, then cut off) plus the margin printers ask words
-      // and logos to keep inside the cut: 5mm on paper, 3mm on a business card.
-      /* Said in millimetres, because that is the unit the rule is written in
-         everywhere else and the number a person is going to type into X.
-         Measured from the corner of the canvas, the same as X and Y: the
-         bleed is a line on the page, not a shift in the axis. */
+      /* One line, drawn inside the canvas, said in millimetres. The canvas is
+         the finished piece, so this is the strip along each edge that a trim
+         can eat into - not a change to the size of anything. */
       zones: (W, H) => {
-        const mm = 300 / 25.4;                       // print sizes are 300 dpi
-        const bleed = printBleed(W, H);
-        const trimShort = (Math.min(W, H) - 2 * bleed) / mm;
-        const keep = trimShort <= 60 ? 3 : 5;        // mm inside the cut
-        const bleedMm = Math.round(bleed / mm);
-        const px = bleed + Math.round(mm * keep);
-        const note = bleedMm
-          ? "Cut at " + bleedMm + "mm — keep words and logos " + (bleedMm + keep) + "mm in from the edge"
-          : "Keep words and logos " + keep + "mm in from the edge";
+        const px = printMargin(W, H);
+        const mmv = Math.round(px / PX_PER_MM);
+        const note = "Keep words and logos inside this line — " + mmv + "mm in from the edge";
         return ["top", "bottom", "left", "right"].map((side) => ({ side, px, note: side === "top" ? note : "" }));
       },
-      // Where the printer cuts, and what to call it on the canvas.
-      trim: (W, H) => printBleed(W, H),
-      trimLabel: (W, H) => {
-        const bleedMm = Math.round(printBleed(W, H) / (300 / 25.4));
-        return bleedMm ? "Cut line — the " + bleedMm + "mm outside it is trimmed off" : "Cut line";
-      },
+      trim: (W, H) => printMargin(W, H),
     },
   };
   // Social or print, from the size list the Resize panel is built from
-  // (src/data/studio-sizes.js). Designs made before the list, at an A-size
-  // or the old business card with no bleed, count as print too.
+  // (src/data/studio-sizes.js). A design made before the list, at an A-size,
+  // counts as print too.
   function sizeCard(W, H) {
     return document.querySelector('.ed-resize-card[data-size="' + Math.round(W) + "," + Math.round(H) + '"]');
   }
+  /* Sizes that used to be offered when a print canvas carried 3mm of bleed
+     on every edge. A design saved then is still a print design, so it still
+     measures in millimetres rather than suddenly reading as a social post. */
+  const LEGACY_PRINT = ["2551x3579", "1819x2551", "1311x1819", "1075x720"];
   function sizeFamily(W, H) {
     const c = sizeCard(W, H);
     if (c) return c.getAttribute("data-family") || "social";
     const r = Math.max(W, H) / Math.min(W, H);
     if (Math.abs(r - Math.SQRT2) < 0.01 && Math.min(W, H) >= 1200) return "print";
-    if (Math.max(W, H) === 1004 && Math.min(W, H) === 650) return "print";
+    const key = Math.min(W, H) + "x" + Math.max(W, H);
+    if (LEGACY_PRINT.indexOf(key) !== -1) return "print";
     return "social";
   }
-  function printBleed(W, H) {
+  /* The margin the Print guide draws inside a print canvas. It is a line on
+     the page, nothing more: the canvas is the finished piece, so a 148mm
+     picture on a 148mm postcard fits edge to edge. */
+  function printMargin(W, H) {
     const c = sizeCard(W, H);
-    return c ? (parseInt(c.getAttribute("data-bleed"), 10) || 0) : 0;
+    return c ? (parseInt(c.getAttribute("data-margin"), 10) || 0) : Math.round(3 * PX_PER_MM);
   }
 
   /* ---------- Print units ----------
@@ -11137,21 +11131,20 @@ import { createResizeEngine } from "./resize-engine.js";
   const PX_PER_MM = 300 / 25.4;   // 11.811 - print sizes are 300 dpi
   const PX_PER_PT = 300 / 72;     // 4.1667
 
-  /* Zero is the corner of the canvas, the same as it is on screen. The bleed
-     is not folded into the axis: doing that put a minus sign in front of
-     anything sitting on the edge, and made every number three millimetres
-     adrift from what the person typing it expected. Where the cut falls is a
-     guide's job, and the Print guide says so in millimetres. */
+  /* Zero is the corner of the canvas, and the canvas is the finished piece.
+     Nothing is added to it and nothing is subtracted from the axis: a 148mm
+     picture on a 148mm postcard reads 148 and sits edge to edge. The margin
+     to keep words behind is a line the Print guide draws inside it. */
   function pxToMm(px) { return px / PX_PER_MM; }
   function mmToPx(mm) { return mm * PX_PER_MM; }
   function pxToPt(px) { return px / PX_PER_PT; }
   function ptToPx(pt) { return pt * PX_PER_PT; }
   // 0.1mm is as fine as anything gets printed; a tenth of a point likewise.
   function mm1(v) { return Math.round(v * 10) / 10; }
-  // The finished card, in whole millimetres - what the printer's job is called.
+  // The finished card, in whole millimetres - what the printer's job is
+  // called, and, now that nothing is added to it, the canvas itself.
   function trimMm(W, H) {
-    const b = printBleed(W, H);
-    return { w: Math.round((W - 2 * b) / PX_PER_MM), h: Math.round((H - 2 * b) / PX_PER_MM) };
+    return { w: Math.round(W / PX_PER_MM), h: Math.round(H / PX_PER_MM) };
   }
 
   // The centred 3:4 slice of a W x H canvas that the Instagram grid shows.
@@ -11186,20 +11179,6 @@ import { createResizeEngine } from "./resize-engine.js";
     const hint = $("ed-safe-hint");
     if (hint) hint.hidden = !!safeZoneFor(W, H).length;
     ov.innerHTML = "";
-    /* On a print canvas the cut line is always drawn, whether or not the
-       print guide is switched on. It is where zero is: X and Y are measured
-       from the trim, and a measurement taken from an edge you cannot see is
-       just a number that looks wrong. */
-    if ((!def || !def.fits(W, H)) && sizeFamily(W, H) === "print" && printBleed(W, H) > 0) {
-      const b = printBleed(W, H);
-      const t = document.createElement("div");
-      t.className = "ed-safezone-trim";
-      t.style.left = b + "px"; t.style.top = b + "px";
-      t.style.width = (W - 2 * b) + "px"; t.style.height = (H - 2 * b) + "px";
-      ov.appendChild(t);
-      ov.hidden = false;
-      return;
-    }
     if (!def || !def.fits(W, H)) { ov.hidden = true; return; }
     ov.hidden = false;
     const zones = typeof def.zones === "function" ? def.zones(W, H) : def.zones;
@@ -11210,13 +11189,6 @@ import { createResizeEngine } from "./resize-engine.js";
       t.className = "ed-safezone-trim";
       t.style.left = trim + "px"; t.style.top = trim + "px";
       t.style.width = (W - 2 * trim) + "px"; t.style.height = (H - 2 * trim) + "px";
-      const lbl = def.trimLabel && def.trimLabel(W, H);
-      if (lbl) {
-        const c = document.createElement("span");
-        c.textContent = lbl;
-        c.style.fontSize = fs + "px";
-        t.appendChild(c);
-      }
       ov.appendChild(t);
     }
     const fr = def.frame ? def.frame(W, H) : null;
