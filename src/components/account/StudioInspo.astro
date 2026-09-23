@@ -392,8 +392,18 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     // strip when there is one, the cover otherwise; N open previews then up
     // to six locked, blurred teasers.
     const gallery = (Array.isArray(pack.preview_images) ? pack.preview_images : []).filter((u) => typeof u === "string" && u.trim());
+    /* The cover is the FIRST page. Publishing a design writes one template row
+       per page in page order, so tpls[0] is the front of the postcard -- and
+       the front is what a card should lead with, always. */
     const coverSrc = pack.cover_image_url || (tpls[0] && (tpls[0].render_url || tpls[0].thumb_url)) || "";
-    const hero = gallery.length ? gallery : (coverSrc ? [coverSrc] : []);
+    /* With no uploaded gallery, flick through the pack's own pages rather than
+       showing the cover alone. A postcard has a back, a tri-fold has six sides,
+       and somebody deciding whether to use it wants to see them. The cover
+       leads, then every page that isn't already it, in order. */
+    const pageShots = tpls.map((t) => t.render_url || t.thumb_url).filter(Boolean);
+    const fallback = [];
+    [coverSrc, ...pageShots].forEach((u) => { if (u && !fallback.includes(u)) fallback.push(u); });
+    const hero = gallery.length ? gallery : fallback.slice(0, 8);
     const reveal = Math.max(0, Math.min(24, pack.preview_reveal_count ?? 6));
     const openTpls = tpls.slice(0, reveal);
     const lockedAll = tpls.slice(reveal);
