@@ -515,7 +515,14 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
             <a class="admin-btn admin-btn-ghost" href="/admin/sizes?id=${encodeURIComponent(t.id)}" title="See how this lands on every size a member can resize it to">Check the sizes</a>
             ${t.status === 'archived'
               ? `<button class="admin-btn admin-btn-ghost" data-restore="${escapeHtml(t.id)}">Restore</button>`
-              : `<button class="admin-btn admin-btn-ghost" data-archive="${escapeHtml(t.id)}">Archive</button>`}
+              : t.status === 'active'
+                ? `<button class="admin-btn admin-btn-ghost" data-archive="${escapeHtml(t.id)}">Archive</button>`
+                /* A draft had a badge and no way out of it: Restore only ever
+                   showed for something archived, so a design sat in its pack
+                   finished and invisible, and the member's studio said the
+                   pack was empty. */
+                : `<button class="admin-btn admin-btn-primary" data-activate="${escapeHtml(t.id)}" title="Put this design in front of members">Make it live</button>
+                   <button class="admin-btn admin-btn-ghost" data-archive="${escapeHtml(t.id)}">Archive</button>`}
           </div>
         </article>
       `;
@@ -1010,9 +1017,11 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       if (!(t instanceof HTMLElement)) return;
       const arch = t.getAttribute('data-archive');
       const rest = t.getAttribute('data-restore');
+      const live = t.getAttribute('data-activate');
       const blk = t.getAttribute('data-block');
       if (arch) { archiveTemplate(arch); return; }
       if (rest) { restoreTemplate(rest); return; }
+      if (live) { restoreTemplate(live); return; }
       if (blk) { openBlockSettings(blk); return; }
     });
 
