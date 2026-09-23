@@ -5068,6 +5068,18 @@ import { createResizeEngine } from "./resize-engine.js";
     mail: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/><polyline points='22,6 12,13 2,6'/></svg>` },
     pin:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><path d='M12 2C8 2 5 5 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-4-3-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/></svg>` },
     web:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round'><circle cx='12' cy='12' r='10'/><line x1='2' y1='12' x2='22' y2='12'/><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/></svg>` },
+
+    /* ----- Property icons -----
+       What a listing counts, so a design can say "3" and a bed rather than
+       "3 bedrooms". Drawn on the same 24x24 grid as the contact icons above
+       and in the same outline weight, so a row of them sits level beside a
+       number. Same 200x200 default, same recolouring. */
+    bed:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 19v-6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6'/><path d='M4 11V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4'/><path d='M12 5v6'/><path d='M2 19h20'/></svg>` },
+    bath: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 11h20v3a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5v-3z'/><path d='M6 11V7a2 2 0 0 1 4 0v1'/><path d='M6 19l-1.5 2'/><path d='M18 19l1.5 2'/></svg>` },
+    sofa: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4'/><path d='M3 12a2 2 0 0 1 4 0v3h10v-3a2 2 0 0 1 4 0v6H3z'/><path d='M6 18v2'/><path d='M18 18v2'/></svg>` },
+    area: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8V4a1 1 0 0 1 1-1h4'/><path d='M16 3h4a1 1 0 0 1 1 1v4'/><path d='M21 16v4a1 1 0 0 1-1 1h-4'/><path d='M8 21H4a1 1 0 0 1-1-1v-4'/><path d='M8 16l8-8'/><path d='M8 11.5V16h4.5'/></svg>` },
+    park: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z'/><path d='M10 17V7h3.2a3.2 3.2 0 0 1 0 6.4H10'/></svg>` },
+    tree: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M12 21V8'/><path d='M12 14c0-3.3 2.4-6 6-6 0 3.3-2.4 6-6 6z'/><path d='M12 17c0-2.8-2-5-5-5 0 2.8 2 5 5 5z'/><path d='M8.5 21h7'/></svg>` },
   };
 
   // ----- SVG recolor helpers -----
