@@ -551,6 +551,14 @@ const googleFonts = [
         <!-- Only for someone who works for more than one brand
              (docs/brand-switcher-brief.md): one active brand at a time, never
              the two together. -->
+        <!-- Admin only (docs/admin-brand-picker-brief.md): which brand this
+             design is being drawn for. A member never sees this one - theirs
+             is the switcher above, and offers only their own brands. -->
+        <div class="ed-brand-as" id="ed-brand-asadmin" hidden>
+          <label for="ed-adminbrand-pick">Designing as</label>
+          <select id="ed-adminbrand-pick"></select>
+          <p>The design redraws in that brand's colours, fonts and logo. It's what a member of that brand will open.</p>
+        </div>
         <div class="ed-brand-as" id="ed-brand-as" hidden>
           <label for="ed-asbrand-pick">Designing as</label>
           <select id="ed-asbrand-pick"></select>
@@ -1388,6 +1396,11 @@ const googleFonts = [
     .ed-asbrand-n { min-width: 0; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .ed-asbrand:hover .ed-asbrand-n { text-decoration: underline; text-underline-offset: 3px; }
     .ed-asbrand-l { font-family: var(--sans); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); white-space: nowrap; }
+    /* Admin: the brand picker is what you are greeted by, and "Make this
+       design yours" becomes the bulk recolour it actually is, at the foot -
+       for the day a TPE design is duplicated for PPE. */
+    #brand-loaded.is-admin-order { display: flex; flex-direction: column; }
+    #brand-loaded.is-admin-order .ed-rebrand { order: 99; margin-top: 22px; }
     /* The switch itself lives in the Brand pane, where the kit does. */
     .ed-brand-as { margin: 0 0 16px; padding: 12px 14px; border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 10px; background: rgba(var(--violet-rgb),0.06); }
     .ed-brand-as[hidden] { display: none; }
@@ -5127,6 +5140,55 @@ const googleFonts = [
     const params = new URLSearchParams(location.search);
     const wantAdmin = params.get('mode') === 'admin';
 
+    /* Designing as, in the admin studio (docs/admin-brand-picker-brief.md).
+       Every brand's kit at once - staff only - so a TPE postcard is drawn in
+       TPE's colours rather than TMKE's and nobody finds out when it ships. */
+    async function wireAdminBrandPicker(token) {
+      const wrap = document.getElementById('ed-brand-asadmin');
+      const pick = document.getElementById('ed-adminbrand-pick');
+      const loaded = document.getElementById('brand-loaded');
+      if (!wrap || !pick || !token) return;
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+      if (!WORKER) return;
+      let out = null;
+      try {
+        const r = await fetch(WORKER + '/studio/brand-kits', { headers: { Authorization: 'Bearer ' + token } });
+        out = await r.json().catch(() => null);
+      } catch (_) { return; }
+      if (!out || !out.ok) return;
+      const { byBrandOrder } = await import('../../data/brands.js');
+      // The hub's own kit first - it is the one the studio opens in - then
+      // Danielle's order, and anything new after them rather than nowhere.
+      const list = [];
+      if (out.studio && out.studio.kit) list.push({ brand: out.studio.brand || 'TMKE (hub)', kit: out.studio.kit, studio: true });
+      (Array.isArray(out.brands) ? out.brands : [])
+        .slice()
+        .sort((a, b) => byBrandOrder(a.brand, b.brand))
+        .forEach((b) => { if (b && b.brand) list.push(b); });
+      if (!list.length) return;
+      pick.innerHTML = list.map((b, i) => `<option value="${i}">${String(b.brand).replace(/</g, '&lt;')}</option>`).join('');
+      wrap.hidden = false;
+      if (loaded) loaded.classList.add('is-admin-order');
+      const apply = (i, quiet) => {
+        const b = list[i];
+        if (!b || !b.kit) return;
+        if (typeof (window as any).__TMKE_SET_BRAND_KIT__ === 'function') (window as any).__TMKE_SET_BRAND_KIT__(b.kit, b.brand);
+      };
+      // The engine is a separate script and the design arrives after it, so
+      // wait for both: a template remembers the brand it was drawn for, and
+      // one that ships in the wrong colours is worse than a post that does.
+      for (let i = 0; i < 40 && typeof (window as any).__TMKE_SET_BRAND_KIT__ !== 'function'; i++) await new Promise((r) => setTimeout(r, 100));
+      const askDesign = () => (typeof (window as any).__TMKE_DESIGN_BRAND__ === 'function' ? (window as any).__TMKE_DESIGN_BRAND__() : null);
+      let made = askDesign();
+      for (let i = 0; i < 20 && !made; i++) { await new Promise((r) => setTimeout(r, 150)); made = askDesign(); }
+      let at = made ? list.findIndex((b) => b.brand === made) : -1;
+      if (at < 0) at = 0; else apply(at);
+      pick.value = String(at);
+      pick.addEventListener('change', () => apply(+pick.value));
+      // The stand-ins ride along on the same call (docs/agent-photo-brief.md).
+      if (out.standIns) (window as any).__TMKE_STAND_INS__ = out.standIns;
+    }
+
     if (wantAdmin) {
       const { data: { session } } = await supabase.auth.getSession();
       const DEV = import.meta.env.DEV;
@@ -5139,6 +5201,10 @@ const googleFonts = [
         // never load the admin studio chrome or templates for them.
         location.replace('/admin/login?denied=1');
       } else {
+        // The brand picker at the top of the Brand pane, once we know they're
+        // staff. It waits for the design so a template opens in the brand it
+        // was drawn for.
+        if (session) wireAdminBrandPicker(session.access_token);
         const requestedId = params.get('id');
         const tag = document.getElementById('ed-templates-data');
         const shape = (r) => ({
