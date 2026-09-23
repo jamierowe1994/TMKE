@@ -7090,16 +7090,22 @@ import { createResizeEngine } from "./resize-engine.js";
         const minY = Math.min.apply(null, gels.map(function (e) { return e.y; }));
         const maxX = Math.max.apply(null, gels.map(function (e) { return e.x + e.w; }));
         const maxY = Math.max.apply(null, gels.map(function (e) { return e.y + e.h; }));
+        /* Millimetres on print here too. A group is measured the same way a
+           single item is, or the panel contradicts the top bar. */
+        const gmm = isPrintDesign();
+        const gunit = gmm ? " (mm)" : "";
+        const gstep = gmm ? ' step="0.1"' : "";
+        const gv = gmm ? function (px) { return mm1(pxToMm(px)); } : function (px) { return Math.round(px); };
         body.innerHTML =
           '<p class="ed-selection-empty">' + gels.length + ' elements selected.</p>' +
           '<div class="ed-props-section"><h4>Position &amp; size</h4>' +
             '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-              '<div class="ed-props-field"><label>X</label><input type="number" id="ed-grp-x" value="' + Math.round(minX) + '"></div>' +
-              '<div class="ed-props-field"><label>Y</label><input type="number" id="ed-grp-y" value="' + Math.round(minY) + '"></div>' +
+              '<div class="ed-props-field"><label>X' + gunit + '</label><input type="number" id="ed-grp-x"' + gstep + ' value="' + gv(minX) + '"></div>' +
+              '<div class="ed-props-field"><label>Y' + gunit + '</label><input type="number" id="ed-grp-y"' + gstep + ' value="' + gv(minY) + '"></div>' +
             '</div>' +
             '<div class="ed-props-field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-              '<div class="ed-props-field"><label>Width</label><input type="number" value="' + Math.round(maxX - minX) + '" disabled></div>' +
-              '<div class="ed-props-field"><label>Height</label><input type="number" value="' + Math.round(maxY - minY) + '" disabled></div>' +
+              '<div class="ed-props-field"><label>Width' + gunit + '</label><input type="number" value="' + gv(maxX - minX) + '" disabled></div>' +
+              '<div class="ed-props-field"><label>Height' + gunit + '</label><input type="number" value="' + gv(maxY - minY) + '" disabled></div>' +
             '</div>' +
           '</div>' +
           // Align to page. The context bar is single-selection only, so without
@@ -7120,10 +7126,11 @@ import { createResizeEngine } from "./resize-engine.js";
           b.addEventListener("click", function () { alignSelected(b.getAttribute("data-galign")); });
         });
         const gx = body.querySelector("#ed-grp-x"), gy = body.querySelector("#ed-grp-y");
+        const gpx = gmm ? function (v) { return Math.round(mmToPx(v)); } : Math.round;
         const moveGroup = function () {
           const nx = parseFloat(gx.value), ny = parseFloat(gy.value);
-          const ddx = isFinite(nx) ? Math.round(nx) - Math.round(minX) : 0;
-          const ddy = isFinite(ny) ? Math.round(ny) - Math.round(minY) : 0;
+          const ddx = isFinite(nx) ? gpx(nx) - Math.round(minX) : 0;
+          const ddy = isFinite(ny) ? gpx(ny) - Math.round(minY) : 0;
           if (!ddx && !ddy) return;
           gels.forEach(function (e) { e.x = Math.round(e.x + ddx); e.y = Math.round(e.y + ddy); });
           fullRender(); pushHistory();
