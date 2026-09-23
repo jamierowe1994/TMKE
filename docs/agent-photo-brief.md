@@ -93,3 +93,34 @@ floor), never `cover` it. The brief's tiles all do this and look right.
   TMKE set by hand while the feed was down.
 - Until then, the photo is set per brand in the contact drawer's TEG tab,
   uploaded into the `pack-images` bucket the brand logos already use.
+
+---
+
+## Studio side: done (23 Sep 2026)
+
+The rules live in `public/scripts/editor.js`:
+
+- `photoForSlot(role)` — a headshot slot takes the headshot and falls back to
+  the brand photo; a photo slot on print takes the brand photo **or nothing**,
+  and on social takes the brand photo first, then the headshot.
+- `fillTemplatePhotos()` fills every `brandRole: "photo"` slot on load and on
+  every brand switch, `contain` and bottom-aligned. A picture the member chose
+  themselves (no `autoPhoto`) is left alone.
+- `nudgeIfNoBrandPhoto()` shows the notice in the Studio (`#ed-photonudge`)
+  when a print design has an empty photo slot — the "say so out loud" rule.
+- An empty photo slot never builds an `<img>`; `renderElement` paints the
+  ghost (`/images/agent-photo-ghost.svg`, with "This is where the photo of you
+  goes.") straight into the DOM. Admin mode can swap the ghost for a stand-in
+  via `__TMKE_SET_STAND_IN__("female" | "male")`, reading
+  `window.__TMKE_STAND_INS__`.
+- The photo is read from the active kit on every render, so it follows the
+  brand switcher. While fixing that, `loadBrand()` was split: `ownBrand()` now
+  reads the member's own saved kit, so the "their headshot is theirs at either
+  brand" rule can no longer carry a headshot borrowed from one brand over to
+  the other.
+
+Verified in the browser across six cases (social/print × photo, headshot-only,
+neither): print with no brand photo shows the ghost and the notice and never
+the headshot; social falls back to the headshot; the stand-in is ignored
+outside admin mode; and an exported PNG of an empty print slot is plain
+background, with nothing in the saved design data.

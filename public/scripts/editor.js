@@ -139,7 +139,13 @@ import { createResizeEngine } from "./resize-engine.js";
   var _brandName = null;
 
   function loadBrand() {
-    if (_brandKit) return _brandKit;
+    return _brandKit || ownBrand();
+  }
+
+  /* The member's own kit, as saved on this browser - never the brand a
+     switcher has put them in. Read it through here whenever you mean "theirs",
+     so a headshot borrowed from one brand can't follow them to the other. */
+  function ownBrand() {
     let kit = null;
     // The Member Hub demo uses only the kit made during the demo, never one
     // cached for a member on this browser.
@@ -1633,6 +1639,19 @@ import { createResizeEngine } from "./resize-engine.js";
           toast(isSlot ? "No longer the logo slot" : "This is the logo slot now");
         },
       });
+      /* The brand-approved photo (docs/agent-photo-brief.md): the full-length
+         cut-out TEG supplies, and the only picture allowed on print. */
+      const isPhoto = el.brandRole === "photo";
+      items.push({
+        label: isPhoto ? "\u2713 Agent photo slot" : "Mark as agent photo slot",
+        action: function () {
+          if (isPhoto) delete el.brandRole;
+          else { el.brandRole = "photo"; el.imgFit = "contain"; }
+          pushHistory();
+          fullRender();
+          toast(isPhoto ? "No longer the photo slot" : "This is the agent photo slot now");
+        },
+      });
     }
 
     items.push(
@@ -2370,7 +2389,7 @@ import { createResizeEngine } from "./resize-engine.js";
           // tags only touch text that still contains a tag, and a logo slot
           // only fills while it is still text — anything you have typed or
           // replaced yourself is left exactly as you left it.
-          if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); nudgeIfBrandNameMissing(); }
+          if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); nudgeIfBrandNameMissing(); }
           normalizeLegacySize();
           pushHistory();
           fullRender();
@@ -2389,7 +2408,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
-    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); nudgeIfBrandNameMissing(); }
+    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); nudgeIfBrandNameMissing(); }
     normalizeLegacySize();
     state.history = [];
     state.historyIndex = -1;
@@ -3132,16 +3151,20 @@ import { createResizeEngine } from "./resize-engine.js";
       applyTextStyles(inner, el);
       node.appendChild(inner);
     } else if (el.type === "image") {
-      const img = document.createElement("img");
-      img.decoding = "async";
-      img.src = el.src;
-      img.draggable = false;
-      img.alt = "";
-      img.crossOrigin = "anonymous";
-      // A logo (and anything set to "fit it all in") is shown whole and
-      // centred, never cropped to its box.
-      if (el.imgFit === "contain") img.style.objectFit = "contain";
-      node.appendChild(img);
+      // An empty agent-photo slot draws the ghost further down instead; an
+      // <img> with no source is a broken-picture icon.
+      if (el.src || el.brandRole !== "photo") {
+        const img = document.createElement("img");
+        img.decoding = "async";
+        img.src = el.src;
+        img.draggable = false;
+        img.alt = "";
+        img.crossOrigin = "anonymous";
+        // A logo (and anything set to "fit it all in") is shown whole and
+        // centred, never cropped to its box.
+        if (el.imgFit === "contain") img.style.objectFit = "contain";
+        node.appendChild(img);
+      }
     } else if (el.type === "frame") {
       // Frame = masked container. The data-frame-shape attribute drives
       // the clip-path / border-radius (see editor.astro styles).
@@ -3313,6 +3336,26 @@ import { createResizeEngine } from "./resize-engine.js";
     // customer sees their own logo there, not a marked-up box.
     if (el.brandRole === "logo" && isAdminMode()) node.classList.add("is-logoslot");
     if (el.brandRole === "headshot" && isAdminMode()) node.classList.add("is-shotslot");
+    // A cut-out has a real shape and people stand on the floor: contained,
+    // bottom-aligned, never cropped to fill.
+    if (el.brandRole === "photo") node.classList.add("is-photo");
+    /* An empty agent-photo slot. The picture below is painted onto the node,
+       never onto the element, so a saved design and an export both see an
+       empty slot - which is the point: a ghost must not print, and a stand-in
+       is somebody who does not exist. */
+    if (el.brandRole === "photo" && !el.src) {
+      node.classList.add("is-photoslot");
+      const standIn = isAdminMode() && _standIn && (window.__TMKE_STAND_INS__ || {})[_standIn];
+      const ph = document.createElement("div");
+      ph.className = "ed-photoghost" + (standIn ? " is-standin" : "");
+      ph.style.backgroundImage = "url(" + JSON.stringify(standIn || AGENT_GHOST) + ")";
+      if (!standIn) {
+        const say = document.createElement("span");
+        say.textContent = "This is where the photo of you goes.";
+        ph.appendChild(say);
+      }
+      node.appendChild(ph);
+    }
     if (el.hidden) node.classList.add("is-hidden");
     if (el.type === "text" && el.vcenter) node.classList.add("ed-text-vcenter");
 
@@ -7838,6 +7881,70 @@ import { createResizeEngine } from "./resize-engine.js";
      The brand kit holds a headshot alongside the logos (see /account/profile).
      It is used the same two ways a logo is: dropped on a design from the Brand
      pane, or filled into a slot a template author drew for it. */
+  /* ---------- The two photographs (docs/agent-photo-brief.md) ----------
+     A kit holds two pictures of a person and they are not interchangeable:
+     `headshot` is the square one they upload themselves, `brandPhoto` the
+     full-length cut-out TEG supplies. Print takes the brand photo or nothing -
+     a selfie cropped square holds up at 1080px and falls apart on a 6-sheet,
+     and a board is on a wall for six weeks.
+
+       print design   brandPhoto -> nothing (say so; never the headshot)
+       social design  brandPhoto -> headshot -> the ghost
+       headshot slot  headshot -> brandPhoto -> the ghost
+
+     The ghost and the admin's stand-ins are drawn by the editor and never
+     written to an element, so neither can reach a saved design or an export:
+     see renderElement, which paints them from nothing. */
+  const AGENT_GHOST = "/images/agent-photo-ghost.svg";
+  // "Show me a person" while drawing a template: design-time only, admin only,
+  // and never written to the design (see renderElement).
+  var _standIn = null;
+  window.__TMKE_SET_STAND_IN__ = function (which) {
+    _standIn = (which === "female" || which === "male") ? which : null;
+    fullRender();
+    return _standIn;
+  };
+  function brandPhotoSrc() {
+    const src = BRAND && typeof BRAND.brandPhoto === "string" ? BRAND.brandPhoto.trim() : "";
+    return src || null;
+  }
+  function isPrintDesign() {
+    return sizeFamily(state.canvas.width, state.canvas.height) === "print";
+  }
+  // What belongs in this slot, or null when we hold nothing that may go there.
+  function photoForSlot(role) {
+    const photo = brandPhotoSrc(), head = brandHeadshotSrc();
+    if (role === "headshot") return head || photo || null;
+    return isPrintDesign() ? photo : (photo || head);
+  }
+
+  /* Fill every agent-photo slot from the kit. Left empty when we hold nothing
+     that may go there - on a print design that means the brand photo and only
+     the brand photo. */
+  function fillTemplatePhotos() {
+    if (isAdminMode()) return;
+    const slots = state.elements.filter(function (el) { return el && el.brandRole === "photo"; });
+    if (!slots.length) return;
+    const pick = photoForSlot("photo");
+    slots.forEach(function (slot) {
+      // A picture they chose themselves stays theirs.
+      if (slot.src && !slot.autoPhoto) return;
+      if (pick) { slot.src = pick; slot.autoPhoto = true; slot.imgFit = "contain"; slot.imgAlign = "bottom"; }
+      else if (slot.autoPhoto || !slot.src) { slot.src = null; delete slot.autoPhoto; }
+    });
+    nudgeIfNoBrandPhoto();
+  }
+
+  /* Print, a photo slot, and no brand photo: said out loud, because the
+     alternative is a board printed with a hole in it. */
+  function nudgeIfNoBrandPhoto() {
+    const bar = document.getElementById("ed-photonudge");
+    if (!bar) return;
+    const needs = !isAdminMode() && isPrintDesign() && !brandPhotoSrc()
+      && state.elements.some(function (el) { return el && el.brandRole === "photo" && !el.src; });
+    bar.hidden = !needs;
+  }
+
   function brandHeadshotSrc() {
     const src = BRAND && typeof BRAND.headshot === "string" ? BRAND.headshot.trim() : "";
     return src || null;
@@ -7892,7 +7999,8 @@ import { createResizeEngine } from "./resize-engine.js";
   // Marked as ours, so it comes back the moment they add one.
   function fillTemplateHeadshots() {
     if (isAdminMode()) return;
-    const src = brandHeadshotSrc();
+    // Their own picture first; the brand's stands in when they never set one.
+    const src = photoForSlot("headshot");
     const slots = state.elements.filter(function (el) { return el && el.brandRole === "headshot"; });
     if (!slots.length) return;
     slots.forEach(function (slot) {
@@ -10259,7 +10367,7 @@ import { createResizeEngine } from "./resize-engine.js";
     _sizePreview = null;
     _resizeBase = null;
     preloadFontsForElements(state.elements);
-    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); }
+    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); }
     normalizeLegacySize();
     // A copy saved at another size (a story made from a post) goes back to
     // the template at THAT size - laid out the way the template's own saved
@@ -10479,7 +10587,16 @@ import { createResizeEngine } from "./resize-engine.js";
         if (el.brandRole === "logo" && el.type === "image" && prevLogo && el.src === prevLogo) el.src = brandLogoSrc() || el.src;
       });
     });
-    if (!isAdminMode()) { fillTemplateLogos(); fillTemplateHeadshots(); }
+    if (!isAdminMode()) { fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); }
+    /* The brand photo is per brand: a Letting board must not carry the
+       Property picture, so a slot filled from the last brand is refilled from
+       this one (docs/agent-photo-brief.md). */
+    state.pages.forEach(function (pg) {
+      (pg.elements || []).forEach(function (el) {
+        if (el && el.brandRole === "photo" && el.autoPhoto) { el.src = null; delete el.autoPhoto; }
+      });
+    });
+    if (!isAdminMode()) fillTemplatePhotos();
     state.elements.forEach(function (el) { if (el.type === "text") fitTextHeight(el); });
   }
 
@@ -10495,7 +10612,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (kit.logos.length && !kit.logos.some(function (l) { return l.primary; })) kit.logos[0].primary = true;
     }
     const prevLogo = brandLogoSrc();
-    const mine = loadBrand() || {};
+    const mine = ownBrand() || {};
     // Their headshot is theirs at either brand; the rest is the brand's.
     _brandKit = Object.assign({}, kit, mine.headshot ? { headshot: mine.headshot } : {});
     _brandName = name || kit.company || null;
@@ -11148,6 +11265,7 @@ import { createResizeEngine } from "./resize-engine.js";
   function applyKitToCurrentPage() {
     fillTemplateLogos();
     fillTemplateHeadshots();
+    fillTemplatePhotos();
     const kitCols = (BRAND && Array.isArray(BRAND.colors) ? BRAND.colors : [])
       .map(function (c) { return normHexSafe(c && (c.hex || c)); }).filter(Boolean);
     if (kitCols.length) {
@@ -11477,7 +11595,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // their plumbing on screen.
     window.__TMKE_BOOT_DESIGN__ = function (d) {
       loadDesignData(d);
-      try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fullRender(); } catch (_) {}
+      try { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); fullRender(); } catch (_) {}
     };
     if (typeof window.__TMKE_DESIGN_BOOTSTRAP_DONE__ !== "undefined") {
       window.__TMKE_BOOT_DESIGN__(window.__TMKE_DESIGN_BOOTSTRAP_DONE__);

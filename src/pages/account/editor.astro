@@ -558,6 +558,17 @@ const googleFonts = [
           <label for="ed-adminbrand-pick">Designing as</label>
           <select id="ed-adminbrand-pick"></select>
           <p>The design redraws in that brand's colours, fonts and logo. It's what a member of that brand will open.</p>
+          <!-- Judging a layout needs somebody in it, at the size a person
+               actually is. Design-time only: a member never sees one, and it
+               cannot reach a saved design or an export. -->
+          <div class="ed-standins" id="ed-standins" hidden>
+            <span>Show me a person</span>
+            <div class="ed-standin-pills">
+              <button type="button" data-standin="" class="is-on">Empty</button>
+              <button type="button" data-standin="female">Her</button>
+              <button type="button" data-standin="male">Him</button>
+            </div>
+          </div>
         </div>
         <div class="ed-brand-as" id="ed-brand-as" hidden>
           <label for="ed-asbrand-pick">Designing as</label>
@@ -1093,6 +1104,12 @@ const googleFonts = [
     <!-- Toast -->
     <div class="ed-toast" id="ed-toast" hidden></div>
 
+    <!-- Print takes the brand photo or nothing (docs/agent-photo-brief.md).
+         When we hold none, it is said out loud rather than printing a hole. -->
+    <div class="ed-brandnudge" id="ed-photonudge" hidden>
+      <span class="ed-brandnudge-txt">This design has a space for your photo, and print can only use the brand's own photograph of you &mdash; we don&rsquo;t have yours yet.</span>
+      <a class="ed-brandnudge-go" href="/account/contact">Ask TMKE</a>
+    </div>
     <!-- Shown when a design carries {brand name} but the brand kit has no
          company in it, so the tag can't resolve and the member would be
          looking at a literal {brand name} on their design. -->
@@ -2549,6 +2566,30 @@ const googleFonts = [
       pointer-events: none;
     }
     .ed-element.is-shotslot::after { content: "HEADSHOT"; }
+    /* The agent photo. A cut-out has its own shape, so it is contained and
+       bottom-aligned - people stand on the floor - never cropped to fill. */
+    .ed-element.is-photo img { object-fit: contain; object-position: bottom center; }
+    .ed-photoghost {
+      position: absolute; inset: 0;
+      background-repeat: no-repeat; background-position: bottom center; background-size: contain;
+      display: flex; align-items: flex-end; justify-content: center; pointer-events: none;
+    }
+    .ed-photoghost span {
+      margin-bottom: 6%; padding: 0.35em 0.7em; border-radius: 0.4em;
+      background: rgba(255,255,255,0.86); color: rgba(28,29,34,0.7);
+      font-family: var(--sans); font-size: 3cqw; font-weight: 600; text-align: center;
+    }
+    .ed-element.is-photoslot { container-type: size; }
+    .ed-photoghost.is-standin { opacity: 0.92; }
+    .ed-standins { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+    .ed-standins[hidden] { display: none; }
+    .ed-standins > span { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
+    .ed-standin-pills { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: rgba(28,29,34,0.06); }
+    .ed-standin-pills button {
+      padding: 5px 11px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.65);
+    }
+    .ed-standin-pills button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.15); }
     /* Locks. A member's field (light lock) reads as something to type into or
        click to change, not an object to move. The admin sees each lock marked
        on the canvas, the way the logo and headshot slots are. */
@@ -5186,7 +5227,18 @@ const googleFonts = [
       pick.value = String(at);
       pick.addEventListener('change', () => apply(+pick.value));
       // The stand-ins ride along on the same call (docs/agent-photo-brief.md).
-      if (out.standIns) (window as any).__TMKE_STAND_INS__ = out.standIns;
+      if (out.standIns) {
+        (window as any).__TMKE_STAND_INS__ = out.standIns;
+        const box = document.getElementById('ed-standins');
+        if (box && (out.standIns.female || out.standIns.male)) {
+          box.hidden = false;
+          box.querySelectorAll('[data-standin]').forEach((b) => b.addEventListener('click', () => {
+            const which = b.getAttribute('data-standin') || null;
+            box.querySelectorAll('[data-standin]').forEach((x) => x.classList.toggle('is-on', x === b));
+            if (typeof (window as any).__TMKE_SET_STAND_IN__ === 'function') (window as any).__TMKE_SET_STAND_IN__(which);
+          }));
+        }
+      }
     }
 
     if (wantAdmin) {
