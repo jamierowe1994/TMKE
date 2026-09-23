@@ -65,8 +65,12 @@ export const STUDIO_SIZES = [
       // A5 portrait is also the standard A5 postcard.
       print("A5 Portrait", 148, 210),
       print("A5 Landscape", 210, 148),
+      /* A6 is the postcard size, and a postcard is as often landscape as it
+         is upright -- an invitation with a cut-out down one edge and the copy
+         beside it only works the wide way round. Both, like A4 and A5. */
+      print("A6 Postcard Portrait", 105, 148),
+      print("A6 Postcard Landscape", 148, 105),
       print("Business Card", 85, 55),
-      print("Postcard A6", 105, 148),
     ],
   },
 ];
