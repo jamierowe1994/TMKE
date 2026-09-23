@@ -6952,8 +6952,8 @@ import { createResizeEngine } from "./resize-engine.js";
 
     // On print these boxes are millimetres; the element is pixels either way.
     const mm = wIn.dataset.unit === "mm";
-    const toPx = mm ? function (v) { return Math.round(mmToPx(v, false)); } : Math.round;
-    const toUi = mm ? function (px) { return mm1(pxToMm(px, false)); } : Math.round;
+    const toPx = mm ? function (v) { return Math.round(mmToPx(v)); } : Math.round;
+    const toUi = mm ? function (px) { return mm1(pxToMm(px)); } : Math.round;
 
     function apply(which) {
       const tgt = getEl(state.selectedIds[0]);
@@ -6996,8 +6996,7 @@ import { createResizeEngine } from "./resize-engine.js";
           : input.value;
         // A millimetre box hands back pixels, because pixels are what is
         // stored. Only here, where the field was actually edited.
-        if (input.dataset.unit === "mm") val = Math.round(mmToPx(val, false));
-        else if (input.dataset.unit === "mm-trim") val = Math.round(mmToPx(val, true));
+        if (input.dataset.unit === "mm") val = Math.round(mmToPx(val));
         tgt[prop] = val;
         // SVG shapes/icons: recompute the data-URI src whenever the colour
         // changes so the visual updates in lockstep with the picker.
@@ -8928,10 +8927,10 @@ import { createResizeEngine } from "./resize-engine.js";
     const mm = isPrintDesign();
     const unit = mm ? " (mm)" : "";
     const step = mm ? ' step="0.1"' : "";
-    const pos = mm ? function (px) { return mm1(pxToMm(px, true)); } : function (px) { return Math.round(px); };
-    const len = mm ? function (px) { return mm1(pxToMm(px, false)); } : function (px) { return Math.round(px); };
+    const len = mm ? function (px) { return mm1(pxToMm(px)); } : function (px) { return Math.round(px); };
+    const pos = len;
     const u = mm ? ' data-unit="mm"' : "";
-    const ut = mm ? ' data-unit="mm-trim"' : "";
+    const ut = u;
     return '<div class="ed-props-row">' +
         '<div class="ed-props-field"><label>X' + unit + '</label><input type="number" data-prop="x"' + ut + step + ' value="' + pos(el.x) + '"></div>' +
         '<div class="ed-props-field"><label>Y' + unit + '</label><input type="number" data-prop="y"' + ut + step + ' value="' + pos(el.y) + '"></div>' +
@@ -11082,16 +11081,28 @@ import { createResizeEngine } from "./resize-engine.js";
       fits: (W, H) => sizeFamily(W, H) === "print",
       // The bleed (printed, then cut off) plus the margin printers ask words
       // and logos to keep inside the cut: 5mm on paper, 3mm on a business card.
+      /* Said in millimetres, because that is the unit the rule is written in
+         everywhere else and the number a person is going to type into X.
+         Measured from the corner of the canvas, the same as X and Y: the
+         bleed is a line on the page, not a shift in the axis. */
       zones: (W, H) => {
         const mm = 300 / 25.4;                       // print sizes are 300 dpi
         const bleed = printBleed(W, H);
         const trimShort = (Math.min(W, H) - 2 * bleed) / mm;
-        const px = bleed + Math.round(mm * (trimShort <= 60 ? 3 : 5));
-        const note = "Keep words and logos inside the dashed line";
+        const keep = trimShort <= 60 ? 3 : 5;        // mm inside the cut
+        const bleedMm = Math.round(bleed / mm);
+        const px = bleed + Math.round(mm * keep);
+        const note = bleedMm
+          ? "Cut at " + bleedMm + "mm — keep words and logos " + (bleedMm + keep) + "mm in from the edge"
+          : "Keep words and logos " + keep + "mm in from the edge";
         return ["top", "bottom", "left", "right"].map((side) => ({ side, px, note: side === "top" ? note : "" }));
       },
-      // Where the printer cuts.
+      // Where the printer cuts, and what to call it on the canvas.
       trim: (W, H) => printBleed(W, H),
+      trimLabel: (W, H) => {
+        const bleedMm = Math.round(printBleed(W, H) / (300 / 25.4));
+        return bleedMm ? "Cut line — the " + bleedMm + "mm outside it is trimmed off" : "Cut line";
+      },
     },
   };
   // Social or print, from the size list the Resize panel is built from
@@ -11126,13 +11137,13 @@ import { createResizeEngine } from "./resize-engine.js";
   const PX_PER_MM = 300 / 25.4;   // 11.811 - print sizes are 300 dpi
   const PX_PER_PT = 300 / 72;     // 4.1667
 
-  /* Zero is the corner of the finished card, not of the file. Artwork out in
-     the bleed reads -3mm, which is right and is how a print designer already
-     thinks: once it is cut, the cut is the only edge there is. Measuring from
-     the bleed corner would make "10mm from the edge" mean 13mm. */
-  function trimOrigin() { return printBleed(state.canvas.width, state.canvas.height); }
-  function pxToMm(px, fromTrim) { return (px - (fromTrim ? trimOrigin() : 0)) / PX_PER_MM; }
-  function mmToPx(mm, fromTrim) { return mm * PX_PER_MM + (fromTrim ? trimOrigin() : 0); }
+  /* Zero is the corner of the canvas, the same as it is on screen. The bleed
+     is not folded into the axis: doing that put a minus sign in front of
+     anything sitting on the edge, and made every number three millimetres
+     adrift from what the person typing it expected. Where the cut falls is a
+     guide's job, and the Print guide says so in millimetres. */
+  function pxToMm(px) { return px / PX_PER_MM; }
+  function mmToPx(mm) { return mm * PX_PER_MM; }
   function pxToPt(px) { return px / PX_PER_PT; }
   function ptToPx(pt) { return pt * PX_PER_PT; }
   // 0.1mm is as fine as anything gets printed; a tenth of a point likewise.
@@ -11193,14 +11204,21 @@ import { createResizeEngine } from "./resize-engine.js";
     ov.hidden = false;
     const zones = typeof def.zones === "function" ? def.zones(W, H) : def.zones;
     const trim = def.trim ? def.trim(W, H) : 0;
+    const fs = Math.round(Math.min(W, H) / 1080 * 26);
     if (trim > 0) {
       const t = document.createElement("div");
       t.className = "ed-safezone-trim";
       t.style.left = trim + "px"; t.style.top = trim + "px";
       t.style.width = (W - 2 * trim) + "px"; t.style.height = (H - 2 * trim) + "px";
+      const lbl = def.trimLabel && def.trimLabel(W, H);
+      if (lbl) {
+        const c = document.createElement("span");
+        c.textContent = lbl;
+        c.style.fontSize = fs + "px";
+        t.appendChild(c);
+      }
       ov.appendChild(t);
     }
-    const fs = Math.round(Math.min(W, H) / 1080 * 26);
     const fr = def.frame ? def.frame(W, H) : null;
     if (fr) {
       const f = document.createElement("div");

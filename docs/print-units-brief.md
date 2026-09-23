@@ -110,3 +110,27 @@ shift moved it 5.00mm. An A4 with no bleed (2480 × 3508) and the old business
 card (1004 × 650) both read as print, measure from the canvas corner, and show
 `210 × 297 mm` and `85 × 55 mm`. Social canvases are untouched: `X`, pixel
 presets, 1px nudge, `Instagram Portrait` on the bar.
+
+### Changed on Danielle's instruction, 23 Sep 2026
+
+**Decision 1 is reversed: zero is the corner of the canvas, not the trim.**
+She hit it within minutes of testing — something sitting on the edge read
+`-3`, and a minus sign on the thing you have just placed at what looks like
+zero reads as a bug, not as a convention.
+
+Her reasoning, which is the right one for this audience: you cannot fold the
+bleed into the axis, because everybody assumes they are starting from 0, and
+then everything they place is three millimetres out. Where the cut falls is a
+guide's job.
+
+So the Print guide now carries the rule instead, in millimetres rather than
+the pixels it used to imply:
+
+- the cut line is drawn on every print canvas, switched on or not, and reads
+  `Cut line — the 3mm outside it is trimmed off`
+- the margin band reads `Cut at 3mm — keep words and logos 8mm in from the
+  edge`, which is the number you would actually type into X
+
+Everything else in the brief stands: millimetres on print, points for type,
+the finished size on the top bar, the 0.5mm nudge, and pixels as the only
+thing stored.
