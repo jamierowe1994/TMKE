@@ -1669,8 +1669,8 @@ import { createResizeEngine } from "./resize-engine.js";
       items.push({
         label: isSlot ? "✓ Brand logo slot" : "Mark as brand logo slot",
         action: function () {
-          if (isSlot) delete el.brandRole;
-          else el.brandRole = "logo";
+          if (isSlot) { delete el.brandRole; unmakeSlot(el); }
+          else { el.brandRole = "logo"; makeSlot(el); }
           pushHistory();
           fullRender();
           toast(isSlot ? "No longer the logo slot" : "This is the logo slot now");
@@ -1682,8 +1682,8 @@ import { createResizeEngine } from "./resize-engine.js";
       items.push({
         label: isPhoto ? "\u2713 Agent photo slot" : "Mark as agent photo slot",
         action: function () {
-          if (isPhoto) delete el.brandRole;
-          else { el.brandRole = "photo"; el.imgFit = "contain"; }
+          if (isPhoto) { delete el.brandRole; unmakeSlot(el); }
+          else { el.brandRole = "photo"; el.imgFit = "contain"; makeSlot(el); }
           pushHistory();
           fullRender();
           toast(isPhoto ? "No longer the photo slot" : "This is the agent photo slot now");
@@ -8511,6 +8511,33 @@ import { createResizeEngine } from "./resize-engine.js";
     fullRender();
     return _standIn;
   };
+  /* A slot is a slot, not a coloured box with a job.
+
+     You draw a rectangle, place it, then right-click and mark it as the photo
+     slot -- and until now that only added `brandRole`. The element stayed a
+     rect, the renderer went on painting `el.fill` behind everything, and a
+     transparent cut-out arrived on top of the placeholder colour the box was
+     drawn in. No fill control shows on a slot either, so the colour was
+     stored and unreachable: the design looked as though it had a navy
+     background that nothing in the kit or the file could explain.
+
+     Marking turns it into an image and remembers what it was, so unmarking
+     hands the shape and its colour back. */
+  function makeSlot(el) {
+    if (!el || el.type === "image") return;
+    el._slotWas = { type: el.type, fill: el.fill || null, fillGradient: el.fillGradient || null };
+    el.type = "image";
+    el.fill = null;
+    delete el.fillGradient;
+  }
+  function unmakeSlot(el) {
+    if (!el || !el._slotWas) return;
+    el.type = el._slotWas.type;
+    el.fill = el._slotWas.fill;
+    if (el._slotWas.fillGradient) el.fillGradient = el._slotWas.fillGradient;
+    delete el._slotWas;
+  }
+
   function brandPhotoSrc() {
     const src = BRAND && typeof BRAND.brandPhoto === "string" ? BRAND.brandPhoto.trim() : "";
     return src || null;
@@ -8532,6 +8559,9 @@ import { createResizeEngine } from "./resize-engine.js";
     if (isAdminMode()) return;
     const slots = everyElement().filter(function (el) { return el.brandRole === "photo"; });
     if (!slots.length) return;
+    // Drawn as a rectangle before marking a slot converted it. Fix it here so
+    // nobody has to re-make a template that is otherwise finished.
+    slots.forEach(makeSlot);
     const pick = photoForSlot("photo");
     slots.forEach(function (slot) {
       // A picture they chose themselves stays theirs.
