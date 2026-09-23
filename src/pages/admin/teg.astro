@@ -18,6 +18,7 @@ import "../../styles/admin.css";
   <div class="ash-panel ash-page">
     <div class="teg-acts">
       <button type="button" class="admin-btn admin-btn-primary" id="teg-ping">Test the connection</button>
+      <button type="button" class="admin-btn" id="teg-photos">What does photoApi hold?</button>
       <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
       <span class="teg-status" id="teg-status"></span>
     </div>
@@ -74,6 +75,30 @@ import "../../styles/admin.css";
       const db = body.dbApi || {};
       say(db.ok ? 'Connected — their database answered.' : 'Not connected yet.', db.ok ? 'is-ok' : 'is-err');
       out.innerHTML = '<div class="teg-raw">' + esc(JSON.stringify(body, null, 2)) + '</div>';
+    });
+
+    /* photoApi is undocumented, so this reports its shape rather than
+       pretending we know it: every field name, the ones that look like an
+       image, and one whole record to read. */
+    document.getElementById('teg-photos').addEventListener('click', async () => {
+      out.innerHTML = '';
+      say('Asking photoApi what it holds…');
+      const { body } = await call('/teg/photos?limit=5');
+      if (!body || body.error) { say((body && body.error) || "No answer.", 'is-err'); return; }
+      say(`${body.count} records there${body.has_more ? ', and more after these' : ''}.`, 'is-ok');
+      const list = (arr) => (arr || []).map((f) => `<span class="teg-pill">${esc(f)}</span>`).join('') || '—';
+      out.innerHTML = `
+        <div class="teg-sum">
+          <div class="teg-stat"><b>${esc(body.count)}</b><span>Records</span></div>
+          <div class="teg-stat"><b>${(body.fields || []).length}</b><span>Fields each</span></div>
+          <div class="teg-stat"><b>${(body.looks_like_an_image || []).length}</b><span>Image-ish fields</span></div>
+        </div>
+        <p class="teg-note" style="margin-bottom:6px"><strong>Fields that look like a picture</strong></p>
+        <div>${list(body.looks_like_an_image)}</div>
+        <p class="teg-note" style="margin:16px 0 6px"><strong>Every field</strong></p>
+        <div>${list(body.fields)}</div>
+        <p class="teg-note" style="margin:16px 0 6px"><strong>One whole record</strong></p>
+        <div class="teg-raw">${esc(JSON.stringify(body.sample, null, 2))}</div>`;
     });
 
     document.getElementById('teg-dry').addEventListener('click', async () => {

@@ -7435,6 +7435,49 @@ export default {
       /* Run whenever a member arrives: has their brand changed anything they
          haven't made their own? Cheap, and it self-heals — nothing to schedule
          and nothing to push. */
+      /* What photoApi actually holds.
+
+         It is not in the repo snapshot we were given and nobody has written
+         it down, so this reads a couple of records and reports their shape:
+         every field name, and one whole record to look at. That is how we
+         find the photograph rather than guessing which key it is under. */
+      if (path.endsWith("/teg/photos") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.TEG_API_SECRET) return json({ error: "No TEG_API_SECRET set on the Worker." }, 400, request, env);
+        const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get("limit") || "3", 10)));
+        const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0", 10));
+        const qs = new URLSearchParams({ limit: String(limit), skip: String(skip) });
+        const email = (url.searchParams.get("email") || "").trim();
+        if (email) qs.set("email", email);
+        let res, text;
+        try {
+          res = await fetch(`${TEG_API}/photoApi?${qs}`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
+          text = await res.text();
+        } catch (e) {
+          return json({ error: String((e && e.message) || e) }, 502, request, env);
+        }
+        let out = null;
+        try { out = JSON.parse(text); } catch (_) {}
+        if (!out) return json({ error: "Not JSON", status: res.status, body: text.slice(0, 600) }, 502, request, env);
+        const rows = Array.isArray(out.data) ? out.data : [];
+        // Every key seen across the sample, so one sparse record can't hide a field.
+        const fields = [...new Set(rows.flatMap((r) => Object.keys(r || {})))].sort();
+        // Anything that looks like it points at an image, named or valued.
+        const imageish = fields.filter((f) =>
+          /photo|image|picture|avatar|headshot|thumb|url|src/i.test(f) ||
+          rows.some((r) => typeof r[f] === "string" && /^https?:\/\/.+\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(r[f])));
+        return json({
+          ok: out.success !== false,
+          status: res.status,
+          count: out.count ?? null, limit: out.limit ?? null,
+          skip: out.skip ?? null, has_more: out.has_more ?? null,
+          fields,
+          looks_like_an_image: imageish,
+          sample: rows[0] || null,
+        }, 200, request, env);
+      }
+
       /* Is the TEG connection alive? Proves the secret and the domain before
          anybody builds anything on top of them. */
       if (path.endsWith("/teg/ping") && request.method === "GET") {
