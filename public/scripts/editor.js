@@ -2983,12 +2983,37 @@ import { createResizeEngine } from "./resize-engine.js";
   function escapeHtml(s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
+  /* Anything going inside a double-quoted attribute needs its own quotes
+     dealt with. A font stack is full of them - `"Playfair Display", serif` -
+     and an unescaped one closes the style attribute early and throws the rest
+     of it away as stray attributes. */
+  function escapeAttr(s) {
+    return escapeHtml(s).replace(/"/g, "&quot;");
+  }
   function runsToText(runs) {
     return runs.map(function (r) { return r.text; }).join("");
   }
   // True when no run carries any per-run formatting → we can stay "plain".
   function runsAreUniform(runs) {
-    return runs.every(function (r) { return !r.bold && !r.italic && !r.underline; });
+    return runs.every(function (r) { return !r.bold && !r.italic && !r.underline && !r.color && !r.font; });
+  }
+  // The CSS stack behind a font's name, for putting a run's font into a span.
+  function fontStackFor(name) {
+    const f = FONTS.find(function (x) { return x.name === name; });
+    return f ? f.stack : null;
+  }
+  /* The other way round: a browser hands back `font-family: "Playfair
+     Display", serif` and we need the name we know it by. execCommand writes
+     the stack, so this is how a font chosen on a selection survives the trip
+     back out of the DOM. */
+  function fontNameFromFamily(fam) {
+    if (!fam) return null;
+    const first = String(fam).split(",")[0].replace(/["']/g, "").trim().toLowerCase();
+    const hit = FONTS.find(function (f) {
+      return f.name.toLowerCase() === first
+          || f.stack.split(",")[0].replace(/["']/g, "").trim().toLowerCase() === first;
+    });
+    return hit ? hit.name : null;
   }
   // Element has live rich formatting worth rendering as spans.
   function hasRuns(el) {
@@ -3002,10 +3027,225 @@ import { createResizeEngine } from "./resize-engine.js";
       if (r.bold) css.push("font-weight:700");
       if (r.italic) css.push("font-style:italic");
       if (r.underline) css.push("text-decoration:underline");
+      if (r.color) css.push("color:" + r.color);
+      const stack = r.font && fontStackFor(r.font);
+      if (stack) css.push("font-family:" + stack);
+      /* The font is written twice: as the stack, so it draws, and as the name
+         we know it by, so it survives being read back. A browser rewrites a
+         font-family string as it pleases; it leaves a data attribute alone. */
+      const data = r.font ? ' data-font="' + escapeAttr(r.font) + '"' : "";
       const html = escapeHtml(r.text).replace(/\n/g, "<br>") || "";
-      return css.length ? '<span style="' + css.join(";") + '">' + html + "</span>" : "<span>" + html + "</span>";
+      return css.length || data
+        ? '<span style="' + escapeAttr(css.join(";")) + '"' + data + ">" + html + "</span>"
+        : "<span>" + html + "</span>";
     }).join("");
   }
+  /* ---------- Working on part of the words ----------
+     Highlighting three words and acting on them means turning a DOM range
+     into a pair of character positions in `el.text`, doing the work on the
+     runs, and putting the text back. Everything that formats or removes part
+     of a text element goes through here, so they all agree about where the
+     selection starts and stops. */
+
+  // The plain text of a subtree, counting line breaks the way runs do.
+  function domPlainText(root) {
+    let out = "";
+    (function walk(node) {
+      for (let i = 0; i < node.childNodes.length; i++) {
+        const child = node.childNodes[i];
+        if (child.nodeType === 3) { out += child.nodeValue; continue; }
+        if (child.nodeType !== 1) continue;
+        if (child.tagName === "BR") { out += "\n"; continue; }
+        if ((child.tagName === "DIV" || child.tagName === "P") && out && out.slice(-1) !== "\n") out += "\n";
+        walk(child);
+      }
+    })(root);
+    return out;
+  }
+  // How many characters of `root` come before this point in it.
+  function charOffsetIn(root, node, offset) {
+    const r = document.createRange();
+    r.selectNodeContents(root);
+    try { r.setEnd(node, offset); } catch (_) { return 0; }
+    const box = document.createElement("div");
+    box.appendChild(r.cloneContents());
+    return domPlainText(box).length;
+  }
+  /* The live highlight inside a text element, as character positions. Works
+     whether or not the box is in edit mode - a member can drag across words
+     without double-clicking in first, and then expects the next thing they
+     press to act on those words. */
+  function textSelectionIn(el) {
+    if (!el || el.type !== "text") return null;
+    const node = canvasEl && canvasEl.querySelector('[data-id="' + el.id + '"]');
+    const inner = node && node.querySelector(".ed-text-inner");
+    const sel = window.getSelection && window.getSelection();
+    if (!inner || !sel || !sel.rangeCount || sel.isCollapsed) return null;
+    const range = sel.getRangeAt(0);
+    if (!inner.contains(range.commonAncestorContainer)) return null;
+    const start = charOffsetIn(inner, range.startContainer, range.startOffset);
+    const end = charOffsetIn(inner, range.endContainer, range.endOffset);
+    if (end <= start) return null;
+    return { inner: inner, start: start, end: end, range: range,
+             whole: start === 0 && end >= (el.text || "").length };
+  }
+
+  // The element's words as runs, whether or not it has ever carried any.
+  function elementRuns(el) {
+    if (Array.isArray(el.runs) && el.runs.length) {
+      return el.runs.map(function (r) { return Object.assign({}, r); });
+    }
+    return [{ text: el.text || "", bold: false, italic: false, underline: false, color: null, font: null }];
+  }
+  // Glue neighbours back together when nothing tells them apart, and drop
+  // the empties a split leaves behind.
+  function tidyRuns(runs) {
+    const out = [];
+    runs.forEach(function (r) {
+      if (!r.text) return;
+      const last = out[out.length - 1];
+      if (last && !!last.bold === !!r.bold && !!last.italic === !!r.italic
+          && !!last.underline === !!r.underline
+          && (last.color || null) === (r.color || null)
+          && (last.font || null) === (r.font || null)) { last.text += r.text; return; }
+      out.push(r);
+    });
+    return out;
+  }
+  // Write `patch` onto the characters between start and end, splitting runs
+  // at the edges of the selection.
+  function formatTextRange(el, start, end, patch) {
+    const out = [];
+    let pos = 0;
+    elementRuns(el).forEach(function (r) {
+      const a = pos, b = pos + r.text.length;
+      pos = b;
+      if (b <= start || a >= end) { out.push(r); return; }
+      const cutA = Math.max(start, a) - a, cutB = Math.min(end, b) - a;
+      if (cutA > 0) out.push(Object.assign({}, r, { text: r.text.slice(0, cutA) }));
+      out.push(Object.assign({}, r, patch, { text: r.text.slice(cutA, cutB) }));
+      if (cutB < r.text.length) out.push(Object.assign({}, r, { text: r.text.slice(cutB) }));
+    });
+    const runs = tidyRuns(out);
+    el.runs = runsAreUniform(runs) ? null : runs;
+    el.text = runsToText(runs);
+  }
+  // Take those characters out, formatting and all.
+  function removeTextRange(el, start, end) {
+    const out = [];
+    let pos = 0;
+    elementRuns(el).forEach(function (r) {
+      const a = pos, b = pos + r.text.length;
+      pos = b;
+      if (b <= start || a >= end) { out.push(r); return; }
+      const head = r.text.slice(0, Math.max(0, start - a));
+      const tail = r.text.slice(Math.max(0, end - a));
+      if (head) out.push(Object.assign({}, r, { text: head }));
+      if (tail) out.push(Object.assign({}, r, { text: tail }));
+    });
+    const runs = tidyRuns(out);
+    el.runs = runsAreUniform(runs) ? null : runs;
+    el.text = runsToText(runs);
+  }
+  // What the selected characters already say about themselves, so a toggle
+  // knows which way to go: true only when every one of them agrees.
+  function rangeFormat(el, start, end, key) {
+    let pos = 0, seen = false, all = true;
+    elementRuns(el).forEach(function (r) {
+      const a = pos, b = pos + r.text.length;
+      pos = b;
+      if (b <= start || a >= end) return;
+      seen = true;
+      if (!r[key]) all = false;
+    });
+    return seen && all;
+  }
+
+  /* The one text element a highlight is sitting in, if any - whether it is
+     the selected element or the one being edited. */
+  function elementWithTextSelection() {
+    const ids = state.selectedIds.slice();
+    const editing = canvasEl && canvasEl.querySelector('.ed-text-inner[contenteditable="true"]');
+    if (editing) {
+      const id = editing.closest(".ed-element") && editing.closest(".ed-element").dataset.id;
+      if (id && ids.indexOf(id) === -1) ids.unshift(id);
+    }
+    for (let i = 0; i < ids.length; i++) {
+      const el = getEl(ids[i]);
+      if (el && el.type === "text" && textSelectionIn(el)) return el;
+    }
+    return null;
+  }
+
+  /* The last highlight we saw inside a text box. Reaching for the colour
+     panel or the font list takes focus off the words, and the browser drops
+     the highlight on the way - so the words that were chosen are remembered
+     here until the caret moves somewhere else in that box. */
+  let _lastTextRange = null;
+  document.addEventListener("selectionchange", function () {
+    const sel = window.getSelection && window.getSelection();
+    if (!sel || !sel.rangeCount) return;          // focus left: keep what we had
+    const node = sel.getRangeAt(0).commonAncestorContainer;
+    const host = node && (node.nodeType === 1 ? node : node.parentNode);
+    const inner = host && host.closest && host.closest(".ed-text-inner");
+    if (!inner) return;                           // selection is elsewhere entirely
+    const holder = inner.closest(".ed-element");
+    const el = holder && getEl(holder.dataset.id);
+    if (!el) return;
+    const live = textSelectionIn(el);
+    _lastTextRange = live ? { id: el.id, start: live.start, end: live.end } : null;
+  });
+  /* Anything that is not the words, the toolbar or a panel is the end of
+     that highlight. Without this, colouring a word, clicking away and coming
+     back would put the next colour on the same word rather than the box. */
+  document.addEventListener("pointerdown", function (e) {
+    const t = e.target;
+    if (!t || !t.closest) { _lastTextRange = null; return; }
+    if (t.closest(".ed-text-inner") || t.closest("#ed-context") || t.closest(".ed-panel")
+        || t.closest(".ed-colorpanel") || t.closest(".ed-font-browser") || t.closest(".ed-fb-btn")) return;
+    _lastTextRange = null;
+  }, true);
+
+  /* Put the highlight back after a change that had to redraw the box, so the
+     same words can be given a colour and then a font without being found
+     again in between. */
+  function selectChars(el, start, end) {
+    const node = canvasEl && canvasEl.querySelector('[data-id="' + el.id + '"]');
+    const inner = node && node.querySelector(".ed-text-inner");
+    if (!inner) return;
+    const walk = document.createTreeWalker(inner, NodeFilter.SHOW_TEXT);
+    let pos = 0, sn = null, so = 0, en = null, eo = 0, n;
+    while ((n = walk.nextNode())) {
+      const len = n.nodeValue.length;
+      if (sn === null && pos + len >= start) { sn = n; so = start - pos; }
+      if (pos + len >= end) { en = n; eo = end - pos; break; }
+      pos += len;
+    }
+    if (!sn || !en) return;
+    try {
+      const rg = document.createRange();
+      rg.setStart(sn, so); rg.setEnd(en, eo);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(rg);
+      _lastTextRange = { id: el.id, start: start, end: end };
+    } catch (_) {}
+  }
+
+  // The words a formatting control should act on: the live highlight if there
+  // still is one, otherwise the one that was there when focus left.
+  function pendingTextRange() {
+    if (!_lastTextRange) return null;
+    const el = getEl(_lastTextRange.id);
+    if (!el || el.type !== "text") return null;
+    const live = textSelectionIn(el);
+    if (live) return { el: el, start: live.start, end: live.end, whole: live.whole };
+    if (state.selectedIds.indexOf(el.id) === -1) return null;
+    const len = (el.text || "").length;
+    const start = Math.min(_lastTextRange.start, len), end = Math.min(_lastTextRange.end, len);
+    if (end <= start) return null;
+    return { el: el, start: start, end: end, whole: start === 0 && end >= len };
+  }
+
   // Put text into a .ed-text-inner: rich → innerHTML spans, else plain textContent.
   function setTextInnerContent(inner, el) {
     if (hasRuns(el)) inner.innerHTML = runsToHtml(el.runs);
@@ -3018,10 +3258,12 @@ import { createResizeEngine } from "./resize-engine.js";
     function push(text, fmt) {
       if (!text) return;
       const last = runs[runs.length - 1];
-      if (last && last.bold === fmt.bold && last.italic === fmt.italic && last.underline === fmt.underline) {
+      if (last && last.bold === fmt.bold && last.italic === fmt.italic && last.underline === fmt.underline
+          && last.color === fmt.color && last.font === fmt.font) {
         last.text += text;
       } else {
-        runs.push({ text: text, bold: fmt.bold, italic: fmt.italic, underline: fmt.underline });
+        runs.push({ text: text, bold: fmt.bold, italic: fmt.italic, underline: fmt.underline,
+                    color: fmt.color || null, font: fmt.font || null });
       }
     }
     function walk(node, fmt) {
@@ -3038,7 +3280,15 @@ import { createResizeEngine } from "./resize-engine.js";
         // Start from the inherited format, then let this node's tag / inline
         // styles set OR clear each flag — execCommand un-bolding writes an
         // explicit `font-weight: normal`, which must override an inherited bold.
-        const next = { bold: fmt.bold, italic: fmt.italic, underline: fmt.underline };
+        const next = { bold: fmt.bold, italic: fmt.italic, underline: fmt.underline,
+                       color: fmt.color, font: fmt.font };
+        /* Colour and font arrive either as our own data attribute or, when
+           the browser wrote them, as an inline style. Ours is trusted first:
+           a stack can be rewritten, a name cannot. */
+        const dataFont = child.getAttribute && child.getAttribute("data-font");
+        const famName = dataFont || fontNameFromFamily(st.fontFamily);
+        if (famName) next.font = famName;
+        if (st.color) { const hx = rgbHex(st.color); if (hx) next.color = hx; }
         if (tag === "B" || tag === "STRONG" || st.fontWeight === "bold" || cw >= 600) next.bold = true;
         else if (st.fontWeight === "normal" || (!isNaN(cw) && cw < 600)) next.bold = false;
         if (tag === "I" || tag === "EM" || st.fontStyle === "italic") next.italic = true;
@@ -3049,7 +3299,7 @@ import { createResizeEngine } from "./resize-engine.js";
         walk(child, next);
       }
     }
-    walk(root, { bold: false, italic: false, underline: false });
+    walk(root, { bold: false, italic: false, underline: false, color: null, font: null });
     // Drop one trailing newline (browsers leave a trailing <br>/empty block),
     // mirroring the legacy `.innerText.replace(/\n$/, "")`.
     for (let i = runs.length - 1; i >= 0; i--) {
@@ -3157,14 +3407,61 @@ import { createResizeEngine } from "./resize-engine.js";
   // Bold the current selection when editing (per-word → produces runs on commit),
   // otherwise toggle the whole element's weight (legacy). The DOM updates live via
   // execCommand; el.runs is parsed back on blur. Returns true if it bolded a range.
-  function applyBold(el, btn) {
+  /* Bold, italic and underline on the highlighted words. While the box is
+     being typed in we hand it to the browser, so the caret and the highlight
+     survive and the runs are read back on blur. Once focus has moved - the
+     highlight remembered rather than live - we do it on the model instead.
+     Returns true when it acted on part of the words. */
+  function applyTextMark(el, key, btn) {
     const inner = editingInnerFor(el);
     if (inner && hasInnerSelection(inner)) {
-      try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
-      document.execCommand("bold");
-      if (btn) { try { btn.classList.toggle("is-on", document.queryCommandState("bold")); } catch (_) {} }
-      return true;
+      const live = textSelectionIn(el);
+      if (live && !live.whole) {
+        try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
+        document.execCommand(key);
+        if (btn) { try { btn.classList.toggle("is-on", document.queryCommandState(key)); } catch (_) {} }
+        return true;
+      }
     }
+    const r = pendingTextRange();
+    if (!r || r.el !== el || r.whole) return false;
+    // Anything typed but not yet read back would be lost by the redraw.
+    if (inner) commitTextFromDom(inner, el);
+    const on = rangeFormat(el, r.start, r.end, key);
+    const patch = {}; patch[key] = !on;
+    formatTextRange(el, r.start, r.end, patch);
+    if (btn) btn.classList.toggle("is-on", !on);
+    loadGoogleFont(el.font);
+    autosizeTextElements();
+    fullRender(); pushHistory();
+    setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+    return true;
+  }
+  /* A font goes on the highlighted words when there are some - so one line
+     can be set in something different from the line above it - and on the
+     whole box when there aren't, which also clears the fonts single words
+     were given, because picking a font for the box meant the box. */
+  function applyFontChoice(el, name) {
+    if (!el || el.type !== "text") return;
+    loadGoogleFont(name);
+    const r = pendingTextRange();
+    if (r && r.el === el && !r.whole) {
+      const inner = editingInnerFor(el);
+      if (inner) commitTextFromDom(inner, el);
+      formatTextRange(el, r.start, r.end, { font: name });
+      setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+    } else {
+      if (Array.isArray(el.runs)) {
+        el.runs.forEach(function (x) { x.font = null; });
+        if (runsAreUniform(el.runs)) el.runs = null;
+      }
+      el.font = name;
+    }
+    autosizeTextElements();
+    fullRender(); pushHistory();
+  }
+  function applyBold(el, btn) {
+    if (applyTextMark(el, "bold", btn)) return true;
     el.weight = (el.weight || 400) >= 700 ? 400 : 700;
     loadGoogleFont(el.font); fullRender(); pushHistory();
     return false;
@@ -3902,6 +4199,14 @@ import { createResizeEngine } from "./resize-engine.js";
   document.body.appendChild(floatBar);
   // Don't let clicks on the bar bubble to the canvas (which would deselect).
   floatBar.addEventListener("pointerdown", (e) => e.stopPropagation());
+  /* Pressing the bin normally blurs the text box, and the highlight goes with
+     it - so by the time the click lands there is nothing left to say which
+     words were meant. Holding focus keeps the highlight alive long enough to
+     read it. */
+  floatBar.addEventListener("mousedown", (e) => {
+    const b = e.target.closest("[data-fb]");
+    if (b && b.dataset.fb === "delete" && elementWithTextSelection()) e.preventDefault();
+  });
   floatBar.addEventListener("click", (e) => {
     const b = e.target.closest("[data-fb]"); if (!b) return;
     const el = getEl(state.selectedIds[0]); if (!el) return;
@@ -5559,6 +5864,22 @@ import { createResizeEngine } from "./resize-engine.js";
   function deleteSelected() {
     if (!state.selectedIds.length) return;
     if (lockBlocks()) return;
+    /* Words highlighted inside a text box: take out the words, not the box.
+       Highlighting three words and reaching for the bin is a request to lose
+       three words. */
+    const withSel = elementWithTextSelection();
+    if (withSel) {
+      const sel = textSelectionIn(withSel);
+      if (sel && !sel.whole) {
+        removeTextRange(withSel, sel.start, sel.end);
+        const live = window.getSelection && window.getSelection();
+        if (live) live.removeAllRanges();
+        autosizeTextElements();
+        pushHistory();
+        fullRender();
+        return;
+      }
+    }
     // Two-stage delete for frames: a filled frame's first Delete empties just
     // the photo (the frame stays, still selected); a second Delete on the now
     // empty frame removes the frame itself. Only applies to a single frame.
@@ -5839,8 +6160,12 @@ import { createResizeEngine } from "./resize-engine.js";
     const specs = new Set();
     for (const el of state.elements) {
       if (el.hidden || el.type !== "text") continue;
-      const fam = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack.split(",")[0].trim();
-      specs.add((el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam);
+      const want = [el.font];
+      if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && r.font) want.push(r.font); });
+      want.forEach(function (name) {
+        const fam = (FONTS.find((f) => f.name === name) || FONTS[0]).stack.split(",")[0].trim();
+        specs.add((el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam);
+      });
     }
     try {
       await Promise.all([...specs].map((s) => document.fonts.load(s).catch(function () {})));
@@ -5983,7 +6308,8 @@ import { createResizeEngine } from "./resize-engine.js";
   // pipeline so PNG/JPG output matches what the editor renders on screen.
   // Canvas font string for a run, honouring the element base + the run override.
   function runFont(el, fmt) {
-    const stack = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    const name = (fmt && fmt.font) || el.font;
+    const stack = (FONTS.find((f) => f.name === name) || FONTS[0]).stack;
     const weight = fmt.bold ? 700 : (el.weight || 400);
     const italic = (fmt.italic || el.italic) ? "italic " : "";
     return italic + weight + " " + el.size + "px " + stack;
@@ -6024,12 +6350,15 @@ import { createResizeEngine } from "./resize-engine.js";
       ctx.textAlign = "left";
       for (const t of toks) {
         ctx.font = runFont(el, t.fmt);
-        ctx.fillStyle = paint;
+        // A word given its own colour keeps it; everything else takes the
+        // element's paint, which may be a gradient.
+        const ink = t.fmt.color || paint;
+        ctx.fillStyle = ink;
         ctx.fillText(t.text, x, yy);
         if (t.fmt.underline || el.underline) {
           const uy = yy + el.size * 1.02;
           ctx.save();
-          ctx.strokeStyle = paint;
+          ctx.strokeStyle = ink;
           ctx.lineWidth = Math.max(1, el.size / 16);
           ctx.beginPath(); ctx.moveTo(x, uy); ctx.lineTo(x + t.w, uy); ctx.stroke();
           ctx.restore();
@@ -7375,6 +7704,18 @@ import { createResizeEngine } from "./resize-engine.js";
     if (color.startsWith("#")) return color.length === 4
       ? "#" + color.slice(1).split("").map(c => c + c).join("")
       : color;
+    /* A browser hands colours back as rgb(122, 31, 61) - from a computed
+       style, or from execCommand writing one onto a span. Reading that as
+       black turned every word coloured on a selection black on the way home. */
+    const m = String(color).match(/rgba?\(([^)]+)\)/i);
+    if (m) {
+      const p = m[1].split(",").map(function (v) { return parseFloat(v); });
+      if (p.length >= 3 && p.slice(0, 3).every(function (v) { return isFinite(v); })) {
+        return "#" + p.slice(0, 3).map(function (v) {
+          return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+        }).join("").toUpperCase();
+      }
+    }
     // best-effort fallback
     return "#000000";
   }
@@ -8569,7 +8910,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const g1 = group();
       g1.style.gap = "10px";
       g1.appendChild(createFontPicker(el.font, function (name) {
-        el.font = name; fullRender(); pushHistory();
+        applyFontChoice(el, name);
       }, { onOpen: function () { openFontPanel(el); } }));
       g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
       // Colour — sits next to size now (opens the rich solid/gradient panel).
@@ -8577,7 +8918,26 @@ import { createResizeEngine } from "./resize-engine.js";
         function () { return el.color; },
         {
           title: "Text colour",
-          onSolid: function (hex) { el.color = hex; el.textGradient = null; },
+          /* Words highlighted inside the box take the colour on their own.
+             Nothing highlighted means the whole box, and that also clears the
+             colours single words were given - "make this red" meant all of
+             it, not all of it except the bits you fiddled with earlier. */
+          onSolid: function (hex) {
+            const r = pendingTextRange();
+            if (r && r.el === el && !r.whole) {
+              const inner = editingInnerFor(el);
+              if (inner) commitTextFromDom(inner, el);
+              formatTextRange(el, r.start, r.end, { color: hex });
+              autosizeTextElements();
+              setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+              return;
+            }
+            if (Array.isArray(el.runs)) {
+              el.runs.forEach(function (x) { x.color = null; });
+              if (runsAreUniform(el.runs)) el.runs = null;
+            }
+            el.color = hex; el.textGradient = null;
+          },
           onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, stops: g.stops, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
           getGradient: function () { return el.textGradient; },
         }
@@ -8597,12 +8957,20 @@ import { createResizeEngine } from "./resize-engine.js";
       boldBtn.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
       boldBtn.addEventListener("click", function () { applyBold(el, boldBtn); });
       g2.appendChild(boldBtn);
-      g2.appendChild(toggleBtn("I", !!el.italic, () => {
+      // Italic and underline read the highlight first, the same as bold - so
+      // one word can be italic without the sentence being italic.
+      const italicBtn = toggleBtn("I", !!el.italic, () => {
+        if (applyTextMark(el, "italic", italicBtn)) return;
         el.italic = !el.italic; fullRender(); pushHistory();
-      }, "Italic"));
-      g2.appendChild(toggleBtn("U", !!el.underline, () => {
+      }, "Italic");
+      italicBtn.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
+      g2.appendChild(italicBtn);
+      const underlineBtn = toggleBtn("U", !!el.underline, () => {
+        if (applyTextMark(el, "underline", underlineBtn)) return;
         el.underline = !el.underline; fullRender(); pushHistory();
-      }, "Underline"));
+      }, "Underline");
+      underlineBtn.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
+      g2.appendChild(underlineBtn);
       ctxEl.appendChild(g2);
 
       // Align (bigger, no arrow — cycles) + Spacing (one popover: letter + line).
@@ -9551,10 +9919,12 @@ import { createResizeEngine } from "./resize-engine.js";
       const name = document.createElement("button");
       name.type = "button"; name.className = "ed-fb-name"; name.textContent = f.name;
       if (preview) { name.style.fontFamily = f.stack; loadGoogleFont(f.name); }
+      // Don't let pressing a font name take focus off the words first.
+      name.addEventListener("mousedown", function (e) { if (el && editingInnerFor(el)) e.preventDefault(); });
       name.addEventListener("click", function () {
         if (!el) { toast("Select a text layer first"); return; }
-        loadGoogleFont(f.name); el.font = f.name; pushRecentFont(f.name);
-        fullRender(); pushHistory();
+        pushRecentFont(f.name);
+        applyFontChoice(el, f.name);
       });
       const star = document.createElement("button");
       star.type = "button";
@@ -11290,7 +11660,8 @@ import { createResizeEngine } from "./resize-engine.js";
     // Ctrl/Cmd+B WHILE editing a text box → bold the selection (per-word). We
     // handle it explicitly (rather than relying on the browser default) so the
     // behaviour is consistent everywhere; runs are parsed back on blur.
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+    const _mark = { b: "bold", i: "italic", u: "underline" }[e.key.toLowerCase()];
+    if ((e.ctrlKey || e.metaKey) && _mark) {
       const editingInner = document.querySelector('.ed-text-inner[contenteditable="true"]');
       if (editingInner) {
         e.preventDefault();
@@ -11298,7 +11669,7 @@ import { createResizeEngine } from "./resize-engine.js";
         const editingEl = getEl(editingInner.closest(".ed-element")?.dataset.id);
         if (isLightForMember(editingEl)) return;
         try { document.execCommand("styleWithCSS", false, true); } catch (_) {}
-        document.execCommand("bold");
+        document.execCommand(_mark);
         return;
       }
     }

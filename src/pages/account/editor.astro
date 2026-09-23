@@ -3990,6 +3990,15 @@ const googleFonts = [
       cursor: move;
     }
     .ed-element[data-type="text"].is-editing .ed-text-inner { cursor: text; }
+    /* A box you are typing in has selectable words. Without this the element's
+       own `user-select: none` reaches inside it, and a highlight that looks
+       perfectly real reads back as nothing - so copying it, and anything that
+       formats part of the words, has nothing to work on. The phone styles have
+       always said this; the desktop never did. */
+    .ed-element[data-type="text"].is-editing,
+    .ed-element[data-type="text"].is-editing .ed-text-inner {
+      -webkit-user-select: text; user-select: text;
+    }
     .ed-element[data-type="image"] img {
       width: 100%; height: 100%; object-fit: cover; pointer-events: none;
       display: block;
