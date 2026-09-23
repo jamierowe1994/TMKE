@@ -28,11 +28,67 @@ import "../../styles/admin.css";
 
     <div id="sb-kit" hidden>
       <BrandKitForm idPrefix="sb" />
+
+      <!-- Two invented people to design against. A template with nobody in it
+           can't be judged: you need to see how the copy sits beside a person
+           at the size a person actually is. Never served to a member. -->
+      <section class="sb-standins">
+        <div class="sb-si-head">
+          <h2>Stand-in people</h2>
+          <p>Two made-up agents for laying templates out against, so a design can be judged with somebody in it. Members never see these &mdash; a real agent gets their own brand-approved photo, or the empty slot if we don&rsquo;t hold one yet. Full length, no background.</p>
+        </div>
+        <div class="sb-si-row">
+          <div class="sb-si" data-si="female" data-url="">
+            <label class="sb-si-tile" title="Click to upload">
+              <input type="file" accept="image/*" hidden data-si-file="female" />
+              <span aria-hidden="true">+</span>
+            </label>
+            <div class="sb-si-name">Woman</div>
+            <button type="button" class="sb-si-clear" data-si-clear="female" hidden>Remove</button>
+          </div>
+          <div class="sb-si" data-si="male" data-url="">
+            <label class="sb-si-tile" title="Click to upload">
+              <input type="file" accept="image/*" hidden data-si-file="male" />
+              <span aria-hidden="true">+</span>
+            </label>
+            <div class="sb-si-name">Man</div>
+            <button type="button" class="sb-si-clear" data-si-clear="male" hidden>Remove</button>
+          </div>
+        </div>
+        <div class="sb-si-foot">
+          <button type="button" class="admin-btn admin-btn-primary" id="sb-si-save">Save stand-ins</button>
+          <span class="sb-note" id="sb-si-status"></span>
+        </div>
+      </section>
     </div>
   </div>
 
   <style is:global>
     .sb-note { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+    .sb-standins { margin-top: 26px; padding-top: 24px; border-top: 1px solid var(--border, rgba(28,29,34,0.12)); }
+    .sb-si-head h2 { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); margin: 0 0 6px; }
+    .sb-si-head p { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 0 0 16px; max-width: 70ch; }
+    .sb-si-row { display: flex; gap: 18px; flex-wrap: wrap; }
+    .sb-si { width: 120px; }
+    /* Tall, because a full-length cut-out is tall. A square preview would
+       flatter a picture that is about to be the wrong shape. */
+    .sb-si-tile {
+      display: grid; place-items: center; width: 120px; height: 210px; cursor: pointer;
+      border: 1px dashed rgba(28,29,34,0.28); border-radius: 8px; background: #faf9f8;
+      transition: border-color 0.18s;
+    }
+    .sb-si-tile:hover { border-color: var(--english-violet); }
+    .sb-si-tile span { font-size: 26px; font-weight: 300; color: var(--english-violet); line-height: 1; }
+    .sb-si.has-img .sb-si-tile {
+      border-style: solid; border-color: rgba(var(--violet-rgb),0.25);
+      background-image: var(--sb-si); background-size: contain;
+      background-position: center bottom; background-repeat: no-repeat;
+    }
+    .sb-si.has-img .sb-si-tile span { display: none; }
+    .sb-si-name { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin-top: 8px; }
+    .sb-si-clear { margin-top: 4px; background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; color: #a05a3c; }
+    .sb-si-clear[hidden] { display: none; }
+    .sb-si-foot { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
   </style>
 
   <script>
@@ -73,6 +129,7 @@ import "../../styles/admin.css";
       els.kit.hidden = false;
       els.count.textContent = data ? 'Set up' : 'Not set up yet';
       fillForm(root, data || { company: 'The Marketing Experts' });
+      fillStandIns((data && data.stand_ins) || {});
     }
 
     root.querySelector('[data-save]')?.addEventListener('click', async (e) => {
@@ -86,6 +143,61 @@ import "../../styles/admin.css";
       status('Saved');
       els.count.textContent = 'Set up';
       setTimeout(() => status(''), 2200);
+    });
+
+    /* The two stand-ins. Saved on their own, because they belong to the studio
+       rather than to a kit, and because uploading a picture and pressing Save
+       on a form full of colours is a good way to lose one of the two. */
+    const siStatus = (m) => { document.getElementById('sb-si-status').textContent = m || ''; };
+    function showStandIn(which, url) {
+      const box = document.querySelector(`[data-si="${which}"]`);
+      if (!box) return;
+      box.setAttribute('data-url', url || '');
+      box.classList.toggle('has-img', !!url);
+      if (url) box.style.setProperty('--sb-si', `url('${url}')`);
+      else box.style.removeProperty('--sb-si');
+      const clear = box.querySelector(`[data-si-clear="${which}"]`);
+      if (clear) clear.hidden = !url;
+    }
+    function fillStandIns(si) {
+      showStandIn('female', si.female || '');
+      showStandIn('male', si.male || '');
+    }
+    document.addEventListener('change', async (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLInputElement)) return;
+      const which = el.getAttribute('data-si-file');
+      if (!which) return;
+      const f = el.files && el.files[0];
+      el.value = '';
+      if (!f || !f.type.startsWith('image/')) return;
+      siStatus('Uploading…');
+      const ext = (f.name.split('.').pop() || 'png').toLowerCase();
+      const path = `studio-stand-ins/${which}-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('pack-images')
+        .upload(path, f, { cacheControl: '3600', upsert: false, contentType: f.type });
+      if (error) { siStatus('Upload failed: ' + error.message); return; }
+      const { data } = supabase.storage.from('pack-images').getPublicUrl(path);
+      showStandIn(which, data.publicUrl);
+      siStatus('Uploaded — press Save stand-ins to keep it.');
+    });
+    document.addEventListener('click', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLElement)) return;
+      const which = el.getAttribute('data-si-clear');
+      if (which) showStandIn(which, '');
+    });
+    document.getElementById('sb-si-save')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      const url = (w) => document.querySelector(`[data-si="${w}"]`)?.getAttribute('data-url') || null;
+      btn.disabled = true;
+      siStatus('Saving…');
+      const { error } = await supabase.from('brand_profiles')
+        .upsert({ brand: KEY, stand_ins: { female: url('female'), male: url('male') } }, { onConflict: 'brand' });
+      btn.disabled = false;
+      if (error) { siStatus('Could not save: ' + escapeHtml(error.message)); return; }
+      siStatus('Saved');
+      setTimeout(() => siStatus(''), 2200);
     });
 
     wireColors(root);

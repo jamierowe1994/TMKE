@@ -324,6 +324,27 @@ import "../../styles/admin.css";
     .teg-link { display: flex; gap: 6px; align-items: center; }
     .teg-link input { flex: 1; min-width: 0; font-family: var(--sans); font-size: 12.5px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.15); border-radius: 6px; background: var(--paper); color: var(--ink); }
     .teg-link .ct-mini { flex: 0 0 auto; display: inline-flex; align-items: center; text-decoration: none; }
+    /* The brand photo: a tall tile, because that is the shape a full-length
+       cut-out arrives in and a square one would flatter a portrait that isn't. */
+    .teg-photo { display: flex; gap: 12px; align-items: flex-start; }
+    .teg-photo-tile {
+      flex: 0 0 auto; width: 58px; height: 100px; border-radius: 7px; cursor: pointer;
+      border: 1px dashed rgba(28,29,34,0.28); background: #faf9f8;
+      display: grid; place-items: center; transition: border-color 0.18s;
+    }
+    .teg-photo-tile:hover { border-color: var(--english-violet); }
+    .teg-photo-tile span { font-size: 22px; font-weight: 300; color: var(--english-violet); line-height: 1; }
+    .teg-photo-tile.has-img {
+      border-style: solid; border-color: rgba(var(--violet-rgb),0.25);
+      background-image: var(--teg-photo); background-size: contain;
+      background-position: center; background-repeat: no-repeat;
+    }
+    .teg-photo-tile.has-img span { display: none; }
+    .teg-photo-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+    .teg-photo-side input { width: 100%; box-sizing: border-box; }
+    .teg-photo-side .ct-linkbtn { align-self: flex-start; font-size: 12px; color: #a05a3c; }
+    .teg-photo-side .ct-linkbtn[hidden] { display: none; }
+
     .ct-send { display: grid; gap: 10px; padding: 14px 22px 16px; background: #faf9f8; border-bottom: 1px solid rgba(28,29,34,0.1); }
     .ct-send[hidden] { display: none; }
     .ct-send-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
@@ -944,6 +965,19 @@ import "../../styles/admin.css";
             <div class="ct-field"><label>Job title</label><input id="teg-job-title" value="${val(p && p.job_title)}" placeholder="e.g. Senior Property Expert" /><small>Printed on their contact footer.</small></div>
             <div class="ct-field"><label>Work email at this brand</label><input id="teg-email" value="${val(p && p.email)}" placeholder="Leave blank to use their main one" /></div>
             <div class="ct-field"><label>Work number at this brand</label><input id="teg-phone" value="${val(p && p.phone)}" placeholder="Leave blank to use their main one" /></div>
+            <div class="ct-field"><label>Brand-approved photo</label>
+              <div class="teg-photo">
+                <label class="teg-photo-tile${p && p.brand_photo_url ? " has-img" : ""}" id="teg-photo-tile" title="Click to upload"${p && p.brand_photo_url ? ` style="--teg-photo:url('${esc(p.brand_photo_url)}')"` : ""}>
+                  <input type="file" id="teg-photo-file" accept="image/*" hidden />
+                  <span aria-hidden="true">+</span>
+                </label>
+                <div class="teg-photo-side">
+                  <input id="teg-photo-url" value="${val(p && p.brand_photo_url)}" placeholder="Paste a URL, or click the tile to upload" />
+                  <button type="button" class="ct-linkbtn" id="teg-photo-clear"${p && p.brand_photo_url ? "" : " hidden"}>Remove photo</button>
+                </div>
+              </div>
+              <small>Full length, no background. The only photo print will use &mdash; their own headshot never goes near it. TEG&rsquo;s feed fills this in once it is connected.${p && p.brand_photo_source ? ` Set by ${esc(p.brand_photo_source === "teg" ? "the TEG feed" : "hand")}.` : ""}</small>
+            </div>
             ${all.length > 1 ? `<label class="ct-toggle"><input type="checkbox" id="teg-primary" ${p && p.is_primary ? "checked" : ""} ${p && p.is_primary ? "disabled" : ""}/> Their Studio opens in this brand</label>` : ""}
             ${all.length > 1 && p && !p.is_primary ? `<button type="button" class="ct-linkbtn" id="teg-remove-brand">Remove this brand</button>` : ""}
           </div>
@@ -1050,6 +1084,41 @@ import "../../styles/admin.css";
         tegMsg("Removed.", true);
       });
 
+      /* Uploading the brand photo. Straight into the public bucket the brand
+         logos already use -- the file has to be fetchable by a design, and a
+         second bucket would be a second set of permissions to get wrong. */
+      const photoFile = document.getElementById("teg-photo-file");
+      const photoUrl = document.getElementById("teg-photo-url");
+      const photoTile = document.getElementById("teg-photo-tile");
+      const photoClear = document.getElementById("teg-photo-clear");
+      const showPhoto = (url) => {
+        if (url) {
+          photoTile.classList.add("has-img");
+          photoTile.style.setProperty("--teg-photo", `url('${url}')`);
+        } else {
+          photoTile.classList.remove("has-img");
+          photoTile.style.removeProperty("--teg-photo");
+        }
+        if (photoClear) photoClear.hidden = !url;
+      };
+      photoFile?.addEventListener("change", async () => {
+        const f = photoFile.files && photoFile.files[0];
+        photoFile.value = "";
+        if (!f || !f.type.startsWith("image/")) return;
+        tegMsg("Uploading the photo…", true);
+        const ext = (f.name.split(".").pop() || "png").toLowerCase();
+        const path = `agent-photos/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        const { error } = await supabase.storage.from("pack-images")
+          .upload(path, f, { cacheControl: "3600", upsert: false, contentType: f.type });
+        if (error) { tegMsg("That didn't upload: " + error.message, false); return; }
+        const { data } = supabase.storage.from("pack-images").getPublicUrl(path);
+        photoUrl.value = data.publicUrl;
+        showPhoto(data.publicUrl);
+        tegMsg("Uploaded — press Save agent details to keep it.", true);
+      });
+      photoUrl?.addEventListener("change", () => showPhoto(photoUrl.value.trim()));
+      photoClear?.addEventListener("click", () => { photoUrl.value = ""; showPhoto(""); });
+
       const nsCb = document.getElementById("teg-newstarter");
       nsCb?.addEventListener("change", () => { document.getElementById("teg-ns-fields").hidden = !nsCb.checked; });
       document.getElementById("teg-save")?.addEventListener("click", async () => {
@@ -1065,6 +1134,8 @@ import "../../styles/admin.css";
           // Blank means "use the contact's own" — nobody types it twice.
           email: tegVal("teg-email"),
           phone: tegVal("teg-phone"),
+          // Always sent, so clearing the box actually clears the photo.
+          brand_photo_url: tegVal("teg-photo-url"),
           make_primary: !!document.getElementById("teg-primary")?.checked,
           is_new_starter: !!document.getElementById("teg-newstarter")?.checked,
           induction_month: tegVal("teg-month") || null,

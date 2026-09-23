@@ -1,0 +1,95 @@
+# The brand-approved photo
+
+**For: the Design Studio chat. From: the Admin Centre chat. 23 Sep 2026.**
+
+An agent's kit now holds **two pictures of them**, and the whole point is that
+they are not interchangeable.
+
+| | where it comes from | social | print |
+|---|---|---|---|
+| `kit.headshot` | they upload it themselves, square, ~600px | yes | **never** |
+| `kit.brandPhoto` | supplied by TEG, full length, no background | yes | **only this** |
+
+Print is the reason. A selfie cropped square holds up at 1080px on Instagram
+and falls apart on a 6-sheet, and a board with a bad cut-out on it is a board
+the brand has to live with for six weeks. So print takes the approved photo or
+it takes nothing.
+
+The example that prompted this: a Property Experts "Please Join Me" invitation —
+full-height cut-out down the left edge, copy to the right, contact block at the
+foot. That layout is only possible with a background-free full-length shot.
+
+## What already exists
+
+- `agent_profiles.brand_photo_url` — **per person per brand**, like everything
+  else on that table. An agent who is a Property Expert and a Letting Expert is
+  photographed in both liveries, and a Letting board must not carry the
+  Property picture. (`supabase/agent_brand_photo.sql`)
+- `kit.brandPhoto` comes back from `GET /member/brand-prefill` and is written
+  into the brand cache, so it arrives with everything else the editor reads.
+  Null when we hold no photo for them.
+- It is **not** three-way merged. Every other field can become theirs if they
+  edit it; this one always follows the brand, so a stale photo heals itself
+  the next time they arrive. The brand kit page shows it and cannot change it.
+- `GET /studio/stand-ins` → `{ ok, female, male, ghost }`. Any signed-in
+  member may read it.
+
+## Which picture, when
+
+One resolution order, and it depends on what is being made:
+
+```
+print design      brandPhoto  →  ghost          (never headshot)
+social design     brandPhoto  →  headshot  →  ghost
+a headshot slot   headshot    →  brandPhoto  →  ghost
+```
+
+The third line is Danielle's: if they never set their own headshot, the brand
+photo stands in for it. The first line is the one that matters — a print
+export must refuse the headshot even when it is the only picture we hold.
+
+## The ghost
+
+`/images/agent-photo-ghost.svg` — a dashed slot with a grey standing figure in
+it, proportioned 1:2.33, the shape a real cut-out arrives in. It reads as
+"a photograph belongs here" and never as a photograph.
+
+The slot should say so in words as well, in the editor's own chrome rather
+than baked into the image: **"This is where the photo of you goes."** Text
+drawn into the SVG would be four point high in a footer and forty point on a
+6-sheet, which is why it isn't in there.
+
+## The stand-ins
+
+Two invented people, a man and a woman, set in **Studio → Studio branding**
+and served by `/studio/stand-ins`. They exist so a template can be judged with
+somebody in it — copy beside a person, at the size a person actually is.
+
+They are a **design-time** choice and nothing else. A member never sees one:
+the moment a real agent opens the design they get their own photo, or the
+ghost. Whatever the Studio uses to remember "show me the woman while I work"
+must not be able to leak into a saved design or an export.
+
+## The decisions that matter
+
+**Print refuses the headshot, silently is not good enough.** If a print design
+has a photo slot and we hold no `brandPhoto`, say so where the person can see
+it — "we don't have your brand photo yet" — rather than printing a ghost or
+dropping the slot.
+
+**A dual-brand agent's photo follows the brand switcher.** `brandPhoto` is
+per brand and comes down inside the kit, so switching brand in the Studio
+already swaps it — as long as the photo is read from the active kit each time
+rather than cached at load. Same rule as the logo.
+
+**The aspect ratio is the brand's, not the box's.** A cut-out has a real
+shape; a slot should `contain` it and bottom-align it (people stand on the
+floor), never `cover` it. The brief's tiles all do this and look right.
+
+## Notes
+
+- Nothing is wired to TEG yet. `brand_photo_source` records `'teg'` or
+  `'admin'` so the feed can later be taught not to overwrite one a person at
+  TMKE set by hand while the feed was down.
+- Until then, the photo is set per brand in the contact drawer's TEG tab,
+  uploaded into the `pack-images` bucket the brand logos already use.

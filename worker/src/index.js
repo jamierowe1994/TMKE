@@ -410,6 +410,12 @@ async function ensureAgentProfile(env, contactId, contact, input) {
     package: pkg || (existing && existing.package) || null,
     promo_code: promoCode,
     promo_code_id: promoCodeId,
+    /* Until the TEG feed is connected this is set by hand in the contact
+       drawer. `source` records which, so the feed can be taught later not to
+       overwrite one a person chose while it was down. */
+    brand_photo_url: input.brand_photo_url === null
+      ? null
+      : coalesce(input.brand_photo_url, existing && existing.brand_photo_url),
     trainer_name: coalesce(input.trainer_name, (existing && existing.trainer_name)) || tr.name,
     trainer_email: coalesce(input.trainer_email, (existing && existing.trainer_email)) || tr.email,
     // Their number and address AT THIS BRAND. Null means "use the contact's
@@ -419,6 +425,12 @@ async function ensureAgentProfile(env, contactId, contact, input) {
   };
   // First brand a person gets is the one their Studio opens in.
   row.is_primary = existing ? (existing.is_primary !== false) : !allRows.some((r) => r.is_primary);
+  // Only stamp the photo's provenance when the photo actually changed, so
+  // saving a job title doesn't rewrite the day TEG supplied the picture.
+  if (row.brand_photo_url !== ((existing && existing.brand_photo_url) || null)) {
+    row.brand_photo_source = input.brand_photo_source || "admin";
+    row.brand_photo_updated_at = new Date().toISOString();
+  }
   /* Edit the row we found, or insert a new one — a plain insert, deliberately
      not an upsert. Both unique indexes here are PARTIAL (one `where brand is
      not null`, one `where brand is null`), and Postgres will not infer a
@@ -1044,7 +1056,7 @@ async function brandKitFor(env, { userId, email, brand: want }) {
      Property Experts colours. So we build the kit for the brand they are
      designing as, defaulting to the one their Studio opens in. */
   const apRows = await sbGet(env, "agent_profiles",
-    `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,area,email,phone,left_at,is_primary&left_at=is.null`) || [];
+    `contact_id=eq.${encodeURIComponent(contact.id)}&select=brand,job_title,area,email,phone,left_at,is_primary,brand_photo_url&left_at=is.null`) || [];
   const live = apRows.filter((r) => r.brand);
   const wanted = String(want || "").trim().toLowerCase();
   const ap = (wanted && live.find((r) => String(r.brand).trim().toLowerCase() === wanted))
@@ -1076,6 +1088,12 @@ async function brandKitFor(env, { userId, email, brand: want }) {
       : null,
     fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
     logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
+    /* The brand-approved photo: a full-length cut-out of them, supplied by
+       TEG, and the only picture allowed on print. Per brand, because an agent
+       who works for two is photographed in both liveries. Theirs -- the square
+       headshot they upload themselves -- lives on `headshot` and is never
+       touched by any of this. */
+    brandPhoto: (ap && ap.brand_photo_url) || null,
     about: {
       name: name || "",
       role: (ap && ap.job_title) || "",
@@ -1157,6 +1175,16 @@ async function syncBrandKit(env, { userId, email }) {
   const base = row.base || {};
   const next = JSON.parse(JSON.stringify(theirs));
   const changed = [];
+
+  /* The brand photo is the one field that is NOT three-way merged. It is
+     supplied, it is the only picture print will accept, and nobody at a brand
+     wants last year's photograph going out because a member once edited their
+     kit. So it follows the brand, always, and a stale one heals itself the
+     next time they turn up. Their own headshot is untouched. */
+  if (!same(theirs.brandPhoto, fresh.brandPhoto)) {
+    next.brandPhoto = fresh.brandPhoto;
+    changed.push("brandPhoto");
+  }
 
   KIT_FIELDS.forEach((f) => {
     if (same(fresh[f], base[f])) return;          // the brand did not change it
@@ -7351,6 +7379,23 @@ export default {
       /* Run whenever a member arrives: has their brand changed anything they
          haven't made their own? Cheap, and it self-heals — nothing to schedule
          and nothing to push. */
+      /* The two invented people the design studio lays templates out against.
+         Not a member's photo and never served as one -- a real agent gets
+         their own, or the ghost. Any signed-in member may read them: the
+         studio needs them the moment it opens a template. */
+      if (path.endsWith("/studio/stand-ins") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const rows = await sbGet(env, "brand_profiles", "brand=eq.__studio__&select=stand_ins&limit=1");
+        const si = (rows && rows[0] && rows[0].stand_ins) || {};
+        return json({
+          ok: true,
+          female: si.female || null,
+          male: si.male || null,
+          ghost: "/images/agent-photo-ghost.svg",
+        }, 200, request, env);
+      }
+
       if (path.endsWith("/member/brand-sync") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in first." }, 401, request, env);
@@ -7601,6 +7646,9 @@ export default {
           // one of each, and the footer has to print the right one.
           email: (b && b.email) || null,
           phone: (b && b.phone) || null,
+          // "" means clear it; absent means leave whatever is there.
+          brand_photo_url: (b && typeof b.brand_photo_url === "string")
+            ? (b.brand_photo_url.trim() || null) : undefined,
           is_new_starter: !!(b && b.is_new_starter),
           induction_month: (b && b.induction_month) || null,
           package: (b && b.package) || null,
