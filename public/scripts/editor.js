@@ -2693,8 +2693,10 @@ import { createResizeEngine } from "./resize-engine.js";
     add.addEventListener("click", addPage);
     strip.appendChild(add);
 
-    // The way out, on every screen.
-    if (multi) {
+    /* The way out, on every screen and whatever the page count: if the strip
+       is open at all — opened by us or by the rail button — there has to be
+       something that closes it. */
+    {
       const close = document.createElement("button");
       close.type = "button";
       close.className = "ed-pages-close";
