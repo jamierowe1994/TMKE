@@ -112,7 +112,39 @@ reports `pages: 2` and `pages: 1` respectively.
 live database. Merging the already-split designs is the step the brief puts
 afterwards, and it is Danielle's to trigger now the reader ships.
 
-## The merge: nothing to merge (23 Sep 2026)
+## The merge: I looked in the wrong place (23 Sep 2026)
+
+**Correction to the section below, which is wrong.** The anon key sees only
+`status = active` templates in active packs — 111 of them. I read that count
+as the table's total and told Danielle there was nothing to merge. She then
+opened the Admin Centre and found the three rows the brief describes, sitting
+in a pack the anon key cannot see. The count was a visibility limit, not a
+total, and nothing that follows about "no split designs" can be relied on.
+
+What is on her screen: `TPE Just Listed Postcard - Test — 01` (#0, active),
+`TPE Just Listed Postcard - Test` (#1, draft) and `— 02` (#2, active). The
+draft is the empty row the admin Templates page creates before you design
+into it; the two numbered ones are the old publish writing a row per page.
+
+The cleanup is hers, in the Admin Centre — those rows cannot be reached from
+here — and it is the Archive button on each leftover once the good version is
+republished.
+
+### Found while looking: the admin Save dropped every page but one
+
+`__TMKE_ADMIN_SAVE__` wrote only `canvas`/`elements`, and took them from
+`payload.canvas` — **the page on screen**, not page one. So an admin editing
+the back of a postcard and pressing Save replaced the row's front with its
+back and lost the second page entirely. Publishing was only ever half the
+problem; the save underneath it was throwing pages away the whole time.
+
+Fixed: the patch now writes `pages` (all of them) with `canvas`/`elements`
+holding page one, exactly the shape publish writes, with the same fallback
+for a database that has not run `template_pages.sql`. Image externalising
+covers every page too — a postcard's back has photographs as well, and
+leaving them as base64 is what makes a row too big to save.
+
+## Superseded: the check that said there was nothing to merge
 
 Danielle asked for the split designs to be merged. Checked against the live
 database first, and there are none:

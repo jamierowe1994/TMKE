@@ -5333,12 +5333,20 @@ const googleFonts = [
              what pushes the row past what the database will accept, and is the
              likeliest reason a save that used to work stops working. It is
              said out loud now rather than logged to a console nobody has open. */
+          /* Every page, not just the one on screen. A postcard's back has
+             photographs too, and leaving them as base64 is what pushes a row
+             past what the database will accept. */
+          const allPages = (Array.isArray(payload.pages) && payload.pages.length)
+            ? payload.pages
+            : [{ canvas: payload.canvas, elements: payload.elements }];
           let stranded = 0;
           try {
-            await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]);
+            await externalizePages(allPages);
           } catch (e) { console.error('[save: externalize]', e); }
-          for (const el of (payload.elements || [])) {
-            if (el && typeof el.src === 'string' && el.src.startsWith('data:')) stranded++;
+          for (const pg of allPages) {
+            for (const el of (pg.elements || [])) {
+              if (el && typeof el.src === 'string' && el.src.startsWith('data:')) stranded++;
+            }
           }
           if (typeof payload?.canvas?.backgroundImage === 'string'
               && payload.canvas.backgroundImage.startsWith('data:')) stranded++;
@@ -5356,21 +5364,33 @@ const googleFonts = [
           if (typeof payload.render === 'string' && payload.render.startsWith('data:')) {
             try { renderUrl = await externUploadDataUrl(payload.render); } catch (e) { console.error('[save: render]', e); }
           }
+          /* The whole design, every time. `canvas`/`elements` hold PAGE ONE -
+             not whichever page happens to be open, which is how saving while
+             looking at the back of a postcard replaced its front - and `pages`
+             holds all of them. Same shape publish writes, so a design saved
+             and a design published are the same thing on disk. */
+          const first = allPages[0] || { canvas: payload.canvas, elements: payload.elements };
           const patch = {
             name: payload.filename,
-            canvas: payload.canvas,
-            elements: payload.elements,
+            canvas: first.canvas,
+            elements: first.elements,
+            pages: allPages.map((pg) => ({ canvas: pg.canvas, elements: pg.elements })),
           };
           if (thumbUrl) patch.thumb_url = thumbUrl;
           if (renderUrl) patch.render_url = renderUrl;
           // A long editing session can outlive the access token. Refresh once
           // and try again before calling it a failure — the design is fine, the
           // sign-in just went stale underneath it.
-          const write = () => supabase.from('templates').update(patch).eq('id', payload.templateId);
-          let { error: saveErr } = await write();
+          const write = (body) => supabase.from('templates').update(body).eq('id', payload.templateId);
+          let { error: saveErr } = await write(patch);
           if (saveErr && /jwt|token|expired|auth/i.test(saveErr.message || '')) {
             try { await supabase.auth.refreshSession(); } catch (_) {}
-            ({ error: saveErr } = await write());
+            ({ error: saveErr } = await write(patch));
+          }
+          // A database that has not run supabase/template_pages.sql yet.
+          if (saveErr && /pages/i.test(saveErr.message || '')) {
+            const { pages: _drop, ...noPages } = patch;
+            ({ error: saveErr } = await write(noPages));
           }
           if (!saveErr) return { ok: true };
 
