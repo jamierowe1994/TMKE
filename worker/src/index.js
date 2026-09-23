@@ -1222,9 +1222,26 @@ async function syncBrandKit(env, { userId, email }) {
     return { ok: true, state: "seeded", brand, brands };
   }
 
+  /* The brand photo, before anything else can return early.
+
+     Every other field in a kit can become theirs. This one cannot: it is the
+     brand's photograph of them and the only picture print will take. So it
+     follows the brand in EVERY state -- including for somebody who kept their
+     own kit when asked, who was previously skipped by the return below and
+     therefore never received a photo at all. */
+  let photoChanged = false;
+  if (!same((row.kit || {}).brandPhoto, fresh.brandPhoto)) {
+    const withPhoto = Object.assign({}, row.kit, { brandPhoto: fresh.brandPhoto, updatedAt: Date.now() });
+    await sbPatch(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}`, {
+      kit: withPhoto, updated_at: new Date().toISOString(),
+    });
+    row.kit = withPhoto;
+    photoChanged = true;
+  }
+
   // Built their own before brand kits existed. Ask, never assume.
   if (!row.base) {
-    return { ok: true, state: "offer", brand, brands, kit: fresh };
+    return { ok: true, state: "offer", brand, brands, kit: fresh, photoChanged };
   }
 
   const theirs = row.kit || {};
@@ -1269,7 +1286,7 @@ async function syncBrandKit(env, { userId, email }) {
     await sbPatch(env, "member_brand_kits", `user_id=eq.${encodeURIComponent(userId)}`, {
       base: fresh, base_brand: brand, synced_at: new Date().toISOString(),
     });
-    return { ok: true, state: "current", brand, brands };
+    return { ok: true, state: "current", brand, brands, photoChanged };
   }
 
   next.updatedAt = Date.now();
@@ -1277,7 +1294,7 @@ async function syncBrandKit(env, { userId, email }) {
     kit: next, base: fresh, base_brand: brand,
     synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   });
-  return { ok: true, state: "updated", brand, brands, changed };
+  return { ok: true, state: "updated", brand, brands, changed, photoChanged };
 }
 
 /* Fill the blanks in a member's existing kit from their brand and record.

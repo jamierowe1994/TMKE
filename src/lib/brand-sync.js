@@ -35,7 +35,11 @@ export async function syncBrandKit(supabase, { onOffer } = {}) {
 
   // A kit that changed under them: the cache has to follow or the next save
   // writes the old values straight back over it.
-  if (out.state === 'seeded' || out.state === 'updated') {
+  /* photoChanged matters on its own: the brand photo follows the brand in
+     every state, including "offer" -- somebody who kept their own kit still
+     gets their brand's photograph of them, and the cache has to hear about it
+     or the studio keeps drawing the empty slot. */
+  if (out.state === 'seeded' || out.state === 'updated' || out.photoChanged) {
     try {
       const { data } = await supabase
         .from('member_brand_kits').select('kit').eq('user_id', uid).maybeSingle();
