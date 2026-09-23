@@ -133,23 +133,23 @@ export function adoptBrandCacheOrReload(uid) {
  * already says". Returns null when we looked and there is no photo.
  */
 async function fetchBrandPhoto(supabase, uid, company) {
+  /* Through a function, not the table. `agent_profiles` is staff-only and
+     always will be -- it holds join dates, packages, trainer details and a
+     100%-discount promo code, none of which anybody needs in order to load a
+     photograph. `member_brand_photo(p_brand)` is `security definer`, granted
+     to authenticated, and returns exactly one field: the photo for this
+     signed-in person at the brand asked for, or at their primary brand when
+     none is named. See supabase/member_brand_photo.sql.
+
+     Reading the table directly returned nothing at all, silently, which is
+     what RLS does when it says no -- and the ghost stayed on the design with
+     a photograph in the database the whole time. */
   try {
-    const { data: contact, error: cErr } = await supabase
-      .from("contacts").select("id").eq("user_id", uid).maybeSingle();
-    if (cErr || !contact) return undefined;
-    const { data: rows, error: aErr } = await supabase
-      .from("agent_profiles")
-      .select("brand, is_primary, brand_photo_url, left_at")
-      .eq("contact_id", contact.id);
-    if (aErr || !Array.isArray(rows)) return undefined;
-    const here = rows.filter((r) => !r.left_at);
-    if (!here.length) return null;
-    const t = (v) => (v == null ? "" : String(v).trim().toLowerCase());
-    // The brand they are designing under, then the one they mainly work for.
-    const pick = here.find((r) => company && t(r.brand) === t(company))
-      || here.find((r) => r.is_primary)
-      || here[0];
-    return (pick && pick.brand_photo_url) || null;
+    const { data, error } = await supabase
+      .rpc("member_brand_photo", { p_brand: company || null });
+    // A function that isn't there yet, or a refusal: leave the kit alone.
+    if (error) return undefined;
+    return data || null;
   } catch (_) { return undefined; }
 }
 
