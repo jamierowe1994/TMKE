@@ -127,11 +127,17 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
   /* The hero is a fixed height and as wide as 4:5 makes it — the Trending
      image's rule — rather than a column-width picture that ran to 700px
      tall and left the copy stranded beside it. */
-  .si-pack-hero { height: 520px; aspect-ratio: 4 / 5; width: auto; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); }
-  .si-pack-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* 4:5 until the picture loads and says otherwise -- the script then sets
+     the box to the image's own shape. A canvas card is landscape and a
+     postcard can be either; cropping both to a portrait window showed the
+     middle of a design and called it the design. */
+  .si-pack-hero { height: 520px; aspect-ratio: 4 / 5; width: auto; border-radius: var(--ws-r, 4px); overflow: hidden; background: #e6e3e1; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); transition: aspect-ratio 0.25s ease; }
+  .si-pack-hero img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .si-pack-thumbs { display: flex; flex-direction: column; gap: 10px; align-self: start; }
   .si-pack-thumb { flex: 0 0 auto; width: 60px; aspect-ratio: 4 / 5; border-radius: 3px; overflow: hidden; border: 2px solid transparent; padding: 0; background: #e6e3e1; cursor: pointer; opacity: 0.7; transition: opacity 0.2s, border-color 0.2s; }
-  .si-pack-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* Whole, not cropped: the strip is how you tell a landscape page from a
+     portrait one at a glance, which a cover crop destroys. */
+  .si-pack-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
   .si-pack-thumb:hover { opacity: 1; }
   .si-pack-thumb.is-active { opacity: 1; border-color: var(--ws-accent, #4a2a3c); }
   .si-pack-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink, #1c1d22); margin: 0 0 12px; }
@@ -450,6 +456,20 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     // height is the copy column's natural height then, re-measured only on a
     // window resize. Opening a row is deliberately NOT a re-measure — the
     // picture stays put and only the things below the row move.
+    /* Take the shape of whatever is showing. Runs on load and on every
+       switch, so flicking from the front of a postcard to a landscape canvas
+       card reshapes the frame rather than cropping to fit it. */
+    const shapeHero = () => {
+      const box = body.querySelector(".si-pack-hero");
+      const img = body.querySelector("#si-hero-img");
+      if (!box || !img) return;
+      const set = () => {
+        if (img.naturalWidth && img.naturalHeight) box.style.aspectRatio = img.naturalWidth + " / " + img.naturalHeight;
+      };
+      if (img.complete) set(); else img.addEventListener("load", set, { once: true });
+    };
+    shapeHero();
+
     const heroEl = body.querySelector(".si-pack-hero"), copyEl = body.querySelector(".si-pack-copy");
     function fitHero() {
       if (!heroEl || !copyEl || openKind !== "seasonal") return;
@@ -474,6 +494,9 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
     const heroImg = document.getElementById("si-hero-img");
     body.querySelectorAll(".si-pack-thumb").forEach((b) => b.addEventListener("click", () => {
       if (heroImg) heroImg.src = b.dataset.hero;
+      // After the swap, not before — measuring the outgoing picture would
+      // reshape the frame to the page you just left.
+      shapeHero();
       body.querySelectorAll(".si-pack-thumb").forEach((x) => x.classList.toggle("is-active", x === b));
     }));
   }
