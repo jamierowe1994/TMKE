@@ -171,6 +171,17 @@ const HERO_BG = (await getImage({
             </div>
           </div>
 
+          <!-- The other photograph: the full-length one their brand holds of
+               them. Shown, not editable. It is the only one print will take,
+               and it arrives from the brand rather than from here. -->
+          <div class="brandphoto-row" id="brandphoto-row" hidden>
+            <div class="brandphoto-tile" id="brandphoto-tile"></div>
+            <div class="headshot-text">
+              <p class="brandphoto-h">Your brand photo <span>supplied</span></p>
+              <p>The full-length photo <strong id="brandphoto-brand">your brand</strong> holds of you. It&rsquo;s the only photo that can go on printed work, and you can use it on social posts as well. We keep it up to date &mdash; there&rsquo;s nothing for you to do with it here.</p>
+            </div>
+          </div>
+
           <div class="profile-row profile-row--pair">
             <label class="profile-field">
               <span>Your name</span>
@@ -690,6 +701,22 @@ const HERO_BG = (await getImage({
     .profile-row--pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
     @media (max-width: 620px) { .profile-row--pair { grid-template-columns: 1fr; } }
     .headshot-row + .profile-row { margin-top: 18px; }
+    /* Tall and rectangular beside the round headshot, because the two photos
+       are different things and should not look like a matching pair. */
+    .brandphoto-row { display: flex; align-items: center; gap: 18px; margin-top: 20px; }
+    .brandphoto-row[hidden] { display: none; }
+    .brandphoto-tile {
+      flex: 0 0 auto; width: 68px; height: 116px; border-radius: 8px;
+      border: 1px solid rgba(var(--violet-rgb),0.22); background-color: #faf9f8;
+      background-size: contain; background-position: center bottom; background-repeat: no-repeat;
+    }
+    .brandphoto-h { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 700; color: var(--ink); margin: 0 0 4px !important; }
+    .brandphoto-h span {
+      font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--english-violet); background: rgba(var(--violet-rgb),0.1);
+      padding: 2px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 2px;
+    }
+    .brandphoto-row .headshot-text p { max-width: 46ch; }
     .headshot-h { font-family: var(--subhead); font-weight: 400; font-size: var(--ws-t-title); color: var(--ink); margin: 0; }
     .headshot-h span { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.45); letter-spacing: 0.02em; }
     .headshot-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
@@ -1117,7 +1144,11 @@ const HERO_BG = (await getImage({
       });
 
       // ---- Logos ----
-      let logos = (brand && Array.isArray(brand.logos)) ? brand.logos.slice() : [];
+      // { url } from a brand, { src } from an upload: one shape from here on.
+      let logos = ((brand && Array.isArray(brand.logos)) ? brand.logos : [])
+        .map(function (lg) { return Object.assign({}, lg, { src: (lg && (lg.src || lg.url)) || "" }); })
+        .filter(function (lg) { return lg.src; });
+      if (logos.length && !logos.some(function (lg) { return lg.primary; })) logos[0].primary = true;
       function renderLogos() {
         logoGrid.innerHTML = "";
         logos.forEach(function (lg, i) {
@@ -1228,6 +1259,20 @@ const HERO_BG = (await getImage({
         }
       }
       renderHeadshot();
+
+      /* The brand photo. Read-only: it is theirs to use, not theirs to set --
+         it comes from their brand, and print will take nothing else. */
+      (function showBrandPhoto() {
+        const row = document.getElementById("brandphoto-row");
+        const tile = document.getElementById("brandphoto-tile");
+        const url = brand && typeof brand.brandPhoto === "string" ? brand.brandPhoto : "";
+        if (!row || !tile || !url) return;
+        tile.style.backgroundImage = "url(" + JSON.stringify(url) + ")";
+        const who = document.getElementById("brandphoto-brand");
+        if (who && brand.company) who.textContent = brand.company;
+        row.hidden = false;
+      })();
+
       async function setHeadshotFile(f) {
         if (!f || !f.type.startsWith("image/")) return;
         // Square, centred, 600px: what a round photo and a contact slide need.
@@ -1277,6 +1322,10 @@ const HERO_BG = (await getImage({
           },
           logos: logos,
           headshot: headshot,
+          /* Carried, not edited. It is not on this form, and leaving it out of
+             the save would quietly drop their brand photo from the kit every
+             time they changed a colour. */
+          brandPhoto: (brand && typeof brand.brandPhoto === "string" && brand.brandPhoto) || null,
           updatedAt: Date.now(),
         };
       }

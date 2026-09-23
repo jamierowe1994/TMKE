@@ -10,13 +10,39 @@
  */
 const KEY = "tmke.brand";
 
+/**
+ * A kit, in the shape the hub reads.
+ *
+ * A brand's logos are stored as { url, name } (brand_profiles) while a
+ * member's kit has always used { src }, so a kit that arrived from a brand
+ * drew nothing: every tile pointed at url(undefined). Colours had the same
+ * mismatch and are converted in the Worker; logos are converted here, on the
+ * way in AND on the way out, so kits already saved with the wrong shape mend
+ * themselves the next time they are read.
+ */
+export function normaliseKit(kit) {
+  if (!kit || typeof kit !== "object") return kit;
+  const logos = Array.isArray(kit.logos) ? kit.logos : null;
+  if (!logos || !logos.length) return kit;
+  const out = logos
+    .map((l) => (typeof l === "string" ? { src: l } : l))
+    .filter(Boolean)
+    .map((l) => ({ ...l, src: l.src || l.url || "" }))
+    .filter((l) => l.src);
+  out.forEach((l) => { delete l.url; });
+  if (out.length && !out.some((l) => l.primary)) out[0].primary = true;
+  const same = out.length === logos.length && out.every((l, i) => logos[i] && l.src === logos[i].src);
+  return same ? kit : { ...kit, logos: out };
+}
+
 export function readBrandCache() {
-  try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
+  try { return normaliseKit(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return null; }
 }
 
 /** Write the kit to the cache, stamped with its owner. */
 export function writeBrandCache(kit, uid) {
   if (!kit || typeof kit !== "object") return;
+  kit = normaliseKit(kit);
   try { localStorage.setItem(KEY, JSON.stringify({ ...kit, owner: uid || kit.owner || null })); } catch (_) {}
 }
 

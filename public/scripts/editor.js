@@ -149,6 +149,17 @@ import { createResizeEngine } from "./resize-engine.js";
     // stand-in one so "Make this design yours" has rows to show. Never written
     // anywhere - it lives on the window for the life of the demo.
     if (!kit && typeof window !== "undefined" && window.__TMKE_TRAINING_KIT__) kit = window.__TMKE_TRAINING_KIT__;
+    /* A brand's logos arrive as { url }; a kit has always used { src }. A kit
+       saved before that was straightened out draws nothing, so it is mended
+       on the way in here too (src/lib/brand-cache.js does it for the hub). */
+    if (kit && Array.isArray(kit.logos)) {
+      kit.logos = kit.logos
+        .map(function (l) { return typeof l === "string" ? { src: l } : l; })
+        .filter(Boolean)
+        .map(function (l) { return Object.assign({}, l, { src: l.src || l.url || "" }); })
+        .filter(function (l) { return l.src; });
+      if (kit.logos.length && !kit.logos.some(function (l) { return l.primary; })) kit.logos[0].primary = true;
+    }
     // Older kits saved colours as bare strings; every reader here expects
     // { hex, name }. One bare string used to stop the whole engine booting.
     if (kit && Array.isArray(kit.colors)) {
@@ -10477,6 +10488,12 @@ import { createResizeEngine } from "./resize-engine.js";
      it was made as, so reopening it next week opens in the same brand. */
   window.__TMKE_SET_BRAND_KIT__ = function (kit, name) {
     if (!kit || typeof kit !== "object") return false;
+    if (Array.isArray(kit.logos)) {
+      kit = Object.assign({}, kit, { logos: kit.logos
+        .map(function (l) { return Object.assign({}, l, { src: (l && (l.src || l.url)) || "" }); })
+        .filter(function (l) { return l.src; }) });
+      if (kit.logos.length && !kit.logos.some(function (l) { return l.primary; })) kit.logos[0].primary = true;
+    }
     const prevLogo = brandLogoSrc();
     const mine = loadBrand() || {};
     // Their headshot is theirs at either brand; the rest is the brand's.
