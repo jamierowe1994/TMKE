@@ -1415,6 +1415,18 @@ import { createResizeEngine } from "./resize-engine.js";
 
   function openColorPanel(opts) {
     const panel = document.getElementById("ed-colorpanel");
+    /* Choosing a colour is not clicking off the words. Without this the box
+       blurs the moment the panel is touched, the highlight goes with it, and
+       the colour lands on the whole box. */
+    const _tgt = getEl(state.selectedIds[0]);
+    if (panel && _tgt && _tgt.type === "text" && !panel.dataset.holdBound) {
+      panel.dataset.holdBound = "1";
+      panel.addEventListener("mousedown", function (e) {
+        if (e.target.closest && e.target.closest("input, textarea, [contenteditable=true]")) return;
+        const cur = getEl(state.selectedIds[0]);
+        if (cur && cur.type === "text" && editingInnerFor(cur)) e.preventDefault();
+      });
+    }
     if (!panel) return;
     // Picking a colour usually means picking it off the design. Take the guide
     // down for the duration so what you sample is what is actually there.
@@ -3082,11 +3094,26 @@ import { createResizeEngine } from "./resize-engine.js";
     const sel = window.getSelection && window.getSelection();
     if (!inner || !sel || !sel.rangeCount || sel.isCollapsed) return null;
     const range = sel.getRangeAt(0);
-    if (!inner.contains(range.commonAncestorContainer)) return null;
-    const start = charOffsetIn(inner, range.startContainer, range.startOffset);
-    const end = charOffsetIn(inner, range.endContainer, range.endOffset);
+    /* Clamp to the words rather than demanding the whole highlight sit inside
+       them. Dragging left to right across a line usually begins in the space
+       before the first letter, which anchors the selection on the box rather
+       than on the text - and asking for containment threw the whole thing
+       away. Dragging the other way starts on a letter, which is why one
+       direction worked and the other didn't. */
+    const bounds = document.createRange();
+    bounds.selectNodeContents(inner);
+    let touches = false;
+    try { touches = range.intersectsNode(inner); } catch (_) { touches = inner.contains(range.commonAncestorContainer); }
+    if (!touches) return null;
+    const clipped = range.cloneRange();
+    try {
+      if (clipped.compareBoundaryPoints(Range.START_TO_START, bounds) < 0) clipped.setStart(bounds.startContainer, bounds.startOffset);
+      if (clipped.compareBoundaryPoints(Range.END_TO_END, bounds) > 0) clipped.setEnd(bounds.endContainer, bounds.endOffset);
+    } catch (_) { return null; }
+    const start = charOffsetIn(inner, clipped.startContainer, clipped.startOffset);
+    const end = charOffsetIn(inner, clipped.endContainer, clipped.endOffset);
     if (end <= start) return null;
-    return { inner: inner, start: start, end: end, range: range,
+    return { inner: inner, start: start, end: end, range: clipped,
              whole: start === 0 && end >= (el.text || "").length };
   }
 
@@ -3175,6 +3202,17 @@ import { createResizeEngine } from "./resize-engine.js";
       if (el && el.type === "text" && textSelectionIn(el)) return el;
     }
     return null;
+  }
+
+  /* Taking the canvas down to redraw it blurs whatever was being typed in,
+     and that blur arrives while the old box is still standing - holding the
+     words as they were before the change. Reading it back at that moment
+     quietly undoes the change that caused the redraw. So a formatting change
+     says so, and the blur that follows it stays out of the way. */
+  let _formattingText = false;
+  function formattingText(fn) {
+    _formattingText = true;
+    try { fn(); } finally { setTimeout(function () { _formattingText = false; }, 0); }
   }
 
   /* The last highlight we saw inside a text box. Reaching for the colour
@@ -3402,7 +3440,10 @@ import { createResizeEngine } from "./resize-engine.js";
   // Is there a live text selection inside this editing box?
   function hasInnerSelection(inner) {
     const sel = window.getSelection && window.getSelection();
-    return !!(inner && sel && sel.rangeCount && !sel.isCollapsed && inner.contains(sel.anchorNode));
+    if (!inner || !sel || !sel.rangeCount || sel.isCollapsed) return false;
+    if (inner.contains(sel.anchorNode)) return true;
+    // A drag that began in the space beside the words anchors outside them.
+    try { return sel.getRangeAt(0).intersectsNode(inner); } catch (_) { return false; }
   }
   // Bold the current selection when editing (per-word → produces runs on commit),
   // otherwise toggle the whole element's weight (legacy). The DOM updates live via
@@ -3413,6 +3454,7 @@ import { createResizeEngine } from "./resize-engine.js";
      highlight remembered rather than live - we do it on the model instead.
      Returns true when it acted on part of the words. */
   function applyTextMark(el, key, btn) {
+    el = (el && getEl(el.id)) || el;
     const inner = editingInnerFor(el);
     if (inner && hasInnerSelection(inner)) {
       const live = textSelectionIn(el);
@@ -3424,17 +3466,19 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
     const r = pendingTextRange();
-    if (!r || r.el !== el || r.whole) return false;
-    // Anything typed but not yet read back would be lost by the redraw.
-    if (inner) commitTextFromDom(inner, el);
-    const on = rangeFormat(el, r.start, r.end, key);
-    const patch = {}; patch[key] = !on;
-    formatTextRange(el, r.start, r.end, patch);
-    if (btn) btn.classList.toggle("is-on", !on);
-    loadGoogleFont(el.font);
-    autosizeTextElements();
-    fullRender(); pushHistory();
-    setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+    if (!r || r.el.id !== el.id || r.whole) return false;
+    formattingText(function () {
+      // Anything typed but not yet read back would be lost by the redraw.
+      if (inner) commitTextFromDom(inner, el);
+      const on = rangeFormat(el, r.start, r.end, key);
+      const patch = {}; patch[key] = !on;
+      formatTextRange(el, r.start, r.end, patch);
+      if (btn) btn.classList.toggle("is-on", !on);
+      loadGoogleFont(el.font);
+      autosizeTextElements();
+      fullRender(); pushHistory();
+      setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+    });
     return true;
   }
   /* A font goes on the highlighted words when there are some - so one line
@@ -3442,23 +3486,30 @@ import { createResizeEngine } from "./resize-engine.js";
      whole box when there aren't, which also clears the fonts single words
      were given, because picking a font for the box meant the box. */
   function applyFontChoice(el, name) {
+    /* A control built during one render can outlive the object it captured -
+       a later redraw replaces the elements - so find the live one by id
+       rather than trusting the reference, or the change lands on a copy
+       nothing is drawing. */
+    el = (el && getEl(el.id)) || el;
     if (!el || el.type !== "text") return;
     loadGoogleFont(name);
     const r = pendingTextRange();
-    if (r && r.el === el && !r.whole) {
-      const inner = editingInnerFor(el);
-      if (inner) commitTextFromDom(inner, el);
-      formatTextRange(el, r.start, r.end, { font: name });
-      setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
-    } else {
-      if (Array.isArray(el.runs)) {
-        el.runs.forEach(function (x) { x.font = null; });
-        if (runsAreUniform(el.runs)) el.runs = null;
+    formattingText(function () {
+      if (r && r.el.id === el.id && !r.whole) {
+        const inner = editingInnerFor(el);
+        if (inner) commitTextFromDom(inner, el);
+        formatTextRange(el, r.start, r.end, { font: name });
+        setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+      } else {
+        if (Array.isArray(el.runs)) {
+          el.runs.forEach(function (x) { x.font = null; });
+          if (runsAreUniform(el.runs)) el.runs = null;
+        }
+        el.font = name;
       }
-      el.font = name;
-    }
-    autosizeTextElements();
-    fullRender(); pushHistory();
+      autosizeTextElements();
+      fullRender(); pushHistory();
+    });
   }
   function applyBold(el, btn) {
     if (applyTextMark(el, "bold", btn)) return true;
@@ -4426,6 +4477,11 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.type === "text") {
       node.addEventListener("dblclick", (ev) => {
         ev.stopPropagation();
+        /* Already typing in it: a double-click means "select this word", and
+           the browser is already doing that. Running startTextEdit again
+           selects the whole box instead - which is what made a highlight
+           turn into everything the moment you let go. */
+        if (node.classList.contains("is-editing")) return;
         startTextEdit(node, el);
       });
       // Click-to-edit: the first click selects (a full re-render replaces this
@@ -5106,6 +5162,8 @@ import { createResizeEngine } from "./resize-engine.js";
   function startTextEdit(node, el, point) {
     const inner = node.querySelector(".ed-text-inner");
     if (!inner) return;
+    // Already editing: leave the caret and any highlight exactly where they are.
+    if (node.classList.contains("is-editing")) return;
     node.classList.add("is-editing");
     inner.contentEditable = "true";
     inner.focus();
@@ -5155,10 +5213,16 @@ import { createResizeEngine } from "./resize-engine.js";
     function commit() {
       inner.contentEditable = "false";
       node.classList.remove("is-editing");
-      // Read the edited DOM back into el.text (+ el.runs when the user has
-      // formatted part of it). Collapses to plain text when nothing is styled,
-      // so plain editing behaves exactly as before.
-      commitTextFromDom(inner, el);
+      /* Read the edited DOM back into el.text (+ el.runs when the user has
+         formatted part of it). Collapses to plain text when nothing is styled,
+         so plain editing behaves exactly as before.
+
+         Only while this is still the box on the screen. Pressing a font in the
+         panel fires the click first and the blur second: by the time the blur
+         lands, the change has already been made and the canvas redrawn, and
+         this copy of the box is detached and a version behind. Reading it back
+         would quietly undo the very thing that was just asked for. */
+      if (!_formattingText && inner.isConnected) commitTextFromDom(inner, getEl(el.id) || el);
       inner.removeEventListener("input", grow);
       inner.removeEventListener("paste", plainPaste);
       inner.removeEventListener("blur", commit);
@@ -5871,12 +5935,14 @@ import { createResizeEngine } from "./resize-engine.js";
     if (withSel) {
       const sel = textSelectionIn(withSel);
       if (sel && !sel.whole) {
-        removeTextRange(withSel, sel.start, sel.end);
-        const live = window.getSelection && window.getSelection();
-        if (live) live.removeAllRanges();
-        autosizeTextElements();
-        pushHistory();
-        fullRender();
+        formattingText(function () {
+          removeTextRange(withSel, sel.start, sel.end);
+          const live = window.getSelection && window.getSelection();
+          if (live) live.removeAllRanges();
+          autosizeTextElements();
+          pushHistory();
+          fullRender();
+        });
         return;
       }
     }
@@ -8923,25 +8989,35 @@ import { createResizeEngine } from "./resize-engine.js";
              colours single words were given - "make this red" meant all of
              it, not all of it except the bits you fiddled with earlier. */
           onSolid: function (hex) {
+            const live = getEl(el.id) || el;
             const r = pendingTextRange();
-            if (r && r.el === el && !r.whole) {
-              const inner = editingInnerFor(el);
-              if (inner) commitTextFromDom(inner, el);
-              formatTextRange(el, r.start, r.end, { color: hex });
-              autosizeTextElements();
-              setTimeout(function () { selectChars(el, r.start, r.end); }, 0);
+            if (r && r.el.id === live.id && !r.whole) {
+              formattingText(function () {
+                const inner = editingInnerFor(live);
+                if (inner) commitTextFromDom(inner, live);
+                formatTextRange(live, r.start, r.end, { color: hex });
+                autosizeTextElements();
+                setTimeout(function () { selectChars(live, r.start, r.end); }, 0);
+              });
               return;
             }
-            if (Array.isArray(el.runs)) {
-              el.runs.forEach(function (x) { x.color = null; });
-              if (runsAreUniform(el.runs)) el.runs = null;
+            if (Array.isArray(live.runs)) {
+              live.runs.forEach(function (x) { x.color = null; });
+              if (runsAreUniform(live.runs)) live.runs = null;
             }
-            el.color = hex; el.textGradient = null;
+            live.color = hex; live.textGradient = null;
           },
           onGradient: function (g) { el.textGradient = { enabled: true, type: g.type || "linear", angle: g.angle != null ? g.angle : 135, stops: g.stops, from: g.from, to: g.to, fromStop: g.fromStop, toStop: g.toStop }; },
           getGradient: function () { return el.textGradient; },
         }
       ));
+      /* Reaching for the font, the size or the colour must not count as
+         clicking off the words. Holding focus on the box keeps the highlight
+         alive, so the control acts on what was chosen rather than on
+         everything. */
+      g1.querySelectorAll("button, input").forEach(function (c) {
+        c.addEventListener("mousedown", function (e) { if (editingInnerFor(el)) e.preventDefault(); });
+      });
       ctxEl.appendChild(g1);
 
       // B I U — Bold applies to the selected text while editing (per-word),
@@ -10017,8 +10093,17 @@ import { createResizeEngine } from "./resize-engine.js";
     t.addEventListener("click", () => setTextTab(t.dataset.ttab));
   });
 
+  // Anything inside a panel that formats the selected text holds focus too.
+  function holdSelectionFor(root, el) {
+    if (!root) return;
+    root.addEventListener("mousedown", function (e) {
+      if (e.target.closest && e.target.closest("input, textarea, [contenteditable=true]")) return;
+      if (editingInnerFor(el)) e.preventDefault();
+    });
+  }
   function openFontPanel(el) {
     _fontTargetId = el ? el.id : null;
+    holdSelectionFor(document.querySelector(".ed-font-browser"), el);
     activeToolPane = "text";
     document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
     showPane("text");
