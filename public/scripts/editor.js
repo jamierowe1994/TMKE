@@ -11313,8 +11313,30 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     const prevLogo = brandLogoSrc();
     const mine = ownBrand() || {};
-    // Their headshot is theirs at either brand; the rest is the brand's.
-    _brandKit = Object.assign({}, kit, mine.headshot ? { headshot: mine.headshot } : {});
+    /* A person is the same person at either brand. Their name, job title,
+       telephone, email and headshot are theirs; the colours, fonts, logo,
+       website and company name are the brand's. Keeping only the headshot
+       meant {agent name}, {local expert}, {telephone} and {email} had nothing
+       to resolve against the moment anyone designed as a brand, while
+       {website} — a brand field — carried on working, which is a confusing
+       way for a footer to half-fill.
+
+       Anything the brand does define is the fallback, so a brand that puts a
+       switchboard number in `about` still supplies one to somebody who has
+       not filled their own in. */
+    const keep = {};
+    const mineAbout = mine.about || {};
+    const about = Object.assign({}, kit.about || {});
+    Object.keys(mineAbout).forEach(function (k) {
+      const v = mineAbout[k];
+      if (v !== null && v !== undefined && String(v).trim() !== "") about[k] = v;
+    });
+    if (Object.keys(about).length) keep.about = about;
+    if (mine.headshot) keep.headshot = mine.headshot;
+    // Kits saved before `about` existed kept these at the top level.
+    if (!kit.email && mine.email) keep.email = mine.email;
+    if (!kit.phone && mine.phone) keep.phone = mine.phone;
+    _brandKit = Object.assign({}, kit, keep);
     _brandName = name || kit.company || null;
     BRAND = _brandKit;
     FONTS = buildFonts();
