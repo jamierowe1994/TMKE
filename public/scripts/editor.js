@@ -8711,7 +8711,13 @@ import { createResizeEngine } from "./resize-engine.js";
      the words still match what we wrote, a brand switch can rewrite them; if
      the member has typed since, they are theirs and we leave them alone. */
   function fillTemplateMergeTags() {
-    state.elements.forEach(function (el) {
+    /* Every page, not just the one on screen. `state.elements` is the open
+       page's elements, so a postcard's back kept its raw {agent name} until
+       somebody happened to turn to it -- and the footer is usually on the
+       back. A design fills in when it opens or it does not fill in. */
+    const every = [];
+    (state.pages || []).forEach(function (pg) { (pg.elements || []).forEach(function (e) { every.push(e); }); });
+    every.forEach(function (el) {
       if (el.type !== "text") return;
       if (el.text) {
         const src = (el.mergeSrc != null && el.text === el.mergeOut) ? el.mergeSrc : el.text;
