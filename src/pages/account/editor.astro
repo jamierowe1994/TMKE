@@ -558,17 +558,9 @@ const googleFonts = [
           <label for="ed-adminbrand-pick">Designing as</label>
           <select id="ed-adminbrand-pick"></select>
           <p>The design redraws in that brand's colours, fonts and logo. It's what a member of that brand will open.</p>
-          <!-- Judging a layout needs somebody in it, at the size a person
-               actually is. Design-time only: a member never sees one, and it
-               cannot reach a saved design or an export. -->
-          <div class="ed-standins" id="ed-standins" hidden>
-            <span>Show me a person</span>
-            <div class="ed-standin-pills">
-              <button type="button" data-standin="" class="is-on">Empty</button>
-              <button type="button" data-standin="female">Her</button>
-              <button type="button" data-standin="male">Him</button>
-            </div>
-          </div>
+          <!-- "Show a stand-in" now sits on the photo slot's own panel:
+               select the slot and it is there, which is where you are when
+               you are sizing it. -->
         </div>
         <div class="ed-brand-as" id="ed-brand-as" hidden>
           <label for="ed-asbrand-pick">Designing as</label>
@@ -5094,8 +5086,21 @@ const googleFonts = [
       .editor.ed-sheet-open .ed-pages-pill { bottom: calc(var(--ed-bar-h) + var(--ed-sheet-h) + 12px); }
       .ed-pages-pill[hidden] { display: none; }
     }
-    .ed-pages-close { display: none; }
-    @media (max-width: 760px) { .editor.show-pages .ed-pages-close { display: inline-block; } }
+    /* The strip opens itself on a design with more than one page, so nobody
+       has to discover that a postcard has a back. The way out is a plain X in
+       the corner, on every screen — it was a phone-only affordance, which left
+       the desktop strip with no way to close it but the rail button that
+       opened it. */
+    .ed-pages-close {
+      position: absolute; top: 6px; right: 10px;
+      appearance: none; border: 0; cursor: pointer;
+      background: rgba(28,29,34,0.06); border-radius: 999px;
+      padding: 4px 10px;
+      font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--ink);
+      line-height: 1;
+    }
+    .ed-pages-close:hover { background: rgba(28,29,34,0.12); }
+    .ed-pages { position: relative; }
   </style>
 
   <!--
@@ -5272,18 +5277,9 @@ const googleFonts = [
       pick.value = String(at);
       pick.addEventListener('change', () => apply(+pick.value));
       // The stand-ins ride along on the same call (docs/agent-photo-brief.md).
-      if (out.standIns) {
-        (window as any).__TMKE_STAND_INS__ = out.standIns;
-        const box = document.getElementById('ed-standins');
-        if (box && (out.standIns.female || out.standIns.male)) {
-          box.hidden = false;
-          box.querySelectorAll('[data-standin]').forEach((b) => b.addEventListener('click', () => {
-            const which = b.getAttribute('data-standin') || null;
-            box.querySelectorAll('[data-standin]').forEach((x) => x.classList.toggle('is-on', x === b));
-            if (typeof (window as any).__TMKE_SET_STAND_IN__ === 'function') (window as any).__TMKE_SET_STAND_IN__(which);
-          }));
-        }
-      }
+      // The editor reads these when it draws an empty photo slot; the
+      // control that chooses between them lives on the slot's own panel.
+      if (out.standIns) (window as any).__TMKE_STAND_INS__ = out.standIns;
     }
 
     if (wantAdmin) {

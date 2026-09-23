@@ -2590,6 +2590,11 @@ import { createResizeEngine } from "./resize-engine.js";
     loadPage(next);
   }
 
+  // Whether the strip is up because we put it up, and the design whose strip
+  // the member has closed by hand.
+  var _pagesOpenedForUs = false;
+  var _pagesClosedFor = null;
+
   function renderPageStrip() {
     const strip = document.getElementById("ed-pages");
     if (!strip) return;
@@ -2607,6 +2612,31 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     strip.innerHTML = "";
     const multi = state.pages.length > 1;
+
+    /* A design with more than one page says so. The strip used to be a thing
+       you had to know was there, so a postcard's back went unnoticed; on one
+       page there is nothing to switch between and it only costs canvas. Closed
+       by hand it stays closed for that design. */
+    const ed = document.getElementById("editor");
+    const toggle = document.getElementById("ed-pages-toggle");
+    const setStrip = (on) => {
+      if (!ed) return;
+      ed.classList.toggle("show-pages", on);
+      if (toggle) {
+        toggle.classList.toggle("is-active", on);
+        toggle.setAttribute("aria-pressed", on ? "true" : "false");
+      }
+    };
+    if (ed) {
+      if (!multi) {
+        if (_pagesOpenedForUs) { setStrip(false); _pagesOpenedForUs = false; }
+      } else if (!ed.classList.contains("show-pages") && _pagesClosedFor !== state.templateId) {
+        setStrip(true);
+        _pagesOpenedForUs = true;
+        if (typeof window.__TMKE_REFRESH_THUMBS__ === "function") window.__TMKE_REFRESH_THUMBS__();
+      }
+    }
+
     state.pages.forEach((pg, i) => {
       const tile = document.createElement("button");
       tile.type = "button";
@@ -7499,6 +7529,23 @@ import { createResizeEngine } from "./resize-engine.js";
       html.push('<div class="ed-props-section ed-props-section--position"><h4>Position</h4>' + positionFormHtml(el) + '</div>');
     }
 
+    /* Sizing a photo slot needs somebody standing in it. A cut-out does not
+       fill its frame — there is air above the head and beside the arms — so a
+       slot that looks right empty is wrong the moment a real person lands in
+       it. It belongs on the slot you have selected rather than across the
+       room in the Brand pane, because sizing it is what you are doing. */
+    if (isAdminMode() && el.brandRole === "photo") {
+      const cur = _standIn || "";
+      const pick = function (v, label) {
+        return '<button type="button" data-standin="' + v + '"' + (cur === v ? ' class="is-on"' : "") + ">" + label + "</button>";
+      };
+      html.push('<div class="ed-props-section"><h4>Show a stand-in</h4><div class="ed-lockset">' +
+        pick("", "Nobody") + pick("female", "Woman") + pick("male", "Man") +
+        '</div><p class="ed-props-hint ed-props-hint--block">' +
+        "A made-up person, at the size a real one comes out. Never saved, never exported, never seen by a member." +
+        "</p></div>");
+    }
+
     // Lock is admin-only — customer flow doesn't get the affordance.
     if (isAdminMode()) html.push(lockControlHtml([el]));
     if (isAdminMode() && el.type === "text") {
@@ -7519,6 +7566,16 @@ import { createResizeEngine } from "./resize-engine.js";
     </div>`);
 
     body.innerHTML = html.join("");
+
+    // The stand-in pills, on the slot itself.
+    body.querySelectorAll("[data-standin]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        body.querySelectorAll("[data-standin]").forEach(function (x) { x.classList.toggle("is-on", x === b); });
+        if (typeof window.__TMKE_SET_STAND_IN__ === "function") {
+          window.__TMKE_SET_STAND_IN__(b.getAttribute("data-standin") || null);
+        }
+      });
+    });
 
     // Swap the slot to another logo from the kit.
     body.querySelectorAll("[data-logopick]").forEach(function (b) {
