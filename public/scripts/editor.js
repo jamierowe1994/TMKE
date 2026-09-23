@@ -2262,8 +2262,15 @@ import { createResizeEngine } from "./resize-engine.js";
     setSaveStatus("saving");
     let ok = false;
     try {
+      /* The cover is page one, always. It used to be whichever page happened
+         to be open, so a postcard saved while you were working on the back
+         showed its back on every card that names it. */
       let thumb, render;
-      try { ({ thumb, render } = await _renderPreviewPair()); } catch (_) {}
+      const _onPage = state.currentPage;
+      try {
+        state.currentPage = 0;
+        ({ thumb, render } = await _renderPreviewPair());
+      } catch (_) {} finally { state.currentPage = _onPage; }
       const payload = {
         templateId: state.templateId,
         filename: filenameEl ? filenameEl.value : "",
@@ -2685,6 +2692,23 @@ import { createResizeEngine } from "./resize-engine.js";
     add.innerHTML = '<span>+</span><small>Add page</small>';
     add.addEventListener("click", addPage);
     strip.appendChild(add);
+
+    // The way out, on every screen.
+    if (multi) {
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "ed-pages-close";
+      close.title = "Hide the pages";
+      close.setAttribute("aria-label", "Hide the pages");
+      close.textContent = "\u00d7";
+      close.addEventListener("click", function (e) {
+        e.stopPropagation();
+        _pagesClosedFor = state.templateId;
+        _pagesOpenedForUs = false;
+        setStrip(false);
+      });
+      strip.appendChild(close);
+    }
   }
 
   // Background image layout: the photo is scaled to at least cover the frame,
@@ -6227,7 +6251,13 @@ import { createResizeEngine } from "./resize-engine.js";
 
   async function save() {
     if (!state.templateId) { toast("Open a template to save into"); return false; }
-    const { thumb, render } = await _renderPreviewPair();
+    // Page one is the cover here too — see autosaveToDb.
+    const _onPage = state.currentPage;
+    let thumb, render;
+    try {
+      state.currentPage = 0;
+      ({ thumb, render } = await _renderPreviewPair());
+    } finally { state.currentPage = _onPage; }
     const payload = {
       templateId: state.templateId,
       filename: filenameEl.value,
