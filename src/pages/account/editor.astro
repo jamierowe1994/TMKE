@@ -7482,9 +7482,15 @@ const googleFonts = [
 
     // A design card in the step-2 chooser (mirrors packCard).
     function designCard(d) {
+      /* Its own shape, not a portrait window. A6 landscape, a canvas card and
+         an A4 portrait are all print and all different; the design already
+         knows what it is, so ask it rather than rule on it. Falls back to the
+         stylesheet's 3:4 when a design has no size recorded. */
+      const ratio = (d.w && d.h) ? `aspect-ratio:${d.w}/${d.h};` : "";
+      const cover = [ratio, d.thumb ? `background-image:url('${escapeHtml(d.thumb)}')` : ""].filter(Boolean).join("");
       return `
         <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
-          <span class="ed-onboard-card-cover"${d.thumb ? ` style="background-image:url('${escapeHtml(d.thumb)}')"` : ""}></span>
+          <span class="ed-onboard-card-cover"${cover ? ` style="${cover}"` : ""}></span>
           <span class="ed-onboard-card-body">
             <span class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</span>
             <span class="ed-onboard-card-cat">${escapeHtml(d.category || "Template")}</span>

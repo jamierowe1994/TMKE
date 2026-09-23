@@ -12140,7 +12140,13 @@ import { createResizeEngine } from "./resize-engine.js";
     tplGridEl.innerHTML = "";
     renderTemplateGrid();
     if (!opts || opts.load !== false) loadTemplate(shaped[0].id, false);
-    return shaped.map((t) => ({ id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null }));
+    /* The canvas size travels with the card so the chooser can draw each
+       design at its own shape. Without it every design was framed 3:4 and a
+       landscape postcard was shown as the middle third of itself. */
+    return shaped.map((t) => ({
+      id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null,
+      w: (t.canvas && t.canvas.width) || null, h: (t.canvas && t.canvas.height) || null,
+    }));
   };
 
   // Load one specific design from the already-scoped pack (used when the user
