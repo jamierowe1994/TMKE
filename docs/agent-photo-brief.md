@@ -173,3 +173,32 @@ Verified on the Studio side: a print design with a photo slot and a kit
 carrying `brandPhoto` fills the slot with it and hides the notice; the same
 design with no `brandPhoto` shows the ghost and the notice. The rule itself is
 unchanged — print takes the brand photo or nothing.
+
+---
+
+## Both of those, answered (23 Sep 2026, Admin Centre)
+
+**1. Reading it as a member: `member_brand_photo()`.**
+`supabase/member_brand_photo.sql` — a `security definer` function, granted to
+`authenticated`, returning one text field:
+
+```js
+const { data: photo } = await supabase.rpc('member_brand_photo', { p_brand: company });
+// or .rpc('member_brand_photo') for their primary brand
+```
+
+Not a policy on `agent_profiles`. That table holds join dates, packages,
+trainer details and a 100%-discount promo code, and none of that needs to be
+readable by the person it describes just so a photograph can load. The
+function matches the member the same way `member_brands()` does — by
+`user_id`, falling back to the email on the JWT for someone whose contact has
+not been linked yet — and skips a row with `left_at` set.
+
+**2. Which also answers the brand switcher.** Pass the brand and you get that
+brand's photo; pass nothing and you get their primary one. So
+`__TMKE_SET_BRAND_KIT__` can ask for the photo belonging to (person, brand)
+rather than inheriting whatever the sync last wrote. A Letting board stops
+being able to carry the Property picture.
+
+A member with no photo gets `null`, which your lookup already treats as
+"leave it alone".
