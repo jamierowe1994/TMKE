@@ -71,3 +71,42 @@ Arrow-key nudge in round numbers on print: 0.5mm a tap, 5mm with shift. A
   correctly.
 - A member never sees a print canvas they did not choose, so there is no
   migration and nothing to explain to anyone already mid-design.
+
+---
+
+## Studio side: done (23 Sep 2026)
+
+All of it, including the optional nudge. In `public/scripts/editor.js`, under
+`// ---------- Print units ----------`: `PX_PER_MM`, `PX_PER_PT`, `trimOrigin`,
+`pxToMm` / `mmToPx` (with a `fromTrim` flag), `pxToPt` / `ptToPx`, `mm1` and
+`trimMm`. `isPrintDesign()` was already there from the agent-photo work and
+decides which unit every one of these surfaces speaks.
+
+- **X / Y / Width / Height** read millimetres on a print canvas, labelled
+  `X (mm)`, step 0.1. Position measures from the trim, size measures itself.
+  A box carries `data-unit="mm"` or `"mm-trim"`, and `bindGenericPropInputs`
+  (and `bindRatioPair`, for the linked pair) converts back to pixels **only**
+  in the change handler.
+- **Font size** is points on print: `PT_PRESETS` in place of the pixel list,
+  4–200pt, stepping 0.5. Points don't land on whole pixels, so the stored
+  value keeps two decimals — 9pt is 37.5px. Rounding it made a box you typed
+  9 into read back 9.1.
+- **The top bar** leads with the finished size. Where the resize panel names
+  the size, it reads `A6 Landscape · 148 × 105 mm`; where it doesn't — admin
+  mode, a custom size, an older A-size with no bleed — it reads
+  `148 × 105 mm (1819 × 1311 px)`, the brief's format. Keeping the name for
+  members is the one deliberate deviation: it was already there and it is the
+  clearest thing on the bar.
+- **Arrow nudge** is 0.5mm a tap and 5mm with shift on print, unchanged at
+  1px and 10px on screen.
+
+Verified on an A6 landscape (1819 × 1311, 3mm bleed): a logo 10mm in from the
+trim reads `10`; artwork at the canvas corner reads `-3`; typing `20` into X
+puts the element at 271px, which is the bleed plus 20mm; typing `9` into the
+size box stores 37.5px and reads back `9`. Eight full passes of
+focus/blur/change across all four boxes without editing moved the element by
+nothing — 271px before and after. Four taps of the arrow key moved it 2.03mm,
+shift moved it 5.00mm. An A4 with no bleed (2480 × 3508) and the old business
+card (1004 × 650) both read as print, measure from the canvas corner, and show
+`210 × 297 mm` and `85 × 55 mm`. Social canvases are untouched: `X`, pixel
+presets, 1px nudge, `Instagram Portrait` on the bar.

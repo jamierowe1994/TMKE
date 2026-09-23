@@ -1099,30 +1099,47 @@ import { createResizeEngine } from "./resize-engine.js";
   // of common sizes (Canva-style — no separate caret button). onChange(size) is
   // called with the new value.
   const SIZE_PRESETS = [6, 8, 10, 12, 14, 16, 18, 21, 24, 28, 32, 36, 42, 48, 56, 64, 72, 80, 88, 96, 104, 120, 144];
+  /* Type is set in points on paper. Nobody has ever specified 3.2mm body
+     copy, and 9pt means the same thing to a printer as it does to a brand
+     guideline. These are the sizes print actually uses, not the px list
+     converted (docs/print-units-brief.md). */
+  const PT_PRESETS = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 21, 24, 30, 36, 48, 60, 72, 96, 120];
   function createSizeControl(initial, onChange) {
+    // Points on print, pixels on screen. `initial` and `onChange` are pixels
+    // at both ends - the unit is only ever what the box says.
+    const pt = isPrintDesign();
+    const toUi = pt ? function (px) { return mm1(pxToPt(px)); } : function (px) { return Math.round(px); };
+    /* Points don't land on whole pixels - 9pt is 37.5px - so print keeps the
+       half. Round it and typing 9 reads back 9.1, which looks like the editor
+       arguing with you. */
+    const toPx = pt ? function (v) { return Math.max(4, Math.round(ptToPx(v) * 100) / 100); } : function (v) { return Math.round(v); };
+    const presets = pt ? PT_PRESETS : SIZE_PRESETS;
+    const lo = pt ? 4 : 6, hi = pt ? 200 : 600;
+    const shown = toUi(initial);
     const wrap = document.createElement("div");
     wrap.className = "ed-size-ctl";
     const input = document.createElement("input");
-    input.type = "number"; input.className = "ed-ctx-num"; input.value = initial; input.min = 6; input.max = 600;
-    input.title = "Font size — click for presets";
+    input.type = "number"; input.className = "ed-ctx-num"; input.value = shown; input.min = lo; input.max = hi;
+    if (pt) input.step = "0.5";
+    input.title = pt ? "Font size in points — click for presets" : "Font size — click for presets";
     const pop = document.createElement("div");
     pop.className = "ed-size-pop"; pop.hidden = true;
-    pop.innerHTML = SIZE_PRESETS.map(function (s) {
-      return '<button type="button" class="ed-size-opt' + (s === initial ? " is-current" : "") + '" data-size="' + s + '">' + s + "</button>";
+    pop.innerHTML = presets.map(function (s) {
+      return '<button type="button" class="ed-size-opt' + (s === shown ? " is-current" : "") + '" data-size="' + s + '">' + s + (pt ? "pt" : "") + "</button>";
     }).join("");
 
     function apply(v) {
-      v = Math.max(6, Math.min(600, parseInt(v, 10) || initial));
-      input.value = v;
+      v = Math.max(lo, Math.min(hi, parseFloat(v) || shown));
+      input.value = pt ? mm1(v) : Math.round(v);
       // Highlight the nearest preset so the list shows "where you are".
       let nearest = null, best = Infinity;
       pop.querySelectorAll(".ed-size-opt").forEach(function (b) {
         b.classList.remove("is-current");
-        const d = Math.abs(parseInt(b.dataset.size, 10) - v);
+        const d = Math.abs(parseFloat(b.dataset.size) - v);
         if (d < best) { best = d; nearest = b; }
       });
       if (nearest) nearest.classList.add("is-current");
-      onChange(v);
+      onChange(toPx(v));
     }
     input.addEventListener("change", function () { apply(input.value); });
 
@@ -1162,8 +1179,16 @@ import { createResizeEngine } from "./resize-engine.js";
     const plus = document.createElement("button");
     plus.type = "button"; plus.className = "ed-size-step"; plus.title = "Larger"; plus.textContent = "+";
     plus.style.borderRadius = "0 4px 4px 0"; // round the right edge now the caret is gone
-    minus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) - (e.shiftKey ? 10 : 1)); });
-    plus.addEventListener("click", function (e) { e.stopPropagation(); apply((parseInt(input.value, 10) || initial) + (e.shiftKey ? 10 : 1)); });
+    // Stepping in whatever unit the box is showing: a point at a time on
+    // print, a pixel on screen.
+    const step = function (dir) {
+      return function (e) {
+        e.stopPropagation();
+        apply((parseFloat(input.value) || shown) + dir * (e.shiftKey ? 10 : 1));
+      };
+    };
+    minus.addEventListener("click", step(-1));
+    plus.addEventListener("click", step(1));
 
     wrap.appendChild(minus);
     wrap.appendChild(input);
@@ -2654,7 +2679,17 @@ import { createResizeEngine } from "./resize-engine.js";
       var _szCard = document.querySelector('.ed-resize-card[data-size="' + _W + "," + _H + '"] strong');
       var _szName = location.search.indexOf("mode=admin") !== -1 ? null
         : ((_szCard && _szCard.textContent.trim()) || _szNames[_W + "x" + _H]);
-      _szEl.textContent = _szName || (_W + " × " + _H);
+      /* Print leads with the finished size. "1819 × 1311" is the file the
+         printer wants and it is correct, but it is also baffling: what you
+         are holding is a 148 × 105mm postcard. Pixels stay, in brackets,
+         for anyone who needs the file. */
+      if (sizeFamily(_W, _H) === "print") {
+        var _t = trimMm(_W, _H);
+        var _mm = _t.w + " × " + _t.h + " mm";
+        _szEl.textContent = _szName ? (_szName + " · " + _mm) : (_mm + " (" + _W + " × " + _H + " px)");
+      } else {
+        _szEl.textContent = _szName || (_W + " × " + _H);
+      }
     }
     if (typeof syncResizePanel === "function") syncResizePanel();
     if (typeof renderSafeZones === "function") renderSafeZones();
@@ -4304,7 +4339,7 @@ import { createResizeEngine } from "./resize-engine.js";
         renderHandles();
         // Live size readout in the context bar so you can see the number change.
         const sizeInput = document.querySelector("#ed-context .ed-size-ctl .ed-ctx-num");
-        if (sizeInput) sizeInput.value = el.size;
+        if (sizeInput) sizeInput.value = isPrintDesign() ? mm1(pxToPt(el.size)) : el.size;
         return;
       }
 
@@ -6438,6 +6473,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const btn = root.querySelector("#ed-pos-lock");
     if (!wIn || !hIn || !btn) return;
 
+    // On print these boxes are millimetres; the element is pixels either way.
+    const mm = wIn.dataset.unit === "mm";
+    const toPx = mm ? function (v) { return Math.round(mmToPx(v, false)); } : Math.round;
+    const toUi = mm ? function (px) { return mm1(pxToMm(px, false)); } : Math.round;
+
     function apply(which) {
       const tgt = getEl(state.selectedIds[0]);
       if (!tgt) return;
@@ -6445,11 +6485,11 @@ import { createResizeEngine } from "./resize-engine.js";
       const v = parseFloat(which === "w" ? wIn.value : hIn.value);
       if (!isFinite(v) || v <= 0) return;
       if (which === "w") {
-        tgt.w = Math.round(v);
-        if (ratioLocked) { tgt.h = Math.max(1, Math.round(tgt.w / ratio)); hIn.value = tgt.h; }
+        tgt.w = Math.max(1, toPx(v));
+        if (ratioLocked) { tgt.h = Math.max(1, Math.round(tgt.w / ratio)); hIn.value = toUi(tgt.h); }
       } else {
-        tgt.h = Math.round(v);
-        if (ratioLocked) { tgt.w = Math.max(1, Math.round(tgt.h * ratio)); wIn.value = tgt.w; }
+        tgt.h = Math.max(1, toPx(v));
+        if (ratioLocked) { tgt.w = Math.max(1, Math.round(tgt.h * ratio)); wIn.value = toUi(tgt.w); }
       }
       fullRender();
       pushHistory();
@@ -6474,9 +6514,13 @@ import { createResizeEngine } from "./resize-engine.js";
       input.addEventListener(ev, function () {
         const tgt = getEl(state.selectedIds[0]);
         if (!tgt) return;
-        const val = (input.type === "number" || input.type === "range")
+        let val = (input.type === "number" || input.type === "range")
           ? parseFloat(input.value)
           : input.value;
+        // A millimetre box hands back pixels, because pixels are what is
+        // stored. Only here, where the field was actually edited.
+        if (input.dataset.unit === "mm") val = Math.round(mmToPx(val, false));
+        else if (input.dataset.unit === "mm-trim") val = Math.round(mmToPx(val, true));
         tgt[prop] = val;
         // SVG shapes/icons: recompute the data-URI src whenever the colour
         // changes so the visual updates in lockstep with the picker.
@@ -8356,17 +8400,29 @@ import { createResizeEngine } from "./resize-engine.js";
   // X / Y / W / H / rotation - the top bar's Position popover on a desktop,
   // a section of the selection sheet on a phone. One markup for both.
   function positionFormHtml(el) {
+    /* Print reads in millimetres: position measured from the trim, size
+       measured as itself. Screen stays in pixels, which is the real unit
+       there. Step 0.1 either way - on print because a tenth of a millimetre
+       is as fine as it gets, on screen because whole pixels are already the
+       default nudge. */
+    const mm = isPrintDesign();
+    const unit = mm ? " (mm)" : "";
+    const step = mm ? ' step="0.1"' : "";
+    const pos = mm ? function (px) { return mm1(pxToMm(px, true)); } : function (px) { return Math.round(px); };
+    const len = mm ? function (px) { return mm1(pxToMm(px, false)); } : function (px) { return Math.round(px); };
+    const u = mm ? ' data-unit="mm"' : "";
+    const ut = mm ? ' data-unit="mm-trim"' : "";
     return '<div class="ed-props-row">' +
-        '<div class="ed-props-field"><label>X</label><input type="number" data-prop="x" value="' + el.x + '"></div>' +
-        '<div class="ed-props-field"><label>Y</label><input type="number" data-prop="y" value="' + el.y + '"></div>' +
+        '<div class="ed-props-field"><label>X' + unit + '</label><input type="number" data-prop="x"' + ut + step + ' value="' + pos(el.x) + '"></div>' +
+        '<div class="ed-props-field"><label>Y' + unit + '</label><input type="number" data-prop="y"' + ut + step + ' value="' + pos(el.y) + '"></div>' +
       '</div>' +
       '<div class="ed-props-row ed-props-row--wh">' +
-        '<div class="ed-props-field"><label>Width</label><input type="number" id="ed-pos-w" value="' + el.w + '"></div>' +
+        '<div class="ed-props-field"><label>Width' + unit + '</label><input type="number" id="ed-pos-w"' + u + step + ' value="' + len(el.w) + '"></div>' +
         '<button type="button" class="ed-ratio-lock' + (ratioLocked ? " is-on" : "") + '" id="ed-pos-lock"' +
           ' aria-pressed="' + (ratioLocked ? "true" : "false") + '"' +
           ' title="' + (ratioLocked ? "Ratio locked — click to unlock" : "Lock the ratio") + '">' +
           (ratioLocked ? LOCK_SHUT : LOCK_OPEN) + '</button>' +
-        '<div class="ed-props-field"><label>Height</label><input type="number" id="ed-pos-h" value="' + el.h + '"></div>' +
+        '<div class="ed-props-field"><label>Height' + unit + '</label><input type="number" id="ed-pos-h"' + u + step + ' value="' + len(el.h) + '"></div>' +
       '</div>' +
       '<div class="ed-props-row">' +
         '<div class="ed-props-field"><label>Rotation</label><input type="number" data-prop="rotation" value="' + (el.rotation || 0) + '"></div>' +
@@ -10489,6 +10545,36 @@ import { createResizeEngine } from "./resize-engine.js";
     return c ? (parseInt(c.getAttribute("data-bleed"), 10) || 0) : 0;
   }
 
+  /* ---------- Print units ----------
+     Nobody sets a postcard up in pixels. On a print canvas the inspector
+     speaks millimetres and points, because that is the language of every
+     printer, proof and brand guideline (docs/print-units-brief.md).
+
+     Pixels stay the truth: on disk, in the render, in the export. These are a
+     view of them, converted on the way out to a box and on the way back in
+     when a box is actually edited - never on focus or on every render, or
+     tabbing through the inspector walks an element across the page one
+     rounding error at a time. */
+  const PX_PER_MM = 300 / 25.4;   // 11.811 - print sizes are 300 dpi
+  const PX_PER_PT = 300 / 72;     // 4.1667
+
+  /* Zero is the corner of the finished card, not of the file. Artwork out in
+     the bleed reads -3mm, which is right and is how a print designer already
+     thinks: once it is cut, the cut is the only edge there is. Measuring from
+     the bleed corner would make "10mm from the edge" mean 13mm. */
+  function trimOrigin() { return printBleed(state.canvas.width, state.canvas.height); }
+  function pxToMm(px, fromTrim) { return (px - (fromTrim ? trimOrigin() : 0)) / PX_PER_MM; }
+  function mmToPx(mm, fromTrim) { return mm * PX_PER_MM + (fromTrim ? trimOrigin() : 0); }
+  function pxToPt(px) { return px / PX_PER_PT; }
+  function ptToPx(pt) { return pt * PX_PER_PT; }
+  // 0.1mm is as fine as anything gets printed; a tenth of a point likewise.
+  function mm1(v) { return Math.round(v * 10) / 10; }
+  // The finished card, in whole millimetres - what the printer's job is called.
+  function trimMm(W, H) {
+    const b = printBleed(W, H);
+    return { w: Math.round((W - 2 * b) / PX_PER_MM), h: Math.round((H - 2 * b) / PX_PER_MM) };
+  }
+
   // The centred 3:4 slice of a W x H canvas that the Instagram grid shows.
   function gridFrame(W, H) {
     const r = 3 / 4;
@@ -11151,7 +11237,11 @@ import { createResizeEngine } from "./resize-engine.js";
 
     // Nudge
     if (state.selectedIds.length) {
-      const step = e.shiftKey ? 10 : 1;
+      /* On paper a 1px tap is 0.08mm, which is not a distance anybody means.
+         Half a millimetre a tap, five with shift. */
+      const step = isPrintDesign()
+        ? Math.round(PX_PER_MM * (e.shiftKey ? 5 : 0.5))
+        : (e.shiftKey ? 10 : 1);
       let dx = 0, dy = 0;
       if (e.key === "ArrowUp") dy = -step;
       else if (e.key === "ArrowDown") dy = step;
