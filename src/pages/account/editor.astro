@@ -4908,7 +4908,9 @@ const googleFonts = [
     }
     #ed-ob-designs-grid .ed-onboard-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
     /* The shape of the thing it previews, like the Studio shelves. */
-    #ed-ob-designs-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: 1080 / 1440; border-radius: 4px; background-size: cover; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
+    /* One frame per grid, set from the pack's own designs, and `contain` so
+       a card that is a different shape shows whole rather than cropped. */
+    #ed-ob-designs-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: var(--ob-frame, 1080 / 1440); border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
     #ed-ob-designs-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
     #ed-ob-designs-grid .ed-onboard-card-title { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
     #ed-ob-designs-grid .ed-onboard-card-cat { font-size: var(--ws-t-meta); color: var(--ws-faint); }
@@ -7482,12 +7484,12 @@ const googleFonts = [
 
     // A design card in the step-2 chooser (mirrors packCard).
     function designCard(d) {
-      /* Its own shape, not a portrait window. A6 landscape, a canvas card and
-         an A4 portrait are all print and all different; the design already
-         knows what it is, so ask it rather than rule on it. Falls back to the
-         stylesheet's 3:4 when a design has no size recorded. */
-      const ratio = (d.w && d.h) ? `aspect-ratio:${d.w}/${d.h};` : "";
-      const cover = [ratio, d.thumb ? `background-image:url('${escapeHtml(d.thumb)}')` : ""].filter(Boolean).join("");
+      /* No per-card shape: a grid of mixed portraits and landscapes reads as
+         a mistake. One frame for the whole grid (set below from the designs
+         in it) and the picture sits whole inside it, so a landscape card is
+         centred with space above and below rather than cropped to its middle
+         third. */
+      const cover = d.thumb ? `background-image:url('${escapeHtml(d.thumb)}')` : "";
       return `
         <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
           <span class="ed-onboard-card-cover"${cover ? ` style="${cover}"` : ""}></span>
@@ -7558,6 +7560,20 @@ const googleFonts = [
         });
         return;
       }
+      /* The frame the whole grid wears. Taken from the commonest shape among
+         the designs -- a pack of landscape postcards gets a landscape grid, a
+         pack of social posts an upright one -- so the frame suits the pack
+         while every card in it still matches every other. Anything a
+         different shape sits whole inside it. */
+      const shapes = new Map();
+      designs.forEach((d) => {
+        if (!d.w || !d.h) return;
+        const k = (d.w / d.h).toFixed(3);
+        const e = shapes.get(k) || { n: 0, w: d.w, h: d.h };
+        e.n += 1; shapes.set(k, e);
+      });
+      const common = [...shapes.values()].sort((a, b) => b.n - a.n)[0];
+      designGrid.style.setProperty("--ob-frame", common ? `${common.w}/${common.h}` : "1080/1440");
       designGrid.innerHTML = designs.map(designCard).join("");
     }
 
