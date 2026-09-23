@@ -1039,6 +1039,30 @@ async function ensureTegFromDomain(env, { contactId, email }) {
  * Returns { brand, kit } — or { brand: null, kit: null } for someone who
  * isn't in the CRM, which is most members and is fine.
  */
+/* The half of a kit that belongs to the brand rather than to a person:
+   colours, fonts, logos and the words a brand supplies. Pulled out because
+   two callers want it -- a member's kit, which adds their details on top, and
+   the admin studio's brand picker, where there is no person at all. */
+function brandHalf(bp, brand) {
+  return {
+    company: (bp && bp.company) || brand || "",
+    slogan: (bp && bp.slogan) || "",
+    website: (bp && bp.website) || "",
+    tone: (bp && bp.tone) || "",
+    /* A brand's colours are stored as plain hex strings; a kit wants
+       { hex, name } -- that mismatch is why every other field prefilled and
+       the colours came through as six empty wells. Converted here, at the
+       boundary, so everything downstream gets the shape the hub reads. */
+    colors: (bp && Array.isArray(bp.colors) && bp.colors.length)
+      ? bp.colors.map((c, i) => (c && typeof c === "object")
+          ? c
+          : { hex: String(c).toUpperCase(), name: "Colour " + (i + 1) })
+      : null,
+    fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
+    logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
+  };
+}
+
 async function brandKitFor(env, { userId, email, brand: want }) {
   const mail = String(email || "").toLowerCase();
   let contact = null;
@@ -1071,23 +1095,10 @@ async function brandKitFor(env, { userId, email, brand: want }) {
   }
 
   const name = [contact.first_name, contact.last_name].filter(Boolean).join(" ").trim();
-  const kit = {
+  const kit = Object.assign(brandHalf(bp, brand), {
+    // A member with no brand profile still has a company: their own.
     company: (bp && bp.company) || brand || contact.company || "",
-    slogan: (bp && bp.slogan) || "",
-    website: (bp && bp.website) || "",
-    tone: (bp && bp.tone) || "",
     location: (ap && ap.area) || "",
-    /* A brand's colours are stored as plain hex strings; a member's kit wants
-       { hex, name } — that mismatch is why every other field prefilled and the
-       colours came through as six empty wells. Converted here, at the boundary,
-       so everything downstream gets the shape the hub actually reads. */
-    colors: (bp && Array.isArray(bp.colors) && bp.colors.length)
-      ? bp.colors.map((c, i) => (c && typeof c === "object")
-          ? c
-          : { hex: String(c).toUpperCase(), name: "Colour " + (i + 1) })
-      : null,
-    fonts: (bp && bp.fonts && (bp.fonts.heading || bp.fonts.subheading || bp.fonts.body)) ? bp.fonts : null,
-    logos: (bp && Array.isArray(bp.logos) && bp.logos.length) ? bp.logos : null,
     /* The brand-approved photo: a full-length cut-out of them, supplied by
        TEG, and the only picture allowed on print. Per brand, because an agent
        who works for two is photographed in both liveries. Theirs -- the square
@@ -1101,7 +1112,7 @@ async function brandKitFor(env, { userId, email, brand: want }) {
       phone: (ap && ap.phone) || contact.phone || "",
       email: (ap && ap.email) || contact.email || mail || "",
     },
-  };
+  });
   return { brand, brands, kit };
 }
 
@@ -7379,6 +7390,33 @@ export default {
       /* Run whenever a member arrives: has their brand changed anything they
          haven't made their own? Cheap, and it self-heals — nothing to schedule
          and nothing to push. */
+      /* Every brand's kit, for the admin studio's brand picker.
+
+         Designing a Property Experts postcard in TMKE's colours and hoping is
+         not designing. This hands the pane the same kit a member of that brand
+         would open with -- same conversion, same shapes -- so what is on the
+         canvas is what they will get. Staff only: it is every brand at once,
+         which is not a thing any member should be able to ask for. */
+      if (path.endsWith("/studio/brand-kits") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const rows = await sbGet(env, "brand_profiles", "select=*&order=brand") || [];
+        const studioRow = rows.find((r) => r.brand === "__studio__") || null;
+        const si = (studioRow && studioRow.stand_ins) || {};
+        return json({
+          ok: true,
+          // The hub's own kit, under the name it is known by rather than the
+          // reserved key the database files it under.
+          studio: studioRow
+            ? { brand: "The Marketing Experts (hub)", kit: brandHalf(studioRow, "The Marketing Experts") }
+            : null,
+          brands: rows
+            .filter((r) => r.brand && r.brand !== "__studio__")
+            .map((r) => ({ brand: r.brand, kit: brandHalf(r, r.brand) })),
+          standIns: { female: si.female || null, male: si.male || null, ghost: "/images/agent-photo-ghost.svg" },
+        }, 200, request, env);
+      }
+
       /* The two invented people the design studio lays templates out against.
          Not a member's photo and never served as one -- a real agent gets
          their own, or the ghost. Any signed-in member may read them: the
