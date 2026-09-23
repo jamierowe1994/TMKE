@@ -11333,6 +11333,12 @@ import { createResizeEngine } from "./resize-engine.js";
     });
     if (Object.keys(about).length) keep.about = about;
     if (mine.headshot) keep.headshot = mine.headshot;
+    /* The patch they cover is theirs too. An agent works Cornwall whichever
+       logo is on the design, so {area} and the area inside {local expert}
+       follow the person, not the brand - otherwise designing as a national
+       brand turns "The Cornwall Property Expert" into "Your local Property
+       Expert", which is true but is not what they wrote. */
+    if (mine.location && String(mine.location).trim()) keep.location = mine.location;
     // Kits saved before `about` existed kept these at the top level.
     if (!kit.email && mine.email) keep.email = mine.email;
     if (!kit.phone && mine.phone) keep.phone = mine.phone;
