@@ -3751,7 +3751,12 @@ import { createResizeEngine } from "./resize-engine.js";
        never onto the element, so a saved design and an export both see an
        empty slot - which is the point: a ghost must not print, and a stand-in
        is somebody who does not exist. */
-    if (el.brandRole === "photo" && !el.src) {
+    /* Admin only. A member who has no photograph gets an empty space -- not a
+       grey box, not a silhouette, and certainly not a stand-in, who is
+       somebody who does not exist. Whatever they download has a gap where
+       their picture would be, which is honest; the notice above the canvas is
+       where we say why. */
+    if (el.brandRole === "photo" && !el.src && isAdminMode()) {
       node.classList.add("is-photoslot");
       const standIn = isAdminMode() && _standIn && (window.__TMKE_STAND_INS__ || {})[_standIn];
       const ph = document.createElement("div");

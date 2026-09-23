@@ -7613,6 +7613,10 @@ export default {
         const rows = await sbGet(env, "brand_profiles", "select=*&order=brand") || [];
         const studioRow = rows.find((r) => r.brand === "__studio__") || null;
         const si = (studioRow && studioRow.stand_ins) || {};
+        // Two we ship with the site, so the toggle has somebody to show
+        // before anybody has uploaded anything. Both 1080x1350 cut-outs --
+        // the same shape a real photograph arrives in.
+        const SI_DEFAULT = { female: "/images/stand-in-female.webp", male: "/images/stand-in-male.webp" };
         return json({
           ok: true,
           // The hub's own kit, under the name it is known by rather than the
@@ -7623,7 +7627,11 @@ export default {
           brands: rows
             .filter((r) => r.brand && r.brand !== "__studio__")
             .map((r) => ({ brand: r.brand, kit: brandHalf(r, r.brand) })),
-          standIns: { female: si.female || null, male: si.male || null, ghost: "/images/agent-photo-ghost.svg" },
+          standIns: {
+            female: si.female || SI_DEFAULT.female,
+            male: si.male || SI_DEFAULT.male,
+            ghost: "/images/agent-photo-ghost.svg",
+          },
         }, 200, request, env);
       }
 
@@ -7638,8 +7646,8 @@ export default {
         const si = (rows && rows[0] && rows[0].stand_ins) || {};
         return json({
           ok: true,
-          female: si.female || null,
-          male: si.male || null,
+          female: si.female || "/images/stand-in-female.webp",
+          male: si.male || "/images/stand-in-male.webp",
           ghost: "/images/agent-photo-ghost.svg",
         }, 200, request, env);
       }
