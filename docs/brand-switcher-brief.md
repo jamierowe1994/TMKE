@@ -172,3 +172,13 @@ Also fixed on the way: a brand's logos are `{ url, name }` while a kit has
 always used `{ src }`, so a kit filled from a brand drew no logos at all.
 Converted on read and write (`normaliseKit`), so kits already saved wrong mend
 themselves.
+
+## One for the Worker (23 Sep)
+
+`kitIsBrands()` compares `logos` object for object, but a brand holds
+`{ url, name }` and a member's kit holds `{ src, primary }` — so a kit filled
+straight from the brand reads as "gone their own way", and "Using your own
+branding" was offered to someone already on their brand's kit. The hub now
+decides this for itself (`kitMatchesBrand` in `src/lib/brand-cache.js`,
+comparing what the fields say rather than their shapes). Worth making the same
+change in the Worker, since `matches` is presumably read elsewhere.

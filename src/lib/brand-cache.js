@@ -35,6 +35,37 @@ export function normaliseKit(kit) {
   return same ? kit : { ...kit, logos: out };
 }
 
+/**
+ * Is this kit their brand's, give or take the shapes the two are stored in?
+ *
+ * The Worker asks the same question, but compares logos object for object: a
+ * brand's are { url, name } and a member's { src, primary }, so a kit that came
+ * straight from the brand never matched and "Using your own branding" showed
+ * to people who were using their brand's. Compared here by what the fields
+ * actually say.
+ */
+export function kitMatchesBrand(mine, brandKit) {
+  if (!mine || !brandKit) return false;
+  const t = (v) => (v == null ? "" : String(v).trim());
+  const web = (v) => t(v).replace(/^https?:\/\//i, "").replace(/\/$/, "");
+  const hexes = (list) => (Array.isArray(list) ? list : [])
+    .map((c) => t(c && typeof c === "object" ? c.hex : c).toUpperCase()).filter(Boolean).join(",");
+  const srcs = (list) => (Array.isArray(list) ? list : [])
+    .map((l) => t(l && (l.src || l.url))).filter(Boolean).sort().join(",");
+  const f = (k) => [t((mine.fonts || {})[k]), t((brandKit.fonts || {})[k])];
+  const pairs = [
+    [t(mine.company), t(brandKit.company)],
+    [t(mine.slogan), t(brandKit.slogan)],
+    [web(mine.website), web(brandKit.website)],
+    [t(mine.tone), t(brandKit.tone)],
+    [hexes(mine.colors), hexes(brandKit.colors)],
+    [srcs(mine.logos), srcs(brandKit.logos)],
+    f("heading"), f("subheading"), f("body"),
+  ];
+  // A field the brand holds nothing for cannot be a difference.
+  return pairs.every(([a, b]) => b === "" || a === b);
+}
+
 export function readBrandCache() {
   try { return normaliseKit(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return null; }
 }

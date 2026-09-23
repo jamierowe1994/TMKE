@@ -60,21 +60,6 @@ const HERO_BG = (await getImage({
       </div>
     </section>
 
-    <!-- The way back. Their brand has a ready-made kit and they are not on it
-         -- either they kept their own when it was offered, or they have
-         changed it since. It exists only while that is true, so it disappears
-         of its own accord the moment they switch. -->
-    <section class="brand-switch" id="brand-switch" hidden>
-      <div class="brand-switch-body">
-        <h2>Using your own branding</h2>
-        <p id="brand-switch-copy">We hold a ready-made Brand Kit for <strong id="brand-switch-brand">your brand</strong> &mdash; the right colours, fonts, logos and tone of voice, kept up to date whenever the brand changes.</p>
-      </div>
-      <div class="brand-switch-acts" id="brand-switch-acts">
-        <button type="button" class="btn btn--solid" id="brand-switch-go">Switch to it</button>
-        <button type="button" class="btn brand-switch-no" id="brand-switch-no" hidden>Cancel</button>
-      </div>
-    </section>
-
     <!-- Two brands, two kits. Only for someone who works for more than one
          (docs/brand-switcher-brief.md): each brand keeps its own colours,
          logos, photo, area and details, and this says which you are editing. -->
@@ -84,6 +69,21 @@ const HERO_BG = (await getImage({
         <p class="bk-brands-n">You work for two brands, so you have a kit for each. Pick one to see and edit it.</p>
       </div>
       <div class="bk-brands-pills" id="bk-brands-pills"></div>
+    </section>
+
+    <!-- The way back. Their brand has a ready-made kit and they are not on it
+         -- either they kept their own when it was offered, or they have
+         changed it since. It exists only while that is true, so it disappears
+         of its own accord the moment they switch. -->
+    <section class="brand-switch" id="brand-switch" hidden>
+      <div class="brand-switch-body">
+        <h2>Using your own branding</h2>
+        <p id="brand-switch-copy">We hold a ready-made kit for <strong id="brand-switch-brand">your brand</strong>, kept up to date whenever the brand changes.</p>
+      </div>
+      <div class="brand-switch-acts" id="brand-switch-acts">
+        <button type="button" class="btn btn--solid" id="brand-switch-go">Switch to it</button>
+        <button type="button" class="btn brand-switch-no" id="brand-switch-no" hidden>Cancel</button>
+      </div>
     </section>
 
     <div class="brand-grid">
@@ -363,9 +363,13 @@ const HERO_BG = (await getImage({
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: clamp(32px, 4vw, 72px);
-      align-items: start;
+      /* stretch, so both columns finish on the same line (see .brand-col) */
+      align-items: stretch;
     }
+    /* Both columns finish on the same line: the last card in each takes
+       whatever height is left, so the page has a bottom edge rather than two. */
     .brand-col { display: flex; flex-direction: column; gap: clamp(22px, 2.4vw, 36px); }
+    .brand-col > .profile-section:last-child { flex: 1 1 auto; }
     @media (max-width: 1080px) { .brand-grid { grid-template-columns: 1fr; gap: 48px; } }
 
     /* Autosave status pill in the header */
@@ -396,32 +400,6 @@ const HERO_BG = (await getImage({
     }
     /* Flat white outline cards — matches the bookings/orders hub styling
        (hairline border, near-square corners, no shadow). */
-    .bk-brands {
-      display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
-      margin: 0 0 22px; padding: 20px clamp(22px, 3vw, 32px);
-      /* The hub's own burgundy, as on the dashboard's chapter bars. On this
-         page --english-violet is remapped to the softer brown, which reads as
-         a muted panel rather than the one thing to look at. */
-      background: #371e28; color: #fff; border-radius: 6px;
-    }
-    .bk-brands[hidden] { display: none; }
-    .bk-brands-l { margin: 0 0 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
-    .bk-brands-n { margin: 0; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.82); max-width: 60ch; }
-    .bk-brands-pills { display: flex; gap: 8px; flex-wrap: wrap; }
-    /* The hub's own buttons, on the burgundy: the one you are editing is the
-       solid one, the other is the ghost beside it. */
-    .bk-brand-pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      height: 34px; padding: 0 18px; border-radius: 999px; cursor: pointer;
-      border: 1px solid rgba(255,255,255,0.45); background: transparent; color: #fff;
-      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
-      transition: background 0.2s, color 0.2s, border-color 0.2s;
-    }
-    .bk-brand-pill:hover { background: rgba(255,255,255,0.12); border-color: #fff; }
-    .bk-brand-pill.is-on { background: #fff; color: #371e28; border-color: #fff; cursor: default; }
-    .bk-brand-pill.is-on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #371e28; }
-    .bk-brand-pill.is-on:hover { background: #fff; }
-    .bk-brand-pill[disabled] { opacity: 0.55; cursor: default; }
     .profile-section {
       display: flex; flex-direction: column; gap: 22px;
       padding: 26px clamp(22px, 3vw, 32px) 30px;
@@ -558,19 +536,24 @@ const HERO_BG = (await getImage({
     .brand-ask-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
     .brand-ask-row[hidden] { display: none; }
     /* Quieter than the request above it: this is an offer, not a problem. */
+    /* A footnote to the kit rather than a banner over it: one line, quiet,
+       and close to what follows. It only exists while they are on their own
+       branding and we hold their brand's. */
     .brand-switch {
-      display: flex; gap: 18px; align-items: center; justify-content: space-between;
+      display: flex; gap: 14px; align-items: center; justify-content: space-between;
       flex-wrap: wrap; background: #fff; border: 1px solid rgba(28,29,34,0.13);
-      border-radius: 12px; padding: 18px 22px; margin-bottom: 26px;
+      border-radius: 8px; padding: 12px 16px; margin: 0 0 18px;
     }
     .brand-switch[hidden] { display: none; }
-    .brand-switch h2 { font-family: var(--serif); font-size: 18px; color: var(--ink); margin: 0 0 4px; }
-    .brand-switch p { font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.62); margin: 0; max-width: 60ch; }
+    .brand-switch-body { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+    .brand-switch h2 { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); margin: 0; white-space: nowrap; }
+    .brand-switch p { font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.62); margin: 0; }
     .brand-switch strong { color: var(--ink); font-weight: 600; }
     .brand-switch-acts { display: flex; gap: 8px; flex: none; }
     .brand-switch-no[hidden] { display: none; }
     /* The page's own button, at panel size. */
-    .brand-ask .btn, .brand-switch .btn { padding: 10px 18px; font-size: 12.5px; border-radius: 6px; }
+    .brand-ask .btn { padding: 10px 18px; font-size: 12.5px; border-radius: 6px; }
+    .brand-switch .btn { padding: 8px 16px; font-size: 12px; border-radius: 6px; }
     .brand-ask select {
       padding: 10px 14px; border-radius: 7px; border: 1px solid rgba(28,29,34,0.2);
       font-family: var(--sans); font-size: 13.5px; color: var(--ink); background: #fff; min-width: 240px;
@@ -835,6 +818,35 @@ const HERO_BG = (await getImage({
     .bk-hero .brand-save[data-state="saving"], .bk-hero .brand-save[data-state="saved"] { color: #fff; }
     @media (max-width: 620px) { .bk-hero { min-height: 360px; } }
 
+    /* The brand-kits card and its buttons. In the global block because the
+       buttons are built by script: a scoped style never reaches an element
+       the page makes after the build. */
+    .bk-brands {
+      display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+      margin: 0 0 22px; padding: 20px clamp(22px, 3vw, 32px);
+      /* The hub's own burgundy, as on the dashboard's chapter bars. On this
+         page --english-violet is remapped to the softer brown, which reads as
+         a muted panel rather than the one thing to look at. */
+      background: #371e28; color: #fff; border-radius: 6px;
+    }
+    .bk-brands[hidden] { display: none; }
+    .bk-brands-l { margin: 0 0 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
+    .bk-brands-n { margin: 0; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.82); max-width: 60ch; }
+    .bk-brands-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* The hub's own buttons, on the burgundy: the one you are editing is the
+       solid one, the other is the ghost beside it. */
+    .bk-brand-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      height: 34px; padding: 0 18px; border-radius: 999px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,0.45); background: transparent; color: #fff;
+      font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .bk-brand-pill:hover { background: rgba(255,255,255,0.12); border-color: #fff; }
+    .bk-brand-pill.is-on { background: #fff; color: #371e28; border-color: #fff; cursor: default; }
+    .bk-brand-pill.is-on::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #371e28; }
+    .bk-brand-pill.is-on:hover { background: #fff; }
+    .bk-brand-pill[disabled] { opacity: 0.55; cursor: default; }
     .logo-tile {
       position: relative;
       aspect-ratio: 1 / 1;
@@ -1679,8 +1691,18 @@ const HERO_BG = (await getImage({
           });
           const out = await res.json().catch(() => null);
 
-          // Only when we have a kit to offer them AND they are not already on it.
-          if (out && out.ok && out.brand && out.hasKit && !out.matches) {
+          /* Only when we have a kit to offer them AND they are not already on
+             it. The Worker's own comparison reads a kit filled from the brand
+             as different, because the two store logos in different shapes, so
+             the answer is checked here against what the fields say. */
+          let onTheirBrands = !!(out && out.matches);
+          if (out && out.ok && out.kit) {
+            let localKit = null;
+            try { localKit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+            const { kitMatchesBrand } = await import("../../lib/brand-cache.js");
+            if (localKit && kitMatchesBrand(localKit, out.kit)) onTheirBrands = true;
+          }
+          if (out && out.ok && out.brand && out.hasKit && !onTheirBrands) {
             const copy = document.getElementById("brand-switch-copy");
             const go = document.getElementById("brand-switch-go");
             const no = document.getElementById("brand-switch-no");
@@ -1692,9 +1714,8 @@ const HERO_BG = (await getImage({
             let armed = false;
             const rest = () => {
               armed = false;
-              copy.innerHTML = "We hold a ready-made Brand Kit for <strong>" +
-                out.brand.replace(/</g, "&lt;") + "</strong> \u2014 the right colours, fonts, " +
-                "logos and tone of voice, kept up to date whenever the brand changes.";
+              copy.innerHTML = "We hold a ready-made kit for <strong>" +
+                out.brand.replace(/</g, "&lt;") + "</strong>, kept up to date whenever the brand changes.";
               go.textContent = "Switch to it";
               no.hidden = true;
             };
