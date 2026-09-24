@@ -7275,7 +7275,10 @@ import { createResizeEngine } from "./resize-engine.js";
       closeColorPanel();
       if (typeof showPane === "function") showPane("selection");
       const isPic = el.type === "image" || el.type === "frame";
-      if (ml === "light" && isPic) {
+      if (ml === "light" && isPic && !canSwapPicture(el)) {
+        // A supplied photograph: theirs to place, not to choose.
+        body.innerHTML = '<p class="ed-selection-empty">This is your brand\u2019s own photograph of you. You can move it and resize it, but it can\u2019t be swapped for another picture.</p>';
+      } else if (ml === "light" && isPic) {
         body.innerHTML = '<p class="ed-selection-empty">This photo stays where it is in the template. You can change the picture.</p>' +
           '<div class="ed-props-section"><h4>Photo</h4>' +
           '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image ' +
@@ -7425,12 +7428,18 @@ import { createResizeEngine } from "./resize-engine.js";
           <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="svg-fill"></span><label style="margin:0">Colour</label></div>
         </div>`);
       }
-      html.push(`<div class="ed-props-section"><h4>Image</h4>
-        <button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>
-      </div>`);
+      if (canSwapPicture(el)) {
+        html.push(`<div class="ed-props-section"><h4>Image</h4>
+          <button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>
+        </div>`);
+      } else {
+        html.push(`<div class="ed-props-section"><h4>Image</h4>
+          <p class="ed-props-hint">This is your brand&rsquo;s own photograph of you, so it can&rsquo;t be swapped for another &mdash; move it or resize it as you like.</p>
+        </div>`);
+      }
       html.push(cornerRadiusSectionHtml());
     }
 
@@ -8657,6 +8666,19 @@ import { createResizeEngine } from "./resize-engine.js";
     delete el._slotWas;
   }
 
+  /* The brand-approved photograph is ours, not theirs. They can move it and
+     size it — a cut-out does not always land where the layout wants it — but
+     they cannot put a different picture in its place. It is the one image on
+     a print piece that has been approved, and swapping it is the whole reason
+     the rule about print exists. Locking the element outright would take the
+     sizing away with it, so only the swap is withheld. */
+  function isSuppliedPicture(el) {
+    return !!el && (el.brandRole === "photo" || el.brandRole === "headshot" || el.brandRole === "logo");
+  }
+  function canSwapPicture(el) {
+    return !(isSuppliedPicture(el) && !isAdminMode());
+  }
+
   function brandPhotoSrc() {
     const src = BRAND && typeof BRAND.brandPhoto === "string" ? BRAND.brandPhoto.trim() : "";
     return src || null;
@@ -9375,15 +9397,21 @@ import { createResizeEngine } from "./resize-engine.js";
       // Background remover — runs in the browser via @imgly. First click on
       // any session downloads ~30MB of model (cached after), then 1-3s per
       // image to process. Replaces el.src with a transparent PNG data URL.
-      const bgBtn = document.createElement("button");
-      bgBtn.className = "ed-ctx-btn";
-      bgBtn.textContent = "Remove background";
-      bgBtn.title = "Cut out the subject — works best on people / products against a clear background.";
-      bgBtn.addEventListener("click", () => runBackgroundRemoval(el, bgBtn));
-      g.appendChild(bgBtn);
+      /* A supplied photograph keeps its place on the bar for moving and
+         sizing, but loses the two controls that would change which picture
+         it is. */
+      if (canSwapPicture(el)) {
+        const bgBtn = document.createElement("button");
+        bgBtn.className = "ed-ctx-btn";
+        bgBtn.textContent = "Remove background";
+        bgBtn.title = "Cut out the subject — works best on people / products against a clear background.";
+        bgBtn.addEventListener("click", () => runBackgroundRemoval(el, bgBtn));
+        g.appendChild(bgBtn);
+      }
 
       const btn = document.createElement("button");
       btn.className = "ed-ctx-btn";
+      btn.hidden = !canSwapPicture(el);
       btn.textContent = "Replace image";
       btn.addEventListener("click", () => {
         const input = document.createElement("input");
@@ -10206,7 +10234,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // The rail button only exists where the pane has something to say. On a
     // print template it IS the rail; on social it sits in the Start menu, so
     // the rail keeps its own button for authors only.
-    if (railBtn) railBtn.hidden = !((items.length || bg) && (isAdminMode() || isPrintDesign()));
+    if (railBtn) railBtn.hidden = !(isPrintDesign() || (isAdminMode() && (items.length || bg)));
     const title = document.getElementById("ed-fields-title");
     const preview = document.getElementById("ed-fields-preview");
     if (preview) {
@@ -10229,7 +10257,7 @@ import { createResizeEngine } from "./resize-engine.js";
         empty.hidden = false;
         empty.textContent = admin
           ? "Nothing on this design is set to \u201ctheirs to fill in\u201d yet. Select an item and set its lock to that, and it will appear here."
-          : "There is nothing to fill in on this design.";
+          : "Nothing on this design has been set up to change yet \u2014 let TMKE know and we will sort it.";
       }
       return;
     }
@@ -10399,16 +10427,23 @@ import { createResizeEngine } from "./resize-engine.js";
     if (src) thumb.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
     else thumb.classList.add("is-empty");
     box.appendChild(thumb);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "ed-field-change";
-    btn.textContent = src ? "Change" : "Add a picture";
-    btn.addEventListener("click", function () {
-      state.selectedIds = [el.id];
-      fullRender();
-      openTool("photos");
-    });
-    box.appendChild(btn);
+    if (canSwapPicture(el)) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ed-field-change";
+      btn.textContent = src ? "Change" : "Add a picture";
+      btn.addEventListener("click", function () {
+        state.selectedIds = [el.id];
+        fullRender();
+        openTool("photos");
+      });
+      box.appendChild(btn);
+    } else {
+      const note = document.createElement("span");
+      note.className = "ed-field-note";
+      note.textContent = "Your brand\u2019s own photograph \u2014 move or resize it, but it can\u2019t be swapped.";
+      box.appendChild(note);
+    }
     return box;
   }
 
@@ -10435,7 +10470,12 @@ import { createResizeEngine } from "./resize-engine.js";
      answer from the side that keeps every tool. */
   var _previewAsMember = false;
   function memberPrintView() {
-    return (_previewAsMember || !isAdminMode()) && usesFieldsPane();
+    /* A print template is a print template. This used to also require that
+       the author had set fields up, which meant a template nobody had got to
+       yet kept the whole rail and looked like the change had not shipped.
+       If there are no fields the Edit pane says so, which is a clearer thing
+       to see than every tool that piece does not want. */
+    return (_previewAsMember || !isAdminMode()) && isPrintDesign();
   }
   function syncPrintRail() {
     const on = memberPrintView();
