@@ -5953,6 +5953,18 @@ const googleFonts = [
             if (typeof (window as any).__TMKE_SET_BRAND_KIT__ === 'function') (window as any).__TMKE_SET_BRAND_KIT__(out.kit, out.brand || brand);
             return true;
           };
+          /* Any route into a template can ask for the right brand: the
+             chooser, a ?template= link, the Templates switcher. A design
+             belongs to the brand its pack was drawn for, and a member with
+             two kits should never have to notice which one they were last
+             designing as. */
+          (window as any).__TMKE_ON_TEMPLATE_OPEN__ = (templateId) => {
+            const map = (window as any).__TMKE_PACK_BRAND_BY_TEMPLATE__ || {};
+            const wantBrand = map[templateId] || (window as any).__TMKE_PACK_BRAND__ || null;
+            if (!wantBrand || !brands.includes(wantBrand)) return;
+            if (pick.value === wantBrand) return;
+            applyKit(wantBrand, true);
+          };
           pick.value = want || first.brand || brands[0];
           if (chipName) chipName.textContent = pick.value;
           // Only apply on load when it isn't already what they'd get anyway.
@@ -7745,6 +7757,16 @@ const googleFonts = [
 
     // Pick a pack → register its designs and show the chooser (step 2). Nothing
     // is loaded onto the canvas until the user picks one of the designs.
+    /* templateId -> the brand its pack was drawn for. Filled wherever a
+       template arrives with a pack on it, so the answer survives the route
+       the member took to get there. */
+    function notePackBrand(pack, templates) {
+      const list = Array.isArray(pack && pack.brands) ? pack.brands.filter(Boolean) : [];
+      if (list.length !== 1) return;
+      const map = ((window as any).__TMKE_PACK_BRAND_BY_TEMPLATE__ ||= {});
+      (templates || []).forEach((t) => { if (t && t.id) map[t.id] = list[0]; });
+    }
+
     async function showPackDesigns(selectedPack) {
       if (!selectedPack) return;
       try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify({ id: selectedPack.id, title: selectedPack.title })); }
@@ -7781,6 +7803,7 @@ const googleFonts = [
           if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants"));
           if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements"));
           if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+            notePackBrand(selectedPack, tpls);
             designs = window.__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false }) || [];
           }
         } catch (_) { /* leave designs empty */ }
@@ -8039,13 +8062,23 @@ const googleFonts = [
       // Packs nobody buys: the demo, anything free to members, and the print
       // packs drawn for this member's brand. RLS has already decided which
       // brand packs they may see, so asking for them IS the entitlement check.
+      const packBrandById = {};
       try {
         const { data: free } = await supabase
           .from("packs")
-          .select("id, demo, access")
+          .select("id, demo, access, brands")
           .eq("status", "active")
           .or("demo.eq.true,access.eq.members,access.eq.brands");
-        (free || []).forEach((p) => { if (!packIds.includes(p.id)) packIds.push(p.id); });
+        /* RLS lets staff read every brand's packs, so their own Studio has to
+           ask which brand they are in, the same as the shelves do. */
+        let myBrand;
+        try { const br = await supabase.rpc("member_brand"); if (!br.error) myBrand = br.data ?? null; } catch (_) {}
+        const { visibleToMember } = await import("../../lib/pack-access.js");
+        visibleToMember(free || [], myBrand).forEach((p) => {
+          if (!packIds.includes(p.id)) packIds.push(p.id);
+          const list = Array.isArray(p.brands) ? p.brands.filter(Boolean) : [];
+          if (list.length === 1) packBrandById[p.id] = list[0];
+        });
       } catch (_) {}
       if (!packIds.length) return;
       railBtn.hidden = false;
@@ -8070,6 +8103,10 @@ const googleFonts = [
           if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants, pack_id, sort_order"));
           if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements, pack_id, sort_order"));
           if (tpls && tpls.length && typeof (window as any).__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
+            // Each row carries its pack_id, so every template in the switcher
+            // knows which brand it belongs to.
+            Object.keys(packBrandById).forEach((id) =>
+              notePackBrand({ brands: [packBrandById[id]] }, tpls.filter((t) => t.pack_id === id)));
             (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
             if (note) note.hidden = true;
             if (gridEl) gridEl.style.display = "";

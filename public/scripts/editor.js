@@ -2406,6 +2406,13 @@ import { createResizeEngine } from "./resize-engine.js";
     state.templateId = draftRaw ? tplId : tpl.id;
     _templateOrigin = draftRaw ? null : tpl.id;
     syncResetButton();
+    /* A design belongs to the brand its pack was drawn for. Said on every
+       route into a template — the chooser, a ?template= link, the Templates
+       switcher — because a member with two kits should never have to notice
+       which one they were last designing as. */
+    if (typeof window.__TMKE_ON_TEMPLATE_OPEN__ === "function") {
+      try { window.__TMKE_ON_TEMPLATE_OPEN__(tpl.id); } catch (_) {}
+    }
 
     // Try to restore saved state
     if (!fresh) {
