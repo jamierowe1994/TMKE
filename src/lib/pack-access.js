@@ -16,6 +16,10 @@
 
 /* Packs the member can open in their Studio.
  *
+ * `visibleToMember` is the rule on its own, for the places that are not asking
+ * "which packs do they have" but "which packs exist as far as they are
+ * concerned" — the dashboard's new-pack card, for one.
+ *
  * `memberBrand` is the brand this account actually belongs to, from the
  * database's own member_brand(). It is needed because the RLS above lets
  * STAFF read every pack — right for the Admin Centre, wrong for their own
@@ -28,17 +32,20 @@
  *   undefined    we could not ask. Fall back to what the database allowed,
  *                so a lookup that fails takes nobody's pack away from them.
  */
-export function ownedPacks(packs, paidPackIds, memberBrand) {
-  const paid = paidPackIds instanceof Set ? paidPackIds : new Set(paidPackIds || []);
+export function visibleToMember(packs, memberBrand) {
   const norm = (v) => (v == null ? '' : String(v).trim().toLowerCase());
   const mine = norm(memberBrand);
-  const theirBrand = (p) => {
-    if (p.access !== 'brands') return true;
+  return (packs || []).filter((p) => {
+    if (!p || p.access !== 'brands') return !!p;
     if (memberBrand === undefined) return true;            // could not ask
     if (!mine) return false;                               // asked: no brand
     return (Array.isArray(p.brands) ? p.brands : []).some((b) => norm(b) === mine);
-  };
-  return (packs || []).filter((p) => p && theirBrand(p) && (
+  });
+}
+
+export function ownedPacks(packs, paidPackIds, memberBrand) {
+  const paid = paidPackIds instanceof Set ? paidPackIds : new Set(paidPackIds || []);
+  return visibleToMember(packs, memberBrand).filter((p) => (
     paid.has(p.id)
     || p.demo === true
     || p.access === 'members'

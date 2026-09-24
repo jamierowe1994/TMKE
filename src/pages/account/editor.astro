@@ -1756,6 +1756,11 @@ const googleFonts = [
       font-family: var(--sans);
       transition: background 0.2s, color 0.2s, border-color 0.2s;
     }
+    /* `display: flex` above outranks the browser's own [hidden] rule, so
+       hiding one of these from script did nothing at all — which is why the
+       print rail kept every tool, and why Templates showed to members even
+       though the markup marks it hidden. */
+    .ed-rail-btn[hidden], .ed-rail-toggle[hidden] { display: none; }
     .ed-rail-btn svg, .ed-rail-toggle svg { width: 19px; height: 19px; }
     .ed-rail-btn span, .ed-rail-toggle span {
       font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
@@ -7460,7 +7465,10 @@ const googleFonts = [
           .eq("status", "active")
           .order("sort_order", { ascending: true })
           .limit(4);
-        packs = data || [];
+        /* The shop sells social packs. A pack drawn for a brand is not for
+           sale to anybody, and staff can read every one of them. */
+        const { shopPacks } = await import("../../lib/pack-access.js");
+        packs = shopPacks(data || []);
       } catch (_) {}
       // Nothing to show is not an error - the plain CTA below already covers it.
       if (!packs.length) return;
