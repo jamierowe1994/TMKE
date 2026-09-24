@@ -2552,14 +2552,16 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   function loadPage(i) {
+    /* Turning to the other side of a postcard is not a reason to forget
+       everything you have done. This used to empty the undo stack, which is
+       why undo seemed to "stop" at an arbitrary point: the point was the last
+       time you changed page. Recorded as a whole-design step instead, so undo
+       walks back through it and lands on the page the work was done on. */
+    const before = snapshotPages(), curBefore = state.currentPage;
     state.currentPage = Math.max(0, Math.min(state.pages.length - 1, i));
     state.selectedIds = [];
-    state.history = [];
-    state.historyIndex = -1;
     preloadFontsForElements(state.elements);
-    // Moving between pages isn't an edit.
-    _historyQuiet = true;
-    try { pushHistory(); } finally { _historyQuiet = false; }
+    pushDesignHistory(before, curBefore);
     fullRender();
     fitZoom();
   }
@@ -2589,12 +2591,32 @@ import { createResizeEngine } from "./resize-engine.js";
     loadPage(i + 1);
   }
 
+  /* A design they were given, with more than one side to it: they can add a
+     page, they cannot take one away. A postcard's back is not theirs to
+     remove, and an accidental delete is the one mistake on this screen that
+     used to be unrecoverable. Their own designs keep the button - it is
+     undoable now. */
+  function pagesAreTheirsToKeep() {
+    return !isAdminMode() && !!_templateOrigin && state.pages.length > 1;
+  }
   function deletePage(i) {
     if (state.pages.length <= 1) { toast("A design needs at least one page."); return; }
+    if (pagesAreTheirsToKeep()) { toast("This design came with both sides — you can add a page, but not remove one."); return; }
+    /* Recorded as a whole-design step so Undo brings the page back. It used
+       to splice the page out and then call loadPage, which empties the undo
+       stack: the page was gone and there was nothing to undo it with. */
+    const before = snapshotPages(), curBefore = state.currentPage;
     state.pages.splice(i, 1);
     let next = state.currentPage > i ? state.currentPage - 1 : state.currentPage;
     if (next >= state.pages.length) next = state.pages.length - 1;
-    loadPage(next);
+    state.currentPage = next;
+    state.selectedIds = [];
+    preloadFontsForElements(state.elements);
+    pushDesignHistory(before, curBefore);
+    fullRender();
+    fitZoom();
+    renderPageStrip();
+    toast("Page deleted — press Undo if you didn't mean to.", 5000);
   }
 
   // Whether the strip is up because we put it up, and the design whose strip
@@ -2675,7 +2697,7 @@ import { createResizeEngine } from "./resize-engine.js";
       dup.className = "ed-page-act"; dup.title = "Duplicate page"; dup.innerHTML = "&#10697;";
       dup.addEventListener("click", (e) => { e.stopPropagation(); duplicatePage(i); });
       acts.appendChild(dup);
-      if (multi) {
+      if (multi && !pagesAreTheirsToKeep()) {
         const del = document.createElement("span");
         del.className = "ed-page-act ed-page-del"; del.title = "Delete page"; del.innerHTML = "&times;";
         del.addEventListener("click", (e) => { e.stopPropagation(); deletePage(i); });
