@@ -6653,15 +6653,44 @@ import { createResizeEngine } from "./resize-engine.js";
     for (const ln of lines) { ctx.fillText(ln, tx, yy); yy += lh; }
   }
 
-  // type can be: "png" | "jpg" | "png-transparent" | "pdf"
+  // Render one page without disturbing which page the designer is on.
+  async function renderPage(i, opts) {
+    const was = state.currentPage;
+    try {
+      state.currentPage = Math.max(0, Math.min(state.pages.length - 1, i));
+      return await _renderDesignToCanvas(opts);
+    } finally { state.currentPage = was; }
+  }
+  // "Postcard (page 2)" — a file you can tell apart in a Downloads folder.
+  function exportName(i, total, ext) {
+    const base = (filenameEl.value || "design").trim() || "design";
+    return total > 1 ? base + " (page " + (i + 1) + ")." + ext : base + "." + ext;
+  }
+  // A browser will swallow a burst of downloads fired in the same tick.
+  function nextTickPause() { return new Promise(function (r) { setTimeout(r, 350); }); }
+
+  // type can be: "png" | "jpg" | "png-transparent" | "pdf" | "pdf-separate"
   async function exportImage(type) {
     if (demoLocked("Create an account to download your design.", "Everything you have made here can be yours: join the Member Hub and download it in any format.")) return;
-    const c = await _renderDesignToCanvas({ transparent: type === "png-transparent" });
+    const total = state.pages.length;
 
-    if (type === "pdf") {
-      await exportToPdf(c);
+    /* Every page, not just the one on screen. A postcard downloaded as its
+       front alone is the kind of thing you only discover at the printer. */
+    if (type === "pdf" || type === "pdf-separate") {
+      await exportToPdf(type === "pdf-separate");
       return;
     }
+    if (total > 1) {
+      toast("Saving " + total + " pages…");
+      for (let i = 0; i < total; i++) {
+        const canvas = await renderPage(i, { transparent: type === "png-transparent" });
+        saveCanvas(canvas, type, exportName(i, total, type === "png-transparent" ? "png" : type));
+        if (i < total - 1) await nextTickPause();
+      }
+      toast("Saved " + total + " pages");
+      return;
+    }
+    const c = await _renderDesignToCanvas({ transparent: type === "png-transparent" });
 
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
     const ext = type === "png-transparent" ? "png" : type;
@@ -6682,12 +6711,16 @@ import { createResizeEngine } from "./resize-engine.js";
         }
       }
     }
-    const url = c.toDataURL(mime, 0.95);
+    saveCanvas(c, type, name);
+    toast("Exported " + ext.toUpperCase() + (type === "png-transparent" ? " (transparent)" : ""));
+  }
+
+  function saveCanvas(canvas, type, name) {
+    const mime = type === "jpg" ? "image/jpeg" : "image/png";
     const a = document.createElement("a");
-    a.href = url;
+    a.href = canvas.toDataURL(mime, 0.95);
     a.download = name;
     a.click();
-    toast("Exported " + ext.toUpperCase() + (type === "png-transparent" ? " (transparent)" : ""));
   }
 
   // Lazy-loaded so the jsPDF library only downloads when the user actually
@@ -6703,24 +6736,47 @@ import { createResizeEngine } from "./resize-engine.js";
     return _jspdfModule;
   }
 
-  async function exportToPdf(canvas) {
-    toast("Building PDF…");
+  /* Every page of the design. One PDF with a page each, or a PDF per page —
+     a printer wants the first, somebody emailing a front and a back
+     separately wants the second, and neither is obviously the right answer.
+     Each page keeps its own size and orientation, so a design whose back is
+     a different shape from its front still comes out right. */
+  async function exportToPdf(separate) {
+    const total = state.pages.length;
+    toast(total > 1 ? "Building " + (separate ? total + " PDFs" : "PDF, " + total + " pages") + "…" : "Building PDF…");
     try {
       const mod = await getJsPdf();
       const jsPDF = mod.jsPDF || mod.default;
-      const w = canvas.width, h = canvas.height;
+      const base = (filenameEl.value || "design").trim() || "design";
       // Pixels at 72 DPI translate roughly 1:1 to PDF points, so this preserves
       // the on-screen aspect ratio without surprising the user with margins.
-      const pdf = new jsPDF({
+      const make = (w, h) => new jsPDF({
         orientation: w >= h ? "landscape" : "portrait",
-        unit: "px",
-        format: [w, h],
-        hotfixes: ["px_scaling"],
+        unit: "px", format: [w, h], hotfixes: ["px_scaling"],
       });
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
-      pdf.addImage(dataUrl, "JPEG", 0, 0, w, h);
-      pdf.save((filenameEl.value || "design") + ".pdf");
-      toast("Exported PDF");
+
+      if (separate || total === 1) {
+        for (let i = 0; i < total; i++) {
+          const canvas = await renderPage(i, { transparent: false });
+          const pdf = make(canvas.width, canvas.height);
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, canvas.width, canvas.height);
+          pdf.save(exportName(i, total, "pdf"));
+          if (i < total - 1) await nextTickPause();
+        }
+        toast(total > 1 ? "Exported " + total + " PDFs" : "Exported PDF");
+        return;
+      }
+
+      let pdf = null;
+      for (let i = 0; i < total; i++) {
+        const canvas = await renderPage(i, { transparent: false });
+        const w = canvas.width, h = canvas.height;
+        if (!pdf) pdf = make(w, h);
+        else pdf.addPage([w, h], w >= h ? "landscape" : "portrait");
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
+      }
+      pdf.save(base + ".pdf");
+      toast("Exported PDF — " + total + " pages");
     } catch (err) {
       console.error("[pdf-export]", err);
       toast("PDF export failed", 3500);
@@ -12398,6 +12454,8 @@ import { createResizeEngine } from "./resize-engine.js";
       trigger.setAttribute("aria-expanded", "false");
     }
     function open() {
+      // Said fresh each time: a page may have been added since it last opened.
+      if (typeof window.__TMKE_SYNC_DOWNLOAD__ === "function") window.__TMKE_SYNC_DOWNLOAD__();
       menu.hidden = false;
       trigger.setAttribute("aria-expanded", "true");
     }
@@ -12411,6 +12469,25 @@ import { createResizeEngine } from "./resize-engine.js";
     document.addEventListener("keydown", (e) => {
       if (!menu.hidden && e.key === "Escape") close();
     });
+    /* The menu tells the truth about a multi-page design before you press
+       anything: one PDF or several, and images a file per page. */
+    function syncDownloadMenu() {
+      const total = state.pages.length;
+      const each = document.getElementById("ed-dl-pdf-each");
+      const note = document.getElementById("ed-dl-pdf-note");
+      if (each) each.hidden = total <= 1;
+      if (note) note.textContent = total > 1
+        ? "Print-ready. All " + total + " pages in one file."
+        : "Print-ready, single page.";
+      menu.querySelectorAll('[data-export="png"], [data-export="jpg"], [data-export="png-transparent"]').forEach(function (b) {
+        const span = b.querySelector("span");
+        if (!span) return;
+        if (!span.dataset.one) span.dataset.one = span.textContent;
+        span.textContent = total > 1 ? span.dataset.one + " One file per page." : span.dataset.one;
+      });
+    }
+    window.__TMKE_SYNC_DOWNLOAD__ = syncDownloadMenu;
+
     menu.querySelectorAll("[data-export]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const type = btn.getAttribute("data-export");
