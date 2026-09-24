@@ -236,6 +236,24 @@ import "../../styles/admin.css";
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
     const num = (n) => Number(n || 0).toLocaleString("en-GB");
     let days = 30, area = "site", ALL = [], EVENTS = [];
+    /* user_id -> the person, for naming who did a thing. Anonymous visitors
+       stay anonymous: we hold a session id and nothing else, and guessing
+       from it would be worse than saying so. */
+    let PEOPLE = new Map();
+    const whoLabel = (e) => {
+      const c = e.user_id && PEOPLE.get(e.user_id);
+      if (c) {
+        const nm = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
+        return nm ? nm + " · " + (c.email || "") : (c.email || "Signed in");
+      }
+      // Some events carry an address of their own — an enquiry, a brochure
+      // request — from somebody who never signed in at all.
+      const p = e.props || {};
+      const mail = p.email || p.to || null;
+      if (mail) return String(mail);
+      return e.user_id ? "Signed in (not in the CRM)" : "Not signed in";
+    };
+    const whenShort = (t) => new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
     // Where a page belongs. The tracker fires on every page the site serves,
     // so the log holds the public site, the member hub and the admin centre
@@ -398,9 +416,33 @@ import "../../styles/admin.css";
         blog_read: "Read a blog post",
       };
       const pretty = (n) => LABELS[n] || String(n).replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+      /* A count tells you something happened; a name tells you who to ring.
+         Each row opens onto the people behind it, newest first. */
+      const topTotal = topActs.length ? topActs[0][1] : 0;
       el("wi-events").innerHTML = topActs.length
-        ? rows(topActs.map(([n, c]) => [pretty(n), c]), topActs[0][1])
+        ? topActs.map(([n, c], i) => {
+            const mine = EVENTS.filter((e) => e.name === n
+              && !(n === "checkout_started" && bought.has(who(e))));
+            const list = mine.map((e) => `<li><span>${esc(whoLabel(e))}</span><time>${esc(whenShort(e.created_at))}</time></li>`).join("");
+            const bar = topTotal ? Math.max(2, Math.round((c / topTotal) * 100)) : 0;
+            return `<tr${i >= SHOW ? ' class="wi-more" hidden' : ""}>
+                <td><button type="button" class="wi-actbtn" data-act="${esc(n)}" aria-expanded="false">${esc(pretty(n))}</button><span class="wi-bar" style="width:${bar}%"></span></td>
+                <td class="num">${num(c)}</td>
+              </tr>
+              <tr class="wi-whorow" data-who="${esc(n)}" hidden><td colspan="2"><ul class="wi-who">${list}</ul></td></tr>`;
+          }).join("")
+          + (topActs.length > SHOW ? `<tr class="wi-morerow"><td colspan="2"><button type="button" class="wi-morebtn">Show the other ${topActs.length - SHOW}</button></td></tr>` : "")
         : `<tr><td class="wi-none">Only page views are being recorded. The shop and checkout don't yet tell the site when someone adds a pack or starts paying, so there is nothing else to count.</td></tr>`;
+
+      el("wi-events").querySelectorAll("[data-act]").forEach((b) => {
+        b.addEventListener("click", () => {
+          const row = el("wi-events").querySelector(`[data-who="${CSS.escape(b.getAttribute("data-act"))}"]`);
+          if (!row) return;
+          row.hidden = !row.hidden;
+          b.setAttribute("aria-expanded", String(!row.hidden));
+          b.classList.toggle("is-open", !row.hidden);
+        });
+      });
 
       const last = EVENTS[0];
       el("wi-foot").textContent = last
@@ -424,6 +466,16 @@ import "../../styles/admin.css";
         return;
       }
       ALL = data || [];
+      /* Put names to the signed-in ones. One query for everybody in the log,
+         not one per row. */
+      try {
+        const ids = [...new Set((ALL || []).map((e) => e.user_id).filter(Boolean))];
+        if (ids.length) {
+          const { data: people } = await supabase
+            .from("contacts").select("user_id, first_name, last_name, email").in("user_id", ids);
+          PEOPLE = new Map((people || []).filter((c) => c.user_id).map((c) => [c.user_id, c]));
+        } else PEOPLE = new Map();
+      } catch (_) { PEOPLE = new Map(); }
       applyArea();
       if (!EVENTS.length && ALL.length) {
         el("wi-body").hidden = true;
