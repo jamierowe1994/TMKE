@@ -343,20 +343,31 @@ import "../../../styles/admin.css";
           });
         })();
 
+        /* ONE ADDRESS, SEVERAL PEOPLE'S POST.
+
+           The strongest signal of all, and it is only visible ACROSS
+           recipients: 135.232.20.144 clicked for six different agents inside
+           two and a half minutes. Judged one recipient at a time that address
+           looks blameless -- one click, one agent, no burst -- which is
+           exactly how sixteen scanner clicks were reported as people.
+
+           A person has one inbox. Three different recipients on one address is
+           a queue being worked through, and it is true whenever it happens:
+           this rule used to be gated to the hour after delivery, which is the
+           same quarantine trap as before -- mail held for two days is scanned
+           on release, and every rule keyed to delivery time looks the other
+           way. Behaviour does not expire. */
         const MACHINE_IP_REACH = 3;
-        const MACHINE_WINDOW_MIN = 60;
         function isMachine(e) {
           if (e.event !== "clicked" && e.event !== "opened") return false;
           const ip = ipOf(e);
           if (knownScanner(ip)) return true;
-          // Did this address behave like a machine for this very message?
+          const reach = ip ? (ipReach.get(ip) || new Set()).size : 0;
+          if (reach >= MACHINE_IP_REACH) return true;
+          // How this address behaved for this one message and recipient.
           if (ip && machineIp.has(msgKey(e) + "|" + ip)) return true;
           // A mail client rendering the message is a person reading it.
           if (e.event === "opened" && isMailClient(uaOf(e))) return false;
-          const d = deliveredAt.get(e.email || e.contact_id);
-          const mins = d ? (new Date(e.occurred_at) - new Date(d)) / 60000 : null;
-          const reach = ip ? (ipReach.get(ip) || new Set()).size : 0;
-          if (reach >= MACHINE_IP_REACH && (mins == null || mins < MACHINE_WINDOW_MIN)) return true;
           return false;
         }
 
