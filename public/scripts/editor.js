@@ -10501,6 +10501,20 @@ import { createResizeEngine } from "./resize-engine.js";
     if (ask && host) {
       if (on && ask.parentNode !== host) host.appendChild(ask);
       else if (!on && ask.parentNode === host && _askHome) _askHome.insertBefore(ask, _askHomeAt || null);
+      /* On a print piece the help is not about planning a week of posts, it
+         is about the words on the card in front of them. */
+      const b = ask.querySelector(".ed-start-tx b");
+      const i = ask.querySelector(".ed-start-tx i");
+      if (b && i) {
+        if (on) {
+          if (!b.dataset.socialLabel) { b.dataset.socialLabel = b.textContent; i.dataset.socialLabel = i.textContent; }
+          b.textContent = "What to write";
+          i.textContent = "Help with your property description and card copy";
+        } else if (b.dataset.socialLabel) {
+          b.textContent = b.dataset.socialLabel;
+          i.textContent = i.dataset.socialLabel;
+        }
+      }
     }
     // Landing on a pane that is no longer there leaves an empty panel.
     if (on && PRINT_MEMBER_HIDDEN.indexOf(activeToolPane) !== -1) openTool("fields");

@@ -946,7 +946,17 @@
     const $dock = document.getElementById("ae-dock");
     const $dockToggle = document.getElementById("ae-dock-toggle");
     const floatingHome = $panel.parentElement;
-    const startRail = document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="start"]');
+    /* Whichever pane the dock is sitting in — Start on a social design, the
+       Assistant's own tab on a print one, where Start does not exist. It used
+       to always reach for Start, so opening the assistant on a print template
+       threw you back to a menu that is not supposed to be there. */
+    function railForDock(): HTMLButtonElement | null {
+      const pane = $dock?.closest<HTMLElement>(".ed-panel-pane");
+      const name = pane?.dataset.pane;
+      return name
+        ? document.querySelector<HTMLButtonElement>('.ed-rail-btn[data-tool="' + name + '"]')
+        : null;
+    }
     function dock() {
       if (!$dock || !floatingHome) return;
       $panel.classList.remove("is-wide");
@@ -958,8 +968,9 @@
       switchTab("ideas");
       $dockToggle?.setAttribute("aria-expanded", "true");
       $trigger.setAttribute("aria-expanded", "false");
-      // Make sure the Start pane is the one showing.
-      if (startRail && !startRail.classList.contains("is-active")) startRail.click();
+      // Make sure the pane the dock lives in is the one showing.
+      const rail = railForDock();
+      if (rail && !rail.hidden && !rail.classList.contains("is-active")) rail.click();
     }
     function undock() {
       if (!$dock || !floatingHome) return;
