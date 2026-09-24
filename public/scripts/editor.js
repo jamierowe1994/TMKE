@@ -10120,15 +10120,48 @@ import { createResizeEngine } from "./resize-engine.js";
                     should fill them in - not the order they were drawn, and
                     not the order they are stacked. */
 
+  /* Which items are worth being asked about, before the author has said.
+
+     Print is opt IN: a canvassing card is drawn to be filled in, and the
+     author marks each field by locking it as theirs. Nothing appears by
+     accident on a piece that has to print.
+
+     Social is opt OUT, because there are a hundred templates already drawn
+     and nobody is going back through them to tick boxes. Everything with
+     words or a picture in it is offered; shapes and gradients are not,
+     because they are the things laid over and behind a design rather than
+     the things it says. An icon is a shape wearing an image's clothes
+     (`svgKey`), so it counts as one. */
+  function isFieldWorthy(el) {
+    if (!el || el.hidden) return false;
+    if (el.fieldHidden) return false;                 // the author said no
+    if (el.type === "text") return true;
+    if (el.type === "frame" || el.type === "screen") return true;
+    if (el.type === "image") return !el.svgKey;       // a picture, not an icon
+    return false;                                      // rect, ellipse, line, gradient
+  }
   function fieldElements() {
-    const list = state.elements.filter(function (el) {
-      return el && !el.hidden && lockState(el) === "light";
-    });
+    const list = isPrintDesign()
+      ? state.elements.filter(function (el) { return el && !el.hidden && !el.fieldHidden && lockState(el) === "light"; })
+      : state.elements.filter(isFieldWorthy);
     // The author's order first; anything unnumbered keeps its place behind.
     return list
       .map(function (el, i) { return { el: el, at: (typeof el.fieldOrder === "number" ? el.fieldOrder : 1000 + i), i: i }; })
       .sort(function (a, b) { return a.at - b.at || a.i - b.i; })
       .map(function (x) { return x.el; });
+  }
+  /* The background is a field too. Most templates put their main photograph
+     there rather than in an image element, so a list that skipped it would
+     skip the biggest thing on the design. */
+  function backgroundIsField() {
+    return !isPrintDesign() && !state.canvas.bgFieldHidden
+      && (!!state.canvas.backgroundImage || isAdminMode());
+  }
+  // Items the author has taken off the list, so they can put one back.
+  function hiddenFieldCount() {
+    return state.elements.filter(function (el) {
+      return el && !el.hidden && el.fieldHidden && (isPrintDesign() ? lockState(el) === "light" : true);
+    }).length + (state.canvas.bgFieldHidden ? 1 : 0);
   }
   // What to call a field that was never named: its own first words, which at
   // least say which part of the design it is.
@@ -10147,6 +10180,8 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // Is this design one the Edit pane is for?
   function usesFieldsPane() { return isPrintDesign() && fieldElements().length > 0; }
+  // The Edit list is offered on any design that has something in it.
+  function hasFieldList() { return fieldElements().length > 0 || backgroundIsField(); }
 
   (function wirePreviewAsMember() {
     const preview = document.getElementById("ed-fields-preview");
@@ -10167,8 +10202,11 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!wrap) return;
     const admin = isAdminMode() && !_previewAsMember;
     const items = fieldElements();
-    // The rail button only exists where the pane has something to say.
-    if (railBtn) railBtn.hidden = !(items.length && (admin || isPrintDesign()));
+    const bg = backgroundIsField();
+    // The rail button only exists where the pane has something to say. On a
+    // print template it IS the rail; on social it sits in the Start menu, so
+    // the rail keeps its own button for authors only.
+    if (railBtn) railBtn.hidden = !((items.length || bg) && (isAdminMode() || isPrintDesign()));
     const title = document.getElementById("ed-fields-title");
     const preview = document.getElementById("ed-fields-preview");
     if (preview) {
@@ -10185,7 +10223,8 @@ import { createResizeEngine } from "./resize-engine.js";
       : "Each box below is a part of this design you can make yours.";
 
     wrap.innerHTML = "";
-    if (!items.length) {
+    if (bg) wrap.appendChild(backgroundFieldRow(admin));
+    if (!items.length && !bg) {
       if (empty) {
         empty.hidden = false;
         empty.textContent = admin
@@ -10230,6 +10269,11 @@ import { createResizeEngine } from "./resize-engine.js";
           moves.appendChild(b);
         });
         head.appendChild(moves);
+        head.appendChild(removeFieldButton(function () {
+          el.fieldHidden = true;
+          pushHistory();
+          renderFieldsPane();
+        }));
       } else {
         const lbl = document.createElement("label");
         lbl.className = "ed-field-label";
@@ -10241,6 +10285,86 @@ import { createResizeEngine } from "./resize-engine.js";
       row.appendChild(fieldControlFor(el, admin));
       wrap.appendChild(row);
     });
+
+    /* What the author has taken off the list, and the way to put it back.
+       Removing something with no route back is a trap, not a control. */
+    if (admin) {
+      const gone = hiddenFieldCount();
+      if (gone) {
+        const back = document.createElement("button");
+        back.type = "button";
+        back.className = "ed-fields-restore";
+        back.textContent = gone === 1 ? "1 item is off this list — put it back" : gone + " items are off this list — put them back";
+        back.addEventListener("click", function () {
+          state.elements.forEach(function (el) { if (el) delete el.fieldHidden; });
+          delete state.canvas.bgFieldHidden;
+          pushHistory();
+          renderFieldsPane();
+        });
+        wrap.appendChild(back);
+      }
+    }
+  }
+
+  // The background, as a row like any other.
+  function backgroundFieldRow(admin) {
+    const row = document.createElement("div");
+    row.className = "ed-field";
+    const head = document.createElement("div");
+    head.className = "ed-field-head";
+    if (admin) {
+      const name = document.createElement("input");
+      name.type = "text";
+      name.className = "ed-field-name";
+      name.value = state.canvas.bgFieldLabel || "";
+      name.placeholder = "e.g. This is where the photo of the house goes";
+      name.addEventListener("change", function () {
+        state.canvas.bgFieldLabel = name.value.trim() || null;
+        pushHistory();
+        renderFieldsPane();
+      });
+      head.appendChild(name);
+      head.appendChild(removeFieldButton(function () {
+        state.canvas.bgFieldHidden = true;
+        pushHistory();
+        renderFieldsPane();
+      }));
+    } else {
+      const lbl = document.createElement("label");
+      lbl.className = "ed-field-label";
+      lbl.textContent = state.canvas.bgFieldLabel || "The background picture";
+      head.appendChild(lbl);
+    }
+    row.appendChild(head);
+
+    const box = document.createElement("div");
+    box.className = "ed-field-pic";
+    const thumb = document.createElement("span");
+    thumb.className = "ed-field-thumb";
+    if (state.canvas.backgroundImage) thumb.style.backgroundImage = "url(" + JSON.stringify(state.canvas.backgroundImage) + ")";
+    else thumb.classList.add("is-empty");
+    box.appendChild(thumb);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ed-field-change";
+    btn.textContent = state.canvas.backgroundImage ? "Change" : "Add a picture";
+    btn.addEventListener("click", function () { openTool("background"); });
+    box.appendChild(btn);
+    row.appendChild(box);
+    return row;
+  }
+
+  // "Not something they need to change" — the author's way of shortening the
+  // list on a template that was drawn before any of this existed.
+  function removeFieldButton(onClick) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "ed-field-drop";
+    b.textContent = "\u00d7";
+    b.title = "Take this off the list";
+    b.setAttribute("aria-label", "Take this off the list");
+    b.addEventListener("click", onClick);
+    return b;
   }
 
   // Swap a field with its neighbour, and write the order onto every field so

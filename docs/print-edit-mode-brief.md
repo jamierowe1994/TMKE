@@ -141,3 +141,41 @@ in.
 - Nothing has been authored against a real print template yet. The Canvas &
   Card designs will need their fields naming before a member sees the good
   version of this.
+
+
+---
+
+## And then social wanted it too, 24 Sep 2026
+
+*"I actually think this whole thing is better than having the text in the text
+selection box."* So the Edit list is on social designs as well, sitting in the
+Start menu rather than on the rail:
+
+**Start is now three things** — What to post, Make it yours, Edit. Background,
+Text and Images came off it: they were three doors onto the same words and
+pictures, and Edit is one door that already knows which ones they are.
+
+**Print is opt in, social is opt out.** A canvassing card is drawn to be
+filled in, so its fields are the ones the author light-locked and nothing
+appears by accident. Social has a hundred templates already drawn and nobody
+is going back through them to tick boxes, so everything is offered by default.
+
+**What is offered, before an author has said anything:**
+
+| | |
+|---|---|
+| The background picture | **yes**, and first — *"a lot of them will have their main images set as background images rather than actual image elements"* |
+| Text | yes |
+| Pictures, frames, screens | yes |
+| Shapes, lines, gradients | no — *"most shapes and gradients are obviously just going to be cover fill things"* |
+| Icons | no. An icon is a shape wearing an image's clothes (`svgKey`) |
+
+**The author prunes rather than builds.** Each row in the author's view has an
+× that takes it off the list (`fieldHidden`, or `canvas.bgFieldHidden`), and a
+line underneath says how many are off and puts them all back. Removing
+something with no route back is a trap, not a control.
+
+Verified on a social design carrying a background photo, two text boxes, a
+picture, a shape, a gradient and an icon: the list is the background, the two
+texts and the picture. Start reads Make it yours / Edit on a desktop, with
+Edit leading on a phone. Taking a row off and putting it back both work.

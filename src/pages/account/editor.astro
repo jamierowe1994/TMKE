@@ -4335,6 +4335,22 @@ const googleFonts = [
     }
     .ed-field-move:hover:not(:disabled) { background: rgba(28,29,34,0.07); }
     .ed-field-move:disabled { opacity: 0.35; cursor: default; }
+    /* Taking something off the list, and the way back. */
+    .ed-field-drop {
+      appearance: none; cursor: pointer; flex: 0 0 auto;
+      width: 26px; height: 26px; border-radius: 6px;
+      border: 1px solid rgba(28,29,34,0.14); background: #fff;
+      color: rgba(28,29,34,0.55); font-size: 15px; line-height: 1;
+    }
+    .ed-field-drop:hover { background: rgba(163,55,43,0.09); border-color: rgba(163,55,43,0.4); color: #a3372b; }
+    .ed-fields-restore {
+      appearance: none; cursor: pointer; width: 100%;
+      margin-top: 2px; padding: 9px 12px; border-radius: 8px;
+      border: 1px dashed rgba(28,29,34,0.22); background: transparent;
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600;
+      color: rgba(28,29,34,0.6); text-align: left;
+    }
+    .ed-fields-restore:hover { background: rgba(28,29,34,0.04); color: var(--ink); }
     .ed-fields-empty {
       margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta);
       line-height: 1.5; color: rgba(28,29,34,0.6);
@@ -7853,6 +7869,7 @@ const googleFonts = [
         photos:     '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
         elements:   '<path d="M12 3l2.4 5.3 5.6.5-4.2 3.7 1.3 5.5L12 20.7 6.9 23.5l1.3-5.5L4 14.3l5.6-.5z"/>',
         page:       '<rect x="3" y="3" width="13" height="18" rx="2"/><path d="M19 8v13H8"/>',
+        fields:     '<path d="M4 7h16M4 12h10M4 17h7"/>',
       };
       const ACTIONS = {
         // Phone only — the three things a phone is for: pick up a template,
@@ -7867,6 +7884,11 @@ const googleFonts = [
         photos:     { tool: "photos",     label: "Images",        note: "Add a photo" },
         elements:   { tool: "elements",   label: "Elements",      note: "Shapes, lines, icons" },
         page:       { addPage: true,      label: "Add a page",    note: "For a carousel" },
+        /* Everything on the design you might want to change, in one list.
+           It replaces Background, Text and Images on this menu: those are
+           three ways to reach the same words and pictures, and this is one
+           way that already knows which ones they are. */
+        fields:     { tool: "fields",     label: "Edit",          note: "Change the words &amp; pictures" },
       };
 
       const params = new URLSearchParams(location.search);
@@ -7880,13 +7902,13 @@ const googleFonts = [
         template: {
           title: "Choose something to edit",
           sub: "Select any item in the template to start customising it.",
-          order: ["brand", "background", "text", "photos"],
+          order: ["brand", "fields"],
         },
         // Yours, part-finished. Could have come from anywhere, so offer the lot.
         design: {
           title: "Pick up where you left off",
           sub: "Select an item on your design to continue editing it.",
-          order: ["brand", "background", "text", "photos", "elements", "page"],
+          order: ["brand", "fields", "elements", "page"],
         },
         // Nothing on the page yet. Building tools first; rebranding last,
         // because there is nothing yet for it to recolour.
@@ -7912,9 +7934,15 @@ const googleFonts = [
         if (title) title.textContent = L.title;
         if (sub) sub.textContent = L.sub;
         let order = L.order;
-        // A phone's Start is four things; Templates, Text, Elements and
-        // Background have tabs of their own down there.
-        if (PHONE.matches) order = ["newdesign", "resize", "page", "brand"];
+        /* A phone's Start is four things. On a design there is one thing
+           worth doing above all others — change the words and pictures — so
+           Edit leads; on an empty canvas there is nothing to edit yet, so the
+           building tools do. */
+        if (PHONE.matches) {
+          order = (which === "blank" || which === "prompt")
+            ? ["text", "photos", "elements", "brand"]
+            : ["fields", "brand", "resize", "newdesign"];
+        }
         grid.innerHTML = order.map(function (key) {
           const a = ACTIONS[key];
           if (!a) return "";
