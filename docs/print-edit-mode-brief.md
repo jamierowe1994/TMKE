@@ -101,9 +101,21 @@ stored:
   Change beside it. Pressing a field outlines that part of the design, so a
   list of boxes beside a card still tells you which is which.
 
-**The rail, for a member on a print template**: Templates, Elements, Text,
-Images, Layers and Start are hidden; Edit, Background, Brand kit, Guides,
-Resize and Pages stay. Admin keeps everything — somebody has to draw it.
+**The rail, for a member on a print template**: Start, Templates, Elements,
+Text, Images, Background and Layers are all hidden. What stays is Edit,
+**Assistant**, Brand kit, Resize, Guides and Pages. Admin keeps everything —
+somebody has to draw it.
+
+Background and Layers went on Danielle's second pass: *"Do we need layers?
+Probably don't need layers."* Right — the stack is the author's decision and
+a member moving something behind something else on a piece that has to print
+is only ever a mistake.
+
+The **Assistant** is new and is the reason Start could go. The assistant lived
+inside the Start pane, and writing the words on a canvassing card is most of
+the job: *"if they need any help with the copy or any copy changes, they can
+use the chatbot."* So it moves onto the rail in its own right. The node is
+moved rather than copied, so a conversation in progress goes with it.
 
 An unnamed field falls back to its own first words, so a print template drawn
 before any of this still opens to a usable list.
@@ -113,9 +125,16 @@ dead-locked element stays out of the list, typing in a field changes the
 design, renaming and reordering both stick, both survive publish, and a
 social design is untouched — no Edit button, full rail.
 
+**Seeing it as a member.** An author cannot answer "is the rail right?" from
+the side that keeps every tool, so the Edit pane carries a *See it the way a
+member does* switch. It applies the member rail and the member form, and it
+stays on screen while it is on, because it is the way back as well as the way
+in.
+
 ### Still to do
 
-- The order arrows are up/down. Dragging would be nicer and is not built.
+- The order arrows stay as arrows: *"the drag-and-drop function is always a
+  little bit laggy. I'm more than happy with the up and down arrows."*
 - Typing into a text field clears any per-word formatting on that element
   (`liveSetText` drops `runs`). Right for a plain field, wrong if an author
   ever bolds one word inside one — worth deciding.

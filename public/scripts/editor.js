@@ -10126,16 +10126,36 @@ import { createResizeEngine } from "./resize-engine.js";
   // Is this design one the Edit pane is for?
   function usesFieldsPane() { return isPrintDesign() && fieldElements().length > 0; }
 
+  (function wirePreviewAsMember() {
+    const preview = document.getElementById("ed-fields-preview");
+    const box = preview && preview.querySelector("input");
+    if (!box) return;
+    box.addEventListener("change", function () {
+      _previewAsMember = box.checked;
+      renderFieldsPane();
+      syncPrintRail();
+      if (!_previewAsMember) openTool("fields");
+    });
+  })();
+
   function renderFieldsPane() {
     const wrap = document.getElementById("ed-fields");
     const empty = document.getElementById("ed-fields-empty");
     const railBtn = document.getElementById("ed-rail-fields");
     if (!wrap) return;
-    const admin = isAdminMode();
+    const admin = isAdminMode() && !_previewAsMember;
     const items = fieldElements();
     // The rail button only exists where the pane has something to say.
     if (railBtn) railBtn.hidden = !(items.length && (admin || isPrintDesign()));
     const title = document.getElementById("ed-fields-title");
+    const preview = document.getElementById("ed-fields-preview");
+    if (preview) {
+      // Shown to an author whether or not they are previewing — it is the way
+      // back as well as the way in.
+      preview.hidden = !isAdminMode();
+      const box = preview.querySelector("input");
+      if (box && box.checked !== _previewAsMember) box.checked = _previewAsMember;
+    }
     const sub = document.getElementById("ed-fields-sub");
     if (title) title.textContent = admin ? "The fields you are giving them" : "What do you need to change?";
     if (sub) sub.textContent = admin
@@ -10263,23 +10283,44 @@ import { createResizeEngine } from "./resize-engine.js";
      kit and the guides, because those are theirs across every design.
 
      Admin keeps the lot: somebody has to draw the thing. */
-  const PRINT_MEMBER_HIDDEN = ["templates", "elements", "text", "photos", "layers"];
+  const PRINT_MEMBER_HIDDEN = ["start", "templates", "elements", "text", "photos", "background", "layers"];
+  /* Admin authoring a print template can put themselves in the member's shoes
+     for a moment, because "is the rail right?" is not a question you can
+     answer from the side that keeps every tool. */
+  var _previewAsMember = false;
+  function memberPrintView() {
+    return (_previewAsMember || !isAdminMode()) && usesFieldsPane();
+  }
   function syncPrintRail() {
-    const on = !isAdminMode() && usesFieldsPane();
+    const on = memberPrintView();
     PRINT_MEMBER_HIDDEN.forEach(function (tool) {
       const btn = document.querySelector('.ed-rail-btn[data-tool="' + tool + '"]');
       if (!btn) return;
       if (on) { if (!btn.hidden) { btn.dataset.printHid = "1"; btn.hidden = true; } }
       else if (btn.dataset.printHid) { btn.hidden = false; delete btn.dataset.printHid; }
     });
-    const start = document.querySelector('.ed-rail-btn[data-tool="start"]');
-    if (start) {
-      if (on) { if (!start.hidden) { start.dataset.printHid = "1"; start.hidden = true; } }
-      else if (start.dataset.printHid) { start.hidden = false; delete start.dataset.printHid; }
+    /* The assistant lives in the Start pane, which print does not have. They
+       are the ones writing the words on a canvassing card, so it moves onto
+       the rail in its own right rather than going with the pane it happened
+       to be sitting in. The node is MOVED, not copied: a conversation in
+       progress goes with it. */
+    const askBtn = document.getElementById("ed-rail-assistant");
+    const ask = document.querySelector(".ed-start-ask");
+    const host = document.getElementById("ed-assistant-host");
+    if (askBtn) askBtn.hidden = !on;
+    if (ask && host) {
+      if (on && ask.parentNode !== host) host.appendChild(ask);
+      else if (!on && ask.parentNode === host && _askHome) _askHome.insertBefore(ask, _askHomeAt || null);
     }
     // Landing on a pane that is no longer there leaves an empty panel.
-    if (on && PRINT_MEMBER_HIDDEN.concat("start").indexOf(activeToolPane) !== -1) openTool("fields");
+    if (on && PRINT_MEMBER_HIDDEN.indexOf(activeToolPane) !== -1) openTool("fields");
   }
+  // Where the assistant sits when it is not on the rail.
+  var _askHome = null, _askHomeAt = null;
+  (function rememberAskHome() {
+    const ask = document.querySelector(".ed-start-ask");
+    if (ask && ask.parentNode) { _askHome = ask.parentNode; _askHomeAt = ask.nextSibling; }
+  })();
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
   function openTool(name) {
