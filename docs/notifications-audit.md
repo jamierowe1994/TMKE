@@ -30,7 +30,8 @@ nobody knows it is free.
 | Videography enquiry | `JACK_NOTIFY` | Jack + admin |
 | Social media enquiry | `SMM_NOTIFY` | Abigail + admin |
 | General contact form | `ENQUIRY_NOTIFY` (hello@) | Admin |
-| SMM waitlist joined | `SMM_NOTIFY` + Samantha | Abigail + admin |
+| SMM waitlist joined | new-business lead + Samantha | New business + Danielle |
+| **Social client's shoot ready** | manager, via `/videography/smm-ready` | **Account manager + Danielle** |
 | Brochure requested | *(logged, nobody told)* | Admin |
 
 ## 3. Money — today: mostly SILENT
@@ -70,8 +71,11 @@ the single biggest hole in this list.
 
 Three audiences, and the difference matters:
 
-- **A person** — Jack for a shoot, Abigail for social. They already get the
-  email; the notification is so it is still there tomorrow.
+- **A person** — Jack for anything videography, Sam for new social business,
+  and the named account manager for an existing social client. Abby is not a
+  new-business address: she looks after the clients she manages, and hears
+  when their shoot is edited and in the Library. They already get the email;
+  the notification is so it is still there tomorrow.
 - **Admin** — everyone with an admin login sees it in the centre. Read state
   is per person: Sam clearing one must not hide it from Danielle.
 - **A person AND admin** — the default for anything operational. The named

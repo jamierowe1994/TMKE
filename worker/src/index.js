@@ -2716,6 +2716,13 @@ async function notifyAdmins(env, { area, event, title, body = null, href = null,
    `smm_leads.social_media_manager` holds a NAME and `admins` holds addresses,
    so the name is matched against them — the same match the shoot-ready mail
    has always used. No match means nobody extra, and Danielle still sees it. */
+/* New business is not Abby's. She looks after the clients she manages; a
+   stranger enquiring belongs to whoever is picking up new work. Falls back to
+   the old social inbox so nothing goes unheard before the secret is set. */
+function smmNewBusiness(env) {
+  return env.SMM_NEW_BUSINESS || env.SMM_NOTIFY || env.MAIL_SENDER || null;
+}
+
 async function smmManagerEmail(env, managerName) {
   try {
     const manager = String(managerName || "").trim();
@@ -5227,7 +5234,7 @@ export default {
 
         // Notify the SMM team.
         await sendEmail(env, {
-          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New enquiry - Social Media - ${fullName}`,
+          to: smmNewBusiness(env) || env.JACK_NOTIFY, subject: `New enquiry - Social Media - ${fullName}`,
           html: `<div style="${EM_WRAP}">
             <h1 style="${EM_H1}">New Social Media enquiry</h1>
             <div style="${EM_QUOTE}">
@@ -5249,7 +5256,7 @@ export default {
             title: "Social media enquiry",
             body: [fullName, email, company].filter(Boolean).join(" · "),
             href: "/admin/social",
-            also: [env.SMM_NEW_BUSINESS || env.SMM_NOTIFY || null],
+            also: [smmNewBusiness(env)],
           });
         } catch (_) {}
 
@@ -5367,7 +5374,7 @@ export default {
         // To us — Sam runs social, so she is on this one by name rather than
         // relying on whoever happens to read the shared inbox.
         const fileLink = `${unsubBase(env)}/admin/social?lead=${encodeURIComponent(up.id)}`;
-        const notify = [env.SMM_NOTIFY || env.MAIL_SENDER, "samantha@themarketingexperts.co.uk"].filter(Boolean).join(",");
+        const notify = [...new Set([smmNewBusiness(env), "samantha@themarketingexperts.co.uk"].filter(Boolean))].join(",");
         await sendEmail(env, {
           to: notify, subject: `SMM waitlist - ${fullName}`,
           html: `<div style="${EM_WRAP}">
@@ -5637,7 +5644,7 @@ export default {
           body: `Your social media discovery call is booked for ${dateNice} at ${start}. It's an online/phone call - no prep needed, just bring your questions.`,
         });
         await sendEmail(env, {
-          to: env.SMM_NOTIFY || env.MAIL_SENDER || env.JACK_NOTIFY, subject: `New discovery call - Social Media - ${fullName} - ${dateNice} ${start}`,
+          to: smmNewBusiness(env) || env.JACK_NOTIFY, subject: `New discovery call - Social Media - ${fullName} - ${dateNice} ${start}`,
           html: `<div style="${EM_WRAP}">
             <h1 style="${EM_H1}">Discovery call booked (Social Media)</h1>
             <div style="${EM_QUOTE}">
@@ -5654,7 +5661,7 @@ export default {
             title: "Discovery call booked — social",
             body: [fullName, dateNice, start].filter(Boolean).join(" · "),
             href: "/admin/social",
-            also: [env.SMM_NEW_BUSINESS || env.SMM_NOTIFY || null],
+            also: [smmNewBusiness(env)],
           });
         } catch (_) {}
         // CRM + automations: upsert the contact + fire form-submitted (and
@@ -7173,6 +7180,18 @@ export default {
           <p style="${EM_SMALL}">Nothing has gone to the client: this footage is ours to use for their social media.</p>`);
         const sent = await sendEmail(env, { to, subject: `Ready in the Library - ${clientName}`, html });
         if (!sent.ok) return json({ error: sent.error || "The email didn't send." }, 502, request, env);
+        /* Their client's shoot is edited and in the Library. This one belongs
+           to the account manager — Abby for hers — because she is the one who
+           has to do something with it. */
+        try {
+          await notifyAdmins(env, {
+            area: "social", event: "smm_content_ready",
+            title: `Content ready — ${clientName}`,
+            body: `${bk.service || "Shoot"}${bk.shoot_date ? " on " + bk.shoot_date : ""} is edited and in the Library.`,
+            href: "/admin/content", also: [to], key: `smm-ready:${bk.id}`,
+            meta: { booking_id: bk.id, lead_id: lead.id || null },
+          });
+        } catch (_) {}
         return json({ ok: true, to, link }, 200, request, env);
       }
 
