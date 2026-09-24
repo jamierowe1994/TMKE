@@ -8178,7 +8178,17 @@ const googleFonts = [
           .map((o) => o.pack_id)
       );
       // The demo pack is free with every account, so it counts as owned.
-      const owned = allPacks.filter((p) => ownedIds.has(p.id) || p.demo === true);
+      /* The same rule the Studio shelf uses, so a pack does not appear on one
+         and vanish from the other. It also brings print packs in: this filter
+         only ever counted what had been paid for, which is not how a pack
+         drawn for a brand reaches its agents. */
+      let memberBrand;
+      try {
+        const br = await supabase.rpc("member_brand");
+        if (!br.error) memberBrand = br.data ?? null;
+      } catch (_) { /* could not ask — leave undefined, and take nobody's pack away */ }
+      const { ownedPacks } = await import("../../lib/pack-access.js");
+      const owned = ownedPacks(allPacks, ownedIds, memberBrand);
 
       // Deep-link /editor?pack=<id> jumps straight to that pack's designs.
       const packParam = params.get("pack");

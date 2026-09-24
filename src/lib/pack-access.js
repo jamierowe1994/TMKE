@@ -14,10 +14,31 @@
  * a rule that lives in one place can't drift from the other copy of itself.
  */
 
-// Packs the member can open in their Studio.
-export function ownedPacks(packs, paidPackIds) {
+/* Packs the member can open in their Studio.
+ *
+ * `memberBrand` is the brand this account actually belongs to, from the
+ * database's own member_brand(). It is needed because the RLS above lets
+ * STAFF read every pack — right for the Admin Centre, wrong for their own
+ * Studio, where somebody at TMKE was being shown a Property Experts print
+ * pack they are not a Property Expert in. Trusting the database alone was
+ * only ever true for people who are not staff.
+ *
+ *   a string     they are in that brand: brand packs naming it, and no others
+ *   null         we asked and they are in no brand: no brand packs at all
+ *   undefined    we could not ask. Fall back to what the database allowed,
+ *                so a lookup that fails takes nobody's pack away from them.
+ */
+export function ownedPacks(packs, paidPackIds, memberBrand) {
   const paid = paidPackIds instanceof Set ? paidPackIds : new Set(paidPackIds || []);
-  return (packs || []).filter((p) => p && (
+  const norm = (v) => (v == null ? '' : String(v).trim().toLowerCase());
+  const mine = norm(memberBrand);
+  const theirBrand = (p) => {
+    if (p.access !== 'brands') return true;
+    if (memberBrand === undefined) return true;            // could not ask
+    if (!mine) return false;                               // asked: no brand
+    return (Array.isArray(p.brands) ? p.brands : []).some((b) => norm(b) === mine);
+  };
+  return (packs || []).filter((p) => p && theirBrand(p) && (
     paid.has(p.id)
     || p.demo === true
     || p.access === 'members'

@@ -651,10 +651,18 @@ const inspo = [
         }
         if (!session) { done(); return; } // signed out (preview) → keep the SSR sample packs
         const email = session.user.email || '';
-        const [packsRes, ordersRes] = await Promise.all([
+        /* Which brand this account is actually in, asked of the database
+           rather than assumed. Staff can read every pack, so without this
+           somebody at TMKE saw a Property Experts print pack in their own
+           Studio. `undefined` means the question could not be put, and takes
+           nobody's pack away. */
+        let memberBrand;
+        const [packsRes, ordersRes, brandRes] = await Promise.all([
           supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
           supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`),
+          supabase.rpc('member_brand').then((r) => r, () => null),
         ]);
+        if (brandRes && !brandRes.error) memberBrand = brandRes.data ?? null;
         const allPacks = packsRes.data || [];
         // Packs with no cover set borrow one of their own templates.
         const { fillPackCovers } = await import('../../lib/pack-cover.js');
@@ -663,7 +671,7 @@ const inspo = [
         // Bought, the demo, free-to-members, or drawn for their brand — the
         // brand check is the database's (src/lib/pack-access.js explains why).
         const { ownedPacks } = await import('../../lib/pack-access.js');
-        const owned = ownedPacks(allPacks, ownedIds);
+        const owned = ownedPacks(allPacks, ownedIds, memberBrand);
         if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         // The demo pack is marked so the "Opening a template" walk can point at
         // the one every member has, not at whichever pack happens to be first.
