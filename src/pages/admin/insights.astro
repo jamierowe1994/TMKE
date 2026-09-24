@@ -252,8 +252,16 @@ import "../../styles/admin.css";
        stay anonymous: we hold a session id and nothing else, and guessing
        from it would be worse than saying so. */
     let PEOPLE = new Map();
+    /* session_id -> user_id, for the events that happen either side of signing
+       in. Becoming a member is the obvious one: you are a stranger when you
+       fill the form and a member a second later, and the event that records
+       it carries no user_id because at that instant there wasn't one. Same
+       visit, same person -- so if ANY event in a session is signed in, the
+       whole session is theirs. */
+    let SESSION_OWNER = new Map();
     const whoLabel = (e) => {
-      const c = e.user_id && PEOPLE.get(e.user_id);
+      const uid = e.user_id || SESSION_OWNER.get(e.session_id || e.id) || null;
+      const c = uid && PEOPLE.get(uid);
       if (c) {
         const nm = [c.first_name, c.last_name].filter(Boolean).join(" ").trim();
         return nm ? nm + " · " + (c.email || "") : (c.email || "Signed in");
@@ -263,7 +271,7 @@ import "../../styles/admin.css";
       const p = e.props || {};
       const mail = p.email || p.to || null;
       if (mail) return String(mail);
-      return e.user_id ? "Signed in (not in the CRM)" : "Not signed in";
+      return uid ? "Signed in (not in the CRM)" : "Not signed in";
     };
     const whenShort = (t) => new Date(t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
@@ -480,6 +488,11 @@ import "../../styles/admin.css";
       ALL = data || [];
       /* Put names to the signed-in ones. One query for everybody in the log,
          not one per row. */
+      SESSION_OWNER = new Map();
+      (ALL || []).forEach((e) => {
+        const sid = e.session_id || e.id;
+        if (e.user_id && sid && !SESSION_OWNER.has(sid)) SESSION_OWNER.set(sid, e.user_id);
+      });
       try {
         const ids = [...new Set((ALL || []).map((e) => e.user_id).filter(Boolean))];
         if (ids.length) {
