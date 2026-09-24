@@ -5904,21 +5904,28 @@ const googleFonts = [
             const rail = document.querySelector('.ed-rail-btn[data-tool="brand"]');
             if (rail) rail.click();
           });
-          const KEY = 'tmke.designing-as';
-          // What this design was made as wins; then this session's choice; then
-          // their primary brand.
-          // A saved design is fetched in parallel with this, so give it a
-          // moment to say what it was made as before falling back.
+          /* Three answers, in this order, and no others:
+               1. what a saved design was made as — their own answer, kept
+               2. the brand the template's pack was drawn for
+               3. their primary brand
+
+             There used to be a fourth between 2 and 3: whichever brand they
+             were last designing as. It came out because it is invisible state
+             — the last time could have been months ago and they will not
+             remember it, so a blank template would open in a brand for no
+             reason they could see. A pack with no brand on it (a social or
+             digital pack) is nobody's in particular, so it opens in their
+             primary and they switch if they would rather.
+
+             A saved design is fetched in parallel with this, so give it a
+             moment to say what it was made as before falling back. */
           const askDesign = () => (typeof (window as any).__TMKE_DESIGN_BRAND__ === 'function' ? (window as any).__TMKE_DESIGN_BRAND__() : null);
           let made = askDesign();
           if (!made && params.get('design')) {
             for (let i = 0; i < 20 && !made; i++) { await new Promise((r) => setTimeout(r, 150)); made = askDesign(); }
           }
           let want = (made && brands.includes(made)) ? made : null;
-          /* Then the pack's own brand. A design they saved remembers what it
-             was made as and outranks everything; a template they have just
-             opened belongs to whichever brand the pack was drawn for, which
-             beats "whatever I was designing as a minute ago". */
+          // Then the brand the pack was drawn for.
           if (!want) {
             const askPack = () => (window as any).__TMKE_PACK_BRAND__ || null;
             let ofPack = askPack();
@@ -5927,7 +5934,6 @@ const googleFonts = [
             }
             if (ofPack && brands.includes(ofPack)) want = ofPack;
           }
-          if (!want) { try { const s = sessionStorage.getItem(KEY); if (s && brands.includes(s)) want = s; } catch (_) {} }
           const applyKit = async (brand, quiet) => {
             // Their own kit for that brand if they have edited one (the Brand
             // kit page keeps one per brand under byBrand); the brand's own
@@ -5941,7 +5947,6 @@ const googleFonts = [
             if (mine) {
               pick.value = brand;
               if (chipName) chipName.textContent = brand;
-              try { sessionStorage.setItem(KEY, brand); } catch (_) {}
               if (typeof (window as any).__TMKE_SET_BRAND_KIT__ === 'function') (window as any).__TMKE_SET_BRAND_KIT__(mine, brand);
               return true;
             }
@@ -5949,7 +5954,6 @@ const googleFonts = [
             if (!out || !out.ok || !out.kit) return false;
             pick.value = out.brand || brand;
             if (chipName) chipName.textContent = out.brand || brand;
-            try { sessionStorage.setItem(KEY, out.brand || brand); } catch (_) {}
             if (typeof (window as any).__TMKE_SET_BRAND_KIT__ === 'function') (window as any).__TMKE_SET_BRAND_KIT__(out.kit, out.brand || brand);
             return true;
           };
