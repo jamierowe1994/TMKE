@@ -2818,6 +2818,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // The field list and the rail follow the design, not the other way round.
     if (typeof renderFieldsPane === "function") renderFieldsPane();
     if (typeof syncPrintRail === "function") syncPrintRail();
+    if (typeof syncBrandRail === "function") syncBrandRail();
 
     canvasEl.innerHTML = "";
 
@@ -3486,6 +3487,12 @@ import { createResizeEngine } from "./resize-engine.js";
   function renderTextList() {
     const wrap = document.getElementById("ed-textlist");
     if (!wrap) return;
+    /* A member does not get a list of every text box any more. It duplicated
+       the Edit pane on a template and, on any design, selecting the box you
+       mean is the same gesture as finding it in a list — so the list was a
+       second place to do one job, and the longer of the two. Admin keeps it:
+       drawing a template is exactly when a flat list of every string helps. */
+    if (!isAdminMode()) { wrap.innerHTML = ""; return; }
     if (wrap.contains(document.activeElement)) return;   // never rebuild mid-type
     // A text the template has fixed outright isn't offered for rewording.
     const texts = state.elements.filter((e) => e.type === "text" && memberLock(e) !== "dead");
@@ -7209,8 +7216,9 @@ import { createResizeEngine } from "./resize-engine.js";
     const wantText = host && activeToolPane === "text" && el && el.type === "text";
     const target = wantText ? host : home;
     if (target && body.parentNode !== target) target.appendChild(body);
+    // The heading belongs to the list, and a member no longer has the list.
     const listHead = document.getElementById("ed-textlist-head");
-    if (listHead) listHead.hidden = !wantText;
+    if (listHead) listHead.hidden = !wantText || !isAdminMode();
     return body;
   }
 
@@ -10532,6 +10540,17 @@ import { createResizeEngine } from "./resize-engine.js";
 
      Admin keeps the lot: somebody has to draw the thing. */
   const PRINT_MEMBER_HIDDEN = ["start", "templates", "elements", "text", "photos", "background", "layers"];
+  /* The brand kit is one of the two things Start is for — "Make it yours" —
+     so on a social design it does not also need a tab of its own. A print
+     template keeps it on the rail, because print has no Start to put it in. */
+  function syncBrandRail() {
+    const btn = document.querySelector('.ed-rail-btn[data-tool="brand"]');
+    if (!btn) return;
+    const off = !isAdminMode() && !isPrintDesign();
+    if (off) { if (!btn.hidden) { btn.dataset.brandHid = "1"; btn.hidden = true; } }
+    else if (btn.dataset.brandHid) { btn.hidden = false; delete btn.dataset.brandHid; }
+    if (off && activeToolPane === "brand") openTool("start");
+  }
   /* Admin authoring a print template can put themselves in the member's shoes
      for a moment, because "is the rail right?" is not a question you can
      answer from the side that keeps every tool. */
