@@ -1761,6 +1761,13 @@ const googleFonts = [
        print rail kept every tool, and why Templates showed to members even
        though the markup marks it hidden. */
     .ed-rail-btn[hidden], .ed-rail-toggle[hidden] { display: none; }
+    /* On a print template the rail is four or five items, so its first one
+       lines up with the top of the panel beside it rather than floating
+       above it. The full rail needs every pixel of its height, so this is
+       only for the short one. */
+    @media (min-width: 761px) {
+      .editor.is-printrail .ed-rail { padding-top: 20px; }
+    }
     .ed-rail-btn svg, .ed-rail-toggle svg { width: 19px; height: 19px; }
     .ed-rail-btn span, .ed-rail-toggle span {
       font-size: 9px; font-weight: 600; letter-spacing: 0.03em;
@@ -8016,6 +8023,8 @@ const googleFonts = [
       } catch (_) {}
       if (!packIds.length) return;
       railBtn.hidden = false;
+      // A print template does not offer the other templates; the rail decides.
+      (window).__TMKE_SYNC_RAIL__?.();
       // The grid holds the engine's starter set until the member's own
       // templates arrive; showing that first read as the wrong templates
       // flashing up. Kept out of sight until the real ones are in.
@@ -8143,6 +8152,7 @@ const googleFonts = [
               (window as any).__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false });
               if (demoGrid) demoGrid.style.display = "";
               railBtn.hidden = false;
+              (window).__TMKE_SYNC_RAIL__?.();
             }
           } catch (_) {}
         }

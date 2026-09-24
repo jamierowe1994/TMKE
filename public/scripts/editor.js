@@ -10479,6 +10479,10 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   function syncPrintRail() {
     const on = memberPrintView();
+    // A short rail can start where the panel starts. A full one cannot afford
+    // the room, so the offset only applies to the print rail.
+    const root = document.getElementById("editor");
+    if (root) root.classList.toggle("is-printrail", on);
     PRINT_MEMBER_HIDDEN.forEach(function (tool) {
       const btn = document.querySelector('.ed-rail-btn[data-tool="' + tool + '"]');
       if (!btn) return;
@@ -10507,6 +10511,12 @@ import { createResizeEngine } from "./resize-engine.js";
     const ask = document.querySelector(".ed-start-ask");
     if (ask && ask.parentNode) { _askHome = ask.parentNode; _askHomeAt = ask.nextSibling; }
   })();
+
+  /* The Templates button is revealed asynchronously once we know which packs
+     they own, which can land after the rail has already been set for a print
+     template. Anything that shows a rail button says so, and the rail decides
+     again. */
+  window.__TMKE_SYNC_RAIL__ = function () { try { syncPrintRail(); } catch (_) {} };
 
   // Open a tool pane programmatically (clears any selection so the pane shows).
   function openTool(name) {
