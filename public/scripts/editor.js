@@ -2469,9 +2469,15 @@ import { createResizeEngine } from "./resize-engine.js";
     // saved brand kit. Skipped in admin mode so admins can author templates
     // with the tokens visible and intact. Customers can still hand-edit any
     // text afterwards — this just gives them a personalised starting point.
-    if (!isAdminMode()) { fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); nudgeIfBrandNameMissing(); }
+    if (!isAdminMode()) {
+      fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos();
+      applyBrandFontsToTemplate();
+      nudgeIfBrandNameMissing();
+    }
     else restoreMergeTags();
     normalizeLegacySize();
+    // Before the first history entry, so the member's fonts are how the design
+    // arrived rather than an edit they can undo their way behind.
     state.history = [];
     state.historyIndex = -1;
     pushHistory();
@@ -8440,6 +8446,51 @@ import { createResizeEngine } from "./resize-engine.js";
     return best == null ? base : best;
   }
   // Every heading, subheading or body text on the page into one font.
+  /* The member's fonts, on a template they have just opened.
+     A pack is drawn in whatever the designer had; a brand kit exists so that
+     what a member opens is in THEIR type. The catalogue's preview has always
+     been rendered branded, so until now a design looked like their brand
+     right up until they opened it.
+
+     Only on a fresh template, never on reopening their own work: once it is
+     their design the fonts in it are theirs, including any they changed by
+     hand. Anything the template has fixed keeps the designer's font, because
+     a locked part is locked. Colours are deliberately left alone -- the
+     templates are neutral, so recolouring earns little for the disruption. */
+  function applyBrandFontsToTemplate() {
+    const heads = [];
+    let n = 0;
+    BRAND_FONT_ROLES.forEach(function (role) {
+      const to = kitFontFor(role);
+      if (!to) return;
+      everyElement().forEach(function (el) {
+        if (!el || el.type !== "text" || el.font === to) return;
+        if (textRole(el) !== role || memberLock(el)) return;
+        const lines = textLineCount(el, el.size || 16);
+        // Two or three lines: a one-line title changing width does not disturb
+        // the design, and refitting it would move the size for nothing.
+        if (lines >= 2 && lines <= 3) heads.push({ el: el, lines: lines, font: to });
+        el.font = to;
+        n++;
+        loadGoogleFont(to);
+      });
+    });
+    if (!n) return 0;
+    /* A heading in a wider face can spill out of the box it was drawn in, so
+       once the fonts have actually loaded the two- and three-line ones are
+       fitted back to the number of lines the designer gave them. */
+    _refontSettle = ensureTextFontsLoaded().then(function () {
+      let changed = 0;
+      heads.forEach(function (h) {
+        if (h.el.font !== h.font) return;
+        const size = sizeForLines(h.el, h.lines);
+        if (size && size !== h.el.size) { h.el.size = size; changed++; }
+      });
+      if (changed) fullRender();
+    }).catch(function () {});
+    return n;
+  }
+
   function refontRole(role, toName) {
     return refontWhere(function (el) { return textRole(el) === role; }, toName);
   }
