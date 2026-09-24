@@ -267,28 +267,94 @@ import "../../../styles/admin.css";
         /* Two recipients on one IP is not proof: a whole office can share one
            address on the way out. Three or more, within the hour of delivery,
            is — that is a queue being worked through, not a team all reading
-           their post at once. A click inside 30 seconds is its own proof at
-           any number. */
-        /* The behavioural rules need a crowd: one IP acting for several
-           recipients. A test to a single person gives them nothing to work
-           with — Danielle released one from quarantine, opened it, and
-           Microsoft then fetched the links four times from an address that
-           had only ever seen her. So: the ranges we have actually watched do
-           this, as a floor under the behaviour. Not a bot list to maintain —
-           two blocks of Microsoft's, added because we saw them. */
+           their post at once. */
         const SCANNER_RANGES = [/^172\.186\./, /^85\.210\./];
         const knownScanner = (ip) => !!ip && SCANNER_RANGES.some((re) => re.test(ip));
 
-        const MACHINE_SECONDS = 30;
+        const uaOf = (e) => {
+          const d = e.raw && e.raw.data;
+          return (d && ((d.click && d.click.userAgent) || (d.open && d.open.userAgent))) || null;
+        };
+        const linkOf = (e) => {
+          const d = e.raw && e.raw.data;
+          return (d && d.click && d.click.link) || null;
+        };
+        /* A mail client rendering the message, rather than a browser.
+           Apple Mail's agent stops dead at "(KHTML, like Gecko)" — no product,
+           no version. A scanner presents itself as a browser, because it is
+           pretending to be one. So this is a positive sign of a person, not a
+           machine, and it is the signature on every open we have confirmed
+           was real. */
+        const isMailClient = (ua) => /\(KHTML, like Gecko\)\s*$/.test(ua || "");
+
+        /* THE MACHINE PASS.
+
+           Timing from delivery was the old test and it cannot work: mail held
+           in quarantine is scanned when it is RELEASED, which for The Autumn
+           Edit was two days later. Everything after that looked late and human
+           and was neither.
+
+           What a scan actually looks like, from the payloads:
+
+             09:51:45  open   Chrome 109.0.0.0
+             09:52:08  click  Chrome 142.0.7444.163
+             09:53:01  click  Chrome 142.0.7444.162
+
+           One IP, 76 seconds, three different Chrome builds. A browser cannot
+           change version between clicks. And elsewhere: three distinct links
+           fetched in a third of a second, which no hand can do.
+
+           So we judge an IP by how it behaved for THIS message and THIS
+           recipient, and anything that IP did is the machine's:
+             · two or more different links within seconds, or
+             · its user agent changing at all.
+           Everything outside those addresses is a person. */
+        /* Five, not twenty. The scans we have actually watched fetched three
+           links in three tenths of a second; a person going back to the email
+           for a second link cannot beat five, so this catches the machine
+           without ever calling somebody keen a robot. */
+        const BURST_SECONDS = 5;
+        const msgKey = (e) => (e.message_id || e.subject || "") + "|" + (e.email || e.contact_id || "");
+        const machineIp = new Set();          // "<message>|<recipient>|<ip>"
+        (function findMachinePasses() {
+          const byKeyIp = new Map();
+          ev.forEach((e) => {
+            if (e.event !== "clicked" && e.event !== "opened") return;
+            const ip = ipOf(e);
+            if (!ip) return;
+            const k = msgKey(e) + "|" + ip;
+            if (!byKeyIp.has(k)) byKeyIp.set(k, []);
+            byKeyIp.get(k).push(e);
+          });
+          byKeyIp.forEach((list, k) => {
+            list.sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
+            // Its agent changed while it worked: not one browser, one farm.
+            const agents = new Set(list.map(uaOf).filter(Boolean));
+            if (agents.size > 1) { machineIp.add(k); return; }
+            // Two different links inside a few seconds: not one pair of hands.
+            for (let a = 0; a < list.length; a++) {
+              for (let b = a + 1; b < list.length; b++) {
+                const gap = (new Date(list[b].occurred_at) - new Date(list[a].occurred_at)) / 1000;
+                if (gap > BURST_SECONDS) break;
+                const la = linkOf(list[a]), lb = linkOf(list[b]);
+                if (la && lb && la !== lb) { machineIp.add(k); return; }
+              }
+            }
+          });
+        })();
+
         const MACHINE_IP_REACH = 3;
         const MACHINE_WINDOW_MIN = 60;
         function isMachine(e) {
           if (e.event !== "clicked" && e.event !== "opened") return false;
-          if (knownScanner(ipOf(e))) return true;
+          const ip = ipOf(e);
+          if (knownScanner(ip)) return true;
+          // Did this address behave like a machine for this very message?
+          if (ip && machineIp.has(msgKey(e) + "|" + ip)) return true;
+          // A mail client rendering the message is a person reading it.
+          if (e.event === "opened" && isMailClient(uaOf(e))) return false;
           const d = deliveredAt.get(e.email || e.contact_id);
           const mins = d ? (new Date(e.occurred_at) - new Date(d)) / 60000 : null;
-          if (mins != null && mins * 60 < MACHINE_SECONDS) return true;
-          const ip = ipOf(e);
           const reach = ip ? (ipReach.get(ip) || new Set()).size : 0;
           if (reach >= MACHINE_IP_REACH && (mins == null || mins < MACHINE_WINDOW_MIN)) return true;
           return false;
