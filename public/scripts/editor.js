@@ -2786,6 +2786,9 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     if (typeof syncResizePanel === "function") syncResizePanel();
     if (typeof renderSafeZones === "function") renderSafeZones();
+    // The field list and the rail follow the design, not the other way round.
+    if (typeof renderFieldsPane === "function") renderFieldsPane();
+    if (typeof syncPrintRail === "function") syncPrintRail();
 
     canvasEl.innerHTML = "";
 
@@ -10075,6 +10078,207 @@ import { createResizeEngine } from "./resize-engine.js";
     }
     var _elemsLbl = document.querySelector('.ed-rail-btn[data-tool="elements"] span');
     if (_elemsLbl) _elemsLbl.textContent = "Elements";
+  }
+
+  /* ---------- The Edit pane: a print template as a form ----------
+     A canvassing card is a form. The agent's job is to put their own words in
+     the places the author left for them, not to design, so on a print
+     template the whole left rail collapses to this one list
+     (docs/print-edit-mode-brief.md).
+
+     What is in the list is not a new idea: it is exactly the light-locked
+     elements, which already mean "a member's to fill in, not to move". The
+     author adds two things to each - what to call it, and where it sits in
+     the list - and nothing else changes about how a design is stored.
+
+       fieldLabel   what the row says. Written as guidance, not as a name:
+                    "This is where the town goes" tells an agent what to type
+                    in a way that "Text 2" never will.
+       fieldOrder   the order they are asked for, which is the order the agent
+                    should fill them in - not the order they were drawn, and
+                    not the order they are stacked. */
+
+  function fieldElements() {
+    const list = state.elements.filter(function (el) {
+      return el && !el.hidden && lockState(el) === "light";
+    });
+    // The author's order first; anything unnumbered keeps its place behind.
+    return list
+      .map(function (el, i) { return { el: el, at: (typeof el.fieldOrder === "number" ? el.fieldOrder : 1000 + i), i: i }; })
+      .sort(function (a, b) { return a.at - b.at || a.i - b.i; })
+      .map(function (x) { return x.el; });
+  }
+  // What to call a field that was never named: its own first words, which at
+  // least say which part of the design it is.
+  function fieldLabelFor(el) {
+    const named = (el.fieldLabel || "").trim();
+    if (named) return named;
+    if (el.type === "text") {
+      const words = (el.text || "").replace(/\s+/g, " ").trim();
+      if (words) return words.length > 42 ? words.slice(0, 42) + "…" : words;
+      return "Text";
+    }
+    if (el.brandRole === "photo") return "Photograph of you";
+    if (el.brandRole === "headshot") return "Your headshot";
+    if (el.brandRole === "logo") return "Your logo";
+    return el.type === "image" || el.type === "frame" ? "Picture" : "Item";
+  }
+  // Is this design one the Edit pane is for?
+  function usesFieldsPane() { return isPrintDesign() && fieldElements().length > 0; }
+
+  function renderFieldsPane() {
+    const wrap = document.getElementById("ed-fields");
+    const empty = document.getElementById("ed-fields-empty");
+    const railBtn = document.getElementById("ed-rail-fields");
+    if (!wrap) return;
+    const admin = isAdminMode();
+    const items = fieldElements();
+    // The rail button only exists where the pane has something to say.
+    if (railBtn) railBtn.hidden = !(items.length && (admin || isPrintDesign()));
+    const title = document.getElementById("ed-fields-title");
+    const sub = document.getElementById("ed-fields-sub");
+    if (title) title.textContent = admin ? "The fields you are giving them" : "What do you need to change?";
+    if (sub) sub.textContent = admin
+      ? "Every item you have set to \u201ctheirs to fill in\u201d. Name each one so it says what to write, and put them in the order you want them asked for."
+      : "Each box below is a part of this design you can make yours.";
+
+    wrap.innerHTML = "";
+    if (!items.length) {
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = admin
+          ? "Nothing on this design is set to \u201ctheirs to fill in\u201d yet. Select an item and set its lock to that, and it will appear here."
+          : "There is nothing to fill in on this design.";
+      }
+      return;
+    }
+    if (empty) empty.hidden = true;
+
+    items.forEach(function (el, idx) {
+      const row = document.createElement("div");
+      row.className = "ed-field";
+      row.dataset.id = el.id;
+
+      const head = document.createElement("div");
+      head.className = "ed-field-head";
+      if (admin) {
+        // The author writes the guidance the agent will read.
+        const name = document.createElement("input");
+        name.type = "text";
+        name.className = "ed-field-name";
+        name.value = el.fieldLabel || "";
+        name.placeholder = "e.g. This is where the town goes";
+        name.addEventListener("change", function () {
+          el.fieldLabel = name.value.trim() || null;
+          pushHistory();
+          renderFieldsPane();
+        });
+        head.appendChild(name);
+
+        const moves = document.createElement("div");
+        moves.className = "ed-field-moves";
+        [["up", "\u2191", "Ask for this one sooner"], ["down", "\u2193", "Ask for this one later"]].forEach(function (m) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "ed-field-move";
+          b.textContent = m[1];
+          b.title = m[2];
+          b.disabled = (m[0] === "up" && idx === 0) || (m[0] === "down" && idx === items.length - 1);
+          b.addEventListener("click", function () { moveField(el, m[0] === "up" ? -1 : 1); });
+          moves.appendChild(b);
+        });
+        head.appendChild(moves);
+      } else {
+        const lbl = document.createElement("label");
+        lbl.className = "ed-field-label";
+        lbl.textContent = fieldLabelFor(el);
+        head.appendChild(lbl);
+      }
+      row.appendChild(head);
+
+      row.appendChild(fieldControlFor(el, admin));
+      wrap.appendChild(row);
+    });
+  }
+
+  // Swap a field with its neighbour, and write the order onto every field so
+  // it stops depending on where things happen to sit in the layer stack.
+  function moveField(el, dir) {
+    const items = fieldElements();
+    const at = items.indexOf(el);
+    const to = at + dir;
+    if (at < 0 || to < 0 || to >= items.length) return;
+    items.splice(to, 0, items.splice(at, 1)[0]);
+    items.forEach(function (x, i) { x.fieldOrder = i; });
+    pushHistory();
+    renderFieldsPane();
+  }
+
+  // The thing you actually change: words for text, a picture for a picture.
+  function fieldControlFor(el, admin) {
+    if (el.type === "text") {
+      const ta = document.createElement("textarea");
+      ta.className = "ed-field-input";
+      ta.rows = Math.min(4, Math.max(1, String(el.text || "").split("\n").length));
+      ta.value = el.text || "";
+      ta.addEventListener("input", function () { liveSetText(el, ta.value); });
+      ta.addEventListener("focus", function () { flashElement(el); });
+      return ta;
+    }
+    const box = document.createElement("div");
+    box.className = "ed-field-pic";
+    const thumb = document.createElement("span");
+    thumb.className = "ed-field-thumb";
+    const src = el.src || (el.brandRole === "photo" ? null : null);
+    if (src) thumb.style.backgroundImage = "url(" + JSON.stringify(src) + ")";
+    else thumb.classList.add("is-empty");
+    box.appendChild(thumb);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ed-field-change";
+    btn.textContent = src ? "Change" : "Add a picture";
+    btn.addEventListener("click", function () {
+      state.selectedIds = [el.id];
+      fullRender();
+      openTool("photos");
+    });
+    box.appendChild(btn);
+    return box;
+  }
+
+  /* Say which one. Typing into a list of boxes with the design beside it only
+     works if pressing a box tells you where on the design it is. */
+  function flashElement(el) {
+    const node = canvasEl && canvasEl.querySelector('[data-id="' + el.id + '"]');
+    if (!node) return;
+    node.classList.add("is-fieldflash");
+    setTimeout(function () { node.classList.remove("is-fieldflash"); }, 900);
+  }
+
+  /* On a print template a member gets the Edit pane and very little else.
+     Everything that exists to BUILD a design — the other templates, the
+     elements to add, the text tool, the picture library, the layer stack — is
+     not their job on a piece that was drawn for them, and each one is a way
+     to break a card that has to print. They keep the background, the brand
+     kit and the guides, because those are theirs across every design.
+
+     Admin keeps the lot: somebody has to draw the thing. */
+  const PRINT_MEMBER_HIDDEN = ["templates", "elements", "text", "photos", "layers"];
+  function syncPrintRail() {
+    const on = !isAdminMode() && usesFieldsPane();
+    PRINT_MEMBER_HIDDEN.forEach(function (tool) {
+      const btn = document.querySelector('.ed-rail-btn[data-tool="' + tool + '"]');
+      if (!btn) return;
+      if (on) { if (!btn.hidden) { btn.dataset.printHid = "1"; btn.hidden = true; } }
+      else if (btn.dataset.printHid) { btn.hidden = false; delete btn.dataset.printHid; }
+    });
+    const start = document.querySelector('.ed-rail-btn[data-tool="start"]');
+    if (start) {
+      if (on) { if (!start.hidden) { start.dataset.printHid = "1"; start.hidden = true; } }
+      else if (start.dataset.printHid) { start.hidden = false; delete start.dataset.printHid; }
+    }
+    // Landing on a pane that is no longer there leaves an empty panel.
+    if (on && PRINT_MEMBER_HIDDEN.concat("start").indexOf(activeToolPane) !== -1) openTool("fields");
   }
 
   // Open a tool pane programmatically (clears any selection so the pane shows).

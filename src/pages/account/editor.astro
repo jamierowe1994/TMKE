@@ -400,6 +400,10 @@ const googleFonts = [
            mid-session, and dropping it gives the rail more breathing room. -->
       <!-- Back to "Choose something to edit". Without it the start panel is
            reachable once and then never again. -->
+      <button class="ed-rail-btn" data-tool="fields" id="ed-rail-fields" title="What to change" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span>Edit</span>
+      </button>
       <button class="ed-rail-btn" data-tool="start" title="Where to start">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
         <span>Start</span>
@@ -479,6 +483,21 @@ const googleFonts = [
 
       <!-- Customer Studio starting panel — a calm "choose something to edit"
            shown when nothing is selected. Admin keeps brand-kit-first (editor.js). -->
+      <!-- Print templates are forms, not canvases: a canvassing card has a
+           street name, a price, a photograph, and the agent's job is to put
+           their own words in those places rather than to design. This pane is
+           that form. It lists every field the author marked as theirs to
+           change, in the order the author set, and nothing else.
+           docs/print-edit-mode-brief.md -->
+      <section class="ed-panel-pane" data-pane="fields">
+        <div class="ed-pane-header">
+          <h3 id="ed-fields-title">What do you need to change?</h3>
+          <p id="ed-fields-sub">Each box below is a part of this design you can make yours.</p>
+        </div>
+        <div class="ed-fields" id="ed-fields"></div>
+        <p class="ed-fields-empty" id="ed-fields-empty" hidden></p>
+      </section>
+
       <section class="ed-panel-pane" data-pane="start">
         <!-- Only when arriving from a prompt (?prompt=<key>). Closed to start:
              on a laptop the panel has little room, and the brief is a reminder
@@ -4237,6 +4256,66 @@ const googleFonts = [
       border-color: var(--english-violet); color: var(--english-violet);
       box-shadow: inset 0 0 0 1px var(--english-violet);
     }
+    /* ---- The Edit pane: a print template as a form ---------------------
+       One row per field, the guidance above the box you type into. Quiet
+       until you are in it, because the design beside it is the thing to look
+       at. */
+    .ed-fields { display: flex; flex-direction: column; gap: 14px; }
+    .ed-field {
+      padding: 12px 13px; border-radius: 10px;
+      background: #fff; border: 1px solid rgba(28,29,34,0.12);
+    }
+    .ed-field:focus-within { border-color: var(--english-violet); box-shadow: 0 0 0 1px var(--english-violet); }
+    .ed-field-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .ed-field-label {
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600;
+      color: rgba(28,29,34,0.62); line-height: 1.3;
+    }
+    .ed-field-input {
+      width: 100%; box-sizing: border-box; resize: vertical;
+      padding: 9px 10px; border-radius: 7px;
+      border: 1px solid rgba(28,29,34,0.16); background: #fff;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.45; color: var(--ink);
+    }
+    .ed-field-input:focus { outline: none; border-color: var(--english-violet); }
+    /* A picture field: what is there now, and the way to change it. */
+    .ed-field-pic { display: flex; align-items: center; gap: 10px; }
+    .ed-field-thumb {
+      flex: 0 0 auto; width: 54px; height: 54px; border-radius: 7px;
+      background: var(--platinum) center / cover no-repeat;
+      border: 1px solid rgba(28,29,34,0.12);
+    }
+    .ed-field-thumb.is-empty { background-image: none; }
+    .ed-field-change {
+      appearance: none; cursor: pointer;
+      padding: 8px 14px; border-radius: 999px;
+      border: 1px solid rgba(28,29,34,0.16); background: rgba(28,29,34,0.05);
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; color: var(--ink);
+    }
+    .ed-field-change:hover { background: rgba(28,29,34,0.1); }
+    /* Authoring: the name doubles as the guidance, so it is a proper box. */
+    .ed-field-name {
+      flex: 1 1 auto; min-width: 0;
+      padding: 7px 9px; border-radius: 7px;
+      border: 1px solid rgba(28,29,34,0.16); background: #fff;
+      font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink);
+    }
+    .ed-field-name:focus { outline: none; border-color: var(--english-violet); }
+    .ed-field-moves { display: flex; gap: 3px; flex: 0 0 auto; }
+    .ed-field-move {
+      appearance: none; cursor: pointer; width: 26px; height: 26px;
+      border-radius: 6px; border: 1px solid rgba(28,29,34,0.14);
+      background: #fff; color: var(--ink); font-size: 13px; line-height: 1;
+    }
+    .ed-field-move:hover:not(:disabled) { background: rgba(28,29,34,0.07); }
+    .ed-field-move:disabled { opacity: 0.35; cursor: default; }
+    .ed-fields-empty {
+      margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta);
+      line-height: 1.5; color: rgba(28,29,34,0.6);
+    }
+    /* Pressing a field says which part of the design it is. */
+    .ed-element.is-fieldflash { outline: 3px solid var(--english-violet); outline-offset: 3px; }
+
     .ed-props-section { margin-bottom: 18px; }
     .ed-props-section h4 {
       font-family: var(--sans);

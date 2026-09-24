@@ -73,7 +73,52 @@ work.
 That last point is worth half an hour before any code: if Edit is a view of
 the locks we already have, this is a much smaller job than it looks.
 
-## Not started
+## Built, 24 Sep 2026
 
-Danielle asked for this first thing in the morning, before an afternoon
-meeting. Nothing above is built.
+Her answers to the questions above: strip Images as well and make a
+photograph a field in the list; the Edit list is the light-locked elements;
+**keep an element property anyway**, because the name is the guidance — *"I
+want to be able to use the element naming to help them determine what's
+supposed to be written in the box"*; and the author sets the order, which
+is not the layer order.
+
+Two properties on an element, and nothing else changes about how a design is
+stored:
+
+- `fieldLabel` — what the row says, written as guidance rather than a name:
+  *"This is where the town goes"* tells an agent what to type in a way that
+  *"Text 2"* never will.
+- `fieldOrder` — the order they are asked in, which is the order the agent
+  should fill them in.
+
+**One pane, two modes** (`data-pane="fields"`, rail button **Edit**):
+
+- *Author*: every light-locked element, each with a box to write its guidance
+  in and arrows to move it up or down the list. Reordering writes the order
+  onto every field, so it stops depending on the layer stack.
+- *Member*: the same list, as a form. Text fields are boxes you type into and
+  the design updates as you type; a picture field shows what is there with a
+  Change beside it. Pressing a field outlines that part of the design, so a
+  list of boxes beside a card still tells you which is which.
+
+**The rail, for a member on a print template**: Templates, Elements, Text,
+Images, Layers and Start are hidden; Edit, Background, Brand kit, Guides,
+Resize and Pages stay. Admin keeps everything — somebody has to draw it.
+
+An unnamed field falls back to its own first words, so a print template drawn
+before any of this still opens to a usable list.
+
+Verified: fields list in the author's order rather than the layer order, a
+dead-locked element stays out of the list, typing in a field changes the
+design, renaming and reordering both stick, both survive publish, and a
+social design is untouched — no Edit button, full rail.
+
+### Still to do
+
+- The order arrows are up/down. Dragging would be nicer and is not built.
+- Typing into a text field clears any per-word formatting on that element
+  (`liveSetText` drops `runs`). Right for a plain field, wrong if an author
+  ever bolds one word inside one — worth deciding.
+- Nothing has been authored against a real print template yet. The Canvas &
+  Card designs will need their fields naming before a member sees the good
+  version of this.
