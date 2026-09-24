@@ -8896,6 +8896,10 @@ import { createResizeEngine } from "./resize-engine.js";
        "letterSpacing", "textGradient", "textShadow", "textOutline", "textBg"]
         .forEach(function (k) { delete slot[k]; });
       slot.type = "image";
+      // Ours, not theirs: filled from the kit, so it follows the kit when they
+      // design as another brand. A logo they put there by hand carries no
+      // mark and is left alone.
+      slot.autoLogo = true;
       placeLogoInSlot(slot, src);
     });
   }
@@ -11963,8 +11967,17 @@ import { createResizeEngine } from "./resize-engine.js";
             if (next !== el.text) { el.text = next; el.runs = null; }
           }
         }
-        // A logo slot still holding the last brand's mark takes the new one.
-        if (el.brandRole === "logo" && el.type === "image" && prevLogo && el.src === prevLogo) el.src = brandLogoSrc() || el.src;
+        /* A logo slot still holding the last brand's mark takes the new one.
+           Either because it is exactly what the last kit put there, or because
+           we are the ones who filled it — a dual-brand agent opening a
+           Property Experts pack should not be looking at their Marketing
+           Experts logo, and matching the URL alone missed a slot filled from a
+           kit whose logo has since been re-uploaded. */
+        if (el.brandRole === "logo" && el.type === "image"
+            && (el.autoLogo || (prevLogo && el.src === prevLogo))) {
+          const next = brandLogoSrc();
+          if (next) { el.src = next; el.autoLogo = true; }
+        }
       });
     });
     if (!isAdminMode()) { fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos(); }

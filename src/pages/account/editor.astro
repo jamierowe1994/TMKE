@@ -5915,6 +5915,18 @@ const googleFonts = [
             for (let i = 0; i < 20 && !made; i++) { await new Promise((r) => setTimeout(r, 150)); made = askDesign(); }
           }
           let want = (made && brands.includes(made)) ? made : null;
+          /* Then the pack's own brand. A design they saved remembers what it
+             was made as and outranks everything; a template they have just
+             opened belongs to whichever brand the pack was drawn for, which
+             beats "whatever I was designing as a minute ago". */
+          if (!want) {
+            const askPack = () => (window as any).__TMKE_PACK_BRAND__ || null;
+            let ofPack = askPack();
+            if (!ofPack && params.get('pack')) {
+              for (let i = 0; i < 20 && !ofPack; i++) { await new Promise((r) => setTimeout(r, 150)); ofPack = askPack(); }
+            }
+            if (ofPack && brands.includes(ofPack)) want = ofPack;
+          }
           if (!want) { try { const s = sessionStorage.getItem(KEY); if (s && brands.includes(s)) want = s; } catch (_) {} }
           const applyKit = async (brand, quiet) => {
             // Their own kit for that brand if they have edited one (the Brand
@@ -7737,6 +7749,12 @@ const googleFonts = [
       if (!selectedPack) return;
       try { sessionStorage.setItem("tmke.studio.pack", JSON.stringify({ id: selectedPack.id, title: selectedPack.title })); }
       catch (_) { /* ignore */ }
+      /* A pack drawn for one brand says which brand its designs are. Without
+         this a dual-brand agent opening a Property Experts pack got whichever
+         brand they happened to be designing as -- so a TPE pack came up
+         wearing TMKE logos. */
+      const packBrands = Array.isArray(selectedPack.brands) ? selectedPack.brands.filter(Boolean) : [];
+      (window as any).__TMKE_PACK_BRAND__ = packBrands.length === 1 ? packBrands[0] : null;
 
       packTitleEl.innerHTML = escapeHtml(selectedPack.title || "This pack") + " <em>designs.</em>";
       packCatEl.textContent = selectedPack.category || "The pack";
