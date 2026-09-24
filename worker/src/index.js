@@ -6260,8 +6260,20 @@ export default {
           m365Id = "m365-" + crypto.randomUUID();
           try { htmlOut = await injectTracking(env, html, { email: contact.email, messageId: m365Id }); } catch (_) { htmlOut = html; }
         }
+        /* Tag the links on a hand-sent marketing email too.
+
+           The automation path has always done this; this one never did, so an
+           email sent by hand from a contact file reached the site carrying no
+           campaign at all. Its clicks were real and its visits were real and
+           nothing could join the two, which is how a campaign with fifteen
+           clicks showed one attributed visit. The campaign is the subject,
+           because that is what it is called everywhere else you look at it. */
+        if (sendKind === "marketing") {
+          try { htmlOut = tagMarketingLinks(html, { campaign: subject || null, content: "by-hand" }); }
+          catch (_) { htmlOut = html; }
+        }
         const sent = sendKind === "marketing"
-          ? await sendMarketingEmail(env, { to: [contact.email], subject, html, unsubUrl })
+          ? await sendMarketingEmail(env, { to: [contact.email], subject, html: htmlOut, unsubUrl })
           : await sendEmail(env, { to: [contact.email], subject, html: htmlOut });
         await logEmailEvent(env, {
           contact, email: contact.email,
