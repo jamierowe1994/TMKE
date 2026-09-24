@@ -2671,6 +2671,65 @@ async function agentFunnelContext(env, contact) {
   } catch (_) { return {}; }
 }
 
+/* ── Telling somebody ──────────────────────────────────────────────────────
+   Email is the alert that reaches a phone. This is the record, and it lives
+   in the admin centre where the work happens.
+
+   WHO SEES WHAT, decided once, here, rather than at twenty call sites:
+     · Danielle sees everything.
+     · Videography — booking, message, anything — also Jack.
+     · Social, a new enquiry — also the new-business lead.
+     · Social, an existing client — also that client's account manager, whom
+       `smm_leads.social_media_manager` already names.
+     · Money, the member hub and anything that went wrong — her.
+
+   `also` is for the person a thing actually belongs to. Everything else
+   follows from the area. Best-effort throughout: being told is never the
+   reason an order fails to save. */
+const NOTIFY_AREAS = ["videography", "social", "money", "hub", "problem"];
+
+function notifyRecipients(env, area, also) {
+  const her = String(env.ACCOUNTS_NOTIFY || "danielle@tmke.co.uk").toLowerCase();
+  const list = [her];
+  if (area === "videography") list.push(String(env.JACK_NOTIFY || env.JACK_UPN || "").toLowerCase());
+  (Array.isArray(also) ? also : [also]).forEach((a) => { if (a) list.push(String(a).toLowerCase()); });
+  return [...new Set(list.filter((a) => a && a.includes("@")))];
+}
+
+async function notifyAdmins(env, { area, event, title, body = null, href = null, also = [], key = null, meta = null }) {
+  try {
+    if (!NOTIFY_AREAS.includes(area)) return false;
+    const row = {
+      area, event, title,
+      body: body || null,
+      href: href || null,
+      recipients: notifyRecipients(env, area, also),
+      meta: Object.assign({}, meta || {}, key ? { key: String(key) } : {}),
+    };
+    const res = await sbPost(env, "admin_notifications", row);
+    // 409 is the once-only index doing its job on a webhook retry.
+    return !!(res && (res.ok || res.status === 409));
+  } catch (_) { return false; }
+}
+
+/* The account manager for a social client, as an address.
+   `smm_leads.social_media_manager` holds a NAME and `admins` holds addresses,
+   so the name is matched against them — the same match the shoot-ready mail
+   has always used. No match means nobody extra, and Danielle still sees it. */
+async function smmManagerEmail(env, managerName) {
+  try {
+    const manager = String(managerName || "").trim();
+    if (!manager) return null;
+    const admins = (await sbGet(env, "admins", "select=email")) || [];
+    const wanted = manager.toLowerCase().split(/\s+/).filter(Boolean);
+    const hit = admins.find((a) => {
+      const local = String(a.email || "").toLowerCase().split("@")[0].replace(/[._-]+/g, " ");
+      return wanted.every((w) => local.includes(w)) || (wanted[0] && local.split(" ")[0] === wanted[0]);
+    });
+    return (hit && hit.email) || null;
+  } catch (_) { return null; }
+}
+
 // ---- Email consent gate ----------------------------------------------------
 // Every send should pass through here, so there is ONE place that decides who
 // may be emailed. See docs/email-suppression-plan.md.
@@ -2699,6 +2758,21 @@ async function logEmailEvent(env, {
     if (automationId) row.automation_id = automationId;
     if (enrollmentId) row.enrollment_id = enrollmentId;
     if (nodeId) row.node_id = String(nodeId);
+    /* A send that failed told nobody. In September 201 Autumn Edit sends
+       failed on an unverified API key and the first anyone knew was a query
+       run a week later. One notification per subject per day — a broken key
+       fails every recipient, and 201 of anything is not a notification. */
+    if (event === "blocked" && detail && !/opt-?in|unsubscribed|do-not-contact|suppressed/i.test(String(detail))) {
+      try {
+        await notifyAdmins(env, {
+          area: "problem", event: "send_failed",
+          title: "An email failed to send",
+          body: `${subject || "A send"} — ${String(detail).slice(0, 160)}`,
+          href: "/admin/email",
+          key: `send-failed:${(subject || "").slice(0, 60)}:${new Date().toISOString().slice(0, 10)}`,
+        });
+      } catch (_) {}
+    }
     let res = await sbPost(env, "email_events", row);
     // If a newer column doesn't exist yet (its migration not run), don't lose
     // the event - drop the step first, then the funnel attribution.
@@ -3607,6 +3681,19 @@ export default {
             // status=neq.paid keeps this idempotent across Stripe's retries.
             const sel = `id=eq.${encodeURIComponent(invoiceId)}&status=neq.paid`;
             const paidAt = new Date().toISOString().slice(0, 10);
+            try {
+              const irows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(invoiceId)}&select=number,client_name,total_pence,status&limit=1`);
+              const iv = (irows && irows[0]) || {};
+              if (String(iv.status || "") !== "paid") {
+                await notifyAdmins(env, {
+                  area: "money", event: "invoice_paid",
+                  title: `Invoice ${iv.number || ""} paid`.trim(),
+                  body: [iv.client_name, gbpW(iv.total_pence)].filter(Boolean).join(" · "),
+                  href: "/admin/invoicing", key: String(invoiceId),
+                  meta: { invoice_id: invoiceId },
+                });
+              }
+            } catch (_) {}
             let pr = await sbPatch(env, "invoices", sel, {
               status: "paid", paid_date: paidAt, payment_method: "card", payment_ref: pi || null,
             });
@@ -3662,6 +3749,18 @@ export default {
             // Pack purchaser → make/merge a CRM contact.
             const orows = await sbGet(env, "orders", `id=eq.${encodeURIComponent(orderId)}&select=buyer_name,buyer_email,buyer_company,buyer_phone,pack_title,pack_slug,total_pence,user_id&limit=1`);
             await contactFromOrder(env, orows && orows[0]);
+            /* Somebody bought something. Until now that told nobody at all --
+               a pack could sell and the first anyone knew was opening Stripe. */
+            try {
+              const o0 = (orows && orows[0]) || {};
+              await notifyAdmins(env, {
+                area: "money", event: "pack_paid",
+                title: `Pack bought — ${o0.pack_title || "a pack"}`,
+                body: [o0.buyer_name || o0.buyer_email, o0.buyer_company, gbpW(o0.total_pence)].filter(Boolean).join(" · "),
+                href: "/admin/orders", key: String(orderId),
+                meta: { order_id: orderId, email: o0.buyer_email || null },
+              });
+            } catch (_) {}
             // …and start the "Order placed" automation. Gifting a pack from the
             // admin did this; a card purchase never did, so a real buyer got no
             // purchase email and no automation ran for them.
@@ -4777,6 +4876,15 @@ export default {
           to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New booking - ${service || "Shoot"} - ${name}`,
           html: jackNotifyHtml({ name, company, email, phone, service, packageLabel, addOns: add_ons, postcode, distanceMiles: distance_miles, surchargePence: surcharge_pence, dateNice, time: start, totalPence: total_pence, signedName: signed_name, marketingOptIn: marketing_opt_in }),
         });
+        try {
+          await notifyAdmins(env, {
+            area: "videography", event: "shoot_booked",
+            title: `Shoot booked — ${service || "Shoot"}`,
+            body: [name, dateNice, start].filter(Boolean).join(" · "),
+            href: "/admin/videography", key: newBookingId || undefined,
+            meta: { booking_id: newBookingId || null, email: em || null },
+          });
+        } catch (_) {}
 
         // Thread the confirmation into the member's booking correspondence.
         await logBookingMessage(env, {
@@ -4953,7 +5061,15 @@ export default {
           <p style="${EM_SMALL}">Need to change it? Just reply to this email.</p>
         </div>`;
         try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked - TMKE", html: await wrapInBrandedBase(env, cHtml) }); } catch (_) {}
-        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking - ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> - ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> - £295 + VAT.</p>` }); } catch (_) {}
+        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking - ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> - ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> - £295 + VAT.</p>` });
+        try {
+          await notifyAdmins(env, {
+            area: "videography", event: "studio_day_booked",
+            title: "Studio Day booked",
+            body: [name, dateNice, start].filter(Boolean).join(" · "),
+            href: "/admin/videography",
+          });
+        } catch (_) {} } catch (_) {}
 
         await logBookingMessage(env, {
           booking_id: newBookingId, booking_source: "videography", account_user_id: accountUserId, client_email: em,
@@ -5019,6 +5135,14 @@ export default {
             </div>
             <p style="${EM_SMALL}">Saved to the Enquiries inbox (/admin/enquiries).</p></div>`,
         });
+        try {
+          await notifyAdmins(env, {
+            area: "videography", event: "videography_enquiry",
+            title: `Enquiry — ${service || "Videography"}`,
+            body: [name, email, phone].filter(Boolean).join(" · "),
+            href: "/admin/enquiries",
+          });
+        } catch (_) {}
         // CRM + automations: this is a form submission — upsert the lead and fire
         // any "form submitted" automation.
         try {
@@ -5117,6 +5241,17 @@ export default {
             </div>
             <p style="${EM_SMALL}">In the SMM pipeline as a lead (general_enquiry).</p></div>`,
         });
+        /* Not a client yet, so it goes to whoever is picking up new business
+           rather than to an account manager who does not have one. */
+        try {
+          await notifyAdmins(env, {
+            area: "social", event: "smm_enquiry",
+            title: "Social media enquiry",
+            body: [fullName, email, company].filter(Boolean).join(" · "),
+            href: "/admin/social",
+            also: [env.SMM_NEW_BUSINESS || env.SMM_NOTIFY || null],
+          });
+        } catch (_) {}
 
         // CRM + automations: upsert the contact + fire any "form submitted" flow.
         try {
@@ -5513,6 +5648,15 @@ export default {
               <div><span style="color:#888">When:</span> ${esc(dateNice)} at ${esc(start)}</div>
             </div></div>`,
         });
+        try {
+          await notifyAdmins(env, {
+            area: "social", event: "smm_discovery_booked",
+            title: "Discovery call booked — social",
+            body: [fullName, dateNice, start].filter(Boolean).join(" · "),
+            href: "/admin/social",
+            also: [env.SMM_NEW_BUSINESS || env.SMM_NOTIFY || null],
+          });
+        } catch (_) {}
         // CRM + automations: upsert the contact + fire form-submitted (and
         // account-created, since a booking always makes an account).
         try {
@@ -6182,6 +6326,14 @@ export default {
                   <p style="${EM_SMALL}">Sent automatically by the email webhook.</p>
                 </div>`,
               });
+              try {
+                await notifyAdmins(env, {
+                  area: "problem", event: "spam_complaint",
+                  title: `Spam complaint — ${who}`,
+                  body: `${addr} reported ${subj || "one of our emails"}. Unsubscribed and suppressed automatically.`,
+                  href: "/admin/contacts", key: `spam:${addr}`,
+                });
+              } catch (_) {}
             } catch (_) { /* the alert is a bonus - the suppression already happened */ }
           } else if (event === "suppressed") {
             await suppressContact(env, contact, "resend_suppressed", null);
@@ -6475,6 +6627,16 @@ export default {
             <p style="${EM_P}">Hi ${esc(bk.client_name || "")}, we've cancelled your ${esc(bk.service || "booking")}. If this was a mistake or you'd like to rebook, just head back to <a href="https://tmke.co.uk/videography" style="color:#371e28">tmke.co.uk/videography</a>.</p>`),
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Cancelled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="${EM_WRAP}"><p>${esc(bk.client_name || "")} cancelled their ${esc(bk.service || "booking")} (was ${esc(bk.shoot_date || "")}).</p></div>` });
+        /* The one that costs money when it is missed: a slot is free and
+           nobody knows it. */
+        try {
+          await notifyAdmins(env, {
+            area: "videography", event: "booking_cancelled",
+            title: `Cancelled — ${bk.service || "booking"}`,
+            body: [bk.client_name, bk.shoot_date].filter(Boolean).join(" · "),
+            href: "/admin/videography", key: `cancel:${bk.id}`,
+          });
+        } catch (_) {}
         await logBookingMessage(env, {
           booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
           kind: "cancellation", subject: `Booking cancelled - ${bk.service || "TMKE"}`,
@@ -6531,6 +6693,14 @@ export default {
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `Rescheduled - ${bk.service || "Booking"} - ${bk.client_name || ""}`, html: `<div style="${EM_WRAP}"><p>${esc(bk.client_name || "")} moved their ${esc(bk.service || "booking")} to ${esc(dateNice)} at ${esc(start)}.</p></div>` });
+        try {
+          await notifyAdmins(env, {
+            area: "videography", event: "booking_rescheduled",
+            title: `Moved — ${bk.service || "booking"}`,
+            body: [bk.client_name, dateNice, start].filter(Boolean).join(" · "),
+            href: "/admin/videography",
+          });
+        } catch (_) {}
         await logBookingMessage(env, {
           booking_id: bk.id, booking_source: "videography", account_user_id: bk.account_user_id, client_email: bk.client_email,
           kind: "reschedule", subject: `Booking rescheduled - ${dateNice}`,
@@ -6725,6 +6895,14 @@ export default {
               </div>
               <p style="${EM_SMALL}">Saved to the Enquiries inbox (/admin/enquiries). They've had an automatic acknowledgement.</p></div>`,
           });
+        try {
+          await notifyAdmins(env, {
+            area: "hub", event: "contact_form",
+            title: "Someone used the contact form",
+            body: [name, email, (message || "").slice(0, 120)].filter(Boolean).join(" · "),
+            href: "/admin/enquiries",
+          });
+        } catch (_) {}
         } catch (e) { notifyError = String((e && e.message) || e); console.error("contact enquirer team alert failed", notifyError); }
 
         // Reports what actually happened. The browser ignores it — the enquiry
@@ -7751,6 +7929,28 @@ export default {
           const msg = await res.text();
           return json({ error: msg.slice(0, 200) || "Could not send that." }, 500, request, env);
         }
+        /* Raised 22 Sep: the only way to learn a request had arrived was to
+           open the Brands page and look. Fine for one a month, useless during
+           the TEG rollout when they arrive in a batch and somebody sits
+           unbranded for a week. */
+        const asked = String((b && b.name) || user.email || "").trim();
+        try {
+          await notifyAdmins(env, {
+            area: "hub", event: "brand_request",
+            title: `Brand kit requested — ${brand}`,
+            body: `${asked} (${user.email}) says they work for ${brand}.`,
+            href: "/admin/brands", key: `brand-req:${user.id}`,
+            meta: { user_id: user.id, brand },
+          });
+        } catch (_) {}
+        try {
+          await sendEmail(env, {
+            to: env.ACCOUNTS_NOTIFY || "danielle@tmke.co.uk",
+            subject: `Brand kit requested — ${brand}`,
+            html: `<div style="${EM_WRAP}"><p><strong>${esc(asked)}</strong> (${esc(user.email || "")}) has asked to be set up with <strong>${esc(brand)}</strong>.</p>
+              <p><a href="${esc((env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, ""))}/admin/brands">Approve or decline it</a></p></div>`,
+          });
+        } catch (_) {}
         return json({ ok: true, pending: true }, 200, request, env);
       }
 
