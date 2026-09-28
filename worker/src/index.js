@@ -9212,15 +9212,15 @@ export default {
         // A fresh upload (b.upload) goes back to draft, even over a month that
         // was live: new figures are read before a client sees them. Saving
         // commentary leaves the report as it was.
-        const row = { lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" };
+        const base = { lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" };
         const put = (body) => fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?on_conflict=lead_id,platform,month,year`, {
           method: "POST",
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
           body: JSON.stringify(body),
         });
-        let res = await put(b && b.upload ? { ...row, published_at: null, published_by: null } : row);
+        let res = await put(b && b.upload ? { ...base, published_at: null, published_by: null } : base);
         // Before smm_reports_publish.sql has run there's no published_at column.
-        if (!res.ok && b && b.upload) { const t = await res.clone().text().catch(() => ""); if (/published_/.test(t)) res = await put(row); }
+        if (!res.ok && b && b.upload) { const t = await res.clone().text().catch(() => ""); if (/published_/.test(t)) res = await put(base); }
         if (!res.ok) { const t = await res.text().catch(() => ""); console.error("smm report upsert failed", res.status, t); return json({ error: "Couldn't save the report. If this is the first run, apply smm_reports.sql.", detail: t }, 502, request, env); }
         let row = null; try { const arr = await res.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
         return json({ ok: true, report: row }, 200, request, env);
