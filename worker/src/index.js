@@ -9258,7 +9258,7 @@ export default {
           '"peakTimes": { "slots": ["8am","10am","12pm","2pm","4pm","6pm","8pm"], "grid": seven rows (Mon..Sun), each N cells matching slots, 0-3 (0 low .. 3 peak) read from "Followers Online Activity" }, ' +
           '"timing": string, "bestDays": string, "morningWindow": string, "eveningWindow": string, ' +
           '"ads": { "reach": number, "views": number, "interactions": number, "clicks": number, "cpc": number (GBP), "spend": number (GBP), "impressions": number } (ONLY if the report has a paid-ads section with figures; otherwise omit), ' +
-          '"priorities": [ { "type": "go"|"caution"|"action", "text": string } ] (2-4 sensible ones inferred from the data; go = do more, caution = improve, action = fix now) }\n' +
+          '"priorities": [ { "type": "go"|"caution"|"action", "title": string (2-4 words, e.g. "More reels"), "text": string (one or two sentences, 90-140 characters, written to the client about what we are doing next, never as homework for them) } ] (3 sensible ones inferred from the data; go = do more, caution = improve, action = fix now) }\n' +
           "Do NOT include anything from the Instagram Stories pages: they cover only the last 24 hours, not the month. Do NOT add figures together or invent totals - every number must be one printed in the report or read from one chart. " +
           "Omit anything not present. Numbers are plain (no commas, units or %) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
         let aiRes;

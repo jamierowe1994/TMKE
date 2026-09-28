@@ -568,8 +568,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-cm-mark { flex: none; width: 64px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
     .ri-cm-mark.is-go { color: #2c7a4b; } .ri-cm-mark.is-caution { color: #9a6a04; } .ri-cm-mark.is-action { color: #a05a3c; }
     .ri-cm-coming { margin: 0; padding-left: 20px; font-family: var(--sans); font-size: 13.5px; line-height: 1.8; color: var(--ink); }
-    .ri-cm-modal { width: min(620px, 100%); }
-    .ri-cm-row { display: grid; grid-template-columns: 110px 1fr 30px; gap: 8px; align-items: start; margin-bottom: 8px; }
+    .ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
+    .ri-cm-modal #ri-cm-summary { min-height: 220px; font-size: 14.5px; line-height: 1.6; }
+    .ri-cm-stack { display: grid; gap: 6px; }
+    .ri-cm-t { display: block; font-weight: 700; margin-bottom: 2px; }
+    .ri-cm-row { display: grid; grid-template-columns: 120px 1fr 30px; gap: 10px; align-items: start; margin-bottom: 12px; }
     .ri-cm-row--plain { grid-template-columns: 1fr 30px; }
     .ri-cm-row textarea, .ri-cm-row input { width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: var(--ink); background: #fff; resize: vertical; }
     .ri-cm-row select { height: 40px; padding: 0 8px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 12.5px; color: var(--ink); background: #fff; }
@@ -2063,7 +2066,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         ${card("summary", "What it means", "Read after the numbers: what the month adds up to.",
           d.summary ? `<div class="ri-cm-prose">${esc(d.summary)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`)}
         ${card("next", `Into ${next}`, "What we're bringing into the next few weeks. The marks are ours; the client sees only the words.",
-          (prios.length ? `<ul class="ri-cm-list">${prios.map((p) => { const [v, l] = label(p.type); return `<li><span class="ri-cm-mark is-${v}">${l}</span><span>${esc(p.text)}</span></li>`; }).join("")}</ul>` : `<p class="ri-cm-empty">No lines yet.</p>`)
+          (prios.length ? `<ul class="ri-cm-list">${prios.map((p) => { const [v, l] = label(p.type); return `<li><span class="ri-cm-mark is-${v}">${l}</span><span>${p.title ? `<b class="ri-cm-t">${esc(p.title)}</b>` : ""}${esc(p.text)}</span></li>`; }).join("")}</ul>` : `<p class="ri-cm-empty">No lines yet.</p>`)
           + (coming.length ? `<div class="ri-card-h" style="margin:16px 0 8px;">Content coming up</div><ol class="ri-cm-coming">${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol>` : ""))}
       </div>`;
     }
@@ -2085,7 +2088,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const next = RI_MONTHS[(cur.month + 1) % 12];
       const prioRow = (p = {}) => `<div class="ri-cm-row" data-cm-prio>
           <select data-cm-type aria-label="How we see it">${PRIO_TYPES.map(([v, l]) => `<option value="${v}"${(p.type || "go") === v ? " selected" : ""}>${l}</option>`).join("")}</select>
-          <textarea rows="2" data-cm-text placeholder="What we're doing, in words the client will read">${esc(p.text || "")}</textarea>
+          <div class="ri-cm-stack"><input type="text" data-cm-title value="${esc(p.title || "")}" placeholder="A short title, e.g. More reels" maxlength="40">
+          <textarea rows="2" data-cm-text placeholder="What we're doing, in words the client will read. Two lines is about right.">${esc(p.text || "")}</textarea></div>
           <button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>`;
       const comingRow = (c = "") => `<div class="ri-cm-row ri-cm-row--plain" data-cm-coming>
           <input type="text" data-cm-text value="${esc(c)}" placeholder="A piece of content on the way">
@@ -2100,7 +2104,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal ri-cm-modal" role="dialog" aria-modal="true" aria-label="Edit commentary">
             <h3>${which === "summary" ? "What it means" : `Into ${esc(next)}`}</h3>
-            <p class="smm-modal-sub">${which === "summary" ? "The client reads this after the numbers. Plain English, no jargon." : "Each line is one thing we're doing. The mark is for us; the client sees only the words."}</p>
+            <p class="smm-modal-sub">${which === "summary" ? "The client reads this after the numbers. Plain English, no jargon." : "Each one is a card in the client's report: a short title and a line or two about what we're doing. The mark is for us; the client never sees it."}</p>
             ${body}
             <p class="smm-modal-status" id="ri-cm-status" hidden></p>
             <div class="smm-modal-actions">
@@ -2112,17 +2116,17 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const host = $("smm-modal-host"), scrim = $("smm-modal");
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       host.querySelector("[data-mcancel]").addEventListener("click", closeModal);
-      const add = (id, html) => { const t = document.createElement("div"); t.innerHTML = html.trim(); const el = t.firstChild; $(id).appendChild(el); el.querySelector("[data-cm-text]")?.focus(); };
+      const add = (id, html) => { const t = document.createElement("div"); t.innerHTML = html.trim(); const el = t.firstChild; $(id).appendChild(el); el.querySelector("[data-cm-title], [data-cm-text]")?.focus(); };
       $("ri-cm-add-prio")?.addEventListener("click", () => add("ri-cm-prios", prioRow()));
       $("ri-cm-add-coming")?.addEventListener("click", () => add("ri-cm-coming", comingRow()));
       host.addEventListener("click", (e) => { const x = e.target.closest("[data-cm-del]"); if (x) x.closest(".ri-cm-row").remove(); });
-      (which === "summary" ? $("ri-cm-summary") : host.querySelector("[data-cm-text]"))?.focus();
+      (which === "summary" ? $("ri-cm-summary") : host.querySelector("[data-cm-title], [data-cm-text]"))?.focus();
       $("ri-cm-save").addEventListener("click", async () => {
         const btn = $("ri-cm-save"), status = $("ri-cm-status");
         const patch = which === "summary"
           ? { summary: $("ri-cm-summary").value.trim() }
           : {
-              priorities: [...host.querySelectorAll("[data-cm-prio]")].map((row) => ({ type: row.querySelector("[data-cm-type]").value, text: row.querySelector("[data-cm-text]").value.trim() })).filter((p) => p.text),
+              priorities: [...host.querySelectorAll("[data-cm-prio]")].map((row) => ({ type: row.querySelector("[data-cm-type]").value, title: row.querySelector("[data-cm-title]").value.trim(), text: row.querySelector("[data-cm-text]").value.trim() })).filter((p) => p.text).map((p) => (p.title ? p : { type: p.type, text: p.text })),
               comingSoon: [...host.querySelectorAll("[data-cm-coming] [data-cm-text]")].map((i) => i.value.trim()).filter(Boolean),
             };
         btn.disabled = true; btn.textContent = "Saving…";

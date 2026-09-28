@@ -44,7 +44,7 @@ export const REPORT_FIELD_GROUPS = [
   {
     tab: "audience", label: "Audience",
     fields: [
-      { key: "age",             label: "Age",                            client: false },
+      { key: "age",             label: "Age",                            client: true },
       { key: "peakTimes",       label: "Best posting times (heatmap)",   client: true },
       { key: "postingWindows",  label: "Best days & posting windows",    client: true },
       { key: "gender",          label: "Gender split",                   client: true },
