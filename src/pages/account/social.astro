@@ -299,7 +299,11 @@ import { gbpFromPence } from "../../lib/supabase.js";
     }
 
     /* ---- Chapter 01: the plan ---- */
-    .soc-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--ws-gap); margin: 0; }
+    .soc-plan-grid { display: flex; flex-wrap: wrap; gap: var(--ws-gap); margin: 0; }
+    .soc-plan-grid > div { flex: 1 1 140px; min-width: 0; }
+    /* Several platforms get a double share of the row so the chips sit on
+       one line where they can, and wrap inside their own cell where not. */
+    .soc-plan-grid > .is-wide { flex: 2 1 280px; }
     .soc-plan-grid dt { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin-bottom: 7px; }
     .soc-plan-grid dd { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); margin: 0; }
     .soc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -519,14 +523,17 @@ import { gbpFromPence } from "../../lib/supabase.js";
       // holds only the facts.
       const status = $("soc-status");
       if (status) { status.textContent = "Active"; status.hidden = false; }
+      // Platforms go last, so the links finish the row. One platform leaves
+      // room for the start date; several need that room for themselves.
+      const many = Array.isArray(c.platforms) && c.platforms.length > 1;
       $("soc-plan").innerHTML = `
         <dl class="soc-plan-grid">
           ${c.business ? `<div><dt>Account</dt><dd>${esc(c.business)}</dd></div>` : ""}
           ${c.package_name ? `<div><dt>Package</dt><dd>${esc(c.package_name)}</dd></div>` : ""}
           ${price ? `<div><dt>Price</dt><dd>${esc(price)}</dd></div>` : ""}
-          <div><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
-          ${since ? `<div><dt>Managed since</dt><dd>${esc(since)}</dd></div>` : ""}
-          ${c.social_media_manager ? `<div><dt>Your manager</dt><dd>${esc(c.social_media_manager)}</dd></div>` : ""}
+          ${c.social_media_manager ? `<div><dt>Account manager</dt><dd>${esc(c.social_media_manager)}</dd></div>` : ""}
+          ${since && !many ? `<div><dt>Managed since</dt><dd>${esc(since)}</dd></div>` : ""}
+          <div${many ? ' class="is-wide"' : ""}><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
         </dl>`;
     }
 
