@@ -33,7 +33,7 @@ import "../../../styles/ws-system.css";
       <div class="rp" id="rp" hidden>
         <div class="rp-progress">
           <div class="rp-bar"><span class="rp-fill" id="rp-fill"></span></div>
-          <div class="rp-progress-meta"><span id="rp-step">Cover</span><span id="rp-count"></span></div>
+          <div class="rp-progress-meta"><span id="rp-step">Your monthly report</span><span id="rp-count"></span></div>
         </div>
 
         <div class="rp-stage" id="rp-stage" aria-live="polite"></div>
@@ -54,26 +54,40 @@ import "../../../styles/ws-system.css";
   </div>
 
   <style is:global>
-    .rp-main { max-width: 1040px; margin: 0 auto; padding-bottom: 60px; }
-    .rp-back { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ws-tx); text-decoration: none; }
+    /* The hub's own margins (.ws-main), without its gap between blocks —
+       that gap was the space under "Back to your socials". */
+    .rp-main { gap: 0; padding-bottom: 18px; }
+    .rp-back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; justify-self: start; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ws-tx); text-decoration: none; }
     .rp-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
     .rp-back:hover { color: var(--ws-accent); }
     .rp-state { font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-faint); line-height: 1.6; margin: 0 0 14px; }
     .rp-empty[hidden], .rp[hidden], .rp-nav[hidden] { display: none; }
 
     /* Progress, as the courses have it. */
-    .rp-progress { margin: 0 0 14px; }
+    .rp-progress { margin: 0 0 10px; }
     .rp-bar { height: 4px; border-radius: 999px; background: var(--ws-line); overflow: hidden; }
     .rp-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--ws-accent); transition: width .55s cubic-bezier(.2,.7,.3,1); }
-    .rp-progress-meta { display: flex; justify-content: space-between; margin-top: 9px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ws-faint); }
+    .rp-progress-meta { display: flex; justify-content: space-between; margin-top: 6px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ws-faint); }
     #rp-step { color: var(--ws-tx); }
 
+    /* One screen on desktop: the deck runs from under the header to the
+       bottom of the window, the slide takes whatever the progress bar and
+       the buttons leave, and a slide that still has more than that scrolls
+       inside its own card rather than moving the page. */
+    .rp:not([hidden]) { display: flex; flex-direction: column; height: calc(100dvh - var(--rp-top, 150px) - 18px); min-height: 480px; }
+    .rp-stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .rp-stage > .rp-slide { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+    .rp-stage > .rp-done { display: flex; flex-direction: column; justify-content: center; }
+    @media (max-width: 720px) {
+      .rp:not([hidden]) { height: auto; min-height: 0; }
+      .rp-stage > .rp-slide { overflow: visible; }
+    }
     .rp-slide { animation: rpIn .42s cubic-bezier(.2,.7,.3,1); }
     @keyframes rpIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
     @media (prefers-reduced-motion: reduce) { .rp-slide { animation: none; } .rp-fill { transition: none; } }
 
     /* ---- Cover: the Socials banner, the month in a wine card over it ---- */
-    .rp-cover { position: relative; min-height: min(560px, 64vh); padding: clamp(20px, 2.6vw, 32px); border-radius: 6px; border: 1px solid var(--ws-line); overflow: hidden; background: #e6e3e1 url('/assets/hub/smm.jpg') center / cover no-repeat; display: flex; align-items: flex-start; }
+    .rp-cover { position: relative; padding: clamp(20px, 2.6vw, 32px); border-radius: 6px; border: 1px solid var(--ws-line); overflow: hidden; background: #e6e3e1 url('/assets/hub/smm.jpg') center / cover no-repeat; display: flex; align-items: flex-start; }
     .rp-cover-card { width: min(52%, 640px); max-width: 100%; padding: clamp(24px, 2.6vw, 34px); background: var(--english-violet, #4a2a3c); color: #fff; border-radius: 6px; }
     @media (max-width: 900px) { .rp-cover-card { width: 100%; } }
     .rp-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); margin: 0 0 12px; }
@@ -90,22 +104,22 @@ import "../../../styles/ws-system.css";
     .rp-cover-card .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
 
     /* ---- A part: one card, one idea ---- */
-    .rp-part { background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg, 6px); padding: clamp(26px, 3vw, 40px); box-shadow: var(--ws-sh); }
+    .rp-part { background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg, 6px); padding: clamp(22px, 2.4vw, 34px) clamp(24px, 2.8vw, 40px); box-shadow: var(--ws-sh); }
     .rp-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.2vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0; text-wrap: balance; }
     .rp-lede { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ws-tx); margin: 10px 0 0; max-width: 62ch; }
-    .rp-body { margin-top: 26px; }
+    .rp-body { margin-top: clamp(16px, 2.2vh, 26px); }
     .rp-label { font-family: var(--sans); font-size: var(--ws-t-label, 10px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0 0 10px; }
 
     /* The numbers: big serif figure, and under it what the word means —
        rules §1, no term without its plain-English meaning. */
     /* Columns set by how many figures there are (4 across, or 3 + 2), so
        none is left on a row of its own. */
-    .rp-figs { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--ws-line); }
+    .rp-figs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 28px; border-top: 1px solid var(--ws-line); }
     @media (max-width: 720px) { .rp-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    .rp-fig { padding: 18px 20px 18px 0; border-bottom: 1px solid var(--ws-line); }
-    .rp-fig-val { font-family: var(--serif); font-size: clamp(30px, 3.2vw, 42px); font-weight: 400; letter-spacing: -0.02em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin: 6px 0 0; }
+    .rp-fig { padding: clamp(12px, 1.8vh, 18px) 0; border-bottom: 1px solid var(--ws-line); }
+    .rp-fig-val { font-family: var(--serif); font-size: clamp(28px, 2.6vw, 38px); font-weight: 400; letter-spacing: -0.02em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin: 6px 0 0; }
     .rp-fig-move { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ws-accent); margin: 6px 0 0; }
-    .rp-fig-means { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ws-tx); margin: 8px 0 0; max-width: 30ch; }
+    .rp-fig-means { font-family: var(--sans); font-size: 12px; line-height: 1.45; color: var(--ws-tx); margin: 6px 0 0; max-width: 32ch; }
 
     .rp-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 28px; }
     .rp-callout { border-left: 3px solid var(--english-violet, #4a2a3c); padding: 4px 0 4px 16px; }
@@ -161,7 +175,7 @@ import "../../../styles/ws-system.css";
     .rp-coming ol { margin: 0; padding-left: 20px; font-family: var(--sans); font-size: 14px; line-height: 1.8; color: var(--ws-tx); }
 
     /* The finish. */
-    .rp-done { text-align: center; padding: 40px 0 8px; }
+    .rp-done { text-align: center; padding: 20px 0; }
     .rp-done-badge { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 22px; display: grid; place-items: center; background: color-mix(in srgb, var(--ws-accent) 12%, #fff); color: var(--ws-accent); }
     .rp-done-badge svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .rp-done h2 { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); line-height: 1.12; color: var(--ws-ink); margin: 0 0 10px; }
@@ -169,7 +183,7 @@ import "../../../styles/ws-system.css";
     .rp-done-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
     /* Nav row. */
-    .rp-nav { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 28px 0 0; padding-top: 22px; border-top: 1px solid var(--ws-line); }
+    .rp-nav { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 12px 0 0; padding-top: 12px; border-top: 1px solid var(--ws-line); }
     .rp-rail { display: flex; gap: 8px; }
     .rp-dot { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--ws-line); cursor: pointer; transition: background .2s, transform .2s; }
     .rp-dot:hover { transform: scale(1.25); }
@@ -220,10 +234,11 @@ import "../../../styles/ws-system.css";
       fig("reach", "Reach", n(p.reach) != null ? fmt(n(p.reach)) : null,
         "Different people who saw something we posted. One person counts once, however many times they saw it.",
         rch ? `${rch > 0 ? "Up" : "Down"} ${Math.abs(rch)}% on last month` : "");
+      const mv = (v) => { const x = n(v); return x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)}% on last month` : ""; };
       fig("views", "Views", n(p.views) != null ? fmt(n(p.views)) : null,
-        "Times your posts and videos were seen in total, counting repeat watches.");
+        "Times your posts and videos were seen in total, counting repeat watches.", mv(p.viewsChange));
       fig("interactions", "Interactions", n(p.interactions) != null ? fmt(n(p.interactions)) : null,
-        "Likes, comments, saves and shares added together: people doing something, not just scrolling past.");
+        "Likes, comments, saves and shares added together: people doing something, not just scrolling past.", mv(p.interactionsChange));
       fig("interactionRate", "Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null,
         "Out of everyone who saw a post, the share who interacted with it.");
       fig("linkTaps", "Link taps", n(p.linkTaps) != null ? fmt(n(p.linkTaps)) : null,
@@ -231,12 +246,15 @@ import "../../../styles/ws-system.css";
       // How much we put out. Stories aren't in it: SocialPilot only reports
       // them for the last 24 hours, never the month.
       const np = n(d.posts?.published), nr = n(d.reels?.published);
-      if (np != null || nr != null) fig("published", "Published", fmt((np || 0) + (nr || 0)),
-        [np != null ? `${fmt(np)} post${np === 1 ? "" : "s"}` : "", nr != null ? `${fmt(nr)} reel${nr === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ") + " went out on the account this month.");
+      if (vis.published !== false && (np != null || nr != null)) {
+        fig("published", "Posts published", np != null ? fmt(np) : "0", "Images and carousels in the feed.");
+        fig("published", "Reels published", nr != null ? fmt(nr) : "0", "Short videos.");
+        fig("published", "Total published", fmt((np || 0) + (nr || 0)), "Everything that went out on the account this month, not counting stories.");
+      }
       if (figs.length) parts.push({ step: "The numbers", html: part(
         `${month} in numbers`,
         "The headline figures for the month. Under each one is what it actually measures.",
-        `<div class="rp-figs" style="--cols:${figs.length <= 4 ? figs.length : 3}">${figs.join("")}</div>`) });
+        `<div class="rp-figs">${figs.join("")}</div>`) });
 
       // 2 — Who you reached. Profile reach only: each person once. The
       // reels/posts reach figures are each post's reach added together, so
@@ -389,12 +407,16 @@ import "../../../styles/ws-system.css";
         </div>`;
 
       const slides = [cover, ...parts.map((p) => p.html), done];
-      const steps = ["Cover", ...parts.map((p) => p.step), "Finished"];
+      const steps = ["Your monthly report", ...parts.map((p) => p.step), "Finished"];
       const LAST = slides.length - 1;
       const stage = $("rp-stage"), nav = $("rp-nav"), rail = $("rp-rail");
       const prev = $("rp-prev"), next = $("rp-next"), nextLabel = $("rp-next-label");
       rail.innerHTML = parts.map((p, i) => `<button type="button" class="rp-dot" data-go="${i + 1}" title="${esc(p.step)}" aria-label="${esc(p.step)}"></button>`).join("");
       let at = 0;
+      // Where the deck starts on the page, so it can end at the window's foot.
+      const deck = $("rp");
+      const fit = () => { deck.style.setProperty("--rp-top", `${Math.round(deck.getBoundingClientRect().top + window.scrollY)}px`); };
+      window.addEventListener("resize", fit);
       const show = (i) => {
         at = Math.max(0, Math.min(LAST, i));
         stage.innerHTML = slides[at];
@@ -406,7 +428,7 @@ import "../../../styles/ws-system.css";
         $("rp-count").textContent = at > 0 && at < LAST ? `${at} of ${parts.length}` : "";
         $("rp-fill").style.width = `${Math.round(at / LAST * 100)}%`;
         rail.querySelectorAll(".rp-dot").forEach((d, k) => { d.classList.toggle("is-active", k + 1 === at); d.classList.toggle("is-done", k + 1 < at); });
-        if (at > 0) $("rp").scrollIntoView({ block: "start", behavior: "smooth" });
+        fit();
       };
       document.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) { e.preventDefault(); show(+b.dataset.go); } });
       prev.addEventListener("click", () => show(at - 1));
