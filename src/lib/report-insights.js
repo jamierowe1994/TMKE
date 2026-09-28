@@ -43,113 +43,236 @@ export function renderCard(r) {
   </div>`;
 }
 
+// ---- shared pieces for the admin tabs --------------------------------------
+// A number as SocialPilot's JSON gives it: a number, a numeric string, or
+// missing. Returns null when there's nothing to show.
+const nv = (v) => { if (v == null || v === "") return null; const x = Number(String(v).replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : null; };
+const nf = (v) => (nv(v) == null ? "—" : nv(v).toLocaleString("en-GB"));
+// "+42% on last month" / "−29% on last month", coloured by direction.
+function change(v) {
+  const x = nv(v); if (!x) return ["", ""];
+  return [`${x > 0 ? "↑" : "↓"} ${Math.abs(x)}% on last month`, x > 0 ? "#2c7a4b" : "#a05a3c"];
+}
+const grid = (cols, inner) => `<div class="ri-grid" style="--ri-cols:${cols}">${inner}</div>`;
+const sec = (label, first) => `<div class="ri-sec"${first ? ' style="margin-top:0;"' : ""}>${esc(label)}</div>`;
+// Everything past the first `keep` rows goes behind a "Show all" toggle.
+function withMore(rows, keep, label, wrap) {
+  const top = rows.slice(0, keep).join(""), rest = rows.slice(keep).join("");
+  return wrap(top) + (rest ? `<details class="ri-more"><summary>${esc(label || `Show the other ${rows.length - keep}`)}</summary>${wrap(rest)}</details>` : "");
+}
+// A small two-part split, e.g. followers vs non-followers.
+function split(title, a, b, note) {
+  const x = nv(a[1]) || 0, y = nv(b[1]) || 0, t = x + y;
+  if (!t) return "";
+  const pa = Math.round(x / t * 100);
+  return `<div class="ri-panel ri-split"><div class="ri-split-h">${esc(title)}</div>
+    <div class="ri-split-bar"><span style="width:${pa}%"></span></div>
+    <div class="ri-split-legend"><div><b>${nf(x)}</b> ${esc(a[0])} <em>${pa}%</em></div><div><b>${nf(y)}</b> ${esc(b[0])} <em>${100 - pa}%</em></div></div>
+    ${note ? `<div class="ri-split-note">${esc(note)}</div>` : ""}</div>`;
+}
+
+// Every post and reel in the month. New reports carry them all in `content`;
+// older ones only had a short `topContent` list.
+export function contentRows(d) {
+  const rows = Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || []);
+  return rows.filter((t) => t && (t.title || t.url));
+}
+// The league table: by reach, then interactions to break a tie.
+export function rankContent(d) {
+  return contentRows(d).slice().sort((a, b) => (nv(b.reach) || 0) - (nv(a.reach) || 0) || (nv(b.interactions) || 0) - (nv(a.interactions) || 0));
+}
+
 // ---- Overview tab ----------------------------------------------------------
 // `vis` (optional) = a { [fieldKey]: boolean } map from report-fields.js. When
-// present, any field set to false is omitted (used for the client-facing view);
-// when absent every field shows (admin view). Same pattern across the tabs.
+// present, any field set to false is omitted; when absent every field shows
+// (admin view).
+//
+// Two kinds of reach, kept apart on purpose. PROFILE reach counts each person
+// once for the month. CONTENT reach is each post's reach added together, so a
+// person who saw three reels counts three times — which is why reels + posts
+// comes to more than the profile's total. They're in separate sections and
+// labelled so nobody compares one with the other.
 export function renderOverview(d, r, vis) {
   const show = (k) => !vis || vis[k] !== false;
-  const p = d.profile || {}, rc = d.reach || {};
-  const kpiDefs = [
-    ["followers", () => kpi("Total followers", p.followers != null ? Number(p.followers).toLocaleString() : "—", show("newFollowers") && p.newFollowers ? "+" + p.newFollowers + " this month" : "", "#8a8796")],
-    ["reach", () => kpi("Total reach", p.reach != null ? Number(p.reach).toLocaleString() : "—", p.reachChange ? "↑ " + Number(p.reachChange) + "%" : "", p.reachChange > 0 ? "#2c7a4b" : "#a05a3c")],
-    ["views", () => kpi("Total views", p.views != null ? Number(p.views).toLocaleString() : "—", "", "#8a8796")],
-    ["interactions", () => kpi("Interactions", p.interactions != null ? p.interactions : "—", "", "#8a8796")],
-    ["interactionRate", () => kpi("Interaction rate", p.interactionRate ? p.interactionRate + "%" : "—", p.interactionRate > 10 ? "Excellent ✓" : "Needs work", p.interactionRate > 10 ? "#2c7a4b" : "#9a6a04")],
-    ["linkTaps", () => kpi("Link taps", p.linkTaps != null ? p.linkTaps : "—", p.linkTaps === 0 ? "Needs attention" : "", p.linkTaps === 0 ? "#a05a3c" : "#8a8796")],
-  ];
-  const kpis = kpiDefs.filter(([k]) => show(k)).map(([, f]) => f()).join("");
-  const overviewSec = kpis ? `<div class="ri-sec" style="margin-top:0;">Profile overview</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">${kpis}</div>` : "";
+  const p = d.profile || {}, rc = d.reach || {}, po = d.posts || {}, re = d.reels || {};
+  const out = [];
 
-  const maxR = Math.max(rc.reels || 0, rc.posts || 0, rc.stories || 0, rc.ads || 0, 1);
-  const tot = (rc.nonFollower || 0) + (rc.follower || 0); const nfPct = tot ? Math.round((rc.nonFollower || 0) / tot * 100) : 0;
-  const barsHtml = show("reachByFormat")
-    ? `<div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:12px;">Reach by format</div>${bar("Reels", rc.reels || 0, maxR, "#371e28")}${bar("Posts", rc.posts || 0, maxR, "#8a8796")}${bar("Stories", rc.stories || 0, maxR, "#c9c3c6")}${rc.ads ? bar("Ads (Paid)", rc.ads, maxR, "#b9826a") : ""}`
-    : "";
-  const tiles = [];
-  if (show("followerSplit")) {
-    tiles.push(`<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(rc.nonFollower)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Non-follower reach</div><div style="font-size:10px;color:#b3adb0;">${nfPct}% of total</div></div>`);
-    tiles.push(`<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(rc.follower)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Follower reach</div><div style="font-size:10px;color:#b3adb0;">${100 - nfPct}% of total</div></div>`);
+  // Profile
+  const [rcTxt, rcCol] = change(p.reachChange), [vTxt, vCol] = change(p.viewsChange), [iTxt, iCol] = change(p.interactionsChange);
+  const k = [];
+  if (show("followers")) k.push(kpi("Followers", nf(p.followers), show("newFollowers") && nv(p.newFollowers) ? `+${nf(p.newFollowers)} this month` : "", "#2c7a4b"));
+  if (show("reach")) k.push(kpi("Reach", nf(p.reach), rcTxt || "People reached, each counted once", rcTxt ? rcCol : "#8a8796"));
+  if (show("views")) k.push(kpi("Views", nf(p.views), vTxt, vCol));
+  if (show("interactions")) k.push(kpi("Interactions", nf(p.interactions), iTxt, iCol));
+  if (show("interactionRate")) k.push(kpi("Interaction rate", nv(p.interactionRate) != null ? nv(p.interactionRate) + "%" : "—", "Interactions ÷ reach", "#8a8796"));
+  if (show("linkTaps")) k.push(kpi("Profile link taps", nf(p.linkTaps), "", "#8a8796"));
+  if (k.length) out.push(sec("Profile overview", !out.length) + grid(3, k.join("")));
+
+  // Published — how much we put out. Stories aren't counted: SocialPilot
+  // only reports them for the last 24 hours.
+  const np = nv(po.published), nr = nv(re.published);
+  if (show("published") && (np != null || nr != null)) {
+    out.push(sec("Published this month", !out.length) + grid(3,
+      kpi("Posts", nf(np), "", "") + kpi("Reels", nf(nr), "", "") + kpi("Total published", nf((np || 0) + (nr || 0)), "Stories not included", "#8a8796")));
   }
-  if (show("ukFollowers") && p.ukFollowers) tiles.push(`<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:18px;font-weight:700;color:#1c1d22;">${num(p.ukFollowers)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">UK followers</div></div>`);
-  const tilesHtml = tiles.length ? `<div style="display:grid;grid-template-columns:repeat(${tiles.length},1fr);gap:8px;margin-top:${barsHtml ? "16px" : "0"};">${tiles.join("")}</div>` : "";
-  const split = (show("organicPaidReach") && (rc.organicReach != null || rc.paidReach != null))
-    ? `<div style="margin-top:12px;padding-top:12px;border-top:.5px solid #e5e1e2;"><div style="font-size:11px;font-weight:700;color:#1c1d22;margin-bottom:8px;letter-spacing:.04em;">ORGANIC vs PAID SPLIT</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${rc.organicReach != null ? `<div style="background:#eef1f4;border-radius:8px;padding:10px 12px;border-left:3px solid #5b7a9a;"><div style="font-size:18px;font-weight:700;color:#3f5a75;">${num(rc.organicReach)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Organic reach</div>${rc.organicReach && rc.paidReach ? `<div style="font-size:10px;color:#b3adb0;">${Math.round(rc.organicReach / (rc.organicReach + rc.paidReach) * 100)}% of total</div>` : ""}</div>` : ""}${rc.paidReach != null ? `<div style="background:#f6efe9;border-radius:8px;padding:10px 12px;border-left:3px solid #b9826a;"><div style="font-size:18px;font-weight:700;color:#a56a4e;">${num(rc.paidReach)}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Paid reach (Ads)</div>${rc.paidReach && rc.organicReach ? `<div style="font-size:10px;color:#b3adb0;">${Math.round(rc.paidReach / (rc.organicReach + rc.paidReach) * 100)}% of total</div>` : ""}</div>` : ""}</div></div>`
-    : "";
-  const reachInner = barsHtml + tilesHtml + split;
-  const reachSec = reachInner ? `<div class="ri-sec"${overviewSec ? "" : ' style="margin-top:0;"'}>Reach breakdown</div><div class="ri-panel">${reachInner}</div>` : "";
-  return overviewSec + reachSec;
+
+  // Content — posts and reels together, then each on its own.
+  const sum = (key) => { const a = nv(po[key]), b = nv(re[key]); return a == null && b == null ? null : (a || 0) + (b || 0); };
+  if (show("contentOverview") && (d.posts || d.reels)) {
+    const cRate = sum("reach") ? Math.round(sum("interactions") / sum("reach") * 1000) / 10 : null;
+    out.push(sec("Content overview · posts and reels together", !out.length)
+      + `<p class="ri-note">Reach here is each post's reach added together, so someone who saw three posts counts three times. That's why it's higher than the profile's reach above.</p>`
+      + grid(4, kpi("Published", nf(sum("published")), "", "") + kpi("Reach (added)", nf(sum("reach")), "", "") + kpi("Views", nf(sum("views")), "", "") + kpi("Interactions", nf(sum("interactions")), cRate != null ? `${cRate}% of reach` : "", "#8a8796")));
+    const card = (lbl, x, col) => {
+      const rows = [["Published", x.published], ["Reach (added)", x.reach], ["Views", x.views], ["Interactions", x.interactions], ["Likes", x.likes], ["Comments", x.comments], ["Saves", x.saves], ["Shares", x.shares], ["Interaction rate", nv(x.interactionRate) != null ? nv(x.interactionRate) + "%" : null]]
+        .filter(([, v]) => v != null && v !== "");
+      return `<div class="ri-panel" style="margin:0;"><div class="ri-card-h" style="color:${col};">${esc(lbl)}</div>${rows.map(([a, v]) => `<div class="ri-row"><span>${esc(a)}</span><b>${typeof v === "string" && /%$/.test(v) ? esc(v) : nf(v)}</b></div>`).join("")}</div>`;
+    };
+    out.push(grid(2, (d.posts ? card("Posts", po, "#3f5a75") : "") + (d.reels ? card("Reels", re, "#371e28") : "")));
+  }
+
+  // Who the profile reached and who watched (SocialPilot's page 2).
+  const parts = [];
+  if (show("followerSplit")) {
+    const t = (nv(rc.follower) || 0) + (nv(rc.nonFollower) || 0), gap = nv(p.reach) != null && t ? nv(p.reach) - t : 0;
+    parts.push(split("Reach: followers vs non-followers", ["followers", rc.follower], ["non-followers", rc.nonFollower],
+      gap > 0 ? `${nf(gap)} of the ${nf(p.reach)} reached couldn't be matched either way, so the split is out of ${nf(t)}.` : ""));
+  }
+  if (show("viewsSplit") && d.viewsSplit) parts.push(split("Views: followers vs non-followers", ["by followers", d.viewsSplit.follower], ["by non-followers", d.viewsSplit.nonFollower], ""));
+  const ib = d.interactionsByFormat || {};
+  if (show("interactionsByFormat") && [ib.feed, ib.reel, ib.story, ib.ad].some((v) => nv(v))) {
+    const fm = [["Posts", ib.feed, "#3f5a75"], ["Reels", ib.reel, "#371e28"], ["Stories", ib.story, "#8a8796"], ["Ads", ib.ad, "#b9826a"]].filter(([, v]) => nv(v));
+    const max = Math.max(1, ...fm.map(([, v]) => nv(v)));
+    parts.push(`<div class="ri-panel ri-split"><div class="ri-split-h">Interactions by format</div>${fm.map(([l, v, c]) => bar(l, nv(v), max, c)).join("")}</div>`);
+  }
+  const partsHtml = parts.filter(Boolean);
+  if (partsHtml.length) out.push(sec("Who you reached", !out.length) + grid(Math.min(3, partsHtml.length), partsHtml.join("")));
+
+  // Paid, only when ads actually ran — and from SocialPilot's own figures.
+  const ads = d.ads || {};
+  if (show("organicPaidReach") && (nv(ads.reach) || nv(ads.spend))) {
+    out.push(sec("Paid advertising", !out.length) + grid(4,
+      kpi("Ad reach", nf(ads.reach), "", "") + kpi("Clicks", nf(ads.clicks), "", "") + kpi("Spend", nv(ads.spend) != null ? "£" + nv(ads.spend).toLocaleString("en-GB") : "—", "", "") + kpi("Cost per click", nv(ads.cpc) != null ? "£" + nv(ads.cpc).toFixed(2) : "—", "", "")));
+  }
+  return out.join("");
 }
 
 // ---- Content tab -----------------------------------------------------------
-export function renderContent(d, vis, opts) {
-  const o = opts || {};
+// Days of the report's month, with each post's figures on the day it went out.
+function dailyChart(title, rows, series, r) {
+  const y = r && r.year, m = r && r.month;
+  if (y == null || m == null) return "";
+  const days = new Date(y, m + 1, 0).getDate();
+  const byDay = Array.from({ length: days }, () => series.map(() => 0));
+  let any = false;
+  for (const t of rows) {
+    const dt = /^(\d{4})-(\d{2})-(\d{2})/.exec(t.date || ""); if (!dt || +dt[1] !== y || +dt[2] - 1 !== m) continue;
+    series.forEach((s, i) => { const v = nv(t[s.key]); if (v) { byDay[+dt[3] - 1][i] += v; any = true; } });
+  }
+  if (!any) return "";
+  const W = 620, H = 150, L = 34, B = 20, T = 8, stacked = series.length > 2;
+  const max = Math.max(1, ...byDay.map((v) => (stacked ? v.reduce((a, b) => a + b, 0) : Math.max(...v))));
+  const step = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / step) * step;
+  const X = (i) => L + (i + 0.5) * (W - L) / days, Y = (v) => H - B - v / top * (H - B - T), bw = Math.max(3, (W - L) / days * 0.62);
+  let bars = "";
+  byDay.forEach((v, i) => {
+    if (stacked) { let acc = 0; v.forEach((val, k) => { if (!val) return; bars += `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${Y(acc + val).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(acc) - Y(acc + val)).toFixed(1)}" fill="${series[k].col}"/>`; acc += val; }); }
+    else v.forEach((val, k) => { if (!val) return; const w = bw / series.length; bars += `<rect x="${(X(i) - bw / 2 + k * w).toFixed(1)}" y="${Y(val).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(val)).toFixed(1)}" fill="${series[k].col}"/>`; });
+  });
+  const ticks = [0, top / 2, top].map((v) => `<line x1="${L}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e5e1e2"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="#8a8796">${Math.round(v).toLocaleString("en-GB")}</text>`).join("");
+  const xl = [1, 8, 15, 22, days].map((dd) => `<text x="${X(dd - 1)}" y="${H - 5}" text-anchor="middle" font-size="9" fill="#8a8796">${dd} ${MONTHS[m].slice(0, 3)}</text>`).join("");
+  const totals = series.map((s, i) => byDay.reduce((a, v) => a + v[i], 0));
+  const legend = series.map((s, i) => `<span><i style="background:${s.col}"></i>${esc(s.label)} (${totals[i].toLocaleString("en-GB")})</span>`).join("");
+  return `<div class="ri-panel"><div class="ri-split-h">${esc(title)}</div><svg viewBox="0 0 ${W} ${H}" class="ri-chart" role="img" aria-label="${esc(title)}">${ticks}${bars}${xl}</svg><div class="ri-legend">${legend}</div></div>`;
+}
+
+export function renderContent(d, vis, opts, r) {
   const show = (k) => !vis || vis[k] !== false;
-  const reels = d.reels || {}, posts = d.posts || {}, ads = d.ads || {};
-  const hasAds = d.ads && (d.ads.reach || d.ads.interactions || d.ads.spend != null);
-  // Members get the top N, ranked; admin (no opts) still gets the full list.
-  const tc = o.topN ? (d.topContent || []).slice(0, o.topN) : (d.topContent || []);
-  const hts = d.hashtags || [], maxH = hts.length ? Math.max(...hts.map((h) => h.reach || 0), 1) : 1;
-  const typeColors = { Reel: ["#efedf0", "#371e28"], Post: ["#eef1f4", "#3f5a75"], Ad: ["#f6efe9", "#a56a4e"], Story: ["#f4f2f1", "#55565b"] };
-  // The five a client actually asks about: how many did we put out, how far did they
-  // go, how many watched, how many did something, and what share that is. Likes /
-  // comments / saves / shares are the working behind "interactions" — admin keeps them
-  // (no opts), members don't need the same number counted five ways. Paid keeps its
-  // full set either way: spend and cost-per-click are the point of an ad.
-  const COMPACT_ROWS = ["Published", "Reach", "Views", "Interactions", "Interaction rate"];
-  const mkCard = (lbl, dat, col, isPaid) => {
-    let rows = [["Published", dat.published], ["Reach", dat.reach != null ? Number(dat.reach).toLocaleString() : null], ["Views", dat.views != null ? Number(dat.views).toLocaleString() : null], ["Interactions", dat.interactions], ["Likes", dat.likes], ["Comments", dat.comments], ["Saves", dat.saves], ["Shares", dat.shares], ["Interaction rate", dat.interactionRate], ["Clicks", dat.clicks], ["Cost per click", dat.cpc ? "£" + dat.cpc : null], ["Impressions", dat.impressions != null ? Number(dat.impressions).toLocaleString() : null], ["Spend", dat.spend != null ? "£" + dat.spend : null]].filter(([, v]) => v != null);
-    if (o.compactCards && !isPaid) rows = rows.filter(([k]) => COMPACT_ROWS.includes(k));
-    return `<div class="ri-panel" style="flex:1;min-width:0;${isPaid ? "border-top:3px solid #b9826a;" : ""}">${isPaid ? `<div style="font-size:9px;font-weight:700;color:#b9826a;letter-spacing:.08em;margin-bottom:8px;">● PAID</div>` : ""}<div style="font-size:13px;font-weight:700;color:${col};margin-bottom:12px;">${esc(lbl)}</div>${rows.map(([k, v]) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:.5px solid #e5e1e2;"><span style="color:#8a8796;">${esc(k)}</span><span style="font-weight:600;color:#1c1d22;">${esc(v)}</span></div>`).join("")}</div>`;
-  };
-  const orgI = (reels.interactions || 0) + (posts.interactions || 0); const paidI = ads.interactions || 0; const totI = orgI + paidI;
-  const splitHtml = hasAds && totI ? `<div class="ri-panel"><div style="font-size:11px;font-weight:700;color:#1c1d22;margin-bottom:12px;letter-spacing:.04em;">ORGANIC vs PAID — INTERACTIONS</div><div style="display:flex;gap:8px;margin-bottom:10px;"><div style="flex:1;background:#eef1f4;border-radius:8px;padding:10px 12px;border-left:3px solid #5b7a9a;"><div style="font-size:20px;font-weight:700;color:#3f5a75;">${orgI}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Organic</div><div style="font-size:10px;color:#b3adb0;">${Math.round(orgI / totI * 100)}% of total</div></div><div style="flex:1;background:#f6efe9;border-radius:8px;padding:10px 12px;border-left:3px solid #b9826a;"><div style="font-size:20px;font-weight:700;color:#a56a4e;">${paidI}</div><div style="font-size:10px;color:#8a8796;margin-top:2px;">Paid (Ads)</div><div style="font-size:10px;color:#b3adb0;">${Math.round(paidI / totI * 100)}% of total</div></div></div><div style="background:#f4f2f1;border-radius:4px;height:6px;overflow:hidden;"><div style="width:${Math.round(orgI / totI * 100)}%;height:100%;background:#371e28;border-radius:4px;"></div></div></div>` : "";
-  // Ranked 1..N for members (opts.rankTop) — a "top five" that doesn't say which is
-  // first isn't a ranking. Admin keeps the plain table.
-  const rank = !!o.rankTop;
-  const tcCols = rank ? "22px 1fr 56px 56px 52px" : "1fr 56px 56px 52px";
-  const tcHeads = rank ? ["", "CONTENT", "REACH", "INTER.", "FORMAT"] : ["CONTENT", "REACH", "INTER.", "TYPE"];
-  const tcRows = tc.length ? `<div class="ri-panel"><div style="display:grid;grid-template-columns:${tcCols};gap:8px;padding:4px 0 8px;border-bottom:.5px solid #e5e1e2;margin-bottom:4px;">${tcHeads.map((h) => `<div style="font-size:10px;color:#8a8796;letter-spacing:.06em;text-align:${h === "CONTENT" ? "left" : "center"};">${h}</div>`).join("")}</div>${tc.map((p, i) => { const c = typeColors[p.type] || typeColors.Post; return `<div style="display:grid;grid-template-columns:${tcCols};gap:8px;padding:9px 0;border-bottom:${i < tc.length - 1 ? ".5px solid #e5e1e2" : "none"};align-items:center;">${rank ? `<div style="font-size:12px;font-weight:700;color:#371e28;text-align:center;">${i + 1}</div>` : ""}<div style="font-size:12px;color:#1c1d22;">${esc(p.title || p.content || "")}</div><div style="font-size:13px;font-weight:600;text-align:center;color:#1c1d22;">${p.reach || "—"}</div><div style="font-size:13px;font-weight:600;text-align:center;color:#1c1d22;">${p.interactions || "—"}</div><div style="text-align:center;"><span style="font-size:10px;padding:2px 7px;border-radius:10px;font-weight:600;background:${c[0]};color:${c[1]};">${esc(p.type || "Post")}</span></div></div>`; }).join("")}</div>` : "";
-  const htRows = hts.length ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Avg reach & interactions by hashtag</div>${hts.map((h) => `<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;"><span style="font-weight:700;color:#371e28;">${esc(h.name)}</span><span style="color:#8a8796;">reach <strong style="color:#1c1d22;">${h.reach || 0}</strong> · inter. <strong style="color:#1c1d22;">${h.interactions || 0}</strong></span></div><div style="background:#f4f2f1;border-radius:3px;height:5px;overflow:hidden;"><div style="width:${Math.round((h.reach || 0) / maxH * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.7;"></div></div></div>`).join("")}</div>` : "";
-  const secs = [];
-  if (show("organicContent")) secs.push(`<div class="ri-sec">Organic content</div><div style="display:flex;gap:12px;">${mkCard("Reels", reels, "#371e28", false)}${mkCard("Posts", posts, "#8a8796", false)}</div>`);
-  if (show("paidContent") && hasAds) secs.push(`<div class="ri-sec">Paid advertising</div>${mkCard("Ads", ads, "#b9826a", true)}`);
-  if (show("organicPaidInteractions") && hasAds) secs.push(`<div class="ri-sec">Organic vs paid</div>${splitHtml}`);
-  if (show("topContent") && tc.length) secs.push(`<div class="ri-sec">Top performing content</div>${tcRows}`);
-  // Hashtags are an admin tool. Per §2 of docs/smm-report-rules.md they're supporting
-  // context for explaining reach — not a standalone topic in the client's report, who
-  // has no use for a bar chart of their own hashtags.
-  if (show("hashtags") && hts.length && !o.hideHashtags) secs.push(`<div class="ri-sec">Hashtag performance</div>${htRows}`);
-  // First visible section loses its top margin so the tab body sits flush.
-  return secs.join("").replace(/^<div class="ri-sec"/, '<div class="ri-sec" style="margin-top:0;"');
+  const out = [];
+  const ranked = rankContent(d);
+  if (show("topContent") && ranked.length) {
+    const row = (t, i) => {
+      const reel = /reel/i.test(t.type || "");
+      const title = t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${esc(t.title || "Open on Instagram")}<span aria-hidden="true"> ↗</span></a>` : esc(t.title);
+      return `<tr><td class="ri-rank">${i + 1}</td>
+        <td class="ri-thumbcell">${t.thumb ? `<img src="${esc(t.thumb)}" alt="" class="ri-thumb" loading="lazy">` : `<span class="ri-thumb ri-thumb--none"></span>`}</td>
+        <td class="ri-ttl">${title}${t.date ? `<span>${esc(new Date(t.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))}</span>` : ""}</td>
+        <td><span class="ri-type ri-type--${reel ? "reel" : "post"}">${reel ? "Reel" : esc(t.type || "Post")}</span></td>
+        <td class="ri-n">${nf(t.reach)}</td><td class="ri-n">${reel ? nf(t.views) : "–"}</td><td class="ri-n">${nf(t.interactions)}</td></tr>`;
+    };
+    const rows = ranked.map(row);
+    const wrap = (inner) => `<div class="ri-panel ri-tblwrap"><table class="ri-tbl"><thead><tr><th></th><th></th><th>Content</th><th>Type</th><th class="ri-n">Reach</th><th class="ri-n">Views</th><th class="ri-n">Interactions</th></tr></thead><tbody>${inner}</tbody></table></div>`;
+    out.push(sec("Top performing content · ranked by reach", !out.length) + withMore(rows, 6, `Show the other ${rows.length - 6}`, wrap));
+  }
+  if (show("contentTrends")) {
+    const rows = contentRows(d);
+    const posts = rows.filter((t) => !/reel/i.test(t.type || "")), reels = rows.filter((t) => /reel/i.test(t.type || ""));
+    const RV = (withViews) => [{ key: "reach", label: "Reach", col: "#371e28" }, ...(withViews ? [{ key: "views", label: "Views", col: "#c9a9b5" }] : [])];
+    const IN = [{ key: "likes", label: "Likes", col: "#371e28" }, { key: "comments", label: "Comments", col: "#b9826a" }, { key: "saves", label: "Saves", col: "#5b7a9a" }, { key: "shares", label: "Shares", col: "#c9c3c6" }];
+    const charts = [
+      // SocialPilot's post table has no per-post views, so posts chart reach only.
+      dailyChart("Posts · reach by day", posts, [{ key: "reach", label: "Reach", col: "#3f5a75" }], r),
+      dailyChart("Posts · interactions by day", posts, IN, r),
+      dailyChart("Reels · reach and views by day", reels, RV(true), r),
+      dailyChart("Reels · interactions by day", reels, IN, r),
+    ].filter(Boolean);
+    if (charts.length) out.push(sec("Day by day", !out.length) + grid(2, charts.join("")));
+  }
+  // Hashtags: the five best-reaching shown, the rest behind a toggle, posts
+  // and reels apart as SocialPilot keeps them.
+  const hts = d.hashtags || [];
+  if (show("hashtags") && hts.length && !(opts && opts.hideHashtags)) {
+    const groups = hts.some((h) => h.format) ? [["Post", "Posts"], ["Reel", "Reels"]] : [[null, "All content"]];
+    const panels = groups.map(([f, lbl]) => {
+      const list = hts.filter((h) => !f || (h.format || "Post") === f);
+      if (!list.length) return "";
+      const rows = list.map((h) => `<tr><td>${esc(String(h.name || "").startsWith("#") ? h.name : "#" + h.name)}</td><td class="ri-n">${nf(h.count)}</td><td class="ri-n">${nf(h.reach)}</td><td class="ri-n">${nf(h.interactions)}</td></tr>`);
+      const wrap = (inner) => `<table class="ri-tbl"><thead><tr><th>Hashtag</th><th class="ri-n">Used</th><th class="ri-n">Avg reach</th><th class="ri-n">Avg interactions</th></tr></thead><tbody>${inner}</tbody></table>`;
+      return `<div class="ri-panel ri-tblwrap" style="margin:0;"><div class="ri-card-h">${esc(lbl)}</div>${withMore(rows, 5, `Show all ${rows.length}`, wrap)}</div>`;
+    }).filter(Boolean);
+    if (panels.length) out.push(sec("Hashtag performance", !out.length) + grid(panels.length, panels.join("")));
+  }
+  return out.join("");
 }
 
 // ---- Audience tab ----------------------------------------------------------
 export function renderAudience(d, vis) {
   const show = (k) => !vis || vis[k] !== false;
-  const pt = d.peakTimes || {}, slots = pt.slots || [], grid = pt.grid || [], timing = d.timing || "";
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const hmColors = ["#f4f2f1", "#d8d2d5", "#9a8f94", "#371e28"], hmLabels = ["Low", "Moderate", "Good", "Peak"];
-  let hm = '<div style="font-size:12px;color:#8a8796;">No heatmap data for this report.</div>';
-  if (grid.length && slots.length) {
-    hm = `<div style="display:grid;grid-template-columns:36px repeat(${slots.length},1fr);gap:3px;margin-bottom:4px;"><div></div>${slots.map((s) => `<div style="font-size:9px;color:#8a8796;text-align:center;">${esc(s)}</div>`).join("")}</div>${grid.map((row, di) => `<div style="display:grid;grid-template-columns:36px repeat(${slots.length},1fr);gap:3px;margin-bottom:3px;"><div style="font-size:11px;color:#8a8796;line-height:20px;">${days[di] || ""}</div>${row.map((val) => `<div style="height:20px;border-radius:3px;background:${hmColors[Math.min(val, 3)] || hmColors[0]};"></div>`).join("")}</div>`).join("")}<div style="display:flex;gap:14px;margin-top:10px;">${hmColors.map((c, i) => `<div style="display:flex;align-items:center;gap:5px;font-size:10px;color:#8a8796;"><div style="width:10px;height:10px;border-radius:2px;background:${c};border:1px solid #e5e1e2;"></div>${hmLabels[i]}</div>`).join("")}</div>`;
+  const out = [];
+  const dem = d.demographics || {}, p = d.profile || {};
+
+  // Age, split by gender — above everything else, as the first thing to know.
+  const age = (dem.age || []).filter((a) => a && a.range);
+  if (show("age") && age.length) {
+    const G = [["male", "Male", "#3f5a75"], ["female", "Female", "#371e28"], ["unspecified", "Unspecified", "#c9c3c6"]];
+    const max = Math.max(1, ...age.flatMap((a) => G.map(([k]) => nv(a[k]) || 0)));
+    const cols = age.map((a) => `<div class="ri-age-col"><div class="ri-age-bars">${G.map(([k, , c]) => `<span title="${esc(a.range)} ${k}: ${nf(a[k])}" style="height:${Math.round((nv(a[k]) || 0) / max * 100)}%;background:${c}"></span>`).join("")}</div><div class="ri-age-l">${esc(a.range)}</div></div>`).join("");
+    const legend = G.map(([, l, c]) => `<span><i style="background:${c}"></i>${l}</span>`).join("");
+    out.push(sec("Age", !out.length) + `<div class="ri-panel"><div class="ri-age">${cols}</div><div class="ri-legend">${legend}</div><p class="ri-note" style="margin:8px 0 0;">Read off SocialPilot's chart, so each bar is close rather than exact. Followers since the account began.</p></div>`);
   }
-  const bd = d.bestDays || "", mw = d.morningWindow || "", ew = d.eveningWindow || "";
-  const wCards = (bd || mw || ew) ? `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:16px;">${bd ? `<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:#8a8796;margin-bottom:4px;">Best days</div><div style="font-size:13px;font-weight:700;color:#1c1d22;">${esc(bd)}</div></div>` : ""}${mw ? `<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:#8a8796;margin-bottom:4px;">Morning window</div><div style="font-size:13px;font-weight:700;color:#1c1d22;">${esc(mw)}</div></div>` : ""}${ew ? `<div style="background:#f4f2f1;border-radius:8px;padding:10px 12px;"><div style="font-size:10px;color:#8a8796;margin-bottom:4px;">Evening window</div><div style="font-size:13px;font-weight:700;color:#1c1d22;">${esc(ew)}</div></div>` : ""}</div>` : "";
-  const dem = d.demographics || {}, genders = dem.gender || [], cities = dem.topCities || [], countries = dem.topCountries || [];
-  const maxCity = cities.length ? Math.max(...cities.map((c) => c.count || 0), 1) : 1, maxCountry = countries.length ? Math.max(...countries.map((c) => c.count || 0), 1) : 1;
-  const gColors = ["#371e28", "#8a8796", "#c9c3c6"];
-  const gHtml = (show("gender") && genders.length) ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Gender split</div>${genders.map((g, i) => `<div style="margin-bottom:12px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span style="color:#8a8796;">${esc(g.label)}</span><span style="font-weight:600;color:#1c1d22;">${g.pct}% <span style="color:#8a8796;font-weight:400;">(${g.count})</span></span></div><div style="background:#f4f2f1;border-radius:3px;height:6px;"><div style="width:${g.pct}%;height:100%;background:${gColors[i] || "#c9c3c6"};border-radius:3px;"></div></div></div>`).join("")}</div>` : "";
-  const cHtml = (show("cities") && cities.length) ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Top cities</div>${cities.map((c, i) => `<div style="display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:${i < cities.length - 1 ? ".5px solid #e5e1e2" : "none"};align-items:center;"><span style="color:#8a8796;">${esc(c.city)}</span><div style="display:flex;align-items:center;gap:8px;"><div style="width:60px;background:#f4f2f1;border-radius:3px;height:5px;"><div style="width:${Math.round(c.count / maxCity * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.6;"></div></div><span style="font-weight:600;color:#1c1d22;width:26px;text-align:right;">${c.count}</span></div></div>`).join("")}</div>` : "";
-  const coHtml = (show("countries") && countries.length) ? `<div class="ri-panel"><div style="font-size:12px;font-weight:600;color:#1c1d22;margin-bottom:14px;">Followers by country</div>${countries.map((c) => `<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;"><span style="color:#8a8796;">${esc(c.country)}</span><span style="font-weight:600;color:#1c1d22;">${c.count}</span></div><div style="background:#f4f2f1;border-radius:3px;height:5px;"><div style="width:${Math.round(c.count / maxCountry * 100)}%;height:100%;background:#371e28;border-radius:3px;opacity:.6;"></div></div></div>`).join("")}</div>` : "";
-  const demHtml = (gHtml || cHtml || coHtml) ? `<div class="ri-sec">Audience demographics</div><div style="display:grid;grid-template-columns:${gHtml && cHtml ? "1fr 1fr" : "1fr"};gap:12px;margin-bottom:12px;">${gHtml}${cHtml}</div>${coHtml}` : "";
-  const showPeak = show("peakTimes"), showWin = show("postingWindows");
-  const topPanel = (showPeak || showWin)
-    ? `<div class="ri-sec" style="margin-top:0;">Follower activity — best posting times</div>${showPeak && timing ? `<div style="font-size:12px;color:#8a8796;margin-bottom:12px;line-height:1.6;">${esc(timing)}</div>` : ""}<div class="ri-panel">${showPeak ? hm : ""}${showWin ? wCards : ""}</div>`
-    : "";
-  // If the peak-times panel is hidden, let the demographics section sit flush.
-  const demSec = topPanel ? demHtml : demHtml.replace(/^<div class="ri-sec"/, '<div class="ri-sec" style="margin-top:0;"');
-  return topPanel + demSec;
+
+  const genders = dem.gender || [], cities = dem.topCities || [];
+  const gHtml = show("gender") && genders.length ? `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">Gender</div>${genders.map((g, i) => bar(g.label, nv(g.pct) || 0, 100, ["#371e28", "#8a8796", "#c9c3c6"][i % 3]).replace(/>(\d+)<\/div><\/div>$/, ">$1%</div></div>")).join("")}</div>` : "";
+  const maxCity = Math.max(1, ...cities.map((c) => nv(c.count) || 0));
+  const cHtml = show("cities") && cities.length ? `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">Top cities</div>${withMore(cities.map((c) => bar(c.city, nv(c.count), maxCity, "#371e28")), 3, "Show all cities", (x) => x)}</div>` : "";
+  if (gHtml || cHtml) out.push(sec("Gender and location", !out.length) + grid((gHtml ? 1 : 0) + (cHtml ? 1 : 0), gHtml + cHtml));
+
+  const countries = dem.topCountries || [];
+  if (show("countries") && countries.length) {
+    const uk = nv(p.ukFollowers) ?? nv((countries.find((c) => /united kingdom|^uk$/i.test(c.country || "")) || {}).count);
+    const maxC = Math.max(1, ...countries.map((c) => nv(c.count) || 0));
+    out.push(sec("Countries", !out.length) + `<div class="ri-panel">${uk != null && nv(p.followers) ? `<p class="ri-note" style="margin:0 0 12px;"><b>${nf(uk)}</b> of ${nf(p.followers)} followers are in the UK (${Math.round(uk / nv(p.followers) * 100)}%).</p>` : ""}${withMore(countries.map((c) => bar(c.country, nv(c.count), maxC, "#8a8796")), 3, "Show all countries", (x) => x)}</div>`);
+  }
+
+  // When followers are online — for scheduling, never for the client.
+  const pt = d.peakTimes || {}, slots = pt.slots || [], g = pt.grid || [];
+  if ((show("peakTimes") || show("postingWindows")) && (g.length || d.bestDays)) {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], hc = ["#f4f2f1", "#d8d2d5", "#9a8f94", "#371e28"];
+    const hm = g.length && slots.length ? `<div class="ri-hm" style="--ri-slots:${slots.length}"><div></div>${slots.map((s) => `<div class="ri-hm-l">${esc(s)}</div>`).join("")}${g.map((row, i) => `<div class="ri-hm-l">${days[i]}</div>${row.map((v) => `<div class="ri-hm-c" style="background:${hc[Math.max(0, Math.min(3, v || 0))]}"></div>`).join("")}`).join("")}</div>` : "";
+    const w = [["Best days", d.bestDays], ["Morning", d.morningWindow], ["Evening", d.eveningWindow]].filter(([, v]) => v);
+    out.push(sec("When followers are online", !out.length) + `<div class="ri-panel">${d.timing ? `<p class="ri-note" style="margin:0 0 12px;">${esc(d.timing)}</p>` : ""}${hm}${w.length ? grid(w.length, w.map(([l, v]) => kpi(l, esc(v), "", "")).join("")) : ""}</div>`);
+  }
+  return out.join("");
 }
 
 // ---- Actions tab -----------------------------------------------------------
@@ -185,7 +308,7 @@ export function renderTrends(accR) {
 // `opts` (optional) tailors a tab for the member view without changing admin's —
 // admin calls this with no vis and no opts, so it keeps the full breakdown.
 export function renderTab(tab, d, r, vis, opts) {
-  if (tab === "content") return renderContent(d, vis, opts);
+  if (tab === "content") return renderContent(d, vis, opts, r);
   if (tab === "audience") return renderAudience(d, vis);
   if (tab === "actions") return renderActions(d, r, vis);
   return renderOverview(d, r, vis);

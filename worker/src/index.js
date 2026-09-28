@@ -9230,23 +9230,37 @@ export default {
         const mm = /^data:application\/pdf;base64,(.+)$/i.exec(raw);
         const b64 = mm ? mm[1] : raw;
         if (!b64) return json({ error: "Missing PDF." }, 400, request, env);
+        // What each figure IS matters more than finding it. SocialPilot has
+        // two kinds of reach and they don't add up to each other:
+        //  - PROFILE reach (page 1 "Total Reach", page 2 "Reach Insights") counts
+        //    each person once for the month;
+        //  - CONTENT reach (the "Instagram Post" / "Instagram Reels" pages) is
+        //    each post's reach added together, so one person who saw three reels
+        //    counts three times.
+        // The old prompt asked for "organicReach = reels+posts+stories", which
+        // summed the second kind and got compared with the first. Its Stories
+        // page covers only the 24 hours before the report was run, so it's never
+        // read. Links and thumbnails aren't asked for: the admin page lifts them
+        // out of the PDF itself (lib/socialpilot-pdf.js), which is exact.
         const prompt =
-          "The attached PDF is a SocialPilot monthly social-media analytics report. Its charts are images - read the values visually. " +
-          "Extract the figures into ONE JSON object with this exact shape, and reply with ONLY that JSON (no prose, no markdown fences):\n" +
-          '{ "summary": string (1-2 sentence plain-English summary), ' +
-          '"profile": { "followers": number, "newFollowers": number, "reach": number, "reachChange": number (percent vs prior month), "views": number, "interactions": number, "interactionRate": number (percent), "linkTaps": number, "ukFollowers": number (optional) }, ' +
-          '"reach": { "reels": number, "posts": number, "stories": number, "ads": number (only if paid ran), "nonFollower": number, "follower": number, "organicReach": number (=reels+posts+stories when ads ran), "paidReach": number (only if ads ran) }, ' +
-          '"reels": { "published": number, "reach": number, "views": number, "interactions": number, "likes": number, "comments": number, "saves": number, "shares": number, "interactionRate": "x.x%" }, ' +
-          '"posts": { same fields as reels }, ' +
-          '"ads": { "reach": number, "views": number, "interactions": number, "clicks": number, "cpc": number (GBP), "spend": number (GBP), "impressions": number } (OMIT this whole object if there were no paid ads), ' +
-          '"topContent": [ { "title": string, "type": "Reel"|"Post"|"Ad"|"Story", "reach": number, "interactions": number } ], ' +
-          '"hashtags": [ { "name": "#tag", "reach": number, "interactions": number } ], ' +
-          '"peakTimes": { "slots": ["8am","10am","12pm","2pm","4pm","6pm","8pm"], "grid": seven rows (Mon..Sun), each a row of N cells matching slots, each cell 0-3 (0 low, 1 moderate, 2 good, 3 peak) }, ' +
+          "The attached PDF is a SocialPilot monthly Instagram report. Most figures are in its text; a few are only in charts - read those visually. " +
+          "Extract ONE JSON object with this exact shape and reply with ONLY that JSON (no prose, no markdown fences):\n" +
+          '{ "summary": string (1-2 plain-English sentences on the month), ' +
+          '"profile": { "followers": number (Total Followers), "newFollowers": number (from "New Followers (n)"), "reach": number (Total Reach), "reachChange": number (signed percent from previous period, negative when the arrow points down), "views": number (Total Views; "2.5K" becomes 2500), "viewsChange": number (signed percent), "interactions": number (Total Interactions), "interactionsChange": number (signed percent), "interactionRate": number (percent), "linkTaps": number (Profile Link Taps) }, ' +
+          '"reach": { "follower": number, "nonFollower": number } (the legend of the "Reach Insights" chart: "Follower (n)" and "Non Follower (n)"), ' +
+          '"viewsSplit": { "follower": number, "nonFollower": number } (the legend of the "Views Insights" chart), ' +
+          '"interactionsByFormat": { "feed": number, "reel": number, "story": number, "ad": number } (the legend of the "Interaction Insights" chart), ' +
+          '"posts": { "published": number, "reach": number, "views": number, "interactions": number, "likes": number, "comments": number, "saves": number, "shares": number, "interactionRate": number (percent) } (the "Instagram Post" page), ' +
+          '"reels": { same fields as posts } (the "Instagram Reels" page), ' +
+          '"content": [ { "title": string (exactly as printed, including any trailing "…"), "type": "Post"|"Reel", "date": "YYYY-MM-DD", "time": "HH:MM", "reach": number, "views": number (reels only; omit for posts), "interactions": number, "likes": number, "comments": number, "saves": number, "shares": number } ] (EVERY row of the "Post Performance" and "Reels Performance" tables, in the order printed, posts first), ' +
+          '"hashtags": [ { "name": "#tag", "format": "Post"|"Reel", "count": number, "reach": number (average reach), "interactions": number (average interaction) } ] (every row of both hashtag tables, in the order printed), ' +
+          '"demographics": { "age": [ { "range": "18-24"|"25-34"|"35-44"|"45-54"|"55-64"|"65+", "male": number, "female": number, "unspecified": number } ] (read each bar of the "Audience Demographics" chart against its axis), "gender": [ { "label": "Male"|"Female"|"Unspecified", "pct": number, "count": number } ], "topCities": [ { "city": string, "count": number } ] (every row), "topCountries": [ { "country": string, "count": number } ] (every row) }, ' +
+          '"peakTimes": { "slots": ["8am","10am","12pm","2pm","4pm","6pm","8pm"], "grid": seven rows (Mon..Sun), each N cells matching slots, 0-3 (0 low .. 3 peak) read from "Followers Online Activity" }, ' +
           '"timing": string, "bestDays": string, "morningWindow": string, "eveningWindow": string, ' +
-          '"demographics": { "gender": [ { "label": "Women"|"Men", "pct": number, "count": number } ], "topCities": [ { "city": string, "count": number } ], "topCountries": [ { "country": string, "count": number } ] }, ' +
-          '"priorities": [ { "type": "go"|"caution"|"action", "text": string } ] (go = do more, caution = improve, action = fix now - infer 2-4 sensible ones from the data), ' +
-          '"comingSoon": [ string ] (optional; omit if unknown) }\n' +
-          "Only include fields you can determine; omit anything not present (especially the ads object when there were no paid ads). Numbers must be plain (no commas or units) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
+          '"ads": { "reach": number, "views": number, "interactions": number, "clicks": number, "cpc": number (GBP), "spend": number (GBP), "impressions": number } (ONLY if the report has a paid-ads section with figures; otherwise omit), ' +
+          '"priorities": [ { "type": "go"|"caution"|"action", "text": string } ] (2-4 sensible ones inferred from the data; go = do more, caution = improve, action = fix now) }\n' +
+          "Do NOT include anything from the Instagram Stories pages: they cover only the last 24 hours, not the month. Do NOT add figures together or invent totals - every number must be one printed in the report or read from one chart. " +
+          "Omit anything not present. Numbers are plain (no commas, units or %) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
         let aiRes;
         try {
           aiRes = await fetch("https://api.anthropic.com/v1/messages", {
@@ -9254,7 +9268,7 @@ export default {
             headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "pdfs-2024-09-25", "content-type": "application/json" },
             body: JSON.stringify({
               model: env.AI_MODEL || "claude-sonnet-4-6",
-              max_tokens: 4000,
+              max_tokens: 8000,
               messages: [{ role: "user", content: [
                 { type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 } },
                 { type: "text", text: prompt },
@@ -9304,7 +9318,9 @@ export default {
           dataText += `=== ${MN[r.month]} ${r.year} ===\n`;
           dataText += `Followers: ${p.followers ?? "?"} | New followers: ${p.newFollowers ?? "?"} | Reach: ${p.reach ?? "?"} | Views: ${p.views ?? "?"}\n`;
           dataText += `Interactions: ${p.interactions ?? "?"} | Engagement rate: ${p.interactionRate ?? "?"}% | Link taps: ${p.linkTaps ?? "?"}\n`;
-          if (rc.organicReach != null || rc.paidReach != null) dataText += `Organic reach: ${rc.organicReach ?? "?"} | Paid reach: ${rc.paidReach ?? "?"}\n`;
+          if (rc.follower != null || rc.nonFollower != null) dataText += `Reach from followers: ${rc.follower ?? "?"} | from non-followers: ${rc.nonFollower ?? "?"}\n`;
+          for (const [k, lbl] of [["posts", "Posts"], ["reels", "Reels"]]) { const x = d[k]; if (x) dataText += `${lbl} - published: ${x.published ?? "?"} | reach (each post's reach added, so counts people more than once): ${x.reach ?? "?"} | views: ${x.views ?? "?"} | interactions: ${x.interactions ?? "?"}\n`; }
+          if (d.content && d.content.length) dataText += `Every post: ${d.content.map((t) => `${t.title} [${t.type}, ${t.date || "?"}, reach ${t.reach ?? "?"}, interactions ${t.interactions ?? "?"}]`).join("; ")}\n`;
           if (d.ads) dataText += `Paid ads - reach: ${d.ads.reach ?? "?"} | interactions: ${d.ads.interactions ?? "?"} | spend: £${d.ads.spend ?? "?"} | clicks: ${d.ads.clicks ?? "?"} | CPC: £${d.ads.cpc ?? "?"}\n`;
           if (d.bestDays) dataText += `Best days: ${d.bestDays} | Morning window: ${d.morningWindow || "?"} | Evening window: ${d.eveningWindow || "?"}\n`;
           if (d.hashtags && d.hashtags.length) dataText += `Hashtags: ${d.hashtags.map((h) => `${h.name} (reach:${h.reach}, inter:${h.interactions})`).join(", ")}\n`;
