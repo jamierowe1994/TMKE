@@ -9245,7 +9245,7 @@ export default {
         const prompt =
           "The attached PDF is a SocialPilot monthly Instagram report. Most figures are in its text; a few are only in charts - read those visually. " +
           "Extract ONE JSON object with this exact shape and reply with ONLY that JSON (no prose, no markdown fences):\n" +
-          '{ "summary": string (1-2 plain-English sentences on the month), ' +
+          '{ "summary": string (FOR THE TEAM: 2-4 plain sentences on the month, weighing all the figures together - profile, posts and reels, audience - rather than one statistic; name what went well and what fell short, honestly and without spin), ' +
           '"profile": { "followers": number (Total Followers), "newFollowers": number (from "New Followers (n)"), "reach": number (Total Reach), "reachChange": number (signed percent from previous period, negative when the arrow points down), "views": number (Total Views; "2.5K" becomes 2500), "viewsChange": number (signed percent), "interactions": number (Total Interactions), "interactionsChange": number (signed percent), "interactionRate": number (percent), "linkTaps": number (Profile Link Taps) }, ' +
           '"reach": { "follower": number, "nonFollower": number } (the legend of the "Reach Insights" chart: "Follower (n)" and "Non Follower (n)"), ' +
           '"viewsSplit": { "follower": number, "nonFollower": number } (the legend of the "Views Insights" chart), ' +
@@ -9341,6 +9341,104 @@ export default {
         const dataRes = await aiRes.json();
         const answer = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
         return json({ ok: true, answer: answer || "(no answer)" }, 200, request, env);
+      }
+
+      // ---- Admin: draft the trends summary and the client commentary ---------
+      // Two pieces of writing from one read of the account's last three months:
+      //  - trendSummary: for the team, in the admin voice, what's moving across
+      //    the months (Summary tab, never shown to the client);
+      //  - client: the "What it means" story and the "Into <month>" cards, in
+      //    the voice of the account manager talking to the client
+      //    (docs/smm-report-rules.md §10). A draft for a person to rewrite,
+      //    never published by itself.
+      // Three months and no further back: social changes too fast for older
+      // months to say much about this one.
+      if (path.endsWith("/smm/report/draft") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured - set the ANTHROPIC_API_KEY secret on the Worker." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = b && b.id;
+        const only = ["trends", "client"].includes(b && b.only) ? b.only : "both";
+        if (!id) return json({ error: "Missing report." }, 400, request, env);
+        const cur = ((await sbGet(env, "smm_reports", `id=eq.${encodeURIComponent(id)}&select=id,lead_id,platform,month,year,data`)) || [])[0];
+        if (!cur) return json({ error: "That report wasn't found." }, 404, request, env);
+        const all = (await sbGet(env, "smm_reports", `lead_id=eq.${encodeURIComponent(cur.lead_id)}&platform=eq.${encodeURIComponent(cur.platform || "Instagram")}&select=id,month,year,data`)) || [];
+        const idx = (r) => r.year * 12 + r.month;
+        const months = all.filter((r) => idx(r) <= idx(cur) && idx(r) >= idx(cur) - 2).sort((a, b2) => idx(a) - idx(b2));
+        const lead = ((await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(cur.lead_id)}&select=business,full_name,social_media_manager`)) || [])[0] || {};
+        const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const nextMonth = MN[(cur.month + 1) % 12];
+        const digest = (r) => {
+          const d = r.data || {}, p = d.profile || {}, rc = d.reach || {}, dem = d.demographics || {};
+          const L = [`=== ${MN[r.month]} ${r.year}${r.id === cur.id ? " (THIS MONTH)" : ""} ===`];
+          L.push(`Profile: followers ${p.followers ?? "?"} (+${p.newFollowers ?? "?"} new) | profile reach (people, each counted once) ${p.reach ?? "?"} (${p.reachChange ?? "?"}% vs previous) | views ${p.views ?? "?"} (${p.viewsChange ?? "?"}%) | interactions ${p.interactions ?? "?"} (${p.interactionsChange ?? "?"}%) | interaction rate ${p.interactionRate ?? "?"}% | profile link taps ${p.linkTaps ?? "?"}`);
+          if (rc.follower != null || rc.nonFollower != null) L.push(`Reach split: followers ${rc.follower ?? "?"} / non-followers ${rc.nonFollower ?? "?"}`);
+          for (const [k, lbl] of [["posts", "Posts"], ["reels", "Reels"]]) { const x = d[k]; if (x) L.push(`${lbl}: published ${x.published ?? "?"} | reach added across them ${x.reach ?? "?"} | views ${x.views ?? "?"} | interactions ${x.interactions ?? "?"} | interaction rate ${x.interactionRate ?? "?"}%`); }
+          const rows = (Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || [])).slice().sort((a, b2) => (Number(b2.reach) || 0) - (Number(a.reach) || 0)).slice(0, 5);
+          if (rows.length) L.push(`Best posts by reach: ${rows.map((t) => `"${t.title}" (${t.type || "Post"}, reach ${t.reach ?? "?"}${t.views != null ? `, views ${t.views}` : ""}, interactions ${t.interactions ?? "?"})`).join("; ")}`);
+          const ages = (dem.age || []).map((a) => ({ range: a.range, v: (Number(a.male) || 0) + (Number(a.female) || 0) + (Number(a.unspecified) || 0) }));
+          const at = ages.reduce((s, a) => s + a.v, 0);
+          if (at) L.push(`Followers by age: ${ages.map((a) => `${a.range} ${Math.round(a.v / at * 100)}%`).join(", ")}`);
+          if ((dem.topCities || []).length) L.push(`Followers' top cities: ${dem.topCities.slice(0, 5).map((c) => `${c.city || c.name} ${c.count}`).join(", ")}`);
+          const uk = (dem.topCountries || []).find((c) => /united kingdom/i.test(c.country || ""));
+          if (uk && p.followers) L.push(`UK followers: ${uk.count} of ${p.followers}`);
+          if (d.ads) L.push(`Paid ads: reach ${d.ads.reach ?? "?"}, spend £${d.ads.spend ?? "?"}, clicks ${d.ads.clicks ?? "?"}`);
+          if (d.summary) L.push(`Team's summary: ${d.summary}`);
+          if ((d.priorities || []).length) L.push(`Team's plan for the month after: ${d.priorities.map((x) => `[${x.type}] ${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
+          if (d.client && (d.client.priorities || []).length) L.push(`What we told the client we'd do next: ${d.client.priorities.map((x) => `${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
+          return L.join("\n");
+        };
+        const dataText = months.map(digest).join("\n\n");
+        const asks = [];
+        if (only !== "client") asks.push('"trendSummary": string (FOR THE TEAM, not the client. Only if there are two or more months; otherwise null. 2-4 plain sentences on what is moving across these months: what has improved and is holding, what is slipping, and whether last month\'s plan shows up in this month\'s figures. Weigh all the figures together, never one statistic alone. Direct, honest, no spin.)');
+        if (only !== "trends") asks.push(`"client": { "summary": string, "priorities": [ { "type": "go"|"caution"|"action", "title": string, "text": string } ] } (FOR THE CLIENT, following the client voice rules below; 3 priorities, drawn from the team's plan for the month after this one, in the same order)`);
+        const prompt =
+`You write for TMKE, a UK social media agency. Below are up to three months of Instagram figures for ${lead.business || lead.full_name || "a client"}, oldest first, including what the team planned each month.
+
+${dataText}
+
+Reply with ONLY one JSON object, no prose and no markdown fences:
+{ ${asks.join(", ")} }
+
+CLIENT VOICE RULES (for "client"):
+- We are the account manager talking to the client about their account. Say "we" and "your". Never "the account", never the Instagram handle; say "your Instagram profile".
+- They are not marketers and are not here for metrics. They want to know what is moving in the right direction, and what we are doing about anything that isn't. Tell a story, don't list figures.
+- What matters most to them: how many people are seeing them (reach), whether those people are local to them (top cities) and in the age groups most likely to move home (roughly 25 to 44), and posts that reached or were watched by lots of people. Use these when the data supports them.
+- Weigh all the figures together, never one statistic on its own.
+- "summary": two short paragraphs, 90 to 150 words in total. Open with how ${MN[cur.month]} ${cur.year} went for your Instagram profile, naming the one or two biggest moves as percentages or numbers. Where a previous month is given, connect what we planned last month to what happened this month, but only when the plan targeted the figure that moved, and word it as observed together ("since we started posting more reels, reach from people who don't follow you yet has grown"), never as proven cause. Be honest about anything lower than last month and say what we are doing about it.
+- "priorities": each is something WE will do in ${nextMonth}, and why. "title": 2 to 5 words naming the action (e.g. "More reels", "Grow non-follower reach", "Add a link to your bio"). "text": two sentences, 25 to 45 words: first what we'll do ("Into ${nextMonth} we'll post more reels." / "Next month we'll grow your non-follower reach by ..."), then why, from the figures ("That's because reels reached ..."). For something that needs putting right, describe the situation plainly and the fix: "There's currently no link in your bio, so no one can tap through to your website. We'll add one ..." Soft, confident language. Never an instruction or homework for the client. Never a problem without our fix.
+- Never use: needs attention, underperforming, declining, poor, not working, red flag, concern, urgent.
+- Never invent a number, a cause, or an action the team's plan doesn't contain. Never promise a result. Never compare with other clients.
+- British English. No em dashes. No exclamation marks. No bold or italics. Contractions are fine.`;
+        let aiRes;
+        try {
+          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+          });
+        } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
+        const out = await aiRes.json();
+        const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let parsed;
+        try { const s0 = text.indexOf("{"), e0 = text.lastIndexOf("}"); parsed = JSON.parse(text.slice(s0, e0 + 1)); }
+        catch (_) { return json({ error: "Couldn't read the AI's draft - try again." }, 502, request, env); }
+        const data = { ...(cur.data || {}) };
+        if (only !== "client") data.trendSummary = months.length > 1 && parsed.trendSummary ? String(parsed.trendSummary).trim() : null;
+        if (only !== "trends" && parsed.client) {
+          const pr = (Array.isArray(parsed.client.priorities) ? parsed.client.priorities : [])
+            .filter((x) => x && x.text).map((x) => ({ type: ["go", "caution", "action"].includes(x.type) ? x.type : "go", title: String(x.title || "").trim(), text: String(x.text).trim() }));
+          data.client = { summary: String(parsed.client.summary || "").trim(), priorities: pr, draftedAt: new Date().toISOString() };
+        }
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=eq.${encodeURIComponent(cur.id)}`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ data }),
+        });
+        if (!res.ok) return json({ error: "Drafted, but couldn't save it - try again." }, 502, request, env);
+        return json({ ok: true, data }, 200, request, env);
       }
 
       // ---- Admin: delete a report --------------------------------------------

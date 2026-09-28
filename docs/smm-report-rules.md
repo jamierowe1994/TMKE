@@ -142,6 +142,10 @@ it means.
 
 ### Component 2: Trends acknowledgement (Conditional)
 
+Trends look at the last three months at most. If there are fewer, use what there is. Never
+go further back: social media changes too quickly for older months to say much about this
+one.
+
 Only generated when two or more months of data is present in the Trends input. On a
 client's first report there is nothing to compare against, so this does not appear.
 
@@ -164,11 +168,10 @@ a minute. It is a pattern summary, not a performance review.
 
 ### Component 3: Key Takeaways
 
-Three to five bullet points. Each names a specific action the TMKE team is taking into
-the next period. Always written as "we are," never as a recommendation to the client,
-never as a question, never as a possibility.
-
-Each bullet is one sentence. No sub-points.
+Three cards. Each names a specific action the TMKE team is taking into the next period,
+with a short title (2 to 5 words, e.g. "More reels") and two sentences: what we'll do,
+then why, from the figures. See §10 for the wording. Always written as "we'll," never as
+a recommendation to the client, never as a question, never as a possibility.
 
 No traffic lights, no RAG status, and no verbal equivalents of either. Do not describe
 anything as a red flag, a concern, or urgent. Do not use the words "needs attention,"
@@ -305,9 +308,12 @@ is doing.
    sentences of nothing. For a client's first or second month, do not reference growth or
    decline. Describe the baseline being established and what will be measured going
    forward.
-7. Respect audience tab visibility. The audience data is not visible to the client and
-   must not be referenced in the prose either. Using it as silent context to inform
-   interpretation is permitted. Citing it is not.
+7. Audience data is usable, within limits. Where followers are (top cities, UK share) and
+   their age profile can be cited, because they show the audience is local and of an age
+   to move home (see §10). Posting times, heatmaps and raw gender splits are still never
+   cited: they show our workings, not their market. Say "your followers" for these
+   figures, never "the people who saw you": SocialPilot reports them for followers, not
+   for everyone reached.
 8. If the admin notes reference an external factor as the cause of a performance change,
    such as a platform algorithm update, a Meta policy restriction, or a seasonal market
    shift, that context may be included in the summary. Do not infer external causes that
@@ -350,3 +356,69 @@ The recommended workflow is:
 
 A report stays unpublished until it has been reviewed. An unreviewed draft must not be
 visible to the client.
+
+---
+
+## §10. The Client Commentary Voice
+
+Added September 2026, from Danielle. This is how the client-facing words are drafted
+(Client commentary tab) and how a person rewrites them. The team's own read of the month
+sits separately on the Summary tab, in the admin voice, and is never shown to the client.
+
+### Who is talking
+
+The account manager, to the client, about their account. "We" and "your". Say "your
+Instagram profile", never the handle and never "the account".
+
+### What they care about
+
+They are not here for the metrics. They pay us to do this. What they need to know is what
+is moving in the right direction, and what we are doing about anything that isn't.
+
+Social media has no button that says "this person saw your post and booked a valuation six
+months later". Return on investment can't be tracked directly, so the report leans on what
+shows it is working:
+
+- Reach. How many people are seeing them. This is what clients care about most.
+- Reach in their area. If a Northampton agent's followers are mostly in Northampton, that
+  is hundreds of local people seeing a local estate agent, organically. Say so.
+- Reach in the age groups most likely to move home, roughly 25 to 44.
+- Posts that travelled. A post seen by 1,000 or 2,000 people lands very differently with a
+  client than one seen by 100.
+
+Weigh all the figures together. A summary built on one statistic is not a true picture.
+
+### What it means: tell a story
+
+Above the words, the client report shows what went up this month as tiles (reach, views,
+interactions, new followers). The words then tell the month as a story:
+
+1. How the month went for your Instagram profile, with the one or two biggest moves.
+   "September 2026 saw strong growth for your Instagram profile, with total views up 89%."
+2. What we did, why, and what it led to. Last month's report told the client what we would
+   do. Where one of those actions targeted a figure that has since moved, connect them:
+   "In September we posted more reels because they were reaching new people, and reach
+   from people who don't yet follow you is up." Word it as observed together, not as
+   proof. Not every action will show up in the figures; only link the ones that do.
+3. Anything lower than last month, honestly, with what we are doing about it.
+
+Two short paragraphs, 90 to 150 words.
+
+### Into next month: what we'll do, and why
+
+Soft, confident, and ours. Not "do more reels": they aren't doing anything, we are.
+
+| Plan (Summary tab)                        | Client card                                                                                                        |
+|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| Do more: reels                            | More reels. Into October we'll post more reels. That's because reels reached more new people than anything else this month. |
+| Improve: grow non-follower reach          | Grow non-follower reach. Next month we'll grow your non-follower reach by [how]. That's because people who don't yet follow you make up most of the people seeing your posts. |
+| Fix now: profile link taps at 0           | Add a link to your bio. There's currently no link in your bio, so no one can tap through to your website. We'll add one to [where]. |
+
+A fix describes the situation plainly and our fix. It never says "remains at zero" or
+anything that reads as a mark against them.
+
+### Tracking the turnaround
+
+It won't always be sunshine and roses. When something isn't working, the report says what
+we've put in place. When that fix starts to work in a later month, the report says so:
+that is the story clients most want to hear, and it only exists if we track it.

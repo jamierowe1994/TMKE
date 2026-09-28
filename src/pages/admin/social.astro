@@ -568,6 +568,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-cm-mark { flex: none; width: 64px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
     .ri-cm-mark.is-go { color: #2c7a4b; } .ri-cm-mark.is-caution { color: #9a6a04; } .ri-cm-mark.is-action { color: #a05a3c; }
     .ri-cm-coming { margin: 0; padding-left: 20px; font-family: var(--sans); font-size: 13.5px; line-height: 1.8; color: var(--ink); }
+    .ri-cm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+    .ri-cm-list--client li { display: block; }
     .ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
     .ri-cm-modal #ri-cm-summary { min-height: 220px; font-size: 14.5px; line-height: 1.6; }
     .ri-cm-stack { display: grid; gap: 6px; }
@@ -2025,9 +2027,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const cur = reps.find((x) => x.id === riReportId) || reps[reps.length - 1];
       const isAi = riTab === "ai";
       const strip = isAi ? "" : `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}" data-rmonth="${esc(x.id)}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
-      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["actions", "Client commentary"], ["trends", "Trends"], ["ai", "Ask AI ✦"]];
+      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["summary", "Summary"], ["actions", "Client commentary"], ["trends", "Trends"], ["ai", "Ask AI ✦"]];
       const subtabs = `<div class="ri-subtabs">${TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${riTab === k ? "is-active" : ""}" data-rtab="${k}">${l}</button>`).join("")}</div>`;
-      const bodyHtml = isAi ? renderAiChat(r) : riTab === "trends" ? renderTrends(reps) : riTab === "actions" ? renderCommentary(cur) : renderTab(riTab, cur.data || {}, cur);
+      // Trends look back three months from the month on screen, no further:
+      // social moves too fast for older months to say much about this one.
+      const curIx = cur.year * 12 + cur.month;
+      const last3 = reps.filter((x) => { const i = x.year * 12 + x.month; return i <= curIx && i >= curIx - 2; });
+      const bodyHtml = isAi ? renderAiChat(r) : riTab === "trends" ? renderTrends(last3) : riTab === "summary" ? renderSummary(cur, last3) : riTab === "actions" ? renderCommentary(cur) : renderTab(riTab, cur.data || {}, cur);
       panel.innerHTML = head + strip + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
       $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
       panel.querySelectorAll("[data-rmonth]").forEach((b) => b.addEventListener("click", () => { riReportId = b.getAttribute("data-rmonth"); renderInsights(r); }));
@@ -2039,7 +2045,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         panel.querySelectorAll("[data-ri-pane]").forEach((x) => { x.hidden = x.getAttribute("data-ri-pane") !== i; });
       }));
       if (isAi) wireAiChat(r);
-      if (riTab === "actions") wireCommentary(r, cur);
+      if (riTab === "actions" || riTab === "summary") wireCommentary(r, cur);
     }
 
     /* ---- Client commentary ----
@@ -2050,28 +2056,62 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        Do more / Improve / Fix now marks stay ours — the client never sees
        them. Saved through the same upsert as the upload, whole report at once. */
     const PRIO_TYPES = [["go", "Do more"], ["caution", "Improve"], ["action", "Fix now"]];
-    // Reads as the finished words, the way the client will meet them; each
-    // card has an edit button that opens the words in a pop-out.
-    function renderCommentary(cur) {
+    /* ---- Summary: the team's own read of the month (read-only) ----
+       What the upload wrote for us, in our voice: what it means, what we
+       plan into next month with the Do more / Improve / Fix now marks, and
+       the trend across the last three months. Never shown to the client —
+       the Client commentary tab is that. */
+    function renderSummary(cur, last3) {
       const d = cur.data || {};
       const next = RI_MONTHS[(cur.month + 1) % 12];
-      const prios = (d.priorities || []).filter((p) => p && p.text), coming = (d.comingSoon || []).filter(Boolean);
+      const prios = (d.priorities || []).filter((p) => p && p.text);
       const label = (t) => (PRIO_TYPES.find(([v]) => v === (t || "go")) || PRIO_TYPES[0]);
+      const card = (title, sub, body, action) => `<div class="ri-panel ri-cm-card"><div class="ri-cm-head"><div><div class="ri-card-h" style="margin:0;">${esc(title)}</div><p class="ri-note" style="margin:3px 0 0;">${esc(sub)}</p></div>${action || ""}</div><div class="ri-cm-body">${body}</div></div>`;
+      const trendBody = last3.length < 2
+        ? `<p class="ri-cm-empty">Appears once there's a month before this one to compare with.</p>`
+        : d.trendSummary ? `<div class="ri-cm-prose">${esc(d.trendSummary)}</div>`
+        : `<p class="ri-cm-empty">Not written yet.</p>`;
+      const trendAct = last3.length >= 2 ? `<button type="button" class="smm-btn smm-btn--sm" data-cm-draft="trends">${d.trendSummary ? "Rewrite" : "Write it"}</button>` : "";
+      return `<div class="ri-cm">
+        <p class="ri-note">Our own read of ${esc(RI_MONTHS[cur.month])}, for the team. The client never sees this page; what they read is on Client commentary.</p>
+        ${card("What it means", "Everything the month's figures say, good and bad.", d.summary ? `<div class="ri-cm-prose">${esc(d.summary)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`)}
+        ${card(`Into ${next}`, "What we plan to do, and how we see each one.", prios.length ? `<ul class="ri-cm-list">${prios.map((p) => { const [v, l] = label(p.type); return `<li><span class="ri-cm-mark is-${v}">${l}</span><span>${p.title ? `<b class="ri-cm-t">${esc(p.title)}</b>` : ""}${esc(p.text)}</span></li>`; }).join("")}</ul>` : `<p class="ri-cm-empty">No plan written yet.</p>`)}
+        ${card(`Trends · ${last3.length > 1 ? `${RI_MONTHS[last3[0].month]} to ${RI_MONTHS[last3[last3.length - 1].month]}` : "last three months"}`, "What's moving across up to three months. No further back: social changes too fast.", trendBody, trendAct)}
+        <p class="smm-modal-status" id="ri-cm-status" hidden></p>
+      </div>`;
+    }
+
+    /* ---- Client commentary: what the client reads, drafted for us ----
+       Drafted in the account manager's voice (docs/smm-report-rules.md §10)
+       from this month and up to two before it, then rewritten here. Reads as
+       the finished words; each card has an edit button that opens a pop-out. */
+    function renderCommentary(cur) {
+      const d = cur.data || {}, c = d.client || null;
+      const next = RI_MONTHS[(cur.month + 1) % 12];
+      const coming = (d.comingSoon || []).filter(Boolean);
       const card = (key, title, sub, body) => `<div class="ri-panel ri-cm-card">
           <div class="ri-cm-head"><div><div class="ri-card-h" style="margin:0;">${esc(title)}</div><p class="ri-note" style="margin:3px 0 0;">${esc(sub)}</p></div>
           <button type="button" class="ri-cm-edit" data-cm-edit="${key}" title="Edit ${esc(title)}" aria-label="Edit ${esc(title)}">${PENCIL_SVG}</button></div>
           <div class="ri-cm-body">${body}</div></div>`;
-      return `<div class="ri-cm">
-        <p class="ri-note">What ${esc(RI_MONTHS[cur.month])}'s report says to the client in words. The numbers aren't edited here.</p>
-        ${card("summary", "What it means", "Read after the numbers: what the month adds up to.",
-          d.summary ? `<div class="ri-cm-prose">${esc(d.summary)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`)}
-        ${card("next", `Into ${next}`, "What we're bringing into the next few weeks. The marks are ours; the client sees only the words.",
-          (prios.length ? `<ul class="ri-cm-list">${prios.map((p) => { const [v, l] = label(p.type); return `<li><span class="ri-cm-mark is-${v}">${l}</span><span>${p.title ? `<b class="ri-cm-t">${esc(p.title)}</b>` : ""}${esc(p.text)}</span></li>`; }).join("")}</ul>` : `<p class="ri-cm-empty">No lines yet.</p>`)
-          + (coming.length ? `<div class="ri-card-h" style="margin:16px 0 8px;">Content coming up</div><ol class="ri-cm-coming">${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol>` : ""))}
+      const top = `<div class="ri-cm-top"><p class="ri-note" style="margin:0;">What ${esc(RI_MONTHS[cur.month])}'s report says to the client. ${c && c.draftedAt ? "Drafted for you to rewrite; the numbers aren't edited here." : ""}</p>
+        <button type="button" class="smm-btn smm-btn--sm" data-cm-draft="client">${c ? "Redraft" : "Draft it"}</button></div>`;
+      if (!c) return `<div class="ri-cm">${top}<div class="ri-panel"><p class="ri-cm-empty" style="margin:0;">No client commentary yet. Draft it and we'll write a first version from this month and the two before it, in the client's voice, for you to rewrite.</p></div><p class="smm-modal-status" id="ri-cm-status" hidden></p></div>`;
+      const prios = (c.priorities || []).filter((p) => p && p.text);
+      return `<div class="ri-cm">${top}
+        ${card("summary", "What it means", "The story of the month, read after the numbers.",
+          c.summary ? `<div class="ri-cm-prose">${esc(c.summary)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`)}
+        ${card("next", `Into ${next}`, "A card each: what we'll do, and why.",
+          (prios.length ? `<ul class="ri-cm-list ri-cm-list--client">${prios.map((p) => `<li><span>${p.title ? `<b class="ri-cm-t">${esc(p.title)}</b>` : ""}${esc(p.text)}</span></li>`).join("")}</ul>` : `<p class="ri-cm-empty">No lines yet.</p>`)
+          + (coming.length ? `<div class="ri-card-h" style="margin:16px 0 8px;">Content coming up</div><ol class="ri-cm-coming">${coming.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""))}
+        <p class="smm-modal-status" id="ri-cm-status" hidden></p>
       </div>`;
     }
+    // A patch to the client's words lands inside data.client; Content coming
+    // up stays at the top level, where the upload puts it.
     async function saveCommentary(r, cur, patch) {
-      const data = { ...(cur.data || {}), ...patch };
+      const data = { ...(cur.data || {}) };
+      if (patch.client) data.client = { ...(data.client || {}), ...patch.client };
+      if (patch.comingSoon) data.comingSoon = patch.comingSoon;
       if (!isDemo(r)) {
         const token = await authToken();
         const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, platform: cur.platform || "Instagram", month: cur.month, year: cur.year, data }) });
@@ -2080,11 +2120,28 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       }
       cur.data = data;
     }
+    async function draftCommentary(r, cur, only) {
+      if (isDemo(r)) throw new Error("Drafting runs on real clients only.");
+      const token = await authToken();
+      const res = await fetch(`${WORKER}/smm/report/draft`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id: cur.id, only }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.data) throw new Error(j.error || "Couldn't draft it — try again.");
+      cur.data = j.data;
+    }
     function wireCommentary(r, cur) {
       document.querySelectorAll("[data-cm-edit]").forEach((b) => b.addEventListener("click", () => openCommentaryEdit(r, cur, b.getAttribute("data-cm-edit"))));
+      document.querySelectorAll("[data-cm-draft]").forEach((b) => b.addEventListener("click", async () => {
+        const only = b.getAttribute("data-cm-draft");
+        const has = only === "client" ? !!(cur.data && cur.data.client) : !!(cur.data && cur.data.trendSummary);
+        if (has && !confirm(only === "client" ? "Redraft the client commentary? This replaces what's there, including your edits." : "Rewrite the trends summary?")) return;
+        const status = $("ri-cm-status"), label = b.textContent;
+        b.disabled = true; b.textContent = "Writing…";
+        try { await draftCommentary(r, cur, only); renderInsights(r); }
+        catch (e) { if (status) { status.hidden = false; status.textContent = e.message; } b.disabled = false; b.textContent = label; }
+      }));
     }
     function openCommentaryEdit(r, cur, which) {
-      const d = cur.data || {};
+      const d = { ...(cur.data || {}), ...((cur.data || {}).client ? { summary: cur.data.client.summary, priorities: cur.data.client.priorities } : { summary: "", priorities: [] }) };
       const next = RI_MONTHS[(cur.month + 1) % 12];
       const prioRow = (p = {}) => `<div class="ri-cm-row" data-cm-prio>
           <select data-cm-type aria-label="How we see it">${PRIO_TYPES.map(([v, l]) => `<option value="${v}"${(p.type || "go") === v ? " selected" : ""}>${l}</option>`).join("")}</select>
@@ -2104,7 +2161,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal ri-cm-modal" role="dialog" aria-modal="true" aria-label="Edit commentary">
             <h3>${which === "summary" ? "What it means" : `Into ${esc(next)}`}</h3>
-            <p class="smm-modal-sub">${which === "summary" ? "The client reads this after the numbers. Plain English, no jargon." : "Each one is a card in the client's report: a short title and a line or two about what we're doing. The mark is for us; the client never sees it."}</p>
+            <p class="smm-modal-sub">${which === "summary" ? "Tell them the story of the month: what moved, what we did that led to it, and what we're doing about anything that didn't. Plain English, no jargon." : `Each one is a card in the client's report: a short title, then what we'll do and why ("Into ${esc(next)} we'll… That's because…"). The mark is for us; the client never sees it.`}</p>
             ${body}
             <p class="smm-modal-status" id="ri-cm-status" hidden></p>
             <div class="smm-modal-actions">
@@ -2124,9 +2181,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       $("ri-cm-save").addEventListener("click", async () => {
         const btn = $("ri-cm-save"), status = $("ri-cm-status");
         const patch = which === "summary"
-          ? { summary: $("ri-cm-summary").value.trim() }
+          ? { client: { summary: $("ri-cm-summary").value.trim() } }
           : {
-              priorities: [...host.querySelectorAll("[data-cm-prio]")].map((row) => ({ type: row.querySelector("[data-cm-type]").value, title: row.querySelector("[data-cm-title]").value.trim(), text: row.querySelector("[data-cm-text]").value.trim() })).filter((p) => p.text).map((p) => (p.title ? p : { type: p.type, text: p.text })),
+              client: { priorities: [...host.querySelectorAll("[data-cm-prio]")].map((row) => ({ type: row.querySelector("[data-cm-type]").value, title: row.querySelector("[data-cm-title]").value.trim(), text: row.querySelector("[data-cm-text]").value.trim() })).filter((p) => p.text).map((p) => (p.title ? p : { type: p.type, text: p.text })) },
               comingSoon: [...host.querySelectorAll("[data-cm-coming] [data-cm-text]")].map((i) => i.value.trim()).filter(Boolean),
             };
         btn.disabled = true; btn.textContent = "Saving…";
@@ -2263,6 +2320,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, platform: "Instagram", month, year, data }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.error || "Save failed");
+        // A first draft of the trends summary and the client commentary, so
+        // the rewrite starts from something. A failure here loses nothing:
+        // the Client commentary tab has a Draft button.
+        if (j.report && j.report.id) {
+          btn.textContent = "Drafting the commentary…";
+          status.hidden = false; status.textContent = "Saved. Writing a first draft of the client commentary — a few seconds.";
+          await draftCommentary(r, { id: j.report.id, data }, "both").catch(() => {});
+        }
         r._reports = null; riReportId = null; closeModal(); await loadInsights(r);
       } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save report"; }
     }
