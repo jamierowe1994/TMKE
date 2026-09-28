@@ -119,6 +119,11 @@ package, with the Platinum upgrade explained in the pricing copy.
 
 ## 3. Member hub — Your SMM ⬜
 
+- ⬜ **The "How can we help" page is off-brand** — raised 28 Sep. `/account/contact`
+  does not match the hub around it. The SMM page no longer sends people there
+  (it opens its own message dialog), but the page itself is still linked from
+  elsewhere and needs the hub's own furniture.
+
 Believed unfinished:
 - ⬜ Make **Your Plan** clickable — opens a card with fuller detail of the
   member's plan.

@@ -8182,6 +8182,61 @@ export default {
 
          The same /invoicing/pay page the emailed button uses, so there is one
          payment route rather than a second one to keep in step. */
+      /* A client writing to their own social team.
+
+         The same thread the admin side already writes to, so a reply lands in
+         the conversation rather than in a separate inbox nobody opens. It
+         reaches the account manager the lead names — hers, not the social
+         inbox — and leaves a notification, because an email is a thing that
+         can be missed and this one has a person waiting on it. */
+      if (path.endsWith("/smm/message") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const bodyText = String((b && b.body) || "").trim();
+        if (!bodyText) return json({ error: "Write a message first." }, 400, request, env);
+
+        const email = String(user.email || "").toLowerCase();
+        const leads = (await sbGet(env, "smm_leads",
+          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,full_name,business,social_media_manager,client_status&order=created_at.desc`)) || [];
+        const lead = leads.find((l) => l.client_status === "active") || leads[0];
+        if (!lead) return json({ error: "We couldn't find your account." }, 404, request, env);
+
+        const who = String((b && b.name) || lead.full_name || email).trim();
+        const subject = `Message from ${who}${lead.business ? ` — ${lead.business}` : ""}`;
+        await logBookingMessage(env, {
+          booking_id: lead.id, booking_source: "smm",
+          account_user_id: user.id, client_email: email,
+          direction: "inbound", channel: "hub", kind: "manual",
+          subject, body: bodyText, is_automated: false, created_by: email,
+        });
+
+        const manager = await smmManagerEmail(env, lead.social_media_manager);
+        const to = manager || smmNewBusiness(env);
+        if (to) {
+          try {
+            await sendEmail(env, {
+              to, subject,
+              html: `<div style="${EM_WRAP}">
+                <p><strong>${esc(who)}</strong>${lead.business ? ` (${esc(lead.business)})` : ""} sent this from their hub:</p>
+                <blockquote style="margin:14px 0;padding:10px 14px;border-left:3px solid #371e28;color:#3a3a3a">${esc(bodyText).replace(/\n/g, "<br>")}</blockquote>
+                <p>${esc(b && b.phone ? "They gave " + b.phone + " as their number. " : "")}Reply to <a href="mailto:${esc(email)}">${esc(email)}</a>.</p>
+              </div>`,
+            });
+          } catch (_) {}
+        }
+        try {
+          await notifyAdmins(env, {
+            area: "social", event: "smm_client_message",
+            title: `Message from ${who}`,
+            body: bodyText.slice(0, 160),
+            href: "/admin/social", also: [manager],
+            meta: { lead_id: lead.id },
+          });
+        } catch (_) {}
+        return json({ ok: true }, 200, request, env);
+      }
+
       if (path.endsWith("/smm/invoices") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in." }, 401, request, env);
@@ -9359,7 +9414,7 @@ export default {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in." }, 401, request, env);
         const email = String(user.email || "").toLowerCase();
-        const leads = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,kind,pipeline_stage,client_status,package_name,price,platforms,start_date,instagram_url,facebook_url,linkedin_url,youtube_url,tiktok_url,full_name,business&order=created_at.desc`)) || [];
+        const leads = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,kind,pipeline_stage,client_status,package_name,price,platforms,start_date,instagram_url,facebook_url,linkedin_url,youtube_url,tiktok_url,full_name,business,email,phone,social_media_manager&order=created_at.desc`)) || [];
         // A member may match more than one card (a manual "test client" card that
         // holds the reports, plus a stray enquiry/brochure card from the same
         // email). Fetch reports across ALL matched cards, then pick the primary:

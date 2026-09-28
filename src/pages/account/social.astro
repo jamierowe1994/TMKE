@@ -136,23 +136,23 @@ import { gbpFromPence } from "../../lib/supabase.js";
             <div class="soc-card" id="soc-plan"></div>
           </section>
 
-          <!-- Chapter 02 — the monthly report -->
+          <!-- Chapter 02 — what they owe, and what they have paid -->
+          <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-bill-h" id="soc-bill-block" hidden>
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-bill-h"><span class="ws-block-ch">Chapter 02</span>Invoices</h2>
+              <span class="ws-block-status" id="soc-bill-status" hidden></span>
+            </header>
+            <div class="soc-card" id="soc-bill"></div>
+          </section>
+
+          <!-- Chapter 03 — the monthly report -->
           <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-perf-h">
             <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 02</span>Monthly performance</h2>
+              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 03</span>Monthly performance</h2>
             </header>
             <div class="soc-card soc-report">
               <div id="soc-insights"><p class="soc-state">Your first monthly report will appear here once we&rsquo;ve published it.</p></div>
             </div>
-          </section>
-
-          <!-- Chapter 03 — what they owe, and what they have paid -->
-          <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-bill-h" id="soc-bill-block" hidden>
-            <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-bill-h"><span class="ws-block-ch">Chapter 03</span>Invoices</h2>
-              <span class="ws-block-status" id="soc-bill-status" hidden></span>
-            </header>
-            <div class="soc-card" id="soc-bill"></div>
           </section>
 
           <!-- Chapter 04 — the people behind it -->
@@ -165,7 +165,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
                 <h3 class="soc-contact-h">Questions about your social?</h3>
                 <p class="soc-contact-p">Your TMKE social team is here to help, from content ideas to the numbers above.</p>
               </div>
-              <a class="ws-btn ws-btn--primary" href="/account/contact">Contact your team</a>
+              <button type="button" class="ws-btn ws-btn--primary" id="soc-msg-open">Message your team</button>
             </div>
           </section>
 
@@ -207,7 +207,44 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
   </div>
 
+  <!-- Writing to their social team. We already hold their name, address and
+       number, so the only thing to ask for is the thing we do not know. -->
+  <div class="soc-msg-scrim" id="soc-msg" hidden>
+    <div class="soc-msg-box" role="dialog" aria-modal="true" aria-labelledby="soc-msg-h">
+      <h3 class="soc-msg-h" id="soc-msg-h">Message your social team</h3>
+      <p class="soc-msg-sub" id="soc-msg-sub">Goes straight to the person who looks after your account.</p>
+      <dl class="soc-msg-you" id="soc-msg-you"></dl>
+      <label class="soc-msg-f"><span>Your message</span>
+        <textarea id="soc-msg-body" rows="6" placeholder="Anything at all — an idea, a question, something you would like posted."></textarea>
+      </label>
+      <p class="soc-msg-note" id="soc-msg-note" hidden></p>
+      <div class="soc-msg-acts">
+        <button type="button" class="ws-btn ws-btn--ghost" id="soc-msg-cancel">Cancel</button>
+        <button type="button" class="ws-btn ws-btn--primary" id="soc-msg-send">Send message</button>
+      </div>
+    </div>
+  </div>
+
   <style is:global>
+    .soc-msg-scrim { position: fixed; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgba(16,14,22,0.5); backdrop-filter: blur(3px); }
+    .soc-msg-scrim[hidden] { display: none; }
+    .soc-msg-box { width: 100%; max-width: 520px; box-sizing: border-box; background: #fff; border-radius: 12px; padding: 26px 28px; box-shadow: 0 30px 80px -24px rgba(16,14,22,0.5); max-height: calc(100vh - 48px); overflow-y: auto; }
+    .soc-msg-h { font-family: var(--serif); font-size: 22px; font-weight: 400; color: var(--ink); margin: 0 0 6px; }
+    .soc-msg-sub { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.6); margin: 0 0 18px; }
+    /* Their details, shown rather than asked for: we already hold them, and a
+       form that makes somebody retype what we know reads as a form. */
+    .soc-msg-you { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0 0 18px; padding: 12px 14px; border-radius: 9px; background: rgba(28,29,34,0.04); }
+    .soc-msg-you dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.42); align-self: center; }
+    .soc-msg-you dd { font-family: var(--sans); font-size: 13px; color: var(--ink); margin: 0; }
+    .soc-msg-f { display: block; }
+    .soc-msg-f > span { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; }
+    .soc-msg-f textarea { width: 100%; box-sizing: border-box; padding: 11px 13px; border: 1px solid rgba(28,29,34,0.16); border-radius: 9px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; }
+    .soc-msg-f textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+    .soc-msg-note { font-family: var(--sans); font-size: 12.5px; margin: 12px 0 0; color: rgba(28,29,34,0.6); }
+    .soc-msg-note.is-err { color: #9a2a2a; }
+    .soc-msg-note.is-ok { color: #2b6b44; }
+    .soc-msg-acts { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
     /* The wine the takeaways panel uses. The hub theme resolves
        --english-violet to the BROWN, so the wine is carried as its own token. */
     #soc-client, #soc-noclient { --violet-rgb: 55,30,40; }
@@ -226,12 +263,13 @@ import { gbpFromPence } from "../../lib/supabase.js";
     .soc-inv-h:first-child { margin-top: 0; }
     .soc-inv { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.08); }
     .soc-inv:last-child { border-bottom: 0; }
-    .soc-inv-main { flex: 1 1 200px; min-width: 0; }
+    .soc-inv-main { flex: 1 1 240px; min-width: 0; }
     .soc-inv-num { display: block; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ws-ink, #1c1d22); }
     .soc-inv-when { display: block; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 2px; }
-    .soc-inv-amt { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ws-ink, #1c1d22); font-variant-numeric: tabular-nums; flex: none; }
+    .soc-inv-amt { font-weight: 700; color: var(--ws-ink, #1c1d22); font-variant-numeric: tabular-nums; }
     .soc-inv-tools { display: flex; gap: 8px; flex: none; }
     .soc-inv.is-paid .soc-inv-num, .soc-inv.is-paid .soc-inv-amt { color: rgba(28,29,34,0.6); font-weight: 600; }
+    .soc-inv-when .soc-inv-amt { font-size: 12.5px; }
 
     .soc-card {
       background: #fff; border: 1px solid var(--ws-line);
@@ -571,6 +609,64 @@ import { gbpFromPence } from "../../lib/supabase.js";
       reports = (data.reports || []).map((r) => ({ id: r.id, platform: r.platform, month: r.month, year: r.year, data: r.data }));
       curIdx = 0; renderInsights();
       loadInvoices();
+      wireMessage(data.client);
+    }
+
+    /* ---- Message your team ----
+       We already hold their name, address and number, so the form asks for the
+       one thing we do not know and shows the rest rather than making somebody
+       retype what is on their own record. */
+    function wireMessage(client) {
+      const open = $("soc-msg-open"), scrim = $("soc-msg");
+      if (!open || !scrim) return;
+      const me = {
+        name: (client && (client.full_name || client.business)) || "",
+        email: (client && client.email) || "",
+        phone: (client && client.phone) || "",
+      };
+      const sub = $("soc-msg-sub");
+      if (sub && client && client.social_media_manager) {
+        sub.textContent = `Goes straight to ${client.social_media_manager}, who looks after your account.`;
+      }
+      const you = $("soc-msg-you");
+      if (you) {
+        you.innerHTML = [
+          me.name ? `<dt>You</dt><dd>${esc(me.name)}</dd>` : "",
+          me.email ? `<dt>Email</dt><dd>${esc(me.email)}</dd>` : "",
+          me.phone ? `<dt>Phone</dt><dd>${esc(me.phone)}</dd>` : "",
+        ].join("");
+        you.hidden = !you.innerHTML;
+      }
+      const close = () => { scrim.hidden = true; };
+      open.addEventListener("click", () => {
+        $("soc-msg-note").hidden = true;
+        scrim.hidden = false;
+        $("soc-msg-body").focus();
+      });
+      $("soc-msg-cancel").addEventListener("click", close);
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) close(); });
+
+      $("soc-msg-send").addEventListener("click", async () => {
+        const btn = $("soc-msg-send"), note = $("soc-msg-note");
+        const body = $("soc-msg-body").value.trim();
+        const say = (m, cls) => { note.textContent = m; note.className = "soc-msg-note " + (cls || ""); note.hidden = false; };
+        if (!body) { say("Write something first.", "is-err"); return; }
+        btn.disabled = true; btn.textContent = "Sending…";
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${WORKER}/smm/message`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + session.access_token, "Content-Type": "application/json" },
+            body: JSON.stringify({ body, name: me.name, phone: me.phone }),
+          });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.ok) { say(j.error || "That didn't send. Try again in a minute.", "is-err"); return; }
+          $("soc-msg-body").value = "";
+          say("Sent — we'll come back to you.", "is-ok");
+          setTimeout(close, 1600);
+        } catch (_) { say("That didn't send. Try again in a minute.", "is-err"); }
+        finally { btn.disabled = false; btn.textContent = "Send message"; }
+      });
     }
 
     /* ---- Invoices ----
@@ -614,11 +710,10 @@ import { gbpFromPence } from "../../lib/supabase.js";
         return `<div class="soc-inv${i.status === "paid" ? " is-paid" : ""}">
           <div class="soc-inv-main">
             <span class="soc-inv-num">${esc(i.number || "Invoice")}</span>
-            <span class="soc-inv-when">${i.status === "paid"
+            <span class="soc-inv-when"><strong class="soc-inv-amt">${esc(gbp(i.total_pence))}</strong> &middot; ${i.status === "paid"
               ? `Paid ${esc(dShort(i.paid_date))}`
               : `${overdue ? "Was due" : "Due"} ${esc(dShort(i.due_date))}`}</span>
           </div>
-          <span class="soc-inv-amt">${esc(gbp(i.total_pence))}</span>
           <span class="soc-inv-tools">
             ${i.pay_url ? `<a class="ws-btn ws-btn--primary ws-btn--sm" href="${esc(i.pay_url)}">Pay now</a>` : ""}
             <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-pdf="${esc(i.id)}">Download</button>
