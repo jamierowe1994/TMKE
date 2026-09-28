@@ -449,7 +449,42 @@ import "../../styles/admin.css";
     </div>
   </div>
 
+  <!-- Reviewing the email before an invoice goes out. The Invoicing tab has
+       always done this; sending from a shoot did not, so nobody could explain
+       in the covering note what the invoice was actually for. -->
+  <div class="vim-scrim" id="vid-email-modal" hidden>
+    <div class="vim" role="dialog" aria-modal="true" aria-label="Send invoice">
+      <h3>Send invoice <span id="vim-num"></span></h3>
+      <p class="vim-sub">Review the email &mdash; edit anything before it goes. The invoice PDF and your footer image are added automatically.</p>
+      <label class="vim-f"><span>To</span><input id="vim-to" readonly /></label>
+      <label class="vim-f"><span>CC</span><input id="vim-cc" placeholder="Comma-separated" /></label>
+      <label class="vim-f"><span>Subject</span><input id="vim-subject" /></label>
+      <label class="vim-f"><span>Message</span><textarea id="vim-body" rows="11"></textarea></label>
+      <p class="vim-pay" id="vim-pay"></p>
+      <p class="vid-hint" id="vim-msg" hidden></p>
+      <div class="vim-actions">
+        <button type="button" class="admin-btn admin-btn-ghost" id="vim-cancel">Cancel</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="vim-send">Send invoice</button>
+      </div>
+    </div>
+  </div>
+
   <style is:global>
+    /* The send-invoice dialog, matching the one on Invoicing. */
+    .vim-scrim { position: fixed; inset: 0; background: rgba(20,18,26,0.5); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 200; overflow-y: auto; }
+    .vim-scrim[hidden] { display: none; }
+    .vim { width: 100%; max-width: 620px; background: #fff; border-radius: 14px; padding: 24px 26px; box-shadow: 0 20px 60px rgba(20,18,26,0.3); }
+    .vim h3 { font-family: var(--serif, var(--sans)); font-size: 19px; margin: 0 0 4px; color: var(--ink); }
+    .vim-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
+    .vim-f { display: block; margin-bottom: 14px; }
+    .vim-f > span { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; }
+    .vim-f input, .vim-f textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
+    .vim-f input:read-only { background: rgba(28,29,34,0.04); color: rgba(28,29,34,0.6); }
+    .vim-f textarea { line-height: 1.55; resize: vertical; }
+    .vim-pay { font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); margin: 0 0 12px; padding: 9px 12px; border-radius: 7px; background: rgba(28,29,34,0.05); }
+    .vim-pay.is-on { color: var(--english-violet); background: rgba(var(--violet-rgb), 0.09); font-weight: 700; }
+    .vim-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
     /* .ash-content insets the page by 26px at the top; the banner leaves the
        same gap underneath it, so the top of the page reads as one rhythm rather
        than two. (.hub-skin's own 28px is close but not the same number.) */
@@ -1313,6 +1348,7 @@ import "../../styles/admin.css";
     import { makeThumb, putThumb, thumbKeyFor } from "../../lib/thumbs.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
+    import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
     import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
@@ -2938,21 +2974,66 @@ import "../../styles/admin.css";
         }
         if (!send) { vivStatus(`Invoice ${data.invoice.number} saved as a draft.${voided}`); loadInvoices(b); return; }
 
-        const sres = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
-          method: "POST",
-          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ id: data.invoice.id }),
+        /* Review the covering email before it goes. It used to send silently
+           with the Worker's default wording, which was fine for a plain bill
+           and no use at all when the invoice needed explaining. */
+        await ensureInvSettings();
+        openInvoiceEmail(data.invoice, async (email) => {
+          const sres = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify(Object.assign({ id: data.invoice.id }, email)),
+          });
+          const sdata = await sres.json().catch(() => ({}));
+          if (!sres.ok) { vivStatus(sdata.error || "Saved, but the email didn't send.", true); loadInvoices(b); return; }
+          vivStatus(`Invoice ${data.invoice.number} sent to ${data.invoice.bill_to_email || inv.bill_to_email}.${voided}`);
+          // The stage follows the invoice actually going out.
+          if (b.stage === "booked") await advanceStage("invoiced");
+          loadInvoices(b);
         });
-        const sdata = await sres.json().catch(() => ({}));
-        if (!sres.ok) { vivStatus(sdata.error || "Saved, but the email didn't send.", true); loadInvoices(b); return; }
-        vivStatus(`Invoice ${data.invoice.number} sent to ${inv.bill_to_email}.${voided}`);
-        // The stage follows the invoice actually going out.
-        if (b.stage === "booked") await advanceStage("invoiced");
-        loadInvoices(b);
       } catch (err) {
         vivStatus("Couldn't reach the Worker: " + err.message, true);
       } finally { btn.disabled = false; btn.textContent = label; }
     }
+
+    /* The send dialog. Whoever opens it says what happens on Send, so the
+       same review step serves a first send and a resend. */
+    let vimSend = null;
+    function openInvoiceEmail(inv, onSend) {
+      vimSend = onSend;
+      document.getElementById("vim-num").textContent = inv.number || "";
+      document.getElementById("vim-to").value = inv.bill_to_email || "";
+      document.getElementById("vim-cc").value = inv.cc_email || "";
+      const pay = document.getElementById("vim-pay");
+      pay.textContent = payLine(inv);
+      pay.className = "vim-pay" + (inv.pay_by_card ? " is-on" : "");
+      document.getElementById("vim-subject").value = defaultEmailSubject(inv, invSettings || {});
+      document.getElementById("vim-body").value = defaultEmailBody(inv, invSettings || {});
+      document.getElementById("vim-msg").hidden = true;
+      document.getElementById("vid-email-modal").hidden = false;
+    }
+    function closeInvoiceEmail() {
+      document.getElementById("vid-email-modal").hidden = true;
+      vimSend = null;
+    }
+    document.getElementById("vim-cancel")?.addEventListener("click", closeInvoiceEmail);
+    document.getElementById("vid-email-modal")?.addEventListener("click", (e) => {
+      if (e.target === document.getElementById("vid-email-modal")) closeInvoiceEmail();
+    });
+    document.getElementById("vim-send")?.addEventListener("click", async () => {
+      if (typeof vimSend !== "function") return;
+      const btn = document.getElementById("vim-send");
+      const label = btn.textContent;
+      btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        await vimSend({
+          email_subject: document.getElementById("vim-subject").value.trim(),
+          email_body: document.getElementById("vim-body").value,
+          cc: document.getElementById("vim-cc").value.trim(),
+        });
+        closeInvoiceEmail();
+      } finally { btn.disabled = false; btn.textContent = label; }
+    });
 
     async function fetchInvoicesFor(b) {
       try {
@@ -2986,20 +3067,27 @@ import "../../styles/admin.css";
       renderChaseLog(b);
     }
 
+    /* Resending is where the wording matters most: it is the second attempt,
+       and the reason for it usually needs saying. */
     async function resendInvoice(b, id, btn) {
-      if (!confirm("Send this invoice again to the same address?")) return;
-      const label = btn.textContent; btn.disabled = true; btn.textContent = "Sending…";
+      const label = btn.textContent; btn.disabled = true; btn.textContent = "Opening…";
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
-          method: "POST",
-          headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ id }),
+        await ensureInvSettings();
+        const { data: inv } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
+        if (!inv) { vivStatus("Couldn't find that invoice.", true); return; }
+        openInvoiceEmail(inv, async (email) => {
+          const res = await fetch(`${WORKER_URL}/invoicing/invoices/send`, {
+            method: "POST",
+            headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+            body: JSON.stringify(Object.assign({ id }, email)),
+          });
+          const d = await res.json().catch(() => ({}));
+          vivStatus(res.ok ? `Sent again to ${d.sent_to || "the client"}.` : (d.error || "Couldn't resend."), !res.ok);
+          loadInvoices(b);
         });
-        const d = await res.json().catch(() => ({}));
-        vivStatus(res.ok ? `Sent again to ${d.sent_to || "the client"}.` : (d.error || "Couldn't resend."), !res.ok);
       } catch (err) { vivStatus("Couldn't resend: " + err.message, true); }
-      finally { btn.disabled = false; btn.textContent = label; loadInvoices(b); }
+      finally { btn.disabled = false; btn.textContent = label; }
     }
 
     /* A sent invoice is not edited in place - it has gone to the client and it

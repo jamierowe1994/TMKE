@@ -519,6 +519,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { renderInvoiceHtml, sampleInvoice } from "../../lib/invoice-render.js";
+    import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let currentSettings = {};
     const $ = (id) => document.getElementById(id);
@@ -859,22 +860,8 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     // ---- Email review modal (edit before send) ----
     let cimInvoiceId = null, cimResetOnSend = false;
     const dLong = (x) => x ? new Date(x + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
-    function defaultEmailSubject(inv) { return `Invoice ${inv.number} from ${currentSettings.company_name || "The Marketing Experts (Nationwide) Ltd"}`; }
-    function defaultEmailBody(inv) {
-      const company = currentSettings.company_name || "The Marketing Experts (Nationwide) Ltd";
-      const due = dLong(inv.due_date);
-      const lines = [`Dear ${inv.bill_to_name || "Sir or Madam"},`, "", `Please find attached invoice ${inv.number} from ${company}.`, "", `Amount due: ${gbp(inv.total_pence || 0)}`];
-      if (due) lines.push(`Due date: ${due}`);
-      // When the invoice carries a pay link, say so - telling someone to pay by
-  // bank transfer while a card button sits above it just reads as contradictory.
-  lines.push("", inv.pay_by_card ? `Payment is due${due ? ` by ${due}` : ""}. You can pay by card using the button in this email, or by bank transfer using the account details on the invoice, quoting ${inv.number} as the reference. If you have any questions, just reply to this email.`
-    : `Payment is due${due ? ` by ${due}` : ""} by bank transfer — the account details are on the invoice, and please quote ${inv.number} as the reference. If you have any questions, just reply to this email.`, "", "Kind regards,", company);
-      // Shoots only. An SMM invoice must not promise anything about content.
-      if (inv.release_on_payment) {
-        lines.splice(lines.length - 2, 0, "", "Payment isn't required until your shoot has taken place. Your content stays watermarked and locked until payment reaches us — once it does we'll email your PIN, which unlocks downloading from your gallery.");
-      }
-      return lines.join("\n");
-    }
+    // The wording lives in src/lib/invoice-email.js so Videography sends the
+    // same email — it used to send a different one, with no way to amend it.
     function openEmailModal(inv, resetOnSend) {
       cimInvoiceId = inv.id; cimResetOnSend = !!resetOnSend;
       $("cim-num").textContent = inv.number || "";
@@ -884,13 +871,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       // and body alone whether this carries a payment link.
       const payEl = $("cim-pay");
       if (payEl) {
-        payEl.textContent = inv.pay_by_card
-          ? "This email includes a Pay by card button (Stripe)."
-          : "No payment link - bank transfer only, using the details on the invoice.";
+        payEl.textContent = payLine(inv);
         payEl.className = "cim-pay" + (inv.pay_by_card ? " is-on" : "");
       }
-      $("cim-subject").value = defaultEmailSubject(inv);
-      $("cim-body").value = defaultEmailBody(inv);
+      $("cim-subject").value = defaultEmailSubject(inv, currentSettings);
+      $("cim-body").value = defaultEmailBody(inv, currentSettings);
       $("cim-msg").hidden = true;
       $("ci-email-modal").hidden = false;
     }
