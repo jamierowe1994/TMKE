@@ -261,7 +261,9 @@ import { gbpFromPence } from "../../lib/supabase.js";
        weight; a settled one is a receipt and should read like filing. */
     .soc-inv-h { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.42); margin: 18px 0 8px; }
     .soc-inv-h:first-child { margin-top: 0; }
-    .soc-inv { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    /* The tools line up with the bottom of the second line, not the middle
+       of both: a button floating between two lines belongs to neither. */
+    .soc-inv { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.08); }
     .soc-inv:last-child { border-bottom: 0; }
     .soc-inv-main { flex: 1 1 240px; min-width: 0; }
     .soc-inv-num { display: block; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ws-ink, #1c1d22); }
@@ -302,11 +304,18 @@ import { gbpFromPence } from "../../lib/supabase.js";
     .soc-plan-grid dd { font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); margin: 0; }
     .soc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .soc-chip {
+      display: inline-flex; align-items: center; gap: 5px;
       font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600;
       padding: 3px 9px; border-radius: 3px;
       border: 1px solid color-mix(in srgb, var(--ws-accent) 34%, transparent);
       color: var(--ws-accent);
     }
+    /* A platform we hold an address for is the way there, so it has to look
+       like one — the arrow says it leaves the hub. */
+    .soc-chip.is-link { text-decoration: none; cursor: pointer; transition: background 0.16s, border-color 0.16s; }
+    .soc-chip.is-link span { font-size: 0.85em; opacity: 0.6; }
+    .soc-chip.is-link:hover { background: color-mix(in srgb, var(--ws-accent) 10%, transparent); border-color: var(--ws-accent); }
+    .soc-chip.is-link:hover span { opacity: 1; }
 
     /* ---- Chapter 02: the report ---- */
     .soc-report { padding: 18px 20px 20px; }
@@ -478,18 +487,46 @@ import { gbpFromPence } from "../../lib/supabase.js";
     // no opts and keeps the full breakdown — this only trims what the member sees.
     const MEMBER_OPTS = { compactCards: true, topN: 5, rankTop: true, hideHashtags: true };
 
+    /* Where we keep each platform's address, so a chip can be the way to their
+       own account rather than a label saying they have one. */
+    const PLATFORM_URL = {
+      instagram: "instagram_url", facebook: "facebook_url", linkedin: "linkedin_url",
+      youtube: "youtube_url", tiktok: "tiktok_url",
+    };
+
     function renderPlan(c) {
-      const platforms = Array.isArray(c.platforms) && c.platforms.length ? c.platforms.map((p) => `<span class="soc-chip">${esc(p)}</span>`).join("") : "—";
+      /* A platform we hold a link for becomes the way to it — one click to the
+         account we are running for them, opened alongside rather than instead
+         of the hub. One we have no address for stays a plain chip: a dead
+         link is worse than a label. */
+      const chip = (name) => {
+        const key = String(name || "").toLowerCase().replace(/[^a-z]/g, "");
+        const href = c[PLATFORM_URL[key]];
+        return href
+          ? `<a class="soc-chip is-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(name)}<span aria-hidden="true">&#8599;</span></a>`
+          : `<span class="soc-chip">${esc(name)}</span>`;
+      };
+      const platforms = Array.isArray(c.platforms) && c.platforms.length
+        ? c.platforms.map(chip).join("") : "&mdash;";
       const since = c.start_date ? (() => { try { return new Date(c.start_date + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }); } catch (_) { return null; } })() : null;
+      const price = c.price != null && c.price !== "" ? (() => {
+        const n = Number(c.price);
+        return Number.isFinite(n)
+          ? "£" + n.toLocaleString("en-GB", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) + " a month"
+          : String(c.price);
+      })() : null;
       // The chapter strip carries the heading and the status now, so the card
       // holds only the facts.
       const status = $("soc-status");
       if (status) { status.textContent = "Active"; status.hidden = false; }
       $("soc-plan").innerHTML = `
         <dl class="soc-plan-grid">
+          ${c.business ? `<div><dt>Account</dt><dd>${esc(c.business)}</dd></div>` : ""}
           ${c.package_name ? `<div><dt>Package</dt><dd>${esc(c.package_name)}</dd></div>` : ""}
+          ${price ? `<div><dt>Price</dt><dd>${esc(price)}</dd></div>` : ""}
           <div><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
           ${since ? `<div><dt>Managed since</dt><dd>${esc(since)}</dd></div>` : ""}
+          ${c.social_media_manager ? `<div><dt>Your manager</dt><dd>${esc(c.social_media_manager)}</dd></div>` : ""}
         </dl>`;
     }
 
