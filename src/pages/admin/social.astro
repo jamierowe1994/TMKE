@@ -545,15 +545,28 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-more > .ri-tbl { margin-top: 0; }
     /* Day-by-day chart picker */
     .ri-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-    .ri-pill { padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
+    .ri-pill { padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
     .ri-pill:hover { border-color: var(--english-violet); color: var(--ink); }
     .ri-pill.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     [data-ri-pane][hidden] { display: none; }
     /* Top five hashtags, posts and reels together */
     .ri-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-    .ri-tag { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: #fff; border: 1px solid rgba(28,29,34,0.12); font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink); }
+    .ri-tag { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.12); font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink); }
     .ri-tag b { color: #8a8796; font-size: 11px; }
     .ri-tag em { font-style: normal; font-weight: 400; font-size: 11px; color: #8a8796; }
+    /* Client commentary editor */
+    .ri-cm .ri-panel { margin-bottom: 14px; }
+    .ri-cm-area, .ri-cm-row textarea, .ri-cm-row input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; }
+    .ri-cm-area:focus, .ri-cm-row textarea:focus, .ri-cm-row input:focus, .ri-cm-row select:focus { outline: none; border-color: var(--english-violet); }
+    .ri-cm-row { display: grid; grid-template-columns: 120px 1fr 30px; gap: 8px; align-items: start; margin-bottom: 8px; }
+    .ri-cm-row--plain { grid-template-columns: 1fr 30px; }
+    .ri-cm-row select { height: 40px; padding: 0 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; }
+    .ri-cm-x { width: 30px; height: 40px; border: 0; background: none; font-size: 20px; line-height: 1; color: rgba(28,29,34,0.35); cursor: pointer; border-radius: 8px; }
+    .ri-cm-x:hover { color: #a05a3c; background: rgba(160,90,60,0.08); }
+    .ri-cm-foot { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+    .ri-cm-status { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); }
+    .ri-cm-status.is-ok { color: #2c7a4b; }
+    .ri-cm-status.is-err { color: #a05a3c; }
     /* Best days / posting windows: a touch smaller than a figure, centred top to bottom. */
     .ri-kpi--window { display: flex; flex-direction: column; justify-content: center; }
     .ri-kpi--window .ri-kpi-val { font-size: 16px; line-height: 1.3; }
@@ -1997,9 +2010,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const cur = reps.find((x) => x.id === riReportId) || reps[reps.length - 1];
       const isAi = riTab === "ai";
       const strip = isAi ? "" : `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}" data-rmonth="${esc(x.id)}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
-      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["actions", "Actions"], ["trends", "Trends"], ["ai", "Ask AI ✦"]];
+      const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["actions", "Client commentary"], ["trends", "Trends"], ["ai", "Ask AI ✦"]];
       const subtabs = `<div class="ri-subtabs">${TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${riTab === k ? "is-active" : ""}" data-rtab="${k}">${l}</button>`).join("")}</div>`;
-      const bodyHtml = isAi ? renderAiChat(r) : (riTab === "trends" ? renderTrends(reps) : renderTab(riTab, cur.data || {}, cur));
+      const bodyHtml = isAi ? renderAiChat(r) : riTab === "trends" ? renderTrends(reps) : riTab === "actions" ? renderCommentary(cur) : renderTab(riTab, cur.data || {}, cur);
       panel.innerHTML = head + strip + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
       $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
       panel.querySelectorAll("[data-rmonth]").forEach((b) => b.addEventListener("click", () => { riReportId = b.getAttribute("data-rmonth"); renderInsights(r); }));
@@ -2011,6 +2024,72 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         panel.querySelectorAll("[data-ri-pane]").forEach((x) => { x.hidden = x.getAttribute("data-ri-pane") !== i; });
       }));
       if (isAi) wireAiChat(r);
+      if (riTab === "actions") wireCommentary(r, cur);
+    }
+
+    /* ---- Client commentary ----
+       The words the client reads in their report: "What it means" (the
+       summary) and "Into <next month>" (the priorities and what's coming).
+       The upload drafts them; the account manager rewrites them here in the
+       client's voice (docs/smm-report-rules.md §6) before they go out. The
+       Do more / Improve / Fix now marks stay ours — the client never sees
+       them. Saved through the same upsert as the upload, whole report at once. */
+    const PRIO_TYPES = [["go", "Do more"], ["caution", "Improve"], ["action", "Fix now"]];
+    function renderCommentary(cur) {
+      const d = cur.data || {};
+      const next = RI_MONTHS[(cur.month + 1) % 12];
+      const prio = (p) => `<div class="ri-cm-row" data-cm-prio>
+          <select data-cm-type aria-label="How we see it">${PRIO_TYPES.map(([v, l]) => `<option value="${v}"${(p.type || "go") === v ? " selected" : ""}>${l}</option>`).join("")}</select>
+          <textarea rows="2" data-cm-text placeholder="What we're doing, in words the client will read">${esc(p.text || "")}</textarea>
+          <button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>`;
+      const coming = (c) => `<div class="ri-cm-row ri-cm-row--plain" data-cm-coming>
+          <input type="text" data-cm-text value="${esc(c || "")}" placeholder="A piece of content on the way">
+          <button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>`;
+      return `<div class="ri-cm">
+        <p class="ri-note">This is what ${esc(RI_MONTHS[cur.month])}'s report says to the client in words. Edit it before the report goes out; the numbers can't be changed here.</p>
+        <div class="ri-panel">
+          <div class="ri-card-h">What it means</div>
+          <p class="ri-note">The client reads this after the numbers: what the month adds up to, in plain English.</p>
+          <textarea id="ri-cm-summary" rows="6" class="ri-cm-area" placeholder="What this month adds up to…">${esc(d.summary || "")}</textarea>
+        </div>
+        <div class="ri-panel">
+          <div class="ri-card-h">Into ${esc(next)}</div>
+          <p class="ri-note">What we're bringing into the next few weeks. The marks on the left are for us; the client sees only the words.</p>
+          <div id="ri-cm-prios">${(d.priorities || []).map(prio).join("")}</div>
+          <button type="button" class="smm-btn smm-btn--sm" id="ri-cm-add-prio">${PLUS_SVG}Add a line</button>
+          <div class="ri-card-h" style="margin-top:20px;">Content coming up</div>
+          <div id="ri-cm-coming">${(d.comingSoon || []).map(coming).join("")}</div>
+          <button type="button" class="smm-btn smm-btn--sm" id="ri-cm-add-coming">${PLUS_SVG}Add content</button>
+        </div>
+        <div class="ri-cm-foot"><span class="ri-cm-status" id="ri-cm-status" role="status"></span><button type="button" class="smm-btn smm-btn--primary" id="ri-cm-save">Save commentary</button></div>
+      </div>`;
+    }
+    function wireCommentary(r, cur) {
+      const status = $("ri-cm-status");
+      const add = (hostId, html) => { const t = document.createElement("div"); t.innerHTML = html.trim(); const el = t.firstChild; $(hostId).appendChild(el); el.querySelector("[data-cm-text]")?.focus(); };
+      $("ri-cm-add-prio")?.addEventListener("click", () => add("ri-cm-prios", `<div class="ri-cm-row" data-cm-prio><select data-cm-type aria-label="How we see it">${PRIO_TYPES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select><textarea rows="2" data-cm-text placeholder="What we're doing, in words the client will read"></textarea><button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>`));
+      $("ri-cm-add-coming")?.addEventListener("click", () => add("ri-cm-coming", `<div class="ri-cm-row ri-cm-row--plain" data-cm-coming><input type="text" data-cm-text placeholder="A piece of content on the way"><button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>`));
+      document.querySelector(".ri-cm")?.addEventListener("click", (e) => { const x = e.target.closest("[data-cm-del]"); if (x) x.closest(".ri-cm-row").remove(); });
+      document.querySelector(".ri-cm")?.addEventListener("input", () => { status.textContent = "Unsaved changes"; status.className = "ri-cm-status"; });
+      $("ri-cm-save")?.addEventListener("click", async () => {
+        const btn = $("ri-cm-save");
+        const data = { ...(cur.data || {}) };
+        data.summary = $("ri-cm-summary").value.trim();
+        data.priorities = [...document.querySelectorAll("[data-cm-prio]")].map((row) => ({ type: row.querySelector("[data-cm-type]").value, text: row.querySelector("[data-cm-text]").value.trim() })).filter((p) => p.text);
+        data.comingSoon = [...document.querySelectorAll("[data-cm-coming] [data-cm-text]")].map((i) => i.value.trim()).filter(Boolean);
+        btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          if (!isDemo(r)) {
+            const token = await authToken();
+            const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, platform: cur.platform || "Instagram", month: cur.month, year: cur.year, data }) });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(j.error || "Couldn't save");
+          }
+          cur.data = data;
+          status.textContent = "Saved. The client's report shows this now."; status.className = "ri-cm-status is-ok";
+        } catch (e) { status.textContent = e.message || "Couldn't save — try again."; status.className = "ri-cm-status is-err"; }
+        finally { btn.disabled = false; btn.textContent = "Save commentary"; }
+      });
     }
     function renderAiChat(r) {
       const msgs = r._aiMessages || [];
