@@ -240,6 +240,22 @@ import "../../../styles/ws-system.css";
     @media (max-width: 560px) {
       .rp-rail { display: none; }
     }
+    /* Download PDF */
+    .rp-cover-start { gap: 0.6em; }
+    .rp-cover-card .rp-dl { background: transparent; color: #fff; border-color: rgba(255,255,255,0.45); }
+    .rp-cover-card .rp-dl:hover { border-color: #fff; }
+    #rp-print { display: none; }
+    @media print {
+      @page { size: A4 landscape; margin: 9mm; }
+      body.rp-printing > :not(#rp-print) { display: none !important; }
+      body.rp-printing { background: #fff !important; }
+      body.rp-printing #rp-print { display: block; font-size: 10.5px; font-family: var(--sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      #rp-print .rp-slide { animation: none; box-sizing: border-box; min-height: 188mm; break-after: page; page-break-after: always; box-shadow: none; overflow: visible; }
+      #rp-print .rp-slide:last-child { break-after: auto; page-break-after: auto; }
+      #rp-print .rp-cover-start, #rp-print .rp-cta .ws-btn { display: none; }
+      #rp-print .rp-cta { margin-top: 1.5em; }
+      #rp-print .rp-tblwrap { overflow: visible; }
+    }
   </style>
 
   <script>
@@ -469,7 +485,7 @@ import "../../../styles/ws-system.css";
           <h1 class="rp-cover-title">${esc(month)}</h1>
           ${who ? `<p class="rp-cover-sub">${esc(who)}</p>` : ""}
           ${parts.length ? `<ol class="rp-contents">${parts.map((p, i) => `<li><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`).join("")}</ol>` : `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`}
-          ${parts.length ? `<div class="rp-cover-start"><button type="button" class="ws-btn ws-btn--primary" data-go="1">Start
+          ${parts.length ? `<div class="rp-cover-start"><button type="button" class="ws-btn rp-dl" data-pdf><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download PDF</button><button type="button" class="ws-btn ws-btn--primary" data-go="1">Start
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>` : ""}
         </div></div>`;
       const mgr = client?.social_media_manager;
@@ -479,6 +495,7 @@ import "../../../styles/ws-system.css";
           <p>${mgr ? `If anything here raises a question, ${esc(mgr.split(/\s+/)[0])} is the person to ask.` : "If anything here raises a question, your social team is the place to ask."}</p>
           <div class="rp-done-actions">
             <a class="ws-btn ws-btn--ghost" href="${back}">Back to your socials</a>
+            <button type="button" class="ws-btn ws-btn--ghost" data-pdf><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download PDF</button>
             ${sample ? "" : `<a class="ws-btn ws-btn--primary" href="/account/social#message">${mgr ? `Message ${esc(mgr.split(/\s+/)[0])}` : "Message your team"}</a>`}
           </div>
         </div>`;
@@ -508,6 +525,20 @@ import "../../../styles/ws-system.css";
         fit();
       };
       document.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) { e.preventDefault(); show(+b.dataset.go); } });
+      // Download PDF: every slide but the finish, one to a landscape A4 page,
+      // through the browser's own Save as PDF.
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest("[data-pdf]")) return;
+        let sheet = $("rp-print");
+        if (!sheet) { sheet = document.createElement("div"); sheet.id = "rp-print"; document.body.appendChild(sheet); }
+        sheet.innerHTML = slides.slice(0, LAST).join("");
+        const was = document.title;
+        document.title = `${client?.business ? client.business + " " : ""}${month} social media report`;
+        document.body.classList.add("rp-printing");
+        const done = () => { document.body.classList.remove("rp-printing"); document.title = was; window.removeEventListener("afterprint", done); };
+        window.addEventListener("afterprint", done);
+        setTimeout(() => window.print(), 50);
+      });
       prev.addEventListener("click", () => show(at - 1));
       next.addEventListener("click", () => show(at + 1));
       document.addEventListener("keydown", (e) => {

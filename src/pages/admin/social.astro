@@ -488,8 +488,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-months { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
     .ri-month { padding: 5px 13px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
     .ri-month.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
-    .ri-subtabs { display: inline-flex; gap: 2px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; margin-bottom: 14px; flex-wrap: wrap; }
-    .ri-subtab { padding: 6px 14px; border: 0; background: none; border-radius: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55); cursor: pointer; }
+    /* Runs the full width of the panel, margin to margin, the tabs sharing it. */
+    .ri-subtabs { display: flex; gap: 2px; padding: 3px; background: rgba(28,29,34,0.05); border-radius: 9px; margin-bottom: 14px; flex-wrap: wrap; }
+    .ri-subtab { flex: 1 1 auto; text-align: center; white-space: nowrap; padding: 6px 14px; border: 0; background: none; border-radius: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55); cursor: pointer; }
     .ri-subtab:hover { color: var(--ink); }
     .ri-subtab.is-active { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.12); }
     .smm-ri-json { font-family: ui-monospace, "SF Mono", Menlo, monospace !important; font-size: 12px !important; line-height: 1.5; resize: vertical; }
@@ -568,6 +569,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-cm-mark { flex: none; width: 64px; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
     .ri-cm-mark.is-go { color: #2c7a4b; } .ri-cm-mark.is-caution { color: #9a6a04; } .ri-cm-mark.is-action { color: #a05a3c; }
     .ri-cm-coming { margin: 0; padding-left: 20px; font-family: var(--sans); font-size: 13.5px; line-height: 1.8; color: var(--ink); }
+    .ri-head-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ri-month.is-live::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2c7a4b; margin-right: 6px; vertical-align: 1px; }
+    .ri-pub-modal { width: min(640px, calc(100vw - 48px)); }
+    .ri-pub-list { display: grid; gap: 6px; margin: 4px 0 6px; max-height: 50vh; overflow-y: auto; }
+    .ri-pub-row { display: grid; grid-template-columns: 20px 150px 140px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; font-family: var(--sans); font-size: 13px; cursor: pointer; }
+    .ri-pub-row:hover { border-color: var(--english-violet); }
+    .ri-pub-m { font-weight: 700; color: var(--ink); }
+    .ri-pub-m small { display: block; font-weight: 400; font-size: 11px; color: rgba(28,29,34,0.5); }
+    .ri-pub-s { font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.5); }
+    .ri-pub-s.is-live { color: #2c7a4b; }
+    .ri-pub-c { font-size: 12px; color: rgba(28,29,34,0.55); }
+    .ri-pub-c.is-warn { color: #9a6a04; }
     .ri-cm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .ri-cm-list--client li { display: block; }
     .ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
@@ -2012,7 +2025,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (isDemo(r)) { r._reports = []; }
         else if (WORKER) {
           panel.innerHTML = '<p class="smm-soon">Loading reports…</p>';
-          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) { const j = await res.json(); r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {} })); } else r._reports = []; } catch (_) { r._reports = []; }
+          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) { const j = await res.json(); r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {}, published_at: x.published_at || null })); } else r._reports = []; } catch (_) { r._reports = []; }
         } else r._reports = [];
       }
       renderInsights(r);
@@ -2021,12 +2034,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     function renderInsights(r) {
       const panel = $("smm-panel-insights"); if (!panel) return;
       const reps = riSorted(r);
-      const head = `<div class="smm-panel-head"><h4>Insights</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-ri-upload">${PLUS_SVG}Upload report</button></div>`;
+      const head = `<div class="smm-panel-head"><h4>Insights</h4><div class="ri-head-acts">${(r._reports || []).length ? `<button type="button" class="smm-btn smm-btn--sm smm-btn--primary" id="smm-ri-publish">Publish to client</button>` : ""}<button type="button" class="smm-btn smm-btn--sm" id="smm-ri-upload">${PLUS_SVG}Upload report</button></div></div>`;
       if (!reps.length) { panel.innerHTML = head + '<p class="smm-doc-empty">No reports yet — upload this client\'s SocialPilot month to build their dashboard.</p>'; $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r)); return; }
       if (!riReportId || !reps.find((x) => x.id === riReportId)) riReportId = reps[reps.length - 1].id;
       const cur = reps.find((x) => x.id === riReportId) || reps[reps.length - 1];
       const isAi = riTab === "ai";
-      const strip = isAi ? "" : `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}" data-rmonth="${esc(x.id)}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
+      // A dot marks the months the client can see.
+      const strip = isAi ? "" : `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}${x.published_at ? " is-live" : ""}" data-rmonth="${esc(x.id)}" title="${x.published_at ? "Live in the client's hub" : "Draft: the client can't see this yet"}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
       const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["summary", "Summary"], ["actions", "Client commentary"], ["trends", "Trends"], ["ai", "Ask AI ✦"]];
       const subtabs = `<div class="ri-subtabs">${TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${riTab === k ? "is-active" : ""}" data-rtab="${k}">${l}</button>`).join("")}</div>`;
       // Trends look back three months from the month on screen, no further:
@@ -2036,6 +2050,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const bodyHtml = isAi ? renderAiChat(r) : riTab === "trends" ? renderTrends(last3) : riTab === "summary" ? renderSummary(cur, last3) : riTab === "actions" ? renderCommentary(cur) : renderTab(riTab, cur.data || {}, cur);
       panel.innerHTML = head + strip + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
       $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
+      $("smm-ri-publish")?.addEventListener("click", () => openPublish(r));
       panel.querySelectorAll("[data-rmonth]").forEach((b) => b.addEventListener("click", () => { riReportId = b.getAttribute("data-rmonth"); renderInsights(r); }));
       panel.querySelectorAll("[data-rtab]").forEach((b) => b.addEventListener("click", () => { riTab = b.getAttribute("data-rtab"); renderInsights(r); }));
       // Day-by-day charts: one at a time, picked from the pills.
@@ -2056,6 +2071,66 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        Do more / Improve / Fix now marks stay ours — the client never sees
        them. Saved through the same upsert as the upload, whole report at once. */
     const PRIO_TYPES = [["go", "Do more"], ["caution", "Improve"], ["action", "Fix now"]];
+    /* ---- Publish to client ----
+       A report is a draft until it's published here. The client's hub shows
+       their six most recent live reports; ticking a month makes it live,
+       unticking takes it down. Nothing is emailed from here. */
+    function openPublish(r) {
+      const reps = riSorted(r).slice().reverse();
+      const fmtD = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      const row = (x) => {
+        const c = x.data && x.data.client;
+        const ready = c && (c.summary || (c.priorities || []).length);
+        return `<label class="ri-pub-row">
+          <input type="checkbox" data-pub="${esc(x.id)}" ${x.published_at ? "checked" : ""}>
+          <span class="ri-pub-m">${esc(RI_MONTHS[x.month])} ${x.year}<small>${esc(x.platform || "Instagram")}</small></span>
+          <span class="ri-pub-s ${x.published_at ? "is-live" : ""}">${x.published_at ? `Live since ${fmtD(x.published_at)}` : "Draft"}</span>
+          <span class="ri-pub-c ${ready ? "" : "is-warn"}">${ready ? "Client commentary written" : "No client commentary yet: they'd see the team's summary"}</span>
+        </label>`;
+      };
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal ri-pub-modal" role="dialog" aria-modal="true" aria-label="Publish to client">
+            <h3>Publish to ${esc(nameOf(r))}</h3>
+            <p class="smm-modal-sub">Tick the months the client should see in their hub. They'll see their six most recent live reports. Nothing is emailed.</p>
+            <div class="ri-pub-list">${reps.map(row).join("")}</div>
+            <p class="smm-modal-status" id="ri-pub-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--primary" id="ri-pub-save">Save</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("ri-pub-save").addEventListener("click", async () => {
+        const btn = $("ri-pub-save"), status = $("ri-pub-status");
+        const boxes = [...document.querySelectorAll("[data-pub]")];
+        const byId = Object.fromEntries(reps.map((x) => [x.id, x]));
+        const on = boxes.filter((b) => b.checked && !byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
+        const off = boxes.filter((b) => !b.checked && byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
+        if (!on.length && !off.length) { closeModal(); return; }
+        btn.disabled = true; btn.textContent = "Saving…";
+        try {
+          if (isDemo(r)) {
+            const now = new Date().toISOString();
+            on.forEach((id) => { byId[id].published_at = now; }); off.forEach((id) => { byId[id].published_at = null; });
+          } else {
+            const token = await authToken();
+            for (const [ids, publish] of [[on, true], [off, false]]) {
+              if (!ids.length) continue;
+              const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids, publish }) });
+              const j = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(j.error || "Couldn't save");
+              (j.reports || []).forEach((x) => { if (byId[x.id]) byId[x.id].published_at = x.published_at; });
+            }
+          }
+          closeModal(); renderInsights(r);
+        } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save"; }
+      });
+    }
+
     /* ---- Summary: the team's own read of the month (read-only) ----
        What the upload wrote for us, in our voice: what it means, what we
        plan into next month with the Do more / Improve / Fix now marks, and
@@ -2317,7 +2392,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       }
       try {
         const token = await authToken();
-        const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, platform: "Instagram", month, year, data }) });
+        const res = await fetch(`${WORKER}/smm/report`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, platform: "Instagram", month, year, data, upload: true }) });
         const j = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(j.error || "Save failed");
         // A first draft of the trends summary and the client commentary, so

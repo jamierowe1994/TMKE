@@ -9209,11 +9209,18 @@ export default {
         // Link the client's account for member reads.
         let accountUserId = b && b.account_user_id;
         if (!accountUserId) { const r = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=account_user_id`); accountUserId = (r && r[0] && r[0].account_user_id) || null; }
-        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?on_conflict=lead_id,platform,month,year`, {
+        // A fresh upload (b.upload) goes back to draft, even over a month that
+        // was live: new figures are read before a client sees them. Saving
+        // commentary leaves the report as it was.
+        const row = { lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" };
+        const put = (body) => fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?on_conflict=lead_id,platform,month,year`, {
           method: "POST",
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
-          body: JSON.stringify({ lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" }),
+          body: JSON.stringify(body),
         });
+        let res = await put(b && b.upload ? { ...row, published_at: null, published_by: null } : row);
+        // Before smm_reports_publish.sql has run there's no published_at column.
+        if (!res.ok && b && b.upload) { const t = await res.clone().text().catch(() => ""); if (/published_/.test(t)) res = await put(row); }
         if (!res.ok) { const t = await res.text().catch(() => ""); console.error("smm report upsert failed", res.status, t); return json({ error: "Couldn't save the report. If this is the first run, apply smm_reports.sql.", detail: t }, 502, request, env); }
         let row = null; try { const arr = await res.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
         return json({ ok: true, report: row }, 200, request, env);
@@ -9292,7 +9299,9 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const leadId = (url.searchParams.get("lead_id") || "").trim();
         const q = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}&` : "";
-        const reports = (await sbGet(env, "smm_reports", `${q}select=id,lead_id,account_user_id,platform,month,year,data,created_at&order=year.desc,month.desc`)) || [];
+        // select=* so published_at comes back once the column exists, and the
+        // list still loads before smm_reports_publish.sql has been run.
+        const reports = (await sbGet(env, "smm_reports", `${q}select=*&order=year.desc,month.desc`)) || [];
         return json({ reports }, 200, request, env);
       }
 
@@ -9441,6 +9450,29 @@ CLIENT VOICE RULES (for "client"):
         return json({ ok: true, data }, 200, request, env);
       }
 
+      // ---- Admin: publish / unpublish reports ---------------------------------
+      // { ids: [...], publish: true|false }. Publishing puts a report in the
+      // client's hub; nothing is emailed from here.
+      if (path.endsWith("/smm/report/publish") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const ids = (Array.isArray(b && b.ids) ? b.ids : []).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
+        if (!ids.length) return json({ error: "No reports chosen." }, 400, request, env);
+        const on = !!(b && b.publish);
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=in.(${ids.join(",")})`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" },
+          body: JSON.stringify(on ? { published_at: new Date().toISOString(), published_by: user.email || "admin" } : { published_at: null, published_by: null }),
+        });
+        if (!res.ok) {
+          const t = await res.text().catch(() => "");
+          return json({ error: /published_at/.test(t) ? "Publishing isn't set up yet - run supabase/smm_reports_publish.sql first." : "Couldn't update those reports.", detail: t.slice(0, 200) }, 502, request, env);
+        }
+        const rows = await res.json().catch(() => []);
+        return json({ ok: true, reports: (rows || []).map((r) => ({ id: r.id, published_at: r.published_at })) }, 200, request, env);
+      }
+
       // ---- Admin: delete a report --------------------------------------------
       if (path.endsWith("/smm/report") && request.method === "DELETE") {
         const user = await getUser(request, env);
@@ -9537,13 +9569,16 @@ CLIENT VOICE RULES (for "client"):
         let allReports = [];
         if (leads.length) {
           const ids = leads.map((l) => l.id).join(",");
-          allReports = (await sbGet(env, "smm_reports", `lead_id=in.(${ids})&select=id,platform,month,year,data,lead_id&order=year.desc,month.desc&limit=96`)) || [];
+          // Published reports only: a report is a draft until someone presses
+          // Publish in Insights (smm_reports_publish.sql).
+          allReports = (await sbGet(env, "smm_reports", `lead_id=in.(${ids})&published_at=not.is.null&select=id,platform,month,year,data,lead_id,published_at&order=year.desc,month.desc&limit=96`)) || [];
         }
         const lead = leads.find((l) => l.pipeline_stage === "active_client")
           || (allReports.length ? leads.find((l) => l.id === allReports[0].lead_id) : null)
           || leads[0] || null;
         const isClient = !!lead && lead.pipeline_stage === "active_client";
-        const reports = lead ? allReports.filter((r) => r.lead_id === lead.id).map(({ lead_id, ...r }) => r) : [];
+        // Their six most recent: enough to look back on, not a growing archive.
+        const reports = lead ? allReports.filter((r) => r.lead_id === lead.id).slice(0, 6).map(({ lead_id, ...r }) => r) : [];
         // Super-admin visibility map (what fields clients may see). The page
         // merges this over the code defaults (report-fields.js) before rendering.
         const vrows = await sbGet(env, "report_settings", "id=eq.1&select=visibility");
