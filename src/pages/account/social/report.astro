@@ -1,0 +1,427 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../../components/account/WorkspaceHeader.astro";
+import "../../../styles/workspace.css";
+import "../../../styles/ws-system.css";
+---
+
+<!--
+  A client's monthly report, told the way the courses are: a cover, one idea a
+  slide, Previous / Next, and a finish. It used to be a grid of tiles behind
+  three tabs on the Socials page, which asked the client to do the reading of
+  it themselves. Here the order does that work — the numbers, where you were
+  seen, how it's moving, what did best, then what we make of it and what we're
+  doing next (evidence first, conclusion after: docs/smm-report-rules.md §2).
+
+  Its own page, ?r=<report id>, so the "your report is ready" email can link
+  straight to it. ?sample=<demo id> shows a prospect the sample.
+-->
+<BaseLayout title="Your monthly report · TMKE" description="Your social media report for the month." dashboard hideNav hideFooter>
+  <div class="ws">
+    <WorkspaceHeader active="social" />
+    <main class="ws-main rp-main">
+      <a class="rp-back" href="/account/social" id="rp-back">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg> Back to your socials
+      </a>
+
+      <p class="rp-state" id="rp-loading">Loading your report&hellip;</p>
+      <div class="rp-empty" id="rp-empty" hidden>
+        <p class="rp-state">We couldn&rsquo;t find that report. It may have been replaced by a newer one.</p>
+        <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/social">Back to your socials</a>
+      </div>
+
+      <div class="rp" id="rp" hidden>
+        <div class="rp-progress">
+          <div class="rp-bar"><span class="rp-fill" id="rp-fill"></span></div>
+          <div class="rp-progress-meta"><span id="rp-step">Cover</span><span id="rp-count"></span></div>
+        </div>
+
+        <div class="rp-stage" id="rp-stage" aria-live="polite"></div>
+
+        <footer class="rp-nav" id="rp-nav" hidden>
+          <button type="button" class="ws-btn ws-btn--ghost" id="rp-prev">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 4L6 8l4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Previous
+          </button>
+          <div class="rp-rail" id="rp-rail"></div>
+          <button type="button" class="ws-btn ws-btn--primary" id="rp-next">
+            <span id="rp-next-label">Next</span>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </footer>
+      </div>
+    </main>
+  </div>
+
+  <style is:global>
+    .rp-main { max-width: 1040px; margin: 0 auto; padding-bottom: 60px; }
+    .rp-back { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0 14px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ws-tx); text-decoration: none; }
+    .rp-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+    .rp-back:hover { color: var(--ws-accent); }
+    .rp-state { font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-faint); line-height: 1.6; margin: 0 0 14px; }
+    .rp-empty[hidden], .rp[hidden], .rp-nav[hidden] { display: none; }
+
+    /* Progress, as the courses have it. */
+    .rp-progress { margin: 0 0 14px; }
+    .rp-bar { height: 4px; border-radius: 999px; background: var(--ws-line); overflow: hidden; }
+    .rp-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: var(--ws-accent); transition: width .55s cubic-bezier(.2,.7,.3,1); }
+    .rp-progress-meta { display: flex; justify-content: space-between; margin-top: 9px; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--ws-faint); }
+    #rp-step { color: var(--ws-tx); }
+
+    .rp-slide { animation: rpIn .42s cubic-bezier(.2,.7,.3,1); }
+    @keyframes rpIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .rp-slide { animation: none; } .rp-fill { transition: none; } }
+
+    /* ---- Cover: the Socials banner, the month in a wine card over it ---- */
+    .rp-cover { position: relative; min-height: min(560px, 64vh); padding: clamp(20px, 2.6vw, 32px); border-radius: 6px; border: 1px solid var(--ws-line); overflow: hidden; background: #e6e3e1 url('/assets/hub/smm.jpg') center / cover no-repeat; display: flex; align-items: flex-start; }
+    .rp-cover-card { width: min(52%, 640px); max-width: 100%; padding: clamp(24px, 2.6vw, 34px); background: var(--english-violet, #4a2a3c); color: #fff; border-radius: 6px; }
+    @media (max-width: 900px) { .rp-cover-card { width: 100%; } }
+    .rp-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent); margin: 0 0 12px; }
+    .rp-cover-card .rp-eyebrow { color: rgba(255,255,255,0.72); }
+    .rp-cover-title { font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 3.6vw, 46px); line-height: 1.04; letter-spacing: -0.02em; color: #fff; margin: 0; }
+    .rp-cover-sub { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.84); margin: 12px 0 0; }
+    .rp-contents { list-style: none; margin: 22px 0 0; padding: 16px 0 0; border-top: 1px solid rgba(255,255,255,0.16); display: grid; gap: 7px; counter-reset: rp; }
+    .rp-contents li { counter-increment: rp; display: flex; gap: 12px; font-family: var(--sans); font-size: 13px; color: rgba(255,255,255,0.9); }
+    .rp-contents li::before { content: counter(rp, decimal-leading-zero); font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
+    .rp-contents button { all: unset; cursor: pointer; }
+    .rp-contents button:hover, .rp-contents button:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+    .rp-cover-start { margin-top: 24px; display: flex; justify-content: flex-end; }
+    .rp-cover-card .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
+    .rp-cover-card .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
+
+    /* ---- A part: one card, one idea ---- */
+    .rp-part { background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg, 6px); padding: clamp(26px, 3vw, 40px); box-shadow: var(--ws-sh); }
+    .rp-title { font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.2vw, 38px); line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0; text-wrap: balance; }
+    .rp-lede { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ws-tx); margin: 10px 0 0; max-width: 62ch; }
+    .rp-body { margin-top: 26px; }
+    .rp-label { font-family: var(--sans); font-size: var(--ws-t-label, 10px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0 0 10px; }
+
+    /* The numbers: big serif figure, and under it what the word means —
+       rules §1, no term without its plain-English meaning. */
+    /* Columns set by how many figures there are (4 across, or 3 + 2), so
+       none is left on a row of its own. */
+    .rp-figs { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--ws-line); }
+    @media (max-width: 720px) { .rp-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .rp-fig { padding: 18px 20px 18px 0; border-bottom: 1px solid var(--ws-line); }
+    .rp-fig-val { font-family: var(--serif); font-size: clamp(30px, 3.2vw, 42px); font-weight: 400; letter-spacing: -0.02em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin: 6px 0 0; }
+    .rp-fig-move { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ws-accent); margin: 6px 0 0; }
+    .rp-fig-means { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: var(--ws-tx); margin: 8px 0 0; max-width: 30ch; }
+
+    /* Reach by format: plain bars, labelled with their numbers. */
+    .rp-bars { display: grid; gap: 12px; }
+    .rp-barrow { display: grid; grid-template-columns: 84px 1fr 72px; align-items: center; gap: 12px; font-family: var(--sans); font-size: 13px; color: var(--ws-tx); }
+    .rp-barrow b { font-weight: 700; color: var(--ws-ink); text-align: right; font-variant-numeric: tabular-nums; }
+    .rp-track { height: 10px; background: rgba(28,29,34,0.06); border-radius: 2px; overflow: hidden; }
+    .rp-track span { display: block; height: 100%; background: var(--english-violet, #4a2a3c); border-radius: 2px; }
+    .rp-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 30px; }
+    .rp-callout { border-left: 3px solid var(--english-violet, #4a2a3c); padding: 4px 0 4px 16px; }
+    .rp-callout-big { font-family: var(--serif); font-size: clamp(28px, 3vw, 38px); line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
+    .rp-callout p { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: var(--ws-tx); margin: 8px 0 0; max-width: 40ch; }
+
+    /* Top content, ranked. */
+    .rp-top { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ws-line); }
+    .rp-top li { display: grid; grid-template-columns: 34px 1fr auto; gap: 14px; align-items: baseline; padding: 14px 0; border-bottom: 1px solid var(--ws-line); font-family: var(--sans); }
+    .rp-rank { font-family: var(--serif); font-size: 22px; color: var(--ws-faint); font-variant-numeric: tabular-nums; }
+    .rp-top-t { font-size: 14px; font-weight: 600; color: var(--ws-ink); line-height: 1.4; }
+    .rp-top-k { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); margin-top: 4px; }
+    .rp-top-n { font-size: 12.5px; color: var(--ws-tx); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .rp-top-n b { color: var(--ws-ink); }
+    .rp-formats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px; }
+    .rp-format dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; font-family: var(--sans); font-size: 13px; }
+    .rp-format dt { color: var(--ws-tx); }
+    .rp-format dd { margin: 0; font-weight: 700; color: var(--ws-ink); text-align: right; font-variant-numeric: tabular-nums; }
+    .rp-format h3 { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ws-ink); margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid var(--ws-line); }
+
+    /* Month on month: one small line chart per measure. */
+    .rp-trends { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 16px; }
+    @media (max-width: 900px) { .rp-trends { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 480px) { .rp-trends { grid-template-columns: 1fr; } }
+    .rp-trend { border: 1px solid var(--ws-line); border-radius: var(--ws-r); padding: 14px 16px 12px; }
+    .rp-trend-now { font-family: var(--serif); font-size: 26px; color: var(--ws-ink); line-height: 1.1; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+    .rp-trend-chg { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ws-accent); margin: 4px 0 0; }
+    .rp-trend svg { margin-top: 12px; }
+    .rp-trend svg { display: block; width: 100%; height: 64px; overflow: visible; }
+    .rp-trend-axis { display: flex; justify-content: space-between; font-family: var(--sans); font-size: 10.5px; color: var(--ws-faint); margin-top: 6px; }
+
+    /* What it means: the written round-up, read as prose. */
+    .rp-prose { font-family: var(--sans); font-size: 16px; line-height: 1.75; color: var(--ws-ink); max-width: 64ch; white-space: pre-line; }
+    .rp-takes { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ws-line); }
+    .rp-takes li { display: flex; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--ws-line); font-family: var(--sans); font-size: 15px; line-height: 1.6; color: var(--ws-ink); }
+    .rp-takes li::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; margin-top: 10px; background: var(--english-violet, #4a2a3c); }
+    .rp-coming { margin-top: 28px; }
+    .rp-coming ol { margin: 0; padding-left: 20px; font-family: var(--sans); font-size: 14px; line-height: 1.8; color: var(--ws-tx); }
+
+    /* The finish. */
+    .rp-done { text-align: center; padding: 40px 0 8px; }
+    .rp-done-badge { width: 60px; height: 60px; border-radius: 50%; margin: 0 auto 22px; display: grid; place-items: center; background: color-mix(in srgb, var(--ws-accent) 12%, #fff); color: var(--ws-accent); }
+    .rp-done-badge svg { width: 28px; height: 28px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .rp-done h2 { font-family: var(--serif); font-weight: 500; font-size: clamp(24px, 3vw, 34px); line-height: 1.12; color: var(--ws-ink); margin: 0 0 10px; }
+    .rp-done p { font-family: var(--sans); color: var(--ws-tx); font-size: 15px; line-height: 1.6; margin: 0 auto 24px; max-width: 46ch; }
+    .rp-done-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+    /* Nav row. */
+    .rp-nav { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin: 28px 0 0; padding-top: 22px; border-top: 1px solid var(--ws-line); }
+    .rp-rail { display: flex; gap: 8px; }
+    .rp-dot { width: 9px; height: 9px; border-radius: 50%; border: 0; padding: 0; background: var(--ws-line); cursor: pointer; transition: background .2s, transform .2s; }
+    .rp-dot:hover { transform: scale(1.25); }
+    .rp-dot.is-done { background: color-mix(in srgb, var(--ws-accent) 42%, var(--ws-line)); }
+    .rp-dot.is-active { background: var(--ws-accent); transform: scale(1.3); }
+    .rp-hide { visibility: hidden; }
+    @media (max-width: 560px) {
+      .rp-rail { display: none; }
+      .rp-barrow { grid-template-columns: 64px 1fr 56px; }
+      .rp-top li { grid-template-columns: 26px 1fr; }
+      .rp-top-n { grid-column: 2; text-align: left; }
+    }
+  </style>
+
+  <script>
+    import { supabase } from "../../../lib/supabase.js";
+    import { MONTHS } from "../../../lib/report-insights.js";
+    import { resolveVisibility } from "../../../lib/report-fields.js";
+    import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
+
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const DEV = import.meta.env.DEV;
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const n = (v) => { const x = Number(String(v ?? "").replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) && String(v ?? "").trim() !== "" ? x : null; };
+    const fmt = (v) => (v == null ? "—" : Number(v).toLocaleString("en-GB"));
+    const has = (v) => v != null && v !== "";
+    const params = new URLSearchParams(location.search);
+
+    /* ---- The parts ----
+       Each part is a function of the month's data that returns null when it
+       has nothing to say, so a month without paid reach or without a second
+       month to compare simply has fewer slides. The visibility switches in
+       admin (report-fields.js) still decide what a client may see. */
+    function buildParts(r, all, vis, client) {
+      const d = r.data || {}, p = d.profile || {}, rc = d.reach || {};
+      const month = MONTHS[r.month];
+      const parts = [];
+
+      // 1 — The numbers
+      const figs = [];
+      const fig = (key, label, val, means, move) => {
+        if (vis[key] === false || val == null) return;
+        figs.push(`<div class="rp-fig"><p class="rp-label">${esc(label)}</p><p class="rp-fig-val">${esc(val)}</p>${move ? `<p class="rp-fig-move">${esc(move)}</p>` : ""}<p class="rp-fig-means">${esc(means)}</p></div>`);
+      };
+      const nf = n(p.newFollowers);
+      fig("followers", "Followers", n(p.followers) != null ? fmt(n(p.followers)) : null,
+        "People following the account at the end of the month.",
+        vis.newFollowers !== false && nf ? `+${fmt(nf)} this month` : "");
+      const rch = n(p.reachChange);
+      fig("reach", "Reach", n(p.reach) != null ? fmt(n(p.reach)) : null,
+        "Different people who saw something we posted. One person counts once, however many times they saw it.",
+        rch ? `${rch > 0 ? "Up" : "Down"} ${Math.abs(rch)}% on last month` : "");
+      fig("views", "Views", n(p.views) != null ? fmt(n(p.views)) : null,
+        "Times your posts and videos were seen in total, counting repeat watches.");
+      fig("interactions", "Interactions", n(p.interactions) != null ? fmt(n(p.interactions)) : null,
+        "Likes, comments, saves and shares added together: people doing something, not just scrolling past.");
+      fig("interactionRate", "Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null,
+        "Out of everyone who saw a post, the share who interacted with it.");
+      fig("linkTaps", "Link taps", n(p.linkTaps) != null ? fmt(n(p.linkTaps)) : null,
+        "Taps on the link in your profile, through to your website.");
+      if (figs.length) parts.push({ step: "The numbers", html: part(
+        `${month} in numbers`,
+        "The headline figures for the month. Under each one is what it actually measures.",
+        `<div class="rp-figs" style="--cols:${figs.length <= 4 ? figs.length : 3}">${figs.join("")}</div>`) });
+
+      // 2 — Where you were seen
+      const fmts = [["Reels", n(rc.reels)], ["Posts", n(rc.posts)], ["Stories", n(rc.stories)], ["Ads", n(rc.ads)]].filter(([, v]) => v);
+      const max = Math.max(1, ...fmts.map(([, v]) => v));
+      const bars = vis.reachByFormat !== false && fmts.length
+        ? `<p class="rp-label">Reach by type of post</p><div class="rp-bars">${fmts.map(([l, v]) =>
+            `<div class="rp-barrow"><span>${l}</span><div class="rp-track"><span style="width:${Math.max(2, Math.round(v / max * 100))}%"></span></div><b>${fmt(v)}</b></div>`).join("")}</div>`
+        : "";
+      const callouts = [];
+      const nfr = n(rc.nonFollower), fr = n(rc.follower);
+      if (vis.followerSplit !== false && nfr != null && fr != null && nfr + fr > 0) {
+        const pct = Math.round(nfr / (nfr + fr) * 100);
+        callouts.push(`<div class="rp-callout"><div class="rp-callout-big">${pct}%</div><p>of the people who saw you don&rsquo;t follow you yet. That&rsquo;s ${fmt(nfr)} people finding the account for the first time, alongside ${fmt(fr)} who already follow.</p></div>`);
+      }
+      const org = n(rc.organicReach), paid = n(rc.paidReach);
+      if (vis.organicPaidReach !== false && org != null && paid) {
+        callouts.push(`<div class="rp-callout"><div class="rp-callout-big">${fmt(paid)}</div><p>people reached through paid adverts, on top of ${fmt(org)} reached without paying.</p></div>`);
+      }
+      if (bars || callouts.length) parts.push({ step: "Where you were seen", html: part(
+        "Where you were seen",
+        "Which kinds of post carried the account furthest, and how much of that was new people.",
+        bars + (callouts.length ? `<div class="rp-split">${callouts.join("")}</div>` : "")) });
+
+      // 3 — Month on month (needs a month before this one, same platform)
+      const series = all
+        .filter((x) => (x.platform || "") === (r.platform || "") && (x.year * 12 + x.month) <= (r.year * 12 + r.month))
+        .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month))
+        .slice(-6);
+      if (vis.trends !== false && series.length > 1) {
+        const lines = [
+          ["Followers", (x) => n(x.data?.profile?.followers), (v) => fmt(v)],
+          ["Reach", (x) => n(x.data?.profile?.reach), (v) => fmt(v)],
+          ["Interactions", (x) => n(x.data?.profile?.interactions), (v) => fmt(v)],
+          ["Interaction rate", (x) => n(x.data?.profile?.interactionRate), (v) => v + "%"],
+        ].map(([label, get, show]) => trend(label, series, get, show)).filter(Boolean);
+        if (lines.length) parts.push({ step: "Month on month", html: part(
+          "How it's moving",
+          `The last ${series.length} months side by side, so one good or quiet month is read against the ones around it.`,
+          `<div class="rp-trends" style="--cols:${lines.length}">${lines.join("")}</div>`) });
+      }
+
+      // 4 — What did best
+      const top = vis.topContent !== false ? (d.topContent || []).filter((t) => t && t.title).slice(0, 5) : [];
+      const fcard = (label, x) => {
+        if (!x) return "";
+        const rows = [["Published", x.published], ["Reach", x.reach], ["Views", x.views], ["Interactions", x.interactions], ["Interaction rate", x.interactionRate]]
+          .filter(([, v]) => has(v)).map(([k, v]) => `<dt>${k}</dt><dd>${esc(typeof v === "number" ? fmt(v) : v)}</dd>`).join("");
+        return rows ? `<div class="rp-format"><h3>${label}</h3><dl>${rows}</dl></div>` : "";
+      };
+      const formats = vis.organicContent !== false ? fcard("Reels", d.reels) + fcard("Posts", d.posts) : "";
+      if (top.length || formats) parts.push({ step: "What did best", html: part(
+        "What did best",
+        top.length ? `The ${top.length === 1 ? "post" : top.length + " posts"} that travelled furthest this month.` : "How the reels and posts did this month.",
+        (top.length ? `<ol class="rp-top">${top.map((t, i) => `<li><span class="rp-rank">${i + 1}</span><span><span class="rp-top-t">${esc(t.title)}</span>${t.type ? `<span class="rp-top-k">${esc(t.type)}</span>` : ""}</span><span class="rp-top-n"><b>${fmt(n(t.reach))}</b> reached${n(t.interactions) != null ? ` · <b>${fmt(n(t.interactions))}</b> interactions` : ""}</span></li>`).join("")}</ol>` : "")
+        + (formats ? `<div class="rp-formats">${formats}</div>` : "")) });
+
+      // 5 — What it means (the written round-up)
+      if (vis.summary !== false && has(d.summary)) parts.push({ step: "What it means", html: part(
+        "What it means",
+        "", `<div class="rp-prose">${esc(d.summary)}</div>`) });
+
+      // 6 — What we're doing next. Admin's traffic-light triage stays in admin:
+      // every line gets the same mark, the tone lives in the words (rules §6).
+      const takes = vis.priorities !== false ? (d.priorities || []).filter((x) => x && x.text) : [];
+      const coming = vis.comingSoon !== false ? (d.comingSoon || []).filter(Boolean) : [];
+      if (takes.length || coming.length) {
+        const next = MONTHS[(r.month + 1) % 12];
+        parts.push({ step: "What's next", html: part(
+          `Into ${next}`,
+          "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.",
+          (takes.length ? `<ul class="rp-takes">${takes.map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul>` : "")
+          + (coming.length ? `<div class="rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")) });
+      }
+      return parts;
+    }
+
+    function part(title, lede, body) {
+      return `<section class="rp-slide rp-part"><h2 class="rp-title">${esc(title)}</h2>${lede ? `<p class="rp-lede">${esc(lede)}</p>` : ""}<div class="rp-body">${body}</div></section>`;
+    }
+
+    // A measure across the months: the latest figure, the change on the month
+    // before, and the line. One scale per chart, the points on it, first and
+    // last months named underneath.
+    function trend(label, series, get, show) {
+      const vals = series.map(get);
+      if (vals.filter((v) => v != null).length < 2) return "";
+      const pts = vals.map((v, i) => [i, v]).filter(([, v]) => v != null);
+      const lo = Math.min(...pts.map(([, v]) => v)), hi = Math.max(...pts.map(([, v]) => v));
+      const W = 200, H = 56, pad = 5, span = hi - lo || 1;
+      const x = (i) => series.length === 1 ? W / 2 : pad + i * (W - pad * 2) / (series.length - 1);
+      const y = (v) => hi === lo ? H / 2 : H - pad - (v - lo) / span * (H - pad * 2);
+      const line = pts.map(([i, v]) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+      const area = `${x(pts[0][0]).toFixed(1)},${H} ${line} ${x(pts[pts.length - 1][0]).toFixed(1)},${H}`;
+      const last = pts[pts.length - 1][1], prev = pts[pts.length - 2][1];
+      const chg = prev ? ((last - prev) / Math.abs(prev) * 100) : 0;
+      const chgTxt = !prev ? "" : `${chg >= 0 ? "+" : "−"}${Math.abs(chg).toFixed(Math.abs(chg) < 10 ? 1 : 0)}% on last month`;
+      const [lx, ly] = [x(pts[pts.length - 1][0]), y(last)];
+      return `<div class="rp-trend">
+        <p class="rp-label" style="margin:0">${esc(label)}</p>
+        <div class="rp-trend-now">${esc(show(last))}</div>
+        ${chgTxt ? `<p class="rp-trend-chg">${esc(chgTxt)}</p>` : ""}
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)} over ${series.length} months">
+          <polygon points="${area}" fill="var(--english-violet, #4a2a3c)" fill-opacity="0.08" />
+          <polyline points="${line}" fill="none" stroke="var(--english-violet, #4a2a3c)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+          <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="var(--english-violet, #4a2a3c)" />
+        </svg>
+        <div class="rp-trend-axis"><span>${MONTHS[series[0].month].slice(0, 3)}</span><span>${MONTHS[series[series.length - 1].month].slice(0, 3)}</span></div>
+      </div>`;
+    }
+
+    function run(r, all, vis, client, sample) {
+      $("rp-loading").hidden = true;
+      $("rp").hidden = false;
+      const parts = buildParts(r, all, vis, client);
+      const month = `${MONTHS[r.month]} ${r.year}`;
+      const who = [client?.business, r.platform].filter(Boolean).join(" · ");
+      document.title = `${month} report · TMKE`;
+      const back = sample ? "/account/social?sample=1" : "/account/social";
+      $("rp-back").href = back;
+
+      const cover = `<div class="rp-slide rp-cover"><div class="rp-cover-card">
+          <p class="rp-eyebrow">Your monthly report</p>
+          <h1 class="rp-cover-title">${esc(month)}</h1>
+          ${who ? `<p class="rp-cover-sub">${esc(who)}</p>` : ""}
+          ${parts.length ? `<ol class="rp-contents">${parts.map((p, i) => `<li><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`).join("")}</ol>` : `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`}
+          ${parts.length ? `<div class="rp-cover-start"><button type="button" class="ws-btn ws-btn--primary" data-go="1">Start
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>` : ""}
+        </div></div>`;
+      const mgr = client?.social_media_manager;
+      const done = `<div class="rp-slide rp-done">
+          <div class="rp-done-badge"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+          <h2>That&rsquo;s your ${esc(MONTHS[r.month])}</h2>
+          <p>${mgr ? `If anything here raises a question, ${esc(mgr.split(/\s+/)[0])} is the person to ask.` : "If anything here raises a question, your social team is the place to ask."}</p>
+          <div class="rp-done-actions">
+            <a class="ws-btn ws-btn--ghost" href="${back}">Back to your socials</a>
+            ${sample ? "" : `<a class="ws-btn ws-btn--primary" href="/account/social#message">${mgr ? `Message ${esc(mgr.split(/\s+/)[0])}` : "Message your team"}</a>`}
+          </div>
+        </div>`;
+
+      const slides = [cover, ...parts.map((p) => p.html), done];
+      const steps = ["Cover", ...parts.map((p) => p.step), "Finished"];
+      const LAST = slides.length - 1;
+      const stage = $("rp-stage"), nav = $("rp-nav"), rail = $("rp-rail");
+      const prev = $("rp-prev"), next = $("rp-next"), nextLabel = $("rp-next-label");
+      rail.innerHTML = parts.map((p, i) => `<button type="button" class="rp-dot" data-go="${i + 1}" title="${esc(p.step)}" aria-label="${esc(p.step)}"></button>`).join("");
+      let at = 0;
+      const show = (i) => {
+        at = Math.max(0, Math.min(LAST, i));
+        stage.innerHTML = slides[at];
+        nav.hidden = at === 0 || !parts.length;
+        prev.classList.toggle("rp-hide", at === 0);
+        next.classList.toggle("rp-hide", at === LAST);
+        nextLabel.textContent = at === LAST - 1 ? "Finish" : "Next";
+        $("rp-step").textContent = steps[at];
+        $("rp-count").textContent = at > 0 && at < LAST ? `${at} of ${parts.length}` : "";
+        $("rp-fill").style.width = `${Math.round(at / LAST * 100)}%`;
+        rail.querySelectorAll(".rp-dot").forEach((d, k) => { d.classList.toggle("is-active", k + 1 === at); d.classList.toggle("is-done", k + 1 < at); });
+        if (at > 0) $("rp").scrollIntoView({ block: "start", behavior: "smooth" });
+      };
+      document.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) { e.preventDefault(); show(+b.dataset.go); } });
+      prev.addEventListener("click", () => show(at - 1));
+      next.addEventListener("click", () => show(at + 1));
+      document.addEventListener("keydown", (e) => {
+        if (e.target.closest("input, textarea, select")) return;
+        if (e.key === "ArrowRight") show(at + 1);
+        if (e.key === "ArrowLeft") show(at - 1);
+      });
+      show(0);
+    }
+
+    function notFound() { $("rp-loading").hidden = true; $("rp-empty").hidden = false; }
+
+    (async () => {
+      const sampleId = params.get("sample");
+      const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abby" };
+      if (sampleId) {
+        const r = DEMO_REPORTS.find((x) => x.id === sampleId) || DEMO_REPORTS.find((x) => x.accountId === "tmke");
+        const all = DEMO_REPORTS.filter((x) => x.accountId === r.accountId);
+        return run(r, all, resolveVisibility(null), SAMPLE_CLIENT, true);
+      }
+      const id = params.get("r");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (DEV) { const r = DEMO_REPORTS[1]; return run(r, DEMO_REPORTS.filter((x) => x.accountId === r.accountId), resolveVisibility(null), SAMPLE_CLIENT, true); }
+        location.replace("/login?next=" + encodeURIComponent(location.pathname + location.search));
+        return;
+      }
+      if (!WORKER) return notFound();
+      try {
+        const res = await fetch(`${WORKER}/smm/mine`, { headers: { Authorization: "Bearer " + session.access_token } });
+        const j = await res.json().catch(() => ({}));
+        const all = j.reports || [];
+        const r = id ? all.find((x) => String(x.id) === id) : all[0];
+        if (!r) return notFound();
+        run(r, all, resolveVisibility(j.visibility), j.client || {}, false);
+      } catch (_) { notFound(); }
+    })();
+  </script>
+</BaseLayout>
