@@ -581,6 +581,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-pub-s.is-live { color: #2c7a4b; }
     .ri-pub-c { font-size: 12px; color: rgba(28,29,34,0.55); }
     .ri-pub-c.is-warn { color: #9a6a04; }
+    .ri-pub-email { display: flex; gap: 9px; align-items: flex-start; margin: 12px 0 0; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
+    .ri-pub-email input { margin-top: 2px; }
     .ri-month.is-pending::before { background: #c58a0a; }
     .ri-pub-s.is-pending { color: #9a6a04; }
     .ri-pending { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; background: #fbf4e4; border: 1px solid #ecd9a8; font-family: var(--sans); font-size: 13px; color: #6b4d05; }
@@ -2110,8 +2112,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal ri-pub-modal" role="dialog" aria-modal="true" aria-label="Publish to client">
             <h3>Publish to ${esc(nameOf(r))}</h3>
-            <p class="smm-modal-sub">Tick the months the client should see in their hub. They'll see their six most recent live reports. Nothing is emailed.</p>
+            <p class="smm-modal-sub">Tick the months the client should see in their hub. They'll see their six most recent live reports.</p>
             <div class="ri-pub-list">${reps.map(row).join("")}</div>
+            <label class="ri-pub-email"><input type="checkbox" id="ri-pub-email" ${r.email ? "" : "disabled"}> <span>${r.email ? `Email ${esc(nameOf(r))} at ${esc(r.email)} that a new report is ready` : "No email address on file, so they'll only see it in their hub"}</span></label>
+            <p class="ri-note" style="margin:4px 0 0;">Their hub's bell always shows a new report. You can preview the email in Email → Automated emails.</p>
             <p class="smm-modal-status" id="ri-pub-status" hidden></p>
             <div class="smm-modal-actions">
               <button type="button" class="smm-btn" data-mcancel>Cancel</button>
@@ -2130,6 +2134,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const off = boxes.filter((b) => !b.checked && byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
         if (!on.length && !off.length) { closeModal(); return; }
         btn.disabled = true; btn.textContent = "Saving…";
+        let notes = null;
         try {
           if (isDemo(r)) {
             const now = new Date().toISOString();
@@ -2138,11 +2143,24 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             const token = await authToken();
             for (const [ids, publish] of [[on, true], [off, false]]) {
               if (!ids.length) continue;
-              const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids, publish }) });
+              const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids, action: publish ? "publish" : "unpublish", email: publish && !!$("ri-pub-email")?.checked }) });
               const j = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(j.error || "Couldn't save");
               (j.reports || []).forEach((x) => { if (byId[x.id]) { byId[x.id].published_at = x.published_at; byId[x.id].published_data = x.published_data || null; } });
+              if (publish && j.notes) notes = j.notes;
             }
+          }
+          // Say what reached them, not just that it saved.
+          if (notes && (notes.noHub || notes.failed || notes.noEmail)) {
+            status.hidden = false; status.style.color = "#6b4d05";
+            status.textContent = [
+              notes.noHub ? `${nameOf(r)} has no hub account linked, so there's no bell notification.` : "",
+              notes.noEmail ? "No email address on file, so no email." : "",
+              notes.failed ? "The email didn't send; the report is live anyway." : "",
+            ].filter(Boolean).join(" ");
+            btn.textContent = "Done"; btn.disabled = false; btn.onclick = () => { closeModal(); renderInsights(r); };
+            renderInsights(r);
+            return;
           }
           closeModal(); renderInsights(r);
         } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save"; }
@@ -2162,8 +2180,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <h3>Republish ${esc(m)}</h3>
             <p class="smm-modal-sub">${esc(nameOf(r))} will see the report as it is now. Should they be told it's been amended?</p>
             <button type="button" class="ri-rep-opt" data-rep="quiet"><b>Republish quietly</b><span>For small changes: a reworded sentence, a typo, a tidier title. Nothing they'd act on differently.</span></button>
-            <button type="button" class="ri-rep-opt" data-rep="notify"><b>Republish and tell them</b><span>For changes that matter: wrong figures, a plan that's changed, anything they may already have read and relied on. Their report is marked "Updated" with today's date, and they're emailed that it's been amended.</span></button>
-            <p class="ri-note" style="margin:10px 0 0;">The report emails aren't switched on yet, so for now the email is noted and goes out when they are.</p>
+            <button type="button" class="ri-rep-opt" data-rep="notify"><b>Republish and tell them</b><span>For changes that matter: wrong figures, a plan that's changed, anything they may already have read and relied on. Their report is marked "Updated" with today's date, their hub's bell says so, and they're emailed that it's been amended.</span></button>
             <p class="smm-modal-status" id="ri-rep-status" hidden></p>
             <div class="smm-modal-actions"><button type="button" class="smm-btn" data-mcancel>Cancel</button></div>
           </div>

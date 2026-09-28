@@ -2549,6 +2549,8 @@ function emailPreviewSample(id) {
     vid_booking_client: () => ({ subject: "Booking confirmed - Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
     vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
+    smm_report_ready: () => ({ subject: "Your August 2026 social media report is ready", html: smmReportReadyHtml({ name: "Alex Morgan", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
+    smm_report_amended: () => ({ subject: "We've updated your August 2026 social media report", html: smmReportAmendedHtml({ name: "Alex Morgan", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
   const fn = SAMPLES[id];
@@ -3252,6 +3254,47 @@ function setupReminderHtml({ name, pack, link }) {
     <p style="${EM_SMALL}">If the button doesn't work, paste this into your browser:<br><span style="color:#777">${esc(link)}</span></p>
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
   </div>`;
+}
+
+// ---- SMM monthly report: ready / amended ---------------------------------
+// Sent when a report is published (if the admin ticks "email them") and when
+// a live report is republished with "tell them". The bell gets the same news.
+function smmReportReadyHtml({ name, monthLabel, nextMonth, manager, link }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
+  const mgr = esc(String(manager || "").trim().split(/\s+/)[0] || "");
+  return `<div style="${EM_WRAP}">
+    <h1 style="${EM_H1}">Your ${esc(monthLabel)} report is ready</h1>
+    <p style="${EM_P}">Hi ${first}, your social media report for ${esc(monthLabel)} is now in your hub. It walks you through how your Instagram profile did, who you reached, what performed best, and what we're doing${nextMonth ? ` into ${esc(nextMonth)}` : " next"}.</p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Read your report &rarr;</a></p>
+    <p style="${EM_P}">It takes a couple of minutes. If anything raises a question, reply to this email${mgr ? ` or message ${mgr} from your hub` : ""}.</p>
+    <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
+  </div>`;
+}
+function smmReportAmendedHtml({ name, monthLabel, manager, link }) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
+  const mgr = esc(String(manager || "").trim().split(/\s+/)[0] || "");
+  return `<div style="${EM_WRAP}">
+    <h1 style="${EM_H1}">We've updated your ${esc(monthLabel)} report</h1>
+    <p style="${EM_P}">Hi ${first}, we've made a correction to your ${esc(monthLabel)} social media report, so the version in your hub is now the right one. If you've already read it, it's worth another look.</p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">See the updated report &rarr;</a></p>
+    <p style="${EM_P}">If you'd like to know what changed, reply to this email${mgr ? ` or message ${mgr} from your hub` : ""}.</p>
+    <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
+  </div>`;
+}
+// A notification in a member's bell (member_notifications.sql). Never throws:
+// a missing table or a failed write costs the notification, not the action.
+async function notifyMember(env, userId, { kind, title, body, href, meta }) {
+  if (!userId || !env.SUPABASE_SERVICE_ROLE) return false;
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/member_notifications`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ user_id: userId, kind, title, body: body || null, href: href || null, meta: meta || {} }),
+    });
+    return res.ok;
+  } catch (_) { return false; }
 }
 
 async function runSetupReminders(env) {
@@ -9451,9 +9494,11 @@ CLIENT VOICE RULES (for "client"):
       //  - publish: the working copy becomes what the client sees;
       //  - unpublish: taken out of the client's hub;
       //  - republish: a live report's edits go to the client. `notify` says
-      //    whether they should be told it was amended (wrong figures, say)
-      //    or not (a reworded sentence). The amendment email itself is sent
-      //    by the report emails; until those exist it's recorded as pending.
+      //    whether they should be told it was amended (wrong figures, say:
+      //    bell + email + "Updated" on the report) or not (a reworded
+      //    sentence: nothing).
+      // Publishing always puts "your report is ready" in their bell, and
+      // emails them too when `email` is set.
       if (path.endsWith("/smm/report/publish") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
@@ -9470,22 +9515,43 @@ CLIENT VOICE RULES (for "client"):
           return ((await res.json().catch(() => [])) || [])[0];
         };
         const out = [];
+        const notes = { bell: 0, noHub: 0, emailed: 0, noEmail: 0, failed: 0 };
         try {
           if (action === "unpublish") {
             for (const id of ids) out.push(await patch(id, { published_at: null, published_by: null, published_data: null }));
           } else {
-            const rows = (await sbGet(env, "smm_reports", `id=in.(${ids.join(",")})&select=id,data,published_at`)) || [];
+            const rows = (await sbGet(env, "smm_reports", `id=in.(${ids.join(",")})&select=id,data,published_at,lead_id,month,year`)) || [];
+            const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+            const leads = {};
+            const leadOf = async (id) => (leads[id] ||= ((await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(id)}&select=account_user_id,email,full_name,business,social_media_manager`)) || [])[0] || {});
             for (const r of rows) {
-              if (action === "publish") out.push(await patch(r.id, { published_at: now, published_by: user.email || "admin", published_data: r.data }));
-              else {
+              const lead = await leadOf(r.lead_id);
+              const monthLabel = `${MN[r.month]} ${r.year}`, link = `${site}/account/social/report?r=${r.id}`, href = `/account/social/report?r=${r.id}`;
+              if (action === "publish") {
+                out.push(await patch(r.id, { published_at: now, published_by: user.email || "admin", published_data: r.data }));
+                // The bell always; the email only if the admin ticked it.
+                if (await notifyMember(env, lead.account_user_id, { kind: "smm_report_ready", title: `Your ${MN[r.month]} report is ready`, body: "See how your Instagram did, and what we're doing next.", href, meta: { report_id: r.id } })) notes.bell++;
+                else notes.noHub++;
+                if (b && b.email) {
+                  if (!lead.email) { notes.noEmail++; continue; }
+                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${monthLabel} social media report is ready`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, link })) }).catch(() => ({ ok: false }));
+                  if (sent && sent.ok !== false) notes.emailed++; else notes.failed++;
+                }
+              } else {
                 if (!r.published_at) continue; // only a live report can be republished
                 const notify = !!(b && b.notify);
                 out.push(await patch(r.id, { published_data: r.data, amended_at: now, ...(notify ? { amendment_notice_at: now, amendment_email_pending: true } : {}) }));
+                if (!notify) continue;
+                await notifyMember(env, lead.account_user_id, { kind: "smm_report_amended", title: `Your ${MN[r.month]} report has been updated`, body: "We've made a correction. It's worth another look.", href, meta: { report_id: r.id } });
+                if (!lead.email) { notes.noEmail++; continue; }
+                const sent = await sendEmail(env, { to: lead.email, subject: `We've updated your ${monthLabel} social media report`, html: await wrapInBrandedBase(env, smmReportAmendedHtml({ name: lead.full_name, monthLabel, manager: lead.social_media_manager, link })) }).catch(() => ({ ok: false }));
+                if (sent && sent.ok !== false) { notes.emailed++; await patch(r.id, { amendment_email_pending: false }).catch(() => {}); } else notes.failed++;
               }
             }
           }
         } catch (e) { return json({ error: e.message }, 502, request, env); }
-        return json({ ok: true, reports: out.filter(Boolean).map((r) => ({ id: r.id, published_at: r.published_at, published_data: r.published_data, amended_at: r.amended_at, amendment_notice_at: r.amendment_notice_at })) }, 200, request, env);
+        return json({ ok: true, notes, reports: out.filter(Boolean).map((r) => ({ id: r.id, published_at: r.published_at, published_data: r.published_data, amended_at: r.amended_at, amendment_notice_at: r.amendment_notice_at })) }, 200, request, env);
       }
 
       // ---- Admin: delete a report --------------------------------------------
