@@ -581,6 +581,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-pub-s.is-live { color: #2c7a4b; }
     .ri-pub-c { font-size: 12px; color: rgba(28,29,34,0.55); }
     .ri-pub-c.is-warn { color: #9a6a04; }
+    .ri-month.is-pending::before { background: #c58a0a; }
+    .ri-pub-s.is-pending { color: #9a6a04; }
+    .ri-pending { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; background: #fbf4e4; border: 1px solid #ecd9a8; font-family: var(--sans); font-size: 13px; color: #6b4d05; }
+    .ri-pending b { color: #5a3f00; }
+    .ri-rep-modal { width: min(560px, calc(100vw - 48px)); }
+    .ri-rep-opt { display: block; width: 100%; text-align: left; margin: 0 0 10px; padding: 14px 16px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); }
+    .ri-rep-opt:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb),0.03); }
+    .ri-rep-opt b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
+    .ri-rep-opt span { display: block; font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.6); }
+    .ri-rep-opt:disabled { opacity: 0.6; cursor: default; }
     .ri-cm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .ri-cm-list--client li { display: block; }
     .ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
@@ -2025,11 +2035,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (isDemo(r)) { r._reports = []; }
         else if (WORKER) {
           panel.innerHTML = '<p class="smm-soon">Loading reports…</p>';
-          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) { const j = await res.json(); r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {}, published_at: x.published_at || null })); } else r._reports = []; } catch (_) { r._reports = []; }
+          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) { const j = await res.json(); r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {}, published_at: x.published_at || null, published_data: x.published_data || null, amended_at: x.amended_at || null, amendment_notice_at: x.amendment_notice_at || null })); } else r._reports = []; } catch (_) { r._reports = []; }
         } else r._reports = [];
       }
       renderInsights(r);
     }
+    // Key order differs between what the database hands back and what an edit
+    // builds, so compare with the keys sorted.
+    const stable = (v) => Array.isArray(v) ? `[${v.map(stable).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => JSON.stringify(k) + ":" + stable(v[k])).join(",")}}` : JSON.stringify(v);
+    // Live, but edited since: the client still sees the published copy.
+    const hasPending = (x) => !!(x && x.published_at && x.published_data && stable(x.data || {}) !== stable(x.published_data));
     const riSorted = (r) => (r._reports || []).slice().sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
     function renderInsights(r) {
       const panel = $("smm-panel-insights"); if (!panel) return;
@@ -2040,7 +2055,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const cur = reps.find((x) => x.id === riReportId) || reps[reps.length - 1];
       const isAi = riTab === "ai";
       // A dot marks the months the client can see.
-      const strip = isAi ? "" : `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}${x.published_at ? " is-live" : ""}" data-rmonth="${esc(x.id)}" title="${x.published_at ? "Live in the client's hub" : "Draft: the client can't see this yet"}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
+      const strip = isAi ? "" : `<div class="ri-months">${reps.map((x) => `<button type="button" class="ri-month ${x.id === riReportId ? "is-active" : ""}${x.published_at ? " is-live" : ""}${hasPending(x) ? " is-pending" : ""}" data-rmonth="${esc(x.id)}" title="${hasPending(x) ? "Live, with changes the client can't see yet" : x.published_at ? "Live in the client's hub" : "Draft: the client can't see this yet"}">${esc(RI_MONTHS[x.month])} ${x.year}</button>`).join("")}</div>`;
+      // A live month edited since it went out: say so, and offer to send it.
+      const pendingBar = !isAi && hasPending(cur) ? `<div class="ri-pending"><span><b>Changes not published.</b> ${esc(nameOf(r))} still sees ${esc(RI_MONTHS[cur.month])} as it was ${cur.amended_at ? "last republished" : "published"}.</span><button type="button" class="smm-btn smm-btn--sm smm-btn--primary" id="smm-ri-republish">Republish</button></div>` : "";
       const TABS = [["overview", "Overview"], ["content", "Content"], ["audience", "Audience"], ["summary", "Summary"], ["actions", "Client commentary"], ["trends", "Trends"], ["ai", "Ask AI ✦"]];
       const subtabs = `<div class="ri-subtabs">${TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${riTab === k ? "is-active" : ""}" data-rtab="${k}">${l}</button>`).join("")}</div>`;
       // Trends look back three months from the month on screen, no further:
@@ -2048,9 +2065,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const curIx = cur.year * 12 + cur.month;
       const last3 = reps.filter((x) => { const i = x.year * 12 + x.month; return i <= curIx && i >= curIx - 2; });
       const bodyHtml = isAi ? renderAiChat(r) : riTab === "trends" ? renderTrends(last3) : riTab === "summary" ? renderSummary(cur, last3) : riTab === "actions" ? renderCommentary(cur) : renderTab(riTab, cur.data || {}, cur);
-      panel.innerHTML = head + strip + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
+      panel.innerHTML = head + strip + pendingBar + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
       $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
       $("smm-ri-publish")?.addEventListener("click", () => openPublish(r));
+      $("smm-ri-republish")?.addEventListener("click", () => openRepublish(r, cur));
       panel.querySelectorAll("[data-rmonth]").forEach((b) => b.addEventListener("click", () => { riReportId = b.getAttribute("data-rmonth"); renderInsights(r); }));
       panel.querySelectorAll("[data-rtab]").forEach((b) => b.addEventListener("click", () => { riTab = b.getAttribute("data-rtab"); renderInsights(r); }));
       // Day-by-day charts: one at a time, picked from the pills.
@@ -2084,7 +2102,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         return `<label class="ri-pub-row">
           <input type="checkbox" data-pub="${esc(x.id)}" ${x.published_at ? "checked" : ""}>
           <span class="ri-pub-m">${esc(RI_MONTHS[x.month])} ${x.year}<small>${esc(x.platform || "Instagram")}</small></span>
-          <span class="ri-pub-s ${x.published_at ? "is-live" : ""}">${x.published_at ? `Live since ${fmtD(x.published_at)}` : "Draft"}</span>
+          <span class="ri-pub-s ${x.published_at ? (hasPending(x) ? "is-pending" : "is-live") : ""}">${x.published_at ? `Live since ${fmtD(x.published_at)}${hasPending(x) ? "<br>Changes not published" : ""}` : "Draft"}</span>
           <span class="ri-pub-c ${ready ? "" : "is-warn"}">${ready ? "Client commentary written" : "No client commentary yet: they'd see the team's summary"}</span>
         </label>`;
       };
@@ -2115,7 +2133,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         try {
           if (isDemo(r)) {
             const now = new Date().toISOString();
-            on.forEach((id) => { byId[id].published_at = now; }); off.forEach((id) => { byId[id].published_at = null; });
+            on.forEach((id) => { byId[id].published_at = now; byId[id].published_data = byId[id].data; }); off.forEach((id) => { byId[id].published_at = null; byId[id].published_data = null; });
           } else {
             const token = await authToken();
             for (const [ids, publish] of [[on, true], [off, false]]) {
@@ -2123,12 +2141,55 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids, publish }) });
               const j = await res.json().catch(() => ({}));
               if (!res.ok) throw new Error(j.error || "Couldn't save");
-              (j.reports || []).forEach((x) => { if (byId[x.id]) byId[x.id].published_at = x.published_at; });
+              (j.reports || []).forEach((x) => { if (byId[x.id]) { byId[x.id].published_at = x.published_at; byId[x.id].published_data = x.published_data || null; } });
             }
           }
           closeModal(); renderInsights(r);
         } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save"; }
       });
+    }
+
+    /* ---- Republish ----
+       A live report's edits reach the client only from here. Two ways, and
+       the choice is the point: a reworded sentence goes quietly; wrong
+       figures, or anything the client may already have acted on, go with a
+       note telling them the report was amended. */
+    function openRepublish(r, cur) {
+      const m = `${RI_MONTHS[cur.month]} ${cur.year}`;
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal ri-rep-modal" role="dialog" aria-modal="true" aria-label="Republish">
+            <h3>Republish ${esc(m)}</h3>
+            <p class="smm-modal-sub">${esc(nameOf(r))} will see the report as it is now. Should they be told it's been amended?</p>
+            <button type="button" class="ri-rep-opt" data-rep="quiet"><b>Republish quietly</b><span>For small changes: a reworded sentence, a typo, a tidier title. Nothing they'd act on differently.</span></button>
+            <button type="button" class="ri-rep-opt" data-rep="notify"><b>Republish and tell them</b><span>For changes that matter: wrong figures, a plan that's changed, anything they may already have read and relied on. Their report is marked "Updated" with today's date, and they're emailed that it's been amended.</span></button>
+            <p class="ri-note" style="margin:10px 0 0;">The report emails aren't switched on yet, so for now the email is noted and goes out when they are.</p>
+            <p class="smm-modal-status" id="ri-rep-status" hidden></p>
+            <div class="smm-modal-actions"><button type="button" class="smm-btn" data-mcancel>Cancel</button></div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      document.querySelectorAll("[data-rep]").forEach((b) => b.addEventListener("click", async () => {
+        const notify = b.dataset.rep === "notify", status = $("ri-rep-status");
+        document.querySelectorAll("[data-rep]").forEach((x) => { x.disabled = true; });
+        b.querySelector("b").textContent = "Republishing…";
+        try {
+          if (isDemo(r)) {
+            const now = new Date().toISOString();
+            Object.assign(cur, { published_data: cur.data, amended_at: now }, notify ? { amendment_notice_at: now } : {});
+          } else {
+            const token = await authToken();
+            const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids: [cur.id], action: "republish", notify }) });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(j.error || "Couldn't republish");
+            const x = (j.reports || [])[0];
+            if (x) Object.assign(cur, { published_data: x.published_data, amended_at: x.amended_at, amendment_notice_at: x.amendment_notice_at });
+          }
+          closeModal(); renderInsights(r);
+        } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't republish — try again."; document.querySelectorAll("[data-rep]").forEach((x) => { x.disabled = false; }); }
+      }));
     }
 
     /* ---- Summary: the team's own read of the month (read-only) ----

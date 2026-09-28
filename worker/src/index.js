@@ -9209,18 +9209,14 @@ export default {
         // Link the client's account for member reads.
         let accountUserId = b && b.account_user_id;
         if (!accountUserId) { const r = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=account_user_id`); accountUserId = (r && r[0] && r[0].account_user_id) || null; }
-        // A fresh upload (b.upload) goes back to draft, even over a month that
-        // was live: new figures are read before a client sees them. Saving
-        // commentary leaves the report as it was.
-        const base = { lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" };
-        const put = (body) => fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?on_conflict=lead_id,platform,month,year`, {
+        // Everything saved here is the working copy (`data`). A live report
+        // keeps showing its published copy until it's republished, so a
+        // re-upload or an edit never reaches the client unseen.
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?on_conflict=lead_id,platform,month,year`, {
           method: "POST",
           headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=representation" },
-          body: JSON.stringify(body),
+          body: JSON.stringify({ lead_id: leadId, account_user_id: accountUserId, platform, month, year, data, uploaded_by: user.email || "admin" }),
         });
-        let res = await put(b && b.upload ? { ...base, published_at: null, published_by: null } : base);
-        // Before smm_reports_publish.sql has run there's no published_at column.
-        if (!res.ok && b && b.upload) { const t = await res.clone().text().catch(() => ""); if (/published_/.test(t)) res = await put(base); }
         if (!res.ok) { const t = await res.text().catch(() => ""); console.error("smm report upsert failed", res.status, t); return json({ error: "Couldn't save the report. If this is the first run, apply smm_reports.sql.", detail: t }, 502, request, env); }
         let row = null; try { const arr = await res.json(); row = Array.isArray(arr) && arr[0] ? arr[0] : null; } catch (_) {}
         return json({ ok: true, report: row }, 200, request, env);
@@ -9450,27 +9446,46 @@ CLIENT VOICE RULES (for "client"):
         return json({ ok: true, data }, 200, request, env);
       }
 
-      // ---- Admin: publish / unpublish reports ---------------------------------
-      // { ids: [...], publish: true|false }. Publishing puts a report in the
-      // client's hub; nothing is emailed from here.
+      // ---- Admin: publish, unpublish, republish --------------------------------
+      // { ids, action: "publish" | "unpublish" | "republish", notify }
+      //  - publish: the working copy becomes what the client sees;
+      //  - unpublish: taken out of the client's hub;
+      //  - republish: a live report's edits go to the client. `notify` says
+      //    whether they should be told it was amended (wrong figures, say)
+      //    or not (a reworded sentence). The amendment email itself is sent
+      //    by the report emails; until those exist it's recorded as pending.
       if (path.endsWith("/smm/report/publish") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const ids = (Array.isArray(b && b.ids) ? b.ids : []).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
         if (!ids.length) return json({ error: "No reports chosen." }, 400, request, env);
-        const on = !!(b && b.publish);
-        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=in.(${ids.join(",")})`, {
-          method: "PATCH",
-          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" },
-          body: JSON.stringify(on ? { published_at: new Date().toISOString(), published_by: user.email || "admin" } : { published_at: null, published_by: null }),
-        });
-        if (!res.ok) {
-          const t = await res.text().catch(() => "");
-          return json({ error: /published_at/.test(t) ? "Publishing isn't set up yet - run supabase/smm_reports_publish.sql first." : "Couldn't update those reports.", detail: t.slice(0, 200) }, 502, request, env);
-        }
-        const rows = await res.json().catch(() => []);
-        return json({ ok: true, reports: (rows || []).map((r) => ({ id: r.id, published_at: r.published_at })) }, 200, request, env);
+        const action = (b && b.action) || (b && b.publish === false ? "unpublish" : "publish");
+        if (!["publish", "unpublish", "republish"].includes(action)) return json({ error: "Unknown action." }, 400, request, env);
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" };
+        const now = new Date().toISOString();
+        const patch = async (id, body) => {
+          const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: hdr, body: JSON.stringify(body) });
+          if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(/published_|amend/.test(t) ? "Publishing isn't set up yet - run supabase/smm_reports_republish.sql first." : "Couldn't update that report."); }
+          return ((await res.json().catch(() => [])) || [])[0];
+        };
+        const out = [];
+        try {
+          if (action === "unpublish") {
+            for (const id of ids) out.push(await patch(id, { published_at: null, published_by: null, published_data: null }));
+          } else {
+            const rows = (await sbGet(env, "smm_reports", `id=in.(${ids.join(",")})&select=id,data,published_at`)) || [];
+            for (const r of rows) {
+              if (action === "publish") out.push(await patch(r.id, { published_at: now, published_by: user.email || "admin", published_data: r.data }));
+              else {
+                if (!r.published_at) continue; // only a live report can be republished
+                const notify = !!(b && b.notify);
+                out.push(await patch(r.id, { published_data: r.data, amended_at: now, ...(notify ? { amendment_notice_at: now, amendment_email_pending: true } : {}) }));
+              }
+            }
+          }
+        } catch (e) { return json({ error: e.message }, 502, request, env); }
+        return json({ ok: true, reports: out.filter(Boolean).map((r) => ({ id: r.id, published_at: r.published_at, published_data: r.published_data, amended_at: r.amended_at, amendment_notice_at: r.amendment_notice_at })) }, 200, request, env);
       }
 
       // ---- Admin: delete a report --------------------------------------------
@@ -9571,7 +9586,8 @@ CLIENT VOICE RULES (for "client"):
           const ids = leads.map((l) => l.id).join(",");
           // Published reports only: a report is a draft until someone presses
           // Publish in Insights (smm_reports_publish.sql).
-          allReports = (await sbGet(env, "smm_reports", `lead_id=in.(${ids})&published_at=not.is.null&select=id,platform,month,year,data,lead_id,published_at&order=year.desc,month.desc&limit=96`)) || [];
+          // The published copy, never the working one (smm_reports_republish.sql).
+          allReports = (await sbGet(env, "smm_reports", `lead_id=in.(${ids})&published_at=not.is.null&select=id,platform,month,year,data:published_data,lead_id,published_at,amendment_notice_at&order=year.desc,month.desc&limit=96`)) || [];
         }
         const lead = leads.find((l) => l.pipeline_stage === "active_client")
           || (allReports.length ? leads.find((l) => l.id === allReports[0].lead_id) : null)

@@ -103,6 +103,7 @@ import "../../../styles/ws-system.css";
     .rp-cover-card .rp-eyebrow { color: rgba(255,255,255,0.72); }
     .rp-cover-title { font-family: var(--serif); font-weight: 500; font-size: 3.1em; line-height: 1.04; letter-spacing: -0.02em; color: #fff; margin: 0; }
     .rp-cover-sub { font-size: 1em; line-height: 1.6; color: rgba(255,255,255,0.84); margin: 0.8em 0 0; }
+    .rp-cover-upd { display: inline-block; margin: 0.9em 0 0; padding: 0.35em 0.8em; border-radius: var(--ws-r, 4px); background: rgba(255,255,255,0.14); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
     .rp-contents { list-style: none; margin: 1.5em 0 0; padding: 1.1em 0 0; border-top: 1px solid rgba(255,255,255,0.16); display: grid; gap: 0.5em; counter-reset: rp; }
     .rp-contents li { counter-increment: rp; display: flex; gap: 0.85em; font-size: 0.93em; color: rgba(255,255,255,0.9); }
     .rp-contents li::before { content: counter(rp, decimal-leading-zero); font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
@@ -484,6 +485,7 @@ import "../../../styles/ws-system.css";
           <p class="rp-eyebrow">Your monthly report</p>
           <h1 class="rp-cover-title">${esc(month)}</h1>
           ${who ? `<p class="rp-cover-sub">${esc(who)}</p>` : ""}
+          ${r.amendment_notice_at ? `<p class="rp-cover-upd">Updated ${esc(new Date(r.amendment_notice_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}</p>` : ""}
           ${parts.length ? `<ol class="rp-contents">${parts.map((p, i) => `<li><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`).join("")}</ol>` : `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`}
           ${parts.length ? `<div class="rp-cover-start"><button type="button" class="ws-btn rp-dl" data-pdf><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download PDF</button><button type="button" class="ws-btn ws-btn--primary" data-go="1">Start
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>` : ""}
