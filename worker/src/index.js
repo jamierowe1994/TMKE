@@ -8172,6 +8172,83 @@ export default {
       }
 
       // ---- Admin: invoicing settings (company/finance details) ---------------
+      /* A social media client's own invoices, in their hub.
+
+         Invoices are staff-only in the database and rightly so, so this hands
+         back only the rows billed to THEIR account — matched through the
+         smm_lead their member account is linked to, never through anything
+         they can type. Each one carries what they can do with it: a signed
+         card link while it is payable, and a signed PDF once it exists.
+
+         The same /invoicing/pay page the emailed button uses, so there is one
+         payment route rather than a second one to keep in step. */
+      if (path.endsWith("/smm/invoices") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+        const email = String(user.email || "").toLowerCase();
+        const leads = (await sbGet(env, "smm_leads",
+          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,client_status&order=created_at.desc`)) || [];
+        const ids = leads.map((l) => l.id);
+        if (!ids.length) return json({ ok: true, invoices: [] }, 200, request, env);
+
+        const rows = (await sbGet(env, "invoices",
+          `booking_id=in.(${ids.map((i) => `"${i}"`).join(",")})&booking_source=eq.smm&status=neq.draft&select=id,number,total_pence,status,issued_date,due_date,paid_date,pay_by_card&order=issued_date.desc`)) || [];
+
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        const out = [];
+        for (const inv of rows) {
+          // A void invoice is not theirs to see: it was cancelled, and showing
+          // it only raises a question whose answer is "ignore that one".
+          if (inv.status === "void") continue;
+          let payUrl = null;
+          if (inv.pay_by_card && inv.status !== "paid") {
+            const t = await invoicePaySign(env, inv.id);
+            if (t) payUrl = `${base}/invoicing/pay?t=${encodeURIComponent(t)}`;
+          }
+          out.push({
+            id: inv.id, number: inv.number, total_pence: inv.total_pence,
+            status: inv.status, issued_date: inv.issued_date, due_date: inv.due_date,
+            paid_date: inv.paid_date, pay_url: payUrl,
+          });
+        }
+        return json({ ok: true, invoices: out }, 200, request, env);
+      }
+
+      /* The PDF of one of their own invoices. Same renderer the admin uses;
+         the check is that the invoice is billed to a lead their account owns,
+         which is the only thing standing between a member and somebody else's
+         bill. */
+      if (path.endsWith("/smm/invoice-pdf") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in." }, 401, request, env);
+        const id = (url.searchParams.get("id") || "").trim();
+        if (!id) return json({ error: "Which invoice?" }, 400, request, env);
+        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
+        const inv = rows && rows[0];
+        if (!inv || inv.booking_source !== "smm") return json({ error: "Not found." }, 404, request, env);
+
+        const email = String(user.email || "").toLowerCase();
+        const mine = (await sbGet(env, "smm_leads",
+          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id`)) || [];
+        if (!mine.some((l) => l.id === inv.booking_id)) return json({ error: "Not found." }, 404, request, env);
+
+        const key = `invoices/${inv.number || inv.id}.pdf`;
+        let head = null;
+        try { head = await env.BUCKET.head(key); } catch (_) {}
+        if (!head) {
+          const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+          try {
+            const pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv);
+            await env.BUCKET.put(key, pdf, { httpMetadata: { contentType: "application/pdf" } });
+          } catch (err) { return json({ error: "Couldn't produce the PDF." }, 502, request, env); }
+        }
+        const exp = Date.now() + 60 * 60 * 1000;
+        const sig = await mediaSig(env, key, exp);
+        if (!sig) return json({ error: "Links aren't configured on the Worker." }, 503, request, env);
+        const base = String(env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        return json({ url: `${base}/download?key=${encodeURIComponent(key)}&exp=${exp}&sig=${encodeURIComponent(sig)}` }, 200, request, env);
+      }
+
       if (path.endsWith("/invoicing/settings") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

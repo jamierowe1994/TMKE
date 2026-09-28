@@ -146,10 +146,19 @@ import { gbpFromPence } from "../../lib/supabase.js";
             </div>
           </section>
 
-          <!-- Chapter 03 — the people behind it -->
+          <!-- Chapter 03 — what they owe, and what they have paid -->
+          <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-bill-h" id="soc-bill-block" hidden>
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-bill-h"><span class="ws-block-ch">Chapter 03</span>Invoices</h2>
+              <span class="ws-block-status" id="soc-bill-status" hidden></span>
+            </header>
+            <div class="soc-card" id="soc-bill"></div>
+          </section>
+
+          <!-- Chapter 04 — the people behind it -->
           <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-team-h">
             <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-team-h"><span class="ws-block-ch">Chapter 03</span>Your social team</h2>
+              <h2 class="ws-block-h" id="soc-team-h"><span class="ws-block-ch">Chapter 04</span>Your social team</h2>
             </header>
             <div class="soc-card soc-contact">
               <div>
@@ -211,6 +220,19 @@ import { gbpFromPence } from "../../lib/supabase.js";
     #soc-client:not([hidden]) { display: flex; flex-direction: column; gap: clamp(26px, 3.4vh, 46px); }
 
     /* House rule: hairline outline, square corners, no fill, no shadow. */
+    /* Invoices. One outstanding has something to do about it, so it carries
+       weight; a settled one is a receipt and should read like filing. */
+    .soc-inv-h { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.42); margin: 18px 0 8px; }
+    .soc-inv-h:first-child { margin-top: 0; }
+    .soc-inv { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .soc-inv:last-child { border-bottom: 0; }
+    .soc-inv-main { flex: 1 1 200px; min-width: 0; }
+    .soc-inv-num { display: block; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ws-ink, #1c1d22); }
+    .soc-inv-when { display: block; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 2px; }
+    .soc-inv-amt { font-family: var(--sans); font-size: 15px; font-weight: 700; color: var(--ws-ink, #1c1d22); font-variant-numeric: tabular-nums; flex: none; }
+    .soc-inv-tools { display: flex; gap: 8px; flex: none; }
+    .soc-inv.is-paid .soc-inv-num, .soc-inv.is-paid .soc-inv-amt { color: rgba(28,29,34,0.6); font-weight: 600; }
+
     .soc-card {
       background: #fff; border: 1px solid var(--ws-line);
       border-radius: var(--ws-r); padding: 20px 22px;
@@ -548,6 +570,81 @@ import { gbpFromPence } from "../../lib/supabase.js";
       renderPlan(data.client);
       reports = (data.reports || []).map((r) => ({ id: r.id, platform: r.platform, month: r.month, year: r.year, data: r.data }));
       curIdx = 0; renderInsights();
+      loadInvoices();
+    }
+
+    /* ---- Invoices ----
+       Anything outstanding first, because that is the one with something to do
+       about it; everything settled underneath, downloadable for as long as
+       they need it. The card link is the same signed page the emailed button
+       opens, so there is one way to pay rather than two to keep in step. */
+    const gbp = (p) => {
+      const v = (p || 0) / 100;
+      return "£" + v.toLocaleString("en-GB", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+    };
+    const dShort = (d) => d ? new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+
+    async function loadInvoices() {
+      const block = $("soc-bill"), wrap = $("soc-bill-block");
+      if (!block || !wrap || !WORKER) return;
+      let list = [];
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch(`${WORKER}/smm/invoices`, { headers: { Authorization: "Bearer " + session.access_token } });
+        const j = await res.json().catch(() => null);
+        if (!j || !j.ok) return;
+        list = j.invoices || [];
+      } catch (_) { return; }
+      // Nothing billed yet is not worth a chapter saying so.
+      if (!list.length) return;
+
+      const owing = list.filter((i) => i.status !== "paid");
+      const settled = list.filter((i) => i.status === "paid");
+      const strip = $("soc-bill-status");
+      if (strip) {
+        strip.textContent = owing.length
+          ? `${owing.length} outstanding`
+          : "All settled";
+        strip.hidden = false;
+      }
+
+      const row = (i) => {
+        const overdue = i.status !== "paid" && i.due_date && new Date(i.due_date + "T23:59:59") < new Date();
+        return `<div class="soc-inv${i.status === "paid" ? " is-paid" : ""}">
+          <div class="soc-inv-main">
+            <span class="soc-inv-num">${esc(i.number || "Invoice")}</span>
+            <span class="soc-inv-when">${i.status === "paid"
+              ? `Paid ${esc(dShort(i.paid_date))}`
+              : `${overdue ? "Was due" : "Due"} ${esc(dShort(i.due_date))}`}</span>
+          </div>
+          <span class="soc-inv-amt">${esc(gbp(i.total_pence))}</span>
+          <span class="soc-inv-tools">
+            ${i.pay_url ? `<a class="ws-btn ws-btn--primary ws-btn--sm" href="${esc(i.pay_url)}">Pay now</a>` : ""}
+            <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-pdf="${esc(i.id)}">Download</button>
+          </span>
+        </div>`;
+      };
+
+      block.innerHTML =
+        (owing.length ? `<div class="soc-inv-h">Outstanding</div>${owing.map(row).join("")}` : "") +
+        (settled.length ? `<div class="soc-inv-h">Paid</div>${settled.map(row).join("")}` : "");
+
+      block.querySelectorAll("[data-pdf]").forEach((b) => b.addEventListener("click", async () => {
+        const label = b.textContent;
+        b.disabled = true; b.textContent = "Preparing…";
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${WORKER}/smm/invoice-pdf?id=${encodeURIComponent(b.getAttribute("data-pdf"))}`,
+            { headers: { Authorization: "Bearer " + session.access_token } });
+          const j = await res.json().catch(() => ({}));
+          if (j && j.url) window.open(j.url, "_blank", "noopener");
+          else b.textContent = "Couldn't open it";
+        } catch (_) { b.textContent = "Couldn't open it"; }
+        finally { setTimeout(() => { b.disabled = false; b.textContent = label; }, 1200); }
+      }));
+
+      wrap.hidden = false;
     }
 
     /* ---- Join the waitlist ----
