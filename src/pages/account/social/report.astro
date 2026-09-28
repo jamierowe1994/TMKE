@@ -113,7 +113,10 @@ import "../../../styles/ws-system.css";
     .rp-cover-card .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
 
     /* ---- A part: one card, one idea ---- */
-    .rp-part { background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg, 6px); padding: 1.9em 2.4em; box-shadow: var(--ws-sh); }
+    .rp-part { background: var(--ws-card, #fff); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg, 6px); padding: 1.9em 2.4em; box-shadow: var(--ws-sh); display: flex; flex-direction: column; }
+    /* The body takes the card's remaining height, so a slide can spread its
+       content to the foot of the card rather than stopping short. */
+    .rp-part > .rp-body { flex: 1 0 auto; display: flex; flex-direction: column; }
     .rp-title { font-family: var(--serif); font-weight: 500; font-size: 2.35em; line-height: 1.08; letter-spacing: -0.02em; color: var(--ws-ink); margin: 0; text-wrap: balance; }
     .rp-lede { font-size: 1em; line-height: 1.6; color: var(--ws-tx); margin: 0.6em 0 0; }
     .rp-body { margin-top: 1.5em; }
@@ -136,6 +139,10 @@ import "../../../styles/ws-system.css";
     .rp-fig-means { font-size: 0.86em; line-height: 1.45; color: var(--ws-tx); margin: 0.35em 0 0; max-width: 30ch; min-height: 2.9em; }
 
     /* Who you reached */
+    .rp-reach { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 1em 2.6em; align-items: start; padding-bottom: 1.3em; margin-bottom: 1.3em; border-bottom: 1px solid var(--ws-line); }
+    .rp-reach-why { margin: 0; padding: 0.9em 1.1em; border-left: 3px solid var(--english-violet, #4a2a3c); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 5%, #fff); font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); max-width: 62ch; }
+    .rp-reach-why b { color: var(--ws-ink); }
+    @media (max-width: 900px) { .rp-reach { grid-template-columns: 1fr 1fr; } .rp-reach-why { grid-column: 1 / -1; } }
     .rp-big { font-family: var(--serif); font-size: 2.6em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin-bottom: 0.2em; }
     .rp-splitbar { height: 0.55em; border-radius: 99px; background: color-mix(in srgb, var(--english-violet, #4a2a3c) 22%, #fff); overflow: hidden; margin: 1.1em 0 0.7em; }
     .rp-splitbar span { display: block; height: 100%; background: var(--english-violet, #4a2a3c); }
@@ -155,7 +162,15 @@ import "../../../styles/ws-system.css";
 
     /* What did best: the top five on a card of their own, reels and posts
        beside them. */
-    .rp-best { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 1em; align-items: start; }
+    /* Fills the slide top to bottom: the table's rows share out the height,
+       and the reels and posts cards grow to match. */
+    .rp-best { flex: 1; display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(0, 1fr); gap: 1em; align-items: stretch; }
+    .rp-topcard { display: flex; flex-direction: column; }
+    .rp-topcard .rp-tblwrap { flex: 1; display: flex; }
+    .rp-topcard .rp-tbl { height: 100%; }
+    .rp-formats { grid-template-rows: 1fr 1fr; }
+    .rp-format { display: flex; flex-direction: column; }
+    .rp-format dl { flex: 1; align-content: space-evenly; }
     .rp-best.is-one { grid-template-columns: 1fr; }
     @media (max-width: 900px) { .rp-best { grid-template-columns: 1fr; } }
     .rp-formats { display: grid; gap: 1em; }
@@ -189,6 +204,13 @@ import "../../../styles/ws-system.css";
     /* Into next month */
     .rp-takes .rp-mini-p { font-size: 1em; }
     .rp-coming { margin-top: 1em; }
+    /* Questions, at the foot of the slide. Later: next month's content plan. */
+    .rp-cta { margin-top: auto; display: flex; align-items: center; gap: 1.6em; padding: 1.3em 1.5em; border-radius: var(--ws-r, 4px); background: var(--english-violet, #4a2a3c); color: #fff; }
+    .rp-takes, .rp-coming { margin-bottom: 1em; }
+    .rp-cta-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.2em; font-weight: 700; margin: 0 0 0.2em; color: #fff; }
+    .rp-cta-p { margin: 0; font-size: 0.93em; color: rgba(255,255,255,0.8); }
+    .rp-cta .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); flex: none; }
+    .rp-cta .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
     .rp-coming ol { margin: 0; padding-left: 1.3em; font-size: 0.93em; line-height: 1.8; color: var(--ws-tx); columns: 2; column-gap: 2.5em; }
 
     /* The finish. */
@@ -232,7 +254,7 @@ import "../../../styles/ws-system.css";
        it has nothing to say, so a month without a second month to compare
        simply has less in it. The visibility switches in admin
        (report-fields.js) still decide what a client may see. */
-    function buildParts(r, all, vis, client) {
+    function buildParts(r, all, vis, client, sampleMode) {
       const d = r.data || {}, p = d.profile || {}, rc = d.reach || {}, dem = d.demographics || {};
       const month = MONTHS[r.month];
       const parts = [];
@@ -283,7 +305,7 @@ import "../../../styles/ws-system.css";
           <div class="rp-splitbar"><span style="width:${100 - pct}%"></span></div>
           <div class="rp-splitkey"><span><i class="is-f"></i>${fmt(fr)} followers</span><span><i></i>${fmt(nfr)} non-followers</span></div></div>`);
       }
-      const ages = vis.age !== false ? (dem.age || []).filter((a) => a && a.range).map((a) => ({ range: a.range, v: (n(a.male) || 0) + (n(a.female) || 0) + (n(a.unspecified) || 0) })) : [];
+      const ages = vis.followerAge !== false ? (dem.age || []).filter((a) => a && a.range).map((a) => ({ range: a.range, v: (n(a.male) || 0) + (n(a.female) || 0) + (n(a.unspecified) || 0) })) : [];
       const ageTot = ages.reduce((a, b) => a + b.v, 0);
       if (ageTot) {
         const top = Math.max(...ages.map((a) => a.v));
@@ -292,7 +314,9 @@ import "../../../styles/ws-system.css";
           return `<div class="rp-age"><span>${esc(a.range)}</span><div class="rp-track"><i style="width:${Math.max(2, Math.round(a.v / top * 100))}%"></i></div><b>${pc}%</b></div>`;
         }).join("")}</div></div>`);
       }
-      const cities = vis.cities !== false ? (dem.topCities || []).filter((c) => c && c.city).slice(0, 3) : [];
+      // Its own switch: the old "Top cities" one belonged to an Audience tab
+      // clients never saw, so it may well be off.
+      const cities = vis.followerLocation !== false ? (dem.topCities || []).map((c) => c && ({ city: c.city || c.name || c.location, count: c.count })).filter((c) => c && c.city).slice(0, 3) : [];
       if (cities.length) {
         const uk = n((dem.topCountries || []).find((c) => /united kingdom/i.test(c.country || ""))?.count) ?? n(p.ukFollowers);
         const ukPct = uk != null && n(p.followers) ? Math.round(uk / n(p.followers) * 100) : null;
@@ -301,23 +325,32 @@ import "../../../styles/ws-system.css";
       if (vis.organicPaidReach !== false && n(d.ads?.reach)) {
         cards.push(`<div class="rp-mini"><p class="rp-label">Paid adverts</p><div class="rp-big">${fmt(n(d.ads.reach))}</div><p class="rp-mini-p">people reached through paid adverts.</p></div>`);
       }
-      if (cards.length) parts.push({ step: "Who you reached", html: part(
+      // Two reaches, side by side and told apart, before who they were.
+      const cr = (n(d.posts?.reach) || 0) + (n(d.reels?.reach) || 0);
+      const band = n(p.reach) != null ? `<div class="rp-reach">
+          <div><p class="rp-label">Profile reach</p><div class="rp-big">${fmt(n(p.reach))}</div><p class="rp-mini-p">different people saw the account.</p></div>
+          ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">views counted post by post.</p></div>` : ""}
+          ${vis.contentReach !== false && cr ? `<p class="rp-reach-why"><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post&rsquo;s own reach, so someone who saw three posts is counted three times. That&rsquo;s why it&rsquo;s the bigger of the two.</p>` : ""}
+        </div>` : "";
+      if (cards.length || band) parts.push({ step: "Who you reached", html: part(
         "Who you reached",
         n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month. Here's who they were.` : "Who saw your account this month.",
-        `<div class="rp-cards" style="--n:${cards.length}">${cards.join("")}</div>`) });
+        band + (cards.length ? `<div class="rp-cards" style="--n:${cards.length}">${cards.join("")}</div>` : "")) });
 
       // 3 — What did best: the top five on their own card, reels and posts
       // beside them. Ranked by reach, interactions breaking a tie.
       const rows = (Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || [])).filter((t) => t && (t.title || t.url));
       const top = vis.topContent !== false ? rows.slice().sort((a, b) => (n(b.reach) || 0) - (n(a.reach) || 0) || (n(b.interactions) || 0) - (n(a.interactions) || 0)).slice(0, 5) : [];
-      const fcard = (label, x) => {
+      // SocialPilot's Instagram Post and Instagram Reels pages. Views are a
+      // total for each; only reels also have them post by post.
+      const fcard = (label, one, x) => {
         if (!x) return "";
-        const pub = n(x.published);
-        const rs = [["Published", x.published], [`Reach, across ${pub != null ? `all ${pub}` : "them"}`, x.reach], ["Views", x.views], ["Interactions", x.interactions]]
-          .filter(([, v]) => has(v)).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(fmt(n(v)))}</dd>`).join("");
+        const rate = n(x.interactionRate);
+        const rs = [[`${label} published`, x.published], [`${one} reach`, x.reach], [`${one} views`, x.views], [`${one} interactions`, x.interactions], [`${one} interaction rate`, rate != null ? rate + "%" : null]]
+          .filter(([, v]) => has(v)).map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(/%$/.test(String(v)) ? v : fmt(n(v)))}</dd>`).join("");
         return rs ? `<div class="rp-mini rp-format"><p class="rp-label">${label}</p><dl>${rs}</dl></div>` : "";
       };
-      const formats = vis.organicContent !== false ? fcard("Reels", d.reels) + fcard("Posts", d.posts) : "";
+      const formats = vis.organicContent !== false ? fcard("Reels", "Reel", d.reels) + fcard("Posts", "Post", d.posts) : "";
       const tRow = (t, i) => {
         const reel = /reel/i.test(t.type || "");
         const name = t.url
@@ -362,7 +395,9 @@ import "../../../styles/ws-system.css";
           `Into ${next}`,
           "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.",
           (takes.length ? `<div class="rp-cards rp-takes" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
-          + (coming.length ? `<div class="rp-mini rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")) });
+          + (coming.length ? `<div class="rp-mini rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")
+          // Later this becomes "See next month's content plan".
+          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])} can talk you through any of this.` : "Your social team can talk you through any of this."}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your team"}</a></div>`)) });
       }
       return parts;
     }
@@ -402,7 +437,7 @@ import "../../../styles/ws-system.css";
     function run(r, all, vis, client, sample) {
       $("rp-loading").hidden = true;
       $("rp").hidden = false;
-      const parts = buildParts(r, all, vis, client);
+      const parts = buildParts(r, all, vis, client, sample);
       const month = `${MONTHS[r.month]} ${r.year}`;
       const who = [client?.business, r.platform].filter(Boolean).join(" · ");
       document.title = `${month} report · TMKE`;
@@ -472,7 +507,7 @@ import "../../../styles/ws-system.css";
         // A single report's data, or an array of { month, year, data }, newest last.
         const j = await (await fetch(params.get("fixture"))).json();
         const list = (Array.isArray(j) ? j : [{ month: +(params.get("m") ?? 7), year: +(params.get("y") ?? 2026), data: j }]).map((x, i) => ({ id: "fx" + i, platform: "Instagram", ...x }));
-        return run(list[list.length - 1], list, resolveVisibility(null), { business: "Fixture", social_media_manager: "Abby" }, true);
+        return run(list[list.length - 1], list, resolveVisibility(null), { business: "Fixture", social_media_manager: "Abby" }, false);
       }
       const sampleId = params.get("sample");
       const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abby" };
