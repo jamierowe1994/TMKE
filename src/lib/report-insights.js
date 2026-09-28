@@ -58,7 +58,7 @@ const sec = (label, first) => `<div class="ri-sec"${first ? ' style="margin-top:
 // Everything past the first `keep` rows goes behind a "Show all" toggle.
 function withMore(rows, keep, label, wrap) {
   const top = rows.slice(0, keep).join(""), rest = rows.slice(keep).join("");
-  return wrap(top) + (rest ? `<details class="ri-more"><summary>${esc(label || `Show the other ${rows.length - keep}`)}</summary>${wrap(rest)}</details>` : "");
+  return wrap(top) + (rest ? `<details class="ri-more"><summary>${esc(label || "Show all")}</summary>${wrap(rest)}</details>` : "");
 }
 // A small two-part split, e.g. followers vs non-followers.
 function split(title, a, b, note) {
@@ -170,7 +170,7 @@ function dailyChart(title, rows, series, r) {
     series.forEach((s, i) => { const v = nv(t[s.key]); if (v) { byDay[+dt[3] - 1][i] += v; any = true; } });
   }
   if (!any) return "";
-  const W = 620, H = 150, L = 34, B = 20, T = 8, stacked = series.length > 2;
+  const W = 960, H = 240, L = 40, B = 22, T = 10, stacked = series.length > 2;
   const max = Math.max(1, ...byDay.map((v) => (stacked ? v.reduce((a, b) => a + b, 0) : Math.max(...v))));
   const step = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / step) * step;
   const X = (i) => L + (i + 0.5) * (W - L) / days, Y = (v) => H - B - v / top * (H - B - T), bw = Math.max(3, (W - L) / days * 0.62);
@@ -179,11 +179,11 @@ function dailyChart(title, rows, series, r) {
     if (stacked) { let acc = 0; v.forEach((val, k) => { if (!val) return; bars += `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${Y(acc + val).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(acc) - Y(acc + val)).toFixed(1)}" fill="${series[k].col}"/>`; acc += val; }); }
     else v.forEach((val, k) => { if (!val) return; const w = bw / series.length; bars += `<rect x="${(X(i) - bw / 2 + k * w).toFixed(1)}" y="${Y(val).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(val)).toFixed(1)}" fill="${series[k].col}"/>`; });
   });
-  const ticks = [0, top / 2, top].map((v) => `<line x1="${L}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e5e1e2"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="#8a8796">${Math.round(v).toLocaleString("en-GB")}</text>`).join("");
-  const xl = [1, 8, 15, 22, days].map((dd) => `<text x="${X(dd - 1)}" y="${H - 5}" text-anchor="middle" font-size="9" fill="#8a8796">${dd} ${MONTHS[m].slice(0, 3)}</text>`).join("");
+  const ticks = [0, top / 2, top].map((v) => `<line x1="${L}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e5e1e2"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end" font-size="11" fill="#8a8796">${Math.round(v).toLocaleString("en-GB")}</text>`).join("");
+  const xl = [1, 8, 15, 22, days].map((dd) => `<text x="${X(dd - 1)}" y="${H - 5}" text-anchor="middle" font-size="11" fill="#8a8796">${dd} ${MONTHS[m].slice(0, 3)}</text>`).join("");
   const totals = series.map((s, i) => byDay.reduce((a, v) => a + v[i], 0));
   const legend = series.map((s, i) => `<span><i style="background:${s.col}"></i>${esc(s.label)} (${totals[i].toLocaleString("en-GB")})</span>`).join("");
-  return `<div class="ri-panel"><div class="ri-split-h">${esc(title)}</div><svg viewBox="0 0 ${W} ${H}" class="ri-chart" role="img" aria-label="${esc(title)}">${ticks}${bars}${xl}</svg><div class="ri-legend">${legend}</div></div>`;
+  return { title, html: `<div class="ri-panel"><div class="ri-split-h">${esc(title)} by day</div><svg viewBox="0 0 ${W} ${H}" class="ri-chart" role="img" aria-label="${esc(title)} by day">${ticks}${bars}${xl}</svg><div class="ri-legend">${legend}</div></div>` };
 }
 
 export function renderContent(d, vis, opts, r) {
@@ -193,16 +193,21 @@ export function renderContent(d, vis, opts, r) {
   if (show("topContent") && ranked.length) {
     const row = (t, i) => {
       const reel = /reel/i.test(t.type || "");
-      const title = t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">${esc(t.title || "Open on Instagram")}<span aria-hidden="true"> ↗</span></a>` : esc(t.title);
+      const title = t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer"><span class="ri-ttl-t">${esc(t.title || "Open on Instagram")}</span><span class="ri-ttl-go" aria-hidden="true">↗</span></a>` : `<span class="ri-ttl-t">${esc(t.title)}</span>`;
       return `<tr><td class="ri-rank">${i + 1}</td>
         <td class="ri-thumbcell">${t.thumb ? `<img src="${esc(t.thumb)}" alt="" class="ri-thumb" loading="lazy">` : `<span class="ri-thumb ri-thumb--none"></span>`}</td>
-        <td class="ri-ttl">${title}${t.date ? `<span>${esc(new Date(t.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))}</span>` : ""}</td>
-        <td><span class="ri-type ri-type--${reel ? "reel" : "post"}">${reel ? "Reel" : esc(t.type || "Post")}</span></td>
-        <td class="ri-n">${nf(t.reach)}</td><td class="ri-n">${reel ? nf(t.views) : "–"}</td><td class="ri-n">${nf(t.interactions)}</td></tr>`;
+        <td class="ri-ttl">${title}${t.date ? `<span class="ri-ttl-d">${esc(new Date(t.date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" }))}</span>` : ""}</td>
+        <td class="ri-c"><span class="ri-type ri-type--${reel ? "reel" : "post"}">${reel ? "Reel" : esc(t.type || "Post")}</span></td>
+        <td class="ri-c">${nf(t.reach)}</td><td class="ri-c">${reel ? nf(t.views) : "–"}</td><td class="ri-c">${nf(t.interactions)}</td></tr>`;
     };
     const rows = ranked.map(row);
-    const wrap = (inner) => `<div class="ri-panel ri-tblwrap"><table class="ri-tbl"><thead><tr><th></th><th></th><th>Content</th><th>Type</th><th class="ri-n">Reach</th><th class="ri-n">Views</th><th class="ri-n">Interactions</th></tr></thead><tbody>${inner}</tbody></table></div>`;
-    out.push(sec("Top performing content · ranked by reach", !out.length) + withMore(rows, 6, `Show the other ${rows.length - 6}`, wrap));
+    // Fixed columns, the four figures an equal width and centred, so the
+    // top six and the rest (a second table, behind "Show all") line up.
+    const cols = `<colgroup><col style="width:34px"><col style="width:60px"><col><col class="ri-eq"><col class="ri-eq"><col class="ri-eq"><col class="ri-eq"></colgroup>`;
+    const wrap = (inner, head = true) => `<table class="ri-tbl ri-tbl--fixed">${cols}${head ? `<thead><tr><th></th><th></th><th>Content</th><th class="ri-c">Type</th><th class="ri-c">Reach</th><th class="ri-c">Views</th><th class="ri-c">Interactions</th></tr></thead>` : ""}<tbody>${inner}</tbody></table>`;
+    const top6 = rows.slice(0, 6).join(""), rest = rows.slice(6).join("");
+    out.push(sec("Top performing content · ranked by reach", !out.length)
+      + `<div class="ri-panel ri-tblwrap">${wrap(top6)}${rest ? `<details class="ri-more"><summary>Show all</summary>${wrap(rest, false)}</details>` : ""}</div>`);
   }
   if (show("contentTrends")) {
     const rows = contentRows(d);
@@ -211,12 +216,16 @@ export function renderContent(d, vis, opts, r) {
     const IN = [{ key: "likes", label: "Likes", col: "#371e28" }, { key: "comments", label: "Comments", col: "#b9826a" }, { key: "saves", label: "Saves", col: "#5b7a9a" }, { key: "shares", label: "Shares", col: "#c9c3c6" }];
     const charts = [
       // SocialPilot's post table has no per-post views, so posts chart reach only.
-      dailyChart("Posts · reach by day", posts, [{ key: "reach", label: "Reach", col: "#3f5a75" }], r),
-      dailyChart("Posts · interactions by day", posts, IN, r),
-      dailyChart("Reels · reach and views by day", reels, RV(true), r),
-      dailyChart("Reels · interactions by day", reels, IN, r),
+      dailyChart("Post reach", posts, [{ key: "reach", label: "Reach", col: "#3f5a75" }], r),
+      dailyChart("Post interactions", posts, IN, r),
+      dailyChart("Reel reach and views", reels, RV(true), r),
+      dailyChart("Reel interactions", reels, IN, r),
     ].filter(Boolean);
-    if (charts.length) out.push(sec("Day by day", !out.length) + grid(2, charts.join("")));
+    // One chart at a time, full width, chosen from a row of pills (wired by
+    // the admin page: [data-ri-pill] shows the [data-ri-pane] with its index).
+    if (charts.length) out.push(sec("Day by day", !out.length)
+      + `<div class="ri-pills" role="tablist">${charts.map((c, i) => `<button type="button" class="ri-pill${i ? "" : " is-active"}" role="tab" aria-selected="${i ? "false" : "true"}" data-ri-pill="${i}">${esc(c.title)}</button>`).join("")}</div>`
+      + charts.map((c, i) => `<div data-ri-pane="${i}"${i ? " hidden" : ""}>${c.html}</div>`).join(""));
   }
   // Hashtags: the five best-reaching shown, the rest behind a toggle, posts
   // and reels apart as SocialPilot keeps them.
@@ -227,10 +236,22 @@ export function renderContent(d, vis, opts, r) {
       const list = hts.filter((h) => !f || (h.format || "Post") === f);
       if (!list.length) return "";
       const rows = list.map((h) => `<tr><td>${esc(String(h.name || "").startsWith("#") ? h.name : "#" + h.name)}</td><td class="ri-n">${nf(h.count)}</td><td class="ri-n">${nf(h.reach)}</td><td class="ri-n">${nf(h.interactions)}</td></tr>`);
-      const wrap = (inner) => `<table class="ri-tbl"><thead><tr><th>Hashtag</th><th class="ri-n">Used</th><th class="ri-n">Avg reach</th><th class="ri-n">Avg interactions</th></tr></thead><tbody>${inner}</tbody></table>`;
-      return `<div class="ri-panel ri-tblwrap" style="margin:0;"><div class="ri-card-h">${esc(lbl)}</div>${withMore(rows, 5, `Show all ${rows.length}`, wrap)}</div>`;
+      const wrap = (inner) => `<table class="ri-tbl"><thead><tr><th>Hashtag</th><th class="ri-n">Used</th><th class="ri-n">Avg reach</th><th class="ri-n" title="Average interactions">Avg int.</th></tr></thead><tbody>${inner}</tbody></table>`;
+      return `<div class="ri-panel ri-tblwrap" style="margin:0;"><div class="ri-card-h">${esc(lbl)}</div>${withMore(rows, 5, "Show all", wrap)}</div>`;
     }).filter(Boolean);
-    if (panels.length) out.push(sec("Hashtag performance", !out.length) + grid(panels.length, panels.join("")));
+    // The five that did most, posts and reels together: each tag's reach
+    // across every use (uses × its average), so a tag used once on a lucky
+    // post doesn't outrank one that carried several.
+    const merged = new Map();
+    for (const h of hts) {
+      const name = String(h.name || "").replace(/^#/, ""); if (!name) continue;
+      const k = name.toLowerCase(), c = nv(h.count) || 1, m = merged.get(k) || { name, uses: 0, reach: 0, inter: 0 };
+      m.uses += c; m.reach += c * (nv(h.reach) || 0); m.inter += c * (nv(h.interactions) || 0);
+      merged.set(k, m);
+    }
+    const best = [...merged.values()].sort((a, b) => b.reach - a.reach).slice(0, 5);
+    const snap = best.length ? `<p class="ri-note" style="margin:0 0 8px;">Top five across posts and reels · average reach · times used</p><div class="ri-tags">${best.map((m, i) => `<span class="ri-tag"><b>${i + 1}</b>#${esc(m.name)}<em title="Average reach · times used">${nf(Math.round(m.reach / m.uses))} · ${m.uses}×</em></span>`).join("")}</div>` : "";
+    if (panels.length) out.push(sec("Hashtag performance", !out.length) + snap + grid(panels.length, panels.join("")));
   }
   return out.join("");
 }
@@ -241,7 +262,16 @@ export function renderAudience(d, vis) {
   const out = [];
   const dem = d.demographics || {}, p = d.profile || {};
 
-  // Age, split by gender — above everything else, as the first thing to know.
+  // When followers are online — first, as it's what we schedule by. Never
+  // shown to the client.
+  const pt = d.peakTimes || {}, slots = pt.slots || [], g = pt.grid || [];
+  if ((show("peakTimes") || show("postingWindows")) && (g.length || d.bestDays)) {
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], hc = ["#f4f2f1", "#d8d2d5", "#9a8f94", "#371e28"];
+    const hm = g.length && slots.length ? `<div class="ri-hm" style="--ri-slots:${slots.length}"><div></div>${slots.map((s) => `<div class="ri-hm-l">${esc(s)}</div>`).join("")}${g.map((row, i) => `<div class="ri-hm-l">${days[i]}</div>${row.map((v) => `<div class="ri-hm-c" style="background:${hc[Math.max(0, Math.min(3, v || 0))]}"></div>`).join("")}`).join("")}</div>` : "";
+    const w = [["Best days", d.bestDays], ["Morning", d.morningWindow], ["Evening", d.eveningWindow]].filter(([, v]) => v);
+    out.push(sec("When followers are online", !out.length) + `<div class="ri-panel">${d.timing ? `<p class="ri-note" style="margin:0 0 12px;">${esc(d.timing)}</p>` : ""}${hm}${w.length ? grid(w.length, w.map(([l, v]) => `<div class="ri-kpi ri-kpi--window"><div class="ri-kpi-label">${esc(l)}</div><div class="ri-kpi-val">${esc(v)}</div></div>`).join("")) : ""}</div>`);
+  }
+  // Age, split by gender — then gender, cities and countries.
   const age = (dem.age || []).filter((a) => a && a.range);
   if (show("age") && age.length) {
     const G = [["male", "Male", "#3f5a75"], ["female", "Female", "#371e28"], ["unspecified", "Unspecified", "#c9c3c6"]];
@@ -254,24 +284,16 @@ export function renderAudience(d, vis) {
   const genders = dem.gender || [], cities = dem.topCities || [];
   const gHtml = show("gender") && genders.length ? `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">Gender</div>${genders.map((g, i) => bar(g.label, nv(g.pct) || 0, 100, ["#371e28", "#8a8796", "#c9c3c6"][i % 3]).replace(/>(\d+)<\/div><\/div>$/, ">$1%</div></div>")).join("")}</div>` : "";
   const maxCity = Math.max(1, ...cities.map((c) => nv(c.count) || 0));
-  const cHtml = show("cities") && cities.length ? `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">Top cities</div>${withMore(cities.map((c) => bar(c.city, nv(c.count), maxCity, "#371e28")), 3, "Show all cities", (x) => x)}</div>` : "";
+  const cHtml = show("cities") && cities.length ? `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">Top cities</div>${withMore(cities.map((c) => bar(c.city, nv(c.count), maxCity, "#371e28")), 3, "Show all", (x) => x)}</div>` : "";
   if (gHtml || cHtml) out.push(sec("Gender and location", !out.length) + grid((gHtml ? 1 : 0) + (cHtml ? 1 : 0), gHtml + cHtml));
 
   const countries = dem.topCountries || [];
   if (show("countries") && countries.length) {
     const uk = nv(p.ukFollowers) ?? nv((countries.find((c) => /united kingdom|^uk$/i.test(c.country || "")) || {}).count);
     const maxC = Math.max(1, ...countries.map((c) => nv(c.count) || 0));
-    out.push(sec("Countries", !out.length) + `<div class="ri-panel">${uk != null && nv(p.followers) ? `<p class="ri-note" style="margin:0 0 12px;"><b>${nf(uk)}</b> of ${nf(p.followers)} followers are in the UK (${Math.round(uk / nv(p.followers) * 100)}%).</p>` : ""}${withMore(countries.map((c) => bar(c.country, nv(c.count), maxC, "#8a8796")), 3, "Show all countries", (x) => x)}</div>`);
+    out.push(sec("Countries", !out.length) + `<div class="ri-panel">${uk != null && nv(p.followers) ? `<p class="ri-note" style="margin:0 0 12px;"><b>${nf(uk)}</b> of ${nf(p.followers)} followers are in the UK (${Math.round(uk / nv(p.followers) * 100)}%).</p>` : ""}${withMore(countries.map((c) => bar(c.country, nv(c.count), maxC, "#8a8796")), 3, "Show all", (x) => x)}</div>`);
   }
 
-  // When followers are online — for scheduling, never for the client.
-  const pt = d.peakTimes || {}, slots = pt.slots || [], g = pt.grid || [];
-  if ((show("peakTimes") || show("postingWindows")) && (g.length || d.bestDays)) {
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], hc = ["#f4f2f1", "#d8d2d5", "#9a8f94", "#371e28"];
-    const hm = g.length && slots.length ? `<div class="ri-hm" style="--ri-slots:${slots.length}"><div></div>${slots.map((s) => `<div class="ri-hm-l">${esc(s)}</div>`).join("")}${g.map((row, i) => `<div class="ri-hm-l">${days[i]}</div>${row.map((v) => `<div class="ri-hm-c" style="background:${hc[Math.max(0, Math.min(3, v || 0))]}"></div>`).join("")}`).join("")}</div>` : "";
-    const w = [["Best days", d.bestDays], ["Morning", d.morningWindow], ["Evening", d.eveningWindow]].filter(([, v]) => v);
-    out.push(sec("When followers are online", !out.length) + `<div class="ri-panel">${d.timing ? `<p class="ri-note" style="margin:0 0 12px;">${esc(d.timing)}</p>` : ""}${hm}${w.length ? grid(w.length, w.map(([l, v]) => kpi(l, esc(v), "", "")).join("")) : ""}</div>`);
-  }
   return out.join("");
 }
 

@@ -532,9 +532,31 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-rank { width: 18px; color: #8a8796; font-weight: 700; }
     .ri-thumbcell { width: 44px; }
     .ri-thumb { display: block; width: 44px; height: 44px; object-fit: cover; border-radius: 4px; background: #f4f2f1; }
-    .ri-ttl a { color: var(--ink); font-weight: 600; text-decoration: none; }
-    .ri-ttl a:hover { color: var(--english-violet); text-decoration: underline; }
-    .ri-ttl span { display: block; font-size: 11px; color: #8a8796; margin-top: 2px; }
+    .ri-ttl a { display: inline-flex; align-items: baseline; gap: 6px; max-width: 100%; color: var(--ink); font-weight: 600; text-decoration: none; }
+    .ri-ttl-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .ri-ttl-go { flex: none; color: #8a8796; font-weight: 400; }
+    .ri-ttl a:hover .ri-ttl-t { color: var(--english-violet); text-decoration: underline; text-underline-offset: 3px; }
+    .ri-ttl a:hover .ri-ttl-go { color: var(--english-violet); }
+    .ri-ttl-d { display: block; font-size: 11px; color: #8a8796; margin-top: 3px; }
+    /* Top content: fixed columns, the four figures an equal width and centred. */
+    .ri-tbl--fixed { table-layout: fixed; min-width: 640px; }
+    .ri-tbl--fixed col.ri-eq { width: 13%; }
+    .ri-tbl .ri-c { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .ri-more > .ri-tbl { margin-top: 0; }
+    /* Day-by-day chart picker */
+    .ri-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .ri-pill { padding: 6px 14px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
+    .ri-pill:hover { border-color: var(--english-violet); color: var(--ink); }
+    .ri-pill.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    [data-ri-pane][hidden] { display: none; }
+    /* Top five hashtags, posts and reels together */
+    .ri-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .ri-tag { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 999px; background: #fff; border: 1px solid rgba(28,29,34,0.12); font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink); }
+    .ri-tag b { color: #8a8796; font-size: 11px; }
+    .ri-tag em { font-style: normal; font-weight: 400; font-size: 11px; color: #8a8796; }
+    /* Best days / posting windows: a touch smaller than a figure, centred top to bottom. */
+    .ri-kpi--window { display: flex; flex-direction: column; justify-content: center; }
+    .ri-kpi--window .ri-kpi-val { font-size: 16px; line-height: 1.3; }
     .ri-type { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; padding: 3px 8px; border-radius: 999px; }
     .ri-type--reel { background: #efedf0; color: #371e28; }
     .ri-type--post { background: #eef1f4; color: #3f5a75; }
@@ -1982,6 +2004,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
       panel.querySelectorAll("[data-rmonth]").forEach((b) => b.addEventListener("click", () => { riReportId = b.getAttribute("data-rmonth"); renderInsights(r); }));
       panel.querySelectorAll("[data-rtab]").forEach((b) => b.addEventListener("click", () => { riTab = b.getAttribute("data-rtab"); renderInsights(r); }));
+      // Day-by-day charts: one at a time, picked from the pills.
+      panel.querySelectorAll("[data-ri-pill]").forEach((b) => b.addEventListener("click", () => {
+        const i = b.getAttribute("data-ri-pill");
+        panel.querySelectorAll("[data-ri-pill]").forEach((x) => { const on = x === b; x.classList.toggle("is-active", on); x.setAttribute("aria-selected", on ? "true" : "false"); });
+        panel.querySelectorAll("[data-ri-pane]").forEach((x) => { x.hidden = x.getAttribute("data-ri-pane") !== i; });
+      }));
       if (isAi) wireAiChat(r);
     }
     function renderAiChat(r) {
