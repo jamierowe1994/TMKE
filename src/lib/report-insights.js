@@ -267,7 +267,8 @@ export function renderAudience(d, vis) {
   const pt = d.peakTimes || {}, slots = pt.slots || [], g = pt.grid || [];
   if ((show("peakTimes") || show("postingWindows")) && (g.length || d.bestDays)) {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], hc = ["#f4f2f1", "#d8d2d5", "#9a8f94", "#371e28"];
-    const hm = g.length && slots.length ? `<div class="ri-hm" style="--ri-slots:${slots.length}"><div></div>${slots.map((s) => `<div class="ri-hm-l">${esc(s)}</div>`).join("")}${g.map((row, i) => `<div class="ri-hm-l">${days[i]}</div>${row.map((v) => `<div class="ri-hm-c" style="background:${hc[Math.max(0, Math.min(3, v || 0))]}"></div>`).join("")}`).join("")}</div>` : "";
+    const hm = g.length && slots.length ? `<div class="ri-hm" style="--ri-slots:${slots.length}"><div></div>${slots.map((s) => `<div class="ri-hm-l">${esc(s)}</div>`).join("")}${g.map((row, i) => `<div class="ri-hm-l">${days[i]}</div>${row.map((v) => `<div class="ri-hm-c" style="background:${hc[Math.max(0, Math.min(3, v || 0))]}"></div>`).join("")}`).join("")}</div>`
+      + `<div class="ri-legend" style="margin:0 0 14px;">${["Low", "Moderate", "Good", "Peak"].map((l, i) => `<span><i style="background:${hc[i]};${i ? "" : "box-shadow:inset 0 0 0 1px #d8d2d5;"}"></i>${l}</span>`).join("")}<span style="margin-left:auto;">Share of followers online</span></div>` : "";
     const w = [["Best days", d.bestDays], ["Morning", d.morningWindow], ["Evening", d.eveningWindow]].filter(([, v]) => v);
     out.push(sec("When followers are online", !out.length) + `<div class="ri-panel">${d.timing ? `<p class="ri-note" style="margin:0 0 12px;">${esc(d.timing)}</p>` : ""}${hm}${w.length ? grid(w.length, w.map(([l, v]) => `<div class="ri-kpi ri-kpi--window"><div class="ri-kpi-label">${esc(l)}</div><div class="ri-kpi-val">${esc(v)}</div></div>`).join("")) : ""}</div>`);
   }
