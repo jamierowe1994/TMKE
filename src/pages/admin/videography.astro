@@ -1040,6 +1040,12 @@ import "../../styles/admin.css";
     .vid-col-count { font-size: 11.5px; font-weight: 700; color: rgba(28,29,34,0.38); }
     .vid-col-list { display: flex; flex-direction: column; gap: 10px; min-height: 120px; padding: 4px; border-radius: 12px; transition: background 0.15s, box-shadow 0.15s; }
     .vid-col.is-drop .vid-col-list { background: rgba(var(--violet-rgb), 0.07); box-shadow: inset 0 0 0 2px rgba(var(--violet-rgb), 0.35); }
+    /* The worklist is not a stage, so it reads as a list rather than a lane:
+       no drop target, and nothing to drag into it. */
+    .vid-col--worklist .vid-col-head { color: #a05a3c; }
+    .vid-col--worklist .vid-col-count { background: rgba(160,90,60,0.14); color: #a05a3c; }
+    .vid-col-list.is-worklist:empty::after { content: "Everything is billed"; color: rgba(28,29,34,0.3); }
+    .vid-col-list.is-worklist .vid-card { cursor: pointer; }
     /* One row per stage, a wine hairline between rows (skip before the first). */
     .vid-row { min-width: 0; padding-top: 18px; border-top: 1px solid var(--accent-light, #c9bcb7); }
     .vid-row:first-child { padding-top: 0; border-top: 0; }
@@ -1359,8 +1365,14 @@ import "../../styles/admin.css";
        Payment is not a stage - it arrives at different points depending on the
        route - so it stays a flag on the booking. See
        supabase/videography_stages_v2.sql. */
+    /* A worklist, not a stage. A booking sits in exactly one stage, but "we
+       have not billed this" cuts across all of them — and the shoot you forgot
+       to invoice is rarely still sitting in Booked. It is usually edited,
+       delivered, and quietly unpaid. So a card can appear twice: once where it
+       actually is, once here until somebody bills it. */
     const STAGES = [
       { key: "booked",        label: "Booked" },
+      { key: "awaiting_invoice", label: "Awaiting invoice", worklist: true },
       { key: "invoiced",      label: "Invoiced" },
       { key: "shoot_day",     label: "Shoot day" },
       { key: "editing",       label: "Editing" },
@@ -1392,6 +1404,10 @@ import "../../styles/admin.css";
     };
 
     let bookings = [];
+    /* booking_id → true when an invoice for it has actually gone out. A draft
+       is not billed; it is a shoot somebody started billing and did not
+       finish, which is exactly what the worklist is for. */
+    let INVOICED = new Map();
     let vidSettings = { base_postcode: "NN14 1AA", free_radius_miles: 40, surcharge_pence_per_mile: 55, vat_rate: 0.20 };
     let baseCoords = null;
 
@@ -1480,16 +1496,14 @@ import "../../styles/admin.css";
       board.hidden = false;
 
       board.innerHTML = STAGES.map((s) => {
-        const cards = bookings
-          .filter((b) => b.stage === s.key)
-          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        const cards = cardsForStage(s, bookings);
         return `
-          <div class="vid-col" data-stage="${s.key}">
+          <div class="vid-col${s.worklist ? " vid-col--worklist" : ""}" data-stage="${s.key}">
             <div class="vid-col-head">
               <span>${s.label}</span>
               <span class="vid-col-count">${cards.length}</span>
             </div>
-            <div class="vid-col-list" data-stage="${s.key}">
+            <div class="vid-col-list${s.worklist ? " is-worklist" : ""}" ${s.worklist ? "" : `data-stage="${s.key}"`}>
               ${cards.map(cardHtml).join("")}
             </div>
           </div>`;
@@ -1500,11 +1514,32 @@ import "../../styles/admin.css";
         el.addEventListener("dragend", onDragEnd);
         el.addEventListener("click", () => openModal(el.getAttribute("data-id")));
       });
-      board.querySelectorAll(".vid-col-list").forEach((col) => {
+      // The worklist has no data-stage, so nothing can be dropped into it:
+      // dragging a card there would mean "mark this as un-invoiced", which is
+      // not a thing.
+      board.querySelectorAll(".vid-col-list[data-stage]").forEach((col) => {
         col.addEventListener("dragover", onDragOver);
         col.addEventListener("dragleave", onDragLeave);
         col.addEventListener("drop", onDrop);
       });
+    }
+
+    /* Which bookings belong in a column. Every stage but one is simply the
+       cards at that stage; the worklist is everything still to bill. */
+    function cardsForStage(s, bookings) {
+      const list = s.worklist
+        ? bookings.filter(needsInvoice)
+        : bookings.filter((b) => b.stage === s.key);
+      return list.slice().sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    }
+
+    /* Still to bill: not covered by a social media package — those are never
+       invoiced separately — and nothing raised for it that actually went out.
+       A draft does not count; a draft is a shoot still waiting to be billed. */
+    function needsInvoice(b) {
+      if (!b || isSmmCovered(b)) return false;
+      const sent = INVOICED.get(b.id);
+      return !sent;
     }
 
     function cardHtml(b) {
@@ -3097,6 +3132,16 @@ import "../../styles/admin.css";
     async function editInvoice(b, id) {
       const { data, error } = await supabase.from("invoices").select("*").eq("id", id).maybeSingle();
       if (error || !data) { vivStatus("Couldn't load that invoice.", true); return; }
+      /* Open the builder FIRST. Past invoicing it folds away behind "Raise
+         another invoice", so every field below was being set on an element
+         that was not on the page -- each one guarded with `if (el)`, so it
+         failed in complete silence and all you got was the status line saying
+         you were editing something you could not see. */
+      if (!document.getElementById("viv-name")) {
+        vivForceOpen = true;
+        renderInvoiceCard(b);
+        await new Promise((r) => requestAnimationFrame(r));
+      }
       const set = (elId, v) => { const el = document.getElementById(elId); if (el) el.value = v ?? ""; };
       set("viv-name", data.bill_to_name);
       set("viv-email", data.bill_to_email);
@@ -4915,12 +4960,17 @@ import "../../styles/admin.css";
       // call is slow or fails, the tables would just stay blank with no error.
       renderRateCard();
 
-      const [bRes, aRes] = await Promise.all([
+      const [bRes, aRes, iRes] = await Promise.all([
         supabase.from("videography_bookings").select("*").order("created_at", { ascending: false }),
         supabase.from("videography_availability").select("*"),
+        supabase.from("invoices").select("booking_id, status"),
       ]);
 
       bookings = bRes.error ? [] : (bRes.data || []);
+      INVOICED = new Map();
+      (iRes.error ? [] : (iRes.data || [])).forEach((iv) => {
+        if (iv.booking_id && (iv.status === "sent" || iv.status === "paid")) INVOICED.set(iv.booking_id, true);
+      });
       availability = aRes.error ? [] : (aRes.data || []);
 
       if (bRes.error) {
