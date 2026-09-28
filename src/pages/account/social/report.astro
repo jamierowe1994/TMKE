@@ -124,7 +124,10 @@ import "../../../styles/ws-system.css";
 
     /* A small card inside a slide. */
     .rp-mini { border: 1px solid var(--ws-line); border-radius: var(--ws-r, 4px); padding: 1.15em 1.3em; background: #fff; min-width: 0; }
-    .rp-mini-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.07em; font-weight: 700; color: var(--ws-ink); margin: 0 0 0.45em; }
+    .rp-mini-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.07em; font-weight: 700; color: var(--english-violet, #4a2a3c); margin: 0 0 0.45em; }
+    /* What did best's card titles in wine: that slide has no other colour
+       and they were getting lost. */
+    .rp-best .rp-label { color: var(--english-violet, #4a2a3c); }
     .rp-mini-p { font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); margin: 0; }
     .rp-cards { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 1em; }
     @media (max-width: 900px) { .rp-cards { grid-template-columns: 1fr; } }
@@ -205,10 +208,10 @@ import "../../../styles/ws-system.css";
     .rp-takes .rp-mini-p { font-size: 1em; }
     .rp-coming { margin-top: 1em; }
     /* Questions, at the foot of the slide. Later: next month's content plan. */
-    .rp-cta { margin-top: auto; display: flex; align-items: center; gap: 1.6em; padding: 1.3em 1.5em; border-radius: var(--ws-r, 4px); background: var(--english-violet, #4a2a3c); color: #fff; }
+    .rp-cta { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 1.6em; padding: 1.3em 1.5em; border-radius: var(--ws-r, 4px); background: var(--english-violet, #4a2a3c); color: #fff; }
     .rp-takes, .rp-coming { margin-bottom: 1em; }
     .rp-cta-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.2em; font-weight: 700; margin: 0 0 0.2em; color: #fff; }
-    .rp-cta-p { margin: 0; font-size: 0.93em; color: rgba(255,255,255,0.8); }
+    .rp-cta-p { margin: 0; font-size: 0.93em; line-height: 1.5; color: rgba(255,255,255,0.8); max-width: 64ch; }
     .rp-cta .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); flex: none; }
     .rp-cta .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
     .rp-coming ol { margin: 0; padding-left: 1.3em; font-size: 0.93em; line-height: 1.8; color: var(--ws-tx); columns: 2; column-gap: 2.5em; }
@@ -397,7 +400,7 @@ import "../../../styles/ws-system.css";
           (takes.length ? `<div class="rp-cards rp-takes" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
           + (coming.length ? `<div class="rp-mini rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")
           // Later this becomes "See next month's content plan".
-          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])} can talk you through any of this.` : "Your social team can talk you through any of this."}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your team"}</a></div>`)) });
+          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any of it: this month&rsquo;s insights and our plan for the month ahead.` : "Your account manager can talk you through any of it: this month&rsquo;s insights and our plan for the month ahead."}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
       }
       return parts;
     }
