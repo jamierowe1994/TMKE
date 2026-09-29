@@ -77,11 +77,10 @@ import "../../../styles/ws-system.css";
       /* Side by side on a phone: labels in a row line up at the top, and the
          figures are sized to fit half the screen. */
       .rp-figs.rp-grow .rp-fig { justify-content: flex-start; padding: 1.1em 0; }
-      .rp-figs.rp-grow .rp-fig-val { font-size: 2.2em; }
       .rp-reach { grid-template-columns: 1fr 1fr; }
       .rp-reach-why { grid-column: 1 / -1; }
       .rp-chips { gap: 0.6em; }
-      .rp-chip b { font-size: 1.45em; }
+      .rp-chip b { font-size: 1.4em; }
       /* Top five on a phone: picture, title, and the figures as one line
          under it, rather than a table to swipe across. */
       .rp-topcard .rp-tblwrap { overflow: visible; }
@@ -113,9 +112,13 @@ import "../../../styles/ws-system.css";
     .rp-stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
     .rp-stage > .rp-slide { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
     .rp-stage > .rp-done { display: flex; flex-direction: column; justify-content: center; }
+    /* A phone gets the same: one full-height card that scrolls inside
+       itself, with Previous and Next staying put underneath (Danielle,
+       Sep 2026). The page never scrolls, so it can't bounce back to the top
+       under a finger. */
     @media (max-width: 720px) {
-      .rp:not([hidden]) { height: auto; min-height: 0; }
-      .rp-stage > .rp-slide { overflow: visible; }
+      .rp:not([hidden]) { min-height: 0; }
+      .rp-stage > .rp-slide { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
     }
     .rp-slide { animation: rpIn .42s cubic-bezier(.2,.7,.3,1); }
     @keyframes rpIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -319,6 +322,28 @@ import "../../../styles/ws-system.css";
     .rp-cover-start { gap: 0.6em; }
     .rp-cover-card .rp-dl { background: transparent; color: #fff; border-color: rgba(255,255,255,0.45); }
     .rp-cover-card .rp-dl:hover { border-color: #fff; }
+    /* Phone, after everything it overrides. */
+    @media (max-width: 720px) {
+      /* Cover: the card sits at the foot, so more of the photo shows. */
+      .rp-cover { align-items: flex-end; padding: 0.9em; }
+      .rp-cover-card { padding: 1.5em 1.4em; }
+      .rp-cover-title { font-size: 2.3em; }
+      /* Buttons: the pair share the row equally, words centred, one line. */
+      .rp-cover-start .ws-btn, .rp-nav .ws-btn { flex: 1 1 0; justify-content: center; white-space: nowrap; }
+      .rp-nav .ws-btn.rp-hide { visibility: hidden; }
+      /* Numbers: smaller figures, and a change line kept to two lines'
+         room so the explanations in a row start level. */
+      .rp-figs.rp-grow .rp-fig-val { font-size: 1.85em; }
+      .rp-fig-move { min-height: 2.6em; line-height: 1.3; }
+      /* What it means: the four boxes start at the top and their labels
+         keep two lines' room, so the figures line up across a row. */
+      .rp-chip { display: grid; grid-row: span 3; grid-template-rows: subgrid; row-gap: 0.3em; align-content: start; padding: 0.9em 1em; }
+      .rp-chip-l { align-self: end; font-size: 0.66em; letter-spacing: 0.08em; line-height: 1.25; }
+      .rp-chip-c { font-size: 0.76em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .rp-insight-h, .rp-takes .rp-mini-h { font-size: 1.28em; line-height: 1.25; }
+      /* Any questions: one box, stacked, the button bottom left. */
+      .rp-cta { flex-direction: column; align-items: flex-start; gap: 1em; }
+    }
   </style>
 
   <script>
@@ -326,7 +351,7 @@ import "../../../styles/ws-system.css";
     import { MONTHS } from "../../../lib/report-insights.js";
     import { resolveVisibility } from "../../../lib/report-fields.js";
     import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
-    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves } from "../../../lib/report-metrics.js";
+    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, pct2 } from "../../../lib/report-metrics.js";
     import { downloadReportPdf } from "../../../lib/report-pdf.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -383,7 +408,7 @@ import "../../../styles/ws-system.css";
       // SocialPilot gives no change for these two, so they're worked out
       // against last calendar month's report, when there is one.
       const lm = numbersMoves(d, lastMonthOf(r, all)?.data);
-      fig("interactionRate", "Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null,
+      fig("interactionRate", "Interaction rate", n(p.interactionRate) != null ? pct2(n(p.interactionRate)) + "%" : null,
         "Of everyone the account reached, the share who interacted.", lm.interactionRate);
       // How much we put out. Stories aren't in it: SocialPilot only reports
       // them for the last 24 hours, never the month.

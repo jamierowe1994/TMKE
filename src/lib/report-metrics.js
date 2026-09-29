@@ -11,6 +11,8 @@ export const DEFAULT_HEADLINE = ["reach", "views", "interactions", "netFollowers
 const n = (v) => { if (v == null || v === "") return null; const x = Number(String(v).replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : null; };
 const fmt = (v) => Number(v).toLocaleString("en-GB");
 const one = (x) => (Math.abs(x) < 10 ? Math.round(x * 10) / 10 : Math.round(x));
+// Percentages show two decimal places at most.
+export const pct2 = (x) => Math.round(x * 100) / 100;
 
 /**
  * @param ctx { d: this month's data, prev: last month's data or null, month: "September", pm: "August" or null }
@@ -34,20 +36,20 @@ export const HEADLINE_METRICS = {
       return { label: "Followers", value: fmt(c), sub: x ? `${fmt(x)} new in ${month}` : "Total followers", dir: x > 0 ? 1 : 0 };
     } },
   newFollowers: { label: "New followers", about: "people who followed during the month (not net of anyone who unfollowed)",
-    get: ({ d, month }) => { const x = n(d.profile?.newFollowers); return x == null ? null : { label: "New followers", value: `+${fmt(x)}`, sub: `Followed you in ${month}`, dir: x > 0 ? 1 : 0 }; } },
+    get: ({ d, month }) => { const x = n(d.profile?.newFollowers); return x == null ? null : { label: "New followers", value: `+${fmt(x)}`, sub: "Followed you", dir: x > 0 ? 1 : 0 }; } },
   interactionRate: { label: "Interaction rate", about: "interactions as a share of profile reach",
     get: ({ d, prev, pm }) => {
       const c = n(d.profile?.interactionRate); if (c == null) return null;
       const o = n(prev?.profile?.interactionRate);
       const x = o == null ? null : c - o;
-      return { label: "Interaction rate", value: `${c}%`, sub: x == null ? "Of the people reached" : x ? `${x > 0 ? "Up" : "Down"} ${one(Math.abs(x))} points on ${pm}` : `Same as ${pm}`, dir: x == null ? 0 : Math.sign(x) };
+      return { label: "Interaction rate", value: `${pct2(c)}%`, sub: x == null ? "Of the people reached" : x ? `${x > 0 ? "Up" : "Down"} ${one(Math.abs(x))} points on ${pm}` : `Same as ${pm}`, dir: x == null ? 0 : Math.sign(x) };
     } },
   reelRate: { label: "Reel interaction rate", about: "reels' interaction rate, beside posts' for comparison",
     get: ({ d }) => { const r = n(d.reels?.interactionRate); if (r == null) return null; const p = n(d.posts?.interactionRate);
-      return { label: "Reel interaction rate", value: `${r}%`, sub: p != null ? `Posts: ${p}%` : "On your reels", dir: p != null ? Math.sign(r - p) : 0 }; } },
+      return { label: "Reel interaction rate", value: `${pct2(r)}%`, sub: p != null ? `Posts: ${pct2(p)}%` : "On your reels", dir: p != null ? Math.sign(r - p) : 0 }; } },
   postRate: { label: "Post interaction rate", about: "feed posts' interaction rate, beside reels' for comparison",
     get: ({ d }) => { const p = n(d.posts?.interactionRate); if (p == null) return null; const r = n(d.reels?.interactionRate);
-      return { label: "Post interaction rate", value: `${p}%`, sub: r != null ? `Reels: ${r}%` : "On your posts", dir: r != null ? Math.sign(p - r) : 0 }; } },
+      return { label: "Post interaction rate", value: `${pct2(p)}%`, sub: r != null ? `Reels: ${pct2(r)}%` : "On your posts", dir: r != null ? Math.sign(p - r) : 0 }; } },
   nonFollowerShare: { label: "Non-follower reach", about: "share of content reach that was people who don't follow them (content reach, never profile reach)",
     get: ({ d }) => { const nf = n(d.reach?.nonFollower), f = n(d.reach?.follower); if (nf == null || f == null || nf + f <= 0) return null;
       return { label: "Non-follower reach", value: `${Math.round(nf / (nf + f) * 100)}%`, sub: "Of your content's reach", dir: 0 }; } },

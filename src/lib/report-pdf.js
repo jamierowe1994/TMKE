@@ -107,7 +107,7 @@ const CSS = `
 .rpx-chip span { display: block; font-size: 19px; font-weight: 800; color: #371e28; margin: 8px 0 0; }
 .rpx-ins { flex: 1; display: grid; grid-auto-rows: 1fr; gap: 36px 56px; margin-top: 44px; }
 .rpx-in { border-top: 3px solid #371e28; padding-top: 22px; }
-.rpx-in .rpx-label { color: #371e28; font-weight: 600; }
+.rpx-in .rpx-label { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; color: #371e28; margin: 0 0 12px; }
 .rpx-in .rpx-label em { font-style: normal; color: #6e6268; margin-left: 12px; }
 .rpx-in h3 { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 31px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #1c1d22; margin: 0 0 12px; }
 .rpx-in p { font-size: 21px; line-height: 1.55; color: #3b3a40; margin: 0; }
@@ -160,7 +160,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   if (vis.views !== false) fig("Views", n(p.views) != null ? fmt(n(p.views)) : null, mv(p.viewsChange), "Times your posts and videos were seen, repeats included.");
   if (vis.interactions !== false) fig("Interactions", n(p.interactions) != null ? fmt(n(p.interactions)) : null, mv(p.interactionsChange), "Likes, comments, saves and shares, all added together.");
   const lm = numbersMoves(d, lastMonthOf(r, all)?.data);
-  if (vis.interactionRate !== false) fig("Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null, lm.interactionRate, "Of everyone the account reached, the share who interacted.");
+  if (vis.interactionRate !== false) fig("Interaction rate", n(p.interactionRate) != null ? Math.round(n(p.interactionRate) * 10) / 10 + "%" : null, lm.interactionRate, "Of everyone the account reached, the share who interacted.");
   const np = n(d.posts?.published), nr = n(d.reels?.published);
   if (vis.published !== false && (np != null || nr != null)) fig("Total published", fmt((np || 0) + (nr || 0)), lm.published, [np ? `${np} image and carousel post${np === 1 ? "" : "s"}` : "", nr ? `${nr} short-form video${nr === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ") + ".");
   const lastDay = new Date(r.year, r.month + 1, 0).getDate();
@@ -217,7 +217,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
   const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(c.label)}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
-  const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p>${i.evidence.length ? `<p class="ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}</div>`).join("")}</div>`
+  const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p></div>`).join("")}</div>`
     : (has(cl.summary || d.summary) ? `<div class="rpx-ins"><p class="rpx-lede" style="margin:0;white-space:pre-line">${esc(cl.summary || d.summary)}</p></div>` : "");
   pages.push(page(5, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:40px">${side("04 · Insight", "What It Means", "")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
 
