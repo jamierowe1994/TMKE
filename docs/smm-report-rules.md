@@ -458,12 +458,17 @@ did what we tried work?
   `emerging` for an early signal, shown as "Early signal").
 - No narrative summary on this page.
 
-### Followers: two different figures
+### Followers: the total is a snapshot, not a month-end figure
 
-"New followers" is everyone who followed during the month. "Followers, overall change"
-is this month's total against last month's, so it also takes off anyone who unfollowed
-(September 2026: 39 new, overall +1). Both are true; they are always labelled as what
-they are and never set against each other.
+SocialPilot's "Total Followers" is marked Lifetime Data: it is the count on the day the
+report is run, not at the end of the month it covers. August 2026's PDF was run on
+28 September, so its 675 was a late-September figure, and September's 676 a day later:
+"+1" was one day's change, while Instagram showed a net gain of 18 over the past 30 days.
+
+So the follower total is never compared between months, on the page or by the drafting.
+Growth comes from "New followers", which is bound to the month (everyone who followed;
+not net of unfollows, so never called a net gain). To keep the totals meaningful, run
+each SocialPilot report as soon as the month ends.
 
 ### What the analysis is given
 

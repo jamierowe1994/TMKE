@@ -9302,7 +9302,7 @@ export default {
           "The attached PDF is a SocialPilot monthly Instagram report. Most figures are in its text; a few are only in charts - read those visually. " +
           "Extract ONE JSON object with this exact shape and reply with ONLY that JSON (no prose, no markdown fences):\n" +
           '{ "summary": string (FOR THE TEAM: 2-4 plain sentences on the month, weighing all the figures together - profile, posts and reels, audience - rather than one statistic; name what went well and what fell short, honestly and without spin), ' +
-          '"profile": { "followers": number (Total Followers), "newFollowers": number (from "New Followers (n)"), "reach": number (Total Reach), "reachChange": number (signed percent from previous period, negative when the arrow points down), "views": number (Total Views; "2.5K" becomes 2500), "viewsChange": number (signed percent), "interactions": number (Total Interactions), "interactionsChange": number (signed percent), "interactionRate": number (percent), "linkTaps": number (Profile Link Taps) }, ' +
+          '"profile": { "followers": number (Total Followers: a Lifetime Data snapshot on the day the report was run), "newFollowers": number (from "New Followers (n)"), "reach": number (Total Reach), "reachChange": number (signed percent from previous period, negative when the arrow points down), "views": number (Total Views; "2.5K" becomes 2500), "viewsChange": number (signed percent), "interactions": number (Total Interactions), "interactionsChange": number (signed percent), "interactionRate": number (percent), "linkTaps": number (Profile Link Taps) }, ' +
           '"reach": { "follower": number, "nonFollower": number } (the legend of the "Reach Insights" chart: "Follower (n)" and "Non Follower (n)"), ' +
           '"viewsSplit": { "follower": number, "nonFollower": number } (the legend of the "Views Insights" chart), ' +
           '"interactionsByFormat": { "feed": number, "reel": number, "story": number, "ad": number } (the legend of the "Interaction Insights" chart), ' +
@@ -9431,8 +9431,8 @@ export default {
         // three-month direction are read off a table rather than guessed at.
         const num = (v) => (v == null || v === "" ? null : Number(String(v).replace(/[^0-9.\-]/g, "")));
         const METRICS = [
-          ["Followers (end of month)", (d) => d.profile?.followers],
-          ["New followers", (d) => d.profile?.newFollowers],
+          ["Followers total (a snapshot on the day each report was RUN, not month end: never compare across months)", (d) => d.profile?.followers],
+          ["New followers (who followed during the month; not net of unfollows)", (d) => d.profile?.newFollowers],
           ["Profile reach (unique people, each counted once)", (d) => d.profile?.reach],
           ["Views (total, repeats included)", (d) => d.profile?.views],
           ["Interactions (total)", (d) => d.profile?.interactions],
@@ -9479,7 +9479,7 @@ export default {
           reach: "profile reach (different people who saw the account) and its change",
           views: "total views and their change",
           interactions: "total interactions and their change",
-          netFollowers: "followers at month end and the overall change since last month",
+          netFollowers: "total followers (on the day the report was run) with the month's new followers",
           newFollowers: "people who followed during the month",
           interactionRate: "interaction rate and its change in points",
           reelRate: "reels' interaction rate beside posts'",
@@ -9516,6 +9516,7 @@ HARD RULES:
 - Implementation is not outcome. You may say a measure improved after a change was made (e.g. reels published went from 1 to 3 and reel interaction rate rose); never say the change caused it unless the data establishes causation.
 - A trend needs movement in the same direction across at least three months, or a change large enough to matter. Don't call small or ordinary fluctuations trends. With only two months, describe change, not trend.
 - Never infer a relationship between measures with different definitions or denominators. Profile reach counts each person once; post and reel reach add each item's reach; the follower / non-follower figures are counted content by content and are NOT a split of profile reach, so never express them as a share of profile reach or compare them with it. Follower age and location describe followers, not everyone reached.
+- The followers total is a snapshot taken whenever the report was run, not at month end, so never compare it between months or quote a change in it. Use new followers for growth, and never call new followers a net gain.
 - Don't invent explanations. If the data shows what happened but not why, say what it suggests, not a cause as fact.
 - Never invent a number or quote a figure that isn't in the data.
 

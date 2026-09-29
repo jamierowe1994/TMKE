@@ -23,15 +23,17 @@ export const HEADLINE_METRICS = {
     get: ({ d, prev, pm }) => pctCard("Views", n(d.profile?.views), n(d.profile?.viewsChange), n(prev?.profile?.views), pm) },
   interactions: { label: "Interactions", about: "likes, comments, saves and shares",
     get: ({ d, prev, pm }) => pctCard("Interactions", n(d.profile?.interactions), n(d.profile?.interactionsChange), n(prev?.profile?.interactions), pm) },
-  netFollowers: { label: "Followers", about: "followers at the end of the month, with the overall change since last month",
-    get: ({ d, prev, pm }) => {
+  // SocialPilot's follower total is "Lifetime Data": the count on the day
+  // the report is RUN, not at month end. Two months' totals are two days'
+  // snapshots (August's PDF was run on 28 Sep), so they're never compared.
+  // New followers, which is bound to the month, carries the change.
+  netFollowers: { label: "Followers", about: "total followers on the day the report was run, with the month's new followers",
+    get: ({ d, month }) => {
       const c = n(d.profile?.followers); if (c == null) return null;
-      const o = n(prev?.profile?.followers);
-      if (o == null) return { label: "Followers", value: fmt(c), sub: "At the end of the month", dir: 0 };
-      const x = c - o;
-      return { label: "Followers", value: fmt(c), sub: x ? `Overall ${x > 0 ? "+" : "−"}${fmt(Math.abs(x))} since ${pm}` : `Same as ${pm}`, dir: Math.sign(x) };
+      const x = n(d.profile?.newFollowers);
+      return { label: "Followers", value: fmt(c), sub: x ? `${fmt(x)} new in ${month}` : "Total followers", dir: x > 0 ? 1 : 0 };
     } },
-  newFollowers: { label: "New followers", about: "people who followed during the month (before anyone who unfollowed)",
+  newFollowers: { label: "New followers", about: "people who followed during the month (not net of anyone who unfollowed)",
     get: ({ d, month }) => { const x = n(d.profile?.newFollowers); return x == null ? null : { label: "New followers", value: `+${fmt(x)}`, sub: `Followed you in ${month}`, dir: x > 0 ? 1 : 0 }; } },
   interactionRate: { label: "Interaction rate", about: "interactions as a share of profile reach",
     get: ({ d, prev, pm }) => {
