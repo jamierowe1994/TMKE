@@ -58,7 +58,7 @@ export const EMAIL_CATALOG = [
     fires: "POST /smm/report/publish (action: republish, notify: true)",
     to: "The client (smm_leads.email)",
     sender: "hello@tmke.co.uk",
-    subject: "Your {Month} social media report has been updated",
+    subject: "Your {Month} social media report has been updated.",
     summary: "For corrections that matter (wrong figures, a changed plan): says the report has been corrected and is worth another look, and links to it. The report is marked Updated and their bell says so. Small rewordings are republished quietly and send nothing.",
     fields: ["name", "month", "manager", "report_link"],
   },
