@@ -422,3 +422,58 @@ anything that reads as a mark against them.
 It won't always be sunshine and roses. When something isn't working, the report says what
 we've put in place. When that fix starts to work in a later month, the report says so:
 that is the story clients most want to hear, and it only exists if we track it.
+
+---
+
+## §11. What It Means: Insights, Not Narration
+
+Added September 2026, from Danielle, after the first report with two months to compare.
+This replaces the free-written "What it means" paragraph (§4 and §10's story) on the
+client report. The page answers three questions: what changed, why does it matter, and
+did what we tried work?
+
+### The page
+
+- Four stat chips across the top: profile reach, views, interactions, followers, each
+  with its change on last month said once. A bridge from the data pages.
+- Up to four insight cards beneath. Each carries a label by type:
+
+| type              | Label on the card    | Use for                                              |
+|-------------------|----------------------|------------------------------------------------------|
+| `win`             | What we're seeing    | Something clearly working                            |
+| `trend`           | A trend to watch     | A direction across months, or something emerging     |
+| `watch`           | Still to fix         | Something not working, or a gap to close             |
+| `previous_action` | From last month      | How an action agreed last month played out           |
+
+- Each insight is structured, never free prose: `title`, `evidence` (the figures),
+  `interpretation` (what it means for their business), `response` (what we'll do with
+  it). What we're seeing, what it means, what we should do with it.
+
+### What the analysis is given
+
+This month, the two calendar months before it (no further back), side by side as a
+table, and the actions agreed in last month's report. It tests for month-on-month
+changes that matter, three-month direction, content patterns, audience patterns, and
+each agreed action: did we do it, and what happened after.
+
+### Rules
+
+1. Up to four insights, fewer if there's less to say. An insight explains something the
+   client could not get from reading the headline number.
+2. Prioritise meaningful patterns over repeating headline statistics. Don't repeat a
+   figure just because it is positive.
+3. Implementation is not outcome. It may say a measure improved after a change was
+   made; it never says the change caused it unless the data establishes causation.
+4. A trend needs movement in the same direction across at least three months, or a
+   change large enough to matter. Small or ordinary fluctuations are not trends.
+5. Never infer a relationship between measures with different definitions or
+   denominators. In particular, SocialPilot's follower / non-follower figures are counted
+   content by content and are not a split of profile reach (September 2026: 858 in the
+   split against 695 reached). They are never expressed as a share of profile reach.
+6. Don't invent explanations. If the data shows what happened but not why, say what it
+   suggests.
+7. Include negative or flat performance where it matters to the strategy. Don't force
+   every insight to be positive: a month may have one win, one emerging trend, one thing
+   that hasn't worked and one previous action worth reviewing.
+8. Write for an estate agent, not a social media marketer: why it matters commercially
+   or strategically, in plain English.

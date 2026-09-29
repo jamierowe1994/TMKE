@@ -134,9 +134,11 @@ export function renderOverview(d, r, vis) {
   // Who the profile reached and who watched (SocialPilot's page 2).
   const parts = [];
   if (show("followerSplit")) {
-    const t = (nv(rc.follower) || 0) + (nv(rc.nonFollower) || 0), gap = nv(p.reach) != null && t ? nv(p.reach) - t : 0;
-    parts.push(split("Reach: followers vs non-followers", ["followers", rc.follower], ["non-followers", rc.nonFollower],
-      gap > 0 ? `${nf(gap)} of the ${nf(p.reach)} reached couldn't be matched either way, so the split is out of ${nf(t)}.` : ""));
+    // Counted content by content, so it isn't a split of profile reach: in
+    // September it came to 858 against 695 reached. Never set it against the
+    // profile figure.
+    parts.push(split("Content reach: followers vs non-followers", ["followers", rc.follower], ["non-followers", rc.nonFollower],
+      "Counted piece by piece, so it doesn't add up to profile reach and isn't a share of it."));
   }
   if (show("viewsSplit") && d.viewsSplit) parts.push(split("Views: followers vs non-followers", ["by followers", d.viewsSplit.follower], ["by non-followers", d.viewsSplit.nonFollower], ""));
   const ib = d.interactionsByFormat || {};

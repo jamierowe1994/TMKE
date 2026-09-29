@@ -9427,54 +9427,86 @@ export default {
         const lead = ((await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(cur.lead_id)}&select=business,full_name,social_media_manager`)) || [])[0] || {};
         const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const nextMonth = MN[(cur.month + 1) % 12];
-        const digest = (r) => {
-          const d = r.data || {}, p = d.profile || {}, rc = d.reach || {}, dem = d.demographics || {};
-          const L = [`=== ${MN[r.month]} ${r.year}${r.id === cur.id ? " (THIS MONTH)" : ""} ===`];
-          L.push(`Profile: followers ${p.followers ?? "?"} (+${p.newFollowers ?? "?"} new) | profile reach (people, each counted once) ${p.reach ?? "?"} (${p.reachChange ?? "?"}% vs previous) | views ${p.views ?? "?"} (${p.viewsChange ?? "?"}%) | interactions ${p.interactions ?? "?"} (${p.interactionsChange ?? "?"}%) | interaction rate ${p.interactionRate ?? "?"}% | profile link taps ${p.linkTaps ?? "?"}`);
-          if (rc.follower != null || rc.nonFollower != null) L.push(`Reach split: followers ${rc.follower ?? "?"} / non-followers ${rc.nonFollower ?? "?"}`);
-          for (const [k, lbl] of [["posts", "Posts"], ["reels", "Reels"]]) { const x = d[k]; if (x) L.push(`${lbl}: published ${x.published ?? "?"} | reach added across them ${x.reach ?? "?"} | views ${x.views ?? "?"} | interactions ${x.interactions ?? "?"} | interaction rate ${x.interactionRate ?? "?"}%`); }
-          const rows = (Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || [])).slice().sort((a, b2) => (Number(b2.reach) || 0) - (Number(a.reach) || 0)).slice(0, 5);
-          if (rows.length) L.push(`Best posts by reach: ${rows.map((t) => `"${t.title}" (${t.type || "Post"}, reach ${t.reach ?? "?"}${t.views != null ? `, views ${t.views}` : ""}, interactions ${t.interactions ?? "?"})`).join("; ")}`);
-          const ages = (dem.age || []).map((a) => ({ range: a.range, v: (Number(a.male) || 0) + (Number(a.female) || 0) + (Number(a.unspecified) || 0) }));
-          const at = ages.reduce((s, a) => s + a.v, 0);
-          if (at) L.push(`Followers by age: ${ages.map((a) => `${a.range} ${Math.round(a.v / at * 100)}%`).join(", ")}`);
-          if ((dem.topCities || []).length) L.push(`Followers' top cities: ${dem.topCities.slice(0, 5).map((c) => `${c.city || c.name} ${c.count}`).join(", ")}`);
-          const uk = (dem.topCountries || []).find((c) => /united kingdom/i.test(c.country || ""));
-          if (uk && p.followers) L.push(`UK followers: ${uk.count} of ${p.followers}`);
-          if (d.ads) L.push(`Paid ads: reach ${d.ads.reach ?? "?"}, spend £${d.ads.spend ?? "?"}, clicks ${d.ads.clicks ?? "?"}`);
-          if (d.summary) L.push(`Team's summary: ${d.summary}`);
-          if ((d.priorities || []).length) L.push(`Team's plan for the month after: ${d.priorities.map((x) => `[${x.type}] ${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
-          if (d.client && (d.client.priorities || []).length) L.push(`What we told the client we'd do next: ${d.client.priorities.map((x) => `${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
-          return L.join("\n");
-        };
-        const dataText = months.map(digest).join("\n\n");
+        // The months side by side, one row per measure, so movement and
+        // three-month direction are read off a table rather than guessed at.
+        const num = (v) => (v == null || v === "" ? null : Number(String(v).replace(/[^0-9.\-]/g, "")));
+        const METRICS = [
+          ["Followers (end of month)", (d) => d.profile?.followers],
+          ["New followers", (d) => d.profile?.newFollowers],
+          ["Profile reach (unique people, each counted once)", (d) => d.profile?.reach],
+          ["Views (total, repeats included)", (d) => d.profile?.views],
+          ["Interactions (total)", (d) => d.profile?.interactions],
+          ["Interaction rate % (interactions / profile reach)", (d) => d.profile?.interactionRate],
+          ["Profile link taps", (d) => d.profile?.linkTaps],
+          ["Posts published", (d) => d.posts?.published],
+          ["Post reach (each post's reach added; people counted more than once)", (d) => d.posts?.reach],
+          ["Post interactions", (d) => d.posts?.interactions],
+          ["Post interaction rate %", (d) => d.posts?.interactionRate],
+          ["Reels published", (d) => d.reels?.published],
+          ["Reel reach (each reel's reach added)", (d) => d.reels?.reach],
+          ["Reel views", (d) => d.reels?.views],
+          ["Reel interactions", (d) => d.reels?.interactions],
+          ["Reel interaction rate %", (d) => d.reels?.interactionRate],
+          ["Content reach from followers (counted content by content; NOT a part of profile reach)", (d) => d.reach?.follower],
+          ["Content reach from non-followers (counted content by content; NOT a part of profile reach)", (d) => d.reach?.nonFollower],
+        ];
+        const cols = months.map((r) => `${MN[r.month].slice(0, 3)} ${r.year}`);
+        const table = [`| Measure | ${cols.join(" | ")} |`, `|---|${cols.map(() => "---").join("|")}|`]
+          .concat(METRICS.map(([label, get]) => {
+            const vals = months.map((r) => num(get(r.data || {})));
+            return vals.every((v) => v == null) ? null : `| ${label} | ${vals.map((v) => (v == null ? "-" : v)).join(" | ")} |`;
+          }).filter(Boolean)).join("\n");
+        const cd = cur.data || {}, cdem = cd.demographics || {};
+        const extra = [];
+        const best = (Array.isArray(cd.content) && cd.content.length ? cd.content : (cd.topContent || [])).slice().sort((a, b2) => (Number(b2.reach) || 0) - (Number(a.reach) || 0)).slice(0, 6);
+        if (best.length) extra.push(`This month's posts by reach: ${best.map((t) => `"${t.title}" (${t.type || "Post"}, reach ${t.reach ?? "?"}${t.views != null ? `, views ${t.views}` : ""}, interactions ${t.interactions ?? "?"})`).join("; ")}`);
+        const ages = (cdem.age || []).map((a) => ({ range: a.range, v: (Number(a.male) || 0) + (Number(a.female) || 0) + (Number(a.unspecified) || 0) }));
+        const at = ages.reduce((x, a) => x + a.v, 0);
+        if (at) extra.push(`Followers by age (followers, not everyone reached): ${ages.map((a) => `${a.range} ${Math.round(a.v / at * 100)}%`).join(", ")}`);
+        if ((cdem.topCities || []).length) extra.push(`Followers' top cities (followers, not everyone reached): ${cdem.topCities.slice(0, 5).map((c) => `${c.city || c.name} ${c.count}`).join(", ")}`);
+        if (cd.summary) extra.push(`Team's own read of this month: ${cd.summary}`);
+        if ((cd.priorities || []).length) extra.push(`Team's plan for next month (turn these into the client's "priorities"): ${cd.priorities.map((x) => `[${x.type}] ${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
+        // What was agreed last month, to test against this month's figures.
+        const lastM = months.length > 1 ? months[months.length - 2] : null;
+        const agreed = lastM ? ((lastM.data?.client?.priorities || []).length ? lastM.data.client.priorities : (lastM.data?.priorities || [])) : [];
+        const agreedText = agreed.length ? agreed.map((x, i) => `${i + 1}. ${x.title ? x.title + ": " : ""}${x.text}`).join("\n") : "None recorded.";
+        const dataText = `${table}\n\n${extra.join("\n")}\n\nACTIONS AGREED IN ${lastM ? MN[lastM.month].toUpperCase() : "THE PREVIOUS"} REPORT:\n${agreedText}`;
         const asks = [];
-        if (only !== "client") asks.push('"trendSummary": string (FOR THE TEAM, not the client. Only if there are two or more months; otherwise null. 2-4 plain sentences on what is moving across these months: what has improved and is holding, what is slipping, and whether last month\'s plan shows up in this month\'s figures. Weigh all the figures together, never one statistic alone. Direct, honest, no spin.)');
-        if (only !== "trends") asks.push(`"client": { "summary": string, "priorities": [ { "type": "go"|"caution"|"action", "title": string, "text": string } ] } (FOR THE CLIENT, following the client voice rules below; 3 priorities, drawn from the team's plan for the month after this one, in the same order)`);
+        if (only !== "client") asks.push('"trendSummary": string (FOR THE TEAM, not the client. Only if there are two or more months; otherwise null. 2-4 plain sentences on what is moving across these months: what has improved and is holding, what is slipping, and whether last month\'s actions show up in this month\'s figures. Weigh all the figures together, never one statistic alone. Direct, honest, no spin.)');
+        if (only !== "trends") asks.push(`"client": { "insights": [ { "type": "win"|"trend"|"watch"|"previous_action", "title": string, "evidence": string, "interpretation": string, "response": string } ], "priorities": [ { "type": "go"|"caution"|"action", "title": string, "text": string } ] }`);
+        // The rules are docs/smm-report-rules.md §10-11; change them there too.
         const prompt =
-`You write for TMKE, a UK social media agency. Below are up to three months of Instagram figures for ${lead.business || lead.full_name || "a client"}, oldest first, including what the team planned each month.
+`You analyse a UK estate agent's Instagram for TMKE, their social media agency. Below are up to three months of figures for ${lead.business || lead.full_name || "the client"}, oldest to newest (the last column is ${MN[cur.month]} ${cur.year}, the month being reported), then the actions agreed in last month's report.
 
 ${dataText}
 
 Reply with ONLY one JSON object, no prose and no markdown fences:
 { ${asks.join(", ")} }
 
-CLIENT VOICE RULES (for "client"):
-- We are the account manager talking to the client about their account. Say "we" and "your". Never "the account", never the Instagram handle; say "your Instagram profile".
-- They are not marketers and are not here for metrics. They want to know what is moving in the right direction, and what we are doing about anything that isn't. Tell a story, don't list figures.
-- What matters most to them: how many people are seeing them (reach), whether those people are local to them (top cities) and in the age groups most likely to move home (roughly 25 to 44), and posts that reached or were watched by lots of people. Use these when the data supports them.
-- Weigh all the figures together, never one statistic on its own.
-- "summary": two short paragraphs, 90 to 150 words in total. Open with how ${MN[cur.month]} ${cur.year} went for your Instagram profile, naming the one or two biggest moves as percentages or numbers. Where a previous month is given, connect what we planned last month to what happened this month, but only when the plan targeted the figure that moved, and word it as observed together ("since we started posting more reels, reach from people who don't follow you yet has grown"), never as proven cause. Be honest about anything lower than last month and say what we are doing about it.
-- "priorities": each is something WE will do in ${nextMonth}, and why. "title": 2 to 5 words naming the action (e.g. "More reels", "Grow non-follower reach", "Add a link to your bio"). "text": two sentences, 25 to 45 words: first what we'll do ("Into ${nextMonth} we'll post more reels." / "Next month we'll grow your non-follower reach by ..."), then why, from the figures ("That's because reels reached ..."). For something that needs putting right, describe the situation plainly and the fix: "There's currently no link in your bio, so no one can tap through to your website. We'll add one ..." Soft, confident language. Never an instruction or homework for the client. Never a problem without our fix.
-- Never use: needs attention, underperforming, declining, poor, not working, red flag, concern, urgent.
-- Never invent a number, a cause, or an action the team's plan doesn't contain. Never promise a result. Never compare with other clients.
-- British English. No em dashes. No exclamation marks. No bold or italics. Contractions are fine.`;
+INSIGHTS ("client.insights"). This is the page that makes the report worth reading. The client can already see the headline numbers; don't narrate them back.
+- Analyse ${MN[cur.month]} against the previous two months and the actions agreed last month. Test for: month-on-month changes that matter; three-month direction (rising, falling or flat across all three); content patterns (formats or kinds of post that keep outperforming); audience patterns (non-follower discovery, locations, ages); and each agreed action (did we do it, and what happened after).
+- Up to FOUR insights, fewer if there's less to say. An insight explains something the client couldn't get from reading a headline number.
+- Each has: "title" (a plain statement, 3 to 7 words, e.g. "Reels are earning more interaction"); "evidence" (one sentence with the specific figures behind it); "interpretation" (one sentence: what it means for their business, in plain English for an estate agent, not a marketer); "response" (one sentence: what we'll do with it).
+- "type": "win" for something clearly working; "trend" for a direction across months or something emerging; "watch" for something not working or a gap to close; "previous_action" for how an action agreed last month played out.
+- Don't force positives. A month may have one win, one emerging trend, one thing that hasn't worked and one previous action worth reviewing. Include negative or flat performance where it matters to the strategy.
+- Don't repeat statistics just because they are positive. Use only figures that support the insight.
+
+HARD RULES:
+- Implementation is not outcome. You may say a measure improved after a change was made (e.g. reels published went from 1 to 3 and reel interaction rate rose); never say the change caused it unless the data establishes causation.
+- A trend needs movement in the same direction across at least three months, or a change large enough to matter. Don't call small or ordinary fluctuations trends. With only two months, describe change, not trend.
+- Never infer a relationship between measures with different definitions or denominators. Profile reach counts each person once; post and reel reach add each item's reach; the follower / non-follower figures are counted content by content and are NOT a split of profile reach, so never express them as a share of profile reach or compare them with it. Follower age and location describe followers, not everyone reached.
+- Don't invent explanations. If the data shows what happened but not why, say what it suggests, not a cause as fact.
+- Never invent a number or quote a figure that isn't in the data.
+
+PRIORITIES ("client.priorities"): three things WE will do in ${nextMonth}, drawn from the team's plan, in its order. "title": 2 to 5 words naming the action. "text": two sentences, 25 to 45 words: what we'll do ("Into ${nextMonth} we'll post more reels."), then why, from the figures ("That's because ..."). A fix describes the situation plainly and our fix ("There's currently no link in your bio, so no one can tap through to your website. We'll add one ..."). Never homework for the client.
+
+VOICE (insights and priorities): the account manager talking to the client, "we" and "your"; say "your Instagram profile", never the handle. What they care about most: how many people see them, whether those people are local, whether they're of an age to move home (roughly 25 to 44), and posts that travelled. Never: needs attention, underperforming, declining, poor, not working, red flag, concern, urgent. Never promise a result or compare with other clients. British English, no em dashes, no exclamation marks, no bold or italics.`;
         let aiRes;
         try {
           aiRes = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 3000, messages: [{ role: "user", content: prompt }] }),
           });
         } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
         if (!aiRes.ok) { const t = await aiRes.text().catch(() => ""); return json({ error: "AI request failed (" + aiRes.status + ").", detail: t.slice(0, 300) }, 502, request, env); }
@@ -9488,7 +9520,11 @@ CLIENT VOICE RULES (for "client"):
         if (only !== "trends" && parsed.client) {
           const pr = (Array.isArray(parsed.client.priorities) ? parsed.client.priorities : [])
             .filter((x) => x && x.text).map((x) => ({ type: ["go", "caution", "action"].includes(x.type) ? x.type : "go", title: String(x.title || "").trim(), text: String(x.text).trim() }));
-          data.client = { summary: String(parsed.client.summary || "").trim(), priorities: pr, draftedAt: new Date().toISOString() };
+          const TYPES = ["win", "trend", "watch", "previous_action"];
+          const ins = (Array.isArray(parsed.client.insights) ? parsed.client.insights : [])
+            .filter((x) => x && x.title).slice(0, 4)
+            .map((x) => ({ type: TYPES.includes(x.type) ? x.type : "win", title: String(x.title).trim(), evidence: String(x.evidence || "").trim(), interpretation: String(x.interpretation || "").trim(), response: String(x.response || "").trim() }));
+          data.client = { insights: ins, priorities: pr, draftedAt: new Date().toISOString() };
         }
         const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=eq.${encodeURIComponent(cur.id)}`, {
           method: "PATCH",

@@ -142,6 +142,18 @@ import "../../../styles/ws-system.css";
     .rp-fig-move { font-size: 0.86em; font-weight: 700; color: var(--ws-accent); margin: 0.5em 0 0; }
     .rp-fig-means { font-size: 0.86em; line-height: 1.45; color: var(--ws-tx); margin: 0.35em 0 0; max-width: 30ch; min-height: 2.9em; }
 
+    /* A block that takes the slide's spare height, so the content spreads to
+       the foot of the card rather than stopping in its top half. */
+    /* Grows into the slide's spare height, never below its own content (a
+       short screen scrolls inside the card instead). */
+    .rp-grow { flex: 1 0 auto; width: 100%; }
+    /* Rows at their natural height, then stretched to share what's left. */
+    .rp-figs.rp-grow { align-content: stretch; }
+    .rp-figs.rp-grow .rp-fig { display: flex; flex-direction: column; justify-content: center; padding: 1.4em 0; }
+    .rp-figs.rp-grow .rp-fig-val { font-size: 3em; }
+    .rp-cards.rp-grow { align-items: stretch; }
+    .rp-cards.rp-grow > .rp-mini { display: flex; flex-direction: column; justify-content: center; padding: 1.6em 1.5em; }
+    .rp-mini-note { margin: 0.9em 0 0; font-size: 0.78em; line-height: 1.45; color: var(--ws-faint); }
     /* Who you reached */
     .rp-reach { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 1em 2.6em; align-items: start; padding-bottom: 1.3em; margin-bottom: 1.3em; border-bottom: 1px solid var(--ws-line); }
     .rp-reach-why { margin: 0; padding: 0.9em 1.1em; border-left: 3px solid var(--english-violet, #4a2a3c); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 5%, #fff); font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); max-width: 62ch; }
@@ -211,6 +223,22 @@ import "../../../styles/ws-system.css";
     .rp-cmp-chg.is-up { color: var(--english-violet, #4a2a3c); }
     .rp-cmp-was { margin: 0.25em 0 0; font-size: 0.8em; color: var(--ws-faint); }
     .rp-cmp-line { display: block; width: 100%; height: auto; margin-top: 0.8em; overflow: visible; }
+    /* Stat chips: squared off, not pills. */
+    .rp-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8em; margin-bottom: 1.1em; }
+    @media (max-width: 900px) { .rp-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .rp-chip { display: flex; flex-direction: column; gap: 0.15em; padding: 0.7em 1.1em; border-radius: var(--ws-r, 4px); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 6%, #fff); border: 1px solid color-mix(in srgb, var(--english-violet, #4a2a3c) 14%, #fff); }
+    .rp-chip-l { font-size: 0.72em; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
+    .rp-chip b { font-family: var(--serif); font-size: 1.7em; font-weight: 400; line-height: 1.05; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
+    .rp-chip-c { font-size: 0.82em; font-weight: 700; color: var(--ws-tx); }
+    .rp-chip-c.is-up { color: var(--english-violet, #4a2a3c); }
+    /* Insight cards: what we're seeing, what it means, what we'll do. */
+    .rp-insights { flex: 1 1 auto; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 1em; align-items: stretch; }
+    @media (max-width: 900px) { .rp-insights { grid-template-columns: 1fr; } }
+    .rp-insight { display: flex; flex-direction: column; padding: 1.15em 1.4em; }
+    .rp-insight-k { color: var(--english-violet, #4a2a3c); margin-bottom: 0.6em; }
+    .rp-insight .rp-mini-h { font-size: 1.12em; color: var(--ws-ink); margin-bottom: 0.4em; }
+    .rp-insight .rp-mini-p { font-size: 0.95em; }
+    .rp-insight-next { margin: auto 0 0; padding-top: 0.7em; font-size: 0.93em; line-height: 1.5; font-weight: 600; color: var(--english-violet, #4a2a3c); }
     .rp-prose { font-size: 1.1em; line-height: 1.7; color: var(--ws-ink); max-width: 70ch; white-space: pre-line; }
     .rp-trends { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1em; }
     @media (max-width: 900px) { .rp-trends { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -323,8 +351,8 @@ import "../../../styles/ws-system.css";
       }
       if (figs.length) parts.push({ step: "The numbers", html: part(
         `${month} in numbers`,
-        "The headline figures for the month, and what each one measures.",
-        `<div class="rp-figs">${figs.join("")}</div>`) });
+        "Your Instagram performance at a glance.",
+        `<div class="rp-figs rp-grow">${figs.join("")}</div>`) });
 
       // 2 — Who you reached: the profile's reach, split into followers and
       // people new to the account, then who the followers are. Age and
@@ -333,11 +361,16 @@ import "../../../styles/ws-system.css";
       const cards = [];
       const nfr = n(rc.nonFollower), fr = n(rc.follower);
       if (vis.followerSplit !== false && nfr != null && fr != null && nfr + fr > 0) {
+        // SocialPilot's follower / non-follower split is counted content by
+        // content, so it isn't a share of profile reach (September: 858 in the
+        // split against 695 reached). Say what it IS a share of, and never set
+        // it against the profile figure.
         const pct = Math.round(nfr / (nfr + fr) * 100);
         cards.push(`<div class="rp-mini"><p class="rp-label">Followers and non-followers</p>
-          <div class="rp-big">${pct}%</div><p class="rp-mini-p">of the people reached don&rsquo;t follow you yet.</p>
+          <div class="rp-big">${pct}%</div><p class="rp-mini-p">of your content&rsquo;s reach was people who don&rsquo;t follow you yet.</p>
           <div class="rp-splitbar"><span style="width:${100 - pct}%"></span></div>
-          <div class="rp-splitkey"><span><i class="is-f"></i>${fmt(fr)} followers</span><span><i></i>${fmt(nfr)} non-followers</span></div></div>`);
+          <div class="rp-splitkey"><span><i class="is-f"></i>${fmt(fr)} followers</span><span><i></i>${fmt(nfr)} non-followers</span></div>
+          <p class="rp-mini-note">Counted piece by piece, like content reach, so these don&rsquo;t add up to your profile reach.</p></div>`);
       }
       const ages = vis.followerAge !== false ? (dem.age || []).filter((a) => a && a.range).map((a) => ({ range: a.range, v: (n(a.male) || 0) + (n(a.female) || 0) + (n(a.unspecified) || 0) })) : [];
       const ageTot = ages.reduce((a, b) => a + b.v, 0);
@@ -363,13 +396,13 @@ import "../../../styles/ws-system.css";
       const cr = (n(d.posts?.reach) || 0) + (n(d.reels?.reach) || 0);
       const band = n(p.reach) != null ? `<div class="rp-reach">
           <div><p class="rp-label">Profile reach</p><div class="rp-big">${fmt(n(p.reach))}</div><p class="rp-mini-p">different people saw the account.</p></div>
-          ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">views counted post by post.</p></div>` : ""}
+          ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">people reached, counted post by post.</p></div>` : ""}
           ${vis.contentReach !== false && cr ? `<p class="rp-reach-why"><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post&rsquo;s own reach, so someone who saw three posts is counted three times. That&rsquo;s why it&rsquo;s the bigger of the two.</p>` : ""}
         </div>` : "";
       if (cards.length || band) parts.push({ step: "Who you reached", html: part(
         "Who you reached",
         n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month. Here's who they were.` : "Who saw your account this month.",
-        band + (cards.length ? `<div class="rp-cards" style="--n:${cards.length}">${cards.join("")}</div>` : "")) });
+        band + (cards.length ? `<div class="rp-cards rp-grow" style="--n:${cards.length}">${cards.join("")}</div>` : "")) });
 
       // 3 — What did best: the top five on their own card, reels and posts
       // beside them. Ranked by reach, interactions breaking a tie.
@@ -393,8 +426,8 @@ import "../../../styles/ws-system.css";
         return `<tr><td class="rp-rank">${i + 1}</td><td>${t.thumb ? `<img class="rp-thumb" src="${esc(t.thumb)}" alt="" loading="lazy">` : `<span class="rp-thumb"></span>`}</td><td class="rp-top-t">${name}</td><td class="rp-c"><span class="rp-top-k">${reel ? "Reel" : "Post"}</span></td><td class="rp-c">${fmt(n(t.reach))}</td><td class="rp-c">${reel ? fmt(n(t.views)) : "&ndash;"}</td><td class="rp-c">${fmt(n(t.interactions))}</td></tr>`;
       };
       const topCard = top.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top performing content</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col style="width:3.9em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th></th><th>Content</th><th class="rp-c">Type</th><th class="rp-c">Reach</th><th class="rp-c">Views</th><th class="rp-c">Interactions</th></tr></thead><tbody>${top.map(tRow).join("")}</tbody></table></div></div>` : "";
-      if (topCard || formats) parts.push({ step: "What did best", html: part(
-        "What did best",
+      if (topCard || formats) parts.push({ step: `What worked in ${month}`, html: part(
+        `What Worked in ${month}`,
         "Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.",
         `<div class="rp-best${topCard && formats ? "" : " is-one"}">${topCard}${formats ? `<div class="rp-formats">${formats}</div>` : ""}</div>`) });
 
@@ -405,54 +438,49 @@ import "../../../styles/ws-system.css";
         // social moves too fast for older months to say much about this one.
         .filter((x) => (x.platform || "") === (r.platform || "") && (x.year * 12 + x.month) <= (r.year * 12 + r.month) && (x.year * 12 + x.month) >= (r.year * 12 + r.month) - 2)
         .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
-      // The words are the client version from Client commentary; the team's
-      // own summary only stands in until one has been written.
+      // 4 — What it means: the reason the report is worth reading.
+      //  - Four stat chips across the top: a bridge from the data pages,
+      //    each change said once (this month against last, or SocialPilot's
+      //    own change on the previous period for a first month).
+      //  - Up to four insight cards from Client commentary: what we're
+      //    seeing, what it means, what we'll do about it. Structured, so the
+      //    page stays the same shape from month to month (rules §10).
+      //  - The old free-written paragraph only stands in until a month has
+      //    insights.
       const cl = d.client || {};
-      const story = has(cl.summary) ? cl.summary : d.summary;
-      const prose = vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";
-      // The numbers first, then the story (Danielle, Sep 2026). One row of
-      // cards, each change said once, in the terms a client reads it in:
-      //  - with last month uploaded: this month's figure against last month's.
-      //    Followers as a count ("+1 since August"), the rate in points (a
-      //    percentage of a percentage misleads), the rest as a percentage.
-      //    A line only once there are three months; two points make a
-      //    straight line that says nothing.
-      //  - a first month: SocialPilot's own change on the previous period,
-      //    the rises only, as tiles.
       const prev = vis.trends !== false && series.length > 1 ? series[series.length - 2] : null;
-      let head = "";
-      if (prev) {
-        const pm = MONTHS[prev.month], pp = prev.data?.profile || {};
-        const pct = (c, o) => (o ? (c - o) / Math.abs(o) * 100 : null);
-        const one = (x) => (Math.abs(x) < 10 ? Math.round(x * 10) / 10 : Math.round(x));
-        const say = (up, txt) => `<span class="rp-cmp-chg ${up > 0 ? "is-up" : up < 0 ? "is-down" : ""}">${txt}</span>`;
-        // For reach, views and interactions, SocialPilot's own change on the
-        // previous period wins: it's worked out from exact figures, where ours
-        // would come from rounded ones ("2.5K"), and it's the number the story
-        // quotes, so the two never disagree.
-        const spChange = { reach: n(p.reachChange), views: n(p.viewsChange), interactions: n(p.interactionsChange) };
-        const byPct = (key) => (c, o) => { const x = spChange[key] ?? pct(c, o); return x == null ? "" : say(x, `${x >= 0 ? "Up" : "Down"} ${one(Math.abs(x))}% on ${pm}`); };
-        const rows = [
-          ["Followers", "followers", (c, o) => { const dlt = c - o; return say(dlt, dlt ? `${dlt > 0 ? "+" : "−"}${fmt(Math.abs(dlt))} since ${pm}` : `Same as ${pm}`); }, fmt],
-          ["Profile reach", "reach", byPct("reach"), fmt],
-          ["Views", "views", byPct("views"), fmt],
-          ["Interactions", "interactions", byPct("interactions"), fmt],
-          ["Interaction rate", "interactionRate", (c, o) => { const x = c - o; return say(x, x ? `${x > 0 ? "Up" : "Down"} ${one(Math.abs(x))} points on ${pm}` : `Same as ${pm}`); }, (v) => v + "%"],
-        ].map(([label, key, change, show]) => {
-          const c = n(p[key]), o = n(pp[key]);
-          if (c == null || vis[key] === false) return "";
-          const line = series.length > 2 ? trend(label, series, (x) => n(x.data?.profile?.[key]), show, true) : "";
-          return `<div class="rp-mini rp-cmp"><p class="rp-label">${esc(label)}</p><div class="rp-cmp-now">${esc(show(c))}</div>${o != null ? change(c, o) : ""}${o != null ? `<p class="rp-cmp-was">${esc(pm)}: ${esc(show(o))}</p>` : ""}${line}</div>`;
-        }).filter(Boolean);
-        if (rows.length) head = `<p class="rp-label">${esc(month)} against ${esc(pm)}</p><div class="rp-cmps" style="--n:${rows.length}">${rows.join("")}</div>`;
-      } else {
-        const ups = [["Profile reach", n(p.reachChange)], ["Views", n(p.viewsChange)], ["Interactions", n(p.interactionsChange)]]
-          .filter(([, v]) => v > 0).map(([l, v]) => `<div class="rp-up"><b>Up ${v}%</b><span>${esc(l)}</span></div>`);
-        if (n(p.newFollowers) > 0) ups.push(`<div class="rp-up"><b>+${fmt(n(p.newFollowers))}</b><span>New follower${n(p.newFollowers) === 1 ? "" : "s"}</span></div>`);
-        if (ups.length) head = `<div class="rp-ups">${ups.join("")}</div>`;
+      const pm = prev ? MONTHS[prev.month] : null, pp = prev?.data?.profile || {};
+      const one = (x) => (Math.abs(x) < 10 ? Math.round(x * 10) / 10 : Math.round(x));
+      const spChange = { reach: n(p.reachChange), views: n(p.viewsChange), interactions: n(p.interactionsChange) };
+      const chip = (label, val, x, txt) => `<div class="rp-chip"><span class="rp-chip-l">${esc(label)}</span><b>${esc(val)}</b><span class="rp-chip-c ${x > 0 ? "is-up" : x < 0 ? "is-down" : ""}">${esc(txt)}</span></div>`;
+      const pctTxt = (key) => {
+        const c = n(p[key]), o = n(pp[key]);
+        const x = spChange[key] ?? (prev && o ? (c - o) / Math.abs(o) * 100 : null);
+        return x == null ? [0, ""] : [x, `${x >= 0 ? "Up" : "Down"} ${one(Math.abs(x))}%${pm ? ` on ${pm}` : ""}`];
+      };
+      const chips = [];
+      for (const [label, key] of [["Profile reach", "reach"], ["Views", "views"], ["Interactions", "interactions"]]) {
+        if (n(p[key]) == null || vis[key] === false) continue;
+        const [x, t] = pctTxt(key);
+        chips.push(chip(label, fmt(n(p[key])), x, t));
       }
-      if (prose || head) {
-        parts.push({ step: "What it means", html: part("What it means", "", head + prose) });
+      if (n(p.followers) != null && vis.followers !== false) {
+        const dlt = prev && n(pp.followers) != null ? n(p.followers) - n(pp.followers) : n(p.newFollowers);
+        chips.push(chip("Followers", fmt(n(p.followers)), dlt || 0, dlt ? `${dlt > 0 ? "+" : "−"}${fmt(Math.abs(dlt))} ${pm ? `since ${pm}` : "this month"}` : ""));
+      }
+      const chipsHtml = chips.length ? `<div class="rp-chips">${chips.join("")}</div>` : "";
+      const KIND = { win: "What we're seeing", trend: "A trend to watch", previous_action: "From last month", watch: "Still to fix" };
+      const insights = vis.summary !== false ? (cl.insights || []).filter((i) => i && i.title).slice(0, 4) : [];
+      const insightsHtml = insights.length ? `<div class="rp-insights" style="--n:${insights.length === 4 ? 2 : insights.length}">${insights.map((i) => `<div class="rp-mini rp-insight">
+          <p class="rp-label rp-insight-k">${esc(KIND[i.type] || "What we're seeing")}</p>
+          <h3 class="rp-mini-h">${esc(i.title)}</h3>
+          <p class="rp-mini-p">${esc([i.evidence, i.interpretation].filter(Boolean).join(" "))}</p>
+          ${i.response ? `<p class="rp-insight-next">${esc(i.response)}</p>` : ""}
+        </div>`).join("")}</div>` : "";
+      const story = has(cl.summary) ? cl.summary : d.summary;
+      const prose = !insights.length && vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";
+      if (chipsHtml || insightsHtml || prose) {
+        parts.push({ step: "What it means", html: part("What it means", "", chipsHtml + (insightsHtml || prose)) });
       }
 
       // 5 — Into next month: each thing we're doing on a card of its own,

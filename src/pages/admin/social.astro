@@ -593,6 +593,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-rep-opt b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
     .ri-rep-opt span { display: block; font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.6); }
     .ri-rep-opt:disabled { opacity: 0.6; cursor: default; }
+    .ri-cm-ins { display: grid; gap: 10px; }
+    .ri-cm-in { padding: 12px 14px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; font-family: var(--sans); }
+    .ri-cm-in-k { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 4px; }
+    .ri-cm-in b { display: block; font-size: 14px; color: var(--ink); margin-bottom: 4px; }
+    .ri-cm-in p { margin: 0; font-size: 13px; line-height: 1.55; color: rgba(28,29,34,0.75); }
+    .ri-cm-in .ri-cm-in-next { margin-top: 6px; color: var(--english-violet); font-weight: 600; }
+    .ri-cm-insrow { display: grid; gap: 6px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; }
+    .ri-cm-insrow-top { display: grid; grid-template-columns: 160px 1fr 30px; gap: 8px; }
+    .ri-cm-insrow textarea, .ri-cm-insrow input, .ri-cm-insrow select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); background: #fff; resize: vertical; }
     .ri-cm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .ri-cm-list--client li { display: block; }
     .ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
@@ -2091,6 +2100,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        Do more / Improve / Fix now marks stay ours — the client never sees
        them. Saved through the same upsert as the upload, whole report at once. */
     const PRIO_TYPES = [["go", "Do more"], ["caution", "Improve"], ["action", "Fix now"]];
+    // The label each insight carries in the client's report.
+    const INSIGHT_KINDS = { win: "What we're seeing", trend: "A trend to watch", previous_action: "From last month", watch: "Still to fix" };
     /* ---- Publish to client ----
        A report is a draft until it's published here. The client's hub shows
        their six most recent live reports; ticking a month makes it live,
@@ -2259,8 +2270,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (!c) return `<div class="ri-cm">${top}<div class="ri-panel"><p class="ri-cm-empty" style="margin:0;">No client commentary yet. Draft it and we'll write a first version from this month and the two before it, in the client's voice, for you to rewrite.</p></div><p class="smm-modal-status" id="ri-cm-status" hidden></p></div>`;
       const prios = (c.priorities || []).filter((p) => p && p.text);
       return `<div class="ri-cm">${top}
-        ${card("summary", "What it means", "The story of the month, read after the numbers.",
-          c.summary ? `<div class="ri-cm-prose">${esc(c.summary)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`)}
+        ${card("insights", "What it means", "Up to four insights: what we're seeing, what it means, what we'll do with it.",
+          (c.insights || []).length
+            ? `<div class="ri-cm-ins">${c.insights.map((i) => `<div class="ri-cm-in"><span class="ri-cm-in-k">${esc(INSIGHT_KINDS[i.type] || "What we're seeing")}</span><b>${esc(i.title)}</b><p>${esc([i.evidence, i.interpretation].filter(Boolean).join(" "))}</p>${i.response ? `<p class="ri-cm-in-next">${esc(i.response)}</p>` : ""}</div>`).join("")}</div>`
+            : c.summary ? `<div class="ri-cm-prose">${esc(c.summary)}</div><p class="ri-note" style="margin:10px 0 0;">Written before insights existed. Redraft to get insight cards.</p>` : `<p class="ri-cm-empty">Nothing written yet.</p>`)}
         ${card("next", `Into ${next}`, "A card each: what we'll do, and why.",
           (prios.length ? `<ul class="ri-cm-list ri-cm-list--client">${prios.map((p) => `<li><span>${p.title ? `<b class="ri-cm-t">${esc(p.title)}</b>` : ""}${esc(p.text)}</span></li>`).join("")}</ul>` : `<p class="ri-cm-empty">No lines yet.</p>`)
           + (coming.length ? `<div class="ri-card-h" style="margin:16px 0 8px;">Content coming up</div><ol class="ri-cm-coming">${coming.map((x) => `<li>${esc(x)}</li>`).join("")}</ol>` : ""))}
@@ -2312,7 +2325,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const comingRow = (c = "") => `<div class="ri-cm-row ri-cm-row--plain" data-cm-coming>
           <input type="text" data-cm-text value="${esc(c)}" placeholder="A piece of content on the way">
           <button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>`;
-      const body = which === "summary"
+      const insRow = (i = {}) => `<div class="ri-cm-insrow" data-cm-ins>
+          <div class="ri-cm-insrow-top"><select data-in="type" aria-label="Kind">${Object.entries(INSIGHT_KINDS).map(([v, l]) => `<option value="${v}"${(i.type || "win") === v ? " selected" : ""}>${l}</option>`).join("")}</select>
+          <input type="text" data-in="title" value="${esc(i.title || "")}" placeholder="Title, e.g. Reels are earning more interaction" maxlength="70">
+          <button type="button" class="ri-cm-x" data-cm-del aria-label="Remove">&times;</button></div>
+          <textarea rows="2" data-in="evidence" placeholder="What we're seeing: the figures behind it">${esc(i.evidence || "")}</textarea>
+          <textarea rows="2" data-in="interpretation" placeholder="What it means for their business">${esc(i.interpretation || "")}</textarea>
+          <textarea rows="2" data-in="response" placeholder="What we'll do with it">${esc(i.response || "")}</textarea>
+        </div>`;
+      const body = which === "insights"
+        ? `<div id="ri-cm-ins">${((cur.data && cur.data.client && cur.data.client.insights) || []).map(insRow).join("")}</div>
+           <button type="button" class="smm-btn smm-btn--sm" id="ri-cm-add-ins">${PLUS_SVG}Add an insight</button>`
+        : which === "summary"
         ? `<div class="smm-modal-field"><label for="ri-cm-summary">What it means</label><textarea id="ri-cm-summary" rows="9">${esc(d.summary || "")}</textarea></div>`
         : `<div class="smm-modal-field"><label>Into ${esc(next)}</label><div id="ri-cm-prios">${(d.priorities || []).filter((p) => p && p.text).map(prioRow).join("")}</div>
              <button type="button" class="smm-btn smm-btn--sm" id="ri-cm-add-prio">${PLUS_SVG}Add a line</button></div>
@@ -2321,8 +2345,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       $("smm-modal-host").innerHTML = `
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal ri-cm-modal" role="dialog" aria-modal="true" aria-label="Edit commentary">
-            <h3>${which === "summary" ? "What it means" : `Into ${esc(next)}`}</h3>
-            <p class="smm-modal-sub">${which === "summary" ? "Tell them the story of the month: what moved, what we did that led to it, and what we're doing about anything that didn't. Plain English, no jargon." : `Each one is a card in the client's report: a short title, then what we'll do and why ("Into ${esc(next)} we'll… That's because…"). The mark is for us; the client never sees it.`}</p>
+            <h3>${which === "summary" || which === "insights" ? "What it means" : `Into ${esc(next)}`}</h3>
+            <p class="smm-modal-sub">${which === "insights" ? "Up to four. Each one: what we're seeing (with the figures), what it means for their business, and what we'll do with it. Never claim a change caused a result, and never compare figures counted differently." : which === "summary" ? "Tell them the story of the month: what moved, what we did that led to it, and what we're doing about anything that didn't. Plain English, no jargon." : `Each one is a card in the client's report: a short title, then what we'll do and why ("Into ${esc(next)} we'll… That's because…"). The mark is for us; the client never sees it.`}</p>
             ${body}
             <p class="smm-modal-status" id="ri-cm-status" hidden></p>
             <div class="smm-modal-actions">
@@ -2336,12 +2360,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       host.querySelector("[data-mcancel]").addEventListener("click", closeModal);
       const add = (id, html) => { const t = document.createElement("div"); t.innerHTML = html.trim(); const el = t.firstChild; $(id).appendChild(el); el.querySelector("[data-cm-title], [data-cm-text]")?.focus(); };
       $("ri-cm-add-prio")?.addEventListener("click", () => add("ri-cm-prios", prioRow()));
+      $("ri-cm-add-ins")?.addEventListener("click", () => { if (host.querySelectorAll("[data-cm-ins]").length >= 4) return; const t = document.createElement("div"); t.innerHTML = insRow().trim(); const el = t.firstChild; $("ri-cm-ins").appendChild(el); el.querySelector('[data-in="title"]')?.focus(); });
       $("ri-cm-add-coming")?.addEventListener("click", () => add("ri-cm-coming", comingRow()));
-      host.addEventListener("click", (e) => { const x = e.target.closest("[data-cm-del]"); if (x) x.closest(".ri-cm-row").remove(); });
-      (which === "summary" ? $("ri-cm-summary") : host.querySelector("[data-cm-title], [data-cm-text]"))?.focus();
+      host.addEventListener("click", (e) => { const x = e.target.closest("[data-cm-del]"); if (x) x.closest(".ri-cm-row, .ri-cm-insrow").remove(); });
+      (which === "summary" ? $("ri-cm-summary") : host.querySelector('[data-in="title"], [data-cm-title], [data-cm-text]'))?.focus();
       $("ri-cm-save").addEventListener("click", async () => {
         const btn = $("ri-cm-save"), status = $("ri-cm-status");
-        const patch = which === "summary"
+        const patch = which === "insights"
+          ? { client: { insights: [...host.querySelectorAll("[data-cm-ins]")].map((row) => { const v = (k) => row.querySelector(`[data-in="${k}"]`).value.trim(); return { type: v("type"), title: v("title"), evidence: v("evidence"), interpretation: v("interpretation"), response: v("response") }; }).filter((i) => i.title).slice(0, 4) } }
+          : which === "summary"
           ? { client: { summary: $("ri-cm-summary").value.trim() } }
           : {
               client: { priorities: [...host.querySelectorAll("[data-cm-prio]")].map((row) => ({ type: row.querySelector("[data-cm-type]").value, title: row.querySelector("[data-cm-title]").value.trim(), text: row.querySelector("[data-cm-text]").value.trim() })).filter((p) => p.text).map((p) => (p.title ? p : { type: p.type, text: p.text })) },
