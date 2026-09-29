@@ -9528,7 +9528,22 @@ CLIENT VOICE RULES (for "client"):
         const notes = { bell: 0, noHub: 0, emailed: 0, noEmail: 0, failed: 0 };
         try {
           if (action === "unpublish") {
+            // Recorded in the admin bell: a report leaving a client's hub is
+            // worth knowing about, and who did it and when.
+            const MNu = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            const gone = (await sbGet(env, "smm_reports", `id=in.(${ids.join(",")})&select=id,month,year,lead_id`)) || [];
             for (const id of ids) out.push(await patch(id, { published_at: null, published_by: null, published_data: null }));
+            for (const g of gone) {
+              const ld = ((await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(g.lead_id)}&select=business,full_name`)) || [])[0] || {};
+              try {
+                await notifyAdmins(env, {
+                  area: "social", event: "smm_report_unpublished",
+                  title: `${MNu[g.month]} ${g.year} report taken down`,
+                  body: `${ld.business || ld.full_name || "A client"}: removed from their hub by ${user.email || "an admin"}.`,
+                  href: "/admin/social", meta: { report_id: g.id, lead_id: g.lead_id },
+                });
+              } catch (_) {}
+            }
           } else {
             const rows = (await sbGet(env, "smm_reports", `id=in.(${ids.join(",")})&select=id,data,published_at,lead_id,month,year`)) || [];
             const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

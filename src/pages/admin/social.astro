@@ -2133,6 +2133,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const on = boxes.filter((b) => b.checked && !byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
         const off = boxes.filter((b) => !b.checked && byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
         if (!on.length && !off.length) { closeModal(); return; }
+        // Taking a month down is never a side effect: say which, and ask.
+        if (off.length) {
+          const names = off.map((id) => `${RI_MONTHS[byId[id].month]} ${byId[id].year}`).join(", ");
+          if (!confirm(`This takes ${names} out of ${nameOf(r)}'s hub. They won't be able to see ${off.length === 1 ? "it" : "them"} until you publish again.\n\nTake ${off.length === 1 ? "it" : "them"} down?`)) return;
+        }
         btn.disabled = true; btn.textContent = "Saving…";
         let notes = null;
         try {
@@ -2158,7 +2163,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               notes.noEmail ? "No email address on file, so no email." : "",
               notes.failed ? "The email didn't send; the report is live anyway." : "",
             ].filter(Boolean).join(" ");
-            btn.textContent = "Done"; btn.disabled = false; btn.onclick = () => { closeModal(); renderInsights(r); };
+            // A fresh button, so pressing Done can't run the save a second time.
+            const done = btn.cloneNode(false); done.textContent = "Done"; done.disabled = false;
+            done.addEventListener("click", () => { closeModal(); renderInsights(r); });
+            btn.replaceWith(done);
             renderInsights(r);
             return;
           }
