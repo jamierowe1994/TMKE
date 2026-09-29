@@ -548,8 +548,20 @@ import { gbpFromPence } from "../../lib/supabase.js";
       renderPlan(data.client);
       reports = (data.reports || []).map((r) => ({ id: r.id, platform: r.platform, month: r.month, year: r.year, data: r.data }));
       renderReports();
+      renumberChapters();
       loadInvoices();
       wireMessage(data.client);
+    }
+
+    /* Chapters count only the ones on show, so a hidden Invoices chapter (not
+       invoiced yet, or billed to another brand) doesn't leave 01, 03, 04. */
+    function renumberChapters() {
+      let n = 0;
+      document.querySelectorAll("#soc-client .ws-block").forEach((b) => {
+        const ch = b.querySelector(".ws-block-ch");
+        if (!ch || b.hidden) return;
+        ch.textContent = "Chapter " + String(++n).padStart(2, "0");
+      });
     }
 
     /* ---- Message your team ----
@@ -682,6 +694,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
       }));
 
       wrap.hidden = false;
+      renumberChapters();
     }
 
     /* ---- Join the waitlist ----
