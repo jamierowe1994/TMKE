@@ -17,9 +17,11 @@ import { areaImg } from "./hub-art.js";
 // page change here is the place to look when a step starts skipping.
 
 const DASHBOARD_STEPS = [
-  { path: "/account", target: ".ws-tabs", placement: "bottom",
+  // The whole bar, not the tab strip: on a phone the strip is hidden and the
+  // sections live in the burger, and a hidden target skips the step.
+  { path: "/account", target: ".ws-nav", placement: "bottom",
     eyebrow: "Dashboard", title: "Everything Within Reach.",
-    body: "Your main navigation stays at the top of the Member Hub, so Dashboard, Studio, Planner, Orders, Bookings, Your SMM and Shop are always one click away." },
+    body: "Your main navigation stays at the top of the Member Hub, so Dashboard, Studio, Planner, Orders, Bookings, Your SMM and Shop are always one tap away." },
   { path: "/account", target: ".ws-hero", placement: "bottom",
     eyebrow: "Dashboard", title: "Today, at a Glance.",
     body: "The dashboard opens on what needs your attention: the day's date, what's planned, and a line or two about where you're up to." },

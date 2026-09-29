@@ -385,15 +385,14 @@ const recentTemplates = templates.slice(0, 4);
     .ws-caret { width: 9px; height: 6px; opacity: 0.55; transition: transform 0.25s var(--ws-ease); }
     .ws-nav-right { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
     /* Phone: the same treatment the shared header gets (WorkspaceHeader.astro)
-       — the tab strip starts at the left, scrolls sideways with no scrollbar,
-       and never sets the page's width. Centred, it was cut at both ends and
-       pushed the whole page out to 638px on a 375px phone. */
+       — the sections live in the burger and only there, and signing out is in
+       the account menu under their own name. This page keeps its own copy of
+       the header's CSS, so both have to say it. */
     @media (max-width: 820px) {
-      .ws-nav { gap: 10px; padding-left: 16px; padding-right: 16px; }
-      .ws-tabs { min-width: 0; gap: 18px; font-size: 14px; justify-content: flex-start; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: 8px; margin-bottom: -8px; }
-      .ws-tabs::-webkit-scrollbar { display: none; }
-      .ws-tab { flex: 0 0 auto; white-space: nowrap; }
-      .ws-nav-right { gap: 4px; }
+      .ws-nav { gap: 10px; padding: 14px 16px 10px; }
+      .ws-tabs { display: none; }
+      .ws-navic.ws-logout { display: none; }
+      .ws-nav-right { flex: 1 1 auto; justify-content: flex-end; gap: 4px; }
     }
     .ws-navic {
       position: relative; width: 42px; height: 42px; border-radius: 50%;
@@ -472,7 +471,17 @@ const recentTemplates = templates.slice(0, 4);
     .ws-brief li:has(.ws-brief-slot[href]:hover) { border-color: rgba(28,29,34,0.3); }
     .ws-brief-ic--due { color: #b4553f; }
     .ws-brief-ic--gallery { color: var(--ws-accent); }
-    @media (max-width: 620px) { .ws-brief { grid-template-columns: 1fr; } }
+    @media (max-width: 620px) {
+      .ws-brief { grid-template-columns: 1fr; }
+      /* The gap under the greeting was set for a desktop hero standing beside
+         a photograph. On a phone the photograph is below, so the space read as
+         a hole between the greeting and the first thing it is talking about. */
+      .ws-brief { margin-top: clamp(16px, 4vh, 36px); }
+      /* The line break belongs to the two-column hero. On a phone the first
+         sentence already wraps, so the break made three lines of two. */
+      .ws-hero-sub br { display: none; }
+      .ws-hero-sub { font-size: 15px; line-height: 1.5; }
+    }
     .ws-brief strong { color: var(--ws-ink); font-weight: 600; }
     .ws-brief-ic--kit { color: var(--ws-success); }
     .ws-brief-ic { flex: 0 0 auto; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--ws-tx); }
@@ -491,7 +500,17 @@ const recentTemplates = templates.slice(0, 4);
        The date is the loud thing: you scan a week by number, not by label. */
     .ws-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 900px) { .ws-week { grid-template-columns: repeat(4, 1fr); } }
-    @media (max-width: 520px) { .ws-week { grid-template-columns: repeat(2, 1fr); } }
+    /* On a phone, seven cards two-up is four rows of scrolling before the page
+       has said anything. A swipe strip showing two and the edge of the third
+       keeps the week to one band and makes the rest obviously reachable. */
+    @media (max-width: 520px) {
+      .ws-week {
+        display: flex; overflow-x: auto; scroll-snap-type: x proximity;
+        scrollbar-width: none; -webkit-overflow-scrolling: touch;
+      }
+      .ws-week::-webkit-scrollbar { display: none; }
+      .ws-week .ws-day { flex: 0 0 43%; scroll-snap-align: start; }
+    }
     /* Every day as tall as the busiest one, so the line at the foot — "No post
        planned", "Design this post" — sits level across all seven and only the
        gap above it varies with the length of the prompt.
@@ -548,7 +567,9 @@ const recentTemplates = templates.slice(0, 4);
     .ws-resume { position: relative; display: flex; align-items: flex-end; min-height: 240px; padding: 26px; border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center; background-color: #2a2126; text-decoration: none; color: #fff; }
     /* A wash rather than a flat panel: the template underneath still has to be
        recognisable, which is the whole point of showing it. */
-    .ws-resume::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,16,20,0.82) 0%, rgba(20,16,20,0.36) 46%, rgba(20,16,20,0.06) 100%); }
+    /* The scrim sits under the words and stops there: a wash over the whole
+       picture was hiding the picture, which is the reason the card exists. */
+    .ws-resume::after { content: ""; position: absolute; inset: auto 0 0 0; height: 58%; background: linear-gradient(to top, rgba(20,16,20,0.86) 0%, rgba(20,16,20,0.52) 42%, rgba(20,16,20,0) 100%); }
     /* The demo: no design to pick up, so a plain wine block. */
     .ws-resume.is-demo-resume { background-color: var(--english-violet); }
     .ws-resume.is-demo-resume::after { display: none; }
@@ -594,7 +615,9 @@ const recentTemplates = templates.slice(0, 4);
     .ws-discover-h { font-family: var(--subhead); font-weight: 400; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.015em; margin: clamp(16px, 2vw, 26px) 0 0; color: #fff; white-space: nowrap; }
     @media (max-width: 900px) { .ws-discover-h { white-space: normal; } }
     .ws-discover-desc { font-size: var(--ws-t-row); line-height: 1.55; color: rgba(255,255,255,0.72); margin: 7px 0 0; max-width: 34ch; }
-    .ws-discover-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; margin-top: auto; height: 37px; box-sizing: border-box; padding: 0 20px; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-family: var(--serif); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+    /* 33px and 16px of padding: the same box as .ws-btn--sm, so this and
+       "Create this post" are one button in two colours. */
+    .ws-discover-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-start; margin-top: auto; height: 33px; box-sizing: border-box; padding: 0 16px; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-family: var(--serif); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
     .ws-discover-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
     .ws-discover:hover .ws-discover-cta em { transform: translateX(4px); }
     @media (max-width: 620px) { .ws-discover { grid-template-columns: 1fr; } .ws-discover-art { min-height: 180px; } }
@@ -628,9 +651,17 @@ const recentTemplates = templates.slice(0, 4);
     @media (prefers-reduced-motion: reduce) {
       .ws-rise, .ws-brief li, .ws-greeting, .ws-hero-cta-btn, .ws-block-head, .ws-week .ws-day, .ws-tools .ws-tool, .ws-nav { opacity: 1 !important; transform: none !important; animation: none !important; }
     }
+    /* Chapter 05's card titles read as headings beside "No bookings yet", which
+       is the same kind of line one column over: serif, 17px, regular weight. */
+    .ws-news--three .ws-news-h { font-size: var(--ws-t-title); font-weight: 400; line-height: 1.25; }
+
     /* ===== Contextual coach bubble ===== */
     .ws-coach { position: absolute; z-index: 80; max-width: 280px; display: flex; align-items: flex-start; gap: 9px; padding: 12px 12px 12px 13px; background: #fff; border: 1px solid var(--ws-line); border-radius: 13px; box-shadow: 0 20px 44px -18px rgba(28,29,34,0.32); opacity: 0; transform: translateY(-6px) scale(0.92); transform-origin: top center; transition: opacity 0.25s var(--ws-ease), transform 0.5s cubic-bezier(.34, 1.56, .4, 1); }
     .ws-coach.is-in { opacity: 1; transform: none; }
+    /* Tucked into a card's corner: no arrow (there is nothing below it to point
+       at) and narrower, so it never covers the card's own words. */
+    .ws-coach.is-corner { max-width: min(250px, calc(100vw - 48px)); transform-origin: top right; }
+    .ws-coach.is-corner::before { display: none; }
     .ws-coach::before { content: ""; position: absolute; top: -6px; left: var(--arrow-x, 26px); width: 11px; height: 11px; background: #fff; border-left: 1px solid var(--ws-line); border-top: 1px solid var(--ws-line); transform: translateX(-50%) rotate(45deg); }
     .ws-coach-spark { flex: 0 0 auto; color: #e3a008; font-size: var(--ws-t-row); line-height: 1.5; }
     .ws-coach-msg { flex: 1; font-size: var(--ws-t-body); line-height: 1.5; color: var(--ws-ink); }
@@ -1341,12 +1372,23 @@ const recentTemplates = templates.slice(0, 4);
       const RULES = [
         { id: 'brand-health', when: () => !brandDone, target: '.ws-textlink--accent', text: 'Finishing your Brand Kit means every design comes out on-brand automatically — worth a couple of minutes.' },
         { id: 'continue-draft', when: () => hasDraft, target: '.ws-resume', text: 'Pick up where you left off — your most recent design is right here.' },
-        { id: 'first-studio', when: () => !hasDraft, target: '.ws-tab[href="/account/studio"]', text: 'New here? Hop into Studio to make your first design — it only takes a minute.' },
+        // The Chapter 03 card, which reads "Get started - open a template in the
+        // Studio" for anyone without a draft. The top-nav tab it used to point
+        // at is hidden on a phone, and a bubble anchored to a hidden element
+        // floats at the top of the page pointing at nothing.
+        { id: 'first-studio', when: () => !hasDraft, target: '.ws-resume', text: 'New here? Hop into Studio to make your first design — it only takes a minute.' },
         { id: 'prompt-hint', when: () => true, target: '.ws-iconround', text: "Not feeling today's prompt? Tap here for another idea." },
         { id: 'schedule', when: () => true, target: '#plan-h', text: "Nothing planned yet this week — a midweek post tends to land well." },
       ];
 
-      const pick = RULES.find((r) => !seen.includes(r.id) && r.when() && document.querySelector(r.target));
+      // A target has to be on screen, not merely in the DOM: a breakpoint that
+      // hides an element leaves it findable and zero-sized.
+      const onScreen = (el) => {
+        if (!el || !el.getClientRects().length) return false;
+        const b = el.getBoundingClientRect();
+        return b.width > 0 && b.height > 0;
+      };
+      const pick = RULES.find((r) => !seen.includes(r.id) && r.when() && onScreen(document.querySelector(r.target)));
       if (!pick) return;
       const target = document.querySelector(pick.target);
       msgEl.textContent = pick.text;
@@ -1354,11 +1396,31 @@ const recentTemplates = templates.slice(0, 4);
       function place() {
         coach.hidden = false;
         const r = target.getBoundingClientRect();
+        const vw = document.documentElement.clientWidth;
+        // On a phone a bubble hung under a full-width card lands in the middle
+        // of the next thing. Tuck it into the target's top-right corner, where
+        // it sits over the card it is talking about.
+        const corner = vw <= 620 && r.width > vw * 0.6;
+        // Set the class before measuring: the corner bubble is the narrower of
+        // the two, and the old width put it 30px in from where it belongs.
+        coach.classList.toggle('is-corner', corner);
+        if (corner) {
+          // Absolute, so relative to the nearest positioned ancestor rather
+          // than to the page. Subtract that corner or every inset is off by it.
+          const host = coach.offsetParent;
+          const o = host ? host.getBoundingClientRect() : { top: -window.scrollY, left: -window.scrollX };
+          const cw0 = coach.offsetWidth;
+          coach.style.top = (r.top - o.top + 12) + 'px';
+          const leftVp = Math.max(12, Math.min(r.right - cw0 - 12, vw - cw0 - 12));
+          coach.style.left = (leftVp - o.left) + 'px';
+          coach.style.removeProperty('--arrow-x');
+          return;
+        }
         const cx = r.left + r.width / 2 + window.scrollX;
         coach.style.top = (r.bottom + window.scrollY + 12) + 'px';
         coach.style.left = '0px';
         const cw = coach.offsetWidth;
-        const maxLeft = document.documentElement.clientWidth - cw - 16;
+        const maxLeft = vw - cw - 16;
         const left = Math.max(16, Math.min(cx - cw / 2, maxLeft));
         coach.style.left = left + 'px';
         coach.style.setProperty('--arrow-x', Math.max(16, Math.min(cx - left, cw - 16)) + 'px');

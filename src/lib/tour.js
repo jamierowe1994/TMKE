@@ -544,14 +544,21 @@ function nextTick(fn) { setTimeout(fn, 16); }
 
 // Wait for a selector to appear (targets can render late — editor chrome,
 // dynamically-built header). Resolves with the element, or null on timeout.
+// "Appear" means it has a box on screen: an element the current breakpoint
+// hides is still in the DOM, and spotlighting it cut a 0x0 hole in the dim.
+function rendered(el) {
+  if (!el || !el.getClientRects().length) return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
 function waitFor(selector, timeout = 4000) {
   return new Promise((resolve) => {
     const found = scope().querySelector(selector);
-    if (found) return resolve(found);
+    if (rendered(found)) return resolve(found);
     const start = Date.now();
     const id = setInterval(() => {
       const el = scope().querySelector(selector);
-      if (el) { clearInterval(id); return resolve(el); }
+      if (rendered(el)) { clearInterval(id); return resolve(el); }
       if (Date.now() - start > timeout) { clearInterval(id); return resolve(null); }
     }, 80);
   });
