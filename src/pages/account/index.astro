@@ -314,7 +314,7 @@ const recentTemplates = templates.slice(0, 4);
             <span class="ws-news-tx">
               <span class="ws-news-flag">Seasonal content</span>
               <strong class="ws-news-h" id="ws-news-cal-h">Next month's Content Calendar</strong>
-              <span class="ws-news-desc">Plan your month with done-for-you ideas.</span>
+              <span class="ws-news-desc">Plan your month with our seasonal and industry prompts.</span>
             </span>
             <span class="ws-news-art" style="background-image:url('/assets/home%20kitchen.jpg')"></span>
           </a>
@@ -567,14 +567,15 @@ const recentTemplates = templates.slice(0, 4);
     .ws-resume { position: relative; display: flex; align-items: flex-end; min-height: 240px; padding: 26px; border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center; background-color: #2a2126; text-decoration: none; color: #fff; }
     /* A wash rather than a flat panel: the template underneath still has to be
        recognisable, which is the whole point of showing it. */
-    /* The scrim sits under the words and stops there: a wash over the whole
-       picture was hiding the picture, which is the reason the card exists. */
-    .ws-resume::after { content: ""; position: absolute; inset: auto 0 0 0; height: 58%; background: linear-gradient(to top, rgba(20,16,20,0.86) 0%, rgba(20,16,20,0.52) 42%, rgba(20,16,20,0) 100%); }
+    /* No scrim: the picture is the reason the card exists, and a wash over it
+       to make white text readable was hiding the thing being sold. The words
+       carry their own chip instead, in the wine the chapter bars use. */
+    .ws-resume::after { content: none; }
     /* The demo: no design to pick up, so a plain wine block. */
     .ws-resume.is-demo-resume { background-color: var(--english-violet); }
     .ws-resume.is-demo-resume::after { display: none; }
     .ws-resume.is-demo-resume .ws-resume-h { font-size: clamp(20px, 1.8vw, 24px); }
-    .ws-resume-body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; }
+    .ws-resume-body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; padding: 13px 16px 14px; border-radius: var(--ws-r-sm); background: var(--english-violet); max-width: 100%; }
     /* The same size as the prompt beside it — it was reading as a headline
        against a body-sized neighbour. */
     .ws-resume-h { font-family: var(--serif); font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; letter-spacing: -0.01em; line-height: 1.35; }
@@ -651,9 +652,14 @@ const recentTemplates = templates.slice(0, 4);
     @media (prefers-reduced-motion: reduce) {
       .ws-rise, .ws-brief li, .ws-greeting, .ws-hero-cta-btn, .ws-block-head, .ws-week .ws-day, .ws-tools .ws-tool, .ws-nav { opacity: 1 !important; transform: none !important; animation: none !important; }
     }
-    /* Chapter 05's card titles read as headings beside "No bookings yet", which
-       is the same kind of line one column over: serif, 17px, regular weight. */
-    .ws-news--three .ws-news-h { font-size: var(--ws-t-title); font-weight: 400; line-height: 1.25; }
+    /* Chapter 05's card titles in Today's Prompt's voice, to the letter: the
+       same serif, size, weight and leading as .ws-idea one section up. */
+    .ws-news--three .ws-news-h { font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; line-height: 1.45; letter-spacing: -0.01em; }
+    /* The description used to be pushed to the foot of the card (margin-top:
+       auto), so a one-line one sat a long way under its title and a two-line
+       one did not - three cards, three different gaps. It follows the title
+       now, and every card reads the same from the top down. */
+    .ws-news--three .ws-news-desc { margin-top: 0; }
 
     /* ===== Contextual coach bubble ===== */
     .ws-coach { position: absolute; z-index: 80; max-width: 280px; display: flex; align-items: flex-start; gap: 9px; padding: 12px 12px 12px 13px; background: #fff; border: 1px solid var(--ws-line); border-radius: 13px; box-shadow: 0 20px 44px -18px rgba(28,29,34,0.32); opacity: 0; transform: translateY(-6px) scale(0.92); transform-origin: top center; transition: opacity 0.25s var(--ws-ease), transform 0.5s cubic-bezier(.34, 1.56, .4, 1); }
@@ -1397,10 +1403,12 @@ const recentTemplates = templates.slice(0, 4);
         coach.hidden = false;
         const r = target.getBoundingClientRect();
         const vw = document.documentElement.clientWidth;
-        // On a phone a bubble hung under a full-width card lands in the middle
-        // of the next thing. Tuck it into the target's top-right corner, where
-        // it sits over the card it is talking about.
-        const corner = vw <= 620 && r.width > vw * 0.6;
+        // Hung underneath, a bubble pointing at a big picture card lands in the
+        // middle of whatever comes next - the section below it on a phone, the
+        // Chapter 04 banner on a desktop. A card that size has room to hold the
+        // bubble, so tuck it into the target's own top-right corner. Small
+        // targets - a link, a round button, a heading - keep the arrow below.
+        const corner = r.height >= 180 && r.width >= 260;
         // Set the class before measuring: the corner bubble is the narrower of
         // the two, and the old width put it 30px in from where it belongs.
         coach.classList.toggle('is-corner', corner);
