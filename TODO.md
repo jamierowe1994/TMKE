@@ -65,14 +65,18 @@ isn't the software, it's the syllabus and who writes what:
   (`supabase/guides_seed_hub.sql`)
 
 Still to do:
-- ⬜ **Screenshots for the hub course** — 8 PNGs into `public/images/learn/hub/`
-  (`dashboard` · `studio` · `shop` · `planner` · `orders` · `bookings` ·
-  `brand-kit` · `learn`). They appear automatically; until then each slide shows
-  a tinted placeholder. Then flip the course to published from `/admin/guides`.
+- ✅ (verified 29 Sep) **Screenshots for the hub course.** The course takes its
+  pictures from `public/images/learn/hub/areas/<name>-v5.jpg` (`hub-art.js`
+  pins the version), not the flat folder this entry described, and every name
+  it asks for is there: dashboard, studio, planner, orders, bookings,
+  brand-kit, learn, start-design. `shop` is named in this entry but the course
+  never asks for it. The course is already `status: "published"`.
 - ⬜ Two guides ship as "Coming soon" — *Using the content calendar* and
   *Captions that convert*. (`src/components/account/GuidesPanel.astro:37,44`)
-- ⬜ The Learn page's links are deliberately blank `#` placeholders — 9 of them
-  still to wire up. (`src/pages/account/guides.astro:12`)
+- ⬜ The Learn page's links are deliberately blank `#` placeholders — **7**
+  left as of 29 Sep, two having been wired since. Five are the clip row, one
+  is "Browse all", one is "Start the essentials".
+  (`src/pages/account/guides.astro`)
 
 ## 2. Videography ⬜
 
@@ -638,9 +642,9 @@ the rendered output checking, not just a build.
 
 ## 8. Member hub — other ⬜
 
-- ⬜ **The invite-to-join flow is broken at the last step.** Invites link to
-  `/join?email=…&name=…`, but `join.astro` never reads those values, so the
-  invitee has to retype everything.
+- ✅ (29 Sep) **The invite-to-join flow.** Half of it was already right: the
+  email was read and prefilled. The name never was, so somebody invited by
+  name was asked to type it back in. Both are prefilled now.
 - ✅ (21 Sep) Brand kit reaches a new device straight away: the dashboard, the
   caption generator and the Studio all fetch it through `syncBrandCache`
   (`src/lib/brand-cache.js`); the dashboard redraws once when it arrives.
@@ -650,8 +654,12 @@ the rendered output checking, not just a build.
   multi-page template. Not a fault — confirmed by Dani as the wanted
   behaviour: the list shows the current page's text, and moving to the next
   page shows that page's. Listing every page at once would be far too busy.
-- ⬜ Schedule falls back to a hard-coded holiday list if `uk_observances` was
-  never seeded. (`src/pages/account/schedule.astro:1249-1263`)
+- ✅ (verified 29 Sep) Schedule's holiday fallback. The table is
+  `uk_holidays` — `uk_observances` is only the name of the migration file that
+  seeds it — and it is present and seeded on the live database (New Year's
+  Day, World Braille Day, Burns Night… from 2026-01-01). The code queries the
+  right name, so the hard-coded list is a genuine fallback and not the thing
+  members are being shown.
 
 ## 8b. Design Studio — editing behaviour ✅ (21 Aug) — raised 17 Aug
 
