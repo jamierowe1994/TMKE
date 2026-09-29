@@ -3451,6 +3451,7 @@ export default {
         ctx.waitUntil(runVideographyChasers(env));
         ctx.waitUntil(runInvoiceChasers(env));
         ctx.waitUntil(runStallCheck(env));
+        ctx.waitUntil(runEmptyFunnelCheck(env));
         ctx.waitUntil(runInvoicePrompt(env));
       }
     }
@@ -10042,6 +10043,38 @@ const STALL_DAYS = {
   gallery_ready: 5,  // gallery built but never sent
   sent: 10,          // with the client, still unpaid or edits unsettled
 };
+
+// A live funnel that's run out of people but still has dated emails to
+// send: nobody will get them. That's how the Autumn Edit's email 3 was
+// missed (Sep 2026: a broken check ended every journey after email 2, and
+// the only sign was "0 in the funnel"). Checked every morning; one bell
+// notification per email, so it isn't repeated daily.
+async function runEmptyFunnelCheck(env) {
+  try {
+    const autos = (await sbGet(env, "automations", "status=eq.active&select=id,name,graph")) || [];
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
+    for (const a of autos) {
+      const nodes = ((a.graph || {}).nodes) || [];
+      const sends = nodes.filter((n) => n.type === "send_email" && n.config && /^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || "")))
+        .sort((x, y) => String(x.config.send_on).localeCompare(String(y.config.send_on)));
+      const upcoming = sends.filter((n) => n.config.send_on >= today);
+      if (!upcoming.length) continue;
+      const live = (await sbGet(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&status=in.(active,waiting)&select=id&limit=1`)) || [];
+      if (live.length) continue;
+      const next = upcoming[0];
+      const which = sends.indexOf(next) + 1;
+      const when = new Date(`${next.config.send_on}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+      await notifyAdmins(env, {
+        area: "problem", event: "funnel_empty",
+        title: `${a.name}: nobody left for email ${which}`,
+        body: `The funnel is live but has nobody in it, so email ${which} on ${when}${next.config.send_at ? ` at ${next.config.send_at}` : ""} won't go to anyone. Check what ended everyone's journey.`,
+        href: `/admin/automations/edit?id=${a.id}`,
+        key: `funnel_empty:${a.id}:${next.id}`,
+        meta: { automation_id: a.id, node_id: next.id },
+      });
+    }
+  } catch (e) { console.error("runEmptyFunnelCheck", String((e && e.message) || e).slice(0, 200)); }
+}
 
 async function runStallCheck(env) {
   const now = Date.now();

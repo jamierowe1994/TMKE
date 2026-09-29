@@ -97,6 +97,8 @@ import "../../../styles/admin.css";
     .auto-kindbadge { flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; color: rgba(28,29,34,0.55); background: rgba(28,29,34,0.07); }
     .auto-kindbadge.marketing { color: var(--english-violet); background: rgba(55,30,40,0.1); }
     .auto-collapsed { border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; background: rgba(255,255,255,0.6); margin-top: 26px; }
+    .auto-warn { margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; background: #fbf4e4; border: 1px solid #ecd9a8; font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: #6b4d05; }
+    .auto-warn strong { color: #5a3f00; }
     .auto-collapsed summary { cursor: pointer; list-style: none; padding: 14px 18px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .auto-collapsed summary::-webkit-details-marker { display: none; }
     .auto-collapsed summary::after { content: " ▾"; }
@@ -130,6 +132,19 @@ import "../../../styles/admin.css";
       return nodes.some((n) => n.type === "send_email" && n.config && n.config.send_kind === "marketing") ? "marketing" : "system";
     }
 
+    // Dated emails still to come in a live funnel that has nobody in it:
+    // nobody will get them. The Autumn Edit's email 3 was missed this way.
+    function emptyFunnelWarning(a, live) {
+      if (a.status !== "active" || live.length) return "";
+      const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+      const sends = ((a.graph && a.graph.nodes) || []).filter((n) => n.type === "send_email" && n.config && /^\d{4}-\d{2}-\d{2}$/.test(String(n.config.send_on || "")))
+        .sort((x, y) => String(x.config.send_on).localeCompare(String(y.config.send_on)));
+      const next = sends.find((n) => n.config.send_on >= today);
+      if (!next) return "";
+      const when = new Date(`${next.config.send_on}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+      return `<div class="auto-warn"><strong>Nobody left for email ${sends.indexOf(next) + 1}.</strong> It's due ${esc(when)}${next.config.send_at ? ` at ${esc(next.config.send_at)}` : ""}, but nobody is in this funnel to receive it.</div>`;
+    }
+
     function card(a) {
       const live = LIVE.get(a.id) || [];
       const kind = kindOf(a);
@@ -146,6 +161,7 @@ import "../../../styles/admin.css";
             Trigger: <strong>${esc(TRIGGER_LABELS[a.trigger_type] || "Not set")}</strong><br>
             <strong>${live.length}</strong> in the funnel now · edited ${esc(fmtDate(a.updated_at))}
           </div>
+          ${emptyFunnelWarning(a, live)}
           ${live.length ? `
           <button type="button" class="auto-rowbtn auto-who" data-who="${esc(a.id)}">See who &darr;</button>
           <div class="auto-enrolled" data-enrolled="${esc(a.id)}" hidden>
