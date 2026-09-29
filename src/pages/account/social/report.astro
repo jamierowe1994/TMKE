@@ -316,18 +316,6 @@ import "../../../styles/ws-system.css";
     .rp-cover-start { gap: 0.6em; }
     .rp-cover-card .rp-dl { background: transparent; color: #fff; border-color: rgba(255,255,255,0.45); }
     .rp-cover-card .rp-dl:hover { border-color: #fff; }
-    #rp-print { display: none; }
-    @media print {
-      @page { size: A4 landscape; margin: 9mm; }
-      body.rp-printing > :not(#rp-print) { display: none !important; }
-      body.rp-printing { background: #fff !important; }
-      body.rp-printing #rp-print { display: block; font-size: 10.5px; font-family: var(--sans); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      #rp-print .rp-slide { animation: none; box-sizing: border-box; min-height: 188mm; break-after: page; page-break-after: always; box-shadow: none; overflow: visible; }
-      #rp-print .rp-slide:last-child { break-after: auto; page-break-after: auto; }
-      #rp-print .rp-cover-start, #rp-print .rp-cta .ws-btn { display: none; }
-      #rp-print .rp-cta { margin-top: 1.5em; }
-      #rp-print .rp-tblwrap { overflow: visible; }
-    }
   </style>
 
   <script>
@@ -336,6 +324,7 @@ import "../../../styles/ws-system.css";
     import { resolveVisibility } from "../../../lib/report-fields.js";
     import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
     import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES } from "../../../lib/report-metrics.js";
+    import { downloadReportPdf } from "../../../lib/report-pdf.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const DEV = import.meta.env.DEV;
@@ -621,19 +610,22 @@ import "../../../styles/ws-system.css";
         fit();
       };
       document.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) { e.preventDefault(); show(+b.dataset.go); } });
-      // Download PDF: every slide but the finish, one to a landscape A4 page,
-      // through the browser's own Save as PDF.
-      document.addEventListener("click", (e) => {
-        if (!e.target.closest("[data-pdf]")) return;
-        let sheet = $("rp-print");
-        if (!sheet) { sheet = document.createElement("div"); sheet.id = "rp-print"; document.body.appendChild(sheet); }
-        sheet.innerHTML = slides.slice(0, LAST).join("");
-        const was = document.title;
-        document.title = `${client?.business ? client.business + " " : ""}${month} social media report`;
-        document.body.classList.add("rp-printing");
-        const done = () => { document.body.classList.remove("rp-printing"); document.title = was; window.removeEventListener("afterprint", done); };
-        window.addEventListener("afterprint", done);
-        setTimeout(() => window.print(), 50);
+      // Download PDF: the report as its own presentation (lib/report-pdf.js),
+      // in the style of TMKE's brochures, saved as a file.
+      document.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-pdf]"); if (!btn || btn.disabled) return;
+        const label = btn.innerHTML;
+        btn.disabled = true; btn.textContent = "Preparing PDF…";
+        try {
+          await downloadReportPdf({
+            r, all, vis, client, MONTHS,
+            filename: `${(client?.business || "TMKE").replace(/[^\w\s-]/g, "").trim()} ${month} social media report.pdf`,
+            onProgress: (i, n) => { btn.textContent = `Preparing PDF… ${i} of ${n}`; },
+          });
+        } catch (err) {
+          console.error("pdf", err);
+          alert("Sorry, the PDF couldn't be made just now. Please try again in a moment.");
+        } finally { btn.disabled = false; btn.innerHTML = label; }
       });
       prev.addEventListener("click", () => show(at - 1));
       next.addEventListener("click", () => show(at + 1));
@@ -654,7 +646,20 @@ import "../../../styles/ws-system.css";
         // A single report's data, or an array of { month, year, data }, newest last.
         const j = await (await fetch(params.get("fixture"))).json();
         const list = (Array.isArray(j) ? j : [{ month: +(params.get("m") ?? 7), year: +(params.get("y") ?? 2026), data: j }]).map((x, i) => ({ id: "fx" + i, platform: "Instagram", ...x }));
-        return run(list[list.length - 1], list, resolveVisibility(null), { business: "Fixture", social_media_manager: "Abby" }, false);
+        const fxClient = { business: "The Marketing Experts", social_media_manager: "Danielle Law" };
+        run(list[list.length - 1], list, resolveVisibility(null), fxClient, false);
+        // Dev only: ?pdfpage=N shows page N of the PDF full size at the top
+        // left, for checking the PDF design page by page.
+        if (params.get("pdfpage")) {
+          const { reportPdfHtml } = await import("../../../lib/report-pdf.js");
+          const out = reportPdfHtml({ r: list[list.length - 1], all: list, vis: resolveVisibility(null), client: fxClient, MONTHS });
+          const st = document.createElement("style");
+          st.textContent = out.css + " .rpx{left:0!important;top:0!important;position:fixed!important;z-index:99999} .rpx-page{display:none!important} .rpx-page.show{display:flex!important} html,body{overflow:hidden}";
+          document.head.appendChild(st);
+          const h = document.createElement("div"); h.className = "rpx"; h.innerHTML = out.html; document.body.appendChild(h);
+          const pg = h.querySelectorAll(".rpx-page")[Number(params.get("pdfpage")) - 1]; if (pg) pg.classList.add("show");
+        }
+        return;
       }
       const sampleId = params.get("sample");
       const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abby" };
