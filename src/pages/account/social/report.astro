@@ -162,7 +162,7 @@ import "../../../styles/ws-system.css";
     /* The numbers: three to a row. The explanation under each is written to
        two lines and given two lines' height, so the rows read as blocks. */
     .rp-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 2.2em; border-top: 1px solid var(--ws-line); }
-    @media (max-width: 720px) { .rp-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 720px) { .rp-figs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-br { display: none; } }
     .rp-fig { padding: 1.15em 0; border-bottom: 1px solid var(--ws-line); }
     .rp-fig-val { font-family: var(--serif); font-size: 2.6em; font-weight: 400; letter-spacing: -0.02em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin: 0.15em 0 0; }
     .rp-fig-move { font-size: 0.86em; font-weight: 700; color: var(--ws-accent); margin: 0.5em 0 0; }
@@ -183,10 +183,12 @@ import "../../../styles/ws-system.css";
     /* Who you reached */
     /* The two figures take the left half; "Why two numbers?" the right half,
        out to the margin, centred on them. */
-    .rp-reach { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 1em 2.6em; align-items: center; padding-bottom: 1.3em; margin-bottom: 1.3em; border-bottom: 1px solid var(--ws-line); }
-    .rp-reach-why { margin: 0; padding: 1em 1.2em; border-left: 3px solid var(--english-violet, #4a2a3c); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 5%, #fff); font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); }
+    .rp-reach { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 1em 2.6em; align-items: stretch; padding-bottom: 1.3em; margin-bottom: 1.3em; border-bottom: 1px solid var(--ws-line); }
+    .rp-reach-figs { grid-column: span 2; display: flex; gap: 1em 6em; }
+    .rp-reach-figs .rp-label { margin-top: 0; }
+    .rp-reach-why { margin: 0; display: flex; align-items: center; padding: 1em 1.2em; border-left: 3px solid var(--english-violet, #4a2a3c); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 5%, #fff); font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); }
     .rp-reach-why b { color: var(--ws-ink); }
-    @media (max-width: 900px) { .rp-reach { grid-template-columns: 1fr 1fr; } .rp-reach-why { grid-column: 1 / -1; } }
+    @media (max-width: 900px) { .rp-reach { grid-template-columns: 1fr; } .rp-reach-figs { grid-column: auto; } .rp-reach-figs { gap: 1em 2.6em; } .rp-reach-figs > div { flex: 1; } }
     .rp-big { font-family: var(--serif); font-size: 2.6em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin-bottom: 0.2em; }
     .rp-splitbar { height: 0.55em; border-radius: 99px; background: color-mix(in srgb, var(--english-violet, #4a2a3c) 22%, #fff); overflow: hidden; margin: 1.1em 0 0.7em; }
     .rp-splitbar span { display: block; height: 100%; background: var(--english-violet, #4a2a3c); }
@@ -280,6 +282,7 @@ import "../../../styles/ws-system.css";
 
     /* Into next month */
     .rp-takes .rp-mini-p { font-size: 1em; }
+    .rp-takes .rp-mini-h { font-size: 1.5em; line-height: 1.25; margin-bottom: 0.55em; }
     /* The cards share the slide's spare height, so four sit as two even rows. */
     .rp-takes.rp-grow { align-content: stretch; }
     .rp-takes.rp-grow > .rp-mini { display: flex; flex-direction: column; justify-content: center; padding: 1em 1.4em; }
@@ -323,7 +326,7 @@ import "../../../styles/ws-system.css";
     import { MONTHS } from "../../../lib/report-insights.js";
     import { resolveVisibility } from "../../../lib/report-fields.js";
     import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
-    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES } from "../../../lib/report-metrics.js";
+    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves } from "../../../lib/report-metrics.js";
     import { downloadReportPdf } from "../../../lib/report-pdf.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -340,6 +343,17 @@ import "../../../styles/ws-system.css";
        it has nothing to say, so a month without a second month to compare
        simply has less in it. The visibility switches in admin
        (report-fields.js) still decide what a client may see. */
+    // Insight headlines of more than four words go over two lines, broken
+    // where the two halves come out closest in length, so the four read as
+    // a set (Danielle, Sep 2026). The break is dropped on phones.
+    function twoLines(t) {
+      const w = String(t || "").trim().split(/\s+/);
+      if (w.length <= 4) return esc(w.join(" "));
+      let best = 1, gap = Infinity;
+      for (let i = 1; i < w.length; i++) { const g = Math.abs(w.slice(0, i).join(" ").length - w.slice(i).join(" ").length); if (g < gap) { gap = g; best = i; } }
+      return `${esc(w.slice(0, best).join(" "))} <br class="rp-br">${esc(w.slice(best).join(" "))}`;
+    }
+
     function buildParts(r, all, vis, client, sampleMode) {
       const d = r.data || {}, p = d.profile || {}, rc = d.reach || {}, dem = d.demographics || {};
       const month = MONTHS[r.month];
@@ -366,14 +380,17 @@ import "../../../styles/ws-system.css";
         "Times your posts and videos were seen, repeats included.", mv(p.viewsChange));
       fig("interactions", "Interactions", n(p.interactions) != null ? fmt(n(p.interactions)) : null,
         "Likes, comments, saves and shares, all added together.", mv(p.interactionsChange));
+      // SocialPilot gives no change for these two, so they're worked out
+      // against last calendar month's report, when there is one.
+      const lm = numbersMoves(d, lastMonthOf(r, all)?.data);
       fig("interactionRate", "Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null,
-        "Of everyone the account reached, the share who interacted.");
+        "Of everyone the account reached, the share who interacted.", lm.interactionRate);
       // How much we put out. Stories aren't in it: SocialPilot only reports
       // them for the last 24 hours, never the month.
       const np = n(d.posts?.published), nr = n(d.reels?.published);
       if (vis.published !== false && (np != null || nr != null)) {
         const bits = [np ? `${fmt(np)} image and carousel post${np === 1 ? "" : "s"}` : "", nr ? `${fmt(nr)} short-form video${nr === 1 ? "" : "s"}` : ""].filter(Boolean);
-        fig("published", "Total published", fmt((np || 0) + (nr || 0)), bits.length ? bits.join(" and ") + "." : "Nothing went out this month.");
+        fig("published", "Total published", fmt((np || 0) + (nr || 0)), bits.length ? bits.join(" and ") + "." : "Nothing went out this month.", lm.published);
       }
       // Slide titles in title case (Danielle, Sep 2026); the cover's contents
       // list and the progress label use the same names.
@@ -422,10 +439,10 @@ import "../../../styles/ws-system.css";
       }
       // Two reaches, side by side and told apart, before who they were.
       const cr = (n(d.posts?.reach) || 0) + (n(d.reels?.reach) || 0);
-      const band = n(p.reach) != null ? `<div class="rp-reach">
+      const band = n(p.reach) != null ? `<div class="rp-reach"><div class="rp-reach-figs">
           <div><p class="rp-label">Profile reach</p><div class="rp-big">${fmt(n(p.reach))}</div><p class="rp-mini-p">different people saw the account.</p></div>
-          ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">people reached, counted post by post.</p></div>` : ""}
-          ${vis.contentReach !== false && cr ? `<p class="rp-reach-why"><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post&rsquo;s own reach, so someone who saw three posts is counted three times. That&rsquo;s why it&rsquo;s the bigger of the two.</p>` : ""}
+          ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">people reached, counted post by post.</p></div>` : ""}</div>
+          ${vis.contentReach !== false && cr ? `<p class="rp-reach-why"><span><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post&rsquo;s own reach, so someone who saw three posts is counted three times. That&rsquo;s why it&rsquo;s the bigger of the two.</span></p>` : ""}
         </div>` : "";
       if (cards.length || band) parts.push({ step: "Who You Reached", html: part(
         "Who You Reached",
@@ -488,7 +505,7 @@ import "../../../styles/ws-system.css";
       const insights = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
       const insightsHtml = insights.length ? `<div class="rp-insights" style="--n:${insights.length}">${insights.map((i) => `<div class="rp-insight">
           <p class="rp-label rp-insight-k">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? `<span class="rp-insight-early">Early signal</span>` : ""}</p>
-          <h3 class="rp-insight-h">${esc(i.headline)}</h3>
+          <h3 class="rp-insight-h">${twoLines(i.headline)}</h3>
           <p class="rp-insight-p">${esc(i.analysis)}</p>
           ${i.evidence.length ? `<p class="rp-insight-ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}
         </div>`).join("")}</div>` : "";
@@ -511,7 +528,7 @@ import "../../../styles/ws-system.css";
           (takes.length ? `<div class="rp-cards rp-takes rp-grow" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
           + (coming.length ? `<div class="rp-mini rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")
           // Later this becomes "See next month's content plan".
-          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any of it: this month&rsquo;s insights and our plan for the month ahead.` : "Your account manager can talk you through any of it: this month&rsquo;s insights and our plan for the month ahead."}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
+          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any questions about this month&rsquo;s insights and our plan for ${MONTHS[(r.month + 1) % 12]}.` : `Your account manager can talk you through any questions about this month&rsquo;s insights and our plan for ${MONTHS[(r.month + 1) % 12]}.`}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
       }
       return parts;
     }
@@ -634,7 +651,8 @@ import "../../../styles/ws-system.css";
         if (e.key === "ArrowRight") show(at + 1);
         if (e.key === "ArrowLeft") show(at - 1);
       });
-      show(0);
+      // Dev only: &slide=N opens on slide N, for checking one slide's layout.
+      show(DEV ? +(params.get("slide") || 0) : 0);
     }
 
     function notFound() { $("rp-loading").hidden = true; $("rp-empty").hidden = false; }
@@ -651,12 +669,12 @@ import "../../../styles/ws-system.css";
         // Dev only: ?pdfpage=N shows page N of the PDF full size at the top
         // left, for checking the PDF design page by page.
         if (params.get("pdfpage")) {
-          const { reportPdfHtml, balanceRows } = await import("../../../lib/report-pdf.js");
+          const { reportPdfHtml, balanceRows, fitText } = await import("../../../lib/report-pdf.js");
           const out = reportPdfHtml({ r: list[list.length - 1], all: list, vis: resolveVisibility(null), client: fxClient, MONTHS });
           const st = document.createElement("style");
           st.textContent = out.css;
           document.head.appendChild(st);
-          const h = document.createElement("div"); h.className = "rpx"; h.innerHTML = out.html; document.body.appendChild(h); await document.fonts.ready; balanceRows(h);
+          const h = document.createElement("div"); h.className = "rpx"; h.innerHTML = out.html; document.body.appendChild(h); await document.fonts.ready; balanceRows(h); fitText(h);
           st.textContent += " .rpx{left:0!important;top:0!important;position:fixed!important;z-index:99999} .rpx-page{display:none!important} .rpx-page.show{display:flex!important} html,body{overflow:hidden}";
           const pg = h.querySelectorAll(".rpx-page")[Number(params.get("pdfpage")) - 1]; if (pg) pg.classList.add("show");
         }

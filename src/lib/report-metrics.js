@@ -105,3 +105,31 @@ export function normaliseInsight(i) {
   const evidence = Array.isArray(i.evidence) ? i.evidence.filter(Boolean).map(String) : (i.evidence ? [String(i.evidence)] : []);
   return { category, headline, analysis, evidence, confidence: i.confidence === "emerging" ? "emerging" : "strong" };
 }
+
+/** The same platform's report for the calendar month before r, or null. */
+export function lastMonthOf(r, all) {
+  const want = r.year * 12 + r.month - 1;
+  return (all || []).find((x) => (x.platform || "") === (r.platform || "") && x.year * 12 + x.month === want) || null;
+}
+
+/**
+ * Month-on-month lines for the two figures SocialPilot gives no change for:
+ * interaction rate (in points, since it's already a percentage) and total
+ * published (a count). Empty when last month's figure isn't there.
+ */
+export function numbersMoves(d, prevData) {
+  const p = d?.profile || {}, o = prevData?.profile || {};
+  const out = { interactionRate: "", published: "" };
+  const c = n(p.interactionRate), was = n(o.interactionRate);
+  if (c != null && was != null) {
+    const x = Math.round((c - was) * 10) / 10;
+    out.interactionRate = x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)} point${Math.abs(x) === 1 ? "" : "s"} on last month` : "Same as last month";
+  }
+  const tot = (v) => { const a = n(v?.posts?.published), b = n(v?.reels?.published); return a == null && b == null ? null : (a || 0) + (b || 0); };
+  const now = tot(d), then = tot(prevData);
+  if (now != null && then != null) {
+    const x = now - then;
+    out.published = x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)} on last month` : "Same as last month";
+  }
+  return out;
+}

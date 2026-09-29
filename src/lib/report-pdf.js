@@ -10,7 +10,7 @@
 // page whatever browser or device makes it. The numbers come from the same
 // report data as the web slides, worked out the same way.
 
-import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES } from "./report-metrics.js";
+import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves } from "./report-metrics.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const n = (v) => { if (v == null || v === "") return null; const x = Number(String(v).replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : null; };
@@ -29,7 +29,8 @@ const CSS = `
 .rpx-eyebrow, .rpx-glance dt, .rpx-head { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #371e28; margin: 0 0 14px; }
 .rpx-title { font-size: 60px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.02; color: #371e28; margin: 0; }
 .rpx-lede { font-size: 24px; line-height: 1.6; color: #3b3a40; margin: 28px 0 0; white-space: pre-line; }
-.rpx-main { min-width: 0; display: flex; flex-direction: column; }
+.rpx-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.rpx-acts, .rpx-ins { min-height: 0; }
 .rpx-label { font-size: 15px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6e6268; margin: 0 0 10px; }
 .rpx-rule { border-top: 1.5px solid rgba(55,30,40,0.28); }
 .rpx-foot { position: absolute; right: 112px; bottom: 34px; font-size: 15px; font-weight: 800; letter-spacing: 0.08em; color: #6e6268; }
@@ -104,7 +105,7 @@ const CSS = `
 .rpx-chip { background: #e4dcdb; padding: 20px 26px; }
 .rpx-chip b { display: block; font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 52px; font-weight: 400; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 0; color: #1c1d22; }
 .rpx-chip span { display: block; font-size: 19px; font-weight: 800; color: #371e28; margin: 8px 0 0; }
-.rpx-ins { flex: 1; display: grid; gap: 28px 56px; margin-top: 34px; align-content: start; }
+.rpx-ins { flex: 1; display: grid; grid-auto-rows: 1fr; gap: 36px 56px; margin-top: 44px; }
 .rpx-in { border-top: 3px solid #371e28; padding-top: 22px; }
 .rpx-in .rpx-label { color: #371e28; font-weight: 600; }
 .rpx-in .rpx-label em { font-style: normal; color: #6e6268; margin-left: 12px; }
@@ -113,10 +114,10 @@ const CSS = `
 .rpx-in .ev { margin-top: 14px; font-size: 18px; font-weight: 800; color: #371e28; }
 
 /* Into next month */
-.rpx-acts { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 28px; }
-.rpx-act { display: grid; grid-template-columns: 88px 1fr; gap: 0 24px; align-items: center; background: #e4dcdb; padding: 44px; }
-.rpx-act .rpx-num { align-self: start; font-size: 64px; font-weight: 400; line-height: 1; color: #371e28; }
-.rpx-act h3 { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: #1c1d22; line-height: 1.15; margin: 0 0 14px; }
+.rpx-acts { flex: 1; display: grid; grid-template-columns: 1fr; grid-auto-rows: 1fr; gap: 20px; }
+.rpx-act { display: grid; grid-template-columns: 88px 1fr; gap: 0 28px; align-items: start; align-content: center; background: #e4dcdb; padding: 30px 44px; }
+.rpx-act .rpx-num { font-size: 56px; margin-top: -4px; font-weight: 400; line-height: 1; color: #371e28; }
+.rpx-act h3 { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 31px; font-weight: 700; letter-spacing: -0.02em; color: #1c1d22; line-height: 1.15; margin: 0 0 10px; }
 .rpx-act p { font-size: 24px; line-height: 1.55; color: #3b3a40; margin: 0; }
 .rpx-coming { margin-top: auto; padding-top: 28px; display: flex; gap: 20px 36px; flex-wrap: wrap; align-items: baseline; font-size: 21px; color: #3b3a40; }
 .rpx-coming .rpx-label { margin: 0; }
@@ -158,9 +159,10 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   if (vis.reach !== false) fig("Profile reach", n(p.reach) != null ? fmt(n(p.reach)) : null, mv(p.reachChange), "Different people who saw the account, each counted once.");
   if (vis.views !== false) fig("Views", n(p.views) != null ? fmt(n(p.views)) : null, mv(p.viewsChange), "Times your posts and videos were seen, repeats included.");
   if (vis.interactions !== false) fig("Interactions", n(p.interactions) != null ? fmt(n(p.interactions)) : null, mv(p.interactionsChange), "Likes, comments, saves and shares, all added together.");
-  if (vis.interactionRate !== false) fig("Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null, "", "Of everyone the account reached, the share who interacted.");
+  const lm = numbersMoves(d, lastMonthOf(r, all)?.data);
+  if (vis.interactionRate !== false) fig("Interaction rate", n(p.interactionRate) != null ? n(p.interactionRate) + "%" : null, lm.interactionRate, "Of everyone the account reached, the share who interacted.");
   const np = n(d.posts?.published), nr = n(d.reels?.published);
-  if (vis.published !== false && (np != null || nr != null)) fig("Total published", fmt((np || 0) + (nr || 0)), "", [np ? `${np} image and carousel post${np === 1 ? "" : "s"}` : "", nr ? `${nr} short-form video${nr === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ") + ".");
+  if (vis.published !== false && (np != null || nr != null)) fig("Total published", fmt((np || 0) + (nr || 0)), lm.published, [np ? `${np} image and carousel post${np === 1 ? "" : "s"}` : "", nr ? `${nr} short-form video${nr === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ") + ".");
   const lastDay = new Date(r.year, r.month + 1, 0).getDate();
   const details = [["Period", `1 to ${lastDay} ${month} ${r.year}`], ["Platform", r.platform || "Instagram"], ["Account", client?.business], ["Account manager", client?.social_media_manager]].filter(([, v]) => v);
   const detailsHtml = `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Report details</dt>${details.map(([k, v]) => `<dd><span>${esc(k)}</span><b>${esc(v)}</b></dd>`).join("")}</dl></div>`;
@@ -217,18 +219,17 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
   const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p>${i.evidence.length ? `<p class="ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}</div>`).join("")}</div>`
     : (has(cl.summary || d.summary) ? `<div class="rpx-ins"><p class="rpx-lede" style="margin:0;white-space:pre-line">${esc(cl.summary || d.summary)}</p></div>` : "");
-  pages.push(page(5, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:44px">${side("04 · Insight", "What It Means", "The four figures that tell this month's story, and what we're taking from them.")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
+  pages.push(page(5, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:40px">${side("04 · Insight", "What It Means", "")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
 
   // 5 — Into next month
   const takes = vis.priorities !== false ? ((cl.priorities || []).length ? cl.priorities : (d.priorities || [])).filter((x) => x && x.text).slice(0, 4) : [];
   const coming = vis.comingSoon !== false ? (d.comingSoon || []).filter(Boolean) : [];
   const comingHtml = coming.length ? `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Content coming up</dt>${coming.map((c) => `<dd><span>${esc(c)}</span></dd>`).join("")}</dl></div>` : "";
-  pages.push(page(6, "", `<div class="rpx-body">${side(`05 · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts"${takes.length <= 2 ? ' style="grid-template-columns:1fr"' : " data-balance"}>${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
+  pages.push(page(6, "", `<div class="rpx-body">${side(`05 · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts">${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
 
   // Closing
   pages.push(`<div class="rpx-page rpx-close">${top}<div class="rpx-close-body"><h2>Any questions?</h2><div>
-      <p>${mgr ? `${esc(mgr)}, your account manager, can talk you through any of it` : "Your account manager can talk you through any of it"}: this month's insights, and our plan for ${esc(next)}.</p>
-      <p>Reply to your report email, or send a message from your Member Hub.</p>
+      <p>${mgr ? `${esc(mgr)}, your account manager,` : "Your account manager"} can talk you through any questions about this month's insights and our plan for ${esc(next)}. Just reply to your report email, or send a message from your Member Hub.</p>
       <p class="who">The Marketing Experts &middot; tmke.co.uk</p></div></div></div>`);
 
   return { css: CSS, html: pages.join(""), count: pages.length };
@@ -307,6 +308,23 @@ export function balanceRows(root) {
   }
 }
 
+/**
+ * Priorities and insights are written by people, so their length varies.
+ * Where a block's text would run past the bottom of its page, the text steps
+ * down a pixel at a time (to 18px at the smallest) until it fits.
+ */
+export function fitText(root) {
+  for (const box of root.querySelectorAll(".rpx-acts, .rpx-ins")) {
+    const ps = [...box.querySelectorAll("p:not(.rpx-label):not(.ev)")];
+    if (!ps.length) continue;
+    let size = parseFloat(getComputedStyle(ps[0]).fontSize);
+    while (box.scrollHeight > box.clientHeight + 1 && size > 18) {
+      size -= 1;
+      ps.forEach((el) => { el.style.fontSize = size + "px"; });
+    }
+  }
+}
+
 /** Build the PDF and save it. */
 export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename, onProgress }) {
   const { css, html, count } = reportPdfHtml({ r, all, vis, client, MONTHS });
@@ -321,6 +339,7 @@ export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename,
     const fontCss = await fontEmbedCss();
     await document.fonts.ready;
     balanceRows(host);
+    fitText(host);
     // A picture that can't be fetched becomes a blank tile, not a failed PDF.
     const blank = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: [1440, 810], compress: true });
