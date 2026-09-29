@@ -9473,7 +9473,24 @@ export default {
         const dataText = `${table}\n\n${extra.join("\n")}\n\nACTIONS AGREED IN ${lastM ? MN[lastM.month].toUpperCase() : "THE PREVIOUS"} REPORT:\n${agreedText}`;
         const asks = [];
         if (only !== "client") asks.push('"trendSummary": string (FOR THE TEAM, not the client. Only if there are two or more months; otherwise null. 2-4 plain sentences on what is moving across these months: what has improved and is holding, what is slipping, and whether last month\'s actions show up in this month\'s figures. Weigh all the figures together, never one statistic alone. Direct, honest, no spin.)');
-        if (only !== "trends") asks.push(`"client": { "insights": [ { "type": "win"|"trend"|"watch"|"previous_action", "title": string, "evidence": string, "interpretation": string, "response": string } ], "priorities": [ { "type": "go"|"caution"|"action", "title": string, "text": string } ] }`);
+        // The approved headline figures (src/lib/report-metrics.js): the AI
+        // picks keys, the page computes the numbers. Keep the two in step.
+        const HEADLINE_KEYS = {
+          reach: "profile reach (different people who saw the account) and its change",
+          views: "total views and their change",
+          interactions: "total interactions and their change",
+          netFollowers: "followers at month end and the overall change since last month",
+          newFollowers: "people who followed during the month",
+          interactionRate: "interaction rate and its change in points",
+          reelRate: "reels' interaction rate beside posts'",
+          postRate: "posts' interaction rate beside reels'",
+          nonFollowerShare: "share of content reach that was non-followers",
+          published: "posts and reels published",
+          reelViews: "total reel views",
+          linkTaps: "taps on the link in their profile",
+          topPost: "reach of the best-reaching post",
+        };
+        if (only !== "trends") asks.push(`"client": { "headline": [ four keys from: ${Object.keys(HEADLINE_KEYS).join(", ")} ], "insights": [ { "category": "working"|"learning"|"watch"|"previous", "headline": string, "analysis": string, "evidence": [ string ], "confidence": "strong"|"emerging" } ], "priorities": [ { "type": "go"|"caution"|"action", "title": string, "text": string } ] }`);
         // The rules are docs/smm-report-rules.md §10-11; change them there too.
         const prompt =
 `You analyse a UK estate agent's Instagram for TMKE, their social media agency. Below are up to three months of figures for ${lead.business || lead.full_name || "the client"}, oldest to newest (the last column is ${MN[cur.month]} ${cur.year}, the month being reported), then the actions agreed in last month's report.
@@ -9483,13 +9500,17 @@ ${dataText}
 Reply with ONLY one JSON object, no prose and no markdown fences:
 { ${asks.join(", ")} }
 
-INSIGHTS ("client.insights"). This is the page that makes the report worth reading. The client can already see the headline numbers; don't narrate them back.
+HEADLINE ("client.headline"): the four figures that explain THIS month's story, chosen from the keys listed. Not the same four every month: pick the ones the insights rest on. The figures themselves are worked out from the data, so give keys only. Keys: ${Object.entries(HEADLINE_KEYS).map(([k, v]) => `${k} (${v})`).join("; ")}.
+
+INSIGHTS ("client.insights"). This is the page that makes the report worth reading. The client can already see the headline numbers; don't narrate them back, and don't write a summary.
 - Analyse ${MN[cur.month]} against the previous two months and the actions agreed last month. Test for: month-on-month changes that matter; three-month direction (rising, falling or flat across all three); content patterns (formats or kinds of post that keep outperforming); audience patterns (non-follower discovery, locations, ages); and each agreed action (did we do it, and what happened after).
-- Up to FOUR insights, fewer if there's less to say. An insight explains something the client couldn't get from reading a headline number.
-- Each has: "title" (a plain statement, 3 to 7 words, e.g. "Reels are earning more interaction"); "evidence" (one sentence with the specific figures behind it); "interpretation" (one sentence: what it means for their business, in plain English for an estate agent, not a marketer); "response" (one sentence: what we'll do with it).
-- "type": "win" for something clearly working; "trend" for a direction across months or something emerging; "watch" for something not working or a gap to close; "previous_action" for how an action agreed last month played out.
-- Don't force positives. A month may have one win, one emerging trend, one thing that hasn't worked and one previous action worth reviewing. Include negative or flat performance where it matters to the strategy.
-- Don't repeat statistics just because they are positive. Use only figures that support the insight.
+- Between TWO and FOUR insights: only as many as genuinely exist this month. Never invent one to fill a space. An insight explains something the client couldn't get from reading a headline number.
+- "category": "working" (What's working: something clearly paying off), "learning" (What we're learning: a pattern or comparison that should shape what we do), "watch" (One to watch: something not working yet, or a gap to close), "previous" (From last month: how an action agreed last month played out).
+- "headline": at most 7 words, a plain statement ("Reels are earning more interaction").
+- "analysis": at most 40 words. What we're seeing, what it means for their business, and what we'll do with it, in plain English for an estate agent, not a marketer.
+- "evidence": the two or three figures the insight rests on, each short ("Reels 15.34% interaction rate", "Posts 7.74%"). Only figures present in the data.
+- "confidence": "strong" when the data clearly supports it (a large change, or three months in the same direction); "emerging" when it's an early signal (one month, or a small change).
+- Don't force positives. Include negative or flat performance where it matters to the strategy. Don't repeat statistics just because they are positive.
 
 HARD RULES:
 - Implementation is not outcome. You may say a measure improved after a change was made (e.g. reels published went from 1 to 3 and reel interaction rate rose); never say the change caused it unless the data establishes causation.
@@ -9520,11 +9541,18 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
         if (only !== "trends" && parsed.client) {
           const pr = (Array.isArray(parsed.client.priorities) ? parsed.client.priorities : [])
             .filter((x) => x && x.text).map((x) => ({ type: ["go", "caution", "action"].includes(x.type) ? x.type : "go", title: String(x.title || "").trim(), text: String(x.text).trim() }));
-          const TYPES = ["win", "trend", "watch", "previous_action"];
+          const CATS = ["working", "learning", "watch", "previous"];
           const ins = (Array.isArray(parsed.client.insights) ? parsed.client.insights : [])
-            .filter((x) => x && x.title).slice(0, 4)
-            .map((x) => ({ type: TYPES.includes(x.type) ? x.type : "win", title: String(x.title).trim(), evidence: String(x.evidence || "").trim(), interpretation: String(x.interpretation || "").trim(), response: String(x.response || "").trim() }));
-          data.client = { insights: ins, priorities: pr, draftedAt: new Date().toISOString() };
+            .filter((x) => x && x.headline).slice(0, 4)
+            .map((x) => ({
+              category: CATS.includes(x.category) ? x.category : "working",
+              headline: String(x.headline).trim(),
+              analysis: String(x.analysis || "").trim(),
+              evidence: (Array.isArray(x.evidence) ? x.evidence : [x.evidence]).filter(Boolean).map((e) => String(e).trim()).slice(0, 4),
+              confidence: x.confidence === "emerging" ? "emerging" : "strong",
+            }));
+          const headline = (Array.isArray(parsed.client.headline) ? parsed.client.headline : []).filter((k) => HEADLINE_KEYS[k]).filter((k, i, arr) => arr.indexOf(k) === i).slice(0, 4);
+          data.client = { headline, insights: ins, priorities: pr, draftedAt: new Date().toISOString() };
         }
         const res = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?id=eq.${encodeURIComponent(cur.id)}`, {
           method: "PATCH",

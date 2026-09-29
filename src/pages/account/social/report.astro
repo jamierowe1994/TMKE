@@ -231,14 +231,16 @@ import "../../../styles/ws-system.css";
     .rp-chip b { font-family: var(--serif); font-size: 1.7em; font-weight: 400; line-height: 1.05; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
     .rp-chip-c { font-size: 0.82em; font-weight: 700; color: var(--ws-tx); }
     .rp-chip-c.is-up { color: var(--english-violet, #4a2a3c); }
-    /* Insight cards: what we're seeing, what it means, what we'll do. */
-    .rp-insights { flex: 1 1 auto; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 1em; align-items: stretch; }
-    @media (max-width: 900px) { .rp-insights { grid-template-columns: 1fr; } }
-    .rp-insight { display: flex; flex-direction: column; padding: 1.15em 1.4em; }
-    .rp-insight-k { color: var(--english-violet, #4a2a3c); margin-bottom: 0.6em; }
-    .rp-insight .rp-mini-h { font-size: 1.12em; color: var(--ws-ink); margin-bottom: 0.4em; }
-    .rp-insight .rp-mini-p { font-size: 0.95em; }
-    .rp-insight-next { margin: auto 0 0; padding-top: 0.7em; font-size: 0.93em; line-height: 1.5; font-weight: 600; color: var(--english-violet, #4a2a3c); }
+    /* Insights: open columns under a wine rule, not boxes, so the page
+       doesn't turn into a grid of cards. As many columns as insights. */
+    .rp-insights { flex: 1 1 auto; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 2.4em; align-content: center; padding: 0.6em 0 1em; }
+    @media (max-width: 900px) { .rp-insights { grid-template-columns: 1fr; gap: 1.6em; } }
+    .rp-insight { border-top: 2px solid var(--english-violet, #4a2a3c); padding-top: 1.3em; min-width: 0; }
+    .rp-insight-k { color: var(--english-violet, #4a2a3c); margin-bottom: 0.7em; display: flex; align-items: center; gap: 0.7em; flex-wrap: wrap; }
+    .rp-insight-early { font-size: 0.9em; letter-spacing: 0.1em; padding: 0.25em 0.6em; border-radius: var(--ws-r, 4px); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 8%, #fff); color: var(--ws-tx); }
+    .rp-insight-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.5em; font-weight: 700; line-height: 1.25; color: var(--ws-ink); margin: 0 0 0.55em; text-wrap: balance; }
+    .rp-insight-p { font-size: 1.07em; line-height: 1.65; color: var(--ws-tx); margin: 0; }
+    .rp-insight-ev { margin: 0.9em 0 0; font-size: 0.82em; font-weight: 700; line-height: 1.5; color: var(--english-violet, #4a2a3c); font-variant-numeric: tabular-nums; }
     .rp-prose { font-size: 1.1em; line-height: 1.7; color: var(--ws-ink); max-width: 70ch; white-space: pre-line; }
     .rp-trends { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1em; }
     @media (max-width: 900px) { .rp-trends { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -301,6 +303,7 @@ import "../../../styles/ws-system.css";
     import { MONTHS } from "../../../lib/report-insights.js";
     import { resolveVisibility } from "../../../lib/report-fields.js";
     import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
+    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES } from "../../../lib/report-metrics.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const DEV = import.meta.env.DEV;
@@ -331,7 +334,9 @@ import "../../../styles/ws-system.css";
       };
       const nfo = n(p.newFollowers);
       fig("followers", "Followers", n(p.followers) != null ? fmt(n(p.followers)) : null,
-        "People following the account at the end of the month.", vis.newFollowers !== false && nfo ? `+${fmt(nfo)} this month` : "");
+        // New followers is everyone who followed during the month; it isn't
+        // the overall change, which also takes off anyone who unfollowed.
+        "People following the account at the end of the month.", vis.newFollowers !== false && nfo ? `${fmt(nfo)} new follower${nfo === 1 ? "" : "s"} in ${month}` : "");
       // Profile reach, named as such: posts and reels each have a reach of
       // their own, and those add up to more (see What did best).
       fig("reach", "Profile reach", n(p.reach) != null ? fmt(n(p.reach)) : null,
@@ -449,33 +454,17 @@ import "../../../styles/ws-system.css";
       //    insights.
       const cl = d.client || {};
       const prev = vis.trends !== false && series.length > 1 ? series[series.length - 2] : null;
-      const pm = prev ? MONTHS[prev.month] : null, pp = prev?.data?.profile || {};
-      const one = (x) => (Math.abs(x) < 10 ? Math.round(x * 10) / 10 : Math.round(x));
-      const spChange = { reach: n(p.reachChange), views: n(p.viewsChange), interactions: n(p.interactionsChange) };
-      const chip = (label, val, x, txt) => `<div class="rp-chip"><span class="rp-chip-l">${esc(label)}</span><b>${esc(val)}</b><span class="rp-chip-c ${x > 0 ? "is-up" : x < 0 ? "is-down" : ""}">${esc(txt)}</span></div>`;
-      const pctTxt = (key) => {
-        const c = n(p[key]), o = n(pp[key]);
-        const x = spChange[key] ?? (prev && o ? (c - o) / Math.abs(o) * 100 : null);
-        return x == null ? [0, ""] : [x, `${x >= 0 ? "Up" : "Down"} ${one(Math.abs(x))}%${pm ? ` on ${pm}` : ""}`];
-      };
-      const chips = [];
-      for (const [label, key] of [["Profile reach", "reach"], ["Views", "views"], ["Interactions", "interactions"]]) {
-        if (n(p[key]) == null || vis[key] === false) continue;
-        const [x, t] = pctTxt(key);
-        chips.push(chip(label, fmt(n(p[key])), x, t));
-      }
-      if (n(p.followers) != null && vis.followers !== false) {
-        const dlt = prev && n(pp.followers) != null ? n(p.followers) - n(pp.followers) : n(p.newFollowers);
-        chips.push(chip("Followers", fmt(n(p.followers)), dlt || 0, dlt ? `${dlt > 0 ? "+" : "−"}${fmt(Math.abs(dlt))} ${pm ? `since ${pm}` : "this month"}` : ""));
-      }
-      const chipsHtml = chips.length ? `<div class="rp-chips">${chips.join("")}</div>` : "";
-      const KIND = { win: "What we're seeing", trend: "A trend to watch", previous_action: "From last month", watch: "Still to fix" };
-      const insights = vis.summary !== false ? (cl.insights || []).filter((i) => i && i.title).slice(0, 4) : [];
-      const insightsHtml = insights.length ? `<div class="rp-insights" style="--n:${insights.length === 4 ? 2 : insights.length}">${insights.map((i) => `<div class="rp-mini rp-insight">
-          <p class="rp-label rp-insight-k">${esc(KIND[i.type] || "What we're seeing")}</p>
-          <h3 class="rp-mini-h">${esc(i.title)}</h3>
-          <p class="rp-mini-p">${esc([i.evidence, i.interpretation].filter(Boolean).join(" "))}</p>
-          ${i.response ? `<p class="rp-insight-next">${esc(i.response)}</p>` : ""}
+      // Four figures chosen for this month's story (report-metrics.js): the
+      // drafting picks which, the numbers are worked out here.
+      const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
+      const chipsHtml = heads.length ? `<div class="rp-chips">${heads.map((c) => `<div class="rp-chip"><span class="rp-chip-l">${esc(c.label)}</span><b>${esc(c.value)}</b>${c.sub ? `<span class="rp-chip-c ${c.dir > 0 ? "is-up" : c.dir < 0 ? "is-down" : ""}">${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
+      // Two to four insights, as many as the month genuinely has.
+      const insights = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
+      const insightsHtml = insights.length ? `<div class="rp-insights" style="--n:${insights.length}">${insights.map((i) => `<div class="rp-insight">
+          <p class="rp-label rp-insight-k">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? `<span class="rp-insight-early">Early signal</span>` : ""}</p>
+          <h3 class="rp-insight-h">${esc(i.headline)}</h3>
+          <p class="rp-insight-p">${esc(i.analysis)}</p>
+          ${i.evidence.length ? `<p class="rp-insight-ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}
         </div>`).join("")}</div>` : "";
       const story = has(cl.summary) ? cl.summary : d.summary;
       const prose = !insights.length && vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";

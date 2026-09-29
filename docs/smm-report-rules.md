@@ -434,20 +434,36 @@ did what we tried work?
 
 ### The page
 
-- Four stat chips across the top: profile reach, views, interactions, followers, each
-  with its change on last month said once. A bridge from the data pages.
-- Up to four insight cards beneath. Each carries a label by type:
+- Four headline figures across the top, chosen for this month's story from an approved
+  set (`src/lib/report-metrics.js`): profile reach, views, interactions, followers
+  (overall change), new followers, interaction rate, reel or post interaction rate,
+  non-follower share of content reach, content published, reel views, website taps,
+  best post's reach. The drafting picks which four by key only; the numbers are worked
+  out from the report's own data, so a card can never carry an invented figure. Page one
+  already shows the standard headline numbers; this page pulls out the four that explain
+  the story.
+- Beneath, two to four insights as open columns: only as many as the month genuinely
+  has. The design never asks for a fourth.
 
-| type              | Label on the card    | Use for                                              |
-|-------------------|----------------------|------------------------------------------------------|
-| `win`             | What we're seeing    | Something clearly working                            |
-| `trend`           | A trend to watch     | A direction across months, or something emerging     |
-| `watch`           | Still to fix         | Something not working, or a gap to close             |
-| `previous_action` | From last month      | How an action agreed last month played out           |
+| category   | Label on the page    | Use for                                                  |
+|------------|----------------------|----------------------------------------------------------|
+| `working`  | What's working       | Something clearly paying off                             |
+| `learning` | What we're learning  | A pattern or comparison that should shape what we do     |
+| `watch`    | One to watch         | Something not working yet, or a gap to close             |
+| `previous` | From last month      | How an action agreed last month played out               |
 
-- Each insight is structured, never free prose: `title`, `evidence` (the figures),
-  `interpretation` (what it means for their business), `response` (what we'll do with
-  it). What we're seeing, what it means, what we should do with it.
+- Each insight is structured, never free prose: `headline` (7 words at most),
+  `analysis` (40 words at most: what we're seeing, what it means, what we'll do with
+  it), `evidence` (the two or three figures it rests on), `confidence` (`strong`, or
+  `emerging` for an early signal, shown as "Early signal").
+- No narrative summary on this page.
+
+### Followers: two different figures
+
+"New followers" is everyone who followed during the month. "Followers, overall change"
+is this month's total against last month's, so it also takes off anyone who unfollowed
+(September 2026: 39 new, overall +1). Both are true; they are always labelled as what
+they are and never set against each other.
 
 ### What the analysis is given
 
@@ -458,7 +474,7 @@ each agreed action: did we do it, and what happened after.
 
 ### Rules
 
-1. Up to four insights, fewer if there's less to say. An insight explains something the
+1. Two to four insights, only as many as genuinely exist; never one invented to fill a space. An insight explains something the
    client could not get from reading the headline number.
 2. Prioritise meaningful patterns over repeating headline statistics. Don't repeat a
    figure just because it is positive.
