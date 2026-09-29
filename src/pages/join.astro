@@ -218,11 +218,22 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$
        address, so someone who signs up with a different one gets an account
        their shoot is not in. Editable, in case that address is not the one they
        want to log in with. */
-    (function prefillEmail() {
-      const wanted = new URLSearchParams(location.search).get("email");
-      if (!wanted) return;
-      const field = document.querySelector('input[name="email"]');
-      if (field && !field.value) field.value = wanted.trim();
+    (function prefillFromInvite() {
+      const q = new URLSearchParams(location.search);
+      const wanted = q.get("email");
+      if (wanted) {
+        const field = document.querySelector('input[name="email"]');
+        if (field && !field.value) field.value = wanted.trim();
+      }
+      /* An invite carries their name too (worker/src/index.js builds
+         /join?email=…&name=…). It was never read, so somebody invited by name
+         was asked to type it back in on the way through a door we opened for
+         them. */
+      const named = q.get("name");
+      if (named) {
+        const field = document.querySelector('input[name="full_name"]');
+        if (field && !field.value) field.value = named.trim();
+      }
     })();
 
     const drawer = document.getElementById("jn-drawer");
