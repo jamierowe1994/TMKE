@@ -579,6 +579,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-pub-row.is-live:hover { border-color: #d3e6d9; }
     .ri-pub-live { width: 8px; height: 8px; border-radius: 50%; background: #2c7a4b; justify-self: center; }
     .ri-pub-down { justify-self: end; }
+    .ri-pub-acts { display: flex; gap: 6px; justify-self: end; }
     .ri-pub-m { font-weight: 700; color: var(--ink); }
     .ri-pub-m small { display: block; font-weight: 400; font-size: 11px; color: rgba(28,29,34,0.5); }
     .ri-pub-s { font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.5); }
@@ -2125,7 +2126,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <span class="ri-pub-live" aria-hidden="true"></span>
             <span class="ri-pub-m">${esc(RI_MONTHS[x.month])} ${x.year}<small>${esc(x.platform || "Instagram")}</small></span>
             <span class="ri-pub-s ${hasPending(x) ? "is-pending" : "is-live"}">Live since ${fmtD(x.published_at)}${hasPending(x) ? "<br>Changes not published" : ""}</span>
-            <button type="button" class="smm-btn smm-btn--sm ri-pub-down" data-down="${esc(x.id)}">Take down</button>
+            <span class="ri-pub-acts">${hasPending(x) ? `<button type="button" class="smm-btn smm-btn--sm smm-btn--primary" data-rep-open="${esc(x.id)}">Republish</button>` : ""}<button type="button" class="smm-btn smm-btn--sm ri-pub-down" data-down="${esc(x.id)}">Take down</button></span>
           </div>`
         : `<label class="ri-pub-row">
             <input type="checkbox" data-pub="${esc(x.id)}">
@@ -2166,6 +2167,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", () => { closeModal(); renderInsights(r); });
 
+      // Republish from here too: the banner above the tabs is easy to miss.
+      $("ri-pub-list").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-rep-open]"); if (!b) return;
+        openRepublish(r, byId[b.dataset.repOpen]);
+      });
       // Take down: one month, asked about by name, then the list redrawn.
       $("ri-pub-list").addEventListener("click", async (e) => {
         const b = e.target.closest("[data-down]"); if (!b) return;
