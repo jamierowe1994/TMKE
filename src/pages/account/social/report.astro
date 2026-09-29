@@ -651,12 +651,13 @@ import "../../../styles/ws-system.css";
         // Dev only: ?pdfpage=N shows page N of the PDF full size at the top
         // left, for checking the PDF design page by page.
         if (params.get("pdfpage")) {
-          const { reportPdfHtml } = await import("../../../lib/report-pdf.js");
+          const { reportPdfHtml, balanceRows } = await import("../../../lib/report-pdf.js");
           const out = reportPdfHtml({ r: list[list.length - 1], all: list, vis: resolveVisibility(null), client: fxClient, MONTHS });
           const st = document.createElement("style");
-          st.textContent = out.css + " .rpx{left:0!important;top:0!important;position:fixed!important;z-index:99999} .rpx-page{display:none!important} .rpx-page.show{display:flex!important} html,body{overflow:hidden}";
+          st.textContent = out.css;
           document.head.appendChild(st);
-          const h = document.createElement("div"); h.className = "rpx"; h.innerHTML = out.html; document.body.appendChild(h);
+          const h = document.createElement("div"); h.className = "rpx"; h.innerHTML = out.html; document.body.appendChild(h); await document.fonts.ready; balanceRows(h);
+          st.textContent += " .rpx{left:0!important;top:0!important;position:fixed!important;z-index:99999} .rpx-page{display:none!important} .rpx-page.show{display:flex!important} html,body{overflow:hidden}";
           const pg = h.querySelectorAll(".rpx-page")[Number(params.get("pdfpage")) - 1]; if (pg) pg.classList.add("show");
         }
         return;

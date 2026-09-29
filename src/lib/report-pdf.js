@@ -26,9 +26,9 @@ const CSS = `
 .rpx-top span:last-child { font-weight: 700; color: #6e6268; }
 .rpx-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 540px minmax(0, 1fr); column-gap: 96px; margin-top: 56px; }
 .rpx-side { display: flex; flex-direction: column; }
-.rpx-eyebrow { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #371e28; margin: 0 0 14px; }
+.rpx-eyebrow, .rpx-glance dt, .rpx-head { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #371e28; margin: 0 0 14px; }
 .rpx-title { font-size: 60px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.02; color: #371e28; margin: 0; }
-.rpx-lede { font-size: 24px; line-height: 1.6; color: #3b3a40; margin: 28px 0 0; }
+.rpx-lede { font-size: 24px; line-height: 1.6; color: #3b3a40; margin: 28px 0 0; white-space: pre-line; }
 .rpx-main { min-width: 0; display: flex; flex-direction: column; }
 .rpx-label { font-size: 15px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6e6268; margin: 0 0 10px; }
 .rpx-rule { border-top: 1.5px solid rgba(55,30,40,0.28); }
@@ -48,7 +48,7 @@ const CSS = `
 .rpx-contents b { display: block; font-size: 15px; letter-spacing: 0.08em; color: rgba(255,255,255,0.55); margin-bottom: 6px; }
 
 /* Numbers: six figures, three to a row, ruled */
-.rpx-figs { flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: 1fr 1fr; column-gap: 56px; }
+.rpx-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 56px; row-gap: 64px; }
 .rpx-fig { border-top: 1.5px solid rgba(55,30,40,0.28); padding: 30px 0 0; display: flex; flex-direction: column; }
 .rpx-fig b { font-size: 92px; font-weight: 400; letter-spacing: -0.03em; line-height: 1; color: #1c1d22; margin: 10px 0 0; }
 .rpx-fig .rpx-move { font-size: 21px; font-weight: 800; color: #371e28; margin: 16px 0 0; min-height: 1.4em; }
@@ -62,7 +62,8 @@ const CSS = `
 .rpx-note b { color: #371e28; }
 .rpx-cols3 { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto 1fr; gap: 48px 64px; }
 .rpx-col.wide { grid-column: 1 / -1; }
-.rpx-col.wide .rpx-agegrid { flex: 1; display: flex; flex-direction: column; justify-content: space-between; max-height: 300px; }
+.rpx-col.wide { border-bottom: 1.5px solid rgba(55,30,40,0.28); padding-bottom: 34px; }
+.rpx-col.wide .rpx-agegrid { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
 .rpx-col.wide .rpx-age { grid-template-columns: 90px 1fr 70px; gap: 24px; font-size: 22px; margin: 0; }
 .rpx-col.wide .rpx-age .t { height: 16px; }
 .rpx-col { border-top: 1.5px solid rgba(55,30,40,0.28); padding-top: 30px; display: flex; flex-direction: column; }
@@ -84,7 +85,7 @@ const CSS = `
 /* What worked */
 .rpx-glance { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
 .rpx-glance dl { margin: 0; }
-.rpx-glance dt { font-size: 16px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #371e28; padding-bottom: 12px; border-bottom: 1.5px solid rgba(55,30,40,0.28); }
+.rpx-glance dt { margin: 0; padding-bottom: 12px; border-bottom: 1.5px solid rgba(55,30,40,0.28); }
 .rpx-glance dd { margin: 0; display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid rgba(55,30,40,0.14); font-size: 19px; color: #4a4850; }
 .rpx-glance dd b { color: #1c1d22; }
 .rpx-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; flex: 1; }
@@ -105,7 +106,7 @@ const CSS = `
 .rpx-chip span { display: block; font-size: 19px; font-weight: 800; color: #371e28; margin: 8px 0 0; }
 .rpx-ins { flex: 1; display: grid; gap: 28px 56px; margin-top: 34px; align-content: start; }
 .rpx-in { border-top: 3px solid #371e28; padding-top: 22px; }
-.rpx-in .rpx-label { color: #371e28; }
+.rpx-in .rpx-label { color: #371e28; font-weight: 600; }
 .rpx-in .rpx-label em { font-style: normal; color: #6e6268; margin-left: 12px; }
 .rpx-in h3 { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 31px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #1c1d22; margin: 0 0 12px; }
 .rpx-in p { font-size: 21px; line-height: 1.55; color: #3b3a40; margin: 0; }
@@ -113,8 +114,8 @@ const CSS = `
 
 /* Into next month */
 .rpx-acts { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 28px; }
-.rpx-act { display: grid; grid-template-columns: 88px 1fr; gap: 0 24px; align-content: start; background: #e4dcdb; padding: 44px 44px 40px; }
-.rpx-act .rpx-num { font-size: 64px; font-weight: 400; line-height: 1; color: #371e28; }
+.rpx-act { display: grid; grid-template-columns: 88px 1fr; gap: 0 24px; align-items: center; background: #e4dcdb; padding: 44px; }
+.rpx-act .rpx-num { align-self: start; font-size: 64px; font-weight: 400; line-height: 1; color: #371e28; }
 .rpx-act h3 { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: #1c1d22; line-height: 1.15; margin: 0 0 14px; }
 .rpx-act p { font-size: 24px; line-height: 1.55; color: #3b3a40; margin: 0; }
 .rpx-coming { margin-top: auto; padding-top: 28px; display: flex; gap: 20px 36px; flex-wrap: wrap; align-items: baseline; font-size: 21px; color: #3b3a40; }
@@ -168,7 +169,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   // 2 — Who you reached
   const cr = (n(d.posts?.reach) || 0) + (n(d.reels?.reach) || 0);
   const reachSide = `<div class="rpx-pair"><div><p class="rpx-label">Profile reach</p><div class="rpx-big">${fmt(n(p.reach))}</div><p class="rpx-small">different people saw the account.</p></div>
-      ${cr ? `<div><p class="rpx-label">Content reach</p><div class="rpx-big">${fmt(cr)}</div><p class="rpx-small">people reached, counted post by post.</p></div>` : ""}</div>
+      ${cr ? `<div><p class="rpx-label">Content reach</p><div class="rpx-big">${fmt(cr)}</div><p class="rpx-small">people reached, counted per post.</p></div>` : ""}</div>
     ${cr ? `<div class="rpx-note"><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post's own reach, so someone who saw three posts is counted three times.</div>` : ""}`;
   const cols = [];
   const nfr = n(rc.nonFollower), fr = n(rc.follower);
@@ -191,7 +192,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
     const ukPct = uk != null && n(p.followers) ? Math.round(uk / n(p.followers) * 100) : null;
     cols.push(`<div class="rpx-col"><p class="rpx-label" style="margin-bottom:18px">Where your followers are</p><ol class="rpx-list">${cities.map((c, i) => `<li><span class="rpx-num">${i + 1}</span><span class="c">${esc(String(c.city).replace(/,\s*(England|Scotland|Wales|Northern Ireland|United Kingdom)$/i, ""))}</span><b>${fmt(n(c.count))}</b></li>`).join("")}</ol>${ukPct != null ? `<p class="rpx-small" style="margin-top:22px">${ukPct}% of your followers are in the UK.</p>` : ""}</div>`);
   }
-  pages.push(page(3, "", `<div class="rpx-body">${side("02 · Audience", "Who You Reached", n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month. Here's who they were.` : "", reachSide)}<div class="rpx-main"><div class="rpx-cols3"${cols.length === 1 ? ' style="grid-template-columns:1fr"' : ""}>${cols.join("")}${ageCol}</div></div></div>`));
+  pages.push(page(3, "", `<div class="rpx-body">${side("02 · Audience", "Who You Reached", n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month.\nHere's who they were.` : "", reachSide)}<div class="rpx-main"><div class="rpx-cols3"${cols.length === 1 ? ' style="grid-template-columns:1fr"' : ""}>${cols.join("")}${ageCol}</div></div></div>`));
 
   // 3 — What worked
   const rows = (Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || [])).filter((t) => t && (t.title || t.url));
@@ -203,7 +204,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
     return `<dl><dt>${esc(label)}</dt>${rs.map(([k, v]) => `<dd><span>${esc(k)}</span><b>${esc(/%$/.test(String(v)) ? v : fmt(n(v)))}</b></dd>`).join("")}</dl>`;
   };
   const glanceHtml = vis.organicContent !== false ? `<div class="rpx-glance">${glance("Reels", "Reel", d.reels)}${glance("Posts", "Post", d.posts)}</div>` : "";
-  const tbl = top5.length ? `<p class="rpx-label" style="margin-bottom:20px">Top performing content</p><table class="rpx-tbl"><colgroup><col style="width:64px"><col style="width:116px"><col><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:15%"></colgroup>
+  const tbl = top5.length ? `<p class="rpx-head" style="margin-bottom:20px">Top performing content</p><table class="rpx-tbl"><colgroup><col style="width:64px"><col style="width:116px"><col><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:15%"></colgroup>
       <thead><tr><th></th><th></th><th class="l">Content</th><th>Type</th><th>Reach</th><th>Views</th><th>Interactions</th></tr></thead>
       <tbody>${top5.map((t, i) => { const reel = /reel/i.test(t.type || ""); return `<tr><td class="rk">${i + 1}</td><td>${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : `<span class="ph"></span>`}</td><td class="l tt">${esc(String(t.title || "").trim())}</td><td><span class="ty">${reel ? "Reel" : "Post"}</span></td><td>${fmt(n(t.reach))}</td><td>${reel ? fmt(n(t.views)) : "&ndash;"}</td><td>${fmt(n(t.interactions))}</td></tr>`; }).join("")}</tbody></table>` : "";
   pages.push(page(4, "", `<div class="rpx-body">${side("03 · Content", "What Worked This Month", "The posts that reached furthest, and how reels and posts did overall. Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.", glanceHtml)}<div class="rpx-main">${tbl}</div></div>`));
@@ -214,7 +215,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
   const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(c.label)}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
-  const insHtml = ins.length ? `<div class="rpx-ins" style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p>${i.evidence.length ? `<p class="ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}</div>`).join("")}</div>`
+  const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p>${i.evidence.length ? `<p class="ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}</div>`).join("")}</div>`
     : (has(cl.summary || d.summary) ? `<div class="rpx-ins"><p class="rpx-lede" style="margin:0;white-space:pre-line">${esc(cl.summary || d.summary)}</p></div>` : "");
   pages.push(page(5, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:44px">${side("04 · Insight", "What It Means", "The four figures that tell this month's story, and what we're taking from them.")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
 
@@ -222,7 +223,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const takes = vis.priorities !== false ? ((cl.priorities || []).length ? cl.priorities : (d.priorities || [])).filter((x) => x && x.text).slice(0, 4) : [];
   const coming = vis.comingSoon !== false ? (d.comingSoon || []).filter(Boolean) : [];
   const comingHtml = coming.length ? `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Content coming up</dt>${coming.map((c) => `<dd><span>${esc(c)}</span></dd>`).join("")}</dl></div>` : "";
-  pages.push(page(6, "", `<div class="rpx-body">${side(`05 · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts"${takes.length <= 2 ? ' style="grid-template-columns:1fr"' : ""}>${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
+  pages.push(page(6, "", `<div class="rpx-body">${side(`05 · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts"${takes.length <= 2 ? ' style="grid-template-columns:1fr"' : " data-balance"}>${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
 
   // Closing
   pages.push(`<div class="rpx-page rpx-close">${top}<div class="rpx-close-body"><h2>Any questions?</h2><div>
@@ -265,6 +266,42 @@ async function fontEmbedCss() {
   return fontCssP;
 }
 
+/**
+ * Two-column grids marked data-balance are reordered so each row pairs items
+ * of the same length: headings that wrap sit beside headings that wrap, and
+ * the words line up across the row. Order is kept where it costs nothing, and
+ * numbered cards are renumbered to read 01 to 04.
+ */
+export function balanceRows(root) {
+  for (const grid of root.querySelectorAll("[data-balance]")) {
+    const kids = [...grid.children];
+    if (kids.length < 4 || kids.length % 2 || kids.length > 8) continue;
+    const size = kids.map((k) => {
+      const h = k.querySelector("h3");
+      const body = k.querySelector(".rpx-act > div") || k;
+      return { h: h ? h.getBoundingClientRect().height : 0, t: [...body.children].reduce((a, c) => a + c.getBoundingClientRect().height, 0) };
+    });
+    const cost = (a, b) => Math.abs(size[a].h - size[b].h) * 3 + Math.abs(size[a].t - size[b].t);
+    let best = null, bestCost = Infinity;
+    const walk = (left, pairs, c) => {
+      if (c >= bestCost) return;
+      if (!left.length) { best = pairs; bestCost = c; return; }
+      const [a, ...rest] = left;
+      rest.forEach((b, i) => walk(rest.filter((_, j) => j !== i), [...pairs, [a, b]], c + cost(a, b)));
+    };
+    walk(kids.map((_, i) => i), [], 0);
+    best.flat().forEach((i) => grid.appendChild(kids[i]));
+    grid.querySelectorAll(".rpx-act > .rpx-num").forEach((el, i) => { el.textContent = String(i + 1).padStart(2, "0"); });
+    // Centred cards: both text blocks in a row take the taller one's height,
+    // so the headings start level across the row.
+    const texts = [...grid.querySelectorAll(".rpx-act > div")];
+    for (let i = 0; i + 1 < texts.length; i += 2) {
+      const h = Math.max(texts[i].getBoundingClientRect().height, texts[i + 1].getBoundingClientRect().height);
+      texts[i].style.minHeight = texts[i + 1].style.minHeight = h + "px";
+    }
+  }
+}
+
 /** Build the PDF and save it. */
 export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename, onProgress }) {
   const { css, html, count } = reportPdfHtml({ r, all, vis, client, MONTHS });
@@ -278,6 +315,7 @@ export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename,
     ]);
     const fontCss = await fontEmbedCss();
     await document.fonts.ready;
+    balanceRows(host);
     // A picture that can't be fetched becomes a blank tile, not a failed PDF.
     const blank = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: [1440, 810], compress: true });
@@ -285,7 +323,7 @@ export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename,
     for (let i = 0; i < nodes.length; i++) {
       onProgress && onProgress(i + 1, count);
       // Each page keeps its own ground: the closing page is wine, not paper.
-      const img = await toJpeg(nodes[i], { quality: 0.9, pixelRatio: 1.2, width: 1920, height: 1080, backgroundColor: getComputedStyle(nodes[i]).backgroundColor || "#f3f1ee", imagePlaceholder: blank, fontEmbedCSS: fontCss, cacheBust: false });
+      const img = await toJpeg(nodes[i], { quality: 0.88, pixelRatio: 1.5, width: 1920, height: 1080, backgroundColor: getComputedStyle(nodes[i]).backgroundColor || "#f3f1ee", imagePlaceholder: blank, fontEmbedCSS: fontCss, cacheBust: false });
       if (i) doc.addPage([1440, 810], "landscape");
       doc.addImage(img, "JPEG", 0, 0, 1440, 810, undefined, "FAST");
     }
