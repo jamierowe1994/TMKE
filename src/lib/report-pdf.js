@@ -240,7 +240,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
 // "TMKE Heading" is the site's own Arimo face (see global.css), embedded
 // here the same way so headings draw in it on every computer.
 let fontCssP = null;
-async function fontEmbedCss() {
+export async function fontEmbedCss() {
   if (fontCssP) return fontCssP;
   fontCssP = (async () => {
     const sheets = [...document.querySelectorAll('link[rel="stylesheet"]')].map((l) => l.href).filter((h) => /fonts\.googleapis|typographer/.test(h));

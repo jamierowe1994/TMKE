@@ -33,6 +33,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <div class="smm-cog-menu" id="smm-cog-menu" hidden>
             <button type="button" data-go="pipeline">Contacts</button>
             <button type="button" data-go="rates">Packages &amp; pricing</button>
+            <button type="button" data-go="mgmt" id="smm-cog-mgmt" hidden>Monthly report</button>
           </div>
         </div>
       </div>
@@ -140,6 +141,24 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         </p>
       ))}
     </section>
+
+    <!-- ===================== MONTHLY REPORT (management) ===================== -->
+    <!-- Danielle, Sam and Abby only: the Worker checks (MGMT_REPORT_EMAILS);
+         the menu item is only shown to them. -->
+    <section class="smm-panel wrap" data-panel="mgmt" hidden>
+      <div class="smm-pagehead">
+        <div>
+          <h2 class="smm-panel-title">Monthly report</h2>
+          <p class="smm-panel-sub">Every client report published for a month, in one A4 PDF: a cover with the month's totals and anyone missing, then a page per account with the profile, the content, the top five posts, and our own read of the month from the Summary tab. A client is in it once their report for the month has been published to them.</p>
+        </div>
+      </div>
+      <div class="mg-controls">
+        <label class="mg-f"><span>Month</span><select id="mg-month"></select></label>
+        <button type="button" class="smm-btn smm-btn--primary" id="mg-pull" disabled>Pull monthly report</button>
+        <span class="mg-status" id="mg-status"></span>
+      </div>
+      <div class="mg-preview" id="mg-preview"></div>
+    </section>
   </div>
 
   <!-- Full-screen customer file -->
@@ -190,6 +209,21 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-panel[data-panel="rates"] .smm-panel-sub { max-width: 88ch; }
     .smm-panel[data-panel="rates"] .smm-pagehead { margin-bottom: 24px; }
     .smm-panel-sub code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 3px; }
+
+    /* Monthly report panel */
+    .mg-controls { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin: 8px 0 22px; }
+    .mg-f { display: grid; gap: 6px; }
+    .mg-f span { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .mg-f select { height: 38px; padding: 0 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px; background: #fff; font: inherit; min-width: 200px; }
+    .mg-status { font-size: 13px; color: rgba(28,29,34,0.6); padding-bottom: 10px; }
+    .mg-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+    .mg-card { border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; background: #fff; padding: 16px 18px; }
+    .mg-card h3 { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
+    .mg-card ul { list-style: none; margin: 0; padding: 0; }
+    .mg-card li { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid rgba(28,29,34,0.07); font-size: 14px; }
+    .mg-card li:first-child { border-top: 0; }
+    .mg-card li span:last-child { color: rgba(28,29,34,0.55); text-align: right; }
+    .mg-card .mg-empty { font-size: 14px; color: rgba(28,29,34,0.55); margin: 0; }
 
     /* Settings cog — the same control Videography carries. */
     .smm-cog-wrap { position: relative; }
@@ -2885,6 +2919,49 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       return rows;
     }
 
+    // ---------- Monthly report (management) ----------
+    let mgData = null;
+    function wireMgmt() {
+      const sel = $("mg-month"), pull = $("mg-pull"), st = $("mg-status"), prev = $("mg-preview");
+      if (!sel || sel.dataset.wired) return; sel.dataset.wired = "1";
+      // The last twelve months. From the 20th, this month's reports are
+      // usually in, so it's the one picked; before then, last month.
+      const now = new Date(), start = now.getDate() >= 20 ? 0 : 1;
+      for (let i = 0; i < 12; i++) {
+        const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const o = document.createElement("option"); o.value = `${dt.getFullYear()}-${dt.getMonth()}`; o.textContent = `${RI_MONTHS[dt.getMonth()]} ${dt.getFullYear()}`;
+        if (i === start) o.selected = true; sel.appendChild(o);
+      }
+      const load = async () => {
+        const [y, m] = sel.value.split("-").map(Number);
+        mgData = null; pull.disabled = true; st.textContent = "Gathering the month…"; prev.innerHTML = "";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER}/smm/management-report?month=${m}&year=${y}`, { headers: { Authorization: "Bearer " + token } });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.ok) throw new Error(j.error || `Couldn't gather the month (${res.status}).`);
+          mgData = j;
+          st.textContent = j.accounts.length ? `${j.accounts.length} account${j.accounts.length === 1 ? "" : "s"}, ${j.accounts.length + 1} pages.` : "Nothing published for this month yet.";
+          pull.disabled = !j.accounts.length;
+          prev.innerHTML = `<div class="mg-card"><h3>In the report</h3>${j.accounts.length ? `<ul>${j.accounts.map((a) => `<li><span>${esc(a.lead.business || a.lead.name)}</span><span>${esc(a.lead.manager || "")}${a.lead.manager ? " · " : ""}${esc(a.report.platform)}</span></li>`).join("")}</ul>` : `<p class="mg-empty">No client has a published report for ${esc(RI_MONTHS[m])} yet.</p>`}</div>`
+            + `<div class="mg-card"><h3>Not included</h3>${j.missing.length ? `<ul>${j.missing.map((x) => `<li><span>${esc(x.business || x.name)}</span><span>${esc(x.reason)}</span></li>`).join("")}</ul>` : `<p class="mg-empty">Every active client is in.</p>`}</div>`;
+        } catch (e) { st.textContent = e.message; }
+      };
+      sel.addEventListener("change", load);
+      pull.addEventListener("click", async () => {
+        if (!mgData) return;
+        const label = pull.textContent; pull.disabled = true;
+        try {
+          const { downloadManagementPdf } = await import("../../lib/management-pdf.js");
+          const by = (ME.split("@")[0] || "").split(/[._]/)[0].replace(/^./, (c) => c.toUpperCase());
+          await downloadManagementPdf({ ...mgData, by }, { onProgress: (i, n) => { pull.textContent = `Preparing… ${i} of ${n}`; } });
+        } catch (e) { console.error("mgmt pdf", e); st.textContent = "Sorry, the PDF couldn't be made just now. Please try again."; }
+        finally { pull.textContent = label; pull.disabled = false; }
+      });
+      // Loaded the first time the panel is opened.
+      $("smm-cog-mgmt")?.addEventListener("click", () => { if (!mgData && !pull.dataset.loaded) { pull.dataset.loaded = "1"; load(); } });
+    }
+
     // ---------- Boot ----------
     (async () => {
       let session;
@@ -2892,6 +2969,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       else { session = await requireAdmin(); if (!session) return; }
       // Who I am, for note ownership. A note's created_by is the author's email.
       ME = (session && session.user && session.user.email) || "";
+      // Monthly report: shown to Danielle, Sam and Abby (the Worker checks too).
+      const MGMT = ["danielle@themarketingexperts.co.uk", "danielle@tmke.co.uk", "samantha@themarketingexperts.co.uk", "abigail.saunders@themarketingexperts.co.uk"];
+      if (MGMT.includes(ME.toLowerCase()) || import.meta.env.DEV) { const b = $("smm-cog-mgmt"); if (b) b.hidden = false; wireMgmt(); }
 
       let rows = [];
       try { const { data } = await supabase.from("smm_leads").select("*").order("created_at", { ascending: false }); rows = data || []; } catch (_) {}

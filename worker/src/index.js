@@ -9462,6 +9462,54 @@ export default {
         return json({ reports }, 200, request, env);
       }
 
+      // ---- Management report: every client's published month, for the team ----
+      // Admin > Social > Settings > Monthly report. Danielle, Sam and Abby
+      // only (MGMT_REPORT_EMAILS), checked here as well as hidden on the page.
+      // A client counts when their report for the month has data and has been
+      // published to them. The two months before come too, for the trend.
+      if (path.endsWith("/smm/management-report") && request.method === "GET") {
+        const user = await getUser(request, env);
+        const allow = String(env.MGMT_REPORT_EMAILS || "").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
+        if (!user || !isAdminEmail(user) || !allow.includes(String(user.email || "").toLowerCase().trim())) {
+          return json({ error: "The monthly report is for Danielle, Sam and Abby." }, 403, request, env);
+        }
+        const m = Number(url.searchParams.get("month")), y = Number(url.searchParams.get("year"));
+        if (!Number.isInteger(m) || m < 0 || m > 11 || !Number.isInteger(y) || y < 2020) return json({ error: "Which month?" }, 400, request, env);
+        const at = (k) => ({ month: ((k % 12) + 12) % 12, year: Math.floor(k / 12) });
+        const k0 = y * 12 + m, p1 = at(k0 - 1), p2 = at(k0 - 2);
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` };
+        const get = async (table, qs) => {
+          const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}`, { headers: hdr });
+          if (!r.ok) throw new Error(`${table} (${r.status}): ${(await r.text()).slice(0, 160)}`);
+          return r.json();
+        };
+        try {
+          const months = `or=(and(year.eq.${y},month.eq.${m}),and(year.eq.${p1.year},month.eq.${p1.month}),and(year.eq.${p2.year},month.eq.${p2.month}))`;
+          const reps = await get("smm_reports", `${months}&select=id,lead_id,platform,month,year,data,published_data,published_at`);
+          const leads = await get("smm_leads", `or=(pipeline_stage.eq.active_client,id.in.(${[...new Set(reps.map((r) => r.lead_id))].join(",") || "00000000-0000-0000-0000-000000000000"}))&select=id,full_name,business,email,social_media_manager,package_name,pipeline_stage`);
+          const byId = new Map(leads.map((l) => [l.id, l]));
+          const isNow = (r) => r.year === y && r.month === m;
+          const has = (d) => d && typeof d === "object" && d.profile && Object.keys(d.profile).length;
+          const accounts = reps.filter((r) => isNow(r) && r.published_at && has(r.published_data) && byId.has(r.lead_id)).map((r) => {
+            const l = byId.get(r.lead_id);
+            const earlier = reps.filter((x) => x.lead_id === r.lead_id && (x.platform || "") === (r.platform || "") && !isNow(x))
+              .map((x) => ({ month: x.month, year: x.year, data: has(x.published_data) ? x.published_data : x.data || {} }))
+              .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
+            return { lead: { id: l.id, name: l.full_name, business: l.business, manager: l.social_media_manager, package: l.package_name },
+              report: { id: r.id, platform: r.platform || "Instagram", month: r.month, year: r.year, published_at: r.published_at, data: r.published_data }, earlier };
+          }).sort((a, b) => String(a.lead.business || a.lead.name || "").localeCompare(String(b.lead.business || b.lead.name || "")));
+          // Active clients who aren't in it, and why: so a missing month is seen.
+          const inIt = new Set(accounts.map((a) => a.lead.id));
+          const missing = leads.filter((l) => l.pipeline_stage === "active_client" && !inIt.has(l.id)).map((l) => {
+            const mine = reps.find((r) => r.lead_id === l.id && isNow(r));
+            return { name: l.full_name, business: l.business, manager: l.social_media_manager, reason: !mine ? "No report uploaded" : !mine.published_at ? "Report not published" : "Report has no data" };
+          }).sort((a, b) => String(a.business || a.name || "").localeCompare(String(b.business || b.name || "")));
+          return json({ ok: true, month: m, year: y, accounts, missing }, 200, request, env);
+        } catch (e) {
+          return json({ error: `Couldn't gather the month: ${e.message || e}` }, 502, request, env);
+        }
+      }
+
       // ---- Admin: ask Claude about an account's reports (admin-only) ----------
       if (path.endsWith("/smm/report/ask") && request.method === "POST") {
         const user = await getUser(request, env);
