@@ -45,7 +45,7 @@ export const EMAIL_CATALOG = [
     fires: "POST /smm/report/publish (action: publish, email: true)",
     to: "The client (smm_leads.email)",
     sender: "hello@tmke.co.uk",
-    subject: "Your {Month} social media report is ready",
+    subject: "Your {Month} Social Media Report is Ready",
     summary: "Tells the client their monthly report is in their hub, what it covers, and links straight to it. Their hub's bell gets the same news whether or not the email is sent.",
     fields: ["name", "month", "next_month", "manager", "report_link"],
   },
