@@ -621,7 +621,10 @@ import "../../../styles/admin.css";
     function addNode(type) {
       const parent = graph.nodes.find((n) => n.id === pendingAdd.parentId);
       const id = uid();
-      const node = { id, type, x: parent ? parent.x + (pendingAdd.branch === "no" ? 260 : pendingAdd.branch === "yes" ? -260 : 0) : 360, y: parent ? parent.y + 150 : 200, config: {} };
+      // A check is created with its field set, not left to the display
+      // default: the Worker reads the stored field, and a check with none
+      // once answered Yes for everyone (Autumn Edit, Sep 2026).
+      const node = { id, type, x: parent ? parent.x + (pendingAdd.branch === "no" ? 260 : pendingAdd.branch === "yes" ? -260 : 0) : 360, y: parent ? parent.y + 150 : 200, config: type === "if_else" ? { field: "has_tag", op: "is" } : {} };
       graph.nodes.push(node);
       graph.edges.push({ from: pendingAdd.parentId, to: id, branch: pendingAdd.branch || "next" });
       pendingAdd = null;
@@ -808,8 +811,19 @@ import "../../../styles/admin.css";
     }
     // Save the journey as it stands before changing status, so a status change
     // never throws away edits (and the page reloads from the saved copy after).
+    // What the editor shows as a default is written into the step, so what's
+    // saved is what's on screen.
+    function fillDefaults() {
+      (graph.nodes || []).forEach((n) => {
+        if (n.type !== "if_else") return;
+        n.config = n.config || {};
+        if (!n.config.field) n.config.field = "has_tag";
+        if (!n.config.op) n.config.op = "is";
+      });
+    }
     async function saveFirst() {
       if (!automationId) return false;
+      fillDefaults();
       graph.meta = { ...funnelMeta, ...(graph.meta || {}) };
       graph.meta.kind = kindVal();
       const { error } = await supabase.from("automations").update({
@@ -983,6 +997,7 @@ import "../../../styles/admin.css";
       // The funnel-level answer is what the engine reads per step: stamp every
       // send step with the kind, so the whole funnel behaves as declared.
       graph.meta = { ...(graph.meta || {}), kind: kindVal() };
+      fillDefaults();
       graph.nodes.forEach((n) => { if (n.type === "send_email") (n.config = n.config || {}).send_kind = kindVal() === "marketing" ? "marketing" : "transactional"; });
       if (funnelStatus === "archived") { alert("An archived funnel can't be changed. Duplicate it from the Automations list to start a new one."); btn.disabled = false; btn.textContent = "Save"; return; }
       // Keep the lifecycle stamps the server wrote (paused since, went live…).

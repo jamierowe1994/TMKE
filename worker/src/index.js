@@ -2494,7 +2494,12 @@ async function fireTrigger(env, triggerType, contactInput, payload, consentSourc
   return { ok: true, contact_id: contactId, enrolled };
 }
 
-async function autoEvalCondition(env, cfg, contact) {
+async function autoEvalCondition(env, cfgIn, contact) {
+  // The editor shows a check with no field as "has tag" and saved it without
+  // one, so a missing field means has_tag here too. Before this, a check with
+  // no field compared "" with "" and answered Yes for everyone: the Autumn
+  // Edit's checks after emails 2-4 ended all 191 journeys on 22 Sep 2026.
+  const cfg = { ...(cfgIn || {}), field: (cfgIn && cfgIn.field) || "has_tag" };
   const op = cfg.op || "is";
   const v = String(cfg.value ?? "").trim().toLowerCase();
   const flip = (b) => (op === "is_not" ? !b : b);
@@ -2513,6 +2518,9 @@ async function autoEvalCondition(env, cfg, contact) {
   if (cfg.field === "marketing_opt_in") return flip(!!contact.marketing_opt_in === (v ? v === "true" : true));
 
   const actual = String(contact[cfg.field] ?? "").toLowerCase(); // lifecycle, company, …
+  // Nothing to compare against is never a match: an unfinished check sends
+  // people down No, where the journey carries on, not Yes, where it may end.
+  if (!v && op !== "is_not") return false;
   if (op === "contains") return actual.includes(v);
   return op === "is_not" ? actual !== v : actual === v;
 }
