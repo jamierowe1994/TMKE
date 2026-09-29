@@ -575,6 +575,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-pub-list { display: grid; gap: 6px; margin: 4px 0 6px; max-height: 50vh; overflow-y: auto; }
     .ri-pub-row { display: grid; grid-template-columns: 20px 150px 140px 1fr; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; font-family: var(--sans); font-size: 13px; cursor: pointer; }
     .ri-pub-row:hover { border-color: var(--english-violet); }
+    .ri-pub-row.is-live { cursor: default; background: #f6faf7; border-color: #d3e6d9; }
+    .ri-pub-row.is-live:hover { border-color: #d3e6d9; }
+    .ri-pub-live { width: 8px; height: 8px; border-radius: 50%; background: #2c7a4b; justify-self: center; }
+    .ri-pub-down { justify-self: end; }
     .ri-pub-m { font-weight: 700; color: var(--ink); }
     .ri-pub-m small { display: block; font-weight: 400; font-size: 11px; color: rgba(28,29,34,0.5); }
     .ri-pub-s { font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.5); }
@@ -2103,69 +2107,85 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     // The label each insight carries in the client's report.
     const INSIGHT_KINDS = { win: "What we're seeing", trend: "A trend to watch", previous_action: "From last month", watch: "Still to fix" };
     /* ---- Publish to client ----
-       A report is a draft until it's published here. The client's hub shows
-       their six most recent live reports; ticking a month makes it live,
-       unticking takes it down. Nothing is emailed from here. */
+       Drafts get a tickbox; live months don't. A live month shows as Live,
+       with its own Take down button, so publishing can only ever add to the
+       client's hub and taking a month away is always a separate, deliberate
+       act. (A tick used to mean "live", so unticking a live month to publish
+       another quietly took it down.) Nothing is emailed unless ticked. */
     function openPublish(r) {
       const reps = riSorted(r).slice().reverse();
+      const byId = Object.fromEntries(reps.map((x) => [x.id, x]));
       const fmtD = (iso) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-      const row = (x) => {
-        const c = x.data && x.data.client;
-        const ready = c && (c.summary || (c.priorities || []).length);
-        return `<label class="ri-pub-row">
-          <input type="checkbox" data-pub="${esc(x.id)}" ${x.published_at ? "checked" : ""}>
-          <span class="ri-pub-m">${esc(RI_MONTHS[x.month])} ${x.year}<small>${esc(x.platform || "Instagram")}</small></span>
-          <span class="ri-pub-s ${x.published_at ? (hasPending(x) ? "is-pending" : "is-live") : ""}">${x.published_at ? `Live since ${fmtD(x.published_at)}${hasPending(x) ? "<br>Changes not published" : ""}` : "Draft"}</span>
-          <span class="ri-pub-c ${ready ? "" : "is-warn"}">${ready ? "Client commentary written" : "No client commentary yet: they'd see the team's summary"}</span>
-        </label>`;
-      };
+      const ready = (x) => { const c = x.data && x.data.client; return !!(c && ((c.insights || []).length || c.summary || (c.priorities || []).length)); };
+      const row = (x) => x.published_at
+        ? `<div class="ri-pub-row is-live">
+            <span class="ri-pub-live" aria-hidden="true"></span>
+            <span class="ri-pub-m">${esc(RI_MONTHS[x.month])} ${x.year}<small>${esc(x.platform || "Instagram")}</small></span>
+            <span class="ri-pub-s ${hasPending(x) ? "is-pending" : "is-live"}">Live since ${fmtD(x.published_at)}${hasPending(x) ? "<br>Changes not published" : ""}</span>
+            <button type="button" class="smm-btn smm-btn--sm ri-pub-down" data-down="${esc(x.id)}">Take down</button>
+          </div>`
+        : `<label class="ri-pub-row">
+            <input type="checkbox" data-pub="${esc(x.id)}">
+            <span class="ri-pub-m">${esc(RI_MONTHS[x.month])} ${x.year}<small>${esc(x.platform || "Instagram")}</small></span>
+            <span class="ri-pub-s">Draft</span>
+            <span class="ri-pub-c ${ready(x) ? "" : "is-warn"}">${ready(x) ? "Client commentary written" : "No client commentary yet: they'd see the team's summary"}</span>
+          </label>`;
+      const drafts = reps.filter((x) => !x.published_at).length;
       $("smm-modal-host").innerHTML = `
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal ri-pub-modal" role="dialog" aria-modal="true" aria-label="Publish to client">
             <h3>Publish to ${esc(nameOf(r))}</h3>
-            <p class="smm-modal-sub">Tick the months the client should see in their hub. They'll see their six most recent live reports.</p>
-            <div class="ri-pub-list">${reps.map(row).join("")}</div>
-            <label class="ri-pub-email"><input type="checkbox" id="ri-pub-email" ${r.email ? "" : "disabled"}> <span>${r.email ? `Email ${esc(nameOf(r))} at ${esc(r.email)} that a new report is ready` : "No email address on file, so they'll only see it in their hub"}</span></label>
-            <p class="ri-note" style="margin:4px 0 0;">Their hub's bell always shows a new report. You can preview the email in Email → Automated emails.</p>
+            <p class="smm-modal-sub">${drafts ? "Tick the drafts to publish. Live months stay live." : "Every month is live."} The client sees their six most recent live reports.</p>
+            <div class="ri-pub-list" id="ri-pub-list">${reps.map(row).join("")}</div>
+            ${drafts ? `<label class="ri-pub-email"><input type="checkbox" id="ri-pub-email" ${r.email ? "" : "disabled"}> <span>${r.email ? `Email ${esc(nameOf(r))} at ${esc(r.email)} that a new report is ready` : "No email address on file, so they'll only see it in their hub"}</span></label>
+            <p class="ri-note" style="margin:4px 0 0;">Their hub's bell always shows a new report. You can preview the email in Email → Automated emails.</p>` : ""}
             <p class="smm-modal-status" id="ri-pub-status" hidden></p>
             <div class="smm-modal-actions">
-              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
-              <button type="button" class="smm-btn smm-btn--primary" id="ri-pub-save">Save</button>
+              <button type="button" class="smm-btn" data-mcancel>${drafts ? "Cancel" : "Close"}</button>
+              ${drafts ? `<button type="button" class="smm-btn smm-btn--primary" id="ri-pub-save" disabled>Publish</button>` : ""}
             </div>
           </div>
         </div>`;
-      const scrim = $("smm-modal");
-      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
-      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
-      $("ri-pub-save").addEventListener("click", async () => {
-        const btn = $("ri-pub-save"), status = $("ri-pub-status");
-        const boxes = [...document.querySelectorAll("[data-pub]")];
-        const byId = Object.fromEntries(reps.map((x) => [x.id, x]));
-        const on = boxes.filter((b) => b.checked && !byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
-        const off = boxes.filter((b) => !b.checked && byId[b.dataset.pub].published_at).map((b) => b.dataset.pub);
-        if (!on.length && !off.length) { closeModal(); return; }
-        // Taking a month down is never a side effect: say which, and ask.
-        if (off.length) {
-          const names = off.map((id) => `${RI_MONTHS[byId[id].month]} ${byId[id].year}`).join(", ");
-          if (!confirm(`This takes ${names} out of ${nameOf(r)}'s hub. They won't be able to see ${off.length === 1 ? "it" : "them"} until you publish again.\n\nTake ${off.length === 1 ? "it" : "them"} down?`)) return;
+      const scrim = $("smm-modal"), status = $("ri-pub-status");
+      const call = async (ids, action, extra) => {
+        if (isDemo(r)) {
+          const now = new Date().toISOString();
+          ids.forEach((id) => { byId[id].published_at = action === "publish" ? now : null; byId[id].published_data = action === "publish" ? byId[id].data : null; });
+          return null;
         }
-        btn.disabled = true; btn.textContent = "Saving…";
-        let notes = null;
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids, action, ...(extra || {}) }) });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(j.error || "Couldn't save");
+        (j.reports || []).forEach((x) => { if (byId[x.id]) { byId[x.id].published_at = x.published_at; byId[x.id].published_data = x.published_data || null; } });
+        return j.notes || null;
+      };
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", () => { closeModal(); renderInsights(r); });
+
+      // Take down: one month, asked about by name, then the list redrawn.
+      $("ri-pub-list").addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-down]"); if (!b) return;
+        const x = byId[b.dataset.down];
+        if (!confirm(`Take ${RI_MONTHS[x.month]} ${x.year} out of ${nameOf(r)}'s hub? They won't be able to see it until you publish it again.`)) return;
+        b.disabled = true; b.textContent = "Taking down…";
+        try { await call([x.id], "unpublish"); openPublish(r); renderInsights(r); }
+        catch (err) { status.hidden = false; status.textContent = err.message || "Couldn't take it down — try again."; b.disabled = false; b.textContent = "Take down"; }
+      });
+
+      const save = $("ri-pub-save");
+      if (!save) return;
+      const picked = () => [...document.querySelectorAll("[data-pub]")].filter((b) => b.checked).map((b) => b.dataset.pub);
+      document.querySelectorAll("[data-pub]").forEach((b) => b.addEventListener("change", () => {
+        const n = picked().length;
+        save.disabled = !n;
+        save.textContent = n > 1 ? `Publish ${n} months` : "Publish";
+      }));
+      save.addEventListener("click", async () => {
+        const on = picked(); if (!on.length) return;
+        save.disabled = true; save.textContent = "Publishing…";
         try {
-          if (isDemo(r)) {
-            const now = new Date().toISOString();
-            on.forEach((id) => { byId[id].published_at = now; byId[id].published_data = byId[id].data; }); off.forEach((id) => { byId[id].published_at = null; byId[id].published_data = null; });
-          } else {
-            const token = await authToken();
-            for (const [ids, publish] of [[on, true], [off, false]]) {
-              if (!ids.length) continue;
-              const res = await fetch(`${WORKER}/smm/report/publish`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ ids, action: publish ? "publish" : "unpublish", email: publish && !!$("ri-pub-email")?.checked }) });
-              const j = await res.json().catch(() => ({}));
-              if (!res.ok) throw new Error(j.error || "Couldn't save");
-              (j.reports || []).forEach((x) => { if (byId[x.id]) { byId[x.id].published_at = x.published_at; byId[x.id].published_data = x.published_data || null; } });
-              if (publish && j.notes) notes = j.notes;
-            }
-          }
+          const notes = await call(on, "publish", { email: !!$("ri-pub-email")?.checked });
           // Say what reached them, not just that it saved.
           if (notes && (notes.noHub || notes.failed || notes.noEmail)) {
             status.hidden = false; status.style.color = "#6b4d05";
@@ -2174,15 +2194,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               notes.noEmail ? "No email address on file, so no email." : "",
               notes.failed ? "The email didn't send; the report is live anyway." : "",
             ].filter(Boolean).join(" ");
-            // A fresh button, so pressing Done can't run the save a second time.
-            const done = btn.cloneNode(false); done.textContent = "Done"; done.disabled = false;
+            const done = save.cloneNode(false); done.textContent = "Done"; done.disabled = false;
             done.addEventListener("click", () => { closeModal(); renderInsights(r); });
-            btn.replaceWith(done);
+            save.replaceWith(done);
             renderInsights(r);
             return;
           }
           closeModal(); renderInsights(r);
-        } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't save — try again."; btn.disabled = false; btn.textContent = "Save"; }
+        } catch (err) { status.hidden = false; status.textContent = err.message || "Couldn't publish — try again."; save.disabled = false; save.textContent = "Publish"; }
       });
     }
 
