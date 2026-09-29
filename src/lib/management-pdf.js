@@ -62,14 +62,17 @@ const CSS = `
 .mg-tag { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; margin-right: 7px; background: #efe6e8; color: #371e28; vertical-align: 2px; }
 .mg-tag.caution { background: #f6ecd9; color: #7a5412; }
 .mg-tag.action { background: #f5dede; color: #8f3b3b; }
-.mg-trend { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0 40px; }
+/* The same two columns as What it means / Into next month above it. */
+.mg-trend { display: grid; grid-template-columns: 1fr 1fr; gap: 0 40px; }
 /* Cover */
 .mg-cover .mg-coverhead { margin-top: 80px; flex: none; }
 .mg-cover .mg-kicker { font-size: 17px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #6e6268; margin: 0; }
 .mg-cover .mg-h { font-size: 74px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; color: #371e28; margin: 14px 0 0; }
 .mg-cover .mg-sub { font-size: 21px; color: #4a4850; margin: 18px 0 0; }
-.mg-miss li { display: flex; justify-content: space-between; gap: 20px; padding: 8px 0; border-bottom: 1px solid #eee9ea; font-size: 17px; }
-.mg-miss li span:last-child { color: #8f3b3b; font-weight: 700; }
+.mg-miss li { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 8px 0; border-bottom: 1px solid #eee9ea; font-size: 17px; }
+.mg-miss li > span:last-child { color: #8f3b3b; font-weight: 700; white-space: nowrap; }
+.mg-acct b { display: block; }
+.mg-acct small { display: block; font-size: 14px; color: #6e6268; margin-top: 1px; }
 .mg-miss { list-style: none; margin: 0; padding: 0; }
 `;
 
@@ -147,32 +150,20 @@ function accountPage(a, pageNo, title) {
 }
 
 function coverPage({ month, year, accounts, missing, by }, title) {
-  const ds = accounts.map((a) => a.report.data || {});
-  const P = (k) => sum(ds.map((d) => n(d.profile?.[k])));
-  const rates = ds.map((d) => n(d.profile?.interactionRate)).filter((x) => x != null);
-  const published = sum(ds.map((d) => sum([n(d.posts?.published), n(d.reels?.published)])));
-  const tiles = [
-    tile("Accounts", fmt(accounts.length), missing.length ? `${missing.length} active not included` : "Every active client", missing.length ? -1 : 0),
-    tile("Followers", fmt(P("followers")), P("newFollowers") ? `${fmt(P("newFollowers"))} new this month` : "", 0),
-    tile("Profile reach", fmt(P("reach")), "Added across accounts", 0),
-    tile("Views", fmt(P("views")), "", 0),
-    tile("Interactions", fmt(P("interactions")), "", 0),
-    tile("Interaction rate", rates.length ? pc(rates.reduce((x, y) => x + y, 0) / rates.length) : "–", "Average of accounts", 0),
-    tile("Content published", fmt(published), "Posts and reels", 0),
-    tile("Link taps", fmt(P("linkTaps")), "From profiles", 0),
-  ].join("");
+  // Account and contact together: one account can be a brand among several,
+  // and the contact is who it's for (Danielle, Sep 2026).
+  const acct = (name, business, extra) => `<span class="mg-acct"><b>${esc(business || name)}</b><small>${esc([business && name && name !== business ? name : "", ...extra].filter(Boolean).join(" · "))}</small></span>`;
   const list = `<table class="mg-tbl"><thead><tr><th class="l">Account</th><th class="l">Manager</th><th>Followers</th><th>New</th><th>Reach</th><th>Views</th><th>Interactions</th><th>Rate</th><th>Page</th></tr></thead><tbody>${accounts.map((a, i) => {
     const p = (a.report.data || {}).profile || {};
-    return `<tr><td class="l"><b>${esc(a.lead.business || a.lead.name)}</b></td><td class="l">${esc(a.lead.manager || "")}</td><td class="v">${fmt(n(p.followers))}</td><td class="v">${fmt(n(p.newFollowers))}</td><td class="v">${fmt(n(p.reach))}</td><td class="v">${fmt(n(p.views))}</td><td class="v">${fmt(n(p.interactions))}</td><td class="v">${pc(n(p.interactionRate))}</td><td class="v">${i + 2}</td></tr>`;
+    return `<tr><td class="l">${acct(a.lead.name, a.lead.business, [a.report.platform])}</td><td class="l">${esc(a.lead.manager || "")}</td><td class="v">${fmt(n(p.followers))}</td><td class="v">${fmt(n(p.newFollowers))}</td><td class="v">${fmt(n(p.reach))}</td><td class="v">${fmt(n(p.views))}</td><td class="v">${fmt(n(p.interactions))}</td><td class="v">${pc(n(p.interactionRate))}</td><td class="v">${i + 2}</td></tr>`;
   }).join("")}</tbody></table>`;
-  const miss = missing.length ? `<div class="mg-sec"><p class="mg-sec-h">Not included <small>Active clients without a published ${esc(MONTHS[month])} report</small></p><ul class="mg-miss">${missing.map((x) => `<li><span>${esc(x.business || x.name)}${x.manager ? ` · ${esc(x.manager)}` : ""}</span><span>${esc(x.reason)}</span></li>`).join("")}</ul></div>` : "";
+  const miss = `<div class="mg-sec"><p class="mg-sec-h">Not included <small>Active clients without a published ${esc(MONTHS[month])} report</small></p>${missing.length ? `<ul class="mg-miss">${missing.map((x) => `<li>${acct(x.name, x.business, [x.manager, x.platform])}<span>${esc(x.reason)}</span></li>`).join("")}</ul>` : `<p class="mg-none">Every active client is included.</p>`}</div>`;
   const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   return `<div class="mg-page mg-cover">
     <div class="mg-band"><span>TMKE · Social media management</span><span>${esc(title)}</span></div>
     <div class="mg-coverhead"><p class="mg-kicker">Management report</p><h1 class="mg-h">${esc(MONTHS[month])} ${year}</h1>
       <p class="mg-sub">Every client report published for the month, one page each. Pulled ${esc(today)}${by ? ` by ${esc(by)}` : ""}.</p></div>
-    <div class="mg-sec" style="margin-top:44px"><p class="mg-sec-h">The month across all accounts</p><div class="mg-tiles">${tiles}</div></div>
-    <div class="mg-sec"><p class="mg-sec-h">Accounts <small>${accounts.length} included</small></p>${accounts.length ? list : `<p class="mg-none">No published reports for this month.</p>`}</div>
+    <div class="mg-sec" style="margin-top:48px"><p class="mg-sec-h">Accounts included <small>${accounts.length}</small></p>${accounts.length ? list : `<p class="mg-none">No published reports for this month.</p>`}</div>
     ${miss}
     <div class="mg-foot"><span>Internal · not for clients</span><span>1</span></div>
   </div>`;

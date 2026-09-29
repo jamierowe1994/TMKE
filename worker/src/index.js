@@ -9486,7 +9486,7 @@ export default {
         try {
           const months = `or=(and(year.eq.${y},month.eq.${m}),and(year.eq.${p1.year},month.eq.${p1.month}),and(year.eq.${p2.year},month.eq.${p2.month}))`;
           const reps = await get("smm_reports", `${months}&select=id,lead_id,platform,month,year,data,published_data,published_at`);
-          const leads = await get("smm_leads", `or=(pipeline_stage.eq.active_client,id.in.(${[...new Set(reps.map((r) => r.lead_id))].join(",") || "00000000-0000-0000-0000-000000000000"}))&select=id,full_name,business,email,social_media_manager,package_name,pipeline_stage`);
+          const leads = await get("smm_leads", `or=(pipeline_stage.eq.active_client,id.in.(${[...new Set(reps.map((r) => r.lead_id))].join(",") || "00000000-0000-0000-0000-000000000000"}))&select=id,full_name,business,email,social_media_manager,package_name,pipeline_stage,platforms`);
           const byId = new Map(leads.map((l) => [l.id, l]));
           const isNow = (r) => r.year === y && r.month === m;
           const has = (d) => d && typeof d === "object" && d.profile && Object.keys(d.profile).length;
@@ -9496,13 +9496,19 @@ export default {
               .map((x) => ({ month: x.month, year: x.year, data: has(x.published_data) ? x.published_data : x.data || {} }))
               .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
             return { lead: { id: l.id, name: l.full_name, business: l.business, manager: l.social_media_manager, package: l.package_name },
-              report: { id: r.id, platform: r.platform || "Instagram", month: r.month, year: r.year, published_at: r.published_at, data: r.published_data }, earlier };
+              // The figures as the client has them; our Summary (what it means,
+              // the plan, trends) as it stands now, since it's edited after
+              // publishing without a republish.
+              report: { id: r.id, platform: r.platform || "Instagram", month: r.month, year: r.year, published_at: r.published_at,
+                data: { ...r.published_data, summary: (r.data || {}).summary ?? r.published_data.summary, priorities: (r.data || {}).priorities ?? r.published_data.priorities, trendSummary: (r.data || {}).trendSummary ?? r.published_data.trendSummary } }, earlier };
           }).sort((a, b) => String(a.lead.business || a.lead.name || "").localeCompare(String(b.lead.business || b.lead.name || "")));
           // Active clients who aren't in it, and why: so a missing month is seen.
           const inIt = new Set(accounts.map((a) => a.lead.id));
           const missing = leads.filter((l) => l.pipeline_stage === "active_client" && !inIt.has(l.id)).map((l) => {
             const mine = reps.find((r) => r.lead_id === l.id && isNow(r));
-            return { name: l.full_name, business: l.business, manager: l.social_media_manager, reason: !mine ? "No report uploaded" : !mine.published_at ? "Report not published" : "Report has no data" };
+            const pl = Array.isArray(l.platforms) ? l.platforms : String(l.platforms || "").split(/[,;]/);
+            const platform = pl.map((x) => String(x || "").trim()).filter(Boolean).map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join(", ");
+            return { name: l.full_name, business: l.business, manager: l.social_media_manager, platform, reason: !mine ? "No report uploaded" : !mine.published_at ? "Report not published" : "Report has no data" };
           }).sort((a, b) => String(a.business || a.name || "").localeCompare(String(b.business || b.name || "")));
           return json({ ok: true, month: m, year: y, accounts, missing }, 200, request, env);
         } catch (e) {
