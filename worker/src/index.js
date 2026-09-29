@@ -2739,12 +2739,13 @@ async function agentFunnelContext(env, contact) {
    `also` is for the person a thing actually belongs to. Everything else
    follows from the area. Best-effort throughout: being told is never the
    reason an order fails to save. */
-const NOTIFY_AREAS = ["videography", "social", "money", "hub", "problem"];
+const NOTIFY_AREAS = ["videography", "social", "money", "hub", "problem", "marketing"];
 
 function notifyRecipients(env, area, also) {
   const her = String(env.ACCOUNTS_NOTIFY || "danielle@tmke.co.uk").toLowerCase();
   const list = [her];
   if (area === "videography") list.push(String(env.JACK_NOTIFY || env.JACK_UPN || "").toLowerCase());
+  if (area === "marketing") list.push(String(env.MARKETING_NOTIFY || "").toLowerCase());
   (Array.isArray(also) ? also : [also]).forEach((a) => { if (a) list.push(String(a).toLowerCase()); });
   return [...new Set(list.filter((a) => a && a.includes("@")))];
 }
@@ -3286,7 +3287,58 @@ async function runAutomationsTick(env) {
     try { await advanceEnrollment(env, enr); }
     catch (_) { await sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { status: "error" }); }
   }
+  if (due.length) await notifyCampaignSends(env);
   return due.length;
+}
+
+// "Autumn Edit: email 3 has gone out", to Danielle and Sam, once a dated
+// campaign email has finished sending to everyone it was due for. Dated
+// steps only: a triggered funnel sends one person at a time, all day, and
+// a notice per send would be noise. One notice per email per day.
+async function notifyCampaignSends(env) {
+  try {
+    const since = new Date(Date.now() - 6 * 3600e3).toISOString();
+    const runs = (await sbGet(env, "automation_runs", `node_type=eq.send_email&created_at=gte.${encodeURIComponent(since)}&select=automation_id,node_id,outcome,created_at&limit=20000`)) || [];
+    if (!runs.length) return;
+    const groups = new Map();
+    for (const r of runs) {
+      const k = `${r.automation_id}|${r.node_id}`;
+      const g = groups.get(k) || { automation_id: r.automation_id, node_id: r.node_id, ok: 0, skipped: 0, error: 0, first: r.created_at, last: r.created_at };
+      g[r.outcome === "ok" ? "ok" : r.outcome === "skipped" ? "skipped" : "error"]++;
+      if (r.created_at < g.first) g.first = r.created_at;
+      if (r.created_at > g.last) g.last = r.created_at;
+      groups.set(k, g);
+    }
+    const nowIso = new Date().toISOString();
+    for (const g of groups.values()) {
+      const a = ((await sbGet(env, "automations", `id=eq.${encodeURIComponent(g.automation_id)}&select=id,name,graph`)) || [])[0];
+      if (!a) continue;
+      const nodes = ((a.graph || {}).nodes) || [];
+      const node = nodes.find((n) => n.id === g.node_id);
+      if (!node || !node.config || !/^\d{4}-\d{2}-\d{2}$/.test(String(node.config.send_on || ""))) continue;
+      // Still sending? Anyone sitting at this email and already due means the
+      // batch isn't finished; wait for the next tick.
+      const pending = (await sbGet(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&current_node_id=eq.${encodeURIComponent(g.node_id)}&status=eq.active&next_run_at=lte.${encodeURIComponent(nowIso)}&select=id&limit=1`)) || [];
+      if (pending.length) continue;
+      const sends = nodes.filter((n) => n.type === "send_email").sort((x, y) => String(x.config?.send_on || "9999").localeCompare(String(y.config?.send_on || "9999")));
+      const which = sends.indexOf(node) + 1;
+      let tplName = null;
+      if (node.config.template_id) tplName = (((await sbGet(env, "email_templates", `id=eq.${encodeURIComponent(node.config.template_id)}&select=name`)) || [])[0] || {}).name || null;
+      const t = (iso) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" });
+      const day = new Date(g.first).toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" });
+      const span = t(g.first) === t(g.last) ? `at ${t(g.first)}` : `between ${t(g.first)} and ${t(g.last)}`;
+      const extra = [g.skipped ? `${g.skipped} skipped (unsubscribed or not opted in)` : "", g.error ? `${g.error} failed` : ""].filter(Boolean).join(", ");
+      await notifyAdmins(env, {
+        area: g.error ? "problem" : "marketing", event: "campaign_email_sent",
+        title: `${a.name}: email ${which} sent to ${g.ok} ${g.ok === 1 ? "person" : "people"}`,
+        body: `${tplName ? `"${tplName}" ` : ""}went out ${span} on ${day}.${extra ? ` ${extra}.` : ""}`,
+        href: `/admin/automations/edit?id=${a.id}`,
+        also: g.error ? [env.MARKETING_NOTIFY] : [],
+        key: `campaign_sent:${a.id}:${g.node_id}:${new Date(g.first).toLocaleDateString("en-CA", { timeZone: "Europe/London" })}`,
+        meta: { automation_id: a.id, node_id: g.node_id, ok: g.ok, skipped: g.skipped, error: g.error },
+      });
+    }
+  } catch (e) { console.error("notifyCampaignSends", String((e && e.message) || e).slice(0, 200)); }
 }
 
 // ---- Abandoned password-setup reminder ------------------------------------
