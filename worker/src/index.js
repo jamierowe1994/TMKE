@@ -2549,7 +2549,7 @@ function emailPreviewSample(id) {
     vid_booking_client: () => ({ subject: "Booking confirmed - Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
     vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
-    smm_report_ready: () => ({ subject: "Your August social media report is ready", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
+    smm_report_ready: () => ({ subject: "Your August social media report is ready", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample", joinLink: "https://tmke.co.uk/join?email=alex%40example.com&next=%2Faccount%2Fsocial%2Freport%3Fr%3Dsample" }) }),
     smm_report_amended: () => ({ subject: "We've updated your August 2026 social media report", html: smmReportAmendedHtml({ name: "Alex Morgan", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
@@ -3259,7 +3259,7 @@ function setupReminderHtml({ name, pack, link }) {
 // ---- SMM monthly report: ready / amended ---------------------------------
 // Sent when a report is published (if the admin ticks "email them") and when
 // a live report is republished with "tell them". The bell gets the same news.
-function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link }) {
+function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link, joinLink }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
   const mgr = esc(String(manager || "").trim().split(/\s+/)[0] || "");
@@ -3271,6 +3271,7 @@ function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link 
     <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Read Your Report</a></p>
     <p style="${EM_P}">It only takes a couple of minutes to read. If you have any questions, just reply to this email or message ${mgr || "us"} directly from your Member Hub.</p>
     <p style="${EM_P}">The TMKE Team</p>
+    ${joinLink ? `<p style="${EM_SMALL}">Haven&rsquo;t set up your Member Hub account yet? <a href="${esc(joinLink)}" style="color:#371e28">Sign up now</a> with this email address and your report will be waiting for you.</p>` : ""}
   </div>`;
 }
 function smmReportAmendedHtml({ name, monthLabel, manager, link }) {
@@ -3929,7 +3930,11 @@ export default {
             await seedBrandKit(env, { userId: newUserId, email });
           } catch (e) { console.error("signup: contact upsert", String((e && e.message) || e).slice(0, 200)); }
 
-          const link = `${site}/auth/callback?token_hash=${encodeURIComponent(hashed)}&type=signup`;
+          // Where they were heading when they signed up (a report link, say),
+          // so confirming lands them there. Paths on this site only.
+          const nx = String((b && b.next) || "");
+          const nextQ = /^\/(?![\/\\])[^\s]*$/.test(nx) ? `&next=${encodeURIComponent(nx)}` : "";
+          const link = `${site}/auth/callback?token_hash=${encodeURIComponent(hashed)}&type=signup${nextQ}`;
           const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
           const first = (fullName.split(/\s+/)[0] || "there").trim();
           const content = `
@@ -9537,7 +9542,10 @@ CLIENT VOICE RULES (for "client"):
                 else notes.noHub++;
                 if (b && b.email) {
                   if (!lead.email) { notes.noEmail++; continue; }
-                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report is ready`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, month: MN[r.month], monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, link })) }).catch(() => ({ ok: false }));
+                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report is ready`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, month: MN[r.month], monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, link,
+                    // Only for someone with no hub account yet: sign up with this
+                    // address and land on the report once confirmed.
+                    joinLink: lead.account_user_id ? null : `${site}/join?email=${encodeURIComponent(lead.email)}&next=${encodeURIComponent(href)}` })) }).catch(() => ({ ok: false }));
                   if (sent && sent.ok !== false) notes.emailed++; else notes.failed++;
                 }
               } else {
@@ -9661,6 +9669,18 @@ CLIENT VOICE RULES (for "client"):
           || (allReports.length ? leads.find((l) => l.id === allReports[0].lead_id) : null)
           || leads[0] || null;
         const isClient = !!lead && lead.pipeline_stage === "active_client";
+        // Matched on email but not yet linked (they signed up after we started
+        // working with them): link it now, so their bell gets notifications.
+        if (lead && !lead.account_user_id && String(lead.email || "").toLowerCase() === email) {
+          try {
+            await fetch(`${env.SUPABASE_URL}/rest/v1/smm_leads?id=eq.${encodeURIComponent(lead.id)}&account_user_id=is.null`, {
+              method: "PATCH",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+              body: JSON.stringify({ account_user_id: user.id }),
+            });
+            lead.account_user_id = user.id;
+          } catch (_) {}
+        }
         // Their six most recent: enough to look back on, not a growing archive.
         const reports = lead ? allReports.filter((r) => r.lead_id === lead.id).slice(0, 6).map(({ lead_id, ...r }) => r) : [];
         // Super-admin visibility map (what fields clients may see). The page

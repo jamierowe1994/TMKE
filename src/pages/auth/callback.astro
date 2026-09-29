@@ -122,7 +122,9 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 
     function routeAfter() {
       const params = new URLSearchParams(location.search);
-      const next = params.get("next") || "/account";
+      // Paths on this site only: a ?next= pointing elsewhere is ignored.
+      const nx = params.get("next") || "";
+      const next = /^\/(?![\/\\])/.test(nx) ? nx : "/account";
       if (typeof window.tmkeSplash === "function") {
         window.tmkeSplash(next);
       } else {

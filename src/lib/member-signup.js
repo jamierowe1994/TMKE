@@ -21,7 +21,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const EXISTS_MSG = "You already have an account with this email address.";
 const GENERIC_MSG = "Something went wrong creating your account. Please try again, or get in touch if it keeps happening.";
 
-export async function signUpMember({ fullName, email, password, marketing }) {
+export async function signUpMember({ fullName, email, password, marketing, next }) {
   fullName = String(fullName || "").trim();
   email = String(email || "").trim();
   password = String(password || "");
@@ -35,7 +35,7 @@ export async function signUpMember({ fullName, email, password, marketing }) {
     res = await fetch(`${WORKER}/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, full_name: fullName, marketing: !!marketing }),
+      body: JSON.stringify({ email, password, full_name: fullName, marketing: !!marketing, next: next || undefined }),
     });
     body = await res.json().catch(() => ({}));
   } catch (e) {

@@ -204,9 +204,13 @@ const TILES = [
 
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$/, "");
 
+    // Where they were heading (?next=, e.g. a report from an email). Paths on
+    // this site only.
+    const NEXT = (() => { const n = new URLSearchParams(location.search).get("next") || ""; return /^\/(?![\/\\])/.test(n) ? n : "/account"; })();
+
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) location.replace("/account");
+      if (session) location.replace(NEXT);
     })();
 
     /* Arrived from an email we sent them (?email=...). Prefilling is not just a
@@ -310,6 +314,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$
       const res = await signUpMember({
         fullName: data.get("full_name"), email: data.get("email"),
         password: data.get("password"), marketing: !!data.get("marketing"),
+        next: NEXT !== "/account" ? NEXT : undefined,
       });
 
       btn.removeAttribute("disabled"); label.textContent = orig;
@@ -319,7 +324,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$
         // error styling — it gets a way out. Carry the address across so the
         // sign-in form is ready rather than asking them to type it twice.
         errEl.classList.toggle("jn-error--info", !!res.existing);
-        if (res.existing) errSignin.href = "/login?email=" + encodeURIComponent(String(data.get("email") || "").trim());
+        if (res.existing) errSignin.href = "/login?email=" + encodeURIComponent(String(data.get("email") || "").trim()) + (NEXT !== "/account" ? "&next=" + encodeURIComponent(NEXT) : "");
         errSignin.hidden = !res.existing;
         errEl.hidden = false;
         return;
@@ -331,8 +336,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$
         form.hidden = true; altEl.hidden = true; doneEl.hidden = false;
         resendBtn.dataset.email = String(data.get("email") || "").trim();
       }
-      else if (typeof window.tmkeSplash === "function") window.tmkeSplash("/account");
-      else location.href = "/account";
+      else if (typeof window.tmkeSplash === "function") window.tmkeSplash(NEXT);
+      else location.href = NEXT;
     });
   </script>
 </BaseLayout>

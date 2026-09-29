@@ -88,7 +88,7 @@ const TILES = [
           <p id="signin-error" class="jn-error" hidden><span id="signin-error-text"></span> <button type="button" id="signin-resend" class="jn-linkbtn" hidden>Send me a link to get in</button></p>
         </form>
 
-        <p class="jn-alt">New here? <a href="/join" class="jn-link">Create a free account</a></p>
+        <p class="jn-alt">New here? <a href="/join" class="jn-link" id="jn-join-link">Create a free account</a></p>
         <p class="jn-alt jn-alt--shop">Visit <a href="/edit" class="jn-link">The Edit</a>, our social media template shop.</p>
       </div>
     </div>
@@ -224,10 +224,23 @@ const TILES = [
     });
     let lastFocus = null;
 
+    // "Create a free account" keeps where they were heading (and the address,
+    // if one came with them), so signing up lands them there too.
+    (() => {
+      const q = new URLSearchParams(location.search), a = document.getElementById("jn-join-link");
+      const nx = q.get("next") || "", em = q.get("email") || "";
+      if (!a || (!nx && !em)) return;
+      const p = new URLSearchParams();
+      if (em) p.set("email", em);
+      if (/^\/(?![\/\\])/.test(nx)) p.set("next", nx);
+      a.href = "/join?" + p.toString();
+    })();
+
     // ---- Post-auth routing (next param, else the dashboard via the splash) ----
     function routeAfterSignIn() {
       const nextParam = new URLSearchParams(location.search).get("next");
-      const dest = nextParam || "/account";
+      // Paths on this site only: a ?next= pointing elsewhere is ignored.
+      const dest = nextParam && /^\/(?![\/\\])/.test(nextParam) ? nextParam : "/account";
       if (typeof window.tmkeSplash === "function") window.tmkeSplash(dest);
       else window.location.href = dest;
     }
