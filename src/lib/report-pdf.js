@@ -27,7 +27,7 @@ const CSS = `
 .rpx-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 540px minmax(0, 1fr); column-gap: 96px; margin-top: 56px; }
 .rpx-side { display: flex; flex-direction: column; }
 .rpx-eyebrow, .rpx-glance dt, .rpx-head { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: #371e28; margin: 0 0 14px; }
-.rpx-title { font-size: 60px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.02; color: #371e28; margin: 0; }
+.rpx-title { font-size: 60px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.02; color: #371e28; margin: 0; }
 .rpx-lede { font-size: 24px; line-height: 1.6; color: #3b3a40; margin: 28px 0 0; white-space: pre-line; }
 .rpx-main { min-width: 0; display: flex; flex-direction: column; }
 .rpx-label { font-size: 15px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #6e6268; margin: 0 0 10px; }
@@ -41,7 +41,7 @@ const CSS = `
 .rpx-strip span { writing-mode: vertical-rl; }
 .rpx-card { position: absolute; left: 96px; bottom: 96px; width: calc((1920px - 64px - 96px) * 0.75); background: #371e28; color: #fff; padding: 64px 72px 60px; border-radius: 4px; }
 .rpx-card .rpx-eyebrow { color: rgba(255,255,255,0.72); }
-.rpx-card .rpx-h { font-size: 118px; font-weight: 700; letter-spacing: -0.04em; line-height: 0.95; margin: 6px 0 0; }
+.rpx-card .rpx-h { font-size: 118px; font-weight: 700; letter-spacing: -0.015em; line-height: 0.95; margin: 6px 0 0; }
 .rpx-card-sub { font-size: 27px; color: rgba(255,255,255,0.85); margin: 22px 0 0; }
 .rpx-contents { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 28px; margin: 44px 0 0; padding: 26px 0 0; border-top: 1.5px solid rgba(255,255,255,0.22); list-style: none; }
 .rpx-contents li { font-size: 21px; line-height: 1.35; color: rgba(255,255,255,0.92); }
