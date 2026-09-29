@@ -8399,8 +8399,10 @@ export default {
         if (!user) return json({ error: "Sign in." }, 401, request, env);
         const email = String(user.email || "").toLowerCase();
         const leads = (await sbGet(env, "smm_leads",
-          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,client_status&order=created_at.desc`)) || [];
-        const ids = leads.map((l) => l.id);
+          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,client_status,inter_brand_invoice&order=created_at.desc`)) || [];
+        // Inter-brand cards are billed to another TEG brand, not the client:
+        // their invoices aren't the client's to see.
+        const ids = leads.filter((l) => !l.inter_brand_invoice).map((l) => l.id);
         if (!ids.length) return json({ ok: true, invoices: [] }, 200, request, env);
 
         const rows = (await sbGet(env, "invoices",
@@ -8441,8 +8443,8 @@ export default {
 
         const email = String(user.email || "").toLowerCase();
         const mine = (await sbGet(env, "smm_leads",
-          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id`)) || [];
-        if (!mine.some((l) => l.id === inv.booking_id)) return json({ error: "Not found." }, 404, request, env);
+          `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,inter_brand_invoice`)) || [];
+        if (!mine.some((l) => l.id === inv.booking_id && !l.inter_brand_invoice)) return json({ error: "Not found." }, 404, request, env);
 
         const key = `invoices/${inv.number || inv.id}.pdf`;
         let head = null;
@@ -9834,7 +9836,7 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in." }, 401, request, env);
         const email = String(user.email || "").toLowerCase();
-        const leads = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,kind,pipeline_stage,client_status,package_name,price,platforms,start_date,instagram_url,facebook_url,linkedin_url,youtube_url,tiktok_url,full_name,business,email,phone,social_media_manager&order=created_at.desc`)) || [];
+        const leads = (await sbGet(env, "smm_leads", `or=(account_user_id.eq.${user.id},email.ilike.${encodeURIComponent(email)})&select=id,kind,pipeline_stage,client_status,package_name,price,platforms,start_date,instagram_url,facebook_url,linkedin_url,youtube_url,tiktok_url,full_name,business,email,phone,social_media_manager,inter_brand_invoice&order=created_at.desc`)) || [];
         // A member may match more than one card (a manual "test client" card that
         // holds the reports, plus a stray enquiry/brochure card from the same
         // email). Fetch reports across ALL matched cards, then pick the primary:
@@ -9870,7 +9872,15 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
         // merges this over the code defaults (report-fields.js) before rendering.
         const vrows = await sbGet(env, "report_settings", "id=eq.1&select=visibility");
         const visibility = (vrows && vrows[0] && vrows[0].visibility) || {};
-        return json({ ok: true, isClient, client: lead, reports, visibility }, 200, request, env);
+        // Inter-brand: another TEG brand pays for this client, so they're never
+        // shown a price (Danielle, 29 Sep 2026). Removed here, not hidden on
+        // the page, so it never reaches their browser.
+        let client = lead;
+        if (lead) {
+          const { inter_brand_invoice, ...rest } = lead;
+          client = inter_brand_invoice ? { ...rest, price: null, brand_paid: true } : rest;
+        }
+        return json({ ok: true, isClient, client, reports, visibility }, 200, request, env);
       }
 
       // ---- Admin: list a booking's messages + documents ----
