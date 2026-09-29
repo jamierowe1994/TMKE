@@ -1601,6 +1601,49 @@ function videographyProductTag(serviceType) {
 // Compose the standard CRM tags: service tag(s) + consent + membership + network.
 // optIn: true → Marketing-Opt-In; false → Marketing-Not-Opted-In;
 // undefined → neither (flows with no opt-in choice, e.g. a purchase).
+// Bring a social client's CRM contact in line with their SMM card. Run when
+// a card is linked to a hub account, invited to make one, or has its status
+// changed, so the contact never lags the card:
+//  - SMM-Status: Active / Paused / Ended for a client (normalizeTags then drops
+//    "Interest: SMM"), or Interest: SMM for someone who isn't one yet;
+//  - TMKE-Account-Member once they have a hub account, and the contact tied to
+//    that account (contacts.user_id);
+//  - lifecycle Customer for an active client;
+//  - their phone and business filled in where the contact has none.
+// Never overwrites what's already on the contact; never throws.
+async function syncSmmContact(env, leadId) {
+  try {
+    const lead = ((await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,last_name,business,phone,account_user_id,client_status`)) || [])[0];
+    if (!lead || !lead.email) return { ok: false, reason: "no_email" };
+    const email = lc(lead.email);
+    const statusTag = { active: "SMM-Status: Active", paused: "SMM-Status: Paused", ended: "SMM-Status: Ended" }[lead.client_status] || null;
+    const want = [statusTag || "Interest: SMM", lead.account_user_id ? "TMKE-Account-Member" : null, networkTag(email)].filter(Boolean);
+    let c = null;
+    if (lead.account_user_id) c = ((await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(lead.account_user_id)}&select=id,tags,lifecycle,user_id,phone,company&limit=1`)) || [])[0] || null;
+    if (!c) c = ((await sbGet(env, "contacts", `email=eq.${encodeURIComponent(email)}&select=id,tags,lifecycle,user_id,phone,company&limit=1`)) || [])[0] || null;
+    if (!c) {
+      await sbRpc(env, "upsert_contact", {
+        p_email: email, p_first_name: lead.first_name || lead.full_name || null, p_last_name: lead.last_name || null,
+        p_phone: lead.phone || null, p_company: lead.business || null, p_source: "smm",
+        p_lifecycle: lead.client_status === "active" ? "customer" : "lead",
+        p_tags: normalizeTags(want), p_user_id: lead.account_user_id || null,
+      });
+      return { ok: true, created: true };
+    }
+    const keep = (c.tags || []).filter((t) => !/^SMM-Status:/.test(t) || !statusTag);
+    const patch = { tags: normalizeTags([...keep, ...want]) };
+    if (lead.client_status === "active") patch.lifecycle = "customer";
+    if (lead.account_user_id && !c.user_id) patch.user_id = lead.account_user_id;
+    if (!c.phone && lead.phone) patch.phone = lead.phone;
+    if (!c.company && lead.business) patch.company = lead.business;
+    await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(c.id)}`, patch);
+    return { ok: true, updated: true };
+  } catch (e) {
+    console.error("syncSmmContact", String((e && e.message) || e).slice(0, 200));
+    return { ok: false, reason: "error" };
+  }
+}
+
 function crmTags(email, service, { optIn, member } = {}) {
   const t = (Array.isArray(service) ? service.slice() : service ? [service] : []).filter(Boolean);
   if (optIn === true) t.push("Marketing-Opt-In");
@@ -9026,28 +9069,10 @@ export default {
           method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
           body: JSON.stringify({ client_status: status }),
         });
-        // Reflect on the CRM contact: one SMM-Status tag at a time.
-        const statusTag = `SMM-Status: ${{ active: "Active", paused: "Paused", ended: "Ended" }[status]}`;
-        if (lead.email) {
-          const cRows = await sbGet(env, "contacts", `email=eq.${encodeURIComponent(lc(lead.email))}&select=id,tags,lifecycle`);
-          const c = cRows && cRows[0];
-          if (c) {
-            const tags = normalizeTags([...(c.tags || []).filter((t) => !/^SMM-Status:/.test(t)), statusTag]);
-            const patch = { tags };
-            if (status === "active") patch.lifecycle = "customer";
-            await fetch(`${env.SUPABASE_URL}/rest/v1/contacts?id=eq.${c.id}`, {
-              method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-              body: JSON.stringify(patch),
-            });
-          } else {
-            await sbRpc(env, "upsert_contact", {
-              p_email: lead.email, p_first_name: lead.first_name || lead.full_name || null, p_last_name: lead.last_name || null,
-              p_company: lead.business || null, p_source: "smm", p_lifecycle: status === "active" ? "customer" : "lead",
-              p_tags: normalizeTags([statusTag, networkTag(lead.email)].filter(Boolean)), p_user_id: lead.account_user_id || null,
-            });
-          }
-        }
-        return json({ ok: true }, 200, request, env);
+        // Reflect on the CRM contact: one SMM-Status tag at a time, and
+        // everything else the card knows (syncSmmContact).
+        const crm = await syncSmmContact(env, leadId);
+        return json({ ok: true, crm }, 200, request, env);
       }
 
       // ---- Admin: book a sales meeting for an SMM lead --------------------
@@ -9132,6 +9157,17 @@ export default {
         return json({ ok: true, lead: row }, 200, request, env);
       }
 
+      // ---- Admin: bring a client's CRM contact in line with their card -------
+      if (path.endsWith("/smm/contact-sync") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!(b && b.lead_id)) return json({ error: "Missing lead." }, 400, request, env);
+        const crm = await syncSmmContact(env, b.lead_id);
+        if (!crm.ok) return json({ error: crm.reason === "no_email" ? "This card has no email, so there's no contact to update." : "Couldn't update the contact." }, 400, request, env);
+        return json({ ok: true, crm }, 200, request, env);
+      }
+
       // ---- Admin: link an SMM card to a member's hub account ------------------
       // Binds smm_leads.account_user_id to the auth user of the given email (the
       // card's own email by default), so their reports pull through on
@@ -9170,7 +9206,9 @@ export default {
           body: JSON.stringify({ account_user_id: u.id }),
         });
         if (!res.ok) { const t = await res.text().catch(() => ""); return json({ error: "Couldn't link the account. " + t.slice(0, 200) }, 502, request, env); }
-        return json({ ok: true, linked_email: targetEmail, user_id: u.id }, 200, request, env);
+        // The contact card follows: member tag, tied to the account, status.
+        const crm = await syncSmmContact(env, leadId);
+        return json({ ok: true, linked_email: targetEmail, user_id: u.id, crm }, 200, request, env);
       }
 
       // ---- Admin: invite an SMM client to create their member hub account -----
@@ -9231,6 +9269,7 @@ export default {
         const html = await wrapInBrandedBase(env, content);
         const sent = await sendEmail(env, { to: email, subject: "Create your TMKE member hub account", html });
         if (!sent.ok) return json({ ok: false, linked: true, emailFailed: true, error: sent.error || "The account is linked, but the invite email didn't send." }, 200, request, env);
+        await syncSmmContact(env, leadId);
         return json({ ok: true, invited: email, user_id: u.id }, 200, request, env);
       }
 

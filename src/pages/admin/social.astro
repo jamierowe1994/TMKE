@@ -1440,7 +1440,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           return;
         }
         r.account_user_id = j.user_id;
-        smmStatus(`Linked to ${j.linked_email} — their reports will now show on the member hub.`, true);
+        smmStatus(`Linked to ${j.linked_email}. Their reports will now show on the member hub, and their contact card has been updated.`, true);
         openFile(r.id);
       } catch (e) {
         reset();
@@ -1551,15 +1551,23 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       } catch (_) { /* fall through to offering the button */ }
       row.innerHTML = existing
         ? `<a class="smm-btn smm-btn--sm smm-btn--ghost" href="/admin/contacts?contact=${encodeURIComponent(existing.id)}">Open in contacts →</a>
-           ${r.client_status ? `<button type="button" class="smm-btn smm-btn--sm smm-btn--ghost" id="smm-synccontact">Update tags</button>` : ""}
-           <span class="smm-crm-note">In the CRM${r.client_status ? ` — should be tagged ${smmTagFor(r)}` : ""}.</span>`
+           <button type="button" class="smm-btn smm-btn--sm smm-btn--ghost" id="smm-synccontact" title="Tags, hub account, lifecycle, phone and business from this card">Update contact</button>
+           <span class="smm-crm-note">In the CRM. Linking, inviting or changing status updates it too.</span>`
         : `<button type="button" class="smm-btn smm-btn--sm" id="smm-mkcontact">Create contact</button>
            <span class="smm-crm-note">Not in the CRM yet.</span>`;
       $("smm-mkcontact")?.addEventListener("click", () => createContact(r));
       $("smm-synccontact")?.addEventListener("click", async (e) => {
         const b = e.currentTarget; b.disabled = true; b.textContent = "Updating…";
-        try { await pushClientStatus(r, r.client_status); b.textContent = "Updated"; }
-        catch (_) { b.disabled = false; b.textContent = "Update tags"; alert("Couldn't update that contact."); }
+        try {
+          if (!isDemo(r)) {
+            const token = await authToken();
+            const res = await fetch(`${WORKER}/smm/contact-sync`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id }) });
+            const j = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(j.error || "Couldn't update that contact.");
+          }
+          b.textContent = "Contact updated";
+        }
+        catch (err) { b.disabled = false; b.textContent = "Update contact"; alert(err.message || "Couldn't update that contact."); }
       });
     }
 
