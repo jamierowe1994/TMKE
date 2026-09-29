@@ -2549,7 +2549,7 @@ function emailPreviewSample(id) {
     vid_booking_client: () => ({ subject: "Booking confirmed - Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
     vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
-    smm_report_ready: () => ({ subject: "Your August 2026 social media report is ready", html: smmReportReadyHtml({ name: "Alex Morgan", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
+    smm_report_ready: () => ({ subject: "Your August social media report is ready", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     smm_report_amended: () => ({ subject: "We've updated your August 2026 social media report", html: smmReportAmendedHtml({ name: "Alex Morgan", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
@@ -3259,16 +3259,18 @@ function setupReminderHtml({ name, pack, link }) {
 // ---- SMM monthly report: ready / amended ---------------------------------
 // Sent when a report is published (if the admin ticks "email them") and when
 // a live report is republished with "tell them". The bell gets the same news.
-function smmReportReadyHtml({ name, monthLabel, nextMonth, manager, link }) {
+function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
   const mgr = esc(String(manager || "").trim().split(/\s+/)[0] || "");
   return `<div style="${EM_WRAP}">
-    <h1 style="${EM_H1}">Your ${esc(monthLabel)} report is ready</h1>
-    <p style="${EM_P}">Hi ${first}, your social media report for ${esc(monthLabel)} is now in your hub. It walks you through how your Instagram profile did, who you reached, what performed best, and what we're doing${nextMonth ? ` into ${esc(nextMonth)}` : " next"}.</p>
-    <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Read your report &rarr;</a></p>
-    <p style="${EM_P}">It takes a couple of minutes. If anything raises a question, reply to this email${mgr ? ` or message ${mgr} from your hub` : ""}.</p>
-    <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk" style="color:#371e28">tmke.co.uk</a></p>
+    <h1 style="${EM_H1}">Your ${esc(month)} social media report is ready</h1>
+    <p style="${EM_P}">Hi ${first},</p>
+    <p style="${EM_P}">Your social media report for ${esc(monthLabel)} is ready to view in your Member Hub.</p>
+    <p style="${EM_P}">Inside, you&rsquo;ll find a breakdown of how your Instagram performed, who your content reached, what worked best, and what we&rsquo;ll be focusing on in ${esc(nextMonth || "the month ahead")}.</p>
+    <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Read Your Report</a></p>
+    <p style="${EM_P}">It only takes a couple of minutes to read. If you have any questions, just reply to this email or message ${mgr || "us"} directly from your Member Hub.</p>
+    <p style="${EM_P}">The TMKE Team</p>
   </div>`;
 }
 function smmReportAmendedHtml({ name, monthLabel, manager, link }) {
@@ -9535,7 +9537,7 @@ CLIENT VOICE RULES (for "client"):
                 else notes.noHub++;
                 if (b && b.email) {
                   if (!lead.email) { notes.noEmail++; continue; }
-                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${monthLabel} social media report is ready`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, link })) }).catch(() => ({ ok: false }));
+                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report is ready`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, month: MN[r.month], monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, link })) }).catch(() => ({ ok: false }));
                   if (sent && sent.ok !== false) notes.emailed++; else notes.failed++;
                 }
               } else {
