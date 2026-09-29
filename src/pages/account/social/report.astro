@@ -69,6 +69,32 @@ import "../../../styles/ws-system.css";
        14px on a 1440 × 900 screen, 17–18px on a 1920 × 1080 monitor, up to
        21px on a large display. */
     .rp { font-size: clamp(12.5px, min(0.98vw, 1.58vh), 21px); font-family: var(--sans); }
+    /* A phone reads the report scrolling, not a screen at a time, so it gets
+       a size for reading rather than one worked out from the window. Most
+       clients will open it from the email, on their phone. */
+    @media (max-width: 720px) {
+      .rp { font-size: 15px; }
+      /* Side by side on a phone: labels in a row line up at the top, and the
+         figures are sized to fit half the screen. */
+      .rp-figs.rp-grow .rp-fig { justify-content: flex-start; padding: 1.1em 0; }
+      .rp-figs.rp-grow .rp-fig-val { font-size: 2.2em; }
+      .rp-reach { grid-template-columns: 1fr 1fr; }
+      .rp-reach-why { grid-column: 1 / -1; }
+      .rp-chips { gap: 0.6em; }
+      .rp-chip b { font-size: 1.45em; }
+      /* Top five on a phone: picture, title, and the figures as one line
+         under it, rather than a table to swipe across. */
+      .rp-topcard .rp-tblwrap { overflow: visible; }
+      .rp-tblwrap .rp-tbl { min-width: 0; width: 100%; table-layout: auto; }
+      .rp-tblwrap .rp-tbl thead, .rp-tblwrap .rp-tbl colgroup, .rp-tblwrap .rp-tbl td.rp-c { display: none; }
+      .rp-tblwrap .rp-tbl td { padding: 0.55em 0.4em; }
+      .rp-tblwrap .rp-tbl td.rp-rank { width: 1.4em; }
+      .rp-tblwrap .rp-tbl td:nth-child(2) { width: 3.1em; }
+      .rp-top-t a, .rp-top-t .rp-t { max-width: 100%; }
+      .rp-tbl .rp-top-t .rp-top-m { display: block; margin-top: 0.3em; font-size: 0.8em; font-weight: 400; color: var(--ws-tx); white-space: normal; }
+      .rp-part { padding: 1.4em 1.2em; }
+      .rp-mini { padding: 1em 1.05em; }
+    }
     .rp .ws-btn { font-size: 0.86em; height: 2.9em; padding: 0 1.2em; }
     .rp .ws-btn svg { width: 1.05em; height: 1.05em; }
 
@@ -155,8 +181,10 @@ import "../../../styles/ws-system.css";
     .rp-cards.rp-grow > .rp-mini { display: flex; flex-direction: column; justify-content: center; padding: 1.6em 1.5em; }
     .rp-mini-note { margin: 0.9em 0 0; font-size: 0.78em; line-height: 1.45; color: var(--ws-faint); }
     /* Who you reached */
-    .rp-reach { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 1em 2.6em; align-items: start; padding-bottom: 1.3em; margin-bottom: 1.3em; border-bottom: 1px solid var(--ws-line); }
-    .rp-reach-why { margin: 0; padding: 0.9em 1.1em; border-left: 3px solid var(--english-violet, #4a2a3c); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 5%, #fff); font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); max-width: 62ch; }
+    /* The two figures take the left half; "Why two numbers?" the right half,
+       out to the margin, centred on them. */
+    .rp-reach { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: 1em 2.6em; align-items: center; padding-bottom: 1.3em; margin-bottom: 1.3em; border-bottom: 1px solid var(--ws-line); }
+    .rp-reach-why { margin: 0; padding: 1em 1.2em; border-left: 3px solid var(--english-violet, #4a2a3c); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 5%, #fff); font-size: 0.93em; line-height: 1.55; color: var(--ws-tx); }
     .rp-reach-why b { color: var(--ws-ink); }
     @media (max-width: 900px) { .rp-reach { grid-template-columns: 1fr 1fr; } .rp-reach-why { grid-column: 1 / -1; } }
     .rp-big { font-family: var(--serif); font-size: 2.6em; line-height: 1; color: var(--ws-ink); font-variant-numeric: tabular-nums; margin-bottom: 0.2em; }
@@ -206,6 +234,7 @@ import "../../../styles/ws-system.css";
     .rp-go { flex: none; color: var(--ws-faint); }
     .rp-top-t a:hover .rp-t { color: var(--ws-accent); text-decoration: underline; text-underline-offset: 3px; }
     .rp-top-t a:hover .rp-go { color: var(--ws-accent); }
+    .rp-top-m { display: none; }
     .rp-top-k { font-size: 0.78em; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); }
 
     /* What it means: our words, then month against month. */
@@ -226,7 +255,7 @@ import "../../../styles/ws-system.css";
     /* Stat chips: squared off, not pills. */
     .rp-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.8em; margin-bottom: 1.1em; }
     @media (max-width: 900px) { .rp-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    .rp-chip { display: flex; flex-direction: column; gap: 0.15em; padding: 0.7em 1.1em; border-radius: var(--ws-r, 4px); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 6%, #fff); border: 1px solid color-mix(in srgb, var(--english-violet, #4a2a3c) 14%, #fff); }
+    .rp-chip { display: flex; flex-direction: column; justify-content: center; gap: 0.3em; padding: 1.15em 1.3em; border-radius: var(--ws-r, 4px); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 6%, #fff); border: 1px solid color-mix(in srgb, var(--english-violet, #4a2a3c) 14%, #fff); }
     .rp-chip-l { font-size: 0.72em; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
     .rp-chip b { font-family: var(--serif); font-size: 1.7em; font-weight: 400; line-height: 1.05; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
     .rp-chip-c { font-size: 0.82em; font-weight: 700; color: var(--ws-tx); }
@@ -251,10 +280,13 @@ import "../../../styles/ws-system.css";
 
     /* Into next month */
     .rp-takes .rp-mini-p { font-size: 1em; }
+    /* The cards share the slide's spare height, so four sit as two even rows. */
+    .rp-takes.rp-grow { align-content: stretch; }
+    .rp-takes.rp-grow > .rp-mini { display: flex; flex-direction: column; justify-content: center; padding: 1em 1.4em; }
     .rp-coming { margin-top: 1em; }
     /* Questions, at the foot of the slide. Later: next month's content plan. */
     .rp-cta { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 1.6em; padding: 1.3em 1.5em; border-radius: var(--ws-r, 4px); background: var(--english-violet, #4a2a3c); color: #fff; }
-    .rp-takes, .rp-coming { margin-bottom: 1em; }
+    .rp-takes, .rp-coming { margin-bottom: 0.8em; }
     .rp-cta-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.2em; font-weight: 700; margin: 0 0 0.2em; color: #fff; }
     .rp-cta-p { margin: 0; font-size: 0.93em; line-height: 1.5; color: rgba(255,255,255,0.8); max-width: 64ch; }
     .rp-cta .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); flex: none; }
@@ -354,8 +386,10 @@ import "../../../styles/ws-system.css";
         const bits = [np ? `${fmt(np)} image and carousel post${np === 1 ? "" : "s"}` : "", nr ? `${fmt(nr)} short-form video${nr === 1 ? "" : "s"}` : ""].filter(Boolean);
         fig("published", "Total published", fmt((np || 0) + (nr || 0)), bits.length ? bits.join(" and ") + "." : "Nothing went out this month.");
       }
-      if (figs.length) parts.push({ step: "The numbers", html: part(
-        `${month} in numbers`,
+      // Slide titles in title case (Danielle, Sep 2026); the cover's contents
+      // list and the progress label use the same names.
+      if (figs.length) parts.push({ step: `${month} in Numbers`, html: part(
+        `${month} in Numbers`,
         "Your Instagram performance at a glance.",
         `<div class="rp-figs rp-grow">${figs.join("")}</div>`) });
 
@@ -404,8 +438,8 @@ import "../../../styles/ws-system.css";
           ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">people reached, counted post by post.</p></div>` : ""}
           ${vis.contentReach !== false && cr ? `<p class="rp-reach-why"><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post&rsquo;s own reach, so someone who saw three posts is counted three times. That&rsquo;s why it&rsquo;s the bigger of the two.</p>` : ""}
         </div>` : "";
-      if (cards.length || band) parts.push({ step: "Who you reached", html: part(
-        "Who you reached",
+      if (cards.length || band) parts.push({ step: "Who You Reached", html: part(
+        "Who You Reached",
         n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month. Here's who they were.` : "Who saw your account this month.",
         band + (cards.length ? `<div class="rp-cards rp-grow" style="--n:${cards.length}">${cards.join("")}</div>` : "")) });
 
@@ -425,14 +459,17 @@ import "../../../styles/ws-system.css";
       const formats = vis.organicContent !== false ? fcard("Reels", "Reel", d.reels) + fcard("Posts", "Post", d.posts) : "";
       const tRow = (t, i) => {
         const reel = /reel/i.test(t.type || "");
-        const name = t.url
+        let name = t.url
           ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer"><span class="rp-t">${esc(t.title || "Open on Instagram")}</span><span class="rp-go" aria-hidden="true">&#8599;</span></a>`
           : `<span class="rp-t">${esc(t.title)}</span>`;
-        return `<tr><td class="rp-rank">${i + 1}</td><td>${t.thumb ? `<img class="rp-thumb" src="${esc(t.thumb)}" alt="" loading="lazy">` : `<span class="rp-thumb"></span>`}</td><td class="rp-top-t">${name}</td><td class="rp-c"><span class="rp-top-k">${reel ? "Reel" : "Post"}</span></td><td class="rp-c">${fmt(n(t.reach))}</td><td class="rp-c">${reel ? fmt(n(t.views)) : "&ndash;"}</td><td class="rp-c">${fmt(n(t.interactions))}</td></tr>`;
+        // On a phone the four figures become one line under the title.
+        const line = [reel ? "Reel" : "Post", `${fmt(n(t.reach))} reach`, reel && n(t.views) != null ? `${fmt(n(t.views))} views` : "", `${fmt(n(t.interactions))} interactions`].filter(Boolean).join(" · ");
+        name += `<span class="rp-top-m">${esc(line)}</span>`;
+        return `<tr><td class="rp-rank">${i + 1}</td><td>${t.thumb ? `<img class="rp-thumb" src="${esc(t.thumb)}" alt="" loading="lazy">` : `<span class="rp-thumb"></span>`}</td><td class="rp-top-t">${name}</td><td class="rp-c" data-l="Type"><span class="rp-top-k">${reel ? "Reel" : "Post"}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Views">${reel ? fmt(n(t.views)) : "&ndash;"}</td><td class="rp-c" data-l="Interactions">${fmt(n(t.interactions))}</td></tr>`;
       };
       const topCard = top.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top performing content</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col style="width:3.9em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th></th><th>Content</th><th class="rp-c">Type</th><th class="rp-c">Reach</th><th class="rp-c">Views</th><th class="rp-c">Interactions</th></tr></thead><tbody>${top.map(tRow).join("")}</tbody></table></div></div>` : "";
-      if (topCard || formats) parts.push({ step: `What worked in ${month}`, html: part(
-        `What Worked in ${month}`,
+      if (topCard || formats) parts.push({ step: "What Worked Well", html: part(
+        "What Worked This Month",
         "Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.",
         `<div class="rp-best${topCard && formats ? "" : " is-one"}">${topCard}${formats ? `<div class="rp-formats">${formats}</div>` : ""}</div>`) });
 
@@ -469,7 +506,7 @@ import "../../../styles/ws-system.css";
       const story = has(cl.summary) ? cl.summary : d.summary;
       const prose = !insights.length && vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";
       if (chipsHtml || insightsHtml || prose) {
-        parts.push({ step: "What it means", html: part("What it means", "", chipsHtml + (insightsHtml || prose)) });
+        parts.push({ step: "What It Means", html: part("What It Means", "The four figures that tell this month's story, and what we're taking from them.", chipsHtml + (insightsHtml || prose)) });
       }
 
       // 5 — Into next month: each thing we're doing on a card of its own,
@@ -482,7 +519,7 @@ import "../../../styles/ws-system.css";
         parts.push({ step: `Into ${next}`, html: part(
           `Into ${next}`,
           "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.",
-          (takes.length ? `<div class="rp-cards rp-takes" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
+          (takes.length ? `<div class="rp-cards rp-takes rp-grow" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
           + (coming.length ? `<div class="rp-mini rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")
           // Later this becomes "See next month's content plan".
           + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any of it: this month&rsquo;s insights and our plan for the month ahead.` : "Your account manager can talk you through any of it: this month&rsquo;s insights and our plan for the month ahead."}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
