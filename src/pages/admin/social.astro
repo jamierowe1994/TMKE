@@ -2066,7 +2066,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (isDemo(r)) { r._reports = []; }
         else if (WORKER) {
           panel.innerHTML = '<p class="smm-soon">Loading reports…</p>';
-          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) { const j = await res.json(); r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {}, published_at: x.published_at || null, published_data: x.published_data || null, amended_at: x.amended_at || null, amendment_notice_at: x.amendment_notice_at || null })); } else r._reports = []; } catch (_) { r._reports = []; }
+          // A failed load says so, and isn't kept: "No reports yet" is only for
+          // a card that really has none.
+          r._reportsError = "";
+          try { const token = await authToken(); const res = await fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); const j = await res.json().catch(() => ({})); if (res.ok) { r._reports = (j.reports || []).map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data || {}, published_at: x.published_at || null, published_data: x.published_data || null, amended_at: x.amended_at || null, amendment_notice_at: x.amendment_notice_at || null })); } else r._reportsError = j.error || `Couldn't load reports (${res.status}).`; } catch (e) { r._reportsError = `Couldn't load reports: ${e.message || e}`; }
+          if (r._reportsError) { panel.innerHTML = `<p class="smm-doc-empty">${esc(r._reportsError)} <button type="button" class="smm-btn smm-btn--sm" id="smm-ri-retry">Try again</button></p>`; $("smm-ri-retry")?.addEventListener("click", () => loadInsights(r)); return; }
         } else r._reports = [];
       }
       renderInsights(r);

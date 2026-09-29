@@ -9452,7 +9452,13 @@ export default {
         const q = leadId ? `lead_id=eq.${encodeURIComponent(leadId)}&` : "";
         // select=* so published_at comes back once the column exists, and the
         // list still loads before smm_reports_publish.sql has been run.
-        const reports = (await sbGet(env, "smm_reports", `${q}select=*&order=year.desc,month.desc`)) || [];
+        // Fetched directly (not sbGet) so a database error comes back as one,
+        // rather than as an empty list that reads "No reports yet".
+        const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/smm_reports?${q}select=*&order=year.desc,month.desc`, {
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+        });
+        if (!rr.ok) return json({ error: `Couldn't load reports (${rr.status}): ${(await rr.text()).slice(0, 200)}` }, 502, request, env);
+        const reports = (await rr.json()) || [];
         return json({ reports }, 200, request, env);
       }
 
