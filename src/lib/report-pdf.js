@@ -325,6 +325,35 @@ export function fitText(root) {
   }
 }
 
+/* The cover photograph, fetched here rather than left to the renderer.
+   html-to-image asks for it in the middle of drawing the page and, when that
+   ask fails, quietly swaps in the blank tile we hand it -- which is how a
+   title page came out with no picture on it while the file itself was there
+   and serving fine. Locally it always succeeds; on the live site something
+   between the two (Cloudflare, or the hub's own service worker, which
+   intercepts same-origin requests) defeats it.
+
+   Fetching it ourselves first means the renderer is handed a data URI it
+   cannot fail to read. If OUR fetch fails the page keeps its wine ground, the
+   same as before, and the rest of the PDF is unaffected. */
+async function inlineCoverPhoto(host) {
+  const cover = host.querySelector(".rpx-cover");
+  if (!cover) return;
+  try {
+    const res = await fetch("/assets/hub/smm.jpg", { cache: "force-cache" });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const data = await new Promise((ok, no) => {
+      const fr = new FileReader();
+      fr.onload = () => ok(fr.result);
+      fr.onerror = no;
+      fr.readAsDataURL(blob);
+    });
+    // Only the image layer: the colour, position and sizing stay with the class.
+    cover.style.backgroundImage = 'url("' + data + '")';
+  } catch (_) { /* the wine ground underneath is the fallback */ }
+}
+
 /** Build the PDF and save it. */
 export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename, onProgress }) {
   const { css, html, count } = reportPdfHtml({ r, all, vis, client, MONTHS });
@@ -338,6 +367,7 @@ export async function downloadReportPdf({ r, all, vis, client, MONTHS, filename,
     ]);
     const fontCss = await fontEmbedCss();
     await document.fonts.ready;
+    await inlineCoverPhoto(host);
     balanceRows(host);
     fitText(host);
     // A picture that can't be fetched becomes a blank tile, not a failed PDF.
