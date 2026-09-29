@@ -202,6 +202,15 @@ import "../../../styles/ws-system.css";
     .rp-up { display: flex; flex-direction: column; gap: 0.15em; padding: 0.75em 1.1em; border-radius: var(--ws-r, 4px); background: color-mix(in srgb, var(--english-violet, #4a2a3c) 7%, #fff); border: 1px solid color-mix(in srgb, var(--english-violet, #4a2a3c) 16%, #fff); }
     .rp-up b { font-family: var(--serif); font-size: 1.5em; font-weight: 400; line-height: 1.05; color: var(--english-violet, #4a2a3c); font-variant-numeric: tabular-nums; }
     .rp-up span { font-size: 0.78em; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-tx); }
+    /* This month against last: the figure, the change once, last month's. */
+    .rp-cmps { display: grid; grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); gap: 1em; margin-bottom: 1.6em; }
+    @media (max-width: 900px) { .rp-cmps { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .rp-cmp .rp-label { margin-bottom: 0.5em; }
+    .rp-cmp-now { font-family: var(--serif); font-size: 2em; line-height: 1.05; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
+    .rp-cmp-chg { display: block; margin-top: 0.45em; font-size: 0.86em; font-weight: 700; color: var(--ws-tx); }
+    .rp-cmp-chg.is-up { color: var(--english-violet, #4a2a3c); }
+    .rp-cmp-was { margin: 0.25em 0 0; font-size: 0.8em; color: var(--ws-faint); }
+    .rp-cmp-line { display: block; width: 100%; height: auto; margin-top: 0.8em; overflow: visible; }
     .rp-prose { font-size: 1.1em; line-height: 1.7; color: var(--ws-ink); max-width: 70ch; white-space: pre-line; }
     .rp-trends { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1em; }
     @media (max-width: 900px) { .rp-trends { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -396,29 +405,54 @@ import "../../../styles/ws-system.css";
         // social moves too fast for older months to say much about this one.
         .filter((x) => (x.platform || "") === (r.platform || "") && (x.year * 12 + x.month) <= (r.year * 12 + r.month) && (x.year * 12 + x.month) >= (r.year * 12 + r.month) - 2)
         .sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
-      const trends = vis.trends !== false && series.length > 1 ? [
-        ["Followers", (x) => n(x.data?.profile?.followers), (v) => fmt(v)],
-        ["Profile reach", (x) => n(x.data?.profile?.reach), (v) => fmt(v)],
-        ["Interactions", (x) => n(x.data?.profile?.interactions), (v) => fmt(v)],
-        ["Interaction rate", (x) => n(x.data?.profile?.interactionRate), (v) => v + "%"],
-      ].map(([label, get, show]) => trend(label, series, get, show)).filter(Boolean) : [];
       // The words are the client version from Client commentary; the team's
       // own summary only stands in until one has been written.
       const cl = d.client || {};
       const story = has(cl.summary) ? cl.summary : d.summary;
       const prose = vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";
-      // What went up, as tiles above the story: SocialPilot's own change on
-      // the previous period, and new followers.
-      const ups = [
-        ["Profile reach", n(p.reachChange)], ["Views", n(p.viewsChange)], ["Interactions", n(p.interactionsChange)],
-      ].filter(([, v]) => v > 0).map(([l, v]) => `<div class="rp-up"><b>Up ${v}%</b><span>${esc(l)}</span></div>`);
-      if (n(p.newFollowers) > 0) ups.push(`<div class="rp-up"><b>+${fmt(n(p.newFollowers))}</b><span>New follower${n(p.newFollowers) === 1 ? "" : "s"}</span></div>`);
-      const upsHtml = ups.length ? `<div class="rp-ups">${ups.join("")}</div>` : "";
-      if (prose || trends.length) {
-        const prev = series.length > 1 ? series[series.length - 2] : null;
-        parts.push({ step: "What it means", html: part(
-          "What it means", "",
-          upsHtml + prose + (trends.length ? `<p class="rp-label" style="margin-top:${prose ? "1.8em" : "0"}">Compared with ${esc(MONTHS[prev.month])}</p><div class="rp-trends">${trends.join("")}</div>` : "")) });
+      // The numbers first, then the story (Danielle, Sep 2026). One row of
+      // cards, each change said once, in the terms a client reads it in:
+      //  - with last month uploaded: this month's figure against last month's.
+      //    Followers as a count ("+1 since August"), the rate in points (a
+      //    percentage of a percentage misleads), the rest as a percentage.
+      //    A line only once there are three months; two points make a
+      //    straight line that says nothing.
+      //  - a first month: SocialPilot's own change on the previous period,
+      //    the rises only, as tiles.
+      const prev = vis.trends !== false && series.length > 1 ? series[series.length - 2] : null;
+      let head = "";
+      if (prev) {
+        const pm = MONTHS[prev.month], pp = prev.data?.profile || {};
+        const pct = (c, o) => (o ? (c - o) / Math.abs(o) * 100 : null);
+        const one = (x) => (Math.abs(x) < 10 ? Math.round(x * 10) / 10 : Math.round(x));
+        const say = (up, txt) => `<span class="rp-cmp-chg ${up > 0 ? "is-up" : up < 0 ? "is-down" : ""}">${txt}</span>`;
+        // For reach, views and interactions, SocialPilot's own change on the
+        // previous period wins: it's worked out from exact figures, where ours
+        // would come from rounded ones ("2.5K"), and it's the number the story
+        // quotes, so the two never disagree.
+        const spChange = { reach: n(p.reachChange), views: n(p.viewsChange), interactions: n(p.interactionsChange) };
+        const byPct = (key) => (c, o) => { const x = spChange[key] ?? pct(c, o); return x == null ? "" : say(x, `${x >= 0 ? "Up" : "Down"} ${one(Math.abs(x))}% on ${pm}`); };
+        const rows = [
+          ["Followers", "followers", (c, o) => { const dlt = c - o; return say(dlt, dlt ? `${dlt > 0 ? "+" : "−"}${fmt(Math.abs(dlt))} since ${pm}` : `Same as ${pm}`); }, fmt],
+          ["Profile reach", "reach", byPct("reach"), fmt],
+          ["Views", "views", byPct("views"), fmt],
+          ["Interactions", "interactions", byPct("interactions"), fmt],
+          ["Interaction rate", "interactionRate", (c, o) => { const x = c - o; return say(x, x ? `${x > 0 ? "Up" : "Down"} ${one(Math.abs(x))} points on ${pm}` : `Same as ${pm}`); }, (v) => v + "%"],
+        ].map(([label, key, change, show]) => {
+          const c = n(p[key]), o = n(pp[key]);
+          if (c == null || vis[key] === false) return "";
+          const line = series.length > 2 ? trend(label, series, (x) => n(x.data?.profile?.[key]), show, true) : "";
+          return `<div class="rp-mini rp-cmp"><p class="rp-label">${esc(label)}</p><div class="rp-cmp-now">${esc(show(c))}</div>${o != null ? change(c, o) : ""}${o != null ? `<p class="rp-cmp-was">${esc(pm)}: ${esc(show(o))}</p>` : ""}${line}</div>`;
+        }).filter(Boolean);
+        if (rows.length) head = `<p class="rp-label">${esc(month)} against ${esc(pm)}</p><div class="rp-cmps" style="--n:${rows.length}">${rows.join("")}</div>`;
+      } else {
+        const ups = [["Profile reach", n(p.reachChange)], ["Views", n(p.viewsChange)], ["Interactions", n(p.interactionsChange)]]
+          .filter(([, v]) => v > 0).map(([l, v]) => `<div class="rp-up"><b>Up ${v}%</b><span>${esc(l)}</span></div>`);
+        if (n(p.newFollowers) > 0) ups.push(`<div class="rp-up"><b>+${fmt(n(p.newFollowers))}</b><span>New follower${n(p.newFollowers) === 1 ? "" : "s"}</span></div>`);
+        if (ups.length) head = `<div class="rp-ups">${ups.join("")}</div>`;
+      }
+      if (prose || head) {
+        parts.push({ step: "What it means", html: part("What it means", "", head + prose) });
       }
 
       // 5 — Into next month: each thing we're doing on a card of its own,
@@ -445,7 +479,7 @@ import "../../../styles/ws-system.css";
 
     // A measure across the months: the latest figure, the change on the month
     // before, and the line. One scale per chart, first and last months named.
-    function trend(label, series, get, show) {
+    function trend(label, series, get, show, bare) {
       const vals = series.map(get);
       if (vals.filter((v) => v != null).length < 2) return "";
       const pts = vals.map((v, i) => [i, v]).filter(([, v]) => v != null);
@@ -459,6 +493,12 @@ import "../../../styles/ws-system.css";
       const chg = prev ? ((last - prev) / Math.abs(prev) * 100) : 0;
       const chgTxt = !prev ? "" : `${chg >= 0 ? "Up" : "Down"} ${Math.abs(chg).toFixed(Math.abs(chg) < 10 ? 1 : 0)}%`;
       const [lx, ly] = [x(pts[pts.length - 1][0]), y(last)];
+      // Inside a comparison card: just the line and its first and last month.
+      if (bare) return `<svg class="rp-cmp-line" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} over ${series.length} months">
+          <polygon points="${area}" fill="var(--english-violet, #4a2a3c)" fill-opacity="0.08" />
+          <polyline points="${line}" fill="none" stroke="var(--english-violet, #4a2a3c)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" />
+          <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3.5" fill="var(--english-violet, #4a2a3c)" />
+        </svg><div class="rp-trend-axis"><span>${MONTHS[series[0].month].slice(0, 3)}</span><span>${MONTHS[series[series.length - 1].month].slice(0, 3)}</span></div>`;
       return `<div class="rp-mini rp-trend">
         <p class="rp-label" style="margin:0">${esc(label)}</p>
         <div class="rp-trend-now">${esc(show(last))}${chgTxt ? `<span>${esc(chgTxt)}</span>` : ""}</div>
