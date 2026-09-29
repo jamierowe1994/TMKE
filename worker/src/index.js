@@ -2550,7 +2550,7 @@ function emailPreviewSample(id) {
     vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
     smm_report_ready: () => ({ subject: "Your August social media report is ready.", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample", joinLink: "https://tmke.co.uk/join?email=alex%40example.com&next=%2Faccount%2Fsocial%2Freport%3Fr%3Dsample" }) }),
-    smm_report_amended: () => ({ subject: "Your August social media report has been updated.", html: smmReportAmendedHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
+    smm_report_amended: () => ({ subject: "Your August social media report has been updated", html: smmReportAmendedHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
   const fn = SAMPLES[id];
@@ -3279,12 +3279,12 @@ function smmReportAmendedHtml({ name, month, monthLabel, manager, link, joinLink
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
   const mgr = esc(String(manager || "").trim().split(/\s+/)[0] || "");
   return `<div style="${EM_WRAP}">
-    <h1 style="${EM_H1}">Your ${esc(month)} Social Media Report Has Been Updated.</h1>
+    <h1 style="${EM_H1}">Your ${esc(month)} Social Media Report Has Been Updated</h1>
     <p style="${EM_P}">Hi ${first},</p>
-    <p style="${EM_P}">We&rsquo;ve made an amendment to your ${esc(monthLabel)} social media report, and the updated version is now ready to view in your Member Hub.</p>
-    <p style="${EM_P}">If you&rsquo;ve already read it, it&rsquo;s worth taking another look, as some of the details have changed.</p>
+    <p style="${EM_P}">We&rsquo;ve made a few updates to your ${esc(monthLabel)} social media report, and the latest version is now ready to view in your Member Hub.</p>
+    <p style="${EM_P}">If you&rsquo;ve already had a read, it&rsquo;s worth taking another look to see what&rsquo;s changed.</p>
     <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">View Your Updated Report</a></p>
-    <p style="${EM_P}">If you&rsquo;d like to know what&rsquo;s changed, just reply to this email or message ${mgr || "us"} directly from your Member Hub.</p>
+    <p style="${EM_P}">If you have any questions about the updates, just reply to this email or message ${mgr || "us"} directly from your Member Hub.</p>
     <p style="${EM_P}">The TMKE Team</p>
     ${joinLink ? `<p style="${EM_SMALL}">Haven&rsquo;t set up your Member Hub account yet? <a href="${esc(joinLink)}" style="color:#371e28">Sign up now</a> with this email address and your report will be waiting for you.</p>` : ""}
   </div>`;
@@ -9558,7 +9558,7 @@ CLIENT VOICE RULES (for "client"):
                 if (!notify) continue;
                 await notifyMember(env, lead.account_user_id, { kind: "smm_report_amended", title: `Your ${MN[r.month]} report has been updated`, body: "We've made a correction. It's worth another look.", href, meta: { report_id: r.id } });
                 if (!lead.email) { notes.noEmail++; continue; }
-                const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report has been updated.`, html: await wrapInBrandedBase(env, smmReportAmendedHtml({ name: lead.full_name, month: MN[r.month], monthLabel, manager: lead.social_media_manager, link, joinLink: lead.account_user_id ? null : `${site}/join?email=${encodeURIComponent(lead.email)}&next=${encodeURIComponent(href)}` })) }).catch(() => ({ ok: false }));
+                const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report has been updated`, html: await wrapInBrandedBase(env, smmReportAmendedHtml({ name: lead.full_name, month: MN[r.month], monthLabel, manager: lead.social_media_manager, link, joinLink: lead.account_user_id ? null : `${site}/join?email=${encodeURIComponent(lead.email)}&next=${encodeURIComponent(href)}` })) }).catch(() => ({ ok: false }));
                 if (sent && sent.ok !== false) { notes.emailed++; await patch(r.id, { amendment_email_pending: false }).catch(() => {}); } else notes.failed++;
               }
             }
