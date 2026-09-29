@@ -1,6 +1,6 @@
 // The monthly report as a PDF: its own presentation, in the house style of
 // TMKE's brochures (Services Brochure 2026, Videography Services), not a
-// printout of the web slides. 16:9 pages on paper, Helios headings in wine,
+// printout of the web slides. 16:9 pages on paper, Arimo ("TMKE Heading") headings in wine,
 // small bold capitals for section labels, Darker Grotesque body text at a
 // size you can read, hairline rules rather than boxes, full-bleed photography
 // on the cover, the wine strip down its right edge.
@@ -21,7 +21,7 @@ const CSS = `
 .rpx { position: fixed; left: -30000px; top: 0; pointer-events: none; }
 .rpx-page { width: 1920px; height: 1080px; box-sizing: border-box; position: relative; overflow: hidden; background: #f3f1ee; color: #1c1d22; font-family: "Darker Grotesque", "Inter", system-ui, sans-serif; font-size: 23px; line-height: 1.55; display: flex; flex-direction: column; padding: 64px 112px 72px; }
 .rpx-page * { box-sizing: border-box; }
-.rpx-h, .rpx-title, .rpx-fig b, .rpx-big, .rpx-num { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.rpx-h, .rpx-title, .rpx-fig b, .rpx-big, .rpx-num { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; }
 .rpx-top { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 15px; letter-spacing: 0.08em; text-transform: uppercase; color: #371e28; flex: none; }
 .rpx-top span:last-child { font-weight: 700; color: #6e6268; }
 .rpx-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 540px minmax(0, 1fr); column-gap: 96px; margin-top: 56px; }
@@ -94,7 +94,7 @@ const CSS = `
 .rpx-tbl th.l { text-align: left; }
 .rpx-tbl td { padding: 18px 10px; border-bottom: 1px solid rgba(55,30,40,0.14); font-size: 22px; text-align: center; font-variant-numeric: tabular-nums; }
 .rpx-tbl td.l { text-align: left; }
-.rpx-tbl .rk { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 34px; color: #9a8f94; text-align: left; }
+.rpx-tbl .rk { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 34px; color: #9a8f94; text-align: left; }
 .rpx-tbl img, .rpx-tbl .ph { display: block; width: 84px; height: 84px; object-fit: cover; background: #e4dcdb; }
 .rpx-tbl .tt { font-weight: 700; color: #1c1d22; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rpx-tbl .ty { font-size: 15px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #371e28; }
@@ -102,13 +102,13 @@ const CSS = `
 /* What it means */
 .rpx-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .rpx-chip { background: #e4dcdb; padding: 20px 26px; }
-.rpx-chip b { display: block; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 52px; font-weight: 400; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 0; color: #1c1d22; }
+.rpx-chip b { display: block; font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 52px; font-weight: 400; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 0; color: #1c1d22; }
 .rpx-chip span { display: block; font-size: 19px; font-weight: 800; color: #371e28; margin: 8px 0 0; }
 .rpx-ins { flex: 1; display: grid; gap: 28px 56px; margin-top: 34px; align-content: start; }
 .rpx-in { border-top: 3px solid #371e28; padding-top: 22px; }
 .rpx-in .rpx-label { color: #371e28; font-weight: 600; }
 .rpx-in .rpx-label em { font-style: normal; color: #6e6268; margin-left: 12px; }
-.rpx-in h3 { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 31px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #1c1d22; margin: 0 0 12px; }
+.rpx-in h3 { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 31px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #1c1d22; margin: 0 0 12px; }
 .rpx-in p { font-size: 21px; line-height: 1.55; color: #3b3a40; margin: 0; }
 .rpx-in .ev { margin-top: 14px; font-size: 18px; font-weight: 800; color: #371e28; }
 
@@ -116,7 +116,7 @@ const CSS = `
 .rpx-acts { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: 1fr; gap: 28px; }
 .rpx-act { display: grid; grid-template-columns: 88px 1fr; gap: 0 24px; align-items: center; background: #e4dcdb; padding: 44px; }
 .rpx-act .rpx-num { align-self: start; font-size: 64px; font-weight: 400; line-height: 1; color: #371e28; }
-.rpx-act h3 { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: #1c1d22; line-height: 1.15; margin: 0 0 14px; }
+.rpx-act h3 { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: #1c1d22; line-height: 1.15; margin: 0 0 14px; }
 .rpx-act p { font-size: 24px; line-height: 1.55; color: #3b3a40; margin: 0; }
 .rpx-coming { margin-top: auto; padding-top: 28px; display: flex; gap: 20px 36px; flex-wrap: wrap; align-items: baseline; font-size: 21px; color: #3b3a40; }
 .rpx-coming .rpx-label { margin: 0; }
@@ -236,8 +236,8 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
 
 // Fonts drawn into the page images must be embedded: the page's own font
 // stylesheets are on other hosts, so they're fetched here and inlined.
-// Helios isn't a web font (it falls back to Helvetica Neue, installed on
-// Macs), so there is nothing to embed for it.
+// "TMKE Heading" is the site's own Arimo face (see global.css), embedded
+// here the same way so headings draw in it on every computer.
 let fontCssP = null;
 async function fontEmbedCss() {
   if (fontCssP) return fontCssP;
@@ -261,6 +261,11 @@ async function fontEmbedCss() {
         }
       } catch (_) { /* a missing font falls back; the PDF still gets made */ }
     }
+    try {
+      const blob = await (await fetch("/fonts/arimo-latin.woff2")).blob();
+      const data = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+      out += `@font-face { font-family: "TMKE Heading"; src: url(${data}) format("woff2"); font-weight: 100 500; }\n@font-face { font-family: "TMKE Heading"; src: url(${data}) format("woff2"); font-weight: 600; }\n`;
+    } catch (_) { /* falls back to Helvetica Neue */ }
     return out;
   })();
   return fontCssP;
