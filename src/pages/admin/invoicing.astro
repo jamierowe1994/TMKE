@@ -18,6 +18,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     <nav class="inv-tabs" id="inv-tabs">
       <button type="button" class="inv-tab is-active" data-tab="create">Create invoice</button>
       <button type="button" class="inv-tab" data-tab="invoices">Invoices</button>
+      <button type="button" class="inv-tab" data-tab="monthly">Monthly checklist</button>
       <button type="button" class="inv-tab" data-tab="report">Month end</button>
       <button type="button" class="inv-tab" data-tab="settings">Settings</button>
       <button type="button" class="inv-tab" data-tab="template">Template</button>
@@ -122,6 +123,43 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <span class="inv-f-count" id="inv-f-count"></span>
           </div>
           <div class="inv-list" id="inv-list"><p class="inv-empty">Loading…</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Monthly checklist: every client billed monthly, and whether this
+         month's invoice has gone out and been paid. -->
+    <section class="inv-panel" data-panel="monthly" hidden>
+      <div class="ash-card">
+        <div class="ash-card-head">
+          <div class="ash-card-title">Monthly checklist</div>
+          <div class="mc-nav"><button type="button" class="mc-arrow" id="mc-prev" aria-label="Earlier months">&larr;</button><span id="mc-range"></span><button type="button" class="mc-arrow" id="mc-next" aria-label="Later months">&rarr;</button></div>
+        </div>
+        <div class="ash-card-body">
+          <p class="inv-intro">Every active social media client, and the recurring invoices added below, month by month: has the invoice gone out, and has it been paid. A reminder comes on the 14th and 21st for anything not sent yet.</p>
+          <p class="inv-msg is-err" id="mc-msg" hidden></p>
+          <div class="mc-wrap"><table class="mc-tbl" id="mc-tbl"></table></div>
+          <p class="mc-key"><span class="mc-y">&#10003;</span> done &nbsp; <span class="mc-n">&#10007;</span> not yet &nbsp; <span class="mc-d">Draft</span> raised, not sent &nbsp; <span class="mc-na">&ndash;</span> not due (before they started, or a month still to come)</p>
+
+          <h3 class="mc-h">Add a recurring invoice</h3>
+          <p class="inv-intro">For anyone billed every month who isn't a social media client, such as a brand's marketing assets and hub. An invoice counts for a month when it goes to this address; add words that are always on it if the same address gets other invoices too.</p>
+          <form id="mc-form" class="inv-book-form">
+            <div class="inv-row">
+              <label class="inv-field"><span>Name *</span><input name="name" placeholder="e.g. The Lettings Experts — assets &amp; hub" /></label>
+              <label class="inv-field"><span>Contact name</span><input name="contact_name" /></label>
+            </div>
+            <div class="inv-row">
+              <label class="inv-field"><span>Invoice goes to (email) *</span><input name="match_email" type="email" list="mc-emails" placeholder="accounts@…" /></label>
+              <label class="inv-field"><span>Monthly amount (£)</span><input name="amount" type="number" step="0.01" min="0" /></label>
+            </div>
+            <div class="inv-row">
+              <label class="inv-field"><span>Words always on it (optional)</span><input name="match_text" placeholder="e.g. Hub" /></label>
+              <label class="inv-field"><span>First month</span><input name="start_month" type="month" /></label>
+            </div>
+            <datalist id="mc-emails"></datalist>
+            <p class="inv-msg" id="mc-form-msg" hidden></p>
+            <button type="submit" class="inv-save">Add to the checklist</button>
+          </form>
         </div>
       </div>
     </section>
@@ -325,6 +363,28 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .invrow .invsend { appearance: none; cursor: pointer; border: 1px solid var(--english-violet); background: var(--english-violet); color: #fff; border-radius: 8px; padding: 6px 12px; font-family: var(--sans); font-size: 12px; font-weight: 700; }
     .invrow .invsend:hover { opacity: 0.9; }
     .invrow .invsend:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* Monthly checklist */
+    .mc-nav { display: flex; align-items: center; gap: 10px; font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); }
+    .mc-arrow { appearance: none; cursor: pointer; width: 32px; height: 32px; border-radius: 8px; border: 1px solid rgba(28,29,34,0.16); background: #fff; color: var(--english-violet); font-size: 15px; }
+    .mc-arrow:disabled { opacity: 0.35; cursor: default; }
+    .mc-wrap { overflow-x: auto; margin: 6px 0 10px; }
+    .mc-tbl { width: 100%; min-width: 980px; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
+    .mc-tbl th { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.55); padding: 6px 8px; text-align: center; white-space: nowrap; }
+    .mc-tbl thead tr:first-child th { border-bottom: 0; padding-bottom: 2px; }
+    .mc-tbl thead tr:last-child th { border-bottom: 1px solid rgba(28,29,34,0.14); font-size: 9.5px; color: rgba(28,29,34,0.45); }
+    .mc-tbl th.l, .mc-tbl td.l { text-align: left; }
+    .mc-tbl td { padding: 9px 8px; border-bottom: 1px solid rgba(28,29,34,0.07); text-align: center; vertical-align: middle; }
+    .mc-tbl td.l b { font-weight: 700; color: var(--ink); }
+    .mc-tbl td.l small { display: block; font-size: 12px; color: rgba(28,29,34,0.55); }
+    .mc-tbl td.amt { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .mc-tbl .m0 { border-left: 1px solid rgba(28,29,34,0.08); }
+    .mc-tbl .is-now { background: rgba(55,30,40,0.04); }
+    .mc-tbl tr.mc-sec td { background: #faf8f7; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); text-align: left; padding: 8px; }
+    .mc-y { color: #2e7d46; font-weight: 700; } .mc-n { color: #b3261e; font-weight: 700; } .mc-d { color: #8a6a24; font-weight: 700; font-size: 11.5px; } .mc-na { color: rgba(28,29,34,0.3); }
+    .mc-x { appearance: none; border: 0; background: none; cursor: pointer; color: rgba(28,29,34,0.4); font-size: 16px; margin-left: 6px; }
+    .mc-x:hover { color: #b3261e; }
+    .mc-key { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0 0 22px; }
+    .mc-h { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--ink); margin: 8px 0 6px; }
     .inv-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 9px 12px; margin: 4px 0 0; }
     .inv-msg.is-ok { background: rgba(60,150,90,0.1); color: #2e6b40; }
     .inv-msg.is-err { background: rgba(200,70,50,0.1); color: #a3372b; }
@@ -550,6 +610,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (tab === "create") ciScaleFit();
       if (tab === "invoices") loadInvoices();
       if (tab === "report") loadReport();
+      if (tab === "monthly") loadMonthly();
     });
 
     function msg(id, text, ok) { const m = $(id); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
@@ -1188,7 +1249,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
        This only decides what gets drawn. The endpoints behind both tabs check
        admins.is_management themselves (worker: isManagement), which is what
        actually keeps the numbers in. */
-    const MGMT_TABS = ["invoices", "report"];
+    const MGMT_TABS = ["invoices", "report", "monthly"];
     function applyMgmt(isManagement) {
       if (isManagement) return;
       MGMT_TABS.forEach((t) => {
@@ -1201,9 +1262,69 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       }
     }
 
+    // ---- Monthly checklist ----
+    // From August 2026, when monthly invoicing started here; six months at a time.
+    const MC_FIRST = "2026-08";
+    const ymAdd = (ym, k) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+    const ymLabel = (ym) => new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+    const nowYm = new Date().toISOString().slice(0, 7);
+    let mcFrom = [MC_FIRST, ymAdd(nowYm, -5)].sort()[1];
+    async function loadMonthly() {
+      const tbl = $("mc-tbl"), m = $("mc-msg");
+      m.hidden = true; tbl.innerHTML = `<tbody><tr><td class="l">Loading…</td></tr></tbody>`;
+      $("mc-prev").disabled = mcFrom <= MC_FIRST;
+      try {
+        const d = await api(`/invoicing/monthly?from=${mcFrom}`);
+        $("mc-range").textContent = `${ymLabel(d.months[0])} – ${ymLabel(d.months[d.months.length - 1])}`;
+        if (!d.recurringReady) { m.textContent = "Recurring invoices need supabase/recurring_invoices.sql running once in Supabase; social clients show without it."; m.hidden = false; }
+        const mark = (c, which, ym) => {
+          if (!c || !c.due || ym > d.today) return `<span class="mc-na">&ndash;</span>`;
+          if (which === "sent") return c.sent ? `<span class="mc-y" title="${esc(c.numbers.join(", "))}">&#10003;</span>` : c.draft ? `<span class="mc-d" title="${esc(c.numbers.join(", "))}">Draft</span>` : `<span class="mc-n">&#10007;</span>`;
+          return !c.sent ? `<span class="mc-na">&ndash;</span>` : c.paid ? `<span class="mc-y">&#10003;</span>` : `<span class="mc-n">&#10007;</span>`;
+        };
+        const cls = (ym, i) => `${i === 0 ? "m0" : ""}${ym === d.today ? " is-now" : ""}`;
+        const row = (r) => `<tr><td class="l"><b>${esc(r.client)}</b><small>${esc([r.contact, r.kind === "social" ? r.manager : r.match_email, r.note].filter(Boolean).join(" · "))}</small></td>
+          <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
+          ${d.months.map((ym) => `<td class="${cls(ym, 0)}">${mark(r.cells[ym], "sent", ym)}</td><td class="${cls(ym, 1)}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
+        const social = d.rows.filter((r) => r.kind === "social"), rec = d.rows.filter((r) => r.kind === "recurring");
+        const span = 2 + d.months.length * 2;
+        tbl.innerHTML = `<thead><tr><th class="l" rowspan="2">Client</th><th rowspan="2" style="text-align:right">Monthly</th>${d.months.map((ym) => `<th colspan="2" class="m0${ym === d.today ? " is-now" : ""}">${esc(ymLabel(ym))}</th>`).join("")}</tr>
+          <tr>${d.months.map((ym) => `<th class="m0${ym === d.today ? " is-now" : ""}">Sent</th><th class="${ym === d.today ? "is-now" : ""}">Paid</th>`).join("")}</tr></thead>
+          <tbody>
+            <tr class="mc-sec"><td colspan="${span}">Social media clients · ${social.length}</td></tr>
+            ${social.map(row).join("") || `<tr><td class="l" colspan="${span}">No active social media clients.</td></tr>`}
+            <tr class="mc-sec"><td colspan="${span}">Recurring invoices · ${rec.length}</td></tr>
+            ${rec.map(row).join("") || `<tr><td class="l" colspan="${span}">None yet. Add one below.</td></tr>`}
+          </tbody>`;
+        tbl.querySelectorAll("[data-mcdel]").forEach((b) => b.addEventListener("click", async () => {
+          if (!confirm("Take this off the monthly checklist? Its invoices aren't touched.")) return;
+          try { await api(`/invoicing/recurring?id=${encodeURIComponent(b.dataset.mcdel)}`, { method: "DELETE" }); loadMonthly(); } catch (err) { alert(err.message); }
+        }));
+      } catch (err) { tbl.innerHTML = ""; m.textContent = "Couldn't load the checklist: " + err.message; m.hidden = false; }
+      // Addresses from the address book, to pick from.
+      try { const rr = await api("/invoicing/recipients"); $("mc-emails").innerHTML = (rr.recipients || rr.rows || []).map((x) => `<option value="${esc(x.email)}">${esc(x.name)}</option>`).join(""); } catch (_) {}
+    }
+    $("mc-prev").addEventListener("click", () => { mcFrom = [MC_FIRST, ymAdd(mcFrom, -6)].sort()[1]; loadMonthly(); });
+    $("mc-next").addEventListener("click", () => { mcFrom = ymAdd(mcFrom, 6); loadMonthly(); });
+    $("mc-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const amt = String(f.get("amount") || "").trim();
+      try {
+        await api("/invoicing/recurring", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+          name: f.get("name"), contact_name: f.get("contact_name"), match_email: f.get("match_email"), match_text: f.get("match_text"),
+          amount_pence: amt ? Math.round(Number(amt) * 100) : null, start_month: f.get("start_month") || null,
+        }) });
+        e.target.reset(); msg("mc-form-msg", "Added.", true); loadMonthly();
+      } catch (err) { msg("mc-form-msg", err.message, false); }
+    });
+
     document.addEventListener("ash:ready", (e) => {
       applyMgmt(!!(e.detail && e.detail.isManagement));
       initTemplate(); loadSettings(); loadRecipients();
+      // Deep link from the reminder: /admin/invoicing?tab=monthly
+      const want = new URLSearchParams(location.search).get("tab");
+      if (want) document.querySelector(`.inv-tab[data-tab="${want}"]`)?.click();
     });
   </script>
 </AdminShell>

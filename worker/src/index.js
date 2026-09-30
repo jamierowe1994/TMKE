@@ -3518,6 +3518,7 @@ export default {
         ctx.waitUntil(runStallCheck(env));
         ctx.waitUntil(runEmptyFunnelCheck(env));
         ctx.waitUntil(runInvoicePrompt(env));
+        ctx.waitUntil(runMonthlyInvoiceCheck(env));
       }
     }
     else {
@@ -9082,6 +9083,45 @@ export default {
         }
         return json({ ok: true }, 200, request, env);
       }
+      // ---- Management: the monthly invoicing checklist + recurring invoices --
+      if (path.endsWith("/invoicing/monthly") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        const want = String(url.searchParams.get("from") || "");
+        const from = /^\d{4}-\d{2}$/.test(want) ? want : ymAdd(londonToday().ym, -5);
+        try { return json({ ok: true, ...(await monthlyInvoiceChecklist(env, from, 6)) }, 200, request, env); }
+        catch (e) { return json({ error: `Couldn't build the checklist: ${e.message || e}` }, 502, request, env); }
+      }
+      if (path.endsWith("/invoicing/recurring") && (request.method === "POST" || request.method === "DELETE")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=representation" };
+        if (request.method === "DELETE") {
+          const id = String(url.searchParams.get("id") || "").trim();
+          if (!id) return json({ error: "Which one?" }, 400, request, env);
+          // Stopped rather than deleted: its months stay readable if it's needed again.
+          const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ active: false }) });
+          return r.ok ? json({ ok: true }, 200, request, env) : json({ error: "Couldn't remove it." }, 502, request, env);
+        }
+        const b = await request.json().catch(() => ({}));
+        const row = {
+          name: String(b.name || "").trim(), contact_name: String(b.contact_name || "").trim() || null,
+          amount_pence: b.amount_pence != null && b.amount_pence !== "" ? Math.round(Number(b.amount_pence)) : null,
+          match_email: String(b.match_email || "").trim().toLowerCase(), match_text: String(b.match_text || "").trim() || null,
+          start_month: /^\d{4}-\d{2}$/.test(String(b.start_month || "")) ? b.start_month : null,
+        };
+        if (!row.name || !row.match_email) return json({ error: "A name and the address the invoice goes to, please." }, 400, request, env);
+        const r = b.id
+          ? await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?id=eq.${encodeURIComponent(b.id)}`, { method: "PATCH", headers: hdr, body: JSON.stringify(row) })
+          : await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices`, { method: "POST", headers: hdr, body: JSON.stringify(row) });
+        if (!r.ok) {
+          const t = await r.text().catch(() => "");
+          return json({ error: /recurring_invoices/.test(t) ? "Run supabase/recurring_invoices.sql first." : "Couldn't save it." }, 502, request, env);
+        }
+        return json({ ok: true }, 200, request, env);
+      }
       // ---- Admin: delete an invoice (hard delete + its PDF) ------------------
       if (path.endsWith("/invoicing/invoices") && request.method === "DELETE") {
         const user = await getUser(request, env);
@@ -10117,6 +10157,76 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
    booking can be nudged along by hand, and the question here is "has anyone
    billed for this?", which only the invoices table can answer.
 --------------------------------------------------------------------------- */
+// ---- The monthly invoicing checklist ------------------------------------------
+// Every active social media client, and every recurring invoice added by hand,
+// against six months: sent (sent or paid) and paid. Admin > Invoicing > Monthly
+// checklist, and the 14th/21st reminder. Danielle does the month's invoicing in
+// its first week, so by the 14th anything missing wants a look (30 Sep 2026).
+const ymAdd = (ym, k) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+function londonToday() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return { ym: `${p.year}-${p.month}`, day: Number(p.day) };
+}
+async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
+  const months = Array.from({ length: n }, (_, i) => ymAdd(fromYm, i));
+  const last = months[months.length - 1];
+  const pounds = (v) => { const x = Number(String(v ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) : null; };
+  const leads = (await sbGetAll(env, "smm_leads", "pipeline_stage=eq.active_client&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc")) || [];
+  let recurring = [], recurringReady = true;
+  const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?active=eq.true&select=*&order=name.asc`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+  if (rr.ok) recurring = await rr.json(); else recurringReady = false;
+  // Invoices that could belong to the window: raised or billed from a month
+  // before it (late invoices for the first month) to its end.
+  const from = ymAdd(fromYm, -1);
+  const invs = (await sbGetAll(env, "invoices",
+    `status=in.(draft,sent,paid)&or=(billing_month.gte.${from},issued_date.gte.${from}-01)&select=id,number,booking_id,booking_source,bill_to_email,billing_month,issued_date,created_at,status,line_items,notes&order=created_at.asc,id.asc`)) || [];
+  const monthOf = (iv) => iv.billing_month || String(iv.issued_date || iv.created_at || "").slice(0, 7);
+  const cellsFor = (list, start) => Object.fromEntries(months.map((ym) => {
+    if (start && ym < start) return [ym, { due: false }];
+    const here = list.filter((iv) => monthOf(iv) === ym);
+    return [ym, {
+      due: true,
+      sent: here.some((iv) => iv.status === "sent" || iv.status === "paid"),
+      paid: here.some((iv) => iv.status === "paid"),
+      draft: here.some((iv) => iv.status === "draft"),
+      numbers: here.map((iv) => `${iv.number || "draft"} (${iv.status})`),
+    }];
+  }));
+  const rows = [];
+  for (const l of leads) {
+    const mine = invs.filter((iv) => iv.booking_source === "smm" && iv.booking_id === l.id);
+    rows.push({ kind: "social", id: l.id, client: l.business || l.full_name || "Client", contact: l.full_name || "", manager: l.social_media_manager || "",
+      amount_pence: pounds(l.price), note: l.inter_brand_invoice ? "Billed to another brand" : "",
+      cells: cellsFor(mine, l.start_date ? String(l.start_date).slice(0, 7) : null) });
+  }
+  for (const r of recurring) {
+    const want = String(r.match_email || "").toLowerCase().trim(), text = String(r.match_text || "").toLowerCase().trim();
+    const mine = invs.filter((iv) => !iv.booking_id && String(iv.bill_to_email || "").toLowerCase().trim() === want
+      && (!text || JSON.stringify([iv.line_items || [], iv.notes || ""]).toLowerCase().includes(text)));
+    rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
+      match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "", cells: cellsFor(mine, r.start_month || null) });
+  }
+  return { months, rows, recurringReady, today: londonToday().ym };
+}
+
+// On the 14th and 21st, 08:00: anything due this month and not sent yet.
+async function runMonthlyInvoiceCheck(env) {
+  const { ym, day } = londonToday();
+  if (day !== 14 && day !== 21) return;
+  const { rows } = await monthlyInvoiceChecklist(env, ym, 1);
+  const missing = rows.filter((r) => r.cells[ym] && r.cells[ym].due && !r.cells[ym].sent);
+  if (!missing.length) return;
+  const monthName = new Date(`${ym}-15T12:00:00Z`).toLocaleDateString("en-GB", { month: "long" });
+  const names = missing.map((r) => r.client + (r.cells[ym].draft ? " (draft not sent)" : ""));
+  await notifyAdmins(env, {
+    area: "money", event: "invoices_not_sent",
+    title: `${missing.length} ${missing.length === 1 ? "invoice hasn't" : "invoices haven't"} gone out for ${monthName}`,
+    body: names.slice(0, 8).join(", ") + (names.length > 8 ? `, and ${names.length - 8} more` : ""),
+    href: "/admin/invoicing?tab=monthly",
+    key: `invoices-not-sent:${ym}:${day}`,
+  });
+}
+
 async function runInvoicePrompt(env) {
   const inTwoDays = new Date();
   inTwoDays.setDate(inTwoDays.getDate() + 2);
