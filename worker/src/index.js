@@ -3519,6 +3519,7 @@ export default {
         ctx.waitUntil(runEmptyFunnelCheck(env));
         ctx.waitUntil(runInvoicePrompt(env));
         ctx.waitUntil(runMonthlyInvoiceCheck(env));
+        ctx.waitUntil(runLateVideoInvoiceCheck(env));
       }
     }
     else {
@@ -10303,6 +10304,35 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     };
   });
   return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
+}
+
+// Every morning: a shoot whose invoice should have gone two days before it and
+// hasn't. One bell per shoot, the first morning it's late (Danielle, 30 Sep
+// 2026). Looks back a month so a miss isn't lost, and ahead only as far as
+// two days, which is when an invoice becomes due.
+async function runLateVideoInvoiceCheck(env) {
+  const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+  const now = Date.now();
+  const bookings = (await sbGetAll(env, "videography_bookings",
+    `shoot_date=gte.${day(now - 30 * 864e5)}T00:00:00&shoot_date=lt.${day(now + 3 * 864e5)}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`)) || [];
+  const today = day(now);
+  for (const b of bookings) {
+    if (b.payment_route === "smm_package" || b.paid_at) continue;
+    const shootDay = String(b.shoot_date || "").slice(0, 10);
+    if (!shootDay) continue;
+    const dueBy = day(Date.parse(shootDay + "T12:00:00Z") - 2 * 864e5);
+    if (today < dueBy) continue;
+    const invs = (await sbGet(env, "invoices", `booking_source=eq.videography&booking_id=eq.${encodeURIComponent(b.id)}&status=in.(sent,paid)&select=id&limit=1`)) || [];
+    if (invs.length) continue;
+    const when = new Date(shootDay + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+    await notifyAdmins(env, {
+      area: "money", event: "video_invoice_late",
+      title: `Invoice late: ${b.client_name || "a shoot"}`,
+      body: `Shoot ${when}${b.service ? ` (${b.service})` : ""}. It should have been invoiced by two days before, and nothing has gone out yet.`,
+      href: `/admin/videography?booking=${encodeURIComponent(b.id)}`,
+      key: `video-invoice-late:${b.id}`,
+    });
+  }
 }
 
 // On the 14th and 21st, 08:00: anything due this month and not sent yet.
