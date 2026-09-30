@@ -719,6 +719,7 @@ import "../../styles/admin.css";
       font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
       text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
+    .vid-inv-heal { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px 14px; border-radius: 8px; background: rgba(227,160,8,0.12); color: #7a5405; font-family: var(--sans); font-size: 13px; }
     .vid-inv-row-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid rgba(28,29,34,0.06); font-family: var(--sans); font-size: 13px; }
     /* Status and actions sit right, so the eye runs number → amount → what to do. */
     .vid-inv-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -3085,7 +3086,11 @@ import "../../styles/admin.css";
       const list = await fetchInvoicesFor(b);
       b._invoices = list;
       if (!list.length) { host.innerHTML = `<p class="vid-loading">Nothing raised yet.</p>`; return; }
-      host.innerHTML = list.map((iv) => `
+      // An invoice marked paid somewhere that didn't mark the shoot paid (the
+      // Invoicing page, before 30 Sep 2026): offer to finish the job.
+      const paidInv = list.find((iv) => iv.status === "paid");
+      const heal = paidInv && !b.paid_at ? `<div class="vid-inv-heal"><span>Invoice ${escapeHtml(paidInv.number || "")} is paid, but the shoot isn't marked paid, so the PIN is still locked.</span><button type="button" class="admin-btn admin-btn-primary" data-vheal="${escapeHtml(paidInv.id)}">Mark the shoot paid and release the PIN</button></div>` : "";
+      host.innerHTML = heal + list.map((iv) => `
         <div class="vid-inv-row-item">
           <span class="vid-inv-num">${escapeHtml(iv.number || "—")}</span>
           <span>${escapeHtml(gbpFromPence(iv.total_pence))}</span>
@@ -3094,9 +3099,22 @@ import "../../styles/admin.css";
             ${iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vedit="${escapeHtml(iv.id)}">Edit</button>` : ""}
             ${iv.status === "sent" || iv.status === "paid" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : ""}
             ${iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vpaid="${escapeHtml(iv.id)}">Paid</button>` : ""}
+            ${iv.status === "draft" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vdel="${escapeHtml(iv.id)}">Delete</button>` : ""}
           </span>
         </div>`).join("");
       host.querySelectorAll("[data-vpaid]").forEach((btn) => btn.addEventListener("click", () => markInvoicePaid(b, btn.getAttribute("data-vpaid"))));
+      host.querySelectorAll("[data-vheal]").forEach((btn) => btn.addEventListener("click", () => { btn.disabled = true; const iv = list.find((x) => x.id === btn.getAttribute("data-vheal")); markInvoicePaid(b, iv.id, iv.paid_date); }));
+      host.querySelectorAll("[data-vdel]").forEach((btn) => btn.addEventListener("click", async () => {
+        const iv = list.find((x) => x.id === btn.getAttribute("data-vdel"));
+        if (!confirm(`Delete draft ${iv && iv.number ? iv.number : "invoice"}? It hasn't been sent, so the client never sees it.`)) return;
+        btn.disabled = true;
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/invoicing/invoices?id=${encodeURIComponent(iv.id)}`, { method: "DELETE", headers: { Authorization: "Bearer " + token } });
+          if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || res.status); }
+          loadInvoices(b);
+        } catch (err) { vivStatus("Couldn't delete it: " + err.message, true); btn.disabled = false; }
+      }));
       host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
       host.querySelectorAll("[data-vedit]").forEach((btn) => btn.addEventListener("click", () => editInvoice(b, btn.getAttribute("data-vedit"))));
       renderChaseLog(b);
@@ -3205,37 +3223,22 @@ import "../../styles/admin.css";
         </div>`);
     }
 
-    async function markInvoicePaid(b, id) {
+    // Marking the invoice paid marks the shoot paid and, if they already have
+    // the gallery, sends the PIN. The Worker does both (and writes the notes),
+    // so it's the same whichever page the button is on.
+    async function markInvoicePaid(b, id, paidDate) {
       try {
         const token = await authToken();
-        await fetch(`${WORKER_URL}/invoicing/invoices`, {
+        const res = await fetch(`${WORKER_URL}/invoicing/invoices`, {
           method: "PATCH",
           headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-          body: JSON.stringify({ id, status: "paid" }),
+          body: JSON.stringify(paidDate ? { id, status: "paid", paid_date: paidDate } : { id, status: "paid" }),
         });
-        // Marking the invoice paid is what "paid" means for the shoot too, so
-        // the booking follows rather than needing a second tick somewhere else.
-        if (!b.paid_at) {
-          b.paid_at = new Date().toISOString();
-          await supabase.from("videography_bookings").update({ paid_at: b.paid_at }).eq("id", b.id);
-          await addNote(b, "Payment received — invoice marked paid.", "audit");
-          // If they already have the gallery without the PIN, send it now. The
-          // Worker decides whether it applies, so this is safe to always call.
-          try {
-            const token = await authToken();
-            const res = await fetch(`${WORKER_URL}/videography/release-pin`, {
-              method: "POST",
-              headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-              body: JSON.stringify({ booking_id: b.id }),
-            });
-            if (res.ok) {
-              const d = await res.json();
-              b.pin_released_at = new Date().toISOString();
-              await addNote(b, `PIN released to ${d.sent_to} — payment received.`, "audit");
-            }
-          } catch (_) { /* the payment is recorded either way */ }
-        }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || res.status); }
+        const { data } = await supabase.from("videography_bookings").select("paid_at, pin_released_at").eq("id", b.id).maybeSingle();
+        if (data) { b.paid_at = data.paid_at; b.pin_released_at = data.pin_released_at; }
         loadInvoices(b);
+        if (typeof loadThread === "function") { try { loadThread(b); } catch (_) {} }
       } catch (err) { vivStatus("Couldn't mark it paid: " + err.message, true); }
     }
 

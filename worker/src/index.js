@@ -9057,6 +9057,28 @@ export default {
               await env.BUCKET.put(`invoices/${inv.number || inv.id}.pdf`, pdf, { httpMetadata: { contentType: "application/pdf" } });
             }
           } catch (_) { /* stamp refresh is best-effort */ }
+          // A videography invoice paid is the shoot paid, whichever page the
+          // button was pressed on: the PIN keys off the booking. From the
+          // Invoicing page this used to mark the invoice only, so the booking
+          // stayed unpaid and the PIN stayed locked (Raj Chinga, 30 Sep 2026).
+          try {
+            const iv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=booking_id,booking_source,number`))?.[0];
+            if (iv && iv.booking_id && iv.booking_source === "videography") {
+              const bk = (await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(iv.booking_id)}&select=id,paid_at,pin_released_at`))?.[0];
+              if (bk && !bk.paid_at) {
+                await sbPatch(env, "videography_bookings", `id=eq.${encodeURIComponent(bk.id)}&paid_at=is.null`, { paid_at: new Date().toISOString() });
+                await logBookingMessage(env, { booking_id: bk.id, booking_source: "videography", channel: "note", kind: "audit",
+                  body: `Payment received — invoice ${iv.number || ""} marked paid.`.replace("  ", " "), is_automated: true, created_by: user.email || "admin" });
+              }
+              if (bk && !bk.pin_released_at) {
+                const rel = await sendGalleryPinEmail(env, bk.id);
+                if (rel && rel.ok) {
+                  await logBookingMessage(env, { booking_id: bk.id, booking_source: "videography", channel: "note", kind: "audit",
+                    body: `PIN released to ${rel.sent_to} — payment received.`, is_automated: true, created_by: user.email || "admin" });
+                }
+              }
+            }
+          } catch (_) { /* the invoice is paid either way */ }
         }
         return json({ ok: true }, 200, request, env);
       }
@@ -9064,10 +9086,12 @@ export default {
       if (path.endsWith("/invoicing/invoices") && request.method === "DELETE") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         const id = String(url.searchParams.get("id") || "").trim();
         if (!id) return json({ error: "Missing id." }, 400, request, env);
-        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number`))?.[0];
+        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=id,number,status`))?.[0];
+        // A draft was never sent, so any admin can clear one away; anything
+        // the client has seen stays management-only.
+        if (!(inv && inv.status === "draft") && !(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
           method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
         });
