@@ -22,6 +22,7 @@ import "../../styles/admin.css";
       <button type="button" class="admin-btn" id="teg-heads">Check the headshots</button>
       <button type="button" class="admin-btn" id="teg-heads-all">Check everyone</button>
       <button type="button" class="admin-btn" id="teg-imp-prev">Preview headshot import</button>
+      <button type="button" class="admin-btn" id="teg-missing">Our agents without a brand photo</button>
       <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
       <span class="teg-status" id="teg-status"></span>
     </div>
@@ -189,6 +190,26 @@ import "../../styles/admin.css";
     /* Headshot import. Preview first: every TEG person and what would happen
        to them, with the reason when nothing would. Then the import, one
        person at a time, so progress shows and one failure stops nothing. */
+    let LAST_PREVIEW = null;
+    // Who in our CRM still has no brand photo, with TEG's side if the
+    // preview has been run this visit.
+    document.getElementById('teg-missing').addEventListener('click', async () => {
+      out.innerHTML = '';
+      say('Finding agents without a brand photo…');
+      const { body } = await call('/teg/missing-photos');
+      if (!body || body.error) { say((body && body.error) || 'No answer.', 'is-err'); return; }
+      const teg = new Map((LAST_PREVIEW || []).map((r) => [String(r.email || '').toLowerCase(), r]));
+      const tegSide = (email) => { if (!LAST_PREVIEW) return 'Run the preview to see'; const t = teg.get(email); return !t ? 'Not found at TEG' : t.action !== 'skip' ? 'Ready to import' : t.why; };
+      const rows = body.rows || [];
+      const brands = [...new Set(rows.map((r) => r.brand))];
+      say(`${rows.length} current agent profile${rows.length === 1 ? '' : 's'} without a brand photo.`, 'is-ok');
+      const csv = 'Name,Email,Brand,Job title,At TEG\n' + rows.map((r) => [r.name, r.email, r.brand, r.job_title, tegSide(r.email)].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+      out.innerHTML = `
+        <div class="teg-sum">${brands.map((b) => `<div class="teg-stat"><b>${rows.filter((r) => r.brand === b).length}</b><span>${esc(b)}</span></div>`).join('')}</div>
+        <p class="teg-note">Fine &amp; Country left out for now. <a href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}" download="Agents without a brand photo.csv">Download the list</a></p>
+        ${brands.map((b) => `<details ${b === 'The Property Experts' ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${esc(b)} · ${rows.filter((r) => r.brand === b).length}</strong></summary>
+          <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Email</th><th>Job title</th><th>At TEG</th></tr></thead><tbody>${rows.filter((r) => r.brand === b).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td><td>${esc(tegSide(r.email))}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
+    });
     const IMPORT_WHY = { import: 'New brand photo', update: 'Replaces the TEG photo we hold' };
     document.getElementById('teg-imp-prev').addEventListener('click', async () => {
       const btn = document.getElementById('teg-imp-prev');
@@ -205,6 +226,7 @@ import "../../styles/admin.css";
         }
       } catch (err) { say(err.message, 'is-err'); btn.disabled = false; return; }
       btn.disabled = false;
+      LAST_PREVIEW = rows;
       const go = rows.filter((r) => r.action !== 'skip');
       const reasons = {}; rows.filter((r) => r.action === 'skip').forEach((r) => { reasons[r.why] = (reasons[r.why] || 0) + 1; });
       say(`${rows.length} TEG people looked at: ${go.length} headshot${go.length === 1 ? '' : 's'} ready to import.`, 'is-ok');

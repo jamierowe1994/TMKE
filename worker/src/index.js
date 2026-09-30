@@ -8019,6 +8019,23 @@ export default {
         return json({ error: "Not found" }, 404, request, env);
       }
 
+      /* Our current TEG-brand agents with no brand photo yet, for chasing
+         once the import has run. Fine & Country left out for now. */
+      if (path.endsWith("/teg/missing-photos") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const profs = (await sbGetAll(env, "agent_profiles", "left_at=is.null&brand_photo_url=is.null&brand=not.is.null&select=contact_id,brand,email,job_title&order=brand.asc,contact_id.asc")) || [];
+        const want = profs.filter((p) => !/fine\s*&\s*country/i.test(p.brand || ""));
+        const ids = [...new Set(want.map((p) => p.contact_id))];
+        const people = new Map();
+        for (let i = 0; i < ids.length; i += 100) {
+          ((await sbGet(env, "contacts", `id=in.(${ids.slice(i, i + 100).join(",")})&select=id,first_name,last_name,email`)) || []).forEach((c) => people.set(c.id, c));
+        }
+        const rows = want.map((p) => { const c = people.get(p.contact_id) || {}; return { name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email || "—", email: String(c.email || p.email || "").toLowerCase(), brand: p.brand, job_title: p.job_title || "" }; })
+          .sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));
+        return json({ ok: true, rows }, 200, request, env);
+      }
+
       /* Is the TEG connection alive? Proves the secret and the domain before
          anybody builds anything on top of them. */
       if (path.endsWith("/teg/ping") && request.method === "GET") {
