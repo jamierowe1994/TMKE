@@ -894,6 +894,43 @@ async function sbGetAll(env, table, qs, cap = 50000) {
   return out;
 }
 
+/* What a picture really is, from its first bytes: format, size, and whether
+   it can be transparent (a background-free cut-out has to be). JPEG never
+   is; PNG is when its colour type carries alpha or it has a tRNS chunk;
+   WebP when its header flags alpha. Reads at most ~16KB. */
+async function sniffImage(u) {
+  try {
+    const res = await fetch(u, { headers: { Range: "bytes=0-16383" } });
+    if (!res.ok && res.status !== 206) return { format: null, transparent: null, error: `HTTP ${res.status}` };
+    const reader = res.body.getReader();
+    let buf = new Uint8Array(0);
+    while (buf.length < 16384) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const n = new Uint8Array(buf.length + value.length); n.set(buf); n.set(value, buf.length); buf = n;
+    }
+    try { await reader.cancel(); } catch (_) {}
+    const ct = res.headers.get("content-type") || "";
+    const u32be = (i) => (buf[i] << 24 | buf[i + 1] << 16 | buf[i + 2] << 8 | buf[i + 3]) >>> 0;
+    const ascii = (i, n) => String.fromCharCode(...buf.slice(i, i + n));
+    if (buf[0] === 0x89 && ascii(1, 3) === "PNG") {
+      const colour = buf[25];
+      const trns = ascii(0, buf.length).includes("tRNS");
+      return { format: "png", width: u32be(16), height: u32be(20), transparent: colour === 4 || colour === 6 || trns, contentType: ct };
+    }
+    if (ascii(0, 4) === "RIFF" && ascii(8, 4) === "WEBP") {
+      const chunk = ascii(12, 4);
+      if (chunk === "VP8X") return { format: "webp", transparent: !!(buf[20] & 0x10), width: 1 + (buf[24] | buf[25] << 8 | buf[26] << 16), height: 1 + (buf[27] | buf[28] << 8 | buf[29] << 16), contentType: ct };
+      if (chunk === "VP8L") { const b = buf[21] | buf[22] << 8 | buf[23] << 16 | buf[24] << 24; return { format: "webp", transparent: !!((b >>> 28) & 1), width: 1 + (b & 0x3fff), height: 1 + ((b >>> 14) & 0x3fff), contentType: ct }; }
+      return { format: "webp", transparent: false, contentType: ct };
+    }
+    if (buf[0] === 0xff && buf[1] === 0xd8) return { format: "jpeg", transparent: false, contentType: ct };
+    return { format: ct || "unknown", transparent: null, contentType: ct };
+  } catch (e) {
+    return { format: null, transparent: null, error: String((e && e.message) || e).slice(0, 120) };
+  }
+}
+
 // The free teaser set = the first `teaserCount` image files (created order).
 function teaserKeys(deliverables, teaserCount) {
   const imgs = (deliverables || []).filter((d) => d.kind === "image");
@@ -7869,6 +7906,25 @@ export default {
         const imageish = fields.filter((f) =>
           /photo|image|picture|avatar|headshot|thumb|url|src/i.test(f) ||
           rows.some((r) => typeof r[f] === "string" && /^https?:\/\/.+\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(r[f])));
+        /* check=1: open each picture and say what it really is. A field
+           name can't tell us a headshot is background-free; the file can.
+           Only the first few KB are read: enough for the format, the size,
+           and whether it can hold transparency (30 Sep 2026: TEG say the
+           background-free headshots are now in the hub). */
+        let people = null;
+        if (url.searchParams.get("check") === "1") {
+          people = [];
+          for (const r of rows) {
+            const label = r.full_name || r.name || [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email || r.member_email || r.team_member_id || r.id || "—";
+            const images = [];
+            for (const f of imageish) {
+              const u = r[f];
+              if (typeof u !== "string" || !/^https?:\/\//i.test(u)) continue;
+              images.push({ field: f, url: u, ...(await sniffImage(u)) });
+            }
+            people.push({ label, email: r.email || r.member_email || null, images });
+          }
+        }
         return json({
           ok: out.success !== false,
           status: res.status,
@@ -7877,6 +7933,7 @@ export default {
           fields,
           looks_like_an_image: imageish,
           sample: rows[0] || null,
+          people,
         }, 200, request, env);
       }
 
