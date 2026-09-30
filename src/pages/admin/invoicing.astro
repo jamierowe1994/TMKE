@@ -394,6 +394,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .mc-cell { cursor: pointer; }
     .mc-cell:hover { background: rgba(55,30,40,0.06); }
     .mc-note { color: var(--english-violet); font-size: 12px; margin-left: 4px; }
+    .mc-skipcell { white-space: nowrap; }
     .mc-raise { appearance: none; cursor: pointer; margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--english-violet); background: #fff; color: var(--english-violet); font: 700 10.5px var(--sans); letter-spacing: 0.04em; }
     .mc-raise:hover { background: var(--english-violet); color: #fff; }
     .mc-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
@@ -1340,7 +1341,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         const raise = (r, ym) => { const c = r.cells[ym]; return r.kind === "recurring" && c && c.due && !c.sent && !c.draft && ym <= d.today ? `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">Raise</button>` : ""; };
         const row = (r) => `<tr><td class="l"><b>${esc(r.client)}</b><small>${esc([r.contact, r.kind === "social" ? r.manager : r.match_email, r.note].filter(Boolean).join(" · "))}</small></td>
           <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-x" data-mcedit="${esc(r.id)}" title="Edit" aria-label="Edit ${esc(r.client)}">&#9998;</button><button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
-          ${d.months.map((ym) => `<td class="${cls(ym, 0)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="Click to add a note">${mark(r.cells[ym], "sent", ym)}${raise(r, ym)}${noteMark(r.cells[ym])}</td><td class="${cls(ym, 1)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
+          ${d.months.map((ym) => (r.cells[ym] && r.cells[ym].skip)
+            // No invoice that month: one cell across Sent and Paid, so it reads in full.
+            ? `<td colspan="2" class="${cls(ym, 0)} mc-cell mc-skipcell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="${esc(r.cells[ym].note || "No invoice this month")}"><span class="mc-na">No invoice</span>${noteMark(r.cells[ym])}</td>`
+            : `<td class="${cls(ym, 0)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="Click to add a note">${mark(r.cells[ym], "sent", ym)}${raise(r, ym)}${noteMark(r.cells[ym])}</td><td class="${cls(ym, 1)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
         MC_ROWS = d.rows;
         const social = d.rows.filter((r) => r.kind === "social"), rec = d.rows.filter((r) => r.kind === "recurring");
         const span = 2 + d.months.length * 2;
