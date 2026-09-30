@@ -10162,7 +10162,10 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
 // against six months: sent (sent or paid) and paid. Admin > Invoicing > Monthly
 // checklist, and the 14th/21st reminder. Danielle does the month's invoicing in
 // its first week, so by the 14th anything missing wants a look (30 Sep 2026).
-const ymAdd = (ym, k) => { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+// A function declaration, not a const: this sits in the same scope as the
+// route that calls it, earlier in the file, and a const isn't ready until its
+// line has run ("Cannot access 'ymAdd' before initialization").
+function ymAdd(ym, k) { const [y, m] = ym.split("-").map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); }
 function londonToday() {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
   return { ym: `${p.year}-${p.month}`, day: Number(p.day) };
