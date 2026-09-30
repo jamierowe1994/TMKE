@@ -10333,7 +10333,9 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
       numbers: mine.map((iv) => `${iv.number || "draft"} (${iv.status})`), billed_to: brand ? "Brand" : "",
       earlier: shootDay.slice(0, 7) < nowYm,
     };
-  }).filter((x) => !x.earlier || !["paid", "package"].includes(x.status));
+  // Shoots covered by a social package never need an invoice, so they're left
+  // off altogether (Danielle, 30 Sep 2026).
+  }).filter((x) => x.status !== "package" && (!x.earlier || x.status !== "paid"));
   return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
 }
 
