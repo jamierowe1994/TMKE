@@ -9127,6 +9127,32 @@ export default {
         }
         return json({ ok: true }, 200, request, env);
       }
+      // ---- Allocate an invoice already sent to a recurring invoice's month ----
+      // GET: the invoices that could be it (sent or paid, not raised from a
+      // booking). POST: link one, for good: from then on the checklist follows
+      // that invoice, so paying it ticks Paid (Danielle, 30 Sep 2026).
+      if (path.endsWith("/invoicing/allocate") && (request.method === "GET" || request.method === "POST")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
+        if (request.method === "GET") {
+          const r = await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?status=in.(sent,paid)&booking_id=is.null&select=id,number,bill_to_name,bill_to_email,client_name,total_pence,issued_date,status,billing_month,recurring_id,line_items&order=issued_date.desc.nullslast,created_at.desc&limit=300`, { headers: hdr });
+          if (!r.ok) {
+            const t = await r.text().catch(() => "");
+            return json({ error: /recurring_id/.test(t) ? "Run supabase/invoice_month_notes.sql first." : "Couldn't list the invoices." }, 502, request, env);
+          }
+          const rows = (await r.json()).map((iv) => ({ ...iv, line: ((iv.line_items || [])[0] || {}).description || "", line_items: undefined }));
+          return json({ ok: true, invoices: rows }, 200, request, env);
+        }
+        const b = await request.json().catch(() => ({}));
+        const id = String(b.invoice_id || "").trim(), rec = String(b.recurring_id || "").trim(), month = String(b.month || "");
+        if (!id || !rec || !/^\d{4}-\d{2}$/.test(month)) return json({ error: "Which invoice, and for which month?" }, 400, request, env);
+        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}&booking_id=is.null`, { method: "PATCH", headers: { ...hdr, Prefer: "return=representation" }, body: JSON.stringify({ recurring_id: rec, billing_month: month }) });
+        const done = r.ok ? await r.json().catch(() => []) : [];
+        if (!r.ok || !done.length) return json({ error: "Couldn't link that invoice." }, 502, request, env);
+        return json({ ok: true }, 200, request, env);
+      }
       if (path.endsWith("/invoicing/recurring") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

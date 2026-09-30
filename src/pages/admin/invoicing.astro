@@ -413,6 +413,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .mc-chip.is-paid { background: rgba(60,150,90,0.14); color: #2e6b40; }
     .mc-raise { appearance: none; cursor: pointer; margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--english-violet); background: #fff; color: var(--english-violet); font: 700 10.5px var(--sans); letter-spacing: 0.04em; }
     .mc-raise:hover { background: var(--english-violet); color: #fff; }
+    .mc-alloc { width: min(640px, 100%); }
+    .mc-alloc-q { width: 100%; box-sizing: border-box; height: 40px; padding: 0 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; font: 13px var(--sans); margin-bottom: 8px; }
+    .mc-alloc-list { max-height: 50vh; overflow-y: auto; border-top: 1px solid rgba(28,29,34,0.08); }
+    .mc-alloc-row { appearance: none; display: flex; justify-content: space-between; gap: 16px; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.07); padding: 10px 6px; cursor: pointer; font: 13px var(--sans); color: var(--ink); }
+    .mc-alloc-row:hover { background: rgba(55,30,40,0.05); }
+    .mc-alloc-row small { display: block; font-size: 12px; color: rgba(28,29,34,0.55); margin-top: 2px; }
+    .mc-alloc-row .a { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .mc-alloc-row.is-other { opacity: 0.6; }
     .mc-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
     .mc-modal[hidden] { display: none; }
     .mc-modal-box { background: #fff; border-radius: 12px; width: min(520px, 100%); padding: 20px 22px; box-shadow: 0 24px 60px -24px rgba(20,18,26,0.5); }
@@ -1354,7 +1362,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         };
         const cls = (ym, i) => `${i === 0 ? "m0" : ""}${ym === d.today ? " is-now" : ""}`;
         // A recurring month not sent yet can be raised from here, linked.
-        const raise = (r, ym) => { const c = r.cells[ym]; return r.kind === "recurring" && c && c.due && !c.sent && !c.draft && ym <= d.today ? `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">Raise</button>` : ""; };
+        // ... or an invoice already sent can be allocated to it.
+        const raise = (r, ym) => { const c = r.cells[ym]; if (r.kind !== "recurring" || !c || !c.due || c.sent || ym > d.today) return "";
+          return (c.draft ? "" : `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">Raise</button>`) + `<button type="button" class="mc-raise" data-mcalloc="${esc(r.id)}|${ym}">Allocate</button>`; };
         const row = (r) => `<tr><td class="l"><b>${esc(r.client)}</b><small>${esc([r.contact, r.kind === "social" ? r.manager : r.match_email, r.note].filter(Boolean).join(" · "))}</small></td>
           <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-x" data-mcedit="${esc(r.id)}" title="Edit" aria-label="Edit ${esc(r.client)}">&#9998;</button><button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
           ${d.months.map((ym) => (r.cells[ym] && r.cells[ym].skip)
@@ -1386,6 +1396,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           $("ci-recurring").value = id; ciApplyRecurring(id, ym);
           window.scrollTo({ top: 0, behavior: "smooth" });
         }));
+        tbl.querySelectorAll("[data-mcalloc]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); const [id, ym] = b.dataset.mcalloc.split("|"); mcAllocate(d.rows.find((x) => x.id === id), ym); }));
         tbl.querySelectorAll("[data-mcnote]").forEach((td) => td.addEventListener("click", () => { const [kind, id, ym] = td.dataset.mcnote.split("|"); mcNote(kind, id, ym); }));
         if (d.notesReady === false) { m.textContent = (m.hidden ? "" : m.textContent + " ") + "Notes need supabase/invoice_month_notes.sql running once in Supabase."; m.hidden = false; }
         tbl.querySelectorAll("[data-mcdel]").forEach((b) => b.addEventListener("click", async () => {
@@ -1443,6 +1454,47 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     }
     $("mc-modal").addEventListener("click", (e) => { if (e.target.id === "mc-modal" || e.target.closest("[data-mcclose]")) $("mc-modal").hidden = true; });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("mc-modal").hidden = true; });
+    // Allocate: pick an invoice already sent for this recurring row and month.
+    async function mcAllocate(r, ym) {
+      if (!r) return;
+      const host = $("mc-modal");
+      const monthName = new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+      host.innerHTML = `<div class="mc-modal-box mc-alloc" role="dialog" aria-modal="true" aria-label="Allocate an invoice">
+        <h3>Allocate an invoice</h3>
+        <p class="inv-intro" style="margin:4px 0 10px">${esc(r.client)} · ${esc(monthName)}. Pick the invoice that was sent for it; from then on its payment shows here.</p>
+        <input type="search" class="mc-alloc-q" id="mc-alloc-q" placeholder="Search number, name or amount">
+        <div class="mc-alloc-list" id="mc-alloc-list"><p class="inv-intro">Loading invoices…</p></div>
+        <p class="inv-msg" id="mc-alloc-msg" hidden></p>
+        <div class="mc-modal-acts"><button type="button" class="inv-ghost" data-mcclose>Cancel</button></div>
+      </div>`;
+      host.hidden = false;
+      let list = [];
+      try { list = (await api("/invoicing/allocate")).invoices || []; } catch (err) { $("mc-alloc-list").innerHTML = ""; msg("mc-alloc-msg", err.message, false); return; }
+      const want = String(r.match_email || "").toLowerCase();
+      // Sent to this row's address first, then newest.
+      list.sort((a, b) => ((String(b.bill_to_email || "").toLowerCase() === want) - (String(a.bill_to_email || "").toLowerCase() === want)));
+      const dd = (x) => x ? new Date(x + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+      const draw = (q) => {
+        const rows = list.filter((iv) => !q || [iv.number, iv.bill_to_name, iv.client_name, iv.line, iv.bill_to_email, (iv.total_pence / 100).toFixed(2)].join(" ").toLowerCase().includes(q));
+        $("mc-alloc-list").innerHTML = rows.length ? rows.map((iv) => {
+          const here = iv.recurring_id === r.id, other = iv.recurring_id && !here;
+          return `<button type="button" class="mc-alloc-row${other ? " is-other" : ""}" data-iv="${esc(iv.id)}">
+            <span class="n"><b>${esc(iv.number || "—")}</b> ${esc(iv.bill_to_name || "")}<small>${esc([iv.line, dd(iv.issued_date)].filter(Boolean).join(" · "))}</small></span>
+            <span class="a">${gbp(iv.total_pence)}<small>${iv.status === "paid" ? "Paid" : "Sent"}${here ? " · already here" : other ? " · allocated elsewhere" : ""}</small></span>
+          </button>`;
+        }).join("") : `<p class="inv-intro">No invoices match.</p>`;
+        $("mc-alloc-list").querySelectorAll("[data-iv]").forEach((b) => b.addEventListener("click", async () => {
+          const iv = list.find((x) => x.id === b.dataset.iv);
+          if (iv.recurring_id && iv.recurring_id !== r.id && !confirm(`${iv.number} is already allocated to another recurring invoice. Move it to ${r.client}, ${monthName}?`)) return;
+          b.disabled = true;
+          try { await api("/invoicing/allocate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: iv.id, recurring_id: r.id, month: ym }) }); host.hidden = true; loadMonthly(); }
+          catch (err) { msg("mc-alloc-msg", err.message, false); b.disabled = false; }
+        }));
+      };
+      draw("");
+      $("mc-alloc-q").addEventListener("input", (e) => draw(e.target.value.trim().toLowerCase()));
+      $("mc-alloc-q").focus();
+    }
     // Editing a recurring invoice: back into the form, saved in place.
     let mcEditing = null;
     function mcEdit(r) {
