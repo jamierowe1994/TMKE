@@ -10273,12 +10273,16 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
       match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "", cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
   }
-  // Videography: every shoot booked in the window, and where its invoice is.
-  // The rule: invoiced two days before the shoot. Past that and not sent,
-  // we're late (Danielle, 30 Sep 2026).
-  const endDay = new Date(Date.UTC(Number(last.slice(0, 4)), Number(last.slice(5, 7)), 1)).toISOString().slice(0, 10);
+  // Videography: where each shoot's invoice is. The rule: invoiced two days
+  // before the shoot; past that and not sent, we're late (Danielle, 30 Sep
+  // 2026). Shown: this month's shoots (and the first two days of next month,
+  // whose invoice is due this month), plus any earlier shoot still unsettled.
+  // Settled past shoots stay off, or the page fills with done work.
+  const nowYm = londonToday().ym;
+  const nextStart = `${ymAdd(nowYm, 1)}-01`;
+  const lookEnd = new Date(Date.parse(nextStart + "T00:00:00Z") + 2 * 864e5).toISOString().slice(0, 10);
   const bookings = await readAll("videography_bookings",
-    `shoot_date=gte.${months[0]}-01T00:00:00&shoot_date=lt.${endDay}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`);
+    `shoot_date=gte.${ymAdd(nowYm, -12)}-01T00:00:00&shoot_date=lt.${lookEnd}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`);
   const vInv = [];
   const bIds = bookings.map((b) => b.id);
   for (let i = 0; i < bIds.length; i += 80) {
@@ -10301,8 +10305,9 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
       shoot_date: b.shoot_date, due_by: dueBy, status, draft: mine.some((iv) => iv.status === "draft"),
       amount_pence: sent[0]?.total_pence ?? mine[0]?.total_pence ?? b.total_pence ?? null,
       numbers: mine.map((iv) => `${iv.number || "draft"} (${iv.status})`), billed_to: brand ? "Brand" : "",
+      earlier: shootDay.slice(0, 7) < nowYm,
     };
-  });
+  }).filter((x) => !x.earlier || !["paid", "package"].includes(x.status));
   return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
 }
 
