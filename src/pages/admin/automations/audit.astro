@@ -93,7 +93,16 @@ import "../../../styles/admin.css";
     /* Counts open the list of people behind them. */
     .ins-n { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; border-bottom: 1px dotted rgba(55,30,40,0.45); }
     .ins-n:hover { color: var(--english-violet); border-bottom-color: var(--english-violet); }
-    .aud-stat .ins-n { display: block; font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.1; border-bottom-width: 1px; width: max-content; margin-bottom: 4px; }
+    .aud-stat .ins-n { display: block; font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.1; border-bottom-width: 1px; width: max-content; margin-bottom: 8px; }
+    .aud-stat.is-bad .ins-n { color: #b3261e; border-bottom-color: rgba(179,38,30,0.5); }
+    /* The insights row: equal columns from the heading's left edge, every
+       figure the same box whether it opens a list or not, so they start,
+       and their labels sit, on one line. */
+    .aud-ins .aud-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 18px 24px; margin: 18px 0 6px; }
+    .aud-ins .aud-stat { background: none; border: 0; border-radius: 0; padding: 0; min-width: 0; }
+    .aud-ins .aud-stat > b { border-bottom: 1px dotted transparent; width: max-content; margin-bottom: 8px; }
+    .aud-ins .aud-stat > span { display: block; line-height: 1.25; }
+    .aud-ins .aud-stat > small { margin-top: 1px; }
     .aud-who li small.why { color: #8a6a24; }
     .aud-step.is-fixed .aud-step-detail { color: rgba(28,29,34,0.45); }
     .aud-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; }
@@ -533,6 +542,11 @@ import "../../../styles/admin.css";
             openedBots: peopleOf(list, "opened").filter((x) => !on(opened).has(x.email)),
             clickedBots: peopleOf(list, "clicked").filter((x) => !on(clicked).has(x.email)),
             unsub: peopleOf(list, "unsubscribed"), bounced: peopleOf(list, "bounced"),
+            // Still not sent (a later successful send clears it), with why.
+            ...(() => { const out = new Set(list.filter((x) => x.event === "sent").map(sendKey)); return {
+              failed: peopleOf(list, "blocked", (x) => !gateReason.test(x.detail || "") && !out.has(sendKey(x))),
+              skipped: peopleOf(list, "blocked", (x) => gateReason.test(x.detail || "") && !out.has(sendKey(x))),
+            }; })(),
           };
         };
         const LISTS = new Map();
@@ -551,8 +565,8 @@ import "../../../styles/admin.css";
           stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true, "unsub") +
           (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true, "bounced") : "") +
           (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
-          (all.skipped ? stat("Not emailed", all.skipped, "no opt-in or unsubscribed") : "") +
-          (all.failed ? stat("Failed", all.failed, "didn't send", true) : "");
+          (all.skipped ? stat("Not emailed", all.skipped, "no opt-in or unsubscribed", false, "skipped") : "") +
+          (all.failed ? stat("Failed", all.failed, "didn't send", true, "failed") : "");
 
         const rows = [...groups.values()]
           .filter((g) => g.ev.length || g.key.startsWith("n:"))
@@ -577,7 +591,7 @@ import "../../../styles/admin.css";
 
         // A number clicked: who's behind it, in a pop-out. Opens and clicks
         // that were security scanners are listed apart, and not counted.
-        const LABEL = { sent: "Sent", delivered: "Delivered", opened: "Opened", clicked: "Clicked", unsub: "Unsubscribed", bounced: "Bounced" };
+        const LABEL = { sent: "Sent", delivered: "Delivered", opened: "Opened", clicked: "Clicked", unsub: "Unsubscribed", bounced: "Bounced", failed: "Didn't send", skipped: "Not emailed" };
         const whoList = (arr, bot) => `<ul class="aud-who${bot ? " is-bot" : ""}">${arr.map((x) => `<li><span><b>${esc(x.name || x.email)}</b>${x.name ? `<br><small>${esc(x.email)}</small>` : ""}${x.what ? `<br><small>${esc(x.what)}</small>` : ""}${bot && x.why ? `<br><small class="why">Left out: ${esc(x.why)}</small>` : ""}</span><span class="w">${esc(dt(x.at))}</span>${x.links.size ? `<span class="l">${[...x.links].map(esc).join(" · ")}</span>` : ""}${x.detail && !x.links.size ? `<span class="l">${esc(x.detail)}</span>` : ""}</li>`).join("")}</ul>`;
         window.__audOpen = (key, m) => {
           const L = LISTS.get(key); if (!L) return;
