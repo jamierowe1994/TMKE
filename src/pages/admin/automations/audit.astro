@@ -51,6 +51,7 @@ import "../../../styles/admin.css";
       <p class="aud-ins-warn" id="aud-ins-warn" hidden></p>
       <div class="aud-stats" id="aud-stats"></div>
       <div class="aud-ins-wrap"><table class="aud-ins-table" id="aud-ins-table"></table></div>
+      <div class="aud-clickers" id="aud-clickers"></div>
     </section>
     <!-- AI read on the numbers + anything to do before the next send. -->
     <div class="aud-ai" id="aud-ai" hidden></div>
@@ -82,6 +83,15 @@ import "../../../styles/admin.css";
     .aud-ins-warn { font-family: var(--sans); font-size: 13px; line-height: 1.5; margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: rgba(227,160,8,0.12); color: #7a5405; }
     .aud-ins .aud-stat { background: var(--paper, #f4f2f1); border-color: transparent; }
     .aud-ins-wrap { overflow-x: auto; margin-top: 14px; }
+    /* Who clicked, per email: names to check the count against. */
+    .aud-clickers { margin-top: 18px; display: grid; gap: 10px; }
+    .aud-clickers details { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 16px; font-family: var(--sans); font-size: 13px; }
+    .aud-clickers summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+    .aud-clickers ul { list-style: none; margin: 10px 0 2px; padding: 0; }
+    .aud-clickers li { display: grid; grid-template-columns: minmax(160px, 1.1fr) 2fr auto; gap: 14px; padding: 7px 0; border-top: 1px solid rgba(28,29,34,0.07); align-items: baseline; }
+    .aud-clickers li small { color: rgba(28,29,34,0.55); }
+    .aud-clickers li.is-bot { color: rgba(28,29,34,0.45); }
+    .aud-clickers .ck-link { word-break: break-all; color: rgba(28,29,34,0.7); }
     .aud-ins-table { width: 100%; min-width: 760px; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
     .aud-ins-table th { text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 0 12px 8px 0; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
     .aud-ins-table th:first-child, .aud-ins-table td:first-child { text-align: left; }
@@ -415,8 +425,11 @@ import "../../../styles/admin.css";
         } catch (_) { /* the rest of the page still stands */ }
 
         const gateReason = /opt-?in|unsubscribed|do-not-contact|suppressed/i;
+        // One per message: Resend's own "sent" report for a message we'd
+        // already logged used to count it twice (380 for 190, 30 Sep 2026).
+        const sentOnce = (list) => new Set(list.filter((x) => x.event === "sent").map((x) => x.message_id || (x.subject || "") + "|" + who(x))).size;
         const stats = (list) => {
-          const sent = count(list, "sent");
+          const sent = sentOnce(list);
           const delivered = uniq(list, "delivered");
           const people = list.filter((x) => !isMachine(x));
           return {
@@ -472,6 +485,32 @@ import "../../../styles/admin.css";
               cell(visitsByStep.get(g.key) || 0, pct(visitsByStep.get(g.key) || 0, t.base)) +
               cell(t.unsub, pct(t.unsub, t.base)) + cell(t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
           }).join("") + `</tbody>`;
+
+        // Who clicked each email and on what, so a count can be checked
+        // name by name. Scanner clicks are listed too, greyed and marked.
+        try {
+          const clickRows = rows.map((g) => ({ g, clicks: g.ev.filter((e) => e.event === "clicked") })).filter((x) => x.clicks.length);
+          const ids = [...new Set(clickRows.flatMap((x) => x.clicks.map((e) => e.contact_id)).filter(Boolean))];
+          const names = new Map();
+          for (let i = 0; i < ids.length; i += 200) {
+            const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name").in("id", ids.slice(i, i + 200));
+            (cs || []).forEach((c) => names.set(c.id, [c.first_name, c.last_name].filter(Boolean).join(" ")));
+          }
+          const shortLink = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, "") || u; } catch (_) { return u || ""; } };
+          $("aud-clickers").innerHTML = clickRows.map(({ g, clicks }) => {
+            const byWho = new Map();
+            clicks.forEach((e) => { const k = e.contact_id || e.email; if (!byWho.has(k)) byWho.set(k, []); byWho.get(k).push(e); });
+            const people = [...byWho.values()].map((list) => ({ list, bot: list.every(isMachine) }))
+              .sort((a, b) => (a.bot - b.bot) || (new Date(a.list[0].occurred_at) - new Date(b.list[0].occurred_at)));
+            const humans = people.filter((x) => !x.bot).length;
+            return `<details><summary>${esc(g.name)}: ${humans} ${humans === 1 ? "person" : "people"} clicked${people.length > humans ? `, ${people.length - humans} scanner${people.length - humans === 1 ? "" : "s"}` : ""}</summary><ul>${people.map(({ list, bot }) => {
+              const e0 = list[0];
+              const links = [...new Set(list.map((e) => shortLink(linkOf(e) || e.url)).filter(Boolean))];
+              const when = new Date(e0.occurred_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+              return `<li class="${bot ? "is-bot" : ""}"><span>${esc(names.get(e0.contact_id) || e0.email)}${bot ? " <small>· scanner</small>" : ""}<br><small>${esc(e0.email)}</small></span><span class="ck-link">${links.map(esc).join("<br>") || "–"}</span><small>${esc(when)}</small></li>`;
+            }).join("")}</ul></details>`;
+          }).join("");
+        } catch (_) { /* a bonus, like the rest */ }
 
         // Say so when the numbers can't be right, rather than showing zeros
         // that look like nobody opened anything.

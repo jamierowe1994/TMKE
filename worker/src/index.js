@@ -6456,6 +6456,10 @@ export default {
           if (!rows) rows = await q("automation_id,enrollment_id,subject,email");
           sentRow = rows && rows[0];
         }
+        // Our own send log already recorded this message as sent; Resend's
+        // "sent" for it is the same send, and counting both doubled the
+        // funnel's sent figure (30 Sep 2026).
+        if (event === "sent" && sentRow) return json({ ok: true, duplicate: true }, 200, request, env);
         const addr = String((Array.isArray(d.to) ? d.to[0] : d.to) || (sentRow && sentRow.email) || "").toLowerCase();
         let contact = null;
         if (addr) {
