@@ -932,8 +932,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         // a "See all" hands off to the existing Clients list view rather
         // than growing a 3rd/4th line.
         const CLIENTS_WRAP_CAP = 8;
-        board.innerHTML = STAGES.map((s) => {
-          const allCards = rows.filter((r) => stageOf(r) === s.key);
+        // Lost cards have a row of their own, after Active client, when
+        // "Show lost" is on; they no longer fall into Inquiry (30 Sep 2026).
+        const lostRow = showLost ? [{ key: "lost", label: "Lost" }] : [];
+        board.innerHTML = [...STAGES, ...lostRow].map((s) => {
+          const allCards = s.key === "lost" ? rows.filter((r) => r.pipeline_stage === "lost") : rows.filter((r) => r.pipeline_stage !== "lost" && stageOf(r) === s.key);
           const isClients = s.key === "active_client";
           const overCap = isClients && allCards.length > CLIENTS_WRAP_CAP;
           const cards = overCap ? allCards.slice(0, CLIENTS_WRAP_CAP) : allCards;
@@ -995,7 +998,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         ${pill}
         <div class="smm-row-main"><div class="smm-row-name">${esc(nameOf(r))}</div>${r.business ? `<div class="smm-row-biz">${esc(r.business)}</div>` : ""}</div>
         <div class="smm-row-email">${esc(r.email || "")}</div>
-        <div class="smm-row-stage">${esc(STAGES[STAGE_INDEX[st]].label)}</div>
+        <div class="smm-row-stage">${esc(r.pipeline_stage === "lost" ? "Lost" : STAGES[STAGE_INDEX[st]].label)}</div>
         <div class="smm-row-acts">
           <button type="button" class="smm-card-act" data-cmeet>Set a meeting</button>
           <button type="button" class="smm-card-act" data-cmsg>Send a message</button>
@@ -1058,7 +1061,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const acct = r.account_created ? "Created at submission" : (r.account_user_id ? "Existing account" : "None");
       $("smm-file-body").innerHTML = `
         <header class="smm-file-head">
-          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}</h2>
+          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}${r.pipeline_stage === "lost" ? `<span class="smm-status-pill is-ended">Lost</span>` : ""}</h2>
           <p class="smm-file-sub">${esc(r.business || KIND_LABEL[r.kind] || "Lead")}</p>
         </header>
         ${pipe}
@@ -1693,7 +1696,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     function moveToStage(r, stageKey) {
       if (!stageKey) return;
       if (stageKey === "meeting_set") { openMeeting(r); return; }
-      if (stageKey === stageOf(r)) return;
+      // A lost card reads as Inquiry to stageOf, so dragging it back into
+      // Inquiry has to count as a move.
+      if (stageKey === (r.pipeline_stage === "lost" ? "lost" : stageOf(r))) return;
       setStage(r, stageKey);
     }
     async function deleteCard(r) {
