@@ -59,6 +59,7 @@ import "../../styles/admin.css";
     .teg-shot img { max-width: 100%; max-height: 100%; object-fit: contain; }
     .teg-shot .meta { display: flex; justify-content: space-between; gap: 6px; margin-top: 5px; color: rgba(28,29,34,0.6); }
     .teg-yes { color: #2b6b44; font-weight: 700; } .teg-no { color: #9a2a2a; font-weight: 700; }
+    .ash-panel .teg-fc { display: inline-flex; align-items: center; gap: 7px; font-family: var(--sans); font-size: 13px; color: var(--ink); margin: 16px 0 0; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
 
@@ -123,35 +124,65 @@ import "../../styles/admin.css";
     document.getElementById('teg-heads-all').addEventListener('click', async () => {
       const btn = document.getElementById('teg-heads-all');
       out.innerHTML = ''; btn.disabled = true;
-      const people = []; let fields = [], total = null;
+      const people = [], seen = new Set(); let fields = [], note = '';
       try {
+        // TEG's count is the page's, not the whole list's, and has_more can't
+        // be relied on either (30 Sep 2026: it stopped at 20), so this keeps
+        // asking until a page comes back short, or brings nobody new.
         for (let skip = 0; skip < 5000; skip += 20) {
-          say(`Checking headshots… ${people.length}${total ? ` of ${total}` : ''}`);
+          say(`Checking headshots… ${people.length} so far`);
           const { body } = await call(`/teg/photos?limit=20&skip=${skip}&check=1`);
           if (!body || body.error) throw new Error((body && body.error) || 'No answer.');
-          total = body.count ?? total; fields = [...new Set([...fields, ...(body.looks_like_an_image || [])])];
-          people.push(...(body.people || []));
-          if (!(body.people || []).length || body.has_more === false || (total != null && people.length >= total)) break;
+          fields = [...new Set([...fields, ...(body.looks_like_an_image || [])])];
+          const page = body.people || [];
+          const fresh = page.filter((p) => { const k = (p.email || p.label || '').toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+          people.push(...fresh);
+          if (page.length && !fresh.length) { note = "TEG sent the same people again, so it may not support paging past this point."; break; }
+          if (page.length < 20) break;
         }
       } catch (err) { say(err.message, 'is-err'); btn.disabled = false; return; }
       btn.disabled = false;
       // Best picture per person: a background-free one if any field has it.
-      const rows = people.map((p) => {
+      const all = people.map((p) => {
         const clear = p.images.find((i) => i.transparent);
         const any = p.images[0] || null;
-        return { name: p.label, email: p.email || '', state: clear ? 'clear' : any ? (any.transparent === false ? 'background' : 'unknown') : 'none', field: (clear || any || {}).field || '', url: (clear || any || {}).url || '' };
+        return { name: p.label, email: p.email || '', brand: brandOf(p.email), state: clear ? 'clear' : any ? (any.transparent === false ? 'background' : 'unknown') : 'none', field: (clear || any || {}).field || '', url: (clear || any || {}).url || '' };
       });
+      HEADS = { all, fields, note };
+      drawHeads();
+    });
+    // Brand from the email domain: the same list as the Worker's
+    // (TEG_DOMAIN_BRANDS in worker/src/index.js).
+    const DOMAIN_BRANDS = [
+      [/(^|\.)thepropertyexperts\.co\.uk$/i, 'The Property Experts'], [/(^|\.)prestigepropertyexperts\.co\.uk$/i, 'Prestige Property Experts'],
+      [/(^|\.)thelettings?experts\.co\.uk$/i, 'The Letting Experts'], [/(^|\.)themarketingexperts\.co\.uk$/i, 'The Marketing Experts'],
+      [/(^|\.)therecruitmentexperts\.co\.uk$/i, 'The Recruitment Experts'], [/(^|\.)themortgageexperts\.co\.uk$/i, 'The Mortgage Experts'],
+      [/(^|\.)fineandcountry\.com$/i, 'Fine & Country'],
+    ];
+    const brandOf = (email) => { const d = String(email || '').toLowerCase().split('@')[1] || ''; const hit = DOMAIN_BRANDS.find(([re]) => re.test(d)); return hit ? hit[1] : (d ? 'Other' : '—'); };
+    /* TEG's own brands first: Fine & Country won't use the print suite yet
+       (Danielle, 30 Sep 2026), so they're left out unless asked for. */
+    let HEADS = null, withFC = false;
+    function drawHeads() {
+      if (!HEADS) return;
+      const { all, fields } = HEADS;
+      const rows = all.filter((r) => withFC || r.brand !== 'Fine & Country');
       const groups = { clear: 'Background-free', background: 'Still has a background', none: 'No picture', unknown: "Couldn't tell" };
       const n = (k) => rows.filter((r) => r.state === k).length;
-      say(`${rows.length} people checked.`, 'is-ok');
-      const csv = 'Name,Email,Headshot,Field,Link\n' + rows.map((r) => [r.name, r.email, groups[r.state], r.field, r.url].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const fc = all.length - all.filter((r) => r.brand !== 'Fine & Country').length;
+      say(`${all.length} people checked${fc && !withFC ? `; ${fc} at Fine & Country left out` : ''}.${HEADS.note ? ' ' + HEADS.note : ''}`, HEADS.note ? 'is-err' : 'is-ok');
+      const brands = [...new Set(rows.map((r) => r.brand))].sort();
+      const csv = 'Name,Email,Brand,Headshot,Field,Link\n' + rows.map((r) => [r.name, r.email, r.brand, groups[r.state], r.field, r.url].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
       out.innerHTML = `
+        <label class="teg-fc"><input type="checkbox" id="teg-fc" ${withFC ? 'checked' : ''}> Include Fine &amp; Country</label>
         <div class="teg-sum">${Object.keys(groups).filter((k) => n(k)).map((k) => `<div class="teg-stat"><b>${n(k)}</b><span>${groups[k]}</span></div>`).join('')}</div>
+        <p class="teg-note">By brand: ${brands.map((b) => { const br = rows.filter((r) => r.brand === b); return `<strong>${esc(b)}</strong> ${br.filter((r) => r.state === 'clear').length} of ${br.length} background-free`; }).join(' · ')}</p>
         <p class="teg-note">Picture fields seen: <strong>${esc(fields.join(', ') || 'none')}</strong>. A person counts as background-free if any of their pictures is.
           <a href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}" download="TEG headshots.csv">Download the list</a></p>
         ${['background', 'none', 'unknown', 'clear'].filter((k) => n(k)).map((k) => `<details ${k === 'background' ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${groups[k]} · ${n(k)}</strong></summary>
-          <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Email</th><th>Field</th></tr></thead><tbody>${rows.filter((r) => r.state === k).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.field)}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
-    });
+          <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Brand</th><th>Email</th><th>Field</th></tr></thead><tbody>${rows.filter((r) => r.state === k).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(r.field)}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
+      document.getElementById('teg-fc').addEventListener('change', (e) => { withFC = e.target.checked; drawHeads(); });
+    }
 
     document.getElementById('teg-photos').addEventListener('click', async () => {
       out.innerHTML = '';
