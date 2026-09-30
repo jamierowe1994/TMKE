@@ -93,7 +93,9 @@ import "../../../styles/admin.css";
     /* Counts open the list of people behind them. */
     .ins-n { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; border-bottom: 1px dotted rgba(55,30,40,0.45); }
     .ins-n:hover { color: var(--english-violet); border-bottom-color: var(--english-violet); }
-    .aud-stat .ins-n { font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.1; border-bottom-width: 1px; }
+    .aud-stat .ins-n { display: block; font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.1; border-bottom-width: 1px; width: max-content; margin-bottom: 4px; }
+    .aud-who li small.why { color: #8a6a24; }
+    .aud-step.is-fixed .aud-step-detail { color: rgba(28,29,34,0.45); }
     .aud-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; }
     .aud-modal[hidden] { display: none; }
     .aud-modal-box { background: #fff; border-radius: 12px; width: min(720px, 100%); max-height: 84vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px -24px rgba(20,18,26,0.5); font-family: var(--sans); }
@@ -120,8 +122,12 @@ import "../../../styles/admin.css";
     .aud-people[open] > summary::after { content: "Hide"; }
     .aud-people-h { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); }
     .aud-people-n { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-left: 10px; flex: 1; }
-    .aud-people-tools { display: flex; gap: 10px; flex-wrap: wrap; padding: 0 20px 12px; }
-    .aud-people-tools input { flex: 1; min-width: 200px; height: 36px; padding: 0 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; font: 13px var(--sans); }
+    /* Search and filter side by side, the same height and style. */
+    .aud-people-tools { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 0 20px 14px; }
+    .aud-people-tools input, .aud-people-tools select { height: 40px; box-sizing: border-box; padding: 0 14px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; background: #fff; font: 13px var(--sans); color: var(--ink); margin: 0; }
+    .aud-people-tools input { flex: 0 1 380px; min-width: 200px; }
+    .aud-people-tools select { flex: none; width: 240px; }
+    .aud-people-tools input:focus, .aud-people-tools select:focus { outline: none; border-color: var(--english-violet); }
     .aud-ins-table { width: 100%; min-width: 760px; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
     .aud-ins-table th { text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 0 12px 8px 0; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
     .aud-ins-table th:first-child, .aud-ins-table td:first-child { text-align: left; }
@@ -186,7 +192,7 @@ import "../../../styles/admin.css";
     let q = "";
     function render() {
       const rows = PEOPLE.filter((p) => {
-        if (filter === "problems" && !p.steps.some((s) => s.outcome === "error")) return false;
+        if (filter === "problems" && !p.steps.some((s) => s.outcome === "error" && !s.fixed)) return false;
         return !q || (p.name + " " + p.email).toLowerCase().includes(q);
       });
       $("aud-empty").hidden = PEOPLE.length !== 0;
@@ -197,7 +203,7 @@ import "../../../styles/admin.css";
         <details class="aud-person">
           <summary class="aud-person-top">
             <div>
-              <div class="aud-person-name">${esc(p.name)}${p.steps.some((s) => s.outcome === "error") ? ' <span class="aud-badge error">problem</span>' : ""}</div>
+              <div class="aud-person-name">${esc(p.name)}${p.steps.some((s) => s.outcome === "error" && !s.fixed) ? ' <span class="aud-badge error">problem</span>' : ""}</div>
               <div class="aud-person-meta">${esc(p.email)} · entered ${esc(dt(p.created_at))}${p.next_run_at && (p.status === "active" || p.status === "waiting") ? " · next step " + esc(dt(p.next_run_at)) : ""}</div>
             </div>
             <span class="aud-person-last">${esc(lastEmail(p))}</span>
@@ -205,9 +211,9 @@ import "../../../styles/admin.css";
           </summary>
           <div class="aud-steps">
             ${p.steps.length ? p.steps.map((s) => `
-              <div class="aud-step ${s.outcome === "error" ? "is-error" : s.outcome === "skipped" ? "is-skipped" : ""}">
+              <div class="aud-step ${s.outcome === "error" ? (s.fixed ? "is-fixed" : "is-error") : s.outcome === "skipped" ? "is-skipped" : ""}">
                 <span class="aud-step-type">${esc(TYPE_LABEL[s.node_type] || s.node_type)}</span>
-                <span class="aud-step-detail">${esc(s.detail || (s.outcome === "ok" ? "ran" : s.outcome))}${s.outcome === "error" ? " ✗" : s.outcome === "ok" && s.node_type === "send_email" ? " ✓" : ""}</span>
+                <span class="aud-step-detail">${esc(s.detail || (s.outcome === "ok" ? "ran" : s.outcome))}${s.outcome === "error" ? (s.fixed ? " · sent later" : " ✗") : s.outcome === "ok" && s.node_type === "send_email" ? " ✓" : ""}</span>
                 <span class="aud-step-when">${esc(dt(s.created_at))}</span>
               </div>`).join("") : '<div class="aud-none">Nothing has run for them yet.</div>'}
           </div>
@@ -312,13 +318,16 @@ import "../../../styles/admin.css";
           const k = e.email || e.contact_id;
           if (k && (!deliveredAt.has(k) || e.occurred_at < deliveredAt.get(k))) deliveredAt.set(k, e.occurred_at);
         });
-        const ipReach = new Map();
+        const T = (e) => new Date(e.occurred_at).getTime();
+        // Every open and click an address made, and for whom, so "one
+        // address, several people's post" can be judged moment by moment.
+        const ipHits = new Map();
         ev.forEach((e) => {
           if (e.event !== "clicked" && e.event !== "opened") return;
           const ip = ipOf(e);
           if (!ip) return;
-          if (!ipReach.has(ip)) ipReach.set(ip, new Set());
-          ipReach.get(ip).add(e.email || e.contact_id);
+          if (!ipHits.has(ip)) ipHits.set(ip, []);
+          ipHits.get(ip).push({ t: T(e), r: e.email || e.contact_id });
         });
         /* Two recipients on one IP is not proof: a whole office can share one
            address on the way out. Three or more, within the hour of delivery,
@@ -371,7 +380,14 @@ import "../../../styles/admin.css";
            without ever calling somebody keen a robot. */
         const BURST_SECONDS = 5;
         const msgKey = (e) => (e.message_id || e.subject || "") + "|" + (e.email || e.contact_id || "");
-        const machineIp = new Set();          // "<message>|<recipient>|<ip>"
+        /* Every rule is judged in the minutes around what tripped it, not for
+           the whole day. A scanner checking the email at 07:06 said nothing
+           about the person who opened it at 07:17 and clicked at 07:18 from
+           the same office connection, and that is how Julian Smith was left
+           out (30 Sep 2026). Each exclusion keeps its reason, shown in the
+           pop-outs. */
+        const PAD = 120e3;                    // two minutes either side
+        const machineWin = new Map();         // "<message>|<recipient>|<ip>" -> [{ from, to, why }]
         (function findMachinePasses() {
           const byKeyIp = new Map();
           ev.forEach((e) => {
@@ -382,53 +398,51 @@ import "../../../styles/admin.css";
             if (!byKeyIp.has(k)) byKeyIp.set(k, []);
             byKeyIp.get(k).push(e);
           });
+          const mark = (k, a, b, why) => { if (!machineWin.has(k)) machineWin.set(k, []); machineWin.get(k).push({ from: T(a), to: T(b), why }); };
           byKeyIp.forEach((list, k) => {
-            list.sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
-            // Its agent changed while it worked: not one browser, one farm.
-            const agents = new Set(list.map(uaOf).filter(Boolean));
-            if (agents.size > 1) { machineIp.add(k); return; }
-            // Two different links inside a few seconds: not one pair of hands.
+            list.sort((a, b) => T(a) - T(b));
             for (let a = 0; a < list.length; a++) {
               for (let b = a + 1; b < list.length; b++) {
-                const gap = (new Date(list[b].occurred_at) - new Date(list[a].occurred_at)) / 1000;
-                if (gap > BURST_SECONDS) break;
+                const gap = (T(list[b]) - T(list[a])) / 1000;
+                if (gap > 120) break;
+                // Its browser changed within two minutes: not one browser.
+                const ua = uaOf(list[a]), ub = uaOf(list[b]);
+                if (ua && ub && ua !== ub) mark(k, list[a], list[b], "Its browser changed within two minutes, which one person's browser can't do");
+                // Two different links within seconds: not one pair of hands.
                 const la = linkOf(list[a]), lb = linkOf(list[b]);
-                if (la && lb && la !== lb) { machineIp.add(k); return; }
+                if (gap <= BURST_SECONDS && la && lb && la !== lb) mark(k, list[a], list[b], `Opened two different links ${gap < 1 ? "in under a second" : `within ${Math.round(gap)} seconds`}`);
               }
             }
           });
         })();
 
         /* ONE ADDRESS, SEVERAL PEOPLE'S POST.
-
-           The strongest signal of all, and it is only visible ACROSS
-           recipients: 135.232.20.144 clicked for six different agents inside
-           two and a half minutes. Judged one recipient at a time that address
-           looks blameless -- one click, one agent, no burst -- which is
-           exactly how sixteen scanner clicks were reported as people.
-
-           A person has one inbox. Three different recipients on one address is
-           a queue being worked through, and it is true whenever it happens:
-           this rule used to be gated to the hour after delivery, which is the
-           same quarantine trap as before -- mail held for two days is scanned
-           on release, and every rule keyed to delivery time looks the other
-           way. Behaviour does not expire. */
-        const MACHINE_IP_REACH = 3;
-        function isMachine(e) {
-          if (e.event !== "clicked" && e.event !== "opened") return false;
+           135.232.20.144 clicked for six different agents inside two and a
+           half minutes: a queue being worked through. Judged within three
+           minutes, so an office whose people read their post across a
+           morning on one shared connection isn't mistaken for one. */
+        const MACHINE_IP_REACH = 3, REACH_WINDOW = 3 * 60e3;
+        const reachAt = (ip, t) => new Set((ipHits.get(ip) || []).filter((h) => Math.abs(h.t - t) <= REACH_WINDOW).map((h) => h.r)).size;
+        function machineWhy(e) {
+          if (e.event !== "clicked" && e.event !== "opened") return "";
           const ip = ipOf(e);
-          if (knownScanner(ip)) return true;
-          const reach = ip ? (ipReach.get(ip) || new Set()).size : 0;
-          if (reach >= MACHINE_IP_REACH) return true;
-          // How this address behaved for this one message and recipient.
-          if (ip && machineIp.has(msgKey(e) + "|" + ip)) return true;
-          // A mail client rendering the message is a person reading it.
-          if (e.event === "opened" && isMailClient(uaOf(e))) return false;
-          return false;
+          if (knownScanner(ip)) return "A known email-security scanner address";
+          if (ip) {
+            const n = reachAt(ip, T(e));
+            if (n >= MACHINE_IP_REACH) return `The same internet address acted for ${n} different people within three minutes`;
+            const w = (machineWin.get(msgKey(e) + "|" + ip) || []).find((x) => T(e) >= x.from - PAD && T(e) <= x.to + PAD);
+            if (w) return w.why;
+          }
+          return "";
         }
+        const isMachine = (e) => !!machineWhy(e);
 
         const who = (e) => e.contact_id || e.email || Math.random();
-        const uniq = (list, name) => new Set(list.filter((x) => x.event === name).map(who)).size;
+        // One email to one person counts once: the whole funnel's sent is
+        // sends (people x emails), and delivered, opened and clicked count on
+        // the same basis, so the rates across the funnel mean something.
+        const sendKey = (x) => keyOf(x) + "|" + who(x);
+        const uniq = (list, name) => new Set(list.filter((x) => x.event === name).map(sendKey)).size;
         const count = (list, name) => list.filter((x) => x.event === name).length;
         // "Not sent" splits two very different things: people the funnel is
         // right not to email (no opt-in, unsubscribed), and sends that failed.
@@ -464,9 +478,12 @@ import "../../../styles/admin.css";
         const gateReason = /opt-?in|unsubscribed|do-not-contact|suppressed/i;
         // One per message: Resend's own "sent" report for a message we'd
         // already logged used to count it twice (380 for 190, 30 Sep 2026).
-        const sentOnce = (list) => new Set(list.filter((x) => x.event === "sent").map((x) => x.message_id || (x.subject || "") + "|" + who(x))).size;
         const stats = (list) => {
-          const sent = sentOnce(list);
+          const sent = uniq(list, "sent");
+          // A send that failed and then went out on a resend isn't a problem
+          // any more; only the ones still not sent count as failed.
+          const wentOut = new Set(list.filter((x) => x.event === "sent").map(sendKey));
+          const stillBlocked = (re, want) => new Set(list.filter((x) => x.event === "blocked" && re.test(x.detail || "") === want && !wentOut.has(sendKey(x))).map(sendKey)).size;
           const delivered = uniq(list, "delivered");
           const people = list.filter((x) => !isMachine(x));
           return {
@@ -476,8 +493,8 @@ import "../../../styles/admin.css";
             botClicked: uniq(list, "clicked") - uniq(people, "clicked"),
             unsub: uniq(list, "unsubscribed"),
             bounced: uniq(list, "bounced"), spam: uniq(list, "complained"),
-            skipped: list.filter((x) => x.event === "blocked" && gateReason.test(x.detail || "")).length,
-            failed: list.filter((x) => x.event === "blocked" && !gateReason.test(x.detail || "")).length,
+            skipped: stillBlocked(gateReason, true),
+            failed: stillBlocked(gateReason, false),
             base: delivered || sent,
           };
         };
@@ -493,11 +510,13 @@ import "../../../styles/admin.css";
           (cs || []).forEach((c) => names.set(c.id, [c.first_name, c.last_name].filter(Boolean).join(" ")));
         }
         const shortLink = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, "") || u; } catch (_) { return u || ""; } };
+        const groupName = (x) => (groups.get(keyOf(x)) || {}).name || "";
+        let perEmail = false;
         const peopleOf = (list, evName, keep) => {
           const by = new Map();
           list.filter((x) => x.event === evName && (!keep || keep(x))).forEach((x) => {
-            const k = who(x);
-            const cur = by.get(k) || { name: names.get(x.contact_id) || "", email: x.email || "", at: x.occurred_at, links: new Set(), detail: x.detail || "" };
+            const k = perEmail ? sendKey(x) : who(x);
+            const cur = by.get(k) || { name: names.get(x.contact_id) || "", email: x.email || "", at: x.occurred_at, links: new Set(), detail: x.detail || "", what: perEmail ? groupName(x) : "", why: machineWhy(x) };
             if (x.occurred_at < cur.at) cur.at = x.occurred_at;
             const l = linkOf(x) || x.url; if (l) cur.links.add(shortLink(l));
             by.set(k, cur);
@@ -517,7 +536,9 @@ import "../../../styles/admin.css";
           };
         };
         const LISTS = new Map();
-        LISTS.set("all", { title: "All emails", ...lists(ev) });
+        perEmail = true;
+        LISTS.set("all", { title: "All emails in the funnel", ...lists(ev) });
+        perEmail = false;
         const btn = (key, m, n) => n ? `<button type="button" class="ins-n" data-k="${esc(key)}" data-m="${m}">${n}</button>` : `<b>${n}</b>`;
 
         const stat = (label, n, rate, bad, m) => `<div class="aud-stat${bad && n ? " is-bad" : ""}">${m ? btn("all", m, n) : `<b>${n}</b>`}<span>${label}</span>${rate ? `<small>${rate}</small>` : ""}</div>`;
@@ -557,7 +578,7 @@ import "../../../styles/admin.css";
         // A number clicked: who's behind it, in a pop-out. Opens and clicks
         // that were security scanners are listed apart, and not counted.
         const LABEL = { sent: "Sent", delivered: "Delivered", opened: "Opened", clicked: "Clicked", unsub: "Unsubscribed", bounced: "Bounced" };
-        const whoList = (arr, bot) => `<ul class="aud-who${bot ? " is-bot" : ""}">${arr.map((x) => `<li><span><b>${esc(x.name || x.email)}</b>${x.name ? `<br><small>${esc(x.email)}</small>` : ""}</span><span class="w">${esc(dt(x.at))}</span>${x.links.size ? `<span class="l">${[...x.links].map(esc).join(" · ")}</span>` : ""}${x.detail && !x.links.size ? `<span class="l">${esc(x.detail)}</span>` : ""}</li>`).join("")}</ul>`;
+        const whoList = (arr, bot) => `<ul class="aud-who${bot ? " is-bot" : ""}">${arr.map((x) => `<li><span><b>${esc(x.name || x.email)}</b>${x.name ? `<br><small>${esc(x.email)}</small>` : ""}${x.what ? `<br><small>${esc(x.what)}</small>` : ""}${bot && x.why ? `<br><small class="why">Left out: ${esc(x.why)}</small>` : ""}</span><span class="w">${esc(dt(x.at))}</span>${x.links.size ? `<span class="l">${[...x.links].map(esc).join(" · ")}</span>` : ""}${x.detail && !x.links.size ? `<span class="l">${esc(x.detail)}</span>` : ""}</li>`).join("")}</ul>`;
         window.__audOpen = (key, m) => {
           const L = LISTS.get(key); if (!L) return;
           const arr = L[m] || [], bots = m === "opened" ? L.openedBots : m === "clicked" ? L.clickedBots : [];
@@ -565,7 +586,7 @@ import "../../../styles/admin.css";
           box.innerHTML = `<div class="aud-modal-box" role="dialog" aria-modal="true" aria-label="${esc(LABEL[m])}">
             <div class="aud-modal-head"><div><h3>${esc(LABEL[m])} · ${arr.length} ${arr.length === 1 ? "person" : "people"}</h3><p>${esc(L.title)}</p></div><button type="button" class="aud-modal-x" data-close aria-label="Close">&times;</button></div>
             <div class="aud-modal-body">${arr.length ? whoList(arr) : '<p class="aud-none">Nobody yet.</p>'}
-              ${bots.length ? `<details class="aud-bots"><summary>Security scanners · ${bots.length}, not counted</summary><p>Work email filters open and click every link before the person sees the email. These were caught doing that, so they're left out of the numbers.</p>${whoList(bots, true)}</details>` : ""}</div></div>`;
+              ${bots.length ? `<details class="aud-bots"><summary>Security scanners · ${bots.length}, not counted</summary><p>Work email filters open and click links before the person sees the email. These looked like that, so they're left out of the numbers. Each says why. If one was really a person, tell us and the rule can be looked at.</p>${whoList(bots, true)}</details>` : ""}</div></div>`;
           box.hidden = false;
         };
 
@@ -702,7 +723,7 @@ import "../../../styles/admin.css";
         for (let from = 0; from < 100000; from += 1000) {
           const { data: page } = await supabase
             .from("automation_runs")
-            .select("id, enrollment_id, node_type, outcome, detail, created_at")
+            .select("id, enrollment_id, node_id, node_type, outcome, detail, created_at")
             .eq("automation_id", id)
             .order("created_at", { ascending: true }).order("id", { ascending: true })
             .range(from, from + 999);
@@ -716,6 +737,11 @@ import "../../../styles/admin.css";
         });
       }
 
+      // A send that errored and later went out for the same step was put
+      // right: shown, but not as a problem to act on.
+      runsBy.forEach((list) => list.forEach((s2, i) => {
+        if (s2.outcome === "error") s2.fixed = list.slice(i + 1).some((x) => x.outcome === "ok" && x.node_type === s2.node_type && (!s2.node_id || x.node_id === s2.node_id));
+      }));
       PEOPLE = rows.map((r) => {
         const c = byContact.get(r.contact_id) || {};
         return {
@@ -727,7 +753,7 @@ import "../../../styles/admin.css";
       });
 
       const emails = PEOPLE.reduce((n, p) => n + p.steps.filter((s) => s.node_type === "send_email" && s.outcome === "ok").length, 0);
-      const failed = PEOPLE.reduce((n, p) => n + p.steps.filter((s) => s.outcome === "error").length, 0);
+      const failed = PEOPLE.filter((p) => p.steps.some((s) => s.outcome === "error" && !s.fixed)).length;
       $("aud-sub").textContent = `${PEOPLE.length} ${PEOPLE.length === 1 ? "person has" : "people have"} entered · ${emails} email${emails === 1 ? "" : "s"} sent${failed ? ` · ${failed} problem${failed === 1 ? "" : "s"}` : ""}`;
       $("aud-loading").hidden = true;
       $("aud-people-n").textContent = `${PEOPLE.length} ${PEOPLE.length === 1 ? "person" : "people"}${failed ? ` · ${failed} problem${failed === 1 ? "" : "s"}` : ""}`;
