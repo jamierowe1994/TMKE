@@ -48,6 +48,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               <span class="ci-pay-hint">Adds a &ldquo;Pay by card&rdquo; button to the email. Bank details stay on the invoice either way.</span>
             </div>
             <h3 class="inv-h">Bill to</h3>
+            <!-- Ties the invoice to a recurring one on the Monthly checklist,
+                 for a month: the sure link, whatever address it goes to. -->
+            <div class="inv-row2b ci-rec-row">
+              <label class="inv-field"><span>Recurring invoice (optional)</span><select id="ci-recurring"><option value="">— Not a recurring invoice —</option></select></label>
+              <label class="inv-field" id="ci-month-f" hidden><span>For month</span><input id="ci-month" type="month" /></label>
+            </div>
             <label class="inv-field"><span>From the address book</span><select id="ci-recip"><option value="">— Choose a partner, or type below —</option></select></label>
             <label class="inv-field"><span>Invoice to *</span><input id="ci-name" placeholder="e.g. Fine &amp; Country — Rugby" /></label>
             <!-- Who the work was FOR, which on inter-brand billing is not who
@@ -139,9 +145,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           <p class="inv-intro">Every active social media client, and the recurring invoices added below, month by month: has the invoice gone out, and has it been paid. A reminder comes on the 14th and 21st for anything not sent yet.</p>
           <p class="inv-msg is-err" id="mc-msg" hidden></p>
           <div class="mc-wrap"><table class="mc-tbl" id="mc-tbl"></table></div>
-          <p class="mc-key"><span class="mc-y">&#10003;</span> done &nbsp; <span class="mc-n">&#10007;</span> not yet &nbsp; <span class="mc-d">Draft</span> raised, not sent &nbsp; <span class="mc-na">&ndash;</span> not due (before they started, or a month still to come)</p>
+          <p class="mc-key"><span class="mc-y">&#10003;</span> done &nbsp; <span class="mc-n">&#10007;</span> not yet &nbsp; <span class="mc-d">Draft</span> raised, not sent &nbsp; <span class="mc-na">&ndash;</span> not due (before they started, or a month still to come) &nbsp; <span class="mc-note">&#9998;</span> a note (click any month to add one)</p>
 
-          <h3 class="mc-h">Add a recurring invoice</h3>
+          <h3 class="mc-h" id="mc-form-h">Add a recurring invoice</h3>
           <p class="inv-intro">For anyone billed every month who isn't a social media client, such as a brand's marketing assets and hub. An invoice counts for a month when it goes to this address; add words that are always on it if the same address gets other invoices too.</p>
           <form id="mc-form" class="inv-book-form">
             <div class="inv-row">
@@ -158,8 +164,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             </div>
             <datalist id="mc-emails"></datalist>
             <p class="inv-msg" id="mc-form-msg" hidden></p>
-            <button type="submit" class="inv-save">Add to the checklist</button>
+            <div class="mc-form-acts"><button type="submit" class="inv-save" id="mc-form-btn">Add to the checklist</button><button type="button" class="inv-ghost" id="mc-form-cancel" hidden>Cancel</button></div>
           </form>
+          <div class="mc-modal" id="mc-modal" hidden></div>
         </div>
       </div>
     </section>
@@ -343,6 +350,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .inv-book-form .inv-row { grid-template-columns: 1fr 1fr; }
     @media (max-width: 640px) { .inv-row, .inv-book-form .inv-row { grid-template-columns: 1fr; } }
     .inv-field { display: flex; flex-direction: column; gap: 6px; }
+    .inv-field[hidden] { display: none; }
     .inv-field > span { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
     .inv-field input, .inv-field textarea { font-family: var(--sans); font-size: 14.5px; padding: 10px 12px; border-radius: 9px; border: 1px solid rgba(28,29,34,0.14); background: #fff; color: var(--ink); resize: vertical; }
     /* Fill the label rather than sitting at the browser's default ~155px. The
@@ -383,6 +391,19 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .mc-y { color: #2e7d46; font-weight: 700; } .mc-n { color: #b3261e; font-weight: 700; } .mc-d { color: #8a6a24; font-weight: 700; font-size: 11.5px; } .mc-na { color: rgba(28,29,34,0.3); }
     .mc-x { appearance: none; border: 0; background: none; cursor: pointer; color: rgba(28,29,34,0.4); font-size: 16px; margin-left: 6px; }
     .mc-x:hover { color: #b3261e; }
+    .mc-cell { cursor: pointer; }
+    .mc-cell:hover { background: rgba(55,30,40,0.06); }
+    .mc-note { color: var(--english-violet); font-size: 12px; margin-left: 4px; }
+    .mc-raise { appearance: none; cursor: pointer; margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--english-violet); background: #fff; color: var(--english-violet); font: 700 10.5px var(--sans); letter-spacing: 0.04em; }
+    .mc-raise:hover { background: var(--english-violet); color: #fff; }
+    .mc-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
+    .mc-modal[hidden] { display: none; }
+    .mc-modal-box { background: #fff; border-radius: 12px; width: min(520px, 100%); padding: 20px 22px; box-shadow: 0 24px 60px -24px rgba(20,18,26,0.5); }
+    .mc-modal-box h3 { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); margin: 0; }
+    .mc-skip { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); margin: 10px 0 4px; cursor: pointer; }
+    .mc-skip input { accent-color: var(--english-violet); }
+    .mc-modal-acts, .mc-form-acts { display: flex; gap: 10px; justify-content: flex-end; margin-top: 14px; }
+    .mc-form-acts { justify-content: flex-start; }
     .mc-key { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0 0 22px; }
     .mc-h { font-family: var(--serif); font-size: 18px; font-weight: 500; color: var(--ink); margin: 8px 0 6px; }
     .inv-msg { font-family: var(--sans); font-size: 13px; border-radius: 8px; padding: 9px 12px; margin: 4px 0 0; }
@@ -856,6 +877,31 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     $("ci-items").addEventListener("click", (e) => { const b = e.target.closest(".ci-del"); if (!b) return; ciItems.splice(+b.getAttribute("data-i"), 1); if (!ciItems.length) ciItems.push({ description: "", amount: "" }); ciRefresh(); });
     $("ci-add-item").addEventListener("click", () => { ciItems.push({ description: "", amount: "" }); ciRefresh(); });
     ["ci-name", "ci-client", "ci-email", "ci-address", "ci-issued", "ci-due", "ci-notes"].forEach((id) => $(id).addEventListener("input", ciPreview));
+    // Recurring invoices, for the Create form's link and prefill.
+    let ciRecurring = [];
+    async function loadRecurringOptions() {
+      try { const d = await api("/invoicing/recurring"); ciRecurring = d.recurring || []; } catch (_) { ciRecurring = []; }
+      const sel = $("ci-recurring"), keep = sel.value;
+      sel.innerHTML = `<option value="">— Not a recurring invoice —</option>` + ciRecurring.map((r) => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join("");
+      sel.value = keep;
+    }
+    // Choosing one fills in who it goes to and the line, if those are empty.
+    function ciApplyRecurring(id, ym) {
+      const r = ciRecurring.find((x) => x.id === id);
+      $("ci-month-f").hidden = !r;
+      if (!r) return;
+      $("ci-month").value = ym || $("ci-month").value || new Date().toISOString().slice(0, 7);
+      const book = ciRecipients.find((x) => String(x.email || "").toLowerCase() === String(r.match_email || "").toLowerCase());
+      if (book && !$("ci-name").value) { $("ci-recip").value = book.id; $("ci-name").value = book.name; $("ci-address").value = book.address || ""; }
+      if (!$("ci-name").value) $("ci-name").value = r.name;
+      if (!$("ci-email").value) $("ci-email").value = r.match_email || "";
+      if (ciItems.length === 1 && !ciItems[0].description && !ciItems[0].amount) {
+        const label = new Date($("ci-month").value + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+        ciItems = [{ description: `${r.name} — ${label}`, amount: r.amount_pence != null ? (r.amount_pence / 100).toFixed(2) : "" }];
+      }
+      ciRefresh();
+    }
+    $("ci-recurring").addEventListener("change", (e) => ciApplyRecurring(e.target.value));
     $("ci-recip").addEventListener("change", (e) => { const r = ciRecipients.find((x) => x.id === e.target.value); if (r) { $("ci-name").value = r.name; $("ci-email").value = r.email || ""; $("ci-address").value = r.address || ""; ciPreview(); } });
     $("ci-open-pdf").addEventListener("click", () => { const w = window.open("", "_blank"); if (!w) return; w.document.open(); w.document.write(renderInvoiceHtml({ settings: ciSettings(), invoice: ciBuildInvoice() })); w.document.close(); });
     // Create a draft; returns the saved invoice (or null on validation/error).
@@ -864,7 +910,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (!inv.bill_to_name) { msg("ci-msg", "Enter a recipient name.", false); return null; }
       if (requireEmail && !inv.bill_to_email) { msg("ci-msg", "Enter a recipient email to send to.", false); return null; }
       if (!inv.line_items.some((it) => it.description || it.unit_pence)) { msg("ci-msg", "Add at least one line item.", false); return null; }
-      const payload = { bill_to_name: inv.bill_to_name, client_name: inv.client_name || null, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items };
+      const recId = $("ci-recurring").value || null, recMonth = recId ? ($("ci-month").value || null) : null;
+      if (recId && !recMonth) { msg("ci-msg", "Choose which month this recurring invoice is for.", false); return null; }
+      const payload = { recurring_id: recId, billing_month: recMonth, bill_to_name: inv.bill_to_name, client_name: inv.client_name || null, bill_to_email: inv.bill_to_email || null, bill_to_address: inv.bill_to_address || null, cc_email: $("ci-cc").value.trim(), recipient_id: $("ci-recip").value || null, issued_date: inv.issued_date, due_date: inv.due_date, notes: inv.notes, template: ciTemplate, pay_by_card: ciPayByCard, release_on_payment: ciRelease, terms_days: inv.terms_days, line_items: inv.line_items };
 
       // A draft is edited in place - nothing has been sent, so there is no
       // reason to burn a number or leave a void behind.
@@ -894,7 +942,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       }
       return invoice;
     }
-    function ciReset() { ciEditing = null; $("ci-create").textContent = "Save draft"; $("ci-send").textContent = "Create & send"; ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-client", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; ciRefresh(); }
+    function ciReset() { ciEditing = null; $("ci-create").textContent = "Save draft"; $("ci-send").textContent = "Create & send"; ciItems = [{ description: "", amount: "" }]; ["ci-name", "ci-client", "ci-email", "ci-address"].forEach((id) => { $(id).value = ""; }); $("ci-notes").value = NOTES_DEFAULT; $("ci-cc").value = currentSettings.accounts_cc_email || ""; $("ci-recip").value = ""; $("ci-recurring").value = ""; $("ci-month").value = ""; $("ci-month-f").hidden = true; ciRefresh(); }
     $("ci-create").addEventListener("click", async () => {
       const btn = $("ci-create"); btn.disabled = true; btn.textContent = "Saving…";
       try {
@@ -1280,15 +1328,20 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         if (!d.recurringReady) notes.push("Recurring invoices need supabase/recurring_invoices.sql running once in Supabase; social clients show without it.");
         (d.warnings || []).forEach((w) => notes.push("Couldn't read " + w));
         if (notes.length) { m.textContent = notes.join(" "); m.hidden = false; }
+        const noteMark = (c) => c && (c.note || c.skip) ? `<span class="mc-note" title="${esc((c.skip ? "No invoice this month. " : "") + (c.note || ""))}">&#9998;</span>` : "";
         const mark = (c, which, ym) => {
+          if (c && c.skip) return which === "sent" ? `<span class="mc-na">No invoice</span>` : `<span class="mc-na">&ndash;</span>`;
           if (!c || !c.due || ym > d.today) return `<span class="mc-na">&ndash;</span>`;
           if (which === "sent") return c.sent ? `<span class="mc-y" title="${esc(c.numbers.join(", "))}">&#10003;</span>` : c.draft ? `<span class="mc-d" title="${esc(c.numbers.join(", "))}">Draft</span>` : `<span class="mc-n">&#10007;</span>`;
           return !c.sent ? `<span class="mc-na">&ndash;</span>` : c.paid ? `<span class="mc-y">&#10003;</span>` : `<span class="mc-n">&#10007;</span>`;
         };
         const cls = (ym, i) => `${i === 0 ? "m0" : ""}${ym === d.today ? " is-now" : ""}`;
+        // A recurring month not sent yet can be raised from here, linked.
+        const raise = (r, ym) => { const c = r.cells[ym]; return r.kind === "recurring" && c && c.due && !c.sent && !c.draft && ym <= d.today ? `<button type="button" class="mc-raise" data-mcraise="${esc(r.id)}|${ym}">Raise</button>` : ""; };
         const row = (r) => `<tr><td class="l"><b>${esc(r.client)}</b><small>${esc([r.contact, r.kind === "social" ? r.manager : r.match_email, r.note].filter(Boolean).join(" · "))}</small></td>
-          <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
-          ${d.months.map((ym) => `<td class="${cls(ym, 0)}">${mark(r.cells[ym], "sent", ym)}</td><td class="${cls(ym, 1)}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
+          <td class="amt">${r.amount_pence != null ? gbp(r.amount_pence) : "–"}${r.kind === "recurring" ? `<button type="button" class="mc-x" data-mcedit="${esc(r.id)}" title="Edit" aria-label="Edit ${esc(r.client)}">&#9998;</button><button type="button" class="mc-x" data-mcdel="${esc(r.id)}" title="Take off the checklist" aria-label="Take ${esc(r.client)} off the checklist">&times;</button>` : ""}</td>
+          ${d.months.map((ym) => `<td class="${cls(ym, 0)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="Click to add a note">${mark(r.cells[ym], "sent", ym)}${raise(r, ym)}${noteMark(r.cells[ym])}</td><td class="${cls(ym, 1)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
+        MC_ROWS = d.rows;
         const social = d.rows.filter((r) => r.kind === "social"), rec = d.rows.filter((r) => r.kind === "recurring");
         const span = 2 + d.months.length * 2;
         tbl.innerHTML = `<thead><tr><th class="l" rowspan="2">Client</th><th rowspan="2" style="text-align:right">Monthly</th>${d.months.map((ym) => `<th colspan="2" class="m0${ym === d.today ? " is-now" : ""}">${esc(ymLabel(ym))}</th>`).join("")}</tr>
@@ -1299,6 +1352,21 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             <tr class="mc-sec"><td colspan="${span}">Recurring invoices · ${rec.length}</td></tr>
             ${rec.map(row).join("") || `<tr><td class="l" colspan="${span}">None yet. Add one below.</td></tr>`}
           </tbody>`;
+        tbl.querySelectorAll("[data-mcedit]").forEach((b) => b.addEventListener("click", () => mcEdit(d.rows.find((x) => x.id === b.dataset.mcedit))));
+        tbl.querySelectorAll("[data-mcraise]").forEach((b) => b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const [id, ym] = b.dataset.mcraise.split("|");
+          // The row carries what the form needs, so Raise works even before
+          // the recurring list has loaded on the Create tab.
+          const row = d.rows.find((x) => x.id === id);
+          if (row && !ciRecurring.some((x) => x.id === id)) ciRecurring.push({ id, name: row.client, match_email: row.match_email, amount_pence: row.amount_pence });
+          if (row && !$("ci-recurring").querySelector(`option[value="${id}"]`)) $("ci-recurring").insertAdjacentHTML("beforeend", `<option value="${esc(id)}">${esc(row.client)}</option>`);
+          ciReset(); document.querySelector('.inv-tab[data-tab="create"]')?.click();
+          $("ci-recurring").value = id; ciApplyRecurring(id, ym);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }));
+        tbl.querySelectorAll("[data-mcnote]").forEach((td) => td.addEventListener("click", () => { const [kind, id, ym] = td.dataset.mcnote.split("|"); mcNote(kind, id, ym); }));
+        if (d.notesReady === false) { m.textContent = (m.hidden ? "" : m.textContent + " ") + "Notes need supabase/invoice_month_notes.sql running once in Supabase."; m.hidden = false; }
         tbl.querySelectorAll("[data-mcdel]").forEach((b) => b.addEventListener("click", async () => {
           if (!confirm("Take this off the monthly checklist? Its invoices aren't touched.")) return;
           try { await api(`/invoicing/recurring?id=${encodeURIComponent(b.dataset.mcdel)}`, { method: "DELETE" }); loadMonthly(); } catch (err) { alert(err.message); }
@@ -1307,6 +1375,43 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       // Addresses from the address book, to pick from.
       try { const rr = await api("/invoicing/recipients"); $("mc-emails").innerHTML = (rr.recipients || rr.rows || []).map((x) => `<option value="${esc(x.email)}">${esc(x.name)}</option>`).join(""); } catch (_) {}
     }
+    let MC_ROWS = [];
+    // A note on a month, and whether an invoice is due at all.
+    function mcNote(kind, id, ym) {
+      const r = MC_ROWS.find((x) => x.id === id && x.kind === kind); if (!r) return;
+      const c = r.cells[ym] || {};
+      const host = $("mc-modal");
+      host.innerHTML = `<div class="mc-modal-box" role="dialog" aria-modal="true" aria-label="Note">
+        <h3>${esc(r.client)} · ${esc(new Date(ym + "-15T12:00:00Z").toLocaleDateString("en-GB", { month: "long", year: "numeric" }))}</h3>
+        <p class="inv-intro" style="margin:4px 0 12px">${c.numbers && c.numbers.length ? "Invoices: " + esc(c.numbers.join(", ")) : "No invoice for this month yet."}</p>
+        <label class="inv-field"><span>Note</span><textarea id="mc-note-t" rows="3" placeholder="e.g. Not charged this month, agreed with Sean">${esc(c.note || "")}</textarea></label>
+        <label class="mc-skip"><input type="checkbox" id="mc-note-skip" ${c.skip ? "checked" : ""}> No invoice this month (not flagged as missing)</label>
+        <p class="inv-msg" id="mc-note-msg" hidden></p>
+        <div class="mc-modal-acts"><button type="button" class="inv-ghost" data-mcclose>Cancel</button><button type="button" class="inv-save" id="mc-note-save">Save</button></div>
+      </div>`;
+      host.hidden = false; $("mc-note-t").focus();
+      $("mc-note-save").addEventListener("click", async () => {
+        try {
+          await api("/invoicing/month-note", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ row_kind: kind, row_id: id, month: ym, note: $("mc-note-t").value, skip: $("mc-note-skip").checked }) });
+          host.hidden = true; loadMonthly();
+        } catch (err) { msg("mc-note-msg", err.message, false); }
+      });
+    }
+    $("mc-modal").addEventListener("click", (e) => { if (e.target.id === "mc-modal" || e.target.closest("[data-mcclose]")) $("mc-modal").hidden = true; });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("mc-modal").hidden = true; });
+    // Editing a recurring invoice: back into the form, saved in place.
+    let mcEditing = null;
+    function mcEdit(r) {
+      if (!r) return;
+      const f = $("mc-form");
+      mcEditing = r.id;
+      f.name.value = r.client; f.contact_name.value = r.contact || ""; f.match_email.value = r.match_email || "";
+      f.amount.value = r.amount_pence != null ? (r.amount_pence / 100).toFixed(2) : ""; f.match_text.value = r.match_text || ""; f.start_month.value = r.start_month || "";
+      $("mc-form-h").textContent = "Edit a recurring invoice"; $("mc-form-btn").textContent = "Save changes"; $("mc-form-cancel").hidden = false;
+      f.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    function mcEditDone() { mcEditing = null; $("mc-form").reset(); $("mc-form-h").textContent = "Add a recurring invoice"; $("mc-form-btn").textContent = "Add to the checklist"; $("mc-form-cancel").hidden = true; }
+    $("mc-form-cancel").addEventListener("click", mcEditDone);
     $("mc-prev").addEventListener("click", () => { mcFrom = [MC_FIRST, ymAdd(mcFrom, -6)].sort()[1]; loadMonthly(); });
     $("mc-next").addEventListener("click", () => { mcFrom = ymAdd(mcFrom, 6); loadMonthly(); });
     $("mc-form").addEventListener("submit", async (e) => {
@@ -1314,17 +1419,18 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       const f = new FormData(e.target);
       const amt = String(f.get("amount") || "").trim();
       try {
+        const was = mcEditing;
         await api("/invoicing/recurring", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-          name: f.get("name"), contact_name: f.get("contact_name"), match_email: f.get("match_email"), match_text: f.get("match_text"),
+          id: mcEditing || undefined, name: f.get("name"), contact_name: f.get("contact_name"), match_email: f.get("match_email"), match_text: f.get("match_text"),
           amount_pence: amt ? Math.round(Number(amt) * 100) : null, start_month: f.get("start_month") || null,
         }) });
-        e.target.reset(); msg("mc-form-msg", "Added.", true); loadMonthly();
+        mcEditDone(); msg("mc-form-msg", was ? "Saved." : "Added.", true); loadMonthly(); loadRecurringOptions();
       } catch (err) { msg("mc-form-msg", err.message, false); }
     });
 
     document.addEventListener("ash:ready", (e) => {
       applyMgmt(!!(e.detail && e.detail.isManagement));
-      initTemplate(); loadSettings(); loadRecipients();
+      initTemplate(); loadSettings(); loadRecipients(); loadRecurringOptions();
       // Deep link from the reminder: /admin/invoicing?tab=monthly
       const want = new URLSearchParams(location.search).get("tab");
       if (want) document.querySelector(`.inv-tab[data-tab="${want}"]`)?.click();
