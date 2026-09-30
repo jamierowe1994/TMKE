@@ -881,6 +881,19 @@ async function sbGet(env, table, qs) {
   return res.json();
 }
 
+// Every matching row, a thousand at a time: Supabase returns 1,000 rows at
+// most per request whatever the limit asks for. `qs` must carry an order.
+async function sbGetAll(env, table, qs, cap = 50000) {
+  const out = [];
+  for (let off = 0; off < cap; off += 1000) {
+    const page = await sbGet(env, table, `${qs}&limit=1000&offset=${off}`);
+    if (!page) return off ? out : null;
+    out.push(...page);
+    if (page.length < 1000) break;
+  }
+  return out;
+}
+
 // The free teaser set = the first `teaserCount` image files (created order).
 function teaserKeys(deliverables, teaserCount) {
   const imgs = (deliverables || []).filter((d) => d.kind === "image");
@@ -6354,7 +6367,7 @@ export default {
         const [aRows, enr, events] = await Promise.all([
           sbGet(env, "automations", `id=eq.${aid}&select=name,status,trigger_type,trigger_config,graph`),
           sbGet(env, "automation_enrollments", `automation_id=eq.${aid}&select=status,next_run_at`),
-          sbGet(env, "email_events", `automation_id=eq.${aid}&select=event,detail,subject,occurred_at&order=occurred_at.desc&limit=2000`),
+          sbGetAll(env, "email_events", `automation_id=eq.${aid}&select=event,detail,subject,occurred_at&order=occurred_at.desc,id.desc`),
         ]);
         const auto = aRows && aRows[0];
         if (!auto) return json({ error: "Automation not found." }, 404, request, env);

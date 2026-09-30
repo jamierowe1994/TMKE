@@ -173,15 +173,24 @@ import "../../../styles/admin.css";
     // email_events_automation.sql migration hasn't run yet.
     async function loadStats() {
       try {
+        // Supabase hands back 1,000 rows at most per request, whatever the
+        // limit says, so a funnel's events are read a thousand at a time.
+        // Asking once, oldest first, showed the first emails and left a later
+        // one at 0 sent (Autumn Edit email 3, 30 Sep 2026).
+        const readAll = async (cols) => {
+          const out = [];
+          for (let from = 0; from < 50000; from += 1000) {
+            const r = await supabase.from("email_events").select(cols)
+              .eq("automation_id", id).order("occurred_at", { ascending: true }).order("id", { ascending: true }).range(from, from + 999);
+            if (r.error) return { error: r.error };
+            out.push(...(r.data || []));
+            if ((r.data || []).length < 1000) break;
+          }
+          return { data: out };
+        };
         // node_id arrives with a migration; before it has run, ask without it.
-        let res = await supabase.from("email_events")
-          .select("event, contact_id, email, node_id, subject, message_id, provider, detail, occurred_at, raw")
-          .eq("automation_id", id).order("occurred_at", { ascending: true }).limit(20000);
-        if (res.error) {
-          res = await supabase.from("email_events")
-            .select("event, contact_id, email, subject, message_id, provider, detail, occurred_at")
-            .eq("automation_id", id).order("occurred_at", { ascending: true }).limit(20000);
-        }
+        let res = await readAll("event, contact_id, email, node_id, subject, message_id, provider, detail, occurred_at, raw");
+        if (res.error) res = await readAll("event, contact_id, email, subject, message_id, provider, detail, occurred_at");
         const ev = (res.data || []);
         const { data: autoRow } = await supabase.from("automations").select("graph, name").eq("id", id).maybeSingle();
         const nodes = ((autoRow && autoRow.graph && autoRow.graph.nodes) || []);
