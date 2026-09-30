@@ -21,6 +21,7 @@ import "../../styles/admin.css";
       <button type="button" class="admin-btn" id="teg-photos">What does photoApi hold?</button>
       <button type="button" class="admin-btn" id="teg-heads">Check the headshots</button>
       <button type="button" class="admin-btn" id="teg-heads-all">Check everyone</button>
+      <button type="button" class="admin-btn" id="teg-imp-prev">Preview headshot import</button>
       <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
       <span class="teg-status" id="teg-status"></span>
     </div>
@@ -60,6 +61,7 @@ import "../../styles/admin.css";
     .teg-shot .meta { display: flex; justify-content: space-between; gap: 6px; margin-top: 5px; color: rgba(28,29,34,0.6); }
     .teg-yes { color: #2b6b44; font-weight: 700; } .teg-no { color: #9a2a2a; font-weight: 700; }
     .ash-panel .teg-fc { display: inline-flex; align-items: center; gap: 7px; font-family: var(--sans); font-size: 13px; color: var(--ink); margin: 16px 0 0; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
+    .teg-thumb { display: block; width: 40px; height: 52px; border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center bottom; background-color: #f1eeee; }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
 
@@ -183,6 +185,54 @@ import "../../styles/admin.css";
           <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Brand</th><th>Email</th><th>Field</th></tr></thead><tbody>${rows.filter((r) => r.state === k).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(r.field)}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
       document.getElementById('teg-fc').addEventListener('change', (e) => { withFC = e.target.checked; drawHeads(); });
     }
+
+    /* Headshot import. Preview first: every TEG person and what would happen
+       to them, with the reason when nothing would. Then the import, one
+       person at a time, so progress shows and one failure stops nothing. */
+    const IMPORT_WHY = { import: 'New brand photo', update: 'Replaces the TEG photo we hold' };
+    document.getElementById('teg-imp-prev').addEventListener('click', async () => {
+      const btn = document.getElementById('teg-imp-prev');
+      out.innerHTML = ''; btn.disabled = true;
+      const rows = [], seen = new Set();
+      try {
+        for (let skip = 0; skip < 5000; skip += 20) {
+          say(`Previewing the import… ${rows.length} so far`);
+          const { body } = await call(`/teg/headshots/preview?skip=${skip}`);
+          if (!body || body.error) throw new Error((body && body.error) || 'No answer.');
+          const fresh = (body.rows || []).filter((r) => { const k = r.email || r.name; if (seen.has(k)) return false; seen.add(k); return true; });
+          rows.push(...fresh);
+          if (!fresh.length || (body.page || 0) < 20) break;
+        }
+      } catch (err) { say(err.message, 'is-err'); btn.disabled = false; return; }
+      btn.disabled = false;
+      const go = rows.filter((r) => r.action !== 'skip');
+      const reasons = {}; rows.filter((r) => r.action === 'skip').forEach((r) => { reasons[r.why] = (reasons[r.why] || 0) + 1; });
+      say(`${rows.length} TEG people looked at: ${go.length} headshot${go.length === 1 ? '' : 's'} ready to import.`, 'is-ok');
+      const table = (list, why) => `<div class="teg-tablewrap"><table class="teg-table"><thead><tr><th></th><th>Name</th><th>Brand</th><th>Email</th><th>${why ? 'Why' : 'What happens'}</th></tr></thead><tbody>${list.map((r) => `<tr><td>${r.photo && r.action !== 'skip' ? `<span class="teg-thumb" style="background-image:url('${esc(r.photo)}')"></span>` : ''}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(why ? r.why : IMPORT_WHY[r.action])}</td></tr>`).join('')}</tbody></table></div>`;
+      out.innerHTML = `
+        <div class="teg-sum"><div class="teg-stat"><b>${go.length}</b><span>Ready to import</span></div>${Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="teg-stat"><b>${n}</b><span>${esc(w)}</span></div>`).join('')}</div>
+        <p class="teg-note">Only background-free pictures, for people in our CRM with a profile for that brand. A photo someone at TMKE set by hand is never replaced. Each one is copied into our own storage.</p>
+        ${go.length ? `<button type="button" class="admin-btn admin-btn-primary" id="teg-imp-go" style="margin-top:12px">Import ${go.length} headshot${go.length === 1 ? '' : 's'}</button> <span class="teg-status" id="teg-imp-st"></span>` : ''}
+        ${go.length ? `<details open style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>Ready to import · ${go.length}</strong></summary>${table(go, false)}</details>` : ''}
+        ${rows.length > go.length ? `<details style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>Not imported · ${rows.length - go.length}</strong></summary>${table(rows.filter((r) => r.action === 'skip'), true)}</details>` : ''}`;
+      document.getElementById('teg-imp-go')?.addEventListener('click', async (e) => {
+        if (!confirm(`Import ${go.length} headshot${go.length === 1 ? '' : 's'} as brand photos? Nothing at TEG changes.`)) return;
+        const b = e.target, st = document.getElementById('teg-imp-st'); b.disabled = true;
+        let done = 0, skipped = 0; const failed = [];
+        for (const r of go) {
+          st.textContent = `Importing ${done + skipped + failed.length + 1} of ${go.length}…`;
+          try {
+            const { data } = await supabase.auth.getSession();
+            const res = await fetch(WORKER + '/teg/headshots/import', { method: 'POST', headers: { Authorization: 'Bearer ' + data?.session?.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: r.email }) });
+            const j = await res.json().catch(() => ({}));
+            if (res.ok && j.ok) done++; else if (res.ok && j.skipped) skipped++; else failed.push(`${r.name}: ${j.error || res.status}`);
+          } catch (err) { failed.push(`${r.name}: ${err.message}`); }
+        }
+        st.textContent = `Done: ${done} imported${skipped ? `, ${skipped} skipped` : ''}${failed.length ? `, ${failed.length} failed` : ''}.`;
+        st.className = 'teg-status ' + (failed.length ? 'is-err' : 'is-ok');
+        if (failed.length) out.insertAdjacentHTML('beforeend', `<div class="teg-raw">${esc(failed.join('\n'))}</div>`);
+      });
+    });
 
     document.getElementById('teg-photos').addEventListener('click', async () => {
       out.innerHTML = '';

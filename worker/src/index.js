@@ -7937,6 +7937,88 @@ export default {
         }, 200, request, env);
       }
 
+      /* ---- TEG headshots → our brand photos ----------------------------------
+         Preview (a page of twenty at a time) and import (one person at a
+         time, by email: the Worker looks their picture up at TEG itself and
+         never fetches a link handed to it). Only background-free pictures,
+         only TEG's own brands for now (Fine & Country later), only people
+         in our CRM with a profile for that brand, and never over a photo
+         someone at TMKE set by hand (Danielle, 30 Sep 2026). */
+      if (path.endsWith("/teg/headshots/preview") || path.endsWith("/teg/headshots/import")) {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.TEG_API_SECRET) return json({ error: "No TEG_API_SECRET set on the Worker." }, 400, request, env);
+        const photoPage = async (qs) => {
+          const r = await fetch(`${TEG_API}/photoApi?${qs}`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
+          const o = await r.json().catch(() => null);
+          if (!o) throw new Error(`photoApi answered ${r.status}`);
+          return Array.isArray(o.data) ? o.data : [];
+        };
+        const emailOf = (r) => String(r.email || r.member_email || "").toLowerCase().trim();
+        const urlOf = (r) => (typeof r.photo_url === "string" && /^https?:\/\//i.test(r.photo_url)) ? r.photo_url : null;
+        // What would happen for one TEG record, and why.
+        const plan = async (r) => {
+          const email = emailOf(r), photo = urlOf(r);
+          const name = r.full_name || r.name || [r.first_name, r.last_name].filter(Boolean).join(" ") || email || "—";
+          const brand = brandFromEmailDomain(email);
+          const base = { name, email, brand: brand || "Other", photo };
+          if (!email) return { ...base, action: "skip", why: "No email on the TEG record" };
+          if (brand === "Fine & Country") return { ...base, action: "skip", why: "Fine & Country, for later" };
+          if (!photo) return { ...base, action: "skip", why: "No picture at TEG" };
+          const sn = await sniffImage(photo);
+          if (!sn.transparent) return { ...base, action: "skip", why: sn.transparent === false ? "Still has a background" : "Couldn't read the picture", format: sn.format };
+          // Case-blind: TEG writes some addresses with capitals (SJ.Bannister@…).
+          const cs = (await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(email)}&select=id,first_name,last_name&limit=1`)) || [];
+          if (!cs.length) return { ...base, action: "skip", why: "Not in our CRM" };
+          const profs = (await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(cs[0].id)}&select=id,brand,left_at,brand_photo_url,brand_photo_source`)) || [];
+          const mine = profs.filter((p) => String(p.brand || "").trim().toLowerCase() === String(brand || "").toLowerCase() && !p.left_at);
+          if (!mine.length) return { ...base, contact_id: cs[0].id, action: "skip", why: `No profile for ${brand || "that brand"} yet` };
+          const hand = mine.filter((p) => p.brand_photo_url && p.brand_photo_source !== "teg");
+          if (hand.length === mine.length) return { ...base, contact_id: cs[0].id, action: "skip", why: "Photo set by hand at TMKE", current: hand[0].brand_photo_url };
+          const had = mine.some((p) => p.brand_photo_url && p.brand_photo_source === "teg");
+          return { ...base, contact_id: cs[0].id, profiles: mine.filter((p) => !(p.brand_photo_url && p.brand_photo_source !== "teg")).map((p) => p.id), action: had ? "update" : "import", format: sn.format, width: sn.width, height: sn.height };
+        };
+        try {
+          if (path.endsWith("/preview") && request.method === "GET") {
+            const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0", 10));
+            const rows = await photoPage(new URLSearchParams({ limit: "20", skip: String(skip) }));
+            const out = [];
+            for (const r of rows) out.push(await plan(r));
+            return json({ ok: true, rows: out, page: rows.length }, 200, request, env);
+          }
+          if (path.endsWith("/import") && request.method === "POST") {
+            const b = await request.json().catch(() => ({}));
+            const email = String(b.email || "").toLowerCase().trim();
+            if (!email) return json({ error: "Whose headshot?" }, 400, request, env);
+            const rec = (await photoPage(new URLSearchParams({ limit: "5", email }))).find((r) => emailOf(r) === email);
+            if (!rec) return json({ error: "TEG has no picture for that email." }, 404, request, env);
+            const p = await plan(rec);
+            if (p.action === "skip") return json({ ok: false, skipped: p.why }, 200, request, env);
+            // Our own copy, so print never depends on TEG's links staying up.
+            const img = await fetch(p.photo);
+            if (!img.ok) return json({ error: `Couldn't fetch the picture (${img.status}).` }, 502, request, env);
+            const type = p.format === "webp" ? "image/webp" : "image/png";
+            const slug = String(p.brand || "brand").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+            const key = `agent-photos/teg/${slug}/${email.replace(/[^a-z0-9@._-]/g, "")}.${p.format === "webp" ? "webp" : "png"}`;
+            const up = await fetch(`${env.SUPABASE_URL}/storage/v1/object/pack-images/${key}`, {
+              method: "POST",
+              headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": type, "x-upsert": "true", "cache-control": "3600" },
+              body: await img.arrayBuffer(),
+            });
+            if (!up.ok) return json({ error: `Couldn't store it: ${(await up.text().catch(() => "")).slice(0, 160)}` }, 502, request, env);
+            const publicUrl = `${env.SUPABASE_URL}/storage/v1/object/public/pack-images/${key}?v=${Date.now()}`;
+            const now = new Date().toISOString();
+            for (const id of p.profiles || []) {
+              await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(id)}`, { brand_photo_url: publicUrl, brand_photo_source: "teg", brand_photo_updated_at: now });
+            }
+            return json({ ok: true, url: publicUrl, profiles: (p.profiles || []).length, action: p.action }, 200, request, env);
+          }
+        } catch (e) {
+          return json({ error: String((e && e.message) || e).slice(0, 200) }, 502, request, env);
+        }
+        return json({ error: "Not found" }, 404, request, env);
+      }
+
       /* Is the TEG connection alive? Proves the secret and the domain before
          anybody builds anything on top of them. */
       if (path.endsWith("/teg/ping") && request.method === "GET") {
