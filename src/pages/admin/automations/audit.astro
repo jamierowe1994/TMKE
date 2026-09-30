@@ -32,11 +32,6 @@ import "../../../styles/admin.css";
           <!-- Shown only when a send step errored for someone: runs it again for
                them once whatever broke it has been fixed. -->
           <button type="button" class="aud-retry" id="aud-retry" hidden>Resend missed emails</button>
-          <select class="auto-filter" id="aud-filter" aria-label="Filter">
-            <option value="all">Everything</option>
-            <option value="send_email">Emails only</option>
-            <option value="problems">Problems only</option>
-          </select>
         </div>
       </div>
     </section>
@@ -46,12 +41,11 @@ import "../../../styles/admin.css";
     <section class="aud-ins" id="aud-ins" hidden>
       <div class="aud-ins-head">
         <h2 class="aud-ins-h">Email insights</h2>
-        <span class="aud-ins-sub">Rates are out of emails delivered. Opens and clicks count each person once.</span>
+        <span class="aud-ins-sub">Click any number to see who. Rates are out of emails delivered; each person counts once.</span>
       </div>
       <p class="aud-ins-warn" id="aud-ins-warn" hidden></p>
       <div class="aud-stats" id="aud-stats"></div>
       <div class="aud-ins-wrap"><table class="aud-ins-table" id="aud-ins-table"></table></div>
-      <div class="aud-clickers" id="aud-clickers"></div>
     </section>
     <!-- AI read on the numbers + anything to do before the next send. -->
     <div class="aud-ai" id="aud-ai" hidden></div>
@@ -59,8 +53,21 @@ import "../../../styles/admin.css";
 
     <p class="aud-loading" id="aud-loading">Loading the audit…</p>
     <p class="aud-empty" id="aud-empty" hidden>Nobody has entered this funnel yet.</p>
-    <div class="aud-list" id="aud-list"></div>
+    <!-- Everyone, one line each, opened only when wanted: on a big funnel a
+         card per person buried the numbers (Danielle, 30 Sep 2026). -->
+    <details class="aud-people" id="aud-people" hidden>
+      <summary><span class="aud-people-h">Everyone in the funnel</span><span class="aud-people-n" id="aud-people-n"></span></summary>
+      <div class="aud-people-tools">
+        <input type="search" id="aud-search" placeholder="Search a name or email" aria-label="Search people">
+        <select class="auto-filter" id="aud-filter" aria-label="Show">
+          <option value="all">Everyone</option>
+          <option value="problems">Only people with a problem</option>
+        </select>
+      </div>
+      <div class="aud-list" id="aud-list"></div>
+    </details>
   </div>
+  <div class="aud-modal" id="aud-modal" hidden></div>
 
   <style is:global>
     .aud-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); text-decoration: none; }
@@ -83,15 +90,38 @@ import "../../../styles/admin.css";
     .aud-ins-warn { font-family: var(--sans); font-size: 13px; line-height: 1.5; margin: 12px 0 0; padding: 10px 14px; border-radius: 8px; background: rgba(227,160,8,0.12); color: #7a5405; }
     .aud-ins .aud-stat { background: var(--paper, #f4f2f1); border-color: transparent; }
     .aud-ins-wrap { overflow-x: auto; margin-top: 14px; }
-    /* Who clicked, per email: names to check the count against. */
-    .aud-clickers { margin-top: 18px; display: grid; gap: 10px; }
-    .aud-clickers details { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px 16px; font-family: var(--sans); font-size: 13px; }
-    .aud-clickers summary { cursor: pointer; font-weight: 600; color: var(--ink); }
-    .aud-clickers ul { list-style: none; margin: 10px 0 2px; padding: 0; }
-    .aud-clickers li { display: grid; grid-template-columns: minmax(160px, 1.1fr) 2fr auto; gap: 14px; padding: 7px 0; border-top: 1px solid rgba(28,29,34,0.07); align-items: baseline; }
-    .aud-clickers li small { color: rgba(28,29,34,0.55); }
-    .aud-clickers li.is-bot { color: rgba(28,29,34,0.45); }
-    .aud-clickers .ck-link { word-break: break-all; color: rgba(28,29,34,0.7); }
+    /* Counts open the list of people behind them. */
+    .ins-n { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-weight: 700; color: var(--ink); cursor: pointer; border-bottom: 1px dotted rgba(55,30,40,0.45); }
+    .ins-n:hover { color: var(--english-violet); border-bottom-color: var(--english-violet); }
+    .aud-stat .ins-n { font-family: var(--serif); font-size: 22px; font-weight: 500; line-height: 1.1; border-bottom-width: 1px; }
+    .aud-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 16px; }
+    .aud-modal[hidden] { display: none; }
+    .aud-modal-box { background: #fff; border-radius: 12px; width: min(720px, 100%); max-height: 84vh; display: flex; flex-direction: column; box-shadow: 0 24px 60px -24px rgba(20,18,26,0.5); font-family: var(--sans); }
+    .aud-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 18px 22px 12px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .aud-modal-head h3 { font-family: var(--serif); font-size: 20px; font-weight: 500; color: var(--ink); margin: 0; }
+    .aud-modal-head p { margin: 3px 0 0; font-size: 12.5px; color: rgba(28,29,34,0.55); }
+    .aud-modal-x { appearance: none; border: 0; background: none; font-size: 24px; line-height: 1; cursor: pointer; color: rgba(28,29,34,0.5); }
+    .aud-modal-body { overflow-y: auto; padding: 6px 22px 18px; }
+    .aud-who { list-style: none; margin: 0; padding: 0; }
+    .aud-who li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid rgba(28,29,34,0.07); font-size: 13.5px; }
+    .aud-who li b { font-weight: 600; color: var(--ink); }
+    .aud-who li small { font-size: 12px; color: rgba(28,29,34,0.55); }
+    .aud-who li .w { font-size: 12px; color: rgba(28,29,34,0.5); white-space: nowrap; text-align: right; }
+    .aud-who li .l { grid-column: 1 / -1; font-size: 12px; color: rgba(28,29,34,0.6); word-break: break-all; }
+    .aud-who.is-bot li { color: rgba(28,29,34,0.5); }
+    .aud-bots { margin-top: 14px; font-size: 13px; }
+    .aud-bots summary { cursor: pointer; color: rgba(28,29,34,0.6); font-weight: 600; }
+    .aud-bots p { font-size: 12px; color: rgba(28,29,34,0.55); margin: 8px 0 4px; line-height: 1.5; }
+    /* Everyone in the funnel: collapsed, then one line a person. */
+    .aud-people { margin: 18px 0 60px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 0; }
+    .aud-people > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 16px 20px; }
+    .aud-people > summary::-webkit-details-marker { display: none; }
+    .aud-people > summary::after { content: "Show"; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+    .aud-people[open] > summary::after { content: "Hide"; }
+    .aud-people-h { font-family: var(--serif); font-size: 19px; font-weight: 500; color: var(--ink); }
+    .aud-people-n { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); margin-left: 10px; flex: 1; }
+    .aud-people-tools { display: flex; gap: 10px; flex-wrap: wrap; padding: 0 20px 12px; }
+    .aud-people-tools input { flex: 1; min-width: 200px; height: 36px; padding: 0 12px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; font: 13px var(--sans); }
     .aud-ins-table { width: 100%; min-width: 760px; border-collapse: collapse; font-family: var(--sans); font-size: 13px; }
     .aud-ins-table th { text-align: right; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 0 12px 8px 0; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
     .aud-ins-table th:first-child, .aud-ins-table td:first-child { text-align: left; }
@@ -113,10 +143,15 @@ import "../../../styles/admin.css";
     .aud-ai { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 14px 18px; margin: 10px 0 4px; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; }
     .aud-ai.is-loading { color: rgba(28,29,34,0.5); }
     .aud-ai-label { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 6px; white-space: normal; }
-    .aud-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 60px; }
-    .aud-person { background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 14px 16px; }
-    .aud-person-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-    .aud-person-name { font-family: var(--sans); font-weight: 700; font-size: 14px; color: var(--ink); }
+    .aud-list { display: flex; flex-direction: column; border-top: 1px solid rgba(28,29,34,0.08); }
+    .aud-person { border-bottom: 1px solid rgba(28,29,34,0.07); padding: 0 20px; }
+    .aud-person > summary { list-style: none; cursor: pointer; padding: 11px 0; }
+    .aud-person > summary::-webkit-details-marker { display: none; }
+    .aud-person[open] { background: rgba(55,30,40,0.025); }
+    .aud-person-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .aud-person-last { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); margin-left: auto; margin-right: 12px; }
+    .aud-person .aud-steps { margin: 0 0 14px; }
+    .aud-person-name { font-family: var(--sans); font-weight: 700; font-size: 13.5px; color: var(--ink); }
     .aud-person-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.5); }
     .aud-badge { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 999px; padding: 3px 9px; }
     .aud-badge.active, .aud-badge.waiting { background: rgba(55,30,40,0.1); color: var(--english-violet); }
@@ -148,24 +183,26 @@ import "../../../styles/admin.css";
     let PEOPLE = [];
     let filter = "all";
 
+    let q = "";
     function render() {
-      const rows = PEOPLE.map((p) => {
-        let steps = p.steps;
-        if (filter === "send_email") steps = steps.filter((s) => s.node_type === "send_email");
-        else if (filter === "problems") steps = steps.filter((s) => s.outcome === "error" || s.outcome === "skipped");
-        return { ...p, steps };
-      }).filter((p) => filter === "all" || p.steps.length);
-
+      const rows = PEOPLE.filter((p) => {
+        if (filter === "problems" && !p.steps.some((s) => s.outcome === "error")) return false;
+        return !q || (p.name + " " + p.email).toLowerCase().includes(q);
+      });
       $("aud-empty").hidden = PEOPLE.length !== 0;
+      $("aud-people").hidden = PEOPLE.length === 0;
+      // Their latest email, so the line says where each person has got to.
+      const lastEmail = (p) => { const e = p.steps.filter((s) => s.node_type === "send_email" && s.outcome === "ok").pop(); return e ? `Last email ${new Date(e.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "No email yet"; };
       $("aud-list").innerHTML = rows.map((p) => `
-        <div class="aud-person">
-          <div class="aud-person-top">
+        <details class="aud-person">
+          <summary class="aud-person-top">
             <div>
-              <div class="aud-person-name">${esc(p.name)}</div>
+              <div class="aud-person-name">${esc(p.name)}${p.steps.some((s) => s.outcome === "error") ? ' <span class="aud-badge error">problem</span>' : ""}</div>
               <div class="aud-person-meta">${esc(p.email)} · entered ${esc(dt(p.created_at))}${p.next_run_at && (p.status === "active" || p.status === "waiting") ? " · next step " + esc(dt(p.next_run_at)) : ""}</div>
             </div>
+            <span class="aud-person-last">${esc(lastEmail(p))}</span>
             <span class="aud-badge ${esc(p.status)}">${esc(p.status)}</span>
-          </div>
+          </summary>
           <div class="aud-steps">
             ${p.steps.length ? p.steps.map((s) => `
               <div class="aud-step ${s.outcome === "error" ? "is-error" : s.outcome === "skipped" ? "is-skipped" : ""}">
@@ -174,7 +211,7 @@ import "../../../styles/admin.css";
                 <span class="aud-step-when">${esc(dt(s.created_at))}</span>
               </div>`).join("") : '<div class="aud-none">Nothing has run for them yet.</div>'}
           </div>
-        </div>`).join("");
+        </details>`).join("") || '<p class="aud-none" style="padding:14px 20px">Nobody matches that.</p>';
     }
 
     // Insights: counts per event for this automation, from email_events (fed by
@@ -447,21 +484,51 @@ import "../../../styles/admin.css";
         const pct = (n, of) => (of ? Math.round((n / of) * 100) + "%" : "");
         const all = stats(ev);
 
-        const stat = (label, n, rate, bad) => `<div class="aud-stat${bad && n ? " is-bad" : ""}"><b>${n}</b><span>${label}</span>${rate ? `<small>${rate}</small>` : ""}</div>`;
+        // The people behind each number, for the pop-outs. Names from the
+        // contacts; each person once, at the first time it happened.
+        const names = new Map();
+        const cidList = [...new Set(ev.map((e) => e.contact_id).filter(Boolean))];
+        for (let i = 0; i < cidList.length; i += 200) {
+          const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name").in("id", cidList.slice(i, i + 200));
+          (cs || []).forEach((c) => names.set(c.id, [c.first_name, c.last_name].filter(Boolean).join(" ")));
+        }
+        const shortLink = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, "") || u; } catch (_) { return u || ""; } };
+        const peopleOf = (list, evName, keep) => {
+          const by = new Map();
+          list.filter((x) => x.event === evName && (!keep || keep(x))).forEach((x) => {
+            const k = who(x);
+            const cur = by.get(k) || { name: names.get(x.contact_id) || "", email: x.email || "", at: x.occurred_at, links: new Set(), detail: x.detail || "" };
+            if (x.occurred_at < cur.at) cur.at = x.occurred_at;
+            const l = linkOf(x) || x.url; if (l) cur.links.add(shortLink(l));
+            by.set(k, cur);
+          });
+          return [...by.values()].sort((a, b) => (a.at < b.at ? -1 : 1));
+        };
+        const lists = (list) => {
+          const humans = list.filter((x) => !isMachine(x));
+          const opened = peopleOf(humans, "opened"), clicked = peopleOf(humans, "clicked");
+          const on = (arr) => new Set(arr.map((x) => x.email));
+          return {
+            sent: peopleOf(list, "sent"), delivered: peopleOf(list, "delivered"),
+            opened, clicked,
+            openedBots: peopleOf(list, "opened").filter((x) => !on(opened).has(x.email)),
+            clickedBots: peopleOf(list, "clicked").filter((x) => !on(clicked).has(x.email)),
+            unsub: peopleOf(list, "unsubscribed"), bounced: peopleOf(list, "bounced"),
+          };
+        };
+        const LISTS = new Map();
+        LISTS.set("all", { title: "All emails", ...lists(ev) });
+        const btn = (key, m, n) => n ? `<button type="button" class="ins-n" data-k="${esc(key)}" data-m="${m}">${n}</button>` : `<b>${n}</b>`;
+
+        const stat = (label, n, rate, bad, m) => `<div class="aud-stat${bad && n ? " is-bad" : ""}">${m ? btn("all", m, n) : `<b>${n}</b>`}<span>${label}</span>${rate ? `<small>${rate}</small>` : ""}</div>`;
         $("aud-stats").innerHTML =
-          stat("Sent", all.sent) +
-          stat("Delivered", all.delivered, pct(all.delivered, all.sent)) +
-          stat("Opened", all.opened, pct(all.opened, all.base)) +
-          stat("Clicked", all.clicked, pct(all.clicked, all.base)) +
-          ((all.botOpened || all.botClicked)
-            ? stat("Security scanners", all.botClicked || all.botOpened,
-                   (all.botClicked ? all.botClicked + " clicks" : "") +
-                   (all.botClicked && all.botOpened ? ", " : "") +
-                   (all.botOpened ? all.botOpened + " opens" : "") + " — not people")
-            : "") +
-          stat("Came to the site", visitsTotal, pct(visitsTotal, all.base) + " · the real one") +
-          stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true) +
-          (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true) : "") +
+          stat("Sent", all.sent, "", false, "sent") +
+          stat("Delivered", all.delivered, pct(all.delivered, all.sent), false, "delivered") +
+          stat("Opened", all.opened, pct(all.opened, all.base), false, "opened") +
+          stat("Clicked", all.clicked, pct(all.clicked, all.base), false, "clicked") +
+          stat("Came to the site", visitsTotal, pct(visitsTotal, all.base)) +
+          stat("Unsubscribed", all.unsub, pct(all.unsub, all.base), true, "unsub") +
+          (all.bounced ? stat("Bounced", all.bounced, pct(all.bounced, all.sent), true, "bounced") : "") +
           (all.spam ? stat("Spam reports", all.spam, "", true) : "") +
           (all.skipped ? stat("Not emailed", all.skipped, "no opt-in or unsubscribed") : "") +
           (all.failed ? stat("Failed", all.failed, "didn't send", true) : "");
@@ -473,44 +540,34 @@ import "../../../styles/admin.css";
             if (x.first) return -1; if (y.first) return 1;
             return (x.order ?? 999) - (y.order ?? 999);
           });
-        const cell = (n, rate, note) => `<td><b>${n}</b>${rate ? `<small>${rate}</small>` : ""}${note ? `<small class="ins-bot">${note}</small>` : ""}</td>`;
+        const cell = (key, m, n, rate) => `<td>${m ? btn(key, m, n) : `<b>${n}</b>`}${rate ? `<small>${rate}</small>` : ""}</td>`;
         $("aud-ins-table").innerHTML = `<thead><tr><th>Email</th><th>Sent</th><th>Delivered</th><th>Opened</th><th>Clicked</th><th>Came to the site</th><th>Unsubscribed</th><th>Bounced</th></tr></thead><tbody>` +
           rows.map((g) => {
             const t = stats(g.ev);
+            LISTS.set(g.key, { title: g.name, ...lists(g.ev) });
             const sentOn = g.first ? "Sent " + new Date(g.first).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : (g.when || "Not sent yet");
             return `<tr class="${t.sent ? "" : "is-waiting"}"><td><div class="ins-name">${esc(g.name)}</div><div class="ins-when">${esc(sentOn)}</div></td>` +
-              cell(t.sent) + cell(t.delivered, pct(t.delivered, t.sent)) +
-              cell(t.opened, pct(t.opened, t.base), t.botOpened ? "+" + t.botOpened + " scanners" : "") +
-              cell(t.clicked, pct(t.clicked, t.base), t.botClicked ? "+" + t.botClicked + " scanners" : "") +
-              cell(visitsByStep.get(g.key) || 0, pct(visitsByStep.get(g.key) || 0, t.base)) +
-              cell(t.unsub, pct(t.unsub, t.base)) + cell(t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
+              cell(g.key, "sent", t.sent) + cell(g.key, "delivered", t.delivered, pct(t.delivered, t.sent)) +
+              cell(g.key, "opened", t.opened, pct(t.opened, t.base)) +
+              cell(g.key, "clicked", t.clicked, pct(t.clicked, t.base)) +
+              cell(g.key, "", visitsByStep.get(g.key) || 0, pct(visitsByStep.get(g.key) || 0, t.base)) +
+              cell(g.key, "unsub", t.unsub, pct(t.unsub, t.base)) + cell(g.key, "bounced", t.bounced, pct(t.bounced, t.sent)) + `</tr>`;
           }).join("") + `</tbody>`;
 
-        // Who clicked each email and on what, so a count can be checked
-        // name by name. Scanner clicks are listed too, greyed and marked.
-        try {
-          const clickRows = rows.map((g) => ({ g, clicks: g.ev.filter((e) => e.event === "clicked") })).filter((x) => x.clicks.length);
-          const ids = [...new Set(clickRows.flatMap((x) => x.clicks.map((e) => e.contact_id)).filter(Boolean))];
-          const names = new Map();
-          for (let i = 0; i < ids.length; i += 200) {
-            const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name").in("id", ids.slice(i, i + 200));
-            (cs || []).forEach((c) => names.set(c.id, [c.first_name, c.last_name].filter(Boolean).join(" ")));
-          }
-          const shortLink = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname).replace(/\/$/, "") || u; } catch (_) { return u || ""; } };
-          $("aud-clickers").innerHTML = clickRows.map(({ g, clicks }) => {
-            const byWho = new Map();
-            clicks.forEach((e) => { const k = e.contact_id || e.email; if (!byWho.has(k)) byWho.set(k, []); byWho.get(k).push(e); });
-            const people = [...byWho.values()].map((list) => ({ list, bot: list.every(isMachine) }))
-              .sort((a, b) => (a.bot - b.bot) || (new Date(a.list[0].occurred_at) - new Date(b.list[0].occurred_at)));
-            const humans = people.filter((x) => !x.bot).length;
-            return `<details><summary>${esc(g.name)}: ${humans} ${humans === 1 ? "person" : "people"} clicked${people.length > humans ? `, ${people.length - humans} scanner${people.length - humans === 1 ? "" : "s"}` : ""}</summary><ul>${people.map(({ list, bot }) => {
-              const e0 = list[0];
-              const links = [...new Set(list.map((e) => shortLink(linkOf(e) || e.url)).filter(Boolean))];
-              const when = new Date(e0.occurred_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-              return `<li class="${bot ? "is-bot" : ""}"><span>${esc(names.get(e0.contact_id) || e0.email)}${bot ? " <small>· scanner</small>" : ""}<br><small>${esc(e0.email)}</small></span><span class="ck-link">${links.map(esc).join("<br>") || "–"}</span><small>${esc(when)}</small></li>`;
-            }).join("")}</ul></details>`;
-          }).join("");
-        } catch (_) { /* a bonus, like the rest */ }
+        // A number clicked: who's behind it, in a pop-out. Opens and clicks
+        // that were security scanners are listed apart, and not counted.
+        const LABEL = { sent: "Sent", delivered: "Delivered", opened: "Opened", clicked: "Clicked", unsub: "Unsubscribed", bounced: "Bounced" };
+        const whoList = (arr, bot) => `<ul class="aud-who${bot ? " is-bot" : ""}">${arr.map((x) => `<li><span><b>${esc(x.name || x.email)}</b>${x.name ? `<br><small>${esc(x.email)}</small>` : ""}</span><span class="w">${esc(dt(x.at))}</span>${x.links.size ? `<span class="l">${[...x.links].map(esc).join(" · ")}</span>` : ""}${x.detail && !x.links.size ? `<span class="l">${esc(x.detail)}</span>` : ""}</li>`).join("")}</ul>`;
+        window.__audOpen = (key, m) => {
+          const L = LISTS.get(key); if (!L) return;
+          const arr = L[m] || [], bots = m === "opened" ? L.openedBots : m === "clicked" ? L.clickedBots : [];
+          const box = $("aud-modal");
+          box.innerHTML = `<div class="aud-modal-box" role="dialog" aria-modal="true" aria-label="${esc(LABEL[m])}">
+            <div class="aud-modal-head"><div><h3>${esc(LABEL[m])} · ${arr.length} ${arr.length === 1 ? "person" : "people"}</h3><p>${esc(L.title)}</p></div><button type="button" class="aud-modal-x" data-close aria-label="Close">&times;</button></div>
+            <div class="aud-modal-body">${arr.length ? whoList(arr) : '<p class="aud-none">Nobody yet.</p>'}
+              ${bots.length ? `<details class="aud-bots"><summary>Security scanners · ${bots.length}, not counted</summary><p>Work email filters open and click every link before the person sees the email. These were caught doing that, so they're left out of the numbers.</p>${whoList(bots, true)}</details>` : ""}</div></div>`;
+          box.hidden = false;
+        };
 
         // Say so when the numbers can't be right, rather than showing zeros
         // that look like nobody opened anything.
@@ -615,29 +672,44 @@ import "../../../styles/admin.css";
       if (auto) { $("aud-name").textContent = auto.name; }
       loadStats();
 
-      const { data: enr, error } = await supabase
-        .from("automation_enrollments")
-        .select("id, contact_id, status, next_run_at, created_at")
-        .eq("automation_id", id)
-        .order("created_at", { ascending: false });
-      if (error) { $("aud-loading").textContent = "Couldn't load the audit: " + error.message; return; }
-      const rows = enr || [];
+      const rows = [];
+      for (let from = 0; from < 100000; from += 1000) {
+        const { data: page, error } = await supabase
+          .from("automation_enrollments")
+          .select("id, contact_id, status, next_run_at, created_at")
+          .eq("automation_id", id)
+          .order("created_at", { ascending: false }).order("id", { ascending: true })
+          .range(from, from + 999);
+        if (error) { $("aud-loading").textContent = "Couldn't load the audit: " + error.message; return; }
+        rows.push(...(page || []));
+        if (!page || page.length < 1000) break;
+      }
 
       // Contacts (names) + every step that ran, in one round-trip each.
       const cids = Array.from(new Set(rows.map((r) => r.contact_id))).filter(Boolean);
       const byContact = new Map();
       if (cids.length) {
-        const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name, email").in("id", cids);
-        (cs || []).forEach((c) => byContact.set(c.id, c));
+        for (let i = 0; i < cids.length; i += 200) {
+          const { data: cs } = await supabase.from("contacts").select("id, first_name, last_name, email").in("id", cids.slice(i, i + 200));
+          (cs || []).forEach((c) => byContact.set(c.id, c));
+        }
       }
       const runsBy = new Map();
       if (rows.length) {
-        const { data: runs } = await supabase
-          .from("automation_runs")
-          .select("enrollment_id, node_type, outcome, detail, created_at")
-          .eq("automation_id", id)
-          .order("created_at", { ascending: true });
-        (runs || []).forEach((r) => {
+        // A thousand rows a request at most, so read in pages: in one go the
+        // newest steps (the latest email) never arrived (30 Sep 2026).
+        const runs = [];
+        for (let from = 0; from < 100000; from += 1000) {
+          const { data: page } = await supabase
+            .from("automation_runs")
+            .select("id, enrollment_id, node_type, outcome, detail, created_at")
+            .eq("automation_id", id)
+            .order("created_at", { ascending: true }).order("id", { ascending: true })
+            .range(from, from + 999);
+          runs.push(...(page || []));
+          if (!page || page.length < 1000) break;
+        }
+        runs.forEach((r) => {
           const list = runsBy.get(r.enrollment_id) || [];
           list.push(r);
           runsBy.set(r.enrollment_id, list);
@@ -658,10 +730,19 @@ import "../../../styles/admin.css";
       const failed = PEOPLE.reduce((n, p) => n + p.steps.filter((s) => s.outcome === "error").length, 0);
       $("aud-sub").textContent = `${PEOPLE.length} ${PEOPLE.length === 1 ? "person has" : "people have"} entered · ${emails} email${emails === 1 ? "" : "s"} sent${failed ? ` · ${failed} problem${failed === 1 ? "" : "s"}` : ""}`;
       $("aud-loading").hidden = true;
+      $("aud-people-n").textContent = `${PEOPLE.length} ${PEOPLE.length === 1 ? "person" : "people"}${failed ? ` · ${failed} problem${failed === 1 ? "" : "s"}` : ""}`;
       render();
     }
 
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest(".ins-n");
+      if (b && window.__audOpen) { window.__audOpen(b.dataset.k, b.dataset.m); return; }
+      const m = $("aud-modal");
+      if (!m.hidden && (e.target === m || e.target.closest("[data-close]"))) m.hidden = true;
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("aud-modal").hidden = true; });
     $("aud-filter")?.addEventListener("change", (e) => { filter = e.target.value; render(); });
+    $("aud-search")?.addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
     load();
   </script>
 </AdminShell>
