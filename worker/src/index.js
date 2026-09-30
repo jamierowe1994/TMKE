@@ -10272,7 +10272,37 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
       match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "", cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
   }
-  return { months, rows, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length } };
+  // Videography: every shoot booked in the window, and where its invoice is.
+  // The rule: invoiced two days before the shoot. Past that and not sent,
+  // we're late (Danielle, 30 Sep 2026).
+  const endDay = new Date(Date.UTC(Number(last.slice(0, 4)), Number(last.slice(5, 7)), 1)).toISOString().slice(0, 10);
+  const bookings = await readAll("videography_bookings",
+    `shoot_date=gte.${months[0]}-01T00:00:00&shoot_date=lt.${endDay}T00:00:00&kind=eq.booking&stage=neq.cancelled&select=*&order=shoot_date.asc,id.asc`);
+  const vInv = [];
+  const bIds = bookings.map((b) => b.id);
+  for (let i = 0; i < bIds.length; i += 80) {
+    vInv.push(...(await readAll("invoices", `booking_source=eq.videography&booking_id=in.(${bIds.slice(i, i + 80).join(",")})&status=neq.void&select=booking_id,number,status,total_pence,due_date,paid_date&order=created_at.asc,id.asc`)));
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const shoots = bookings.map((b) => {
+    const mine = vInv.filter((iv) => iv.booking_id === b.id);
+    const sent = mine.filter((iv) => iv.status === "sent" || iv.status === "paid");
+    const shootDay = String(b.shoot_date || "").slice(0, 10);
+    const dueBy = shootDay ? new Date(Date.parse(shootDay + "T12:00:00Z") - 2 * 864e5).toISOString().slice(0, 10) : null;
+    let status;
+    if (b.payment_route === "smm_package") status = "package";
+    else if (b.paid_at || mine.some((iv) => iv.status === "paid")) status = "paid";
+    else if (sent.length) status = sent.some((iv) => iv.due_date && iv.due_date < todayIso) ? "payment_overdue" : "sent";
+    else status = dueBy && todayIso >= dueBy ? "late" : "not_due";
+    const brand = b.payment_route === "brand_invoice" || b.payment_route === "brand_invoice_teg";
+    return {
+      id: b.id, client: b.client_name || "Client", company: b.client_company || b.company || "", service: b.service || "",
+      shoot_date: b.shoot_date, due_by: dueBy, status, draft: mine.some((iv) => iv.status === "draft"),
+      amount_pence: sent[0]?.total_pence ?? mine[0]?.total_pence ?? b.total_pence ?? null,
+      numbers: mine.map((iv) => `${iv.number || "draft"} (${iv.status})`), billed_to: brand ? "Brand" : "",
+    };
+  });
+  return { months, rows, shoots, recurringReady, notesReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length, shoots: shoots.length } };
 }
 
 // On the 14th and 21st, 08:00: anything due this month and not sent yet.

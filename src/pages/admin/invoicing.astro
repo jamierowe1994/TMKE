@@ -147,6 +147,11 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           <div class="mc-wrap"><table class="mc-tbl" id="mc-tbl"></table></div>
           <p class="mc-key"><span class="mc-y">&#10003;</span> done &nbsp; <span class="mc-n">&#10007;</span> not yet &nbsp; <span class="mc-d">Draft</span> raised, not sent &nbsp; <span class="mc-na">&ndash;</span> not due (before they started, or a month still to come) &nbsp; <span class="mc-note">&#9998;</span> a note (click any month to add one)</p>
 
+          <!-- Videography: one-off, so a list of shoots rather than a month grid. -->
+          <div class="mc-shoots-head"><h3 class="mc-h">Videography shoots</h3><span class="mc-shoots-sum" id="mc-shoots-sum"></span></div>
+          <p class="inv-intro">Every shoot booked in these months. A shoot is invoiced two days before it happens; anything not sent by then shows as late. Click a shoot to open it in Videography.</p>
+          <div class="mc-wrap"><table class="mc-tbl mc-shoots" id="mc-shoots"></table></div>
+
           <h3 class="mc-h" id="mc-form-h">Add a recurring invoice</h3>
           <p class="inv-intro">For anyone billed every month who isn't a social media client, such as a brand's marketing assets and hub. An invoice counts for a month when it goes to this address; add words that are always on it if the same address gets other invoices too.</p>
           <form id="mc-form" class="inv-book-form">
@@ -395,6 +400,17 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .mc-cell:hover { background: rgba(55,30,40,0.06); }
     .mc-note { color: var(--english-violet); font-size: 12px; margin-left: 4px; }
     .mc-skipcell { white-space: nowrap; }
+    .mc-shoots-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 10px; }
+    .mc-shoots-sum { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+    .mc-shoots { min-width: 760px; }
+    .mc-shoots tr.mc-shoot { cursor: pointer; }
+    .mc-shoots tr.mc-shoot:hover td { background: rgba(55,30,40,0.04); }
+    .mc-shoots tr.is-late td { background: rgba(179,38,30,0.05); }
+    .mc-chip { display: inline-block; padding: 3px 9px; border-radius: 999px; font-family: var(--sans); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+    .mc-chip.is-late { background: rgba(179,38,30,0.12); color: #a3261e; }
+    .mc-chip.is-wait { background: rgba(28,29,34,0.06); color: rgba(28,29,34,0.6); }
+    .mc-chip.is-sent { background: rgba(55,30,40,0.08); color: var(--english-violet); }
+    .mc-chip.is-paid { background: rgba(60,150,90,0.14); color: #2e6b40; }
     .mc-raise { appearance: none; cursor: pointer; margin-left: 6px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--english-violet); background: #fff; color: var(--english-violet); font: 700 10.5px var(--sans); letter-spacing: 0.04em; }
     .mc-raise:hover { background: var(--english-violet); color: #fff; }
     .mc-modal { position: fixed; inset: 0; z-index: 200; background: rgba(28,24,28,0.4); display: flex; align-items: flex-start; justify-content: center; padding: 12vh 16px 16px; }
@@ -1346,6 +1362,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
             ? `<td colspan="2" class="${cls(ym, 0)} mc-cell mc-skipcell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="${esc(r.cells[ym].note || "No invoice this month")}"><span class="mc-na">No invoice</span>${noteMark(r.cells[ym])}</td>`
             : `<td class="${cls(ym, 0)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}" title="Click to add a note">${mark(r.cells[ym], "sent", ym)}${raise(r, ym)}${noteMark(r.cells[ym])}</td><td class="${cls(ym, 1)} mc-cell" data-mcnote="${r.kind}|${esc(r.id)}|${ym}">${mark(r.cells[ym], "paid", ym)}</td>`).join("")}</tr>`;
         MC_ROWS = d.rows;
+        mcShoots(d);
         const social = d.rows.filter((r) => r.kind === "social"), rec = d.rows.filter((r) => r.kind === "recurring");
         const span = 2 + d.months.length * 2;
         tbl.innerHTML = `<thead><tr><th class="l" rowspan="2">Client</th><th rowspan="2" style="text-align:right">Monthly</th>${d.months.map((ym) => `<th colspan="2" class="m0${ym === d.today ? " is-now" : ""}">${esc(ymLabel(ym))}</th>`).join("")}</tr>
@@ -1380,6 +1397,29 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       try { const rr = await api("/invoicing/recipients"); $("mc-emails").innerHTML = (rr.recipients || rr.rows || []).map((x) => `<option value="${esc(x.email)}">${esc(x.name)}</option>`).join(""); } catch (_) {}
     }
     let MC_ROWS = [];
+    // Videography shoots and where each invoice is.
+    const SHOOT_STATUS = {
+      late: ["is-late", "Late: not sent"], not_due: ["is-wait", "Not due yet"], sent: ["is-sent", "Sent"],
+      payment_overdue: ["is-late", "Sent, payment overdue"], paid: ["is-paid", "Paid"], package: ["is-wait", "Covered by social package"],
+    };
+    function mcShoots(d) {
+      const list = d.shoots || [];
+      const dd = (x) => x ? new Date(String(x).slice(0, 10) + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "–";
+      const late = list.filter((x) => x.status === "late").length, owed = list.filter((x) => x.status === "payment_overdue").length;
+      $("mc-shoots-sum").innerHTML = list.length ? [late ? `<b class="mc-n">${late} late</b>` : "", owed ? `<b class="mc-n">${owed} payment overdue</b>` : "", `${list.length} shoot${list.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ") : "";
+      $("mc-shoots").innerHTML = list.length ? `<thead><tr><th class="l">Shoot</th><th class="l">Client</th><th class="l">Service</th><th style="text-align:right">Amount</th><th class="l">Invoice by</th><th class="l">Invoice</th></tr></thead><tbody>${list.map((x) => {
+        const [cls, label] = SHOOT_STATUS[x.status] || ["", x.status];
+        const extra = x.draft && (x.status === "late" || x.status === "not_due") ? " · draft raised" : "";
+        return `<tr class="mc-shoot ${x.status === "late" || x.status === "payment_overdue" ? "is-late" : ""}" data-shoot="${esc(x.id)}" title="${esc(x.numbers.join(", ") || "No invoice yet")}">
+          <td class="l">${esc(dd(x.shoot_date))}</td>
+          <td class="l"><b>${esc(x.client)}</b>${x.company ? `<small>${esc(x.company)}${x.billed_to ? " · billed to the brand" : ""}</small>` : x.billed_to ? "<small>Billed to the brand</small>" : ""}</td>
+          <td class="l">${esc(x.service || "")}</td>
+          <td class="amt">${x.amount_pence != null ? gbp(x.amount_pence) : "–"}</td>
+          <td class="l">${x.status === "package" ? "–" : esc(dd(x.due_by))}</td>
+          <td class="l"><span class="mc-chip ${cls}">${esc(label + extra)}</span></td></tr>`;
+      }).join("")}</tbody>` : `<tbody><tr><td class="l">No shoots booked in these months.</td></tr></tbody>`;
+      $("mc-shoots").querySelectorAll("[data-shoot]").forEach((tr) => tr.addEventListener("click", () => { location.href = `/admin/videography?booking=${encodeURIComponent(tr.dataset.shoot)}`; }));
+    }
     // A note on a month, and whether an invoice is due at all.
     function mcNote(kind, id, ym) {
       const r = MC_ROWS.find((x) => x.id === id && x.kind === kind); if (!r) return;
