@@ -10171,15 +10171,28 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
   const months = Array.from({ length: n }, (_, i) => ymAdd(fromYm, i));
   const last = months[months.length - 1];
   const pounds = (v) => { const x = Number(String(v ?? "").replace(/[^0-9.]/g, "")); return Number.isFinite(x) && x > 0 ? Math.round(x * 100) : null; };
-  const leads = (await sbGetAll(env, "smm_leads", "pipeline_stage=eq.active_client&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc")) || [];
+  // Read directly, so a database error is reported rather than read as "no
+  // clients" (30 Sep 2026: the first live load showed no social clients).
+  const warnings = [];
+  const readAll = async (table, qs) => {
+    const out = [];
+    for (let off = 0; off < 50000; off += 1000) {
+      const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}&limit=1000&offset=${off}`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
+      if (!r.ok) { warnings.push(`${table}: ${r.status} ${(await r.text().catch(() => "")).slice(0, 160)}`); break; }
+      const page = await r.json(); out.push(...page);
+      if (page.length < 1000) break;
+    }
+    return out;
+  };
+  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
   let recurring = [], recurringReady = true;
   const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?active=eq.true&select=*&order=name.asc`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
   if (rr.ok) recurring = await rr.json(); else recurringReady = false;
   // Invoices that could belong to the window: raised or billed from a month
   // before it (late invoices for the first month) to its end.
   const from = ymAdd(fromYm, -1);
-  const invs = (await sbGetAll(env, "invoices",
-    `status=in.(draft,sent,paid)&or=(billing_month.gte.${from},issued_date.gte.${from}-01)&select=id,number,booking_id,booking_source,bill_to_email,billing_month,issued_date,created_at,status,line_items,notes&order=created_at.asc,id.asc`)) || [];
+  const invs = await readAll("invoices",
+    `status=in.(draft,sent,paid)&or=(billing_month.gte.${from},issued_date.gte.${from}-01)&select=id,number,booking_id,booking_source,bill_to_email,billing_month,issued_date,created_at,status,line_items,notes&order=created_at.asc,id.asc`);
   const monthOf = (iv) => iv.billing_month || String(iv.issued_date || iv.created_at || "").slice(0, 7);
   const cellsFor = (list, start) => Object.fromEntries(months.map((ym) => {
     if (start && ym < start) return [ym, { due: false }];
@@ -10206,7 +10219,7 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
       match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "", cells: cellsFor(mine, r.start_month || null) });
   }
-  return { months, rows, recurringReady, today: londonToday().ym };
+  return { months, rows, recurringReady, today: londonToday().ym, warnings, found: { social: leads.length, invoices: invs.length } };
 }
 
 // On the 14th and 21st, 08:00: anything due this month and not sent yet.

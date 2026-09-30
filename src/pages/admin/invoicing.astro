@@ -1276,7 +1276,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       try {
         const d = await api(`/invoicing/monthly?from=${mcFrom}`);
         $("mc-range").textContent = `${ymLabel(d.months[0])} – ${ymLabel(d.months[d.months.length - 1])}`;
-        if (!d.recurringReady) { m.textContent = "Recurring invoices need supabase/recurring_invoices.sql running once in Supabase; social clients show without it."; m.hidden = false; }
+        const notes = [];
+        if (!d.recurringReady) notes.push("Recurring invoices need supabase/recurring_invoices.sql running once in Supabase; social clients show without it.");
+        (d.warnings || []).forEach((w) => notes.push("Couldn't read " + w));
+        if (notes.length) { m.textContent = notes.join(" "); m.hidden = false; }
         const mark = (c, which, ym) => {
           if (!c || !c.due || ym > d.today) return `<span class="mc-na">&ndash;</span>`;
           if (which === "sent") return c.sent ? `<span class="mc-y" title="${esc(c.numbers.join(", "))}">&#10003;</span>` : c.draft ? `<span class="mc-d" title="${esc(c.numbers.join(", "))}">Draft</span>` : `<span class="mc-n">&#10007;</span>`;
