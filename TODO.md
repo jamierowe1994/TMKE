@@ -33,6 +33,94 @@ something was actually verified, not when it was written.
 
 ---
 
+## 0. Member hub pre-launch sweep ⬜ — audited 1 Oct 2026
+
+Ahead of ~100 agents joining in the next fortnight: everything in the member
+hub that isn't a real button, isn't a real task, doesn't do anything, hasn't
+been updated, or is a placeholder. Walked page by page as a logged-in member
+on the live site, plus a code pass for controls nothing listens to.
+
+**Clean, for the record:** every image the hub references resolves live (26
+asset paths, all 200). `/account/bookings`, `/account/blog`,
+`/account/profile` and `/account/orders`' list are real with proper empty
+states. The Studio's Templates pane serves real pack templates from Supabase,
+not the bundled mock library. No lorem, no TBC, no broken images anywhere.
+
+### Dead controls — go nowhere when clicked
+
+- ⬜ **`/account/guides` — "Start the essentials" is `href="#"`.** The primary
+  button under "New to TMKE?", which is the one thing a new agent is most
+  likely to press on their first visit. `src/pages/account/guides.astro:176`.
+- ⬜ **`/account/guides` — five "Quick Lessons" cards are `href="#"`.** They
+  show runtimes (4:21, 3:17, 2:58, 2:42, 2:35) and titles — *3 content ideas
+  for today*, *Design a post in 10 minutes*, *Write captions that sell*, *Best
+  times to post*, *Reels that get watched* — so they read as five real videos.
+  There are no videos. `guides.astro:139,144,149,154,159`.
+- ⬜ **`/account/guides` — "Browse all →" is `href="#"`.** `guides.astro:135`.
+- ⬜ **`/account/services` — all three package CTAs lose which package was
+  picked.** "Get started", "Book a call" and "Tailor a package" link to
+  `/account/contact?from=services-starter|growth|studio`; nothing reads `from`,
+  so the agent lands on the generic contact menu and the enquiry is filed as
+  `account_general`. Either read the param and open the "Manage my socials"
+  card pre-filled, or stop passing it.
+- ⬜ **`/account/contact` doesn't prefill the name**, though it prefills the
+  email from the session.
+
+### Stale or placeholder content
+
+- ⬜ **`/account/guides` "This Month" says September 2026** (checked 1 Oct).
+  The card falls back to the built-in sample in `src/data/trending-sample.js`,
+  whose month is hard-coded `2026-09-01`. The page does query
+  `trending_months` for the latest published row — no rows are visible to the
+  anon key, so most likely none has been published. Either publish October, or
+  hide the card until one exists rather than showing a sample as "This Month".
+- ⬜ **What's New is ten days old** — latest entry 21 Sep in
+  `src/data/whats-new.js`. None of the recent work (social report, print
+  Studio, the mobile pass) is in it, and the dashboard gives it a card.
+- ⬜ **30 mock templates on Unsplash stock ship into every member's editor
+  page.** `src/data/library.js` — "Mock purchased library … Single fake package
+  containing 30 templates" — is serialised into `ed-templates-data` on every
+  load. Members don't see them today because real packs win, but
+  `__TMKE_OPEN_PACK__` falls back to the whole library when template ids don't
+  resolve, so a pack that fails to load shows "Just Listed — 01" over a stock
+  Unsplash interior. Make the fallback an empty state instead.
+- ⬜ **The dashboard's hard-coded week.** `index.astro:183-189` ships Mon 10 →
+  Sun 16 with three stock interiors. It is replaced on load from the real
+  schedule, but it is what shows before the fetch lands, and `if (error)
+  return` leaves it on screen if the query fails.
+
+### Reads as broken, even though the code is right
+
+- ⬜ **`/account/orders` — "Total orders 1 · Lifetime spend £0 · Last purchase
+  07 Jul 2026", with a £24 order on the page.** Spend counts only `paid` rows
+  (`orders.astro:215`); the count includes every row. Two different bases in
+  one summary strip. Either count pending in both or label it "Paid to date".
+- ⬜ **Studio → "Background Remover — remove backgrounds in one click" links to
+  a bare `/account/editor`.** The remover is real (`editor.js:9523`, @imgly in
+  the browser) but the tile drops you in the Studio with no route to it.
+- ⬜ **Studio → "View All Templates →" sits under YOUR PACKS and goes to
+  `/edit`**, the public shop, not the member's own templates.
+
+### Data to tidy before the agents arrive
+
+- ⬜ The only pack on the account is named **"Demo pack"** / "CANVASSING CARDS
+  DEMO PACK".
+- ⬜ A saved design called **"Untitled"** shows on the dashboard's "Pick up
+  where you left off" and in Studio → Your Designs.
+- ⬜ **`/account/services` quotes £850 / £1,650 / £3,200 a month.** Check
+  against the current rate card — it is the only place in the hub that prices
+  managed socials.
+- ⬜ Notifications list **"Your August report is ready" twice**.
+- ⬜ The 07 Jul order has been **PENDING for three months**.
+
+### Dead code — not user-facing, but it misleads this list
+
+- ⬜ **`src/components/account/GuidesPanel.astro` is imported by nothing.** The
+  two "Coming soon" guides live in it, so the entry under *Training / Learn*
+  saying they ship as "Coming soon" is wrong — no member can see them.
+- ⬜ **`src/components/account/DashSidebar.astro` is imported by nothing** since
+  the hub moved to the top header.
+
 ## 1. Training / Learn ⬜
 
 **The plan itself needs revisiting before any more building.** The open question
