@@ -7971,12 +7971,22 @@ export default {
           const cs = (await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(email)}&select=id,first_name,last_name&limit=1`)) || [];
           if (!cs.length) return { ...base, action: "skip", why: "Not in our CRM" };
           const profs = (await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(cs[0].id)}&select=id,brand,left_at,brand_photo_url,brand_photo_source`)) || [];
-          const mine = profs.filter((p) => String(p.brand || "").trim().toLowerCase() === String(brand || "").toLowerCase() && !p.left_at);
-          if (!mine.length) return { ...base, contact_id: cs[0].id, action: "skip", why: `No profile for ${brand || "that brand"} yet` };
-          const hand = mine.filter((p) => p.brand_photo_url && p.brand_photo_source !== "teg");
-          if (hand.length === mine.length) return { ...base, contact_id: cs[0].id, action: "skip", why: "Photo set by hand at TMKE", current: hand[0].brand_photo_url };
-          const had = mine.some((p) => p.brand_photo_url && p.brand_photo_source === "teg");
-          return { ...base, contact_id: cs[0].id, profiles: mine.filter((p) => !(p.brand_photo_url && p.brand_photo_source !== "teg")).map((p) => p.id), action: had ? "update" : "import", format: sn.format, width: sn.width, height: sn.height };
+          const isBrand = (p) => String(p.brand || "").trim().toLowerCase() === String(brand || "").toLowerCase();
+          const live = profs.filter((p) => !p.left_at && !/fine\s*&\s*country/i.test(p.brand || ""));
+          const mine = live.filter(isBrand);
+          /* TEG holds one photo per person, not one per brand. Dual agents
+             (TPE and TLE) were left with an empty profile for their other
+             brand, or skipped outright when their email's brand had no
+             profile here (1 Oct 2026). So the photo also fills their other
+             TEG-brand profiles that have none; it never replaces a photo
+             already there on another brand. */
+          const others = live.filter((p) => !isBrand(p) && !p.brand_photo_url);
+          if (!mine.length && !others.length) return { ...base, contact_id: cs[0].id, action: "skip", why: live.length ? "Photo set on every profile already" : `No profile for ${brand || "that brand"} yet` };
+          const mineFree = mine.filter((p) => !(p.brand_photo_url && p.brand_photo_source !== "teg"));
+          const targets = [...mineFree, ...others];
+          if (!targets.length) return { ...base, contact_id: cs[0].id, action: "skip", why: "Photo set by hand at TMKE", current: mine[0] && mine[0].brand_photo_url };
+          const had = mineFree.some((p) => p.brand_photo_url && p.brand_photo_source === "teg");
+          return { ...base, contact_id: cs[0].id, profiles: targets.map((p) => p.id), also: others.map((p) => p.brand), action: had && !others.length ? "update" : "import", format: sn.format, width: sn.width, height: sn.height };
         };
         try {
           if (path.endsWith("/preview") && request.method === "GET") {
