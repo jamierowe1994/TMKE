@@ -1854,6 +1854,25 @@ import "../../styles/admin.css";
         // 2. Move the children over BEFORE the delete, or the cascade eats them.
         say("Moving notes, tasks and history across…");
         for (const t of ["contact_notes", "contact_tasks", "automation_enrollments", "email_events", "contact_consent_events", "videography_bookings"]) {
+          /* Both records live in the same funnel (dual agents enrolled once
+             per brand record): one person, one place in a funnel. The
+             survivor's enrolment carries on; the duplicate's is stopped, then
+             moves across with its history. Without this the move broke the
+             one-live-enrolment rule and the merge failed (Tony Poon, Sean
+             McMahon, 1 Oct 2026), and they'd have had every email twice. */
+          if (t === "automation_enrollments") {
+            const live = ["active", "waiting"];
+            const [{ data: kept }, { data: theirs }] = await Promise.all([
+              supabase.from(t).select("automation_id").eq("contact_id", keep.id).in("status", live),
+              supabase.from(t).select("id, automation_id").eq("contact_id", lose.id).in("status", live),
+            ]);
+            const inAlready = new Set((kept || []).map((x) => x.automation_id));
+            const clash = (theirs || []).filter((x) => inAlready.has(x.automation_id)).map((x) => x.id);
+            if (clash.length) {
+              const { error: e2 } = await supabase.from(t).update({ status: "stopped" }).in("id", clash);
+              if (e2) throw new Error("Couldn't stand down the duplicate funnel places: " + e2.message);
+            }
+          }
           const { error } = await supabase.from(t).update({ contact_id: keep.id }).eq("contact_id", lose.id);
           // Not every one of these tables exists on every environment, and a
           // missing table must not abandon a half-finished merge.
