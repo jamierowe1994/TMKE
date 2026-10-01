@@ -203,7 +203,7 @@ import "../../styles/admin.css";
       const { body } = await call('/teg/missing-photos');
       if (!body || body.error) { say((body && body.error) || 'No answer.', 'is-err'); return; }
       const teg = new Map((LAST_PREVIEW || []).map((r) => [String(r.email || '').toLowerCase(), r]));
-      const tegSide = (email) => { if (!LAST_PREVIEW) return 'Run the preview to see'; const t = teg.get(email); return !t ? 'Not found at TEG' : t.action !== 'skip' ? 'Ready to import' : t.why; };
+      const tegSide = (email) => { if (!LAST_PREVIEW) return '–'; const t = teg.get(email); return !t ? 'Not found at TEG' : t.action !== 'skip' ? 'Ready to import' : t.why; };
       const rows = body.rows || [];
       const brands = [...new Set(rows.map((r) => r.brand))];
       say(`${rows.length} current agent profile${rows.length === 1 ? '' : 's'} without a brand photo.`, 'is-ok');
@@ -211,6 +211,7 @@ import "../../styles/admin.css";
       out.innerHTML = `
         <div class="teg-sum">${brands.map((b) => `<div class="teg-stat"><b>${rows.filter((r) => r.brand === b).length}</b><span>${esc(b)}</span></div>`).join('')}</div>
         <p class="teg-note">Fine &amp; Country left out for now. <a href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}" download="Agents without a brand photo.csv">Download the list</a></p>
+        ${LAST_PREVIEW ? '' : `<p class="teg-note" style="color:#7a5405">To see why each person hasn't come through, run <strong>Preview headshot import</strong> first, then this list again: the At TEG column fills in with the reason.</p>`}
         ${brands.map((b) => `<details ${b === 'The Property Experts' ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${esc(b)} · ${rows.filter((r) => r.brand === b).length}</strong></summary>
           <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Email</th><th>Job title</th><th>At TEG</th></tr></thead><tbody>${rows.filter((r) => r.brand === b).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td><td>${esc(tegSide(r.email))}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
     });

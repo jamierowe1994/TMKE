@@ -7978,9 +7978,25 @@ export default {
             const ap = (await sbGet(env, "agent_profiles", `email=ilike.${encodeURIComponent(email)}&select=contact_id&limit=1`)) || [];
             if (ap.length) { cs = [{ id: ap[0].contact_id }]; matchedBy = "their brand profile's email"; }
           }
-          if (!cs.length && r.first_name && r.last_name) {
-            const byName = (await sbGet(env, "contacts", `first_name=ilike.${encodeURIComponent(String(r.first_name).trim())}&last_name=ilike.${encodeURIComponent(String(r.last_name).trim())}&select=id&limit=2`)) || [];
-            if (byName.length === 1) { cs = byName; matchedBy = "name only, worth a check"; }
+          /* The same address at another TEG brand: tony.poon@thelettingexperts
+             here, tony.poon@thepropertyexperts on our contact (1 Oct 2026). */
+          if (!cs.length) {
+            const local = email.split("@")[0];
+            if (local) {
+              const likes = (await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(local.replace(/[%_]/g, (c) => "\\" + c))}%40*&select=id,email&limit=10`)) || [];
+              const teg = likes.filter((c) => String(c.email || "").toLowerCase().split("@")[0] === local && brandFromEmailDomain(c.email) && brandFromEmailDomain(c.email) !== "Fine & Country");
+              if (teg.length === 1) { cs = teg; matchedBy = `the same name at ${String(teg[0].email).split("@")[1]}`; }
+            }
+          }
+          // Last: the name, exactly, when only one contact has it. TEG's photo
+          // records carry a full name, not first and last separately.
+          if (!cs.length) {
+            const parts = String(r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : name).trim().split(/\s+/);
+            if (parts.length >= 2) {
+              const first = parts[0], last = parts.slice(1).join(" ");
+              const byName = (await sbGet(env, "contacts", `first_name=ilike.${encodeURIComponent(first)}&last_name=ilike.${encodeURIComponent(last)}&select=id&limit=2`)) || [];
+              if (byName.length === 1) { cs = byName; matchedBy = "name only, worth a check"; }
+            }
           }
           if (!cs.length) return { ...base, action: "skip", why: "Not in our CRM" };
           base.matched_by = matchedBy;
