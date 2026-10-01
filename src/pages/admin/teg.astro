@@ -23,6 +23,8 @@ import "../../styles/admin.css";
       <button type="button" class="admin-btn" id="teg-heads-all">Check everyone</button>
       <button type="button" class="admin-btn" id="teg-imp-prev">Preview headshot import</button>
       <button type="button" class="admin-btn" id="teg-missing">Our agents without a brand photo</button>
+      <button type="button" class="admin-btn" id="teg-roster">Compare a Team Hub export</button>
+      <input type="file" id="teg-roster-file" accept=".csv,text/csv" hidden>
       <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
       <span class="teg-status" id="teg-status"></span>
     </div>
@@ -67,6 +69,10 @@ import "../../styles/admin.css";
     .teg-pick button[data-pick] { appearance: none; background: none; border: 0; padding: 0; font: 700 13px var(--sans); color: var(--english-violet); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
     .teg-pick .admin-btn { margin-left: 12px; }
     .teg-thumb { display: block; width: 40px; height: 52px; border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center bottom; background-color: #f1eeee; }
+    .teg-h { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); margin: 26px 0 4px; }
+    .teg-flag { color: #7a5405; }
+    .teg-fill { display: block; color: rgba(28,29,34,0.7); }
+    .teg-fill b { font-weight: 700; color: var(--ink); }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
 
@@ -290,6 +296,118 @@ import "../../styles/admin.css";
       document.getElementById('teg-imp-q').addEventListener('input', (e) => { q = e.target.value.trim().toLowerCase(); draw(); });
       draw();
     });
+
+    /* ---- Team Hub export → our CRM (Danielle, 1 Oct 2026) ------------------
+       She exports the Team Hub as CSV and picks it here. The file is read in
+       the browser and only the columns below are sent on: no home address,
+       personal email or personal phone ever leaves this page. The Worker
+       compares it with our contacts; nothing changes until Apply. */
+    const ROSTER_FOCUS = ['The Property Experts', 'Prestige Property Experts', 'The Letting Experts'];
+    const ROSTER_COLS = {
+      'First Name': 'first_name', 'Last Name': 'last_name', 'Email': 'email', 'Person Type': 'person_type', 'Status': 'status',
+      'Job Title': 'job_title', 'Primary Brand': 'primary_brand', 'Sub Brands': 'sub_brands', 'Location': 'location',
+      'TRE Location': 'tre_location', 'Business Mobile': 'mobile',
+      'Date Compliant': 'date_compliant', 'Date Launched': 'date_launched', 'Leave Date': 'leave_date',
+    };
+    function parseCsv(text) {
+      const rows = []; let row = [], cell = '', q = false;
+      text = text.replace(/^﻿/, '');
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; continue; }
+        if (ch === '"') q = true;
+        else if (ch === ',') { row.push(cell); cell = ''; }
+        else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+        else cell += ch;
+      }
+      if (cell || row.length) { row.push(cell); rows.push(row); }
+      const head = (rows.shift() || []).map((h) => h.trim());
+      return rows.filter((r) => r.some((c) => c.trim())).map((r) => {
+        const o = {};
+        head.forEach((h, i) => { if (ROSTER_COLS[h]) o[ROSTER_COLS[h]] = String(r[i] || '').trim(); });
+        // From the home address, the postcode only; the rest never leaves this page.
+        const hi = head.indexOf('Home Address');
+        const pc = hi >= 0 && String(r[hi] || '').toUpperCase().match(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/);
+        if (pc) o.home_postcode = pc[1] + ' ' + pc[2];
+        return o;
+      });
+    }
+    const rosterBrands = (t) => [t.primary_brand, ...String(t.sub_brands || '').split(/[;,]/)].map((x) => String(x || '').trim()).filter((b) => ROSTER_FOCUS.includes(b));
+    async function post(pathname, payload) {
+      const { data } = await supabase.auth.getSession();
+      const res = await fetch(WORKER + pathname, { method: 'POST', headers: { Authorization: 'Bearer ' + data?.session?.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      return { status: res.status, body: await res.json().catch(() => null) };
+    }
+    const FIELD_NAMES = { job_title: 'Job title', date_joined: 'Joined', postcode: 'Postcode', area: 'Area', email: 'Brand email', phone: 'Work mobile' };
+    const fillList = (f, keys) => (keys || Object.keys(f || {})).filter((k) => f[k]).map((k) => `<span class="teg-fill"><b>${FIELD_NAMES[k] || k}:</b> ${esc(f[k])}</span>`).join('');
+
+    const rosterFile = document.getElementById('teg-roster-file');
+    document.getElementById('teg-roster').addEventListener('click', () => { rosterFile.value = ''; rosterFile.click(); });
+    rosterFile.addEventListener('change', async () => {
+      const file = rosterFile.files && rosterFile.files[0];
+      if (!file) return;
+      out.innerHTML = '';
+      say('Reading the export…');
+      let rows;
+      try { rows = parseCsv(await file.text()); } catch (err) { say("Couldn't read that file as a CSV.", 'is-err'); return; }
+      if (!rows.length || !('email' in rows[0]) || !('primary_brand' in rows[0])) { say("That doesn't look like a Team Hub export: no Email or Primary Brand column.", 'is-err'); return; }
+      const focus = rows.filter((t) => rosterBrands(t).length);
+      say(`Comparing ${focus.length} Team Hub people with our CRM…`);
+      const { body } = await post('/teg/roster/preview', { rows: focus });
+      if (!body || body.error) { say((body && body.error) || 'No answer from our Worker.', 'is-err'); return; }
+      drawRoster(body, file.name);
+    });
+
+    function drawRoster(d, fileName) {
+      const starters = d.starters || [], support = d.support || [], updates = d.updates || [];
+      const okStatus = (s) => !s || /^active$/i.test(s);
+      // Ticked to start: clean new agents who are live, and every blank to fill.
+      const pick = new Set([...starters.filter((r) => !r.maybe && okStatus(r.status)).map((r) => 's:' + r.key), ...updates.map((u) => 'u:' + u.key)]);
+      say(`${d.counted} people at The Property Experts, Prestige and The Letting Experts in ${fileName}.`, 'is-ok');
+      const stat = (n, label) => `<div class="teg-stat"><b>${n}</b><span>${label}</span></div>`;
+      const sec = (title, n, open, inner) => n ? `<details ${open ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${title} · ${n}</strong></summary>${inner}</details>` : '';
+      const table = (heads, body) => `<div class="teg-tablewrap"><table class="teg-table"><thead><tr>${heads.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+      const tick = (k, label) => `<input type="checkbox" data-rk="${esc(k)}" ${pick.has(k) ? 'checked' : ''} aria-label="${esc(label)}">`;
+      const brands = (bs) => (bs || []).map((b) => `<span class="teg-pill">${esc(b)}</span>`).join('');
+      const draw = () => {
+        out.innerHTML = `
+          <div class="teg-sum">
+            ${stat(starters.length, 'New agents')}${stat(updates.length, 'Details to fill')}${stat((d.leavers || []).length, 'Possible leavers')}${stat((d.conflicts || []).length, "Doesn't agree")}${stat(support.length, 'Support staff not in CRM')}${stat((d.mismatched || []).length, 'Different email')}
+          </div>
+          <p class="teg-note">Fine &amp; Country and The Mortgage Experts are left out for now. Personal emails and phones were dropped before anything was sent, and of the home address only the postcode. Details only fill blanks: where we already hold something different, it's listed under Doesn't agree and left alone. Joined is the launch date, or the compliance date if there isn't one.</p>
+          <div class="teg-pick"><button type="button" class="admin-btn admin-btn-primary" id="teg-ro-go" ${pick.size ? '' : 'disabled'}>Apply ${pick.size} selected</button> <span class="teg-status" id="teg-ro-st"></span></div>
+          ${sec('New agents not in our CRM', starters.length, true, `<p class="teg-note">Added as a contact with a profile for each brand. Not enrolled in the new-starter funnel. Anyone flagged, or not yet Active on the Team Hub, starts unticked.</p>` + table(['', 'Name', 'Brand', 'Email', 'Details', 'Status', 'Check first'], starters.map((r) => `<tr><td>${tick('s:' + r.key, 'Add ' + r.name)}</td><td>${esc(r.name)}</td><td>${brands(r.brands)}</td><td>${esc(r.email)}</td><td>${fillList(r.fields, ['job_title', 'date_joined', 'area', 'postcode'])}</td><td>${esc(r.status || '—')}</td><td class="teg-flag">${esc(r.maybe)}</td></tr>`).join('')))}
+          ${sec('Details to fill for people we have', updates.length, true, table(['', 'Name', 'Brand', 'What fills in'], updates.map((u) => `<tr><td>${tick('u:' + u.key, 'Update ' + u.name)}</td><td>${esc(u.name)}</td><td>${brands([u.brand])}${u.kind === 'add_profile' ? '<span class="teg-pill is-add">+ new brand profile</span>' : ''}</td><td>${fillList(u.fields, u.changes)}</td></tr>`).join('')))}
+          ${sec("Doesn't agree: flagged only, nothing changes", (d.conflicts || []).length, true, `<p class="teg-note">Where the Team Hub and our records say different things, or the Team Hub contradicts itself. Possible leavers who look to be on the Team Hub under another name or email are here too.</p>` + table(['Name', 'Brand', 'What', 'Ours', 'Team Hub', ''], d.conflicts.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.brand ? brands(r.brand.split(', ')) : ''}</td><td>${esc(r.what)}</td><td>${esc(r.ours || '—')}</td><td>${esc(r.theirs)}</td><td class="teg-flag">${esc(r.why)}</td></tr>`).join('')))}
+          ${sec('Possible leavers: flagged only, nothing changes', (d.leavers || []).length, true, `<p class="teg-note">On our books at these brands but not on the Team Hub. Worth checking before marking anyone as left.</p>` + table(['Name', 'Brand', 'Email', 'Job title', 'Why', 'Still live?'], d.leavers.map((r) => `<tr><td>${esc(r.name)}</td><td>${brands([r.brand])}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td><td>${esc(r.note)}</td><td class="teg-flag">${esc(r.live || '')}</td></tr>`).join('')))}
+          ${sec('Marked as left here, but on the Team Hub', (d.returners || []).length, true, table(['Name', 'Brand', 'Email', 'We marked them left'], (d.returners || []).map((r) => `<tr><td>${esc(r.name)}</td><td>${brands([r.brand])}</td><td>${esc(r.email)}</td><td>${esc(r.left_at)}</td></tr>`).join('')))}
+          ${sec('Matched, but under a different email', (d.mismatched || []).length, false, `<p class="teg-note">Found by name or by the same address at another brand. Their Team Hub email is offered as the brand email under Details to fill.</p>` + table(['Name', 'Team Hub email', 'Our email', 'Matched by'], d.mismatched.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.teg_email)}</td><td>${esc(r.our_email)}</td><td>${esc(r.by)}</td></tr>`).join('')))}
+          ${sec('Support staff not in our CRM: listed only', support.length, false, table(['Name', 'Brand', 'Email', 'Job title'], support.map((r) => `<tr><td>${esc(r.name)}</td><td>${brands(r.brands)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td></tr>`).join('')))}`;
+        out.querySelectorAll('[data-rk]').forEach((c) => c.addEventListener('change', () => { c.checked ? pick.add(c.dataset.rk) : pick.delete(c.dataset.rk); const b = document.getElementById('teg-ro-go'); b.textContent = `Apply ${pick.size} selected`; b.disabled = !pick.size; }));
+        document.getElementById('teg-ro-go').addEventListener('click', apply);
+      };
+      const apply = async (e) => {
+        const actions = [
+          ...starters.filter((r) => pick.has('s:' + r.key)).map((r) => ({ kind: 'add', key: 's:' + r.key, name: r.name, email: r.email, brands: r.brands, fields: r.fields })),
+          ...updates.filter((u) => pick.has('u:' + u.key)).map((u) => ({ ...u, key: 'u:' + u.key })),
+        ];
+        const nA = actions.filter((a) => a.kind === 'add').length, nU = actions.length - nA;
+        if (!actions.length || !confirm(`Add ${nA} new agent${nA === 1 ? '' : 's'} and fill in details for ${nU} profile${nU === 1 ? '' : 's'}? Nothing at TEG changes.`)) return;
+        const b = e.target, st = document.getElementById('teg-ro-st'); b.disabled = true;
+        let done = 0; const failed = [];
+        for (let i = 0; i < actions.length; i += 10) {
+          st.textContent = `Saving ${Math.min(i + 10, actions.length)} of ${actions.length}…`;
+          const { body } = await post('/teg/roster/apply', { actions: actions.slice(i, i + 10) });
+          if (!body || body.error) { failed.push(...actions.slice(i, i + 10).map((a) => `${a.name}: ${(body && body.error) || 'no answer'}`)); continue; }
+          done += (body.done || []).length;
+          (body.failed || []).forEach((f) => { const a = actions.find((x) => x.key === f.key); failed.push(`${a ? a.name : f.key}: ${f.error}`); });
+        }
+        st.textContent = `Done: ${done} saved${failed.length ? `, ${failed.length} failed` : ''}. Pick the export again to see what's left.`;
+        st.className = 'teg-status ' + (failed.length ? 'is-err' : 'is-ok');
+        if (failed.length) out.insertAdjacentHTML('beforeend', `<div class="teg-raw">${esc(failed.join('\n'))}</div>`);
+      };
+      draw();
+    }
 
     document.getElementById('teg-photos').addEventListener('click', async () => {
       out.innerHTML = '';
