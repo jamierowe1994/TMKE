@@ -62,6 +62,10 @@ import "../../styles/admin.css";
     .teg-shot .meta { display: flex; justify-content: space-between; gap: 6px; margin-top: 5px; color: rgba(28,29,34,0.6); }
     .teg-yes { color: #2b6b44; font-weight: 700; } .teg-no { color: #9a2a2a; font-weight: 700; }
     .ash-panel .teg-fc { display: inline-flex; align-items: center; gap: 7px; font-family: var(--sans); font-size: 13px; color: var(--ink); margin: 16px 0 0; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
+    .ash-panel .teg-q { display: block; width: min(420px, 100%); height: 40px; box-sizing: border-box; padding: 0 12px; margin: 14px 0 0; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; font: 13px var(--sans); }
+    .teg-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+    .teg-pick button[data-pick] { appearance: none; background: none; border: 0; padding: 0; font: 700 13px var(--sans); color: var(--english-violet); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .teg-pick .admin-btn { margin-left: 12px; }
     .teg-thumb { display: block; width: 40px; height: 52px; border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center bottom; background-color: #f1eeee; }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
@@ -210,7 +214,7 @@ import "../../styles/admin.css";
         ${brands.map((b) => `<details ${b === 'The Property Experts' ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${esc(b)} · ${rows.filter((r) => r.brand === b).length}</strong></summary>
           <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Email</th><th>Job title</th><th>At TEG</th></tr></thead><tbody>${rows.filter((r) => r.brand === b).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td><td>${esc(tegSide(r.email))}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
     });
-    const IMPORT_WHY = { import: 'New brand photo', update: 'Replaces the TEG photo we hold' };
+    const IMPORT_WHY = { import: 'New brand photo', update: 'Already imported: replaces the TEG photo we hold' };
     document.getElementById('teg-imp-prev').addEventListener('click', async () => {
       const btn = document.getElementById('teg-imp-prev');
       out.innerHTML = ''; btn.disabled = true;
@@ -228,32 +232,62 @@ import "../../styles/admin.css";
       btn.disabled = false;
       LAST_PREVIEW = rows;
       const go = rows.filter((r) => r.action !== 'skip');
-      const reasons = {}; rows.filter((r) => r.action === 'skip').forEach((r) => { reasons[r.why] = (reasons[r.why] || 0) + 1; });
-      say(`${rows.length} TEG people looked at: ${go.length} headshot${go.length === 1 ? '' : 's'} ready to import.`, 'is-ok');
-      const table = (list, why) => `<div class="teg-tablewrap"><table class="teg-table"><thead><tr><th></th><th>Name</th><th>Brand</th><th>Email</th><th>${why ? 'Why' : 'What happens'}</th></tr></thead><tbody>${list.map((r) => `<tr><td>${r.photo && r.action !== 'skip' ? `<span class="teg-thumb" style="background-image:url('${esc(r.photo)}')"></span>` : ''}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(why ? r.why : IMPORT_WHY[r.action] + ((r.also || []).length ? `, and on their ${r.also.join(" and ")} profile` : ""))}</td></tr>`).join('')}</tbody></table></div>`;
+      const skipped = rows.filter((r) => r.action === 'skip');
+      const reasons = {}; skipped.forEach((r) => { reasons[r.why] = (reasons[r.why] || 0) + 1; });
+      const fresh = go.filter((r) => r.action === 'import');
+      say(`${rows.length} TEG people looked at: ${go.length} ready, of whom ${fresh.length} new.`, 'is-ok');
+      /* Choose who to import: New (not already holding a TEG photo) is
+         picked to start, so a re-run only brings in what's changed; All, or
+         any one person whose photo has changed (Danielle, 1 Oct 2026). */
+      const picked = new Set(fresh.map((r) => r.email));
+      let q = '';
       out.innerHTML = `
-        <div class="teg-sum"><div class="teg-stat"><b>${go.length}</b><span>Ready to import</span></div>${Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="teg-stat"><b>${n}</b><span>${esc(w)}</span></div>`).join('')}</div>
+        <div class="teg-sum"><div class="teg-stat"><b>${go.length}</b><span>Ready to import</span></div><div class="teg-stat"><b>${fresh.length}</b><span>Of those, new</span></div>${Object.entries(reasons).sort((a, b) => b[1] - a[1]).map(([w, n]) => `<div class="teg-stat"><b>${n}</b><span>${esc(w)}</span></div>`).join('')}</div>
         <p class="teg-note">Only background-free pictures, for people in our CRM with a profile for that brand. A photo someone at TMKE set by hand is never replaced. Each one is copied into our own storage.</p>
-        ${go.length ? `<button type="button" class="admin-btn admin-btn-primary" id="teg-imp-go" style="margin-top:12px">Import ${go.length} headshot${go.length === 1 ? '' : 's'}</button> <span class="teg-status" id="teg-imp-st"></span>` : ''}
-        ${go.length ? `<details open style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>Ready to import · ${go.length}</strong></summary>${table(go, false)}</details>` : ''}
-        ${rows.length > go.length ? `<details style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>Not imported · ${rows.length - go.length}</strong></summary>${table(rows.filter((r) => r.action === 'skip'), true)}</details>` : ''}`;
-      document.getElementById('teg-imp-go')?.addEventListener('click', async (e) => {
-        if (!confirm(`Import ${go.length} headshot${go.length === 1 ? '' : 's'} as brand photos? Nothing at TEG changes.`)) return;
+        <input type="search" class="teg-q" id="teg-imp-q" placeholder="Find someone in either list, e.g. McMahon">
+        <div id="teg-imp-lists"></div>`;
+      const thumb = (r) => r.photo ? `<span class="teg-thumb" style="background-image:url('${esc(r.photo)}')"></span>` : '';
+      const what = (r) => IMPORT_WHY[r.action] + ((r.also || []).length ? `, and on their ${r.also.join(' and ')} profile` : '') + (r.matched_by ? ` (matched by ${r.matched_by})` : '');
+      const draw = () => {
+        const m = (r) => !q || (r.name + ' ' + r.email).toLowerCase().includes(q);
+        const g = go.filter(m), sk = skipped.filter(m);
+        document.getElementById('teg-imp-lists').innerHTML = `
+          ${go.length ? `<details open style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>Ready to import · ${go.length}</strong></summary>
+            <div class="teg-pick">Select: <button type="button" data-pick="all">All</button> · <button type="button" data-pick="new">New</button> · <button type="button" data-pick="none">None</button>
+              <button type="button" class="admin-btn admin-btn-primary" id="teg-imp-go" ${picked.size ? '' : 'disabled'}>Import ${picked.size} selected</button> <span class="teg-status" id="teg-imp-st"></span></div>
+            <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th></th><th></th><th>Name</th><th>Brand</th><th>Email</th><th>What happens</th></tr></thead><tbody>${g.map((r) => `<tr><td><input type="checkbox" data-tick="${esc(r.email)}" ${picked.has(r.email) ? 'checked' : ''} aria-label="Import ${esc(r.name)}"></td><td>${thumb(r)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(what(r))}</td></tr>`).join('') || '<tr><td colspan="6">Nobody matches.</td></tr>'}</tbody></table></div></details>` : ''}
+          ${skipped.length ? `<details ${q ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>Not imported · ${skipped.length}</strong></summary>
+            <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th></th><th>Name</th><th>Brand</th><th>Email</th><th>Why</th></tr></thead><tbody>${sk.map((r) => `<tr><td>${thumb(r)}</td><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(r.why)}</td></tr>`).join('') || '<tr><td colspan="5">Nobody matches.</td></tr>'}</tbody></table></div></details>` : ''}`;
+        const host = document.getElementById('teg-imp-lists');
+        host.querySelectorAll('[data-tick]').forEach((c) => c.addEventListener('change', () => { c.checked ? picked.add(c.dataset.tick) : picked.delete(c.dataset.tick); draw(); }));
+        host.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => {
+          picked.clear();
+          if (b.dataset.pick === 'all') go.forEach((r) => picked.add(r.email));
+          if (b.dataset.pick === 'new') fresh.forEach((r) => picked.add(r.email));
+          draw();
+        }));
+        document.getElementById('teg-imp-go')?.addEventListener('click', runImport);
+      };
+      const runImport = async (e) => {
+        const list = go.filter((r) => picked.has(r.email));
+        if (!list.length || !confirm(`Import ${list.length} headshot${list.length === 1 ? '' : 's'} as brand photos? Nothing at TEG changes.`)) return;
         const b = e.target, st = document.getElementById('teg-imp-st'); b.disabled = true;
-        let done = 0, skipped = 0; const failed = [];
-        for (const r of go) {
-          st.textContent = `Importing ${done + skipped + failed.length + 1} of ${go.length}…`;
+        let done = 0, skippedN = 0; const failed = [];
+        for (const r of list) {
+          st.textContent = `Importing ${done + skippedN + failed.length + 1} of ${list.length}…`;
           try {
             const { data } = await supabase.auth.getSession();
             const res = await fetch(WORKER + '/teg/headshots/import', { method: 'POST', headers: { Authorization: 'Bearer ' + data?.session?.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify({ email: r.email }) });
             const j = await res.json().catch(() => ({}));
-            if (res.ok && j.ok) done++; else if (res.ok && j.skipped) skipped++; else failed.push(`${r.name}: ${j.error || res.status}`);
+            if (res.ok && j.ok) done++; else if (res.ok && j.skipped) skippedN++; else failed.push(`${r.name}: ${j.error || res.status}`);
           } catch (err) { failed.push(`${r.name}: ${err.message}`); }
         }
-        st.textContent = `Done: ${done} imported${skipped ? `, ${skipped} skipped` : ''}${failed.length ? `, ${failed.length} failed` : ''}.`;
+        st.textContent = `Done: ${done} imported${skippedN ? `, ${skippedN} skipped` : ''}${failed.length ? `, ${failed.length} failed` : ''}. Run the preview again to refresh the lists.`;
         st.className = 'teg-status ' + (failed.length ? 'is-err' : 'is-ok');
         if (failed.length) out.insertAdjacentHTML('beforeend', `<div class="teg-raw">${esc(failed.join('\n'))}</div>`);
-      });
+      };
+      document.getElementById('teg-imp-q').addEventListener('input', (e) => { q = e.target.value.trim().toLowerCase(); draw(); });
+      draw();
     });
 
     document.getElementById('teg-photos').addEventListener('click', async () => {

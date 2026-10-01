@@ -7968,8 +7968,22 @@ export default {
           const sn = await sniffImage(photo);
           if (!sn.transparent) return { ...base, action: "skip", why: sn.transparent === false ? "Still has a background" : "Couldn't read the picture", format: sn.format };
           // Case-blind: TEG writes some addresses with capitals (SJ.Bannister@…).
-          const cs = (await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(email)}&select=id,first_name,last_name&limit=1`)) || [];
+          let cs = (await sbGet(env, "contacts", `email=ilike.${encodeURIComponent(email)}&select=id,first_name,last_name&limit=1`)) || [];
+          let matchedBy = "";
+          /* Dual agents: TEG may list them under their other brand's address,
+             which is on that brand's profile here, not on the contact
+             (Sean McMahon, Tony Poon, 1 Oct 2026). Then, last, an exact
+             first-and-last name, but only when exactly one contact has it. */
+          if (!cs.length) {
+            const ap = (await sbGet(env, "agent_profiles", `email=ilike.${encodeURIComponent(email)}&select=contact_id&limit=1`)) || [];
+            if (ap.length) { cs = [{ id: ap[0].contact_id }]; matchedBy = "their brand profile's email"; }
+          }
+          if (!cs.length && r.first_name && r.last_name) {
+            const byName = (await sbGet(env, "contacts", `first_name=ilike.${encodeURIComponent(String(r.first_name).trim())}&last_name=ilike.${encodeURIComponent(String(r.last_name).trim())}&select=id&limit=2`)) || [];
+            if (byName.length === 1) { cs = byName; matchedBy = "name only, worth a check"; }
+          }
           if (!cs.length) return { ...base, action: "skip", why: "Not in our CRM" };
+          base.matched_by = matchedBy;
           const profs = (await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(cs[0].id)}&select=id,brand,left_at,brand_photo_url,brand_photo_source`)) || [];
           const isBrand = (p) => String(p.brand || "").trim().toLowerCase() === String(brand || "").toLowerCase();
           const live = profs.filter((p) => !p.left_at && !/fine\s*&\s*country/i.test(p.brand || ""));
