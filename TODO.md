@@ -717,8 +717,10 @@ are the `RESIZE_*` constants at the top of that section.
   Landscape: words may spread up to half as wide again so they stay larger.
   Too many words to fit: they shrink only as far as they must.
 - ✅ (21 Sep) **One size list** (`src/data/studio-sizes.js`) for the new-design
-  pop-out and Resize. Print sizes carry a 3mm bleed and show their trimmed
-  size in mm; Resize only offers the design's own family, social or print.
+  pop-out and Resize. A print size **is** the finished size - 148 x 105mm is a
+  canvas of exactly 148 x 105mm, 0,0 is the corner of the paper, and the 3mm
+  margin is a guide drawn inside it, never added to it. Resize only offers the
+  design's own family, social or print.
 - ✅ **The 2x2 grid posts land where Dani says, on story and reel.** Four
   pictures in a grid keep their width and become 660 tall, the top pair at
   y200 and the bottom pair at y864; the rule and the line of text under them
@@ -738,8 +740,9 @@ are the `RESIZE_*` constants at the top of that section.
   this size, or go back. X (Twitter) preset removed; TikTok folded into Story.
 - ✅ **Reset to the original template** in Start, for a design opened from a
   template on this visit. Undoable.
-- ✅ **Safe zones** in Guides: Instagram Story, Reel, and a 5mm print trim on
-  A-sizes. Shown over the canvas, never exported.
+- ✅ **Safe zones** in Guides: Instagram Story, Reel, and the print margin
+  (3mm, `PRINT_MARGIN_MM`) on any print size. Shown over the canvas, never
+  exported.
 - ✅ (19 Sep) **"Save as a copy" confirmed on the live site** by Dani: the copy
   lands in My Designs and the original is untouched.
 - ✅ (21 Sep) **Leftover editor code cleared**: the unreachable size chooser,

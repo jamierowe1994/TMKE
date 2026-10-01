@@ -11803,7 +11803,7 @@ import { createResizeEngine } from "./resize-engine.js";
   /* What the app covers on top of a story or reel, and what a printer may
      trim. Shown over the canvas from the Guides pane; never exported. The
      figures are Instagram's current layout (it moves now and then) and the
-     usual 5mm printers ask to keep words and logos clear of the trim. */
+     margin printers ask for, PRINT_MARGIN_MM in src/data/studio-sizes.js. */
   var SAFE_ZONES = {
     /* Instagram's profile grid shows every post as a centred 3:4 crop
        (1080 x 1440). A story or reel cover loses its top and bottom there; a
