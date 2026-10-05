@@ -710,6 +710,7 @@ function rowToPost(row) {
   return {
     slug: row.slug,
     title: row.title,
+    audience: row.audience || "public",
     eyebrow: row.eyebrow || "",
     category: row.category || "Insights",
     standfirst: row.standfirst || "",

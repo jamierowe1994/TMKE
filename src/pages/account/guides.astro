@@ -121,7 +121,7 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
                 {n.standfirst && <p class="lrn-path-desc">{n.standfirst}</p>}
                 <span class="lrn-path-cta">Read <em>→</em></span>
               </div>
-              <span class="lrn-path-art" style={n.hero ? `background-image:url('${n.hero}')` : ""}></span>
+              <span class="lrn-path-art" style={n.hero ? `background-image:url('${n.hero}')` : ""}>{n.audience !== "both" && n.audience !== "public" && <span class="edit-tag">Members Only</span>}</span>
             </a>
           ))}
         </div>
@@ -336,7 +336,7 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     (async () => {
       const host = document.getElementById('lrn-notes');
       if (!host) return;
-      const { data } = await supabase.from('blog_posts').select('slug,title,category,standfirst,hero_image_url,publish_date,published_at,created_at')
+      const { data } = await supabase.from('blog_posts').select('slug,title,category,standfirst,hero_image_url,publish_date,published_at,created_at,audience')
         .eq('status', 'published').in('audience', ['members', 'both']).order('publish_date', { ascending: false }).limit(2);
       if (!data || !data.length) return;
       const day = (d) => { const t = new Date(String(d).slice(0, 10) + 'T12:00:00'); return isNaN(t) ? '' : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
@@ -349,7 +349,7 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
             ${n.standfirst ? `<p class="lrn-path-desc">${esc(n.standfirst)}</p>` : ''}
             <span class="lrn-path-cta">Read <em>→</em></span>
           </div>
-          <span class="lrn-path-art"${n.hero_image_url ? ` style="background-image:url('${esc(n.hero_image_url)}')"` : ''}></span>
+          <span class="lrn-path-art"${n.hero_image_url ? ` style="background-image:url('${esc(n.hero_image_url)}')"` : ''}>${n.audience === 'members' ? '<span class="edit-tag">Members Only</span>' : ''}</span>
         </a>`;
       }).join('');
       document.getElementById('notes').hidden = false;

@@ -61,7 +61,7 @@ try { built = await getMembersPosts(); } catch (_) {}
            standfirst, who wrote it, then the body in its own styling. -->
       <article class="mb-read" id="mb-read" hidden>
         <a href="/account/blog" class="mb-back" id="mb-back">&larr; All articles</a>
-        <div class="mb-hero" id="mb-hero"><img id="mb-hero-img" alt="" /></div>
+        <div class="mb-hero" id="mb-hero"><span class="edit-tag" id="mb-hero-tag" hidden>Members Only</span><img id="mb-hero-img" alt="" /></div>
         <div class="mb-col">
           <div class="mb-eyebrow" id="mb-eyebrow"></div>
           <h1 class="mb-title" id="mb-title"></h1>
@@ -81,7 +81,7 @@ try { built = await getMembersPosts(); } catch (_) {}
         </div>
       </article>
       {built.map((p) => (<template data-mb={p.slug} set:html={p.body}></template>))}
-      <script type="application/json" id="mb-built" set:html={JSON.stringify(built.map((p) => ({ slug: p.slug, title: p.title, eyebrow: p.eyebrow || "", category: p.category || "", standfirst: p.standfirst || "", hero: p.hero || "", heroAlt: p.heroAlt || "", date: p.date || "", readTime: p.readTime || null, author: p.author || "The TMKE Desk", styles: p.styles || {} })))}></script>
+      <script type="application/json" id="mb-built" set:html={JSON.stringify(built.map((p) => ({ slug: p.slug, title: p.title, eyebrow: p.eyebrow || "", category: p.category || "", standfirst: p.standfirst || "", hero: p.hero || "", heroAlt: p.heroAlt || "", date: p.date || "", readTime: p.readTime || null, author: p.author || "The TMKE Desk", styles: p.styles || {}, audience: p.audience || "members" })))}></script>
     </main>
   </div>
 
@@ -125,7 +125,7 @@ try { built = await getMembersPosts(); } catch (_) {}
     const fromRow = (r) => ({
       slug: r.slug, title: r.title, eyebrow: r.eyebrow || '', category: r.category || 'Insights', standfirst: r.standfirst || '',
       hero: r.hero_image_url || '', heroAlt: r.hero_image_alt || r.title, date: r.publish_date || r.published_at || r.created_at,
-      readTime: r.read_time_minutes || null, author: r.author_name || 'The TMKE Desk', styles: r.body_styles || {}, html: r.body_html || '', md: r.body_markdown || '',
+      readTime: r.read_time_minutes || null, author: r.author_name || 'The TMKE Desk', audience: r.audience || 'public', styles: r.body_styles || {}, html: r.body_html || '', md: r.body_markdown || '',
     });
     let posts = built;
     drawList();
@@ -153,8 +153,9 @@ try { built = await getMembersPosts(); } catch (_) {}
       const newHost = document.getElementById('mb-new'), cards = document.getElementById('mb-cards');
       if (!newHost || !cards) return;
       const bg = (u) => (u ? ` style="background-image:url('${esc(u)}')"` : '');
+      const tag = (p) => (p.audience === 'members' ? '<span class="edit-tag">Members Only</span>' : '');
       newHost.innerHTML = posts.slice(0, 2).map((p, i) => `<a class="mb-tile mb-tile--post" href="/account/blog#${esc(p.slug)}">
-          <span class="mb-tile-img"${bg(p.hero)}></span>
+          ${tag(p)}<span class="mb-tile-img"${bg(p.hero)}></span>
           <span class="mb-tile-cap"><span class="mb-tile-num">${i === 0 ? 'Newest' : esc(p.category || 'Insights')}</span><span class="mb-tile-name">${esc(p.title)}</span></span>
         </a>`).join('');
       // Which card in each row of three is the wide one: last, then first,
@@ -167,7 +168,7 @@ try { built = await getMembersPosts(); } catch (_) {}
         else if (pos === (row % 2 === 0 ? 2 : 0)) cls += ' mb-card--side';
         const when = fmtDate(p.date);
         return `<a class="${cls}" href="/account/blog#${esc(p.slug)}">
-          <span class="mb-card-art"${bg(p.hero)}></span>
+          <span class="mb-card-art"${bg(p.hero)}>${tag(p)}</span>
           <span class="mb-card-body">
             <span class="mb-card-eyebrow">${esc(p.category || 'Insights')}${when ? ' · ' + esc(when) : ''}${p.readTime ? ' · ' + p.readTime + ' min' : ''}</span>
             <span class="mb-card-title">${esc(p.title)}</span>
@@ -183,6 +184,7 @@ try { built = await getMembersPosts(); } catch (_) {}
       const p = slug && posts.find((x) => x.slug === slug);
       if (!p) { read.hidden = true; list.hidden = false; return; }
       document.getElementById('mb-hero').hidden = !p.hero;
+      document.getElementById('mb-hero-tag').hidden = p.audience !== 'members';
       const img = document.getElementById('mb-hero-img'); img.src = p.hero || ''; img.alt = p.heroAlt || p.title;
       document.getElementById('mb-eyebrow').textContent = [p.category, p.eyebrow].filter(Boolean).filter((x, i, a) => a.indexOf(x) === i).join('  ·  ');
       document.getElementById('mb-title').textContent = p.title;
@@ -260,7 +262,7 @@ try { built = await getMembersPosts(); } catch (_) {}
     .mb-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 6px; }
     .mb-card { display: flex; flex-direction: column; min-width: 0; background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--ws-sh); transition: transform 0.22s var(--ws-ease), box-shadow 0.22s; }
     .mb-card:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(28,29,34,0.02), 0 24px 48px -30px rgba(28,29,34,0.24); }
-    .mb-card-art { display: block; aspect-ratio: 16 / 10; background: #e9e6e2 center / cover no-repeat; flex: none; }
+    .mb-card-art { position: relative; display: block; aspect-ratio: 16 / 10; background: #e9e6e2 center / cover no-repeat; flex: none; }
     .mb-card-body { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; flex: 1; }
     .mb-card-eyebrow { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
     .mb-card-title { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 500; font-size: clamp(15px, 1.1vw, 18px); line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
@@ -290,7 +292,7 @@ try { built = await getMembersPosts(); } catch (_) {}
     .mb-read[hidden] { display: none; }
     .mb-back { display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.6); text-decoration: none; margin-bottom: 22px; }
     .mb-back:hover { color: var(--ink, #1c1d22); }
-    .mb-hero { border-radius: 8px; overflow: hidden; aspect-ratio: 16 / 7; background: rgba(28,29,34,0.06); margin-bottom: 34px; }
+    .mb-hero { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 16 / 7; background: rgba(28,29,34,0.06); margin-bottom: 34px; }
     .mb-hero[hidden] { display: none; }
     .mb-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .mb-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin-bottom: 14px; }
