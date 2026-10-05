@@ -154,6 +154,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         <div class="be-tpl-acts">
           <button type="button" class="admin-btn admin-btn-ghost" id="be-tpl-save">Save as template</button>
           <button type="button" class="admin-btn admin-btn-ghost" id="be-tpl-update" hidden>Update template</button>
+          <button type="button" class="admin-btn admin-btn-ghost" id="be-gap-all" title="Sets this paragraph spacing on every article, published or not, and takes out the blank lines Word left between paragraphs">Use this spacing on every article</button>
         </div>
         <label class="be-check" id="be-tpl-default-wrap" hidden>
           <input type="checkbox" id="be-tpl-default" />
@@ -858,6 +859,9 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
        paragraph you write tomorrow. */
     const STYLE_PARTS = [
       ["p", "Body text"], ["h2", "Heading"], ["h3", "Sub-heading"], ["blockquote", "Quote"],
+      // The intro under the title on the article page. Not part of the body,
+      // so it isn't drawn in the editor; it applies on the published page.
+      ["stand", "Standfirst"],
     ];
     const FONT_OPTS = [
       ["", "Site default"],
@@ -934,6 +938,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     function styleCssFor(scope) {
       const safe = (x) => String(x || "").replace(/[;{}<>"]/g, "").trim();
       return STYLE_PARTS.map(([key]) => {
+        if (key === "stand") return "";
         const v = styleState[key];
         if (!v) return "";
         const d = [];
@@ -975,6 +980,36 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       document.getElementById("be-tpl-default-wrap").hidden = !t;
       document.getElementById("be-tpl-default").checked = !!(t && t.is_default);
     }
+    /* One spacing across the whole blog (Danielle, 5 Oct 2026). Every
+       article, website-only or Hub too, gets this paragraph spacing, and loses
+       the empty paragraphs Word left between its real ones. Its other styling
+       is left as it is. */
+    document.getElementById("be-gap-all")?.addEventListener("click", async (e) => {
+      const gap = styleState.p && styleState.p.gap;
+      if (!gap) { tplMsg("Choose a paragraph spacing first (toolbar or Body text), then press this."); return; }
+      const label = (GAP_OPTS.find(([v]) => v === gap) || [gap, gap])[1];
+      const { data: posts, error } = await supabase.from("blog_posts").select("id, title, body_html, body_styles");
+      if (error) { tplMsg("Couldn't load the articles: " + error.message); return; }
+      if (!confirm(`Set paragraph spacing to ${label} on all ${posts.length} articles, and remove the blank lines between their paragraphs?`)) return;
+      const btn = e.currentTarget; btn.disabled = true;
+      let done = 0; const failed = [];
+      for (const p of posts) {
+        const box = document.createElement("div");
+        box.innerHTML = p.body_html || "";
+        box.querySelectorAll("p, div").forEach((b) => {
+          if (!b.querySelector("img, iframe, video, hr") && b.textContent.replace(/[\u00a0\u200b\s]/g, "") === "") b.remove();
+        });
+        const styles = (p.body_styles && typeof p.body_styles === "object") ? JSON.parse(JSON.stringify(p.body_styles)) : {};
+        styles.p = { ...(styles.p || {}), gap };
+        const { data: saved, error: err } = await supabase.from("blog_posts").update({ body_styles: styles, body_html: p.body_html ? box.innerHTML : p.body_html }).eq("id", p.id).select("id");
+        if (err || !saved || !saved.length) failed.push(p.title); else done++;
+      }
+      btn.disabled = false;
+      tplMsg(`${label} spacing set on ${done} article${done === 1 ? "" : "s"}${failed.length ? `. Not saved: ${failed.join(", ")}` : ""}.`);
+      // This article was among them: show what was saved, not what was on screen.
+      if (loaded && loaded.id && !failed.includes(loaded.title)) dropBlankParagraphs();
+    });
+
     function tplMsg(text) {
       const el = document.getElementById("be-tpl-msg");
       if (el && text) el.textContent = text;

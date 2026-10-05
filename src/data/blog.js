@@ -678,10 +678,14 @@ export function isMembersAudience(a) { return a === "members" || a === "both"; }
    text from the editor toolbar is inline, and inline still wins. */
 const STYLE_BLOCKS = { p: "p", h2: "h2", h3: "h3", blockquote: "blockquote" };
 const GAP_OK = /^(0|\d(\.\d+)?em)$/;
-export function blogStyleCss(styles, scope) {
+/* The standfirst sits above the body, outside its scope, so it takes its own
+   selector (standSel); without one it is left out. */
+export function blogStyleCss(styles, scope, standSel) {
   if (!styles || typeof styles !== "object") return "";
   const out = [];
-  for (const [key, selector] of Object.entries(STYLE_BLOCKS)) {
+  const blocks = Object.entries(STYLE_BLOCKS).map(([k, sel]) => [k, `${scope} ${sel}`]);
+  if (standSel) blocks.push(["stand", standSel]);
+  for (const [key, selector] of blocks) {
     const v = styles[key];
     if (!v || typeof v !== "object") continue;
     const decls = [];
@@ -694,7 +698,7 @@ export function blogStyleCss(styles, scope) {
     // Paragraph spacing (editor toolbar). !important because text pasted from
     // Word carries margin:0 inline on every paragraph.
     if (key === "p" && GAP_OK.test(v.gap || "")) decls.push(`margin:0 0 ${v.gap} !important`);
-    if (decls.length) out.push(`${scope} ${selector}{${decls.join(";")}}`);
+    if (decls.length) out.push(`${selector}{${decls.join(";")}}`);
   }
   return out.join("\n");
 }

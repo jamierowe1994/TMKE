@@ -10,7 +10,7 @@ export async function getStaticPaths() {
 const { post, posts } = Astro.props;
 // The article's own typography, scoped to its body so it cannot reach the rest
 // of the page. Inline styles from the editor toolbar sit above it.
-const bodyCss = blogStyleCss(post.styles, ".post-body");
+const bodyCss = blogStyleCss(post.styles, ".post-body", ".post-split-main .post-stand");
 
 function fmtDate(iso) {
   const d = new Date(iso);
@@ -198,14 +198,17 @@ const related = posts
       margin: 0 0 28px;
       max-width: 22ch;
     }
+    /* The intro under the title: a quiet lead-in, not a second headline.
+       Font, size and line height can be set per article (Standfirst, in the
+       editor's article styles). */
     .post-stand {
-      font-family: var(--serif);
-      font-size: clamp(16px, 1.6vw, 20.8px);
-      line-height: 1.4;
-      color: rgba(28,29,34,0.7);
+      font-family: var(--sans);
+      font-size: 18px;
+      font-weight: 400;
+      line-height: 1.45;
+      color: rgba(28,29,34,0.66);
       max-width: 75%;
-      text-align: justify;
-      margin: 0 0 44px;
+      margin: 0 0 40px;
     }
     @media (max-width: 720px) { .post-stand { max-width: 100%; } }
 
@@ -218,6 +221,7 @@ const related = posts
       padding: 24px 0;
       border-top: 1px solid rgba(28,29,34,0.12);
       border-bottom: 1px solid rgba(28,29,34,0.12);
+      margin-bottom: 40px;
     }
     .post-meta-author { display: flex; align-items: center; gap: 14px; }
     .post-avatar {
@@ -565,7 +569,7 @@ const related = posts
           var styleEl = document.getElementById("post-body-style");
           if (styleEl) {
             var st = row.body_styles || {};
-            var map = { p: "p", h2: "h2", h3: "h3", blockquote: "blockquote" };
+            var map = { p: "p", h2: "h2", h3: "h3", blockquote: "blockquote", stand: "" };
             var css = [];
             Object.keys(map).forEach(function (k) {
               var v = st[k];
@@ -576,7 +580,7 @@ const related = posts
               if (v.size) d.push("font-size:" + safe(v.size));
               if (v.lh) d.push("line-height:" + safe(v.lh));
               if (k === "p" && /^(0|\d(\.\d+)?em)$/.test(v.gap || "")) d.push("margin:0 0 " + v.gap + " !important");
-              if (d.length) css.push(".post-body " + map[k] + "{" + d.join(";") + "}");
+              if (d.length) css.push((k === "stand" ? ".post-split-main .post-stand" : ".post-body " + map[k]) + "{" + d.join(";") + "}");
             });
             var next = css.join("\n");
             if (styleEl.textContent !== next) styleEl.textContent = next;

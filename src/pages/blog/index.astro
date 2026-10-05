@@ -64,7 +64,12 @@ for (let r = 0; pi < archivePosts.length; r++) {
 const lite = posts.map((p) => ({
   slug: p.slug, title: p.title, eyebrow: p.eyebrow || p.category || "",
   date: fmtDate(p.date), readTime: p.readTime || null, hero: p.hero,
+  stand: p.standfirst || "", styles: p.styles || {},
 }));
+// The reader re-reads the published article when it opens, as the article
+// page does: the site is built ahead, so saved edits would otherwise wait for
+// the next deploy. The anon key is public, the same one the build reads with.
+const sbCfg = { url: import.meta.env.PUBLIC_SUPABASE_URL || "", key: import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "" };
 const featMeta = featured
   ? [featured.eyebrow || featured.category, fmtDate(featured.date), featured.readTime ? featured.readTime + " min read" : ""].filter(Boolean).join("  ·  ")
   : "";
@@ -145,6 +150,22 @@ const featMeta = featured
       <div class="reader-col" data-lenis-prevent>
         <div class="reader-meta" id="reader-meta"></div>
         <h2 class="reader-title" id="reader-title"></h2>
+        <p class="reader-stand" id="reader-stand"></p>
+        <!-- Who wrote it and when, with sharing: the same strip as the article page. -->
+        <div class="reader-by">
+          <div class="reader-by-author">
+            <span class="reader-avatar" aria-hidden="true">TMKE</span>
+            <div>
+              <div class="reader-by-name">The TMKE Desk</div>
+              <div class="reader-by-date" id="reader-date"></div>
+            </div>
+          </div>
+          <div class="reader-share">
+            <button type="button" class="reader-share-btn" id="reader-copy">Copy link</button>
+            <a class="reader-share-btn" id="reader-tweet" target="_blank" rel="noopener" href="#">Share</a>
+          </div>
+        </div>
+        <style is:inline id="reader-style"></style>
         <div class="reader-content" id="reader-content"></div>
       </div>
     </div>
@@ -154,6 +175,7 @@ const featMeta = featured
 
   {posts.map((p) => (<template data-post={p.slug} set:html={p.body}></template>))}
   <script type="application/json" id="flow-data" set:html={JSON.stringify(lite)}></script>
+  <script type="application/json" id="reader-sb" set:html={JSON.stringify(sbCfg)}></script>
 
   <style>
     /* ============ Insights — drag-across archive ============ */
@@ -399,7 +421,17 @@ const featMeta = featured
     }
     .reader.is-open .reader-col { opacity: 1; transform: none; }
     .reader-meta { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); margin-bottom: 14px; }
-    .reader-title { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 40px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 18px; }
+    .reader-title { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.6vw, 40px); line-height: 1.06; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 16px; }
+    .reader-stand { font-family: var(--sans); font-size: 17px; font-weight: 400; line-height: 1.45; color: rgba(28,29,34,0.66); margin: 0 0 24px; }
+    .reader-stand:empty { display: none; }
+    .reader-by { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; padding: 16px 0; border-top: 1px solid rgba(28,29,34,0.12); border-bottom: 1px solid rgba(28,29,34,0.12); margin: 0 0 30px; }
+    .reader-by-author { display: flex; align-items: center; gap: 12px; }
+    .reader-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--english-violet); color: var(--paper); display: inline-flex; align-items: center; justify-content: center; font-family: var(--serif); font-size: 10px; letter-spacing: 0.06em; font-weight: 500; flex: none; }
+    .reader-by-name { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .reader-by-date { font-family: var(--sans); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .reader-share { display: flex; gap: 8px; }
+    .reader-share-btn { padding: 8px 14px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; background: transparent; border: 1px solid rgba(28,29,34,0.18); color: var(--ink); border-radius: 999px; cursor: pointer; text-decoration: none; line-height: 1.2; }
+    .reader-share-btn:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.4); }
     .reader-content { font-family: var(--sans); font-size: 15.5px; line-height: 1.66; color: rgba(28,29,34,0.82); }
     .reader-content :global(h2) { font-family: var(--serif); font-weight: 400; font-size: 21px; line-height: 1.2; color: var(--ink); margin: 26px 0 10px; letter-spacing: -0.01em; }
     .reader-content :global(p) { margin: 0 0 14px; }
@@ -539,16 +571,70 @@ const featMeta = featured
 
       // ----- Reader -----
       let flyTimer = null, scrollLockY = 0;
+      /* Each article's own typography (font, size, line height and
+         paragraph spacing, set in the editor), scoped to the reader. Mirrors
+         blogStyleCss in src/data/blog.js. The !important on spacing beats the
+         margin:0 Word writes on every paragraph it pastes. */
+      const standEl = document.getElementById("reader-stand");
+      const dateEl = document.getElementById("reader-date");
+      const styleEl = document.getElementById("reader-style");
+      function readerCss(st) {
+        const safe = (x) => String(x || "").replace(/[;{}<>"]/g, "").trim();
+        const sel = { p: "#reader-content p", h2: "#reader-content h2", h3: "#reader-content h3", blockquote: "#reader-content blockquote", stand: "#reader-stand" };
+        return Object.keys(sel).map((k) => {
+          const v = (st || {})[k]; if (!v || typeof v !== "object") return "";
+          const d = [];
+          if (v.font) d.push("font-family:" + safe(v.font));
+          if (v.size) d.push("font-size:" + safe(v.size));
+          if (v.lh) d.push("line-height:" + safe(v.lh));
+          if (k === "p" && /^(0|\d(\.\d+)?em)$/.test(v.gap || "")) d.push("margin:0 0 " + v.gap + " !important");
+          return d.length ? sel[k] + "{" + d.join(";") + "}" : "";
+        }).filter(Boolean).join("\n");
+      }
+      let readerSlug = null;
       function populate(slug) {
         const p = data[slug]; if (!p) return false;
-        metaEl.textContent = [p.eyebrow, p.date, p.readTime ? p.readTime + " min read" : ""].filter(Boolean).join("  ·  ");
+        readerSlug = slug;
+        metaEl.textContent = p.eyebrow || "";
         titleEl.textContent = p.title;
+        standEl.textContent = p.stand || "";
+        dateEl.textContent = [p.date, p.readTime ? p.readTime + " min read" : ""].filter(Boolean).join(" · ");
+        document.getElementById("reader-tweet").href = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(p.title) + "&url=" + encodeURIComponent(location.origin + "/blog/" + slug);
+        styleEl.textContent = readerCss(p.styles);
         heroImg.src = p.hero; heroImg.alt = p.title;
         contentEl.innerHTML = "";
         const tpl = document.querySelector('template[data-post="' + (window.CSS && CSS.escape ? CSS.escape(slug) : slug) + '"]');
         if (tpl && tpl.content) contentEl.appendChild(tpl.content.cloneNode(true));
+        refresh(slug);
         return true;
       }
+      // The latest published version, patched in if it has changed since the build.
+      let sb = {};
+      try { sb = JSON.parse(document.getElementById("reader-sb").textContent || "{}") || {}; } catch (_) {}
+      function refresh(slug) {
+        if (!sb.url || !sb.key) return;
+        fetch(sb.url.replace(/\/$/, "") + "/rest/v1/blog_posts?slug=eq." + encodeURIComponent(slug) + "&status=eq.published&limit=1&select=title,standfirst,body_html,body_styles,audience",
+          { headers: { apikey: sb.key, Authorization: "Bearer " + sb.key } })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((rows) => {
+            const row = rows && rows[0];
+            if (!row || !isOpen || readerSlug !== slug) return;
+            if (row.audience && row.audience !== "public" && row.audience !== "both") return;
+            if (row.title) titleEl.textContent = row.title;
+            standEl.textContent = row.standfirst || "";
+            styleEl.textContent = readerCss(row.body_styles);
+            if (row.body_html && row.body_html.trim() && contentEl.innerHTML.trim() !== row.body_html.trim()) contentEl.innerHTML = row.body_html;
+          })
+          .catch(() => {});
+      }
+      document.getElementById("reader-copy").addEventListener("click", (e) => {
+        const btn = e.currentTarget;
+        if (!readerSlug || !navigator.clipboard) return;
+        navigator.clipboard.writeText(location.origin + "/blog/" + readerSlug).then(() => {
+          btn.textContent = "Copied ✓";
+          setTimeout(() => { btn.textContent = "Copy link"; }, 1800);
+        });
+      });
       function openReader(slug, imgEl) {
         if (isOpen || !populate(slug)) return;
         isOpen = true;
