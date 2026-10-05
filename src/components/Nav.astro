@@ -1,4 +1,14 @@
 ---
+import NavDrawer from "./NavDrawer.astro";
+
+/* drawer=false for a page that renders <NavDrawer /> itself. The .pf deck pages
+   (/services, /videography) put this bar inside a wrapper that is display:none
+   on a desktop, so a drawer rendered from here would be hidden with it — which
+   is exactly the bug that made the videography burger do nothing. They keep
+   their own, outside that wrapper, and there is still only ever one. */
+interface Props { drawer?: boolean }
+const { drawer = true } = Astro.props;
+
 const pathname = Astro.url.pathname;
 const isActive = (href: string) => {
   if (href === "/") return pathname === "/";
@@ -39,6 +49,7 @@ const links: { label: string; href: string }[] = [
       aria-label="Open menu"
       aria-controls="nav-drawer"
       aria-expanded="false"
+      data-nav-drawer-open
     >
       <span class="nav-menu-btn-label">Menu</span>
       <span class="nav-menu-btn-glyph" aria-hidden="true"><span></span><span></span></span>
@@ -46,70 +57,7 @@ const links: { label: string; href: string }[] = [
   </div>
 </nav>
 
-<!-- Mobile drawer (≤720px). Hidden on desktop via CSS. -->
-<div class="nav-drawer" id="nav-drawer" aria-hidden="true">
-  <div class="nav-drawer-scrim" data-nav-close></div>
-  <aside class="nav-drawer-panel" role="dialog" aria-modal="true" aria-label="Site menu">
-    <div class="nav-drawer-head">
-      <a href="/" class="nav-drawer-mark" aria-label="TMKE — home">TMKE</a>
-      <button type="button" class="nav-drawer-close" data-nav-close aria-label="Close menu">&times;</button>
-    </div>
-    <a href="/login" class="nav-drawer-login js-nav-login" aria-label="Login to your TMKE account">
-      <span class="nav-drawer-login-label">Login</span>
-      <span class="nav-drawer-login-arrow" aria-hidden="true">&rarr;</span>
-    </a>
-    <a href="/join" class="nav-drawer-signup js-nav-signup" aria-label="Create a TMKE member account">
-      <span class="nav-drawer-login-label">Create account</span>
-      <span class="nav-drawer-login-arrow" aria-hidden="true">&rarr;</span>
-    </a>
-    <nav class="nav-drawer-links">
-      {
-        links.map((l) => (
-          <a href={l.href} class:list={["nav-drawer-link", isActive(l.href) && "is-active"]}>
-            <span class="nav-drawer-link-num">0{links.indexOf(l) + 1}</span>
-            <span class="nav-drawer-link-label">{l.label}</span>
-            <span class="nav-drawer-link-arrow" aria-hidden="true">&rarr;</span>
-          </a>
-        ))
-      }
-    </nav>
-    <div class="nav-drawer-foot">
-      <a href="mailto:hello@tmke.co.uk" class="nav-drawer-mail">hello@tmke.co.uk</a>
-      <div class="nav-drawer-meta">London &middot; Est. MMXXIV</div>
-    </div>
-  </aside>
-</div>
+<!-- The one drawer. This file used to carry a second copy with the same id;
+     see NavDrawer.astro for what that broke. -->
+{drawer && <NavDrawer />}
 
-<!-- Signed-in swap (Login → Library) is handled site-wide by LoginState, which
-     BaseLayout renders on every page so the chrome-less deck pages get it too. -->
-
-<script is:inline>
-  // Mobile drawer — opens off-canvas from the right. Desktop hides the
-  // burger via CSS so this listener is a no-op there.
-  (function () {
-    const burger = document.getElementById("nav-burger");
-    const drawer = document.getElementById("nav-drawer");
-    if (!burger || !drawer) return;
-
-    function setOpen(open) {
-      drawer.classList.toggle("is-open", open);
-      drawer.setAttribute("aria-hidden", open ? "false" : "true");
-      burger.setAttribute("aria-expanded", open ? "true" : "false");
-      document.body.classList.toggle("nav-drawer-open", open);
-    }
-
-    burger.addEventListener("click", function () {
-      setOpen(!drawer.classList.contains("is-open"));
-    });
-    drawer.querySelectorAll("[data-nav-close]").forEach(function (el) {
-      el.addEventListener("click", function () { setOpen(false); });
-    });
-    // Tapping any link closes the drawer (links navigate anyway).
-    drawer.querySelectorAll(".nav-drawer-link, .nav-drawer-login, .nav-drawer-signup, .nav-drawer-mark").forEach(function (el) {
-      el.addEventListener("click", function () { setOpen(false); });
-    });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && drawer.classList.contains("is-open")) setOpen(false);
-    });
-  })();
-</script>
