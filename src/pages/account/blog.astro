@@ -5,21 +5,17 @@ import { getImage } from "astro:assets";
 import "../../styles/learn.css";
 import { getMembersPosts } from "../../data/blog.js";
 
-// Learn's banner: Blog and Learn are one collection in the hub (Danielle,
-// 5 Oct 2026), so they share a header photograph as Learn and Brand kit do.
-const HERO_BG = (await getImage({
-  src: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/Training.png",
-  width: 3600, height: 620, format: "webp", quality: 82,
-})).src;
+// The header row's three photographs: from the public Insights archive's
+// stock set (not its first row), never a piece's own picture.
+const PHOTOS = await Promise.all([9, 12, 14].map((n) => getImage({
+  src: `https://assets.tmke.co.uk/Blog%20Static%20Images/${n}.png`,
+  width: 700, height: 933, quality: 72, format: "webp",
+}).then((r) => r.src)));
 
 // Bodies of the pieces known at build, for the reader to fall back on (the
 // built-in set has no database row). Live pieces are read fresh on open.
 let built = [];
 try { built = await getMembersPosts(); } catch (_) {}
-const lead = built.slice(0, 3);
-const more = built.slice(3);
-const pad = (i) => String(i + 1).padStart(2, "0");
-const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); };
 ---
 
 <BaseLayout
@@ -33,50 +29,31 @@ const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00")
   <WorkspaceHeader active="blog" />
     <main class="lrn-main">
       <div id="acc-blog-list" class="mb-list">
-        <section class="lrn-hero ws-rise" style="--i:0">
-          <div class="lrn-hero-bg" style={`background-image:url('${HERO_BG}')`}></div>
-          <div class="lrn-hero-inner">
-            <p class="lrn-eyebrow"><a href="/account/guides">&larr; Learn</a></p>
-            <h1 class="lrn-title">Inside The Edit</h1>
-            <p class="lrn-lede">Long-form pieces written for the agencies inside the platform. Platform changes, tactics that are working right now, and what we&rsquo;re testing behind the scenes.</p>
+        <!-- The header is this row (Danielle, 5 Oct 2026): the title, three
+             photographs, then the two newest pieces as the public archive's
+             tiles. The title takes you to every piece, below. -->
+        <section class="lrn-sec ws-rise" style="--i:0" aria-labelledby="mb-new-h">
+          <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-new-h">New</h2></header>
+          <div class="mb-arc">
+            <a class="mb-tile mb-tile--intro" href="#mb-all" id="mb-to-all">
+              <span class="mb-tile-cap">
+                <span class="mb-tile-num">Members only</span>
+                <h1 class="mb-intro-title">Inside The Edit</h1>
+                <span class="mb-intro-sub">Long-form pieces for the agencies inside the platform: what&rsquo;s changing, what&rsquo;s working, and what we&rsquo;re testing.</span>
+                <span class="mb-intro-cta">All pieces <em>&darr;</em></span>
+              </span>
+            </a>
+            {PHOTOS.map((src) => (<div class="mb-tile mb-tile--photo" style={`background-image:url('${src}')`} aria-hidden="true"></div>))}
+            <div class="mb-arc-new" id="mb-new"></div>
           </div>
         </section>
 
-        <!-- The public Insights archive, in the hub: each piece a plain tile
-             with its picture beside it, the picture coming through on hover. -->
-        <section class="lrn-sec ws-rise" style="--i:1" aria-labelledby="mb-latest-h">
-          <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-latest-h">Latest</h2></header>
-          <div class="mb-arc" id="mb-arc">
-            {lead.map((p, i) => (
-              <>
-                <a class="mb-tile mb-tile--post" href={`/account/blog#${p.slug}`}>
-                  <span class="mb-tile-img" style={p.hero ? `background-image:url('${p.hero}')` : ""}></span>
-                  <span class="mb-tile-cap">
-                    <span class="mb-tile-num">Piece {pad(i)}</span>
-                    <span class="mb-tile-name">{p.title}</span>
-                  </span>
-                </a>
-                <a class="mb-tile mb-tile--photo" href={`/account/blog#${p.slug}`} aria-hidden="true" tabindex="-1" style={p.hero ? `background-image:url('${p.hero}')` : ""}></a>
-              </>
-            ))}
-          </div>
-        </section>
-
-        <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="mb-more-h" id="mb-more-sec" hidden={!more.length}>
-          <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-more-h">More From The Edit</h2></header>
-          <div class="lrn-paths" id="mb-more">
-            {more.map((n) => (
-              <a class="lrn-path" href={`/account/blog#${n.slug}`}>
-                <div class="lrn-path-body">
-                  <span class="lrn-path-eyebrow">{n.category}{n.date ? ` · ${fmtDay(n.date)}` : ""}</span>
-                  <h3 class="lrn-path-title">{n.title}</h3>
-                  {n.standfirst && <p class="lrn-path-desc">{n.standfirst}</p>}
-                  <span class="lrn-path-cta">Read <em>→</em></span>
-                </div>
-                <span class="lrn-path-art" style={n.hero ? `background-image:url('${n.hero}')` : ""}></span>
-              </a>
-            ))}
-          </div>
+        <!-- Every piece, newest first. Rows of three: two with the picture
+             above, one wider with it to the side, and the wide one changes
+             side from row to row so the grid doesn't read as regimented. -->
+        <section class="lrn-sec ws-rise" style="--i:1" aria-labelledby="mb-all-h" id="mb-all">
+          <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-all-h">More From The Edit</h2></header>
+          <div class="mb-cards" id="mb-cards"></div>
         </section>
       </div>
 
@@ -152,6 +129,11 @@ const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00")
       readTime: r.read_time_minutes || null, author: r.author_name || 'The TMKE Desk', styles: r.body_styles || {}, html: r.body_html || '', md: r.body_markdown || '',
     });
     let posts = built;
+    drawList();
+    document.getElementById('mb-to-all')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('mb-all')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
 
     // Each piece's own typography, as on the website (blogStyleCss in src/data/blog.js).
     function pieceCss(st) {
@@ -169,25 +151,30 @@ const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00")
     }
 
     function drawList() {
-      const arc = document.getElementById('mb-arc'), moreHost = document.getElementById('mb-more'), moreSec = document.getElementById('mb-more-sec');
-      if (!arc || !posts.length) return;
+      const newHost = document.getElementById('mb-new'), cards = document.getElementById('mb-cards');
+      if (!newHost || !cards) return;
       const bg = (u) => (u ? ` style="background-image:url('${esc(u)}')"` : '');
-      arc.innerHTML = posts.slice(0, 3).map((p, i) => `<a class="mb-tile mb-tile--post" href="/account/blog#${esc(p.slug)}">
+      newHost.innerHTML = posts.slice(0, 2).map((p, i) => `<a class="mb-tile mb-tile--post" href="/account/blog#${esc(p.slug)}">
           <span class="mb-tile-img"${bg(p.hero)}></span>
-          <span class="mb-tile-cap"><span class="mb-tile-num">Piece ${String(i + 1).padStart(2, '0')}</span><span class="mb-tile-name">${esc(p.title)}</span></span>
-        </a><a class="mb-tile mb-tile--photo" href="/account/blog#${esc(p.slug)}" aria-hidden="true" tabindex="-1"${bg(p.hero)}></a>`).join('');
-      const more = posts.slice(3);
-      moreSec.hidden = !more.length;
-      moreHost.innerHTML = more.map((n) => {
-        const when = fmtDate(n.date);
-        return `<a class="lrn-path" href="/account/blog#${esc(n.slug)}">
-          <div class="lrn-path-body">
-            <span class="lrn-path-eyebrow">${esc(n.category)}${when ? ' · ' + esc(when) : ''}</span>
-            <h3 class="lrn-path-title">${esc(n.title)}</h3>
-            ${n.standfirst ? `<p class="lrn-path-desc">${esc(n.standfirst)}</p>` : ''}
-            <span class="lrn-path-cta">Read <em>→</em></span>
-          </div>
-          <span class="lrn-path-art"${bg(n.hero)}></span>
+          <span class="mb-tile-cap"><span class="mb-tile-num">${i === 0 ? 'Newest' : esc(p.category || 'Insights')}</span><span class="mb-tile-name">${esc(p.title)}</span></span>
+        </a>`).join('');
+      // Which card in each row of three is the wide one: last, then first,
+      // and so on. A short last row shares the width out instead.
+      const n = posts.length, full = n - (n % 3);
+      cards.innerHTML = posts.map((p, i) => {
+        const row = Math.floor(i / 3), pos = i % 3;
+        let cls = 'mb-card';
+        if (i >= full) cls += (n % 3 === 1 ? ' mb-card--side mb-card--whole' : ' mb-card--side mb-card--half');
+        else if (pos === (row % 2 === 0 ? 2 : 0)) cls += ' mb-card--side';
+        const when = fmtDate(p.date);
+        return `<a class="${cls}" href="/account/blog#${esc(p.slug)}">
+          <span class="mb-card-art"${bg(p.hero)}></span>
+          <span class="mb-card-body">
+            <span class="mb-card-eyebrow">${esc(p.category || 'Insights')}${when ? ' · ' + esc(when) : ''}${p.readTime ? ' · ' + p.readTime + ' min' : ''}</span>
+            <span class="mb-card-title">${esc(p.title)}</span>
+            ${p.standfirst ? `<span class="mb-card-desc">${esc(p.standfirst)}</span>` : ''}
+            <span class="mb-card-cta">Read <em>&rarr;</em></span>
+          </span>
         </a>`;
       }).join('');
     }
@@ -239,15 +226,17 @@ const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00")
     .mb-list { display: flex; flex-direction: column; gap: clamp(22px, 2.4vw, 40px); }
     .mb-list[hidden] { display: none; }
 
-    /* The archive: as the public Insights grid. A piece is a plain tile, its
-       title bottom-left; its picture sits in the next tile and comes through
-       behind the title on hover. */
+    /* The header row: as the public Insights archive. Six tiles: the title,
+       three photographs, the two newest pieces (title bottom-left, their
+       picture through on hover). */
     .mb-arc { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 0.8vw, 12px); }
-    @media (max-width: 1100px) { .mb-arc { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .mb-arc-new { display: contents; }
+    @media (max-width: 1100px) { .mb-arc { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 640px) { .mb-arc { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .mb-tile { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; border-radius: var(--ws-r-lg); text-decoration: none; }
     .mb-tile--post { background: var(--ws-card); border: 1px solid rgba(28,29,34,0.1); }
     .mb-tile--photo { background: rgba(28,29,34,0.06) center / cover no-repeat; }
+    .mb-tile--intro { background: #371e28; color: #fff; }
     .mb-tile-img { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 0.5s ease; }
     .mb-tile-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,22,0) 38%, rgba(20,18,22,0.72) 100%); }
     .mb-tile--post:hover .mb-tile-img, .mb-tile--post:focus-visible .mb-tile-img { opacity: 1; }
@@ -256,6 +245,46 @@ const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00")
     .mb-tile-name { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 500; font-size: clamp(15px, 1.1vw, 18px); line-height: 1.2; letter-spacing: -0.005em; color: var(--ws-ink); transition: color 0.4s ease; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .mb-tile--post:hover .mb-tile-num, .mb-tile--post:focus-visible .mb-tile-num { color: rgba(244,242,240,0.75); }
     .mb-tile--post:hover .mb-tile-name, .mb-tile--post:focus-visible .mb-tile-name { color: #fff; }
+    .mb-tile--intro .mb-tile-cap { top: 14px; justify-content: flex-end; gap: 10px; }
+    .mb-tile--intro .mb-tile-num { color: rgba(255,255,255,0.6); }
+    .mb-intro-title { margin: 0; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 400; font-size: clamp(24px, 2vw, 32px); line-height: 1.05; letter-spacing: -0.015em; color: #fff; }
+    .mb-intro-sub { font-family: var(--sans); font-size: 13px; line-height: 1.4; color: rgba(255,255,255,0.72); }
+    .mb-intro-cta { margin-top: 4px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: #fff; }
+    .mb-intro-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+    .mb-tile--intro:hover .mb-intro-cta em { transform: translateY(3px); }
+
+    /* Every piece. Four tracks: a card with its picture above takes one, the
+       wide card with its picture to the side takes two, so a row of three
+       fills the width and every row is the same height. */
+    .mb-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: clamp(14px, 1.4vw, 20px); }
+    .mb-card { display: flex; flex-direction: column; min-width: 0; background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--ws-sh); transition: transform 0.22s var(--ws-ease), box-shadow 0.22s; }
+    .mb-card:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(28,29,34,0.02), 0 24px 48px -30px rgba(28,29,34,0.24); }
+    .mb-card-art { display: block; aspect-ratio: 16 / 10; background: #e9e6e2 center / cover no-repeat; flex: none; }
+    .mb-card-body { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px 20px; flex: 1; }
+    .mb-card-eyebrow { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
+    .mb-card-title { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 500; font-size: 19px; line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .mb-card-desc { font-family: var(--sans); font-size: 14.5px; line-height: 1.45; color: var(--ws-tx); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .mb-card-cta { margin-top: auto; padding-top: 6px; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ws-accent); }
+    .mb-card-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+    .mb-card:hover .mb-card-cta em { transform: translateX(4px); }
+    .mb-card--side { grid-column: span 2; display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+    .mb-card--side .mb-card-art { aspect-ratio: auto; height: 100%; }
+    .mb-card--side .mb-card-body { justify-content: center; padding: 24px 26px; }
+    .mb-card--side .mb-card-title { font-size: 22px; }
+    .mb-card--side .mb-card-desc { -webkit-line-clamp: 5; }
+    /* A piece left on its own in the last row: the full width, but its
+       picture only one track wide, so it doesn't turn into a banner. */
+    .mb-card--whole { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); }
+    .mb-card--whole .mb-card-desc { max-width: 70ch; }
+    @media (max-width: 1000px) {
+      .mb-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; }
+      .mb-card--side, .mb-card--half { grid-column: 1 / -1; }
+    }
+    @media (max-width: 600px) {
+      .mb-cards { grid-template-columns: minmax(0, 1fr); }
+      .mb-card--side { display: flex; }
+      .mb-card--side .mb-card-art { aspect-ratio: 16 / 10; height: auto; }
+    }
 
     .mb-read { max-width: 780px; margin: 0 auto; padding: 8px 0 80px; color: var(--ink, #1c1d22); }
     .mb-read[hidden] { display: none; }
