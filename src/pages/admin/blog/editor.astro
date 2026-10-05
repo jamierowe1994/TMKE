@@ -69,7 +69,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         <div class="be-body-tabs">
           <button type="button" class="be-body-tab is-active" data-bodytab="write">Write</button>
           <button type="button" class="be-body-tab" data-bodytab="preview">Preview</button>
-          <span class="be-body-hint">Select text, then use the toolbar — font, size, line height, alignment, bold/italic and more.</span>
+          <span class="be-body-hint">Select text, then use the toolbar — font, size, line height, paragraph spacing, alignment, bold/italic and more.</span>
         </div>
         <div class="be-body-pane is-active" data-bodypane="write">
           <div class="be-rich-tb" id="be-rich-tb">
@@ -106,6 +106,12 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
               <option value="1.6">1.6</option>
               <option value="1.8">1.8</option>
               <option value="2">2.0</option>
+            </select>
+            <!-- The gap between paragraphs, for the whole article: line height
+                 only spaces the lines inside one. Choosing it also takes out
+                 the empty paragraphs Word pastes between every real one. -->
+            <select class="be-rt-sel" data-rt="gap" title="Paragraph spacing: the gap between paragraphs, across the whole article" aria-label="Paragraph spacing">
+              <option value="">Paragraph spacing</option>
             </select>
             <span class="be-rt-div"></span>
             <button type="button" class="be-rt-btn" data-rt="bold" title="Bold"><b>B</b></button>
@@ -545,7 +551,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
       grid-column: 1 / -1; font-family: var(--sans); font-size: 10px; font-weight: 700;
       letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
-    .be-style-row select[data-prop="font"] { grid-column: 1 / -1; }
+    .be-style-row select[data-prop="font"],
+    .be-style-row select[data-prop="gap"] { grid-column: 1 / -1; }
     .be-tpl-acts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
     .be-tpl-acts .admin-btn, .be-tpl-row .admin-btn { padding: 8px 14px; font-size: 11px; }
     .be-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.7); }
@@ -861,10 +868,14 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
     ];
     const SIZE_OPTS = ["", "14px", "15px", "16px", "17px", "18px", "20px", "24px", "28px", "34px", "42px"];
     const LH_OPTS = ["", "1", "1.2", "1.4", "1.5", "1.6", "1.7", "1.8", "2"];
+    // Paragraph spacing, body text only. Must match GAP_OK in src/data/blog.js.
+    const GAP_OPTS = [["", "Paragraph spacing"], ["0", "None"], ["0.4em", "Small"], ["0.7em", "Medium"], ["1em", "Large"], ["1.5em", "Extra large"]];
     let styleState = {};
     let templates = [];
 
     function buildStyleControls() {
+      const gapTb = document.querySelector('#be-rich-tb .be-rt-sel[data-rt="gap"]');
+      if (gapTb && gapTb.options.length < 2) gapTb.innerHTML = GAP_OPTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
       const host = document.getElementById("be-styles");
       if (!host) return;
       host.innerHTML = STYLE_PARTS.map(([key, label]) => `
@@ -873,6 +884,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
           <select data-sty="${key}" data-prop="font">${FONT_OPTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>
           <select data-sty="${key}" data-prop="size">${SIZE_OPTS.map((v) => `<option value="${v}">${v || "Size"}</option>`).join("")}</select>
           <select data-sty="${key}" data-prop="lh">${LH_OPTS.map((v) => `<option value="${v}">${v || "Line height"}</option>`).join("")}</select>
+          ${key === "p" ? `<select data-sty="p" data-prop="gap" aria-label="Paragraph spacing">${GAP_OPTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select>` : ""}
         </div>`).join("");
       host.querySelectorAll("select").forEach((sel) => sel.addEventListener("change", () => {
         const key = sel.getAttribute("data-sty");
@@ -881,6 +893,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (sel.value) styleState[key][prop] = sel.value;
         else delete styleState[key][prop];
         if (!Object.keys(styleState[key]).length) delete styleState[key];
+        if (prop === "gap") { syncGapToolbar(); if (sel.value) dropBlankParagraphs(); }
         applyStylePreview();
         // Once you have changed something by hand it is no longer that template.
         const pick = document.getElementById("be-tpl");
@@ -896,6 +909,24 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         // the control - and blanking it is how you lose it on the next save.
         if (sel.value !== v) { const o = document.createElement("option"); o.value = v; o.textContent = v; sel.appendChild(o); sel.value = v; }
       });
+      syncGapToolbar();
+    }
+
+    /* Paragraph spacing. Text pasted from Word arrives as one paragraph per
+       line, with an empty paragraph between each real one and "margin: 0" on
+       every one of them, so the only gap was a whole blank line. Choosing a
+       spacing takes the empty ones out, and the article's stylesheet sets the
+       gap (over Word's inline margin). */
+    function syncGapToolbar() {
+      const sel = document.querySelector('#be-rich-tb .be-rt-sel[data-rt="gap"]');
+      if (sel) sel.value = (styleState.p && styleState.p.gap) || "";
+    }
+    function dropBlankParagraphs() {
+      $rich.querySelectorAll("p, div").forEach((b) => {
+        if (b.querySelector("img, iframe, video, hr")) return;
+        if (b.textContent.replace(/[\u00a0\u200b\s]/g, "") === "") b.remove();
+      });
+      syncRich();
     }
 
     /* Same stylesheet the article gets, live in the editor - so what you are
@@ -909,6 +940,8 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (v.font) d.push("font-family:" + safe(v.font));
         if (v.size) d.push("font-size:" + safe(v.size));
         if (v.lh) d.push("line-height:" + safe(v.lh));
+        // !important: Word puts margin:0 inline on every paragraph it pastes.
+        if (key === "p" && /^(0|\d(\.\d+)?em)$/.test(v.gap || "")) d.push(`margin:0 0 ${v.gap} !important`);
         return d.length ? `${scope} ${key}{${d.join(";")}}` : "";
       }).filter(Boolean).join("\n");
     }
@@ -956,6 +989,7 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         if (!t) { tplMsg("Pick a template first."); return; }
         styleState = JSON.parse(JSON.stringify(t.styles || {}));
         fillStyleControls();
+        if (styleState.p && styleState.p.gap) dropBlankParagraphs();
         applyStylePreview();
         tplMsg(`Using “${t.name}”. It saves with the article.`);
       });
@@ -1020,11 +1054,22 @@ import BaseLayout from "../../../layouts/BaseLayout.astro";
         else if (kind === "font" && val) document.execCommand("fontName", false, val);
         else if (kind === "size" && val) setFontSize(val);
         else if (kind === "lh" && val) eachSelectedBlock((b) => { b.style.lineHeight = val; });
+        else if (kind === "gap") {
+          styleState.p = styleState.p || {};
+          if (val) styleState.p.gap = val; else delete styleState.p.gap;
+          if (!Object.keys(styleState.p).length) delete styleState.p;
+          if (val) dropBlankParagraphs();
+          fillStyleControls();
+          applyStylePreview();
+          if (document.getElementById("be-tpl")?.value) markTemplateDirty();
+        }
         syncRich();
         syncToolbarFromSelection();
       });
     });
     $rich.addEventListener("input", () => { syncRich(); });
+    // With a spacing chosen, a later paste from Word loses its blank lines too.
+    $rich.addEventListener("paste", () => { if (styleState.p && styleState.p.gap) setTimeout(dropBlankParagraphs, 0); });
 
     /* What the toolbar says should be what the text says. These dropdowns used
        to snap back to their placeholder the moment they were used, so an

@@ -677,6 +677,7 @@ export function isMembersAudience(a) { return a === "members" || a === "both"; }
    and changing them changes the whole piece. Anything set on a specific run of
    text from the editor toolbar is inline, and inline still wins. */
 const STYLE_BLOCKS = { p: "p", h2: "h2", h3: "h3", blockquote: "blockquote" };
+const GAP_OK = /^(0|\d(\.\d+)?em)$/;
 export function blogStyleCss(styles, scope) {
   if (!styles || typeof styles !== "object") return "";
   const out = [];
@@ -690,6 +691,9 @@ export function blogStyleCss(styles, scope) {
     if (v.font) decls.push(`font-family:${safe(v.font)}`);
     if (v.size) decls.push(`font-size:${safe(v.size)}`);
     if (v.lh) decls.push(`line-height:${safe(v.lh)}`);
+    // Paragraph spacing (editor toolbar). !important because text pasted from
+    // Word carries margin:0 inline on every paragraph.
+    if (key === "p" && GAP_OK.test(v.gap || "")) decls.push(`margin:0 0 ${v.gap} !important`);
     if (decls.length) out.push(`${scope} ${selector}{${decls.join(";")}}`);
   }
   return out.join("\n");
