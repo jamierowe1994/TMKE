@@ -936,6 +936,16 @@ const recentTemplates = templates.slice(0, 4);
     // which is the worst thing a new member can open.
     async function fillStarterDays(box) {
       const PROMPTS = await loadPrompts(supabase);
+      // The newest members' piece, read now rather than at the last deploy.
+      try {
+        const { data: latest } = await supabase.from('blog_posts').select('slug,title')
+          .eq('status', 'published').in('audience', ['members', 'both'])
+          .order('publish_date', { ascending: false }).limit(1);
+        if (latest && latest[0] && box) {
+          box.setAttribute('data-blog-title', latest[0].title || '');
+          box.setAttribute('data-blog-href', '/account/blog#' + latest[0].slug);
+        }
+      } catch (_) {}
       const all = [...document.querySelectorAll('.ws-week .ws-day')];
       if (!all.length) return;
       // From today onwards: there is no use suggesting Monday's post on

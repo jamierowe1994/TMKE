@@ -106,13 +106,12 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
 
       <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
       <!-- ============ Notes from the Desk: the blog, from here too ============ -->
-      {NOTES.length > 0 && (
-      <section class="lrn-sec ws-rise" style="--i:5" aria-labelledby="notes-h" id="notes">
+      <section class="lrn-sec ws-rise" style="--i:5" aria-labelledby="notes-h" id="notes" hidden={!NOTES.length}>
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="notes-h">Notes from the Desk</h2>
           <a class="ws-textlink" href="/account/blog">All notes &rarr;</a>
         </header>
-        <div class="lrn-paths">
+        <div class="lrn-paths" id="lrn-notes">
           {NOTES.map((n) => (
             <a class="lrn-path" href={`/account/blog#${n.slug}`}>
               <div class="lrn-path-body">
@@ -126,7 +125,6 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
           ))}
         </div>
       </section>
-      )}
 
       <!-- ============ Quick lessons (hidden until real video lessons exist) ============ -->
       <section class="lrn-sec ws-rise lrn-soon" style="--i:5" aria-labelledby="quick-h">
@@ -278,6 +276,7 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
 
     /* ---------- Section scaffolding ---------- */
     .lrn-sec { display: flex; flex-direction: column; gap: 16px; }
+    .lrn-sec[hidden] { display: none; }
     .lrn-soon { display: none; }   /* mock sections parked until real content exists */
 
     /* ---------- Real guides grid ---------- */
@@ -442,6 +441,30 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     const DEV = import.meta.env.DEV;
     const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+    /* Notes from the Desk: the two newest members' pieces, read on load so a
+       new one shows without waiting for a deploy. Same markup as the build. */
+    (async () => {
+      const host = document.getElementById('lrn-notes');
+      if (!host) return;
+      const { data } = await supabase.from('blog_posts').select('slug,title,category,standfirst,hero_image_url,publish_date,published_at,created_at')
+        .eq('status', 'published').in('audience', ['members', 'both']).order('publish_date', { ascending: false }).limit(2);
+      if (!data || !data.length) return;
+      const day = (d) => { const t = new Date(String(d).slice(0, 10) + 'T12:00:00'); return isNaN(t) ? '' : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
+      host.innerHTML = data.map((n) => {
+        const when = day(n.publish_date || n.published_at || n.created_at);
+        return `<a class="lrn-path" href="/account/blog#${esc(n.slug)}">
+          <div class="lrn-path-body">
+            <span class="lrn-path-eyebrow">${esc(n.category || 'Insights')}${when ? ' · ' + esc(when) : ''}</span>
+            <h3 class="lrn-path-title">${esc(n.title)}</h3>
+            ${n.standfirst ? `<p class="lrn-path-desc">${esc(n.standfirst)}</p>` : ''}
+            <span class="lrn-path-cta">Read <em>→</em></span>
+          </div>
+          <span class="lrn-path-art"${n.hero_image_url ? ` style="background-image:url('${esc(n.hero_image_url)}')"` : ''}></span>
+        </a>`;
+      }).join('');
+      document.getElementById('notes').hidden = false;
+    })();
 
     // Dev-only sample so the grid + counts render without a DB/session.
     const SAMPLE = [
