@@ -629,7 +629,7 @@ export const STATIC_POSTS = [
 ];
 
 // Customer-exclusive ("Inside The Edit") starter posts — the set that used to be
-// hard-coded in BlogPanel.astro. Used as the fallback (and the importable seed)
+// hard-coded in the members blog. Used as the fallback (and the importable seed)
 // for the members feed until the team authors their own in the editor.
 export const MEMBERS_STATIC_POSTS = [
   { slug: "instagram-algo-2026", title: "What just changed in the Instagram ranking signal — and what to do this week", category: "Platform update", standfirst: "Instagram quietly bumped the weight of \"shares to non-followers\" in mid-May. For property accounts that's a bigger deal than it sounds. Here's what we're testing on managed accounts and the three caption changes you can make today.", hero: "/assets/social-media.png", readTime: 6, date: "2026-05-20", body: "" },

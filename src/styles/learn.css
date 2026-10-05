@@ -1,0 +1,121 @@
+/* Learn: the hub's Learn section, shared by Learn (Guides) and the members'
+   blog (Inside The Edit) so the two read as one collection - the same banner,
+   section headings and cards (Danielle, 5 Oct 2026). Page-only rules stay on
+   each page. */
+/* =====================================================================
+   Learn (Guides) — adopts the /dashboard workspace shell + tokens, then
+   layers an editorial learning library on top. Mirrors dashboard.astro
+   for the nav so the chrome stays identical across tabs.
+   ===================================================================== */
+body[data-dashboard] { background: var(--ws-bg); }
+.ws {
+  --ws-bg: var(--paper, #f4f2f1);
+  --ws-card: #ffffff;
+  --ws-soft: #fbfaf8;
+  --ws-ink: #1c1d22;
+  --ws-tx: rgba(28, 29, 34, 0.60);
+  --ws-faint: rgba(28, 29, 34, 0.40);
+  --ws-line: rgba(28, 29, 34, 0.07);
+  --ws-accent: var(--english-violet, #5b4a55);
+  --ws-success: #3f9468;
+  --ws-r-lg: 4px; --ws-r: 4px; --ws-r-sm: 4px;   /* near-square, matches the dashboard */
+  --ws-sh-hero: 0 2px 4px rgba(28,29,34,0.03), 0 34px 64px -34px rgba(28,29,34,0.30), 0 14px 30px -22px rgba(28,29,34,0.20);
+  --ws-sh: 0 1px 2px rgba(28,29,34,0.02), 0 18px 40px -30px rgba(28,29,34,0.16);
+  --ws-ease: cubic-bezier(.2, .8, .2, 1);
+  min-height: 100vh;
+  color: var(--ws-ink);
+  font-family: var(--sans);
+  background:
+    radial-gradient(120% 80% at 100% -5%, rgba(91, 74, 85, 0.055), transparent 55%),
+    radial-gradient(100% 70% at -5% 105%, rgba(91, 74, 85, 0.045), transparent 52%),
+    var(--ws-bg);
+}
+
+/* ---------- Shared bits reused from the dashboard ---------- */
+.ws-eyebrow { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: 0; }
+.ws-textlink { font-size: var(--ws-t-body); font-weight: 600; color: var(--ws-tx); background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit; text-decoration: none; transition: color 0.2s; }
+.ws-textlink:hover { color: var(--ws-ink); }
+.ws-btn { display: inline-flex; align-items: center; gap: 9px; padding: 13px 22px; border-radius: 13px; font-family: inherit; font-size: var(--ws-t-row); font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform 0.22s var(--ws-ease), box-shadow 0.22s, background 0.2s; }
+.ws-btn svg { width: 15px; height: 15px; }
+.ws-btn--sm { padding: 10px 16px; font-size: var(--ws-t-body); border-radius: 11px; }
+.ws-btn--primary { background: var(--ws-accent); color: #fff; box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--ws-accent) 80%, transparent); }
+.ws-btn--primary:hover { transform: translateY(-2px); box-shadow: 0 18px 32px -12px color-mix(in srgb, var(--ws-accent) 75%, transparent); }
+.ws-btn--primary svg { transition: transform 0.25s var(--ws-ease); }
+.ws-btn--primary:hover svg { transform: translateX(3px); }
+
+/* ---------- Page shell ---------- */
+.lrn-main {
+  /* The .ws-main shell's values, so Learn sits on the hub's gutters. */
+  max-width: 1840px; margin: 0 auto;
+  padding: clamp(20px, 2.4vh, 34px) clamp(22px, 2.6vw, 56px) 120px;
+  display: flex; flex-direction: column; gap: clamp(22px, 2.4vw, 40px);
+}
+
+/* ---------- Hero — full-width header, on-brand image behind ---------- */
+/* The hub's banner: the subpage heroes' height, copy bottom-left. The Brand
+   kit page carries the same values (profile.astro) — keep the two together. */
+.lrn-hero { position: relative; isolation: isolate; display: flex; align-items: flex-end; min-height: clamp(220px, 20.7vw, 298px); border: 1px solid var(--ws-line); border-radius: 6px; overflow: hidden; }
+/* The photograph's bottom-right corner is a wedge of desk where the laptop
+   ends. Scaled up from the top edge, the bottom 15% of the picture sits
+   outside the box at every width, and the wedge with it. */
+.lrn-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; transform: scale(1.18); transform-origin: 50% 0; transition: transform 1.8s var(--ws-ease); }
+.lrn-hero:hover .lrn-hero-bg { transform: scale(1.22); }
+.lrn-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(96deg, rgba(22,15,19,0.9) 0%, rgba(22,15,19,0.66) 34%, rgba(22,15,19,0.28) 62%, rgba(22,15,19,0.04) 100%); }
+.lrn-hero-inner { padding: clamp(24px, 2.6vw, 38px); max-width: none; }
+/* The eyebrow every other hub header carries, in the same slot. */
+.lrn-eyebrow { margin: 0 0 clamp(14px, 1.8vh, 22px); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
+.lrn-eyebrow a { color: rgba(255,255,255,0.72); text-decoration: none; transition: color 0.2s; }
+.lrn-eyebrow a:hover { color: #fff; }
+.lrn-title { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 4.2vw, 64px); line-height: 1.0; letter-spacing: -0.02em; margin: 0; color: #fff; }
+.lrn-lede { font-size: clamp(15px, 1.4vw, 17px); line-height: 1.6; color: rgba(255,255,255,0.84); margin: clamp(16px, 2vh, 24px) 0 0; max-width: none; }
+.lrn-search { display: flex; align-items: center; gap: 8px; margin-top: clamp(24px, 3vh, 36px); max-width: 440px; height: var(--ws-btn-h, 30px); box-sizing: border-box; padding: 0 3px 0 16px; background: rgba(255,255,255,0.96); border: 1px solid rgba(255,255,255,0.5); border-radius: 999px; box-shadow: 0 18px 40px -20px rgba(0,0,0,0.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: box-shadow 0.25s var(--ws-ease); }
+.lrn-search:focus-within { box-shadow: 0 22px 46px -20px rgba(0,0,0,0.55); }
+.lrn-search input { flex: 1; border: 0; outline: 0; background: transparent; font-family: inherit; font-size: var(--ws-t-body); color: var(--ws-ink); min-width: 0; }
+.lrn-search input::placeholder { color: var(--ws-faint); }
+.lrn-search-btn { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 50%; border: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; background: var(--ws-accent); color: #fff; transition: transform 0.2s var(--ws-ease); }
+.lrn-search-btn:hover { transform: translateY(-1px) scale(1.04); }
+.lrn-search-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+@media (max-width: 620px) { .lrn-hero { min-height: 300px; } }
+
+/* ---------- Section scaffolding ---------- */
+.lrn-sec { display: flex; flex-direction: column; gap: 16px; }
+.lrn-sec[hidden] { display: none; }
+.lrn-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 0 2px; }
+.lrn-soon { display: none; }   /* mock sections parked until real content exists */
+
+
+/* Featured learning paths */
+.lrn-paths { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(16px, 1.8vw, 26px); }
+.lrn-sec-sub { font-size: var(--ws-t-body); color: var(--ws-faint); margin: 6px 0 0; }
+.lrn-path.is-done .lrn-path-eyebrow { color: var(--ws-accent); }
+.lrn-paths--four .lrn-path { min-height: 200px; }
+@media (max-width: 860px) { .lrn-paths { grid-template-columns: 1fr; } }
+.lrn-path { position: relative; display: grid; grid-template-columns: 1.05fr 0.95fr; align-items: stretch; min-height: 230px; border-radius: var(--ws-r-lg); overflow: hidden; background: var(--ws-card); box-shadow: var(--ws-sh-hero); text-decoration: none; transition: transform 0.28s var(--ws-ease); }
+.lrn-path:hover { transform: translateY(-4px); }
+.lrn-path-body { padding: clamp(24px, 2.4vw, 36px); display: flex; flex-direction: column; justify-content: center; gap: 9px; }
+.lrn-path-eyebrow { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
+/* Helios by name: as an h3 it would otherwise take The Seasons (global.css
+   re-points --serif on h3/h4), and blog titles are not set in The Seasons. */
+.lrn-path-title { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 400; font-size: clamp(24px, 2.5vw, 34px); line-height: 1.05; letter-spacing: -0.015em; margin: 0; color: var(--ws-ink); }
+.lrn-path-desc { font-size: var(--ws-t-row); line-height: 1.5; color: var(--ws-tx); margin: 2px 0 0; max-width: 30ch; }
+.lrn-path-cta { margin-top: 16px; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 11px; background: var(--ws-accent); color: #fff; font-size: var(--ws-t-body); font-weight: 600; }
+.lrn-path-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+.lrn-path:hover .lrn-path-cta em { transform: translateX(4px); }
+.lrn-path-art { background-size: cover; background-position: center; background-color: #e9e6e2; transition: transform 1.2s var(--ws-ease); }
+.lrn-path:hover .lrn-path-art { transform: scale(1.05); }
+/* Dark variant — The Foundation */
+.lrn-path--dark { background: var(--english-violet, #371e28); }
+.lrn-path--dark .lrn-path-eyebrow { color: rgba(255,255,255,0.6); }
+.lrn-path--dark .lrn-path-title { color: #fff; }
+.lrn-path--dark .lrn-path-desc { color: rgba(255,255,255,0.72); }
+.lrn-path--dark .lrn-path-cta { background: #fff; color: var(--english-violet, #371e28); }
+@media (max-width: 620px) { .lrn-path { grid-template-columns: 1fr; } .lrn-path-art { min-height: 150px; order: -1; } }
+
+
+/* ---------- Entrance ---------- */
+.ws-rise { opacity: 0; transform: translateY(24px); }
+body.ws-ready .ws-rise { animation: wsRise 0.8s var(--ws-ease) both; animation-delay: calc(var(--i) * 0.09s); }
+@keyframes wsRise { to { opacity: 1; transform: none; } }
+
+
+@media (prefers-reduced-motion: reduce) { .ws-rise { opacity: 1 !important; transform: none !important; animation: none !important; } .lrn-row { scroll-behavior: auto; } }

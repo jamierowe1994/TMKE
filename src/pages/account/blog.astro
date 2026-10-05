@@ -1,15 +1,25 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
-import BlogPanel from "../../components/account/BlogPanel.astro";
-import "../../styles/workspace.css";
-import "../../styles/account-sections.css";
+import { getImage } from "astro:assets";
+import "../../styles/learn.css";
 import { getMembersPosts } from "../../data/blog.js";
+
+// Learn's banner: Blog and Learn are one collection in the hub (Danielle,
+// 5 Oct 2026), so they share a header photograph as Learn and Brand kit do.
+const HERO_BG = (await getImage({
+  src: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/Training.png",
+  width: 3600, height: 620, format: "webp", quality: 82,
+})).src;
 
 // Bodies of the pieces known at build, for the reader to fall back on (the
 // built-in set has no database row). Live pieces are read fresh on open.
 let built = [];
 try { built = await getMembersPosts(); } catch (_) {}
+const lead = built.slice(0, 3);
+const more = built.slice(3);
+const pad = (i) => String(i + 1).padStart(2, "0");
+const fmtDay = (d) => { const t = new Date(String(d).slice(0, 10) + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); };
 ---
 
 <BaseLayout
@@ -19,10 +29,56 @@ try { built = await getMembersPosts(); } catch (_) {}
   hideNav
   hideFooter
 >
+  <div class="ws lrn">
   <WorkspaceHeader active="blog" />
-  <div class="dash-shell dash-shell--top">
-    <main class="app-main dash-main">
-      <div id="acc-blog-list"><BlogPanel /></div>
+    <main class="lrn-main">
+      <div id="acc-blog-list" class="mb-list">
+        <section class="lrn-hero ws-rise" style="--i:0">
+          <div class="lrn-hero-bg" style={`background-image:url('${HERO_BG}')`}></div>
+          <div class="lrn-hero-inner">
+            <p class="lrn-eyebrow"><a href="/account/guides">&larr; Learn</a></p>
+            <h1 class="lrn-title">Inside The Edit</h1>
+            <p class="lrn-lede">Long-form pieces written for the agencies inside the platform. Platform changes, tactics that are working right now, and what we&rsquo;re testing behind the scenes.</p>
+          </div>
+        </section>
+
+        <!-- The public Insights archive, in the hub: each piece a plain tile
+             with its picture beside it, the picture coming through on hover. -->
+        <section class="lrn-sec ws-rise" style="--i:1" aria-labelledby="mb-latest-h">
+          <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-latest-h">Latest</h2></header>
+          <div class="mb-arc" id="mb-arc">
+            {lead.map((p, i) => (
+              <>
+                <a class="mb-tile mb-tile--post" href={`/account/blog#${p.slug}`}>
+                  <span class="mb-tile-img" style={p.hero ? `background-image:url('${p.hero}')` : ""}></span>
+                  <span class="mb-tile-cap">
+                    <span class="mb-tile-num">Piece {pad(i)}</span>
+                    <span class="mb-tile-name">{p.title}</span>
+                  </span>
+                </a>
+                <a class="mb-tile mb-tile--photo" href={`/account/blog#${p.slug}`} aria-hidden="true" tabindex="-1" style={p.hero ? `background-image:url('${p.hero}')` : ""}></a>
+              </>
+            ))}
+          </div>
+        </section>
+
+        <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="mb-more-h" id="mb-more-sec" hidden={!more.length}>
+          <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-more-h">More From The Edit</h2></header>
+          <div class="lrn-paths" id="mb-more">
+            {more.map((n) => (
+              <a class="lrn-path" href={`/account/blog#${n.slug}`}>
+                <div class="lrn-path-body">
+                  <span class="lrn-path-eyebrow">{n.category}{n.date ? ` · ${fmtDay(n.date)}` : ""}</span>
+                  <h3 class="lrn-path-title">{n.title}</h3>
+                  {n.standfirst && <p class="lrn-path-desc">{n.standfirst}</p>}
+                  <span class="lrn-path-cta">Read <em>→</em></span>
+                </div>
+                <span class="lrn-path-art" style={n.hero ? `background-image:url('${n.hero}')` : ""}></span>
+              </a>
+            ))}
+          </div>
+        </section>
+      </div>
 
       <!-- The reader: a members' piece opens here, in the hub (they have no
            public page). Same parts as a website article: picture, title,
@@ -61,10 +117,10 @@ try { built = await getMembersPosts(); } catch (_) {}
       if (!session) {
         if (!import.meta.env.DEV && !demoOn()) location.replace('/login?next=' + encodeURIComponent('/account/blog'));
         // Local preview only: read the pieces without signing in.
-        if (import.meta.env.DEV && !demoOn()) { requestAnimationFrame(() => document.body.classList.add('is-loaded')); wireReader(); }
+        if (import.meta.env.DEV && !demoOn()) { requestAnimationFrame(() => document.body.classList.add('is-loaded', 'ws-ready')); wireReader(); }
         if (demoOn()) {
           // The demo sees what is on the blog; reading is for members.
-          requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+          requestAnimationFrame(() => document.body.classList.add('is-loaded', 'ws-ready'));
           const note = () => lock("Reading the blog is for members.", "You can see what we write about. Members read every post, and the monthly insights.");
           lockClicks('a[href*="#"]', "Reading the blog is for members.", "You can see what we write about. Members read every post, and the monthly insights.");
           window.addEventListener('hashchange', () => { if (location.hash) { history.replaceState(null, '', location.pathname); note(); } });
@@ -78,7 +134,7 @@ try { built = await getMembersPosts(); } catch (_) {}
         const { data: { user }, error } = await supabase.auth.getUser();
         if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/blog')); return; }
       }
-      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      requestAnimationFrame(() => document.body.classList.add('is-loaded', 'ws-ready'));
       document.getElementById('app-signout')?.addEventListener('click', async () => {
         await signOutEverywhere();
       });
@@ -113,25 +169,27 @@ try { built = await getMembersPosts(); } catch (_) {}
     }
 
     function drawList() {
-      const feat = document.getElementById('acc-blog-feature'), grid = document.getElementById('acc-blog-grid');
-      if (!feat || !grid || !posts.length) return;
-      const meta = (p, lead) => [lead, p.category, p.readTime ? p.readTime + ' min' : null].filter(Boolean).join(' · ');
-      const [f, ...rest] = posts;
-      feat.innerHTML = `<a class="acc-blog-hero" href="/account/blog#${esc(f.slug)}">
-        <div class="acc-blog-hero-art" style="background-image:url('${esc(f.hero)}')"></div>
-        <div class="acc-blog-hero-body">
-          <span class="acc-blog-card-meta">${esc(meta(f, 'Featured'))}</span>
-          <h3 class="acc-blog-hero-title">${esc(f.title)}</h3>
-          <p class="acc-blog-hero-desc">${esc(f.standfirst)}</p>
-          <span class="acc-blog-card-cta">Read the piece <em>&rarr;</em></span>
-        </div></a>`;
-      grid.innerHTML = rest.slice(0, 6).map((p) => `<a class="acc-blog-card" href="/account/blog#${esc(p.slug)}">
-        <div class="acc-blog-card-art" style="background-image:url('${esc(p.hero)}')"></div>
-        <div class="acc-blog-card-body">
-          <span class="acc-blog-card-meta">${esc(meta(p))}</span>
-          <h4 class="acc-blog-card-title">${esc(p.title)}</h4>
-          <p class="acc-blog-card-desc">${esc(p.standfirst)}</p>
-        </div></a>`).join('');
+      const arc = document.getElementById('mb-arc'), moreHost = document.getElementById('mb-more'), moreSec = document.getElementById('mb-more-sec');
+      if (!arc || !posts.length) return;
+      const bg = (u) => (u ? ` style="background-image:url('${esc(u)}')"` : '');
+      arc.innerHTML = posts.slice(0, 3).map((p, i) => `<a class="mb-tile mb-tile--post" href="/account/blog#${esc(p.slug)}">
+          <span class="mb-tile-img"${bg(p.hero)}></span>
+          <span class="mb-tile-cap"><span class="mb-tile-num">Piece ${String(i + 1).padStart(2, '0')}</span><span class="mb-tile-name">${esc(p.title)}</span></span>
+        </a><a class="mb-tile mb-tile--photo" href="/account/blog#${esc(p.slug)}" aria-hidden="true" tabindex="-1"${bg(p.hero)}></a>`).join('');
+      const more = posts.slice(3);
+      moreSec.hidden = !more.length;
+      moreHost.innerHTML = more.map((n) => {
+        const when = fmtDate(n.date);
+        return `<a class="lrn-path" href="/account/blog#${esc(n.slug)}">
+          <div class="lrn-path-body">
+            <span class="lrn-path-eyebrow">${esc(n.category)}${when ? ' · ' + esc(when) : ''}</span>
+            <h3 class="lrn-path-title">${esc(n.title)}</h3>
+            ${n.standfirst ? `<p class="lrn-path-desc">${esc(n.standfirst)}</p>` : ''}
+            <span class="lrn-path-cta">Read <em>→</em></span>
+          </div>
+          <span class="lrn-path-art"${bg(n.hero)}></span>
+        </a>`;
+      }).join('');
     }
 
     function show(slug) {
@@ -174,7 +232,31 @@ try { built = await getMembersPosts(); } catch (_) {}
     }
   </script>
 
-  <style>
+  <!-- Global: the list and the reader are re-drawn from the database in the
+       browser, and scoped styles would miss what the script writes. -->
+  <style is:global>
+    /* The list sits where Learn's sections do, on the same rhythm. */
+    .mb-list { display: flex; flex-direction: column; gap: clamp(22px, 2.4vw, 40px); }
+    .mb-list[hidden] { display: none; }
+
+    /* The archive: as the public Insights grid. A piece is a plain tile, its
+       title bottom-left; its picture sits in the next tile and comes through
+       behind the title on hover. */
+    .mb-arc { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 0.8vw, 12px); }
+    @media (max-width: 1100px) { .mb-arc { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (max-width: 640px) { .mb-arc { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .mb-tile { position: relative; display: block; aspect-ratio: 3 / 4; overflow: hidden; border-radius: var(--ws-r-lg); text-decoration: none; }
+    .mb-tile--post { background: var(--ws-card); border: 1px solid rgba(28,29,34,0.1); }
+    .mb-tile--photo { background: rgba(28,29,34,0.06) center / cover no-repeat; }
+    .mb-tile-img { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 0.5s ease; }
+    .mb-tile-img::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,18,22,0) 38%, rgba(20,18,22,0.72) 100%); }
+    .mb-tile--post:hover .mb-tile-img, .mb-tile--post:focus-visible .mb-tile-img { opacity: 1; }
+    .mb-tile-cap { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 2; display: flex; flex-direction: column; gap: 6px; }
+    .mb-tile-num { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); transition: color 0.4s ease; }
+    .mb-tile-name { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 500; font-size: clamp(15px, 1.1vw, 18px); line-height: 1.2; letter-spacing: -0.005em; color: var(--ws-ink); transition: color 0.4s ease; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .mb-tile--post:hover .mb-tile-num, .mb-tile--post:focus-visible .mb-tile-num { color: rgba(244,242,240,0.75); }
+    .mb-tile--post:hover .mb-tile-name, .mb-tile--post:focus-visible .mb-tile-name { color: #fff; }
+
     .mb-read { max-width: 780px; margin: 0 auto; padding: 8px 0 80px; color: var(--ink, #1c1d22); }
     .mb-read[hidden] { display: none; }
     .mb-back { display: inline-block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.6); text-decoration: none; margin-bottom: 22px; }
@@ -183,7 +265,7 @@ try { built = await getMembersPosts(); } catch (_) {}
     .mb-hero[hidden] { display: none; }
     .mb-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .mb-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin-bottom: 14px; }
-    .mb-title { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.06; letter-spacing: -0.018em; margin: 0 0 18px; text-wrap: balance; }
+    .mb-title { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-weight: 400; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.06; letter-spacing: -0.018em; margin: 0 0 18px; text-wrap: balance; }
     .mb-stand { font-family: var(--sans); font-size: 18px; font-weight: 400; line-height: 1.45; color: rgba(28,29,34,0.66); margin: 0 0 32px; }
     .mb-stand:empty { display: none; }
     .mb-by { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 20px 0; border-top: 1px solid rgba(28,29,34,0.12); border-bottom: 1px solid rgba(28,29,34,0.12); margin: 0 0 40px; }
@@ -194,14 +276,14 @@ try { built = await getMembersPosts(); } catch (_) {}
     .mb-share { padding: 8px 14px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; background: transparent; border: 1px solid rgba(28,29,34,0.18); color: var(--ink, #1c1d22); border-radius: 999px; cursor: pointer; }
     .mb-share:hover { background: rgba(28,29,34,0.06); border-color: rgba(28,29,34,0.4); }
     .mb-body { font-family: var(--sans); font-size: 17px; line-height: 1.6; color: rgba(28,29,34,0.85); }
-    .mb-body :global(p) { margin: 0 0 1em; }
-    .mb-body :global(h2) { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.2; color: var(--ink, #1c1d22); margin: 40px 0 14px; }
-    .mb-body :global(h3) { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.25; color: var(--ink, #1c1d22); margin: 30px 0 10px; }
-    .mb-body :global(ul) { margin: 0 0 1.2em; padding-left: 20px; }
-    .mb-body :global(li) { margin: 0 0 6px; }
-    .mb-body :global(blockquote) { margin: 30px 0; padding: 6px 0 6px 22px; border-left: 2px solid #371e28; font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1.45; color: var(--ink, #1c1d22); }
-    .mb-body :global(a) { color: #371e28; text-decoration: underline; text-underline-offset: 3px; }
-    .mb-body :global(img) { max-width: 100%; height: auto; border-radius: 6px; }
-    .mb-body :global(strong) { color: var(--ink, #1c1d22); }
+    .mb-body p { margin: 0 0 1em; }
+    .mb-body h2 { font-family: var(--serif); font-weight: 400; font-size: 26px; line-height: 1.2; color: var(--ink, #1c1d22); margin: 40px 0 14px; }
+    .mb-body h3 { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.25; color: var(--ink, #1c1d22); margin: 30px 0 10px; }
+    .mb-body ul { margin: 0 0 1.2em; padding-left: 20px; }
+    .mb-body li { margin: 0 0 6px; }
+    .mb-body blockquote { margin: 30px 0; padding: 6px 0 6px 22px; border-left: 2px solid #371e28; font-family: var(--serif); font-style: italic; font-size: 20px; line-height: 1.45; color: var(--ink, #1c1d22); }
+    .mb-body a { color: #371e28; text-decoration: underline; text-underline-offset: 3px; }
+    .mb-body img { max-width: 100%; height: auto; border-radius: 6px; }
+    .mb-body strong { color: var(--ink, #1c1d22); }
   </style>
 </BaseLayout>
