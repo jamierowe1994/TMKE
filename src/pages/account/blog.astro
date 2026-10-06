@@ -52,6 +52,28 @@ try { built = await getMembersPosts(); } catch (_) {}
              side from row to row so the grid doesn't read as regimented. -->
         <section class="lrn-sec ws-rise" style="--i:1" aria-labelledby="mb-all-h" id="mb-all">
           <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-all-h">More From The Edit</h2></header>
+          <!-- Search, sort and filter every article (Danielle, 6 Oct 2026). -->
+          <div class="mb-bar" role="search">
+            <div class="mb-bar-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+              <input type="search" id="mb-q" placeholder="Search articles" aria-label="Search articles" autocomplete="off" />
+            </div>
+            <div class="mb-bar-filters">
+              <select id="mb-sort" aria-label="Sort">
+                <option value="new">Newest first</option>
+                <option value="old">Oldest first</option>
+              </select>
+              <select id="mb-who" aria-label="Who it's for">
+                <option value="">All articles</option>
+                <option value="members">Members only</option>
+                <option value="everyone">For everyone</option>
+              </select>
+              <select id="mb-cat" aria-label="Category">
+                <option value="">All categories</option>
+              </select>
+            </div>
+          </div>
+          <p class="mb-none" id="mb-none" hidden>No articles match that. <button type="button" id="mb-clear">Clear the search and filters</button></p>
           <div class="mb-cards" id="mb-cards"></div>
         </section>
       </div>
@@ -129,6 +151,12 @@ try { built = await getMembersPosts(); } catch (_) {}
     });
     let posts = built;
     drawList();
+    ['mb-q', 'mb-sort', 'mb-who', 'mb-cat'].forEach((id) => document.getElementById(id)?.addEventListener(id === 'mb-q' ? 'input' : 'change', drawCards));
+    document.getElementById('mb-clear')?.addEventListener('click', () => {
+      document.getElementById('mb-q').value = '';
+      ['mb-sort', 'mb-who', 'mb-cat'].forEach((id) => { document.getElementById(id).selectedIndex = 0; });
+      drawCards();
+    });
     document.getElementById('mb-to-all')?.addEventListener('click', (e) => {
       e.preventDefault();
       document.getElementById('mb-all')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -158,10 +186,38 @@ try { built = await getMembersPosts(); } catch (_) {}
           ${tag(p)}<span class="mb-tile-img"${bg(p.hero)}></span>
           <span class="mb-tile-cap"><span class="mb-tile-num">${i === 0 ? 'Newest' : esc(p.category || 'Insights')}</span><span class="mb-tile-name">${esc(p.title)}</span></span>
         </a>`).join('');
+      // The categories the articles actually use, keeping the one chosen.
+      const catSel = document.getElementById('mb-cat');
+      if (catSel) {
+        const keep = catSel.value;
+        const cats = [...new Set(posts.map((p) => p.category || 'Insights'))].sort((a, b) => a.localeCompare(b));
+        catSel.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+        catSel.value = cats.includes(keep) ? keep : '';
+      }
+      drawCards();
+    }
+
+    // Every article, through the bar's search, sort and filters.
+    function drawCards() {
+      const cards = document.getElementById('mb-cards');
+      if (!cards) return;
+      const bg = (u) => (u ? ` style="background-image:url('${esc(u)}')"` : '');
+      const tag = (p) => (p.audience === 'members' ? '<span class="edit-tag">Members Only</span>' : '');
+      const q = (document.getElementById('mb-q')?.value || '').trim().toLowerCase();
+      const sort = document.getElementById('mb-sort')?.value || 'new';
+      const who = document.getElementById('mb-who')?.value || '';
+      const cat = document.getElementById('mb-cat')?.value || '';
+      const time = (p) => { const t = new Date(p.date).getTime(); return isNaN(t) ? 0 : t; };
+      const list = posts
+        .filter((p) => !q || [p.title, p.standfirst, p.category, p.eyebrow].join(' ').toLowerCase().includes(q))
+        .filter((p) => !who || (who === 'members' ? p.audience === 'members' : p.audience !== 'members'))
+        .filter((p) => !cat || (p.category || 'Insights') === cat)
+        .sort((a, b) => (sort === 'old' ? time(a) - time(b) : time(b) - time(a)));
+      document.getElementById('mb-none').hidden = list.length > 0;
       // Which card in each row of three is the wide one: last, then first,
       // and so on. A short last row shares the width out instead.
-      const n = posts.length, full = n - (n % 3);
-      cards.innerHTML = posts.map((p, i) => {
+      const n = list.length, full = n - (n % 3);
+      cards.innerHTML = list.map((p, i) => {
         const row = Math.floor(i / 3), pos = i % 3;
         let cls = 'mb-card';
         if (i >= full) cls += (n % 3 === 1 ? ' mb-card--side mb-card--whole' : ' mb-card--side mb-card--half');
@@ -259,6 +315,30 @@ try { built = await getMembersPosts(); } catch (_) {}
        wide card with its picture to the side takes two, so a row of three
        fills the width and every row is the same height. */
     /* Gap matches .mb-arc above, so the page has one rhythm rather than two. */
+    /* The bar: wine, with the search on the left and the sort and filters
+       on the right. Controls are drawn for the wine ground. */
+    .mb-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px 16px; flex-wrap: wrap; padding: 10px; border-radius: 2px; background: #371e28; }
+    .mb-bar-search { position: relative; flex: 1 1 280px; max-width: 460px; }
+    .mb-bar-search svg { position: absolute; left: 12px; top: 50%; width: 15px; height: 15px; transform: translateY(-50%); fill: none; stroke: rgba(255,255,255,0.7); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+    .mb-bar input[type="search"] { width: 100%; height: 38px; box-sizing: border-box; margin: 0; padding: 0 12px 0 36px; border: 1px solid rgba(255,255,255,0.22); border-radius: 2px; background: rgba(255,255,255,0.08); color: #fff; font: 14px var(--sans); outline: none; transition: border-color 0.2s, background 0.2s; }
+    .mb-bar input[type="search"]::placeholder { color: rgba(255,255,255,0.6); }
+    .mb-bar input[type="search"]:focus { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.12); }
+    .mb-bar-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+    .mb-bar select { -webkit-appearance: none; appearance: none; height: 38px; margin: 0; padding: 0 34px 0 12px; border: 1px solid rgba(255,255,255,0.22); border-radius: 2px; color: #fff; font: 600 13px var(--sans); cursor: pointer; outline: none;
+      background: rgba(255,255,255,0.08) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center / 13px; }
+    .mb-bar select:hover, .mb-bar select:focus { border-color: rgba(255,255,255,0.6); }
+    .mb-bar select option { color: #1c1d22; background: #fff; }
+    .mb-none { margin: 4px 0 0; font-family: var(--sans); font-size: 14px; color: var(--ws-tx); }
+    .mb-none[hidden] { display: none; }
+    .mb-none button { appearance: none; background: none; border: 0; padding: 0; font: 700 14px var(--sans); color: #371e28; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    @media (max-width: 640px) {
+      .mb-bar-search { max-width: none; flex-basis: 100%; }
+      .mb-bar-filters { width: 100%; }
+      /* Sort and Show side by side; Category, the longest list, under them. */
+      .mb-bar select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+      .mb-bar select#mb-cat { flex-basis: 100%; }
+    }
+
     .mb-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 6px; }
     .mb-card { display: flex; flex-direction: column; min-width: 0; background: var(--ws-card); border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; text-decoration: none; color: inherit; box-shadow: var(--ws-sh); transition: transform 0.22s var(--ws-ease), box-shadow 0.22s; }
     .mb-card:hover { transform: translateY(-3px); box-shadow: 0 1px 2px rgba(28,29,34,0.02), 0 24px 48px -30px rgba(28,29,34,0.24); }
