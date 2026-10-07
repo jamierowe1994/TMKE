@@ -1,0 +1,266 @@
+---
+/* Font lab — an unlisted page for trying heading/body pairings on real TMKE
+   content. Not in the nav, not in the sitemap: it exists so a font can be
+   judged against the words it has to set, rather than in a specimen sheet.
+
+   Deliberately standalone (no BaseLayout): the layout's own font links and
+   type rules would fight the thing being tested. */
+const HEADING_FONTS = [
+  { name: "Nunito Sans", stack: '"Nunito Sans", sans-serif', note: "Humanist sans, wide weight range" },
+  { name: "Jost", stack: '"Jost", sans-serif', note: "Geometric, Century Gothic / Futura line" },
+  { name: "Poppins", stack: '"Poppins", sans-serif', note: "Geometric, rounder and wider than Jost" },
+  { name: "Questrial", stack: '"Questrial", sans-serif', note: "Closest to Century Gothic — 400 only, no bold" },
+  { name: "Outfit", stack: '"Outfit", sans-serif', note: "Geometric, very even" },
+  { name: "Figtree", stack: '"Figtree", sans-serif', note: "Friendly grotesque" },
+  { name: "Manrope", stack: '"Manrope", sans-serif', note: "Semi-geometric, modern" },
+  { name: "Plus Jakarta Sans", stack: '"Plus Jakarta Sans", sans-serif', note: "Grotesque with character" },
+  { name: "Space Grotesk", stack: '"Space Grotesk", sans-serif', note: "Quirky grotesque" },
+  { name: "Bricolage Grotesque", stack: '"Bricolage Grotesque", sans-serif', note: "Deliberately odd grotesque" },
+  { name: "Archivo", stack: '"Archivo", sans-serif', note: "Workhorse grotesque" },
+  { name: "Syne", stack: '"Syne", sans-serif', note: "Display, strong personality" },
+  { name: "DM Sans", stack: '"DM Sans", sans-serif', note: "Low-contrast geometric" },
+  { name: "Fraunces", stack: '"Fraunces", serif', note: "Old-style serif with wonk" },
+  { name: "Instrument Serif", stack: '"Instrument Serif", serif', note: "High-contrast editorial serif" },
+  { name: "Cormorant Garamond", stack: '"Cormorant Garamond", serif', note: "The current wordmark serif" },
+  { name: "The Seasons", stack: '"The Seasons", serif', note: "The brand sub-head — licensed, already hosted" },
+  { name: "Darker Grotesque", stack: '"Darker Grotesque", sans-serif', note: "The current body font" },
+  { name: "Century Gothic", stack: '"Century Gothic", sans-serif', note: "Only if installed locally — not licensed for the web" },
+  { name: "Helvetica (what we have now)", stack: '"Helvetica Neue", Helvetica, Arial, sans-serif', note: "The fallback Helios has been resolving to" },
+];
+
+const BODY_FONTS = HEADING_FONTS;
+---
+
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Font lab — TMKE</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;600;700;800;900&family=Jost:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Questrial&family=Outfit:wght@300..700&family=Figtree:wght@300..800&family=Manrope:wght@300..800&family=Plus+Jakarta+Sans:wght@300..800&family=Space+Grotesk:wght@300..700&family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Archivo:wght@300..700&family=Syne:wght@400..800&family=DM+Sans:opsz,wght@9..40,300..700&family=Fraunces:opsz,wght@9..144,300..700&family=Instrument+Serif:ital@0;1&family=Cormorant+Garamond:wght@400;500;600;700&family=Darker+Grotesque:wght@400;500;600;700;800&display=swap"
+    />
+    <!-- The Seasons — the site's own licensed Typographer.io stylesheet. -->
+    <link rel="preconnect" href="https://typographer.io/" />
+    <link
+      rel="stylesheet"
+      href="https://typographer.io/1/users/467c83a44f61441cb50105908eaff74438db1e54235bde171a5c44f6c7fc83aa/487431c25f60d82971ce153174b4c5091c0b39b71709285ba4d15aaa1a147485/css?token=b2fe187212"
+    />
+
+    <style>
+      :root {
+        --paper: #f4f2f1;
+        --ink: #1c1d22;
+        --wine: #371e28;
+        --h-font: "Nunito Sans", sans-serif;
+        --h-weight: 700;
+        --h-track: -0.05em;
+        --b-font: "Darker Grotesque", sans-serif;
+        --b-weight: 500;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--paper); color: var(--ink);
+        font-family: var(--b-font); font-weight: var(--b-weight);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ---- Controls ---- */
+      .lab-bar {
+        position: sticky; top: 0; z-index: 10;
+        display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px;
+        padding: 14px 24px; background: #fff;
+        border-bottom: 1px solid rgba(28,29,34,0.12);
+        font-family: ui-sans-serif, system-ui, sans-serif; font-weight: 400;
+      }
+      .lab-field { display: flex; flex-direction: column; gap: 5px; }
+      .lab-field label {
+        font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
+        text-transform: uppercase; color: rgba(28,29,34,0.5);
+      }
+      .lab-field select, .lab-field input {
+        font: inherit; font-size: 13px; padding: 6px 8px;
+        border: 1px solid rgba(28,29,34,0.25); background: #fff; border-radius: 2px;
+      }
+      .lab-note { font-size: 12px; color: rgba(28,29,34,0.55); max-width: 30ch; line-height: 1.4; }
+      .lab-reset {
+        font: inherit; font-size: 12px; padding: 7px 14px; cursor: pointer;
+        border: 1px solid var(--ink); background: none; border-radius: 2px;
+      }
+
+      /* ---- The specimen: real page furniture ---- */
+      .lab { padding: 56px 60px 120px; }
+      .lab-h {
+        font-family: var(--h-font); font-weight: var(--h-weight);
+        letter-spacing: var(--h-track); line-height: 0.94; margin: 0;
+        font-size: clamp(40px, 4.6vw, 66px);
+      }
+      .lab-pron { display: flex; gap: 12px; align-items: baseline; margin: 12px 0 0; }
+      .lab-pron span:first-child {
+        font-family: var(--h-font); font-size: 17px; letter-spacing: 0.06em; color: rgba(28,29,34,0.6);
+      }
+      .lab-pron em { font-size: 14px; color: rgba(28,29,34,0.45); }
+      .lab-lede { margin: 26px 0 0; max-width: 46ch; font-size: 15px; line-height: 1.6; color: rgba(28,29,34,0.78); }
+
+      .lab-points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 52px; margin: 64px 0 0; padding-top: 30px; border-top: 1px solid rgba(28,29,34,0.14); }
+      .lab-num { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; color: rgba(28,29,34,0.42); }
+      .lab-ph {
+        font-family: var(--h-font); font-weight: var(--h-weight); letter-spacing: var(--h-track);
+        font-size: 21px; line-height: 1.25; color: var(--wine); margin: 12px 0 10px;
+      }
+      .lab-pb { margin: 0; font-size: 14px; line-height: 1.7; color: rgba(28,29,34,0.72); }
+
+      .lab-services { margin: 76px 0 0; max-width: 760px; }
+      .lab-svc { padding: 16px 0; border-bottom: 1px solid rgba(28,29,34,0.14); }
+      .lab-svc:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+      .lab-svc-name {
+        font-family: var(--h-font); font-weight: var(--h-weight); letter-spacing: var(--h-track);
+        font-size: 21px; line-height: 1.25; color: var(--wine); margin: 0 0 6px;
+      }
+      .lab-svc-meta { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+      .lab-svc-body { margin: 0 0 12px; font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.7); }
+      .lab-cta { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--wine); }
+
+      @media (max-width: 860px) {
+        .lab { padding: 40px 22px 80px; }
+        .lab-points { grid-template-columns: 1fr; gap: 30px; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="lab-bar">
+      <div class="lab-field">
+        <label for="hf">Heading font</label>
+        <select id="hf">
+          {HEADING_FONTS.map((f) => (
+            <option value={f.stack} data-note={f.note} selected={f.name === "Nunito Sans"}>{f.name}</option>
+          ))}
+        </select>
+      </div>
+      <div class="lab-field">
+        <label for="hw">Heading weight</label>
+        <select id="hw">
+          {[300, 400, 500, 600, 700, 800, 900].map((w) => (
+            <option value={w} selected={w === 700}>{w}</option>
+          ))}
+        </select>
+      </div>
+      <div class="lab-field">
+        <label for="ht">Tracking <span id="htv">-50</span> (Canva)</label>
+        <input id="ht" type="range" min="-90" max="20" step="5" value="-50" />
+      </div>
+      <div class="lab-field">
+        <label for="bf">Body font</label>
+        <select id="bf">
+          {BODY_FONTS.map((f) => (
+            <option value={f.stack} selected={f.name === "Darker Grotesque"}>{f.name}</option>
+          ))}
+        </select>
+      </div>
+      <div class="lab-field">
+        <label for="bw">Body weight</label>
+        <select id="bw">
+          {[300, 400, 500, 600, 700].map((w) => (
+            <option value={w} selected={w === 500}>{w}</option>
+          ))}
+        </select>
+      </div>
+      <button type="button" class="lab-reset" id="reset">Reset</button>
+      <p class="lab-note" id="note"></p>
+    </div>
+
+    <main class="lab">
+      <h1 class="lab-h">SMM</h1>
+      <p class="lab-pron"><span>Social Media Management</span> <em>noun</em></p>
+      <p class="lab-lede">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
+
+      <div class="lab-points">
+        <article>
+          <span class="lab-num">01</span>
+          <h2 class="lab-ph">Reach that matters</h2>
+          <p class="lab-pb">Going viral sounds great. But millions of views from people who will never buy, sell or let a property through you won&rsquo;t grow your business. What matters is being consistently visible to the right people, in the right place, at the right time.</p>
+        </article>
+        <article>
+          <span class="lab-num">02</span>
+          <h2 class="lab-ph">Property first, always.</h2>
+          <p class="lab-pb">TMKE works exclusively in the property sector. We understand the market, the audience and what resonates, so there&rsquo;s no learning curve or applying tactics borrowed from industries that work completely differently.</p>
+        </article>
+        <article>
+          <span class="lab-num">03</span>
+          <h2 class="lab-ph">One account manager.</h2>
+          <p class="lab-pb">You&rsquo;ll work with one dedicated account manager who owns your strategy, content and account growth from day one. They&rsquo;ll get to know your brand, your tone and your market.</p>
+        </article>
+      </div>
+
+      <div class="lab-services">
+        <div class="lab-svc">
+          <h3 class="lab-svc-name">Shot and Scheduled</h3>
+          <p class="lab-svc-meta">Video Content Management</p>
+          <p class="lab-svc-body">For agencies that want video handled end to end &mdash; regular shoots with our in-house videographer, edited, captioned and scheduled to your platforms.</p>
+          <span class="lab-cta">View packages &rsaquo;</span>
+        </div>
+        <div class="lab-svc">
+          <h3 class="lab-svc-name">Social Media Management</h3>
+          <p class="lab-svc-body">For agencies that want a consistent, professional social media presence without the pressure of managing it themselves. A focused, platform-specific approach that builds your brand identity.</p>
+          <span class="lab-cta">View packages &rsaquo;</span>
+        </div>
+        <div class="lab-svc">
+          <h3 class="lab-svc-name">Managed and Moving</h3>
+          <p class="lab-svc-meta">Full Management &amp; Videography</p>
+          <p class="lab-svc-body">For agencies that want to move fastest and make the biggest impact. Everything in Social Media Management, plus a bi-monthly recording session with our videography team.</p>
+          <span class="lab-cta">View packages &rsaquo;</span>
+        </div>
+      </div>
+    </main>
+
+    <script is:inline>
+      (function () {
+        const root = document.documentElement.style;
+        const $ = (id) => document.getElementById(id);
+        const hf = $("hf"), hw = $("hw"), ht = $("ht"), bf = $("bf"), bw = $("bw");
+        const note = $("note"), htv = $("htv");
+        const KEY = "tmke-font-lab";
+
+        function apply(save) {
+          root.setProperty("--h-font", hf.value);
+          root.setProperty("--h-weight", hw.value);
+          // Canva tracking units are thousandths of an em: -50 -> -0.05em.
+          root.setProperty("--h-track", (ht.value / 1000) + "em");
+          root.setProperty("--b-font", bf.value);
+          root.setProperty("--b-weight", bw.value);
+          htv.textContent = ht.value;
+          note.textContent = hf.options[hf.selectedIndex].dataset.note || "";
+          if (save !== false) {
+            try {
+              localStorage.setItem(KEY, JSON.stringify({ h: hf.value, hw: hw.value, ht: ht.value, b: bf.value, bw: bw.value }));
+            } catch (_) {}
+          }
+        }
+
+        try {
+          const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+          if (saved) {
+            if (saved.h) hf.value = saved.h;
+            if (saved.hw) hw.value = saved.hw;
+            if (saved.ht) ht.value = saved.ht;
+            if (saved.b) bf.value = saved.b;
+            if (saved.bw) bw.value = saved.bw;
+          }
+        } catch (_) {}
+
+        [hf, hw, ht, bf, bw].forEach((el) => el.addEventListener("input", () => apply()));
+        $("reset").addEventListener("click", () => {
+          hf.value = '"Nunito Sans", sans-serif'; hw.value = "700"; ht.value = "-50";
+          bf.value = '"Darker Grotesque", sans-serif'; bw.value = "500";
+          apply();
+        });
+        apply(false);
+      })();
+    </script>
+  </body>
+</html>

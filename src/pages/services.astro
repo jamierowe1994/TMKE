@@ -1212,9 +1212,7 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
       // Slide 2 has no entry on desktop: it is already on the photo, fading in as
       // the photo grows, so there is nothing for it to slide in FROM. Phones hide
       // the long photo and skip the grow, so there it still slides in (see render).
-      // Panel 0 does NOT slide. The stage is sticky, so it is visible for a
-      // screen before it pins; anything still off-stage then is a blank page.
-      const ENTRY = [[0, 0], [1, 0], [1, 0]];
+      const ENTRY = [[1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       /* The shared HUD for slides 2-4. It does not move with the panels, so the
@@ -1229,7 +1227,7 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
       const hudFill = document.getElementById("sm-hud-fill");
       const EASE = 0.16;     // tracks the scrollbar closely; still eased
       let acc = 0, display = 0, lastCur = -1;
-      const clamp = (v) => Math.max(0, Math.min(last, v));
+      const clamp = (v) => Math.max(-1, Math.min(last, v));
 
       /* The deck is driven by the page's own scroll, not by hijacking the wheel.
          The stage is sticky inside a runway one viewport tall per panel, so how
@@ -1248,7 +1246,24 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
         if (!runway) return;
         const r = runway.getBoundingClientRect();
         const span = runway.offsetHeight - window.innerHeight;
-        acc = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) * last : 0;
+        /* Two phases, because the stage is sticky and therefore on screen for a
+           whole viewport BEFORE it pins.
+
+           Before the pin, the stage is rising up the screen: the services slide
+           across inside it over the first half of that travel, so you watch
+           them arrive as you scroll — which is the hand-off Dani asked for —
+           and by the time half the stage is showing they are fully in. Running
+           that entry on the pin instead is what left a blank page; not running
+           it at all took the sideways move away. This does both.
+
+           After the pin, the runway pages across the rest. */
+        const vh = window.innerHeight;
+        if (r.top > 0) {
+          const pre = Math.max(0, Math.min(1, (vh - r.top) / (vh * 0.5)));
+          acc = pre - 1;
+        } else {
+          acc = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) * last : 0;
+        }
       };
       const targetOf = () => acc;
       window.addEventListener("scroll", readScroll, { passive: true });
