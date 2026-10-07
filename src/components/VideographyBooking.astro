@@ -288,7 +288,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <div class="dc-tick" aria-hidden="true">
           <svg viewBox="0 0 52 52"><circle class="dc-tick-circle" cx="26" cy="26" r="24"/><path class="dc-tick-path" fill="none" d="M14 27l8 8 16-18"/></svg>
         </div>
-        <h3 id="vb-success-title">Booking confirmed</h3>
+        <h3 id="vb-success-title">Booking Confirmed</h3>
         <p id="vb-success-msg">You'll shortly receive an email to confirm your booking.</p>
         <button type="button" class="dc-form-cta dc-success-done" data-vb-close>Done <em>&rarr;</em></button>
       </section>
@@ -421,7 +421,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (stage) stage.scrollTop = 0; activeStep = name;
         backBtn.hidden = history.length === 0;
         if (name === "time") renderSlots();
-        if (name === "day") setDaySub();
+        // Redraw on arrival: the grid is first built when the panel opens, long
+        // before the service and the package (and so the duration) are known —
+        // a longer shoot opens fewer days, so the greying has to be asked for
+        // again here or it answers for the wrong length of booking.
+        if (name === "day") { setDaySub(); renderCalendar(); }
         if (name === "terms") renderTerms();
       };
       if (cur && cur !== next) { cur.classList.remove("dc-anim-in"); cur.classList.add("dc-anim-out"); setTimeout(() => { cur.hidden = true; cur.classList.remove("dc-anim-out"); enter(); }, 230); }
@@ -826,6 +830,25 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     // ---- 4. calendar ----
     const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    /* A day with no free time is greyed out, the way Saturday and Sunday are,
+       rather than clickable with an explanation waiting behind it (Dani,
+       7 Oct). /ms/days runs the same three checks as /ms/availability — Jack's
+       weekday hours, his 365 calendar and the bookings board — across the 42
+       cells the grid shows. Cached per service AND duration, because a longer
+       shoot opens fewer days, and the package is chosen before this step. */
+    const openDays = {};        // "svc|mins|from|to" -> Set of ISO dates
+    const openDaysAsked = {};
+    async function loadOpenDays(key, from, to) {
+      if (!WORKER || openDaysAsked[key]) return;
+      openDaysAsked[key] = true;
+      try {
+        const res = await fetch(`${WORKER}/ms/days?from=${from}&to=${to}&service=${encodeURIComponent((svc && svc.key) || "")}&duration=${duration}`);
+        const d = await res.json();
+        if (!res.ok || !Array.isArray(d.days)) return;
+        openDays[key] = new Set(d.days);
+        renderCalendar();
+      } catch (_) { /* leave every working day clickable — the day itself still checks */ }
+    }
     function renderCalendar() {
       const calLabel = $("vb-cal-label"), calGrid = $("vb-cal-grid"); if (!calGrid) return;
       calLabel.textContent = `${MONTHS[viewMonth.getMonth()]} ${viewMonth.getFullYear()}`;
@@ -833,14 +856,24 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const gs = new Date(first); gs.setDate(first.getDate() - off);
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const cells = [];
+      const rangeFrom = localISO(gs), rangeTo = localISO(new Date(gs.getFullYear(), gs.getMonth(), gs.getDate() + 41));
+      const key = `${(svc && svc.key) || ""}|${duration}|${rangeFrom}|${rangeTo}`;
+      const open = openDays[key];
       for (let i = 0; i < 42; i++) {
         const d = new Date(gs); d.setDate(gs.getDate() + i);
         const inM = d.getMonth() === viewMonth.getMonth(), past = d < today;
         const closed = availWeekdays ? !availWeekdays.has(d.getDay()) : (d.getDay() === 0 || d.getDay() === 6);
+        // Only once the answer is in: until then every working day stays live,
+        // so a slow or failed call never looks like a closed month.
+        const taken = !!open && !open.has(localISO(d));
         const cl = ["dc-cal-day"]; if (!inM) cl.push("is-other-month"); if (sameDay(d, today)) cl.push("is-today"); if (sameDay(d, selectedDate)) cl.push("is-active");
-        cells.push(`<button type="button" class="${cl.join(" ")}" data-date="${localISO(d)}" ${past || closed ? "disabled" : ""}>${d.getDate()}</button>`);
+        cells.push(`<button type="button" class="${cl.join(" ")}" data-date="${localISO(d)}" ${past || closed || taken ? "disabled" : ""}>${d.getDate()}</button>`);
       }
       calGrid.innerHTML = cells.join("");
+      // Only once this step is actually showing: the grid is also built when
+      // the panel opens, and asking then spends a request on the default
+      // 90 minutes before any package has been picked.
+      if (!open && svc && svc.key && activeStep === "day") loadOpenDays(key, rangeFrom, rangeTo);
     }
     $("vb-prev-month")?.addEventListener("click", () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderCalendar(); });
     $("vb-next-month")?.addEventListener("click", () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderCalendar(); });
@@ -1203,7 +1236,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (!existingAccount && !signedInAsGate() && pw) { try { const m = await import("../lib/supabase.js"); if (m && m.isConfigured && m.supabase) await m.supabase.auth.signInWithPassword({ email: bookEmail, password: pw }); } catch (_) {} }
         const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
         const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
-        $("vb-success-title").textContent = "Booking confirmed";
+        $("vb-success-title").textContent = "Booking Confirmed";
         $("vb-success-msg").textContent = `We've booked ${svc.name} for ${dt} at ${selectedSlot}, and set up your account so you can manage it any time. A confirmation email with a calendar invite is on its way.`;
         history = []; goTo("success"); history = []; backBtn.hidden = true;
         resetCta(btn, "Confirm booking");

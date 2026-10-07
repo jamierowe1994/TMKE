@@ -31,7 +31,8 @@ const VID_BOX_IMG = (await getImage({
 const navLinks = [
   { label: "About", href: "/about" },
   { label: "Social Media", href: "/services" },
-  { label: "Videography", href: "/videography", current: true },
+  { label: "Property Videography", href: "/videography", current: true },
+  { label: "Property Photography", href: "/videography#photography", current: true },
   { label: "The Edit", href: "/edit" },
   { label: "Insights", href: "/blog" },
   { label: "Contact", href: "/contact" },
@@ -210,7 +211,7 @@ const navLinks = [
 
         <div class="vintro-inner">
           <span class="pf-panel-cat">Why it matters</span>
-          <p class="vintro-lead">People judge your marketing before they judge your service.</p>
+          <p class="vintro-lead">&ldquo;People judge your marketing before they judge your service.&rdquo;</p>
           <p>The photography. The videography. The way your properties, and your brand, are presented.</p>
           <p>Buyers scroll quickly. Sellers notice how you market property just as quickly. If your marketing looks professional, they&rsquo;ll expect your service to be the same.</p>
           <p>Every listing is an advert for your next instruction.</p>
@@ -990,13 +991,14 @@ const navLinks = [
       opacity: 0.45;
       flex-shrink: 0;
     }
-    /* The Seasons, to mirror the three points at the foot of Social Media
-       ("Reach That Matters", "Property first, always.") — Dani, 7 Oct. */
+    /* The same type as Social Media's three points (.sm-open-h — "Reach That
+       Matters", "Property first, always."): The Seasons, 700, the same size,
+       line-height and tracking, in burgundy. Dani, 7 Oct. */
     .vintro-lead {
       font-family: var(--subhead) !important; font-style: normal;
       font-weight: 700 !important; letter-spacing: -0.01em !important;
-      font-size: clamp(24px, 2.4vw, 34px) !important; line-height: 1.15 !important;
-      color: var(--english-violet) !important; margin: 0 0 22px !important;
+      font-size: clamp(18px, 1.35vw, 21px) !important; line-height: 1.25 !important;
+      color: var(--english-violet) !important; margin: 0 0 18px !important;
     }
     /* Same body as .vh-route-body and .sm-way-copy. */
     .vintro-inner p {
@@ -1885,6 +1887,17 @@ const navLinks = [
       stage.querySelectorAll("[data-photo-open]").forEach((el) => {
         el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); enter("photo"); });
       });
+      /* The nav's "Property Photography" is this page at #photography. A
+         separate <script> is a separate module, so the hash handler cannot
+         reach `enter` — it goes on window instead. Landing straight on the
+         route (no ease) is the point: arriving from the menu should look like
+         the page opened there. */
+      window.tmkeVidRoute = (name, instant) => {
+        const i = routeStart(name);
+        if (instant) { anchor = i; acc = i; display = i; lastCur = -1; skipped = new Set(); render(); }
+        else enter(name);
+      };
+      if ((location.hash || "").toLowerCase() === "#photography") window.tmkeVidRoute("photo", true);
       // The wordmark goes home from anywhere in the deck.
       document.querySelector(".pf-top-logo")?.addEventListener("click", (e) => {
         if (Math.round(anchor) === 0) return;       // already home — let the link work
@@ -1899,6 +1912,14 @@ const navLinks = [
       const h = (location.hash || "").replace("#", "");
       if (h && PRODUCTS.some((p) => p.slug === h)) openProduct(h);
     })();
+
+    /* Already on this page and the menu's Property Photography is clicked:
+       the hash does not change the document, so move the deck ourselves. */
+    window.addEventListener("hashchange", () => {
+      if ((location.hash || "").toLowerCase() === "#photography" && typeof window.tmkeVidRoute === "function") {
+        window.tmkeVidRoute("photo", false);
+      }
+    });
 
     /* Our services — hovering a row crossfades its picture. */
     (function vsvcs() {

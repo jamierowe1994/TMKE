@@ -273,7 +273,7 @@ const featMeta = featured
     .ins-intro::before, .ins-intro::after {
       content: ""; position: absolute; inset: 0; z-index: 0;
       background-size: cover; background-position: center;
-      transition: opacity 0.75s ease;
+      transition: opacity 0.6s ease;
     }
     .ins-intro::before { background-image: url("/images/insights-board-emboss.webp"); opacity: 1; }
     .ins-intro::after  { background-image: url("/images/insights-board-blank.webp"); opacity: 0; }
@@ -291,17 +291,22 @@ const featMeta = featured
       color: rgba(244,242,241,0.78); transition: color 0.25s ease, gap 0.25s ease;
     }
     .ins-unlock:hover { color: var(--paper); gap: 15px; }
-    .ins-intro.is-member .ins-unlock { display: none; }
+    /* Faded, not display:none — the board and the words on it have to move as
+       one thing, and something that is not there cannot fade (Dani, 7 Oct).
+       It keeps its place in the layout so nothing jumps either. */
+    .ins-eyebrow, .ins-unlock { transition: opacity 0.35s ease; }
+    .ins-intro.is-quiet .ins-eyebrow,
+    .ins-intro.is-quiet .ins-unlock { opacity: 0; pointer-events: none; }
 
     /* ---- The membership pitch, once the board has turned over ---- */
     .ins-member {
       margin: auto 0; display: flex; flex-direction: column; gap: 14px;
-      animation: insMemberIn 0.5s 0.25s ease both;
+      opacity: 0; transition: opacity 0.3s ease;
     }
+    .ins-member.is-on { opacity: 1; }
     /* display:flex beats the browser's own [hidden] rule, so this has to say so
        or the join form is on screen from the moment the page loads. */
     .ins-member[hidden], .ins-member-form[hidden] { display: none; }
-    @keyframes insMemberIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     .ins-member-x {
       position: absolute; top: 0; right: 0; z-index: 2;
       appearance: none; background: none; border: 0; padding: 4px 6px; cursor: pointer;
@@ -831,16 +836,37 @@ const featMeta = featured
     if (board && unlock && member && form) {
       const alt = member.querySelector(".ins-member-alt");
 
+      /* Three beats each way, so the board and the words on it read as one
+         thing rather than two that happen to overlap (Dani, 7 Oct).
+         Out: the join goes first and quickly · then the emboss comes back ·
+         and as it does, Insights and the link come back with it.
+         In is the same three in reverse. */
+      let busy = false;
       const open = () => {
-        member.hidden = false;
-        board.classList.add("is-member");
-        setTimeout(() => { const f = form.querySelector('input[name="full_name"]'); if (f) f.focus({ preventScroll: true }); }, 420);
+        if (busy || board.classList.contains("is-member")) return;
+        busy = true;
+        board.classList.add("is-quiet");                 // 1. Insights + the link go
+        setTimeout(() => {
+          member.hidden = false;
+          void member.offsetWidth;                       // commit opacity 0 before the class
+          board.classList.add("is-member");              // 2. the board turns over
+          setTimeout(() => {
+            member.classList.add("is-on");               // 3. the join comes up with it
+            busy = false;
+            const f = form.querySelector('input[name="full_name"]');
+            if (f) f.focus({ preventScroll: true });
+          }, 240);
+        }, 300);
       };
       const close = () => {
-        board.classList.remove("is-member");
-        // Held until the emboss has faded back in, so the words don't vanish
-        // a beat before the board they sit on.
-        setTimeout(() => { member.hidden = true; }, 750);
+        if (busy || !board.classList.contains("is-member")) return;
+        busy = true;
+        member.classList.remove("is-on");                // 1. the join goes, quickly
+        setTimeout(() => {
+          board.classList.remove("is-member");           // 2. the emboss fades back
+          setTimeout(() => board.classList.remove("is-quiet"), 180);  // 3. and these with it
+          setTimeout(() => { member.hidden = true; busy = false; }, 620);
+        }, 240);
       };
 
       unlock.addEventListener("click", open);
