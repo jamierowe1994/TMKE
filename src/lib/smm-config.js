@@ -229,7 +229,7 @@ export const ACCOUNT_HELP = {
 export const COPY = {
   positioning: {
     /* The three on the opening. Dani's wording, 7 Oct — verbatim. */
-    headline: "Reach that matters",
+    headline: "Reach That Matters",
     body:
       "Going viral sounds great. But millions of views from people who will never buy, sell or let a property through you won\u2019t grow your business. What matters is being consistently visible to the right people, in the right place, at the right time. Your local market, your audience, your community.",
     pillars: [
