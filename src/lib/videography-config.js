@@ -200,6 +200,34 @@ export const RATE_CARD = {
   },
 };
 
+/* ---------------------------------------------------------------------------
+   Photography packages (Danielle's pricing sheet, 7 Oct 2026). On the rate
+   card only for now: not in SERVICES, so nothing in the booking flow offers
+   them until that is decided.
+
+   Cost is labour (photography + editing + amends buffer) at the hourly rate,
+   plus the travel charge to TMKE and commission on the labour. Prices are that
+   cost marked up and rounded: 25% for TEG brands and agents, 35% for standard
+   agencies, 45% for scaleable agencies. The rounded figures are the sheet's.
+--------------------------------------------------------------------------- */
+export const PHOTOGRAPHY = {
+  hourly_pence: 3000,
+  travel_pence: 2200,          // travel charge to TMKE (40 miles)
+  commission: 0.10,            // of the labour cost
+  packages: [
+    { key: "photo-25", name: "25 Photo Package", photos: 25, member_pence: 21500, ext_standard_pence: 26500, ext_scaleable_pence: 31000, photo: 2, edit: 1.5, amends: 1 },
+    { key: "photo-40", name: "40 Photo Package", photos: 40, member_pence: 27500, ext_standard_pence: 34000, ext_scaleable_pence: 40000, photo: 3, edit: 2,   amends: 1 },
+    { key: "photo-60", name: "60 Photo Package", photos: 60, member_pence: 34000, ext_standard_pence: 41500, ext_scaleable_pence: 49000, photo: 4, edit: 2.5, amends: 1 },
+  ],
+};
+export const photoInclusions = (pk) =>
+  `${pk.photos} portal photographs (including drone shots), 10 × 5:4 photos (Grid/Newsfeed) and 10 × 16:9 photos (Story/Reels)`;
+// What a package costs us to produce, in pence: £171 / £220 / £270 on the sheet.
+export function photoCostPence(pk) {
+  const labour = (pk.photo + pk.edit + pk.amends) * PHOTOGRAPHY.hourly_pence;
+  return Math.round(labour + PHOTOGRAPHY.travel_pence + labour * PHOTOGRAPHY.commission);
+}
+
 // The member package prices exclude studio hire; the workbook lists it
 // separately. Whether it is rebilled to the client is not yet settled.
 export const STUDIO_HIRE_IS_REBILLED = false;

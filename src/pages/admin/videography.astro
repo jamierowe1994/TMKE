@@ -1071,6 +1071,11 @@ import "../../styles/admin.css";
       padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb), 0.1); color: var(--english-violet);
     }
     .vid-card-amount { font-family: var(--serif); font-size: 15px; font-weight: 500; color: var(--ink); }
+    .vid-card-tags { display: inline-flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+    .vid-card-photo {
+      font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+      padding: 2px 7px; border-radius: 999px; background: #371e28; color: #fff;
+    }
 
     /* ---- Bookings table (reuses enquiry-table look) ---- */
     .enquiry-table {
@@ -1356,7 +1361,7 @@ import "../../styles/admin.css";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1543,15 +1548,23 @@ import "../../styles/admin.css";
       return !sent;
     }
 
+    // A photography booking: service_type "photography" (the key the booking
+    // flow saves), or a service named Photography on a booking made by hand.
+    function isPhotographyOnly(b) {
+      return b.service_type === "photography" || /^\s*photography\b/i.test(b.service || "");
+    }
     function cardHtml(b) {
       const brand = b.brand ? `<span class="vid-card-brand">${escapeHtml(BRAND_LABEL[b.brand] || b.brand)}</span>` : "<span></span>";
       const amount = b.amount_pence != null ? `<span class="vid-card-amount">${gbpFromPence(b.amount_pence)}</span>` : "";
+      // Photography bookings run through the same board; the pill says this
+      // one has no filming (Danielle, 7 Oct 2026).
+      const photo = isPhotographyOnly(b) ? `<span class="vid-card-photo">Photography only</span>` : "";
       return `
         <div class="vid-card" draggable="true" data-id="${b.id}">
           <div class="vid-card-name">${escapeHtml(b.client_name)}</div>
           <div class="vid-card-meta">${escapeHtml(b.service || b.client_company || "—")}</div>
           <div class="vid-card-meta">${b.shoot_date ? "📅 " + fmtWhen(b.shoot_date) : ""}</div>
-          <div class="vid-card-foot">${brand}${amount}</div>
+          <div class="vid-card-foot"><span class="vid-card-tags">${brand}${photo}</span>${amount}</div>
         </div>`;
     }
 
@@ -4787,6 +4800,7 @@ import "../../styles/admin.css";
     const labour = (r) => {
       if (!r) return "";
       const bits = [];
+      if (r.photo) bits.push(`${r.photo} photography`);
       if (r.film) bits.push(`${r.film} filming`);
       if (r.edit) bits.push(`${r.edit} editing`);
       if (r.brief) bits.push(`${r.brief} brief`);
@@ -4848,6 +4862,18 @@ import "../../styles/admin.css";
             slot: mins(RATE_SLOT.agent), labour: labour(r),
           };
         }),
+      });
+
+      // Photography: rate card only for now, not bookable online.
+      groups.push({
+        name: "Photography",
+        note: `Not bookable online yet. Our cost (hours at ${gbpFromPence(PHOTOGRAPHY.hourly_pence)}, ${gbpFromPence(PHOTOGRAPHY.travel_pence)} travel, ${Math.round(PHOTOGRAPHY.commission * 100)}% commission) plus 25% for TEG, 35% standard and 45% scaleable, rounded.`,
+        rows: PHOTOGRAPHY.packages.map((pk) => ({
+          item: pk.name, sub: `Our cost ${gbpFromPence(Math.round(photoCostPence(pk) / 100) * 100)}`,
+          includes: photoInclusions(pk),
+          member: pk.member_pence, std: pk.ext_standard_pence, scl: pk.ext_scaleable_pence,
+          slot: mins(pk.photo * 60), labour: labour(pk),
+        })),
       });
 
       groups.push({
