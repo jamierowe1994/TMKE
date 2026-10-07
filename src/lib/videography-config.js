@@ -27,10 +27,14 @@ export const MEMBER_DOMAINS = {
   "fineandcountry.com":             { brand: "fc",       label: "Fine & Country" },
   "fineandcountry.co.uk":           { brand: "fc",       label: "Fine & Country" },
   // TMKE staff — treated as members so the team can test every booking flow
-  // end-to-end (Content Studio, Property, Agent). Remove or restrict before
-  // launch if you don't want all @tmke.co.uk addresses booking at member rates.
-  // (Property tier falls back to "gold" for this brand — see propertyTierForBrand.)
+  // end-to-end (Content Studio, Property, Agent, Photography). Remove or
+  // restrict before launch if you don't want all TMKE addresses booking at
+  // member rates. (Property tier falls back to "gold" — see propertyTierForBrand.)
   "tmke.co.uk":                     { brand: "tmke",     label: "TMKE" },
+  // The address the team actually sends from. tmke.co.uk was listed and this
+  // one was not, so every @themarketingexperts.co.uk address — Danielle's
+  // included — resolved as a NON-MEMBER (Dani, 7 Oct).
+  "themarketingexperts.co.uk":      { brand: "tmke",     label: "The Marketing Experts" },
 };
 
 // Returns { audience: "member"|"non-member", brand, label, domain }.

@@ -406,6 +406,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let availWeekdays = null, configFetched = false;
     let activeStep = null, history = [];
     const SESSION_MINUTES = { single: 90, half: 180, full: 480 };
+    // Time held in the diary per photography package — the on-site hours the
+    // rate card is costed from (2 / 3 / 4), not the editing time after it.
+    const PHOTO_MINUTES = { "photo-25": 120, "photo-40": 180, "photo-60": 240 };
 
     // ---- step nav (one at a time, sliding — same feel as DiscoveryPanel) ----
     const stepEl = (name) => name === "success" ? $("vb-success") : $("vb-step-" + name);
@@ -649,6 +652,30 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         return;
       }
 
+      /* Photography — three packages, pick one, same card as a Studio session.
+         This branch did not exist, so the step rendered an empty list and the
+         flow dead-ended at "Choose your session" (Dani, 7 Oct). Unlike a Studio
+         session it is shot at the property, so it goes on to the location step
+         for the travel charge rather than straight to the day. */
+      if (svc.key === "photography") {
+        $("vb-options-title").textContent = "Choose your package";
+        if (sub) sub.textContent = "All prices are plus VAT. Travel beyond 40 miles is charged on top.";
+        actions.hidden = true;
+        wrap.innerHTML = `<div class="dc-choices">` + svc.sessions.map((s, i) => `
+          <button type="button" class="dc-choice" data-i="${i}">
+            <span class="dc-choice-name">${s.name}</span>
+            <span class="dc-choice-output">${s.output}</span>
+            <span class="dc-choice-meta">${s.desc}</span>
+            <span class="dc-choice-price">${gbp(s.price_pence)} +VAT</span>
+          </button>`).join("") + `</div>`;
+        wrap.querySelectorAll(".dc-choice").forEach((b) => b.addEventListener("click", () => {
+          chosen = svc.sessions[+b.dataset.i];
+          duration = PHOTO_MINUTES[chosen.key] || 180;
+          afterOptions();
+        }));
+        return;
+      }
+
       // Property and Agent share one layout: a single included package shown as a
       // fixed card, then optional add-ons that update the running total. For
       // Property the package is set by membership tier; for Agent it's the Launch
@@ -709,11 +736,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       el.innerHTML = `<span>Running total — ex VAT, before travel</span><strong>${gbp(optionsBasePence() + addOnsPence())}</strong>`;
     }
 
-    // Property/Agent: Continue → postcode (surcharge) → day. (Content Studio jumps
-    // straight to day from its session card above.) The Launch Package is always
-    // included for Agent, so there's no minimum-selection gate any more.
-    $("vb-options-next")?.addEventListener("click", () => {
-      if (svc.key === "agent") duration = 240 + selectedAddOns.length * 30;
+    /* On to the location step (or straight to the day for anything that isn't
+       charged travel). Shared, so photography's package cards and the Continue
+       button under Property/Agent can't drift apart. */
+    function afterOptions() {
       $("vb-surcharge-note").hidden = true;
       // Per-service copy for the postcode step.
       const pcTitle = $("vb-postcode-title"), pcSub = $("vb-postcode-sub");
@@ -725,6 +751,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (pcSub) pcSub.textContent = "Enter the property postcode so we can calculate any travel costs before you confirm your booking.";
       }
       if (svc.surcharge) { resetPostcode(); goTo("postcode"); } else { setDaySub(); goTo("day"); }
+    }
+
+    // Property/Agent: Continue → postcode (surcharge) → day. (Content Studio jumps
+    // straight to day from its session card above.) The Launch Package is always
+    // included for Agent, so there's no minimum-selection gate any more.
+    $("vb-options-next")?.addEventListener("click", () => {
+      if (svc.key === "agent") duration = 240 + selectedAddOns.length * 30;
+      afterOptions();
     });
 
     // ---- 3b. postcode + travel surcharge ----
@@ -831,6 +865,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
             off_location_buffer: "There's a shoot just before this date, and Jack keeps the two days after one clear for editing — please pick a slightly later date.",
             day_too_short: "This shoot needs a longer run of time than that day allows — please pick another date.",
             no_gap_long_enough: "There's no unbroken run of time long enough on that date — please pick another day.",
+            // Added 7 Oct: the Worker now reads the bookings board as well as
+            // Jack's calendar, so a hand-added booking blocks the day too.
+            // Without these two the whole day fell through to the generic line.
+            day_taken: "That day is already booked — please pick another date.",
+            day_in_studio: "Jack is in the studio that day, so he can't be out on location — please pick another date.",
           };
           grid.innerHTML = `<p class="dc-slots-empty">${REASONS[data.reason] || "No times available that day — go back and try another date."}</p>`;
           return;
