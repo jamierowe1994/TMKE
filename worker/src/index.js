@@ -19,7 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
-import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS } from "../../src/lib/videography-config.js";
+import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -1442,6 +1442,65 @@ async function sbRpc(env, fn, args, onError) {
 }
 const hmToMin = (hm) => { const [h, m] = String(hm).split(":").map(Number); return h * 60 + m; };
 const minToHm = (min) => String(Math.floor(min / 60)).padStart(2, "0") + ":" + String(min % 60).padStart(2, "0");
+
+/* ---- The bookings board blocks the diary too (Danielle, 7 Oct 2026) -------
+   Jack's 365 calendar is the first check, but a booking added by hand in
+   Admin > Videography never reaches it, and his Marketing Experts calendar is
+   in another tenant we can't read. So the bookings themselves are the fail-safe:
+   whatever is on the board takes its day out of the booking flow.
+
+     - A shoot on location (property, agent, photography), or anything we can't
+       place (a hand-added "Success day"), takes the whole day, for everything.
+     - A Content Studio session takes its own hours. Studio sessions still run
+       back to back, but nobody books Jack out on location that day.
+     - Property and agent shoots keep their clear days after (BUFFERED_SERVICES).
+   Cancelled bookings and discovery calls (a Teams call) block nothing. */
+function bookingKindOf(r) {
+  if (r.service_type) return r.service_type;
+  const s = String(r.service || "").toLowerCase();
+  if (/content|studio|podcast/.test(s)) return "content-studio";
+  if (/photo/.test(s) && !/video/.test(s)) return "photography";
+  if (/property/.test(s)) return "property";
+  if (/agent|location|headshot|launch|b-?roll/.test(s)) return "agent";
+  return null;
+}
+function londonParts(iso) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" })
+    .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return { ymd: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
+}
+async function diaryBlocks(env, date, service) {
+  const from = new Date(`${date}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - OFF_LOCATION_BUFFER_DAYS - 1);
+  const to = new Date(`${date}T00:00:00Z`); to.setUTCDate(to.getUTCDate() + 2);
+  const rows = (await sbGet(env, "videography_bookings",
+    `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min`)) || [];
+  const onLocation = OFF_LOCATION_SERVICES.includes(service);
+  const ranges = [];
+  for (const r of rows) {
+    if (!r.shoot_date || r.stage === "cancelled" || r.stage === "discovery_call_booked" || r.service_type === "discovery") continue;
+    const kind = bookingKindOf(r);
+    // Bookings made through the flow store London clock time as written
+    // ("2026-10-14T09:00:00", read as UTC); bookings added in admin store a
+    // true instant. Same day either way bar midnight; the hour needs each read.
+    const flowRow = r.kind === "booking";
+    const day = flowRow ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd;
+    if (day === date) {
+      if (kind === "content-studio") {
+        if (onLocation) return { day: true, reason: "day_in_studio" };
+        const start = flowRow ? hmToMin(String(r.shoot_date).slice(11, 16)) : londonParts(r.shoot_date).min;
+        ranges.push([start, start + (r.duration_min || 90)]);
+        continue;
+      }
+      return { day: true, reason: onLocation && OFF_LOCATION_SERVICES.includes(kind) ? "off_location_taken" : "day_taken" };
+    }
+    if (onLocation && day < date && BUFFERED_SERVICES.includes(kind)) {
+      const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
+      if (gap <= OFF_LOCATION_BUFFER_DAYS) return { day: true, reason: "off_location_buffer" };
+    }
+  }
+  return { day: false, ranges };
+}
+const overlapsAny = (ranges, s, e) => ranges.some(([a, b]) => s < b && e > a);
 
 // A link straight to the folder in the Cloudflare dashboard. Needs the account
 // id, which only appears in the dashboard URL - so it is a var rather than
@@ -4868,27 +4927,11 @@ export default {
         const service = url.searchParams.get("service") || "";
         if (!date) return json({ error: "Missing date" }, 400, request, env);
 
-        // One off-location shoot a day. Property and Agent shoots are at the
-        // client's location, so a morning one in one town and an afternoon one
-        // in another isn't a scheduling problem, it's a travel one. Content
-        // Studio is exempt on purpose: those run back to back at our studio.
-        //
-        // Checked here rather than trusting the calendar, because Jack's diary
-        // can't tell an off-location shoot from anything else in it.
-        if (OFF_LOCATION_SERVICES.includes(service)) {
-          // Look back over the buffer as well as the day itself: an on-location
-          // shoot needs clear days after it for editing and amendments, so one
-          // on the 5th takes the 6th and 7th too.
-          const from = new Date(`${date}T00:00:00Z`);
-          from.setUTCDate(from.getUTCDate() - OFF_LOCATION_BUFFER_DAYS);
-          const window = (await sbGet(env, "videography_bookings",
-            `shoot_date=gte.${from.toISOString().slice(0, 10)}T00:00:00&shoot_date=lte.${date}T23:59:59&select=shoot_date,service_type,stage`)) || [];
-          const clash = window.find((r) => OFF_LOCATION_SERVICES.includes(r.service_type) && r.stage !== "cancelled");
-          if (clash) {
-            const sameDay = String(clash.shoot_date || "").slice(0, 10) === date;
-            return json({ slots: [], duration, reason: sameDay ? "off_location_taken" : "off_location_buffer" }, 200, request, env);
-          }
-        }
+        // The bookings board, before the calendar: a day with a shoot on it
+        // (or anything hand-added) is gone, and studio sessions take their
+        // hours. See diaryBlocks.
+        const blocks = await diaryBlocks(env, date, service);
+        if (blocks.day) return json({ slots: [], duration, reason: blocks.reason }, 200, request, env);
         const wd = new Date(date + "T12:00:00Z").getUTCDay(); // 0=Sun..6=Sat
         const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
         const hours = rowHours(rows[0]);
@@ -4914,7 +4957,9 @@ export default {
             const busy = view[i + k];
             if (!openHours.has(Math.floor(slotMin / 60)) || (busy && busy !== "0")) { ok = false; break; }
           }
-          if (ok) slots.push(minToHm(dayStartMin + i * STEP));
+          const at = dayStartMin + i * STEP;
+          if (ok && overlapsAny(blocks.ranges, at, at + duration)) ok = false;
+          if (ok) slots.push(minToHm(at));
         }
         return json({ slots, duration }, 200, request, env);
       }
@@ -4978,6 +5023,14 @@ export default {
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
         if (view && /[^0]/.test(view)) return json({ error: "That time was just taken - please choose another." }, 409, request, env);
+
+        // ...and against the bookings board, which the calendar may not show.
+        {
+          const blocks = await diaryBlocks(env, date, service_type || "");
+          if (blocks.day || overlapsAny(blocks.ranges, hmToMin(start), hmToMin(start) + dur)) {
+            return json({ error: "That date has just been taken - please choose another." }, 409, request, env);
+          }
+        }
 
         // 2) Create or link the Supabase account (never overwrite an existing one).
         let accountUserId = null, accountCreated = false;

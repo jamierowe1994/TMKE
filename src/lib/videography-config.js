@@ -418,7 +418,8 @@ export const TERMS_BY_SERVICE = {
 //
 // Content Studio is deliberately NOT here: those run back to back at our own
 // studio, and we want them to.
-export const OFF_LOCATION_SERVICES = ["property", "agent"];
+// Photography is on location too (the property), so one a day as well.
+export const OFF_LOCATION_SERVICES = ["property", "agent", "photography"];
 
 // Clear days Jack needs after an on-location shoot before the next one: about
 // 1.5 days editing plus half a day for amendments (his figure, 2 Aug). So a
@@ -427,6 +428,9 @@ export const OFF_LOCATION_SERVICES = ["property", "agent"];
 // Content Studio is exempt for the same reason it is exempt from the one-a-day
 // rule: those are at our own studio and are meant to run back to back.
 export const OFF_LOCATION_BUFFER_DAYS = 2;
+// Which shoots take the clear days after them. Photography doesn't: its
+// editing is an afternoon (1.5-2.5 hrs), not a day and a half.
+export const BUFFERED_SERVICES = ["property", "agent"];
 export const isOffLocation = (serviceKey) => OFF_LOCATION_SERVICES.includes(serviceKey);
 
 // ---- Fine & Country offices -------------------------------------------------
