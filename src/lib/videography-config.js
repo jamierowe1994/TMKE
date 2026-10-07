@@ -230,7 +230,10 @@ export const RATE_CARD = {
 --------------------------------------------------------------------------- */
 export const PHOTOGRAPHY = {
   hourly_pence: 3000,
-  travel_pence: 2200,          // travel charge to TMKE (40 miles)
+  // Travel to TMKE (40 miles), built into every price. A shoot beyond the
+  // free radius pays the per-mile surcharge on top, as property shoots do:
+  // both, confirmed by Danielle 7 Oct 2026.
+  travel_pence: 2200,
   commission: 0.10,            // of the labour cost
   packages: [
     { key: "photo-25", name: "25 Photo Package", photos: 25, member_pence: 21500, ext_standard_pence: 26500, ext_scaleable_pence: 31000, photo: 2, edit: 1.5, amends: 1 },
