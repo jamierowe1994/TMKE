@@ -18,7 +18,7 @@ export const SERVICE_TIERS = [
     name: "Shot and Scheduled",
     subtitle: "Video Content Management",
     blurb:
-      "For agencies that want video handled end to end — regular shoots with our in-house videographer, edited, captioned and scheduled to your platforms. You show up, we handle the rest.",
+      "Regular filming sessions with our in-house videographer, with your content professionally edited, captioned and scheduled across your social media. Your non-property video content, handled from shoot to post.",
     price_pence: null,
   },
   {
@@ -26,16 +26,15 @@ export const SERVICE_TIERS = [
     name: "Planned and Posted",
     subtitle: "Social Media Management",
     blurb:
-      "For agencies that want a consistent, professional social media presence without the pressure of managing it themselves. A focused, platform-specific approach that builds your brand identity, reaches the right audience, and keeps your business visible with content planned, created and posted for you.",
+      "Full social media management built around your agency and its objectives. We plan, create and post your content, from branded statics and carousels to platform-specific content designed to keep your agency consistently visible.",
     price_pence: null,
   },
-  
   {
     key: "managed-and-moving",
     name: "Managed and Moving",
-    subtitle: "Full Management & Videography",
+    subtitle: "Social Media + Video Management",
     blurb:
-      "For agencies that want to move fastest and make the biggest impact. Everything in Present and Performing, plus a bi-monthly recording session with our videography team and a video-first content strategy built for maximum reach and engagement.",
+      "Complete social media management combined with regular filming sessions and professionally produced video content. We plan, create, film, edit and post your agency content across your chosen platforms, covering everything except your property listings.",
     price_pence: null,
   },
 ];

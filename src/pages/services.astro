@@ -375,11 +375,24 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
   <NavDrawer />
 
   <style>
+    /* These two pages lay themselves out edge to edge and carry their own
+       gutter, so .pf-panel's padding has to come off or their full-height boxes
+       measure against a box that is already inset — which is why their bottoms
+       landed 80 and 158px short of the picture's. */
+    .pf-panel.sm-goodslide { padding: 0; align-items: stretch; }
+    /* Keeps its own bottom gutter: this selector outranks .sm-ctas--stack, so
+       a flat padding:0 here wiped the bottom margin the list sits on. */
+    .pf-panel.sm-ctas { padding: 0 0 var(--page-gutter); align-items: stretch; }
+
     /* ===== Also from TMKE — a row that opens on hover ==================== */
-    .sm-more { width: 100%; display: flex; flex-direction: column; gap: 22px; padding: 0 var(--page-gutter); }
-    .sm-more-row {
-      display: flex; gap: 10px; height: clamp(320px, 56vh, 560px);
+    /* Full height between the gutters, so the row's bottom edge lands on the
+       same line as the services picture's — one bottom margin across the deck. */
+    .sm-more {
+      width: 100%; height: 100%; box-sizing: border-box;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 20px;
+      padding: var(--page-gutter);
     }
+    .sm-more-row { display: flex; gap: 10px; flex: 1 1 auto; min-height: 0; }
     .sm-more-card {
       position: relative; flex: 1 1 0; min-width: 0; overflow: hidden;
       background-size: cover; background-position: center; border-radius: 2px;
@@ -436,14 +449,14 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     }
 
     /* ===== The ways in — a picture, then the list, sitting low ========== */
-    .sm-ctas--stack { flex-direction: column; justify-content: flex-start; gap: clamp(18px, 2.4vh, 30px); padding: 0 0 clamp(90px, 12vh, 130px); }
+    .sm-ctas--stack { flex-direction: column; justify-content: flex-start; gap: clamp(20px, 3vh, 34px); padding: 0 0 var(--page-gutter); box-sizing: border-box; }
     .sm-ways-pic {
-      margin: 0; width: 100%; flex: 0 0 auto; height: clamp(180px, 26vh, 260px);
+      margin: 0; width: 100%; flex: 0 0 auto; height: clamp(260px, 38vh, 400px);
       background-size: cover; background-position: center;
     }
 
     .sm-ways {
-      width: 100%; flex: 0 0 auto; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr);
+      width: 100%; flex: 1 1 auto; align-content: end; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr);
       gap: clamp(32px, 5vw, 96px); align-items: start;
       padding: 0 clamp(28px, 4vw, 64px);
     }
@@ -1276,8 +1289,10 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
       const hudTag = document.getElementById("sm-hud-tag");
       const hudTagText = document.getElementById("sm-hud-tag-text");
       const hudFill = document.getElementById("sm-hud-fill");
-      const EASE = 0.16;     // tracks the scrollbar closely; still eased
-      let acc = 0, display = 0, lastCur = -1;
+      const EASE = 0.07;     // lerp toward the page it has snapped to
+      const STEP = 0.5;      // how far past a page you must scroll to leave it
+      const PAUSE = 700;     // ms hold once a page lands, so it settles
+      let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
 
       /* The deck is driven by the page's own scroll, not by hijacking the wheel.
@@ -1311,12 +1326,12 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
         if (openEdge(d)) return;            // the opening scrolls itself first
         ev.preventDefault();
-        acc = clamp(acc + d * SENS);
+        acc = Math.max(anchor - 1, Math.min(anchor + 1, clamp(acc + d * SENS)));
       }, { passive: false });
 
       window.addEventListener("keydown", (ev) => {
-        if (["ArrowRight", "PageDown"].includes(ev.key)) { ev.preventDefault(); acc = clamp(Math.round(acc) + 1); }
-        else if (["ArrowLeft", "PageUp"].includes(ev.key)) { ev.preventDefault(); acc = clamp(Math.round(acc) - 1); }
+        if (["ArrowRight", "PageDown"].includes(ev.key)) { ev.preventDefault(); anchor = clamp(anchor + 1); acc = anchor; }
+        else if (["ArrowLeft", "PageUp"].includes(ev.key)) { ev.preventDefault(); anchor = clamp(anchor - 1); acc = anchor; }
       });
 
       let tY = 0, tAcc = 0, tInOpen = false;
@@ -1327,12 +1342,25 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
       stage.addEventListener("touchmove", (ev) => {
         const dy = tY - ev.touches[0].clientY;
         if (tInOpen && openEdge(dy)) return;
-        acc = clamp(tAcc + dy * 0.004);
+        acc = Math.max(anchor - 1, Math.min(anchor + 1, clamp(tAcc + dy * 0.004)));
       }, { passive: true });
 
       // "What we do" at the foot of the opening pages across to the services.
       document.querySelectorAll("[data-deck-next]").forEach((b) =>
-        b.addEventListener("click", () => { acc = clamp(1); }));
+        b.addEventListener("click", () => { acc = clamp(1); anchor = 1; lockUntil = performance.now() + PAUSE; }));
+
+      /* One page at a time, with a hold. acc is the free-running wheel total;
+         the deck only moves to the next page once acc has gone STEP past the
+         one it is on, and then sits for PAUSE before it will move again. Without
+         this a single flick ran straight through every page. Videography has
+         had the same guard all along; I dropped it in the rewrite. */
+      const targetOf = (now) => {
+        if (now >= lockUntil) {
+          if (acc > anchor + STEP && anchor < last) { anchor += 1; lockUntil = now + PAUSE; }
+          else if (acc < anchor - STEP && anchor > 0) { anchor -= 1; lockUntil = now + PAUSE; }
+        }
+        return anchor;
+      };
 
       const render = () => {
         for (let i = 0; i < panels.length; i++) {
@@ -1367,7 +1395,7 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
            scroll driving it, it meant the last panel lagged the scrollbar and
            could still be off-screen at the very bottom of the page: you reached
            the end and the final panel had not arrived. */
-        const t = acc;
+        const t = targetOf(performance.now());
         display += (t - display) * EASE;
         if (Math.abs(t - display) < 0.0004) display = t;
         render();
