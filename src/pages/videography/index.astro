@@ -7,10 +7,11 @@ import NavDrawer from "../../components/NavDrawer.astro";
 import Nav from "../../components/Nav.astro";
 import VideographyBrochureForm from "../../components/VideographyBrochureForm.astro";
 import { PRODUCTS, tierPrice, VIDEOGRAPHY_BROCHURE } from "../../data/videography.js";
+import { PHOTOGRAPHY, photoInclusions } from "../../lib/videography-config.js";
 import { gbpFromPence } from "../../lib/supabase.js";
 
 // Deck panels: dictionary hero + intro/why + one per product + closing booking.
-const total = PRODUCTS.length + 3;
+const total = 5;   // opening, our services, photography, the work, the ways in
 
 // Opening + closing imagery — the site's own on-brand R2 stills.
 const R2 = (name) => `https://assets.tmke.co.uk/${name}.webp`;
@@ -152,6 +153,9 @@ const navLinks = [
            left, photo right) with one long element below that rises up over the
            header into a full-page on scroll, then advances across. Here that long
            element is the VIDEO (the .mov), not an image. -->
+      <!-- Page one: the term, the two ways in, and why it matters — one page
+           that scrolls inside itself. At its bottom edge the deck pages across,
+           the same handover /services uses. -->
       <section class="pf-panel vh">
         <div class="vh-header">
           <div class="vh-wrap">
@@ -176,53 +180,100 @@ const navLinks = [
             </div>
           </div>
         </div>
-        <figure class="vh-pic">
-          <video class="vh-pic-vid" src={VID_HERO_VIDEO} autoplay muted loop playsinline preload="auto" aria-hidden="true"></video>
-        </figure>
-      </section>
 
-      <!-- Slide 2 — Intro & Why -->
-      <section class="pf-panel vintro">
+        <!-- The two ways in. Hovering one widens it and brings its words up. -->
+        <div
+          class="vh-routes"
+          style={`--vh-route-video:url('${PRODUCTS[0].hero}');--vh-route-photo:url('${R2("white-1")}')`}
+        >
+          <article class="vh-route" data-route="video">
+            <div class="vh-route-face">
+              <span class="vh-route-lead">Film</span>
+              <h2 class="vh-route-title">Videography</h2>
+            </div>
+            <div class="vh-route-open"><div class="vh-route-inner">
+              <p class="vh-route-body">Tours, short-form content and presenter-led film, shot in the studio, at the property, or with you in front of the camera.</p>
+              <button type="button" class="vh-route-cta" data-deck-next>See what we film <span aria-hidden="true">&rsaquo;</span></button>
+            </div></div>
+          </article>
+          <article class="vh-route" data-route="photo">
+            <div class="vh-route-face">
+              <span class="vh-route-lead">Stills</span>
+              <h2 class="vh-route-title">Photography</h2>
+            </div>
+            <div class="vh-route-open"><div class="vh-route-inner">
+              <p class="vh-route-body">Portal-ready property photography including drone, delivered in the sizes the portals and your socials actually use.</p>
+              <button type="button" class="vh-route-cta" data-photo-open>See the packages <span aria-hidden="true">&rsaquo;</span></button>
+            </div></div>
+          </article>
+        </div>
+
         <div class="vintro-inner">
           <span class="pf-panel-cat">Why it matters</span>
           <p class="vintro-lead">People judge your marketing before they judge your service.</p>
           <p>The photography. The videography. The way your properties, and your brand, are presented.</p>
-          <p>Buyers scroll quickly. Sellers notice how you market property just as quickly. If your marketing looks professional, they'll expect your service to be the same.</p>
-          <p>That's why professional media matters. Not because it looks nice, but because it shapes how people perceive your business before you've had the chance to speak to them.</p>
+          <p>Buyers scroll quickly. Sellers notice how you market property just as quickly. If your marketing looks professional, they&rsquo;ll expect your service to be the same.</p>
           <p>Every listing is an advert for your next instruction.</p>
-          <button type="button" class="pf-advance vintro-next" data-deck-next aria-label="Go to our services">Our services <em aria-hidden="true">&rarr;</em></button>
         </div>
       </section>
 
-      <!-- Product panels — wording (left) + image (right) -->
-      {PRODUCTS.map((p) => (
-        <section class="pf-panel pf-panel--slide">
-          <div class="pf-panel-text">
-            <span class="pf-panel-cat">Videography — {p.num}</span>
-            <h2 class="pf-panel-title">{p.name}</h2>
-            <p class="pf-panel-copy">{p.slideCopy}</p>
-            <p class="pf-panel-sub">{p.slideBlurb}</p>
-            <div class="pf-panel-meta">
-              <span class="pf-panel-price">from <strong data-price-svc={p.slug} data-tier="0">{gbpFromPence(tierPrice(p.priceTiers[0], "direct"))}</strong> <em>+VAT</em></span>
-            </div>
-            <div class="pf-panel-actions">
-              <button type="button" class="pf-act-btn pf-act-btn--solid" data-vbook={serviceKey(p)}>Book Now <span class="btn-arrow">&rarr;</span></button>
-              <button type="button" class="pf-act-btn pf-act-btn--ghost" data-open={p.slug}>{p.ctaLabel} <span class="btn-arrow">&rarr;</span></button>
-            </div>
+      <!-- The three, on one page: the list left, a picture right, as /services
+           does. They were three separate pages, which was three sideways moves
+           to read one list. -->
+      <section class="pf-panel vsvcs">
+        <div class="vsvcs-text">
+          <p class="pf-panel-cat">Our services</p>
+          <div class="vsvcs-list">
+            {PRODUCTS.map((p) => (
+              <article class="vsvc" data-svc={p.slug}>
+                <h3 class="vsvc-name">{p.name}</h3>
+                <p class="vsvc-meta">
+                  <span class="vsvc-price">From {gbpFromPence(tierPrice(p.priceTiers[0], "direct"))} +VAT</span>
+                </p>
+                <p class="vsvc-body">{p.slideCopy}</p>
+                <div class="vsvc-actions">
+                  <button type="button" class="vsvc-cta" data-vbook={serviceKey(p)}>Book now <span aria-hidden="true">&rsaquo;</span></button>
+                  <button type="button" class="vsvc-cta vsvc-cta--ghost" data-open={p.slug}>{p.ctaLabel} <span aria-hidden="true">&rsaquo;</span></button>
+                </div>
+              </article>
+            ))}
           </div>
-          <button
-            type="button"
-            class="pf-panel-img"
-            data-open={p.slug}
-            style={`background-image:url('${p.hero}')`}
-            aria-label={`${p.ctaLabel} — ${p.name}`}
-          ></button>
-          <!-- Pull-up handle — a bottom-edge arrow that opens the slide-up pop-out. -->
-          <button type="button" class="pf-pullup" data-open={p.slug} aria-label={`Open ${p.name}`}>
-            <span class="pf-pullup-arrow" aria-hidden="true">&uarr;</span>
-          </button>
-        </section>
-      ))}
+        </div>
+        <div class="vsvcs-media" id="vsvcs-media">
+          {PRODUCTS.map((p, i) => (
+            <div class={`vsvc-img${i === 0 ? " is-active" : ""}`} data-img={i} style={`background-image:url('${p.hero}')`}></div>
+          ))}
+        </div>
+      </section>
+
+      <!-- Photography — the packages, then the work. Reached from the opening's
+           Photography card; the deck pages here as it does anywhere else. -->
+      <section class="pf-panel vphoto" id="vphoto">
+        <div class="vphoto-text">
+          <p class="pf-panel-cat">Photography</p>
+          <p class="vphoto-lede">Portal-ready property photography including drone, delivered in the sizes the portals and your socials actually use. Three packages, by how many photographs you need.</p>
+          <div class="vphoto-list">
+            {PHOTOGRAPHY.packages.map((pk) => (
+              <article class="vphoto-pk">
+                <h3 class="vphoto-pk-name">{pk.name}</h3>
+                <p class="vphoto-pk-meta"><span class="vphoto-pk-price">From {gbpFromPence(pk.member_pence)} +VAT</span></p>
+                <p class="vphoto-pk-body">{photoInclusions(pk)}</p>
+                <button type="button" class="vsvc-cta" data-vbook="photography" data-photo-pk={pk.key}>Book this package <span aria-hidden="true">&rsaquo;</span></button>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div class="vphoto-media" style={`background-image:url('${R2("white-1")}')`}></div>
+      </section>
+
+      <!-- The work: a full page of property photography. -->
+      <section class="pf-panel vgrid">
+        <div class="vgrid-inner">
+          {[R2("white-1"), R2("living-1"), R2("kitchen-1"), R2("orange-1"), R2("table"), R2("white-2"), R2("kitchen-2"), R2("living-2")].map((src) => (
+            <span class="vgrid-cell" style={`background-image:url('${src}')`}></span>
+          ))}
+        </div>
+      </section>
 
       <!-- Closing panel — brochure + two booking cards + a slide-in newsletter reveal -->
       <section class="pf-panel pf-final" id="pf-final">
@@ -429,6 +480,167 @@ const navLinks = [
   <NavDrawer />
 
   <style>
+    /* ===== Page one scrolls inside itself ============================== */
+    .pf-panel.vh {
+      display: block; align-items: stretch; padding: 0 0 72px;
+      overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    }
+    .pf-panel.vh::-webkit-scrollbar { display: none; }
+    /* 40px between blocks, as About and /services use. */
+    .pf-panel.vh > * + * { margin-top: 40px; }
+    .pf-panel.vh .vh-header { padding-bottom: 0; }
+
+    /* ===== The two ways in ============================================= */
+    .vh-routes { display: flex; gap: 10px; height: clamp(300px, 46vh, 460px); margin-inline: var(--page-gutter); }
+    .vh-route {
+      position: relative; flex: 1 1 0; min-width: 0; overflow: hidden;
+      background-size: cover; background-position: center; border-radius: 2px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 26px; cursor: pointer; background-color: #2a2126;
+      transition: flex-grow 0.55s cubic-bezier(.2,.8,.2,1);
+    }
+    .vh-route[data-route="video"] { background-image: var(--vh-route-video); }
+    .vh-route[data-route="photo"] { background-image: var(--vh-route-photo); }
+    .vh-route::before {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(28,20,24,0.88), rgba(28,20,24,0.35) 58%, rgba(28,20,24,0.12));
+      opacity: 0; transition: opacity 0.45s ease;
+    }
+    .vh-route:hover, .vh-route:focus-within { flex-grow: 2.1; }
+    .vh-route:hover::before, .vh-route:focus-within::before { opacity: 1; }
+    .vh-route-face { position: relative; z-index: 1; }
+    .vh-route-lead {
+      display: block; margin-bottom: 8px; font-family: var(--sans);
+      font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
+      text-transform: uppercase; color: rgba(244,242,241,0.75);
+    }
+    .vh-route-title {
+      margin: 0; font-family: var(--serif); font-weight: 700;
+      font-size: clamp(22px, 2.1vw, 31px); line-height: 1.1;
+      letter-spacing: -0.05em; color: var(--paper);
+    }
+    .vh-route-open {
+      position: relative; z-index: 1; display: grid; grid-template-rows: 0fr; opacity: 0;
+      transition: grid-template-rows 0.5s cubic-bezier(.2,.8,.2,1), opacity 0.35s ease, margin-top 0.5s ease;
+    }
+    .vh-route:hover .vh-route-open, .vh-route:focus-within .vh-route-open {
+      grid-template-rows: 1fr; opacity: 1; margin-top: 14px;
+    }
+    .vh-route-inner { overflow: hidden; min-height: 0; }
+    .vh-route-body {
+      margin: 0 0 14px; max-width: 46ch; font-family: var(--sans);
+      font-size: 14px; line-height: 1.7; color: rgba(244,242,241,0.88);
+    }
+    .vh-route-cta {
+      display: inline-flex; align-items: center; gap: 9px; background: none; border: 0;
+      padding: 0; cursor: pointer; font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper);
+    }
+
+    /* ===== Photography — packages left, a picture right ================ */
+    .pf-panel.vphoto { display: flex; align-items: stretch; padding: 0; }
+    .vphoto-text {
+      flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+      justify-content: space-between; gap: 18px;
+      padding: var(--page-gutter) clamp(28px, 4vw, 64px) var(--page-gutter) var(--page-gutter);
+    }
+    .vphoto-lede {
+      margin: 0; max-width: none; font-family: var(--sans);
+      font-size: 14px; line-height: 1.55; color: rgba(28,29,34,0.72);
+    }
+    .vphoto-list { display: flex; flex-direction: column; }
+    .vphoto-pk { padding: 13px 0; border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .vphoto-pk:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+    .vphoto-pk-name {
+      margin: 0 0 6px; font-family: var(--subhead); font-weight: 700;
+      font-size: clamp(18px, 1.35vw, 21px); line-height: 1.25;
+      letter-spacing: -0.01em; color: var(--english-violet);
+    }
+    .vphoto-pk-meta {
+      margin: 0 0 8px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .vphoto-pk-body {
+      margin: 0 0 12px; font-family: var(--sans); font-size: 14px;
+      line-height: 1.4; color: rgba(28,29,34,0.72);
+    }
+    .vphoto-media {
+      flex: 0 0 42%; align-self: center;
+      height: calc(100% - 2 * var(--page-gutter)); margin-right: var(--page-gutter);
+      background-size: cover; background-position: center;
+      background-color: #e9e4da; border-radius: 2px;
+    }
+
+    /* ===== The work — a page of photographs ============================ */
+    .pf-panel.vgrid { display: block; padding: 0; }
+    .vgrid-inner {
+      height: 100%; box-sizing: border-box; padding: var(--page-gutter);
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: 1fr; gap: 10px;
+    }
+    .vgrid-cell { background-size: cover; background-position: center; background-color: #e9e4da; border-radius: 2px; }
+    @media (max-width: 900px) {
+      .pf-panel.vphoto { flex-direction: column; }
+      .vphoto-media { display: none; }
+      .vgrid-inner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    /* ===== Our services — list left, picture right ===================== */
+    /* .pf-panel here is not a flex container (only .pf-panel--slide is), so
+       this page has to say so itself or the list and the picture stack. */
+    .pf-panel.vsvcs { display: flex; align-items: stretch; padding: 0; }
+    .vsvcs-text {
+      /* basis 0 + min-width 0, or the column sizes to its content and pushes
+         the picture past the right edge. */
+      flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+      justify-content: space-between; gap: 18px;
+      padding: var(--page-gutter) clamp(28px, 4vw, 64px) var(--page-gutter) var(--page-gutter);
+    }
+    .vsvcs-list { display: flex; flex-direction: column; }
+    .vsvc { padding: 13px 0; border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .vsvc:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+    .vsvc-name {
+      margin: 0 0 6px; font-family: var(--subhead); font-weight: 700;
+      font-size: clamp(18px, 1.35vw, 21px); line-height: 1.25;
+      letter-spacing: -0.01em; color: var(--english-violet);
+    }
+    .vsvc-meta {
+      margin: 0 0 8px; font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .vsvc-body {
+      margin: 0 0 12px; font-family: var(--sans); font-size: 14px;
+      line-height: 1.4; color: rgba(28,29,34,0.72);
+    }
+    .vsvc-actions { display: flex; flex-wrap: wrap; gap: 20px; }
+    .vsvc-cta {
+      display: inline-flex; align-items: center; gap: 9px; background: none; border: 0;
+      padding: 0; cursor: pointer; font-family: var(--sans); font-size: 11px;
+      font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--english-violet); transition: gap 0.25s ease;
+    }
+    .vsvc-cta:hover { gap: 15px; }
+    .vsvc-cta--ghost { color: rgba(28,29,34,0.55); }
+    .vsvcs-media {
+      position: relative; flex: 0 0 42%; align-self: center;
+      height: calc(100% - 2 * var(--page-gutter)); margin-right: var(--page-gutter);
+      overflow: hidden; background: #e9e4da; border-radius: 2px;
+    }
+    .vsvc-img {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      opacity: 0; transition: opacity 0.6s ease;
+    }
+    .vsvc-img.is-active { opacity: 1; }
+    @media (max-width: 900px) {
+      .vh-routes { flex-direction: column; height: auto; }
+      .vh-route { min-height: 200px; }
+      .vh-route::before { opacity: 1; }
+      .vh-route-open { grid-template-rows: 1fr; opacity: 1; margin-top: 12px; }
+      .pf-panel.vsvcs { flex-direction: column; }
+      .vsvcs-media { display: none; }
+    }
+
+
     .sm-sitenav { display: none; }
     @media (max-width: 600px) { .pf-top { display: none !important; } .sm-sitenav { display: block; } }
     /* ===== Phones: The Edit's stack ===================================
@@ -1386,39 +1598,6 @@ const navLinks = [
       let acc = 0, display = 0, lastCur = -1, anchor = THRESH, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
 
-      // Slide-1 long video: heroP (target, 0→1) eases to heroDisp; the video's
-      // inset grows from the rest box (inset like the About photos) to full-bleed,
-      // so on scroll it rises up over the header into a full-page video. Only once
-      // heroP hits 1 does a further scroll advance the deck (see the wheel handler).
-      const HEROSENS = 0.0012, HERO_HOLD = 1200;   // ms dwell once the video is full-page
-      let heroP = 0, heroDisp = 0, heroApplied = -1, heroHold = 0;
-      const heroPanel = stage.querySelector(".vh");
-      const heroHeader = heroPanel && heroPanel.querySelector(".vh-header");
-      const heroWrap = heroPanel && heroPanel.querySelector(".vh-wrap");
-      const heroPic = heroPanel && heroPanel.querySelector(".vh-pic");
-      const heroMedia = heroPic && heroPic.querySelector("video, img");
-      let heroGeo = null;
-      const measureHero = () => {
-        if (!heroPanel) return;
-        const pr = heroPanel.getBoundingClientRect();
-        const wr = heroWrap.getBoundingClientRect();
-        heroGeo = { hH: heroHeader.offsetHeight, gx: wr.left - pr.left, rgx: pr.right - wr.right };
-      };
-      const applyHero = (p) => {
-        if (!heroPic) return;
-        if (isPhone()) return;   // phones: static layout, no rise (CSS-driven)
-        if (!heroGeo) measureHero();
-        const g = heroGeo, q = 1 - p;
-        heroPic.style.top = (g.hH * q).toFixed(1) + "px";
-        heroPic.style.left = (g.gx * q).toFixed(1) + "px";
-        heroPic.style.right = (g.rgx * q).toFixed(1) + "px";
-        heroPic.style.bottom = "0px";
-        heroPic.style.borderRadius = (2 * q).toFixed(1) + "px";
-        if (heroMedia) heroMedia.style.objectPosition = "center " + (p * 100).toFixed(1) + "%";
-      };
-      measureHero(); applyHero(0);
-      window.addEventListener("resize", () => { measureHero(); applyHero(heroDisp); });
-      window.addEventListener("load", () => { measureHero(); applyHero(heroDisp); });
       const targetOf = (now) => {
         if (acc < THRESH + 0.5) { anchor = THRESH; return Math.min(acc, THRESH); }
         if (anchor < THRESH + 1) { anchor = THRESH + 1; lockUntil = now + PAUSE; return anchor; }
@@ -1450,9 +1629,6 @@ const navLinks = [
         const ease = t >= last - 1 ? SLOW_EASE : EASE;            // last two glide slower
         display += (t - display) * ease;
         if (Math.abs(t - display) < 0.0004) display = t;
-        heroDisp += (heroP - heroDisp) * 0.16;
-        if (Math.abs(heroP - heroDisp) < 0.0008) heroDisp = heroP;
-        if (heroDisp !== heroApplied) { applyHero(heroDisp); heroApplied = heroDisp; }
         render();
         requestAnimationFrame(tick);
       };
@@ -1461,32 +1637,28 @@ const navLinks = [
       // On the final slide, scrolling forward reveals the newsletter (back hides it).
       const atLast = () => display > last - 0.05;
 
+      /* Page one scrolls inside itself; at its bottom edge the next scroll
+         pages the deck across. The grow-the-video phase this replaces had its
+         own sensitivity and branches in every handler. */
+      const openPanel = stage.querySelector(".vh");
+      const topBarEl = document.getElementById("pf-top");
+      const openEdge = (dir) => {
+        if (!openPanel || Math.round(display) !== 0) return false;
+        const atTop = openPanel.scrollTop <= 0;
+        const atBottom = openPanel.scrollTop + openPanel.clientHeight >= openPanel.scrollHeight - 1;
+        return !((dir > 0 && atBottom) || (dir < 0 && atTop));
+      };
+      if (openPanel && topBarEl) {
+        openPanel.addEventListener("scroll", () => {
+          topBarEl.classList.toggle("is-away", Math.round(display) === 0 && openPanel.scrollTop > 8);
+        }, { passive: true });
+      }
       stage.addEventListener("wheel", (ev) => {
         if (openSlug) return;                       // a showcase pop-up is open
-        ev.preventDefault();
         const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
-        // Slide 1: scroll first raises the long video to a full-page video; only
-        // once it's full does a further scroll advance the deck across.
-        // Phones skip the rise entirely — the video sits as a static block and a
-        // scroll advances straight to slide 2.
-        if (display < 0.5 && isPhone()) {
-          if (d > 0) acc = clamp(Math.round(display) + 1);
-          return;
-        }
-        if (display < 0.5) {
-          if (d > 0 && heroP < 1) {
-            heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS));
-            if (heroP >= 1) heroHold = performance.now() + HERO_HOLD;   // just landed full → start the dwell
-            return;
-          }
-          if (d < 0 && heroP > 0) { heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return; }
-          // Full-page video — hold a beat before a forward scroll advances, so the
-          // viewer registers it's a video and can choose to watch it.
-          if (d > 0 && performance.now() < heroHold) return;
-        }
-        if (atLast() && d > 0) { if (!revealed) setReveal(true); return; }
-        if (atLast() && revealed && d < 0) { setReveal(false); return; }
-        acc = clamp(acc + d * SENS);
+        if (openEdge(d)) return;                    // page one scrolls itself first
+        ev.preventDefault();
+        acc = Math.max(anchor - 1, Math.min(anchor + 1, clamp(acc + d * SENS)));
       }, { passive: false });
 
       window.addEventListener("keydown", (ev) => {
@@ -1503,27 +1675,16 @@ const navLinks = [
       });
 
       // touch — drag continuously (swipe left/up advances)
-      let tx = 0, ty = 0, tp = 0, thp = 0, finalStepped = false;
+      let tx = 0, ty = 0, tp = 0, finalStepped = false;
       stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; thp = heroP; finalStepped = false;
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; finalStepped = false;
       }, { passive: true });
       stage.addEventListener("touchmove", (ev) => {
         if (openSlug) return;
         const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
-        // Slide 1: a drag raises the long video to full-page first (then advance).
-        // Phones skip the rise — a swipe drags the deck straight toward slide 2.
-        if (display < 0.5 && isPhone()) {
-          acc = clamp(tp - dom * 0.004);
-          return;
-        }
-        if (display < 0.5) {
-          const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
-          if (np >= 1 && heroP < 1) heroHold = performance.now() + HERO_HOLD;   // just landed full → start the dwell
-          heroP = np;
-          if (np >= 1 && dom < 0 && performance.now() >= heroHold) acc = clamp(Math.round(display) + 1);
-          return;
-        }
+        // Page one scrolls itself until it runs out, as the wheel does.
+        if (openEdge(dom)) return;
         // Phones: on the final panel, step one column per swipe (card → card →
         // newsletter) rather than jumping straight to the newsletter.
         if (isPhone() && atLast()) {
@@ -1542,11 +1703,20 @@ const navLinks = [
         acc = clamp(tp - dom * 0.004);
       }, { passive: true });
 
-      // Clickable "Scroll" / "Our services" hints → advance one panel.
+      // Clickable "Scroll" / "Our services" hints → advance one panel, and the
+      // Photography card jumps straight to its own page rather than the next.
+      const goTo = (i) => { anchor = clamp(i); acc = anchor; lockUntil = performance.now() + PAUSE; };
       stage.querySelectorAll("[data-deck-next]").forEach((el) => {
         el.addEventListener("click", (e) => {
           e.preventDefault(); e.stopPropagation();
-          acc = clamp(Math.round(acc) + 1);
+          goTo(Math.round(anchor) + 1);
+        });
+      });
+      stage.querySelectorAll("[data-photo-open]").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const i = panels.findIndex((p) => p.classList.contains("vphoto"));
+          if (i > -1) goTo(i);
         });
       });
 
@@ -1577,6 +1747,21 @@ const navLinks = [
     (function openFromHash() {
       const h = (location.hash || "").replace("#", "");
       if (h && PRODUCTS.some((p) => p.slug === h)) openProduct(h);
+    })();
+
+    /* Our services — hovering a row crossfades its picture. */
+    (function vsvcs() {
+      const list = document.querySelector(".vsvcs-list");
+      const media = document.getElementById("vsvcs-media");
+      if (!list || !media) return;
+      const rows = [...list.querySelectorAll(".vsvc")];
+      const imgs = [...media.querySelectorAll(".vsvc-img")];
+      const show = (i) => imgs.forEach((im, n) => im.classList.toggle("is-active", n === i));
+      rows.forEach((r, i) => {
+        r.addEventListener("mouseenter", () => show(i));
+        r.addEventListener("focusin", () => show(i));
+      });
+      list.addEventListener("mouseleave", () => show(0));
     })();
   </script>
 </BaseLayout>

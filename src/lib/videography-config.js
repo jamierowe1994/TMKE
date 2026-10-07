@@ -74,6 +74,25 @@ export const SERVICES = {
     ],
   },
 
+  /* Photography, built from the PHOTOGRAPHY rate card below so the prices have
+     one home. Sessions are the three packages, priced at the member/TEG rate,
+     which is what the page quotes. The key is "photography", which is what
+     VideographyBooking saves as service_type — the admin board keys its
+     "Photography only" pill off exactly that (Admin chat, 7 Oct). */
+  "photography": {
+    key: "photography",
+    name: "Photography",
+    membersOnly: false,
+    surcharge: true,
+    select: "single",
+    requiresPropertyAddress: true,
+    sessions: [
+      { key: "photo-25", name: "25 Photo Package", price_pence: 21500, output: "25 portal photographs", desc: "2 hrs on site + 1.5 hrs editing, including drone." },
+      { key: "photo-40", name: "40 Photo Package", price_pence: 27500, output: "40 portal photographs", desc: "3 hrs on site + 2 hrs editing, including drone." },
+      { key: "photo-60", name: "60 Photo Package", price_pence: 34000, output: "60 portal photographs", desc: "4 hrs on site + 2.5 hrs editing, including drone." },
+    ],
+  },
+
   "property": {
     key: "property",
     name: "Property Videography",
