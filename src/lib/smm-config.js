@@ -24,19 +24,12 @@ export const SERVICE_TIERS = [
   {
     key: "planned-and-posted",
     name: "Planned and Posted",
-    subtitle: "Instagram Management",
-    blurb:
-      "For agencies that want a consistent, professional Instagram presence without the pressure of creating content themselves. A focused, single-platform approach that builds your visual identity, grows a genuine local following, and sets the standard for everything that follows.",
-    price_pence: null,
-  },
-  {
-    key: "social-media-management",
-    name: "Social Media Management",
-    subtitle: null,
+    subtitle: "Social Media Management",
     blurb:
       "For agencies that want a consistent, professional social media presence without the pressure of managing it themselves. A focused, platform-specific approach that builds your brand identity, reaches the right audience, and keeps your business visible with content planned, created and posted for you.",
     price_pence: null,
   },
+  
   {
     key: "managed-and-moving",
     name: "Managed and Moving",
