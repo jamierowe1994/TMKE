@@ -1689,9 +1689,12 @@ const navLinks = [
       const SENS = 0.001;     // wheel → progress (slow, ~one slide per scroll)
       const EASE = 0.055;     // lerp toward target (lower = floatier)
       const SLOW_EASE = 0.03; // slower glide for the final couple of slides
-      const THRESH = 3;       // slides 1–4 float freely; the last two snap + settle
       const PAUSE = 800;      // ms hold after a snap so it settles before the next
-      let acc = 0, display = 0, lastCur = -1, anchor = THRESH, lockUntil = 0;
+      /* anchor starts at HOME. It used to start at THRESH (3) — a leftover from
+         the old deck, where it meant "the slide after which things snap" rather
+         than "the slide we are on". Once targetOf became () => anchor, that 3
+         became the page the site opened on: the brochure page, every time. */
+      let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
 
       const targetOf = () => anchor;
