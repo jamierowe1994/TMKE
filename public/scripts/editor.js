@@ -6697,8 +6697,7 @@ import { createResizeEngine } from "./resize-engine.js";
     /* Every page, not just the one on screen. A postcard downloaded as its
        front alone is the kind of thing you only discover at the printer. */
     if (type === "pdf" || type === "pdf-separate") {
-      await exportToPdf(type === "pdf-separate");
-      return;
+      return await exportToPdf(type === "pdf-separate");
     }
     if (total > 1) {
       toast("Saving " + total + " pages…");
@@ -6708,7 +6707,7 @@ import { createResizeEngine } from "./resize-engine.js";
         if (i < total - 1) await nextTickPause();
       }
       toast("Saved " + total + " pages");
-      return;
+      return true;
     }
     const c = await _renderDesignToCanvas({ transparent: type === "png-transparent" });
 
@@ -6725,14 +6724,15 @@ import { createResizeEngine } from "./resize-engine.js";
       if (blob) {
         const file = new File([blob], name.replace(/[^a-z0-9-_.]+/gi, "-"), { type: mime });
         if (navigator.canShare({ files: [file] })) {
-          try { await navigator.share({ files: [file], title: filenameEl.value || "TMKE design" }); }
+          try { await navigator.share({ files: [file], title: filenameEl.value || "TMKE design" }); return true; }
           catch (e) { /* cancelled */ }
-          return;
+          return false;
         }
       }
     }
     saveCanvas(c, type, name);
     toast("Exported " + ext.toUpperCase() + (type === "png-transparent" ? " (transparent)" : ""));
+    return true;
   }
 
   function saveCanvas(canvas, type, name) {
@@ -6784,7 +6784,7 @@ import { createResizeEngine } from "./resize-engine.js";
           if (i < total - 1) await nextTickPause();
         }
         toast(total > 1 ? "Exported " + total + " PDFs" : "Exported PDF");
-        return;
+        return true;
       }
 
       let pdf = null;
@@ -6797,9 +6797,11 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       pdf.save(base + ".pdf");
       toast("Exported PDF — " + total + " pages");
+      return true;
     } catch (err) {
       console.error("[pdf-export]", err);
       toast("PDF export failed", 3500);
+      return false;
     }
   }
 
@@ -12582,7 +12584,12 @@ import { createResizeEngine } from "./resize-engine.js";
       btn.addEventListener("click", () => {
         const type = btn.getAttribute("data-export");
         close();
-        exportImage(type);
+        // A finished download is reported to the page, which records it
+        // (Danielle, 7 Oct 2026): nothing else would ever know it happened.
+        exportImage(type).then(function (ok) {
+          if (!ok || typeof window.__TMKE_ON_DOWNLOAD__ !== "function") return;
+          try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "" }); } catch (_) {}
+        });
       });
     });
   })();

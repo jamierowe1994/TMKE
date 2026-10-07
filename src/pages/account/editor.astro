@@ -5277,6 +5277,15 @@ const googleFonts = [
   <script>
     import { syncBrandCache } from '../../lib/brand-cache.js';
     import { supabase } from '../../lib/supabase.js';
+    import { track } from '../../lib/track.js';
+    // Downloads happen in the browser, so the editor tells us when one has
+    // finished and it's recorded as a site event (Danielle, 7 Oct 2026). The
+    // team editing templates (?mode=admin) isn't a member downloading.
+    window.__TMKE_ON_DOWNLOAD__ = (d) => {
+      const q = new URLSearchParams(location.search);
+      if (q.get('mode') === 'admin') return;
+      track('design_downloaded', { ...d, template: q.get('template') || null });
+    };
     import { isAdminUser } from '../../lib/admin-gate.js';
 
     // ---- Externalise embedded images before writing to Supabase ----------
