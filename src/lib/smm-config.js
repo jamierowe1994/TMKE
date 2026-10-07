@@ -236,19 +236,20 @@ export const ACCOUNT_HELP = {
 // ---- Page copy (Slides 2–4) ------------------------------------------------
 export const COPY = {
   positioning: {
-    headline: "The social media agency that doesn't want you to go viral.",
+    /* The three on the opening. Dani's wording, 7 Oct — verbatim. */
+    headline: "Reach that matters",
     body:
-      "Going viral sounds great. But five million views from people who will never buy, sell, or let a property through you isn't marketing, it's ego inflating noise. What actually moves the needle for estate agents is being consistently visible to the right people, in the right place, at the right time. Your local market. Your target audience. Your community.\n\nThat's what we build.",
+      "Going viral sounds great. But millions of views from people who will never buy, sell or let a property through you won\u2019t grow your business. What matters is being consistently visible to the right people, in the right place, at the right time. Your local market, your audience, your community.",
     pillars: [
       {
         title: "Property first, always.",
         body:
-          "TMKE works exclusively in the property sector. We understand the market, the audience, and what resonates, so there's no learning curve, no trial and error, and no applying tactics from other industries that simply won't work in estate agency.",
+          "TMKE works exclusively in the property sector. We understand the market, the audience and what resonates, so there\u2019s no learning curve or applying tactics borrowed from industries that work completely differently. Everything we create is built around property, your business and the people you actually want to reach.",
       },
       {
         title: "One account manager.",
         body:
-          "Every client works with a single dedicated account manager who owns your strategy, your content, and your account growth from day one. They get to know your brand, your tone, and your market the way an in-house team member would, because that's exactly what they become.",
+          "You\u2019ll work with one dedicated account manager who owns your strategy, content and account growth from day one. They\u2019ll get to know your brand, your tone and your market, giving you one consistent point of contact who understands your business and works as an extension of your team.",
       },
     ],
   },
