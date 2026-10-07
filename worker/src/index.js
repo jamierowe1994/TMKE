@@ -2235,7 +2235,8 @@ function shootInvite({ serviceType, service, name, company, email, phone, pkgKey
   const pb = packageBrief(st, pkgKey);
   // The booking flow sends its notes joined with " | ". Keep what isn't shown
   // above (the agreement, opt-in and anything the client wrote).
-  const SHOWN = /^(add-ons|property|shoot postcode|travel|company|phone|total|promo):/i;
+  // The client sees this event too, so marketing consent stays off it.
+  const SHOWN = /^(add-ons|property|shoot postcode|travel|company|phone|total|promo|marketing opt-in):/i;
   const extra = String(notes || "").split(" | ").map((x) => x.trim())
     .filter((x) => x && !SHOWN.test(x) && !(service && x.startsWith(`${service} — `)))
     .map((x) => (/^(agreement|marketing opt-in|notes):/i.test(x) ? x : `Notes: ${x}`));
