@@ -88,11 +88,38 @@ const featMeta = featured
 
       <!-- ===== Home: intro + featured ===== -->
       <div class="ins-home">
-        <div class="ins-intro">
+        <!-- The board. Its title and standfirst are embossed into the artwork
+             rather than set in live type. The link at the foot turns the board
+             over: the emboss fades off to the blank board and the membership
+             pitch comes up in its place. -->
+        <div class="ins-intro" id="ins-intro">
           <span class="ins-eyebrow">Insights</span>
-          <div class="ins-intro-foot">
-            <p class="ins-intro-note">Structured thinking on social media, brand and content — written for UK property professionals.</p>
-            <h1 class="ins-bigtitle">Notes From<br />the Desk</h1>
+
+          <button type="button" class="ins-unlock" id="ins-unlock">
+            Discover our exclusive blogs <span aria-hidden="true">&rsaquo;</span>
+          </button>
+
+          <div class="ins-member" id="ins-member" hidden>
+            <button type="button" class="ins-member-x" id="ins-member-x" aria-label="Back">&times;</button>
+            <p class="ins-member-lede">Become a member, free, for exclusive TMKE blog content and training courses.</p>
+            <form class="ins-member-form" id="ins-join" novalidate>
+              <label class="ins-field"><span>Full name</span>
+                <input type="text" name="full_name" autocomplete="name" required placeholder="Jane Smith" /></label>
+              <label class="ins-field"><span>Email</span>
+                <input type="email" name="email" autocomplete="email" required placeholder="you@agency.co.uk" /></label>
+              <label class="ins-field"><span>Password</span>
+                <input type="password" name="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" /></label>
+              <label class="ins-check">
+                <input type="checkbox" name="marketing" />
+                <span>Keep me updated with tips, guides and offers. Unsubscribe anytime.</span>
+              </label>
+              <button type="submit" class="ins-join-btn"><span data-label>Join</span> <span aria-hidden="true">&rarr;</span></button>
+              <p class="ins-join-err" id="ins-join-err" hidden></p>
+            </form>
+            <div class="ins-join-done" id="ins-join-done" hidden>
+              <p class="ins-member-lede">Check your inbox. We&rsquo;ve sent a confirmation link &mdash; open it in this browser to activate your account.</p>
+            </div>
+            <p class="ins-member-alt">Already a member? <a href="/login">Sign in here</a></p>
           </div>
         </div>
 
@@ -230,29 +257,102 @@ const featMeta = featured
     /* The intro is a wine panel — the one block of colour on a page that was
        paper on paper top to bottom. Its own padding, because the panel's edge
        is now a visible edge rather than the page's. */
+    /* ---- The board ----
+       Two pieces of artwork, same 1600x2000 board, same #371e28 ground: one
+       with NOTES FROM THE DESK blind-embossed into it, one blank. They are
+       stacked and cross-faded, so turning the board over is one transition
+       rather than a swap. The violet behind them is that same colour again, so
+       nothing flashes while they load. The title and the standfirst used to be
+       live type here; they are in the emboss now (Dani, 7 Oct). */
     .ins-intro {
-      display: flex; flex-direction: column; justify-content: space-between; min-width: 0;
+      position: relative; overflow: hidden; min-width: 0;
+      display: flex; flex-direction: column; justify-content: space-between;
       background: var(--english-violet); color: var(--paper);
       padding: 21px; border-radius: 2px;
     }
+    .ins-intro::before, .ins-intro::after {
+      content: ""; position: absolute; inset: 0; z-index: 0;
+      background-size: cover; background-position: center;
+      transition: opacity 0.75s ease;
+    }
+    .ins-intro::before { background-image: url("/images/insights-board-emboss.webp"); opacity: 1; }
+    .ins-intro::after  { background-image: url("/images/insights-board-blank.webp"); opacity: 0; }
+    .ins-intro.is-member::before { opacity: 0; }
+    .ins-intro.is-member::after  { opacity: 1; }
+    .ins-intro > * { position: relative; z-index: 1; }
     .ins-intro .ins-eyebrow { color: rgba(244,242,241,0.62); }
-    .ins-intro .ins-intro-note { color: rgba(244,242,241,0.78); }
-    .ins-intro .ins-bigtitle { color: var(--paper); }
-    .ins-intro-foot { display: flex; flex-direction: column; gap: clamp(16px, 2vh, 26px); }
-    /* Matches the lede body copy on About / SMM / Videography. */
-    .ins-intro-note {
-      font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6;
-      color: rgba(28,29,34,0.78); margin: 0; max-width: 44ch;
+
+    /* The way in, at the foot of the board, in the Insights eyebrow's own type. */
+    .ins-unlock {
+      align-self: center; display: inline-flex; align-items: center; gap: 9px;
+      appearance: none; background: none; border: 0; padding: 10px 2px; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: rgba(244,242,241,0.78); transition: color 0.25s ease, gap 0.25s ease;
     }
-    /* Matches the dictionary-lede mark on About / SMM / Videography (var(--serif)
-       500, clamp(40,4.6vw,66), line-height 0.94, +0.02em, no uppercase) for
-       consistent header typography across the site. */
-    /* All caps, 48px, SemiBold (Dani, 7 Oct). */
-    .ins-bigtitle {
-      font-family: var(--serif); font-weight: 600; font-size: 48px;
-      text-transform: uppercase;
-      line-height: 0.94; letter-spacing: 0.02em; color: var(--ink); margin: 0;
+    .ins-unlock:hover { color: var(--paper); gap: 15px; }
+    .ins-intro.is-member .ins-unlock { display: none; }
+
+    /* ---- The membership pitch, once the board has turned over ---- */
+    .ins-member {
+      margin: auto 0; display: flex; flex-direction: column; gap: 14px;
+      animation: insMemberIn 0.5s 0.25s ease both;
     }
+    /* display:flex beats the browser's own [hidden] rule, so this has to say so
+       or the join form is on screen from the moment the page loads. */
+    .ins-member[hidden], .ins-member-form[hidden] { display: none; }
+    @keyframes insMemberIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .ins-member-x {
+      position: absolute; top: 0; right: 0; z-index: 2;
+      appearance: none; background: none; border: 0; padding: 4px 6px; cursor: pointer;
+      font-size: 20px; line-height: 1; color: rgba(244,242,241,0.6);
+    }
+    .ins-member-x:hover { color: var(--paper); }
+    .ins-member-lede {
+      /* Right pad clears the close control, which sits in this block's own
+         top-right corner — it was landing on the second line. */
+      margin: 0; padding-right: 30px;
+      font-family: var(--sans); font-size: clamp(14px, 1.1vw, 16px);
+      line-height: 1.55; color: rgba(244,242,241,0.88); max-width: 36ch;
+    }
+    .ins-member-form { display: flex; flex-direction: column; gap: 11px; }
+    .ins-field[hidden] { display: none; }
+    .ins-field { display: flex; flex-direction: column; gap: 5px; }
+    .ins-field > span {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(244,242,241,0.55);
+    }
+    .ins-field input {
+      appearance: none; background: none; border: 0;
+      border-bottom: 1px solid rgba(244,242,241,0.3);
+      padding: 7px 0; color: var(--paper);
+      font-family: var(--sans); font-size: 14px;
+    }
+    .ins-field input::placeholder { color: rgba(244,242,241,0.35); }
+    .ins-field input:focus { outline: none; border-bottom-color: var(--paper); }
+    .ins-check {
+      display: flex; align-items: flex-start; gap: 9px; margin-top: 2px;
+      font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(244,242,241,0.6);
+    }
+    .ins-check input { margin: 2px 0 0; accent-color: var(--paper); }
+    .ins-join-btn {
+      align-self: flex-start; margin-top: 6px; display: inline-flex; align-items: center; gap: 10px;
+      appearance: none; border: 0; cursor: pointer;
+      background: var(--paper); color: var(--english-violet);
+      padding: 11px 24px; border-radius: 2px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; transition: opacity 0.25s;
+    }
+    .ins-join-btn:hover { opacity: 0.85; }
+    .ins-join-btn[disabled] { opacity: 0.55; cursor: default; }
+    .ins-join-err {
+      margin: 0; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: #f2c6c6;
+    }
+    .ins-join-err a { color: var(--paper); text-decoration: underline; }
+    .ins-member-alt {
+      margin: 2px 0 0; font-family: var(--sans); font-size: 12.5px; color: rgba(244,242,241,0.6);
+    }
+    .ins-member-alt a { color: var(--paper); text-decoration: underline; text-underline-offset: 3px; }
 
     .ins-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     /* The featured column is bracketed by two full-height rules: one sectioning it
@@ -481,7 +581,6 @@ const featMeta = featured
       .ins-feature::before, .ins-feature::after { display: none; }
       .ins-rail { flex-direction: column; transform: none !important; height: auto; }
       .ins-home { flex: none; width: 100%; height: auto; min-height: 90vh; grid-template-columns: 1fr; gap: 40px; padding: 90px 24px 48px; }
-      .ins-bigtitle { font-size: clamp(40px, 9vw, 64px); }
       .ins-archive { flex: none; width: 100%; height: auto; overflow: visible; margin-top: 0; }
       .arc-scroll { overflow: visible; }
       .arc-title { opacity: 1; }
@@ -490,12 +589,8 @@ const featMeta = featured
       .arc-back { display: none; }
     }
     @media (max-width: 600px) {
-      /* The title at the size the About and Social pages give their mark on a
-         phone, not the 60px it was; the archive tiles at half their height. */
-      .ins-bigtitle { font-size: clamp(30px, 8vw, 44px); line-height: 0.98; }
       .arc-tile { aspect-ratio: 3 / 2; }
-      /* Insights, then the title; and the featured article without its picture. */
-      .ins-intro-note { display: none; }
+      /* The featured article without its picture on a phone. */
       .ins-feature-media { display: none; }
     }
     @media (max-width: 760px) {
@@ -717,5 +812,86 @@ const featMeta = featured
         else if (progTarget > 0) { setProg(0); if (archive) archive.scrollTop = 0; }
       });
     })();
+  </script>
+
+  {/* Turning the board over, and the join it carries. A bundled module rather
+      than is:inline so it can use the same signUpMember the /join page does —
+      one signup path, one set of error messages. */}
+  <script>
+    import { signUpMember } from "../../lib/member-signup.js";
+
+    const board = document.getElementById("ins-intro");
+    const unlock = document.getElementById("ins-unlock");
+    const member = document.getElementById("ins-member");
+    const closeBtn = document.getElementById("ins-member-x");
+    const form = document.getElementById("ins-join");
+    const errEl = document.getElementById("ins-join-err");
+    const doneEl = document.getElementById("ins-join-done");
+
+    if (board && unlock && member && form) {
+      const alt = member.querySelector(".ins-member-alt");
+
+      const open = () => {
+        member.hidden = false;
+        board.classList.add("is-member");
+        setTimeout(() => { const f = form.querySelector('input[name="full_name"]'); if (f) f.focus({ preventScroll: true }); }, 420);
+      };
+      const close = () => {
+        board.classList.remove("is-member");
+        // Held until the emboss has faded back in, so the words don't vanish
+        // a beat before the board they sit on.
+        setTimeout(() => { member.hidden = true; }, 750);
+      };
+
+      unlock.addEventListener("click", open);
+      if (closeBtn) closeBtn.addEventListener("click", close);
+      board.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && board.classList.contains("is-member")) { e.stopPropagation(); close(); }
+      });
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errEl.hidden = true;
+        const data = new FormData(form);
+        const btn = form.querySelector('button[type="submit"]');
+        const label = btn.querySelector("[data-label]");
+        const orig = label.textContent;
+        btn.setAttribute("disabled", "true");
+        label.textContent = "Joining\u2026";
+
+        const res = await signUpMember({
+          fullName: data.get("full_name"),
+          email: data.get("email"),
+          password: data.get("password"),
+          marketing: !!data.get("marketing"),
+        });
+
+        btn.removeAttribute("disabled");
+        label.textContent = orig;
+
+        if (res.error) {
+          // Already registered isn't a mistake — it's a way in, so it gets a
+          // link to sign in with the address already carried across.
+          if (res.existing) {
+            const em = encodeURIComponent(String(data.get("email") || "").trim());
+            errEl.innerHTML = res.error + ' <a href="/login?email=' + em + '">Sign in instead</a>';
+          } else {
+            errEl.textContent = res.error;
+          }
+          errEl.hidden = false;
+          return;
+        }
+
+        if (res.needsConfirm) {
+          form.hidden = true;
+          if (alt) alt.hidden = true;
+          if (doneEl) doneEl.hidden = false;
+        } else if (typeof window.tmkeSplash === "function") {
+          window.tmkeSplash("/account");
+        } else {
+          window.location.href = "/account";
+        }
+      });
+    }
   </script>
 </BaseLayout>
