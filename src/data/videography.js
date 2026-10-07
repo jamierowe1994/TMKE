@@ -62,7 +62,7 @@ export const PRODUCTS = [
     slideCopy: "Short-form video content, professionally filmed in our Rugby Studio for your socials",
     slideBlurb:
       "A professional filming space in Rugby where you come in, film a batch of content, and leave with weeks of social media sorted. Sessions are available to members.",
-    ctaLabel: "Discover the Studio",
+    ctaLabel: "Discover our Studio",
     // Hand-ordered gallery from the "Jack - headshots/Content Studio/" R2 folder.
     hero: "https://assets.tmke.co.uk/Jack%20-%20headshots/Content%20Studio/1.png",
     media: [
@@ -112,7 +112,7 @@ export const PRODUCTS = [
     slideCopy: "Professional photography and videography for listings that need to perform",
     slideBlurb:
       "From presenter-led video tours and drone footage to portal-ready photography and 360 virtual tours — everything a property needs to generate more clicks, more enquiries, and more viewings.",
-    ctaLabel: "Discover our Property Packages",
+    ctaLabel: "Discover our Packages",
     // Hand-ordered gallery from the "Jack - headshots/Property/" R2 folder.
     // `media` is the source of truth for the pop-out (order + mix of stills and
     // film); the stage leads with the first item.

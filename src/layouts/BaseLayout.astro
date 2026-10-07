@@ -155,13 +155,26 @@ const hideFromSearch = noindex || privateArea;
             /* overflow:hidden here (pre-paint, not waiting on the JS scroll-lock)
                removes the native scrollbar for the covered phase, so its gutter
                can't flash white beside the burgundy cover. */
+            /* One cover, not two bars sweeping (Dani, 7 Oct): the bars took
+               0.8s to meet, and for that whole 0.8s the page you were leaving
+               was still on screen and still moving behind them — the flicker.
+               A single sheet fades up over the lot in a third of the time. */
             html.pt-revealing { background: #371e28; overflow: hidden; }
             .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
-            .pt__panel { position: absolute; top: 0; height: 100%; width: 50%; background: #371e28; will-change: transform; }
-            .pt__panel--left { left: 0; width: calc(50% + 1px); transform: translateY(100%); }
-            .pt__panel--right { left: 50%; transform: translateY(-100%); }
+            .pt__veil {
+              position: absolute; inset: 0; background: #371e28; opacity: 0;
+              display: flex; align-items: center; justify-content: center;
+            }
+            /* Embossed: the wordmark is the same burgundy as the sheet, lifted
+               only by a light edge below and a dark edge above. */
+            .pt__mark {
+              font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
+              font-size: clamp(30px, 4vw, 46px); font-weight: 500;
+              letter-spacing: 0.26em; text-indent: 0.26em; color: #371e28;
+              text-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 -1px 0 rgba(0,0,0,0.55);
+            }
             html.pt-revealing .pt { visibility: visible; }
-            html.pt-revealing .pt__panel { transform: translateY(0); }
+            html.pt-revealing .pt__veil { opacity: 1; }
           </style>
         </>
       )
@@ -202,14 +215,14 @@ const hideFromSearch = noindex || privateArea;
     {/* Signed-in awareness for every login control (incl. the deck pages). */}
     <LoginState />
 
-    {/* Front-end page-transition overlay — two even half-width bars. The left
-        bar rises from the bottom, the right bar drops from the top, in
-        parallel; a translucent purple veil lets the page show through. */}
+    {/* Front-end page-transition overlay — one burgundy sheet that fades up
+        over the page, with the wordmark embossed in the middle of it. */}
     {
       enableTransition && (
         <div class="pt" id="page-transition" aria-hidden="true">
-          <div class="pt__panel pt__panel--left" />
-          <div class="pt__panel pt__panel--right" />
+          <div class="pt__veil">
+            <span class="pt__mark">TMKE</span>
+          </div>
         </div>
       )
     }

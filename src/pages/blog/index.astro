@@ -405,6 +405,9 @@ const featMeta = featured
        and the login control) so the reader feels like a focused pop-out. */
     :global(body.reader-locked .nav-logo),
     :global(body.reader-locked #nav-login) { display: none; }
+    /* Same idea on the archive, but a fade rather than a cut — you drag into it. */
+    :global(.nav-logo) { transition: opacity 0.3s ease; }
+    :global(body.arc-across .nav-logo) { opacity: 0; pointer-events: none; }
 
     .reader {
       position: fixed; inset: 0; z-index: 250; display: grid; place-items: center;
@@ -538,6 +541,10 @@ const featMeta = featured
           backBtn.style.opacity = on ? "1" : "0";
           backBtn.style.pointerEvents = on ? "auto" : "none";
         }
+        /* Across on the archive, the wordmark sits directly on top of the
+           "Article Archive" label. It goes; the burger is the way out, and
+           the X in the corner is the way back (Dani, 7 Oct). */
+        document.body.classList.toggle("arc-across", prog > 0.6);
         // The "Article Archive" label used to fade in from prog 0.5, so it was
         // invisible until you'd dragged half way across — it now just sits above
         // the first cards from the start, so nothing drives its opacity.

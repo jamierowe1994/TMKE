@@ -1,6 +1,6 @@
 /* TMKE — front-end page transition.
-   Two staggered panels sweep DOWN to cover the screen, the next page loads
-   behind them, then they sweep DOWN and off the bottom to reveal it.
+   One burgundy sheet (with the wordmark embossed in the middle) fades up over
+   the screen, the next page loads behind it, then it fades back off.
 
    The site is a classic MPA (every nav is a real reload), so the "reveal"
    half must already be covering before the new page paints. A tiny inline
@@ -11,9 +11,11 @@
   'use strict';
 
   var FLAG = 'tmke:pt';
-  // Must stay in step with --pt-cover in global.css. The two bars cover in
-  // parallel (~0.8s); navigate with a touch of headroom so they've fully met.
-  var COVER_MS = 860;
+  // Must stay in step with --pt-cover in global.css. The sheet fades up in
+  // 0.34s; navigate with a touch of headroom so it is solid before the swap.
+  // It used to be 860ms, which is how long the page you were leaving stayed
+  // visible — and moving — after the click.
+  var COVER_MS = 400;
 
   var root = document.documentElement;
   var overlay = document.getElementById('page-transition');
@@ -49,8 +51,8 @@
         revealed = true;
         resetIdle();
       };
-      // Panels are pinned at translateY(0) by the critical CSS. Flip to the
-      // reveal state on the next frame so the browser animates from covered.
+      // The sheet is pinned opaque by the critical CSS. Flip to the reveal
+      // state on the next frame so the browser animates from covered.
       var playReveal = function () {
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
@@ -58,10 +60,10 @@
             overlay.classList.add('is-revealing');
           });
         });
-        // Both bars reveal in parallel over the same duration; clean up when the
-        // left one ends, with a safety timeout in case the event is missed.
+        // Clean up when the sheet has finished fading out, with a safety
+        // timeout in case the event is missed.
         overlay.addEventListener('animationend', function (e) {
-          if (e.target && e.target.classList.contains('pt__panel--left')) finishReveal();
+          if (e.target && e.target.classList.contains('pt__veil')) finishReveal();
         });
         setTimeout(finishReveal, COVER_MS + 400);
       };

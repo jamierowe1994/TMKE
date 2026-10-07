@@ -280,12 +280,13 @@ section { position: relative; }
      gutter, so there is no maths for the two to disagree about. */
   /* 9px top had the mark all but touching the edge of the screen. The bar now
      sits off the top edge by about as much as the content sits off the side. */
-  padding: 26px 28px 20px var(--page-gutter);
+  /* Both sides on the flat gutter. The right was 28px, so the burger sat
+     half an inch closer to the edge than the wordmark and than the burger on
+     the deck pages (Dani, 7 Oct). */
+  padding: 26px var(--page-gutter) 20px;
   transition: background 0.35s, padding 0.35s, color 0.35s;
   color: var(--ink);
 }
-@media (max-width: 980px) { .nav { padding-right: 24px; } }
-@media (max-width: 560px) { .nav { padding-right: 18px; } }
 .nav-logo { justify-self: start; }
 .nav-links { justify-self: center; }
 .nav-actions { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 20px; }
@@ -332,22 +333,20 @@ body.has-page-hero .nav {
 /* Inline links removed in favour of the Menu pull-out (kept in markup for
    no-JS / SEO crawlers, hidden visually). */
 .nav-links { display: none; gap: 36px; align-items: center; font-size: 14px; font-weight: 500; }
-/* "Menu" text button — sits beside Login, opens the pull-out nav. Matches the
-   Menu button on the videography / insights pages. */
+/* Burger — sits beside Login, opens the pull-out nav. The same three even bars
+   as the deck pages (/services, /videography) carry, at the same 30x22, so the
+   header is the one control everywhere. It used to read "Menu" beside two
+   uneven bars, which only this half of the site had (Dani, 7 Oct). */
 .nav-menu-btn {
-  display: inline-flex; align-items: center; gap: 10px;
-  appearance: none; background: none; border: 0; padding: 4px 0; margin: 0;
-  cursor: pointer; color: currentColor; line-height: 1;
-  font-family: var(--sans); font-size: 12px; font-weight: 700;
-  letter-spacing: 0.22em; text-transform: uppercase;
+  display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
+  appearance: none; background: none; border: 0; padding: 0; margin: 0;
+  width: 30px; height: 22px;
+  cursor: pointer; color: currentColor;
   transition: opacity 0.25s;
 }
 .nav-menu-btn:hover { opacity: 0.62; }
-.nav-menu-btn-glyph { display: inline-flex; flex-direction: column; gap: 4px; width: 18px; }
-.nav-menu-btn-glyph span { display: block; height: 1.5px; background: currentColor; transition: transform 0.3s, width 0.3s; }
-.nav-menu-btn-glyph span:first-child { width: 18px; }
-.nav-menu-btn-glyph span:last-child { width: 11px; align-self: flex-end; }
-.nav-menu-btn:hover .nav-menu-btn-glyph span:last-child { width: 18px; }
+.nav-menu-btn-glyph { display: contents; }
+.nav-menu-btn-glyph span { display: block; width: 100%; height: 2px; border-radius: 2px; background: currentColor; }
 .nav-links a { position: relative; padding: 4px 0; }
 .nav-links a::after {
   content: "";
@@ -507,43 +506,36 @@ body.has-dark-hero .nav:not(.scrolled) .nav-cta:hover span { color: var(--ink); 
 }
 
 /* ============ Front-end page transition ============
-   Two even half-width bars sweep in from opposite directions: the LEFT half
-   rises up from the bottom while the RIGHT half drops down from the top, both
-   in parallel. Each leg eases IN (slow start → fast finish): they cover on
-   leaving, then on arrival reverse and slide back out to reveal the page. A
-   solid purple (var(--english-violet)) fully hides the page swap underneath.
-   The base layout / colours and the `html.pt-revealing` pre-cover state are
-   inlined critically in BaseLayout so the reveal never flashes; this block
-   carries the animated cover/reveal states. Driven by page-transition.js. */
+   One burgundy sheet fades up over the page, carrying an embossed TMKE in the
+   middle; the next page loads behind it and the sheet fades back off. It used
+   to be two half-width bars sweeping in from opposite edges, which took 0.8s
+   to meet — and for all 0.8s the page you had just left was still on screen
+   and still moving behind them, which is the flicker Dani saw (7 Oct). The
+   base layout and the `html.pt-revealing` pre-cover state are inlined
+   critically in BaseLayout so the reveal never flashes; this block carries the
+   animated cover/reveal states. Driven by page-transition.js. */
 :root {
-  --pt-cover: 0.8s;   /* cover duration */
-  --pt-reveal: 0.85s; /* reveal duration */
-  --pt-ease-in: cubic-bezier(0.5, 0, 0.75, 0); /* slow start, fast finish */
+  --pt-cover: 0.34s;  /* cover duration — keep COVER_MS in page-transition.js in step */
+  --pt-reveal: 0.46s; /* reveal duration */
+  --pt-ease: cubic-bezier(0.33, 0, 0.2, 1);
 }
 
-/* Cover (leaving): left bar rises from below, right bar drops from above —
-   both settle to translateY(0), covering their half. */
-@keyframes pt-cover-up   { from { transform: translateY(100%); }  to { transform: translateY(0); } }
-@keyframes pt-cover-down { from { transform: translateY(-100%); } to { transform: translateY(0); } }
-/* Reveal (arriving): they reverse — left bar exits downward, right bar exits
-   upward — uncovering the page. */
-@keyframes pt-reveal-down { from { transform: translateY(0); } to { transform: translateY(100%); } }
-@keyframes pt-reveal-up   { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+@keyframes pt-veil-in  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pt-veil-out { from { opacity: 1; } to { opacity: 0; } }
+/* The mark arrives just behind the sheet, so it is never seen over the page. */
+@keyframes pt-mark-in  { 0%, 40% { opacity: 0; } 100% { opacity: 1; } }
 
 .pt.is-covering { visibility: visible; }
-.pt.is-covering .pt__panel--left  { animation: pt-cover-up   var(--pt-cover) var(--pt-ease-in) both; }
-.pt.is-covering .pt__panel--right { animation: pt-cover-down var(--pt-cover) var(--pt-ease-in) both; }
+.pt.is-covering .pt__veil { animation: pt-veil-in var(--pt-cover) var(--pt-ease) both; }
+.pt.is-covering .pt__mark { animation: pt-mark-in var(--pt-cover) linear both; }
 
 .pt.is-revealing { visibility: visible; }
-.pt.is-revealing .pt__panel--left  { animation: pt-reveal-down var(--pt-reveal) var(--pt-ease-in) both; }
-.pt.is-revealing .pt__panel--right { animation: pt-reveal-up   var(--pt-reveal) var(--pt-ease-in) both; }
+.pt.is-revealing .pt__veil { animation: pt-veil-out var(--pt-reveal) var(--pt-ease) both; }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Belt-and-braces — JS already skips the sweep under this preference. */
+  /* Belt-and-braces — JS already skips the cover under this preference. */
   .pt, .pt.is-covering, .pt.is-revealing { visibility: hidden !important; }
-  .pt__panel { animation: none !important; }
-  .pt__panel--left  { transform: translateY(100%) !important; }
-  .pt__panel--right { transform: translateY(-100%) !important; }
+  .pt__veil { animation: none !important; opacity: 0 !important; }
 }
 
 /* ============ Hero — cinematic ============ */

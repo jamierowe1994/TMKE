@@ -255,9 +255,12 @@ const navLinks = [
       </section>
 
 
-      <!-- Closing panel — brochure + two booking cards + a slide-in newsletter reveal -->
+      <!-- Closing panel — a photograph, then the ways in, sitting on the page's
+           own bottom margin. The newsletter used to slide in from a tab on the
+           right edge, which is what pushed this page's margins out of line with
+           every other one; it lives in the footer everywhere else (Dani, 7 Oct). -->
       <section class="pf-panel pf-final" id="pf-final">
-        <div class="pf-final-track" id="pf-final-track">
+          <figure class="sm-ways-pic" style={`background-image:url('${R2("orange-1")}')`} role="img" aria-label=""></figure>
           <!-- The same list /services uses: a heading left, the ways in right,
                each opening in place. Four rows — the fourth crosses to the other
                route. The three big image cards this replaces said the same
@@ -289,28 +292,6 @@ const navLinks = [
               ))}
             </div>
           </div>
-
-          <aside class="pf-news" aria-label="Newsletter sign-up">
-            <h2 class="pf-news-title">Sign up for our<br />newsletter</h2>
-            <form class="pf-news-form" id="pf-news-form" novalidate>
-              <input type="text" name="first" placeholder="First name" autocomplete="given-name" />
-              <input type="text" name="last" placeholder="Surname" autocomplete="family-name" />
-              <input type="email" name="email" placeholder="Email" autocomplete="email" required />
-              <button type="submit" class="pf-news-send">Send <span class="btn-arrow">&rarr;</span></button>
-            </form>
-            <div class="pf-news-meta">
-              <span>Follow us</span>
-              <a href="https://instagram.com/" target="_blank" rel="noopener">@tmke</a>
-            </div>
-          </aside>
-        </div>
-
-        <button type="button" class="pf-reveal-tab" id="pf-reveal-tab" aria-label="Reveal newsletter">
-          <span class="pf-reveal-arrow" aria-hidden="true">&rarr;</span>
-        </button>
-        <button type="button" class="vpc-cross vpc-cross--onfinal" data-goto-route="photo">
-          See our photography packages <span aria-hidden="true">&rsaquo;</span>
-        </button>
       </section>
 
       <!-- Photography — the packages, then the work. Reached from the opening's
@@ -343,6 +324,7 @@ const navLinks = [
       </section>
       <!-- Photography's ways in — the same list, crossing back to the film. -->
       <section class="pf-panel vpcontact">
+        <figure class="sm-ways-pic" style={`background-image:url('${R2("living-2")}')`} role="img" aria-label=""></figure>
         <div class="sm-ways">
           <div class="sm-ways-head">
             <p class="pf-panel-cat">Get started</p>
@@ -591,10 +573,12 @@ const navLinks = [
       background-size: cover; background-position: center;
     }
 
+    /* The flat gutter, not clamp(28px,4vw,64px) — that put this list on a
+       different line from the bar above it and from page one (Dani, 7 Oct). */
     .sm-ways {
       width: 100%; flex: 1 1 auto; align-content: end; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr);
       gap: clamp(32px, 5vw, 96px); align-items: start;
-      padding: 0 clamp(28px, 4vw, 64px);
+      padding: 0 var(--page-gutter);
     }
     .sm-ways-h {
       margin: 10px 0 14px; font-family: var(--serif); font-weight: 700;
@@ -664,7 +648,7 @@ const navLinks = [
     }
 
     /* ===== Photography's ways in ======================================= */
-    .pf-panel.vpcontact { display: block; padding: 0; }
+    /* display/padding live with .pf-final, where both Get Starteds share them. */
     .vpc {
       height: 100%; box-sizing: border-box; padding: var(--page-gutter);
       display: flex; flex-direction: column; justify-content: center; gap: clamp(22px, 4vh, 44px);
@@ -699,16 +683,16 @@ const navLinks = [
       transition: gap 0.25s ease;
     }
     .vpc-cross:hover { gap: 15px; }
-    .vpc-cross--onfinal {
-      position: absolute; left: var(--page-gutter); bottom: var(--page-gutter); z-index: 4;
-    }
     @media (max-width: 900px) { .vpc-row { grid-template-columns: 1fr; } }
 
     /* ===== Photography — packages left, a picture right ================ */
     .pf-panel.vphoto { display: flex; align-items: stretch; padding: 0; }
+    /* Packed to the top, not spread down the column: space-between left the
+       packages floating in the middle of the page instead of sitting under the
+       word Photography (Dani, 7 Oct). */
     .vphoto-text {
       flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
-      justify-content: space-between; gap: 18px;
+      justify-content: flex-start; gap: clamp(14px, 2vh, 22px);
       padding: var(--page-gutter) clamp(28px, 4vw, 64px) var(--page-gutter) var(--page-gutter);
     }
     .vphoto-lede {
@@ -789,10 +773,13 @@ const navLinks = [
     .vsvc-cta:hover { gap: 15px; }
     /* The Discover link is a small wine chip, pushed to the right of the row,
        so it reads as "there is more behind this" rather than a second link. */
+    /* min-width + space-between so Studio, Packages and Agent Edit are all the
+       same chip, whatever the word count (Dani, 7 Oct). */
     .vsvc-cta--ghost {
       margin-left: auto; color: var(--paper);
       background: var(--english-violet); border-radius: 2px;
       padding: 8px 14px; font-size: 10px; letter-spacing: 0.16em;
+      min-width: 230px; justify-content: space-between;
     }
     .vsvc-cta--ghost:hover { gap: 13px; }
     .vsvcs-media {
@@ -953,12 +940,15 @@ const navLinks = [
     .vh-header { position: relative; z-index: 1; padding: clamp(84px, 10vh, 106px) var(--page-gutter) clamp(40px, 5vh, 56px); }
     .vh-wrap { max-width: none; }
     .vh-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
-    .vh-lede-copy { max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; }
+    .vh-lede-copy { max-width: 540px; display: flex; flex-direction: column; justify-content: space-between; }
     .vh-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
     .vh-lede-pron { display: flex; align-items: baseline; gap: 12px; margin: 12px 0 0; }
     .vh-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
     .vh-lede-pos { font-family: var(--serif); font-style: normal; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
-    .vh-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: 44ch; }
+    /* 44ch (the About hero's measure) put this longer lede over FOUR lines where
+       About's runs to three, so the two heroes ended at different heights.
+       Stretched until it wraps to three as well (Dani, 7 Oct). */
+    .vh-lede-text { font-family: var(--sans); font-size: clamp(13px, 1vw, 15px); font-weight: 400; line-height: 1.6; color: rgba(28,29,34,0.78); margin: 0; max-width: 62ch; }
     .vh-lede-btn { display: inline-flex; align-items: center; gap: 10px; margin-top: 20px; padding: 8px 24px; border: 1px solid var(--ink); background: none; cursor: pointer; color: var(--ink); font-family: var(--sans); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.3s, color 0.3s; }
     .vh-lede-btn:hover { background: var(--ink); color: var(--paper); }
     .vh-lede-btn span { transition: transform 0.3s; }
@@ -972,18 +962,22 @@ const navLinks = [
     .vh-pic { position: absolute; z-index: 2; margin: 0; overflow: hidden; top: 52%; left: var(--page-gutter); right: var(--page-gutter); bottom: 0; border-radius: 2px; background: #1a1822; }
     .vh-pic video { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 0%; }
 
-    /* ---- Slide 2: Intro & Why ---- */
-    .vintro { display: flex; align-items: flex-end; padding: 96px clamp(28px, 8vw, 140px) 72px; background: #eae5e1; }
-    .vintro-inner { max-width: 680px; }
+    /* ---- Why it matters ----
+       Every rule here used to be written against a .vintro wrapper. Page one
+       has no such wrapper — the block is .vintro-inner on its own — so none of
+       it applied: no left margin (the words sat on the screen edge) and no
+       type (they fell back to the global p, which is why this one paragraph
+       was in a different face from every other body on the site). Dani, 7 Oct. */
+    .vintro-inner { max-width: 680px; margin-inline: var(--page-gutter); }
     /* "Why it matters" eyebrow — chapter-style decorative line, then the word. */
-    .vintro .pf-panel-cat {
+    .vintro-inner .pf-panel-cat {
       display: flex;
       align-items: center;
       gap: 16px;
       margin-bottom: 20px;
       color: var(--english-violet);
     }
-    .vintro .pf-panel-cat::before {
+    .vintro-inner .pf-panel-cat::before {
       content: "";
       display: block;
       width: 48px;
@@ -992,15 +986,19 @@ const navLinks = [
       opacity: 0.45;
       flex-shrink: 0;
     }
+    /* Same face, weight and tracking as every other heading on the deck
+       (.sm-ways-h, .vh-route-title, .sm-more-title). */
     .vintro-lead {
-      /* Not italic — Dani, 5 Sep. Upright everywhere. */
       font-family: var(--serif) !important; font-style: normal;
-      font-size: clamp(22px, 2.4vw, 32px) !important; line-height: 1.32 !important;
-      color: var(--ink) !important; margin: 0 0 24px !important;
+      font-weight: 700 !important; letter-spacing: -0.05em !important;
+      font-size: clamp(22px, 2.1vw, 31px) !important; line-height: 1.1 !important;
+      color: var(--ink) !important; margin: 0 0 22px !important;
     }
-    .vintro p { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: var(--ink); margin: 0 0 16px; }
-    .vintro p:not(.vintro-lead) { text-align: justify; }
-    .vintro .vintro-next { display: inline-block; margin-top: 16px; }
+    /* Same body as .vh-route-body and .sm-way-copy. */
+    .vintro-inner p {
+      font-family: var(--sans); font-size: 14px; line-height: 1.75;
+      color: rgba(28,29,34,0.7); margin: 0 0 14px;
+    }
 
     /* Blurb under the slide one-liner */
     .pf-panel-sub { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: var(--ink); max-width: 50ch; margin: 0 0 24px; }
@@ -1070,8 +1068,9 @@ const navLinks = [
     }
 
     /* Product slides */
+    /* 11px, not 12px — the size every other eyebrow on the site uses. */
     .pf-panel-cat {
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase;
       color: var(--english-violet); margin-bottom: 18px;
     }
@@ -1152,14 +1151,14 @@ const navLinks = [
     }
     .vh .pf-advance--hero:hover { color: var(--paper); border-bottom-color: var(--paper); }
 
-    /* ---- Final panel: two booking cards + slide-in newsletter ---- */
-    /* position/inset come from .pf-panel (absolute, stacked); keep overflow so
-       the slide-in newsletter track stays clipped. */
-    .pf-final { overflow: hidden; }
-    .pf-final-track {
-      display: flex; height: 100%; width: max-content;
-      transition: transform 0.75s cubic-bezier(.16,1,.3,1);
-      will-change: transform;
+    /* ---- Final panels: a photograph, then the ways in ----
+       Both Get Starteds (film and stills) are the same stack /services uses:
+       a full-width picture under the bar, then the list, sitting on the page's
+       own bottom margin. position/inset come from .pf-panel. */
+    .pf-final, .pf-panel.vpcontact {
+      display: flex; flex-direction: column; justify-content: flex-start;
+      gap: clamp(20px, 3vh, 34px);
+      padding: 0 0 var(--page-gutter); box-sizing: border-box; overflow: hidden;
     }
     .pf-cta-card {
       flex: 0 0 33.3333vw; height: 100%; box-sizing: border-box;
@@ -1191,51 +1190,10 @@ const navLinks = [
     .pf-cta-btn .btn-arrow { margin-left: 10px; display: inline-block; transition: margin .25s; }
     .pf-cta-btn:hover .btn-arrow { margin-left: 16px; }
 
-    /* Newsletter footer (revealed by the tab) */
-    .pf-news {
-      flex: 0 0 40vw; height: 100%;
-      background: var(--english-violet); color: var(--paper);
-      display: flex; flex-direction: column; justify-content: center;
-      gap: 28px; padding: 96px clamp(40px,4vw,72px) 56px;
-    }
-    .pf-news-title { font-family: var(--serif); font-weight: 400; font-size: clamp(30px, 2.8vw, 46px); line-height: 1.05; letter-spacing: -0.02em; margin: 0; }
-    .pf-news-form { display: flex; flex-direction: column; gap: 20px; max-width: 380px; }
-    .pf-news-form input {
-      background: none; border: none; border-bottom: 1px solid rgba(240,238,235,0.4);
-      color: var(--paper); font-family: var(--sans); font-size: 13px; letter-spacing: 0.12em;
-      text-transform: uppercase; padding: 10px 0;
-    }
-    .pf-news-form input::placeholder { color: rgba(240,238,235,0.55); }
-    .pf-news-form input:focus { outline: none; border-bottom-color: var(--paper); }
-    .pf-news-send {
-      margin-top: 10px; align-self: flex-start; background: var(--paper); color: var(--ink);
-      border: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.16em; text-transform: uppercase; padding: 14px 30px; transition: opacity .25s;
-    }
-    .pf-news-send:hover { opacity: 0.85; }
-    .pf-news-send .btn-arrow { margin-left: 10px; }
-    .pf-news-meta { font-family: var(--sans); font-size: 12px; letter-spacing: 0.08em; color: rgba(240,238,235,0.7); display: flex; gap: 14px; }
-    .pf-news-meta a { color: var(--paper); }
-
-    /* Reveal tab — a handle on the right edge that slides the newsletter in */
-    .pf-reveal-tab {
-      position: absolute; top: 50%; right: 0; transform: translateY(-50%);
-      z-index: 6; width: 40px; height: 104px; border: none; cursor: pointer;
-      background: var(--english-violet); color: var(--paper);
-      border-radius: 10px 0 0 10px; display: flex; align-items: center; justify-content: center;
-      transition: right 0.75s cubic-bezier(.16,1,.3,1), background .25s;
-    }
-    .pf-reveal-tab:hover { background: var(--ink); }
-    /* A quarter of the way down, not centred (Dani, 7 Oct). */
-    .pf-reveal { top: 25% !important; transform: none !important; }
-    .pf-reveal-arrow { font-size: 18px; transition: transform .5s cubic-bezier(.16,1,.3,1); }
-    .pf-final.is-revealed .pf-reveal-arrow { transform: rotate(180deg); }
-
     @media (max-width: 760px) {
       .pf-cta-card { flex: 0 0 100vw; padding: 90px 28px 40px; }
       .pf-cta-card:first-child { padding-left: 28px; border-right: none; }
       .pf-cta-img { max-width: none; height: 46vh; }
-      .pf-news { flex: 0 0 100vw; padding: 90px 28px 40px; }
       /* Slide-1 lede stacks on mobile (matches /services). */
       .vh-header { padding: 88px 24px 26px; }
       .vh-lede-grid { grid-template-columns: 1fr; gap: 26px; align-items: start; }
@@ -1740,35 +1698,10 @@ const navLinks = [
       const ENTRY = panels.map((_, i) => (i === 0 ? [0, 0] : [1, 0]));
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
-      // Final-panel newsletter reveal (slides the track to push a card off-screen).
-      const finalPanel = document.getElementById("pf-final");
-      const finalTrack = document.getElementById("pf-final-track");
-      const revealTab = document.getElementById("pf-reveal-tab");
-      const newsEl = finalPanel ? finalPanel.querySelector(".pf-news") : null;
-      let revealed = false;
-      const revealAmt = () => (finalTrack ? Math.max(0, finalTrack.scrollWidth - finalPanel.clientWidth) : 0);
-      // Phones step through the final panel one column at a time (card 1 → 2 → 3
-      // → newsletter) instead of jumping straight to the newsletter.
-      const isPhone = () => window.innerWidth <= 600;
-      const finalItems = () => (finalTrack ? finalTrack.children.length : 1);
-      let finalStep = 0;
-      function setFinalStep(n) {
-        if (!finalTrack) return;
-        n = Math.max(0, Math.min(finalItems() - 1, n));
-        finalStep = n;
-        finalTrack.style.transform = `translateX(-${n * finalPanel.clientWidth}px)`;
-        revealed = n >= finalItems() - 1;
-        finalPanel.classList.toggle("is-revealed", revealed);
-        if (revealTab) revealTab.style.right = (revealed && newsEl) ? newsEl.offsetWidth + "px" : "0px";
-      }
-      function setReveal(on) {
-        if (!finalTrack) return;
-        if (isPhone()) { setFinalStep(on ? finalItems() - 1 : 0); return; }
-        revealed = on;
-        finalTrack.style.transform = on ? `translateX(-${revealAmt()}px)` : "translateX(0)";
-        if (revealTab) revealTab.style.right = on && newsEl ? newsEl.offsetWidth + "px" : "0px";
-        finalPanel.classList.toggle("is-revealed", on);
-      }
+      /* The final panel's newsletter reveal lived here — a track that slid
+         sideways behind a tab on the right edge. Both are gone: the newsletter
+         is in the footer everywhere else, and the tab was what put this page's
+         right margin out of step with every other one (Dani, 7 Oct). */
 
       // ---- Floaty cover engine (ported from the Social Media deck) ----
       const SENS = 0.001;     // wheel → progress (slow, ~one slide per scroll)
@@ -1780,6 +1713,10 @@ const navLinks = [
          than "the slide we are on". Once targetOf became () => anchor, that 3
          became the page the site opened on: the brochure page, every time. */
       let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
+      /* Set by the home page's own scroll listener below. Declared up here
+         because render() runs on the first frame, before that listener is
+         wired, and a `let` read before its declaration throws. */
+      let homeScrolled = false;
       const clamp = (v) => Math.max(0, Math.min(last, v));
 
       const targetOf = () => anchor;
@@ -1799,9 +1736,8 @@ const navLinks = [
             topBar.classList.toggle("on-dark", false);   // page one is light — nav stays ink
             // The wordmark belongs to the home page; inside a route the burger
             // is enough, and the mark was crossing the words.
-            topBar.classList.toggle("is-markless", cur > 0);
+            topBar.classList.toggle("is-markless", cur > 0 || homeScrolled);
           }
-          if (cur !== last && (revealed || (isPhone() && finalStep !== 0))) setReveal(false);
         }
       };
       const tick = () => {
@@ -1814,7 +1750,6 @@ const navLinks = [
       };
       render(); requestAnimationFrame(tick);
 
-      // On the final slide, scrolling forward reveals the newsletter (back hides it).
       const atLast = () => display > last - 0.05;
 
       /* HOME (0) and two routes of three: videography 1-3, photography 4-6.
@@ -1835,9 +1770,20 @@ const navLinks = [
         const atBottom = openPanel.scrollTop + openPanel.clientHeight >= openPanel.scrollHeight - 1;
         return !((dir > 0 && atBottom) || (dir < 0 && atTop));
       };
+      /* The wordmark belongs to the top of the home page. Once you start
+         scrolling it, the mark crosses the picture below — so it goes, and the
+         burger stays as the only thing you need up there (Dani, 7 Oct). The
+         old handler hid the WHOLE bar with .is-away, a class this page's
+         stylesheet does not define, so nothing happened. */
+      const syncMark = () => {
+        if (topBarEl) topBarEl.classList.toggle("is-markless", lastCur > 0 || homeScrolled);
+      };
       if (openPanel && topBarEl) {
         openPanel.addEventListener("scroll", () => {
-          topBarEl.classList.toggle("is-away", Math.round(display) === 0 && openPanel.scrollTop > 8);
+          const away = Math.round(display) === 0 && openPanel.scrollTop > 8;
+          if (away === homeScrolled) return;
+          homeScrolled = away;
+          syncMark();
         }, { passive: true });
       }
       /* A discrete stepper: the wheel fills a bucket, and crossing it steps one
@@ -1867,19 +1813,17 @@ const navLinks = [
         if (openSlug) return;
         if (["ArrowRight", "ArrowDown", "PageDown"].includes(ev.key)) {
           ev.preventDefault();
-          if (atLast()) { if (!revealed) setReveal(true); return; }
           acc = clamp(Math.round(acc) + 1);
         } else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(ev.key)) {
           ev.preventDefault();
-          if (atLast() && revealed) { setReveal(false); return; }
           acc = clamp(Math.round(acc) - 1);
         }
       });
 
       // touch — drag continuously (swipe left/up advances)
-      let tx = 0, ty = 0, tp = 0, finalStepped = false;
+      let tx = 0, ty = 0, tp = 0;
       stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; finalStepped = false;
+        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc;
       }, { passive: true });
       stage.addEventListener("touchmove", (ev) => {
         if (openSlug) return;
@@ -1887,21 +1831,6 @@ const navLinks = [
         const dom = Math.abs(dx) > Math.abs(dy) ? dx : dy;
         // Page one scrolls itself until it runs out, as the wheel does.
         if (openEdge(dom)) return;
-        // Phones: on the final panel, step one column per swipe (card → card →
-        // newsletter) rather than jumping straight to the newsletter.
-        if (isPhone() && atLast()) {
-          if (dom < -24) {   // swipe left → next column
-            if (!finalStepped && finalStep < finalItems() - 1) { finalStepped = true; setFinalStep(finalStep + 1); }
-            return;
-          }
-          if (dom > 24 && finalStep > 0) {   // swipe right → previous column
-            if (!finalStepped) { finalStepped = true; setFinalStep(finalStep - 1); }
-            return;
-          }
-          // at column 0 swiping right → fall through to move the deck back a slide
-        }
-        if (atLast() && dom < -24) { if (!revealed) setReveal(true); return; }
-        if (atLast() && revealed && dom > 24) { setReveal(false); return; }
         acc = clamp(tp - dom * 0.004);
       }, { passive: true });
 
@@ -1934,27 +1863,6 @@ const navLinks = [
         anchor = 0; acc = 0; lockUntil = performance.now() + PAUSE;
       });
 
-      if (revealTab) revealTab.addEventListener("click", (e) => { e.stopPropagation(); setReveal(!revealed); });
-      window.addEventListener("resize", () => { if (revealed) setReveal(true); });
-    })();
-
-    // Newsletter footer form (UI only, matches the site's other sign-up forms).
-    (function newsForm() {
-      const form = document.getElementById("pf-news-form");
-      if (!form) return;
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = form.querySelector('input[type="email"]');
-        if (!email || !email.value) return;
-        const first = (form.querySelector('input[name="first"]')?.value || "").trim();
-        const last = (form.querySelector('input[name="last"]')?.value || "").trim();
-        const btn = form.querySelector(".pf-news-send");
-        const original = btn.innerHTML;
-        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-        if (WORKER) { try { await fetch(`${WORKER}/newsletter`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.value.trim(), name: [first, last].filter(Boolean).join(" ") }) }); } catch (_) {} }
-        btn.textContent = "You're in ✓";
-        setTimeout(() => { btn.innerHTML = original; form.reset(); }, 2400);
-      });
     })();
 
     // --- Deep link (open a showcase from #slug) ---

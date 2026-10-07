@@ -284,10 +284,16 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
             <p class="sm-rule-eyebrow">Also from TMKE</p>
             <div class="sm-more-row">
               {[
-                { title: "Social Media Marketing", lead: "Shot and Scheduled", img: R2("kitchen-2"),
-                  body: "A shoot day every quarter with a TMKE videographer, then every video edited, captioned, scheduled and published across the three months.", key: "brochure" },
-                { title: "Property Posting", lead: "Listings, handled", img: R2("living-2"),
-                  body: "Your listings written, designed and posted as they come to market, so every property goes out looking like it belongs to the same agency.", key: "contact" },
+                { title: "Social Media Marketing", lead: "Shot and Scheduled", img: R2("kitchen-2"), key: "brochure", body: [
+                  "A shoot day every quarter with a TMKE videographer builds a library of content that actually looks like you \u2014 your team, your properties, your area.",
+                  "From there we edit every video, write the captions, schedule the posts and manage the publishing across the three months, on Instagram, Facebook and TikTok.",
+                  "You get a quarterly strategy meeting, monthly content planning and an insights report, so you show up consistently without the time or the commitment of doing it yourself.",
+                ] },
+                { title: "Property Marketing Campaigns", lead: "Listings, handled", img: R2("living-2"), key: "contact", body: [
+                  "Your property marketing shouldn\u2019t stop at the portals. When you bring a property to market, we manage how it shows up across social media. Using your photography and video, we create a dedicated campaign around the property and its marketing period.",
+                  "Content can be captured by our videography team or supplied by you. We turn it into statics, carousels, reels and stories, planned and published across your chosen platforms.",
+                  "From pre-launch to open houses and key updates, we keep your property visible beyond the portals and a single launch post.",
+                ] },
               ].map((m) => (
                 <article class="sm-more-card" style={`background-image:url('${m.img}')`}>
                   <div class="sm-more-face">
@@ -296,7 +302,7 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
                   </div>
                   <div class="sm-more-open">
                     <div class="sm-more-inner">
-                      <p class="sm-more-body">{m.body}</p>
+                      {m.body.map((para) => <p class="sm-more-body">{para}</p>)}
                       <button type="button" class="sm-more-cta" data-smm-form={m.key}>Find out more <span aria-hidden="true">&rsaquo;</span></button>
                     </div>
                   </div>
@@ -431,10 +437,13 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     /* One child, so grid-template-rows: 0fr actually collapses it. With two,
        the second landed in an implicit auto row and the panel never closed. */
     .sm-more-inner { overflow: hidden; min-height: 0; }
+    /* Three paragraphs each now, so a touch tighter and a touch wider — both
+       cards read at roughly the same length (Dani, 7 Oct). */
     .sm-more-body {
-      margin: 0 0 14px; max-width: 46ch;
-      font-family: var(--sans); font-size: 14px; line-height: 1.7; color: rgba(244,242,241,0.88);
+      margin: 0 0 10px; max-width: 52ch;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.65; color: rgba(244,242,241,0.88);
     }
+    .sm-more-body:last-of-type { margin-bottom: 14px; }
     .sm-more-cta {
       display: inline-flex; align-items: center; gap: 9px;
       background: none; border: 0; padding: 0; cursor: pointer;
@@ -827,7 +836,9 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     .sm-rule-eyebrow {
       display: flex; align-items: center; gap: 12px; margin: 0 0 18px;
       font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.28em; text-transform: uppercase; color: var(--english-violet);
+      /* 0.22em, not 0.28em — the tracking every other eyebrow on the site uses
+         (.ins-label, .ins-eyebrow, .egh-intro-eyebrow, .pf-panel-cat). */
+      letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet);
     }
     .sm-rule-eyebrow::before { content: ""; width: 30px; height: 1px; background: var(--english-violet); opacity: 0.5; }
 
@@ -1018,6 +1029,9 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     .pf-top.is-wine .pf-top-menu span { background: var(--english-violet); mix-blend-mode: normal; }
     .pf-top.is-markless .pf-top-logo { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
     .pf-top.is-light .pf-top-menu span { background: var(--paper); mix-blend-mode: normal; }
+    /* After .is-wine on purpose — on Get Started the bar sits over a photograph,
+       so the mark goes white with the burger rather than burgundy on burgundy. */
+    .pf-top.is-light .pf-top-logo { color: var(--paper); mix-blend-mode: normal; }
     /* Scrolling the opening: the bar sits over the words, so it steps aside. */
     .pf-top.is-away { opacity: 0; pointer-events: none; }
     .pf-top { transition: opacity 0.25s ease; }
@@ -1408,10 +1422,13 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
             // matched nothing and the burger fell back to white-on-difference.
             top.classList.toggle("is-ink", !!panels[cur] && panels[cur].classList.contains("sm-open"));
             top.classList.toggle("is-wine", wineFrom !== -1 && cur >= wineFrom);
-            // The wordmark belongs to the opening; past it the burger is enough.
-            top.classList.toggle("is-markless", cur > 0);
-            // That page starts with a photograph under the bar.
-            top.classList.toggle("is-light", !!panels[cur] && panels[cur].classList.contains("sm-ctas"));
+            // The wordmark belongs to the opening; past it the burger is enough
+            // — except on Get Started, the end of the deck, where the mark is
+            // the way back to the rest of the site (Dani, 7 Oct).
+            const onWays = !!panels[cur] && panels[cur].classList.contains("sm-ctas");
+            top.classList.toggle("is-markless", cur > 0 && !onWays);
+            // That page starts with a photograph under the bar, so both go white.
+            top.classList.toggle("is-light", onWays);
           }
         }
       };
