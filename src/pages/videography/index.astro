@@ -685,7 +685,14 @@ const navLinks = [
     }
 
     /* ===== Our work — one film, inside the margins ===================== */
-    .pf-panel.vwork { display: block; padding: 0; position: relative; }
+    /* NO position here. .pf-panel is `position: absolute; inset: 0` — these
+       rules are more specific, so `position: relative` on them dropped the
+       panel out of the deck and into normal flow: every page stacked down the
+       document and the pictures, sized at calc(100% - gutters) of a now
+       auto-height parent, collapsed to nothing. An absolutely positioned
+       element is already a containing block, so the corner buttons never
+       needed it (Dani, 7 Oct). */
+    .pf-panel.vwork { display: block; padding: 0; }
     .vwork-frame {
       position: relative; margin: 0; height: 100%; box-sizing: border-box;
       padding: var(--page-gutter);
@@ -739,7 +746,7 @@ const navLinks = [
     @media (max-width: 900px) { .vpc-row { grid-template-columns: 1fr; } }
 
     /* ===== Photography — packages left, a picture right ================ */
-    .pf-panel.vphoto { display: flex; align-items: stretch; padding: 0; position: relative; }
+    .pf-panel.vphoto { display: flex; align-items: stretch; padding: 0; }
     /* Bottom of the column, level with the bottom of the photograph beside it
        — the same line the Get Starteds finish on (Dani, 7 Oct). */
     .vphoto-text {
@@ -776,7 +783,7 @@ const navLinks = [
     }
 
     /* ===== The work — a page of photographs ============================ */
-    .pf-panel.vgrid { display: block; padding: 0; position: relative; }
+    .pf-panel.vgrid { display: block; padding: 0; }
     .vgrid-inner {
       height: 100%; box-sizing: border-box; padding: var(--page-gutter);
       display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -792,7 +799,7 @@ const navLinks = [
     /* ===== Our services — list left, picture right ===================== */
     /* .pf-panel here is not a flex container (only .pf-panel--slide is), so
        this page has to say so itself or the list and the picture stack. */
-    .pf-panel.vsvcs { display: flex; align-items: stretch; padding: 0; position: relative; }
+    .pf-panel.vsvcs { display: flex; align-items: stretch; padding: 0; }
     .vsvcs-text {
       /* basis 0 + min-width 0, or the column sizes to its content and pushes
          the picture past the right edge. */
