@@ -1723,11 +1723,21 @@ const navLinks = [
       let homeScrolled = false;
       const clamp = (v) => Math.max(0, Math.min(last, v));
 
+      /* Panels being jumped OVER. Choosing Photography from the home page is a
+         move from panel 0 to panel 4, and display eases the whole way — so the
+         three videography pages flicked past on the way (Dani, 7 Oct). These
+         are pinned at the entry edge for the length of the move instead, so
+         the page you asked for is the only one that arrives.
+         Pinning is invisible at the moment it happens: going forward they are
+         already off-screen, and coming back the panel on top still covers them
+         for that frame. */
+      let skipped = new Set();
+
       const targetOf = () => anchor;
 
       const render = () => {
         for (let i = 0; i < panels.length; i++) {
-          const f = Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
+          const f = skipped.has(i) ? 1 : Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
           const e = ENTRY[i] || [0, 0];
           panels[i].style.transform = `translate(${(e[0] * f * 100).toFixed(3)}%, ${(e[1] * f * 100).toFixed(3)}%)`;
         }
@@ -1748,7 +1758,12 @@ const navLinks = [
         const t = targetOf();
         const ease = t >= last - 1 ? SLOW_EASE : EASE;            // last two glide slower
         display += (t - display) * ease;
-        if (Math.abs(t - display) < 0.0004) display = t;
+        if (Math.abs(t - display) < 0.0004) {
+          display = t;
+          // Landed — the pages in between go back to being ordinary pages, so
+          // scrolling on from here still works one page at a time.
+          if (skipped.size) skipped = new Set();
+        }
         render();
         requestAnimationFrame(tick);
       };
@@ -1795,12 +1810,22 @@ const navLinks = [
          page simply scrolls. */
       let bucket = 0;
       const STEP_AT = 420;          // wheel pixels to commit to the next page
-      const step = (dir) => {
-        const from = Math.round(anchor);
-        const to = dir > 0 ? nextOf(from) : prevOf(from);
+      /* Every move goes through this. Anything more than one page away pins
+         the pages in between so they are never drawn mid-move. */
+      const goto = (i) => {
+        const to = clamp(i);
+        const from = Math.round(display);
         if (to === from) return;
+        const lo = Math.min(from, to), hi = Math.max(from, to);
+        const next = new Set();
+        for (let k = lo + 1; k < hi; k++) next.add(k);
+        skipped = next;
         anchor = to; acc = to; bucket = 0;
         lockUntil = performance.now() + PAUSE;
+      };
+      const step = (dir) => {
+        const from = Math.round(anchor);
+        goto(dir > 0 ? nextOf(from) : prevOf(from));
       };
       stage.addEventListener("wheel", (ev) => {
         if (openSlug) return;                       // a showcase pop-up is open
@@ -1840,7 +1865,7 @@ const navLinks = [
 
       // Clickable "Scroll" / "Our services" hints → advance one panel, and the
       // Photography card jumps straight to its own page rather than the next.
-      const goTo = (i) => { anchor = clamp(i); acc = anchor; lockUntil = performance.now() + PAUSE; };
+      const goTo = (i) => goto(i);
       stage.querySelectorAll("[data-deck-next]").forEach((el) => {
         el.addEventListener("click", (e) => {
           e.preventDefault(); e.stopPropagation();
@@ -1849,7 +1874,7 @@ const navLinks = [
       });
       /* The whole card is the target, not just its link — Dani, 7 Oct. */
       const routeStart = (name) => (name === "photo" ? PHOTO[0] : VIDEO[0]);
-      const enter = (name) => { const i = routeStart(name); anchor = clamp(i); acc = anchor; lockUntil = performance.now() + PAUSE; };
+      const enter = (name) => goto(routeStart(name));
       stage.querySelectorAll(".vh-route").forEach((card) => {
         card.addEventListener("click", () => enter(card.getAttribute("data-route")));
       });
@@ -1864,7 +1889,7 @@ const navLinks = [
       document.querySelector(".pf-top-logo")?.addEventListener("click", (e) => {
         if (Math.round(anchor) === 0) return;       // already home — let the link work
         e.preventDefault();
-        anchor = 0; acc = 0; lockUntil = performance.now() + PAUSE;
+        goto(0);
       });
 
     })();
