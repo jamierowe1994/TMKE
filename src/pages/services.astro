@@ -1298,8 +1298,12 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
       const hudTagText = document.getElementById("sm-hud-tag-text");
       const hudFill = document.getElementById("sm-hud-fill");
       const EASE = 0.07;     // lerp toward the page it has snapped to
-      const STEP = 0.5;      // how far past a page you must scroll to leave it
-      const PAUSE = 700;     // ms hold once a page lands, so it settles
+      const STEP = 0.7;      // how far past a page you must scroll to leave it
+      const PAUSE = 1000;    // ms hold once a page lands, so it settles
+      /* Also from TMKE -> Get Started was still running on: those two are the
+         pages people actually stop at, so they hold longer than the rest. */
+      const PAUSE_LONG = 1500;
+      const longHoldFrom = Math.max(0, last - 2);
       let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
       const clamp = (v) => Math.max(0, Math.min(last, v));
 
@@ -1371,8 +1375,9 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
          had the same guard all along; I dropped it in the rewrite. */
       const targetOf = (now) => {
         if (now >= lockUntil) {
-          if (acc > anchor + STEP && anchor < last) { anchor += 1; lockUntil = now + PAUSE; }
-          else if (acc < anchor - STEP && anchor > 0) { anchor -= 1; lockUntil = now + PAUSE; }
+          const hold = (a) => (a >= longHoldFrom ? PAUSE_LONG : PAUSE);
+          if (acc > anchor + STEP && anchor < last) { anchor += 1; lockUntil = now + hold(anchor); }
+          else if (acc < anchor - STEP && anchor > 0) { anchor -= 1; lockUntil = now + hold(anchor); }
         }
         return anchor;
       };
