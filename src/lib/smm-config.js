@@ -30,11 +30,11 @@ export const SERVICE_TIERS = [
     price_pence: null,
   },
   {
-    key: "present-and-performing",
-    name: "Present and Performing",
-    subtitle: "Instagram & Facebook Management",
+    key: "social-media-management",
+    name: "Social Media Management",
+    subtitle: null,
     blurb:
-      "For agencies that want to be seen everywhere their audience is. Instagram builds the brand. Facebook drives local reach, community presence, and the conversations that lead to instructions. Together they cover every part of the audience that matters for a growing estate agency.",
+      "For agencies that want a consistent, professional social media presence without the pressure of managing it themselves. A focused, platform-specific approach that builds your brand identity, reaches the right audience, and keeps your business visible with content planned, created and posted for you.",
     price_pence: null,
   },
   {

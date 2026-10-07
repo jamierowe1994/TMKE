@@ -272,18 +272,19 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
           <div class="sm-services-text">
             <div class="sm-services-head">
               <p class="sm-rule-eyebrow">Services</p>
-              <p class="sm-services-lead">{COPY.whatWeDo.body}</p>
             </div>
             <div class="sm-tierlist" id="sm-tierlist">
               {SERVICE_TIERS.map((t, i) => (
                 <article class="sm-tieritem" data-tier={i}>
                   <h3 class="sm-tieritem-name">{t.name}</h3>
-                  <p class="sm-tieritem-meta">
-                    {SHOW_TIER_PRICES && t.price_pence != null && (
-                      <span class="sm-tieritem-price">From {gbpFromPence(t.price_pence)}</span>
-                    )}
-                    <span>{t.subtitle}</span>
-                  </p>
+                  {(t.subtitle || (SHOW_TIER_PRICES && t.price_pence != null)) && (
+                    <p class="sm-tieritem-meta">
+                      {SHOW_TIER_PRICES && t.price_pence != null && (
+                        <span class="sm-tieritem-price">From {gbpFromPence(t.price_pence)}</span>
+                      )}
+                      {t.subtitle && <span>{t.subtitle}</span>}
+                    </p>
+                  )}
                   <p class="sm-tieritem-blurb">{t.blurb}</p>
                   <button type="button" class="sm-tieritem-cta" data-smm-form="brochure">
                     View packages <span aria-hidden="true">&rsaquo;</span>
@@ -473,7 +474,7 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
       letter-spacing: 0.18em; color: rgba(28,29,34,0.42);
     }
     .sm-open-h {
-      margin: 0 0 10px; font-family: var(--subhead); font-weight: 600;
+      margin: 0 0 10px; font-family: var(--subhead); font-weight: 700;
       font-size: clamp(18px, 1.35vw, 21px); line-height: 1.25;
       letter-spacing: -0.01em; color: var(--english-violet);
     }
@@ -775,11 +776,12 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
       transition: opacity 0.3s ease;
     }
     .sm-tieritem:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+    /* The same setting as the opening's three headings. */
     .sm-tieritem-name {
       margin: 0 0 6px;
-      font-family: var(--serif); font-weight: 500;
-      font-size: clamp(17px, 1.35vw, 21px); line-height: 1.1;
-      letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink);
+      font-family: var(--subhead); font-weight: 700;
+      font-size: clamp(18px, 1.35vw, 21px); line-height: 1.25;
+      letter-spacing: -0.01em; color: var(--english-violet);
     }
     .sm-tieritem-meta {
       margin: 0 0 8px;
@@ -1210,8 +1212,9 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
       // Slide 2 has no entry on desktop: it is already on the photo, fading in as
       // the photo grows, so there is nothing for it to slide in FROM. Phones hide
       // the long photo and skip the grow, so there it still slides in (see render).
-      // Panel 0 slides in too: the move onto the services IS the hand-off.
-      const ENTRY = [[1, 0], [1, 0], [1, 0]];
+      // Panel 0 does NOT slide. The stage is sticky, so it is visible for a
+      // screen before it pins; anything still off-stage then is a blank page.
+      const ENTRY = [[0, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       /* The shared HUD for slides 2-4. It does not move with the panels, so the
@@ -1226,7 +1229,7 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
       const hudFill = document.getElementById("sm-hud-fill");
       const EASE = 0.16;     // tracks the scrollbar closely; still eased
       let acc = 0, display = 0, lastCur = -1;
-      const clamp = (v) => Math.max(-1, Math.min(last, v));
+      const clamp = (v) => Math.max(0, Math.min(last, v));
 
       /* The deck is driven by the page's own scroll, not by hijacking the wheel.
          The stage is sticky inside a runway one viewport tall per panel, so how
@@ -1245,16 +1248,7 @@ const total = 3;   // services → marketing → the ways in; the opening is a n
         if (!runway) return;
         const r = runway.getBoundingClientRect();
         const span = runway.offsetHeight - window.innerHeight;
-        /* The white box: the stage is sticky, so the moment it pins it fills the
-           screen — and panel 0 was still arriving, which meant a screenful of
-           bare paper. The run-in is shifted to BEFORE the pin: the last 80px of
-           the opening bring panel 0 across while the stage is still rising up
-           the screen, so by the time it pins the services are already there.
-           -r.top is negative until the stage pins, so adding LEAD starts the
-           entry 80px early rather than 80px late. */
-        const LEAD = 80;
-        const y = Math.max(0, Math.min(span, -r.top + LEAD));
-        acc = y < LEAD ? (y / LEAD) - 1 : ((y - LEAD) / Math.max(1, span - LEAD)) * last;
+        acc = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) * last : 0;
       };
       const targetOf = () => acc;
       window.addEventListener("scroll", readScroll, { passive: true });
