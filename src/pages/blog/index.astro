@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import { getImage } from "astro:assets";
-import { getPublishedPosts } from "../../data/blog.js";
+import { getPublishedPosts, getMembersPosts } from "../../data/blog.js";
 
 // Pulled from Supabase if configured, otherwise the static fallback.
 const allPosts = await getPublishedPosts();
@@ -18,6 +18,9 @@ const ARCHIVED_SEED = new Set([
   "showing-up-offline-local-events",
 ]);
 const posts = [...allPosts].filter((p) => !ARCHIVED_SEED.has(p.slug)).sort((a, b) => (a.date < b.date ? 1 : -1));
+/* The newest members-only post, for the sneak peek at the foot of the join.
+   Its title and standfirst only — the body is what they are joining for. */
+const peek = [...(await getMembersPosts())].sort((a, b) => (a.date < b.date ? 1 : -1))[0] || null;
 
 const featured = posts[0] || null;     // newest = featured (auto)
 const archivePosts = posts.slice(1);   // everything else
@@ -95,13 +98,14 @@ const featMeta = featured
         <div class="ins-intro" id="ins-intro">
           <span class="ins-eyebrow">Insights</span>
 
-          <button type="button" class="ins-unlock" id="ins-unlock">
-            Discover our exclusive blogs <span aria-hidden="true">&rsaquo;</span>
-          </button>
-
-          <div class="ins-member" id="ins-member" hidden>
+          <!-- The join sits BETWEEN the eyebrow and the link, so the link is at
+               the foot of the board whether the join is open or not. It used to
+               come first, which is why the link faded in high and then dropped
+               when the join was finally taken out of the layout (Dani, 7 Oct). -->
+          <div class="ins-member" id="ins-member" hidden data-lenis-prevent>
             <button type="button" class="ins-member-x" id="ins-member-x" aria-label="Back">&times;</button>
-            <p class="ins-member-lede">Become a member, free, for exclusive TMKE blog content and training courses.</p>
+            <h2 class="ins-member-h">There&rsquo;s more where that came from.</h2>
+            <p class="ins-member-lede">Join TMKE for free and unlock our member-only blogs, practical training and property marketing resources, created specifically for estate agents. New content added throughout the month.</p>
             <form class="ins-member-form" id="ins-join" novalidate>
               <label class="ins-field"><span>Full name</span>
                 <input type="text" name="full_name" autocomplete="name" required placeholder="Jane Smith" /></label>
@@ -120,7 +124,20 @@ const featMeta = featured
               <p class="ins-member-lede">Check your inbox. We&rsquo;ve sent a confirmation link &mdash; open it in this browser to activate your account.</p>
             </div>
             <p class="ins-member-alt">Already a member? <a href="/login">Sign in here</a></p>
+
+            {peek && (
+              <div class="ins-peek">
+                <span class="ins-peek-lead">What you&rsquo;re missing.</span>
+                <p class="ins-peek-note">Take a sneak peek at our latest member-only blog. Join for free to read the rest.</p>
+                <span class="ins-peek-title">{peek.title}</span>
+                <p class="ins-peek-stand">{peek.standfirst}</p>
+              </div>
+            )}
           </div>
+
+          <button type="button" class="ins-unlock" id="ins-unlock">
+            Discover our exclusive blogs <span aria-hidden="true">&rsaquo;</span>
+          </button>
         </div>
 
         <div class="ins-feature">
@@ -266,7 +283,7 @@ const featMeta = featured
        live type here; they are in the emboss now (Dani, 7 Oct). */
     .ins-intro {
       position: relative; overflow: hidden; min-width: 0;
-      display: flex; flex-direction: column; justify-content: space-between;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
       background: var(--english-violet); color: var(--paper);
       padding: 21px; border-radius: 2px;
     }
@@ -299,9 +316,28 @@ const featMeta = featured
     .ins-intro.is-quiet .ins-unlock { opacity: 0; pointer-events: none; }
 
     /* ---- The membership pitch, once the board has turned over ---- */
+    /* Starts at the top of the board, level with the top of the featured
+       article's picture beside it (Dani, 7 Oct) — the eyebrow goes out of flow
+       while the join is open so nothing holds it down. Scrolls inside itself on
+       a short screen rather than running past the bottom of the board. */
+    /* Straight after the eyebrow, so its first line starts on the top edge of
+       the featured article's picture beside it (Dani, 7 Oct). The board insets
+       its content by 21px and the feature column doesn't, so a rule-and-padding
+       stack like the card's would land 21px low; without one it lands within
+       4px, which is the closest the two can get without moving the board.
+       Scrolls inside itself on a short screen rather than running past the
+       bottom of the board. */
     .ins-member {
-      margin: auto 0; display: flex; flex-direction: column; gap: 14px;
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none;
+      display: flex; flex-direction: column; gap: 13px;
       opacity: 0; transition: opacity 0.3s ease;
+    }
+    .ins-member::-webkit-scrollbar { width: 0; display: none; }
+    .ins-member-h {
+      margin: 0; max-width: 75%;
+      font-family: var(--subhead); font-weight: 700;
+      font-size: clamp(20px, 1.6vw, 25px); line-height: 1.2;
+      letter-spacing: -0.01em; color: var(--paper);
     }
     .ins-member.is-on { opacity: 1; }
     /* display:flex beats the browser's own [hidden] rule, so this has to say so
@@ -313,12 +349,12 @@ const featMeta = featured
       font-size: 20px; line-height: 1; color: rgba(244,242,241,0.6);
     }
     .ins-member-x:hover { color: var(--paper); }
+    /* 75% of the column, not a 36ch measure that broke the sentences up in
+       odd places (Dani, 7 Oct). */
     .ins-member-lede {
-      /* Right pad clears the close control, which sits in this block's own
-         top-right corner — it was landing on the second line. */
-      margin: 0; padding-right: 30px;
-      font-family: var(--sans); font-size: clamp(14px, 1.1vw, 16px);
-      line-height: 1.55; color: rgba(244,242,241,0.88); max-width: 36ch;
+      margin: 0; max-width: 75%;
+      font-family: var(--sans); font-size: clamp(13.5px, 1vw, 15px);
+      line-height: 1.55; color: rgba(244,242,241,0.82);
     }
     .ins-member-form { display: flex; flex-direction: column; gap: 11px; }
     .ins-field[hidden] { display: none; }
@@ -358,6 +394,30 @@ const featMeta = featured
       margin: 2px 0 0; font-family: var(--sans); font-size: 12.5px; color: rgba(244,242,241,0.6);
     }
     .ins-member-alt a { color: var(--paper); text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ---- The sneak peek: the newest members-only post, intro only ---- */
+    .ins-peek {
+      margin-top: 4px; padding-top: 16px;
+      border-top: 1px solid rgba(244,242,241,0.18);
+      display: flex; flex-direction: column; gap: 7px;
+    }
+    .ins-peek-lead {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase; color: rgba(244,242,241,0.5);
+    }
+    .ins-peek-note {
+      margin: 0; max-width: 75%;
+      font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(244,242,241,0.6);
+    }
+    .ins-peek-title {
+      font-family: var(--subhead); font-weight: 700; font-size: 17px;
+      line-height: 1.25; letter-spacing: -0.01em; color: var(--paper);
+    }
+    .ins-peek-stand {
+      margin: 0; max-width: 75%;
+      font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(244,242,241,0.62);
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    }
 
     .ins-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     /* The featured column is bracketed by two full-height rules: one sectioning it
