@@ -118,6 +118,26 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     </div>
   </div>
 
+  <!-- ===================== Ask about this booking =====================
+       A message on the booking itself: it goes into the booking's thread in
+       the admin centre, and Jack and Danielle are emailed and notified
+       (Danielle, 7 Oct 2026). It used to send members to the contact page. -->
+  <div class="bk-resched-scrim" id="bk-q" hidden>
+    <div class="bk-resched-card" role="dialog" aria-modal="true" aria-labelledby="bk-q-title">
+      <header class="bk-resched-head">
+        <h3 id="bk-q-title">Ask about this booking</h3>
+        <button type="button" class="bk-resched-x" id="bk-q-close" aria-label="Close">&times;</button>
+      </header>
+      <p class="bk-resched-sub" id="bk-q-sub">Goes straight to Jack and the team, with your booking attached.</p>
+      <textarea class="bk-q-body" id="bk-q-body" rows="6" aria-label="Your question" placeholder="Access to the property, a change to the plan, anything at all."></textarea>
+      <p class="bk-q-note" id="bk-q-note" hidden></p>
+      <div class="bk-q-acts">
+        <button type="button" class="bk-btn" id="bk-q-cancel">Cancel</button>
+        <button type="button" class="bk-btn bk-btn--primary" id="bk-q-send">Send question</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================== Service-agreement modal ===================== -->
   <div class="bk-agree-scrim" id="bk-agree" hidden>
     <div class="bk-agree-card" role="dialog" aria-modal="true" aria-label="Service Agreement">
@@ -404,6 +424,12 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     /* ---- Reschedule modal ---- */
     .bk-resched-scrim { position: fixed; inset: 0; z-index: 560; background: rgba(28,29,34,0.55); display: flex; align-items: center; justify-content: center; padding: 24px; }
     .bk-resched-scrim[hidden] { display: none; }
+    .bk-q-body { display: block; width: 100%; box-sizing: border-box; margin: 14px 0 0; padding: 11px 13px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; background: #fff; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); resize: vertical; }
+    .bk-q-body:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+    .bk-q-note { font-family: var(--sans); font-size: 13px; margin: 10px 0 0; color: rgba(28,29,34,0.6); }
+    .bk-q-note.is-err { color: #9a2a2a; }
+    .bk-q-note.is-ok { color: #2b6b44; }
+    .bk-q-acts { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
     .bk-resched-card { width: min(440px, 96vw); max-height: 90vh; overflow-y: auto; overscroll-behavior: contain; background: var(--paper); border-radius: 14px; padding: 24px 26px 28px; box-shadow: 0 30px 80px rgba(0,0,0,0.34); }
     .bk-resched-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
     .bk-resched-head h3 { font-family: var(--serif); font-weight: 400; font-size: var(--ws-t-panel); letter-spacing: 0.01em; color: var(--ink); margin: 0; }
@@ -856,9 +882,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const acts = [];
       const canResched = future && !cancelled && days != null && days >= 2 && r.reschedule_token && r.canManageOnline;
       const canCancel = future && !cancelled && days != null && days >= 3 && r.reschedule_token && r.canManageOnline;
-      if (canResched) acts.push(`<button type="button" class="bk-btn bk-btn--primary" data-resched="${escapeHtml(r.reschedule_token)}" data-dur="${r.duration_min}" data-service="${escapeHtml(r.service)}">Reschedule</button>`);
+      if (canResched) acts.push(`<button type="button" class="bk-btn bk-btn--primary" data-resched="${escapeHtml(r.reschedule_token)}" data-dur="${r.duration_min}" data-service="${escapeHtml(r.service)}" data-svc="${escapeHtml(r.service_type || '')}">Reschedule</button>`);
       const ics = icsFor(r); if (ics && future && !cancelled) acts.push(`<a class="bk-btn" href="${ics}" download="tmke-booking.ics">Add to calendar</a>`);
-      acts.push(`<a class="bk-btn" href="/account/contact">Ask about this booking</a>`);
+      acts.push(`<button type="button" class="bk-btn" data-ask="${escapeHtml(keyOf(r))}">Ask about this booking</button>`);
       if (canCancel) acts.push(`<button type="button" class="bk-btn bk-btn--danger" data-cancel="${escapeHtml(r.reschedule_token)}">Cancel</button>`);
       let actNote = '';
       if (future && !cancelled && !r.canManageOnline) actNote = `<p class="bk-note" style="margin-top:8px">To move or cancel this call, use “Ask about this booking”.</p>`;
@@ -1223,8 +1249,45 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       } catch (err) { alert(err.message || 'Could not cancel — please try again.'); btn.disabled = false; btn.textContent = 'Cancel'; }
     });
 
+    // ---------- Ask about this booking ----------
+    let askKey = null;
+    const askNote = (m, cls) => { const n = $('bk-q-note'); n.textContent = m; n.className = 'bk-q-note ' + (cls || ''); n.hidden = false; };
+    const closeAsk = () => { $('bk-q').hidden = true; };
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-ask]'); if (!btn) return;
+      askKey = btn.getAttribute('data-ask');
+      const r = rows.find((x) => keyOf(x) === askKey);
+      $('bk-q-sub').textContent = `About your ${r && r.service ? r.service : 'booking'}${r && r.when ? ', ' + fmtWhen(r.when) : ''}. It goes straight to Jack and the team.`;
+      $('bk-q-body').value = ''; $('bk-q-note').hidden = true;
+      const send = $('bk-q-send'); send.disabled = false; send.textContent = 'Send question';
+      $('bk-q').hidden = false; $('bk-q-body').focus();
+    });
+    $('bk-q-close')?.addEventListener('click', closeAsk);
+    $('bk-q-cancel')?.addEventListener('click', closeAsk);
+    $('bk-q')?.addEventListener('click', (e) => { if (e.target === $('bk-q')) closeAsk(); });
+    $('bk-q-send')?.addEventListener('click', async () => {
+      const body = $('bk-q-body').value.trim();
+      if (!body) { askNote('Write your question first.', 'is-err'); return; }
+      const [source, id] = String(askKey || '').split(':');
+      if (String(id).startsWith('demo')) { askNote('This is a sample booking, so nothing was sent.', 'is-err'); return; }
+      if (!WORKER) { askNote("Messages aren't set up yet. Please email hello@tmke.co.uk.", 'is-err'); return; }
+      const send = $('bk-q-send'); send.disabled = true; send.textContent = 'Sending…';
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`${WORKER}/booking/ask`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (session?.access_token || '') }, body: JSON.stringify({ source, booking_id: id, body }) });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't send. Please try again.");
+        askNote("Sent. Jack and the team have it, and you'll hear back by email.", 'is-ok');
+        send.textContent = 'Sent';
+        setTimeout(closeAsk, 1800);
+      } catch (err) { askNote(err.message, 'is-err'); send.disabled = false; send.textContent = 'Send question'; }
+    });
+
     // ---------- Reschedule modal ----------
-    let rsToken = null, rsDur = 60, rsService = '', viewMonth = new Date(); viewMonth.setDate(1);
+    let rsToken = null, rsDur = 60, rsService = '', rsSvc = '', viewMonth = new Date(); viewMonth.setDate(1);
+    // Days with a free time, per month shown: a taken day is greyed out
+    // rather than clickable (Danielle, 7 Oct 2026). Null until loaded.
+    let openDays = {}, openDaysAsked = {};
     let availWeekdays = null, configFetched = false;
     const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -1239,6 +1302,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       rsToken = btn.getAttribute('data-resched');
       rsDur = parseInt(btn.getAttribute('data-dur') || '60', 10);
       rsService = btn.getAttribute('data-service') || 'Booking';
+      rsSvc = btn.getAttribute('data-svc') || '';
+      openDays = {}; openDaysAsked = {};
       $('bk-resched-title').textContent = 'Reschedule';
       $('bk-resched-sub').textContent = `${rsService} — pick a new day.`;
       $('bk-resched-error').hidden = true;
@@ -1262,15 +1327,31 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const minDate = new Date(today); minDate.setDate(today.getDate() + 2);
       const cells = [];
+      const rangeFrom = localISO(gs), rangeTo = localISO(new Date(gs.getFullYear(), gs.getMonth(), gs.getDate() + 41));
+      const open = openDays[`${rangeFrom}|${rangeTo}`];
       for (let i = 0; i < 42; i++) {
         const d = new Date(gs); d.setDate(gs.getDate() + i);
         const inM = d.getMonth() === viewMonth.getMonth();
         const tooSoon = d < minDate;
         const closed = availWeekdays ? !availWeekdays.has(d.getDay()) : (d.getDay() === 0 || d.getDay() === 6);
+        const taken = open && !open.has(localISO(d));
         const cl = ['dc-cal-day']; if (!inM) cl.push('is-other-month'); if (sameDay(d, today)) cl.push('is-today');
-        cells.push(`<button type="button" class="${cl.join(' ')}" data-date="${localISO(d)}" ${tooSoon || closed ? 'disabled' : ''}>${d.getDate()}</button>`);
+        cells.push(`<button type="button" class="${cl.join(' ')}" data-date="${localISO(d)}" ${tooSoon || closed || taken ? 'disabled' : ''}>${d.getDate()}</button>`);
       }
       grid.innerHTML = cells.join('');
+      if (!open) loadOpenDays(rangeFrom, rangeTo);
+    }
+    async function loadOpenDays(from, to) {
+      const key = `${from}|${to}`, token = rsToken;
+      if (!WORKER || openDaysAsked[key]) return;
+      openDaysAsked[key] = true;
+      try {
+        const res = await fetch(`${WORKER}/ms/days?from=${from}&to=${to}&service=${encodeURIComponent(rsSvc)}&duration=${rsDur}&skip=${encodeURIComponent(token || '')}`);
+        const d = await res.json();
+        if (!res.ok || !Array.isArray(d.days) || token !== rsToken) return;
+        openDays[key] = new Set(d.days);
+        if (!$('bk-resched').hidden) renderCal();
+      } catch (_) { /* leave every working day clickable; the day itself still checks */ }
     }
 
     $('bk-cal-grid')?.addEventListener('click', async (e) => {
@@ -1284,7 +1365,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       grid.innerHTML = `<p class="dc-slots-empty">Finding times…</p>`;
       if (!WORKER) { grid.innerHTML = `<p class="dc-slots-empty">Booking management isn't live yet.</p>`; return; }
       try {
-        const res = await fetch(`${WORKER}/ms/availability?date=${date}&duration=${rsDur}`);
+        const res = await fetch(`${WORKER}/ms/availability?date=${date}&duration=${rsDur}&service=${encodeURIComponent(rsSvc)}&skip=${encodeURIComponent(rsToken || '')}`);
         const d = await res.json(); if (!res.ok) throw new Error(d.error || 'error');
         if (!d.slots || !d.slots.length) { grid.innerHTML = `<p class="dc-slots-empty">No times that day — try another.</p>`; return; }
         grid.innerHTML = d.slots.map((s) => `<button type="button" class="dc-slot" data-slot="${s}" data-date="${date}">${s}</button>`).join('');

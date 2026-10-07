@@ -843,6 +843,8 @@ import "../../styles/admin.css";
       margin: 22px 0 4px; padding-top: 22px; border-top: 1px solid rgba(var(--violet-rgb), 0.12);
     }
     .vid-cand-meta strong { color: var(--ink); font-weight: 700; }
+    .vid-cand-brief { margin: 8px 0 0; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.65); }
+    .vid-cand-brief strong { color: var(--ink); font-weight: 700; }
     .vid-cand-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 10px; margin-top: 22px; }
     /* Progress timeline — runs edge-to-edge (same width as the meta above),
        evenly split, first step at the start, last at the end. */
@@ -1361,7 +1363,7 @@ import "../../styles/admin.css";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -1853,6 +1855,11 @@ import "../../styles/admin.css";
           ${!isStudio ? `<span data-distance>Distance&nbsp; <strong>…</strong></span>` : ""}
           <span data-contact>Contact&nbsp; <strong>…</strong></span>
         </div>
+        ${(() => {
+          // What they booked and how long it takes, at a glance.
+          const pb = packageBrief(b.service_type, b.package);
+          return pb ? `<p class="vid-cand-brief"><strong>${escapeHtml(pb.name)}</strong> · ${escapeHtml(pb.includes)}${briefTimes(pb) ? ` · <strong>${escapeHtml(briefTimes(pb))}</strong>` : ""}</p>` : "";
+        })()}
         <div class="vid-cand-actions">
           ${f.advance ? `<button type="button" class="admin-btn admin-btn-primary" data-advance>${escapeHtml(f.advance.label)} &rarr;</button>` : ""}
           <button type="button" class="admin-btn admin-btn-ghost" data-act="reschedule">Reschedule</button>

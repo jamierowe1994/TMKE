@@ -253,6 +253,39 @@ export function photoCostPence(pk) {
   return Math.round(labour + PHOTOGRAPHY.travel_pence + labour * PHOTOGRAPHY.commission);
 }
 
+/* What a booked package is and how long it takes, from the same figures as
+   the rate card: the admin booking view and the calendar invite both show it
+   (Danielle, 7 Oct 2026). serviceType is the booking's service_type, pkgKey
+   its package key (photo-25, single, gold, launch...). Null when unknown. */
+export function packageBrief(serviceType, pkgKey) {
+  if (!pkgKey) return null;
+  if (serviceType === "photography") {
+    const pk = PHOTOGRAPHY.packages.find((p) => p.key === pkgKey);
+    return pk ? { name: pk.name, includes: photoInclusions(pk), shoot: pk.photo, edit: pk.edit, amends: pk.amends } : null;
+  }
+  if (serviceType === "content-studio") {
+    const s = SERVICES["content-studio"].sessions.find((x) => x.key === pkgKey);
+    const r = RATE_CARD["content-studio"][pkgKey] || {};
+    return s ? { name: s.name, includes: s.output, shoot: r.film, edit: r.edit } : null;
+  }
+  if (serviceType === "property") {
+    const pk = SERVICES.property.packagesByTier[pkgKey];
+    const r = RATE_CARD.property[pkgKey] || {};
+    return pk ? { name: pk.name, includes: pk.inclusions.join(", "), shoot: r.film, edit: r.edit, amends: r.amends } : null;
+  }
+  if (serviceType === "agent") {
+    const pk = SERVICES.agent.packages.find((p) => p.key === pkgKey);
+    const r = RATE_CARD.agent[pkgKey] || {};
+    return pk ? { name: pk.name, includes: pk.desc, shoot: r.film, edit: r.edit } : null;
+  }
+  return null;
+}
+// "Shoot 2 hrs · Editing 1.5 hrs · Amends 1 hr"
+export function briefTimes(b) {
+  const h = (n) => `${n} hr${n === 1 ? "" : "s"}`;
+  return [b.shoot && `Shoot ${h(b.shoot)}`, b.edit && `Editing ${h(b.edit)}`, b.amends && `Amends ${h(b.amends)}`].filter(Boolean).join(" · ");
+}
+
 // The member package prices exclude studio hire; the workbook lists it
 // separately. Whether it is rebilled to the client is not yet settled.
 export const STUDIO_HIRE_IS_REBILLED = false;

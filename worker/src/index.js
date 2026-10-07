@@ -19,7 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
-import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES } from "../../src/lib/videography-config.js";
+import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, packageBrief, STUDIO_LOCATION } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -1469,14 +1469,21 @@ function londonParts(iso) {
     .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
   return { ymd: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
-async function diaryBlocks(env, date, service) {
-  const from = new Date(`${date}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - OFF_LOCATION_BUFFER_DAYS - 1);
-  const to = new Date(`${date}T00:00:00Z`); to.setUTCDate(to.getUTCDate() + 2);
-  const rows = (await sbGet(env, "videography_bookings",
-    `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min`)) || [];
+async function boardRows(env, fromDate, toDate) {
+  const from = new Date(`${fromDate}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - OFF_LOCATION_BUFFER_DAYS - 1);
+  const to = new Date(`${toDate}T00:00:00Z`); to.setUTCDate(to.getUTCDate() + 2);
+  return (await sbGet(env, "videography_bookings",
+    `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token`)) || [];
+}
+// skip: the reschedule token of a booking being moved, so it doesn't block itself.
+async function diaryBlocks(env, date, service, skip) {
+  return diaryBlocksFrom(await boardRows(env, date, date), date, service, skip);
+}
+function diaryBlocksFrom(rows, date, service, skip) {
   const onLocation = OFF_LOCATION_SERVICES.includes(service);
   const ranges = [];
   for (const r of rows) {
+    if (skip && r.reschedule_token === skip) continue;
     if (!r.shoot_date || r.stage === "cancelled" || r.stage === "discovery_call_booked" || r.service_type === "discovery") continue;
     const kind = bookingKindOf(r);
     // Bookings made through the flow store London clock time as written
@@ -2213,6 +2220,42 @@ function gbpW(p) { const v = (p || 0) / 100; return "£" + v.toLocaleString("en-
 function icsEsc(s) { return String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
 const dtLocalICS = (date, hm) => date.replace(/-/g, "") + "T" + hm.replace(":", "") + "00";
 const utcStampICS = () => new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+/* The calendar invite for a shoot (Danielle, 7 Oct 2026). The title says what
+   and where at a glance - "TMKE Photography Session - Name - Address" - and
+   the body is the details on their own lines, with the manage link, so the
+   agent has what they need without opening the email. Content Studio sessions
+   are at our studio; everything else at the address we hold. Used for Jack's
+   365 event (which is the invite the client receives) and the .ics. */
+function shootInvite({ serviceType, service, name, company, email, phone, pkgKey, packageLabel, address, postcode, addOns, distanceMiles, surchargePence, totalPence, notes, manageUrl, lead }) {
+  const st = String(serviceType || "");
+  const studio = st === "content-studio" || /studio/i.test(String(service || ""));
+  const kind = st === "photography" ? "Photography" : "Videography";
+  const where = studio ? STUDIO_LOCATION : String(address || postcode || "").replace(/\s*\n\s*/g, ", ").trim();
+  const subject = [`TMKE ${kind} Session`, name, where].filter(Boolean).join(" - ");
+  const pb = packageBrief(st, pkgKey);
+  // The booking flow sends its notes joined with " | ". Keep what isn't shown
+  // above (the agreement, opt-in and anything the client wrote).
+  const SHOWN = /^(add-ons|property|shoot postcode|travel|company|phone|total|promo):/i;
+  const extra = String(notes || "").split(" | ").map((x) => x.trim())
+    .filter((x) => x && !SHOWN.test(x) && !(service && x.startsWith(`${service} — `)))
+    .map((x) => (/^(agreement|marketing opt-in|notes):/i.test(x) ? x : `Notes: ${x}`));
+  const h = (n) => `${n} hr${n === 1 ? "" : "s"}`;
+  const pkgName = (pb && pb.name) || packageLabel;
+  const groups = [
+    lead ? [lead] : [],
+    [`Client: ${name}${company ? ` (${company})` : ""}`, phone && `Phone: ${phone}`, email && `Email: ${email}`],
+    [pkgName && `${service ? `${service}: ` : ""}${pkgName}`, pb && pb.includes && `Includes: ${pb.includes}`, pb && pb.shoot && `${studio ? "Session" : "On site"}: ${h(pb.shoot)}`,
+     Array.isArray(addOns) && addOns.length && `Add-ons: ${addOns.map((a) => (a && a.name) || a).join(", ")}`],
+    [where && `Where: ${where}`, !studio && distanceMiles != null && `Travel: ${Math.round(distanceMiles)} miles, ${surchargePence > 0 ? `${gbpW(surchargePence)} + VAT` : "no charge"}`,
+     totalPence != null && `Total: ${gbpW(totalPence)} inc. VAT`],
+    extra,
+    [manageUrl && `Reschedule or cancel: ${manageUrl}`],
+  ].map((g) => g.filter(Boolean)).filter((g) => g.length);
+  const text = groups.map((g) => g.join("\n")).join("\n\n");
+  const esc = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const html = groups.map((g) => `<p>${g.map((l) => esc(l).replace(/(https?:\/\/\S+)/g, '<a href="$1">$1</a>')).join("<br>")}</p>`).join("");
+  return { subject, where, text, html };
+}
 function buildICS({ uid, date, start, endHm, summary, description, location, organizer, attendeeEmail, attendeeName }) {
   return [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TMKE//Booking//EN", "CALSCALE:GREGORIAN", "METHOD:REQUEST",
@@ -4824,6 +4867,63 @@ export default {
       };
 
       // ---- Which weekdays are bookable (for the booking calendar) ----
+      /* ---- Which days in a range have a time for this service ----
+         So the booking calendar can grey out a day that's taken instead of
+         letting someone click it to be told no (Danielle, 7 Oct 2026). The
+         same three checks as /ms/availability - Jack's hours, his 365
+         calendar, the bookings board - but one calendar read for the range. */
+      if (path.endsWith("/ms/days") && request.method === "GET") {
+        const from = url.searchParams.get("from") || "", to = url.searchParams.get("to") || "";
+        const service = url.searchParams.get("service") || "";
+        const duration = Math.max(15, parseInt(url.searchParams.get("duration") || "60", 10));
+        const skip = url.searchParams.get("skip") || "";
+        const ymdOk = (x) => /^\d{4}-\d{2}-\d{2}$/.test(x);
+        if (!ymdOk(from) || !ymdOk(to) || to < from) return json({ error: "from and to are YYYY-MM-DD" }, 400, request, env);
+        const spanDays = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+        if (spanDays > 60) return json({ error: "60 days at most" }, 400, request, env);
+        const avail = (await sbGet(env, "videography_availability", "select=*")) || [];
+        const byWd = {}; avail.forEach((r) => { byWd[r.weekday] = rowHours(r); });
+        const rows = await boardRows(env, from, to);
+        // One getSchedule in UTC for the whole range; each day's London hours
+        // are placed on it by that day's offset, so the clocks changing on the
+        // last Sunday of October doesn't shift anything.
+        const STEP = 30;
+        const t0 = Date.parse(`${from}T00:00:00Z`) - 3600000;
+        const t1 = Date.parse(`${to}T00:00:00Z`) + 86400000 + 3600000;
+        const iso = (ms) => new Date(ms).toISOString().slice(0, 19);
+        let view = "";
+        try {
+          const sched = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
+            schedules: [env.JACK_UPN], startTime: { dateTime: iso(t0), timeZone: "UTC" }, endTime: { dateTime: iso(t1), timeZone: "UTC" },
+            availabilityViewInterval: STEP,
+          });
+          view = (sched.value && sched.value[0] && sched.value[0].availabilityView) || "";
+        } catch (_) { return json({ error: "Calendar unavailable" }, 502, request, env); }
+        const days = [];
+        for (let i = 0; i <= spanDays; i++) {
+          const d = new Date(Date.parse(`${from}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10);
+          const hours = byWd[new Date(`${d}T12:00:00Z`).getUTCDay()] || [];
+          if (!hours.length) continue;
+          const blocks = diaryBlocksFrom(rows, d, service, skip);
+          if (blocks.day) continue;
+          const offset = londonParts(`${d}T12:00:00Z`).min - 720;   // 60 in BST, 0 in GMT
+          const openHours = new Set(hours);
+          const dayStart = Math.min(...hours) * 60, dayEnd = (Math.max(...hours) + 1) * 60;
+          const idx = (min) => Math.floor((Date.parse(`${d}T00:00:00Z`) + (min - offset) * 60000 - t0) / (STEP * 60000));
+          let free = false;
+          for (let at = dayStart; !free && at + duration <= dayEnd; at += STEP) {
+            let ok = true;
+            for (let m = at; m < at + duration; m += STEP) {
+              const c = view[idx(m)];
+              if (!openHours.has(Math.floor(m / 60)) || (c && c !== "0")) { ok = false; break; }
+            }
+            if (ok && !overlapsAny(blocks.ranges, at, at + duration)) free = true;
+          }
+          if (free) days.push(d);
+        }
+        return json({ days, service, duration }, 200, request, env);
+      }
+
       if (path.endsWith("/ms/config") && request.method === "GET") {
         const rows = (await sbGet(env, "videography_availability", `select=weekday,hours,is_available,start_time,end_time`)) || [];
         const weekdays = {};
@@ -4925,12 +5025,13 @@ export default {
         const date = url.searchParams.get("date"); // YYYY-MM-DD
         const duration = parseInt(url.searchParams.get("duration") || "60", 10);
         const service = url.searchParams.get("service") || "";
+        const skip = url.searchParams.get("skip") || "";
         if (!date) return json({ error: "Missing date" }, 400, request, env);
 
         // The bookings board, before the calendar: a day with a shoot on it
         // (or anything hand-added) is gone, and studio sessions take their
         // hours. See diaryBlocks.
-        const blocks = await diaryBlocks(env, date, service);
+        const blocks = await diaryBlocks(env, date, service, skip);
         if (blocks.day) return json({ slots: [], duration, reason: blocks.reason }, 200, request, env);
         const wd = new Date(date + "T12:00:00Z").getUTCDay(); // 0=Sun..6=Sat
         const rows = (await sbGet(env, "videography_availability", `weekday=eq.${wd}&select=*`)) || [];
@@ -5065,22 +5166,25 @@ export default {
           } catch (_) {}
         }
 
-        // 3) Book Jack's 365 calendar.
+        // 3) Book Jack's 365 calendar. This event is also the invite the
+        //    client receives, so it carries the details and the manage link.
+        const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${Math.abs(hmToMin(start))}-${Date.now()}`;
+        const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const manageUrl = `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}`;
+        const invite = shootInvite({ serviceType: service_type, service, name, company, email, phone, pkgKey: pkg, packageLabel: b.package_label,
+          address: property_address, postcode, addOns: add_ons, distanceMiles: distance_miles, surchargePence: surcharge_pence, totalPence: total_pence, notes, manageUrl });
         const ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
-          subject: `${service || "Shoot"} - ${name}`,
-          body: { contentType: "text", content: [notes && `Notes: ${notes}`, phone && `Phone: ${phone}`, email && `Email: ${email}`, postcode && `Postcode: ${postcode}`].filter(Boolean).join("\n") },
+          subject: invite.subject,
+          body: { contentType: "html", content: invite.html },
           start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
           end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
-          // A postcode is enough to find a town, not a house. Property shoots
-          // now collect the full address, so put that on the event Jack reads
-          // on the morning rather than throwing it away.
-          location: (property_address || postcode) ? { displayName: (property_address || postcode).replace(/\s*\n\s*/g, ", ") } : undefined,
+          // The full address where we have it, the studio for studio sessions.
+          location: invite.where ? { displayName: invite.where } : undefined,
           attendees: [{ emailAddress: { address: email, name }, type: "required" }],
         });
 
         // 4) Write the full pipeline row (capture the id so we can thread the
         //    confirmation into the member's booking correspondence).
-        const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${Math.abs(hmToMin(start))}-${ev.id || ""}`;
         let newBookingId = null;
         try {
           // The invoice route belongs to Fine & Country property bookings only.
@@ -5128,17 +5232,15 @@ export default {
         // 5) Confirmation emails (best-effort, never block the booking).
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
         const packageLabel = service && service.toLowerCase().includes("content") ? (pkg || "") : (b.package_label || pkg || "");
-        const siteUrl = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
         const ics = buildICS({
           uid: `${ev.id || rescheduleToken}@tmke.co.uk`, date, start, endHm,
-          summary: `${service || "TMKE Shoot"}`,
-          description: [service, packageLabel, postcode && `Location: ${postcode}`, total_pence != null && `Total: ${gbpW(total_pence)} inc. VAT`].filter(Boolean).join("\n"),
-          location: postcode || "", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name,
+          summary: invite.subject, description: invite.text,
+          location: invite.where || "", organizer: env.JACK_UPN, attendeeEmail: email, attendeeName: name,
         });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         await sendEmail(env, {
           to: email, subject: `Booking confirmed - ${service || "TMKE"}`,
-          html: await wrapInBrandedBase(env, bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl: `${siteUrl}/manage?token=${encodeURIComponent(rescheduleToken)}` })),
+          html: await wrapInBrandedBase(env, bookingConfirmHtml({ name, service, serviceType: service_type, packageLabel, dateNice, time: start, addOns: add_ons, postcode, surchargePence: surcharge_pence, totalPence: total_pence, manageUrl })),
           attachments: [{ filename: "booking.ics", content: icsB64, contentType: "text/calendar" }],
         });
         await sendEmail(env, {
@@ -5259,20 +5361,23 @@ export default {
         }
 
         // 4) Block Jack's calendar (studio session).
+        const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}-${Date.now()}`;
+        const invite = shootInvite({ serviceType: "content-studio", service: "New-Starter Studio Day", name, email: em, phone,
+          lead: "New-starter Studio Day: 3 hours, billed to The Property Experts.", notes: notes || "",
+          manageUrl: `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(rescheduleToken)}` });
         let ev = {};
         try {
           ev = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
-            subject: `Studio Day (new starter) - ${name}`,
-            body: { contentType: "text", content: [`New-starter Studio Day.`, phone && `Phone: ${phone}`, `Email: ${em}`, notes && `Notes: ${notes}`].filter(Boolean).join("\n") },
+            subject: invite.subject,
+            body: { contentType: "html", content: invite.html },
             start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
             end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
-            location: { displayName: "TMKE Content Studio" },
+            location: { displayName: invite.where },
             attendees: [{ emailAddress: { address: em, name }, type: "required" }],
           });
         } catch (_) {}
 
         // 5) Insert the booking row — bill-to-TPE, £295 + VAT (£354 inc).
-        const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}-${ev.id || ""}`;
         let newBookingId = null;
         try {
           const insRes = await sbPost(env, "videography_bookings", {
@@ -6947,15 +7052,32 @@ export default {
         });
         const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
         if (view && /[^0]/.test(view)) return json({ error: "That time isn't free - please pick another." }, 409, request, env);
+        // ...and against the bookings board, leaving this booking out of it.
+        {
+          const blocks = await diaryBlocks(env, date, bk.service_type || "", token);
+          if (blocks.day || overlapsAny(blocks.ranges, hmToMin(start), hmToMin(start) + dur)) {
+            return json({ error: "That date is already taken - please pick another." }, 409, request, env);
+          }
+        }
         if (bk.ms_event_id) {
+          // Move it, and bring its title and details up to the current format.
+          const evInvite = shootInvite({ serviceType: bk.service_type, service: bk.service, name: bk.client_name, company: bk.company || bk.client_company, email: bk.client_email, phone: bk.client_phone,
+            pkgKey: bk.package, address: bk.property_address, postcode: bk.postcode, addOns: bk.add_ons, distanceMiles: bk.distance_miles, surchargePence: bk.surcharge_pence, totalPence: bk.total_pence, notes: bk.notes,
+            manageUrl: bk.reschedule_token ? `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(bk.reschedule_token)}` : null });
           await graph(env, "PATCH", `/users/${encodeURIComponent(env.JACK_UPN)}/events/${bk.ms_event_id}`, {
             start: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
             end: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
+            subject: evInvite.subject,
+            body: { contentType: "html", content: evInvite.html },
+            ...(evInvite.where ? { location: { displayName: evInvite.where } } : {}),
           });
         }
         await sbPatch(env, "videography_bookings", `id=eq.${bk.id}`, { shoot_date: `${date}T${start}:00` });
         const dateNice = (() => { try { return new Date(`${date}T12:00:00`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); } catch (_) { return date; } })();
-        const ics = buildICS({ uid: `${bk.ms_event_id || bk.reschedule_token}@tmke.co.uk`, date, start, endHm, summary: bk.service || "TMKE Booking", description: ["Rescheduled booking.", bk.postcode && `Location: ${bk.postcode}`].filter(Boolean).join("\n"), location: bk.postcode || "", organizer: env.JACK_UPN, attendeeEmail: bk.client_email, attendeeName: bk.client_name });
+        const rsInvite = shootInvite({ serviceType: bk.service_type, service: bk.service, name: bk.client_name, company: bk.company || bk.client_company, email: bk.client_email, phone: bk.client_phone,
+          pkgKey: bk.package, address: bk.property_address, postcode: bk.postcode, totalPence: bk.total_pence, lead: "Rescheduled booking.",
+          manageUrl: bk.reschedule_token ? `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(bk.reschedule_token)}` : null });
+        const ics = buildICS({ uid: `${bk.ms_event_id || bk.reschedule_token}@tmke.co.uk`, date, start, endHm, summary: rsInvite.subject, description: rsInvite.text, location: rsInvite.where || "", organizer: env.JACK_UPN, attendeeEmail: bk.client_email, attendeeName: bk.client_name });
         const icsB64 = bufToBase64(new TextEncoder().encode(ics).buffer);
         const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         await sendEmail(env, {
@@ -7646,6 +7768,70 @@ export default {
             });
           } catch (_) {}
         }
+        return json({ ok: true }, 200, request, env);
+      }
+
+      /* ---- Member: a question about one of their bookings ----
+         "Ask about this booking" used to send members to the general contact
+         page. Now it's a message on the booking itself (Danielle, 7 Oct 2026):
+         it lands in the booking's thread in the admin centre, Jack and Danielle
+         are emailed, and both get a notification. The booking must be theirs. */
+      if (path.endsWith("/booking/ask") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in first." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        const source = b && b.source === "smm" ? "smm" : "videography";
+        const bookingId = String((b && b.booking_id) || "");
+        const bodyText = String((b && b.body) || "").trim().slice(0, 5000);
+        if (!bookingId) return json({ error: "Which booking is this about?" }, 400, request, env);
+        if (!bodyText) return json({ error: "Write your question first." }, 400, request, env);
+        if (!(await memberBookingIds(env, user)).includes(bookingId)) return json({ error: "We couldn't find that booking on your account." }, 404, request, env);
+        const bk = await lookupBooking(env, source, bookingId);
+        if (!bk) return json({ error: "We couldn't find that booking on your account." }, 404, request, env);
+        let when = "";
+        if (source === "videography") {
+          const r = (await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(bookingId)}&select=shoot_date,kind`)) || [];
+          if (r[0] && r[0].shoot_date) {
+            const t = r[0].kind === "booking" ? new Date(`${String(r[0].shoot_date).slice(0, 19)}`) : new Date(r[0].shoot_date);
+            if (!isNaN(t)) when = t.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: r[0].kind === "booking" ? "UTC" : "Europe/London" });
+          }
+        }
+        const email = String(user.email || "").toLowerCase();
+        const who = bk.name || email;
+        const what = [bk.service || "booking", when].filter(Boolean).join(", ");
+        const subject = `Question about ${what} - ${who}`;
+        await logBookingMessage(env, {
+          booking_id: bookingId, booking_source: source,
+          account_user_id: user.id, client_email: email,
+          direction: "inbound", channel: "hub", kind: "manual",
+          subject, body: bodyText, is_automated: false, created_by: email,
+        });
+        const escQ = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        const to = source === "smm"
+          ? [smmNewBusiness(env), env.ACCOUNTS_NOTIFY || "danielle@tmke.co.uk"]
+          : [env.JACK_NOTIFY || env.JACK_UPN, env.ACCOUNTS_NOTIFY || "danielle@tmke.co.uk"];
+        for (const addr of [...new Set(to.filter(Boolean).map((x) => String(x).toLowerCase()))]) {
+          try {
+            await sendEmail(env, {
+              to: addr, subject,
+              html: `<div style="${EM_WRAP}">
+                <p><strong>${escQ(who)}</strong> asked about their ${escQ(what)}:</p>
+                <blockquote style="margin:14px 0;padding:10px 14px;border-left:3px solid #371e28;color:#3a3a3a">${escQ(bodyText).replace(/\n/g, "<br>")}</blockquote>
+                <p>Reply to <a href="mailto:${escQ(email)}">${escQ(email)}</a>, or answer in the booking's thread: <a href="${site}/admin/${source === "smm" ? "social" : "videography"}">open the admin centre</a>.</p>
+              </div>`,
+            });
+          } catch (_) {}
+        }
+        try {
+          await notifyAdmins(env, {
+            area: source === "smm" ? "social" : "videography", event: "booking_question",
+            title: `${who} asked about their ${bk.service || "booking"}`,
+            body: bodyText.slice(0, 160),
+            href: source === "smm" ? "/admin/social" : "/admin/videography",
+            meta: { booking_id: bookingId, source },
+          });
+        } catch (_) {}
         return json({ ok: true }, 200, request, env);
       }
 
