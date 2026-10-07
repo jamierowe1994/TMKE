@@ -5,9 +5,12 @@
 // ============================================================================
 
 // ---- Service tiers (Slide 3 scroll box) ------------------------------------
-// price_pence intentionally null for now — the brief lists no prices. Set
-// SHOW_TIER_PRICES = true and fill price_pence to surface pricing on the page.
-export const SHOW_TIER_PRICES = false;
+// The services section shows a "From £x" line when a tier has a price. The flag
+// is on (Dani, 7 Oct); every price_pence below is still null, so nothing shows
+// until the four figures are filled in. Deliberately left null rather than
+// guessed: the real prices live in SOCIAL_SERVICES further down, and they
+// describe two products, not these four tiers.
+export const SHOW_TIER_PRICES = true;
 
 export const SERVICE_TIERS = [
   {

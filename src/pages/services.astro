@@ -72,7 +72,7 @@ const navLinks = [
   { label: "Insights", href: "/blog" },
   { label: "Contact", href: "/contact" },
 ];
-const total = 7;
+const total = 2;   // the deck is services + the ways in; the opening is a normal section now
 ---
 
 <BaseLayout
@@ -189,80 +189,54 @@ const total = 7;
       </section>
       <div class="sms-foot" aria-hidden="true"></div>
     </div>
+    <!-- The runway: one viewport tall per panel. The stage sticks to the top
+         while you scroll through it, which is what turns vertical scrolling
+         into the sideways move. -->
+    <!-- ===================================================================
+         The opening, as an ordinary page: the term, the picture, and the
+         three things that matter, on one screen. This replaces four deck
+         panels — a dictionary hero and three word-slides that shared one
+         backdrop and only swapped their text, which was three sideways
+         moves to deliver three paragraphs. The deck now begins at the
+         services, which is the part anyone came to read.
+         =================================================================== -->
+    <section class="sm-open">
+      <div class="sm-open-head">
+        <h1 class="sm-lede-mark">SMM</h1>
+        <p class="sm-lede-pron">
+          <span class="sm-lede-phon">Social Media Management</span>
+          <span class="sm-lede-pos"><em>noun</em></span>
+        </p>
+      </div>
+
+      <figure class="sm-open-pic">
+        <img src={SMM_HERO_BG} alt="Social media management by TMKE" />
+      </figure>
+
+      <div class="sm-open-points">
+        <article class="sm-open-point">
+          <span class="sm-open-num">01</span>
+          <h2 class="sm-open-h">{COPY.positioning.headline}</h2>
+          <p class="sm-open-body">{COPY.positioning.body.split("\n\n")[0]}</p>
+        </article>
+        {COPY.positioning.pillars.map((p, i) => (
+          <article class="sm-open-point">
+            <span class="sm-open-num">{String(i + 2).padStart(2, "0")}</span>
+            <h2 class="sm-open-h">{p.title}</h2>
+            <p class="sm-open-body">{p.body}</p>
+          </article>
+        ))}
+      </div>
+
+      <button type="button" class="sm-open-cue" data-deck-next>What we do <span aria-hidden="true">&darr;</span></button>
+    </section>
+
+    <div class="pf-runway" id="pf-runway" style={`--pf-panels:${total}`}>
     <div class="pf-stage" id="pf-deck" style={`--sm-hero-bg:url('${SMM_HERO_BG}')`}>
       <div class="pf-plane" id="pf-plane">
-        <!-- Slide 1 (col 0,row 0) — uses the About lede layout EXACTLY (term +
-             pronunciation top, mini brief + Discover button bottom, image right),
-             anchored to the BOTTOM of the slide. The blank space above is left
-             for a hero image the client will add. -->
-        <section class="pf-panel sm-hero" style="--col:0;--row:0">
-          <!-- About-style dictionary header, pinned to the top (light, ink on paper) -->
-          <div class="sm-hero-header">
-            <div class="sm-hero-wrap">
-              <div class="sm-lede-grid">
-                <div class="sm-lede-copy">
-                  <div class="sm-lede-top">
-                    <h1 class="sm-lede-mark">SMM</h1>
-                    <p class="sm-lede-pron">
-                      <span class="sm-lede-phon">Social Media Management</span>
-                      <span class="sm-lede-pos"><em>noun</em></span>
-                    </p>
-                  </div>
-                  <div class="sm-lede-bottom">
-                    <p class="sm-lede-text">Full-service social media management for agents who want a consistent, professional presence. Everything from strategy to execution, delivered to a standard that reflects your business.</p>
-                    <button type="button" class="sm-lede-btn" data-deck-next>Discover <span aria-hidden="true">&rarr;</span></button>
-                  </div>
-                </div>
-                <figure class="sm-lede-media">
-                  <img src={SMM_HERO_IMG} alt="Social media management by TMKE" />
-                </figure>
-              </div>
-            </div>
-          </div>
-          <!-- One long image, inset like the About photos. On scroll it rises up
-               OVER the header to a full-page image (JS drives the inset), then the
-               deck advances across to slide 2. -->
-          <figure class="sm-hero-pic">
-            <img class="sm-hero-long" src={SMM_HERO_BG} alt="" />
-            <!-- Darkens as the first text slide arrives, so the words read
-                 against the photo. Opacity is driven per frame by the deck. -->
-            <div class="sm-hero-shade" id="sm-hero-shade" aria-hidden="true"></div>
-          </figure>
-        </section>
 
-        <!-- Phones only: the ethos photo held still behind slides 2-4, so the
-             words slide in over it as they do on a desktop (where the hero's
-             long image does this job). Sits above the hero, below the slides. -->
-        <div class="sm-phone-bg" aria-hidden="true"></div>
 
-        <!-- Slides 2-4 — the three ethos texts. None carries a backdrop: the
-             hero's long image has just grown to fill the screen, and these slide
-             in from the right over it. One scene, three thoughts. -->
-        <section class="pf-panel sm-feature sm-feature--over sm-feature--first" style="--col:1;--row:0;--step:1">
-          <div class="sm-feature-inner">
-            <h2 class="sm-feature-h">{COPY.positioning.headline}</h2>
-            {COPY.positioning.body.split("\n\n").filter((para) => para !== "That's what we build.").map((para) => (
-              <p class="sm-feature-body">{para}</p>
-            ))}
-          </div>
-        </section>
 
-        <!-- Slide 3 — property first. No backdrop of its own: it slides in from
-             the right over slide 2's, so the scene holds and only the words move. -->
-        <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:2">
-          <div class="sm-feature-inner">
-            <h2 class="sm-feature-h">{COPY.positioning.pillars[0].title}</h2>
-            <p class="sm-feature-body">{COPY.positioning.pillars[0].body}</p>
-          </div>
-        </section>
-
-        <!-- Slide 4 — one account manager. Same again: words only. -->
-        <section class="pf-panel sm-feature sm-feature--over" style="--col:1;--row:0;--step:3">
-          <div class="sm-feature-inner">
-            <h2 class="sm-feature-h">{COPY.positioning.pillars[1].title}</h2>
-            <p class="sm-feature-body">{COPY.positioning.pillars[1].body}</p>
-          </div>
-        </section>
 
         <!-- Shared HUD for slides 2-4. The line, the number and the pill live
              here rather than inside each panel, because they occupy the same
@@ -270,61 +244,47 @@ const total = 7;
              travel across the screen only to land where they started. Out here
              they hold still and cross-fade, and the line is genuinely one line
              rather than three stacked. -->
-        <div class="sm-hud" id="sm-hud" aria-hidden="true" hidden>
-          <div class="sm-line"><span class="sm-line-fill" id="sm-hud-fill"></span></div>
-          <span class="sm-line-num" id="sm-hud-num">01</span>
-          <span class="sm-tag" id="sm-hud-tag"><span class="sm-tag-text" id="sm-hud-tag-text">Ethos</span></span>
-        </div>
 
         <!-- Slide 5 (col 2) — what we do: tier list (left) + reactive image (right) -->
-        <section class="pf-panel sm-services" style="--col:2;--row:0">
-          <div class="sm-services-text">
-            <div class="sm-services-head">
-              <p class="sm-rule-eyebrow">Services</p>
-              <h2 class="sm-services-h">{COPY.whatWeDo.headline}</h2>
-              <p class="sm-services-lead">{COPY.whatWeDo.body}</p>
-              <p class="sm-services-choose">{COPY.whatWeDo.chooseLine}</p>
-            </div>
-            <div class="sm-tierlist" id="sm-tierlist">
-              {SERVICE_TIERS.map((t, i) => (
-                <button type="button" class="sm-tieritem" data-tier={i}>
-                  <span class="sm-tieritem-num">{String(i + 1).padStart(2, "0")}</span>
-                  <span class="sm-tieritem-body">
-                    <span class="sm-tieritem-name">{t.name}</span>
-                    <span class="sm-tieritem-sub">{t.subtitle}{SHOW_TIER_PRICES && t.price_pence != null ? ` · from ${gbpFromPence(t.price_pence)} +VAT` : ""}</span>
-                    <span class="sm-tieritem-blurb">{t.blurb}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
-            <button type="button" class="pf-cta sm-services-cta" data-smm-form="brochure">Download a brochure <em>&rarr;</em></button>
-          </div>
+        <section class="pf-panel sm-services" style="--col:0;--row:0">
+          <!-- Picture left, the list right, every entry open. It was an
+               accordion: four collapsed rows where only the one you hovered
+               showed its words, so the page's own answer to "what do you do"
+               was hidden behind four hovers. -->
           <div class="sm-services-media" id="sm-services-media">
             {SERVICE_TIERS.map((t, i) => (
               <div class="sm-tierimg" data-img={i} style={`background-image:url('${TIER_IMAGES[i % TIER_IMAGES.length]}')`}></div>
             ))}
           </div>
+          <div class="sm-services-text">
+            <div class="sm-services-head">
+              <p class="sm-rule-eyebrow">Services</p>
+              <h2 class="sm-services-h">{COPY.whatWeDo.headline}</h2>
+              <p class="sm-services-lead">{COPY.whatWeDo.body}</p>
+            </div>
+            <div class="sm-tierlist" id="sm-tierlist">
+              {SERVICE_TIERS.map((t, i) => (
+                <article class="sm-tieritem" data-tier={i}>
+                  <h3 class="sm-tieritem-name">{t.name}</h3>
+                  <p class="sm-tieritem-meta">
+                    {SHOW_TIER_PRICES && t.price_pence != null && (
+                      <span class="sm-tieritem-price">From {gbpFromPence(t.price_pence)}</span>
+                    )}
+                    <span>{t.subtitle}</span>
+                  </p>
+                  <p class="sm-tieritem-blurb">{t.blurb}</p>
+                  <button type="button" class="sm-tieritem-cta" data-smm-form="brochure">
+                    View packages <span aria-hidden="true">&rsaquo;</span>
+                  </button>
+                </article>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <!-- Slide 6 (col 3,row 2) — Shot and Scheduled: what social media marketing is, and how it differs from management -->
-        <section class="pf-panel sm-goodslide" style="--col:3;--row:0">
-          <div class="sm-good-field" aria-hidden="true">
-            {GOOD_TILES.map((t) => (
-              <div
-                class:list={["sm-good-tile", t.logo && "sm-good-tile--logo", t.sw && "sm-good-tile--sw"]}
-                style={`--ang:${t.ang}deg;--r:${t.r}vmin;--dur:${t.d}s;--delay:${t.l}s;${t.img ? `background-image:url('${t.img}')` : t.sw ? `background:${t.sw}` : ""}`}
-              >{t.logo ? <span>TMKE</span> : null}</div>
-            ))}
-          </div>
-          <div class="sm-good-inner">
-            <p class="sm-rule-eyebrow">Shot and Scheduled</p>
-            <h2 class="sm-good-h">{COPY.whatGoodLooksLike.headline}</h2>
-            <p class="sm-good-p">{COPY.whatGoodLooksLike.body}</p>
-          </div>
-        </section>
 
         <!-- Slide 7 (col 4,row 2) — three CTA cards (unchanged) -->
-        <section class="pf-panel sm-ctas" style="--col:4;--row:0">
+        <section class="pf-panel sm-ctas" style="--col:1;--row:0">
           <div class="sm-cta-row">
             <article class="sm-cta-card">
               <div class="sm-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
@@ -349,6 +309,7 @@ const total = 7;
           </div>
         </section>
       </div>
+    </div>
     </div>
 
     <div class="pf-counter"><span id="pf-cur">01</span> <span class="pf-counter-sep">/</span> {String(total).padStart(2, "0")}</div>
@@ -385,10 +346,56 @@ const total = 7;
   <NavDrawer />
 
   <style>
-    .pf { position: fixed; inset: 0; background: var(--paper); color: var(--ink); overflow: hidden; }
+    /* ===== The opening, as an ordinary section =========================
+       Term, picture, three points. Quiet and still: no drift, no reveal, no
+       band. The deck starts below it. */
+    .sm-open {
+      padding: 128px var(--page-gutter) 96px;
+      display: flex; flex-direction: column; gap: 56px;
+      background: var(--paper);
+    }
+    .sm-open-head { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
+    .sm-open-pic { margin: 0; border-radius: 2px; overflow: hidden; background: var(--platinum); }
+    .sm-open-pic img { display: block; width: 100%; height: clamp(300px, 46vh, 520px); object-fit: cover; }
+    .sm-open-points {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: clamp(28px, 3.4vw, 60px);
+      border-top: 1px solid rgba(28,29,34,0.14); padding-top: 34px;
+    }
+    .sm-open-num {
+      display: block; margin-bottom: 12px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; color: rgba(28,29,34,0.42);
+    }
+    .sm-open-h {
+      margin: 0 0 10px; font-family: var(--subhead); font-weight: 400;
+      font-size: clamp(19px, 1.5vw, 23px); line-height: 1.2;
+      letter-spacing: -0.01em; color: var(--english-violet);
+    }
+    .sm-open-body {
+      margin: 0; font-family: var(--sans); font-size: 14px; line-height: 1.8;
+      color: rgba(28,29,34,0.72);
+    }
+    .sm-open-cue {
+      margin: 0; align-self: flex-start;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+      background: none; border: 0; padding: 0; cursor: pointer;
+    }
+    .sm-open-cue span { display: inline-block; margin-left: 8px; }
+    @media (max-width: 900px) {
+      .sm-open { padding: 104px var(--page-gutter) 64px; gap: 40px; }
+      .sm-open-points { grid-template-columns: 1fr; gap: 30px; }
+    }
+
+    /* The page scrolls. This was position:fixed inset:0 — a full-screen overlay
+       that left the document no height at all, which is why the deck had to
+       hijack the wheel to move anything. */
+    .pf { position: relative; background: var(--paper); color: var(--ink); }
+    .pf-runway { position: relative; height: calc(100svh * var(--pf-panels, 2)); }
     /* 2D deck — panels sit on a plane that translates in X *and* Y, so the path
        mixes sliding across with sliding down. */
-    .pf-stage { position: absolute; inset: 0; overflow: hidden; }
+    .pf-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
     /* panels are stacked; the deck script drives each one's transform so the next
        slides OVER the previous (sticky cover), free-scroll and floaty. */
     .pf-plane { position: absolute; inset: 0; }
@@ -622,11 +629,13 @@ const total = 7;
        you hover/select a tier. */
     .sm-services { padding: 0; align-items: stretch; }
     .sm-services-text {
-      width: 66.6%; min-width: 360px;
-      display: flex; flex-direction: column; justify-content: flex-end; gap: clamp(14px, 2vh, 24px);
-      padding: clamp(40px, 5vh, 64px) clamp(28px, 4vw, 64px) 80px clamp(28px, 8vw, 140px);
+      flex: 1 1 auto; min-width: 360px;
+      display: flex; flex-direction: column; justify-content: center; gap: 18px;
+      /* Centred with modest padding: the head and four entries come to ~880px,
+         and the old 64px top / 80px bottom pushed the last one off the screen. */
+      padding: 28px clamp(28px, 4vw, 64px) 28px clamp(28px, 4vw, 72px);
     }
-    .sm-services-media { position: relative; flex: 1; align-self: stretch; overflow: hidden; background: #e9e4da; }
+    .sm-services-media { position: relative; flex: 0 0 44%; align-self: stretch; overflow: hidden; background: #e9e4da; }
     .sm-tierimg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0; transform: scale(1.05); transition: opacity 0.7s cubic-bezier(.16,1,.3,1), transform 1.5s cubic-bezier(.16,1,.3,1); }
     .sm-tierimg.is-active { opacity: 1; transform: scale(1); }
 
@@ -651,17 +660,46 @@ const total = 7;
        had been 48, and four of those threw the whole slide's proportions. The
        one thing kept from that pass is a single hairline weight (The Edit's
        rgba(28,29,34,0.16)) for the top rule and the rows, where it had two. */
-    .sm-tierlist { display: flex; flex-direction: column; border-top: 1px solid rgba(28,29,34,0.16); }
-    .sm-tieritem { display: flex; gap: 14px; align-items: flex-start; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid rgba(28,29,34,0.16); border-left: 2px solid transparent; padding: 13px 0; cursor: pointer; transition: border-color 0.3s ease, padding 0.3s ease; -webkit-tap-highlight-color: transparent; }
-    .sm-tieritem-num { font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.1em; color: var(--english-violet); padding-top: 5px; flex: 0 0 auto; }
-    .sm-tieritem-body { display: flex; flex-direction: column; min-width: 0; }
-    .sm-tieritem-name { font-family: var(--serif); font-weight: 500; font-size: clamp(15px, 1.4vw, 20px); line-height: 1.1; letter-spacing: -0.01em; color: rgba(28,29,34,0.5); transition: color 0.3s ease; }
-    .sm-tieritem-sub { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); margin-top: 6px; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.35s ease, max-height 0.35s ease, margin 0.35s ease; }
-    .sm-tieritem-blurb { font-family: var(--sans); font-size: clamp(14px, 1.05vw, 16px); line-height: 1.55; color: rgba(28,29,34,0.66); margin-top: 0; max-width: 66ch; opacity: 0; max-height: 0; overflow: hidden; transition: opacity 0.4s ease, max-height 0.5s ease, margin 0.4s ease; }
-    .sm-tieritem.is-active { border-left-color: var(--english-violet); padding-left: 16px; }
-    .sm-tieritem.is-active .sm-tieritem-name { color: var(--ink); }
-    .sm-tieritem.is-active .sm-tieritem-sub { opacity: 1; max-height: 2em; }
-    .sm-tieritem.is-active .sm-tieritem-blurb { opacity: 1; max-height: 9em; margin-top: 9px; }
+    /* The list: one entry per service, all open, a hairline between. */
+    .sm-tierlist { display: flex; flex-direction: column; min-height: 0; }
+    .sm-tieritem {
+      padding: 13px 0;
+      border-bottom: 1px solid rgba(28,29,34,0.14);
+      transition: opacity 0.3s ease;
+    }
+    .sm-tieritem:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+    .sm-tieritem-name {
+      margin: 0 0 6px;
+      font-family: var(--serif); font-weight: 500;
+      font-size: clamp(17px, 1.35vw, 21px); line-height: 1.1;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink);
+    }
+    .sm-tieritem-meta {
+      margin: 0 0 8px;
+      display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55);
+    }
+    .sm-tieritem-price { color: var(--english-violet); }
+    .sm-tieritem-meta > span + span::before { content: "\00B7"; margin-right: 14px; }
+    /* Three lines, whatever the copy does. Four entries have to live inside
+       one screen, and the blurbs run from 150 to 330 characters — left to
+       themselves they pushed the last entry off the bottom. The rest of the
+       detail is what "View packages" is for. */
+    .sm-tieritem-blurb {
+      margin: 0 0 12px; max-width: 62ch;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.65;
+      color: rgba(28,29,34,0.7);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .sm-tieritem-cta {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet);
+      transition: gap 0.25s ease;
+    }
+    .sm-tieritem-cta:hover { gap: 15px; }
     .sm-services-cta { margin-top: clamp(16px, 3vh, 30px); align-self: flex-start; }
     @media (max-width: 760px) {
       .sm-services { flex-direction: column; }
@@ -671,7 +709,12 @@ const total = 7;
 
     .sm-services-head { flex: 0 0 auto; }
     .sm-services-h { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.2vw, 48px); line-height: 1.04; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
-    .sm-services-lead { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 17px); line-height: 1.5; color: rgba(28,29,34,0.72); max-width: 76ch; margin: 0 0 12px; }
+    .sm-services-lead {
+      margin: 0; max-width: 62ch;
+      font-family: var(--sans); font-size: 14px; line-height: 1.7;
+      color: rgba(28,29,34,0.7);
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
     .sm-services-choose { font-family: var(--sans); font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); margin: clamp(20px, 4vh, 44px) 0 0; }
     .sm-tiers {
       flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
@@ -1062,7 +1105,7 @@ const total = 7;
       // Slide 2 has no entry on desktop: it is already on the photo, fading in as
       // the photo grows, so there is nothing for it to slide in FROM. Phones hide
       // the long photo and skip the grow, so there it still slides in (see render).
-      const ENTRY = [[0, 0], [0, 0], [1, 0], [1, 0], [1, 0], [1, 0], [1, 0]];
+      const ENTRY = [[0, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       /* The shared HUD for slides 2-4. It does not move with the panels, so the
@@ -1075,135 +1118,39 @@ const total = 7;
       const hudTag = document.getElementById("sm-hud-tag");
       const hudTagText = document.getElementById("sm-hud-tag-text");
       const hudFill = document.getElementById("sm-hud-fill");
-      const HUD_STEPS = 3;
-      const HUD = { 1: "Ethos", 2: "Industry", 3: "Action" };
-      let hudStep = 0;
-      // The pill stays one size across all three, sized to the widest word
-      // ("Industry") so that only the word changes when the slide does, not the
-      // shape around it. Measured rather than guessed, so a renamed tag still fits.
-      const sizePill = () => {
-        if (!hud || !hudTag || !hudTagText) return;
-        // The HUD starts [hidden] (display:none), where offsetWidth reads 0 for
-        // everything — so it is shown invisibly for the length of the measurement.
-        const was = hudTagText.textContent, wasHidden = hud.hidden;
-        hud.hidden = false; hud.style.visibility = "hidden"; hudTag.style.minWidth = "";
-        let widest = 0;
-        Object.values(HUD).forEach((label) => { hudTagText.textContent = label; widest = Math.max(widest, hudTag.offsetWidth); });
-        hudTagText.textContent = was;
-        hud.style.visibility = ""; hud.hidden = wasHidden;
-        if (widest) hudTag.style.minWidth = widest + "px";
-      };
-      // Once now, and again when the webfont lands: measured in the fallback face
-      // the pill came out 98px, in Darker Grotesque 111px — so a slow connection
-      // would have set it from the wrong font and clipped "Industry".
-      sizePill();
-      if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizePill);
-      const paintHud = (step) => {
-        hudNum.textContent = String(step).padStart(2, "0");
-        hudTagText.textContent = HUD[step] || "";
-        hudFill.style.width = ((step / HUD_STEPS) * 100).toFixed(2) + "%";
-        hud.classList.remove("is-swapping");
-        hudStep = step;
-      };
-      function syncHud(panel) {
-        if (!hud) return;
-        const isFeature = !!panel && panel.classList.contains("sm-feature");
-        if (!isFeature) { hud.hidden = true; hud.style.opacity = ""; hudStep = 0; return; }
-        hud.hidden = false; hud.style.opacity = "";
-        const step = Number(panel.style.getPropertyValue("--step")) || 1;
-        if (step === hudStep) return;
-        // The fill tracks the step whether or not the words are mid-swap.
-        hudFill.style.width = ((step / HUD_STEPS) * 100).toFixed(2) + "%";
-        // Arriving from another section: paint straight away rather than
-        // fading out something nobody has seen.
-        if (hudStep === 0) return paintHud(step);
-        hudStep = step;
-        hud.classList.add("is-swapping");
-        setTimeout(() => paintHud(step), 300);   // matches the opacity transition
-      }
-
-      const SENS = 0.001;    // wheel → progress (slow + gradual: ~one slide per scroll)
       const EASE = 0.06;     // lerp toward target (smooth glide)
-      const SLOW_EASE = 0.035; // slower glide for slides 6 & 7 coming in
-      const PAUSE = 520;     // ms dwell after a slide lands — a hold so you can see it
-      const STEP = 0.5;      // extra scroll past a slide needed to advance (resistance)
-      let acc = 0, display = 0, lastCur = -1, anchor = 0, lockUntil = 0;
+      let acc = 0, display = 0, lastCur = -1;
       const clamp = (v) => Math.max(0, Math.min(last, v));
-      // Phones skip the slide-1 "grow the hero image to full screen" stage (that
-      // image is hidden on mobile), so a single swipe advances straight to slide 2.
-      const isPhone = () => window.innerWidth <= 600;
 
-      // Slide-1 long image: heroP (target, 0→1) eases to heroDisp; the image's
-      // inset grows from the rest box (inset like About's photos) to full-bleed,
-      // so on scroll it rises up over the header into a full-page image. Only when
-      // heroP hits 1 does a further scroll advance the deck (see the wheel handler).
-      const HEROSENS = 0.0012;
-      let heroP = 0, heroDisp = 0, heroApplied = -1;
-      const heroPanel = stage.querySelector(".sm-hero");
-      const heroHeader = heroPanel && heroPanel.querySelector(".sm-hero-header");
-      const heroWrap = heroPanel && heroPanel.querySelector(".sm-hero-wrap");
-      const heroPic = heroPanel && heroPanel.querySelector(".sm-hero-pic");
-      const heroImg = heroPic && heroPic.querySelector("img");
-      let heroGeo = null;
-      const measureHero = () => {
-        if (!heroPanel) return;
-        const pr = heroPanel.getBoundingClientRect();
-        const wr = heroWrap.getBoundingClientRect();
-        heroGeo = { hH: heroHeader.offsetHeight, gx: wr.left - pr.left, rgx: pr.right - wr.right, bot: 0 };
-      };
-      const applyHero = (p) => {
-        if (!heroPic) return;
-        if (!heroGeo) measureHero();
-        const g = heroGeo, q = 1 - p;
-        heroPic.style.top = (g.hH * q).toFixed(1) + "px";
-        heroPic.style.left = (g.gx * q).toFixed(1) + "px";
-        heroPic.style.right = (g.rgx * q).toFixed(1) + "px";
-        heroPic.style.bottom = (g.bot * q).toFixed(1) + "px";
-        heroPic.style.borderRadius = (2 * q).toFixed(1) + "px";
-        if (heroImg) heroImg.style.objectPosition = "center " + (p * 100).toFixed(1) + "%";
-      };
-      measureHero(); applyHero(0);
-      window.addEventListener("resize", () => { measureHero(); applyHero(heroDisp); });
-      window.addEventListener("load", () => { measureHero(); applyHero(heroDisp); });
-      // EVERY slide snaps to full screen and holds: you must scroll a little PAST
-      // it (STEP) and the dwell (PAUSE) must elapse before the next one starts —
-      // so each page settles full-screen and you can't accidentally scroll through.
-      const targetOf = (now) => {
-        if (now >= lockUntil) {
-          if (acc > anchor + STEP && anchor < last) { anchor += 1; lockUntil = now + PAUSE; }
-          else if (acc < anchor - STEP && anchor > 0) { anchor -= 1; lockUntil = now + PAUSE; }
-        }
-        return anchor;
-      };
+      /* The deck is driven by the page's own scroll, not by hijacking the wheel.
+         The stage is sticky inside a runway one viewport tall per panel, so how
+         far through that runway you are IS which panel you are on.
 
-      const heroShade = document.getElementById("sm-hero-shade");
-      const firstFeature = panels.find((p) => p.classList.contains("sm-feature--first"));
-      const firstInner = firstFeature && firstFeature.querySelector(".sm-feature-inner");
-      // How far through the grow the first words (and the shade, and the HUD)
-      // have come in. Nothing until the photo is over half way, then a fade
-      // across the rest — so the picture fills first and the line arrives into it.
-      // Widened from 0.55 to 0.4 so that going BACK the words are still there
-      // until the photo is well into its shrink, instead of vanishing while it
-      // is still nearly full — which read as the text outrunning the image.
-      // Forward it still reads photo-first: nothing until 40% grown.
-      const growIn = (p) => Math.max(0, Math.min(1, (p - 0.4) / 0.6));
+         What this replaces: an accumulator fed by wheel deltas, with a dwell
+         lock and a resistance step so you could not flick past a slide, plus a
+         separate "grow the hero photo to full screen" phase with its own
+         sensitivity and its own branches in the wheel, touch and click
+         handlers. All of it existed to imitate scrolling. Scrolling does it for
+         free, the opening section above can now scroll normally, and coming
+         back up out of the deck needs no special case because nothing is being
+         intercepted. */
+      const runway = document.getElementById("pf-runway");
+      const readScroll = () => {
+        if (!runway) return;
+        const r = runway.getBoundingClientRect();
+        const span = runway.offsetHeight - window.innerHeight;
+        acc = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) * last : 0;
+      };
+      const targetOf = () => acc;
+      window.addEventListener("scroll", readScroll, { passive: true });
+      window.addEventListener("resize", readScroll);
+      readScroll();
+
       const render = () => {
-        const onHero = Math.round(display) === 0;
-        if (onHero && !isPhone()) {
-          const o = growIn(heroDisp);
-          if (heroShade) heroShade.style.opacity = o.toFixed(3);
-          if (firstFeature) { firstFeature.classList.add("is-growing"); if (firstInner) firstInner.style.opacity = o.toFixed(3); }
-          if (hud) { if (hudStep !== 1) paintHud(1); hud.hidden = o <= 0; hud.style.opacity = o.toFixed(3); }
-        } else {
-          // Past the grow: the class rules take over (slide 3 fading slide 2's
-          // words out as it arrives), and the shade stays fully in.
-          if (heroShade) heroShade.style.opacity = isPhone() ? "0" : "1";
-          if (firstFeature) { firstFeature.classList.remove("is-growing"); if (firstInner) firstInner.style.opacity = ""; }
-        }
         for (let i = 0; i < panels.length; i++) {
           const f = Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
           // Phones skip the grow, so slide 2 must still slide in there.
-          const e = (i === 1 && isPhone()) ? [1, 0] : (ENTRY[i] || [0, 0]);
+          const e = ENTRY[i] || [0, 0];
           panels[i].style.transform = `translate(${(e[0] * f * 100).toFixed(3)}%, ${(e[1] * f * 100).toFixed(3)}%)`;
         }
         const cur = clamp(Math.round(display));
@@ -1212,7 +1159,6 @@ const total = 7;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           stage.classList.toggle("is-ethos", cur >= 1 && cur <= 3);
           if (curEl) curEl.textContent = pad(cur);
-          syncHud(panels[cur]);
           // Slide 1 is light → ink nav; the dark image slides → white nav; and
           // from "What we do" onward (light slides) → TMKE wine.
           const top = document.getElementById("pf-top");
@@ -1228,147 +1174,38 @@ const total = 7;
         // can't flick PAST a slide (you always land on each, incl. 5 & 7) and the
         // advance stays gradual, ~one slide per scroll.
         acc = Math.max(display - 1, Math.min(display + 1, acc));
-        const t = targetOf(performance.now());
-        const ease = t >= 5 ? SLOW_EASE : EASE;   // slides 6 & 7 glide in slower
-        display += (t - display) * ease;
+        const t = targetOf();
+        display += (t - display) * EASE;
         if (Math.abs(t - display) < 0.0004) display = t;
-        heroDisp += (heroP - heroDisp) * 0.16;
-        if (Math.abs(heroP - heroDisp) < 0.0008) heroDisp = heroP;
-        if (heroDisp !== heroApplied) { applyHero(heroDisp); heroApplied = heroDisp; }
         render();
         requestAnimationFrame(tick);
       };
       render(); requestAnimationFrame(tick);
 
-      // let the wheel scroll the tiers box (slide 5) until it hits an edge
-      const edgeBlocked = (ev, dir) => {
-        const box = ev.target.closest && ev.target.closest(".sm-tiers");
-        if (!box) return false;
-        const atTop = box.scrollTop <= 0;
-        const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
-        return !((dir > 0 && atBottom) || (dir < 0 && atTop));
-      };
-      stage.addEventListener("wheel", (ev) => {
-        if (portfolioOpen) return;
-        const d = Math.abs(ev.deltaY) >= Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
-        // Slide 1: scroll first raises the long image to a full-page image; only
-        // once it's full does a further scroll advance the deck across. (Skipped
-        // on phones — the long image is hidden, so scroll advances immediately.)
-        if (!isPhone() && Math.round(anchor) === 0) {
-          if (d > 0 && heroP < 1) {
-            ev.preventDefault();
-            heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS));
-            // The photo filling the screen IS the arrival of slide 2 — its words
-            // have faded in with the grow — so the deck steps onto it here rather
-            // than asking for a second scroll to land on something already shown.
-            if (heroP >= 1) { anchor = 1; acc = 1; lockUntil = performance.now() + PAUSE; }
-            return;
-          }
-          if (d < 0 && heroP > 0) {
-            ev.preventDefault();
-            // A hold before the shrink starts: landing back on the full photo
-            // from slide 2 sets a dwell, and the photo does not begin to come
-            // down until it has passed. Once shrinking, no gate.
-            if (heroP >= 1 && performance.now() < lockUntil) return;
-            heroP = Math.max(0, Math.min(1, heroP + d * HEROSENS)); return;
-          }
-          // Forward on a photo that is already full: slide 2 is already showing,
-          // so step onto it now rather than spending half a scroll on nothing —
-          // which is what "it gets stuck" was.
-          if (d > 0 && heroP >= 1) { ev.preventDefault(); anchor = 1; acc = 1; lockUntil = performance.now() + PAUSE; return; }
-        }
-        // Scrolling back off slide 2 lands on the full photo with the words still
-        // on it; the next scroll up then shrinks the photo (the branch above).
-        // `acc < anchor + STEP`: a part-scroll forward that never committed to
-        // slide 3 must not stop the way back.
-        if (!isPhone() && d < 0 && Math.round(anchor) === 1 && acc < anchor + STEP && heroP >= 1) {
-          ev.preventDefault(); anchor = 0; acc = 0; lockUntil = performance.now() + PAUSE; return;
-        }
-        if (edgeBlocked(ev, d)) return;
-        ev.preventDefault();
-        acc = clamp(acc + d * SENS);
-      }, { passive: false });
-
-      window.addEventListener("keydown", (ev) => {
-        if (portfolioOpen) return;
-        if (["ArrowRight", "ArrowDown", "PageDown"].includes(ev.key)) { ev.preventDefault(); acc = clamp(Math.round(acc) + 1); }
-        else if (["ArrowLeft", "ArrowUp", "PageUp"].includes(ev.key)) { ev.preventDefault(); acc = clamp(Math.round(acc) - 1); }
-      });
-
-      // Slide-1 "Discover" button advances the deck to the next slide.
-      stage.querySelectorAll("[data-deck-next]").forEach((b) =>
+      // "What we do" in the opening section takes you to the deck.
+      document.querySelectorAll("[data-deck-next]").forEach((b) =>
         b.addEventListener("click", () => {
-          // From the hero, Discover means "show me": fill the photo and the first
-          // words come with it, the same as scrolling would.
-          if (!isPhone() && Math.round(anchor) === 0) heroP = 1;
-          acc = clamp(Math.round(anchor) + 1);
+          if (runway) window.scrollTo({ top: runway.offsetTop, behavior: "smooth" });
         }));
-
-      // touch — drag continuously (up/left advances); ignored inside the tiers box
-      let tx = 0, ty = 0, tp = 0, thp = 0, tScroll = false;
-      stage.addEventListener("touchstart", (ev) => {
-        const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tp = acc; thp = heroP;
-        tScroll = !!(ev.target.closest && ev.target.closest(".sm-tiers"));
-      }, { passive: true });
-      stage.addEventListener("touchmove", (ev) => {
-        if (portfolioOpen || tScroll) return;
-        const t = ev.touches[0]; const dx = t.clientX - tx, dy = t.clientY - ty;
-        // Phones: only a sideways drag moves across; an up-and-down drag is
-        // left to the slide, which scrolls itself. Both together used to send
-        // the deck off in two directions at once.
-        if (isPhone() && Math.abs(dy) >= Math.abs(dx)) return;
-        const dom = isPhone() ? dx : (Math.abs(dx) > Math.abs(dy) ? dx : dy);
-        // Slide 1: a drag raises the long image to full-page first (then advance).
-        // Skipped on phones — one swipe advances straight to slide 2.
-        if (!isPhone() && Math.round(anchor) === 0) {
-          const np = Math.max(0, Math.min(1, thp - dom * 0.0024));
-          heroP = np;
-          if (np >= 1 && dom < 0) acc = clamp(Math.round(anchor) + 1);
-          return;
-        }
-        acc = clamp(tp - dom * 0.004);
-      }, { passive: true });
     })();
 
     // Slide 5 — tier list drives the reactive image: hover/focus/click a tier to
     // open its blurb and crossfade in its image.
     (function tiers() {
+      // Every entry's words are on the page now, so this only crossfades the
+      // picture to match whichever one you are reading.
       const list = document.getElementById("sm-tierlist");
       const media = document.getElementById("sm-services-media");
       if (!list || !media) return;
       const items = [...list.querySelectorAll(".sm-tieritem")];
       const imgs = [...media.querySelectorAll(".sm-tierimg")];
-      // openTier=false shows a tier's image without expanding its blurb — used
-      // for the default state so every tier starts collapsed (expandable).
-      const setActive = (i, openTier = true) => {
-        items.forEach((it, n) => it.classList.toggle("is-active", openTier && n === i));
-        imgs.forEach((im, n) => im.classList.toggle("is-active", n === i));
-      };
-      const collapse = () => setActive(0, false);   // default: image only, no blurb open
-      // Open ONLY on a real pointer move over a tier. A mouseenter fires when the
-      // slide transitions in under a stationary cursor — that's what popped a box
-      // open on arrival; mousemove never fires without genuine movement, so the
-      // slide always lands fully collapsed and a box opens only once the user
-      // actively moves onto it. Leaving the list closes everything back down.
-      let cur = -1;
-      const openItem = (i) => { if (i !== cur) { cur = i; setActive(i); } };
+      const show = (i) => imgs.forEach((im, n) => im.classList.toggle("is-active", n === i));
       items.forEach((it, i) => {
-        it.addEventListener("mousemove", () => openItem(i));
-        it.addEventListener("focus", () => openItem(i));          // keyboard = deliberate
-        // A tap on the open one closes it again (on a phone there is no hover
-        // to reopen it, so this is the only way to shut the list).
-        it.addEventListener("click", () => { if (cur === i) { cur = -1; collapse(); } else openItem(i); });
+        it.addEventListener("mouseenter", () => show(i));
+        it.addEventListener("focusin", () => show(i));
       });
-      list.addEventListener("mouseleave", () => { cur = -1; collapse(); });
-
-      collapse();
-      // Re-collapse whenever the slide (re)enters view, so it always lands closed.
-      const panel = list.closest(".pf-panel");
-      if (panel) {
-        const sync = () => { if (panel.classList.contains("is-in")) { cur = -1; collapse(); } };
-        new MutationObserver(sync).observe(panel, { attributes: true, attributeFilter: ["class"] });
-        sync();
-      }
+      list.addEventListener("mouseleave", () => show(0));
+      show(0);
     })();
 
     // "Book a call" -> the booking wizard mounts inside the panel (in-place),
