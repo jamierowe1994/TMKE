@@ -32,7 +32,7 @@ const navLinks = [
   { label: "About", href: "/about" },
   { label: "Social Media", href: "/services" },
   { label: "Property Videography", href: "/videography", current: true },
-  { label: "Property Photography", href: "/videography#photography", current: true },
+  { label: "Property Photography", href: "/videography", current: true },
   { label: "The Edit", href: "/edit" },
   { label: "Insights", href: "/blog" },
   { label: "Contact", href: "/contact" },
@@ -194,8 +194,8 @@ const navLinks = [
             </div>
             <div class="vh-route-open"><div class="vh-route-inner">
               <p class="vh-route-body">Tours, short-form content and presenter-led film, shot in the studio, at the property, or with you in front of the camera.</p>
-              <button type="button" class="vh-route-cta" data-deck-next>See what we film <span aria-hidden="true">&rsaquo;</span></button>
             </div></div>
+            <button type="button" class="vh-route-cta" data-deck-next>See what we shoot <span aria-hidden="true">&rsaquo;</span></button>
           </article>
           <article class="vh-route" data-route="photo">
             <div class="vh-route-face">
@@ -204,8 +204,8 @@ const navLinks = [
             </div>
             <div class="vh-route-open"><div class="vh-route-inner">
               <p class="vh-route-body">Portal-ready property photography including drone, delivered in the sizes the portals and your socials actually use.</p>
-              <button type="button" class="vh-route-cta" data-photo-open>See the packages <span aria-hidden="true">&rsaquo;</span></button>
             </div></div>
+            <button type="button" class="vh-route-cta" data-photo-open>Discover our packages <span aria-hidden="true">&rsaquo;</span></button>
           </article>
         </div>
 
@@ -540,9 +540,12 @@ const navLinks = [
     .vh-route::before {
       content: ""; position: absolute; inset: 0;
       background: linear-gradient(to top, rgba(28,20,24,0.88), rgba(28,20,24,0.35) 58%, rgba(28,20,24,0.12));
-      opacity: 0; transition: opacity 0.45s ease;
+      opacity: 0.5; transition: opacity 0.45s ease;
     }
-    .vh-route:hover, .vh-route:focus-within { flex-grow: 2.1; }
+    /* The grow waits for the page to arrive and settle — see .is-settled in the
+       deck controller. Hovering mid-slide moved the card before you could see
+       the page it was on (Dani, 7 Oct). */
+    .pf-panel.is-settled .vh-route:hover, .vh-route:focus-within { flex-grow: 2.1; }
     .vh-route:hover::before, .vh-route:focus-within::before { opacity: 1; }
     .vh-route-face { position: relative; z-index: 1; }
     .vh-route-lead {
@@ -550,10 +553,12 @@ const navLinks = [
       font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
       text-transform: uppercase; color: rgba(244,242,241,0.75);
     }
+    /* 500 and a size down again — 700 at 31px was shouting over the picture
+       (Dani, 7 Oct). Space Grotesk, as every other heading on the deck. */
     .vh-route-title {
-      margin: 0; font-family: var(--serif); font-weight: 600;
-      font-size: clamp(22px, 2.1vw, 31px); line-height: 1.1;
-      letter-spacing: -0.05em; color: var(--paper);
+      margin: 0; font-family: var(--serif); font-weight: 500;
+      font-size: clamp(19px, 1.65vw, 25px); line-height: 1.1;
+      letter-spacing: -0.04em; color: var(--paper);
     }
     .vh-route-open {
       position: relative; z-index: 1; display: grid; grid-template-rows: 0fr; opacity: 0;
@@ -567,11 +572,18 @@ const navLinks = [
       margin: 0 0 14px; max-width: 46ch; font-family: var(--sans);
       font-size: 14px; line-height: 1.7; color: rgba(244,242,241,0.88);
     }
+    /* Outside .vh-route-open on purpose: the way in reads at rest, not only
+       once you are on the card (Dani, 7 Oct). The body above it is still the
+       part that opens on hover. */
     .vh-route-cta {
+      position: relative; z-index: 1; margin-top: 12px; align-self: flex-start;
       display: inline-flex; align-items: center; gap: 9px; background: none; border: 0;
       padding: 0; cursor: pointer; font-family: var(--sans); font-size: 11px;
       font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper);
+      text-shadow: 0 1px 6px rgba(28,20,24,0.55);
+      transition: gap 0.25s ease;
     }
+    .vh-route-cta:hover { gap: 14px; }
 
     /* ===== Book a shoot, always within reach =========================
        Two of them, and deliberately not the same button. Top right, sitting on
@@ -1035,23 +1047,22 @@ const navLinks = [
        was in a different face from every other body on the site). Dani, 7 Oct. */
     /* Out to 75% of the page, measured to its right edge — it was stopping at
        49% (Dani, 7 Oct). */
-    .vintro-inner { max-width: calc(75% - var(--page-gutter)); margin-inline: var(--page-gutter); }
-    /* "Why it matters" eyebrow — chapter-style decorative line, then the word. */
-    .vintro-inner .pf-panel-cat {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 20px;
-      color: var(--english-violet);
+    /* The rule runs the full width between the gutters, as the one above
+       "Reach That Matters" does on Social Media; the words inside it still stop
+       at 75% of the page (Dani, 7 Oct). */
+    .vintro-inner {
+      margin-inline: var(--page-gutter);
+      border-top: 1px solid rgba(28,29,34,0.14); padding-top: 34px;
     }
-    .vintro-inner .pf-panel-cat::before {
-      content: "";
-      display: block;
-      width: 48px;
-      height: 1px;
-      background: currentColor;
-      opacity: 0.45;
-      flex-shrink: 0;
+    .vintro-inner > * { max-width: calc(75vw - var(--page-gutter)); }
+    /* The same mark as "01" on Social Media (.sm-open-num) — same face, size,
+       weight, tracking, colour and the same 12px under it — so the quote below
+       starts exactly where "Reach That Matters" does. The chapter rule that
+       used to sit beside it has gone with it. Dani, 7 Oct. */
+    .vintro-inner .pf-panel-cat {
+      display: block; margin-bottom: 12px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; color: rgba(28,29,34,0.42);
     }
     /* The same type as Social Media's three points (.sm-open-h — "Reach That
        Matters", "Property first, always."): The Seasons, 700, the same size,
@@ -1819,6 +1830,23 @@ const navLinks = [
           }
         }
       };
+      /* A page is only hoverable once it has arrived AND held still for a beat.
+         Hovering mid-slide moved a card before you could see the page it was
+         on, so the effect was over before you saw it (Dani, 7 Oct). */
+      let settleTimer = 0, settledAt = -1;
+      const unsettle = () => {
+        if (settledAt === -1 && !settleTimer) return;
+        clearTimeout(settleTimer); settleTimer = 0; settledAt = -1;
+        panels.forEach((p) => p.classList.remove("is-settled"));
+      };
+      const settle = () => {
+        const cur = clamp(Math.round(display));
+        if (settledAt === cur || settleTimer) return;
+        settleTimer = setTimeout(() => {
+          settleTimer = 0; settledAt = cur;
+          panels.forEach((p, i) => p.classList.toggle("is-settled", i === cur));
+        }, 650);
+      };
       const tick = () => {
         const t = targetOf();
         const ease = t >= last - 1 ? SLOW_EASE : EASE;            // last two glide slower
@@ -1829,6 +1857,10 @@ const navLinks = [
           // scrolling on from here still works one page at a time.
           if (skipped.size) skipped = new Set();
         }
+        /* "Arrived" for the hover gate is within 0.002 of a page — about 3px,
+           which is in place to the eye. Waiting for the exact snap would hold
+           hover off for seconds while the last pixel eased in. */
+        if (Math.abs(t - display) < 0.002) settle(); else unsettle();
         render();
         requestAnimationFrame(tick);
       };
@@ -1887,6 +1919,7 @@ const navLinks = [
         skipped = next;
         anchor = to; acc = to; bucket = 0;
         lockUntil = performance.now() + PAUSE;
+        unsettle();
       };
       const step = (dir) => {
         const from = Math.round(anchor);
@@ -1950,17 +1983,9 @@ const navLinks = [
       stage.querySelectorAll("[data-photo-open]").forEach((el) => {
         el.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); enter("photo"); });
       });
-      /* The nav's "Property Photography" is this page at #photography. A
-         separate <script> is a separate module, so the hash handler cannot
-         reach `enter` — it goes on window instead. Landing straight on the
-         route (no ease) is the point: arriving from the menu should look like
-         the page opened there. */
-      window.tmkeVidRoute = (name, instant) => {
-        const i = routeStart(name);
-        if (instant) { anchor = i; acc = i; display = i; lastCur = -1; skipped = new Set(); render(); }
-        else enter(name);
-      };
-      if ((location.hash || "").toLowerCase() === "#photography") window.tmkeVidRoute("photo", true);
+      /* Both menu entries land on this page's own opening now. Jumping straight
+         to the photography route from #photography flashed on the way in, and
+         the opening is the better place to arrive anyway (Dani, 7 Oct). */
       // The wordmark goes home from anywhere in the deck.
       document.querySelector(".pf-top-logo")?.addEventListener("click", (e) => {
         if (Math.round(anchor) === 0) return;       // already home — let the link work
@@ -1976,13 +2001,6 @@ const navLinks = [
       if (h && PRODUCTS.some((p) => p.slug === h)) openProduct(h);
     })();
 
-    /* Already on this page and the menu's Property Photography is clicked:
-       the hash does not change the document, so move the deck ourselves. */
-    window.addEventListener("hashchange", () => {
-      if ((location.hash || "").toLowerCase() === "#photography" && typeof window.tmkeVidRoute === "function") {
-        window.tmkeVidRoute("photo", false);
-      }
-    });
 
     /* Our services — hovering a row crossfades its picture. */
     (function vsvcs() {

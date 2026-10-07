@@ -41,7 +41,7 @@ const navLinks = [
   { label: "About", href: "/about" },
   { label: "Social Media", href: "/services", current: true },
   { label: "Property Videography", href: "/videography" },
-  { label: "Property Photography", href: "/videography#photography" },
+  { label: "Property Photography", href: "/videography" },
   { label: "The Edit", href: "/edit" },
   { label: "Insights", href: "/blog" },
   { label: "Contact", href: "/contact" },
@@ -414,7 +414,10 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
       background: linear-gradient(to top, rgba(28,20,24,0.88), rgba(28,20,24,0.35) 58%, rgba(28,20,24,0.12));
       opacity: 0; transition: opacity 0.45s ease;
     }
-    .sm-more-card:hover, .sm-more-card:focus-within { flex-grow: 2.1; }
+    /* The grow waits for the page to arrive and hold still — see .is-settled in
+       the deck controller. Hovering mid-slide widened a card before you could
+       see the page it was on (Dani, 7 Oct). */
+    .pf-panel.is-settled .sm-more-card:hover, .sm-more-card:focus-within { flex-grow: 2.1; }
     .sm-more-card:hover::before, .sm-more-card:focus-within::before { opacity: 1; }
     .sm-more-face { position: relative; z-index: 1; }
     .sm-more-lead {
@@ -1413,6 +1416,24 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
         return anchor;
       };
 
+      /* A page is only hoverable once it has arrived AND held still for a beat.
+         Hovering mid-slide widened a card before you could see the page it was
+         on, so the effect was over before you saw it (Dani, 7 Oct). */
+      let settleTimer = 0, settledAt = -1;
+      const unsettle = () => {
+        if (settledAt === -1 && !settleTimer) return;
+        clearTimeout(settleTimer); settleTimer = 0; settledAt = -1;
+        panels.forEach((p) => p.classList.remove("is-settled"));
+      };
+      const settle = () => {
+        const cur = Math.max(0, clamp(Math.round(display)));
+        if (settledAt === cur || settleTimer) return;
+        settleTimer = setTimeout(() => {
+          settleTimer = 0; settledAt = cur;
+          panels.forEach((p, i) => p.classList.toggle("is-settled", i === cur));
+        }, 650);
+      };
+
       const render = () => {
         for (let i = 0; i < panels.length; i++) {
           const f = Math.max(0, Math.min(1, i - display));   // 1 = off (entry edge) · 0 = covering
@@ -1454,6 +1475,10 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
         const t = targetOf(performance.now());
         display += (t - display) * EASE;
         if (Math.abs(t - display) < 0.0004) display = t;
+        /* "Arrived" for the hover gate is within 0.002 of a page — about 3px,
+           which is in place to the eye. Waiting for the exact snap would hold
+           hover off for seconds while the last pixel eased in. */
+        if (Math.abs(t - display) < 0.002) settle(); else unsettle();
         render();
         requestAnimationFrame(tick);
       };
