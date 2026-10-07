@@ -258,33 +258,37 @@ const navLinks = [
       <!-- Closing panel — brochure + two booking cards + a slide-in newsletter reveal -->
       <section class="pf-panel pf-final" id="pf-final">
         <div class="pf-final-track" id="pf-final-track">
-          <article class="pf-cta-card">
-            <div class="pf-cta-img" style={`background-image:url('${R2("white-1")}')`}></div>
-            <div class="pf-cta-head">
-              <h2 class="pf-cta-title">Download a Brochure</h2>
+          <!-- The same list /services uses: a heading left, the ways in right,
+               each opening in place. Four rows — the fourth crosses to the other
+               route. The three big image cards this replaces said the same
+               things in three times the space. -->
+          <div class="sm-ways">
+            <div class="sm-ways-head">
+              <p class="pf-panel-cat">Get started</p>
+              <h2 class="sm-ways-h">Start with the right support.</h2>
+              <p class="sm-ways-note">Tell us what you need filming and we&rsquo;ll tell you what makes sense &mdash; including if the honest answer is a conversation first.</p>
             </div>
-            <p class="pf-cta-desc">{VIDEOGRAPHY_BROCHURE.cardBody}</p>
-            <button type="button" data-vid-brochure class="pf-cta-btn">Download a brochure <span class="btn-arrow">&rarr;</span></button>
-          </article>
-
-          <article class="pf-cta-card">
-            <div class="pf-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
-            <div class="pf-cta-head">
-              <h2 class="pf-cta-title">Book a Consultation</h2>
+            <div class="sm-ways-list" data-ways>
+              {[
+                { t: "Download a Brochure", lead: "The full breakdown, in writing.", body: VIDEOGRAPHY_BROCHURE.cardBody, cta: "Download a brochure", attr: "data-vid-brochure" },
+                { t: "Book a Consultation", lead: "Twenty minutes, no pitch.", body: "Not sure which service is right for you, or want to talk it through before committing? Jump on a quick call with Jack directly \u2014 no pressure and no sales pitch.", cta: "Book a time that suits you", attr: 'data-vbook="discovery"' },
+                { t: "Book a Shoot", lead: "A day with the team.", body: "Ready to go? Browse our full range of videography and photography services, choose what works for you, and secure your session in minutes.", cta: "Book a shoot", attr: 'data-vbook="choose"' },
+                { t: "Discover our Photography", lead: "Stills, including drone.", body: "Portal-ready property photography in three packages, by how many photographs you need, delivered in the sizes the portals and your socials actually use.", cta: "See the photography packages", attr: 'data-goto-route="photo"' },
+              ].map((w, i) => (
+                <div class="sm-way" data-way={i}>
+                  <button type="button" class="sm-way-head" aria-expanded={i === 0 ? "true" : "false"}>
+                    <span class="sm-way-title">{w.t}</span>
+                    <span class="sm-way-lead">{w.lead}</span>
+                    <span class="sm-way-sign" aria-hidden="true"></span>
+                  </button>
+                  <div class="sm-way-body"><div class="sm-way-inner">
+                    <p class="sm-way-copy">{w.body}</p>
+                    <button type="button" class="sm-way-cta" set:html={`${w.cta} <span aria-hidden="true">&rsaquo;</span>`} {...(w.attr.includes("=") ? { [w.attr.split("=")[0]]: w.attr.split('"')[1] } : { [w.attr]: true })}></button>
+                  </div></div>
+                </div>
+              ))}
             </div>
-            <p class="pf-cta-desc">Not sure which service is right for you, or want to talk through what you need before committing to a booking? Jump on a quick call with Jack directly — no pressure and no sales pitch.</p>
-            <button type="button" data-vbook="discovery" class="pf-cta-btn">Book a time that suits you <span class="btn-arrow">&rarr;</span></button>
-          </article>
-
-          <article class="pf-cta-card">
-            <div class="pf-cta-img" style={`background-image:url('${R2("table")}')`}></div>
-            <div class="pf-cta-head">
-              <h2 class="pf-cta-title">Book a Shoot</h2>
-              <span class="pf-cta-meta">A day with the team</span>
-            </div>
-            <p class="pf-cta-desc">Ready to go? Browse our full range of videography and photography services, choose what works for you, and secure your session in minutes.</p>
-            <button type="button" data-vbook="choose" class="pf-cta-btn">Book a shoot <span class="btn-arrow">&rarr;</span></button>
-          </article>
+          </div>
 
           <aside class="pf-news" aria-label="Newsletter sign-up">
             <h2 class="pf-news-title">Sign up for our<br />newsletter</h2>
@@ -337,31 +341,34 @@ const navLinks = [
           ))}
         </div>
       </section>
-      <!-- Photography's ways in, and the way across to the film. -->
+      <!-- Photography's ways in — the same list, crossing back to the film. -->
       <section class="pf-panel vpcontact">
-        <div class="vpc">
-          <div class="vpc-head">
+        <div class="sm-ways">
+          <div class="sm-ways-head">
             <p class="pf-panel-cat">Get started</p>
-            <h2 class="vpc-h">Book your photography.</h2>
-            <p class="vpc-note">Tell us the property and when it needs shooting, and we&rsquo;ll do the rest.</p>
+            <h2 class="sm-ways-h">Book your photography.</h2>
+            <p class="sm-ways-note">Tell us the property and when it needs shooting, and we&rsquo;ll do the rest.</p>
           </div>
-          <div class="vpc-row">
-            <button type="button" class="vpc-card" data-vbrochure>
-              <span class="vpc-card-t">Download a Brochure</span>
-              <span class="vpc-card-s">Everything we shoot, in writing.</span>
-            </button>
-            <button type="button" class="vpc-card" data-vbook="discovery">
-              <span class="vpc-card-t">Book a Consultation</span>
-              <span class="vpc-card-s">Twenty minutes, no pitch.</span>
-            </button>
-            <button type="button" class="vpc-card" data-vbook="photography">
-              <span class="vpc-card-t">Send a Message</span>
-              <span class="vpc-card-s">Tell us about the property.</span>
-            </button>
+          <div class="sm-ways-list" data-ways>
+            {[
+              { t: "Download a Brochure", lead: "The full breakdown, in writing.", body: VIDEOGRAPHY_BROCHURE.cardBody, cta: "Download a brochure", attr: "data-vid-brochure" },
+              { t: "Book a Consultation", lead: "Twenty minutes, no pitch.", body: "Not sure which package is right for the property, or want to talk it through first? Jump on a quick call with Jack directly \u2014 no pressure and no sales pitch.", cta: "Book a time that suits you", attr: 'data-vbook="discovery"' },
+              { t: "Book a Shoot", lead: "Pick a package and a date.", body: "Ready to go? Choose the package that fits the property, tell us where it is, and secure your session in minutes.", cta: "Book a shoot", attr: 'data-vbook="photography"' },
+              { t: "Discover our Videography", lead: "Film, from tour to Reel.", body: "The Studio, The Property and The Agent \u2014 presenter-led tours, short-form content and the filming days behind them.", cta: "See the videography packages", attr: 'data-goto-route="video"' },
+            ].map((w, i) => (
+              <div class="sm-way" data-way={i}>
+                <button type="button" class="sm-way-head" aria-expanded={i === 0 ? "true" : "false"}>
+                  <span class="sm-way-title">{w.t}</span>
+                  <span class="sm-way-lead">{w.lead}</span>
+                  <span class="sm-way-sign" aria-hidden="true"></span>
+                </button>
+                <div class="sm-way-body"><div class="sm-way-inner">
+                  <p class="sm-way-copy">{w.body}</p>
+                  <button type="button" class="sm-way-cta" set:html={`${w.cta} <span aria-hidden="true">&rsaquo;</span>`} {...(w.attr.includes("=") ? { [w.attr.split("=")[0]]: w.attr.split('"')[1] } : { [w.attr]: true })}></button>
+                </div></div>
+              </div>
+            ))}
           </div>
-          <button type="button" class="vpc-cross" data-goto-route="video">
-            See our videography packages <span aria-hidden="true">&rsaquo;</span>
-          </button>
         </div>
       </section>
     </div>
@@ -576,6 +583,70 @@ const navLinks = [
       font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper);
     }
 
+    /* Shared with /services: the ways-in list. Same markup, same rules. */
+    /* ===== The ways in — a picture, then the list, sitting low ========== */
+    .sm-ctas--stack { flex-direction: column; justify-content: flex-start; gap: clamp(20px, 3vh, 34px); padding: 0 0 var(--page-gutter); box-sizing: border-box; }
+    .sm-ways-pic {
+      margin: 0; width: 100%; flex: 0 0 auto; height: clamp(300px, 44vh, 460px);
+      background-size: cover; background-position: center;
+    }
+
+    .sm-ways {
+      width: 100%; flex: 1 1 auto; align-content: end; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr);
+      gap: clamp(32px, 5vw, 96px); align-items: start;
+      padding: 0 clamp(28px, 4vw, 64px);
+    }
+    .sm-ways-h {
+      margin: 10px 0 14px; font-family: var(--serif); font-weight: 700;
+      font-size: clamp(22px, 2.1vw, 31px); line-height: 1.1; letter-spacing: -0.05em; color: var(--ink);
+    }
+    .sm-ways-note {
+      margin: 0; max-width: 42ch;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.7; color: rgba(28,29,34,0.65);
+    }
+    .sm-ways-list { display: flex; flex-direction: column; }
+    .sm-way { border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .sm-way:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+    .sm-way-head {
+      width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto 18px;
+      align-items: baseline; gap: 18px; text-align: left;
+      background: none; border: 0; padding: 20px 0; cursor: pointer;
+    }
+    .sm-way-title {
+      font-family: var(--sans); font-size: 15px; font-weight: 700;
+      letter-spacing: 0.01em; color: var(--ink);
+    }
+    /* Sits with the sign, not with the paragraph below it. */
+    .sm-way-lead { justify-self: end; font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.55); }
+    .sm-way-sign { position: relative; width: 11px; height: 11px; justify-self: end; align-self: center; }
+    .sm-way-sign::before, .sm-way-sign::after {
+      content: ""; position: absolute; background: rgba(28,29,34,0.5);
+      left: 0; top: 5px; width: 11px; height: 1px; transition: transform 0.3s ease;
+    }
+    .sm-way-sign::after { transform: rotate(90deg); }
+    .sm-way.is-open .sm-way-sign::after { transform: rotate(0deg); }
+    .sm-way-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(.2,.8,.2,1); }
+    .sm-way.is-open .sm-way-body { grid-template-rows: 1fr; }
+    .sm-way-inner { overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; }
+    .sm-way-copy {
+      margin: 0 0 14px; max-width: 75%;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.75; color: rgba(28,29,34,0.7);
+    }
+    .sm-way-cta {
+      display: inline-flex; align-items: center; gap: 9px; margin-bottom: 22px;
+      align-self: flex-end;
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet);
+      transition: gap 0.25s ease;
+    }
+    .sm-way-cta:hover { gap: 15px; }
+    @media (max-width: 900px) {
+      .sm-ways { grid-template-columns: 1fr; gap: 26px; }
+      .sm-way-head { grid-template-columns: minmax(0, 1fr) 18px; }
+      .sm-way-lead { display: none; }
+    }
+
     /* ===== Our work — one film, inside the margins ===================== */
     .pf-panel.vwork { display: block; padding: 0; }
     .vwork-frame {
@@ -708,7 +779,7 @@ const navLinks = [
       margin: 0 0 12px; font-family: var(--sans); font-size: 14px;
       line-height: 1.4; color: rgba(28,29,34,0.72);
     }
-    .vsvc-actions { display: flex; flex-wrap: wrap; gap: 20px; }
+    .vsvc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
     .vsvc-cta {
       display: inline-flex; align-items: center; gap: 9px; background: none; border: 0;
       padding: 0; cursor: pointer; font-family: var(--sans); font-size: 11px;
@@ -716,7 +787,14 @@ const navLinks = [
       color: var(--english-violet); transition: gap 0.25s ease;
     }
     .vsvc-cta:hover { gap: 15px; }
-    .vsvc-cta--ghost { color: rgba(28,29,34,0.55); }
+    /* The Discover link is a small wine chip, pushed to the right of the row,
+       so it reads as "there is more behind this" rather than a second link. */
+    .vsvc-cta--ghost {
+      margin-left: auto; color: var(--paper);
+      background: var(--english-violet); border-radius: 2px;
+      padding: 8px 14px; font-size: 10px; letter-spacing: 0.16em;
+    }
+    .vsvc-cta--ghost:hover { gap: 13px; }
     .vsvcs-media {
       position: relative; flex: 0 0 42%; align-self: center;
       height: calc(100% - 2 * var(--page-gutter)); margin-right: var(--page-gutter);
@@ -867,7 +945,11 @@ const navLinks = [
        top — copy left, photo right, ink on paper), with one long element below
        that rises up over the header into a full-page on scroll. Here that long
        element is the VIDEO (the .mov), not an image. ---- */
-    .pf-panel.vh { display: block; overflow: hidden; padding: 0; background: var(--paper); color: var(--ink); }
+    /* The old rule here also said display/overflow/padding and, being later in
+       the file at the same specificity, it won — which is why page one could
+       not scroll at all and Why it matters was unreachable. Those three now
+       live once, at the top of this stylesheet. */
+    .pf-panel.vh { background: var(--paper); color: var(--ink); }
     .vh-header { position: relative; z-index: 1; padding: clamp(84px, 10vh, 106px) var(--page-gutter) clamp(40px, 5vh, 56px); }
     .vh-wrap { max-width: none; }
     .vh-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
@@ -1144,6 +1226,8 @@ const navLinks = [
       transition: right 0.75s cubic-bezier(.16,1,.3,1), background .25s;
     }
     .pf-reveal-tab:hover { background: var(--ink); }
+    /* A quarter of the way down, not centred (Dani, 7 Oct). */
+    .pf-reveal { top: 25% !important; transform: none !important; }
     .pf-reveal-arrow { font-size: 18px; transition: transform .5s cubic-bezier(.16,1,.3,1); }
     .pf-final.is-revealed .pf-reveal-arrow { transform: rotate(180deg); }
 
@@ -1186,6 +1270,7 @@ const navLinks = [
       transition: color 0.35s ease;
     }
     .pf-top.on-dark .pf-top-logo { color: var(--paper); }
+    .pf-top.is-markless .pf-top-logo { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
     /* Burger button (top-right) — replaces the old hover-reveal + "Menu" text. */
     .pf-top-menu {
       display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
@@ -1710,7 +1795,12 @@ const navLinks = [
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
           if (curEl) curEl.textContent = pad(cur);
-          if (topBar) topBar.classList.toggle("on-dark", false);   // slide 1 is now light (About-style) — nav stays ink
+          if (topBar) {
+            topBar.classList.toggle("on-dark", false);   // page one is light — nav stays ink
+            // The wordmark belongs to the home page; inside a route the burger
+            // is enough, and the mark was crossing the words.
+            topBar.classList.toggle("is-markless", cur > 0);
+          }
           if (cur !== last && (revealed || (isPhone() && finalStep !== 0))) setReveal(false);
         }
       };
@@ -1887,5 +1977,20 @@ const navLinks = [
       });
       list.addEventListener("mouseleave", () => show(0));
     })();
+
+    /* The ways-in lists (both routes). One row always open: closing the open
+       one falls back to the first, as on /services. */
+    document.querySelectorAll("[data-ways]").forEach((list) => {
+      const rows = [...list.querySelectorAll(".sm-way")];
+      const open = (row) => rows.forEach((r) => {
+        const on = r === row;
+        r.classList.toggle("is-open", on);
+        r.querySelector(".sm-way-head").setAttribute("aria-expanded", on ? "true" : "false");
+      });
+      rows.forEach((r) => r.querySelector(".sm-way-head").addEventListener("click", () => {
+        open(r.classList.contains("is-open") ? rows[0] : r);
+      }));
+      open(rows[0]);
+    });
   </script>
 </BaseLayout>
