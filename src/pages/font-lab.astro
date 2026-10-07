@@ -59,6 +59,11 @@ const BODY_FONTS = HEADING_FONTS;
         --h-font: "Nunito Sans", sans-serif;
         --h-weight: 700;
         --h-track: -0.05em;
+        /* Sub-headings: "Reach that matters", "Shot and Scheduled". Their own
+           face, because they do a different job from the page's one big mark. */
+        --s-font: "Nunito Sans", sans-serif;
+        --s-weight: 700;
+        --s-track: -0.02em;
         --b-font: "Darker Grotesque", sans-serif;
         --b-weight: 500;
       }
@@ -109,7 +114,7 @@ const BODY_FONTS = HEADING_FONTS;
       .lab-points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 52px; margin: 64px 0 0; padding-top: 30px; border-top: 1px solid rgba(28,29,34,0.14); }
       .lab-num { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; color: rgba(28,29,34,0.42); }
       .lab-ph {
-        font-family: var(--h-font); font-weight: var(--h-weight); letter-spacing: var(--h-track);
+        font-family: var(--s-font); font-weight: var(--s-weight); letter-spacing: var(--s-track);
         font-size: 21px; line-height: 1.25; color: var(--wine); margin: 12px 0 10px;
       }
       .lab-pb { margin: 0; font-size: 14px; line-height: 1.7; color: rgba(28,29,34,0.72); }
@@ -118,7 +123,7 @@ const BODY_FONTS = HEADING_FONTS;
       .lab-svc { padding: 16px 0; border-bottom: 1px solid rgba(28,29,34,0.14); }
       .lab-svc:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
       .lab-svc-name {
-        font-family: var(--h-font); font-weight: var(--h-weight); letter-spacing: var(--h-track);
+        font-family: var(--s-font); font-weight: var(--s-weight); letter-spacing: var(--s-track);
         font-size: 21px; line-height: 1.25; color: var(--wine); margin: 0 0 6px;
       }
       .lab-svc-meta { margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
@@ -135,7 +140,7 @@ const BODY_FONTS = HEADING_FONTS;
   <body>
     <div class="lab-bar">
       <div class="lab-field">
-        <label for="hf">Heading font</label>
+        <label for="hf">Heading font <span style="opacity:.6">(SMM)</span></label>
         <select id="hf">
           {HEADING_FONTS.map((f) => (
             <option value={f.stack} data-note={f.note} selected={f.name === "Nunito Sans"}>{f.name}</option>
@@ -153,6 +158,26 @@ const BODY_FONTS = HEADING_FONTS;
       <div class="lab-field">
         <label for="ht">Tracking <span id="htv">-50</span> (Canva)</label>
         <input id="ht" type="range" min="-90" max="20" step="5" value="-50" />
+      </div>
+      <div class="lab-field">
+        <label for="sf">Sub-heading <span style="opacity:.6">(Reach that matters)</span></label>
+        <select id="sf">
+          {HEADING_FONTS.map((f) => (
+            <option value={f.stack} data-note={f.note} selected={f.name === "Nunito Sans"}>{f.name}</option>
+          ))}
+        </select>
+      </div>
+      <div class="lab-field">
+        <label for="sw">Sub weight</label>
+        <select id="sw">
+          {[300, 400, 500, 600, 700, 800, 900].map((w) => (
+            <option value={w} selected={w === 700}>{w}</option>
+          ))}
+        </select>
+      </div>
+      <div class="lab-field">
+        <label for="st">Sub tracking <span id="stv">-20</span></label>
+        <input id="st" type="range" min="-90" max="20" step="5" value="-20" />
       </div>
       <div class="lab-field">
         <label for="bf">Body font</label>
@@ -223,6 +248,7 @@ const BODY_FONTS = HEADING_FONTS;
         const root = document.documentElement.style;
         const $ = (id) => document.getElementById(id);
         const hf = $("hf"), hw = $("hw"), ht = $("ht"), bf = $("bf"), bw = $("bw");
+        const sf = $("sf"), sw = $("sw"), st = $("st"), stv = $("stv");
         const note = $("note"), htv = $("htv");
         const KEY = "tmke-font-lab";
 
@@ -231,13 +257,17 @@ const BODY_FONTS = HEADING_FONTS;
           root.setProperty("--h-weight", hw.value);
           // Canva tracking units are thousandths of an em: -50 -> -0.05em.
           root.setProperty("--h-track", (ht.value / 1000) + "em");
+          root.setProperty("--s-font", sf.value);
+          root.setProperty("--s-weight", sw.value);
+          root.setProperty("--s-track", (st.value / 1000) + "em");
+          stv.textContent = st.value;
           root.setProperty("--b-font", bf.value);
           root.setProperty("--b-weight", bw.value);
           htv.textContent = ht.value;
           note.textContent = hf.options[hf.selectedIndex].dataset.note || "";
           if (save !== false) {
             try {
-              localStorage.setItem(KEY, JSON.stringify({ h: hf.value, hw: hw.value, ht: ht.value, b: bf.value, bw: bw.value }));
+              localStorage.setItem(KEY, JSON.stringify({ h: hf.value, hw: hw.value, ht: ht.value, s: sf.value, sw: sw.value, st: st.value, b: bf.value, bw: bw.value }));
             } catch (_) {}
           }
         }
@@ -248,14 +278,18 @@ const BODY_FONTS = HEADING_FONTS;
             if (saved.h) hf.value = saved.h;
             if (saved.hw) hw.value = saved.hw;
             if (saved.ht) ht.value = saved.ht;
+            if (saved.s) sf.value = saved.s;
+            if (saved.sw) sw.value = saved.sw;
+            if (saved.st) st.value = saved.st;
             if (saved.b) bf.value = saved.b;
             if (saved.bw) bw.value = saved.bw;
           }
         } catch (_) {}
 
-        [hf, hw, ht, bf, bw].forEach((el) => el.addEventListener("input", () => apply()));
+        [hf, hw, ht, sf, sw, st, bf, bw].forEach((el) => el.addEventListener("input", () => apply()));
         $("reset").addEventListener("click", () => {
           hf.value = '"Nunito Sans", sans-serif'; hw.value = "700"; ht.value = "-50";
+          sf.value = '"Nunito Sans", sans-serif'; sw.value = "700"; st.value = "-20";
           bf.value = '"Darker Grotesque", sans-serif'; bw.value = "500";
           apply();
         });
