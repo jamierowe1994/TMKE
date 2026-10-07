@@ -134,6 +134,7 @@ const hideFromSearch = noindex || privateArea;
     {
       enableTransition && (
         <>
+          <link rel="preload" as="image" href="/images/loading-tmke.webp" fetchpriority="low" />
           {/* Pre-cover: runs before the body paints. If we arrived via a
               transition, pin the panels over the screen so the new page never
               flashes before page-transition.js plays the reveal-out. */}
@@ -161,17 +162,18 @@ const hideFromSearch = noindex || privateArea;
                A single sheet fades up over the lot in a third of the time. */
             html.pt-revealing { background: #371e28; overflow: hidden; }
             .pt { position: fixed; inset: 0; z-index: 9500; pointer-events: none; visibility: hidden; }
+            /* The artwork Dani made: the wordmark blind-embossed into burgundy
+               board, 2000x1125. Its flat ground is #371e28, the brand burgundy,
+               so the colour behind it matches exactly and nothing shows a seam
+               if the image has not arrived yet or is letterboxed.
+               cover on anything wider than the artwork; contain below that, so
+               a phone scales the mark down rather than cropping it in half. */
             .pt__veil {
-              position: absolute; inset: 0; background: #371e28; opacity: 0;
-              display: flex; align-items: center; justify-content: center;
+              position: absolute; inset: 0; opacity: 0;
+              background: #371e28 url("/images/loading-tmke.webp") center / cover no-repeat;
             }
-            /* Embossed: the wordmark is the same burgundy as the sheet, lifted
-               only by a light edge below and a dark edge above. */
-            .pt__mark {
-              font-family: "Cormorant Garamond", "EB Garamond", Georgia, serif;
-              font-size: clamp(46px, 6.4vw, 92px); font-weight: 500;
-              letter-spacing: 0.13em; text-indent: 0.13em; color: #371e28;
-              text-shadow: 0 1px 0 rgba(255,255,255,0.16), 0 -1px 0 rgba(0,0,0,0.55);
+            @media (max-aspect-ratio: 16 / 9) {
+              .pt__veil { background-size: contain; }
             }
             html.pt-revealing .pt { visibility: visible; }
             html.pt-revealing .pt__veil { opacity: 1; }
@@ -216,13 +218,11 @@ const hideFromSearch = noindex || privateArea;
     <LoginState />
 
     {/* Front-end page-transition overlay — one burgundy sheet that fades up
-        over the page, with the wordmark embossed in the middle of it. */}
+        over the page, carrying the embossed wordmark artwork. */}
     {
       enableTransition && (
         <div class="pt" id="page-transition" aria-hidden="true">
-          <div class="pt__veil">
-            <span class="pt__mark">TMKE</span>
-          </div>
+          <div class="pt__veil" />
         </div>
       )
     }
