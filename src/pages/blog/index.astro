@@ -102,8 +102,9 @@ const featMeta = featured
                the foot of the board whether the join is open or not. It used to
                come first, which is why the link faded in high and then dropped
                when the join was finally taken out of the layout (Dani, 7 Oct). -->
-          <div class="ins-member" id="ins-member" hidden data-lenis-prevent>
+          <div class="ins-member" id="ins-member" hidden>
             <button type="button" class="ins-member-x" id="ins-member-x" aria-label="Back">&times;</button>
+            <div class="ins-member-top" data-lenis-prevent>
             <h2 class="ins-member-h">There&rsquo;s more where that came from.</h2>
             <p class="ins-member-lede">Join TMKE for free and unlock our member-only blogs, practical training and property marketing resources, created specifically for estate agents. New content added throughout the month.</p>
             <form class="ins-member-form" id="ins-join" novalidate>
@@ -124,14 +125,25 @@ const featMeta = featured
               <p class="ins-member-lede">Check your inbox. We&rsquo;ve sent a confirmation link &mdash; open it in this browser to activate your account.</p>
             </div>
             <p class="ins-member-alt">Already a member? <a href="/login">Sign in here</a></p>
+            </div>
 
             {peek && (
-              <div class="ins-peek">
-                <span class="ins-peek-lead">What you&rsquo;re missing.</span>
-                <p class="ins-peek-note">Take a sneak peek at our latest member-only blog. Join for free to read the rest.</p>
-                <span class="ins-peek-title">{peek.title}</span>
-                <p class="ins-peek-stand">{peek.standfirst}</p>
-              </div>
+              <!-- Pinned under the form, outside its scroll, so it can never be
+                   the thing that gets cut off. The picture turns the card over:
+                   the invitation on one side, what is behind it on the other. -->
+              <button type="button" class="ins-peek" id="ins-peek" aria-label="Preview the latest member-only blog">
+                <span class="ins-peek-words">
+                  <span class="ins-peek-face">
+                    <span class="ins-peek-lead">What you&rsquo;re missing.</span>
+                    <span class="ins-peek-note">Take a sneak peek at our latest member-only blog. Join for free to read the rest.</span>
+                  </span>
+                  <span class="ins-peek-back" aria-hidden="true">
+                    <span class="ins-peek-title">{peek.title}</span>
+                    <span class="ins-peek-meta">{[peek.category, fmtDate(peek.date)].filter(Boolean).join("  ·  ")}</span>
+                  </span>
+                </span>
+                <span class="ins-peek-pic" style={`background-image:url('${peek.hero}')`}></span>
+              </button>
             )}
           </div>
 
@@ -328,11 +340,21 @@ const featMeta = featured
        Scrolls inside itself on a short screen rather than running past the
        bottom of the board. */
     .ins-member {
-      flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none;
-      display: flex; flex-direction: column; gap: 13px;
+      flex: 1 1 auto; min-height: 0;
+      display: flex; flex-direction: column; gap: 14px;
+      /* The heading's line box starts above its cap height, so the BOX lining
+         up with the picture still read as the words sitting low. Pulled up by
+         that leading so the letters land on the picture's top edge. */
+      margin-top: calc(-0.5 * (1.2em - 1cap));
       opacity: 0; transition: opacity 0.3s ease;
     }
-    .ins-member::-webkit-scrollbar { width: 0; display: none; }
+    /* Only the form scrolls; the peek below it is pinned, so it can never be
+       the thing that runs off the bottom (Dani, 7 Oct). */
+    .ins-member-top {
+      flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none;
+      display: flex; flex-direction: column; gap: 13px;
+    }
+    .ins-member-top::-webkit-scrollbar { width: 0; display: none; }
     .ins-member-h {
       margin: 0; max-width: 75%;
       font-family: var(--subhead); font-weight: 700;
@@ -349,10 +371,10 @@ const featMeta = featured
       font-size: 20px; line-height: 1; color: rgba(244,242,241,0.6);
     }
     .ins-member-x:hover { color: var(--paper); }
-    /* 75% of the column, not a 36ch measure that broke the sentences up in
-       odd places (Dani, 7 Oct). */
+    /* Full width of the column: at 75% it ran to three lines and pushed
+       everything below it down (Dani, 7 Oct). The heading keeps the 75%. */
     .ins-member-lede {
-      margin: 0; max-width: 75%;
+      margin: 0;
       font-family: var(--sans); font-size: clamp(13.5px, 1vw, 15px);
       line-height: 1.55; color: rgba(244,242,241,0.82);
     }
@@ -376,16 +398,18 @@ const featMeta = featured
       font-family: var(--sans); font-size: 12px; line-height: 1.45; color: rgba(244,242,241,0.6);
     }
     .ins-check input { margin: 2px 0 0; accent-color: var(--paper); }
+    /* The site's own button: 14px/600 in the body face, 1px border, 6px radius,
+       and it lifts on hover. It was a hard 11px uppercase slab (Dani, 7 Oct). */
     .ins-join-btn {
-      align-self: flex-start; margin-top: 6px; display: inline-flex; align-items: center; gap: 10px;
-      appearance: none; border: 0; cursor: pointer;
+      align-self: flex-start; margin-top: 4px; display: inline-flex; align-items: center; gap: 10px;
+      cursor: pointer; padding: 10px 26px; border-radius: 6px;
       background: var(--paper); color: var(--english-violet);
-      padding: 11px 24px; border-radius: 2px;
-      font-family: var(--sans); font-size: 11px; font-weight: 700;
-      letter-spacing: 0.18em; text-transform: uppercase; transition: opacity 0.25s;
+      border: 1px solid var(--paper);
+      font-family: var(--sans); font-size: 14px; font-weight: 600; letter-spacing: 0.01em;
+      transition: background 0.25s, color 0.25s, transform 0.25s;
     }
-    .ins-join-btn:hover { opacity: 0.85; }
-    .ins-join-btn[disabled] { opacity: 0.55; cursor: default; }
+    .ins-join-btn:hover { background: transparent; color: var(--paper); transform: translateY(-2px); }
+    .ins-join-btn[disabled] { opacity: 0.55; cursor: default; transform: none; }
     .ins-join-err {
       margin: 0; font-family: var(--sans); font-size: 12.5px; line-height: 1.45; color: #f2c6c6;
     }
@@ -395,29 +419,49 @@ const featMeta = featured
     }
     .ins-member-alt a { color: var(--paper); text-decoration: underline; text-underline-offset: 3px; }
 
-    /* ---- The sneak peek: the newest members-only post, intro only ---- */
+    /* ---- The sneak peek: a card of its own at the foot, words left and the
+       picture right. Clicking it turns the words over to the post's title and
+       date — still no body, that is the thing they are joining for. ---- */
     .ins-peek {
-      margin-top: 4px; padding-top: 16px;
-      border-top: 1px solid rgba(244,242,241,0.18);
-      display: flex; flex-direction: column; gap: 7px;
+      flex: 0 0 auto; align-self: stretch; margin-top: 2px;
+      appearance: none; cursor: pointer; text-align: left;
+      background: rgba(244,242,241,0.05);
+      border: 1px solid rgba(244,242,241,0.18); border-radius: 6px;
+      padding: 14px 14px 14px 16px;
+      display: flex; align-items: center; gap: 16px;
+      transition: background 0.25s, border-color 0.25s;
     }
+    .ins-peek:hover { background: rgba(244,242,241,0.09); border-color: rgba(244,242,241,0.34); }
+    /* The two faces share one cell, so turning over never changes the height. */
+    .ins-peek-words { flex: 1 1 auto; min-width: 0; display: grid; }
+    .ins-peek-face, .ins-peek-back {
+      grid-area: 1 / 1; display: flex; flex-direction: column; gap: 5px;
+      transition: opacity 0.35s ease;
+    }
+    .ins-peek-back { opacity: 0; pointer-events: none; }
+    .ins-peek.is-open .ins-peek-face { opacity: 0; }
+    .ins-peek.is-open .ins-peek-back { opacity: 1; }
     .ins-peek-lead {
       font-family: var(--sans); font-size: 10px; font-weight: 700;
       letter-spacing: 0.2em; text-transform: uppercase; color: rgba(244,242,241,0.5);
     }
     .ins-peek-note {
-      margin: 0; max-width: 75%;
-      font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(244,242,241,0.6);
+      font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(244,242,241,0.62);
     }
     .ins-peek-title {
-      font-family: var(--subhead); font-weight: 700; font-size: 17px;
+      font-family: var(--subhead); font-weight: 700; font-size: 16px;
       line-height: 1.25; letter-spacing: -0.01em; color: var(--paper);
     }
-    .ins-peek-stand {
-      margin: 0; max-width: 75%;
-      font-family: var(--sans); font-size: 12.5px; line-height: 1.55; color: rgba(244,242,241,0.62);
-      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+    .ins-peek-meta {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.16em; text-transform: uppercase; color: rgba(244,242,241,0.5);
     }
+    .ins-peek-pic {
+      flex: 0 0 auto; width: 74px; height: 56px; border-radius: 4px;
+      background-size: cover; background-position: center; background-color: rgba(244,242,241,0.12);
+      transition: transform 0.35s ease;
+    }
+    .ins-peek:hover .ins-peek-pic { transform: scale(1.04); }
 
     .ins-feature { position: relative; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
     /* The featured column is bracketed by two full-height rules: one sectioning it
@@ -922,6 +966,8 @@ const featMeta = featured
         if (busy || !board.classList.contains("is-member")) return;
         busy = true;
         member.classList.remove("is-on");                // 1. the join goes, quickly
+        const pk = document.getElementById("ins-peek");
+        if (pk) pk.classList.remove("is-open");          // back to the invitation
         setTimeout(() => {
           board.classList.remove("is-member");           // 2. the emboss fades back
           setTimeout(() => board.classList.remove("is-quiet"), 180);  // 3. and these with it
@@ -930,6 +976,12 @@ const featMeta = featured
       };
 
       unlock.addEventListener("click", open);
+
+      /* The peek turns over on click and back again. */
+      const peekBtn = document.getElementById("ins-peek");
+      if (peekBtn) {
+        peekBtn.addEventListener("click", () => peekBtn.classList.toggle("is-open"));
+      }
       if (closeBtn) closeBtn.addEventListener("click", close);
       board.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && board.classList.contains("is-member")) { e.stopPropagation(); close(); }
