@@ -72,7 +72,7 @@ const navLinks = [
   { label: "Insights", href: "/blog" },
   { label: "Contact", href: "/contact" },
 ];
-const total = 2;   // the deck is services + the ways in; the opening is a normal section now
+const total = 3;   // services → marketing → the ways in; the opening is a normal section
 ---
 
 <BaseLayout
@@ -251,11 +251,6 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
                accordion: four collapsed rows where only the one you hovered
                showed its words, so the page's own answer to "what do you do"
                was hidden behind four hovers. -->
-          <div class="sm-services-media" id="sm-services-media">
-            {SERVICE_TIERS.map((t, i) => (
-              <div class="sm-tierimg" data-img={i} style={`background-image:url('${TIER_IMAGES[i % TIER_IMAGES.length]}')`}></div>
-            ))}
-          </div>
           <div class="sm-services-text">
             <div class="sm-services-head">
               <p class="sm-rule-eyebrow">Services</p>
@@ -280,32 +275,62 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
               ))}
             </div>
           </div>
+          <div class="sm-services-media" id="sm-services-media">
+            {SERVICE_TIERS.map((t, i) => (
+              <div class="sm-tierimg" data-img={i} style={`background-image:url('${TIER_IMAGES[i % TIER_IMAGES.length]}')`}></div>
+            ))}
+          </div>
         </section>
 
 
         <!-- Slide 7 (col 4,row 2) — three CTA cards (unchanged) -->
-        <section class="pf-panel sm-ctas" style="--col:1;--row:0">
-          <div class="sm-cta-row">
-            <article class="sm-cta-card">
-              <div class="sm-cta-img" style={`background-image:url('${R2("living-1")}')`}></div>
-              <h2 class="sm-cta-title">{COPY.ctas.brochure.title}</h2>
-              <p class="sm-cta-desc">{COPY.ctas.brochure.body}</p>
-              <button type="button" class="sm-cta-btn" data-smm-form="brochure">Download a brochure <span class="btn-arrow">&rarr;</span></button>
-            </article>
-
-            <article class="sm-cta-card">
-              <div class="sm-cta-img" style={`background-image:url('${R2("table")}')`}></div>
-              <h2 class="sm-cta-title">{COPY.ctas.call.title}</h2>
-              <p class="sm-cta-desc">{COPY.ctas.call.body}</p>
-              <button type="button" class="sm-cta-btn" data-smm-form="discovery">Book a call <span class="btn-arrow">&rarr;</span></button>
-            </article>
-
-            <article class="sm-cta-card">
-              <div class="sm-cta-img" style={`background-image:url('${R2("white-1")}')`}></div>
-              <h2 class="sm-cta-title">{COPY.ctas.contact.title}</h2>
-              <p class="sm-cta-desc">{COPY.ctas.contact.body}</p>
-              <button type="button" class="sm-cta-btn" data-smm-form="contact">Get in touch <span class="btn-arrow">&rarr;</span></button>
-            </article>
+        <!-- Social Media Marketing. Its own page, not a flourish: management and
+               marketing are the two things we sell. -->
+        <section class="pf-panel sm-goodslide" style="--col:1;--row:0">
+          <div class="sm-good-field" aria-hidden="true">
+            {GOOD_TILES.map((t) => (
+              <div
+                class:list={["sm-good-tile", t.logo && "sm-good-tile--logo", t.sw && "sm-good-tile--sw"]}
+                style={`--ang:${t.ang}deg;--r:${t.r}vmin;--dur:${t.d}s;--delay:${t.l}s;${t.img ? `background-image:url('${t.img}')` : t.sw ? `background:${t.sw}` : ""}`}
+              >{t.logo ? <span>TMKE</span> : null}</div>
+            ))}
+          </div>
+          <div class="sm-good-inner">
+            <p class="sm-rule-eyebrow">Shot and Scheduled</p>
+            <h2 class="sm-good-h">{COPY.whatGoodLooksLike.headline}</h2>
+            <p class="sm-good-p">{COPY.whatGoodLooksLike.body}</p>
+          </div>
+        </section>
+        <section class="pf-panel sm-ctas" style="--col:2;--row:0">
+          <!-- A list, not three cards: a heading on the left and the ways in on
+               the right, each opening in place to its words and its button. -->
+          <div class="sm-ways">
+            <div class="sm-ways-head">
+              <p class="sm-rule-eyebrow">Get started</p>
+              <h2 class="sm-ways-h">Not sure which one you need?</h2>
+              <p class="sm-ways-note">Tell us where you are and we&rsquo;ll tell you what makes sense &mdash; including if the honest answer is nothing yet.</p>
+            </div>
+            <div class="sm-ways-list">
+              {[
+                { key: "brochure", lead: "The full breakdown, in writing.", cta: "Download a brochure", ...COPY.ctas.brochure },
+                { key: "discovery", lead: "Twenty minutes, no pitch.", cta: "Book a call", ...COPY.ctas.call },
+                { key: "contact", lead: "A message first, if you&rsquo;d rather.", cta: "Get in touch", ...COPY.ctas.contact },
+              ].map((w, i) => (
+                <div class="sm-way" data-way={i}>
+                  <button type="button" class="sm-way-head" aria-expanded={i === 0 ? "true" : "false"}>
+                    <span class="sm-way-title">{w.title}</span>
+                    <span class="sm-way-lead" set:html={w.lead}></span>
+                    <span class="sm-way-sign" aria-hidden="true"></span>
+                  </button>
+                  <div class="sm-way-body">
+                    <div class="sm-way-inner">
+                      <p class="sm-way-copy">{w.body}</p>
+                      <button type="button" class="sm-way-cta" data-smm-form={w.key}>{w.cta} <span aria-hidden="true">&rsaquo;</span></button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </div>
@@ -346,6 +371,61 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
   <NavDrawer />
 
   <style>
+    /* ===== The ways in — a list that opens in place ===================== */
+    .sm-ways {
+      width: 100%; display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr);
+      gap: clamp(32px, 5vw, 96px); align-items: start;
+      padding: 0 clamp(28px, 4vw, 64px);
+    }
+    .sm-ways-h {
+      margin: 10px 0 14px; font-family: var(--serif); font-weight: 400;
+      font-size: clamp(22px, 2.1vw, 31px); line-height: 1.1; letter-spacing: -0.02em; color: var(--ink);
+    }
+    .sm-ways-note {
+      margin: 0; max-width: 42ch;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.7; color: rgba(28,29,34,0.65);
+    }
+    .sm-ways-list { display: flex; flex-direction: column; }
+    .sm-way { border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .sm-way:first-child { border-top: 1px solid rgba(28,29,34,0.14); }
+    .sm-way-head {
+      width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 18px;
+      align-items: baseline; gap: 18px; text-align: left;
+      background: none; border: 0; padding: 20px 0; cursor: pointer;
+    }
+    .sm-way-title {
+      font-family: var(--sans); font-size: 15px; font-weight: 700;
+      letter-spacing: 0.01em; color: var(--ink);
+    }
+    .sm-way-lead { font-family: var(--sans); font-size: 13.5px; color: rgba(28,29,34,0.55); }
+    .sm-way-sign { position: relative; width: 11px; height: 11px; justify-self: end; align-self: center; }
+    .sm-way-sign::before, .sm-way-sign::after {
+      content: ""; position: absolute; background: rgba(28,29,34,0.5);
+      left: 0; top: 5px; width: 11px; height: 1px; transition: transform 0.3s ease;
+    }
+    .sm-way-sign::after { transform: rotate(90deg); }
+    .sm-way.is-open .sm-way-sign::after { transform: rotate(0deg); }
+    .sm-way-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.4s cubic-bezier(.2,.8,.2,1); }
+    .sm-way.is-open .sm-way-body { grid-template-rows: 1fr; }
+    .sm-way-inner { overflow: hidden; }
+    .sm-way-copy {
+      margin: 0 0 14px; max-width: 64ch;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.75; color: rgba(28,29,34,0.7);
+    }
+    .sm-way-cta {
+      display: inline-flex; align-items: center; gap: 9px; margin-bottom: 22px;
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet);
+      transition: gap 0.25s ease;
+    }
+    .sm-way-cta:hover { gap: 15px; }
+    @media (max-width: 900px) {
+      .sm-ways { grid-template-columns: 1fr; gap: 26px; }
+      .sm-way-head { grid-template-columns: minmax(0, 1fr) 18px; }
+      .sm-way-lead { display: none; }
+    }
+
     /* ===== The opening, as an ordinary section =========================
        Term, picture, three points. Quiet and still: no drift, no reveal, no
        band. The deck starts below it. */
@@ -356,7 +436,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
     }
     .sm-open-head { display: flex; align-items: baseline; gap: 20px; flex-wrap: wrap; }
     .sm-open-pic { margin: 0; border-radius: 2px; overflow: hidden; background: var(--platinum); }
-    .sm-open-pic img { display: block; width: 100%; height: clamp(300px, 46vh, 520px); object-fit: cover; }
+    .sm-open-pic img { display: block; width: 100%; height: clamp(420px, 62vh, 680px); object-fit: cover; object-position: center 38%; }
     .sm-open-points {
       display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: clamp(28px, 3.4vw, 60px);
@@ -392,7 +472,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
        that left the document no height at all, which is why the deck had to
        hijack the wheel to move anything. */
     .pf { position: relative; background: var(--paper); color: var(--ink); }
-    .pf-runway { position: relative; height: calc(100svh * var(--pf-panels, 2)); }
+    .pf-runway { position: relative; height: calc(100svh * (var(--pf-panels, 2) + 1)); }
     /* 2D deck — panels sit on a plane that translates in X *and* Y, so the path
        mixes sliding across with sliding down. */
     .pf-stage { position: sticky; top: 0; height: 100svh; overflow: hidden; }
@@ -536,7 +616,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
       background: radial-gradient(ellipse at center, rgba(244,242,241,0.96) 28%, rgba(244,242,241,0.55) 52%, rgba(244,242,241,0) 74%);
       filter: blur(28px);
     }
-    .sm-good-h { font-family: var(--serif); font-weight: 400; font-size: clamp(34px, 4.6vw, 68px); line-height: 1.02; letter-spacing: -0.025em; color: var(--ink); margin: 10px 0 18px; }
+    .sm-good-h { font-family: var(--serif); font-weight: 400; font-size: clamp(26px, 2.8vw, 42px); line-height: 1.06; letter-spacing: -0.025em; color: var(--ink); margin: 10px 0 18px; }
     /* The same type as the three ethos paragraphs (.sm-feature-body): size,
        line-height and weight are theirs; only the colour changes, because this
        one sits on paper rather than the photo. .sm-services-lead matches too. */
@@ -558,7 +638,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
     .sm-hero-wrap { max-width: none; }
     .sm-lede-grid { display: grid; grid-template-columns: 1fr auto; gap: clamp(32px, 5vw, 80px); align-items: stretch; }
     .sm-lede-copy { max-width: 480px; display: flex; flex-direction: column; justify-content: space-between; }
-    .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(40px, 4.6vw, 66px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
+    .sm-lede-mark { font-family: var(--serif); font-weight: 500; font-size: clamp(34px, 3.4vw, 52px); line-height: 0.94; letter-spacing: 0.02em; margin: 0; color: var(--ink); }
     .sm-lede-pron { display: flex; align-items: baseline; gap: 12px; margin: 12px 0 0; }
     .sm-lede-phon { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 17px); letter-spacing: 0.06em; color: rgba(28,29,34,0.6); }
     .sm-lede-pos { font-family: var(--serif); font-style: normal; font-size: clamp(13px, 1vw, 15px); color: rgba(28,29,34,0.5); }
@@ -708,7 +788,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
     }
 
     .sm-services-head { flex: 0 0 auto; }
-    .sm-services-h { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 3.2vw, 48px); line-height: 1.04; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
+    .sm-services-h { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.1vw, 31px); line-height: 1.1; letter-spacing: -0.02em; color: var(--ink); margin: 0 0 14px; }
     .sm-services-lead {
       margin: 0; max-width: 62ch;
       font-family: var(--sans); font-size: 14px; line-height: 1.7;
@@ -1105,7 +1185,8 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
       // Slide 2 has no entry on desktop: it is already on the photo, fading in as
       // the photo grows, so there is nothing for it to slide in FROM. Phones hide
       // the long photo and skip the grow, so there it still slides in (see render).
-      const ENTRY = [[0, 0], [1, 0]];
+      // Panel 0 slides in too: the move onto the services IS the hand-off.
+      const ENTRY = [[1, 0], [1, 0], [1, 0]];
       panels.forEach((p, i) => { p.style.zIndex = String(i); });
 
       /* The shared HUD for slides 2-4. It does not move with the panels, so the
@@ -1120,7 +1201,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
       const hudFill = document.getElementById("sm-hud-fill");
       const EASE = 0.06;     // lerp toward target (smooth glide)
       let acc = 0, display = 0, lastCur = -1;
-      const clamp = (v) => Math.max(0, Math.min(last, v));
+      const clamp = (v) => Math.max(-1, Math.min(last, v));
 
       /* The deck is driven by the page's own scroll, not by hijacking the wheel.
          The stage is sticky inside a runway one viewport tall per panel, so how
@@ -1139,7 +1220,9 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
         if (!runway) return;
         const r = runway.getBoundingClientRect();
         const span = runway.offsetHeight - window.innerHeight;
-        acc = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) * last : 0;
+        // -1 .. last: the first viewport of the runway slides panel 0 in.
+        const p = span > 0 ? Math.max(0, Math.min(1, -r.top / span)) : 0;
+        acc = p * (last + 1) - 1;
       };
       const targetOf = () => acc;
       window.addEventListener("scroll", readScroll, { passive: true });
@@ -1153,7 +1236,7 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
           const e = ENTRY[i] || [0, 0];
           panels[i].style.transform = `translate(${(e[0] * f * 100).toFixed(3)}%, ${(e[1] * f * 100).toFixed(3)}%)`;
         }
-        const cur = clamp(Math.round(display));
+        const cur = Math.max(0, clamp(Math.round(display)));
         if (cur !== lastCur) {
           lastCur = cur;
           panels.forEach((p, i) => p.classList.toggle("is-in", i === cur));
@@ -1191,6 +1274,21 @@ const total = 2;   // the deck is services + the ways in; the opening is a norma
 
     // Slide 5 — tier list drives the reactive image: hover/focus/click a tier to
     // open its blurb and crossfade in its image.
+    (function ways() {
+      const list = document.querySelector(".sm-ways-list");
+      if (!list) return;
+      const rows = [...list.querySelectorAll(".sm-way")];
+      const open = (row) => rows.forEach((r) => {
+        const on = r === row;
+        r.classList.toggle("is-open", on);
+        r.querySelector(".sm-way-head").setAttribute("aria-expanded", on ? "true" : "false");
+      });
+      rows.forEach((r) => r.querySelector(".sm-way-head").addEventListener("click", () => {
+        open(r.classList.contains("is-open") ? null : r);
+      }));
+      open(rows[0]);
+    })();
+
     (function tiers() {
       // Every entry's words are on the page now, so this only crossfades the
       // picture to match whichever one you are reading.
