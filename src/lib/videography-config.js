@@ -220,9 +220,8 @@ export const RATE_CARD = {
 };
 
 /* ---------------------------------------------------------------------------
-   Photography packages (Danielle's pricing sheet, 7 Oct 2026). On the rate
-   card only for now: not in SERVICES, so nothing in the booking flow offers
-   them until that is decided.
+   Photography packages (Danielle's pricing sheet, 7 Oct 2026). The rate
+   card's source; SERVICES.photography is the bookable side, at member_pence.
 
    Cost is labour (photography + editing + amends buffer) at the hourly rate,
    plus the travel charge to TMKE and commission on the labour. Prices are that
