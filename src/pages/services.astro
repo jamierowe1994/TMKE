@@ -32,33 +32,6 @@ const SMM_MKTG_IMG = (await getImage({
 // Social Media Marketing image (replaces the old kitchen placeholder).
 const TIER_IMAGES = [SMM_MKTG_IMG, R2("white-2"), R2("table"), R2("living-2")];
 
-// Slide 6 — floating "work samples" field. Mix of images, brand swatches and
-// logo tiles; all render as consistent 3:4 boxes. Placeholders — swap freely.
-// 24 tiles scattered to fill the screen, drifting fast toward the viewer.
-const GIMG = [
-  R2("white-1"), R2("living-1"), R2("kitchen-1"), R2("orange-1"), R2("table"), R2("white-2"),
-  R2("kitchen-2"), R2("living-2"), R2("orange-2"), R2("vibes"), SMM_HERO_IMG, SMM_MKTG_IMG,
-];
-const GSW = ["var(--english-violet)", "var(--ink)", "#c9a88e", "#8a9a8e", "#d8c4b0"];
-// Concentric-ring depth field: tiles emerge from the BACK (far, faint, small),
-// fly toward the viewer growing via 3D perspective, and spiral gently as they
-// come (circular flow), then pass off the screen. 3 rings × 7 tiles; each ring
-// sits at a staggered depth so several concentric rings are always in flight.
-const GRINGS = 3, GPER = 7;
-const GOOD_TILES = [];
-for (let ring = 0; ring < GRINGS; ring++) {
-  for (let k = 0; k < GPER; k++) {
-    const i = ring * GPER + k;
-    const ang = +((k * (360 / GPER)) + ring * 17).toFixed(1);  // even per ring + per-ring offset
-    const r = 22 + ring * 4;                                    // base ring radius (vmin)
-    const d = 6;
-    const l = +(-(ring / GRINGS) * d).toFixed(2);              // rings staggered in depth
-    const base = { ang, r, d, l };
-    if (i % 7 === 3) GOOD_TILES.push({ ...base, logo: true });
-    else if (i % 3 === 1) GOOD_TILES.push({ ...base, sw: GSW[i % GSW.length] });
-    else GOOD_TILES.push({ ...base, img: GIMG[i % GIMG.length] });
-  }
-}
 const BRANDS = [
   { name: "Crescent Lettings", meta: "Lettings · Manchester", blurb: "Always-on content and monthly reels for a fast-growing lettings brand.", images: [R2("white-1"), R2("living-1"), R2("kitchen-1")] },
   { name: "Harbour & Co", meta: "Premium sales · Poole", blurb: "Full management for a premium coastal agency — strategy through to delivery.", images: [R2("orange-1"), R2("table"), R2("white-2")] },
@@ -303,19 +276,33 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
         <!-- Slide 7 (col 4,row 2) — three CTA cards (unchanged) -->
         <!-- Social Media Marketing. Its own page, not a flourish: management and
                marketing are the two things we sell. -->
+        <!-- The other things we do. Two for now; the row takes however many.
+             Hover one and it widens and names itself — the drifting tile field
+             that used to be here said nothing you could act on. -->
         <section class="pf-panel sm-goodslide" style="--col:2;--row:0">
-          <div class="sm-good-field" aria-hidden="true">
-            {GOOD_TILES.map((t) => (
-              <div
-                class:list={["sm-good-tile", t.logo && "sm-good-tile--logo", t.sw && "sm-good-tile--sw"]}
-                style={`--ang:${t.ang}deg;--r:${t.r}vmin;--dur:${t.d}s;--delay:${t.l}s;${t.img ? `background-image:url('${t.img}')` : t.sw ? `background:${t.sw}` : ""}`}
-              >{t.logo ? <span>TMKE</span> : null}</div>
-            ))}
-          </div>
-          <div class="sm-good-inner">
-            <p class="sm-rule-eyebrow">Shot and Scheduled</p>
-            <h2 class="sm-good-h">{COPY.whatGoodLooksLike.headline}</h2>
-            <p class="sm-good-p">{COPY.whatGoodLooksLike.body}</p>
+          <div class="sm-more">
+            <p class="sm-rule-eyebrow">Also from TMKE</p>
+            <div class="sm-more-row">
+              {[
+                { title: "Social Media Marketing", lead: "Shot and Scheduled", img: R2("kitchen-2"),
+                  body: "A shoot day every quarter with a TMKE videographer, then every video edited, captioned, scheduled and published across the three months.", key: "brochure" },
+                { title: "Property Posting", lead: "Listings, handled", img: R2("living-2"),
+                  body: "Your listings written, designed and posted as they come to market, so every property goes out looking like it belongs to the same agency.", key: "contact" },
+              ].map((m) => (
+                <article class="sm-more-card" style={`background-image:url('${m.img}')`}>
+                  <div class="sm-more-face">
+                    <span class="sm-more-lead">{m.lead}</span>
+                    <h2 class="sm-more-title">{m.title}</h2>
+                  </div>
+                  <div class="sm-more-open">
+                    <div class="sm-more-inner">
+                      <p class="sm-more-body">{m.body}</p>
+                      <button type="button" class="sm-more-cta" data-smm-form={m.key}>Find out more <span aria-hidden="true">&rsaquo;</span></button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
         <section class="pf-panel sm-ctas sm-ctas--stack" style="--col:3;--row:0">
@@ -388,6 +375,66 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
   <NavDrawer />
 
   <style>
+    /* ===== Also from TMKE — a row that opens on hover ==================== */
+    .sm-more { width: 100%; display: flex; flex-direction: column; gap: 22px; padding: 0 var(--page-gutter); }
+    .sm-more-row {
+      display: flex; gap: 10px; height: clamp(320px, 56vh, 560px);
+    }
+    .sm-more-card {
+      position: relative; flex: 1 1 0; min-width: 0; overflow: hidden;
+      background-size: cover; background-position: center; border-radius: 2px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      padding: 26px; cursor: pointer;
+      transition: flex-grow 0.55s cubic-bezier(.2,.8,.2,1);
+    }
+    /* The dark wash and the words come in together, so the picture is a picture
+       until you ask it to be a card. */
+    .sm-more-card::before {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(to top, rgba(28,20,24,0.88), rgba(28,20,24,0.35) 58%, rgba(28,20,24,0.12));
+      opacity: 0; transition: opacity 0.45s ease;
+    }
+    .sm-more-card:hover, .sm-more-card:focus-within { flex-grow: 2.1; }
+    .sm-more-card:hover::before, .sm-more-card:focus-within::before { opacity: 1; }
+    .sm-more-face { position: relative; z-index: 1; }
+    .sm-more-lead {
+      display: block; margin-bottom: 8px;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(244,242,241,0.75);
+    }
+    .sm-more-title {
+      margin: 0; font-family: var(--serif); font-weight: 700;
+      font-size: clamp(22px, 2.1vw, 31px); line-height: 1.1; letter-spacing: -0.05em;
+      color: var(--paper);
+    }
+    .sm-more-open {
+      position: relative; z-index: 1;
+      display: grid; grid-template-rows: 0fr; opacity: 0;
+      transition: grid-template-rows 0.5s cubic-bezier(.2,.8,.2,1), opacity 0.35s ease, margin-top 0.5s ease;
+    }
+    .sm-more-card:hover .sm-more-open, .sm-more-card:focus-within .sm-more-open {
+      grid-template-rows: 1fr; opacity: 1; margin-top: 14px;
+    }
+    /* One child, so grid-template-rows: 0fr actually collapses it. With two,
+       the second landed in an implicit auto row and the panel never closed. */
+    .sm-more-inner { overflow: hidden; min-height: 0; }
+    .sm-more-body {
+      margin: 0 0 14px; max-width: 46ch;
+      font-family: var(--sans); font-size: 14px; line-height: 1.7; color: rgba(244,242,241,0.88);
+    }
+    .sm-more-cta {
+      display: inline-flex; align-items: center; gap: 9px;
+      background: none; border: 0; padding: 0; cursor: pointer;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper);
+    }
+    @media (max-width: 860px) {
+      .sm-more-row { flex-direction: column; height: auto; }
+      .sm-more-card { min-height: 220px; }
+      .sm-more-card::before { opacity: 1; }
+      .sm-more-open { grid-template-rows: 1fr; opacity: 1; margin-top: 12px; }
+    }
+
     /* ===== The ways in — a picture, then the list, sitting low ========== */
     .sm-ctas--stack { flex-direction: column; justify-content: flex-start; gap: clamp(18px, 2.4vh, 30px); padding: 0 0 clamp(90px, 12vh, 130px); }
     .sm-ways-pic {
@@ -619,19 +666,6 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     /* slide 6 — Shot and Scheduled (centred) */
     .sm-goodslide { align-items: center; overflow: hidden; }
     /* floating depth-field of work samples drifting toward the screen */
-    .sm-good-field { position: absolute; inset: 0; z-index: 0; perspective: 1100px; perspective-origin: 50% 50%; transform-style: preserve-3d; pointer-events: none; }
-    .sm-good-tile {
-      position: absolute; left: 50%; top: 50%;
-      width: clamp(64px, 6.6vw, 98px); aspect-ratio: 3 / 4;
-      background-size: cover; background-position: center; background-color: #e9e4da;
-      border-radius: 6px; box-shadow: 0 16px 36px rgba(20,18,26,0.16);
-      opacity: 0;
-      transform: translate(-50%, -50%) rotate(var(--ang)) translateX(var(--r)) translateZ(-1500px) rotate(calc(-1 * var(--ang)));
-      animation: goodRise var(--dur, 6s) linear var(--delay, 0s) infinite;
-      will-change: transform, opacity;
-    }
-    .sm-good-tile--logo { display: flex; align-items: center; justify-content: center; background: var(--paper); border: 1px solid rgba(28,29,34,0.12); }
-    .sm-good-tile--logo span { font-family: var(--serif); font-size: clamp(16px, 1.6vw, 24px); letter-spacing: 0.08em; color: var(--english-violet); }
     /* emerge from the back (far, faint), grow toward the viewer via perspective
        while spiralling +26°, then pass off the front and fade */
     @keyframes goodRise {
@@ -641,7 +675,6 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
       100% { opacity: 0; transform: translate(-50%, -50%) rotate(calc(var(--ang) + 26deg)) translateX(var(--r)) translateZ(540px) rotate(calc(-1 * (var(--ang) + 26deg))); }
     }
     @media (prefers-reduced-motion: reduce) {
-      .sm-good-tile { animation: none; opacity: 0.5; transform: translate(-50%, -50%) rotate(var(--ang)) translateX(var(--r)) rotate(calc(-1 * var(--ang))); }
     }
     .sm-good-inner { position: relative; z-index: 2; max-width: 760px; margin: 0 auto; padding: 36px 44px; }
     .sm-good-inner::before {
@@ -744,10 +777,10 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     .sm-services { padding: 0; align-items: stretch; }
     .sm-services-text {
       flex: 1 1 auto; min-width: 360px;
-      display: flex; flex-direction: column; justify-content: center; gap: 18px;
-      /* Centred with modest padding: the head and four entries come to ~880px,
-         and the old 64px top / 80px bottom pushed the last one off the screen. */
-      padding: 28px clamp(28px, 4vw, 64px) 28px clamp(28px, 4vw, 72px);
+      display: flex; flex-direction: column; justify-content: flex-start; gap: 18px;
+      /* Top-aligned to the picture: the picture is inset by one gutter, so the
+         eyebrow starts on the same line as its top edge. */
+      padding: var(--page-gutter) clamp(28px, 4vw, 64px) 28px var(--page-gutter);
     }
     /* A framed picture, not a bleed: its right edge sits on the page margin
        like every other right edge, and it is inset top and bottom so the paper
@@ -962,6 +995,7 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
     /* From "What we do" onward the slides are light — TMKE + Menu turn wine. */
     .pf-top.is-wine .pf-top-logo { color: var(--english-violet); mix-blend-mode: normal; }
     .pf-top.is-wine .pf-top-menu span { background: var(--english-violet); mix-blend-mode: normal; }
+    .pf-top.is-markless .pf-top-logo { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
     .pf-top-menu { display: inline-flex; flex-direction: column; justify-content: center; gap: 5px; width: 30px; height: 22px; padding: 0; background: none; border: none; cursor: pointer; position: relative; z-index: 2; }
     .pf-top-menu span { display: block; width: 100%; height: 2px; border-radius: 2px; background: #fff; mix-blend-mode: difference; transition: transform 0.3s ease, opacity 0.25s ease; }
     .pf-top.is-open .pf-top-menu span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
@@ -1318,8 +1352,12 @@ const total = 4;   // services → marketing → the ways in; the opening is a n
           const top = document.getElementById("pf-top");
           const wineFrom = panels.findIndex((p) => p.classList.contains("sm-services"));
           if (top) {
-            top.classList.toggle("is-ink", !!panels[cur] && panels[cur].classList.contains("sm-hero"));
+            // .sm-hero no longer exists — the opening is .sm-open — so this
+            // matched nothing and the burger fell back to white-on-difference.
+            top.classList.toggle("is-ink", !!panels[cur] && panels[cur].classList.contains("sm-open"));
             top.classList.toggle("is-wine", wineFrom !== -1 && cur >= wineFrom);
+            // The wordmark belongs to the opening; past it the burger is enough.
+            top.classList.toggle("is-markless", cur > 0);
           }
         }
       };
