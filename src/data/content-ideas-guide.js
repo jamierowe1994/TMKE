@@ -33,7 +33,7 @@ export const CONTENT_IDEAS_GUIDE = {
   status: "published",
   est_minutes: 12,
   summary: "Four pillars, twelve ideas each. Content that stays useful whenever it's posted — for the weeks you've nothing new on.",
-  cover_url: "",
+  cover_url: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/Evergreen%20Content%20Ideas.png",
   lessons: [
     {
       title: "Start With the Pillars",

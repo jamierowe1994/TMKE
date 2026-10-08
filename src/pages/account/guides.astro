@@ -334,6 +334,8 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
     import { TRAINING_GUIDES } from "../../data/training-guides.js";
     const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES];
+    // Slug -> built-in, so a database row can borrow its twin's picture.
+    const STATIC_BY_SLUG = Object.fromEntries(STATIC_GUIDES.map((g) => [g.slug, g]));
     const DEV = import.meta.env.DEV;
     const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -384,7 +386,13 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
       const topic = GUIDE_TOPIC_MAP[g.topic];
       const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
       const meta = g.kind === 'course' ? `${lessons} lesson${lessons===1?'':'s'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
-      const art = g.cover_url ? `style="background-image:url('${esc(g.cover_url)}')"` : '';
+      /* The picture, in order of who should own it: the guide's own cover, then
+         the `art` a built-in guide carries, then the built-in of the same slug
+         — a published row with no cover of its own still gets the picture its
+         built-in twin has. Without the last two the card fell back to a grey
+         box, which is what the whole grid was showing (Dani, 8 Oct). */
+      const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url || (STATIC_BY_SLUG[g.slug] || {}).art || '';
+      const art = cover ? `style="background-image:url('${esc(cover)}')"` : '';
 
       // Completion state (signed-in members only; empty otherwise).
       const p = PROGRESS[g.slug];
