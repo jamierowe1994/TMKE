@@ -76,6 +76,11 @@ const STYLE = `
 .dm-pill a{padding:5px 10px;background:#371e28;color:#f4f2f1;border-radius:999px;text-decoration:none;font-size:11px;letter-spacing:.12em}
 html.is-demo .is-demo-locked{opacity:.45;cursor:not-allowed}
 html.is-demo .is-demo-locked::after{content:"\\1F512";font-size:10px;margin-left:6px;opacity:.8}
+/* The training demo locks nothing. Several hub pages add .is-demo-locked
+   themselves rather than going through lockClicks, so the class is undone
+   here as well as the handlers being skipped. Dani, 8 Oct. */
+html.is-demo-training .is-demo-locked{opacity:1;cursor:pointer;pointer-events:auto}
+html.is-demo-training .is-demo-locked::after{content:none}
 @media (max-width:760px){.dm-pill span{display:none}.dm-pill{padding:4px;margin-right:6px;border:0}}
 `;
 
@@ -86,6 +91,7 @@ function ensureStyle() {
 
 /** Show the demo's lock note. Returns nothing; the visitor closes it. */
 export function lock(title, message) {
+  if (isTrainingDemo()) return;   // nothing is locked in the training demo
   ensureStyle();
   document.querySelectorAll(".dm-lock").forEach((e) => e.remove());
   const el = document.createElement("div");
@@ -109,6 +115,7 @@ export function lock(title, message) {
 
 /** Lock a set of elements: any click opens the note instead. Capture phase, so page handlers never run. */
 export function lockClicks(selector, title, message, root) {
+  if (isTrainingDemo()) return;   // nothing is locked in the training demo
   (root || document).addEventListener("click", (e) => {
     const t = e.target.closest && e.target.closest(selector);
     if (!t) return;
@@ -131,6 +138,7 @@ export function initDemoChrome() {
   restoreDemoBrand();   // again here: the session check may have run since import
   ensureStyle();
   document.documentElement.classList.add("is-demo");
+  if (isTrainingDemo()) document.documentElement.classList.add("is-demo-training");
   const first = (u.name || "there").trim().split(/\s+/)[0];
   const cap = first.charAt(0).toUpperCase() + first.slice(1);
   document.querySelectorAll(".ws-greet-name").forEach((e) => { e.textContent = cap + "."; });
