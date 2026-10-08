@@ -211,8 +211,9 @@ export const TRAINING_GUIDES = [
       { title: "Start With a Template", walk: "studio-template", video_url: "",
         body_html:
           p("The Studio gives you everything you need to create content, whether you're starting with one of our templates or building something completely new.") +
-          p("For your first design, we're going to start with a template. Every Member Account includes a selection of demo templates, so you can learn how the Studio works before you start creating anything yourself.") +
-          p("Even if you don't plan on using the finished post, we'd recommend editing one. It's the quickest way to get familiar with the Studio and the tools you'll use most often.") +
+          /* One paragraph, with a line break between the two sentences rather
+             than a paragraph gap — they are the same thought (Dani, 8 Oct). */
+          p("For your first design, we're going to start with a template. Every Member Account includes a selection of demo templates, so you can learn how the Studio works before you start creating anything yourself.<br>Even if you don't plan on using the finished post, we'd recommend editing one. It's the quickest way to get familiar with the Studio and the tools you'll use most often.") +
           shotOpen("bkx-studio", "Your Studio",
             "The Studio homepage, and what each part of it is for.",
             "/images/learn/demo/studio-page-v1.jpg",
