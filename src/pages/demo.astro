@@ -170,6 +170,7 @@ const TILES = [
   </script>
   <script>
     import { startDemo, isDemo } from "../lib/demo.js";
+    import { DEMO_BRAND } from "../data/demo-brand.js";
 
     const drawer = document.getElementById("jn-drawer");
     const form = document.getElementById("demo-form");
@@ -180,8 +181,22 @@ const TILES = [
     if (isDemo()) go.querySelector("[data-label]").textContent = "Back into the demo";
     // /demo?go=1 opens the demo straight away, no form and no lead: for us,
     // when checking it, rather than for anyone else.
-    if (new URLSearchParams(location.search).has("go")) {
-      startDemo({ name: "Demo", email: "" });
+    // ?brand=demo also lays in the fictional agency's kit, so the hub is the
+    // same hub in every screenshot — a real palette, a real logo, real details
+    // pulling through — with no account and no row in the CRM (Dani, 8 Oct).
+    const demoQ = new URLSearchParams(location.search);
+    if (demoQ.has("go")) {
+      const branded = demoQ.get("brand") === "demo";
+      startDemo(branded
+        ? { name: DEMO_BRAND.about.name, email: "" }
+        : { name: "Demo", email: "" });
+      if (branded) {
+        try {
+          const kit = { ...DEMO_BRAND, updatedAt: Date.now() };
+          localStorage.setItem("tmke.brand", JSON.stringify(kit));
+          localStorage.setItem("tmke.brand.demo", JSON.stringify(kit));
+        } catch (_) { /* a demo without a kit is still a demo */ }
+      }
       location.replace("/account");
     }
 
