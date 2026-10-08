@@ -11,6 +11,29 @@
 const KEY = "tmke_demo";
 const JOIN_URL = "/join";
 
+/**
+ * Put the demo's brand kit back.
+ *
+ * The hub clears the brand cache whenever it finds no session (supabase.js),
+ * which is every page of the demo — so a branded demo lost its kit on the
+ * first page that looked, and the Studio, the editor and the caption
+ * generator then had nothing to work with. The demo's own copy is kept under
+ * tmke.brand.demo and never touched, so this restores from that.
+ * Runs at import, before the page reads the cache. Dani, 8 Oct.
+ */
+export function restoreDemoBrand() {
+  try {
+    if (!localStorage.getItem(KEY)) return false;          // not in the demo
+    const demo = localStorage.getItem("tmke.brand.demo");
+    if (!demo) return false;                               // an unbranded demo
+    const cur = localStorage.getItem("tmke.brand");
+    if (cur && cur.length > 2) return false;               // it is still there
+    localStorage.setItem("tmke.brand", demo);
+    return true;
+  } catch (_) { return false; }
+}
+try { restoreDemoBrand(); } catch (_) {}
+
 export function demoUser() {
   try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
 }
@@ -95,6 +118,7 @@ const LOCKED_LINKS = 'a[href="/account/orders"], a[href="/account/bookings"], a[
 export function initDemoChrome() {
   const u = demoUser();
   if (!u) return false;
+  restoreDemoBrand();   // again here: the session check may have run since import
   ensureStyle();
   document.documentElement.classList.add("is-demo");
   const first = (u.name || "there").trim().split(/\s+/)[0];
