@@ -38,8 +38,18 @@ export function demoUser() {
   try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
 }
 export function isDemo() { return !!demoUser(); }
+/* The training demo — /demo?go=1&brand=demo. It wears a brand kit and nothing
+   is locked, because it exists for us to photograph the hub, not to tease a
+   visitor into joining. The public demo at /demo is unchanged. Dani, 8 Oct. */
+export function isTrainingDemo() { const u = demoUser(); return !!(u && u.training); }
 export function startDemo(u) {
-  try { localStorage.setItem(KEY, JSON.stringify({ name: u.name || "", email: u.email || "", since: Date.now() })); } catch (_) {}
+  try {
+    localStorage.setItem(KEY, JSON.stringify({
+      name: u.name || "", email: u.email || "", since: Date.now(),
+      // Carried so the hub knows this is ours, for screenshots, not a visitor's.
+      training: !!u.training,
+    }));
+  } catch (_) {}
 }
 export function endDemo() {
   try {
@@ -126,8 +136,10 @@ export function initDemoChrome() {
   document.querySelectorAll(".ws-greet-name").forEach((e) => { e.textContent = cap + "."; });
   document.querySelectorAll(".ws-dropdown-head strong").forEach((e) => { e.textContent = u.name || "Demo"; });
   document.querySelectorAll(".ws-dropdown-head span").forEach((e) => { e.textContent = u.email || ""; });
-  document.querySelectorAll(LOCKED_LINKS).forEach((a) => a.classList.add("is-demo-locked"));
-  lockClicks(LOCKED_LINKS, "Orders, bookings and managed socials are for members.", "In the demo you can use the Dashboard, the Studio, the Planner, the Shop and the Getting Started guides.");
+  if (!isTrainingDemo()) {
+    document.querySelectorAll(LOCKED_LINKS).forEach((a) => a.classList.add("is-demo-locked"));
+    lockClicks(LOCKED_LINKS, "Orders, bookings and managed socials are for members.", "In the demo you can use the Dashboard, the Studio, the Planner, the Shop and the Getting Started guides.");
+  }
   const right = document.querySelector(".ws-nav-right");
   if (right && !right.querySelector(".dm-pill")) {
     const pill = document.createElement("div");

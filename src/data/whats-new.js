@@ -21,6 +21,17 @@ export const WHATS_NEW_COUNT = 5;
 
 export const WHATS_NEW = [
   {
+    date: "2026-10-01",
+    title: "October\u2019s Social Trends Are In",
+    area: "Learn",
+    where: "Learn \u2192 This Month, or Studio \u2192 See what\u2019s working",
+    what: "Five formats pulling reach for agents right now, with what each one is, why it works and how to use it. It changes every month, so what you read in October is October\u2019s.",
+    why: "You can see what is actually landing before you plan the month, instead of guessing or copying a post that worked in the summer.",
+    tip: "Pick one format and try it twice before you judge it. A single post rarely tells you anything \u2014 two in the same style will.",
+    link: { href: "/account/guides#training", label: "See this month" },
+    media: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/TMKE_trending_content_1800x1000.png",
+  },
+  {
     date: "2026-09-21",
     title: "Preview Before You Post",
     area: "Studio",

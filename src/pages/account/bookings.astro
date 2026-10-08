@@ -456,6 +456,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
   <script>
     import { supabase, gbpFromPence, signOutEverywhere} from '../../lib/supabase.js';
+    import { isTrainingDemo } from '../../lib/demo.js';
     import { bookingLocation, isSettled, isPackageCovered } from '../../lib/videography-config.js';
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
 
@@ -553,7 +554,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
     // ---------- Load ----------
     (async () => {
-      const isDemo = import.meta.env.DEV;
+      /* The sample rows also stand up the training demo, which has no session
+         and is not necessarily running against a dev build. Dani, 8 Oct. */
+      const isDemo = import.meta.env.DEV || isTrainingDemo();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         if (!isDemo) { location.replace('/login?next=' + encodeURIComponent('/account/bookings')); return; }
@@ -1390,10 +1393,15 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
     // ---------- Demo data (preview only, no Supabase session) ----------
     function seedDemo() {
+      /* The training demo opens on one upcoming shoot, so the page has
+         something real-looking to photograph: the 40 Photo Package at a Devon
+         address, 10am on 28 October. Dani, 8 Oct. */
+      const photoShoot = new Date(2026, 9, 28, 10, 0, 0, 0);
       const soon = new Date(Date.now() + 6 * 86400000); soon.setHours(10, 30, 0, 0);
       const call = new Date(Date.now() + 2 * 86400000); call.setHours(14, 0, 0, 0);
       const pastShoot = new Date(Date.now() - 21 * 86400000); pastShoot.setHours(9, 0, 0, 0);
       rows = [
+        { source: 'videography', id: 'demo-photo', kind: 'booking', service: 'Property photography — 40 Photo Package', when: photoShoot.toISOString(), duration_min: 180, stage: 'booked', location: '14 Cliff Road, Salcombe, Devon, TQ8 8JR', total_pence: 27500, surcharge_pence: 0, package: '40 Photo Package', service_type: 'photography', reschedule_token: 'demo-tok-photo', client_name: 'Alex Mercer', signed_name: 'Alex Mercer', signed_at: new Date(2026, 9, 2, 9, 30).toISOString(), canManageOnline: true },
         { source: 'videography', id: 'demo-1', kind: 'booking', service: 'Property shoot — full package', when: soon.toISOString(), duration_min: 120, stage: 'booked', location: 'NN14 1AA', total_pence: 54000, surcharge_pence: 4000, add_ons: [{ name: 'Drone footage' }], package: 'Full property package', service_type: 'property', reschedule_token: 'demo-tok-1', client_name: 'Danielle Adams', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 30 * 86400000).toISOString(), canManageOnline: true },
         { source: 'smm', id: 'demo-2', kind: 'discovery', service: 'Social media discovery call', when: call.toISOString(), duration_min: 30, stage: 'discovery_call_booked', location: 'Teams call', total_pence: null, service_type: 'discovery', client_name: 'Danielle Adams', canManageOnline: false },
         { source: 'videography', id: 'demo-3', kind: 'booking', service: 'Content Studio session', when: pastShoot.toISOString(), duration_min: 90, stage: 'delivered', location: 'TMKE Content Studio', total_pence: 36000, surcharge_pence: 0, package: 'Studio half-day', service_type: 'content', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 40 * 86400000).toISOString(), canManageOnline: true,
@@ -1407,6 +1415,9 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         /* In edit — the middle of the track, nothing to show yet. */
         { source: 'videography', id: 'demo-6', kind: 'booking', service: 'Property shoot — 12 Elm Road', when: new Date(Date.now() - 4 * 86400000).toISOString(), duration_min: 90, stage: 'editing', location: 'NN14 1AA', total_pence: 48000, surcharge_pence: 3000, add_ons: [{ name: 'Drone footage' }], package: 'Property standard', service_type: 'property', signed_name: 'Danielle Adams', signed_at: new Date(Date.now() - 25 * 86400000).toISOString(), canManageOnline: true, payment_route: 'agent_card', settled: false, packageCovered: false },
       ];
+      msgsByKey.set('videography:demo-photo', [
+        { direction: 'outbound', is_automated: true, kind: 'confirmation', subject: 'Your photography shoot is confirmed', body: "Thanks Alex — the 40 Photo Package is booked for Wednesday 28 October at 10am, at 14 Cliff Road. Three hours on site, drone included if the weather plays along. Anything we should know about access? Just reply here.", created_at: new Date(2026, 9, 2, 9, 31).toISOString(), created_by: 'system' },
+      ]);
       msgsByKey.set('videography:demo-1', [
         { direction: 'outbound', is_automated: true, kind: 'confirmation', subject: 'Your property shoot is confirmed', body: "Thanks Danielle — your shoot is booked in for the morning. Jack will confirm the running order the day before. Anything to add? Just reply here.", created_at: new Date(Date.now() - 30 * 86400000).toISOString(), created_by: 'system' },
         { direction: 'outbound', is_automated: false, kind: 'manual', subject: 'Parking on the day', body: "Quick note — there's visitor parking round the back of the building, I'll meet you there at 10:15.", created_at: new Date(Date.now() - 3 * 86400000).toISOString(), created_by: 'jack@tmke.co.uk' },

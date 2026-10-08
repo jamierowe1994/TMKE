@@ -576,9 +576,10 @@ const recentTemplates = templates.slice(0, 4);
        rather than a flat wine block, and its heading is The Seasons — the
        house sub-heading face — a size down (Dani, 8 Oct). The trailing space
        before .png is in the filename itself; checked against the bucket. */
+    /* The picture itself is set inline by the script — the card carries a
+       server-rendered inline background-image, which no rule here can beat. */
     .ws-resume.is-demo-resume {
       background-color: var(--english-violet);
-      background-image: url("https://assets.tmke.co.uk/TMKE%20Member%20Hub/TMKE%20Background%20Dark%20(Landscape)%20.png");
       background-size: cover; background-position: center;
     }
     .ws-resume.is-demo-resume::after { display: none; }
@@ -802,6 +803,13 @@ const recentTemplates = templates.slice(0, 4);
       const resume = document.getElementById('ws-resume');
       if (resume) {
         resume.classList.add('is-demo-resume');
+        /* Inline, not in the stylesheet: the card is server-rendered with an
+           inline background-image for the last pack, and an inline style beats
+           any rule. Setting the class alone left the old photo showing. */
+        /* The brackets have to be percent-encoded too: inside CSS url() a bare
+           ( or ) ends the value, so the browser truncated it at "(Landscape"
+           and the picture silently never loaded. */
+        resume.style.backgroundImage = "url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/TMKE%20Background%20Dark%20%28Landscape%29%20.png')";
         resume.setAttribute('href', '/account/studio');
         const rn = document.getElementById('ws-resume-name'); if (rn) rn.textContent = 'Get started';
         const cta = resume.querySelector('.ws-resume-cta'); if (cta) cta.innerHTML = 'Open a template in the Studio <em aria-hidden="true">→</em>';
