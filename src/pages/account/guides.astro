@@ -11,6 +11,13 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 import StudioInspo from "../../components/account/StudioInspo.astro";
 import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
+
+/* A cover of its own for "This Month". It used to borrow the first topic's
+   media, which is a phone-shaped screenshot being cropped into a 300px-wide
+   column — hence the sliced collage. Set this and it wins over the topic
+   media, at build time and at runtime; leave it empty and nothing changes.
+   Dani, 8 Oct. */
+const MONTH_COVER = "";
 import { getMembersPosts } from "../../data/blog.js";
 import "../../styles/learn.css";
 // The two newest members' posts, so the blog is reachable from Learn too.
@@ -86,7 +93,7 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
           <h2 class="ws-eyebrow" id="month-h">This Month</h2>
         </header>
         <button type="button" class="lrn-month" data-inspo="trending" id="lrn-month">
-          <span class="lrn-month-art" id="lrn-month-art" style={`background-image:url('${TRENDING_SAMPLE.topics[0].media_url}')`}></span>
+          <span class="lrn-month-art" id="lrn-month-art" data-cover={MONTH_COVER || undefined} style={`background-image:url('${MONTH_COVER || TRENDING_SAMPLE.topics[0].media_url}')`}></span>
           <span class="lrn-month-tx">
             <span class="lrn-month-eyebrow">See what&rsquo;s working &middot; <span id="lrn-month-name">{monthLabel(TRENDING_SAMPLE.month)}</span></span>
             <strong class="lrn-month-title" id="lrn-month-title">{TRENDING_SAMPLE.intro}</strong>
@@ -458,7 +465,10 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
         const name = document.getElementById('lrn-month-name'); if (name && !Number.isNaN(d.getTime())) name.textContent = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
         const title = document.getElementById('lrn-month-title'); if (title && data.intro) title.textContent = data.intro;
         const first = Array.isArray(data.topics) ? data.topics.find((t) => t && t.media_url && (t.media_type || 'image') === 'image') : null;
-        const art = document.getElementById('lrn-month-art'); if (art && first) art.style.backgroundImage = `url('${first.media_url}')`;
+        // A cover set on the element is the cover; the first topic's media is
+        // only the fallback for a month that hasn't been given one.
+        const art = document.getElementById('lrn-month-art');
+        if (art && first && !art.dataset.cover) art.style.backgroundImage = `url('${first.media_url}')`;
       } catch (_) { /* the sample stays */ }
     })();
 
