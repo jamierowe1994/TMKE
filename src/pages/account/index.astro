@@ -298,7 +298,7 @@ const recentTemplates = templates.slice(0, 4);
               <strong class="ws-news-h">The Property Pack</strong>
               <span class="ws-news-desc">Our most-used pack — listings, from teaser to sold.</span>
             </span>
-            <span class="ws-news-art" style="background-image:url('/assets/cosy%20home.jpg')"></span>
+            <span class="ws-news-art" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/Property%20Pack%20-%20Dashboard.png')"></span>
           </a>
           <a class="ws-news-card" href="#" data-inspo="news">
             <span class="ws-news-tx">
@@ -1054,15 +1054,31 @@ const recentTemplates = templates.slice(0, 4);
       }
     }
 
-    // The seasonal-content card names next month and opens the planner there.
-    (function wireNextMonth() {
+    /* The seasonal-content card names the month the hub is working on, and
+       opens the planner there. It used to always name NEXT month, so on the
+       7th of October it read November — a month nobody was planning yet.
+       The hand-over is the 21st: the 1st to the 20th is this month, the 21st
+       onward is the next one (Dani, 8 Oct).
+       The picture is seasonal too. Only the months we have artwork for are
+       listed; any other month keeps the still already on the card. */
+    const CAL_ART = {
+      9:  'October Content - Dashboard.png',    // getMonth() is 0-based
+      10: 'November Content - Dashboard.png',
+      11: 'December Content - Dashboard.png',
+    };
+    (function wireCalendarMonth() {
       const card = document.getElementById('ws-news-cal');
       const head = document.getElementById('ws-news-cal-h');
       if (!card || !head) return;
       const now = new Date();
-      const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-      head.textContent = next.toLocaleDateString('en-GB', { month: 'long' }) + ' Content Calendar';
-      card.setAttribute('href', `/account/schedule?focus=${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+      const m = new Date(now.getFullYear(), now.getMonth() + (now.getDate() >= 21 ? 1 : 0), 1);
+      head.textContent = m.toLocaleDateString('en-GB', { month: 'long' }) + ' Content Calendar';
+      card.setAttribute('href', `/account/schedule?focus=${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
+      const art = CAL_ART[m.getMonth()];
+      const slot = card.querySelector('.ws-news-art');
+      if (art && slot) {
+        slot.style.backgroundImage = `url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/${encodeURIComponent(art)}')`;
+      }
     })();
 
     // The date above the name. Set on load and not touched again - nobody has
