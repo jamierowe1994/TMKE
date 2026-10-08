@@ -209,15 +209,24 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
   <style is:global>
     /* ---------- Real guides grid ---------- */
     /* This month: one wide card — picture left, the month's line right. */
-    .lrn-month { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 0; width: 100%; padding: 0; text-align: left; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); overflow: hidden; cursor: pointer; font: inherit; color: inherit; transition: border-color 0.2s, transform 0.25s var(--ws-ease); }
-    .lrn-month:hover { border-color: var(--ws-accent); transform: translateY(-2px); }
-    .lrn-month-art { display: block; min-height: 200px; background: #e6e3e1 center / cover no-repeat; }
+    /* Two boxes on the same four-column grid as the cards above, so the picture
+       ends where the first card ends and the words start where the second one
+       starts (Dani, 8 Oct). It was one 300px-wide box, which lined up with
+       nothing. Both halves still belong to one button, so a click anywhere
+       opens the month. */
+    .lrn-month { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(14px, 1.4vw, 20px); width: 100%; padding: 0; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; color: inherit; }
+    .lrn-month-art, .lrn-month-tx { border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); transition: border-color 0.2s, transform 0.25s var(--ws-ease); }
+    .lrn-month:hover .lrn-month-art, .lrn-month:hover .lrn-month-tx { border-color: var(--ws-accent); transform: translateY(-2px); }
+    .lrn-month-art { grid-column: 1; display: block; min-height: 200px; overflow: hidden; background: #e6e3e1 center / cover no-repeat; }
+    .lrn-month-tx { grid-column: 2 / -1; background: #fff; }
     .lrn-month-tx { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: clamp(20px, 2.4vw, 32px); }
     .lrn-month-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); }
     .lrn-month-title { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.1; letter-spacing: -0.015em; color: var(--ws-ink); }
     .lrn-month-sub { font-size: 14px; line-height: 1.6; color: var(--ws-tx); max-width: 60ch; }
     .lrn-month-cta { margin-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ws-accent); }
-    @media (max-width: 720px) { .lrn-month { grid-template-columns: 1fr; } .lrn-month-art { aspect-ratio: 16 / 9; min-height: 0; } }
+    /* The same two breakpoints the four-card grid uses, so the two stay in step. */
+    @media (max-width: 1000px) { .lrn-month { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lrn-month-tx { grid-column: 2 / -1; } }
+    @media (max-width: 560px) { .lrn-month { grid-template-columns: 1fr; } .lrn-month-art { grid-column: 1; aspect-ratio: 16 / 9; min-height: 0; } .lrn-month-tx { grid-column: 1; } }
     .lrn-guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: clamp(14px, 1.4vw, 20px); }
     .lrn-guides-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     @media (max-width: 1000px) { .lrn-guides-grid--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
