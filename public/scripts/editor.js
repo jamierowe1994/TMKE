@@ -4233,7 +4233,12 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!el || isPinned(el)) {
       // A field (light lock) gets an outline so you can see what you picked,
       // but no handles: it stays where it is.
-      if (el && lockState(el) === "light") {
+      /* A line never gets a box - not even this one. A fixed line was taking
+         this branch and coming out as a solid green block sitting beside the
+         line rather than on it, because a 1px rule is thinner than the box
+         drawn round it. Dani, 9 Oct: "there should be no box around a line, it
+         makes it look like it's an object not a line". */
+      if (el && lockState(el) === "light" && el.type !== "line") {
         const fb = document.createElement("div");
         fb.className = "ed-bounds ed-bounds--field";
         fb.style.left = el.x + "px"; fb.style.top = el.y + "px";
@@ -4245,7 +4250,9 @@ import { createResizeEngine } from "./resize-engine.js";
       return;
     }
 
-    // Bounds
+    // Bounds. A line is drawn without one: you click it and its two ends
+    // become the handles, which is the whole of its selection UI.
+    const isLine = el.type === "line";
     const bounds = document.createElement("div");
     bounds.className = "ed-bounds";
     bounds.style.left = el.x + "px";
@@ -4254,12 +4261,15 @@ import { createResizeEngine } from "./resize-engine.js";
     bounds.style.height = el.h + "px";
     bounds.style.transform = "rotate(" + (el.rotation || 0) + "deg)";
     bounds.style.transformOrigin = "center center";
-    handlesEl.appendChild(bounds);
+    if (!isLine) handlesEl.appendChild(bounds);
 
     // Floating quick-action toolbar above the element (hidden while editing text).
     const elNode = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    // A line's box is never in the document, so it has no rect to measure -
+    // the bar is placed off the line itself.
+    const barRect = (isLine && elNode ? elNode : bounds).getBoundingClientRect();
     if (elNode && elNode.classList.contains("is-editing")) hideFloatBar();
-    else positionFloatBar(bounds.getBoundingClientRect(), el);
+    else positionFloatBar(barRect, el);
 
     /* A screen gets four corner pins instead of the eight box handles. Its
        shape IS its corners - box handles would only scale the quad, which is
@@ -4331,6 +4341,9 @@ import { createResizeEngine } from "./resize-engine.js";
         h.title = "Drag to stretch or turn the line (Shift for 15° steps)";
         h.style.left = pt.x + "px";
         h.style.top = pt.y + "px";
+        // renderHandles runs on every pointermove, so the held end has to be
+        // marked from state rather than relying on :hover.
+        if (draggingLineEnd === i) h.classList.add("is-active");
         handlesEl.appendChild(h);
         h.addEventListener("pointerdown", (ev) => startLineEndDrag(ev, el, i));
       });
@@ -4949,9 +4962,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const hx = Math.cos(a) * el.w / 2, hy = Math.sin(a) * el.w / 2;
     return [{ x: cx - hx, y: cy - hy }, { x: cx + hx, y: cy + hy }];
   }
+  let draggingLineEnd = null;   // which end is under the pointer, for its filled state
   function startLineEndDrag(ev, el, which) {
     ev.preventDefault();
     ev.stopPropagation();
+    draggingLineEnd = which;
     const fixed = lineEnds(el)[which === 0 ? 1 : 0];
     const tip = document.createElement("div");
     tip.className = "ed-line-tip";
@@ -4989,6 +5004,8 @@ import { createResizeEngine } from "./resize-engine.js";
       document.removeEventListener("pointerup", onUp);
       document.removeEventListener("pointercancel", onUp);
       tip.remove();
+      draggingLineEnd = null;
+      renderHandles();
       if (moved) { pushHistory(); renderProps(); }
     }
     document.addEventListener("pointermove", onMove);
