@@ -535,6 +535,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 
     /* Insights panel (per-client SocialPilot reports) */
     .ri-months { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .ri-platforms { margin: -4px 0 12px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); }
+    .ri-platforms b { color: var(--ink); font-weight: 700; }
     .ri-month { padding: 5px 13px; border-radius: 999px; border: 1px solid rgba(28,29,34,0.16); background: #fff; font-family: var(--sans); font-size: 11.5px; font-weight: 600; color: rgba(28,29,34,0.6); cursor: pointer; }
     .ri-month.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     /* Runs the full width of the panel, margin to margin, the tabs sharing it. */
@@ -2158,7 +2160,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const curIx = cur.year * 12 + cur.month;
       const last3 = reps.filter((x) => { const i = x.year * 12 + x.month; return i <= curIx && i >= curIx - 2; });
       const bodyHtml = isAi ? renderAiChat(r) : riTab === "trends" ? renderTrends(last3) : riTab === "summary" ? renderSummary(cur, last3) : riTab === "actions" ? renderCommentary(cur) : renderTab(riTab, cur.data || {}, cur);
-      panel.innerHTML = head + strip + pendingBar + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
+      // Which platforms this month's report holds (added one upload at a time).
+      const plat = !isAi && cur ? platformsIn(cur.data) : [];
+      const platLine = plat.length ? `<p class="ri-platforms">In this report: <b>${esc(platformList(plat))}</b></p>` : "";
+      panel.innerHTML = head + strip + platLine + pendingBar + subtabs + `<div class="ri-body">${bodyHtml}</div>`;
       $("smm-ri-upload")?.addEventListener("click", () => openReportUpload(r));
       $("smm-ri-publish")?.addEventListener("click", () => openPublish(r));
       $("smm-ri-republish")?.addEventListener("click", () => openRepublish(r, cur));
@@ -2655,6 +2660,33 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       } catch (e) { hint.textContent = ""; status.hidden = false; status.textContent = e.message || "Couldn't read the PDF — try again or paste the JSON."; }
       finally { save.disabled = false; }
     }
+    /* One report per client per month, a section per platform (Danielle,
+       9 Oct 2026). A SocialPilot PDF may hold Instagram, Facebook, LinkedIn
+       or several; uploading one into a month that already has a report adds
+       or replaces only the platforms in it, and keeps everything else - the
+       other platforms and our commentary. */
+    const IG_KEYS = ["summary", "profile", "reach", "viewsSplit", "interactionsByFormat", "posts", "reels", "content", "topContent", "hashtags", "demographics", "peakTimes", "timing", "bestDays", "morningWindow", "eveningWindow", "ads", "priorities"];
+    function platformsIn(d) {
+      if (!d || typeof d !== "object") return [];
+      if (Array.isArray(d.platforms) && d.platforms.length) return [...new Set(d.platforms.map((x) => String(x).toLowerCase()))];
+      const out = [];
+      if (d.profile || d.posts || d.reels || (Array.isArray(d.content) && d.content.length)) out.push("instagram");
+      if (d.facebook) out.push("facebook");
+      if (d.linkedin) out.push("linkedin");
+      return out;
+    }
+    function mergeReportData(old, inc) {
+      const p = platformsIn(inc);
+      const out = { ...old };
+      if (p.includes("instagram")) IG_KEYS.forEach((k) => { delete out[k]; if (inc[k] !== undefined) out[k] = inc[k]; });
+      if (p.includes("facebook") && inc.facebook) out.facebook = inc.facebook;
+      if (p.includes("linkedin") && inc.linkedin) out.linkedin = inc.linkedin;
+      out.platforms = [...new Set([...platformsIn(old), ...p])];
+      return out;
+    }
+    const PLATFORM_NAMES = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn" };
+    const platformList = (ps) => { const n = ps.map((x) => PLATFORM_NAMES[x] || x); return n.length > 1 ? n.slice(0, -1).join(", ") + " and " + n[n.length - 1] : (n[0] || ""); };
+
     async function saveReport(r) {
       const month = parseInt($("smm-rp-month").value, 10), year = parseInt($("smm-rp-year").value, 10);
       const status = $("smm-rp-status");
@@ -2662,6 +2694,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       try { const parsed = JSON.parse($("smm-rp-json").value); data = parsed && parsed.data && typeof parsed.data === "object" ? parsed.data : parsed; }
       catch (_) { status.hidden = false; status.textContent = "That doesn't look like valid JSON — paste the report Claude produced."; return; }
       const btn = $("smm-rp-save"); btn.disabled = true; btn.textContent = "Saving…";
+      // Into this month's report if there already is one.
+      const existing = (r._reports || []).find((x) => x.month === month && x.year === year && (x.platform || "Instagram") === "Instagram");
+      const added = platformsIn(data);
+      const merging = !!(existing && existing.data && Object.keys(existing.data).length);
+      data = merging ? mergeReportData(existing.data, data) : { ...data, platforms: added };
+      const hadCommentary = merging && !!existing.data.client;
       if (isDemo(r)) {
         r._reports = (r._reports || []).filter((x) => !(x.month === month && x.year === year));
         r._reports.push({ id: "d" + Date.now(), platform: "Instagram", month, year, data });
@@ -2675,7 +2713,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         // A first draft of the trends summary and the client commentary, so
         // the rewrite starts from something. A failure here loses nothing:
         // the Client commentary tab has a Draft button.
-        if (j.report && j.report.id) {
+        // Adding a platform to a month we've already written up keeps our
+        // commentary: redrafting would replace it. The Draft button is there
+        // if it should take the new platform in.
+        if (hadCommentary) {
+          status.hidden = false;
+          status.textContent = `Added ${platformList(added)} to ${RI_MONTHS[month]}'s report. Your commentary is unchanged - redraft it from Client commentary if it should cover ${platformList(added)} too.`;
+          await new Promise((res2) => setTimeout(res2, 2200));
+        } else if (j.report && j.report.id) {
           btn.textContent = "Drafting the commentary…";
           status.hidden = false; status.textContent = "Saved. Writing a first draft of the client commentary — a few seconds.";
           await draftCommentary(r, { id: j.report.id, data }, "both").catch(() => {});

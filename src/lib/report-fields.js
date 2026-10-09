@@ -65,6 +65,15 @@ export const REPORT_FIELD_GROUPS = [
     ],
   },
   {
+    // When the month's report includes LinkedIn (its own SocialPilot PDF or
+    // part of a joint one). Danielle, 9 Oct 2026.
+    tab: "linkedin", label: "LinkedIn",
+    fields: [
+      { key: "linkedin",        label: "LinkedIn section",               client: true },
+      { key: "linkedinPosts",   label: "LinkedIn: top posts",            client: true },
+    ],
+  },
+  {
     tab: "actions", label: "Recommendations",
     fields: [
       { key: "priorities",      label: "Next-month priorities",          client: true },

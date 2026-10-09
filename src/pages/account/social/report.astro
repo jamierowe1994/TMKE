@@ -137,6 +137,10 @@ import "../../../styles/ws-system.css";
     .rp-contents li { counter-increment: rp; display: flex; gap: 0.85em; font-size: 0.93em; color: rgba(255,255,255,0.9); }
     .rp-contents li::before { content: counter(rp, decimal-leading-zero); font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
     .rp-contents button { all: unset; cursor: pointer; }
+    /* Platform headings in the contents when a report covers several. */
+    .rp-contents li.rp-contents-g { counter-increment: none; margin-top: 0.55em; font-size: 0.7em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+    .rp-contents li.rp-contents-g:first-child { margin-top: 0; }
+    .rp-contents li.rp-contents-g::before { content: none; }
     .rp-contents button:hover, .rp-contents button:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
     .rp-cover-start { margin-top: 1.7em; display: flex; justify-content: flex-end; }
     .rp-cover-card .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
@@ -419,8 +423,13 @@ import "../../../styles/ws-system.css";
       }
       // Slide titles in title case (Danielle, Sep 2026); the cover's contents
       // list and the progress label use the same names.
-      if (figs.length) parts.push({ step: `${month} in Numbers`, html: part(
-        `${month} in Numbers`,
+      // With other platforms in the report, say which one this is.
+      // Several platforms: the report goes one platform at a time (Danielle,
+      // 9 Oct 2026), and the cover groups its contents by platform.
+      const multiG = !!(d.facebook || d.linkedin);
+      const igTitle = multiG ? "Instagram in Numbers" : `${month} in Numbers`;
+      if (figs.length) parts.push({ group: multiG ? "Instagram" : null, step: igTitle, html: part(
+        igTitle,
         "Your Instagram performance at a glance.",
         `<div class="rp-figs rp-grow">${figs.join("")}</div>`) });
 
@@ -469,7 +478,7 @@ import "../../../styles/ws-system.css";
           ${vis.contentReach !== false && cr ? `<div><p class="rp-label">Content reach</p><div class="rp-big">${fmt(cr)}</div><p class="rp-mini-p">people reached, counted post by post.</p></div>` : ""}</div>
           ${vis.contentReach !== false && cr ? `<p class="rp-reach-why"><span><b>Why two numbers?</b> Profile reach counts each person once, however many of your posts they saw. Content reach adds up every post&rsquo;s own reach, so someone who saw three posts is counted three times. That&rsquo;s why it&rsquo;s the bigger of the two.</span></p>` : ""}
         </div>` : "";
-      if (cards.length || band) parts.push({ step: "Who You Reached", html: part(
+      if (cards.length || band) parts.push({ group: multiG ? "Instagram" : null, step: "Who You Reached", html: part(
         "Who You Reached",
         n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month. Here's who they were.` : "Who saw your account this month.",
         band + (cards.length ? `<div class="rp-cards rp-grow" style="--n:${cards.length}">${cards.join("")}</div>` : "")) });
@@ -499,7 +508,7 @@ import "../../../styles/ws-system.css";
         return `<tr><td class="rp-rank">${i + 1}</td><td>${t.thumb ? `<img class="rp-thumb" src="${esc(t.thumb)}" alt="" loading="lazy">` : `<span class="rp-thumb"></span>`}</td><td class="rp-top-t">${name}</td><td class="rp-c" data-l="Type"><span class="rp-top-k">${reel ? "Reel" : "Post"}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Views">${reel ? fmt(n(t.views)) : "&ndash;"}</td><td class="rp-c" data-l="Interactions">${fmt(n(t.interactions))}</td></tr>`;
       };
       const topCard = top.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top performing content</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col style="width:3.9em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th></th><th>Content</th><th class="rp-c">Type</th><th class="rp-c">Reach</th><th class="rp-c">Views</th><th class="rp-c">Interactions</th></tr></thead><tbody>${top.map(tRow).join("")}</tbody></table></div></div>` : "";
-      if (topCard || formats) parts.push({ step: "What Worked Well", html: part(
+      if (topCard || formats) parts.push({ group: multiG ? "Instagram" : null, step: "What Worked Well", html: part(
         "What Worked This Month",
         "Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.",
         `<div class="rp-best${topCard && formats ? "" : " is-one"}">${topCard}${formats ? `<div class="rp-formats">${formats}</div>` : ""}</div>`) });
@@ -532,12 +541,52 @@ import "../../../styles/ws-system.css";
         const fSide = fCard.length ? `<div class="rp-mini rp-format"><p class="rp-label">Your posts</p><dl>${fCard.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${fmt(n(v))}</dd>`).join("")}</dl></div>` : "";
         // Two slides, as Instagram has: the figures, then the posts. On one
         // they ran past the bottom of a laptop screen.
-        if (ffigs.length) parts.push({ step: "Facebook in Numbers", html: part("Facebook in Numbers",
+        if (ffigs.length) parts.push({ group: "Facebook", step: "Facebook in Numbers", html: part("Facebook in Numbers",
           "Your Facebook Page at a glance.",
           `<div class="rp-figs rp-grow">${ffigs.join("")}</div>`) });
-        if (fTop || fSide) parts.push({ step: "Facebook Posts", html: part("Facebook Posts",
+        if (fTop || fSide) parts.push({ group: "Facebook", step: "Facebook Posts", html: part("Facebook Posts",
           "The Facebook posts that reached furthest, and how all of them did together.",
           `<div class="rp-best${fTop && fSide ? "" : " is-one"}">${fTop}${fSide ? `<div class="rp-formats">${fSide}</div>` : ""}</div>`) });
+      }
+
+      // 3c — LinkedIn (Danielle, 9 Oct 2026): its own figures, then its
+      // posts. SocialPilot reports LinkedIn over the 30 days before the report
+      // was run, not the calendar month, so the dates are said.
+      const li = d.linkedin || null;
+      if (li && vis.linkedin !== false) {
+        const lp = li.posts || {};
+        const mvL = (v) => { const x = n(v); return x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)}% on the 30 days before` : ""; };
+        const lfigs = [];
+        const lfig = (label, val, move, means) => { if (val != null) lfigs.push(`<div class="rp-fig"><p class="rp-label">${esc(label)}</p><p class="rp-fig-val">${esc(val)}</p><p class="rp-fig-move">${move ? esc(move) : "&nbsp;"}</p><p class="rp-fig-means">${esc(means)}</p></div>`); };
+        const lg = n(li.followerGrowth);
+        lfig("Followers", n(li.followers) != null ? fmt(n(li.followers)) : null, lg ? `${fmt(lg)} new follower${lg === 1 ? "" : "s"}` : "", "People following you on LinkedIn, on the day this report was produced.");
+        lfig("Connections", n(li.connections) != null ? fmt(n(li.connections)) : null, "", "People you're connected with on LinkedIn.");
+        lfig("Impressions", n(lp.impressions ?? li.impressions) != null ? fmt(n(lp.impressions ?? li.impressions)) : null, mvL(lp.impressions != null ? lp.impressionsChange : li.impressionsChange), "Times your posts were seen, repeats included.");
+        lfig("Post reach", n(lp.reach) != null ? fmt(n(lp.reach)) : null, mvL(lp.reachChange), "Different people who saw your posts.");
+        lfig("Engagement", n(lp.engagement) != null ? fmt(n(lp.engagement)) : null, mvL(lp.engagementChange), "Reactions and comments on your posts.");
+        lfig("Engagement rate", n(lp.engagementRate) != null ? pct2(n(lp.engagementRate)) + "%" : null, mvL(lp.engagementRateChange), "Of the people who saw your posts, the share who engaged.");
+        const range = (() => {
+          const m = String(li.period || "").split(/\s+to\s+/i).map((x) => new Date(x));
+          if (m.length !== 2 || m.some((x) => isNaN(x))) return "";
+          const f = (x, y) => x.toLocaleDateString("en-GB", y ? { day: "numeric", month: "long", year: "numeric" } : { day: "numeric", month: "long" });
+          return `${f(m[0])} to ${f(m[1], true)}`;
+        })();
+        const lRows = vis.linkedinPosts !== false ? (li.content || []).filter((t) => t && t.title)
+          .slice().sort((a, b) => (n(b.reach) || 0) - (n(a.reach) || 0) || (n(b.engagement) || 0) - (n(a.engagement) || 0)).slice(0, 5) : [];
+        const lDay = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+        const lTop = lRows.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top LinkedIn posts</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th>Post</th><th class="rp-c">Reach</th><th class="rp-c">Engagement</th><th class="rp-c">Reactions</th><th class="rp-c">Comments</th></tr></thead><tbody>${lRows.map((t, i) => {
+            const line = [lDay(t.date), `${fmt(n(t.reach))} reach`, `${fmt(n(t.engagement))} engagement`].filter(Boolean).join(" · ");
+            return `<tr><td class="rp-rank">${i + 1}</td><td class="rp-top-t"><span class="rp-t">${esc(t.title)}</span><span class="rp-top-m">${esc(line)}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Engagement">${fmt(n(t.engagement))}</td><td class="rp-c" data-l="Reactions">${fmt(n(t.reactions))}</td><td class="rp-c" data-l="Comments">${fmt(n(t.comments))}</td></tr>`;
+          }).join("")}</tbody></table></div></div>` : "";
+        const lv = li.videos || {};
+        const lCard = [["Posts published", lp.published], ["Reactions", lp.reactions], ["Comments", lp.comments], ...(n(lv.published) ? [["Videos published", lv.published], ["Video views", lv.views]] : [])].filter(([, v]) => n(v) != null);
+        const lSide = lCard.length ? `<div class="rp-mini rp-format"><p class="rp-label">Your posts</p><dl>${lCard.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${fmt(n(v))}</dd>`).join("")}</dl></div>` : "";
+        if (lfigs.length) parts.push({ group: "LinkedIn", step: "LinkedIn in Numbers", html: part("LinkedIn in Numbers",
+          range ? `Your LinkedIn from ${range}.` : "Your LinkedIn at a glance.",
+          `<div class="rp-figs rp-grow">${lfigs.join("")}</div>`) });
+        if (lTop || lSide) parts.push({ group: "LinkedIn", step: "LinkedIn Posts", html: part("LinkedIn Posts",
+          "The LinkedIn posts that reached furthest, and how all of them did together.",
+          `<div class="rp-best${lTop && lSide ? "" : " is-one"}">${lTop}${lSide ? `<div class="rp-formats">${lSide}</div>` : ""}</div>`) });
       }
 
       // 4 — What it means: our words on the month, then, once there's a month
@@ -573,7 +622,7 @@ import "../../../styles/ws-system.css";
       const story = has(cl.summary) ? cl.summary : d.summary;
       const prose = !insights.length && vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";
       if (chipsHtml || insightsHtml || prose) {
-        parts.push({ step: "What It Means", html: part("What It Means", "The four figures that tell this month's story, and what we're taking from them.", chipsHtml + (insightsHtml || prose)) });
+        parts.push({ group: multiG ? "Across Your Accounts" : null, step: "What It Means", html: part("What It Means", "The four figures that tell this month's story, and what we're taking from them.", chipsHtml + (insightsHtml || prose)) });
       }
 
       // 5 — Into next month: each thing we're doing on a card of its own,
@@ -583,7 +632,7 @@ import "../../../styles/ws-system.css";
       const coming = vis.comingSoon !== false ? (d.comingSoon || []).filter(Boolean) : [];
       if (takes.length || coming.length) {
         const next = MONTHS[(r.month + 1) % 12];
-        parts.push({ step: `Into ${next}`, html: part(
+        parts.push({ group: multiG ? "Across Your Accounts" : null, step: `Into ${next}`, html: part(
           `Into ${next}`,
           "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.",
           (takes.length ? `<div class="rp-cards rp-takes rp-grow" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
@@ -637,7 +686,11 @@ import "../../../styles/ws-system.css";
       $("rp").hidden = false;
       const parts = buildParts(r, all, vis, client, sample);
       const month = `${MONTHS[r.month]} ${r.year}`;
-      const who = [client?.business, r.data?.facebook && vis.facebook !== false ? `${r.platform || "Instagram"} and Facebook` : r.platform].filter(Boolean).join(" · ");
+      // Every platform the month's report covers, in the order they appear.
+      const dd = r.data || {};
+      const plats = [(dd.profile || dd.posts || dd.reels) ? "Instagram" : null, dd.facebook && vis.facebook !== false ? "Facebook" : null, dd.linkedin && vis.linkedin !== false ? "LinkedIn" : null].filter(Boolean);
+      const platText = plats.length > 1 ? plats.slice(0, -1).join(", ") + " and " + plats[plats.length - 1] : (plats[0] || r.platform);
+      const who = [client?.business, platText].filter(Boolean).join(" · ");
       document.title = `${month} report · TMKE`;
       const back = sample ? "/account/social?sample=1" : "/account/social";
       $("rp-back").href = back;
@@ -647,7 +700,7 @@ import "../../../styles/ws-system.css";
           <h1 class="rp-cover-title">${esc(month)}</h1>
           ${who ? `<p class="rp-cover-sub">${esc(who)}</p>` : ""}
           ${r.amendment_notice_at ? `<p class="rp-cover-upd">Updated ${esc(new Date(r.amendment_notice_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}</p>` : ""}
-          ${parts.length ? `<ol class="rp-contents">${parts.map((p, i) => `<li><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`).join("")}</ol>` : `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`}
+          ${parts.length ? `<ol class="rp-contents">${parts.map((p, i) => `${p.group && p.group !== (parts[i - 1] || {}).group ? `<li class="rp-contents-g">${esc(p.group)}</li>` : ""}<li><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`).join("")}</ol>` : `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`}
           ${parts.length ? `<div class="rp-cover-start"><button type="button" class="ws-btn rp-dl" data-pdf><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download PDF</button><button type="button" class="ws-btn ws-btn--primary" data-go="1">Start
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>` : ""}
         </div></div>`;
