@@ -6,6 +6,7 @@ import "../../styles/ws-system.css";
 import "../../styles/account-sections.css";
 import { SOCIAL_SERVICES, SOCIAL_EXTRAS, PRICE_NOTE, BROCHURE_URL } from "../../lib/smm-config.js";
 import { gbpFromPence } from "../../lib/supabase.js";
+    import { isTrainingDemo } from '../../lib/demo.js';
 ---
 
 <!--
@@ -761,13 +762,13 @@ import { gbpFromPence } from "../../lib/supabase.js";
       if (session && session.user) $("footer-email").textContent = session.user.email || "";
       wireWaitlist(session);
       if (!session) {
-        if (DEV) { showSample(); return; }
+        if (DEV || isTrainingDemo()) { showSample(); return; }
         location.replace("/login?next=" + encodeURIComponent("/account/social"));
         return;
       }
       // getSession() is local-only - a cleared/revoked session can still look
       // valid to it. Confirm with the server before letting anyone in.
-      if (!DEV) {
+      if (!DEV && !isTrainingDemo()) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (!user || error) { location.replace("/login?next=" + encodeURIComponent("/account/social")); return; }
       }

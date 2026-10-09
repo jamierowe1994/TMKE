@@ -157,6 +157,7 @@ import "../../styles/account-sections.css";
   <script>
     import { supabase, gbpFromPence, signOutEverywhere} from '../../lib/supabase.js';
 
+    import { isTrainingDemo } from '../../lib/demo.js';
     function escapeHtml(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -181,7 +182,10 @@ import "../../styles/account-sections.css";
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
     (async () => {
-      const isDemo = import.meta.env.DEV;
+      /* The training demo has no session either, and these pages bounced it
+         straight to /login, which bounced it back — the loop Dani hit on
+         Orders and Your SMM. Treated like a dev preview. Dani, 9 Oct. */
+      const isDemo = import.meta.env.DEV || isTrainingDemo();
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         if (!isDemo) location.replace('/login?next=' + encodeURIComponent('/account/orders'));
