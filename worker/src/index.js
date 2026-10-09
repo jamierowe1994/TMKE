@@ -10156,6 +10156,11 @@ export default {
         // out of the PDF itself (lib/socialpilot-pdf.js), which is exact.
         const prompt =
           "The attached PDF is a SocialPilot monthly Instagram report. Most figures are in its text; a few are only in charts - read those visually. " +
+          // Joint reports (Danielle, 9 Oct 2026): SocialPilot can put a client's
+          // Facebook Page in the same PDF, before the Instagram pages. Its
+          // "Post Performance" table has the same title as Instagram's, so
+          // without this its posts end up in the Instagram list.
+          "It may ALSO contain a Facebook Page section (pages headed \"Facebook Profile\" or \"Facebook Posts\", with Page Likes, Page Reach, New Fans and their own Post Performance table). IGNORE every Facebook page completely: every figure, table row and hashtag below must come from the Instagram pages only (\"Instagram Profile\", \"Instagram Post\", \"Instagram Reels\" and the pages that follow each). " +
           "Extract ONE JSON object with this exact shape and reply with ONLY that JSON (no prose, no markdown fences):\n" +
           '{ "summary": string (FOR THE TEAM: 2-4 plain sentences on the month, weighing all the figures together - profile, posts and reels, audience - rather than one statistic; name what went well and what fell short, honestly and without spin), ' +
           '"profile": { "followers": number (Total Followers: a Lifetime Data snapshot on the day the report was run), "newFollowers": number (from "New Followers (n)"), "reach": number (Total Reach), "reachChange": number (signed percent from previous period, negative when the arrow points down), "views": number (Total Views; "2.5K" becomes 2500), "viewsChange": number (signed percent), "interactions": number (Total Interactions), "interactionsChange": number (signed percent), "interactionRate": number (percent), "linkTaps": number (Profile Link Taps) }, ' +
