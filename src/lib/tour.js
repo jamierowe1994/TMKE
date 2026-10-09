@@ -382,6 +382,15 @@ function injectStyles() {
   }
   html.tmke-walk .tmke-tour-card.is-side { top: 72px; }
   .tmke-tour-card.is-side.is-in { transform: none; }
+  /* A way out that is always in the same corner of the panel. */
+  .tmke-tour-exit {
+    position: absolute; top: 14px; right: 16px; z-index: 2;
+    appearance: none; background: none; border: 0; padding: 4px 6px; cursor: pointer;
+    font-size: 22px; line-height: 1; color: var(--ws-faint, rgba(28,29,34,0.45));
+    transition: color .2s;
+  }
+  .tmke-tour-exit:hover { color: var(--ws-ink, #1c1d22); }
+  .tmke-tour-card:not(.is-side) .tmke-tour-exit { display: none; }
   .tmke-tour-card.is-center {
     left: 50%; top: 50%; transform: translate(-50%, calc(-50% + 8px)); width: min(520px, calc(100vw - 32px));
     text-align: left; padding: 28px 30px 22px;
@@ -408,25 +417,29 @@ function injectStyles() {
     padding: clamp(22px, 2.4vw, 36px) clamp(22px, 2.4vw, 36px) 22px;
   }
   .tmke-tour-card.is-menu .tmke-tour-eyebrow, .tmke-tour-card.is-menu .tmke-tour-title, .tmke-tour-card.is-menu .tmke-tour-body { display: none; }
-  .tmke-tour-menu { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; }
+  /* One per row. Four columns was fine across a page; inside a 400px panel it
+     became one word per line. The picture goes beside the words rather than
+     above them, so a row stays short. Dani, 9 Oct. */
+  .tmke-tour-menu { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0 0 18px; }
   .tmke-tour-menu button {
     appearance: none; cursor: pointer; text-align: left;
-    display: flex; flex-direction: column; padding: 14px;
+    display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; padding: 10px 12px;
     background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
     font-family: var(--sans, system-ui, sans-serif); color: var(--ws-ink, #1c1d22);
     transition: border-color .2s, transform .2s;
   }
   .tmke-tour-menu button:hover { border-color: rgba(28,29,34,0.22); transform: translateY(-2px); }
   .tmke-tour-menu .tmke-tour-ph {
-    position: relative; aspect-ratio: 16 / 9; margin: 0 0 12px; border-radius: var(--ws-r, 4px);
+    position: relative; aspect-ratio: 16 / 9; margin: 0; border-radius: var(--ws-r, 4px);
     border: 1px dashed rgba(28,29,34,0.22);
     background: repeating-linear-gradient(135deg, rgba(28,29,34,0.05) 0 12px, transparent 12px 24px) #f4f2f1;
     display: flex; align-items: center; justify-content: center;
     font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint, rgba(28,29,34,0.5));
   }
   .tmke-tour-menu .tmke-tour-ph.has-art { border: 0; background-size: cover; background-position: center; color: transparent; }
-  .tmke-tour-menu button b { font-family: var(--serif, Georgia, serif); font-weight: 500; font-size: 17px; line-height: 1.2; letter-spacing: -0.01em; margin-bottom: 5px; }
-  .tmke-tour-menu button i { font-style: normal; font-size: 13px; line-height: 1.55; color: var(--ws-tx, rgba(28,29,34,0.72)); }
+  .tmke-tour-menu button b { grid-column: 2; font-family: var(--serif, Georgia, serif); font-weight: 500; font-size: 15px; line-height: 1.2; letter-spacing: -0.01em; margin-bottom: 3px; }
+  .tmke-tour-menu button i { grid-column: 2; font-style: normal; font-size: 12.5px; line-height: 1.45; color: var(--ws-tx, rgba(28,29,34,0.72));
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .tmke-tour-menu button.is-done b::after { content: " ✓"; color: var(--ws-accent, #4a2a3c); }
   .tmke-tour-menu-intro { font-size: 14px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tmke-tour-menu-intro[hidden] { display: none; }
@@ -487,6 +500,7 @@ function buildDOM() {
     <div class="tmke-tour-mask" data-mask="l"></div>
     <div class="tmke-tour-ring" data-ring></div>
     <div class="tmke-tour-card" data-card>
+      <button type="button" class="tmke-tour-exit" data-exit aria-label="Close the walkthrough">&times;</button>
       <p class="tmke-tour-eyebrow" data-eyebrow></p>
       <h2 class="tmke-tour-title" data-title></h2>
       <p class="tmke-tour-body" data-body></p>
@@ -522,10 +536,12 @@ function buildDOM() {
     topPct: root.querySelector('[data-top-pct]'),
     progress: root.querySelector('[data-progress]'),
     skip: root.querySelector('[data-skip]'),
+    exit: root.querySelector('[data-exit]'),
     back: root.querySelector('[data-back]'),
     next: root.querySelector('[data-next]'),
   };
   els.skip.addEventListener('click', () => finish(false));
+  els.exit?.addEventListener('click', () => finish(false));
   els.back.addEventListener('click', goBack);
   els.next.addEventListener('click', goNext);
   els.skipto.addEventListener('click', () => {
@@ -629,6 +645,16 @@ function scheduleReflow() {
   reflowRAF = setTimeout(() => { reflowRAF = 0; positionFor(STEPS[activeIndex]); }, 16);
 }
 
+/* The first step of a walk measured the page before the frame had finished
+   being applied — the body gains a 92px top margin and gives up the panel's
+   strip — so the cutout was placed where the nav bar had been a moment
+   earlier and the nav appeared below it, dimmed. Measuring again once the
+   layout has settled costs nothing and fixes it wherever else it happens.
+   Dani, 9 Oct. */
+function settleReflow() {
+  [60, 200, 480].forEach((ms) => setTimeout(() => positionFor(STEPS[activeIndex]), ms));
+}
+
 // Centre a target in the viewport. We scroll the window directly (rather than
 // scrollIntoView with smooth behaviour, which doesn't complete reliably) so the
 // spotlight always lands on-screen. No-op if the target is already comfortably
@@ -705,10 +731,9 @@ function positionFor(step) {
   const r = stageOn()
     ? { left: raw.left + off.x, top: raw.top + off.y, width: raw.width, height: raw.height }
     : raw;
-  /* No padding unless a step asks for it: the hole is the element. Six pixels
-     all round left a pale border that read as a box drawn over the card rather
-     than the card itself being lit. Dani, 9 Oct. */
-  const pad = step.padding != null ? step.padding : 0;
+  /* 12px all round, so the lit card has a little air inside the dark rather
+     than the dark meeting its rounded corners dead on. Dani, 9 Oct. */
+  const pad = step.padding != null ? step.padding : 12;
   const minX = stageOn() ? off.x : 0, minY = stageOn() ? off.y : 0;
   const maxX = stageOn() ? off.x + off.w : vw, maxY = stageOn() ? off.y + off.h : vh;
   let hx = Math.max(minX, r.left - pad), hy = Math.max(minY, r.top - pad);
@@ -724,9 +749,9 @@ function positionFor(step) {
     const ref = scope().querySelector('.ws-hero, .lrn-sec, main > section');
     if (ref) {
       const c = ref.getBoundingClientRect();
-      if (c.width > 0 && hw > c.width && hx <= c.left) {
-        hx = c.left;
-        hw = c.width;
+      if (c.width > 0 && hw > c.width + pad * 2 && hx <= c.left) {
+        hx = c.left - pad;
+        hw = c.width + pad * 2;
       }
     }
   }
@@ -879,6 +904,7 @@ async function render(index) {
   }
 
   positionFor(step);
+  settleReflow();
   nextTick(() => els.card.classList.add('is-in'));
 }
 
