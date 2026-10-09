@@ -41,7 +41,16 @@ export function isDemo() { return !!demoUser(); }
 /* The training demo — /demo?go=1&brand=demo. It wears a brand kit and nothing
    is locked, because it exists for us to photograph the hub, not to tease a
    visitor into joining. The public demo at /demo is unchanged. Dani, 8 Oct. */
-export function isTrainingDemo() { const u = demoUser(); return !!(u && u.training); }
+export function isTrainingDemo() {
+  const u = demoUser();
+  if (!u) return false;
+  if (u.training) return true;
+  /* A demo started before the flag existed has no `training` on its record,
+     so it would still show every padlock. The branded kit only ever comes
+     from ?brand=demo, so its presence says the same thing — and this heals
+     a session already open rather than making Dani start again. */
+  try { return !!localStorage.getItem("tmke.brand.demo"); } catch (_) { return false; }
+}
 export function startDemo(u) {
   try {
     localStorage.setItem(KEY, JSON.stringify({
