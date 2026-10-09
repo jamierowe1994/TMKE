@@ -302,7 +302,9 @@ function injectStyles() {
   .tmke-stage.is-in { opacity: 1; }
   .tmke-stage-box {
     position: relative; display: flex; flex-direction: column; overflow: hidden;
-    width: min(1620px, 96vw); height: min(94vh, 1040px);
+    /* A pop-out, not a second page: it filled 96vw by 94vh, which read as a
+       navigation rather than something laid over the hub. Dani, 9 Oct. */
+    width: min(1240px, 86vw); height: min(82vh, 860px);
     background: #fff; border-radius: 10px; box-shadow: 0 40px 90px -30px rgba(28,29,34,0.6);
     transform: translateY(10px); transition: transform .3s cubic-bezier(.2,.75,.2,1);
   }
@@ -702,14 +704,28 @@ function positionFor(step) {
     const space = { top: hy, bottom: vh - (hy + hh), left: hx, right: vw - (hx + hw) };
     placement = Object.keys(space).reduce((a, b) => (space[b] > space[a] ? b : a), 'bottom');
   }
+  const topMin = (activeWalk && !stageOn()) ? FRAME_TOP + 12 : 16;
+  const edge = (activeWalk && !stageOn()) ? 32 : 16;   // a walk's card keeps well off the frame's edge
   let left, top;
-  if (placement === 'bottom') { left = hx + hw / 2 - cw / 2; top = hy + hh + gap; }
+  /* Pinned to a corner rather than chasing the spotlight. Following the hole
+     meant the card landed somewhere different on every step and the reader had
+     to find it again each time — "popping around the screen", Dani, 9 Oct. It
+     sits bottom right and only moves if it would cover the thing it is talking
+     about, in which case it crosses to the left. Phones keep the old behaviour:
+     there the card is nearly the full width anyway. */
+  if (vw >= 760) {
+    left = vw - cw - edge;
+    top = vh - ch - edge;
+    const clear = 12;
+    const covers = !(hx + hw < left - clear || hx > left + cw + clear ||
+                     hy + hh < top - clear || hy > top + ch + clear);
+    if (covers) left = edge;
+  }
+  else if (placement === 'bottom') { left = hx + hw / 2 - cw / 2; top = hy + hh + gap; }
   else if (placement === 'top') { left = hx + hw / 2 - cw / 2; top = hy - ch - gap; }
   else if (placement === 'right') { left = hx + hw + gap; top = hy + hh / 2 - ch / 2; }
   else { left = hx - cw - gap; top = hy + hh / 2 - ch / 2; } // left
   // Clamp into the viewport, and below the progress strip during a walk.
-  const topMin = (activeWalk && !stageOn()) ? FRAME_TOP + 12 : 16;
-  const edge = (activeWalk && !stageOn()) ? 32 : 16;   // a walk's card keeps well off the frame's edge
   left = Math.max(edge, Math.min(left, vw - cw - edge));
   top = Math.max(topMin, Math.min(top, vh - ch - edge));
   card.style.left = left + 'px';
