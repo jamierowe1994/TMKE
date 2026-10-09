@@ -2852,6 +2852,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       background: rgba(var(--violet-rgb), 0.1);
       border-color: var(--english-violet); color: var(--english-violet);
     }
+    /* Space evenly: two to a row, matching the align buttons above. */
+    .ed-space-even { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .ed-space-even button {
+      appearance: none; cursor: pointer; height: 36px; padding: 0 10px;
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(28,29,34,0.04); border: 1px solid rgba(28,29,34,0.14);
+      border-radius: 6px; color: var(--ink); font-family: var(--sans); font-size: 13px; font-weight: 600;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .ed-space-even button svg { flex: none; color: rgba(28,29,34,0.65); }
+    .ed-space-even button:hover { background: rgba(var(--violet-rgb), 0.1); border-color: var(--english-violet); color: var(--english-violet); }
+    .ed-space-even button:hover svg { color: var(--english-violet); }
     .ed-logoslot-row { display: flex; gap: 8px; margin-bottom: 8px; }
     .ed-logoslot-btn {
       flex: 1; padding: 10px 8px; cursor: pointer;
@@ -4112,6 +4124,42 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       box-shadow: 0 0 0 1px rgba(255,255,255,0.85);
       pointer-events: none;
       box-sizing: border-box;
+    }
+
+    /* Smart guides while dragging (Danielle, 9 Oct 2026): dashed lines where
+       edges and centres line up, pink pills where gaps match. They sit in the
+       zoomed canvas, so --ez (1 / zoom, set by the editor) keeps them the same
+       size on screen at any zoom. */
+    .ed-guides { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 45; }
+    .ed-guide { position: absolute; pointer-events: none; }
+    .ed-guide-v { width: 0; border-left: calc(1px * var(--ez, 1)) dashed #b14cff; transform: translateX(calc(-0.5px * var(--ez, 1))); }
+    .ed-guide-h { height: 0; border-top: calc(1px * var(--ez, 1)) dashed #b14cff; transform: translateY(calc(-0.5px * var(--ez, 1))); }
+    .ed-dist-line { position: absolute; background: #f2459b; pointer-events: none; }
+    .ed-dist-line-h { height: calc(1.5px * var(--ez, 1)); transform: translateY(-50%); }
+    .ed-dist-line-v { width: calc(1.5px * var(--ez, 1)); transform: translateX(-50%); }
+    .ed-dist {
+      position: absolute; transform: translate(-50%, -50%); pointer-events: none; white-space: nowrap;
+      background: #f2459b; color: #fff; font-family: var(--sans); font-weight: 700;
+      font-size: calc(11px * var(--ez, 1)); line-height: 1;
+      padding: calc(4px * var(--ez, 1)) calc(7px * var(--ez, 1)); border-radius: calc(999px * var(--ez, 1));
+      box-shadow: 0 0 0 calc(1.5px * var(--ez, 1)) #fff;
+    }
+
+    /* Lines are grabbed by their ends (Canva-style), and get a taller strip
+       to click than their own few pixels. */
+    .ed-element[data-type="line"]::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: calc(18px * var(--ez, 1)); transform: translateY(-50%); }
+    .ed-line-end {
+      position: absolute; width: calc(16px * var(--ez, 1)); height: calc(16px * var(--ez, 1));
+      transform: translate(-50%, -50%); border-radius: 50%; background: #fff;
+      border: calc(2px * var(--ez, 1)) solid var(--ed-select);
+      box-shadow: 0 calc(1px * var(--ez, 1)) calc(4px * var(--ez, 1)) rgba(0,0,0,0.35);
+      pointer-events: auto; cursor: crosshair; z-index: 50; box-sizing: border-box;
+    }
+    .ed-line-end:hover { background: var(--ed-select); }
+    .ed-line-tip {
+      position: fixed; z-index: 400; pointer-events: none; white-space: nowrap;
+      background: #1c1d22; color: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700;
+      padding: 5px 9px; border-radius: 6px; box-shadow: 0 6px 18px -6px rgba(0,0,0,0.5);
     }
 
     /* Floating selection toolbar (Canva-style quick actions, screen-space) */

@@ -1713,6 +1713,12 @@ import { createResizeEngine } from "./resize-engine.js";
         { label: "Horizontal", action: function () { flipSelected("h"); } },
         { label: "Vertical",   action: function () { flipSelected("v"); } },
       ] },
+      // Three or more selected: space them evenly (as in the Position panel).
+      ...(state.selectedIds.length >= 3 ? [{ label: "Space evenly", submenu: [
+        { label: "Vertically",   action: function () { spaceEvenly("v"); } },
+        { label: "Horizontally", action: function () { spaceEvenly("h"); } },
+        { label: "Tidy up",      action: function () { spaceEvenly("tidy"); } },
+      ] }] : []),
       { divider: true },
       { label: "Copy",            hint: "Ctrl+C", action: function () { copySelectedToClipboard(); } },
       { label: "Duplicate",       hint: "Ctrl+D", action: function () { duplicateSelected(); } },
@@ -4315,6 +4321,22 @@ import { createResizeEngine } from "./resize-engine.js";
       return;
     }
 
+    // A line is picked up by its ends, as in Canva: drag either one to make
+    // it longer or shorter and to turn it (Danielle, 9 Oct 2026).
+    if (el.type === "line") {
+      lineEnds(el).forEach((pt, i) => {
+        const h = document.createElement("div");
+        h.className = "ed-line-end";
+        h.dataset.end = String(i);
+        h.title = "Drag to stretch or turn the line (Shift for 15° steps)";
+        h.style.left = pt.x + "px";
+        h.style.top = pt.y + "px";
+        handlesEl.appendChild(h);
+        h.addEventListener("pointerdown", (ev) => startLineEndDrag(ev, el, i));
+      });
+      return;
+    }
+
     // Resize handles
     const positions = [
       ["nw", 0, 0], ["n", 0.5, 0], ["ne", 1, 0],
@@ -4919,6 +4941,61 @@ import { createResizeEngine } from "./resize-engine.js";
     document.addEventListener("pointerup", onUp);
   }
 
+  // A line's two ends in canvas pixels: its length is w, its angle the
+  // rotation about its centre, so end 1 lies along the angle from end 0.
+  function lineEnds(el) {
+    const a = (el.rotation || 0) * Math.PI / 180;
+    const cx = el.x + el.w / 2, cy = el.y + el.h / 2;
+    const hx = Math.cos(a) * el.w / 2, hy = Math.sin(a) * el.w / 2;
+    return [{ x: cx - hx, y: cy - hy }, { x: cx + hx, y: cy + hy }];
+  }
+  function startLineEndDrag(ev, el, which) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const fixed = lineEnds(el)[which === 0 ? 1 : 0];
+    const tip = document.createElement("div");
+    tip.className = "ed-line-tip";
+    document.body.appendChild(tip);
+    let moved = false;
+    function onMove(e) {
+      moved = true;
+      const rect = canvasEl.getBoundingClientRect();
+      const px = (e.clientX - rect.left) / state.zoom, py = (e.clientY - rect.top) / state.zoom;
+      const len = Math.max(2, Math.round(Math.hypot(px - fixed.x, py - fixed.y)));
+      // Direction from the fixed end to the pointer. Straight lines stick:
+      // within 4° of horizontal, vertical or a diagonal; Shift for 15° steps.
+      let ang = Math.atan2(py - fixed.y, px - fixed.x) * 180 / Math.PI;
+      const step = e.shiftKey ? 15 : 45, near = Math.round(ang / step) * step;
+      if (e.shiftKey || Math.abs(ang - near) < 4) ang = near;
+      const r = ang * Math.PI / 180;
+      const moving = { x: fixed.x + Math.cos(r) * len, y: fixed.y + Math.sin(r) * len };
+      const p0 = which === 0 ? moving : fixed, p1 = which === 0 ? fixed : moving;
+      let rot = Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
+      if (rot <= -180) rot += 360;
+      if (rot > 180) rot -= 360;
+      el.w = len;
+      el.rotation = Math.round(rot);
+      el.x = Math.round((p0.x + p1.x) / 2 - el.w / 2);
+      el.y = Math.round((p0.y + p1.y) / 2 - el.h / 2);
+      partialRenderElement(el);
+      renderHandles();
+      const shown = ((Math.round(rot) % 360) + 360) % 360;
+      tip.textContent = len + " px  ·  " + shown + "°";
+      tip.style.left = (e.clientX + 16) + "px";
+      tip.style.top = (e.clientY + 16) + "px";
+    }
+    function onUp() {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.removeEventListener("pointercancel", onUp);
+      tip.remove();
+      if (moved) { pushHistory(); renderProps(); }
+    }
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+    document.addEventListener("pointercancel", onUp);
+  }
+
   function startRotate(ev, el) {
     ev.preventDefault();
     ev.stopPropagation();
@@ -4945,124 +5022,201 @@ import { createResizeEngine } from "./resize-engine.js";
     document.addEventListener("pointerup", onUp);
   }
 
-  // ---------- Snap guides ----------
+  // ---------- Smart guides (Canva-style) ----------
+  /* Danielle, 9 Oct 2026. While one element is dragged:
+       - dashed lines show where its edges or centre line up with the page,
+         the margins or another element, and it snaps to the nearest;
+       - when the gap to its neighbour matches a gap already on the page (two
+         boxes 28px apart, and a third being placed), it snaps to that gap and
+         every gap of that size is labelled.
+     These had no styling before, so nothing ever showed. Distances are in
+     canvas pixels; how close counts as "lined up" is 6 screen pixels. */
   function clearGuides() { guidesEl.innerHTML = ""; }
-  function drawGuide(orientation, pos) {
+  function snapTol() { return 6 / (state.zoom || 1); }
+  function drawGuide(orientation, pos, from, to) {
     const g = document.createElement("div");
     g.className = "ed-guide " + (orientation === "v" ? "ed-guide-v" : "ed-guide-h");
-    if (orientation === "v") {
-      g.style.left = pos + "px"; g.style.top = "0"; g.style.height = state.canvas.height + "px";
-    } else {
-      g.style.top = pos + "px"; g.style.left = "0"; g.style.width = state.canvas.width + "px";
-    }
+    const a = from == null ? 0 : from;
+    const b = to == null ? (orientation === "v" ? state.canvas.height : state.canvas.width) : to;
+    if (orientation === "v") { g.style.left = pos + "px"; g.style.top = a + "px"; g.style.height = Math.max(0, b - a) + "px"; }
+    else { g.style.top = pos + "px"; g.style.left = a + "px"; g.style.width = Math.max(0, b - a) + "px"; }
     guidesEl.appendChild(g);
+  }
+  function snapTargets(el) {
+    const W = state.canvas.width, H = state.canvas.height;
+    const xs = [0, W / 2, W].map((v) => ({ v: v, page: true }));
+    const ys = [0, H / 2, H].map((v) => ({ v: v, page: true }));
+    const m = state.margins;
+    if (m && m.on && m.size > 0) {
+      if (m.size < W) xs.push({ v: m.size, page: true }, { v: W - m.size, page: true });
+      if (m.size < H) ys.push({ v: m.size, page: true }, { v: H - m.size, page: true });
+    }
+    state.elements.forEach((o) => {
+      if (o.id === el.id || o.hidden) return;
+      [o.x, o.x + o.w / 2, o.x + o.w].forEach((v) => xs.push({ v: v, o: o }));
+      [o.y, o.y + o.h / 2, o.y + o.h].forEach((v) => ys.push({ v: v, o: o }));
+    });
+    return { xs: xs, ys: ys };
   }
   function applySnap(el) {
     clearGuides();
-    const threshold = 6;
-    const cx = el.x + el.w / 2;
-    const cy = el.y + el.h / 2;
-    const W = state.canvas.width, H = state.canvas.height;
-
-    // Snap targets: canvas edges & center
-    const xTargets = [0, W / 2, W];
-    const yTargets = [0, H / 2, H];
-
-    // Safe-area margins (when on) are snap lines too — an element nearing a
-    // margin sticks to it (and releases if you keep pulling, via the threshold),
-    // so designers can align to the margin without fiddling.
-    const _m = state.margins;
-    if (_m && _m.on && _m.size > 0) {
-      const ms = _m.size;
-      if (ms < W) xTargets.push(ms, W - ms);
-      if (ms < H) yTargets.push(ms, H - ms);
-    }
-
-    xTargets.forEach((tx) => {
-      if (Math.abs(cx - tx) < threshold) { el.x = tx - el.w / 2; drawGuide("v", tx); }
-      else if (Math.abs(el.x - tx) < threshold) { el.x = tx; drawGuide("v", tx); }
-      else if (Math.abs(el.x + el.w - tx) < threshold) { el.x = tx - el.w; drawGuide("v", tx); }
-    });
-    yTargets.forEach((ty) => {
-      if (Math.abs(cy - ty) < threshold) { el.y = ty - el.h / 2; drawGuide("h", ty); }
-      else if (Math.abs(el.y - ty) < threshold) { el.y = ty; drawGuide("h", ty); }
-      else if (Math.abs(el.y + el.h - ty) < threshold) { el.y = ty - el.h; drawGuide("h", ty); }
-    });
-
-    // Snap to other elements
-    state.elements.forEach((other) => {
-      if (other.id === el.id) return;
-      const oxs = [other.x, other.x + other.w / 2, other.x + other.w];
-      const oys = [other.y, other.y + other.h / 2, other.y + other.h];
-      oxs.forEach((tx) => {
-        if (Math.abs(cx - tx) < threshold) { el.x = tx - el.w / 2; drawGuide("v", tx); }
-        else if (Math.abs(el.x - tx) < threshold) { el.x = tx; drawGuide("v", tx); }
-        else if (Math.abs(el.x + el.w - tx) < threshold) { el.x = tx - el.w; drawGuide("v", tx); }
+    if (!guidesEl.style.width) { guidesEl.style.width = state.canvas.width + "px"; guidesEl.style.height = state.canvas.height + "px"; }
+    const tol = snapTol();
+    const t = snapTargets(el);
+    // The single nearest match on each axis decides the snap.
+    const nearest = (pts, targets) => {
+      let best = null;
+      pts.forEach((p) => targets.forEach((tg) => {
+        const d = tg.v - p;
+        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+      }));
+      return best;
+    };
+    const dx = nearest([el.x, el.x + el.w / 2, el.x + el.w], t.xs);
+    if (dx !== null) el.x = Math.round(el.x + dx);
+    const dy = nearest([el.y, el.y + el.h / 2, el.y + el.h], t.ys);
+    if (dy !== null) el.y = Math.round(el.y + dy);
+    // Then every alignment that now holds gets its line: across the page for
+    // the page's own lines, from one element to the other for an element's.
+    const draw = (orientation, pts, targets, span) => {
+      const lines = new Map();
+      pts.forEach((p) => targets.forEach((tg) => {
+        if (Math.abs(tg.v - p) > 0.5) return;
+        const key = Math.round(tg.v * 2) / 2;
+        const cur = lines.get(key) || { page: false, a: Infinity, b: -Infinity };
+        if (tg.page) cur.page = true;
+        else { const s2 = span(tg.o); cur.a = Math.min(cur.a, s2[0]); cur.b = Math.max(cur.b, s2[1]); }
+        lines.set(key, cur);
+      }));
+      const own = orientation === "v" ? [el.y, el.y + el.h] : [el.x, el.x + el.w];
+      lines.forEach((ln, pos) => {
+        if (ln.page) drawGuide(orientation, pos);
+        else drawGuide(orientation, pos, Math.min(ln.a, own[0]), Math.max(ln.b, own[1]));
       });
-      oys.forEach((ty) => {
-        if (Math.abs(cy - ty) < threshold) { el.y = ty - el.h / 2; drawGuide("h", ty); }
-        else if (Math.abs(el.y - ty) < threshold) { el.y = ty; drawGuide("h", ty); }
-        else if (Math.abs(el.y + el.h - ty) < threshold) { el.y = ty - el.h; drawGuide("h", ty); }
-      });
-    });
+    };
+    draw("v", [el.x, el.x + el.w / 2, el.x + el.w], t.xs, (o) => [o.y, o.y + o.h]);
+    draw("h", [el.y, el.y + el.h / 2, el.y + el.h], t.ys, (o) => [o.x, o.x + o.w]);
   }
 
-  // ---------- Smart distance guides (Canva-style) ----------
-  // While dragging one element, measure the gap to the nearest element on each
-  // side (that overlaps on the perpendicular axis) and show a labelled pixel
-  // distance. When the gaps on opposite sides are nearly equal, snap the element
-  // so it's evenly spaced between its two neighbours.
-  function _rangesOverlap(a0, a1, b0, b1) { return Math.min(a1, b1) - Math.max(a0, b0) > 0; }
-  function drawDistance(orientation, a, b, perp) {
-    const px = Math.round(Math.abs(b - a));
+  // A gap, drawn as a short pink line with its size on a pill.
+  function drawGapMark(axis, a, b, perp) {
+    const px = Math.round(b - a);
     if (px < 1) return;
-    const lo = Math.min(a, b);
     const line = document.createElement("div");
-    line.className = "ed-dist-line " + (orientation === "h" ? "ed-dist-line-h" : "ed-dist-line-v");
+    line.className = "ed-dist-line " + (axis === "x" ? "ed-dist-line-h" : "ed-dist-line-v");
     const badge = document.createElement("div");
     badge.className = "ed-dist";
     badge.textContent = px;
-    if (orientation === "h") {
-      line.style.left = lo + "px"; line.style.top = perp + "px"; line.style.width = px + "px";
-      badge.style.left = (lo + px / 2) + "px"; badge.style.top = perp + "px";
+    if (axis === "x") {
+      line.style.left = a + "px"; line.style.top = perp + "px"; line.style.width = px + "px";
+      badge.style.left = (a + px / 2) + "px"; badge.style.top = perp + "px";
     } else {
-      line.style.top = lo + "px"; line.style.left = perp + "px"; line.style.height = px + "px";
-      badge.style.top = (lo + px / 2) + "px"; badge.style.left = perp + "px";
+      line.style.top = a + "px"; line.style.left = perp + "px"; line.style.height = px + "px";
+      badge.style.top = (a + px / 2) + "px"; badge.style.left = perp + "px";
     }
     guidesEl.appendChild(line);
     guidesEl.appendChild(badge);
   }
   function drawDistances(el) {
     const others = state.elements.filter((o) => o.id !== el.id && !o.hidden);
-    const ex0 = el.x, ex1 = el.x + el.w, ey0 = el.y, ey1 = el.y + el.h;
-    // Horizontal neighbours (their vertical span overlaps this element's)
-    let leftN = null, rightN = null;
+    spacingOnAxis(el, others, "x");
+    spacingOnAxis(el, others, "y");
+  }
+  function spacingOnAxis(el, others, axis) {
+    const S = axis === "x" ? "x" : "y", Z = axis === "x" ? "w" : "h";
+    const PS = axis === "x" ? "y" : "x", PZ = axis === "x" ? "h" : "w";
+    const tol = snapTol();
+    const end = (o) => o[S] + o[Z];
+    const shares = (a, b) => Math.min(a[PS] + a[PZ], b[PS] + b[PZ]) - Math.max(a[PS], b[PS]) > 0;
+    // The neighbours either side of the dragged element, sharing the other axis.
+    let before = null, after = null;
     others.forEach((o) => {
-      if (!_rangesOverlap(ey0, ey1, o.y, o.y + o.h)) return;
-      if (o.x + o.w <= ex0) { if (!leftN || (o.x + o.w) > (leftN.x + leftN.w)) leftN = o; }
-      else if (o.x >= ex1) { if (!rightN || o.x < rightN.x) rightN = o; }
+      if (!shares(o, el)) return;
+      if (end(o) <= el[S] + 0.5) { if (!before || end(o) > end(before)) before = o; }
+      else if (o[S] >= end(el) - 0.5) { if (!after || o[S] < after[S]) after = o; }
     });
-    const perpY = el.y + el.h / 2;
-    if (leftN) drawDistance("h", leftN.x + leftN.w, ex0, perpY);
-    if (rightN) drawDistance("h", ex1, rightN.x, perpY);
-    // Vertical neighbours (their horizontal span overlaps this element's)
-    let topN = null, botN = null;
-    others.forEach((o) => {
-      if (!_rangesOverlap(ex0, ex1, o.x, o.x + o.w)) return;
-      if (o.y + o.h <= ey0) { if (!topN || (o.y + o.h) > (topN.y + topN.h)) topN = o; }
-      else if (o.y >= ey1) { if (!botN || o.y < botN.y) botN = o; }
+    if (!before && !after) return;
+    // The gaps already on the page: each element to its nearest neighbour.
+    const pairs = [];
+    others.forEach((a) => {
+      let nb = null;
+      others.forEach((b) => {
+        if (b === a || !shares(a, b) || b[S] < end(a)) return;
+        if (!nb || b[S] < nb[S]) nb = b;
+      });
+      if (nb && nb[S] - end(a) > 0) pairs.push({ a: a, b: nb, g: nb[S] - end(a) });
     });
-    const perpX = el.x + el.w / 2;
-    if (topN) drawDistance("v", topN.y + topN.h, ey0, perpX);
-    if (botN) drawDistance("v", ey1, botN.y, perpX);
-    // Equal-spacing snap — centre between two flanking neighbours when close.
-    const eqTol = 4;
-    if (leftN && rightN && Math.abs((ex0 - (leftN.x + leftN.w)) - (rightN.x - ex1)) < eqTol) {
-      el.x = Math.round(((leftN.x + leftN.w) + rightN.x) / 2 - el.w / 2);
+    const start0 = el[S];
+    let gap = null;
+    const match = (g) => { let m = null; pairs.forEach((p) => { if (Math.abs(g - p.g) <= tol && (m === null || Math.abs(g - p.g) < Math.abs(g - m))) m = p.g; }); return m; };
+    if (before) { const m = match(el[S] - end(before)); if (m !== null) { el[S] = Math.round(end(before) + m); gap = m; } }
+    if (gap === null && after) { const m = match(after[S] - end(el)); if (m !== null) { el[S] = Math.round(after[S] - m - el[Z]); gap = m; } }
+    // Or halfway between the two neighbours.
+    if (gap === null && before && after) {
+      const g1 = el[S] - end(before), g2 = after[S] - end(el);
+      if (Math.abs(g1 - g2) <= tol * 2) { el[S] = Math.round((end(before) + after[S] - el[Z]) / 2); gap = el[S] - end(before); }
     }
-    if (topN && botN && Math.abs((ey0 - (topN.y + topN.h)) - (botN.y - ey1)) < eqTol) {
-      el.y = Math.round(((topN.y + topN.h) + botN.y) / 2 - el.h / 2);
+    if (gap === null) return;
+    // If that moved it, the alignment lines on this axis no longer hold.
+    if (Math.abs(el[S] - start0) > 0.5) guidesEl.querySelectorAll(axis === "x" ? ".ed-guide-v" : ".ed-guide-h").forEach((n) => n.remove());
+    const same = (g) => Math.abs(g - gap) <= 1;
+    const mid = (a, b) => (Math.max(a[PS], b[PS]) + Math.min(a[PS] + a[PZ], b[PS] + b[PZ])) / 2;
+    const done = new Set();
+    const mark = (a, b) => { const k = a.id + ">" + b.id; if (done.has(k)) return; done.add(k); drawGapMark(axis, end(a), b[S], mid(a, b)); };
+    if (before && same(el[S] - end(before))) mark(before, el);
+    if (after && same(after[S] - end(el))) mark(el, after);
+    pairs.forEach((p) => { if (same(p.g)) mark(p.a, p.b); });
+  }
+
+  // ---------- Space evenly ----------
+  /* Three or more selected, one press (Danielle, 9 Oct 2026, as Canva has):
+     the first and last stay put and the ones between are moved so every gap
+     is the same. Tidy up does both directions: items are sorted into rows,
+     each row gets the same gap between its items, and the rows the same gap
+     between them. */
+  function spaceEvenly(mode) {
+    const els = selectedElements().filter((e) => !isPinned(e));
+    if (els.length < 3) return;
+    if (lockBlocks(els)) return;
+    const spread = (list, S, Z) => {
+      const sorted = list.slice().sort((a, b) => a[S] - b[S] || (a[S] + a[Z]) - (b[S] + b[Z]));
+      const first = sorted[0], last = sorted[sorted.length - 1];
+      const span = (last[S] + last[Z]) - first[S];
+      const total = sorted.reduce((t, e) => t + e[Z], 0);
+      const gap = (span - total) / (sorted.length - 1);
+      let at = first[S];
+      sorted.forEach((e) => { e[S] = Math.round(at); at += e[Z] + gap; });
+    };
+    if (mode === "h") spread(els, "x", "w");
+    else if (mode === "v") spread(els, "y", "h");
+    else {
+      // Rows: items whose heights overlap belong together.
+      const rows = [];
+      els.slice().sort((a, b) => a.y - b.y).forEach((e) => {
+        const row = rows.find((r) => e.y < r.bottom && e.y + e.h > r.top);
+        if (row) { row.items.push(e); row.top = Math.min(row.top, e.y); row.bottom = Math.max(row.bottom, e.y + e.h); }
+        else rows.push({ items: [e], top: e.y, bottom: e.y + e.h });
+      });
+      if (rows.length === 1) spread(els, "x", "w");
+      else if (rows.every((r) => r.items.length === 1)) spread(els, "y", "h");
+      else {
+        const avg = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+        const gx = Math.max(0, Math.round(avg(rows.flatMap((r) => {
+          const it = r.items.slice().sort((a, b) => a.x - b.x);
+          return it.slice(1).map((e, i) => e.x - (it[i].x + it[i].w));
+        }))));
+        const gy = Math.max(0, Math.round(avg(rows.slice(1).map((r, i) => r.top - rows[i].bottom))));
+        const left = Math.min.apply(null, els.map((e) => e.x));
+        let top = rows[0].top;
+        rows.forEach((r) => {
+          let x = left;
+          r.items.slice().sort((a, b) => a.x - b.x).forEach((e) => { const dy = e.y - r.top; e.x = Math.round(x); e.y = Math.round(top + dy); x += e.w + gx; });
+          top += (r.bottom - r.top) + gy;
+        });
+      }
     }
+    pushHistory();
+    fullRender();
   }
 
   // ---------- Safe-area / margin guides ----------
@@ -5494,8 +5648,10 @@ import { createResizeEngine } from "./resize-engine.js";
     else if (shape === "triangle") addElement(Object.assign({ type: "triangle" }, common));
     else if (shape === "star") addElement(Object.assign({ type: "star" }, common));
     else if (shape === "line") addElement(Object.assign({ type: "line" }, common, { h: 4, w: 320 }));
-    else if (shape === "hr-thin") addElement(Object.assign({ type: "rect" }, common, { h: 1, w: 480, fill: "#1c1d22" }));
-    else if (shape === "hr-thick") addElement(Object.assign({ type: "rect" }, common, { h: 4, w: 480, fill: "#1c1d22" }));
+    // Rules are lines too, so they get a line's end handles (they were thin
+    // rectangles, which could only be resized as boxes).
+    else if (shape === "hr-thin") addElement(Object.assign({ type: "line" }, common, { h: 1, w: 480, fill: "#1c1d22" }));
+    else if (shape === "hr-thick") addElement(Object.assign({ type: "line" }, common, { h: 4, w: 480, fill: "#1c1d22" }));
   }
 
   function addText(kind) {
@@ -6182,6 +6338,9 @@ import { createResizeEngine } from "./resize-engine.js";
   function setZoom(z) {
     state.zoom = clamp(z, 0.1, 4);
     shadowEl.style.transform = "scale(" + state.zoom + ")";
+    // Guides, spacing labels and line handles are drawn inside the zoomed
+    // canvas; this keeps them the same size on screen at any zoom.
+    shadowEl.style.setProperty("--ez", String(1 / state.zoom));
     // The sizer reserves the space the scaled canvas actually occupies. Without
     // it the stage sizes itself to the canvas's unscaled box and the rest of a
     // zoomed-in design sits outside anything you can scroll to.
@@ -7315,11 +7474,22 @@ import { createResizeEngine } from "./resize-engine.js";
               '<button type="button" data-galign="centerY" title="Centre vertically">' + ALIGN_ICONS.centerY + '</button>' +
               '<button type="button" data-galign="bottom" title="Bottom">' + ALIGN_ICONS.bottom + '</button>' +
             '</div>' +
-          '</div>';
+          '</div>' +
+          (gels.length >= 3 ?
+          '<div class="ed-props-section"><h4>Space evenly</h4>' +
+            '<div class="ed-space-even">' +
+              '<button type="button" data-gspace="v"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="20" y2="4"/><line x1="4" y1="20" x2="20" y2="20"/><rect x="8" y="9.5" width="8" height="5" rx="1"/></svg>Vertically</button>' +
+              '<button type="button" data-gspace="h"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="4" x2="4" y2="20"/><line x1="20" y1="4" x2="20" y2="20"/><rect x="9.5" y="8" width="5" height="8" rx="1"/></svg>Horizontally</button>' +
+              '<button type="button" data-gspace="tidy"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="4" x2="6" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="18" y1="4" x2="18" y2="20"/></svg>Tidy up</button>' +
+            '</div>' +
+          '</div>' : '');
         if (isAdminMode()) { body.insertAdjacentHTML("beforeend", lockControlHtml(gels)); wireLockControl(body, gels); }
         if (typeof showPane === "function") showPane("selection");
         body.querySelectorAll("[data-galign]").forEach(function (b) {
           b.addEventListener("click", function () { alignSelected(b.getAttribute("data-galign")); });
+        });
+        body.querySelectorAll("[data-gspace]").forEach(function (b) {
+          b.addEventListener("click", function () { spaceEvenly(b.getAttribute("data-gspace")); });
         });
         const gx = body.querySelector("#ed-grp-x"), gy = body.querySelector("#ed-grp-y");
         const gpx = gmm ? function (v) { return Math.round(mmToPx(v)); } : Math.round;
