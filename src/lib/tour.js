@@ -286,7 +286,14 @@ function injectStyles() {
   html.tmke-walk { --tour-side: 0px; }
   /* The demo pill stands down for the length of a walk. With the panel taking
      400px the nav had nowhere to put "Your SMM" and wrapped it. Dani, 9 Oct. */
-  html.tmke-walk .dm-pill { display: none !important; }
+  /* Somebody else's furniture, hidden for the duration of a walk - hidden, not
+     answered: nothing is stored either way. The pop-out already did this for a
+     framed page; a walk that runs on the page itself needs it too, or the
+     cookie bar sits across the bottom of every training screenshot. */
+  html.tmke-walk .dm-pill,
+  html.tmke-walk #cc-banner,
+  html.tmke-walk .cc-banner,
+  html.tmke-walk .ae-trigger { display: none !important; }
   @media (min-width: 900px) { html.tmke-walk.has-side { --tour-side: 400px; } }
   html.tmke-walk body {
     margin: 92px calc(var(--tour-side) + clamp(16px, 2.6vw, 40px)) clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
@@ -681,9 +688,13 @@ function scrollTargetIntoView(t) {
     }
   } catch (_) {}
   const r = t.getBoundingClientRect();
+  // The usable band. Inside the stage it is the whole frame; on a framed page
+  // it starts below the progress strip, so a target is never centred up into
+  // the strip's 72px and then clipped by it. Dani, 9 Oct.
+  const bandTop = stageOn() ? 0 : FRAME_TOP + 20;
   const vh = (stageOn() ? stageOffset().h : window.innerHeight);
-  if (r.top >= 16 && r.bottom <= vh - 16) return; // already fully visible
-  const top = (w.scrollY || 0) + r.top + r.height / 2 - vh / 2;
+  if (r.top >= bandTop + 16 && r.bottom <= vh - 16) return; // already fully visible
+  const top = (w.scrollY || 0) + r.top + r.height / 2 - (bandTop + (vh - bandTop) / 2);
   // Instant, not smooth: the background is dimmed so the scroll is barely
   // perceptible, and instant lands the spotlight reliably across browsers.
   w.scrollTo(0, Math.max(0, top));
@@ -734,8 +745,17 @@ function positionFor(step) {
   /* 12px all round, so the lit card has a little air inside the dark rather
      than the dark meeting its rounded corners dead on. Dani, 9 Oct. */
   const pad = step.padding != null ? step.padding : 12;
-  const minX = stageOn() ? off.x : 0, minY = stageOn() ? off.y : 0;
-  const maxX = stageOn() ? off.x + off.w : vw, maxY = stageOn() ? off.y + off.h : vh;
+  /* The cutout stays inside the framed page. It must never run under the
+     progress strip at the top, nor under the panel on the right: a target
+     sitting near the top of the page had its hole clamped to y 0, which lit
+     the strip and everything across it and read as "the whole top of the page
+     is highlighted". Dani, 9 Oct. */
+  const sideW = document.documentElement.classList.contains('has-side')
+    ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tour-side')) || 0)
+    : 0;
+  const minX = stageOn() ? off.x : 0, minY = stageOn() ? off.y : FRAME_TOP;
+  const maxX = stageOn() ? off.x + off.w : vw - sideW;
+  const maxY = stageOn() ? off.y + off.h : vh;
   let hx = Math.max(minX, r.left - pad), hy = Math.max(minY, r.top - pad);
   let hw = Math.max(0, Math.min(maxX - hx, r.width + pad * 2));
   const hh = Math.max(0, Math.min(maxY - hy, r.height + pad * 2));
@@ -806,7 +826,9 @@ function positionFor(step) {
   card.style.top = top + 'px';
 }
 
+let shownIndex = 0;   // the step actually on screen, for the dev probe
 async function render(index) {
+  shownIndex = index;
   const step = STEPS[index];
   if (!step) return finish(true);
   activeIndex = index;
@@ -852,7 +874,12 @@ async function render(index) {
   if (step.target) {
     // The framed page is still booting on the first step of a staged walk, so
     // give it longer than a target on a page that is already up.
-    const t = await waitFor(step.target, stageOn() ? 9000 : 4000);
+    /* A step marked `optional` belongs to one branch of a page that renders two
+       (the SMM page shows a client their plan, and everyone else the packages).
+       The other branch is in the DOM but collapsed, so waiting the full four
+       seconds for it buys a dead pause and then skips anyway. Look once and
+       move on. Dani, 9 Oct. */
+    const t = await waitFor(step.target, step.optional ? 0 : (stageOn() ? 9000 : 4000));
     if (!t) return advance(index, +1, true);
     scrollTargetIntoView(t);
     await new Promise((r) => setTimeout(r, 120)); // let layout settle
@@ -1033,3 +1060,79 @@ export function startWalk(id, opts = {}) {
   nextTick(() => render(at));
   return true;
 }
+
+// ---------- The dev harness ----------
+// Every step points at a CSS selector, and a selector that goes stale fails
+// quietly: the walk skips the step, or lights the wrong thing. Checking that by
+// eye, step by step, across every guide, is the part that doesn't scale.
+//
+// In dev only, the engine is put on the window so a walk can be driven and
+// measured from the console: start it, step through it, and read back where the
+// spotlight actually landed. `import.meta.env.DEV` is false in the built site,
+// so none of this ships. Dani, 9 Oct.
+function probeStep() {
+  if (!els) return { active: false };
+  const step = STEPS[shownIndex];
+  if (!step) return { active: false };
+  const num = (el, k) => parseFloat(el.style[k]) || 0;
+  const box = (el) => ({ x: num(el, 'left'), y: num(el, 'top'), w: num(el, 'width'), h: num(el, 'height') });
+  const T = box(els.maskT), B = box(els.maskB), L = box(els.maskL), R = box(els.maskR);
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const centred = !step.target || step.placement === 'center';
+  const hole = centred ? null : {
+    x: L.x + L.w, y: T.y + T.h,
+    w: Math.max(0, R.x - (L.x + L.w)), h: Math.max(0, B.y - (T.y + T.h)),
+  };
+  const t = step.target ? scope().querySelector(step.target) : null;
+  const card = els.card.getBoundingClientRect();
+  const notes = [];
+  if (step.target && !t) notes.push('target missing: ' + step.target);
+  if (hole) {
+    if (hole.w <= 0 || hole.h <= 0) notes.push('hole collapsed');
+    if (hole.y < FRAME_TOP - 1) notes.push('hole runs under the progress strip (y ' + Math.round(hole.y) + ')');
+    if (hole.w * hole.h > vw * vh * 0.7) notes.push('hole covers most of the screen');
+    if (hole.y + hole.h > vh + 1) notes.push('hole runs off the bottom');
+    const sideL = card.width && els.card.classList.contains('is-side') ? card.left : vw;
+    if (hole.x + hole.w > sideL + 1) notes.push('hole runs under the side panel');
+  }
+  if (t) {
+    const r = t.getBoundingClientRect();
+    const off = stageOffset();
+    const top = stageOn() ? r.top + off.y : r.top;
+    if (r.width === 0 || r.height === 0) notes.push('target has no size');
+    else if (top < FRAME_TOP || top > vh - 24) notes.push('target is not in the visible band (top ' + Math.round(top) + ')');
+  }
+  return {
+    active: true, walk: activeWalk, index: shownIndex, of: STEPS.length,
+    title: step.title, target: step.target || null, placement: step.placement || null,
+    hole, card: { x: Math.round(card.left), y: Math.round(card.top), w: Math.round(card.width), h: Math.round(card.height) },
+    ok: notes.length === 0, notes,
+  };
+}
+
+try {
+  if (import.meta.env && import.meta.env.DEV && typeof window !== 'undefined') {
+    window.__walk = {
+      list: () => Object.keys(WALKS).map((id) => ({ id, title: WALKS[id].title, steps: WALKS[id].steps.length, stage: !!WALKS[id].stage })),
+      steps: (id) => (WALKS[id] ? WALKS[id].steps.map((s, i) => ({ i, title: s.title, path: s.path || null, target: s.target || null })) : []),
+      start: (id, at) => startWalk(id, { at: at || 0 }),
+      goto: (i) => render(i),
+      stop: () => finish(false),
+      probe: probeStep,
+      // Measure with the motion off. A card caught mid-transition reports the
+      // position it is travelling through, not the one it lands on, and reads
+      // as a bug that isn't there.
+      still(on = true) {
+        const id = 'tmke-walk-still';
+        const d = document, had = d.getElementById(id);
+        if (!on) { if (had) had.remove(); return false; }
+        if (had) return true;
+        const el = d.createElement('style');
+        el.id = id;
+        el.textContent = '*, *::before, *::after { transition: none !important; animation: none !important; }';
+        d.head.appendChild(el);
+        return true;
+      },
+    };
+  }
+} catch (_) {}
