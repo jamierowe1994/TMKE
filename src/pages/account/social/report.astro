@@ -622,7 +622,11 @@ import "../../../styles/ws-system.css";
       const story = has(cl.summary) ? cl.summary : d.summary;
       const prose = !insights.length && vis.summary !== false && has(story) ? `<div class="rp-prose">${esc(story)}</div>` : "";
       if (chipsHtml || insightsHtml || prose) {
-        parts.push({ group: multiG ? "Across Your Accounts" : null, step: "What It Means", html: part("What It Means", "The four figures that tell this month's story, and what we're taking from them.", chipsHtml + (insightsHtml || prose)) });
+        parts.push({ group: multiG ? "Across Your Accounts" : null, step: "What It Means", html: part("What It Means",
+          // The four figures are Instagram's; with other platforms in the
+          // report, say so rather than let them read as a total.
+          multiG && chipsHtml ? "Four Instagram figures that tell this month's story, and what we're taking from the month across your accounts." : "The four figures that tell this month's story, and what we're taking from them.",
+          chipsHtml + (insightsHtml || prose)) });
       }
 
       // 5 — Into next month: each thing we're doing on a card of its own,

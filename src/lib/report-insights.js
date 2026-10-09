@@ -314,7 +314,24 @@ export function renderActions(d, r, vis) {
 }
 
 // ---- Trends tab (month-on-month) — takes the account's reports, oldest→newest
+// With Facebook or LinkedIn in any of the months, each platform gets its own
+// comparison, one after the other (Danielle, 10 Oct 2026).
+function platformTrendTable(accR, key, rows) {
+  const months = accR.filter((r) => (r.data || {})[key]);
+  if (!months.length) return "";
+  const cell = (v) => (v == null || v === "" ? "—" : v);
+  return `<div class="ri-panel" style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:${100 + accR.length * 90}px;"><thead><tr><th style="text-align:left;color:#8a8796;font-weight:600;font-size:10px;padding:6px 0;border-bottom:1px solid #e5e1e2;"></th>${accR.map((r) => `<th style="text-align:center;color:#8a8796;font-weight:600;font-size:10px;padding:6px 8px;border-bottom:1px solid #e5e1e2;">${esc(MONTHS[r.month].slice(0, 3))} ${r.year}</th>`).join("")}</tr></thead><tbody>${rows.map(([lbl, fn]) => `<tr><td style="color:#8a8796;padding:8px 0;border-bottom:.5px solid #e5e1e2;white-space:nowrap;">${esc(lbl)}</td>${accR.map((r) => { const x = (r.data || {})[key]; return `<td style="font-weight:600;color:#1c1d22;text-align:center;padding:8px;border-bottom:.5px solid #e5e1e2;">${x ? cell(fn(x)) : "—"}</td>`; }).join("")}</tr>`).join("")}</tbody></table></div>`;
+}
 export function renderTrends(accR) {
+  const fbT = platformTrendTable(accR || [], "facebook", [["Page likes", (x) => nf(x.pageLikes)], ["New likes", (x) => nf(x.newFans)], ["Page reach", (x) => nf(x.pageReach)], ["Post views", (x) => nf((x.posts || {}).views)], ["Engagement", (x) => nf((x.posts || {}).engagement)], ["Posts published", (x) => nf((x.posts || {}).published)]]);
+  const liT = platformTrendTable(accR || [], "linkedin", [["Followers", (x) => nf(x.followers)], ["New followers", (x) => nf(x.followerGrowth)], ["Impressions", (x) => nf((x.posts || {}).impressions ?? x.impressions)], ["Post reach", (x) => nf((x.posts || {}).reach)], ["Engagement", (x) => nf((x.posts || {}).engagement)], ["Engagement rate", (x) => nv((x.posts || {}).engagementRate) != null ? nv(x.posts.engagementRate) + "%" : "—"]]);
+  if (!fbT && !liT) return renderTrendsIg(accR);
+  const igHas = (accR || []).some((r) => { const d = r.data || {}; return d.profile || d.posts || d.reels; });
+  return [igHas ? `<section class="ri-platsec">${platHead("instagram", true)}${renderTrendsIg(accR)}</section>` : "",
+    fbT ? `<section class="ri-platsec">${platHead("facebook", !igHas)}${fbT}</section>` : "",
+    liT ? `<section class="ri-platsec">${platHead("linkedin", !igHas && !fbT)}<p class="ri-note" style="margin:0 0 10px;">Each LinkedIn month is the 30 days before that report was run.</p>${liT}</section>` : ""].join("");
+}
+function renderTrendsIg(accR) {
   if (!accR || accR.length < 2) return `<div class="ri-sec" style="margin-top:0;">Trends</div><div class="ri-panel" style="text-align:center;padding:22px;color:#8a8796;font-size:13px;">Upload at least 2 months to see month-on-month trends here.</div>`;
   const labels = accR.map((r) => MONTHS[r.month].slice(0, 3));
   const fol = accR.map((r) => Number((r.data || {}).profile?.followers) || 0);
@@ -330,11 +347,107 @@ export function renderTrends(accR) {
   return `<div class="ri-sec" style="margin-top:0;">Month-on-month trends</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">${spark(accR.map((r) => Number((r.data || {}).profile?.newFollowers) || 0), "New followers", (v) => v.toLocaleString())}${spark(rea, "Reach", (v) => v.toLocaleString())}${spark(eng, "Eng. Rate", (v) => v + "%")}${spark(inter, "Interactions", (v) => v || "—")}</div><div class="ri-sec">Full comparison table</div><div class="ri-panel" style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:${100 + accR.length * 90}px;"><thead><tr><th style="text-align:left;color:#8a8796;font-weight:600;font-size:10px;padding:6px 0;border-bottom:1px solid #e5e1e2;"></th>${accR.map((r) => `<th style="text-align:center;color:#8a8796;font-weight:600;font-size:10px;padding:6px 8px;border-bottom:1px solid #e5e1e2;">${esc(MONTHS[r.month].slice(0, 3))} ${r.year}</th>`).join("")}</tr></thead><tbody>${tRows.map(([lbl, fn]) => `<tr><td style="color:#8a8796;padding:8px 0;border-bottom:.5px solid #e5e1e2;white-space:nowrap;">${esc(lbl)}</td>${accR.map((r) => `<td style="font-weight:600;color:#1c1d22;text-align:center;padding:8px;border-bottom:.5px solid #e5e1e2;">${fn(r)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
+// ---- Platforms ---------------------------------------------------------------
+// A month's report can cover Instagram, Facebook and LinkedIn. Each platform
+// gets its own section on each tab, never their figures put together: the
+// content, the audience and the results are different on each (Danielle,
+// 10 Oct 2026).
+const PLATFORMS = [["instagram", "Instagram", "#c13584"], ["facebook", "Facebook", "#1877f2"], ["linkedin", "LinkedIn", "#0a66c2"]];
+export function reportPlatforms(d) {
+  d = d || {};
+  const has = {
+    instagram: !!(d.profile || d.posts || d.reels || (Array.isArray(d.content) && d.content.length)),
+    facebook: !!d.facebook,
+    linkedin: !!d.linkedin,
+  };
+  return PLATFORMS.map(([k]) => k).filter((k) => has[k]);
+}
+const platHead = (key, first) => {
+  const [, name, col] = PLATFORMS.find(([k]) => k === key);
+  return `<div class="ri-plat${first ? " is-first" : ""}"><span class="ri-plat-dot" style="background:${col}"></span>${esc(name)}</div>`;
+};
+const dayShort = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+// A platform's posts as a table, best reach first: six, then the rest.
+function postTable(rows, cols) {
+  const ranked = rows.filter((t) => t && t.title).slice().sort((a, b) => (nv(b.reach) || 0) - (nv(a.reach) || 0));
+  if (!ranked.length) return "";
+  const tr = (t, i) => `<tr><td class="ri-rank">${i + 1}</td><td class="ri-ttl"><span class="ri-ttl-t">${esc(t.title)}</span>${t.date ? `<span class="ri-ttl-d">${esc(dayShort(t.date))}</span>` : ""}</td>${cols.map(([, f]) => `<td class="ri-c">${f(t)}</td>`).join("")}</tr>`;
+  const cg = `<colgroup><col style="width:34px"><col>${cols.map(() => '<col class="ri-eq">').join("")}</colgroup>`;
+  const wrap = (inner, head = true) => `<table class="ri-tbl ri-tbl--fixed">${cg}${head ? `<thead><tr><th></th><th>Post</th>${cols.map(([h]) => `<th class="ri-c">${esc(h)}</th>`).join("")}</tr></thead>` : ""}<tbody>${inner}</tbody></table>`;
+  const all = ranked.map(tr), top = all.slice(0, 6).join(""), rest = all.slice(6).join("");
+  return `<div class="ri-panel ri-tblwrap">${wrap(top)}${rest ? `<details class="ri-more"><summary>Show all ${ranked.length}</summary>${wrap(rest, false)}</details>` : ""}</div>`;
+}
+
+// ---- Facebook ----------------------------------------------------------------
+export function renderFacebook(tab, fb, vis) {
+  const show = (k) => !vis || vis[k] !== false;
+  fb = fb || {};
+  const fp = fb.posts || {};
+  if (tab === "audience") return `<p class="ri-note" style="margin:0;">SocialPilot's Facebook report has no audience breakdown, so there's nothing to show here for Facebook.</p>`;
+  if (tab === "content") {
+    if (!show("facebookPosts")) return "";
+    const t = postTable(fb.content || [], [["Reach", (x) => nf(x.reach)], ["Eng. rate", (x) => nv(x.engagementRate) != null ? nv(x.engagementRate) + "%" : "–"], ["Reactions", (x) => nf(x.reactions)], ["Shares", (x) => nf(x.shares)], ["Video views", (x) => nv(x.videoViews) != null ? nf(x.videoViews) : "–"]]);
+    return t ? sec("Facebook posts · ranked by reach", true) + t : `<p class="ri-note" style="margin:0;">No Facebook posts in this report.</p>`;
+  }
+  const out = [];
+  const [rT, rC] = change(fb.pageReachChange), [vT, vC] = change(fb.pageViewsChange);
+  out.push(sec("Page", true) + grid(3,
+    kpi("Page likes", nf(fb.pageLikes), nv(fb.newFans) ? `+${nf(fb.newFans)} new this month` : "", "#2c7a4b")
+    + kpi("Page reach", nf(fb.pageReach), rT || "People who saw anything from the Page", rT ? rC : "#8a8796")
+    + kpi("Page views", nf(fb.pageViews), vT, vC)));
+  const [pT, pC] = change(fp.publishedChange), [wT, wC] = change(fp.viewsChange), [eT, eC] = change(fp.engagementChange), [yT, yC] = change(fp.videoPlaysChange);
+  const mix = [nv(fp.images) ? `${nf(fp.images)} images` : "", nv(fp.videos) ? `${nf(fp.videos)} videos` : ""].filter(Boolean).join(", ");
+  out.push(sec("Posts") + grid(4,
+    kpi("Published", nf(fp.published), pT || mix, pT ? pC : "#8a8796")
+    + kpi("Post views", nf(fp.views), wT, wC)
+    + kpi("Engagement", nf(fp.engagement), eT || "Reactions, comments and shares", eT ? eC : "#8a8796")
+    + kpi("Video plays", nf(fp.videoPlays), yT, yC))
+    + grid(3, kpi("Reactions", nf(fp.reactions), "", "") + kpi("Comments", nf(fp.comments), "", "") + kpi("Shares", nf(fp.shares), "", "")));
+  return out.join("");
+}
+
+// ---- LinkedIn ----------------------------------------------------------------
+// SocialPilot reports LinkedIn over the 30 days before the report was run.
+export function renderLinkedIn(tab, li, vis) {
+  const show = (k) => !vis || vis[k] !== false;
+  li = li || {};
+  const lp = li.posts || {}, lv = li.videos || {};
+  const period = li.period ? `<p class="ri-note" style="margin:0 0 10px;">${esc(li.period)}: the 30 days before SocialPilot ran the report, not the calendar month.</p>` : "";
+  if (tab === "audience") return `<p class="ri-note" style="margin:0;">SocialPilot's LinkedIn report has no audience breakdown, so there's nothing to show here for LinkedIn.</p>`;
+  if (tab === "content") {
+    if (!show("linkedinPosts")) return "";
+    const t = postTable(li.content || [], [["Reach", (x) => nf(x.reach)], ["Engagement", (x) => nf(x.engagement)], ["Reactions", (x) => nf(x.reactions)], ["Comments", (x) => nf(x.comments)]]);
+    return t ? period + sec("LinkedIn posts · ranked by reach", !period) + t : `<p class="ri-note" style="margin:0;">No LinkedIn posts in this report.</p>`;
+  }
+  const ch = (v) => { const x = nv(v); return x ? [`${x > 0 ? "↑" : "↓"} ${Math.abs(x)}% on the 30 days before`, x > 0 ? "#2c7a4b" : "#a05a3c"] : ["", ""]; };
+  const imp = lp.impressions != null ? lp.impressions : li.impressions, impC = lp.impressions != null ? lp.impressionsChange : li.impressionsChange;
+  const [iT, iC] = ch(impC), [rT, rC] = ch(lp.reachChange), [eT, eC] = ch(lp.engagementChange), [erT, erC] = ch(lp.engagementRateChange), [pT, pC] = ch(lp.publishedChange);
+  const out = [period];
+  out.push(sec("Profile", !period) + grid(3,
+    kpi("Followers", nf(li.followers), nv(li.followerGrowth) ? `+${nf(li.followerGrowth)} new` : "", "#2c7a4b")
+    + kpi("Connections", nf(li.connections), "", "")
+    + kpi("Impressions", nf(imp), iT || "Times posts were seen", iT ? iC : "#8a8796")));
+  out.push(sec("Posts") + grid(4,
+    kpi("Published", nf(lp.published), pT, pC)
+    + kpi("Post reach", nf(lp.reach), rT, rC)
+    + kpi("Engagement", nf(lp.engagement), eT || "Reactions and comments", eT ? eC : "#8a8796")
+    + kpi("Engagement rate", nv(lp.engagementRate) != null ? nv(lp.engagementRate) + "%" : "—", erT, erC))
+    + grid(3, kpi("Reactions", nf(lp.reactions), "", "") + kpi("Comments", nf(lp.comments), "", "")
+      + kpi("Videos", nf(lv.published), nv(lv.published) ? `${nf(lv.views)} views` : "", "#8a8796")));
+  return out.join("");
+}
+
 // `opts` (optional) tailors a tab for the member view without changing admin's —
 // admin calls this with no vis and no opts, so it keeps the full breakdown.
+// With more than one platform in the month, each tab is a section per
+// platform: Instagram, then Facebook, then LinkedIn.
 export function renderTab(tab, d, r, vis, opts) {
-  if (tab === "content") return renderContent(d, vis, opts, r);
-  if (tab === "audience") return renderAudience(d, vis);
   if (tab === "actions") return renderActions(d, r, vis);
-  return renderOverview(d, r, vis);
+  const ig = () => tab === "content" ? renderContent(d, vis, opts, r) : tab === "audience" ? renderAudience(d, vis) : renderOverview(d, r, vis);
+  const plats = reportPlatforms(d).filter((k) => k === "instagram" || !vis || vis[k] !== false);
+  if (!plats.length || (plats.length === 1 && plats[0] === "instagram")) return ig();
+  return plats.map((k, i) => {
+    const body = k === "instagram" ? ig() : k === "facebook" ? renderFacebook(tab, d.facebook, vis) : renderLinkedIn(tab, d.linkedin, vis);
+    return `<section class="ri-platsec">${platHead(k, i === 0)}${body || `<p class="ri-note" style="margin:0;">Nothing for this platform on this tab.</p>`}</section>`;
+  }).join("");
 }
