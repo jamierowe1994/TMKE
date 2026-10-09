@@ -9492,7 +9492,21 @@ import { createResizeEngine } from "./resize-engine.js";
       g1.appendChild(createFontPicker(el.font, function (name) {
         applyFontChoice(el, name);
       }, { onOpen: function () { openFontPanel(el); } }));
-      g1.appendChild(createSizeControl(el.size, function (v) { el.size = v; fullRender(); pushHistory(); }));
+      g1.appendChild(createSizeControl(el.size, function (v) {
+        /* A "fixed" (light-locked) text box shrinks its words to fit the box it
+           was drawn at, and fitLockedText caps that at el.lockSize and writes
+           el.size on every render. So typing a size, or pressing + / -, was
+           overwritten before it reached the screen: the box appeared to be
+           locked and nothing happened. Setting a size by hand is a decision
+           about that ceiling, so move the ceiling with it. The words still
+           shrink from there if they do not fit. Dani, 9 Oct. */
+        el.size = v;
+        if (el.type === "text" && lockState(el) === "light") {
+          el.lockSize = v;
+          _lockFit.delete(el);   // drop the memo, or the refit is skipped as unchanged
+        }
+        fullRender(); pushHistory();
+      }));
       // Colour — sits next to size now (opens the rich solid/gradient panel).
       g1.appendChild(colorSwatchButton(
         function () { return el.color; },

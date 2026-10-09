@@ -266,7 +266,11 @@ export const WALKS = {
       { target: '[data-tool="text"]', placement: "right", padding: 8, select: "",
         eyebrow: "Text", title: "Or Use the Text Panel.",
         body: "On a busy template the panel is quicker: it finds the words for you rather than you hunting for them on the design." },
-      { target: "#ed-textlist", placement: "right", padding: 8, open: '[data-tool="text"]',
+      /* #ed-textlist is in the DOM but never fills - not on any of the three
+         tabs, and not with a text item selected. The step is marked optional so
+         it drops out cleanly instead of stalling, but it needs a decision:
+         point it at something real, or take it out. Dani, 9 Oct. */
+      { target: "#ed-textlist", placement: "right", padding: 8, optional: true, open: '[data-tool="text"]',
         eyebrow: "Text", title: "Every Line, Listed.",
         body: "Every piece of text on this page, in one list. Type into a row to change the wording, or press Select to jump to it on the design." },
       { target: ".ed-ttabs", placement: "right", padding: 8, open: '[data-tool="text"]',
