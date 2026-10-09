@@ -280,13 +280,18 @@ function injectStyles() {
   /* During a training walk the page sits in the reader's frame: paper
      around it, a hairline card, and the course progress bar on top. */
   html.tmke-walk { background: var(--ws-bg, #f6f4f2); overflow-y: auto; }
+  /* --tour-side is the width the commentary panel takes out of the right of
+     the screen. The framed page gives it up so nothing being pointed at ever
+     ends up underneath the panel. Dani, 9 Oct. */
+  html.tmke-walk { --tour-side: 0px; }
+  @media (min-width: 900px) { html.tmke-walk.has-side { --tour-side: 400px; } }
   html.tmke-walk body {
-    margin: 92px clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
+    margin: 92px calc(var(--tour-side) + clamp(16px, 2.6vw, 40px)) clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
     border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: 8px; overflow: clip;
     min-height: calc(100vh - 92px - clamp(16px, 2.6vw, 40px));
   }
   html.tmke-walk .editor, html.tmke-walk .ed-onboard {
-    top: 92px; right: clamp(16px, 2.6vw, 40px); bottom: clamp(16px, 2.6vw, 40px); left: clamp(16px, 2.6vw, 40px);
+    top: 92px; right: calc(var(--tour-side) + clamp(16px, 2.6vw, 40px)); bottom: clamp(16px, 2.6vw, 40px); left: clamp(16px, 2.6vw, 40px);
     border-radius: 8px; overflow: hidden;
   }
   /* Centred cards sit in the middle of the framed page, not the whole screen. */
@@ -339,17 +344,17 @@ function injectStyles() {
   /* Four panels frame the spotlight cutout — far cheaper to paint than a giant
      box-shadow, and they animate smoothly as the hole moves between steps. */
   .tmke-tour-mask {
-    position: fixed; background: rgba(28,29,34,0.62); pointer-events: auto;
+    position: fixed; background: rgba(16,14,16,0.82); pointer-events: auto;
     transition: top .36s cubic-bezier(.4,.7,.2,1), left .36s cubic-bezier(.4,.7,.2,1),
                 width .36s cubic-bezier(.4,.7,.2,1), height .36s cubic-bezier(.4,.7,.2,1);
   }
-  .tmke-tour-ring {
-    position: fixed; border-radius: 8px; pointer-events: none;
-    outline: 2px solid var(--english-violet, #371e28); outline-offset: 0;
-    box-shadow: 0 0 0 1px rgba(189,179,185,0.6) inset, 0 0 0 6px rgba(55, 30, 40,0.18);
-    transition: top .36s cubic-bezier(.4,.7,.2,1), left .36s cubic-bezier(.4,.7,.2,1),
-                width .36s cubic-bezier(.4,.7,.2,1), height .36s cubic-bezier(.4,.7,.2,1);
-  }
+  /* No ring. It drew a rounded burgundy outline with a glow around whatever
+     was being pointed at, which read as a bubble floating over the thing
+     rather than the thing itself being lit — and its 8px radius never matched
+     the element underneath. The four masks already cut the shape out; the
+     element simply shows at its own colour and everything else goes dark.
+     Dani, 9 Oct. */
+  .tmke-tour-ring { display: none; }
   .tmke-tour.is-center .tmke-tour-ring { display: none; }
   /* The card wears the pop-outs' scale (Trending, Seasonal): small-caps
      eyebrow, serif title in the low twenties, 14px sans body. */
@@ -363,6 +368,17 @@ function injectStyles() {
     transition: opacity .35s ease, transform .35s cubic-bezier(.2,.75,.2,1), top .3s ease, left .3s ease;
   }
   .tmke-tour-card.is-in { opacity: 1; transform: translateY(0); }
+  /* A column down the right, in the strip the page has given up. It does not
+     move between steps — the spotlight moves, the words stay. */
+  .tmke-tour-card.is-side {
+    top: 0; right: 0; bottom: 0; left: auto;
+    width: var(--tour-side, 400px); max-width: 46vw;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 34px 36px; border-radius: 0; border-width: 0 0 0 1px;
+    box-shadow: none; transform: none;
+  }
+  html.tmke-walk .tmke-tour-card.is-side { top: 72px; }
+  .tmke-tour-card.is-side.is-in { transform: none; }
   .tmke-tour-card.is-center {
     left: 50%; top: 50%; transform: translate(-50%, calc(-50% + 8px)); width: min(520px, calc(100vw - 32px));
     text-align: left; padding: 28px 30px 22px;
@@ -525,6 +541,7 @@ function buildDOM() {
 
 function teardownDOM() {
   document.documentElement.classList.remove('tmke-walk');
+  document.documentElement.classList.remove('has-side');
   closeStage();
   document.removeEventListener('keydown', onKey, true);
   window.removeEventListener('resize', scheduleReflow);
@@ -653,6 +670,8 @@ function positionFor(step) {
     // inherit them, or it lands wherever the last spotlight was.
     els.root.classList.add('is-center');
     card.classList.add('is-center');
+    card.classList.remove('is-side');
+    document.documentElement.classList.remove('has-side');
     card.style.left = '';
     card.style.top = '';
     setMask(els.maskT, 0, 0, vw, vh);
@@ -663,6 +682,10 @@ function positionFor(step) {
   }
   els.root.classList.remove('is-center');
   card.classList.remove('is-center');
+  /* Claim the panel's strip first. The page narrows to make room, so every
+     rect below has to be read AFTER that, or the cutout is measured against a
+     layout that no longer exists. */
+  document.documentElement.classList.toggle('has-side', vw >= 900);
   const t = scope().querySelector(step.target);
   if (!t) return;
   const raw = t.getBoundingClientRect();
@@ -707,21 +730,18 @@ function positionFor(step) {
   const topMin = (activeWalk && !stageOn()) ? FRAME_TOP + 12 : 16;
   const edge = (activeWalk && !stageOn()) ? 32 : 16;   // a walk's card keeps well off the frame's edge
   let left, top;
-  /* Pinned to a corner rather than chasing the spotlight. Following the hole
-     meant the card landed somewhere different on every step and the reader had
-     to find it again each time — "popping around the screen", Dani, 9 Oct. It
-     sits bottom right and only moves if it would cover the thing it is talking
-     about, in which case it crosses to the left. Phones keep the old behaviour:
+  /* The words live in a column down the right and do not move; only the
+     spotlight does. Chasing the hole put the card somewhere new on every step,
+     which is the popping around Dani described. Phones keep the old placement:
      there the card is nearly the full width anyway. */
-  if (vw >= 760) {
-    left = vw - cw - edge;
-    top = vh - ch - edge;
-    const clear = 12;
-    const covers = !(hx + hw < left - clear || hx > left + cw + clear ||
-                     hy + hh < top - clear || hy > top + ch + clear);
-    if (covers) left = edge;
+  if (vw >= 900) {
+    card.classList.add('is-side');
+    card.style.left = '';
+    card.style.top = '';
+    return;
   }
-  else if (placement === 'bottom') { left = hx + hw / 2 - cw / 2; top = hy + hh + gap; }
+  card.classList.remove('is-side');
+  if (placement === 'bottom') { left = hx + hw / 2 - cw / 2; top = hy + hh + gap; }
   else if (placement === 'top') { left = hx + hw / 2 - cw / 2; top = hy - ch - gap; }
   else if (placement === 'right') { left = hx + hw + gap; top = hy + hh / 2 - ch / 2; }
   else { left = hx - cw - gap; top = hy + hh / 2 - ch / 2; } // left
@@ -808,6 +828,7 @@ async function render(index) {
   } else {
     els.top.hidden = true;
     document.documentElement.classList.remove('tmke-walk');
+  document.documentElement.classList.remove('has-side');
   }
   // A menu step: a page of cards, one per area, Done instead of Next.
   els.skipto.hidden = !step.skipToMenu;
