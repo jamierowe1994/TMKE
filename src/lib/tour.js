@@ -324,6 +324,18 @@ function injectStyles() {
     transform: translateY(10px); transition: transform .3s cubic-bezier(.2,.75,.2,1);
   }
   .tmke-stage.is-in .tmke-stage-box { transform: none; }
+  /* The commentary panel is fixed to the right of the screen, so the pop-out
+     has to give up that strip or the panel covers the demo it is describing -
+     on a 1512px screen the panel sat over the right third of the Studio.
+     Dani, 9 Oct. */
+  @media (min-width: 900px) {
+    html.has-side .tmke-stage {
+      padding-right: calc(var(--tour-side, 400px) + clamp(10px, 2.4vh, 28px));
+    }
+    html.has-side .tmke-stage-box {
+      width: min(1240px, calc(100vw - var(--tour-side, 400px) - 2 * clamp(10px, 2.4vh, 28px)));
+    }
+  }
   .tmke-stage-head {
     flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px;
     height: 46px; padding: 0 10px 0 18px; background: var(--english-violet, #371e28); color: #fff;
@@ -882,7 +894,7 @@ async function render(index) {
      the page before, so paint it straight away in its loading state instead of
      animating it in: across a page change the section switch still reads as
      one panel that stays put and loads. Dani, 9 Oct. */
-  if (freshMount && activeWalk) {
+  if (freshMount && activeWalk && !stageOn()) {
     const vw = window.innerWidth, vh = window.innerHeight;
     document.documentElement.classList.add('tmke-walk');
     setMask(els.maskT, 0, 0, vw, vh);
