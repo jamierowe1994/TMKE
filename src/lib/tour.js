@@ -403,6 +403,28 @@ function injectStyles() {
     text-align: left; padding: 28px 30px 22px;
   }
   .tmke-tour-card.is-center.is-in { transform: translate(-50%, -50%); }
+  /* Switching sections used to tear the whole walkthrough down and build it
+     again, so the panel flew out and back in. It stays put now and shows this
+     while the next section loads. Dani, 9 Oct. */
+  .tmke-tour-load {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center; gap: 7px;
+  }
+  .tmke-tour-card.is-loading .tmke-tour-load { display: flex; }
+  .tmke-tour-card.is-loading > *:not(.tmke-tour-load):not(.tmke-tour-exit) {
+    opacity: 0; transition: opacity .16s ease;
+  }
+  .tmke-tour-load span {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--ws-accent, #4a2a3c); opacity: 0.22;
+    animation: tmke-tour-dot 1.1s ease-in-out infinite;
+  }
+  .tmke-tour-load span:nth-child(2) { animation-delay: .15s; }
+  .tmke-tour-load span:nth-child(3) { animation-delay: .30s; }
+  @keyframes tmke-tour-dot {
+    0%, 100% { opacity: .2; transform: translateY(0); }
+    50%      { opacity: .85; transform: translateY(-3px); }
+  }
   .tmke-tour-eyebrow {
     font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700;
     color: var(--ws-accent, #4a2a3c); margin: 0 0 8px;
@@ -424,6 +446,18 @@ function injectStyles() {
     padding: clamp(22px, 2.4vw, 36px) clamp(22px, 2.4vw, 36px) 22px;
   }
   .tmke-tour-card.is-menu .tmke-tour-eyebrow, .tmke-tour-card.is-menu .tmke-tour-title, .tmke-tour-card.is-menu .tmke-tour-body { display: none; }
+  /* The menu inside the panel: the same column as every other step, so the
+     layout never changes shape mid-walk. It keeps its heading here - in the
+     wide card the heading was redundant beside the cards themselves - and it
+     scrolls from the top rather than sitting centred. Dani, 9 Oct. */
+  .tmke-tour-card.is-side.is-menu {
+    width: var(--tour-side, 400px); max-height: none;
+    justify-content: flex-start; overflow: auto;
+    padding: 34px 28px 22px;
+  }
+  .tmke-tour-card.is-side.is-menu .tmke-tour-eyebrow,
+  .tmke-tour-card.is-side.is-menu .tmke-tour-title { display: block; }
+  .tmke-tour-card.is-side.is-menu .tmke-tour-title { font-size: clamp(22px, 2vw, 26px); }
   /* One per row. Four columns was fine across a page; inside a 400px panel it
      became one word per line. The picture goes beside the words rather than
      above them, so a row stays short. Dani, 9 Oct. */
@@ -508,6 +542,7 @@ function buildDOM() {
     <div class="tmke-tour-ring" data-ring></div>
     <div class="tmke-tour-card" data-card>
       <button type="button" class="tmke-tour-exit" data-exit aria-label="Close the walkthrough">&times;</button>
+      <div class="tmke-tour-load" data-load aria-hidden="true"><span></span><span></span><span></span></div>
       <p class="tmke-tour-eyebrow" data-eyebrow></p>
       <h2 class="tmke-tour-title" data-title></h2>
       <p class="tmke-tour-body" data-body></p>
@@ -531,6 +566,7 @@ function buildDOM() {
     maskL: root.querySelector('[data-mask="l"]'),
     ring: root.querySelector('[data-ring]'),
     card: root.querySelector('[data-card]'),
+    load: root.querySelector('[data-load]'),
     eyebrow: root.querySelector('[data-eyebrow]'),
     title: root.querySelector('[data-title]'),
     body: root.querySelector('[data-body]'),
@@ -715,10 +751,18 @@ function positionFor(step) {
     // Full-screen dim, no cutout: top panel covers everything, others collapse.
     // A targeted step leaves its coordinates inline; a centred card must not
     // inherit them, or it lands wherever the last spotlight was.
+    /* "We can keep this same right-hand format throughout the whole thing."
+       Inside a walk, a step with no target - the opening card, the section
+       menu, the closing card - uses the same panel as every other step, with
+       the page simply dimmed behind it. Changing to a wide centred card
+       mid-walk was another layout jump, and it is the one the section menu
+       made every time. The first-login tour keeps its centred card.
+       Dani, 9 Oct. */
+    const sideOK = !!activeWalk && vw >= 900 && !stageOn();
     els.root.classList.add('is-center');
-    card.classList.add('is-center');
-    card.classList.remove('is-side');
-    document.documentElement.classList.remove('has-side');
+    card.classList.toggle('is-center', !sideOK);
+    card.classList.toggle('is-side', sideOK);
+    document.documentElement.classList.toggle('has-side', sideOK);
     card.style.left = '';
     card.style.top = '';
     setMask(els.maskT, 0, 0, vw, vh);
@@ -832,11 +876,33 @@ async function render(index) {
   const step = STEPS[index];
   if (!step) return finish(true);
   activeIndex = index;
+  const freshMount = !els;
   if (!els) buildDOM();
+  /* Landing on a new page mid-walk. The panel was on screen a moment ago on
+     the page before, so paint it straight away in its loading state instead of
+     animating it in: across a page change the section switch still reads as
+     one panel that stays put and loads. Dani, 9 Oct. */
+  if (freshMount && activeWalk) {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    document.documentElement.classList.add('tmke-walk');
+    setMask(els.maskT, 0, 0, vw, vh);
+    setMask(els.maskR, vw, 0, 0, 0);
+    setMask(els.maskB, 0, vh, vw, 0);
+    setMask(els.maskL, 0, 0, 0, vh);
+    if (step.target && step.placement !== 'center' && vw >= 900) {
+      document.documentElement.classList.add('has-side');
+      els.card.classList.add('is-side');
+    }
+    els.card.classList.add('is-loading', 'is-in');
+  }
 
   // Run the previous step's cleanup, then this step's setup.
   if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
-  els.card.classList.remove('is-in');
+  /* A panel already on screen stays exactly where it is and loads; only a
+     first mount animates in. Dani, 9 Oct: "the panel should stay where it is.
+     We should just go for a loading screen while it switches." */
+  if (els.card.classList.contains('is-in')) els.card.classList.add('is-loading');
+  else els.card.classList.remove('is-in');
 
   if (step.preAction) { try { await step.preAction(); } catch (_) {} }
   lastPostAction = step.postAction || null;
@@ -932,6 +998,7 @@ async function render(index) {
 
   positionFor(step);
   settleReflow();
+  els.card.classList.remove('is-loading');
   nextTick(() => els.card.classList.add('is-in'));
 }
 
@@ -967,14 +1034,16 @@ function finish(completed) {
     const back = returnTo, menu = menuBack, walked = activeWalk;
     if (completed) markWalked(walked);
     activeWalk = null; returnTo = null; menuBack = null; STEPS = FIRST_LOGIN;
-    if (els) { els.card.classList.remove('is-in'); setTimeout(teardownDOM, 260); }
     // An area walk opened from a menu goes back to that menu, wherever we
     // are now; the menu itself, and a walk opened from a lesson, go home.
+    // The panel holds its place for that, exactly as it does on the way in.
     if (menu && WALKS[menu]) {
       const at = WALKS[menu].steps.findIndex((st) => st.menu);
-      setTimeout(() => startWalk(menu, { returnTo: back, at: at >= 0 ? at : 0 }), 280);
+      if (els) els.card.classList.add('is-loading');
+      startWalk(menu, { returnTo: back, at: at >= 0 ? at : 0 });
       return;
     }
+    if (els) { els.card.classList.remove('is-in'); setTimeout(teardownDOM, 260); }
     // A staged walk never left the lesson, so there is nothing to go back to.
     if (back && !wasStaged) setTimeout(() => location.assign(back), completed ? 280 : 0);
     return;
@@ -1043,7 +1112,9 @@ export function startWalk(id, opts = {}) {
   if (!loadWalk(id)) return false;
   returnTo = opts.returnTo || null;
   menuBack = opts.menu || null;
-  if (els) teardownDOM();
+  /* Keep the overlay. Tearing it down here is what made a section change pop
+     the panel out and back in. Dani, 9 Oct. */
+  if (els) els.card.classList.add('is-loading');
   const at = Math.max(0, Math.min(STEPS.length - 1, opts.at || 0));
   const walk = WALKS[id];
   // A walk with a stage runs inside the lesson: the page opens in a pop-out
