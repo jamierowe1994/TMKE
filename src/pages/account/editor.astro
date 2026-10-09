@@ -8288,6 +8288,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             }
           } catch (_) {}
         }
+        /* ?pack=demo (the training walkthroughs link that way) opens the demo
+           pack's designs here too. This branch used to return before the
+           deep link below was read, so the walkthrough's step on the pack's
+           designs waited on a page that never opened. */
+        const demoParam = params.get("pack");
+        if (demoParam && demoPacks.length) {
+          showPackDesigns(demoParam === "demo" ? demoPacks[0] : (demoPacks.find((x) => x.id === demoParam) || demoPacks[0]));
+        }
         return;
       }
 
