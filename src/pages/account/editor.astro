@@ -10,6 +10,7 @@ import "../../styles/account-sections.css";   // dashboard shell + sidebar chrom
 import { templates, packages } from "../../data/library.js";
 import { TRAINING_DESIGN, TRAINING_KIT } from "../../data/training-demo.js";
 import { STUDIO_SIZES, WIDE_SIZES, NO_BLOCK_SIZES } from "../../data/studio-sizes.js";
+import { GOOGLE_FONTS_ALL } from "../../data/google-fonts-all.js";
 
 // The sizes a contact footer has no business on, as "w,h" for the engine.
 const NO_BLOCK_WH = (STUDIO_SIZES.find((g) => g.family === "social")?.sizes ?? [])
@@ -45,7 +46,7 @@ const UNSPLASH_KEY = import.meta.env.PUBLIC_UNSPLASH_ACCESS_KEY ?? "";
 // gets loaded on-demand when a user picks the font in the editor's font
 // picker, so the page doesn't blow its budget at startup.
 //   c = category (sans | serif | display | mono | handwriting)
-const googleFonts = [
+const googleFontsPicked = [
   // Sans-serif staples
   { f: "Inter", c: "sans" }, { f: "Roboto", c: "sans" }, { f: "Open Sans", c: "sans" },
   { f: "Lato", c: "sans" }, { f: "Montserrat", c: "sans" }, { f: "Poppins", c: "sans" },
@@ -116,6 +117,13 @@ const googleFonts = [
   // TMKE house picks (already loaded globally via BaseLayout)
   { f: "Darker Grotesque", c: "sans" },
 ];
+// Every other family Google serves, after the picked ones (Danielle, 9 Oct
+// 2026: Parisienne wasn't in the picker). Brand kit and admin branding
+// already offered the full list; the editor only had the ~150 above. Names
+// only, so nothing loads until a font is chosen. No category for these, so
+// they fall back to sans-serif until their own CSS arrives.
+const pickedNames = new Set(googleFontsPicked.map((g) => g.f));
+const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pickedNames.has(f)).map((f) => ({ f, c: "" })));
 ---
 
 <BaseLayout
