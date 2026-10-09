@@ -504,6 +504,42 @@ import "../../../styles/ws-system.css";
         "Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.",
         `<div class="rp-best${topCard && formats ? "" : " is-one"}">${topCard}${formats ? `<div class="rp-formats">${formats}</div>` : ""}</div>`) });
 
+      // 3b — Facebook: only when the month's SocialPilot report covered the
+      // client's Facebook Page too (Danielle, 9 Oct 2026). Its own six
+      // figures, then its posts. Facebook has no profile/content reach split.
+      const fb = d.facebook || null;
+      if (fb && vis.facebook !== false) {
+        const fp = fb.posts || {};
+        const ffigs = [];
+        const ffig = (label, val, move, means) => { if (val != null) ffigs.push(`<div class="rp-fig"><p class="rp-label">${esc(label)}</p><p class="rp-fig-val">${esc(val)}</p><p class="rp-fig-move">${move ? esc(move) : "&nbsp;"}</p><p class="rp-fig-means">${esc(means)}</p></div>`); };
+        const nf = n(fb.newFans);
+        ffig("Page likes", n(fb.pageLikes) != null ? fmt(n(fb.pageLikes)) : null, nf ? `${fmt(nf)} new like${nf === 1 ? "" : "s"} in ${month}` : "", "People who like your Page, on the day this report was produced.");
+        ffig("Page reach", n(fb.pageReach) != null ? fmt(n(fb.pageReach)) : null, mv(fb.pageReachChange), "Different people who saw anything from your Page.");
+        ffig("Post views", n(fp.views) != null ? fmt(n(fp.views)) : null, mv(fp.viewsChange), "Times your posts were seen, repeats included.");
+        ffig("Engagement", n(fp.engagement) != null ? fmt(n(fp.engagement)) : null, mv(fp.engagementChange), "Reactions, comments and shares on your posts.");
+        ffig("Page views", n(fb.pageViews) != null ? fmt(n(fb.pageViews)) : null, mv(fb.pageViewsChange), "Times people visited your Page itself.");
+        const fi = n(fp.images), fv = n(fp.videos);
+        ffig("Posts published", n(fp.published) != null ? fmt(n(fp.published)) : null, mv(fp.publishedChange),
+          (fi || fv) ? [fi ? `${fmt(fi)} image${fi === 1 ? "" : "s"}` : "", fv ? `${fmt(fv)} video${fv === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ") + "." : "Everything that went out on the Page.");
+        const fRows = vis.facebookPosts !== false ? (fb.content || []).filter((t) => t && t.title)
+          .slice().sort((a, b) => (n(b.reach) || 0) - (n(a.reach) || 0) || (n(b.reactions) || 0) - (n(a.reactions) || 0)).slice(0, 5) : [];
+        const fDay = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+        const fTop = fRows.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top Facebook posts</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th>Post</th><th class="rp-c">Reach</th><th class="rp-c">Engagement</th><th class="rp-c">Reactions</th><th class="rp-c">Shares</th></tr></thead><tbody>${fRows.map((t, i) => {
+            const line = [fDay(t.date), `${fmt(n(t.reach))} reach`, `${fmt(n(t.reactions))} reactions`].filter(Boolean).join(" · ");
+            return `<tr><td class="rp-rank">${i + 1}</td><td class="rp-top-t"><span class="rp-t">${esc(t.title)}</span><span class="rp-top-m">${esc(line)}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Engagement">${n(t.engagementRate) != null ? esc(n(t.engagementRate) + "%") : "&ndash;"}</td><td class="rp-c" data-l="Reactions">${fmt(n(t.reactions))}</td><td class="rp-c" data-l="Shares">${fmt(n(t.shares))}</td></tr>`;
+          }).join("")}</tbody></table></div></div>` : "";
+        const fCard = [["Reactions", fp.reactions], ["Comments", fp.comments], ["Shares", fp.shares], ["Video plays", fp.videoPlays]].filter(([, v]) => n(v) != null);
+        const fSide = fCard.length ? `<div class="rp-mini rp-format"><p class="rp-label">Your posts</p><dl>${fCard.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${fmt(n(v))}</dd>`).join("")}</dl></div>` : "";
+        // Two slides, as Instagram has: the figures, then the posts. On one
+        // they ran past the bottom of a laptop screen.
+        if (ffigs.length) parts.push({ step: "Facebook in Numbers", html: part("Facebook in Numbers",
+          "Your Facebook Page at a glance.",
+          `<div class="rp-figs rp-grow">${ffigs.join("")}</div>`) });
+        if (fTop || fSide) parts.push({ step: "Facebook Posts", html: part("Facebook Posts",
+          "The Facebook posts that reached furthest, and how all of them did together.",
+          `<div class="rp-best${fTop && fSide ? "" : " is-one"}">${fTop}${fSide ? `<div class="rp-formats">${fSide}</div>` : ""}</div>`) });
+      }
+
       // 4 — What it means: our words on the month, then, once there's a month
       // before it, how it compares.
       const series = all
@@ -601,7 +637,7 @@ import "../../../styles/ws-system.css";
       $("rp").hidden = false;
       const parts = buildParts(r, all, vis, client, sample);
       const month = `${MONTHS[r.month]} ${r.year}`;
-      const who = [client?.business, r.platform].filter(Boolean).join(" · ");
+      const who = [client?.business, r.data?.facebook && vis.facebook !== false ? `${r.platform || "Instagram"} and Facebook` : r.platform].filter(Boolean).join(" · ");
       document.title = `${month} report · TMKE`;
       const back = sample ? "/account/social?sample=1" : "/account/social";
       $("rp-back").href = back;

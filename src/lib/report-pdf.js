@@ -143,12 +143,18 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const side = (eyebrow, heading, lede, extra) => `<div class="rpx-side"><p class="rpx-eyebrow">${esc(eyebrow)}</p><h2 class="rpx-title">${esc(heading)}</h2>${lede ? `<p class="rpx-lede">${esc(lede)}</p>` : ""}${extra || ""}</div>`;
   const mv = (v) => { const x = n(v); return x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)}% on last month` : ""; };
 
-  const sections = ["In Numbers", "Who You Reached", "What Worked Well", "What It Means", `Into ${next}`];
+  // Facebook comes in after the Instagram content when the month's report
+  // covered the client's Page too (Danielle, 9 Oct 2026), so section and
+  // page numbers are counted rather than fixed.
+  const fb = d.facebook && vis.facebook !== false ? d.facebook : null;
+  const sections = ["In Numbers", "Who You Reached", "What Worked Well", ...(fb ? ["Facebook"] : []), "What It Means", `Into ${next}`];
+  const secNo = (name) => String(sections.indexOf(name) + 1).padStart(2, "0");
+  let pageNo = 1;
 
   // Cover
   pages.push(`<div class="rpx-page rpx-cover"><div class="rpx-strip"><span>The Future of Property Marketing</span><span>TMKE</span></div>
     <div class="rpx-card"><p class="rpx-eyebrow">Your monthly social media report</p><h1 class="rpx-h">${esc(title)}</h1>
-      <p class="rpx-card-sub">${esc([client?.business, r.platform || "Instagram"].filter(Boolean).join(" · "))}</p>
+      <p class="rpx-card-sub">${esc([client?.business, fb ? `${r.platform || "Instagram"} and Facebook` : (r.platform || "Instagram")].filter(Boolean).join(" · "))}</p>
       <ol class="rpx-contents">${[`${month} in Numbers`, ...sections.slice(1)].map((s, i) => `<li><b>0${i + 1}</b>${esc(s)}</li>`).join("")}</ol></div></div>`);
 
   // 1 — Numbers
@@ -166,7 +172,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const lastDay = new Date(r.year, r.month + 1, 0).getDate();
   const details = [["Period", `1 to ${lastDay} ${month} ${r.year}`], ["Platform", r.platform || "Instagram"], ["Account", client?.business], ["Account manager", client?.social_media_manager]].filter(([, v]) => v);
   const detailsHtml = `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Report details</dt>${details.map(([k, v]) => `<dd><span>${esc(k)}</span><b>${esc(v)}</b></dd>`).join("")}</dl></div>`;
-  pages.push(page(2, "", `<div class="rpx-body">${side("01 · At a glance", `${month} in Numbers`, "Your Instagram performance at a glance: the six figures that describe the month.", detailsHtml)}<div class="rpx-main"><div class="rpx-figs">${figs.join("")}</div></div></div>`));
+  pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("In Numbers")} · At a glance`, `${month} in Numbers`, "Your Instagram performance at a glance: the six figures that describe the month.", detailsHtml)}<div class="rpx-main"><div class="rpx-figs">${figs.join("")}</div></div></div>`));
 
   // 2 — Who you reached
   const cr = (n(d.posts?.reach) || 0) + (n(d.reels?.reach) || 0);
@@ -194,7 +200,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
     const ukPct = uk != null && n(p.followers) ? Math.round(uk / n(p.followers) * 100) : null;
     cols.push(`<div class="rpx-col"><p class="rpx-label" style="margin-bottom:18px">Where your followers are</p><ol class="rpx-list">${cities.map((c, i) => `<li><span class="rpx-num">${i + 1}</span><span class="c">${esc(String(c.city).replace(/,\s*(England|Scotland|Wales|Northern Ireland|United Kingdom)$/i, ""))}</span><b>${fmt(n(c.count))}</b></li>`).join("")}</ol>${ukPct != null ? `<p class="rpx-small" style="margin-top:22px">${ukPct}% of your followers are in the UK.</p>` : ""}</div>`);
   }
-  pages.push(page(3, "", `<div class="rpx-body">${side("02 · Audience", "Who You Reached", n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month.\nHere's who they were.` : "", reachSide)}<div class="rpx-main"><div class="rpx-cols3"${cols.length === 1 ? ' style="grid-template-columns:1fr"' : ""}>${cols.join("")}${ageCol}</div></div></div>`));
+  pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("Who You Reached")} · Audience`, "Who You Reached", n(p.reach) != null ? `${fmt(n(p.reach))} different people saw your account this month.\nHere's who they were.` : "", reachSide)}<div class="rpx-main"><div class="rpx-cols3"${cols.length === 1 ? ' style="grid-template-columns:1fr"' : ""}>${cols.join("")}${ageCol}</div></div></div>`));
 
   // 3 — What worked
   const rows = (Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || [])).filter((t) => t && (t.title || t.url));
@@ -209,7 +215,31 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const tbl = top5.length ? `<p class="rpx-head" style="margin-bottom:20px">Top performing content</p><table class="rpx-tbl"><colgroup><col style="width:64px"><col style="width:116px"><col><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:15%"></colgroup>
       <thead><tr><th></th><th></th><th class="l">Content</th><th>Type</th><th>Reach</th><th>Views</th><th>Interactions</th></tr></thead>
       <tbody>${top5.map((t, i) => { const reel = /reel/i.test(t.type || ""); return `<tr><td class="rk">${i + 1}</td><td>${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : `<span class="ph"></span>`}</td><td class="l tt">${esc(String(t.title || "").trim())}</td><td><span class="ty">${reel ? "Reel" : "Post"}</span></td><td>${fmt(n(t.reach))}</td><td>${reel ? fmt(n(t.views)) : "&ndash;"}</td><td>${fmt(n(t.interactions))}</td></tr>`; }).join("")}</tbody></table>` : "";
-  pages.push(page(4, "", `<div class="rpx-body">${side("03 · Content", "What Worked This Month", "The posts that reached furthest, and how reels and posts did overall. Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.", glanceHtml)}<div class="rpx-main">${tbl}</div></div>`));
+  pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("What Worked Well")} · Content`, "What Worked This Month", "The posts that reached furthest, and how reels and posts did overall. Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.", glanceHtml)}<div class="rpx-main">${tbl}</div></div>`));
+
+  // 3b — Facebook: its figures, then its posts, as Instagram has.
+  if (fb) {
+    const fp = fb.posts || {};
+    const ff = [];
+    const ffig = (label, val, move, means) => { if (val != null) ff.push(`<div class="rpx-fig"><p class="rpx-label">${esc(label)}</p><b>${esc(val)}</b><p class="rpx-move">${move ? esc(move) : "&nbsp;"}</p><p>${esc(means)}</p></div>`); };
+    const nf = n(fb.newFans);
+    ffig("Page likes", n(fb.pageLikes) != null ? fmt(n(fb.pageLikes)) : null, nf ? `${fmt(nf)} new likes in ${month}` : "", "People who like your Page, on the day this report was produced.");
+    ffig("Page reach", n(fb.pageReach) != null ? fmt(n(fb.pageReach)) : null, mv(fb.pageReachChange), "Different people who saw anything from your Page.");
+    ffig("Post views", n(fp.views) != null ? fmt(n(fp.views)) : null, mv(fp.viewsChange), "Times your posts were seen, repeats included.");
+    ffig("Engagement", n(fp.engagement) != null ? fmt(n(fp.engagement)) : null, mv(fp.engagementChange), "Reactions, comments and shares on your posts.");
+    ffig("Page views", n(fb.pageViews) != null ? fmt(n(fb.pageViews)) : null, mv(fb.pageViewsChange), "Times people visited your Page itself.");
+    const fi = n(fp.images), fv = n(fp.videos);
+    ffig("Posts published", n(fp.published) != null ? fmt(n(fp.published)) : null, mv(fp.publishedChange),
+      (fi || fv) ? [fi ? `${fi} image${fi === 1 ? "" : "s"}` : "", fv ? `${fv} video${fv === 1 ? "" : "s"}` : ""].filter(Boolean).join(" and ") + "." : "Everything that went out on the Page.");
+    const fCard = [["Reactions", fp.reactions], ["Comments", fp.comments], ["Shares", fp.shares], ["Video plays", fp.videoPlays]].filter(([, v]) => n(v) != null);
+    const fGlance = fCard.length ? `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Your posts</dt>${fCard.map(([k, v]) => `<dd><span>${esc(k)}</span><b>${fmt(n(v))}</b></dd>`).join("")}</dl></div>` : "";
+    if (ff.length) pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("Facebook")} · Facebook`, "Facebook in Numbers", "Your Facebook Page at a glance.", fGlance)}<div class="rpx-main"><div class="rpx-figs">${ff.join("")}</div></div></div>`));
+    const fRows = vis.facebookPosts !== false ? (fb.content || []).filter((t) => t && t.title).slice().sort((a, b) => (n(b.reach) || 0) - (n(a.reach) || 0) || (n(b.reactions) || 0) - (n(a.reactions) || 0)).slice(0, 5) : [];
+    const fDay = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+    if (fRows.length) pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("Facebook")} · Facebook`, "Facebook Posts", "The Facebook posts that reached furthest this month.", "")}<div class="rpx-main"><p class="rpx-head" style="margin-bottom:20px">Top Facebook posts</p><table class="rpx-tbl"><colgroup><col style="width:64px"><col><col style="width:12%"><col style="width:12%"><col style="width:15%"><col style="width:13%"><col style="width:12%"></colgroup>
+      <thead><tr><th></th><th class="l">Post</th><th>Date</th><th>Reach</th><th>Engagement</th><th>Reactions</th><th>Shares</th></tr></thead>
+      <tbody>${fRows.map((t, i) => `<tr><td class="rk">${i + 1}</td><td class="l tt">${esc(String(t.title || "").trim())}</td><td>${esc(fDay(t.date))}</td><td>${fmt(n(t.reach))}</td><td>${n(t.engagementRate) != null ? esc(n(t.engagementRate) + "%") : "&ndash;"}</td><td>${fmt(n(t.reactions))}</td><td>${fmt(n(t.shares))}</td></tr>`).join("")}</tbody></table></div></div>`));
+  }
 
   // 4 — What it means
   const series = all.filter((x) => (x.platform || "") === (r.platform || "") && (x.year * 12 + x.month) <= (r.year * 12 + r.month) && (x.year * 12 + x.month) >= (r.year * 12 + r.month) - 2).sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
@@ -219,13 +249,13 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
   const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p></div>`).join("")}</div>`
     : (has(cl.summary || d.summary) ? `<div class="rpx-ins"><p class="rpx-lede" style="margin:0;white-space:pre-line">${esc(cl.summary || d.summary)}</p></div>` : "");
-  pages.push(page(5, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:40px">${side("04 · Insight", "What It Means", "")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
+  pages.push(page(++pageNo, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:40px">${side(`${secNo("What It Means")} · Insight`, "What It Means", "")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
 
   // 5 — Into next month
   const takes = vis.priorities !== false ? ((cl.priorities || []).length ? cl.priorities : (d.priorities || [])).filter((x) => x && x.text).slice(0, 4) : [];
   const coming = vis.comingSoon !== false ? (d.comingSoon || []).filter(Boolean) : [];
   const comingHtml = coming.length ? `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Content coming up</dt>${coming.map((c) => `<dd><span>${esc(c)}</span></dd>`).join("")}</dl></div>` : "";
-  pages.push(page(6, "", `<div class="rpx-body">${side(`05 · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts">${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
+  pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo(`Into ${next}`)} · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts">${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
 
   // Closing
   pages.push(`<div class="rpx-page rpx-close">${top}<div class="rpx-close-body"><h2>Any questions?</h2><div>

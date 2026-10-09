@@ -56,6 +56,15 @@ export const REPORT_FIELD_GROUPS = [
     ],
   },
   {
+    // Only when the month's SocialPilot report includes the client's Facebook
+    // Page too (a joint report). Danielle, 9 Oct 2026.
+    tab: "facebook", label: "Facebook",
+    fields: [
+      { key: "facebook",        label: "Facebook Page section",          client: true },
+      { key: "facebookPosts",   label: "Facebook: top posts",            client: true },
+    ],
+  },
+  {
     tab: "actions", label: "Recommendations",
     fields: [
       { key: "priorities",      label: "Next-month priorities",          client: true },
