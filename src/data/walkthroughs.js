@@ -228,22 +228,26 @@ export const WALKS = {
     title: "Make This Design Yours",
     stage: "/account/editor?training=1",
     steps: [
-      { target: '[data-tool="brand"]', placement: "right", padding: 8,
+      /* The rail's Brand tab is hidden for a member on a social design - the
+         brand kit lives under Start, as "Make it yours". These steps pointed at
+         the old tab, so the whole walk ran on a panel a member cannot open.
+         Dani, 9 Oct. */
+      { target: '[data-start-tool="brand"]', placement: "right", padding: 8, open: '[data-tool="start"]',
         eyebrow: "Brand", title: "Your Kit, Inside the Editor.",
-        body: "Brand holds everything saved in your Brand Kit: your colours, your fonts and your logos, ready to use on the design." },
-      { target: ".ed-rebrand", placement: "right", padding: 8, open: '[data-tool="brand"]',
+        body: "Make it yours holds everything saved in your Brand Kit: your colours, your fonts and your logos, ready to use on the design." },
+      { target: ".ed-rebrand", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Make This Design Yours.",
         body: "One list: the colours and fonts this template uses, each with your versions beside it." },
-      { target: ".ed-rb-row[data-from]", placement: "right", padding: 8, open: '[data-tool="brand"]',
+      { target: ".ed-rb-row[data-from]", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "One Row, One Colour.",
         body: "This row is one colour the design uses and how many items carry it. Pick one of your swatches on the right and all of them change together - nothing else moves." },
-      { target: ".ed-rb-font", placement: "right", padding: 8, open: '[data-tool="brand"]',
+      { target: ".ed-rb-font", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "And the Fonts.",
         body: "The same for type: the font the template uses, with a button to put yours in its place across every line set in it." },
-      { target: "#brand-colour-grid", placement: "right", padding: 8, select: "shape", open: '[data-tool="brand"]',
+      { target: "#brand-colour-grid", placement: "right", padding: 8, select: "shape", open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Or Recolour One Element.",
         body: "Select something on the design first - one is selected now - then choose a colour here to recolour just that. With nothing selected, the colour goes on the background." },
-      { target: "#brand-logo-grid", placement: "right", padding: 8, select: "", open: '[data-tool="brand"]',
+      { target: "#brand-logo-grid", placement: "right", padding: 8, select: "", open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Your Logos.",
         body: "Select a logo to place it on the design. Templates from your packs will usually have put one on already." },
     ],
