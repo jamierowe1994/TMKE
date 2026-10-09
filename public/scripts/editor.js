@@ -5664,7 +5664,11 @@ import { createResizeEngine } from "./resize-engine.js";
     else if (shape === "rounded") addElement(Object.assign({ type: "rect" }, common, { radius: 100 }));
     else if (shape === "triangle") addElement(Object.assign({ type: "triangle" }, common));
     else if (shape === "star") addElement(Object.assign({ type: "star" }, common));
-    else if (shape === "line") addElement(Object.assign({ type: "line" }, common, { h: 4, w: 320 }));
+    /* Shapes' "Line" and the two rules are the same thing - a line - so they
+       start the same colour too. This one was the only one taking the shapes
+       default (#474254), which is why a line drawn from Shapes came out a
+       different colour from a rule drawn from Lines. Dani, 10 Oct. */
+    else if (shape === "line") addElement(Object.assign({ type: "line" }, common, { h: 4, w: 320, fill: "#1c1d22" }));
     // Rules are lines too, so they get a line's end handles (they were thin
     // rectangles, which could only be resized as boxes).
     else if (shape === "hr-thin") addElement(Object.assign({ type: "line" }, common, { h: 1, w: 480, fill: "#1c1d22" }));
