@@ -284,6 +284,9 @@ function injectStyles() {
      the screen. The framed page gives it up so nothing being pointed at ever
      ends up underneath the panel. Dani, 9 Oct. */
   html.tmke-walk { --tour-side: 0px; }
+  /* The demo pill stands down for the length of a walk. With the panel taking
+     400px the nav had nowhere to put "Your SMM" and wrapped it. Dani, 9 Oct. */
+  html.tmke-walk .dm-pill { display: none !important; }
   @media (min-width: 900px) { html.tmke-walk.has-side { --tour-side: 400px; } }
   html.tmke-walk body {
     margin: 92px calc(var(--tour-side) + clamp(16px, 2.6vw, 40px)) clamp(16px, 2.6vw, 40px) clamp(16px, 2.6vw, 40px);
@@ -536,7 +539,14 @@ function buildDOM() {
   });
   document.addEventListener('keydown', onKey, true);
   window.addEventListener('resize', scheduleReflow, { passive: true });
+  /* The cutout has to stay on the element when the page moves under it. A walk
+     scrolls the <html> element, not the window, and that scroll was not
+     reaching the window listener — so the hole stayed where it was and the
+     page slid through it. Listening in three places costs nothing and covers
+     the document scroller, the framed page and anything inside it. Dani, 9 Oct. */
   window.addEventListener('scroll', scheduleReflow, { passive: true, capture: true });
+  document.addEventListener('scroll', scheduleReflow, { passive: true, capture: true });
+  document.documentElement.addEventListener('scroll', scheduleReflow, { passive: true });
 }
 
 function teardownDOM() {
@@ -695,12 +705,31 @@ function positionFor(step) {
   const r = stageOn()
     ? { left: raw.left + off.x, top: raw.top + off.y, width: raw.width, height: raw.height }
     : raw;
-  const pad = step.padding != null ? step.padding : 6;
+  /* No padding unless a step asks for it: the hole is the element. Six pixels
+     all round left a pale border that read as a box drawn over the card rather
+     than the card itself being lit. Dani, 9 Oct. */
+  const pad = step.padding != null ? step.padding : 0;
   const minX = stageOn() ? off.x : 0, minY = stageOn() ? off.y : 0;
   const maxX = stageOn() ? off.x + off.w : vw, maxY = stageOn() ? off.y + off.h : vh;
-  const hx = Math.max(minX, r.left - pad), hy = Math.max(minY, r.top - pad);
-  const hw = Math.max(0, Math.min(maxX - hx, r.width + pad * 2));
+  let hx = Math.max(minX, r.left - pad), hy = Math.max(minY, r.top - pad);
+  let hw = Math.max(0, Math.min(maxX - hx, r.width + pad * 2));
   const hh = Math.max(0, Math.min(maxY - hy, r.height + pad * 2));
+  /* Every full-width step lights the same column. The cards on a hub page sit
+     in a gutter, but the nav bar runs edge to edge, so its cutout was wider
+     than every other step's and the two read as different shapes. A
+     full-bleed target is snapped to the column the cards occupy, measured off
+     a card rather than hard-coded, since the gutter is responsive.
+     Dani, 9 Oct. */
+  if (step.snap !== false && !stageOn()) {
+    const ref = scope().querySelector('.ws-hero, .lrn-sec, main > section');
+    if (ref) {
+      const c = ref.getBoundingClientRect();
+      if (c.width > 0 && hw > c.width && hx <= c.left) {
+        hx = c.left;
+        hw = c.width;
+      }
+    }
+  }
 
   if (step.box === false) {
     // No dim, no ring: the card simply points at the thing.
