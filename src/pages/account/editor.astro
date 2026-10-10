@@ -5989,6 +5989,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         .select('id, family, display_name, file_url, weight, style')
         .order('family', { ascending: true });
 
+      /* Something has to be able to WAIT for these. The faces are fetched
+         from Supabase after editor.js has already run, and each one is loaded
+         fire-and-forget - so a design could be drawn, or exported, before an
+         uploaded face existed, and it fell back to another font for the rest
+         of the session. The promise lets the editor hold a render until the
+         pack is actually registered. Dani, 10 Oct. */
+      const facePromises = [];
       if (!bfErr && bf && bf.length) {
         const registered = new Set();
         for (const f of bf) {
@@ -6000,13 +6007,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               style: f.style || 'normal',
               display: 'swap',
             });
-            face.load().then((l) => document.fonts.add(l)).catch(() => {});
+            facePromises.push(face.load().then((l) => document.fonts.add(l)).catch(() => {}));
           } catch (_) { /* ignore individual font failures */ }
         }
         // Editor.js reads this on init to populate the font picker.
         window.__TMKE_BRAND_FONTS__ = bf;
       }
+      window.__TMKE_BRAND_FONTS_READY__ = Promise.all(facePromises);
     } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
+    // Always resolvable, so a waiter never hangs when there are no uploads.
+    if (!window.__TMKE_BRAND_FONTS_READY__) window.__TMKE_BRAND_FONTS_READY__ = Promise.resolve();
 
     /* Designing as (docs/brand-switcher-brief.md). The Worker says which
        brands this member works for; one brand, or none, and nothing shows.

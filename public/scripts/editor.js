@@ -268,6 +268,19 @@ import { createResizeEngine } from "./resize-engine.js";
     return out;
   }
   let FONTS = buildFonts();
+  /* When the uploaded pack lands, rebuild the catalogue and redraw. Without
+     this a design that fell back for the first moment stayed wrong for the
+     whole session, which is why a client saw The Seasons where the template
+     says UniText. Dani, 10 Oct. */
+  try {
+    if (typeof window !== "undefined" && window.__TMKE_BRAND_FONTS_READY__
+        && typeof window.__TMKE_BRAND_FONTS_READY__.then === "function") {
+      window.__TMKE_BRAND_FONTS_READY__.then(function () {
+        FONTS = buildFonts();
+        try { fullRender(); } catch (_) {}
+      });
+    }
+  } catch (_) {}
 
   // Brand-kit favourite fonts — starred in the Text panel's font browser and
   // persisted locally. When the user has favourited at least one font, the
@@ -5152,20 +5165,47 @@ import { createResizeEngine } from "./resize-engine.js";
     else { g.style.top = pos + "px"; g.style.left = a + "px"; g.style.width = Math.max(0, b - a) + "px"; }
     guidesEl.appendChild(g);
   }
+  /* Pick the snap. A match of the same kind - top to top, bottom to bottom -
+     wins outright over a mixed one, because that is what people mean when
+     they line two things up; within a kind, the nearest wins. The mixed
+     pairings stay as the fallback, for the cases where a middle really is
+     what you want. Dani, 10 Oct. */
+  function nearestEdge(pts, targets, tol) {
+    let best = null, bestSame = false;
+    pts.forEach(function (p) {
+      targets.forEach(function (tg) {
+        const d = tg.v - p.v;
+        if (Math.abs(d) > tol) return;
+        const same = tg.k === p.k;
+        if (best === null || (same && !bestSame) ||
+            (same === bestSame && Math.abs(d) < Math.abs(best))) {
+          best = d; bestSame = same;
+        }
+      });
+    });
+    return best;
+  }
+  const edgePts = (a, b, c) => [{ k: "s", v: a }, { k: "m", v: b }, { k: "e", v: c }];
+
   function snapTargets(el, skipIds) {
     const W = state.canvas.width, H = state.canvas.height;
-    const xs = [0, W / 2, W].map((v) => ({ v: v, page: true }));
-    const ys = [0, H / 2, H].map((v) => ({ v: v, page: true }));
+    /* Each target says which edge it is, so a snap can prefer like for like:
+       top to top and bottom to bottom, rather than whichever happens to be a
+       hair nearer. Dani, 10 Oct: "it's only showing me alignment to the
+       middle. It doesn't get all the way to the bottom." */
+    const EDGE = ["s", "m", "e"];
+    const xs = [0, W / 2, W].map((v, i) => ({ v: v, page: true, k: EDGE[i] }));
+    const ys = [0, H / 2, H].map((v, i) => ({ v: v, page: true, k: EDGE[i] }));
     const m = state.margins;
     if (m && m.on && m.size > 0) {
-      if (m.size < W) xs.push({ v: m.size, page: true }, { v: W - m.size, page: true });
-      if (m.size < H) ys.push({ v: m.size, page: true }, { v: H - m.size, page: true });
+      if (m.size < W) xs.push({ v: m.size, page: true, k: "s" }, { v: W - m.size, page: true, k: "e" });
+      if (m.size < H) ys.push({ v: m.size, page: true, k: "s" }, { v: H - m.size, page: true, k: "e" });
     }
     state.elements.forEach((o) => {
       if (o.hidden) return;
       if (skipIds ? skipIds.has(o.id) : (el && o.id === el.id)) return;
-      [o.x, o.x + o.w / 2, o.x + o.w].forEach((v) => xs.push({ v: v, o: o }));
-      [o.y, o.y + o.h / 2, o.y + o.h].forEach((v) => ys.push({ v: v, o: o }));
+      [o.x, o.x + o.w / 2, o.x + o.w].forEach((v, i) => xs.push({ v: v, o: o, k: EDGE[i] }));
+      [o.y, o.y + o.h / 2, o.y + o.h].forEach((v, i) => ys.push({ v: v, o: o, k: EDGE[i] }));
     });
     return { xs: xs, ys: ys };
   }
@@ -5175,17 +5215,9 @@ import { createResizeEngine } from "./resize-engine.js";
     const tol = snapTol();
     const t = snapTargets(el);
     // The single nearest match on each axis decides the snap.
-    const nearest = (pts, targets) => {
-      let best = null;
-      pts.forEach((p) => targets.forEach((tg) => {
-        const d = tg.v - p;
-        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
-      }));
-      return best;
-    };
-    const dx = nearest([el.x, el.x + el.w / 2, el.x + el.w], t.xs);
+    const dx = nearestEdge(edgePts(el.x, el.x + el.w / 2, el.x + el.w), t.xs, tol);
     if (dx !== null) el.x = Math.round(el.x + dx);
-    const dy = nearest([el.y, el.y + el.h / 2, el.y + el.h], t.ys);
+    const dy = nearestEdge(edgePts(el.y, el.y + el.h / 2, el.y + el.h), t.ys, tol);
     if (dy !== null) el.y = Math.round(el.y + dy);
     // Then every alignment that now holds gets its line: across the page for
     // the page's own lines, from one element to the other for an element's.
@@ -5226,26 +5258,19 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!guidesEl.style.width) { guidesEl.style.width = state.canvas.width + "px"; guidesEl.style.height = state.canvas.height + "px"; }
     const tol = snapTol();
     const t = snapTargets(skipIds ? null : el, skipIds);
-    const near = (p, targets) => {
-      let best = null;
-      targets.forEach((tg) => {
-        const d = tg.v - p;
-        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
-      });
-      return best;
-    };
+    const near = (p, targets, kind) => nearestEdge([{ k: kind, v: p }], targets, tol);
     if (handle.includes("w")) {
-      const d = near(el.x, t.xs);
+      const d = near(el.x, t.xs, "s");
       if (d !== null && el.w - d >= 8) { el.x = Math.round(el.x + d); el.w = Math.round(el.w - d); }
     } else if (handle.includes("e")) {
-      const d = near(el.x + el.w, t.xs);
+      const d = near(el.x + el.w, t.xs, "e");
       if (d !== null && el.w + d >= 8) el.w = Math.round(el.w + d);
     }
     if (handle.includes("n")) {
-      const d = near(el.y, t.ys);
+      const d = near(el.y, t.ys, "s");
       if (d !== null && el.h - d >= 8) { el.y = Math.round(el.y + d); el.h = Math.round(el.h - d); }
     } else if (handle.includes("s")) {
-      const d = near(el.y + el.h, t.ys);
+      const d = near(el.y + el.h, t.ys, "e");
       if (d !== null && el.h + d >= 8) el.h = Math.round(el.h + d);
     }
     drawAlignFor(el, t);
@@ -5279,16 +5304,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const box = groupBoxOf(els);
     const tol = snapTol();
     const t = snapTargets(null, skip);
-    const nearest = (pts, targets) => {
-      let best = null;
-      pts.forEach((p) => targets.forEach((tg) => {
-        const d = tg.v - p;
-        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
-      }));
-      return best;
-    };
-    const dx = nearest([box.x, box.x + box.w / 2, box.x + box.w], t.xs) || 0;
-    const dy = nearest([box.y, box.y + box.h / 2, box.y + box.h], t.ys) || 0;
+    const dx = nearestEdge(edgePts(box.x, box.x + box.w / 2, box.x + box.w), t.xs, tol) || 0;
+    const dy = nearestEdge(edgePts(box.y, box.y + box.h / 2, box.y + box.h), t.ys, tol) || 0;
     shiftAll(els, dx, dy);
     box.x = Math.round(box.x + dx); box.y = Math.round(box.y + dy);
     drawAlignFor(box, t);
@@ -6732,6 +6749,14 @@ import { createResizeEngine } from "./resize-engine.js";
   // the layout down and ruining the preview/thumbnail.
   async function ensureTextFontsLoaded() {
     if (!document.fonts || !document.fonts.load) return;
+    // Uploaded faces (a brand's own font pack) are registered after this
+    // script runs. Waiting here means a render never draws with a fallback
+    // just because the fetch had not finished. Dani, 10 Oct.
+    try {
+      if (window.__TMKE_BRAND_FONTS_READY__ && typeof window.__TMKE_BRAND_FONTS_READY__.then === "function") {
+        await window.__TMKE_BRAND_FONTS_READY__;
+      }
+    } catch (_) {}
     const specs = new Set();
     /* EVERY page, not just the one on screen. A multi-page template renders
        all of its sides for the catalogue, so a font used only on page two was
