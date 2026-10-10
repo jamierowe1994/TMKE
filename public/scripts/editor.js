@@ -4894,12 +4894,14 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       el.x = Math.round(nx); el.y = Math.round(ny);
       el.w = Math.round(nw); el.h = Math.round(nh);
+      snapResize(el, handle);   // same as dragging: always on, no modifier
       partialRenderElement(el);
       renderHandles();
     }
     function onUp() {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
+      clearGuides();
       pushHistory();
       renderProps();
     }
@@ -5095,6 +5097,13 @@ import { createResizeEngine } from "./resize-engine.js";
     if (dy !== null) el.y = Math.round(el.y + dy);
     // Then every alignment that now holds gets its line: across the page for
     // the page's own lines, from one element to the other for an element's.
+    drawAlignFor(el, t);
+  }
+
+  // Every alignment that holds gets its line: across the page for the page's
+  // own lines, from one element to the other for an element's. Shared by
+  // dragging and resizing, so both show the same guides.
+  function drawAlignFor(el, t) {
     const draw = (orientation, pts, targets, span) => {
       const lines = new Map();
       pts.forEach((p) => targets.forEach((tg) => {
@@ -5113,6 +5122,41 @@ import { createResizeEngine } from "./resize-engine.js";
     };
     draw("v", [el.x, el.x + el.w / 2, el.x + el.w], t.xs, (o) => [o.y, o.y + o.h]);
     draw("h", [el.y, el.y + el.h / 2, el.y + el.h], t.ys, (o) => [o.x, o.x + o.w]);
+  }
+
+  /* Resizing lines up too, not just moving. Dani, 10 Oct: "if I drag to the
+     left to resize it should indicate when it hits the same position as the
+     copy text." Only the edges under the pointer move - the opposite edge
+     stays exactly where it is, which is what makes this different from the
+     drag snap, where the whole box travels. */
+  function snapResize(el, handle) {
+    clearGuides();
+    if (!guidesEl.style.width) { guidesEl.style.width = state.canvas.width + "px"; guidesEl.style.height = state.canvas.height + "px"; }
+    const tol = snapTol();
+    const t = snapTargets(el);
+    const near = (p, targets) => {
+      let best = null;
+      targets.forEach((tg) => {
+        const d = tg.v - p;
+        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+      });
+      return best;
+    };
+    if (handle.includes("w")) {
+      const d = near(el.x, t.xs);
+      if (d !== null && el.w - d >= 8) { el.x = Math.round(el.x + d); el.w = Math.round(el.w - d); }
+    } else if (handle.includes("e")) {
+      const d = near(el.x + el.w, t.xs);
+      if (d !== null && el.w + d >= 8) el.w = Math.round(el.w + d);
+    }
+    if (handle.includes("n")) {
+      const d = near(el.y, t.ys);
+      if (d !== null && el.h - d >= 8) { el.y = Math.round(el.y + d); el.h = Math.round(el.h - d); }
+    } else if (handle.includes("s")) {
+      const d = near(el.y + el.h, t.ys);
+      if (d !== null && el.h + d >= 8) el.h = Math.round(el.h + d);
+    }
+    drawAlignFor(el, t);
   }
 
   // A gap, drawn as a short pink line with its size on a pill.
