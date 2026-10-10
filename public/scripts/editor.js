@@ -3035,11 +3035,9 @@ import { createResizeEngine } from "./resize-engine.js";
   // strip shows what each page actually looks like, text and all.
   let _thumbBusy = false, _thumbTimer = null;
   async function buildThumb(i, maxEdge) {
-    const orig = state.currentPage;
-    state.currentPage = i;              // _renderDesignToCanvas draws the active page
     let url = null;
     try {
-      const c = await _renderDesignToCanvas({ transparent: false });
+      const c = await _renderDesignToCanvas({ transparent: false, page: i });
       const long = Math.max(c.width, c.height) || 1;
       const k = long > (maxEdge || 220) ? (maxEdge || 220) / long : 1;
       const t = document.createElement("canvas");
@@ -3048,7 +3046,6 @@ import { createResizeEngine } from "./resize-engine.js";
       t.getContext("2d").drawImage(c, 0, 0, t.width, t.height);
       url = t.toDataURL("image/jpeg", 0.72);
     } catch (_) {}
-    state.currentPage = orig;
     return url;
   }
   function applyThumbToTile(i, url) {
@@ -6615,9 +6612,9 @@ import { createResizeEngine } from "./resize-engine.js";
   // Renders a small JPEG preview of the current design (~300px wide,
   // q=0.72) so /account can surface real thumbnails of the user's work.
   // Returns a data URL, or null if rasterization fails.
-  async function _renderThumbDataUrl() {
+  async function _renderThumbDataUrl(page) {
     try {
-      const full = await _renderDesignToCanvas({ transparent: false });
+      const full = await _renderDesignToCanvas({ transparent: false, page: page });
       // Render the preview/cover near full design width (was 300px, which looked
       // very low-res blown up on the pack detail page) at high JPEG quality.
       const targetW = 1080;
@@ -6651,9 +6648,9 @@ import { createResizeEngine } from "./resize-engine.js";
   // Render both preview assets from a SINGLE rasterization pass (so a save
   // doesn't draw the whole design twice): the lossless full-res PNG (render_url,
   // for the shop) and the lighter 1080 JPEG (thumb_url, for fast admin lists).
-  async function _renderPreviewPair() {
+  async function _renderPreviewPair(page) {
     try {
-      const full = await _renderDesignToCanvas({ transparent: false });
+      const full = await _renderDesignToCanvas({ transparent: false, page: page });
       const render = full.toDataURL("image/png");
       const targetW = 1080;
       const scale = Math.min(1, targetW / full.width);
@@ -6766,35 +6763,46 @@ import { createResizeEngine } from "./resize-engine.js";
     } catch (_) {}
   }
 
-  async function _renderDesignToCanvas({ transparent = false } = {}) {
+  /* Draws a page WITHOUT borrowing the global page pointer. state.canvas and
+     state.elements read through state.pages[state.currentPage], and this
+     function awaits font downloads and an image per element - so callers that
+     set state.currentPage, awaited this, then set it back were pointing the
+     whole editor at another page for as long as those fetches took. Anything
+     that rendered, autosaved, or undid in that window acted on the wrong page.
+     That is the "randomly flicks to a different page", and with the undo fault
+     it is how a page could be emptied. Dani, 10 Oct. */
+  async function _renderDesignToCanvas({ transparent = false, page = null } = {}) {
+    const SRC = (page && typeof page === "object") ? page
+      : (page != null && Array.isArray(state.pages) && state.pages[page]) ? state.pages[page]
+      : { canvas: state.canvas, elements: state.elements };
     await ensureTextFontsLoaded();
     const c = document.createElement("canvas");
-    c.width = state.canvas.width;
-    c.height = state.canvas.height;
+    c.width = SRC.canvas.width;
+    c.height = SRC.canvas.height;
     const ctx = c.getContext("2d");
     // Skipping the background fill produces a cut-out PNG. JPG and the
     // regular PNG both want a solid background — we always pass
     // transparent=false for those paths.
     if (!transparent) {
-      ctx.fillStyle = state.canvas.background || "#fff";
+      ctx.fillStyle = SRC.canvas.background || "#fff";
       ctx.fillRect(0, 0, c.width, c.height);
     }
 
     // Canvas background image (set via right-click → "Set as background")
-    if (state.canvas.backgroundImage) {
+    if (SRC.canvas.backgroundImage) {
       try {
-        const bg = await loadImage(state.canvas.backgroundImage);
+        const bg = await loadImage(SRC.canvas.backgroundImage);
         // Same cover-scale + zoom + pan layout as the live editor (bgLayout).
         const lay = bgLayout(bg.naturalWidth, bg.naturalHeight) || (function () {
-          const cw = state.canvas.width, ch = state.canvas.height;
+          const cw = SRC.canvas.width, ch = SRC.canvas.height;
           const ar = bg.naturalWidth / bg.naturalHeight, cr = cw / ch;
           let dw, dh; if (ar > cr) { dh = ch; dw = ch * ar; } else { dw = cw; dh = cw / ar; }
-          const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
-          const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
+          const px = (SRC.canvas.bgPosX != null ? SRC.canvas.bgPosX : 50) / 100;
+          const py = (SRC.canvas.bgPosY != null ? SRC.canvas.bgPosY : 50) / 100;
           return { sw: dw, sh: dh, ox: (cw - dw) * px, oy: (ch - dh) * py };
         })();
         ctx.save();
-        ctx.globalAlpha = state.canvas.backgroundOpacity != null ? state.canvas.backgroundOpacity : 1;
+        ctx.globalAlpha = SRC.canvas.backgroundOpacity != null ? SRC.canvas.backgroundOpacity : 1;
         if (lay.deg) {
           ctx.translate(lay.ox + lay.sw / 2, lay.oy + lay.sh / 2);
           ctx.rotate(lay.deg * Math.PI / 180);
@@ -6806,7 +6814,7 @@ import { createResizeEngine } from "./resize-engine.js";
       } catch (_) {}
     }
 
-    for (const el of state.elements) {
+    for (const el of SRC.elements) {
       if (el.hidden) continue;
       ctx.save();
       const cx = el.x + el.w / 2;
@@ -7065,11 +7073,8 @@ import { createResizeEngine } from "./resize-engine.js";
 
   // Render one page without disturbing which page the designer is on.
   async function renderPage(i, opts) {
-    const was = state.currentPage;
-    try {
-      state.currentPage = Math.max(0, Math.min(state.pages.length - 1, i));
-      return await _renderDesignToCanvas(opts);
-    } finally { state.currentPage = was; }
+    const idx = Math.max(0, Math.min(state.pages.length - 1, i));
+    return await _renderDesignToCanvas(Object.assign({}, opts, { page: idx }));
   }
   // "Postcard (page 2)" — a file you can tell apart in a Downloads folder.
   function exportName(i, total, ext) {
@@ -13177,13 +13182,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const orig = state.currentPage;
     const pages = [];
     for (let i = 0; i < state.pages.length; i++) {
-      state.currentPage = i;             // the pair renderer renders the active page
       let thumb = "", render = "";
-      try { ({ thumb, render } = await _renderPreviewPair()); } catch (_) {}
+      try { ({ thumb, render } = await _renderPreviewPair(i)); } catch (_) {}
       const p = state.pages[i];
       pages.push({ canvas: deep(p.canvas), elements: deep(p.elements), thumb: thumb, render: render });
     }
-    state.currentPage = orig;
     return {
       filename: (filenameEl && filenameEl.value) || "Design",
       templateId: state.templateId || null,
@@ -13196,16 +13199,12 @@ import { createResizeEngine } from "./resize-engine.js";
   // data URL — used by the admin "Regenerate previews" tool to refresh every
   // template's thumbnail without anyone re-opening each design by hand.
   window.__TMKE_RENDER_THUMB_FROM__ = async function (canvasObj, elementsArr) {
-    const savePages = state.pages, saveCur = state.currentPage;
+    // Nothing to save or restore: the page is handed to the renderer, so the
+    // designer's own state is never touched.
     try {
-      state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
-      state.currentPage = 0;
-      return await _renderThumbDataUrl();
+      return await _renderThumbDataUrl({ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) });
     } catch (_) {
       return null;
-    } finally {
-      state.pages = savePages; state.currentPage = saveCur;
-      fullRender();
     }
   };
 
@@ -13272,16 +13271,10 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   window.__TMKE_RENDER_PAIR_FROM__ = async function (canvasObj, elementsArr) {
-    const savePages = state.pages, saveCur = state.currentPage;
     try {
-      state.pages = [{ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) }];
-      state.currentPage = 0;
-      return await _renderPreviewPair();
+      return await _renderPreviewPair({ canvas: deep(canvasObj || {}), elements: deep(elementsArr || []) });
     } catch (_) {
       return { thumb: null, render: null };
-    } finally {
-      state.pages = savePages; state.currentPage = saveCur;
-      fullRender();
     }
   };
 
@@ -13330,9 +13323,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const pageElements = [];   // per-page element boxes (normalised) so the
                                // reviewer can click an element to comment on it
     for (let i = 0; i < state.pages.length; i++) {
-      state.currentPage = i; // _renderDesignToCanvas draws the active page
       try {
-        const c = await _renderDesignToCanvas({ transparent: false });
+        const c = await _renderDesignToCanvas({ transparent: false, page: i });
         pageImages.push(c.toDataURL("image/jpeg", 0.82));
       } catch (_) { pageImages.push(null); }
       const W = (state.pages[i].canvas && state.pages[i].canvas.width) || 1080;
