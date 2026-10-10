@@ -8064,10 +8064,10 @@ import { createResizeEngine } from "./resize-engine.js";
       }).join("");
       html.push(
         '<div class="ed-props-section"><h4>Merge tag</h4>' +
-          '<div class="ed-props-field"><label>Insert at end</label>' +
+          '<div class="ed-props-field"><label>In this text</label>' +
             '<select data-fx="mergetag-pick"><option value="">Pick a tag…</option>' + tagOpts + '</select>' +
           '</div>' +
-          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Customers will see their saved brand kit values in place of these tags.</p>' +
+          '<p class="ed-section-hint" style="margin:6px 0 0;font-size:11px;color:rgba(28,29,34,0.55)">Pick a tag to add it at the end. Customers see their saved brand kit values in place of these tags.</p>' +
         '</div>'
       );
     }
@@ -8696,6 +8696,24 @@ import { createResizeEngine } from "./resize-engine.js";
     "location", "town", "strapline", "tagline", "phone"];
 
   const KNOWN_TAGS = TAG_MENU.concat(TAG_ALIASES);
+
+  /* Which menu tags a piece of text already carries, in the order they appear.
+     The picker reports these, so a tag never reads as hand-typed words.
+     Dani, 10 Oct: "that merge tag should show in the pick a tag field so that
+     you can see which merge tag is selected." */
+  function tagsInText(text) {
+    if (!text || typeof text !== "string") return [];
+    const out = [];
+    const pattern = /([{(])\s*([a-zA-Z][a-zA-Z ]*?)\s*([})])/g;
+    let m;
+    while ((m = pattern.exec(text)) !== null) {
+      const paired = (m[1] === "{" && m[3] === "}") || (m[1] === "(" && m[3] === ")");
+      if (!paired) continue;
+      const k = m[2].toLowerCase().replace(/\s+/g, " ").trim();
+      if (TAG_MENU.indexOf(k) !== -1 && out.indexOf(k) === -1) out.push(k);
+    }
+    return out;
+  }
 
   function applyMergeTags(text) {
     if (!text || typeof text !== "string") return text;
@@ -9668,15 +9686,36 @@ import { createResizeEngine } from "./resize-engine.js";
     // Merge-tag insert (admin only)
     const tagPicker = body.querySelector('[data-fx="mergetag-pick"]');
     if (tagPicker) {
+      const MULTI = "__multi__";
+      // Reflect the text. One tag names itself; several say how many, rather
+      // than naming one of them and misleading you about the rest.
+      const syncTagPicker = function () {
+        const el = tgt();
+        const found = (el && el.type === "text") ? tagsInText(el.text) : [];
+        let multi = tagPicker.querySelector('option[value="' + MULTI + '"]');
+        if (found.length > 1) {
+          if (!multi) {
+            multi = document.createElement("option");
+            multi.value = MULTI;
+            tagPicker.insertBefore(multi, tagPicker.firstChild);
+          }
+          multi.textContent = found.length + " merge tags in this text";
+          tagPicker.value = MULTI;
+        } else {
+          if (multi) multi.remove();
+          tagPicker.value = found.length === 1 ? found[0] : "";
+        }
+      };
+      syncTagPicker();
       tagPicker.addEventListener("change", function () {
         const el = tgt();
         const key = tagPicker.value;
-        if (!el || el.type !== "text" || !key) return;
+        if (!el || el.type !== "text" || !key || key === MULTI) { syncTagPicker(); return; }
         const token = "{" + key + "}";
         el.text = (el.text ? el.text + " " : "") + token;
-        tagPicker.value = "";
         pushHistory();
         fullRender();
+        syncTagPicker();
       });
     }
   }
