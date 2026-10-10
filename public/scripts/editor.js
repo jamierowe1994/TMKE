@@ -4764,12 +4764,18 @@ import { createResizeEngine } from "./resize-engine.js";
         partialRenderElement(el);
       });
 
-      // Snap + smart distance guides for single selection
+      // Snap + smart distance guides. One item snaps itself; several snap as
+      // one box and move together, so a group behaves like a single item.
       if (initial.length === 1) {
         const el = getEl(initial[0].id);
         applySnap(el);        // clears guides, draws alignment lines, edge-snaps
         drawDistances(el);    // adds pixel-distance badges + equal-spacing snap
         partialRenderElement(el);
+      } else if (initial.length > 1) {
+        const els = initial.map((m) => getEl(m.id)).filter(Boolean);
+        const box = applySnapGroup(els);
+        drawDistancesGroup(els, box);
+        els.forEach(partialRenderElement);
       }
       renderHandles();
     }
@@ -5140,7 +5146,7 @@ import { createResizeEngine } from "./resize-engine.js";
     else { g.style.top = pos + "px"; g.style.left = a + "px"; g.style.width = Math.max(0, b - a) + "px"; }
     guidesEl.appendChild(g);
   }
-  function snapTargets(el) {
+  function snapTargets(el, skipIds) {
     const W = state.canvas.width, H = state.canvas.height;
     const xs = [0, W / 2, W].map((v) => ({ v: v, page: true }));
     const ys = [0, H / 2, H].map((v) => ({ v: v, page: true }));
@@ -5150,7 +5156,8 @@ import { createResizeEngine } from "./resize-engine.js";
       if (m.size < H) ys.push({ v: m.size, page: true }, { v: H - m.size, page: true });
     }
     state.elements.forEach((o) => {
-      if (o.id === el.id || o.hidden) return;
+      if (o.hidden) return;
+      if (skipIds ? skipIds.has(o.id) : (el && o.id === el.id)) return;
       [o.x, o.x + o.w / 2, o.x + o.w].forEach((v) => xs.push({ v: v, o: o }));
       [o.y, o.y + o.h / 2, o.y + o.h].forEach((v) => ys.push({ v: v, o: o }));
     });
@@ -5236,6 +5243,62 @@ import { createResizeEngine } from "./resize-engine.js";
       if (d !== null && el.h + d >= 8) el.h = Math.round(el.h + d);
     }
     drawAlignFor(el, t);
+  }
+
+  /* A group lines up like one thing. Dani, 10 Oct: "when something is grouped
+     I still want it to be able to register the details of the group and then
+     behave the same way... I want it to behave the same as if it were a single
+     item." The combined box is snapped against everything outside the
+     selection, and every member moves by the same amount, so the group keeps
+     its own shape while its edges and centres line up. */
+  function groupBoxOf(els) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    els.forEach((e) => {
+      minX = Math.min(minX, e.x); minY = Math.min(minY, e.y);
+      maxX = Math.max(maxX, e.x + e.w); maxY = Math.max(maxY, e.y + e.h);
+    });
+    return { id: null, x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+
+  function shiftAll(els, dx, dy) {
+    if (!dx && !dy) return;
+    els.forEach((e) => { e.x = Math.round(e.x + dx); e.y = Math.round(e.y + dy); });
+  }
+
+  function applySnapGroup(els) {
+    clearGuides();
+    if (!els || els.length < 2) return null;
+    if (!guidesEl.style.width) { guidesEl.style.width = state.canvas.width + "px"; guidesEl.style.height = state.canvas.height + "px"; }
+    const skip = new Set(els.map((e) => e.id));
+    const box = groupBoxOf(els);
+    const tol = snapTol();
+    const t = snapTargets(null, skip);
+    const nearest = (pts, targets) => {
+      let best = null;
+      pts.forEach((p) => targets.forEach((tg) => {
+        const d = tg.v - p;
+        if (Math.abs(d) <= tol && (best === null || Math.abs(d) < Math.abs(best))) best = d;
+      }));
+      return best;
+    };
+    const dx = nearest([box.x, box.x + box.w / 2, box.x + box.w], t.xs) || 0;
+    const dy = nearest([box.y, box.y + box.h / 2, box.y + box.h], t.ys) || 0;
+    shiftAll(els, dx, dy);
+    box.x = Math.round(box.x + dx); box.y = Math.round(box.y + dy);
+    drawAlignFor(box, t);
+    return box;
+  }
+
+  // Equal spacing for a group: the same gap maths, measured off the combined
+  // box, with any correction passed on to every member.
+  function drawDistancesGroup(els, box) {
+    if (!box) return;
+    const skip = new Set(els.map((e) => e.id));
+    const others = state.elements.filter((o) => !skip.has(o.id) && !o.hidden);
+    const x0 = box.x, y0 = box.y;
+    spacingOnAxis(box, others, "x");
+    spacingOnAxis(box, others, "y");
+    shiftAll(els, box.x - x0, box.y - y0);
   }
 
   // A gap, drawn as a short pink line with its size on a pill.
