@@ -8647,6 +8647,15 @@ import { createResizeEngine } from "./resize-engine.js";
       m["agent name"] = person;
       m["your name"]  = person;
       m["name"]       = person;
+      /* Just the first name, for the sign-off: a letter ends "Danielle", not
+         "Danielle Hayes". Taken from the same field, so there is nothing extra
+         for a member to fill in. {first name} says the same thing but stays
+         off the menu. Dani, 10 Oct. */
+      const first = person.split(/\s+/)[0];
+      if (first) {
+        m["agent first name"] = first;
+        m["first name"]       = first;
+      }
     }
     const role = (about.role || "").trim();
     if (role) {
@@ -8677,13 +8686,13 @@ import { createResizeEngine } from "./resize-engine.js";
      and offering four ways to print the same value only invites templates
      that disagree with each other. */
   const TAG_MENU = ["company name", "area", "slogan", "website",
-    "agent name", "job title", "local expert", "telephone", "email"];
+    "agent name", "agent first name", "job title", "local expert", "telephone", "email"];
 
   /* Synonyms stay resolvable but stay off the menu: the catalogue is full of
      templates already written with {location} and {company}, and they must
      keep filling in. Never add one of these to TAG_MENU. */
   const TAG_ALIASES = ["brand name", "brand", "company",
-    "your name", "name", "role",
+    "your name", "name", "role", "first name",
     "location", "town", "strapline", "tagline", "phone"];
 
   const KNOWN_TAGS = TAG_MENU.concat(TAG_ALIASES);
