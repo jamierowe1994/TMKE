@@ -11081,12 +11081,43 @@ import { createResizeEngine } from "./resize-engine.js";
       btn.type = "button";
       btn.className = "ed-field-change";
       btn.textContent = src ? "Change" : "Add a picture";
-      btn.addEventListener("click", function () {
-        state.selectedIds = [el.id];
-        fullRender();
-        openTool("photos");
+      /* The chooser opens here, on the field itself. This used to call
+         openTool("photos"), which fails twice over for the member this pane
+         exists for: openTool CLEARS the selection the line above just set, and
+         on a print design the photos tool is hidden from members, so
+         memberPrintView put them straight back on Fields. The button did
+         nothing at all. Same picker the background uses - the pictures already
+         in this design, your uploads, and a file dialog behind "Upload a new
+         image". Dani, 10 Oct. */
+      const menu = document.createElement("span");
+      menu.className = "ed-bg-imgmenu";
+      menu.hidden = true;
+      const put = function (chosen) {
+        const tgt = getEl(el.id);
+        if (!tgt || !chosen) return;
+        if (tgt.type === "frame") fillFrame(tgt, chosen);
+        else { tgt.src = chosen; fullRender(); }
+        pushHistory();
+        renderProps();
+      };
+      mountPicturePicker({
+        menu: menu,
+        button: btn,
+        onPick: put,
+        onUpload: function () {
+          const input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.onchange = function () {
+            const file = input.files[0];
+            if (!file) return;
+            fileToWebImage(file).then(function (chosen) { if (chosen) put(chosen); });
+          };
+          input.click();
+        },
       });
       box.appendChild(btn);
+      box.appendChild(menu);
     } else {
       const note = document.createElement("span");
       note.className = "ed-field-note";
