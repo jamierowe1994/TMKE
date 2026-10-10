@@ -2331,7 +2331,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        The pseudo is invisible and doesn't move or resize anything; it only
        widens what counts as a click. Kept modest so it doesn't start stealing
        clicks from whatever sits next to it. */
-    .ed-element.is-thin::after {
+    /* Scoped away from a selected element: the selection outline is also an
+       ::after, and the cushion's width/height fought it. A selected element is
+       already under the pointer, and a line has its own ::before hit strip, so
+       nothing is lost. Dani, 10 Oct. */
+    .ed-element.is-thin:not(.is-selected):not(.is-multiselected)::after {
       content: "";
       position: absolute;
       left: 50%;
@@ -2343,8 +2347,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       height: max(100%, var(--ed-hit, 18px));
     }
     /* A locked or hidden element shouldn't grow a hit area either. */
-    .ed-element.is-thin.is-locked::after,
-    .ed-element.is-thin.is-hidden::after { content: none; }
+    .ed-element.is-thin.is-locked:not(.is-selected):not(.is-multiselected)::after,
+    .ed-element.is-thin.is-hidden:not(.is-selected):not(.is-multiselected)::after { content: none; }
 
     .ed-element[data-type="screen"] {
       --sc-guide: #00c2a8;
@@ -4081,18 +4085,30 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-element.is-locked { pointer-events: none; }
     .ed-element.is-hidden { display: none; }
 
+    /* The selection outline has to reset its own geometry. The hit cushion for
+       thin elements is also an ::after and sets width, height and a centring
+       translate; this rule only overrode inset, so on a line the outline took
+       the cushion's size and its translate(-50%, -50%) and landed half its own
+       width up and to the left of the line. That is the box that would not sit
+       on the rule. Dani, 10 Oct. */
     .ed-element.is-selected::after {
       content: "";
       position: absolute; inset: -2px;
+      width: auto; height: auto; transform: none;
       border: 1.5px solid var(--english-violet);
       pointer-events: none;
     }
     .ed-element.is-multiselected::after {
       content: "";
       position: absolute; inset: -2px;
+      width: auto; height: auto; transform: none;
       border: 1.5px dashed rgba(var(--violet-rgb),0.7);
       pointer-events: none;
     }
+    /* And a line gets no outline at all - it is a line, not an object, and its
+       two ends are the whole of its selection. Dani, 9 Oct. */
+    .ed-element[data-type="line"].is-selected::after,
+    .ed-element[data-type="line"].is-multiselected::after { content: none; }
 
     .ed-handles {
       position: absolute; inset: 0;
