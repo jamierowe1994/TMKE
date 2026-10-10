@@ -2538,7 +2538,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // text afterwards — this just gives them a personalised starting point.
     if (!isAdminMode()) {
       fillTemplateMergeTags(); fillTemplateLogos(); fillTemplateHeadshots(); fillTemplatePhotos();
-      applyBrandFontsToTemplate();
+      applyBrandFontsToTemplate(tpl && tpl.id);
       nudgeIfBrandNameMissing();
     }
     else restoreMergeTags();
@@ -8970,16 +8970,30 @@ import { createResizeEngine } from "./resize-engine.js";
      hand. Anything the template has fixed keeps the designer's font, because
      a locked part is locked. Colours are deliberately left alone -- the
      templates are neutral, so recolouring earns little for the disruption. */
-  function applyBrandFontsToTemplate() {
-    /* Not on a print card. A social template is neutral, so adopting the
-       member's heading and body fonts makes it theirs. A print card is drawn
-       FOR a brand, in that brand's typeface, and has to print as drawn - so
-       swapping its heading for whatever the member's kit happens to say is
-       not personalisation, it is damage. This is why a TPE invitation opened
-       in the member Studio came up in The Seasons while the same template in
-       the admin centre was correctly in UniText: nothing failed to load, the
-       editor replaced the font on purpose. Dani, 10 Oct. */
-    if (isPrintDesign()) return;
+  /* Is this template one of our own brands' assets? A pack drawn for a single
+     brand records its templates on the way in, so a TPE canvassing card knows
+     it is a TPE canvassing card. Dani, 10 Oct: "anything that is a TPE or a
+     brand-only asset does not need to be rebranded. It will be created in the
+     correct branding." */
+  function templateIsBrandAsset(templateId) {
+    try {
+      const map = window.__TMKE_PACK_BRAND_BY_TEMPLATE__;
+      const id = templateId || state.templateId;
+      return !!(map && id && map[id]);
+    } catch (_) { return false; }
+  }
+
+  function applyBrandFontsToTemplate(templateId) {
+    /* Two cases are left exactly as drawn. A design made FOR one of our
+       brands is already in that brand's typeface, and a print card has to
+       print as drawn. Everywhere else a social template is neutral, so taking
+       the member's heading and body fonts is what makes it theirs.
+
+       This is why a TPE invitation opened in the member Studio came up in The
+       Seasons while the same template was correctly in UniText in the admin
+       centre: nothing failed to load, the editor replaced the font on
+       purpose, using the kit of whoever opened it. Dani, 10 Oct. */
+    if (isPrintDesign() || templateIsBrandAsset(templateId)) return;
     const heads = [];
     let n = 0;
     BRAND_FONT_ROLES.forEach(function (role) {
