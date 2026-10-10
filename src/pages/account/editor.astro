@@ -339,7 +339,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           Review
         </button>
         <!-- Publish — admin only; shown via JS when ?mode=admin. -->
-        <button class="ed-btn-ghost" id="ed-regen" hidden title="Re-render every template's preview at full resolution (updates all packs)">Regenerate previews</button>
+        <button class="ed-btn-ghost" id="ed-regen" hidden title="Re-render this template's preview at full resolution. Hold Shift to do every template in the catalogue.">Regenerate previews</button>
         <button class="ed-btn-solid" id="ed-publish" hidden>Send to catalogue</button>
         <div class="ed-download" id="ed-download">
           <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
@@ -5767,10 +5767,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // shop) and its lighter thumb_url (for lists). Lets an admin refresh all
         // packs in one click instead of re-opening each design by hand. Only
         // touches the preview columns — never the design data or pack links.
-        window.__TMKE_REGEN_ALL__ = async function (onProgress) {
-          const { data: list, error } = await supabase
-            .from('templates')
-            .select('id, canvas, elements');
+        /* `onlyId` re-renders ONE template. Redrawing all 114 to fix the one
+           you are looking at is absurd, as Dani put it on 10 Oct, and it is
+           minutes of work for a change to a single card. */
+        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId) {
+          let query = supabase.from('templates').select('id, canvas, elements');
+          if (onlyId) query = query.eq('id', onlyId);
+          const { data: list, error } = await query;
           if (error || !list) throw error || new Error('Could not load templates.');
           let done = 0, failed = 0;
           for (const t of list) {
@@ -7144,16 +7147,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     const regenBtn = document.getElementById("ed-regen");
     if (isAdmin && regenBtn) {
       regenBtn.hidden = false;
-      regenBtn.addEventListener("click", async () => {
+      regenBtn.addEventListener("click", async (ev) => {
         if (typeof window.__TMKE_REGEN_ALL__ !== "function") { alert("Not ready yet — give the studio a second to finish loading, then try again."); return; }
-        if (!confirm("Re-render EVERY template preview at full resolution? This updates all packs and can take a minute or two. It only changes previews, not your designs.")) return;
+        /* This template, unless you ask for all of them. Hold Shift (or have
+           no template open) for the whole catalogue. */
+        const openId = (typeof window.__TMKE_TEMPLATE_ID__ === "function")
+          ? window.__TMKE_TEMPLATE_ID__() : null;
+        const onlyId = (openId && !ev.shiftKey) ? openId : null;
+        if (!onlyId && !confirm("Re-render EVERY template preview at full resolution? This updates all packs and can take a minute or two. It only changes previews, not your designs.")) return;
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
         try {
-          const res = await window.__TMKE_REGEN_ALL__((done, total) => { regenBtn.textContent = `Regenerating ${done}/${total}…`; });
+          const res = await window.__TMKE_REGEN_ALL__((done, total) => {
+            regenBtn.textContent = onlyId ? "Regenerating…" : `Regenerating ${done}/${total}…`;
+          }, onlyId);
           const ok = res.done - res.failed;
           regenBtn.textContent = `Done ✓`;
-          alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions."));
+          if (onlyId) {
+            alert(res.failed
+              ? "That preview could not be regenerated — see the console."
+              : "This template's preview has been regenerated.\n\nHold Shift and click to do the whole catalogue.");
+          } else {
+            alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions."));
+          }
         } catch (e) {
           console.error("[regen]", e);
           alert("Regenerate failed: " + (e.message || e));

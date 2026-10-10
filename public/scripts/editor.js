@@ -13514,6 +13514,8 @@ import { createResizeEngine } from "./resize-engine.js";
   // already know what Pages means will actually find it.
   window.__TMKE_ADD_PAGE__ = function () { addPage(); };
   window.__TMKE_GOTO_PAGE__ = function (i) { goToPage(i); };
+  // Which template is open, so "Regenerate previews" can do just this one.
+  window.__TMKE_TEMPLATE_ID__ = function () { return state.templateId || null; };
   window.__TMKE_AI_PLACE_TEXT__ = function (blocks) {
     if (!Array.isArray(blocks) || !blocks.length) return 0;
     let added = 0;

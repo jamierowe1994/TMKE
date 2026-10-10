@@ -24,6 +24,14 @@ const JOIN_URL = "/join";
 export function restoreDemoBrand() {
   try {
     if (!localStorage.getItem(KEY)) return false;          // not in the demo
+    /* Somebody signed in is not in the demo, whatever a leftover flag says.
+       Without this a browser that had been through the demo handed the demo's
+       kit to the real account that signed in next, and kept doing it. Heals
+       such a browser on the spot rather than waiting for the next sign-out. */
+    if (localStorage.getItem("tmke-admin-auth")) {
+      localStorage.removeItem(KEY);
+      return false;
+    }
     const demo = localStorage.getItem("tmke.brand.demo");
     if (!demo) return false;                               // an unbranded demo
     const cur = localStorage.getItem("tmke.brand");

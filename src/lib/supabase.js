@@ -123,6 +123,15 @@ export async function signOutEverywhere(redirectTo = '/login') {
     localStorage.removeItem(AUTH_STORAGE_KEY);
     // The brand kit belongs to the login, not the browser (src/lib/brand-cache.js).
     localStorage.removeItem('tmke.brand'); localStorage.removeItem('tmke.brand.skipped');
+    /* A demo is not an account, and signing out ends it. Leaving these behind
+       meant the next person to sign in on this browser had restoreDemoBrand()
+       copy the DEMO's kit into their own - the real kit having just been
+       cleared above - so a real member's designs came up in a stranger's
+       fonts and colours. Dani, 10 Oct: "I was in demo, and then obviously I
+       signed out and logged back in... it shouldn't be applying any of the
+       demo features." */
+    localStorage.removeItem('tmke_demo');
+    localStorage.removeItem('tmke.brand.demo');
     // Any stray default-keyed sessions from an older build.
     Object.keys(localStorage).filter((k) => k.startsWith('sb-')).forEach((k) => localStorage.removeItem(k));
     sessionStorage.clear();
