@@ -10,7 +10,7 @@
 // page whatever browser or device makes it. The numbers come from the same
 // report data as the web slides, worked out the same way.
 
-import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves } from "./report-metrics.js";
+import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, PLATFORM_LABELS, itemPlatform } from "./report-metrics.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const n = (v) => { if (v == null || v === "") return null; const x = Number(String(v).replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : null; };
@@ -119,6 +119,10 @@ const CSS = `
 .rpx-act .rpx-num { font-size: 56px; margin-top: -4px; font-weight: 400; line-height: 1; color: #371e28; }
 .rpx-act h3 { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 31px; font-weight: 700; letter-spacing: -0.02em; color: #1c1d22; line-height: 1.15; margin: 0 0 10px; }
 .rpx-act p { font-size: 24px; line-height: 1.55; color: #3b3a40; margin: 0; }
+/* Which platform an insight or next-month item is about, when several. */
+.rpx-pp { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 14px; border-radius: 999px; background: #fff; color: var(--pp); font-size: 16px; font-weight: 800; letter-spacing: 0.02em; text-transform: none; vertical-align: middle; margin-right: 14px; }
+.rpx-pp::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--pp); }
+.rpx-act .rpx-pp { margin: 0 0 12px; }
 .rpx-coming { margin-top: auto; padding-top: 28px; display: flex; gap: 20px 36px; flex-wrap: wrap; align-items: baseline; font-size: 21px; color: #3b3a40; }
 .rpx-coming .rpx-label { margin: 0; }
 
@@ -287,7 +291,9 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
   const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(c.label)}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
-  const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p></div>`).join("")}</div>`
+  const PP_COL = { instagram: "#c13584", facebook: "#1877f2", linkedin: "#0a66c2", all: "#6e6268" };
+  const ppill = (k) => multi ? `<span class="rpx-pp" style="--pp:${PP_COL[k] || "#6e6268"}">${esc(PLATFORM_LABELS[k] || k)}</span>` : "";
+  const insHtml = ins.length ? `<div class="rpx-ins"${ins.length === 3 ? "" : " data-balance"} style="grid-template-columns:repeat(${ins.length === 3 ? 3 : 2}, minmax(0,1fr))">${ins.map((i) => `<div class="rpx-in"><p class="rpx-label">${ppill(itemPlatform(i, d))}${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? "<em>Early signal</em>" : ""}</p><h3>${esc(i.headline)}</h3><p>${esc(i.analysis)}</p></div>`).join("")}</div>`
     : (has(cl.summary || d.summary) ? `<div class="rpx-ins"><p class="rpx-lede" style="margin:0;white-space:pre-line">${esc(cl.summary || d.summary)}</p></div>` : "");
   pages.push(page(++pageNo, "", `<div class="rpx-body" style="grid-template-columns:1fr;row-gap:40px">${side(`${secNo("What It Means")} · Insight`, "What It Means", "")}<div class="rpx-main">${chips}${insHtml}</div></div>`));
 
@@ -295,7 +301,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const takes = vis.priorities !== false ? ((cl.priorities || []).length ? cl.priorities : (d.priorities || [])).filter((x) => x && x.text).slice(0, 4) : [];
   const coming = vis.comingSoon !== false ? (d.comingSoon || []).filter(Boolean) : [];
   const comingHtml = coming.length ? `<div class="rpx-glance" style="grid-template-columns:1fr"><dl><dt>Content coming up</dt>${coming.map((c) => `<dd><span>${esc(c)}</span></dd>`).join("")}</dl></div>` : "";
-  pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo(`Into ${next}`)} · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts">${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
+  pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo(`Into ${next}`)} · ${next}`, `Into ${next}`, "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.", comingHtml)}<div class="rpx-main"><div class="rpx-acts">${takes.map((x, i) => `<div class="rpx-act"><span class="rpx-num">0${i + 1}</span><div>${multi ? `<div>${ppill(itemPlatform(x, d))}</div>` : ""}${x.title ? `<h3>${esc(x.title)}</h3>` : ""}<p>${esc(x.text)}</p></div></div>`).join("")}</div></div></div>`));
 
   // Closing
   pages.push(`<div class="rpx-page rpx-close">${top}<div class="rpx-close-body"><h2>Any questions?</h2><div>

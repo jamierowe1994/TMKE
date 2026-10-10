@@ -7,7 +7,7 @@
 // laid out in HTML, captured as an image and placed on an A4 page.
 
 import { fontEmbedCss } from "./report-pdf.js";
-import { lastMonthOf, numbersMoves, pct2 } from "./report-metrics.js";
+import { lastMonthOf, numbersMoves, pct2, PLATFORM_LABELS, platformsOf, itemPlatform } from "./report-metrics.js";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -59,6 +59,8 @@ const CSS = `
 .mg-prios { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .mg-prios li { font-size: 16px; line-height: 1.45; color: #3b3a40; }
 .mg-prios b { color: #1c1d22; }
+.mg-plat { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px; background: #efe9eb; color: #371e28; font-size: 12px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; vertical-align: 1px; }
+.mg-prose + .mg-prose { margin-top: 10px; }
 .mg-tag { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; margin-right: 7px; background: #efe6e8; color: #371e28; vertical-align: 2px; }
 .mg-tag.caution { background: #f6ecd9; color: #7a5412; }
 .mg-tag.action { background: #f5dede; color: #8f3b3b; }
@@ -116,8 +118,11 @@ function accountPage(a, pageNo, title) {
     return `<tr><td class="rk">${i + 1}</td><td class="th">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : "<span></span>"}</td><td class="l tt">${esc(String(t.title || "").trim() || "Untitled")}</td><td class="l"><span class="ty">${reel ? "Reel" : "Post"}</span></td><td class="v">${fmt(n(t.reach))}</td><td class="v">${reel ? fmt(n(t.views)) : "–"}</td><td class="v">${fmt(n(t.interactions))}</td></tr>`;
   }).join("")}</tbody></table>` : `<p class="mg-none">No posts in this month's data.</p>`;
 
+  // Several platforms in the month: each read and each plan item says which.
+  const plats = platformsOf(d), multiP = plats.length > 1;
+  const pfx = (k) => (multiP ? `<span class="mg-plat">${esc(PLATFORM_LABELS[k] || k)}</span>` : "");
   const prios = (d.priorities || []).filter((x) => x && x.text);
-  const prioHtml = prios.length ? `<ul class="mg-prios">${prios.map((x) => `<li><span class="mg-tag ${esc(x.type || "go")}">${esc(PRIO[x.type] || PRIO.go)}</span>${x.title ? `<b>${esc(x.title)}.</b> ` : ""}${esc(x.text)}</li>`).join("")}</ul>` : `<p class="mg-none">No plan written yet.</p>`;
+  const prioHtml = prios.length ? `<ul class="mg-prios">${prios.map((x) => `<li>${pfx(itemPlatform(x, d))}<span class="mg-tag ${esc(x.type || "go")}">${esc(PRIO[x.type] || PRIO.go)}</span>${x.title ? `<b>${esc(x.title)}.</b> ` : ""}${esc(x.text)}</li>`).join("")}</ul>` : `<p class="mg-none">No plan written yet.</p>`;
 
   const series = [...a.earlier, { month: a.report.month, year: a.report.year, data: d }];
   const tr = (label, f) => `<tr><td class="l">${label}</td>${series.map((s) => `<td class="v">${f(s.data || {})}</td>`).join("")}</tr>`;
@@ -142,7 +147,9 @@ function accountPage(a, pageNo, title) {
     <div class="mg-sec"><p class="mg-sec-h">Profile overview <small>${esc(month)} ${a.report.year}</small></p><div class="mg-tiles">${tiles}</div></div>
     <div class="mg-sec"><p class="mg-sec-h">Content overview</p>${contentTbl}</div>
     <div class="mg-sec"><p class="mg-sec-h">Top 5 posts <small>by reach</small></p>${topTbl}</div>
-    <div class="mg-sec mg-two"><div><p class="mg-sec-h">What it means</p>${d.summary ? `<p class="mg-prose">${esc(d.summary)}</p>` : `<p class="mg-none">Summary not written yet.</p>`}</div>
+    <div class="mg-sec mg-two"><div><p class="mg-sec-h">What it means</p>${multiP
+      ? plats.map((k) => { const t = k === "instagram" ? d.summary : (d[k] || {}).summary; return t ? `<p class="mg-prose">${pfx(k)}${esc(t)}</p>` : ""; }).join("") || `<p class="mg-none">Summary not written yet.</p>`
+      : d.summary ? `<p class="mg-prose">${esc(d.summary)}</p>` : `<p class="mg-none">Summary not written yet.</p>`}</div>
       <div><p class="mg-sec-h">Into ${esc(next)}</p>${prioHtml}</div></div>
     <div class="mg-sec"><p class="mg-sec-h">Trends <small>${series.length > 1 ? `${esc(MONTHS[series[0].month])} to ${esc(month)}` : esc(month)}</small></p><div class="mg-trend"><div>${trendTbl}</div><div>${trendText}</div></div></div>
     <div class="mg-foot"><span>Internal · not for clients</span><span>${pageNo}</span></div>

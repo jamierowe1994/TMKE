@@ -105,7 +105,27 @@ export function normaliseInsight(i) {
   if (!headline) return null;
   const analysis = String(i.analysis || [i.interpretation, i.response].filter(Boolean).join(" ")).trim();
   const evidence = Array.isArray(i.evidence) ? i.evidence.filter(Boolean).map(String) : (i.evidence ? [String(i.evidence)] : []);
-  return { category, headline, analysis, evidence, confidence: i.confidence === "emerging" ? "emerging" : "strong" };
+  return { category, headline, analysis, evidence, confidence: i.confidence === "emerging" ? "emerging" : "strong", platform: PLATFORM_LABELS[i.platform] ? i.platform : null };
+}
+
+/* Platforms (Danielle, 10 Oct 2026). A month's report can cover Instagram,
+   Facebook and LinkedIn; every insight and next-month item says which one
+   it's about ("all" for one that spans them). */
+export const PLATFORM_LABELS = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", all: "All platforms" };
+/** The platforms a report's data covers, in report order. */
+export function platformsOf(d) {
+  d = d || {};
+  return [
+    (d.profile || d.posts || d.reels || (Array.isArray(d.content) && d.content.length)) ? "instagram" : null,
+    d.facebook ? "facebook" : null,
+    d.linkedin ? "linkedin" : null,
+  ].filter(Boolean);
+}
+/** An item's platform, defaulting to the report's first (Instagram for older items). */
+export function itemPlatform(item, d) {
+  const p = item && item.platform;
+  if (PLATFORM_LABELS[p]) return p;
+  return platformsOf(d)[0] || "instagram";
 }
 
 /** The same platform's report for the calendar month before r, or null. */

@@ -10159,7 +10159,7 @@ export default {
           // one PDF may hold one platform or several, and each lands in its own
           // part of the JSON so the admin can add it to the month's report.
           "The attached PDF is a SocialPilot report for one client. It may cover Instagram, a Facebook Page, LinkedIn, or several of them. Most figures are in its text; a few are only in charts - read those visually. " +
-          "Say which it covers in \"platforms\" (any of \"instagram\", \"facebook\", \"linkedin\"). The top-level Instagram fields (summary, profile, reach, viewsSplit, interactionsByFormat, posts, reels, content, hashtags, demographics, peakTimes, timing, bestDays, morningWindow, eveningWindow, ads, priorities) come ONLY from Instagram pages: if there are none, omit them all. " +
+          "Say which it covers in \"platforms\" (any of \"instagram\", \"facebook\", \"linkedin\"). The top-level Instagram fields (summary, profile, reach, viewsSplit, interactionsByFormat, posts, reels, content, hashtags, demographics, peakTimes, timing, bestDays, morningWindow, eveningWindow, ads) come ONLY from Instagram pages: if there are none, omit them all. \"priorities\" covers every platform in the PDF, each one tagged with its platform. " +
           // Joint reports (Danielle, 9 Oct 2026): SocialPilot can put a client's
           // Facebook Page in the same PDF, before the Instagram pages. Its
           // "Post Performance" table has the same title as Instagram's, so
@@ -10179,14 +10179,14 @@ export default {
           '"peakTimes": { "slots": ["8am","10am","12pm","2pm","4pm","6pm","8pm"], "grid": seven rows (Mon..Sun), each N cells matching slots, 0-3 (0 low .. 3 peak) read from "Followers Online Activity" }, ' +
           '"timing": string, "bestDays": string, "morningWindow": string, "eveningWindow": string, ' +
           '"ads": { "reach": number, "views": number, "interactions": number, "clicks": number, "cpc": number (GBP), "spend": number (GBP), "impressions": number } (ONLY if the report has a paid-ads section with figures; otherwise omit), ' +
-          '"facebook": (ONLY if the report has a Facebook Page section; otherwise omit) { "pageLikes": number (Total Page Likes, Lifetime Data), "newFans": number, "newFansChange": number (signed percent), "pageReach": number (Page Reach), "pageReachChange": number (signed percent), "pageViews": number, "pageViewsChange": number (signed percent), ' +
+          '"facebook": (ONLY if the report has a Facebook Page section; otherwise omit) { "summary": string (FOR THE TEAM: 2-3 plain sentences on the Facebook Page\'s month on its own, honest, without spin), "pageLikes": number (Total Page Likes, Lifetime Data), "newFans": number, "newFansChange": number (signed percent), "pageReach": number (Page Reach), "pageReachChange": number (signed percent), "pageViews": number, "pageViewsChange": number (signed percent), ' +
           '"posts": { "published": number, "publishedChange": number, "views": number (Posts Views), "viewsChange": number, "engagement": number (Posts Engagement), "engagementChange": number, "reactions": number, "comments": number, "shares": number, "videoPlays": number (Posts Video Plays), "videoPlaysChange": number, "images": number, "videos": number (from the Publishing Trend legend "Image (n)" and "Video (n)") }, ' +
           '"content": [ { "title": string (exactly as printed), "date": "YYYY-MM-DD", "time": "HH:MM", "reach": number, "engagementRate": number (percent), "reactions": number, "shares": number, "videoViews": number (omit when N/A) } ] (EVERY row of the Facebook Post Performance table, in the order printed) }, ' +
-          '"linkedin": (ONLY if the report has LinkedIn pages; otherwise omit) { "period": string (the date range printed at the foot of the LinkedIn pages, exactly, e.g. "Sep 09, 2026 to Oct 08, 2026"), "followers": number (Total Followers, Lifetime Data), "connections": number (Total Connections; omit for a company page), "followerGrowth": number (from "Follower Growth (n)"), "followerGrowthChange": number (signed percent), "impressions": number (from "Impression (n)" on the Impressions Trend), "impressionsChange": number (signed percent), ' +
+          '"linkedin": (ONLY if the report has LinkedIn pages; otherwise omit) { "summary": string (FOR THE TEAM: 2-3 plain sentences on the LinkedIn month on its own, honest, without spin), "period": string (the date range printed at the foot of the LinkedIn pages, exactly, e.g. "Sep 09, 2026 to Oct 08, 2026"), "followers": number (Total Followers, Lifetime Data), "connections": number (Total Connections; omit for a company page), "followerGrowth": number (from "Follower Growth (n)"), "followerGrowthChange": number (signed percent), "impressions": number (from "Impression (n)" on the Impressions Trend), "impressionsChange": number (signed percent), ' +
           '"posts": { "published": number (Total Posts), "publishedChange": number, "impressions": number (Post Impressions), "impressionsChange": number, "reach": number (Post Reach), "reachChange": number, "reactions": number, "reactionsChange": number, "comments": number, "commentsChange": number, "engagement": number (Post Engagement), "engagementChange": number, "engagementRate": number (percent), "engagementRateChange": number, "text": number, "image": number, "video": number, "article": number, "document": number (the Publishing Trend legend) }, ' +
           '"videos": { "published": number, "reach": number, "engagement": number, "views": number, "watchTime": number } (the "LinkedIn Videos" page), ' +
           '"content": [ { "title": string (exactly as printed), "date": "YYYY-MM-DD", "time": "HH:MM", "reach": number, "engagement": number, "reactions": number, "comments": number } ] (EVERY row of the LinkedIn Post Performance table) } — every change is the signed percent printed beside the figure ("in last 30 days" or "Since Previous Period"), negative when the arrow points down, ' +
-          '"priorities": [ { "type": "go"|"caution"|"action", "title": string (2-4 words, e.g. "More reels"), "text": string (one or two sentences, 90-140 characters, written to the client about what we are doing next, never as homework for them) } ] (4 inferred from the data: do more of what is working, do less of or change what is not, and close any gap; go = do more, caution = improve, action = fix now) }\n' +
+          '"priorities": [ { "platform": "instagram"|"facebook"|"linkedin", "type": "go"|"caution"|"action", "title": string (2-4 words, e.g. "More reels"), "text": string (one or two sentences, 90-140 characters, written to the client about what we are doing next, never as homework for them) } ] (for each platform in the PDF: 4 for Instagram, 2 for Facebook, 2 for LinkedIn, each about that platform alone, inferred from its own figures: do more of what is working, do less of or change what is not, and close any gap; go = do more, caution = improve, action = fix now) }\n' +
           "LinkedIn pages are headed \"LinkedIn Posts\" or \"LinkedIn Videos\", or show Total Connections; their Post Performance table belongs in \"linkedin\" only. " +
           "Do NOT include anything from the Instagram Stories pages: they cover only the last 24 hours, not the month. Do NOT add figures together or invent totals - every number must be one printed in the report or read from one chart. " +
           "Omit anything not present. Numbers are plain (no commas, units or %) except cpc/spend which are numeric GBP amounts. Reply with ONLY the JSON object.";
@@ -10390,6 +10390,33 @@ export default {
             return vals.every((v) => v == null) ? null : `| ${label} | ${vals.map((v) => (v == null ? "-" : v)).join(" | ")} |`;
           }).filter(Boolean)).join("\n");
         const cd = cur.data || {}, cdem = cd.demographics || {};
+        /* Which platforms this month covers (Danielle, 10 Oct 2026): every
+           point the drafting makes says which one it's about, and Facebook's
+           and LinkedIn's figures go in as tables of their own, never added
+           to Instagram's. */
+        const PN = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn" };
+        const plats = [(cd.profile || cd.posts || cd.reels) ? "instagram" : null, cd.facebook ? "facebook" : null, cd.linkedin ? "linkedin" : null].filter(Boolean);
+        if (!plats.length) plats.push("instagram");
+        const multi = plats.length > 1;
+        const platTable = (key, rows) => {
+          const ms = months.filter((r) => (r.data || {})[key]);
+          if (!ms.length) return "";
+          const c2 = months.map((r) => `${MN[r.month].slice(0, 3)} ${r.year}`);
+          return [`| Measure | ${c2.join(" | ")} |`, `|---|${c2.map(() => "---").join("|")}|`].concat(rows.map(([label, get]) => {
+            const vals = months.map((r) => { const x = (r.data || {})[key]; return x ? num(get(x)) : null; });
+            return vals.every((v) => v == null) ? null : `| ${label} | ${vals.map((v) => (v == null ? "-" : v)).join(" | ")} |`;
+          }).filter(Boolean)).join("\n");
+        };
+        const fbTable = platTable("facebook", [
+          ["Page likes (snapshot when the report was run)", (x) => x.pageLikes], ["New page likes", (x) => x.newFans], ["Page reach (unique people)", (x) => x.pageReach],
+          ["Page views", (x) => x.pageViews], ["Posts published", (x) => x.posts?.published], ["Post views", (x) => x.posts?.views],
+          ["Post engagement (reactions, comments, shares)", (x) => x.posts?.engagement], ["Reactions", (x) => x.posts?.reactions], ["Comments", (x) => x.posts?.comments], ["Shares", (x) => x.posts?.shares], ["Video plays", (x) => x.posts?.videoPlays],
+        ]);
+        const liTable = platTable("linkedin", [
+          ["Followers (snapshot when the report was run)", (x) => x.followers], ["New followers", (x) => x.followerGrowth], ["Connections", (x) => x.connections],
+          ["Post impressions", (x) => x.posts?.impressions ?? x.impressions], ["Post reach", (x) => x.posts?.reach], ["Posts published", (x) => x.posts?.published],
+          ["Post engagement (reactions and comments)", (x) => x.posts?.engagement], ["Engagement rate %", (x) => x.posts?.engagementRate],
+        ]);
         const extra = [];
         const best = (Array.isArray(cd.content) && cd.content.length ? cd.content : (cd.topContent || [])).slice().sort((a, b2) => (Number(b2.reach) || 0) - (Number(a.reach) || 0)).slice(0, 6);
         if (best.length) extra.push(`This month's posts by reach: ${best.map((t) => `"${t.title}" (${t.type || "Post"}, reach ${t.reach ?? "?"}${t.views != null ? `, views ${t.views}` : ""}, interactions ${t.interactions ?? "?"})`).join("; ")}`);
@@ -10397,13 +10424,19 @@ export default {
         const at = ages.reduce((x, a) => x + a.v, 0);
         if (at) extra.push(`Followers by age (followers, not everyone reached): ${ages.map((a) => `${a.range} ${Math.round(a.v / at * 100)}%`).join(", ")}`);
         if ((cdem.topCities || []).length) extra.push(`Followers' top cities (followers, not everyone reached): ${cdem.topCities.slice(0, 5).map((c) => `${c.city || c.name} ${c.count}`).join(", ")}`);
-        if (cd.summary) extra.push(`Team's own read of this month: ${cd.summary}`);
-        if ((cd.priorities || []).length) extra.push(`Team's plan for next month (turn these into the client's "priorities"): ${cd.priorities.map((x) => `[${x.type}] ${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
+        const fbBest = (cd.facebook?.content || []).slice().sort((a, b2) => (Number(b2.reach) || 0) - (Number(a.reach) || 0)).slice(0, 5);
+        if (fbBest.length) extra.push(`Facebook posts this month by reach: ${fbBest.map((t) => `"${t.title}" (reach ${t.reach ?? "?"}, reactions ${t.reactions ?? "?"}, shares ${t.shares ?? "?"})`).join("; ")}`);
+        const liBest = (cd.linkedin?.content || []).slice().sort((a, b2) => (Number(b2.reach) || 0) - (Number(a.reach) || 0)).slice(0, 5);
+        if (liBest.length) extra.push(`LinkedIn posts this month by reach: ${liBest.map((t) => `"${t.title}" (reach ${t.reach ?? "?"}, engagement ${t.engagement ?? "?"})`).join("; ")}`);
+        if (cd.summary) extra.push(`Team's own read of ${multi ? "Instagram this month" : "this month"}: ${cd.summary}`);
+        if (cd.facebook?.summary) extra.push(`Team's own read of Facebook this month: ${cd.facebook.summary}`);
+        if (cd.linkedin?.summary) extra.push(`Team's own read of LinkedIn this month: ${cd.linkedin.summary}`);
+        if ((cd.priorities || []).length) extra.push(`Team's plan for next month (turn these into the client's "priorities"): ${cd.priorities.map((x) => `[${PN[x.platform] || "Instagram"}] [${x.type}] ${x.title ? x.title + ": " : ""}${x.text}`).join(" | ")}`);
         // What was agreed last month, to test against this month's figures.
         const lastM = months.length > 1 ? months[months.length - 2] : null;
         const agreed = lastM ? ((lastM.data?.client?.priorities || []).length ? lastM.data.client.priorities : (lastM.data?.priorities || [])) : [];
         const agreedText = agreed.length ? agreed.map((x, i) => `${i + 1}. ${x.title ? x.title + ": " : ""}${x.text}`).join("\n") : "None recorded.";
-        const dataText = `${table}\n\n${extra.join("\n")}\n\nACTIONS AGREED IN ${lastM ? MN[lastM.month].toUpperCase() : "THE PREVIOUS"} REPORT:\n${agreedText}`;
+        const dataText = `${multi ? "INSTAGRAM\n" : ""}${table}${fbTable ? `\n\nFACEBOOK PAGE\n${fbTable}` : ""}${liTable ? `\n\nLINKEDIN (each month is the 30 days before that report was run)\n${liTable}` : ""}\n\n${extra.join("\n")}\n\nACTIONS AGREED IN ${lastM ? MN[lastM.month].toUpperCase() : "THE PREVIOUS"} REPORT:\n${agreedText}`;
         const asks = [];
         if (only !== "client") asks.push('"trendSummary": string (FOR THE TEAM, not the client. Only if there are two or more months; otherwise null. 2-4 plain sentences on what is moving across these months: what has improved and is holding, what is slipping, and whether last month\'s actions show up in this month\'s figures. Weigh all the figures together, never one statistic alone. Direct, honest, no spin.)');
         // The approved headline figures (src/lib/report-metrics.js): the AI
@@ -10423,17 +10456,18 @@ export default {
           linkTaps: "taps on the link in their profile",
           topPost: "reach of the best-reaching post",
         };
-        if (only !== "trends") asks.push(`"client": { "headline": [ four keys from: ${Object.keys(HEADLINE_KEYS).join(", ")} ], "insights": [ { "category": "working"|"learning"|"watch"|"previous", "headline": string, "analysis": string, "evidence": [ string ], "confidence": "strong"|"emerging" } ], "priorities": [ { "type": "go"|"caution"|"action", "title": string, "text": string } ] }`);
+        const platEnum = [...plats, ...(multi ? ["all"] : [])].map((x) => `"${x}"`).join("|");
+        if (only !== "trends") asks.push(`"client": { "headline": [ four keys from: ${Object.keys(HEADLINE_KEYS).join(", ")} ], "insights": [ { "platform": ${platEnum}, "category": "working"|"learning"|"watch"|"previous", "headline": string, "analysis": string, "evidence": [ string ], "confidence": "strong"|"emerging" } ], "priorities": [ { "platform": ${platEnum}, "type": "go"|"caution"|"action", "title": string, "text": string } ] }`);
         // The rules are docs/smm-report-rules.md §10-11; change them there too.
         const prompt =
-`You analyse a UK estate agent's Instagram for TMKE, their social media agency. Below are up to three months of figures for ${lead.business || lead.full_name || "the client"}, oldest to newest (the last column is ${MN[cur.month]} ${cur.year}, the month being reported), then the actions agreed in last month's report.
+`You analyse a UK estate agent's ${plats.map((x) => PN[x]).join(" and ")} for TMKE, their social media agency.${multi ? ` Each platform has its own content, audience and results: read and write about each one separately, and NEVER add, average or compare figures across platforms. The headline figures are Instagram's.` : ""} Below are up to three months of figures for ${lead.business || lead.full_name || "the client"}, oldest to newest (the last column is ${MN[cur.month]} ${cur.year}, the month being reported), then the actions agreed in last month's report.
 
 ${dataText}
 
 Reply with ONLY one JSON object, no prose and no markdown fences:
 { ${asks.join(", ")} }
 
-HEADLINE ("client.headline"): the four figures that explain THIS month's story, chosen from the keys listed. Not the same four every month: pick the ones the insights rest on. The figures themselves are worked out from the data, so give keys only. Keys: ${Object.entries(HEADLINE_KEYS).map(([k, v]) => `${k} (${v})`).join("; ")}.
+${multi ? `PLATFORMS: every insight and every priority is about ONE platform; say which in "platform", and name the platform in its headline or analysis so it reads clearly on its own ("On Facebook, ..."). Use "all" only for a point that genuinely spans every platform. The trend summary is one short paragraph per platform, each starting with the platform's name and a colon ("Instagram: ..."), separated by a blank line. Give every platform at least one insight and at least one priority.\n\n` : ""}HEADLINE ("client.headline"): the four figures that explain THIS month's story, chosen from the keys listed. Not the same four every month: pick the ones the insights rest on. The figures themselves are worked out from the data, so give keys only. Keys: ${Object.entries(HEADLINE_KEYS).map(([k, v]) => `${k} (${v})`).join("; ")}.
 
 INSIGHTS ("client.insights"). This is the page that makes the report worth reading. The client can already see the headline numbers; don't narrate them back, and don't write a summary.
 - Analyse ${MN[cur.month]} against the previous two months and the actions agreed last month. Test for: month-on-month changes that matter; three-month direction (rising, falling or flat across all three); content patterns (formats or kinds of post that keep outperforming); audience patterns (non-follower discovery, locations, ages); and each agreed action (did we do it, and what happened after).
@@ -10474,11 +10508,12 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
         if (only !== "client") data.trendSummary = months.length > 1 && parsed.trendSummary ? String(parsed.trendSummary).trim() : null;
         if (only !== "trends" && parsed.client) {
           const pr = (Array.isArray(parsed.client.priorities) ? parsed.client.priorities : [])
-            .filter((x) => x && x.text).map((x) => ({ type: ["go", "caution", "action"].includes(x.type) ? x.type : "go", title: String(x.title || "").trim(), text: String(x.text).trim() }));
+            .filter((x) => x && x.text).map((x) => ({ platform: [...plats, "all"].includes(x.platform) ? x.platform : plats[0], type: ["go", "caution", "action"].includes(x.type) ? x.type : "go", title: String(x.title || "").trim(), text: String(x.text).trim() }));
           const CATS = ["working", "learning", "watch", "previous"];
           const ins = (Array.isArray(parsed.client.insights) ? parsed.client.insights : [])
             .filter((x) => x && x.headline).slice(0, 4)
             .map((x) => ({
+              platform: [...plats, "all"].includes(x.platform) ? x.platform : plats[0],
               category: CATS.includes(x.category) ? x.category : "working",
               headline: String(x.headline).trim(),
               analysis: String(x.analysis || "").trim(),
