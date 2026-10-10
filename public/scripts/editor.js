@@ -72,19 +72,21 @@ import { createResizeEngine } from "./resize-engine.js";
     mono: "Google · Mono",
     handwriting: "Google · Script",
   };
-  const GOOGLE_FONTS = (function readGoogleFontsJson() {
+  function readGoogleFontsJson() {
     const tag = document.getElementById("ed-google-fonts-data");
     if (!tag) return [];
-    try { return JSON.parse(tag.textContent || "[]"); }
-    catch (_) { return []; }
-  })().map(function (g) {
-    return {
-      name: g.f,
-      stack: '"' + g.f + '", ' + (GOOGLE_CATEGORY_FALLBACK[g.c] || "sans-serif"),
-      category: GOOGLE_CATEGORY_LABEL[g.c] || "Google",
-      isGoogle: true,
-    };
-  });
+    let raw = [];
+    try { raw = JSON.parse(tag.textContent || "[]"); } catch (_) { return []; }
+    return raw.map(function (g) {
+      return {
+        name: g.f,
+        stack: '"' + g.f + '", ' + (GOOGLE_CATEGORY_FALLBACK[g.c] || "sans-serif"),
+        category: GOOGLE_CATEGORY_LABEL[g.c] || "Google",
+        isGoogle: true,
+      };
+    });
+  }
+  let GOOGLE_FONTS = readGoogleFontsJson();
 
   // Lazy-load a Google Font's CSS. Idempotent — only the first call per font
   // adds a <link>; subsequent calls are no-ops.
@@ -107,7 +109,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // script in editor.astro fetches them from Supabase and exposes the rows
   // as `window.__TMKE_BRAND_FONTS__`. They're already loaded into
   // document.fonts there, so we just need to surface them in the picker.
-  const BRAND_FONTS = (function readBrandFonts() {
+  function readBrandFonts() {
     const rows = (typeof window !== "undefined" && window.__TMKE_BRAND_FONTS__) || [];
     const seen = new Set();
     const out = [];
@@ -122,12 +124,15 @@ import { createResizeEngine } from "./resize-engine.js";
       });
     });
     return out;
-  })();
+  }
+  // A font pack is fetched from Supabase after this script runs, so this can
+  // legitimately be empty on the first read and full a moment later.
+  let BRAND_FONTS = readBrandFonts();
 
   // BASE_FONTS retained as a name so the rest of the code (export canvas,
   // brand kit logic) keeps working — it now points at the combined catalogue:
   // custom brand fonts (pinned first) > system fonts > Google Fonts.
-  const BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
+  let BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
 
   // Brand kit — colours / fonts / logos from /profile, stored in localStorage.
   /* ---------- Designing as (docs/brand-switcher-brief.md) ----------
@@ -213,7 +218,33 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   // Pin brand fonts to the top of the font list (deduped, marked as brand).
+  // The stack to render a font name with: the catalogue's if we know it,
+  // otherwise the name itself with a neutral fallback behind it.
+  function fontStackFor(name) {
+    const known = name && FONTS.find((f) => f.name === name);
+    if (known) return known.stack;
+    if (name) return '"' + name + '", ' + (FONTS[0] ? FONTS[0].stack : "sans-serif");
+    return FONTS[0] ? FONTS[0].stack : "sans-serif";
+  }
+
   function buildFonts() {
+    // The Google catalogue is a JSON blob in the page. If it had not been
+    // written when this script first ran it was empty for good, because it was
+    // read once into a const - so re-read it here, where the catalogue is
+    // rebuilt anyway.
+    let stale = false;
+    if (!GOOGLE_FONTS.length) {
+      const late = readGoogleFontsJson();
+      if (late.length) { GOOGLE_FONTS = late; stale = true; }
+    }
+    // The uploaded font pack (UniText and the rest) arrives from Supabase
+    // after this script runs, so re-read it too. Without this the pack was
+    // missing for the whole session if the fetch lost the race.
+    if (BRAND_FONTS.length !== ((window.__TMKE_BRAND_FONTS__ || []).length)) {
+      const lateBrand = readBrandFonts();
+      if (lateBrand.length !== BRAND_FONTS.length) { BRAND_FONTS = lateBrand; stale = true; }
+    }
+    if (stale) BASE_FONTS = BRAND_FONTS.concat(CUSTOM_FONTS).concat(SYSTEM_FONTS).concat(GOOGLE_FONTS);
     const seen = new Set();
     const out = [];
     if (BRAND && BRAND.fonts) {
@@ -3974,7 +4005,15 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   function applyTextStyles(inner, el) {
-    inner.style.fontFamily = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    /* An unknown font asks for itself, rather than being replaced. FONTS[0] is
+       the brand kit's heading font, so this line used to turn every font
+       missing from the catalogue into that one font - and the catalogue is
+       read from a blob in the page, so if it had not arrived yet, a reload
+       silently re-set every heading in the design. Asking for the name still
+       works whenever the face is loaded; only a genuinely absent font falls
+       back now. Dani, 10 Oct: "I think I somehow pressed refresh... and then
+       all the title heading fonts just changed." */
+    inner.style.fontFamily = fontStackFor(el.font);
     inner.style.fontSize = el.size + "px";
     inner.style.fontWeight = el.weight;
     inner.style.fontStyle = el.italic ? "italic" : "normal";
