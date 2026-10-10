@@ -7576,12 +7576,40 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.drawImage(img, -fit.baseW / 2, -fit.baseH / 2, fit.baseW, fit.baseH);
       } catch (_) {}
     } else {
-      // Empty frame — paint a soft striped placeholder so the silhouette
-      // is at least visible if someone exports without filling it.
+      /* Empty frame. The tint alone has no edge, so on a light card it melts
+         into the background and the photo area reads as running all the way
+         down to the first line of text - which made everything below it look
+         pushed down in a thumbnail, while every element was exactly where it
+         should be. The editor shows this area hatched with a dashed edge; the
+         render needs to say where it stops too. Dani, 11 Oct. */
       ctx.fillStyle = "rgba(71,66,84,0.12)";
       ctx.fillRect(0, 0, el.w, el.h);
+      // Diagonal hatching, as on the canvas, so an empty slot reads as a slot.
+      ctx.save();
+      ctx.strokeStyle = "rgba(71,66,84,0.14)";
+      ctx.lineWidth = Math.max(1, Math.round(Math.min(el.w, el.h) / 220));
+      const step = Math.max(10, Math.round(Math.min(el.w, el.h) / 26));
+      for (let d = -el.h; d < el.w + el.h; d += step) {
+        ctx.beginPath();
+        ctx.moveTo(d, 0);
+        ctx.lineTo(d + el.h, el.h);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
     ctx.restore();
+    /* And a dashed edge on an empty one, so its bottom is visible against a
+       light background. Outside the clip, so the stroke is not halved. */
+    if (!el.src) {
+      ctx.save();
+      pathForFrame(ctx, el);
+      ctx.strokeStyle = "rgba(71,66,84,0.38)";
+      ctx.lineWidth = Math.max(1, Math.round(Math.min(el.w, el.h) / 300));
+      const dash = Math.max(6, Math.round(Math.min(el.w, el.h) / 90));
+      ctx.setLineDash([dash, dash]);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Border (drawn after the clip is released so the stroke isn't clipped to
     // half-width). The path is centred on the silhouette edge, matching the DOM.
     if (el.frameBorderWidth) {
