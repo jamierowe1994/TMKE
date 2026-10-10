@@ -8971,6 +8971,15 @@ import { createResizeEngine } from "./resize-engine.js";
      a locked part is locked. Colours are deliberately left alone -- the
      templates are neutral, so recolouring earns little for the disruption. */
   function applyBrandFontsToTemplate() {
+    /* Not on a print card. A social template is neutral, so adopting the
+       member's heading and body fonts makes it theirs. A print card is drawn
+       FOR a brand, in that brand's typeface, and has to print as drawn - so
+       swapping its heading for whatever the member's kit happens to say is
+       not personalisation, it is damage. This is why a TPE invitation opened
+       in the member Studio came up in The Seasons while the same template in
+       the admin centre was correctly in UniText: nothing failed to load, the
+       editor replaced the font on purpose. Dani, 10 Oct. */
+    if (isPrintDesign()) return;
     const heads = [];
     let n = 0;
     BRAND_FONT_ROLES.forEach(function (role) {
