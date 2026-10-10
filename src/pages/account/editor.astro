@@ -2657,15 +2657,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-element.is-field { cursor: text; }
     .ed-element.is-field[data-type="image"], .ed-element.is-field[data-type="frame"] { cursor: pointer; }
     .ed-bounds.ed-bounds--field { border-style: dashed; }
-    .ed-element.is-lock-light, .ed-element.is-lock-dead { box-shadow: 0 0 0 1px rgba(38, 132, 96, 0.9); }
+    /* No green marking on the artwork. Dani, 10 Oct: "I don't want the green
+       as an admin feature - it shouldn't be needed." Nearly every element in a
+       template is a fixed field, so marking each one put a green edge and a
+       FIXED tag on the whole design and you could not see the thing you were
+       drawing. Lock state still reads in Layers, which is where it is set.
+       A dead lock keeps its red mark: it is rare, and it means a member cannot
+       touch the element at all. */
     .ed-element.is-lock-dead { box-shadow: 0 0 0 1px rgba(214, 64, 69, 0.9); }
-    .ed-element.is-lock-light::before, .ed-element.is-lock-dead::before {
-      content: "FIXED"; position: absolute; top: -16px; right: 0; z-index: 2;
+    .ed-element.is-lock-dead::before {
+      content: "LOCKED"; position: absolute; top: -16px; right: 0; z-index: 2;
       font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.14em;
-      color: #fff; background: rgba(38, 132, 96, 0.95); padding: 1px 4px; border-radius: 2px;
+      color: #fff; background: rgba(214, 64, 69, 0.95); padding: 1px 4px; border-radius: 2px;
       pointer-events: none;
     }
-    .ed-element.is-lock-dead::before { content: "LOCKED"; background: rgba(214, 64, 69, 0.95); }
     .ed-lockset { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 3px; border-radius: 8px; background: rgba(28,29,34,0.06); }
     .ed-lockset button { padding: 7px 6px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; font: inherit; font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.65); }
     .ed-lockset--4 { grid-template-columns: repeat(4, 1fr); }
@@ -4147,7 +4152,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     /* Lines are grabbed by their ends (Canva-style), and get a taller strip
        to click than their own few pixels. */
-    .ed-element[data-type="line"]::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: calc(18px * var(--ez, 1)); transform: translateY(-50%); }
+    /* The hit strip that makes a hairline clickable. It MUST declare its own
+       background: the admin's FIXED badge is also a ::before on the element,
+       and this rule wins on geometry but inherited the badge's green, so every
+       fixed line came out as a solid green bar the width of the line and 18px
+       tall. Dani, 10 Oct - "why do these still have green highlights round
+       them". It is a hit target, so it is never painted. */
+    .ed-element[data-type="line"]::before {
+      content: ""; position: absolute; left: 0; right: 0; top: 50%;
+      height: calc(18px * var(--ez, 1)); transform: translateY(-50%);
+      background: transparent; border-radius: 0; padding: 0; color: transparent;
+    }
     .ed-line-end {
       position: absolute; width: calc(16px * var(--ez, 1)); height: calc(16px * var(--ez, 1));
       transform: translate(-50%, -50%); border-radius: 50%; background: #fff;
