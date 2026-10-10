@@ -5019,6 +5019,14 @@ import { createResizeEngine } from "./resize-engine.js";
         if (handle.includes("w")) nx = o.x + (o.w - nw);
         if (handle.includes("n")) ny = o.y + (o.h - nh);
       }
+      /* The group's box lines up as it is resized, exactly as a single item
+         does: the edge under the pointer snaps to whatever it meets and the
+         opposite edge stays put. Snapped BEFORE the box is scaled onto the
+         members, so one correction reaches all of them. Dani, 10 Oct. */
+      const gb = { id: null, x: nx, y: ny, w: nw, h: nh };
+      snapResize(gb, handle, new Set(els.map((m) => m.id)));
+      nx = gb.x; ny = gb.y; nw = gb.w; nh = gb.h;
+
       const sx = nw / o.w, sy = nh / o.h;
       const sAvg = (sx + sy) / 2;
       orig.forEach((r) => {
@@ -5034,6 +5042,7 @@ import { createResizeEngine } from "./resize-engine.js";
     function onUp() {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp);
+      clearGuides();
       pushHistory();
       renderProps();
     }
@@ -5215,11 +5224,11 @@ import { createResizeEngine } from "./resize-engine.js";
      copy text." Only the edges under the pointer move - the opposite edge
      stays exactly where it is, which is what makes this different from the
      drag snap, where the whole box travels. */
-  function snapResize(el, handle) {
+  function snapResize(el, handle, skipIds) {
     clearGuides();
     if (!guidesEl.style.width) { guidesEl.style.width = state.canvas.width + "px"; guidesEl.style.height = state.canvas.height + "px"; }
     const tol = snapTol();
-    const t = snapTargets(el);
+    const t = snapTargets(skipIds ? null : el, skipIds);
     const near = (p, targets) => {
       let best = null;
       targets.forEach((tg) => {
