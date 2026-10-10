@@ -7048,6 +7048,21 @@ import { createResizeEngine } from "./resize-engine.js";
     const vOffsetFor = function (n) {
       return el.vcenter ? Math.max(0, (el.h - n * lh) / 2) : 0;
     };
+    /* CSS puts the first line's glyphs HALF A LEADING below the top of the
+       box: a line box is lineHeight tall and the em box sits centred inside
+       it. Canvas with textBaseline "top" starts at the very top and has no
+       leading at all, so every line rendered high by (lineHeight - em) / 2.
+
+       That offset scales with the type size: about a pixel on 12pt small
+       print, tens of pixels on a headline. Which is why a card looked as
+       though everything had been pushed down EXCEPT the headline - the
+       headline had not moved down, it had been lifted up, further than
+       anything else. Dani, 11 Oct: "there is a gap between 'Find out what
+       your property could be worth' and the top of the F. It's about 4.5 mm,
+       so that's obviously what the difference is that we see." */
+    const _m = ctx.measureText("M");
+    const _em = (_m.fontBoundingBoxAscent || 0) + (_m.fontBoundingBoxDescent || 0);
+    const halfLeading = _em ? Math.max(0, (lh - _em) / 2) : 0;
 
     // Background pill — drawn first so the text sits on top. We measure each
     // line independently so per-line backgrounds approximate Canva's
@@ -7058,7 +7073,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const radius = el.textBg.radius || 0;
       ctx.save();
       ctx.fillStyle = el.textBg.color || "#FFE066";
-      let yy = vOffsetFor(lines.length);
+      let yy = vOffsetFor(lines.length) + halfLeading;
       for (const ln of lines) {
         const tw = ctx.measureText(ln).width;
         let lx = 0;
@@ -7091,7 +7106,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Outline is stroked per token under the fill; shadow (set above) carries.
     if (hasRuns(el)) {
       const rlines = richWrapLines(ctx, el, el.runs, el.w);
-      const rOff = vOffsetFor(rlines.length);
+      const rOff = vOffsetFor(rlines.length) + halfLeading;
       if (rOff) { ctx.save(); ctx.translate(0, rOff); }
       if (el.textOutline && el.textOutline.width > 0) {
         ctx.save();
@@ -7114,7 +7129,7 @@ import { createResizeEngine } from "./resize-engine.js";
       return;
     }
 
-    let yy = vOffsetFor(lines.length);
+    let yy = vOffsetFor(lines.length) + halfLeading;
     let tx = 0;
     if (el.align === "center") tx = el.w / 2;
     else if (el.align === "right") tx = el.w;
@@ -7130,7 +7145,7 @@ import { createResizeEngine } from "./resize-engine.js";
       ctx.lineWidth = el.textOutline.width * 2; // half outside, half inside → outside-only feel
       ctx.strokeStyle = el.textOutline.color || "#1c1d22";
       ctx.lineJoin = "round";
-      let oy = vOffsetFor(lines.length);
+      let oy = vOffsetFor(lines.length) + halfLeading;
       for (const ln of lines) { ctx.strokeText(ln, tx, oy); oy += lh; }
       ctx.restore();
     }
