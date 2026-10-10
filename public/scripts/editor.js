@@ -6736,14 +6736,29 @@ import { createResizeEngine } from "./resize-engine.js";
   async function ensureTextFontsLoaded() {
     if (!document.fonts || !document.fonts.load) return;
     const specs = new Set();
-    for (const el of state.elements) {
-      if (el.hidden || el.type !== "text") continue;
-      const want = [el.font];
-      if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && r.font) want.push(r.font); });
-      want.forEach(function (name) {
-        const fam = (FONTS.find((f) => f.name === name) || FONTS[0]).stack.split(",")[0].trim();
-        specs.add((el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam);
-      });
+    /* EVERY page, not just the one on screen. A multi-page template renders
+       all of its sides for the catalogue, so a font used only on page two was
+       never asked for - that page was drawn with a fallback face and its text
+       wrapped differently from how it looks in the Studio.
+
+       And the face asked for is the element's own. This used to fall back to
+       FONTS[0], the first entry in the catalogue, so a font missing from the
+       catalogue had a DIFFERENT font loaded in its place and the render drew
+       with metrics belonging to neither. Dani, 10 Oct. */
+    const pages = (Array.isArray(state.pages) && state.pages.length)
+      ? state.pages
+      : [{ elements: state.elements }];
+    for (const pg of pages) {
+      for (const el of (pg.elements || [])) {
+        if (el.hidden || el.type !== "text") continue;
+        const want = [el.font];
+        if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && r.font) want.push(r.font); });
+        want.forEach(function (name) {
+          const stack = name ? fontStackFor(name) : (FONTS[0] ? FONTS[0].stack : "sans-serif");
+          const fam = stack.split(",")[0].trim();
+          specs.add((el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam);
+        });
+      }
     }
     try {
       await Promise.all([...specs].map((s) => document.fonts.load(s).catch(function () {})));
