@@ -6970,9 +6970,39 @@ import { createResizeEngine } from "./resize-engine.js";
     });
   }
 
+  /* The same shrink-to-fit the Studio gives a "Fixed" text box, done on the
+     canvas. fitLockedText measures the DOM, so it only ever ran for the page
+     actually on screen - a published render drew el.size as stored, which is
+     the size BEFORE shrinking. That is why a fixed caption came out larger in
+     the catalogue than in the Studio. Computed and never written back:
+     rendering must not alter the design. Dani, 10 Oct. */
+  function lockedCanvasSize(ctx, el, font) {
+    if (!el || el.type !== "text" || !el.h) return el.size;
+    if (lockState(el) !== "light") return el.size;
+    const cap = Math.round(el.lockSize || el.size || 16);
+    const ls = Number(el.letterSpacing) || 0;
+    const fits = function (sz) {
+      ctx.font = (el.italic ? "italic " : "") + el.weight + " " + sz + "px " + font;
+      try { ctx.letterSpacing = ls + "px"; } catch (_) {}
+      const lines = wrapText(ctx, el.text || "", el.w);
+      if (lines.length * (sz * (el.lineHeight || 1.3)) > el.h + 1) return false;
+      for (const ln of lines) if (ctx.measureText(ln).width > el.w + 1) return false;
+      return true;
+    };
+    if (fits(cap)) return cap;
+    let lo = 6, hi = cap, best = 6;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (fits(mid)) { best = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    return best;
+  }
+
   function drawTextElementToCanvas(ctx, el) {
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
-    ctx.font = (el.italic ? "italic " : "") + el.weight + " " + el.size + "px " + font;
+    // Mixed-format text keeps its own per-run sizes; a plain box is fitted.
+    const _sz = hasRuns(el) ? el.size : lockedCanvasSize(ctx, el, font);
+    ctx.font = (el.italic ? "italic " : "") + el.weight + " " + _sz + "px " + font;
     // Match the editor's letter-spacing in BOTH the wrap measurement and the
     // draw. Without this the canvas packs text tighter than the live design
     // ("forced inwards"), and the narrower measure also changes where lines
@@ -6981,7 +7011,7 @@ import { createResizeEngine } from "./resize-engine.js";
     ctx.textBaseline = "top";
     // Canvas has no "justify" — fall back to left for the static snapshot.
     ctx.textAlign = el.align === "justify" ? "left" : el.align;
-    const lh = el.size * (el.lineHeight || 1.3);
+    const lh = _sz * (el.lineHeight || 1.3);
     const lines = wrapText(ctx, el.text || "", el.w);
 
     // Background pill — drawn first so the text sits on top. We measure each
@@ -8697,6 +8727,19 @@ import { createResizeEngine } from "./resize-engine.js";
 
   const KNOWN_TAGS = TAG_MENU.concat(TAG_ALIASES);
 
+  /* Which menu tag an off-menu spelling means. Only for reporting what a piece
+     of text carries - resolving a tag to a value is mergeTagMap's job and is
+     unchanged. */
+  const TAG_SYNONYM_OF = {
+    "brand name": "company name", "brand": "company name", "company": "company name",
+    "your name": "agent name", "name": "agent name",
+    "first name": "agent first name",
+    "role": "job title",
+    "location": "area", "town": "area",
+    "strapline": "slogan", "tagline": "slogan",
+    "phone": "telephone",
+  };
+
   /* Which menu tags a piece of text already carries, in the order they appear.
      The picker reports these, so a tag never reads as hand-typed words.
      Dani, 10 Oct: "that merge tag should show in the pick a tag field so that
@@ -8709,7 +8752,11 @@ import { createResizeEngine } from "./resize-engine.js";
     while ((m = pattern.exec(text)) !== null) {
       const paired = (m[1] === "{" && m[3] === "}") || (m[1] === "(" && m[3] === ")");
       if (!paired) continue;
-      const k = m[2].toLowerCase().replace(/\s+/g, " ").trim();
+      let k = m[2].toLowerCase().replace(/\s+/g, " ").trim();
+      // An older spelling is the same tag: a template written with {location}
+      // or {phone} is reported as {area} and {telephone}, which is what the
+      // menu calls them. Dani, 10 Oct.
+      k = TAG_SYNONYM_OF[k] || k;
       if (TAG_MENU.indexOf(k) !== -1 && out.indexOf(k) === -1) out.push(k);
     }
     return out;
