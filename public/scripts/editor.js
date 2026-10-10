@@ -3892,7 +3892,16 @@ import { createResizeEngine } from "./resize-engine.js";
     // Dead locks let clicks through to what's underneath; a light lock is a
     // field you click into. Admins see which is which at a glance.
     const _lk = lockState(el);
-    if (_lk === "dead") node.classList.add("is-locked");
+    /* A dead lock makes an element click-through, which is the whole point of
+       it for a member. For an admin it meant the opposite of useful: clicking
+       a locked element selected nothing, so the top bar emptied and the only
+       way to unlock it again was the Layers list. It stays selectable while
+       authoring - it still cannot be dragged, because startDrag filters pinned
+       elements out - so the padlock in the bar can let it go again.
+       Dani, 10 Oct: "when I click on it, the whole top nav bar just doesn't
+       appear... this is acting differently to if I lock any of the other
+       elements." */
+    if (_lk === "dead" && !isAdminMode()) node.classList.add("is-locked");
     if (_lk === "light" && !isAdminMode()) node.classList.add("is-field");
     if (_lk && isAdminMode()) node.classList.add("is-lock-" + _lk);
     // Authoring aid: show which element is the logo slot. Admin only — a
