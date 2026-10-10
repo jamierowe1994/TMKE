@@ -1442,7 +1442,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-topbar {
       grid-area: top;
       display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      /* The right-hand buttons size to their own words and the LEFT column
+         gives way, so a long template name yields space rather than the
+         buttons wrapping onto a second line. Dani, 10 Oct. */
+      grid-template-columns: minmax(0, 1fr) auto auto;
       align-items: center;
       /* Edge to edge, like the rail below it. As a floating card inset 12px
          from each side it read as something that hadn't loaded properly. */
@@ -1481,7 +1484,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     @media (max-width: 1379px) { .ed-asbrand { display: none; } }
 
     .ed-topbar-mid { display: flex; align-items: center; gap: 4px; justify-self: center; }
-    .ed-topbar-right { display: flex; align-items: center; gap: 8px; justify-self: end; }
+    /* The name is what gives, and it trails off rather than pushing the row. */
+    .ed-topbar-left { min-width: 0; }
+    .ed-topbar-left > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* One line, always. "Regenerate previews" and "Send to catalogue" were
+       wrapping onto two, which doubled the height of the whole bar. They keep
+       their words on one line and the row gives ground on the left instead.
+       Dani, 10 Oct: "it should not be over two lines... just push everything to
+       the left if you need more space." */
+    .ed-topbar-right {
+      display: flex; align-items: center; gap: 8px; justify-self: end;
+      min-width: 0;
+    }
+    .ed-topbar-right > button,
+    .ed-topbar-right > a { white-space: nowrap; flex: 0 0 auto; }
 
     /* Current canvas-format readout — sits next to Save, mirrors the live size. */
     .ed-canvas-size-pill {
@@ -1503,7 +1519,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        ever hangs off its right edge. Full width it needs about 1115px of
        room; each tier below hands back what is least missed first. The
        phone layout (760px) takes over at the end. */
-    .ed-topbar { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+    .ed-topbar { grid-template-columns: minmax(0, 1fr) auto auto; }
     /* 1. The canvas format. It is a readout, and the size lives in Resize. */
     @media (max-width: 1160px) { .ed-canvas-size-pill { display: none; } }
     /* 2. Add and Send for review keep their icons and lose their words. */
