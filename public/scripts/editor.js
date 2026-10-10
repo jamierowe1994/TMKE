@@ -2336,6 +2336,14 @@ import { createResizeEngine } from "./resize-engine.js";
       canvas: deep(state.canvas),
       elements: deep(state.elements),
       guides: deep(state.guides || []),
+      /* Which page this snapshot is OF. state.canvas and state.elements write
+         through to state.pages[state.currentPage], so an entry without a page
+         is restored onto whichever page happens to be current - which replaced
+         one page's artwork with another's, and emptied a page outright when the
+         entry came from an empty one. Dani, 10 Oct: "sometimes it just randomly
+         flicks to a different page... this is probably how we ended up deleting
+         stuff." */
+      page: state.currentPage,
     });
     if (state.history.length > 80) state.history.shift();
     state.historyIndex = state.history.length - 1;
@@ -2346,11 +2354,19 @@ import { createResizeEngine } from "./resize-engine.js";
     scheduleAutosave();   // admin: persist a draft shortly after each change
   }
 
+  // Put us on the page a snapshot was taken of, before writing it back.
+  // Clamped, because pages may have been deleted since.
+  function pageOfSnapshot(snap) {
+    if (!snap || typeof snap.page !== "number") return;
+    state.currentPage = Math.max(0, Math.min(state.pages.length - 1, snap.page));
+  }
+
   function undo() {
     if (state.historyIndex <= 0) return;
     restoreDesignPages(state.history[state.historyIndex], "before");
     state.historyIndex--;
     const snap = state.history[state.historyIndex];
+    pageOfSnapshot(snap);
     state.canvas = deep(snap.canvas);
     state.elements = deep(snap.elements);
     if (snap.guides) state.guides = deep(snap.guides);
@@ -2365,6 +2381,7 @@ import { createResizeEngine } from "./resize-engine.js";
     state.historyIndex++;
     const snap = state.history[state.historyIndex];
     restoreDesignPages(snap, "after");
+    pageOfSnapshot(snap);
     state.canvas = deep(snap.canvas);
     state.elements = deep(snap.elements);
     if (snap.guides) state.guides = deep(snap.guides);
@@ -4664,6 +4681,9 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   let dragging = null;
+  // How far the pointer must travel, in SCREEN pixels, before a press on an
+  // element becomes a drag rather than a click.
+  const DRAG_SLOP = 4;
   let _dragMoved = false; // true if the last pointer gesture actually moved an element
   function startDrag(ev) {
     ev.preventDefault();
@@ -4674,9 +4694,20 @@ import { createResizeEngine } from "./resize-engine.js";
     let moved = false;
 
     function onMove(e) {
-      const dx = (e.clientX - startX) / state.zoom;
-      const dy = (e.clientY - startY) / state.zoom;
-      if (!moved && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) { moved = true; _dragMoved = true; }
+      /* Nothing moves until the pointer has actually travelled. A click used to
+         move the element on its first pixel, and because the delta is divided
+         by the zoom, on a print canvas viewed small a one-pixel tremor became
+         several canvas pixels - so things shifted when you only meant to select
+         them. Measured on screen, not on the canvas, because it is hand jitter
+         we are ignoring. Dani, 10 Oct: "things move around way too easily, not
+         intentionally... it just seems to sometimes have a will of its own." */
+      const rawX = e.clientX - startX, rawY = e.clientY - startY;
+      if (!moved) {
+        if (Math.abs(rawX) < DRAG_SLOP && Math.abs(rawY) < DRAG_SLOP) return;
+        moved = true; _dragMoved = true;
+      }
+      const dx = rawX / state.zoom;
+      const dy = rawY / state.zoom;
       initial.forEach((m) => {
         const el = getEl(m.id);
         if (!el) return;
@@ -7645,12 +7676,18 @@ import { createResizeEngine } from "./resize-engine.js";
       if (activeToolPane !== "text") {
         activeToolPane = "text";
         document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === "text"));
-        showPane("text");
         // Land on Text selection — where the controls are — rather than
         // whichever tab was last open.
         setTextTab("page");
-        placeSelectionBody();
       }
+      /* Show the Text pane every time a text box is picked, not only when
+         switching to the tool. The controls are one node that moves into the
+         Text pane whenever the Text tool is open on a text box - so selecting
+         a shape and then a text box left the Selection pane on screen with the
+         controls parked out of sight in the pane behind it, which is the blank
+         panel Dani hit on 10 Oct. */
+      showPane("text");
+      placeSelectionBody();
       renderTextList(); renderFontBrowser();
     } else if (typeof showPane === "function") {
       showPane("selection");
