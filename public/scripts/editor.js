@@ -7038,6 +7038,16 @@ import { createResizeEngine } from "./resize-engine.js";
     ctx.textAlign = el.align === "justify" ? "left" : el.align;
     const lh = _sz * (el.lineHeight || 1.3);
     const lines = wrapText(ctx, el.text || "", el.w);
+    /* Vertically centred text. The editor centres it in its box
+       (.ed-text-vcenter: display flex, align-items center); the canvas draws
+       from the top and knew nothing about it, so any box taller than its own
+       words rendered HIGHER than it displays. That is why a headline sat too
+       high in a thumbnail while being right in the Studio. The same offset
+       goes on the background pill, the outline and the fill, so they stay
+       together. Dani, 10 Oct. */
+    const vOffsetFor = function (n) {
+      return el.vcenter ? Math.max(0, (el.h - n * lh) / 2) : 0;
+    };
 
     // Background pill — drawn first so the text sits on top. We measure each
     // line independently so per-line backgrounds approximate Canva's
@@ -7048,7 +7058,7 @@ import { createResizeEngine } from "./resize-engine.js";
       const radius = el.textBg.radius || 0;
       ctx.save();
       ctx.fillStyle = el.textBg.color || "#FFE066";
-      let yy = 0;
+      let yy = vOffsetFor(lines.length);
       for (const ln of lines) {
         const tw = ctx.measureText(ln).width;
         let lx = 0;
@@ -7081,6 +7091,8 @@ import { createResizeEngine } from "./resize-engine.js";
     // Outline is stroked per token under the fill; shadow (set above) carries.
     if (hasRuns(el)) {
       const rlines = richWrapLines(ctx, el, el.runs, el.w);
+      const rOff = vOffsetFor(rlines.length);
+      if (rOff) { ctx.save(); ctx.translate(0, rOff); }
       if (el.textOutline && el.textOutline.width > 0) {
         ctx.save();
         ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
@@ -7098,10 +7110,11 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.restore();
       }
       drawRichLines(ctx, el, rlines, lh, fillStyle);
+      if (rOff) ctx.restore();
       return;
     }
 
-    let yy = 0;
+    let yy = vOffsetFor(lines.length);
     let tx = 0;
     if (el.align === "center") tx = el.w / 2;
     else if (el.align === "right") tx = el.w;
@@ -7117,7 +7130,7 @@ import { createResizeEngine } from "./resize-engine.js";
       ctx.lineWidth = el.textOutline.width * 2; // half outside, half inside → outside-only feel
       ctx.strokeStyle = el.textOutline.color || "#1c1d22";
       ctx.lineJoin = "round";
-      let oy = 0;
+      let oy = vOffsetFor(lines.length);
       for (const ln of lines) { ctx.strokeText(ln, tx, oy); oy += lh; }
       ctx.restore();
     }
