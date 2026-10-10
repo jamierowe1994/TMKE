@@ -11106,43 +11106,71 @@ import { createResizeEngine } from "./resize-engine.js";
       btn.type = "button";
       btn.className = "ed-field-change";
       btn.textContent = src ? "Change" : "Add a picture";
-      /* The chooser opens here, on the field itself. This used to call
-         openTool("photos"), which fails twice over for the member this pane
-         exists for: openTool CLEARS the selection the line above just set, and
-         on a print design the photos tool is hidden from members, so
-         memberPrintView put them straight back on Fields. The button did
-         nothing at all. Same picker the background uses - the pictures already
-         in this design, your uploads, and a file dialog behind "Upload a new
-         image". Dani, 10 Oct. */
-      const menu = document.createElement("span");
-      menu.className = "ed-bg-imgmenu";
-      menu.hidden = true;
+      /* The chooser, laid out the way the uploads panel is: the dropzone is
+         what you came for, so it is the whole width and sits under the button;
+         anything used before is folded away behind "Previous uploads" rather
+         than spilling out. Print keeps its OWN history - a property photo from
+         a card is worth offering again, a year of social posts is not.
+         Dani, 10 Oct. */
+      const panel = document.createElement("div");
+      panel.className = "ed-field-pick";
+      panel.hidden = true;
+
       const put = function (chosen) {
         const tgt = getEl(el.id);
         if (!tgt || !chosen) return;
         if (tgt.type === "frame") fillFrame(tgt, chosen);
         else { tgt.src = chosen; fullRender(); }
+        rememberPrintPic(chosen);
         pushHistory();
         renderProps();
       };
-      mountPicturePicker({
-        menu: menu,
-        button: btn,
-        onPick: put,
-        onUpload: function () {
-          const input = document.createElement("input");
-          input.type = "file";
-          input.accept = "image/*";
-          input.onchange = function () {
-            const file = input.files[0];
-            if (!file) return;
-            fileToWebImage(file).then(function (chosen) { if (chosen) put(chosen); });
-          };
-          input.click();
-        },
+      const takeFiles = function (files) {
+        const file = files && files[0];
+        if (!file) return;
+        fileToWebImage(file).then(function (chosen) { if (chosen) put(chosen); });
+      };
+
+      const drop = document.createElement("label");
+      drop.className = "ed-upload-drop";
+      const input = document.createElement("input");
+      input.type = "file"; input.accept = "image/*"; input.hidden = true;
+      drop.appendChild(input);
+      drop.insertAdjacentHTML("beforeend",
+        "<strong>Click to upload</strong><span>or drag an image here</span>");
+      input.addEventListener("change", function () { takeFiles(input.files); });
+      drop.addEventListener("dragover", function (e) { e.preventDefault(); drop.classList.add("is-over"); });
+      drop.addEventListener("dragleave", function () { drop.classList.remove("is-over"); });
+      drop.addEventListener("drop", function (e) {
+        e.preventDefault(); drop.classList.remove("is-over");
+        takeFiles(e.dataTransfer && e.dataTransfer.files);
       });
+      panel.appendChild(drop);
+
+      const previous = printPicsList();
+      if (previous.length) {
+        const fold = document.createElement("details");
+        fold.className = "ed-field-prev";
+        const sum = document.createElement("summary");
+        sum.textContent = "Previous uploads";
+        fold.appendChild(sum);
+        const grid = document.createElement("div");
+        grid.className = "ed-photo-grid";
+        previous.forEach(function (src2) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.style.backgroundImage = "url(" + JSON.stringify(src2) + ")";
+          b.title = "Use this picture";
+          b.addEventListener("click", function () { put(src2); });
+          grid.appendChild(b);
+        });
+        fold.appendChild(grid);
+        panel.appendChild(fold);
+      }
+
+      btn.addEventListener("click", function () { panel.hidden = !panel.hidden; });
       box.appendChild(btn);
-      box.appendChild(menu);
+      box.appendChild(panel);
     } else {
       const note = document.createElement("span");
       note.className = "ed-field-note";
@@ -11619,6 +11647,27 @@ import { createResizeEngine } from "./resize-engine.js";
     (state.uploads || []).forEach(add);   // newest first
     return out.slice(0, PICKER_MAX);
   }
+  /* Pictures used on a print card, newest first. Kept apart from the social
+     uploads on purpose: a property photo from a postcard is worth offering
+     again, a year of Instagram posts would only bury it. Data URLs are left
+     out - they would fill the browser's storage on their own. Dani, 10 Oct. */
+  const PRINT_PICS_KEY = "tmke.print.pics";
+  function printPicsList() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PRINT_PICS_KEY) || "[]");
+      return Array.isArray(raw) ? raw.filter(function (u) { return typeof u === "string" && u; }) : [];
+    } catch (_) { return []; }
+  }
+  function rememberPrintPic(src) {
+    if (!src || typeof src !== "string" || src.slice(0, 5) === "data:") return;
+    if (!isPrintDesign()) return;
+    try {
+      const list = printPicsList().filter(function (u) { return u !== src; });
+      list.unshift(src);
+      localStorage.setItem(PRINT_PICS_KEY, JSON.stringify(list.slice(0, 12)));
+    } catch (_) {}
+  }
+
   function mountPicturePicker(opts) {
     const menu = opts.menu, button = opts.button;
     if (!menu || !button) return;
