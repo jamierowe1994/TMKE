@@ -398,12 +398,26 @@ function injectStyles() {
   .tmke-tour-card.is-in { opacity: 1; transform: translateY(0); }
   /* A column down the right, in the strip the page has given up. It does not
      move between steps — the spotlight moves, the words stay. */
+  /* Anchored, not centred. The panel itself never moved -- it is pinned to the
+     full height of the strip -- but everything inside it was a centred block,
+     so a step whose body wrapped to four lines instead of three pushed the
+     eyebrow, the title AND the Next button up by eleven pixels. Clicking
+     through a walk, that reads as the card bouncing, and the button you are
+     aiming at is in a slightly different place each time.
+
+     The block now starts at the same height on every step, so only the words
+     change -- which they already do by fading, nothing moves. Measured a third
+     of the way down so it sits roughly where centring used to put it, rather
+     than jumping to the top of a tall column. Dani, 11 Oct: "the box should
+     kind of stay where it is ... the only thing that obviously needs to be
+     animated in and out is the contents of the box." */
   .tmke-tour-card.is-side {
     top: 0; right: 0; bottom: 0; left: auto;
     width: var(--tour-side, 400px); max-width: 46vw;
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 34px 36px; border-radius: 0; border-width: 0 0 0 1px;
+    display: flex; flex-direction: column; justify-content: flex-start;
+    padding: clamp(34px, 33vh, 260px) 36px 34px; border-radius: 0; border-width: 0 0 0 1px;
     box-shadow: none; transform: none;
+    overflow-y: auto;
   }
   html.tmke-walk .tmke-tour-card.is-side { top: 72px; }
   .tmke-tour-card.is-side.is-in { transform: none; }
@@ -514,6 +528,11 @@ function injectStyles() {
   }
   .tmke-tour-skipto:hover { text-decoration: underline; }
   .tmke-tour-foot { display: flex; align-items: center; gap: 12px; }
+  /* In the side panel the buttons sit at the bottom, not under the last line
+     of body text. Stop, Back and Next were following the copy: a step with a
+     three-line body put Next twenty pixels higher than a step with four, so
+     the button moved under the cursor between clicks. Dani, 11 Oct. */
+  .tmke-tour-card.is-side:not(.is-menu) .tmke-tour-foot { margin-top: auto; }
   .tmke-tour-progress { font-family: var(--sans, system-ui, sans-serif); font-size: 10.5px; letter-spacing: 0.18em; font-weight: 700; color: var(--ws-faint, rgba(28,29,34,0.45)); }
   .tmke-tour-spacer { flex: 1; }
   .tmke-tour-skip {
