@@ -39,6 +39,15 @@ const JOIN_URL = "/join";
    running into problems." */
 const TRAINING_KIT = "tmke.brand.training";
 
+/* Which key holds the kit for whatever is running here: a member's own, the
+   demo account's (adoptable), or the training account's (never adopted).
+   Exported so every reader asks the same question - the profile page read
+   "tmke.brand.demo" for ANY demo, so when the training account moved to its
+   own key the Brand kit page quietly fell back to the real member's. */
+export function brandKitKey() {
+  if (!isDemo()) return "tmke.brand";
+  return isTrainingDemo() ? TRAINING_KIT : "tmke.brand.demo";
+}
 function demoKitKey() {
   return isTrainingDemo() ? TRAINING_KIT : "tmke.brand.demo";
 }

@@ -924,10 +924,11 @@ const HERO_BG = (await getImage({
   </style>
 
   <script>
-    import { isDemo as demoOn, lock } from "../../lib/demo.js";
-    // In the demo the kit is kept under its own key for the visit, so the
-    // Studio can use it and an account created afterwards can claim it.
-    const BRAND_KEY = demoOn() ? "tmke.brand.demo" : "tmke.brand";
+    import { isDemo as demoOn, brandKitKey, lock } from "../../lib/demo.js";
+    /* A demo keeps its kit under its own key for the visit, so the Studio can
+       use it. WHICH key depends on which demo: the demo account's is claimable
+       by an account created afterwards, the training account's never is. */
+    const BRAND_KEY = brandKitKey();
     import { GOOGLE_FONTS, loadGoogleFont } from "../../data/google-fonts.js";
     import { GOOGLE_FONTS_ALL } from "../../data/google-fonts-all.js";
     /* The curated few first — they are the ones worth suggesting — then every
@@ -1537,7 +1538,13 @@ const HERO_BG = (await getImage({
       // On load, adopt a newer server kit (edited on another device). Reload
       // once so the form re-initialises from the fresh cache — guarded against
       // any loop. If local is same-or-newer, the local copy stands.
+      /* Not while a demo is running. Signed in and showing the training
+         account, this fetched the real member's kit, wrote it over the
+         demo's and reloaded - so the Brand kit page came up wearing their own
+         brand seconds after the demo had laid in the fictional one.
+         Dani, 11 Oct. */
       try {
+        if (demoOn()) throw new Error("demo");
         const { data: bk } = await supabase
           .from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
         if (bk && bk.kit && typeof bk.kit === "object" && Object.keys(bk.kit).length) {
