@@ -215,7 +215,10 @@ export const WALKS = {
     // better: a page with three templates on it doesn't need a box drawn round
     // them.
     lead: "Let's open your first template",
-    line: "Choose a pack to see the templates inside it. Pick one and the Studio makes you your own copy, leaving the original untouched.",
+    line: "Find your Demo Pack, choose a design and open it in the editor. The Studio creates your own copy, leaving the original template untouched.",
+    /* The tip that used to sit in its own tinted panel under this box. Dani,
+       12 Oct: one box, not three coloured cards in a row. */
+    note: "Your demo templates are there to experiment with. Change the wording, swap the imagery and move things around. You can always return to the original and start again.",
     stage: "/account/studio",
     steps: [
       { target: ".ws-hero", placement: "bottom",

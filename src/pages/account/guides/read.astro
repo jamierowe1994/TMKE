@@ -327,6 +327,9 @@ const DEFAULT_COVER = (await getImage({
     /* Same size as a card title: the two sit together and used to differ. */
     .gr-walk-tx strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: #fff; }
     .gr-walk-tx span { font-size: var(--ws-t-meta); color: rgba(255,255,255,0.72); line-height: 1.45; }
+    /* The tip, a step quieter than the line above it and set off by a rule, so
+       one box can hold both without reading as one long paragraph. */
+    .gr-walk-tx .gr-walk-note { margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.6); }
     .gr-walk .ws-btn { flex: 0 0 auto; background: #fff; color: var(--ws-accent); border-color: #fff; }
     .gr-walk .ws-btn:hover { background: #f4f2f1; color: var(--ws-accent); }
     .gr-body--after { margin-top: 18px; }
@@ -581,8 +584,14 @@ const DEFAULT_COVER = (await getImage({
         // lesson has already said what it is about to show.
         const lead = WALKS[id].lead || "See it on the page";
         const line = WALKS[id].line || `A guided look at the real thing: ${WALKS[id].title}, ${WALKS[id].steps.length} steps. Finish brings you back here.`;
+        /* A second line inside the same box. The tip about experimenting freely
+           used to be its own tinted panel directly beneath this one, so page
+           one carried three differently coloured cards in a row. Dani, 12 Oct:
+           "include the TMKE tip within that ... so there are not so many
+           different colour cards on the page." */
+        const note = WALKS[id].note || "";
         return `<div class="gr-walk">
-          <span class="gr-walk-tx"><strong>${esc(lead)}</strong><span>${esc(line)}</span></span>
+          <span class="gr-walk-tx"><strong>${esc(lead)}</strong><span>${esc(line)}</span>${note ? `<span class="gr-walk-note">${esc(note)}</span>` : ""}</span>
           <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${esc(id)}" data-part="${i}">Show me
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>

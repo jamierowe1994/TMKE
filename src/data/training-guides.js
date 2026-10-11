@@ -210,12 +210,13 @@ export const TRAINING_GUIDES = [
     lessons: [
       { title: "Start With a Template", walk: "studio-template", video_url: "",
         body_html:
-          p("The Studio gives you everything you need to create content, whether you're starting with one of our templates or building something completely new.") +
-          /* One paragraph, with a line break between the two sentences rather
-             than a paragraph gap — they are the same thought (Dani, 8 Oct). */
-          p("For your first design, we're going to start with a template. Every Member Account includes a selection of demo templates, so you can learn how the Studio works before you start creating anything yourself.<br>Even if you don't plan on using the finished post, we'd recommend editing one. It's the quickest way to get familiar with the Studio and the tools you'll use most often.") +
+          /* Dani's copy, 12 Oct. */
+          p("The Studio is where you create and customise your social media content, whether you're working with one of our templates or creating something of your own.") +
+          p("For your first design, we're going to start with a template.") +
+          p("Every Member Hub account includes a free Demo Pack with three ready-made designs, so you can get familiar with the Studio without purchasing anything.") +
+          p("Choose a template, make a few changes and see how everything works. You don't even need to publish the finished post. This is simply an opportunity to explore the editor and learn the tools you'll use most often.") +
           shotOpen("bkx-studio", "Your Studio",
-            "The Studio homepage, and what each part of it is for.",
+            "Take a look around the Studio homepage and see where your templates, saved designs and creative tools live.",
             "/images/learn/demo/studio-page-v1.jpg",
             cards([
               ["Your packs", "Find the content packs you own, including your free demo templates."],
@@ -223,14 +224,15 @@ export const TRAINING_GUIDES = [
               ["Create a design", "Start something completely new with a blank canvas."],
               ["Design tools", "Shortcuts to useful Studio tools, from the Caption Generator to your Brand Kit."],
             ], 2)) +
-          // "Let's open your first template" is the walk box's own heading now
-          // (lead / line on the walk), so the lesson doesn't say it twice.
-          "<!--WALK-->" +
-          panel("Your demo templates are there to experiment with.",
-            p("Change things, move things around and see what happens. You can always open the original template again and start fresh.")) +
-          ctaBox("Ready to create your own?",
-            "Once you're comfortable editing templates, our Creating in the Studio course takes you through starting from scratch and the wider creative tools available to you.",
-            "/account/guides", "Explore the course") },
+          /* "Let's open your first template" is the walk box's own heading, and
+             since 12 Oct it carries the experiment tip as its second line too:
+             three coloured cards in a row on page one was too many, and the tip
+             belongs with the thing it is a tip about (walkthroughs.js, `note`).
+
+             "Ready to create your own?" has moved to the end of the course.
+             Dani, 12 Oct: "at this point, they're not ready to create their
+             own" — it is the last thing they read, not the first. */
+          "<!--WALK-->" },
 
       { title: "Make It Your Brand", walk: "studio-make-yours",
         body_html:
@@ -307,6 +309,14 @@ export const TRAINING_GUIDES = [
           "<!--WALK-->" +
           p("<strong>Your first design is done.</strong>") +
           p("You've opened a template, applied your branding, changed the content and created something of your own. The more you use the Studio, the more familiar the editor will become.") +
+          /* Moved here from page one. Dani, 12 Oct: "at this point, they're not
+             ready to create their own" — somebody who has just finished their
+             first design is, and somebody opening their first template is not.
+             It sits above the next course, which is the one we actually want
+             them to take next. */
+          ctaBox("Ready to create your own?",
+            "Once you're comfortable editing templates, our Creating in the Studio course takes you through starting from scratch and the wider creative tools available to you.",
+            "/account/guides", "Explore the course") +
           ctaBox("Next: Planning and Posting",
             "Take your designs into the Planner: adding posts, writing your captions and building a rhythm you can keep to.",
             "/account/guides/read?g=training-planner&p=1", "Start the course") },
