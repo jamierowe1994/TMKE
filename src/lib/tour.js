@@ -498,8 +498,12 @@ function injectStyles() {
   .tmke-tour-menu-intro[hidden] { display: none; }
   @media (max-width: 980px) { .tmke-tour-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 560px) { .tmke-tour-menu { grid-template-columns: 1fr; } html.tmke-walk body { margin: 92px 8px 8px; } }
+  /* Left, on its own line directly above Stop - it is a way out of the walk,
+     so it belongs with the other one rather than centred on its own.
+     Dani, 11 Oct. */
   .tmke-tour-skipto {
-    appearance: none; background: none; border: 0; padding: 0; cursor: pointer; margin: -6px 0 16px;
+    appearance: none; background: none; border: 0; padding: 0; cursor: pointer;
+    align-self: flex-start; text-align: left; margin: 0 0 10px;
     font-family: var(--sans, system-ui, sans-serif); font-size: 12.5px; font-weight: 600; color: var(--ws-accent, #4a2a3c);
   }
   .tmke-tour-skipto:hover { text-decoration: underline; }
@@ -840,10 +844,29 @@ function positionFor(step) {
   } else {
     // Frame the cutout with four dim panels + the ring outline.
     els.ring.style.display = '';
-    setMask(els.maskT, 0, 0, vw, hy);
-    setMask(els.maskB, 0, hy + hh, vw, vh - (hy + hh));
-    setMask(els.maskL, 0, hy, hx, hh);
-    setMask(els.maskR, hx + hw, hy, vw - (hx + hw), hh);
+    /* The hole is kept inside the window. While the page scrolls, the thing
+       being lit can leave the screen - and with the hole's top just below the
+       fold, the bottom panel was asked for a negative height, collapsed to
+       nothing, and left an uncovered strip right across the foot of the
+       window. That is the line that appears across the bottom while
+       scrolling, on the last step of a set, where the target sits furthest
+       down the page. A target entirely off-screen now simply dims
+       everything. Dani, 11 Oct. */
+    const bandTop = stageOn() ? minY : 0;
+    if (hy >= vh || hy + hh <= bandTop) {
+      setMask(els.maskT, 0, 0, vw, vh);
+      setMask(els.maskR, vw, 0, 0, 0);
+      setMask(els.maskB, 0, vh, vw, 0);
+      setMask(els.maskL, 0, 0, 0, vh);
+      els.ring.style.display = 'none';
+    } else {
+    const vy = Math.max(bandTop, hy);
+    const vhh = Math.max(0, Math.min(vh, hy + hh) - vy);
+    setMask(els.maskT, 0, 0, vw, vy);
+    setMask(els.maskB, 0, vy + vhh, vw, Math.max(0, vh - (vy + vhh)));
+    setMask(els.maskL, 0, vy, hx, vhh);
+    setMask(els.maskR, hx + hw, vy, Math.max(0, vw - (hx + hw)), vhh);
+    }
     els.ring.style.left = hx + 'px';
     els.ring.style.top = hy + 'px';
     els.ring.style.width = hw + 'px';
