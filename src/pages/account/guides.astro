@@ -393,6 +393,24 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     let PROGRESS = {};   // guide_slug -> { furthest, total, completed }
     let activeTopic = new URLSearchParams(location.search).get('topic') || '';
 
+    /* A guide and the training course that teaches the same thing are two
+       separate rows with two separate slugs — "setting-up-your-brand-kit" in
+       the grid, "training-brand-kit" in the Training row — so a guide card had
+       no picture to inherit and sat there as a grey box next to a course that
+       had one. The guide borrows its course's picture, which keeps one
+       photograph per subject: change the course's art and the guide follows.
+       Dani, 11 Oct: "make sure the thumbnails from these are also being
+       relayed into the guide thumbnail slot". */
+    const TWIN_COURSE = {
+      'getting-around-your-hub': 'training-hub',
+      'setting-up-your-brand-kit': 'training-brand-kit',
+      'creating-your-first-post': 'training-studio',
+    };
+    function twinArt(slug) {
+      const t = TRAINING_GUIDES.find((x) => x.slug === TWIN_COURSE[slug]);
+      return (t && (t.cover_url || t.art)) || '';
+    }
+
     function cardHtml(g) {
       const topic = GUIDE_TOPIC_MAP[g.topic];
       const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
@@ -402,7 +420,8 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
          — a published row with no cover of its own still gets the picture its
          built-in twin has. Without the last two the card fell back to a grey
          box, which is what the whole grid was showing (Dani, 8 Oct). */
-      const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url || (STATIC_BY_SLUG[g.slug] || {}).art || '';
+      const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url
+                 || (STATIC_BY_SLUG[g.slug] || {}).art || twinArt(g.slug) || '';
       const art = cover ? `style="background-image:url('${esc(cover)}')"` : '';
 
       // Completion state (signed-in members only; empty otherwise).

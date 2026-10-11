@@ -106,7 +106,7 @@ export const TRAINING_GUIDES = [
     slug: "training-brand-kit",
     title: "Your Brand Kit",
     summary: "Set up the logos, colours and fonts behind your brand, then use them to personalise your designs, content and Creative Assistant.",
-    est_minutes: 8, sort_order: 2, art: "https://assets.tmke.co.uk/white-1.webp",
+    est_minutes: 8, sort_order: 2, art: "/images/learn/brand-kit/cover-training-brand-kit-v1.jpg",
     lessons: [
       { title: "Why Your Brand Kit Matters", walk: "brand-kit", video_url: "",
         body_html:
