@@ -321,25 +321,25 @@ export const TRAINING_GUIDES = [
 
       { title: "Saved and Ready When You Are", walk: "studio-designs",
         body_html:
-          p("<strong>Your designs aren't going anywhere.</strong>") +
-          p("The Studio automatically saves your work as you create, and your saved designs appear under <strong>Your designs</strong> on the Studio homepage.") +
-          p("Your four most recent designs are shown there. Select <strong>See all designs</strong> to open your complete library, where you can return to previous designs, continue editing and download them again whenever you need to.") +
+          /* Dani's copy, 12 Oct. Her order too: the walkthrough comes after
+             the sign-off, with the next course last. */
+          p("The Studio automatically saves your work as you create, so you don't need to finish everything in one sitting.") +
+          p("Your four most recent designs appear under <strong>Your designs</strong> on the Studio homepage. Select <strong>See all designs</strong> to open your complete library, where you can return to previous designs, continue editing or download them again whenever you need to.") +
           cards([
-            ["Tip", "Although the Studio autosaves your changes, we'd still recommend making sure the design has finished saving before you leave the editor. A marker at the top of the screen tells you when it has.", "tip"],
+            ["TMKE Tip", "Although the Studio saves your changes automatically, check that saving has finished before leaving the editor. You'll see the saving status at the top of the screen.", "tip"],
           ], 1) +
-          "<!--WALK-->" +
           p("<strong>Your first design is done.</strong>") +
-          p("You've opened a template, applied your branding, changed the content and created something of your own. The more you use the Studio, the more familiar the editor will become.") +
-          /* Moved here from page one. Dani, 12 Oct: "at this point, they're not
-             ready to create their own" — somebody who has just finished their
-             first design is, and somebody opening their first template is not.
-             It sits above the next course, which is the one we actually want
-             them to take next. */
+          p("You've opened a template, applied your branding, customised the content and created your first design in the Studio. And now you know the basics, the next one should feel considerably easier.") +
+          "<!--WALK-->" +
+          /* Moved off page one on 12 Oct: somebody opening their first template
+             is not ready to create their own, somebody who has just finished
+             one is. Dani's page-six copy does not list it — kept here pending
+             her word, since she asked for it to be moved rather than dropped. */
           ctaBox("Ready to create your own?",
             "Once you're comfortable editing templates, our Creating in the Studio course takes you through starting from scratch and the wider creative tools available to you.",
             "/account/guides", "Explore the course") +
-          ctaBox("Next: Planning and Posting",
-            "Take your designs into the Planner: adding posts, writing your captions and building a rhythm you can keep to.",
+          ctaBox("Up Next: Planning and Posting",
+            "Learn how to organise your content, prepare captions and plan what you're publishing.",
             "/account/guides/read?g=training-planner&p=1", "Start the course") },
     ],
   }),

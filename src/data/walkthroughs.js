@@ -379,6 +379,9 @@ export const WALKS = {
 
   "studio-designs": {
     title: "Your Saved Designs",
+    // What the box on the lesson says, in Dani's words (12 Oct).
+    lead: "Your saved designs",
+    line: "See where your designs are stored and how to reopen them.",
     stage: "/account/editor",
     steps: [
       { target: ".ed-ob-hero", placement: "bottom",
