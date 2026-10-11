@@ -66,6 +66,14 @@ export function kitMatchesBrand(mine, brandKit) {
   return pairs.every(([a, b]) => b === "" || a === b);
 }
 
+/* Is a demo running in this browser?
+   Read straight from the flag rather than importing demo.js: this module is
+   imported by demo-aware pages and the dependency only needs to go one way.
+   syncBrandCache below has always asked the same question the same way. */
+function demoRunning() {
+  try { return !!localStorage.getItem("tmke_demo"); } catch (_) { return false; }
+}
+
 export function readBrandCache() {
   try { return normaliseKit(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return null; }
 }
@@ -73,6 +81,15 @@ export function readBrandCache() {
 /** Write the kit to the cache, stamped with its owner. */
 export function writeBrandCache(kit, uid) {
   if (!kit || typeof kit !== "object") return;
+  /* Never while a demo is running. "tmke.brand" is the MEMBER's cache; a demo
+     keeps its own kit under its own key (demo.js, brandKitKey) and nothing it
+     does should land here. Guarding the one door rather than each caller,
+     because the callers are spread across the dashboard, the brand-kit offer
+     and the brand sync, and every one of them is a member-only job: a kit
+     fetched for a signed-in member, written over the demo they are looking at.
+     Dani was signed in as herself while showing the training account and these
+     kept putting her own brand back. Dani, 11 Oct. */
+  if (demoRunning()) return;
   kit = normaliseKit(kit);
   try { localStorage.setItem(KEY, JSON.stringify({ ...kit, owner: uid || kit.owner || null })); } catch (_) {}
 }
@@ -98,6 +115,11 @@ export function adoptBrandCache(uid) {
  * user's kit was thrown away, reload once so nothing of theirs stays on screen.
  */
 export function adoptBrandCacheOrReload(uid) {
+  /* The demo's kit has no owner, so adopting would throw it away and reload —
+     and the restore on the next load would put it back, for a flicker and a
+     wasted round trip. Nobody's kit is at risk: a demo cannot read the
+     member's row. */
+  if (demoRunning()) return null;
   const before = readBrandCache();
   const kit = adoptBrandCache(uid);
   if (before && !kit) {

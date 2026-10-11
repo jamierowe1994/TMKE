@@ -1429,6 +1429,20 @@ const HERO_BG = (await getImage({
        a newer server copy if they edited it on another device. -->
   <script>
     import { adoptBrandCacheOrReload, writeBrandCache, claimDemoBrandKit, normaliseKit } from '../../lib/brand-cache.js';
+    import { isDemo as demoOn } from '../../lib/demo.js';
+
+    /* Everything below this line belongs to a signed-in MEMBER: their brands,
+       their server row, their prefill. A demo is not a member. Dani was signed
+       in as herself while showing the training account, and this layer carried
+       on doing a member's work underneath it — offering her own TEG brands,
+       filling blanks from her brand, and debouncing whatever was on screen
+       into member_brand_kits. The Brand kit page read the right key and still
+       came up wearing The Property Experts, because the page was right and the
+       layer under it was answering for somebody else.
+
+       It could also write the wrong way round: the training kit upserted into
+       her real row. So both blocks stand down for the duration of a demo. The
+       demo keeps its kit in its own key and needs none of this. Dani, 11 Oct. */
 
     /* Two brands, two kits (docs/brand-switcher-brief.md). Each keeps its own
        colours, logos, photo, area and details; this picks which one the page
@@ -1437,6 +1451,7 @@ const HERO_BG = (await getImage({
        font picker and logo tile on this page is built once from the kit it
        opened with. */
     (async () => {
+      if (demoOn()) return;   // not a member: no brands of their own to switch between
       try {
         const card = document.getElementById("bk-brands");
         const pills = document.getElementById("bk-brands-pills");
@@ -1509,6 +1524,7 @@ const HERO_BG = (await getImage({
     })();
     import { supabase } from "../../lib/supabase.js";
     (async () => {
+      if (demoOn()) return;   // the demo owns its own kit; leave the member's alone
       let uid = null;
       try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
       // The cache is this login's or nobody's; a stranger's kit is dropped and
