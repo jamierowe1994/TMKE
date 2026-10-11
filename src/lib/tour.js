@@ -705,9 +705,16 @@ function dismissEditorOnboarding() {
   });
 }
 
+/* On a frame, not a timer. A 16ms setTimeout lands between paints, so during a
+   scroll the dark mask was always one frame behind the page and read as a
+   black box sliding in over the content. requestAnimationFrame puts the mask
+   and the scroll in the same paint. Dani, 11 Oct. */
 function scheduleReflow() {
   if (reflowRAF) return;
-  reflowRAF = setTimeout(() => { reflowRAF = 0; positionFor(STEPS[activeIndex]); }, 16);
+  const raf = (typeof requestAnimationFrame === 'function')
+    ? requestAnimationFrame
+    : (fn) => setTimeout(fn, 16);
+  reflowRAF = raf(() => { reflowRAF = 0; positionFor(STEPS[activeIndex]); }) || 1;
 }
 
 /* The first step of a walk measured the page before the frame had finished
@@ -751,6 +758,24 @@ function scrollTargetIntoView(t) {
   // the strip's 72px and then clipped by it. Dani, 9 Oct.
   const bandTop = stageOn() ? 0 : FRAME_TOP + 20;
   const vh = (stageOn() ? stageOffset().h : window.innerHeight);
+  /* Inside a walk, every step puts the TOP of its target just below the band
+     and the page moves to do it. Centring is wrong for a card: a tall one
+     (Brand Colours is the clear case) has its heading pushed off the top of
+     the screen, so the step talks about a card whose title you cannot see.
+     And the old "already fully visible" test meant a card that happened to be
+     part-way down the screen got no movement at all, so clicking Next changed
+     the words and nothing else. Dani, 11 Oct: "the screen needs to move ...
+     and it should always show the top of that box rather than the middle".
+
+     The first-login tour keeps centring: its targets are small controls
+     scattered around the page, that is the behaviour Dani called "done quite
+     well", and nothing she reported is about that tour. */
+  if (activeWalk) {
+    const want = bandTop + 24;
+    if (Math.abs(r.top - want) <= 2) return;   // already sitting there
+    w.scrollTo(0, Math.max(0, (w.scrollY || 0) + r.top - want));
+    return;
+  }
   if (r.top >= bandTop + 16 && r.bottom <= vh - 16) return; // already fully visible
   const top = (w.scrollY || 0) + r.top + r.height / 2 - (bandTop + (vh - bandTop) / 2);
   // Instant, not smooth: the background is dimmed so the scroll is barely
@@ -822,9 +847,17 @@ function positionFor(step) {
   const minX = stageOn() ? off.x : 0, minY = stageOn() ? off.y : FRAME_TOP;
   const maxX = stageOn() ? off.x + off.w : vw - sideW;
   const maxY = stageOn() ? off.y + off.h : vh;
+  /* Clamped by its EDGES, not by its size. Taking the height from the target
+     and capping that was the bug behind "one highlight covering three
+     different things": a card whose top had scrolled above the strip had its
+     top pulled down to the strip, kept its full height, and so reached the
+     same distance further down the page -- over the next card, and the one
+     after it on a short viewport. The hole is the part of the target that is
+     actually inside the frame, so a half-scrolled card lights its visible
+     half and nothing else. Dani, 11 Oct. */
   let hx = Math.max(minX, r.left - pad), hy = Math.max(minY, r.top - pad);
-  let hw = Math.max(0, Math.min(maxX - hx, r.width + pad * 2));
-  const hh = Math.max(0, Math.min(maxY - hy, r.height + pad * 2));
+  let hw = Math.max(0, Math.min(maxX, r.left + r.width + pad) - hx);
+  const hh = Math.max(0, Math.min(maxY, r.top + r.height + pad) - hy);
   /* Every full-width step lights the same column. The cards on a hub page sit
      in a gutter, but the nav bar runs edge to edge, so its cutout was wider
      than every other step's and the two read as different shapes. A

@@ -160,21 +160,34 @@ export const WALKS = {
     ],
   },
 
+  /* One step per card, in the order they appear down the page. Dani, 11 Oct:
+     "I want a section for each card within the brand kit to explain it."
+     Every card now has an id to aim at (src/pages/account/profile.astro), so a
+     step lights one card and nothing either side of it. */
   "brand-kit": {
     title: "Your Brand Kit",
     steps: [
       { path: "/account/profile", target: null, placement: "center",
         eyebrow: "Brand kit", title: "Set It Once, Use It Everywhere.",
         body: "Your logo, colours and fonts live here. Every template you open reads them, so a design is on-brand before you touch it." },
+      { path: "/account/profile", target: "#sec-company", placement: "right",
+        eyebrow: "Company", title: "Your Company.",
+        body: "Your agency name, the area you cover, your strapline and your website. Templates pull these in wherever a design names the agency." },
       { path: "/account/profile", target: "#sec-logos", placement: "right",
         eyebrow: "Logos", title: "Your Logo.",
         body: "Upload a PNG or SVG with a transparent background. Add more than one if you have a light and a dark version; the first is the one templates use." },
+      { path: "/account/profile", target: "#sec-about", placement: "right",
+        eyebrow: "About you", title: "Your Details.",
+        body: "Your name, job title, phone number and email. These are the contact details that appear on a design when it asks for a person rather than the agency." },
       { path: "/account/profile", target: "#sec-colours", placement: "right",
         eyebrow: "Colours", title: "Your Palette.",
         body: "Add your brand colours as hex codes. The first two do most of the work: templates recolour their main fills and text with them." },
       { path: "/account/profile", target: "#sec-fonts", placement: "left",
         eyebrow: "Fonts", title: "Your Type.",
         body: "Pick a heading font and a body font. The preview shows how they sit together; the Studio offers them first in every font list." },
+      { path: "/account/profile", target: "#sec-tone", placement: "right",
+        eyebrow: "Tone of voice", title: "How You Sound.",
+        body: "Describe the way your brand speaks. The caption generator blends this with our house rules, so captions come out in your voice rather than a generic one." },
       { path: "/account/profile", target: "#brand-save", placement: "bottom",
         eyebrow: "Saving", title: "It Saves as You Go.",
         body: "Your Brand Kit saves changes as you make them. Once saving is complete, your latest colours, fonts and logos are ready to use in the Studio." },
