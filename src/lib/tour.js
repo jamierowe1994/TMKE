@@ -253,6 +253,12 @@ function writeState(s) {
 }
 function clearState() {
   try { localStorage.removeItem(LS_STATE); } catch (_) {}
+  /* Anything typed into the training account's brand kit during the walk was
+     diverted here by the switch in BaseLayout, so the next walk would open on
+     the last one's edits rather than on Rimberio Homes. Dropped with the walk.
+     Removing it is also what makes the member's own kit readable again on the
+     next line, since the switch stops answering the moment the state is gone. */
+  try { localStorage.removeItem('tmke.brand.training.scratch'); } catch (_) {}
 }
 function isDone() {
   try { return localStorage.getItem(LS_DONE) === '1'; } catch (_) { return false; }

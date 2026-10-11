@@ -3,6 +3,7 @@ import Nav from "../components/Nav.astro";
 import NewsPop from "../components/NewsPop.astro";
 import Footer from "../components/Footer.astro";
 import LoginState from "../components/LoginState.astro";
+import { DEMO_BRAND } from "../data/demo-brand.js";
 import "../styles/global.css";
 
 interface Props {
@@ -57,6 +58,10 @@ const {
 // (hideNav) and whenever an inline content-edit session is in play (?edit=…),
 // so clicks are never hijacked mid-edit.
 const path = Astro.url.pathname;
+/* The training-area kit, inlined into the hub's pages only. The marketing
+   site never reads a brand kit, so there is no reason to carry it there. */
+const inHub = path.startsWith("/account");
+const TRAINING_KIT_JSON = inHub ? JSON.stringify({ ...DEMO_BRAND }) : "";
 const isBackend = path.startsWith("/admin") || path === "/account/editor" || path === "/account/editor/";
 const isEditing = Astro.url.searchParams.has("edit");
 // Public chrome-less pages (the /services + /videography decks) opt in via
@@ -189,6 +194,59 @@ const hideFromSearch = noindex || privateArea;
         packs and designs for the length of a round trip, then sees them
         flip. This only says "a token is stored here", not that it is still
         valid; the fetch settles that, and clears the class if not. */}
+    {inHub && (
+      /* The training area wears the training account (src/lib/training.js).
+         A guides walkthrough runs on the real page in whoever is signed in, so
+         filming the guides as Dani put her own brand kit in every shot. For as
+         long as a named walkthrough is running, a read of a brand key answers
+         with the training kit and a write is diverted to a scratch key.
+
+         Done here, at the single door every reader goes through, because the
+         kit is read in fourteen places across seven files including a plain
+         script in public/ -- and the one that gets missed is the one that ends
+         up on camera. Nothing of the member's is moved or overwritten: their
+         kit stays exactly where it was and is read normally the moment the
+         walkthrough stops, so closing the tab mid-walk costs nothing.
+
+         In the head, ahead of every module script, or the first paint has
+         already read the wrong kit. Dani, 11 Oct. */
+      <script is:inline set:html={`
+      (function () {
+        var TOUR = "tmke.tour", SCRATCH = "tmke.brand.training.scratch";
+        var KEYS = { "tmke.brand": 1, "tmke.brand.training": 1, "tmke.brand.demo": 1 };
+        var KIT = ${TRAINING_KIT_JSON};
+        // Only a walkthrough opened by name from the guides. The first-login
+        // tour has no walk id and belongs to a real new member, whose own
+        // details are the whole point of it.
+        function walking() {
+          try {
+            var s = JSON.parse(localStorage.getItem(TOUR) || "null");
+            return !!(s && s.active && s.walk);
+          } catch (_) { return false; }
+        }
+        var proto = Storage.prototype, get = proto.getItem, set = proto.setItem, del = proto.removeItem;
+        proto.getItem = function (k) {
+          // sessionStorage shares this prototype and is left alone.
+          if (this === localStorage && KEYS[k] && walking()) {
+            var edited = get.call(this, SCRATCH);
+            return edited != null ? edited : JSON.stringify(KIT);
+          }
+          return get.apply(this, arguments);
+        };
+        proto.setItem = function (k, v) {
+          if (this === localStorage && KEYS[k] && walking()) return set.call(this, SCRATCH, v);
+          return set.apply(this, arguments);
+        };
+        /* Removing counts as writing. clearBrandCache() throws away a kit that
+           belongs to nobody, which is exactly what the training kit looks
+           like, and it would have taken the member's real one with it. */
+        proto.removeItem = function (k) {
+          if (this === localStorage && KEYS[k] && walking()) return del.call(this, SCRATCH);
+          return del.apply(this, arguments);
+        };
+      })();
+      `} />
+    )}
     <script is:inline>
       try {
         if (localStorage.getItem("tmke-admin-auth")) {

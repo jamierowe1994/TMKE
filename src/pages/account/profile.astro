@@ -1430,6 +1430,7 @@ const HERO_BG = (await getImage({
   <script>
     import { adoptBrandCacheOrReload, writeBrandCache, claimDemoBrandKit, normaliseKit } from '../../lib/brand-cache.js';
     import { isDemo as demoOn } from '../../lib/demo.js';
+    import { wearingSomebodyElsesKit } from '../../lib/training.js';
 
     /* Everything below this line belongs to a signed-in MEMBER: their brands,
        their server row, their prefill. A demo is not a member. Dani was signed
@@ -1451,7 +1452,7 @@ const HERO_BG = (await getImage({
        font picker and logo tile on this page is built once from the kit it
        opened with. */
     (async () => {
-      if (demoOn()) return;   // not a member: no brands of their own to switch between
+      if (wearingSomebodyElsesKit()) return;   // not their kit on screen: not their brands either
       try {
         const card = document.getElementById("bk-brands");
         const pills = document.getElementById("bk-brands-pills");
@@ -1524,7 +1525,7 @@ const HERO_BG = (await getImage({
     })();
     import { supabase } from "../../lib/supabase.js";
     (async () => {
-      if (demoOn()) return;   // the demo owns its own kit; leave the member's alone
+      if (wearingSomebodyElsesKit()) return;   // a demo or the training area owns the kit on screen
       let uid = null;
       try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
       // The cache is this login's or nobody's; a stranger's kit is dropped and
@@ -1560,7 +1561,7 @@ const HERO_BG = (await getImage({
          brand seconds after the demo had laid in the fictional one.
          Dani, 11 Oct. */
       try {
-        if (demoOn()) throw new Error("demo");
+        if (wearingSomebodyElsesKit()) throw new Error("demo");
         const { data: bk } = await supabase
           .from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
         if (bk && bk.kit && typeof bk.kit === "object" && Object.keys(bk.kit).length) {

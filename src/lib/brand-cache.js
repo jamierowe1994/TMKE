@@ -66,12 +66,23 @@ export function kitMatchesBrand(mine, brandKit) {
   return pairs.every(([a, b]) => b === "" || a === b);
 }
 
-/* Is a demo running in this browser?
-   Read straight from the flag rather than importing demo.js: this module is
+/* Is this browser wearing somebody else's kit -- a demo, or the training
+   account during a guides walkthrough?
+   Read straight from the flags rather than importing demo.js: this module is
    imported by demo-aware pages and the dependency only needs to go one way.
-   syncBrandCache below has always asked the same question the same way. */
+   syncBrandCache below has always asked the same question the same way.
+
+   The walkthrough half matters because this module's work happens over the
+   NETWORK. The read-through switch in BaseLayout can answer for localStorage
+   but not for a fetch, so a sync here would pull the member's own kit down
+   from their row mid-walk and the training area would be wearing their brand
+   again a second later. Dani, 11 Oct. */
 function demoRunning() {
-  try { return !!localStorage.getItem("tmke_demo"); } catch (_) { return false; }
+  try {
+    if (localStorage.getItem("tmke_demo")) return true;
+    const t = JSON.parse(localStorage.getItem("tmke.tour") || "null");
+    return !!(t && t.active && t.walk);
+  } catch (_) { return false; }
 }
 
 export function readBrandCache() {
