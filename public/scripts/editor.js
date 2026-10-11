@@ -6801,6 +6801,8 @@ import { createResizeEngine } from "./resize-engine.js";
       : (page != null && Array.isArray(state.pages) && state.pages[page]) ? state.pages[page]
       : { canvas: state.canvas, elements: state.elements };
     await ensureTextFontsLoaded();
+    // Print: read the real layout out of the browser before drawing anything.
+    try { _domText = measureDomText(SRC); } catch (_) { _domText = null; }
     const c = document.createElement("canvas");
     c.width = SRC.canvas.width;
     c.height = SRC.canvas.height;
@@ -7023,8 +7025,131 @@ import { createResizeEngine } from "./resize-engine.js";
     return best;
   }
 
+  /* ---- Print previews: the browser lays the text out ---------------------
+     The canvas renderer is a second layout engine. It re-implements wrapping,
+     line-height, vertical centring and shrink-to-fit, and it has to agree with
+     the browser by coincidence - which it does not. On a print card, where a
+     millimetre is visible and a headline is 150px tall, those disagreements
+     show.
+
+     So for print we stop guessing: the page is mounted off-screen with the
+     editor's OWN element renderer, the browser lays it out, and we read back
+     where it actually put every line and every baseline. The canvas then draws
+     those lines at those positions. Wrapping, leading, centring and fitting all
+     come from the engine that draws the card you see.
+
+     Social is untouched and still uses the computed path. Turn this off with
+     ?domtext=0 to compare the two. Dani, 11 Oct. */
+  const DOM_TEXT_FOR_PRINT = !/[?&]domtext=0/.test(location.search);
+  let _domText = null;          // Map(elementId -> {lines, font, fill, align}) for the page being drawn
+
+  function measureDomText(src) {
+    const out = new Map();
+    if (!DOM_TEXT_FOR_PRINT || !src || !src.canvas) return out;
+    if (sizeFamily(src.canvas.width, src.canvas.height) !== "print") return out;
+    const texts = (src.elements || []).filter(function (e) {
+      return e && e.type === "text" && !e.hidden && e.text && !hasRuns(e);
+    });
+    if (!texts.length) return out;
+
+    const stage = document.createElement("div");
+    stage.style.cssText = "position:fixed;left:-99999px;top:0;overflow:hidden;" +
+      "width:" + src.canvas.width + "px;height:" + src.canvas.height + "px;";
+    texts.forEach(function (e) { try { stage.appendChild(renderElement(e)); } catch (_) {} });
+    document.body.appendChild(stage);
+
+    try {
+      texts.forEach(function (e) {
+        const node = stage.querySelector('.ed-element[data-id="' + (window.CSS && CSS.escape ? CSS.escape(e.id) : e.id) + '"]');
+        const inner = node && node.querySelector(".ed-text-inner");
+        const tnode = inner && inner.firstChild;
+        if (!inner || !tnode || tnode.nodeType !== 3) return;
+        const box = node.getBoundingClientRect();
+        const cs = getComputedStyle(inner);
+        const text = tnode.nodeValue || "";
+        const range = document.createRange();
+
+        /* One rect per line, and the TEXT of each line: step through the
+           characters and start a new line wherever the rect's top moves. */
+        const lines = [];
+        let cur = null;
+        for (let i = 0; i < text.length; i++) {
+          range.setStart(tnode, i); range.setEnd(tnode, i + 1);
+          const r = range.getBoundingClientRect();
+          if (!r || (!r.width && !r.height)) { if (cur) cur.text += text[i]; continue; }
+          if (!cur || Math.abs(r.top - cur.top) > 1) {
+            cur = { top: r.top, left: r.left, right: r.right, text: text[i], start: i };
+            lines.push(cur);
+          } else {
+            cur.text += text[i];
+            cur.left = Math.min(cur.left, r.left);
+            cur.right = Math.max(cur.right, r.right);
+          }
+        }
+        if (!lines.length) return;
+
+        /* The baseline of each line, exactly: a zero-size inline-block aligned
+           to the baseline reports it as its own top. Measured, not derived. */
+        lines.forEach(function (ln) {
+          const probe = document.createElement("span");
+          probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline;";
+          const at = document.createRange();
+          at.setStart(tnode, ln.start); at.collapse(true);
+          at.insertNode(probe);
+          const pr = probe.getBoundingClientRect();
+          ln.baseline = pr.top - box.top;
+          const parent = probe.parentNode;
+          probe.remove();
+          if (parent) parent.normalize();      // put the split text node back
+        });
+
+        out.set(e.id, {
+          font: cs.font || (cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily),
+          letterSpacing: cs.letterSpacing,
+          lines: lines.map(function (ln) {
+            return { text: ln.text, x: ln.left - box.left, baseline: ln.baseline };
+          }),
+        });
+      });
+    } catch (_) { /* fall back to the computed path */ }
+    finally { stage.remove(); }
+    return out;
+  }
+
   function drawTextElementToCanvas(ctx, el) {
     const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    /* Measured from the DOM (print): draw the lines the browser produced, at
+       the baselines it put them on, and skip every computation below. */
+    const measured = _domText && _domText.get(el.id);
+    if (measured && measured.lines.length) {
+      ctx.save();
+      ctx.font = measured.font;
+      try { ctx.letterSpacing = measured.letterSpacing || "0px"; } catch (_) {}
+      ctx.textBaseline = "alphabetic";
+      ctx.textAlign = "left";
+      ctx.fillStyle = (el.textGradient && el.textGradient.enabled)
+        ? canvasGrad(ctx, el.textGradient, el.w, el.h) : el.color;
+      if (el.textShadow && el.textShadow.enabled) {
+        ctx.shadowColor = hexToRgba(el.textShadow.color || "#000000",
+          el.textShadow.opacity != null ? el.textShadow.opacity : 0.45);
+        ctx.shadowBlur = el.textShadow.blur || 0;
+        ctx.shadowOffsetX = el.textShadow.offsetX || 0;
+        ctx.shadowOffsetY = el.textShadow.offsetY || 0;
+      }
+      if (el.textOutline && el.textOutline.width > 0) {
+        ctx.save();
+        ctx.shadowColor = "transparent"; ctx.shadowBlur = 0;
+        ctx.lineWidth = el.textOutline.width * 2;
+        ctx.strokeStyle = el.textOutline.color || "#1c1d22";
+        ctx.lineJoin = "round";
+        measured.lines.forEach(function (ln) { ctx.strokeText(ln.text, ln.x, ln.baseline); });
+        ctx.restore();
+      }
+      measured.lines.forEach(function (ln) { ctx.fillText(ln.text, ln.x, ln.baseline); });
+      ctx.restore();
+      return;
+    }
+
     // Mixed-format text keeps its own per-run sizes; a plain box is fitted.
     const _sz = hasRuns(el) ? el.size : lockedCanvasSize(ctx, el, font);
     ctx.font = (el.italic ? "italic " : "") + el.weight + " " + _sz + "px " + font;
