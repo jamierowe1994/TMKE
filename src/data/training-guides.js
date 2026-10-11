@@ -294,14 +294,15 @@ export const TRAINING_GUIDES = [
       { title: "A Few Things Worth Knowing",
         body_html:
           p("A handful of things that come up on almost everybody's first design.") +
+          /* Dani's copy, 12 Oct. */
           cards([
-            ["Text not fitting?", "Try adjusting the font size first. You can also resize the text box or reposition it within the design."],
-            ["Image not sitting right?", "Reposition or resize the image rather than immediately choosing another one. You can also adjust transparency where the design calls for it."],
-            ["Made a mistake?", "Use <strong>Undo</strong> at the top of the editor, or Ctrl/Cmd&nbsp;+&nbsp;Z. Experimenting isn't going to ruin the original template, because you're working on your own copy."],
-            ["Don't forget the other pages", "If you're editing a carousel, open <strong>Pages</strong> and check every one before downloading. Your branding, wording and contact details may need updating throughout."],
+            ["Text not fitting?", "Try reducing the font size or resizing the text box. You can also move it slightly to give your wording more room."],
+            ["Image not sitting right?", "Before choosing another photo, try repositioning or resizing the one you've added. Sometimes a small adjustment makes all the difference."],
+            ["Made a mistake?", "Use <strong>Undo</strong> at the top of the editor or Ctrl/Cmd&nbsp;+&nbsp;Z. You're working on your own copy, so the original template is always there if you need it."],
+            ["Don't forget the other pages", "Creating a carousel? Open <strong>Pages</strong> and check each slide before downloading. Make sure your branding, wording and contact details are correct throughout."],
           ], 2) +
-          panel("Need help while you're editing?",
-            p("Open the <strong>Creative Assistant</strong> from inside the Studio. Ask a question about what you're trying to do, or choose one of the built-in tutorials under <strong>Show me</strong> to be shown how a feature works on the screen in front of you.")) },
+          panel("Your Creative Assistant",
+            p("Need a hand? Your Creative Assistant is there whenever you get stuck. Ask it how to use a feature, find your way around the Member Hub or get help with something you're working on.<br>It can also help with the creative side, from writing captions and refining copy to coming up with content ideas when you're not sure what to post.")) },
 
       { title: "Finish Your Design", walk: "studio-finish",
         body_html:
