@@ -215,10 +215,10 @@ export const WALKS = {
     // better: a page with three templates on it doesn't need a box drawn round
     // them.
     lead: "Let's open your first template",
-    line: "Find your Demo Pack, choose a design and open it in the editor. The Studio creates your own copy, leaving the original template untouched.",
-    /* The tip that used to sit in its own tinted panel under this box. Dani,
-       12 Oct: one box, not three coloured cards in a row. */
-    note: "Your demo templates are there to experiment with. Change the wording, swap the imagery and move things around. You can always return to the original and start again.",
+    /* One continuous line. The tip used to be a tinted panel of its own under
+       this box, then a second line set off by a rule; both drew a border
+       across the middle of one thought. Dani, 12 Oct: "no line break". */
+    line: "Find your Demo Pack, choose a design and open it in the editor. The Studio creates your own copy, leaving the original template untouched. Your demo templates are there to experiment with. Change the wording, swap the imagery and move things around. You can always return to the original and start again.",
     stage: "/account/studio",
     steps: [
       { target: ".ws-hero", placement: "bottom",

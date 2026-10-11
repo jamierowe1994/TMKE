@@ -228,9 +228,10 @@ export const TRAINING_GUIDES = [
         body_html:
           /* Dani's copy, 12 Oct. */
           p("The Studio is where you create and customise your social media content, whether you're working with one of our templates or creating something of your own.") +
-          p("For your first design, we're going to start with a template.") +
-          p("Every Member Hub account includes a free Demo Pack with three ready-made designs, so you can get familiar with the Studio without purchasing anything.") +
-          p("Choose a template, make a few changes and see how everything works. You don't even need to publish the finished post. This is simply an opportunity to explore the editor and learn the tools you'll use most often.") +
+          p("<strong>For your first design, we're going to start with a template.</strong>") +
+          /* One paragraph, broken rather than split: what you get, then what to
+             do with it. Dani, 12 Oct. */
+          p("Every Member Hub account includes a free Demo Pack with three ready-made designs, so you can get familiar with the Studio without purchasing anything.<br>Choose a template, make a few changes and see how everything works. You don't even need to publish the finished post. This is simply an opportunity to explore the editor and learn the tools you'll use most often.") +
           shotOpen("bkx-studio", "Your Studio",
             "Take a look around the Studio homepage and see where your templates, saved designs and creative tools live.",
             "/images/learn/demo/studio-page-v1.jpg",

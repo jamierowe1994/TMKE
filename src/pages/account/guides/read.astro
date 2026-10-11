@@ -196,6 +196,7 @@ const DEFAULT_COVER = (await getImage({
     /* A picture worth seeing big: a wide button with a strip of it, opening
        the whole thing (and its labels) in the pop-out. */
     .bk-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px;
+      font-family: var(--sans);
       width: 100%; margin: 24px 0 30px; padding: 14px 18px 14px 14px; text-align: left; cursor: pointer;
       background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line); border-radius: var(--ws-r); color: inherit;
       transition: border-color .2s var(--ws-ease), transform .2s var(--ws-ease); }
@@ -203,7 +204,13 @@ const DEFAULT_COVER = (await getImage({
     .bk-shot-img { display: block; width: 148px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 3px; margin: 0; }
     .bk-shot-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     .bk-shot-t { font-family: var(--sans); font-size: 14.5px; font-weight: 700; color: var(--ws-ink); }
-    .bk-shot-b { font-size: 13px; line-height: 1.5; color: var(--ws-tx); }
+    /* A button does not inherit font-family, so every word in this box except
+       the title -- which sets its own -- was rendering in Arial. Set on the
+       button itself so anything added to it later is right too, and sized to
+       the body copy beside it. Dani, 12 Oct: "I don't feel like that is the
+       correct font ... all of the font on here for the body should be the
+       same." */
+    .bk-shot-b { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: var(--ws-tx); }
     .bk-shot-go { font-family: var(--sans); font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ws-accent); white-space: nowrap; }
     /* Written with both classes so it wins over .bk-sheet's own width, which
        is declared after this block. */
@@ -326,10 +333,9 @@ const DEFAULT_COVER = (await getImage({
     .gr-walk-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
     /* Same size as a card title: the two sit together and used to differ. */
     .gr-walk-tx strong { font-family: var(--sans); font-size: 14px; font-weight: 700; color: #fff; }
-    .gr-walk-tx span { font-size: var(--ws-t-meta); color: rgba(255,255,255,0.72); line-height: 1.45; }
-    /* The tip, a step quieter than the line above it and set off by a rule, so
-       one box can hold both without reading as one long paragraph. */
-    .gr-walk-tx .gr-walk-note { margin-top: 7px; padding-top: 7px; border-top: 1px solid rgba(255,255,255,0.16); color: rgba(255,255,255,0.6); }
+    /* The same size as the copy above it. At meta size it read as a caption
+       under the heading rather than as the sentence it is. Dani, 12 Oct. */
+    .gr-walk-tx span { font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.6; }
     /* Four numbered cards, two across (training-guides.js `toolCards`). Each
        holds its own copy and its own walkthrough box, flush to the bottom of
        the card so the four boxes line up however long the copy above them
@@ -346,7 +352,7 @@ const DEFAULT_COVER = (await getImage({
        keeps its own margins; this one has none of its own. */
     .gr-walk--in { margin: 0; border-radius: 0; padding: 14px 16px; align-items: center; flex-wrap: wrap; gap: 12px; }
     .gr-walk--in .gr-walk-tx strong { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
-    .gr-walk--in .gr-walk-tx span { color: rgba(255,255,255,0.86); }
+    .gr-walk--in .gr-walk-tx span { font-size: 13.5px; color: rgba(255,255,255,0.86); }
     @media (max-width: 760px) { .bk-tools { grid-template-columns: 1fr; } }
     .gr-walk .ws-btn { flex: 0 0 auto; background: #fff; color: var(--ws-accent); border-color: #fff; }
     .gr-walk .ws-btn:hover { background: #f4f2f1; color: var(--ws-accent); }
@@ -602,14 +608,8 @@ const DEFAULT_COVER = (await getImage({
         // lesson has already said what it is about to show.
         const lead = WALKS[id].lead || "See it on the page";
         const line = WALKS[id].line || `A guided look at the real thing: ${WALKS[id].title}, ${WALKS[id].steps.length} steps. Finish brings you back here.`;
-        /* A second line inside the same box. The tip about experimenting freely
-           used to be its own tinted panel directly beneath this one, so page
-           one carried three differently coloured cards in a row. Dani, 12 Oct:
-           "include the TMKE tip within that ... so there are not so many
-           different colour cards on the page." */
-        const note = WALKS[id].note || "";
         return `<div class="gr-walk">
-          <span class="gr-walk-tx"><strong>${esc(lead)}</strong><span>${esc(line)}</span>${note ? `<span class="gr-walk-note">${esc(note)}</span>` : ""}</span>
+          <span class="gr-walk-tx"><strong>${esc(lead)}</strong><span>${esc(line)}</span></span>
           <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${esc(id)}" data-part="${i}">Show me
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
