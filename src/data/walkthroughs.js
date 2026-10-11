@@ -242,6 +242,9 @@ export const WALKS = {
 
   "studio-make-yours": {
     title: "Make This Design Yours",
+    // What the box on the lesson says, in Dani's words (12 Oct).
+    lead: "Make a Design Yours",
+    line: "See how to apply your saved brand colours and fonts to an existing template.",
     stage: "/account/editor?training=1",
     steps: [
       /* The rail's Brand tab is hidden for a member on a social design - the

@@ -236,15 +236,19 @@ export const TRAINING_GUIDES = [
 
       { title: "Make It Your Brand", walk: "studio-make-yours",
         body_html:
-          p("<strong>Start with the basics.</strong>") +
-          p("Before you change the content, get the design looking like your brand.") +
-          p("If you've already set up your Brand Kit, open <strong>Brand</strong> in the editor and select <strong>Make this design yours</strong>. From here, you can apply your saved colours and typography to the template without changing every element individually.") +
-          p("Each row shows something the template already uses, a colour or a font, with your version beside it. Choose yours and everything using it updates in one go.") +
-          p("Your saved logo and business information may already have been applied when your copy of the template was created.") +
-          "<!--WALK-->" +
-          ctaBox("Haven't set up your Brand Kit yet?",
-            "It's worth doing that first. It'll make customising this template, and the ones you create afterwards, considerably quicker.",
-            "/account/profile", "Set up your Brand Kit") },
+          /* Dani's copy, 12 Oct. The order is hers too: the Brand Kit card
+             comes before the walk, because somebody without a kit cannot do
+             what the walk is about to show them. */
+          p("<strong>Start with your branding.</strong>") +
+          p("Before you start changing the content, let's make sure the design looks like it belongs to your business.") +
+          p("To use the Studio's branding features, you'll first need to complete your Brand Kit. This stores your logos, colours and fonts, allowing the Studio to apply them to your designs automatically.") +
+          /* One paragraph, broken rather than split: the second sentence is
+             what you see once you have done the first. */
+          p("Once your Brand Kit is complete, open the <strong>Brand</strong> tab in the editor and select <strong>Make this design yours</strong>.<br>You'll see the colours and fonts currently used in the template alongside those saved in your Brand Kit. Choose your replacements, and the Studio will update the matching elements throughout your design.") +
+          ctaBox("Haven't completed your Brand Kit?",
+            "You'll need to do this before using Make this design yours. It only takes a few minutes and means you won't have to manually update your branding every time you create something.",
+            "/account/profile", "Set up your Brand Kit") +
+          "<!--WALK-->" },
 
       { title: "Make It Your Content",
         body_html:
