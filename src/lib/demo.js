@@ -24,14 +24,13 @@ const JOIN_URL = "/join";
 export function restoreDemoBrand() {
   try {
     if (!localStorage.getItem(KEY)) return false;          // not in the demo
-    /* Somebody signed in is not in the demo, whatever a leftover flag says.
-       Without this a browser that had been through the demo handed the demo's
-       kit to the real account that signed in next, and kept doing it. Heals
-       such a browser on the spot rather than waiting for the next sign-out. */
-    if (localStorage.getItem("tmke-admin-auth")) {
-      localStorage.removeItem(KEY);
-      return false;
-    }
+    /* Deliberately NOT gated on being signed in. Signing out now ends the
+       demo outright (signOutEverywhere clears both keys), so a flag that is
+       still here means a demo somebody started on purpose - and Dani starts
+       one while signed in, to capture the training screenshots wearing the
+       fictional agency rather than her own brand kit. Guarding on the auth
+       token killed the demo for her the moment a page reloaded. Dani,
+       11 Oct. */
     const demo = localStorage.getItem("tmke.brand.demo");
     if (!demo) return false;                               // an unbranded demo
     const cur = localStorage.getItem("tmke.brand");
