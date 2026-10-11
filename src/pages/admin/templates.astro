@@ -1063,10 +1063,30 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       if (!ids.length) return;
       const btn = document.getElementById('tpl-bulk-duplicate');
       btn.setAttribute('disabled', 'true'); btn.textContent = 'Duplicating…';
-      const rows = ids.map((id) => {
-        const t = ALL.find((x) => x.id === id);
-        if (!t) return null;
-        return {
+      /* Read the whole row for the designs being copied. The list deliberately
+         does not carry `pages` - that would mean loading every page of every
+         template just to draw a list - so a copy built from the list was a
+         copy of page ONE: canvas and elements hold page one, and everything
+         after it lives in `pages`. A two-sided card came back as a one-sided
+         card. Dani, 11 Oct. */
+      const FULL = 'id, name, category, thumb_url, render_url, canvas, elements, pages, ' +
+                   'size_variants, status, sort_order, pack_id, kind, block_variant, block_box';
+      const LEAN = 'id, name, category, thumb_url, canvas, elements, pages, status, sort_order, pack_id';
+      let src = null;
+      {
+        const first = await supabase.from('templates').select(FULL).in('id', ids);
+        if (first.error) {
+          // An older database without some of those columns: ask for less.
+          const second = await supabase.from('templates').select(LEAN).in('id', ids);
+          if (second.error) {
+            btn.removeAttribute('disabled'); btn.textContent = 'Duplicate';
+            alert(`Duplicate failed: ${second.error.message}`); return;
+          }
+          src = second.data;
+        } else src = first.data;
+      }
+      const rows = (src || []).map((t) => {
+        const row = {
           id: 'tmpl-' + Math.random().toString(36).slice(2, 8),
           name: 'Copy ' + (t.name || 'Untitled'),
           category: t.category ?? null,
@@ -1078,6 +1098,13 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
           status: t.status === 'archived' ? 'draft' : (t.status || 'draft'),
           sort_order: (t.sort_order ?? 0) + 1,
         };
+        /* Everything else that IS the design, when the database has the
+           column: every page, the layouts saved for other sizes, the
+           full-resolution render, and the pack it belongs to - a copy that
+           loses its pack vanishes out of that pack. */
+        ['pages', 'size_variants', 'render_url', 'pack_id', 'kind', 'block_variant', 'block_box']
+          .forEach((k) => { if (t[k] !== undefined) row[k] = t[k]; });
+        return row;
       }).filter(Boolean);
       const { error } = await supabase.from('templates').insert(rows);
       btn.removeAttribute('disabled'); btn.textContent = 'Duplicate';
