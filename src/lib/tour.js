@@ -1184,7 +1184,10 @@ function probeStep() {
   const box = (el) => ({ x: num(el, 'left'), y: num(el, 'top'), w: num(el, 'width'), h: num(el, 'height') });
   const T = box(els.maskT), B = box(els.maskB), L = box(els.maskL), R = box(els.maskR);
   const vw = window.innerWidth, vh = window.innerHeight;
-  const centred = !step.target || step.placement === 'center';
+  /* A step can ask for no cutout at all (box: false) - the card simply sits
+     beside the thing. There is no hole to check, and reporting the absent one
+     as "collapsed" sent me chasing a step that was working. */
+  const centred = !step.target || step.placement === 'center' || step.box === false;
   const hole = centred ? null : {
     x: L.x + L.w, y: T.y + T.h,
     w: Math.max(0, R.x - (L.x + L.w)), h: Math.max(0, B.y - (T.y + T.h)),
