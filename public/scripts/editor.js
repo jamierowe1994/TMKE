@@ -7103,9 +7103,21 @@ import { createResizeEngine } from "./resize-engine.js";
           if (parent) parent.normalize();      // put the split text node back
         });
 
+        /* Built from the individual properties, never from the `font`
+           shorthand: Chrome returns "" for the shorthand whenever it cannot
+           round-trip (a line-height it cannot express, say), and an empty
+           string assigned to ctx.font is silently ignored - leaving the canvas
+           on its default 10px sans-serif. Letter-spacing is normalised to a
+           length for the same reason: canvas rejects "normal" outright and
+           quietly keeps whatever the previous element set. Dani, 11 Oct. */
+        const _fam = cs.fontFamily || "sans-serif";
+        const _sizePx = parseFloat(cs.fontSize) || el.size || 16;
+        const _wt = cs.fontWeight || 400;
+        const _sty = (cs.fontStyle && cs.fontStyle !== "normal") ? cs.fontStyle + " " : "";
+        const _ls = parseFloat(cs.letterSpacing);
         out.set(e.id, {
-          font: cs.font || (cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily),
-          letterSpacing: cs.letterSpacing,
+          font: _sty + _wt + " " + _sizePx + "px " + _fam,
+          letterSpacing: (isFinite(_ls) ? _ls : 0) + "px",
           lines: lines.map(function (ln) {
             return { text: ln.text, x: ln.left - box.left, baseline: ln.baseline };
           }),
@@ -7124,7 +7136,7 @@ import { createResizeEngine } from "./resize-engine.js";
     if (measured && measured.lines.length) {
       ctx.save();
       ctx.font = measured.font;
-      try { ctx.letterSpacing = measured.letterSpacing || "0px"; } catch (_) {}
+      try { ctx.letterSpacing = measured.letterSpacing; } catch (_) {}
       ctx.textBaseline = "alphabetic";
       ctx.textAlign = "left";
       ctx.fillStyle = (el.textGradient && el.textGradient.enabled)
