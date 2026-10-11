@@ -37,6 +37,22 @@ const openers = (items) => `<div class="bk-open-grid">${items.map(([t, b, detail
   `<button type="button" class="bk-open" data-bk-open="bk-${i}">
      <span class="bk-open-t">${t}</span><span class="bk-open-b">${b}</span><span class="bk-open-go">Read more &rarr;</span>
    </button><div class="bk-open-body" id="bk-${i}" hidden><h3>${t}</h3>${detail}</div>`).join("")}</div>`;
+/* Four numbered cards, two across, each carrying its own copy and its own
+   walkthrough box along the bottom. Replaces the pop-out version: with only
+   four of them there is nothing to save by hiding the copy, and a reader had
+   to open every one to find out what was in it. Dani, 12 Oct: "rather than
+   having the popouts ... we do two by two and actually have the content in the
+   mini cards, and then have the red box at the bottom of each one." */
+const toolCards = (items) => `<div class="bk-tools">${items.map(([title, body, walkId, part, line], i) =>
+  `<div class="bk-tool">
+     <span class="bk-tool-n">${String(i + 1).padStart(2, "0")}</span>
+     <h3 class="bk-tool-t">${title}</h3>
+     <div class="bk-tool-b">${body}</div>
+     <div class="gr-walk gr-walk--in">
+       <span class="gr-walk-tx"><strong>Walkthrough</strong><span>${line}</span></span>
+       <button type="button" class="ws-btn ws-btn--primary ws-btn--sm" data-walk="${walkId}" data-part="${part}">Show me &rarr;</button>
+     </div>
+   </div>`).join("")}</div>`;
 // An example, set apart so nobody reads it as an instruction.
 const example = (body, note) => `<div class="bk-eg"><span class="bk-eg-l">For example</span><blockquote>${body}</blockquote>${note ? `<span class="bk-eg-n">${note}</span>` : ""}</div>`;
 // A "Show me" offer that can sit anywhere in a lesson - including inside one
@@ -252,30 +268,27 @@ export const TRAINING_GUIDES = [
 
       { title: "Make It Your Content",
         body_html:
-          p("<strong>Now change what's actually on the page.</strong>") +
-          p("Once the branding is in place, you can start adapting the template to the post you want to create.") +
-          p("You don't need to learn every tool in the Studio yet. For now, concentrate on the things you'll use most often when editing a template.") +
-          openers([
-            ["Change the words", "Edit the text already in your design",
-              p("Select any text on the canvas and type directly into it, or use the <strong>Text</strong> panel on the left to find and edit the text boxes within your design.") +
-              p("<strong>Text selection</strong> lists every text box on the page, so nothing gets missed on a busy template. Select one and its font, size, colour and alignment appear in the same panel.") +
-              p("You can also highlight part of a line to change only that part, and use <strong>Fonts</strong> to change the typeface across the whole design.") +
-              showMe("studio-text", 3)],
-            ["Change the background", "Replace the image behind everything else",
-              p("Open <strong>Background</strong> and choose <strong>Change image</strong> to replace the existing background. Pick one of your own uploads, search free photos, or add an image from your device.") +
-              p("Once your new image is in place, you can reposition it within the frame and adjust settings such as transparency to make it work with the rest of the design. <strong>Fill</strong> crops the photo to cover the whole page; <strong>Fit</strong> keeps all of it in view.") +
-              p("A background doesn't have to be a photo. Your brand colours are in the same panel, along with a custom colour picker and a gradient.") +
-              showMe("studio-background", 3)],
-            ["Change an image", "Swap a photo inside the design",
-              p("Where a template contains additional imagery, select the image you want to replace and choose <strong>Replace image</strong> from the panel beside the canvas. Your photo takes the place of the original at the same size and position.") +
-              p("Once it's added, reposition and resize it until it sits correctly within the design.") +
-              p("To add a photo that isn't there already, open <strong>Images</strong>: search the free photo libraries or upload your own, then click a picture to drop it onto the page.") +
-              showMe("studio-image", 3)],
-            ["Resize and reposition", "Make your words and pictures fit",
-              p("Templates are designed as a starting point, so don't worry if your wording or imagery doesn't fit exactly like the original.") +
-              p("Adjust font sizes, resize text boxes and move elements where necessary to make your version work.") +
-              p("Click to select, drag to move and pull a corner to resize. Guides appear as you move something so it lines up with everything else on the page.") +
-              showMe("studio-layout", 3)],
+          /* Dani's copy, 12 Oct. */
+          p("<strong>Making the content your own.</strong>") +
+          p("With your branding in place, it's time to adapt the template to the post you want to create.") +
+          p("You don't need to learn every feature in the Studio straight away. For now, concentrate on the four things you'll probably use most often: changing text, replacing backgrounds, swapping images and adjusting the layout.") +
+          toolCards([
+            ["Change the words",
+              p("Select any text on your design to change the wording, or open the <strong>Text</strong> panel to see all the text boxes on the page.<br>From there, you can adjust the font, size, colour and alignment to suit your content.") +
+              p("You can also use <strong>Text selection</strong> to find individual text boxes, particularly useful when you're working with a busier template."),
+              "studio-text", 3, "Changing text in the Studio."],
+            ["Change the background",
+              p("Open <strong>Background</strong> and select <strong>Change image</strong> to replace the existing background with one of your own photos or an image from the Studio's free libraries.") +
+              p("Once added, you can reposition the image and adjust how it fits within the design.<br>You can also replace the background with a solid colour or gradient, including colours saved in your Brand Kit."),
+              "studio-background", 3, "Changing your background."],
+            ["Change an image",
+              p("If your template contains an image, select it and choose <strong>Replace image</strong>. Your new photo will take its place, keeping the original size and position.") +
+              p("You can then adjust the image to make sure it sits correctly.<br>Want to add another photo? Open <strong>Images</strong> to upload your own or browse the free image libraries."),
+              "studio-image", 3, "Replacing and adding images."],
+            ["Resize and reposition",
+              p("Templates give you a starting point, but your wording and imagery won't always fit exactly like the original.") +
+              p("Select an element to move it, drag its corners to resize it or adjust the font size to make your text fit.<br>The Studio also displays alignment guides as you move elements, helping you keep everything neatly positioned."),
+              "studio-layout", 3, "Moving and resizing elements."],
           ]) },
 
       { title: "A Few Things Worth Knowing",
