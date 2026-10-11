@@ -65,7 +65,28 @@ export function restoreDemoBrand() {
     const demo = localStorage.getItem(demoKitKey());
     if (!demo) return false;                               // an unbranded demo
     const cur = localStorage.getItem("tmke.brand");
-    if (cur && cur.length > 2) return false;               // it is still there
+    if (cur === demo) return false;                        // it is already there
+    /* A kit that is not the demo's, in the cache the whole hub reads from.
+       It used to be left alone, which was right when nobody was signed in and
+       wrong the moment somebody was: Dani runs the training demo while signed
+       in as herself, so the cache held her real kit, this declined to touch
+       it, and every page that reads "tmke.brand" direct -- the caption
+       generator, the Studio inspiration panel, the dashboard tiles -- wore
+       The Property Experts all the way through the training account. Only
+       re-entering at /demo?go=1&brand=demo cleared it, and nothing said so.
+
+       The demo's kit wins for as long as the demo is running. Theirs is put
+       aside first and given back by endDemo, and it is on the server besides,
+       so the worst case is a re-fetch. Dani, 11 Oct. */
+    if (cur && cur.length > 2) {
+      try {
+        // First one wins: a later reload must not stash the demo's own kit
+        // over the member's and hand them the fiction back at the end.
+        if (!sessionStorage.getItem("tmke.brand.stash")) {
+          sessionStorage.setItem("tmke.brand.stash", cur);
+        }
+      } catch (_) {}
+    }
     localStorage.setItem("tmke.brand", demo);
     return true;
   } catch (_) { return false; }
