@@ -271,8 +271,7 @@ export const TRAINING_GUIDES = [
         body_html:
           /* Dani's copy, 12 Oct. */
           p("<strong>Making the content your own.</strong>") +
-          p("With your branding in place, it's time to adapt the template to the post you want to create.") +
-          p("You don't need to learn every feature in the Studio straight away. For now, concentrate on the four things you'll probably use most often: changing text, replacing backgrounds, swapping images and adjusting the layout.") +
+          p("With your branding in place, it's time to adapt the template to the post you want to create.<br>You don't need to learn every feature in the Studio straight away. For now, concentrate on the four things you'll probably use most often: changing text, replacing backgrounds, swapping images and adjusting the layout.") +
           toolCards([
             ["Change the words",
               p("Select any text on your design to change the wording, or open the <strong>Text</strong> panel to see all the text boxes on the page.<br>From there, you can adjust the font, size, colour and alignment to suit your content.") +
