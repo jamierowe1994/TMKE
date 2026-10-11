@@ -360,6 +360,9 @@ export const WALKS = {
 
   "studio-finish": {
     title: "Finishing Your Design",
+    // What the box on the lesson says, in Dani's words (12 Oct).
+    lead: "Finishing your design",
+    line: "See how to download your finished design or add it to your Planner.",
     stage: "/account/editor?training=1",
     steps: [
       { target: "#ed-download", placement: "bottom", padding: 8,

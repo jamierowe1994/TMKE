@@ -306,15 +306,18 @@ export const TRAINING_GUIDES = [
 
       { title: "Finish Your Design", walk: "studio-finish",
         body_html:
-          p("<strong>Happy with it? You've got a few options.</strong>") +
-          p("Once your design is ready, you can download it immediately or turn it into a planned post.") +
+          /* Dani's copy, 12 Oct. Her order too: the next course is trailed
+             before the walkthrough, so the page ends on the thing to go and
+             do rather than on the thing to read later. */
+          p("<strong>Your design is ready. What's next?</strong>") +
+          p("Once you're happy with your design, you can download it to your device or take it straight into your Planner.") +
           cards([
-            ["Download", "Download your finished design when you're ready to publish or use it elsewhere. For social media graphics, we'd generally recommend PNG for the best balance of image quality and compatibility. Your file will be saved to your device's Downloads folder."],
-            ["Plan your post", "Select the calendar button at the top of the editor to take your finished design into the Planner. From there, you can add the post details, get help creating your caption and choose when you want to publish it."],
+            ["Download", "Download your finished design when you're ready to publish it.<br>For social media graphics, we'd generally recommend PNG for a good balance of image quality and compatibility."],
+            ["Plan your post", "Once your design is ready, you can add it to your content calendar and choose when you'd like to publish it. Set a reminder and your finished content will be sent directly to your chosen device, making it easy to post to your social media when the time comes."],
           ], 2) +
-          "<!--WALK-->" +
-          panel("We'll cover this properly next.",
-            p("The next Getting Started course takes you through the Planner, from adding your content to setting reminders for when it's time to post.")) },
+          panel("Coming Up: Planning and Posting",
+            p("We'll cover the Planner, reminders and how to organise your content in more detail in the next course.")) +
+          "<!--WALK-->" },
 
       { title: "Saved and Ready When You Are", walk: "studio-designs",
         body_html:
