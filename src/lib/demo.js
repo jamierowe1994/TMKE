@@ -21,6 +21,28 @@ const JOIN_URL = "/join";
  * tmke.brand.demo and never touched, so this restores from that.
  * Runs at import, before the page reads the cache. Dani, 8 Oct.
  */
+/* Two different things, kept apart on purpose.
+
+   THE DEMO ACCOUNT  (/demo?go=1) is what a visitor is given to try the hub.
+   A kit built in it lives at tmke.brand.demo and is DESIGNED to be adopted by
+   the first real account that signs in here (brand-cache claimDemoBrandKit) -
+   they built it, they keep it.
+
+   THE TRAINING ACCOUNT  (/demo?go=1&brand=demo) is ours: Alex Mercer of
+   Rimberio Homes, used to film and photograph the guides. Its kit lives at
+   tmke.brand.training and is NEVER adopted by anybody, because a real member
+   signing in on this browser must not inherit a fictional agency.
+
+   They shared tmke.brand.demo until 11 Oct, which made one demo's whole
+   purpose into the other's contamination - and every fix to one broke the
+   other. Dani: "until we split out those two things, you're going to keep
+   running into problems." */
+const TRAINING_KIT = "tmke.brand.training";
+
+function demoKitKey() {
+  return isTrainingDemo() ? TRAINING_KIT : "tmke.brand.demo";
+}
+
 export function restoreDemoBrand() {
   try {
     if (!localStorage.getItem(KEY)) return false;          // not in the demo
@@ -31,7 +53,7 @@ export function restoreDemoBrand() {
        fictional agency rather than her own brand kit. Guarding on the auth
        token killed the demo for her the moment a page reloaded. Dani,
        11 Oct. */
-    const demo = localStorage.getItem("tmke.brand.demo");
+    const demo = localStorage.getItem(demoKitKey());
     if (!demo) return false;                               // an unbranded demo
     const cur = localStorage.getItem("tmke.brand");
     if (cur && cur.length > 2) return false;               // it is still there
@@ -51,18 +73,20 @@ export function isDemo() { return !!demoUser(); }
 export function isTrainingDemo() {
   const u = demoUser();
   if (!u) return false;
-  if (u.training) return true;
+  if (u.kind === "training" || u.training) return true;
   /* A demo started before the flag existed has no `training` on its record,
      so it would still show every padlock. The branded kit only ever comes
      from ?brand=demo, so its presence says the same thing — and this heals
      a session already open rather than making Dani start again. */
-  try { return !!localStorage.getItem("tmke.brand.demo"); } catch (_) { return false; }
+  try { return !!localStorage.getItem(TRAINING_KIT); } catch (_) { return false; }
 }
 export function startDemo(u) {
   try {
     localStorage.setItem(KEY, JSON.stringify({
       name: u.name || "", email: u.email || "", since: Date.now(),
-      // Carried so the hub knows this is ours, for screenshots, not a visitor's.
+      // Which of the two this is. `training` is kept beside it so a session
+      // started before the split keeps behaving as it did.
+      kind: u.training ? "training" : "demo",
       training: !!u.training,
     }));
   } catch (_) {}
@@ -70,6 +94,7 @@ export function startDemo(u) {
 export function endDemo() {
   try {
     localStorage.removeItem(KEY);
+    localStorage.removeItem(TRAINING_KIT);   // ours, and it outlives nothing
     // A member's own brand kit was put aside for the demo (editor.astro); give it back.
     const stash = sessionStorage.getItem("tmke.brand.stash");
     if (stash) { localStorage.setItem("tmke.brand", stash); sessionStorage.removeItem("tmke.brand.stash"); }

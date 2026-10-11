@@ -154,8 +154,20 @@ import { createResizeEngine } from "./resize-engine.js";
     let kit = null;
     // The Member Hub demo uses only the kit made during the demo, never one
     // cached for a member on this browser.
-    try { kit = JSON.parse(localStorage.getItem(localStorage.getItem("tmke_demo") ? "tmke.brand.demo" : "tmke.brand") || "null"); }
-    catch (_) { kit = null; }
+    /* Which kit, in three cases. A member reads their own. The DEMO account -
+       the one a visitor is given - reads the kit built during that demo. The
+       TRAINING account, ours, reads its own: Rimberio Homes, kept apart so no
+       real member can ever inherit it. Dani, 11 Oct. */
+    try {
+      const rec = JSON.parse(localStorage.getItem("tmke_demo") || "null");
+      const key = !rec ? "tmke.brand"
+        : (rec.kind === "training" || rec.training) ? "tmke.brand.training"
+        : "tmke.brand.demo";
+      kit = JSON.parse(localStorage.getItem(key) || "null");
+      // A training session whose kit has been cleared by the no-session path
+      // still has it under its own key; fall back to the shared cache.
+      if (!kit && rec) kit = JSON.parse(localStorage.getItem("tmke.brand") || "null");
+    } catch (_) { kit = null; }
     // A training walkthrough on a reader who hasn't built a kit yet: borrow the
     // stand-in one so "Make this design yours" has rows to show. Never written
     // anywhere - it lives on the window for the life of the demo.

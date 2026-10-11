@@ -132,6 +132,7 @@ export async function signOutEverywhere(redirectTo = '/login') {
        demo features." */
     localStorage.removeItem('tmke_demo');
     localStorage.removeItem('tmke.brand.demo');
+    localStorage.removeItem('tmke.brand.training');
     // Any stray default-keyed sessions from an older build.
     Object.keys(localStorage).filter((k) => k.startsWith('sb-')).forEach((k) => localStorage.removeItem(k));
     sessionStorage.clear();
