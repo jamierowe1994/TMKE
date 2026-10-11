@@ -219,7 +219,12 @@ export function initDemoChrome() {
     document.querySelectorAll(LOCKED_LINKS).forEach((a) => a.classList.add("is-demo-locked"));
     lockClicks(LOCKED_LINKS, "Orders, bookings and managed socials are for members.", "In the demo you can use the Dashboard, the Studio, the Planner, the Shop and the Getting Started guides.");
   }
-  const right = document.querySelector(".ws-nav-right");
+  /* No "You're in the demo · Join" in the training account. Everything shot in
+     there is a picture of a member's hub for a course or a film, and a badge
+     saying it is a demo is the one thing in the frame that gives it away.
+     Nothing is locked in there either (above), for the same reason.
+     Dani, 12 Oct. */
+  const right = isTrainingDemo() ? null : document.querySelector(".ws-nav-right");
   if (right && !right.querySelector(".dm-pill")) {
     const pill = document.createElement("div");
     pill.className = "dm-pill";
