@@ -274,7 +274,7 @@ export const TRAINING_GUIDES = [
           p("With your branding in place, it's time to adapt the template to the post you want to create.<br>You don't need to learn every feature in the Studio straight away. For now, concentrate on the four things you'll probably use most often: changing text, replacing backgrounds, swapping images and adjusting the layout.") +
           toolCards([
             ["Change the words",
-              p("Select any text on your design to change the wording, or open the <strong>Text</strong> panel to see all the text boxes on the page.<br>From there, you can adjust the font, size, colour and alignment to suit your content.") +
+              p("Select any text on your design to change the wording, or open the <strong>Text</strong> panel to edit it from the side menu.<br>From there, you can adjust the font, size, colour and alignment to suit your content.") +
               p("You can also use <strong>Text selection</strong> to find individual text boxes, particularly useful when you're working with a busier template."),
               "studio-text", 3, "Changing text in the Studio."],
             ["Change the background",
