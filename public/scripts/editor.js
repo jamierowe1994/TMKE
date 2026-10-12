@@ -2834,29 +2834,40 @@ import { createResizeEngine } from "./resize-engine.js";
   // unchanged — but with zoom there's room to pan LEFT/RIGHT as well as up/down.
   // Returns pixel size + offset in design coordinates, or null until we know the
   // image's natural dimensions.
-  function bgLayout(natW, natH) {
-    const fw = state.canvas.width, fh = state.canvas.height;
-    const nw = natW || state.canvas.bgNatW, nh = natH || state.canvas.bgNatH;
+  /* `src` is the canvas being laid out. It defaults to the open design, which
+     is right for everything on screen -- and was wrong for the one caller that
+     is not on screen. The thumbnail renderer draws a design that is NOT the
+     one in the editor, and this read the open one's size, fit, zoom and pan
+     regardless: a thumbnail built while another design was open came out at
+     that design's zoom. Dani, 12 Oct: "the thumbnail is showing a zoomed-in
+     image ... I haven't edited this design, this has just changed."
+
+     The same mistake as the lost cover page in October: a helper reaching for
+     the global pointer while its caller is working on something else. */
+  function bgLayout(natW, natH, src) {
+    const C = src || state.canvas;
+    const fw = C.width, fh = C.height;
+    const nw = natW || C.bgNatW, nh = natH || C.bgNatH;
     if (!nw || !nh || !fw || !fh) return null;
     // Fit mode: "contain" shows the WHOLE photo inside the frame (letterboxed,
     // nothing cropped); "cover" (default) fills the frame and crops. Either way
     // the optional zoom (bgScale >= 1) and bgPosX/bgPosY pan/position it.
-    const base = state.canvas.bgFit === "contain"
+    const base = C.bgFit === "contain"
       ? Math.min(fw / nw, fh / nh)
       : Math.max(fw / nw, fh / nh);
-    let scale = base * (state.canvas.bgScale ? Math.max(1, state.canvas.bgScale) : 1);
+    let scale = base * (C.bgScale ? Math.max(1, C.bgScale) : 1);
     // Rotation (bgRotate, degrees). A rotated photo would show its corners
     // missing in a Fill frame, so in Fill it is scaled up by just enough for
     // the turned picture to still cover the frame.
-    const deg = state.canvas.bgRotate || 0;
-    if (deg && state.canvas.bgFit !== "contain") {
+    const deg = C.bgRotate || 0;
+    if (deg && C.bgFit !== "contain") {
       const r = deg * Math.PI / 180, c = Math.abs(Math.cos(r)), sn = Math.abs(Math.sin(r));
       const needW = fw * c + fh * sn, needH = fw * sn + fh * c;
       scale *= Math.max(needW / (nw * scale), needH / (nh * scale), 1);
     }
     const sw = nw * scale, sh = nh * scale;
-    const px = (state.canvas.bgPosX != null ? state.canvas.bgPosX : 50) / 100;
-    const py = (state.canvas.bgPosY != null ? state.canvas.bgPosY : 50) / 100;
+    const px = (C.bgPosX != null ? C.bgPosX : 50) / 100;
+    const py = (C.bgPosY != null ? C.bgPosY : 50) / 100;
     return { sw, sh, ox: (fw - sw) * px, oy: (fh - sh) * py, deg };
   }
 
@@ -6860,7 +6871,7 @@ import { createResizeEngine } from "./resize-engine.js";
       try {
         const bg = await loadImage(SRC.canvas.backgroundImage);
         // Same cover-scale + zoom + pan layout as the live editor (bgLayout).
-        const lay = bgLayout(bg.naturalWidth, bg.naturalHeight) || (function () {
+        const lay = bgLayout(bg.naturalWidth, bg.naturalHeight, SRC.canvas) || (function () {
           const cw = SRC.canvas.width, ch = SRC.canvas.height;
           const ar = bg.naturalWidth / bg.naturalHeight, cr = cw / ch;
           let dw, dh; if (ar > cr) { dh = ch; dw = ch * ar; } else { dw = cw; dh = cw / ar; }
