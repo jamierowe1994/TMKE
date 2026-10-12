@@ -71,12 +71,42 @@ function makeStubClient() {
   };
 }
 
+/* Two front doors, two sets of keys.
+   The admin centre and the Member Hub are separate places with separate
+   logins, and they were sharing one session slot: whichever you signed into
+   last owned it, so signing into the hub quietly replaced the admin session
+   and signing out of either revoked both. Dani, 12 Oct: "they shouldn't
+   actually be linked ... two separate entities within the website with two
+   separate logins."
+
+   The key is chosen by where the page lives, so each area keeps its own
+   session and both can be signed in at once. Nothing else changes: every page
+   still imports the same `supabase`, and gets the right session because of
+   where it is being served. */
+const ADMIN_KEY = 'tmke-admin-auth';
+const MEMBER_KEY = 'tmke-member-auth';
+const onAdminPath = typeof window !== 'undefined'
+  && /^\/admin(\/|$)/.test(window.location.pathname);
+const activeKey = onAdminPath ? ADMIN_KEY : MEMBER_KEY;
+
+/* One-time carry-over. A member signed in before this change has their
+   session under the admin key, and would be shown the login page for no
+   reason they could see. Copied across the first time a hub page loads
+   without one; the admin copy is left where it is, because an admin session
+   may well be sitting in it. */
+try {
+  if (typeof window !== 'undefined' && !onAdminPath
+      && !localStorage.getItem(MEMBER_KEY) && localStorage.getItem(ADMIN_KEY)) {
+    localStorage.setItem(MEMBER_KEY, localStorage.getItem(ADMIN_KEY));
+  }
+} catch (_) {}
+
 export const supabase = isConfigured
   ? createClient(url, anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        storageKey: 'tmke-admin-auth',
+        storageKey: activeKey,
       },
     })
   : makeStubClient();
@@ -95,7 +125,7 @@ try {
 
 // The one key our session lives under. Exported so sign-out can purge it
 // directly rather than trusting the client to have done so.
-export const AUTH_STORAGE_KEY = 'tmke-admin-auth';
+export const AUTH_STORAGE_KEY = activeKey;
 
 /**
  * Sign out properly, and stay signed out.
@@ -115,12 +145,16 @@ export const AUTH_STORAGE_KEY = 'tmke-admin-auth';
  */
 export async function signOutEverywhere(redirectTo = '/login') {
   try {
-    await supabase.auth.signOut();                      // revokes server-side
+    /* Local, not global. A server revoke kills every session this account has,
+       which with two front doors means signing out of the hub also signed you
+       out of the admin centre. The stored session is removed by hand below
+       whatever happens, so this browser is still properly signed out. */
+    await supabase.auth.signOut({ scope: 'local' });
   } catch (_) {
     try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
   }
   try {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_STORAGE_KEY);   // this door's key only
     // The brand kit belongs to the login, not the browser (src/lib/brand-cache.js).
     localStorage.removeItem('tmke.brand'); localStorage.removeItem('tmke.brand.skipped');
     /* A demo is not an account, and signing out ends it. Leaving these behind
