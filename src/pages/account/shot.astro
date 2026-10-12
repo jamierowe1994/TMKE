@@ -370,6 +370,8 @@ const PICKER = COURSES.map((c) => ({
         return "<br><small>page " + (lastShot.pageHeight || "?") + "px in " + (lastShot.slices || 1)
           + " slice" + ((lastShot.slices || 1) === 1 ? "" : "s") + " &middot; file " + lastShot.file
           + " &middot; window " + lastShot.viewport + " &middot; dpr " + lastShot.dpr
+          + " &middot; stream " + lastShot.video
+          + (lastShot.mag > 1 ? " &middot; enlarged &times;" + (Math.round(lastShot.mag * 100) / 100) : "")
           + (lastShot.short ? " &middot; <strong>cut short</strong>" : "") + "</small>";
       };
 
@@ -377,12 +379,14 @@ const PICKER = COURSES.map((c) => ({
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
           throw new Error("this browser cannot capture a tab");
         }
-        /* Asked for at the screen's full resolution. Left to itself a capture
-           stream can be scaled down, and every pixel lost here is lost for
-           good. */
+        /* A plain request, no size. Asking for "ideal 4096 x 4096" was meant to
+           keep the stream at full resolution and did the opposite: Dani's
+           capture came back at 1.19 pixels per Studio pixel, against the 2 her
+           screen has, where the plain request had given the full 2 that
+           morning. Whatever the stream delivers, drawFrameful makes up the
+           difference. */
         const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { displaySurface: "browser", width: { ideal: 4096 }, height: { ideal: 4096 } },
-          preferCurrentTab: true, audio: false,
+          video: { displaySurface: "browser" }, preferCurrentTab: true, audio: false,
         });
         /* Into capture mode: the frame alone, pinned to the top-left of the
            window, at FULL size. It used to be shrunk until the whole of it fit
@@ -432,25 +436,37 @@ const PICKER = COURSES.map((c) => ({
 
       /* CSS pixels to captured pixels, on each axis. The captured frame is the
          tab's viewport; the ratio covers the device pixel ratio and any zoom. */
-      const ratios = (video) => ({
-        rx: video.videoWidth / window.innerWidth,
-        ry: video.videoHeight / window.innerHeight,
-      });
+      /* And how much to enlarge the frame on screen while it is photographed.
+         The picture wants SHOT_SCALE pixels for every Studio pixel, so it stays
+         sharp when the demo stretches it across a wide pop-out. A stream that
+         delivers fewer than that -- a browser is free to cap a capture, and
+         Chrome did on Dani's screen, 12 Oct -- is made up by drawing the frame
+         bigger: the browser re-renders the Studio at the larger size, so the
+         extra pixels are real detail, not stretching. More of it is then off
+         screen, which the tiles already deal with. */
+      const SHOT_SCALE = 2;
+      const ratios = (video) => {
+        const rx = video.videoWidth / window.innerWidth;
+        const ry = video.videoHeight / window.innerHeight;
+        const mag = Math.max(1, SHOT_SCALE / Math.min(rx, ry));
+        return { rx, ry, mag, px: rx * mag, py: ry * mag };
+      };
 
       /* The whole frame -- SHOT_W x SHOT_H of the Studio -- drawn into ctx with
          its top at dy, at the capture's full resolution. Moves the frame up and
          left a window's worth at a time and copies only the part that is on
          screen, so it works on any window, however small. */
       async function drawFrameful(video, ctx, dy) {
-        const { rx, ry } = ratios(video);
+        const { rx, ry, mag } = ratios(video);
+        const FW = SHOT_W * mag, FH = SHOT_H * mag;
         const viewW = Math.min(window.innerWidth, video.videoWidth / rx);
         const viewH = Math.min(window.innerHeight, video.videoHeight / ry);
         const stepX = Math.max(100, Math.floor(viewW));
         const stepY = Math.max(100, Math.floor(viewH));
         let tiles = 0;
-        for (let oy = 0; oy < SHOT_H; oy += stepY) {
-          for (let ox = 0; ox < SHOT_W; ox += stepX) {
-            stage.style.transform = (ox || oy) ? "translate(" + (-ox) + "px," + (-oy) + "px)" : "";
+        for (let oy = 0; oy < FH; oy += stepY) {
+          for (let ox = 0; ox < FW; ox += stepX) {
+            stage.style.transform = "translate(" + (-ox) + "px," + (-oy) + "px)" + (mag > 1 ? " scale(" + mag + ")" : "");
             await paint();
             await freshFrame(video);
             const r = stage.getBoundingClientRect();
@@ -508,12 +524,12 @@ const PICKER = COURSES.map((c) => ({
       /* One frameful: the whole of a page that does not scroll, or exactly what
          has been arranged on screen. */
       async function grabOne(video) {
-        const { rx, ry } = ratios(video);
+        const { px, py, mag } = ratios(video);
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(SHOT_W * rx);
-        canvas.height = Math.round(SHOT_H * ry);
+        canvas.width = Math.round(SHOT_W * px);
+        canvas.height = Math.round(SHOT_H * py);
         const tiles = await drawFrameful(video, canvas.getContext("2d"), 0);
-        lastShot = report(video, canvas, { tiles });
+        lastShot = report(video, canvas, { tiles, mag });
         return await new Promise((done) => canvas.toBlob(done, "image/png"));
       }
 
@@ -526,11 +542,11 @@ const PICKER = COURSES.map((c) => ({
         const sc = frameScroller();
         if (!sc) return await grabOne(video);
         const d = frame.contentDocument;
-        const { rx, ry } = ratios(video);
+        const { px, py, mag } = ratios(video);
         const total = Math.min(4200, Math.max(SHOT_H, sc.el.scrollHeight));
         const canvas = document.createElement("canvas");
-        canvas.width = Math.round(SHOT_W * rx);
-        canvas.height = Math.round(total * ry);
+        canvas.width = Math.round(SHOT_W * px);
+        canvas.height = Math.round(total * py);
         const ctx = canvas.getContext("2d");
 
         /* Anything pinned to the top repeats in every slice, so it is let go
@@ -553,14 +569,14 @@ const PICKER = COURSES.map((c) => ({
           if (slices === 1) pinned.forEach(([el]) => { el.style.position = "static"; });
           await new Promise((rr) => setTimeout(rr, 260));
           const at = sc.el.scrollTop;
-          tiles += await drawFrameful(video, ctx, Math.round(at * ry));
+          tiles += await drawFrameful(video, ctx, Math.round(at * py));
           slices++;
           if (at + SHOT_H >= total) break;
         }
 
         pinned.forEach(([el, was]) => { el.style.position = was; });
         sc.el.scrollTop = 0;
-        lastShot = report(video, canvas, { pageHeight: total, slices, tiles });
+        lastShot = report(video, canvas, { pageHeight: total, slices, tiles, mag });
         return await new Promise((done) => canvas.toBlob(done, "image/png"));
       }
 
