@@ -6057,37 +6057,32 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          pack is actually registered. Dani, 10 Oct. */
       const facePromises = [];
       if (!bfErr && bf && bf.length) {
-        /* The Seasons in the fonts table is the free demo build ("FSP DEMO -
-           The Seasons ..."), all six files. In every one of them the same 28
-           characters are one ornament stamped DEMO:
-             ! " # $ % & ' ( ) * + - / 4 < = > @ [ \\ ] ^ _ ` { | } ~
-           -- the digit 4 among them, which is how "340" came out with a DEMO
-           mark in the middle. Measured from the files, 12 Oct, by hashing each
-           glyph's outline: those 28 share one outline, every other character
-           is its own.
-           So the demo faces are only allowed to draw the characters they really
-           have -- letters, the other nine digits, space , . : ; ? -- and every
-           template keeps exactly the letter shapes and widths it was designed
-           with. Anything else falls through to the next face of the same name,
-           which is the licensed The Seasons the page already loads from
-           Typographer (BaseLayout): a full font, 454 characters, a real 4 and
-           real punctuation. It stays The Seasons; it just stops being the demo.
-           Line height is always a number in the Studio, so the line box is set
-           by the first face and a substituted glyph cannot make a line taller.
-           Dani, 12 Oct: "Anything that has a seasons icon, number, or letter
-           needs to remain the seasons." */
-        const SEASONS_REAL = 'U+20, U+2C, U+2E, U+30-33, U+35-3B, U+3F, U+41-5A, U+61-7A';
+        /* The Seasons is NOT registered from the fonts table. The six files
+           there are the free DEMO build ("FSP DEMO - The Seasons"): 28
+           characters in each -- ! " # $ % & ' ( ) * + - / 4 < = > @ [ \\ ] ^ _
+           ` { | } ~ -- are one ornament stamped DEMO, which is how "340" came
+           out with DEMO in the middle. The licensed font comes whole from
+           Typographer on every page (BaseLayout), so the Studio uses that.
+
+           Measured before switching, 12 Oct, all 238 The Seasons text boxes in
+           the 112 live templates laid out both ways: only 3 change, and all
+           three LOSE a line and then exactly fill the box they were drawn in
+           -- "Meet the Sales Team" one line in a one-line box, Testimonial 1's
+           quote two lines in a two-line box. The licensed letters are the same
+           or slightly narrower (A C G M k m q s z), so nothing grows. The
+           templates were drawn in the licensed font; the demo build was what
+           made them wrap. Dani: "do we just swap it over now". */
+        const isDemoSeasons = (f) => /^the seasons$/i.test(String(f.family || '').trim());
         const registered = new Set();
         for (const f of bf) {
           if (registered.has(f.family + '|' + f.weight + '|' + f.style)) continue;
           registered.add(f.family + '|' + f.weight + '|' + f.style);
+          if (isDemoSeasons(f)) continue;   // the licensed font is used instead (above)
           try {
-            const isSeasons = /^the seasons$/i.test(String(f.family || '').trim());
             const face = new FontFace(f.family, `url("${f.file_url}")`, {
               weight: String(f.weight || 400),
               style: f.style || 'normal',
               display: 'swap',
-              ...(isSeasons ? { unicodeRange: SEASONS_REAL } : {}),
             });
             facePromises.push(face.load().then((l) => document.fonts.add(l)).catch(() => {}));
           } catch (_) { /* ignore individual font failures */ }
