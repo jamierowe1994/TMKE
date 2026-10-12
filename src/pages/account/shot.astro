@@ -8,20 +8,49 @@
  * screenshot to that by hand is both fiddly and never quite right twice.
  *
  * So: the Studio, in a frame that IS that size, and a button that captures
- * exactly that frame and saves it. Set the demo up however the step needs it,
- * press Take the picture, send the file over.
+ * exactly that frame. Pick the walk and the step, set the demo up the way the
+ * step describes, copy the picture, paste it over.
  *
- * Dani, 12 Oct: "build a fake one of these that I can use and send you the
- * image directly through to, so that you can put it into the demo."
+ * Dani, 12 Oct: "can we get an easier way to do the pages because I don't
+ * really know which one is which" — so the rig asks for the walk and the step
+ * and works the address out itself; and "is there a way to build it so it just
+ * sends it directly to you and I don't actually have to save it to my
+ * desktop?" — so the picture goes to the clipboard.
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { DEMO_BRAND } from "../../data/demo-brand.js";
+import { WALKS } from "../../data/walkthroughs.js";
 
 /* The pop-out's screen area at a large window, measured from the real thing:
    the box is min(1240px, 86vw) wide by min(82vh, 860px) tall, the panel takes
    clamp(300px, 34%, 400px) of the width and the header 46px of the height. */
 const SHOT_W = 840;
 const SHOT_H = 774;
+
+/* The walks in the order a reader meets them, each step carrying the page it
+   happens on and the words that say what the picture has to show. */
+const COURSES = [
+  { course: "Getting Around Your Hub", walks: ["hub-tour", "dashboard", "studio-tour", "orders", "bookings", "smm", "learn"] },
+  { course: "Your Brand Kit", walks: ["brand-kit"] },
+  { course: "Your First Design", walks: ["studio-template", "studio-make-yours", "studio-text", "studio-background", "studio-image", "studio-layout", "studio-finish", "studio-designs"] },
+  { course: "Planning and Posting", walks: ["planner"] },
+];
+
+const PICKER = COURSES.map((c) => ({
+  course: c.course,
+  walks: c.walks.filter((id) => WALKS[id]).map((id) => ({
+    id,
+    title: WALKS[id].title,
+    steps: (WALKS[id].steps || []).map((s, i) => ({
+      n: i + 1,
+      eyebrow: s.eyebrow || "",
+      title: s.title || "",
+      body: s.body || "",
+      // Where the step happens: its own page, else the walk's.
+      path: s.href || s.path || WALKS[id].stage || "/account/studio",
+      hasShot: !!s.shot,
+    })),
+  })),
+}));
 ---
 
 <BaseLayout title="Shot rig — TMKE" description="Pictures for the walkthrough demos.">
@@ -30,62 +59,69 @@ const SHOT_H = 774;
       <p class="sr-eyebrow">Walkthrough demos</p>
       <h1>The shot rig.</h1>
       <p class="sr-lede">
-        The Studio at exactly the size the demo pop-out shows it: {SHOT_W} &times; {SHOT_H}.
-        Set it up the way the step needs, then take the picture. The file saves
-        cropped to the frame, at your screen's full resolution.
+        Pick the walk and the step. The rig opens the right page at exactly the
+        size the demo shows it &mdash; {SHOT_W} &times; {SHOT_H} &mdash; and names the
+        picture for you. Set the shot up, then copy it straight over.
       </p>
     </header>
 
     <div class="sr-bar">
-      {/* Which account the frame is signed into. The rig shares this browser's
-          session, so without this it shows whoever is signed in -- which for
-          Dani is her own hub, with her own brand on every picture. */}
       <div class="sr-field">
         <span>Account</span>
         <div class="sr-seg" role="group" aria-label="Account the demo runs as">
-          <button type="button" id="sr-acc-training" data-on="training">Training</button>
-          <button type="button" id="sr-acc-mine" data-on="mine">Mine</button>
+          <button type="button" id="sr-acc-training">Training</button>
+          <button type="button" id="sr-acc-mine">Mine</button>
         </div>
       </div>
+
       <label class="sr-field sr-field--grow">
-        <span>Page</span>
-        <input id="sr-url" type="text" value="/account/editor?training=1" spellcheck="false" />
+        <span>Walk</span>
+        <select id="sr-walk"></select>
       </label>
-      <label class="sr-field">
-        <span>Save as</span>
-        <input id="sr-name" type="text" value="studio-text-1" spellcheck="false" />
+
+      <label class="sr-field sr-field--grow">
+        <span>Step</span>
+        <select id="sr-step"></select>
       </label>
-      <button type="button" class="sr-btn sr-btn--ghost" id="sr-go">Load page</button>
-      <button type="button" class="sr-btn" id="sr-shot">Take the picture</button>
+
+      <button type="button" class="sr-btn" id="sr-shot">Copy the picture</button>
+      <button type="button" class="sr-btn sr-btn--ghost" id="sr-save">Save it instead</button>
+    </div>
+
+    {/* What this step has to show, in its own words, so the shot can be set up
+        without going back to the course to read it. */}
+    <div class="sr-step" id="sr-step-card" hidden>
+      <p class="sr-step-eyebrow"><span id="sr-step-eyebrow"></span> &middot; <span id="sr-step-where"></span></p>
+      <h2 id="sr-step-title"></h2>
+      <p id="sr-step-body"></p>
     </div>
 
     <p class="sr-note" id="sr-note">
-      Your browser will ask what to share. Choose <strong>this tab</strong>.
-      Nothing leaves your machine &mdash; the picture is cropped here and saved
-      to your Downloads.
+      Choose <strong>this tab</strong> when your browser asks what to share.
+      Nothing leaves your machine &mdash; the picture is cropped here.
     </p>
 
     {/* The frame. Fixed pixel size, scaled down to fit the window if it has to
         be, so the capture is always the same shape whatever screen it is on. */}
     <div class="sr-stage-wrap">
       <div class="sr-stage" id="sr-stage" style={`width:${SHOT_W}px;height:${SHOT_H}px`}>
-        <iframe id="sr-frame" title="The Studio, at demo size" src="/account/editor?training=1"></iframe>
+        <iframe id="sr-frame" title="The Studio, at demo size" src="/account/studio"></iframe>
       </div>
     </div>
 
     <section class="sr-help">
       <h2>How to use it</h2>
       <ol>
-        <li>Open the training account first (<a href="/demo?go=1&brand=demo">/demo?go=1&amp;brand=demo</a>) so the Studio wears Rimberio Homes and carries no demo badge.</li>
-        <li>Put the page the step is about in <strong>Page</strong> and press <strong>Load page</strong>. The Studio homepage is <code>/account/studio</code>; the demo pack is <code>/account/editor?pack=demo</code>; a design open in the editor is <code>/account/editor?training=1</code>.</li>
-        <li>Arrange it in the frame: select the thing the step talks about, open the panel it mentions, scroll to the right place.</li>
-        <li>Name the file after the step &mdash; <code>studio-text-2</code> for step two of Changing the Words &mdash; and press <strong>Take the picture</strong>.</li>
-        <li>Send me the file. I will put it on the step.</li>
+        <li>Press <strong>Training</strong> so the Studio wears Rimberio Homes and carries no demo badge.</li>
+        <li>Pick the walk, then the step. The right page loads in the frame and the picture is named for you.</li>
+        <li>Arrange the frame to match the step shown under the pickers &mdash; select the thing it talks about, open the panel it mentions, scroll to the right place.</li>
+        <li><strong>Copy the picture</strong> and paste it straight into the chat. No file to save or find.</li>
       </ol>
       <p class="sr-small">
-        If your browser will not share the tab, take an ordinary screenshot of
-        the framed area instead: it is the right shape, so it will still sit
-        correctly in the demo.
+        A tick beside a step means it already has a picture. <strong>Save it
+        instead</strong> downloads a PNG, for when you would rather keep one.
+        If your browser will not share the tab, an ordinary screenshot of the
+        framed area still works &mdash; it is the right shape.
       </p>
     </section>
   </main>
@@ -98,11 +134,11 @@ const SHOT_H = 774;
     .sr h1 { font-family: var(--serif); font-size: clamp(30px, 4vw, 44px); font-weight: 500; letter-spacing: -0.02em; margin: 0 0 10px; }
     .sr-lede { font-size: 15px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.66)); max-width: 72ch; margin: 0; }
 
-    .sr-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 12px; }
+    .sr-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 14px; }
     .sr-field { display: flex; flex-direction: column; gap: 5px; }
-    .sr-field--grow { flex: 1 1 360px; min-width: 260px; }
-    .sr-field span { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-tx, rgba(28,29,34,0.6)); }
-    .sr-field input { font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--ws-line, rgba(28,29,34,0.16)); border-radius: 6px; background: #fff; }
+    .sr-field--grow { flex: 1 1 260px; min-width: 200px; }
+    .sr-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-tx, rgba(28,29,34,0.6)); }
+    .sr-field select { font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--ws-line, rgba(28,29,34,0.16)); border-radius: 6px; background: #fff; max-width: 100%; }
     .sr-btn { font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; padding: 10px 18px; border-radius: 6px; border: 1px solid var(--english-violet, #371e28); background: var(--english-violet, #371e28); color: #fff; cursor: pointer; }
     .sr-btn--ghost { background: #fff; color: var(--english-violet, #371e28); }
     .sr-btn:disabled { opacity: 0.5; cursor: default; }
@@ -111,6 +147,11 @@ const SHOT_H = 774;
     .sr-seg button { font: inherit; font-size: 13px; font-weight: 600; padding: 9px 14px; border: 0; background: transparent; color: var(--ws-tx, rgba(28,29,34,0.66)); cursor: pointer; }
     .sr-seg button + button { border-left: 1px solid var(--ws-line, rgba(28,29,34,0.16)); }
     .sr-seg button.is-on { background: var(--english-violet, #371e28); color: #fff; }
+
+    .sr-step { padding: 14px 18px; margin: 0 0 14px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line, rgba(28,29,34,0.14)); border-left: 3px solid var(--ws-accent, #371e28); border-radius: 6px; }
+    .sr-step-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-accent, #371e28); margin: 0 0 4px; }
+    .sr-step h2 { font-family: var(--sans); font-size: 16px; font-weight: 700; margin: 0 0 4px; }
+    .sr-step p:last-child { font-size: 14px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.7)); margin: 0; }
 
     .sr-note { font-size: 13px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.6)); margin: 0 0 20px; }
     .sr-note.is-bad { color: #8a2b2b; }
@@ -127,18 +168,19 @@ const SHOT_H = 774;
     .sr-help h2 { font-family: var(--sans); font-size: 16px; font-weight: 700; margin: 0 0 10px; }
     .sr-help ol { margin: 0 0 14px; padding-left: 20px; }
     .sr-help li { font-size: 14px; line-height: 1.65; margin-bottom: 7px; }
-    .sr-help code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.05); padding: 1px 5px; border-radius: 4px; }
     .sr-small { font-size: 13px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.6)); }
   </style>
 
-  <script is:inline define:vars={{ SHOT_W, SHOT_H, DEMO_BRAND }}>
+  <script is:inline define:vars={{ SHOT_W, SHOT_H, PICKER }}>
     (function () {
       const stage = document.getElementById("sr-stage");
       const frame = document.getElementById("sr-frame");
-      const urlIn = document.getElementById("sr-url");
-      const nameIn = document.getElementById("sr-name");
+      const walkSel = document.getElementById("sr-walk");
+      const stepSel = document.getElementById("sr-step");
       const note = document.getElementById("sr-note");
       const shotBtn = document.getElementById("sr-shot");
+      const saveBtn = document.getElementById("sr-save");
+      const card = document.getElementById("sr-step-card");
 
       const say = (msg, kind) => {
         note.innerHTML = msg;
@@ -146,28 +188,65 @@ const SHOT_H = 774;
         note.classList.toggle("is-good", kind === "good");
       };
 
-      /* Scale the frame down when the window is too small to hold it, so the
-         rig is usable on a laptop. The iframe still lays out at SHOT_W x
-         SHOT_H -- only its picture is shrunk -- and the capture divides the
-         scale back out, so the file is always full size. */
-      let scale = 1;
-      const fit = () => {
-        const room = Math.min(stage.parentElement.clientWidth, window.innerWidth - 48);
-        scale = Math.min(1, room / SHOT_W);
-        stage.style.transform = scale < 1 ? `scale(${scale})` : "";
-        stage.parentElement.style.height = Math.round(SHOT_H * scale) + "px";
-      };
-      fit();
-      window.addEventListener("resize", fit, { passive: true });
+      // ---- the pickers --------------------------------------------------
+      /* Course, walk, step -- the three things Dani actually has in mind -- and
+         the rig works out the address. Asking for a URL asked her to hold a
+         fourth thing that nothing else in the course ever mentions. */
+      const byId = {};
+      PICKER.forEach((c) => c.walks.forEach((w) => { byId[w.id] = w; }));
 
-      /* The account the frame runs as.
-         The rig shares this browser's session with the frame inside it, so
+      PICKER.forEach((c) => {
+        const group = document.createElement("optgroup");
+        group.label = c.course;
+        c.walks.forEach((w) => {
+          const o = document.createElement("option");
+          o.value = w.id;
+          o.textContent = w.title;
+          group.appendChild(o);
+        });
+        walkSel.appendChild(group);
+      });
+
+      let current = null;   // { walkId, n }
+      const stepOf = (walkId, n) => byId[walkId].steps.find((s) => s.n === Number(n)) || byId[walkId].steps[0];
+
+      const fillSteps = (walkId) => {
+        const w = byId[walkId];
+        stepSel.innerHTML = "";
+        w.steps.forEach((s) => {
+          const o = document.createElement("option");
+          o.value = String(s.n);
+          o.textContent = s.n + " of " + w.steps.length + " — " + (s.title || s.eyebrow || "Step " + s.n) + (s.hasShot ? "  ✓" : "");
+          stepSel.appendChild(o);
+        });
+      };
+
+      const showStep = (walkId, n) => {
+        const s = stepOf(walkId, n);
+        current = { walkId: walkId, n: s.n };
+        document.getElementById("sr-step-eyebrow").textContent = s.eyebrow || byId[walkId].title;
+        document.getElementById("sr-step-where").textContent = s.path;
+        document.getElementById("sr-step-title").textContent = s.title || "";
+        document.getElementById("sr-step-body").textContent = s.body || "";
+        card.hidden = false;
+        const want = location.origin + s.path;
+        if (frame.src !== want) frame.src = s.path;
+        say(s.hasShot
+          ? "This step already has a picture &mdash; a new one replaces it."
+          : "Set the frame up to match the step, then copy the picture.");
+      };
+
+      walkSel.addEventListener("change", () => { fillSteps(walkSel.value); showStep(walkSel.value, 1); });
+      stepSel.addEventListener("change", () => showStep(walkSel.value, stepSel.value));
+
+      walkSel.value = "studio-template";
+      fillSteps(walkSel.value);
+      showStep(walkSel.value, 1);
+
+      // ---- the account the frame runs as ---------------------------------
+      /* The rig shares this browser's session with the frame inside it, so
          signed in as herself Dani was photographing her own hub, with her own
-         brand kit on every picture. These put the browser into the training
-         account -- the same state /demo?go=1&brand=demo creates -- or back
-         into her own, and reload the frame either way. Her own login is left
-         alone: ending the demo does not sign anybody out, and the brand kit
-         it set aside is handed back. Dani, 12 Oct. */
+         brand kit on every picture. */
       const DEMO_KEY = "tmke_demo";
       const inTraining = () => {
         try {
@@ -176,31 +255,25 @@ const SHOT_H = 774;
         } catch (_) { return false; }
       };
       const paintAccount = () => {
-        const on = inTraining();
-        document.getElementById("sr-acc-training").classList.toggle("is-on", on);
-        document.getElementById("sr-acc-mine").classList.toggle("is-on", !on);
+        document.getElementById("sr-acc-training").classList.toggle("is-on", inTraining());
+        document.getElementById("sr-acc-mine").classList.toggle("is-on", !inTraining());
       };
-      const reloadFrame = () => { frame.src = frame.src; };
 
-      /* Training mode is entered through the real door, not a copy of it.
-         Seeding the flag and the kit by hand here meant two versions of the
-         same thing, and mine was already drifting from demo.astro's. The
-         frame visits /demo?go=1&brand=demo, which writes the state this
-         browser shares with it, and then goes to the page being photographed. */
+      /* Training is entered through the real door, not a copy of it: the frame
+         visits /demo?go=1&brand=demo, which writes the state the whole browser
+         shares, and then goes back to the step's page. A copy of that seeding
+         kept here had already drifted -- it stashed the wrong kit. */
       document.getElementById("sr-acc-training").addEventListener("click", async () => {
         say("Putting the frame into the training account&hellip;");
         frame.src = "/demo?go=1&brand=demo";
         await new Promise((r) => setTimeout(r, 1800));
-        const u = (urlIn.value || "/account/studio").trim();
-        frame.src = u;
+        frame.src = current ? stepOf(current.walkId, current.n).path : "/account/studio";
         paintAccount();
         say("The frame is in the <strong>training account</strong> &mdash; Rimberio Homes, no demo badge. Your own login is untouched.", "good");
       });
 
       document.getElementById("sr-acc-mine").addEventListener("click", () => {
         if (!inTraining()) return;
-        /* endDemo's own job, done where this page can reach it: the flag and
-           the training kit go, and the member's cached kit is handed back. */
         try {
           localStorage.removeItem(DEMO_KEY);
           localStorage.removeItem("tmke.brand.training");
@@ -209,79 +282,105 @@ const SHOT_H = 774;
           else { localStorage.removeItem("tmke.brand"); }
         } catch (_) {}
         paintAccount();
-        reloadFrame();
-        say("The frame is in <strong>your own account</strong>. Pictures taken now will carry your brand, not the training one.");
+        frame.src = frame.src;
+        say("The frame is in <strong>your own account</strong>. Pictures taken now carry your brand, not the training one.");
       });
 
       paintAccount();
 
-      document.getElementById("sr-go").addEventListener("click", () => {
-        const u = (urlIn.value || "").trim();
-        if (u) frame.src = u;
-      });
-      urlIn.addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("sr-go").click(); });
+      // ---- the frame's size ----------------------------------------------
+      /* Scaled down when the window cannot hold it, so the rig is usable on a
+         laptop. The iframe still lays out at SHOT_W x SHOT_H -- only its
+         picture is shrunk -- and the capture divides the scale back out. */
+      let scale = 1;
+      const fit = () => {
+        const room = Math.min(stage.parentElement.clientWidth, window.innerWidth - 48);
+        scale = Math.min(1, room / SHOT_W);
+        stage.style.transform = scale < 1 ? "scale(" + scale + ")" : "";
+        stage.parentElement.style.height = Math.round(SHOT_H * scale) + "px";
+      };
+      fit();
+      window.addEventListener("resize", fit, { passive: true });
 
-      shotBtn.addEventListener("click", async () => {
+      // ---- the picture -----------------------------------------------------
+      const shotName = () => (current ? current.walkId + "-" + current.n : "shot") + ".png";
+
+      async function grab() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-          say("This browser cannot capture the tab. Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
-          return;
+          throw new Error("this browser cannot capture a tab");
         }
-        shotBtn.disabled = true;
-        say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
-        let stream = null;
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { displaySurface: "browser" }, preferCurrentTab: true, audio: false,
+        });
         try {
-          stream = await navigator.mediaDevices.getDisplayMedia({
-            video: { displaySurface: "browser" },
-            preferCurrentTab: true,
-            audio: false,
-          });
-
           /* Through a <video>, not ImageCapture: grabFrame is not in every
              browser, and a video element is. One frame is all we need. */
           const video = document.createElement("video");
           video.srcObject = stream;
           video.muted = true;
           await video.play();
-          await new Promise((r) => setTimeout(r, 260));   // let the first frame land
-
-          const vw = video.videoWidth, vh = video.videoHeight;
-          if (!vw || !vh) throw new Error("no frame");
+          await new Promise((r) => setTimeout(r, 260));
+          const vw = video.videoWidth;
+          if (!vw || !video.videoHeight) throw new Error("no frame came back");
 
           /* The captured frame is the whole tab. Map CSS pixels onto it by the
-             ratio of its width to the viewport's, which covers both the
-             device pixel ratio and any browser zoom. */
+             ratio of its width to the viewport's, which covers both the device
+             pixel ratio and any browser zoom. */
           const ratio = vw / window.innerWidth;
           const r = stage.getBoundingClientRect();
-          const sx = Math.round(r.left * ratio);
-          const sy = Math.round(r.top * ratio);
-          const sw = Math.round(r.width * ratio);
-          const sh = Math.round(r.height * ratio);
-
           const canvas = document.createElement("canvas");
           canvas.width = Math.round(SHOT_W * (ratio / scale));
           canvas.height = Math.round(SHOT_H * (ratio / scale));
-          canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-
-          const name = ((nameIn.value || "shot").trim().replace(/[^a-z0-9-_]+/gi, "-")) + ".png";
-          await new Promise((done) => canvas.toBlob((blob) => {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = name;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-            done();
-          }, "image/png"));
-
-          say("Saved <strong>" + name + "</strong> at " + canvas.width + " &times; " + canvas.height + ". Send it over and I will put it on the step.", "good");
-        } catch (err) {
-          const msg = String((err && err.name) || err);
-          say(/NotAllowed/i.test(msg)
-            ? "Sharing was declined, so nothing was captured. Press the button again and choose this tab."
-            : "That did not work (" + msg + "). Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
+          canvas.getContext("2d").drawImage(
+            video,
+            Math.round(r.left * ratio), Math.round(r.top * ratio),
+            Math.round(r.width * ratio), Math.round(r.height * ratio),
+            0, 0, canvas.width, canvas.height
+          );
+          return await new Promise((done) => canvas.toBlob(done, "image/png"));
         } finally {
-          if (stream) stream.getTracks().forEach((t) => t.stop());
-          shotBtn.disabled = false;
+          stream.getTracks().forEach((t) => t.stop());
         }
+      }
+
+      const failed = (err) => {
+        const msg = String((err && err.name) || err);
+        say(/NotAllowed/i.test(msg)
+          ? "Sharing was declined, so nothing was captured. Press the button again and choose this tab."
+          : "That did not work (" + msg + "). Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
+      };
+
+      const busy = (on) => { shotBtn.disabled = on; saveBtn.disabled = on; };
+
+      /* Straight to the clipboard: copy here, paste into the chat, no file to
+         find and no download to tidy up. Dani, 12 Oct: "is there a way to build
+         it so it just sends it directly to you and I don't actually have to
+         save it to my desktop?" */
+      shotBtn.addEventListener("click", async () => {
+        busy(true);
+        say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
+        try {
+          const blob = await grab();
+          if (!navigator.clipboard || !window.ClipboardItem) throw new Error("this browser will not copy images");
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          say("Copied. Paste it into the chat &mdash; it is <strong>" + shotName() + "</strong>, so you need say nothing else.", "good");
+        } catch (err) { failed(err); }
+        finally { busy(false); }
+      });
+
+      saveBtn.addEventListener("click", async () => {
+        busy(true);
+        say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
+        try {
+          const blob = await grab();
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = shotName();
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+          say("Saved <strong>" + shotName() + "</strong> to your Downloads.", "good");
+        } catch (err) { failed(err); }
+        finally { busy(false); }
       });
     })();
   </script>
