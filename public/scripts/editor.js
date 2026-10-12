@@ -10979,6 +10979,16 @@ import { createResizeEngine } from "./resize-engine.js";
   // nothing's selected it falls back to whichever tool tab the user
   // last clicked on the rail. `activeToolPane` remembers that fallback.
   let activeToolPane = "brand";
+  /* Set when somebody chooses Make it yours, cleared when they open anything
+     else. Without it the line below threw them out of the pane they had just
+     asked for: hiding the Brand tab on the rail is right for a social design,
+     but Make it yours OPENS that pane on purpose, and every colour applied ran
+     this and sent them back to Start. Dani, 12 Oct: "if I'm on Make it yours
+     and I change something, it should leave you on the Make it yours section."
+     There are several things to change in there, and you should be able to
+     change them one after another. */
+  let brandPaneByChoice = false;
+
   function showPane(name) {
     document.querySelectorAll(".ed-panel-pane").forEach((p) => {
       p.classList.toggle("is-active", p.dataset.pane === name);
@@ -11010,6 +11020,7 @@ import { createResizeEngine } from "./resize-engine.js";
   document.addEventListener("click", function (e) {
     var b = e.target && e.target.closest && e.target.closest("[data-start-tool]");
     if (!b) return;
+    if (b.dataset.startTool === "brand") brandPaneByChoice = true;
     var railBtn = document.querySelector('.ed-rail-btn[data-tool="' + b.dataset.startTool + '"]');
     if (railBtn) railBtn.click();
   });
@@ -11445,7 +11456,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const off = !isAdminMode() && !isPrintDesign();
     if (off) { if (!btn.hidden) { btn.dataset.brandHid = "1"; btn.hidden = true; } }
     else if (btn.dataset.brandHid) { btn.hidden = false; delete btn.dataset.brandHid; }
-    if (off && activeToolPane === "brand") openTool("start");
+    // Only when they are sitting on a tab that has gone, not when they chose it.
+    if (off && activeToolPane === "brand" && !brandPaneByChoice) openTool("start");
   }
   /* Admin authoring a print template can put themselves in the member's shoes
      for a moment, because "is the rail right?" is not a question you can
@@ -11517,6 +11529,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // Open a tool pane programmatically (clears any selection so the pane shows).
   function openTool(name) {
     state.selectedIds = [];
+    if (name !== "brand") brandPaneByChoice = false;
     activeToolPane = name;
     document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.toggle("is-active", b.dataset.tool === name));
     showPane(name);
