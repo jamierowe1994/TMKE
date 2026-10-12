@@ -224,15 +224,15 @@ export const WALKS = {
       /* Dani's picture, taken in the rig. A step with a shot does not drive the
          live Studio at all: no page to load, nothing to select, nothing to
          scroll, and it looks the same every time. */
-      { shot: "/images/learn/demo/shots/studio-template-1.webp", shotY: 80,
+      { shot: "/images/learn/demo/shots/studio-template--account-studio.webp",
         target: ".ws-hero", placement: "bottom",
         eyebrow: "Studio", title: "Welcome to the Studio",
         body: "You'll find your template packs, saved designs and creative tools in the Studio." },
-      { shot: "/images/learn/demo/shots/studio-template-1.webp", shotY: 326,
+      { shot: "/images/learn/demo/shots/studio-template--account-studio.webp",
         target: 'section[aria-labelledby="packs-h"]', placement: "top",
         eyebrow: "Your packs", title: "Find Your Templates",
         body: "Your packs are displayed here, including the free Demo Pack that comes with every Member Hub account." },
-      { shot: "/images/learn/demo/shots/studio-template-1.webp", shotY: 375,
+      { shot: "/images/learn/demo/shots/studio-template--account-studio.webp",
   target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
         eyebrow: "Your packs", title: "Open Your Demo Pack",
         body: "Select the Demo Pack to see the three templates included with your account." },
