@@ -84,7 +84,7 @@ const PICKER = COURSES.map((c) => ({
         <select id="sr-step"></select>
       </label>
 
-      <button type="button" class="sr-btn" id="sr-shot">Copy the picture</button>
+      <button type="button" class="sr-btn" id="sr-shot">Copy the whole page</button>
       <button type="button" class="sr-btn sr-btn--ghost" id="sr-save">Save it instead</button>
     </div>
 
@@ -353,19 +353,27 @@ const PICKER = COURSES.map((c) => ({
       window.addEventListener("resize", fit, { passive: true });
 
       // ---- the picture -----------------------------------------------------
-      const shotName = () => (current ? current.walkId + "-" + current.n : "shot") + ".png";
+      /* Named for the PAGE, not the step: one tall picture serves every step
+         that happens on it, and each step scrolls to its own part. */
+      const shotName = () => {
+        if (!current) return "page.png";
+        const s = stepOf(current.walkId, current.n);
+        const slug = String(s.path).replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-").replace(/-+$/, "");
+        return current.walkId + "--" + slug + ".png";
+      };
       /* What the last capture actually measured. Printed under the note so a
          picture that comes back wrong can be diagnosed from the numbers rather
          than from me reasoning about what a browser might have done. */
       let lastShot = null;
       const shotReport = () => {
         if (!lastShot) return "";
-        return "<br><small>window " + lastShot.viewport + " &middot; capture " + lastShot.video
-          + " &middot; dpr " + lastShot.dpr + " &middot; frame " + lastShot.frameOnScreen
-          + " &middot; file " + lastShot.file + (lastShot.short ? " &middot; <strong>cut short</strong>" : "") + "</small>";
+        return "<br><small>page " + (lastShot.pageHeight || "?") + "px in " + (lastShot.slices || 1)
+          + " slice" + ((lastShot.slices || 1) === 1 ? "" : "s") + " &middot; file " + lastShot.file
+          + " &middot; window " + lastShot.viewport + " &middot; dpr " + lastShot.dpr
+          + (lastShot.short ? " &middot; <strong>cut short</strong>" : "") + "</small>";
       };
 
-      async function grab() {
+      async function grab(tall) {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
           throw new Error("this browser cannot capture a tab");
         }
@@ -398,6 +406,7 @@ const PICKER = COURSES.map((c) => ({
              pixel ratio and any browser zoom. */
           let vhPx = video.videoHeight;
           let r = stage.getBoundingClientRect();
+          if (tall) return await grabTall(video, vw, vhPx, capScale);
 
           /* Fit to what the capture can actually SEE, not to what the window
              says. On Dani's screen the frame ran off the bottom: the captured
@@ -475,6 +484,88 @@ const PICKER = COURSES.map((c) => ({
           : "That did not work (" + msg + "). Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
       };
 
+      /* What actually scrolls inside the frame.
+         Most hub pages scroll the window; the pack view scrolls a container of
+         its own. Taking the tallest thing that can scroll finds either. */
+      const frameScroller = () => {
+        const d = frame.contentDocument;
+        if (!d) return null;
+        let best = d.scrollingElement || d.documentElement;
+        let bestOver = (best.scrollHeight || 0) - (best.clientHeight || 0);
+        d.querySelectorAll("*").forEach((el) => {
+          const cs = frame.contentWindow.getComputedStyle(el);
+          if (!/auto|scroll|overlay/.test(cs.overflowY)) return;
+          const over = el.scrollHeight - el.clientHeight;
+          if (over > bestOver + 8) { best = el; bestOver = over; }
+        });
+        return { el: best, over: bestOver };
+      };
+
+      /* The WHOLE page, in one tall picture.
+         A tab capture only holds what is on screen, so the page is walked down
+         a screenful at a time and the slices are stitched. This is the shape
+         the demo needs: the pop-out is a fraction of whoever's window is
+         looking at it, so a picture cut to one person's frame crops wrongly on
+         everybody else's. A tall picture plus a scroll offset per step is what
+         the live frame did, and it is the only version that survives a
+         different screen. Dani, 12 Oct: "you're still going to have to do the
+         automated scroll to the relevant piece." */
+      async function grabTall(video, vw, vhPx, capScale) {
+        const sc = frameScroller();
+        const d = frame.contentDocument;
+        const stepH = SHOT_H;                                   // one frameful of the page
+        const total = Math.min(4200, Math.max(SHOT_H, sc ? sc.el.scrollHeight : SHOT_H));
+        const slices = Math.ceil(total / stepH);
+
+        const rx = vw / window.innerWidth, ry = vhPx / window.innerHeight;
+        const r = stage.getBoundingClientRect();
+        const outW = Math.round(SHOT_W * rx * capScale);
+        const sliceH = Math.round(SHOT_H * ry * capScale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = outW;
+        canvas.height = Math.round(total * (sliceH / SHOT_H));
+        const ctx = canvas.getContext("2d");
+
+        /* Anything pinned to the top repeats in every slice, so it is let go
+           after the first one and put back afterwards. */
+        const pinned = [];
+        d.querySelectorAll("*").forEach((el) => {
+          const cs = frame.contentWindow.getComputedStyle(el);
+          if (cs.position === "fixed" || cs.position === "sticky") pinned.push([el, el.style.position]);
+        });
+
+        for (let i = 0; i < slices; i++) {
+          const y = i * stepH;
+          if (sc) sc.el.scrollTop = y;
+          if (i === 1) pinned.forEach(([el]) => { el.style.position = "static"; });
+          await new Promise((rr) => setTimeout(rr, 260));
+          const take = Math.min(stepH, total - y);
+          ctx.drawImage(
+            video,
+            Math.round(r.left * rx), Math.round(r.top * ry),
+            Math.round(r.width * rx), Math.round(take * ry * capScale),
+            0, Math.round(y * (sliceH / SHOT_H)),
+            outW, Math.round(take * (sliceH / SHOT_H))
+          );
+        }
+
+        pinned.forEach(([el, was]) => { el.style.position = was; });
+        if (sc) sc.el.scrollTop = 0;
+        lastShot = {
+          viewport: window.innerWidth + "x" + window.innerHeight,
+          video: vw + "x" + vhPx,
+          dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+          capScale: Math.round(capScale * 1000) / 1000,
+          frameOnScreen: Math.round(r.width) + "x" + Math.round(r.height),
+          file: canvas.width + "x" + canvas.height,
+          pageHeight: total,
+          slices: slices,
+          short: false,
+        };
+        return await new Promise((done) => canvas.toBlob(done, "image/png"));
+      }
+
       const busy = (on) => { shotBtn.disabled = on; saveBtn.disabled = on; };
 
       /* Straight to the clipboard: copy here, paste into the chat, no file to
@@ -485,7 +576,7 @@ const PICKER = COURSES.map((c) => ({
         busy(true);
         say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
         try {
-          const blob = await grab();
+          const blob = await grab(true);
           if (!navigator.clipboard || !window.ClipboardItem) throw new Error("this browser will not copy images");
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
           say((lastShot && lastShot.short
@@ -500,7 +591,7 @@ const PICKER = COURSES.map((c) => ({
         busy(true);
         say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
         try {
-          const blob = await grab();
+          const blob = await grab(true);
           const a = document.createElement("a");
           a.href = URL.createObjectURL(blob);
           a.download = shotName();

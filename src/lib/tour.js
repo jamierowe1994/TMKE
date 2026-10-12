@@ -323,7 +323,15 @@ async function showShot(src, y) {
      however much it was shrunk or stretched to get there. */
   const shown = stage.img.getBoundingClientRect().width || SHOT_NATURAL_W;
   const k = shown / (stage.img.naturalWidth || SHOT_NATURAL_W);
-  stage.img.style.transform = 'translateY(' + Math.round(-(y || 0) * k) + 'px)';
+  /* Never past the foot of the picture. A step's offset is measured on the
+     whole page, so a picture that is only a frameful tall -- one taken before
+     the rig could capture the whole page -- would scroll off its own bottom
+     and show nothing. Clamped, it simply sits at the end instead, and comes
+     right of its own accord when a taller picture replaces it. */
+  const frameH = (stage.frame && stage.frame.getBoundingClientRect().height) || 0;
+  const pictureH = stage.img.naturalHeight || 0;
+  const maxY = Math.max(0, pictureH - (frameH / (k || 1)));
+  stage.img.style.transform = 'translateY(' + Math.round(-Math.min(y || 0, maxY) * k) + 'px)';
 }
 
 function stageReady() {
