@@ -84,8 +84,8 @@ const PICKER = COURSES.map((c) => ({
         <select id="sr-step"></select>
       </label>
 
-      <button type="button" class="sr-btn" id="sr-shot">Copy the whole page</button>
-      <button type="button" class="sr-btn sr-btn--ghost" id="sr-save">Save it instead</button>
+      <button type="button" class="sr-btn" id="sr-shot">Take the picture</button>
+      <button type="button" class="sr-btn sr-btn--ghost" id="sr-save" hidden>Save it instead</button>
     </div>
 
     {/* What this step has to show, in its own words, so the shot can be set up
@@ -115,11 +115,10 @@ const PICKER = COURSES.map((c) => ({
         <li>Press <strong>Training</strong> so the Studio wears Rimberio Homes and carries no demo badge.</li>
         <li>Pick the walk, then the step. The right page loads in the frame and the picture is named for you.</li>
         <li>Arrange the frame to match the step shown under the pickers &mdash; select the thing it talks about, open the panel it mentions, scroll to the right place.</li>
-        <li><strong>Copy the picture</strong> and paste it straight into the chat. No file to save or find.</li>
+        <li><strong>Take the picture</strong>, then type <strong>done</strong> in the chat. Claude picks it up at full size and tidies it away &mdash; nothing to save, find or paste.</li>
       </ol>
       <p class="sr-small">
-        A tick beside a step means it already has a picture. <strong>Save it
-        instead</strong> downloads a PNG, for when you would rather keep one.
+        A tick beside a step means it already has a picture.
         If your browser will not share the tab, an ordinary screenshot of the
         framed area still works &mdash; it is the right shape.
       </p>
@@ -610,28 +609,31 @@ const PICKER = COURSES.map((c) => ({
         say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
         try {
           const blob = await grab(true);
-          if (!navigator.clipboard || !window.ClipboardItem) throw new Error("this browser will not copy images");
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          /* The chat shrinks any picture to 2000px on its longest side, so a
-             whole page at full resolution -- 4000px and more -- arrives at
-             under half size and blurred. Measured 12 Oct: a 1680-wide capture
-             of the Studio homepage landed 784 x 2000. Anything that tall is
-             saved to Downloads as well, where it is picked up at full size. */
-          const tooTall = lastShot && parseInt(String(lastShot.file).split("x")[1], 10) > 2000;
-          if (tooTall) {
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = shotName();
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-            say("This page is too tall to paste at full size &mdash; the chat would shrink it. "
-              + "So it is <strong>saved to your Downloads</strong> as <strong>" + shotName()
-              + "</strong>. Just say <strong>saved</strong> in the chat; no need to paste it." + shotReport(), "good");
-            return;
-          }
+          /* Every picture goes to Downloads as well as the clipboard, with no
+             dialog and no extra click. The chat stopped saving pasted pictures
+             as files on the evening of 12 Oct -- they showed in the
+             conversation, but Claude had nothing to put in the walkthrough --
+             and it shrinks anything taller than 2000px anyway. The file in
+             Downloads is the one that is used, at full size, and Claude moves
+             it out of Downloads once it is in, so nothing piles up. Dani:
+             "The whole point is that the button is so that I don't have to
+             save it." Saved first, so a refused clipboard cannot lose it. */
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = shotName();
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+          let copied = false;
+          try {
+            if (navigator.clipboard && window.ClipboardItem) {
+              await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+              copied = true;
+            }
+          } catch (_) { /* the file in Downloads is the one that matters */ }
           say((lastShot && lastShot.short
-            ? "Copied, but the capture was <strong>cut short</strong> &mdash; send it over with the line below and I will fix the rig."
-            : "Copied. Paste it into the chat &mdash; it is <strong>" + shotName() + "</strong>, so you need say nothing else.")
+            ? "Taken, but the capture was <strong>cut short</strong> &mdash; tell Claude, with the line below."
+            : "Done &mdash; <strong>" + shotName() + "</strong> is ready for Claude. Just type <strong>done</strong> in the chat"
+              + (copied ? " (or paste it, if you want to see it there)." : "."))
             + shotReport(), lastShot && lastShot.short ? "bad" : "good");
         } catch (err) { failed(err); }
         finally { busy(false); }
