@@ -230,8 +230,14 @@ export const WALKS = {
       { target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
         eyebrow: "Your packs", title: "Open the Demo Pack.",
         body: "The templates that come with every account. Click a pack to see everything inside it." },
-      // No box: the card sits beside the templates and leaves them in plain view.
-      { href: "/account/editor?pack=demo", target: "#ed-onboard-design-grid", placement: "right", box: false,
+      /* The whole pack view, not just the grid of designs. The pack page
+         scrolls inside its own container, and centring the GRID in it pushed
+         "All packs", the pack's name and its line of description off the top.
+         The section is the thing the step is about: the back link, the title
+         and the designs together. Dani, 12 Oct: "include everything you see on
+         that screen, from All Packs to the bottom of the template ... that
+         whole content is basically central, not missing some off at the top." */
+      { href: "/account/editor?pack=demo", target: "#ed-onboard-step2, #ed-onboard-design-grid", placement: "right", box: false,
         eyebrow: "The pack", title: "Every Template in It.",
         body: "The designs in this pack, ready to use. Choose the one that suits the post you want to make." },
       { href: "/account/editor?training=1", target: "#ed-canvas-shadow", placement: "left",

@@ -207,7 +207,10 @@ function openStage(title) {
         <button type="button" class="tmke-stage-x" data-stage-x>Close demo &times;</button>
       </div>
       <div class="tmke-stage-body" data-stage-body>
-        <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+        <div class="tmke-stage-screen">
+          <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+          <div class="tmke-stage-spin" aria-hidden="true"><i></i></div>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(wrap);
@@ -241,6 +244,7 @@ function openStage(title) {
     });
     stage.ro.observe(stage.frame);
   }
+  stage.box.classList.add('is-busy');
   wrap.querySelector('[data-stage-title]').textContent = title || '';
   wrap.addEventListener('click', (e) => {
     if (e.target === wrap || e.target.closest('[data-stage-x]')) finish(false);
@@ -272,7 +276,7 @@ function closeStage() {
    everything above it arrived. Dani, 12 Oct: "it loads in further down and
    then moves up." Two readings the same, 140ms apart, and it has settled;
    capped so a page that never settles does not hold the demo shut. */
-function frameSettled(ms = 2600) {
+function frameSettled(ms = 1200) {
   return new Promise((resolve) => {
     const started = Date.now();
     let last = -1, same = 0;
@@ -280,12 +284,18 @@ function frameSettled(ms = 2600) {
       if (!stage || !stage.frame) return resolve();
       let h = 0;
       try { h = stage.frame.contentDocument.body.scrollHeight; } catch (_) { return resolve(); }
+      // Two readings the same and it has stopped moving. Checked on the frame
+      // rather than on a timer: a page that settles in 120ms waits 120ms.
       if (h === last) { if (++same >= 2) return resolve(); } else { same = 0; last = h; }
       if (Date.now() - started > ms) return resolve();
-      setTimeout(tick, 140);
+      requestAnimationFrame(() => setTimeout(tick, 60));
     };
     tick();
   });
+}
+
+function stageReady() {
+  if (stage && stage.box) stage.box.classList.remove('is-busy');
 }
 
 function stageGo(url) {
@@ -293,12 +303,21 @@ function stageGo(url) {
     if (!stage) return resolve();
     if (stage.url === url) return resolve();
     stage.url = url;
+    /* Covered while it loads. Steps four and five of Opening a Template are on
+       different pages, so Next and Back navigated the frame and the reader
+       watched the whole thing come up -- nav bar, then a jump, then the
+       content. Dani, 12 Oct: "I don't want to see that because it ruins the
+       illusion ... you see a little loading circle ... it doesn't actually
+       move to the next one until everything is ready to move together."
+       Uncovered by stageReady(), after the page has settled AND the step has
+       scrolled it to the right place. */
+    stage.box.classList.add('is-busy');
     let done = false;
     const go = () => {
       if (done) return;
       done = true;
       dressStage();
-      frameSettled().then(() => setTimeout(resolve, 120));
+      frameSettled().then(resolve);
     };
     stage.frame.addEventListener('load', go, { once: true });
     setTimeout(go, 14000);
@@ -427,7 +446,20 @@ function injectStyles() {
      stood beside it, so a centred pop-out finished as two separate things.
      Dani, 12 Oct. */
   .tmke-stage-body { flex: 1 1 auto; display: flex; min-height: 0; }
-  .tmke-stage-body .tmke-stage-frame { flex: 1 1 auto; min-width: 0; }
+  .tmke-stage-screen { position: relative; flex: 1 1 auto; min-width: 0; display: flex; background: var(--ws-bg, #f6f4f2); }
+  .tmke-stage-body .tmke-stage-frame { flex: 1 1 auto; min-width: 0; transition: opacity .2s ease; }
+  /* While the demo is loading or being scrolled into place, the reader sees a
+     spinner over its own background rather than the page assembling itself. */
+  .tmke-stage-box.is-busy .tmke-stage-frame { opacity: 0; }
+  .tmke-stage-spin { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
+  .tmke-stage-box.is-busy .tmke-stage-spin { display: flex; }
+  .tmke-stage-spin i {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 2px solid rgba(28,29,34,0.14); border-top-color: var(--english-violet, #371e28);
+    animation: tmke-stage-spin .7s linear infinite;
+  }
+  @keyframes tmke-stage-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .tmke-stage-spin i { animation-duration: 2s; } }
   .tmke-tour-card.is-staged {
     position: static; flex: 0 0 auto; align-self: stretch;
     width: clamp(300px, 34%, 400px); max-width: none; height: auto;
@@ -1182,6 +1214,10 @@ async function render(index) {
        seconds for it buys a dead pause and then skips anyway. Look once and
        move on. Dani, 9 Oct. */
     const t = await waitFor(step.target, step.optional ? 0 : (stageOn() ? 9000 : 4000));
+    /* Nothing is on show until stageReady(), so a step no longer has to sit
+       through a fixed pause to look calm: it is covered until it is right.
+       Dani, 12 Oct: "there's just a really long load time between all of
+       them." */
     if (!t) return advance(index, +1, true);
     scrollTargetIntoView(t);
     await new Promise((r) => setTimeout(r, 120)); // let layout settle
@@ -1236,6 +1272,10 @@ async function render(index) {
   settleReflow();
   els.card.classList.remove('is-loading');
   nextTick(() => els.card.classList.add('is-in'));
+  /* Only now: the page has loaded, stopped growing, and been scrolled to the
+     part this step is about. Uncovering any earlier is what let the reader see
+     the demo arrive with its nav bar showing and then skip up. Dani, 12 Oct. */
+  if (stageOn()) nextTick(stageReady);
 }
 
 // Move by `dir` (+1/-1). If the destination step is on another page, persist
