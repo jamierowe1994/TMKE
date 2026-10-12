@@ -11134,7 +11134,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const sub = document.getElementById("ed-fields-sub");
     if (title) title.textContent = admin ? "The fields you are giving them" : "What do you need to change?";
     if (sub) sub.textContent = admin
-      ? "Every item you have set to \u201ctheirs to fill in\u201d. Name each one so it says what to write, and put them in the order you want them asked for."
+      /* Said in the lock control's own words (Danielle, 12 Oct 2026): on a
+         print design a field is an item set to Fixed; Locked keeps it off. */
+      ? (isPrintDesign()
+        ? "Every item whose lock is set to Fixed: members can change its words or picture, but not move it. Items set to Locked can't be touched, so they aren't here. Name each one so it says what to write, and put them in the order you want them asked for."
+        : "Every picture and piece of text on this design, unless you've taken it off the list. Name each one so it says what to write, and put them in the order you want them asked for.")
       : "Each box below is a part of this design you can make yours.";
 
     wrap.innerHTML = "";
@@ -11143,7 +11147,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (empty) {
         empty.hidden = false;
         empty.textContent = admin
-          ? "Nothing on this design is set to \u201ctheirs to fill in\u201d yet. Select an item and set its lock to that, and it will appear here."
+          ? "Nothing on this design is set to Fixed yet. Select an item and set its lock to Fixed (not Locked), and it will appear here."
           : "Nothing on this design has been set up to change yet \u2014 let TMKE know and we will sort it.";
       }
       return;
