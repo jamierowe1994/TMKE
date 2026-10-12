@@ -1,0 +1,217 @@
+---
+/**
+ * The shot rig — pictures for the walkthrough demos, at the right size.
+ *
+ * A walkthrough step can show a picture of the Studio instead of driving the
+ * live Studio (src/lib/tour.js, `shot`). The pictures have to be the shape of
+ * the pop-out's screen area or they letterbox, and cropping a desktop
+ * screenshot to that by hand is both fiddly and never quite right twice.
+ *
+ * So: the Studio, in a frame that IS that size, and a button that captures
+ * exactly that frame and saves it. Set the demo up however the step needs it,
+ * press Take the picture, send the file over.
+ *
+ * Dani, 12 Oct: "build a fake one of these that I can use and send you the
+ * image directly through to, so that you can put it into the demo."
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+
+/* The pop-out's screen area at a large window, measured from the real thing:
+   the box is min(1240px, 86vw) wide by min(82vh, 860px) tall, the panel takes
+   clamp(300px, 34%, 400px) of the width and the header 46px of the height. */
+const SHOT_W = 840;
+const SHOT_H = 774;
+---
+
+<BaseLayout title="Shot rig — TMKE" description="Pictures for the walkthrough demos.">
+  <main class="sr">
+    <header class="sr-head">
+      <p class="sr-eyebrow">Walkthrough demos</p>
+      <h1>The shot rig.</h1>
+      <p class="sr-lede">
+        The Studio at exactly the size the demo pop-out shows it: {SHOT_W} &times; {SHOT_H}.
+        Set it up the way the step needs, then take the picture. The file saves
+        cropped to the frame, at your screen's full resolution.
+      </p>
+    </header>
+
+    <div class="sr-bar">
+      <label class="sr-field sr-field--grow">
+        <span>Page</span>
+        <input id="sr-url" type="text" value="/account/editor?training=1" spellcheck="false" />
+      </label>
+      <label class="sr-field">
+        <span>Save as</span>
+        <input id="sr-name" type="text" value="studio-text-1" spellcheck="false" />
+      </label>
+      <button type="button" class="sr-btn sr-btn--ghost" id="sr-go">Load page</button>
+      <button type="button" class="sr-btn" id="sr-shot">Take the picture</button>
+    </div>
+
+    <p class="sr-note" id="sr-note">
+      Your browser will ask what to share. Choose <strong>this tab</strong>.
+      Nothing leaves your machine &mdash; the picture is cropped here and saved
+      to your Downloads.
+    </p>
+
+    {/* The frame. Fixed pixel size, scaled down to fit the window if it has to
+        be, so the capture is always the same shape whatever screen it is on. */}
+    <div class="sr-stage-wrap">
+      <div class="sr-stage" id="sr-stage" style={`width:${SHOT_W}px;height:${SHOT_H}px`}>
+        <iframe id="sr-frame" title="The Studio, at demo size" src="/account/editor?training=1"></iframe>
+      </div>
+    </div>
+
+    <section class="sr-help">
+      <h2>How to use it</h2>
+      <ol>
+        <li>Open the training account first (<a href="/demo?go=1&brand=demo">/demo?go=1&amp;brand=demo</a>) so the Studio wears Rimberio Homes and carries no demo badge.</li>
+        <li>Put the page the step is about in <strong>Page</strong> and press <strong>Load page</strong>. The Studio homepage is <code>/account/studio</code>; the demo pack is <code>/account/editor?pack=demo</code>; a design open in the editor is <code>/account/editor?training=1</code>.</li>
+        <li>Arrange it in the frame: select the thing the step talks about, open the panel it mentions, scroll to the right place.</li>
+        <li>Name the file after the step &mdash; <code>studio-text-2</code> for step two of Changing the Words &mdash; and press <strong>Take the picture</strong>.</li>
+        <li>Send me the file. I will put it on the step.</li>
+      </ol>
+      <p class="sr-small">
+        If your browser will not share the tab, take an ordinary screenshot of
+        the framed area instead: it is the right shape, so it will still sit
+        correctly in the demo.
+      </p>
+    </section>
+  </main>
+
+  <style>
+    /* Clear of the site header, which overlays the top of the page. */
+    .sr { max-width: 1180px; margin: 0 auto; padding: 120px 24px 80px; font-family: var(--sans); }
+    .sr-head { margin-bottom: 26px; }
+    .sr-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-accent, #371e28); margin: 0 0 8px; }
+    .sr h1 { font-family: var(--serif); font-size: clamp(30px, 4vw, 44px); font-weight: 500; letter-spacing: -0.02em; margin: 0 0 10px; }
+    .sr-lede { font-size: 15px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.66)); max-width: 72ch; margin: 0; }
+
+    .sr-bar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin: 0 0 12px; }
+    .sr-field { display: flex; flex-direction: column; gap: 5px; }
+    .sr-field--grow { flex: 1 1 360px; min-width: 260px; }
+    .sr-field span { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-tx, rgba(28,29,34,0.6)); }
+    .sr-field input { font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--ws-line, rgba(28,29,34,0.16)); border-radius: 6px; background: #fff; }
+    .sr-btn { font: inherit; font-size: 13px; font-weight: 700; letter-spacing: 0.04em; padding: 10px 18px; border-radius: 6px; border: 1px solid var(--english-violet, #371e28); background: var(--english-violet, #371e28); color: #fff; cursor: pointer; }
+    .sr-btn--ghost { background: #fff; color: var(--english-violet, #371e28); }
+    .sr-btn:disabled { opacity: 0.5; cursor: default; }
+
+    .sr-note { font-size: 13px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.6)); margin: 0 0 20px; }
+    .sr-note.is-bad { color: #8a2b2b; }
+    .sr-note.is-good { color: #2b6b43; }
+
+    /* The frame itself. Scaled, never resized: the iframe keeps its real pixel
+       size so the Studio inside lays out exactly as it will in the demo, and
+       only the picture of it is shrunk to fit this page. */
+    .sr-stage-wrap { display: flex; justify-content: center; margin-bottom: 44px; }
+    .sr-stage { position: relative; flex: 0 0 auto; transform-origin: top center; overflow: hidden; background: var(--ws-bg, #f6f4f2); border: 1px solid var(--ws-line, rgba(28,29,34,0.16)); border-radius: 8px; box-shadow: 0 30px 70px -34px rgba(28,29,34,0.5); }
+    .sr-stage iframe { width: 100%; height: 100%; border: 0; display: block; }
+
+    .sr-help { max-width: 78ch; }
+    .sr-help h2 { font-family: var(--sans); font-size: 16px; font-weight: 700; margin: 0 0 10px; }
+    .sr-help ol { margin: 0 0 14px; padding-left: 20px; }
+    .sr-help li { font-size: 14px; line-height: 1.65; margin-bottom: 7px; }
+    .sr-help code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.05); padding: 1px 5px; border-radius: 4px; }
+    .sr-small { font-size: 13px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.6)); }
+  </style>
+
+  <script is:inline define:vars={{ SHOT_W, SHOT_H }}>
+    (function () {
+      const stage = document.getElementById("sr-stage");
+      const frame = document.getElementById("sr-frame");
+      const urlIn = document.getElementById("sr-url");
+      const nameIn = document.getElementById("sr-name");
+      const note = document.getElementById("sr-note");
+      const shotBtn = document.getElementById("sr-shot");
+
+      const say = (msg, kind) => {
+        note.innerHTML = msg;
+        note.classList.toggle("is-bad", kind === "bad");
+        note.classList.toggle("is-good", kind === "good");
+      };
+
+      /* Scale the frame down when the window is too small to hold it, so the
+         rig is usable on a laptop. The iframe still lays out at SHOT_W x
+         SHOT_H -- only its picture is shrunk -- and the capture divides the
+         scale back out, so the file is always full size. */
+      let scale = 1;
+      const fit = () => {
+        const room = Math.min(stage.parentElement.clientWidth, window.innerWidth - 48);
+        scale = Math.min(1, room / SHOT_W);
+        stage.style.transform = scale < 1 ? `scale(${scale})` : "";
+        stage.parentElement.style.height = Math.round(SHOT_H * scale) + "px";
+      };
+      fit();
+      window.addEventListener("resize", fit, { passive: true });
+
+      document.getElementById("sr-go").addEventListener("click", () => {
+        const u = (urlIn.value || "").trim();
+        if (u) frame.src = u;
+      });
+      urlIn.addEventListener("keydown", (e) => { if (e.key === "Enter") document.getElementById("sr-go").click(); });
+
+      shotBtn.addEventListener("click", async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          say("This browser cannot capture the tab. Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
+          return;
+        }
+        shotBtn.disabled = true;
+        say("Choose <strong>this tab</strong> in the box your browser is showing&hellip;");
+        let stream = null;
+        try {
+          stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { displaySurface: "browser" },
+            preferCurrentTab: true,
+            audio: false,
+          });
+
+          /* Through a <video>, not ImageCapture: grabFrame is not in every
+             browser, and a video element is. One frame is all we need. */
+          const video = document.createElement("video");
+          video.srcObject = stream;
+          video.muted = true;
+          await video.play();
+          await new Promise((r) => setTimeout(r, 260));   // let the first frame land
+
+          const vw = video.videoWidth, vh = video.videoHeight;
+          if (!vw || !vh) throw new Error("no frame");
+
+          /* The captured frame is the whole tab. Map CSS pixels onto it by the
+             ratio of its width to the viewport's, which covers both the
+             device pixel ratio and any browser zoom. */
+          const ratio = vw / window.innerWidth;
+          const r = stage.getBoundingClientRect();
+          const sx = Math.round(r.left * ratio);
+          const sy = Math.round(r.top * ratio);
+          const sw = Math.round(r.width * ratio);
+          const sh = Math.round(r.height * ratio);
+
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(SHOT_W * (ratio / scale));
+          canvas.height = Math.round(SHOT_H * (ratio / scale));
+          canvas.getContext("2d").drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+
+          const name = ((nameIn.value || "shot").trim().replace(/[^a-z0-9-_]+/gi, "-")) + ".png";
+          await new Promise((done) => canvas.toBlob((blob) => {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            done();
+          }, "image/png"));
+
+          say("Saved <strong>" + name + "</strong> at " + canvas.width + " &times; " + canvas.height + ". Send it over and I will put it on the step.", "good");
+        } catch (err) {
+          const msg = String((err && err.name) || err);
+          say(/NotAllowed/i.test(msg)
+            ? "Sharing was declined, so nothing was captured. Press the button again and choose this tab."
+            : "That did not work (" + msg + "). Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
+        } finally {
+          if (stream) stream.getTracks().forEach((t) => t.stop());
+          shotBtn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</BaseLayout>
