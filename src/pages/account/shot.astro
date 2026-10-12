@@ -126,6 +126,41 @@ const PICKER = COURSES.map((c) => ({
     </section>
   </main>
 
+
+  <style is:global>
+    /* For the instant of the capture: the frame alone, pinned to the top-left
+       of the window and scaled to fit it. A tab capture only contains what is
+       ON SCREEN, and the frame is 774px tall -- taller than a laptop viewport
+       once the page's own header and controls sit above it -- so the bottom of
+       the picture came back white. Global, not scoped: these hang off `body`
+       and the site's own chrome, neither of which belongs to this page's
+       stylesheet. Dani, 12 Oct. */
+    body.is-capturing { overflow: hidden !important; background: #fff !important; }
+    /* The site's own chrome, by name. A rule hung off body's direct children
+       missed it, because the header and footer sit inside a wrapper rather
+       than beside it -- and the frame could not simply be stacked over them,
+       since a z-index only competes inside its own stacking context. The
+       Studio in the iframe has its own header; that is a separate document
+       and is untouched. */
+    body.is-capturing nav,
+    body.is-capturing header,
+    body.is-capturing footer,
+    body.is-capturing .ws-nav,
+    body.is-capturing [class*="cookie"],
+    body.is-capturing .sr-head,
+    body.is-capturing .sr-bar,
+    body.is-capturing .sr-step,
+    body.is-capturing .sr-note,
+    body.is-capturing .sr-help { display: none !important; }
+    body.is-capturing .sr { padding: 0 !important; max-width: none !important; }
+    body.is-capturing .sr-stage-wrap { display: block !important; margin: 0 !important; height: auto !important; }
+    body.is-capturing .sr-stage {
+      position: fixed !important; top: 0 !important; left: 0 !important;
+      z-index: 2147483000; transform-origin: top left !important;
+      border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+      visibility: visible !important;
+    }
+  </style>
   <style>
     /* Clear of the site header, which overlays the top of the page. */
     .sr { max-width: 1180px; margin: 0 auto; padding: 120px 24px 80px; font-family: var(--sans); }
@@ -243,6 +278,21 @@ const PICKER = COURSES.map((c) => ({
       fillSteps(walkSel.value);
       showStep(walkSel.value, 1);
 
+      /* The frame's own furniture.
+         The cookie banner lives INSIDE the frame, so none of the rig's styles
+         can reach it -- it is a separate document -- and it would have sat
+         across the bottom of every picture. Same origin, so it can simply be
+         taken out after each load, along with anything else that belongs to
+         the browsing of the hub rather than to the Studio being photographed. */
+      const tidyFrame = () => {
+        try {
+          const d = frame.contentDocument;
+          if (!d) return;
+          d.querySelectorAll('[class*="cookie"], [id*="cookie"], .cc-banner, .dm-pill').forEach((el) => el.remove());
+        } catch (_) { /* a page that has not settled yet is tidied on its next load */ }
+      };
+      frame.addEventListener("load", () => { tidyFrame(); setTimeout(tidyFrame, 700); });
+
       // ---- the account the frame runs as ---------------------------------
       /* The rig shares this browser's session with the frame inside it, so
          signed in as herself Dani was photographing her own hub, with her own
@@ -312,6 +362,16 @@ const PICKER = COURSES.map((c) => ({
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: { displaySurface: "browser" }, preferCurrentTab: true, audio: false,
         });
+        /* Into capture mode before anything is measured: the frame alone, at
+           the top-left of the window, scaled so the whole of it is on screen.
+           A tab capture holds only what is visible, and at 774px tall the
+           frame hangs off the bottom of a laptop window -- which is the white
+           band Dani got back. */
+        tidyFrame();
+        const capScale = Math.min(1, window.innerWidth / SHOT_W, window.innerHeight / SHOT_H);
+        document.body.classList.add("is-capturing");
+        stage.style.transform = "scale(" + capScale + ")";
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         try {
           /* Through a <video>, not ImageCapture: grabFrame is not in every
              browser, and a video element is. One frame is all we need. */
@@ -328,9 +388,12 @@ const PICKER = COURSES.map((c) => ({
              pixel ratio and any browser zoom. */
           const ratio = vw / window.innerWidth;
           const r = stage.getBoundingClientRect();
+          /* The file is the frame's own size times whatever the screen gives
+             us, so a retina display yields a sharper picture and a scaled-down
+             frame does not yield a smaller one. */
           const canvas = document.createElement("canvas");
-          canvas.width = Math.round(SHOT_W * (ratio / scale));
-          canvas.height = Math.round(SHOT_H * (ratio / scale));
+          canvas.width = Math.round(SHOT_W * ratio * capScale);
+          canvas.height = Math.round(SHOT_H * ratio * capScale);
           canvas.getContext("2d").drawImage(
             video,
             Math.round(r.left * ratio), Math.round(r.top * ratio),
@@ -340,6 +403,8 @@ const PICKER = COURSES.map((c) => ({
           return await new Promise((done) => canvas.toBlob(done, "image/png"));
         } finally {
           stream.getTracks().forEach((t) => t.stop());
+          document.body.classList.remove("is-capturing");
+          fit();   // back to the page's own layout
         }
       }
 
