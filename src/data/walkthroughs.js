@@ -314,7 +314,7 @@ export const WALKS = {
         target: "#ed-context", placement: "bottom", padding: 8, select: "heading",
         eyebrow: "Text", title: "Font, Size and Colour",
         body: "Select a text box to change its font, size, colour, alignment and other formatting using the toolbar above your design." },
-      { shot: "/images/learn/demo/shots/studio-text--heading-selected@2x.webp",
+      { shot: "/images/learn/demo/shots/studio-text--text-panel@2x.webp",
         target: '[data-tool="text"]', placement: "right", padding: 8, select: "",
         eyebrow: "Text", title: "Use the Text Panel",
         body: "Prefer not to edit directly on the design? The Text panel lets you find and change your wording from the side menu." },
