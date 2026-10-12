@@ -249,12 +249,13 @@ export const WALKS = {
          and the designs together. Dani, 12 Oct: "include everything you see on
          that screen, from All Packs to the bottom of the template ... that
          whole content is basically central, not missing some off at the top." */
-      { href: "/account/editor?pack=demo", target: "#ed-onboard-step2, #ed-onboard-design-grid", placement: "right", box: false,
+      { shot: "/images/learn/demo/shots/studio-template--demo-pack@2x.webp",
+        href: "/account/editor?pack=demo", target: "#ed-onboard-step2, #ed-onboard-design-grid", placement: "right", box: false,
         eyebrow: "The pack", title: "Choose Your Template",
         body: "Browse the designs in your pack and select the one you'd like to customise." },
       /* The same picture as the opening step of Make This Design Yours: both are
          the design sitting in the editor, freshly opened. One file, two walks. */
-      { shot: "/images/learn/demo/shots/editor--design-open.webp",
+      { shot: "/images/learn/demo/shots/editor--design-open@2x.webp",
         href: "/account/editor?training=1", target: "#ed-canvas-shadow", placement: "left",
         eyebrow: "Your copy", title: "Your Design Is Ready to Edit",
         body: "The Studio creates your own editable copy, leaving the original template untouched." },
@@ -274,7 +275,7 @@ export const WALKS = {
          Dani, 9 Oct. */
       /* The editor is an app shell: it does not scroll, so one frameful is the
          whole of it and no offset is needed. */
-      { shot: "/images/learn/demo/shots/editor--design-open.webp",
+      { shot: "/images/learn/demo/shots/editor--design-open@2x.webp",
         target: '[data-start-tool="brand"]', placement: "right", padding: 8, open: '[data-tool="start"]',
         eyebrow: "Brand", title: "Your Brand Kit, in the Studio",
         body: "The Brand tab gives you access to your saved colours, fonts and logos. You'll need to complete your Brand Kit first to use these features." },
