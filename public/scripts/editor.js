@@ -6850,7 +6850,7 @@ import { createResizeEngine } from "./resize-engine.js";
         await window.__TMKE_BRAND_FONTS_READY__;
       }
     } catch (_) {}
-    const specs = new Set();
+    const specs = new Map();   // font -> the characters drawn in it
     /* EVERY page, not just the one on screen. A multi-page template renders
        all of its sides for the catalogue, so a font used only on page two was
        never asked for - that page was drawn with a fallback face and its text
@@ -6868,15 +6868,25 @@ import { createResizeEngine } from "./resize-engine.js";
         if (el.hidden || el.type !== "text") continue;
         const want = [el.font];
         if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && r.font) want.push(r.font); });
+        /* With the element's own characters. A family can be split across
+           files by character -- The Seasons is: the demo build in the fonts
+           table for its letters, the licensed file for the 4 and the
+           punctuation the demo stamps -- and load() asked with no text loads
+           only the file that covers a space. The rest arrived after the
+           canvas was drawn, so a preview or a download could still carry a
+           DEMO stamp the screen did not. Dani, 12 Oct. */
+        let chars = typeof el.text === "string" ? el.text : "";
+        if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && typeof r.text === "string") chars += r.text; });
         want.forEach(function (name) {
           const stack = name ? fontStackFor(name) : (FONTS[0] ? FONTS[0].stack : "sans-serif");
           const fam = stack.split(",")[0].trim();
-          specs.add((el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam);
+          const spec = (el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam;
+          specs.set(spec, (specs.get(spec) || "") + chars);
         });
       }
     }
     try {
-      await Promise.all([...specs].map((s) => document.fonts.load(s).catch(function () {})));
+      await Promise.all([...specs].map(([s, text]) => document.fonts.load(s, (text || "") + " ").catch(function () {})));
       await document.fonts.ready;
     } catch (_) {}
   }

@@ -6057,45 +6057,43 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          pack is actually registered. Dani, 10 Oct. */
       const facePromises = [];
       if (!bfErr && bf && bf.length) {
+        /* The Seasons in the fonts table is the free demo build ("FSP DEMO -
+           The Seasons ..."), all six files. In every one of them the same 28
+           characters are one ornament stamped DEMO:
+             ! " # $ % & ' ( ) * + - / 4 < = > @ [ \\ ] ^ _ ` { | } ~
+           -- the digit 4 among them, which is how "340" came out with a DEMO
+           mark in the middle. Measured from the files, 12 Oct, by hashing each
+           glyph's outline: those 28 share one outline, every other character
+           is its own.
+           So the demo faces are only allowed to draw the characters they really
+           have -- letters, the other nine digits, space , . : ; ? -- and every
+           template keeps exactly the letter shapes and widths it was designed
+           with. Anything else falls through to the next face of the same name,
+           which is the licensed The Seasons the page already loads from
+           Typographer (BaseLayout): a full font, 454 characters, a real 4 and
+           real punctuation. It stays The Seasons; it just stops being the demo.
+           Line height is always a number in the Studio, so the line box is set
+           by the first face and a substituted glyph cannot make a line taller.
+           Dani, 12 Oct: "Anything that has a seasons icon, number, or letter
+           needs to remain the seasons." */
+        const SEASONS_REAL = 'U+20, U+2C, U+2E, U+30-33, U+35-3B, U+3F, U+41-5A, U+61-7A';
         const registered = new Set();
         for (const f of bf) {
           if (registered.has(f.family + '|' + f.weight + '|' + f.style)) continue;
           registered.add(f.family + '|' + f.weight + '|' + f.style);
           try {
+            const isSeasons = /^the seasons$/i.test(String(f.family || '').trim());
             const face = new FontFace(f.family, `url("${f.file_url}")`, {
               weight: String(f.weight || 400),
               style: f.style || 'normal',
               display: 'swap',
+              ...(isSeasons ? { unicodeRange: SEASONS_REAL } : {}),
             });
             facePromises.push(face.load().then((l) => document.fonts.add(l)).catch(() => {}));
           } catch (_) { /* ignore individual font failures */ }
         }
         // Editor.js reads this on init to populate the font picker.
         window.__TMKE_BRAND_FONTS__ = bf;
-      }
-      /* Put The Seasons' punctuation back, last.
-         That font has no apostrophe, bracket, dash or exclamation mark -- each
-         is an ornament, which is the stray mark that keeps turning up at the
-         end of a line. global.css hands those characters to Cormorant
-         Garamond, but the loop above registers The Seasons from the brand
-         fonts table at its FULL range, and a face added through the FontFaceSet
-         is matched after every face the stylesheets declare. So the ornaments
-         came straight back, and no amount of editing the CSS could stop them.
-         Re-adding the narrow range here, after those faces, puts it last.
-         Measured before: an apostrophe, a bracket, a dash and an exclamation
-         mark all came out 119.4px wide at 200px -- one ornament repeated.
-         Dani, 12 Oct. */
-      const SEASONS_GAP = 'U+21-2B, U+2D, U+2F, U+3C-3E, U+40, U+5B-60, U+7B-7E';
-      if ((bf || []).some((f) => /^the seasons$/i.test(String(f.family || '').trim()))) {
-        for (const style of ['normal', 'italic']) {
-          for (const weight of ['300', '400', '700']) {
-            try {
-              const fix = new FontFace('The Seasons', 'url("/fonts/cormorant-garamond-latin.woff2")',
-                { style, weight, display: 'swap', unicodeRange: SEASONS_GAP });
-              facePromises.push(fix.load().then((l) => document.fonts.add(l)).catch(() => {}));
-            } catch (_) {}
-          }
-        }
       }
       window.__TMKE_BRAND_FONTS_READY__ = Promise.all(facePromises);
     } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
