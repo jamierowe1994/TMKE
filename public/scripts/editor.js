@@ -12053,6 +12053,57 @@ import { createResizeEngine } from "./resize-engine.js";
     } catch (_) {}
   }
 
+  /* "Search the gallery": the free-photo search (Pexels and Unsplash, the
+     same one the Images panel uses) opened inside a Change image menu, so a
+     picture or a background can be swapped for a stock photo where you are.
+     Clicking a result does what clicking one of your uploads does. Dani, 12
+     Oct: people "might not fully understand that they can add a stock image
+     from here too." */
+  function galleryBlock(onPick) {
+    const wrap = document.createElement("div");
+    const toggle = document.createElement("button");
+    toggle.type = "button"; toggle.className = "ed-bg-imgmenu-search"; toggle.textContent = "Search the gallery";
+    const panel = document.createElement("div");
+    panel.className = "ed-gal"; panel.hidden = true;
+    panel.innerHTML = '<input type="search" placeholder="Try \u201ckitchen\u201d, \u201cgarden\u201d, \u201cinterior\u201d\u2026" autocomplete="off" />' +
+      '<p class="ed-gal-status">Type to search free photos from Pexels and Unsplash.</p>' +
+      '<div class="ed-bg-imgmenu-grid"></div>';
+    const input = panel.querySelector("input"), status = panel.querySelector(".ed-gal-status"), grid = panel.querySelector(".ed-bg-imgmenu-grid");
+    let timer = null, last = "", ticket = 0;
+    async function run() {
+      const q = input.value.trim();
+      if (q.length < 2) { grid.innerHTML = ""; status.textContent = "Type to search free photos from Pexels and Unsplash."; return; }
+      if (q === last) return;
+      last = q;
+      if (typeof window.__TMKE_STOCK_SEARCH__ !== "function") { status.textContent = "The photo search isn't ready yet. Try again in a moment."; return; }
+      const mine = ++ticket;
+      status.textContent = "Searching for \u201c" + q + "\u201d\u2026";
+      let results = [];
+      try { results = await window.__TMKE_STOCK_SEARCH__(q); } catch (_) {}
+      if (mine !== ticket) return;   // a newer search has started
+      grid.innerHTML = "";
+      if (!results.length) { status.textContent = "No photos for \u201c" + q + "\u201d. Try a different word."; return; }
+      status.textContent = results.length + " photos for \u201c" + q + "\u201d. Click one to use it.";
+      results.forEach(function (r) {
+        const b = document.createElement("button");
+        b.type = "button"; b.title = "Photo by " + r.credit;
+        b.style.backgroundImage = "url(" + JSON.stringify(r.thumb) + ")";
+        b.addEventListener("click", function () {
+          try { if (typeof window.__TMKE_STOCK_USED__ === "function") window.__TMKE_STOCK_USED__(r); } catch (_) {}
+          onPick(r.full);
+        });
+        grid.appendChild(b);
+      });
+    }
+    input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(run, 350); });
+    toggle.addEventListener("click", function () {
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) input.focus();
+    });
+    wrap.appendChild(toggle); wrap.appendChild(panel);
+    return wrap;
+  }
+
   function mountPicturePicker(opts) {
     const menu = opts.menu, button = opts.button;
     if (!menu || !button) return;
@@ -12080,6 +12131,7 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       const up = menu.querySelector("[data-upload]");
       if (up) up.addEventListener("click", function () { open(false); opts.onUpload(); });
+      menu.appendChild(galleryBlock(function (src) { open(false); opts.onPick(src); }));
     }
     function open(on) {
       if (on) build();
@@ -12150,6 +12202,7 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       const up = menu.querySelector("[data-upload]");
       if (up) up.addEventListener("click", () => { setImgMenu(false); if (fileInput) fileInput.click(); });
+      menu.appendChild(galleryBlock((src) => { setCanvasBackgroundImage(src); setImgMenu(false); }));
     }
     // The chooser opens in the panel under the row, so the chevron says which
     // way it is and the button's aria-expanded goes with it.

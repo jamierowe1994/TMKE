@@ -3514,6 +3514,28 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700;
       background: var(--english-violet); color: var(--paper); border: 0;
     }
+    /* Search the gallery: the free-photo search, inside a Change image menu.
+       The button is the upload button's quieter partner -- outlined, not
+       filled -- so the two read as a pair of ways in. */
+    .ed-bg-imgmenu-search {
+      display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+      margin-top: 8px; padding: 8px; border-radius: 8px; cursor: pointer;
+      font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700;
+      background: transparent; color: var(--english-violet);
+      border: 1px solid rgba(var(--violet-rgb), 0.45);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .ed-bg-imgmenu-search:hover { background: rgba(var(--violet-rgb), 0.08); border-color: var(--english-violet); }
+    .ed-gal { margin-top: 10px; }
+    .ed-gal[hidden] { display: none; }
+    .ed-gal input[type="search"] {
+      width: 100%; box-sizing: border-box; padding: 9px 11px;
+      border: 1px solid rgba(28,29,34,0.18); border-radius: 6px;
+      font: inherit; font-size: var(--ws-t-body); background: #fff; color: var(--ink); outline: none;
+    }
+    .ed-gal input[type="search"]:focus { border-color: var(--english-violet); }
+    .ed-gal-status { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); margin: 6px 0 8px; }
+    .ed-gal .ed-bg-imgmenu-grid { margin-top: 2px; }
     .ed-bg-op-row { display: flex; align-items: center; gap: 8px; }
     .ed-bg-op-row input[type="range"] { flex: 1; accent-color: var(--english-violet); }
     /* No native spinners anywhere in the Studio. The font size sits between a
@@ -6375,6 +6397,24 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           console.warn('Editor not ready — __TMKE_ADD_PHOTO__ missing');
         }
       }
+
+      /* The same search, for the Change image menus: a picture or background
+         can be swapped for a free photo without leaving it for the Images
+         panel. Dani, 12 Oct: people "might not fully understand that they can
+         add a stock image from here too." */
+      window.__TMKE_STOCK_SEARCH__ = async function (q) {
+        const sources = activeSources().length ? activeSources() : ['pexels', 'unsplash'];
+        const calls = [];
+        if (sources.includes('pexels')) calls.push(searchPexels(q));
+        if (sources.includes('unsplash')) calls.push(searchUnsplash(q));
+        const [a = [], b = []] = await Promise.all(calls);
+        return sources.length === 2 ? interleave(a, b) : [...a, ...b];
+      };
+      window.__TMKE_STOCK_USED__ = function (r) {
+        if (r && r.source === 'unsplash' && r.downloadLocation && UNSPLASH_KEY) {
+          fetch(r.downloadLocation, { headers: { Authorization: `Client-ID ${UNSPLASH_KEY}` } }).catch(() => {});
+        }
+      };
 
       let lastQuery = '';
       let debounceTimer = null;
