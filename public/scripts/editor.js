@@ -5989,8 +5989,11 @@ import { createResizeEngine } from "./resize-engine.js";
        does not appear in the text list and is invisible to Make it yours. As a
        shape it behaves like everything else on the page. Drawn as two filled
        commas with the weight of a serif face, so it sits with The Seasons
-       rather than looking like a typographer's apostrophe. Dani, 12 Oct. */
-    quote: { w: 360, h: 300, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20' fill='#1c1d22'><path d='M10 3.2c-4 1.3-6.6 4.3-6.6 8 0 3 1.9 5.1 4.4 5.1 2.2 0 3.8-1.6 3.8-3.7 0-2-1.4-3.5-3.3-3.5-.4 0-.8.1-1.1.2.5-1.9 2-3.4 4-4.2l-1.2-1.9zm10.4 0c-4 1.3-6.6 4.3-6.6 8 0 3 1.9 5.1 4.4 5.1 2.2 0 3.8-1.6 3.8-3.7 0-2-1.4-3.5-3.3-3.5-.4 0-.8.1-1.1.2.5-1.9 2-3.4 4-4.2l-1.2-1.9z'/></svg>` },
+       rather than looking like a typographer's apostrophe. Each one tapers to
+       a point at the top, like the picture on the testimonial template it
+       replaces, and the pair sits a quarter closer than the first attempt --
+       8.0 apart rather than 10.4. Dani, 12 Oct. */
+    quote: { w: 360, h: 300, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20' fill='#1c1d22'><path d='M8.4 2.6C5.1 4.9 3.2 8 3.2 11.2c0 2.9 1.8 4.9 4.2 4.9 2.1 0 3.6-1.5 3.6-3.5 0-1.9-1.3-3.3-3.1-3.3-.3 0-.6 0-.9.1.5-2.2 1.9-4.1 4-5.6L8.4 2.6zM16.4 2.6C13.1 4.9 11.2 8 11.2 11.2c0 2.9 1.8 4.9 4.2 4.9 2.1 0 3.6-1.5 3.6-3.5 0-1.9-1.3-3.3-3.1-3.3-.3 0-.6 0-.9.1.5-2.2 1.9-4.1 4-5.6L16.4 2.6z'/></svg>` },
     banner: { w: 520, h: 240, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 16' fill='#1c1d22'><polygon points='2,2 28,2 30,8 28,14 2,14 4,8'/></svg>` },
     plus: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9'/></svg>` },
 
