@@ -5984,25 +5984,20 @@ import { createResizeEngine } from "./resize-engine.js";
     /* Still here, and deliberately not on the palette: a design already using
        it would go blank if the definition went with the button. */
     lightning: { w: 320, h: 500, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 24' fill='#1c1d22'><polygon points='11,2 2,13 8,13 6,22 16,11 10,11 12,2'/></svg>` },
-    /* A quotation mark as a shape rather than a picture. The testimonial
-       templates carry one as an image, which means it cannot be recoloured,
-       does not appear in the text list and is invisible to Make it yours. As a
-       shape it behaves like everything else on the page. Drawn as two filled
-       commas with the weight of a serif face, so it sits with The Seasons
-       rather than looking like a typographer's apostrophe. Each one tapers to
-       a point at the top, like the picture on the testimonial template it
-       replaces: a round bowl with a tail that sweeps out of its left side and
-       narrows to an actual point.
+    /* The quotation mark from the testimonial templates, as a shape.
+       Traced from the picture itself rather than drawn by hand. Three attempts
+       at drawing one got closer each time and never got there -- too thick,
+       then too thin, then "they're just a weird shape" -- because the thing
+       being matched was sitting in the template the whole time. The artwork is
+       a transparent silhouette in one colour, so its alpha channel IS the
+       outline: traced with marching squares, simplified to a 0.9px tolerance
+       and scaled to a 24-wide box.
 
-       Each mark is a circle and a tapering wedge rather than one outline,
-       because that is the only version of this I could steer: the bowl's size
-       and the tip's sharpness are two numbers instead of eight control points.
-       Both subpaths wind the same way -- drawn the other way round they
-       cancelled where they overlap and left a dark notch between tail and
-       bowl, which is what the fill rule does to opposed windings.
-
-       Four shapes and four spacings, drawn and looked at. Dani, 12 Oct. */
-    quote: { w: 380, h: 280, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='1.9 1.3 20.6 15.3' fill='#1c1d22'><path d='M2.2 11.9a4.3 4.3 0 1 1 8.6 0a4.3 4.3 0 1 1-8.6 0ZM2.4 10.9C3.2 7.0 6.7 3.3 13.0 1.7C10.7 4.8 9.4 7.5 9.1 10.1ZM11.4 11.9a4.3 4.3 0 1 1 8.6 0a4.3 4.3 0 1 1-8.6 0ZM11.6 10.9C12.4 7.0 15.9 3.3 22.2 1.7C19.9 4.8 18.6 7.5 18.3 10.1Z'/></svg>` },
+       The point of having it as a shape at all: on the template it is a
+       picture, which cannot be recoloured, does not show in the text list and
+       is invisible to Make it yours. As a shape it takes a colour like
+       anything else. Dani, 12 Oct. */
+    quote: { w: 380, h: 326, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20.57' fill='#1c1d22'><path d='M8.8 0.0 L9.54 0.0 L9.64 0.28 L8.71 0.83 L7.69 1.67 L6.86 2.59 L6.12 3.71 L5.1 6.21 L4.82 8.15 L5.1 8.25 L5.65 8.06 L6.95 8.06 L7.6 8.25 L8.62 8.9 L9.08 9.45 L9.54 10.66 L9.45 12.51 L8.9 13.71 L8.06 14.55 L6.67 15.1 L4.73 15.01 L3.24 14.27 L2.41 13.25 L2.04 12.42 L1.76 10.93 L1.76 9.27 L2.04 7.88 L2.5 6.58 L3.15 5.28 L4.45 3.43 L6.76 1.2 L8.8 0.0ZM18.72 0.0 L19.46 0.0 L19.55 0.28 L17.79 1.48 L16.68 2.69 L16.12 3.52 L15.1 5.84 L14.73 7.51 L14.73 8.15 L14.83 8.25 L15.47 8.06 L17.24 8.15 L18.16 8.62 L19.0 9.45 L19.46 10.75 L19.46 12.05 L19.27 12.79 L18.72 13.81 L18.07 14.46 L17.24 14.92 L16.59 15.1 L14.64 15.01 L13.25 14.36 L12.42 13.44 L12.05 12.69 L11.68 11.12 L11.68 9.17 L12.05 7.51 L12.79 5.75 L14.27 3.52 L16.68 1.2 L18.72 0.0Z'/></svg>` },
     banner: { w: 520, h: 240, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 16' fill='#1c1d22'><polygon points='2,2 28,2 30,8 28,14 2,14 4,8'/></svg>` },
     plus: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9'/></svg>` },
 
