@@ -1940,6 +1940,8 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!els.length) return;
     if (lockBlocks(els)) return;
     state.clipboard = els.map(deep);
+    state.clipboardAt = Date.now();
+    writeSharedClipboard(state.clipboard);
     toast(els.length + " copied");
   }
 
@@ -6552,14 +6554,52 @@ import { createResizeEngine } from "./resize-engine.js";
     fullRender();
   }
 
+  /* The clipboard is shared between tabs.
+     It used to live in this page's memory, so copying in one design and
+     pasting into another -- which means a second tab -- had nothing to paste.
+     A copy is written to localStorage as well, which every tab on this origin
+     can read, and a paste takes whichever copy is the more recent. Dani,
+     12 Oct: "I've got one open, I need to copy and paste an image from one to
+     the other."
+
+     Capped, because an element can carry a data URI and filling the quota
+     would break saving as well as pasting. Over the cap the copy still works
+     in this tab, as it always did. */
+  const CLIP_KEY = "tmke.studio.clipboard";
+  const CLIP_MAX = 2000000;   // ~2MB of JSON
+
+  function writeSharedClipboard(els) {
+    try {
+      const payload = JSON.stringify({ at: Date.now(), els: els });
+      if (payload.length <= CLIP_MAX) localStorage.setItem(CLIP_KEY, payload);
+      else localStorage.removeItem(CLIP_KEY);   // never leave a stale one behind
+    } catch (_) {}
+  }
+
+  /* The newer of the two. A copy made in this tab after one made in another
+     has to win, or pasting would reach back for something older. */
+  function readClipboard() {
+    let shared = null;
+    try {
+      const raw = localStorage.getItem(CLIP_KEY);
+      if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.els) && p.els.length) shared = p; }
+    } catch (_) {}
+    if (!shared) return state.clipboard;
+    if (!state.clipboard || !state.clipboard.length) return shared.els;
+    return (shared.at || 0) > (state.clipboardAt || 0) ? shared.els : state.clipboard;
+  }
+
   function copySelected() {
     if (lockBlocks()) return;
     state.clipboard = selectedElements().map(deep);
+    state.clipboardAt = Date.now();
+    writeSharedClipboard(state.clipboard);
     toast("Copied " + state.clipboard.length + " element(s)");
   }
   function paste() {
-    if (!state.clipboard || !state.clipboard.length) return;
-    const copies = state.clipboard.map((e) => {
+    const clip = readClipboard();
+    if (!clip || !clip.length) return;
+    const copies = clip.map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
       c.x += 20; c.y += 20;
