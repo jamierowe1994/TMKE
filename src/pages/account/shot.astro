@@ -377,44 +377,96 @@ const PICKER = COURSES.map((c) => ({
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
           throw new Error("this browser cannot capture a tab");
         }
+        /* Asked for at the screen's full resolution. Left to itself a capture
+           stream can be scaled down, and every pixel lost here is lost for
+           good. */
         const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { displaySurface: "browser" }, preferCurrentTab: true, audio: false,
+          video: { displaySurface: "browser", width: { ideal: 4096 }, height: { ideal: 4096 } },
+          preferCurrentTab: true, audio: false,
         });
-        /* Into capture mode before anything is measured: the frame alone, at
-           the top-left of the window, scaled so the whole of it is on screen.
-           A tab capture holds only what is visible, and at 774px tall the
-           frame hangs off the bottom of a laptop window -- which is the white
-           band Dani got back. */
+        /* Into capture mode: the frame alone, pinned to the top-left of the
+           window, at FULL size. It used to be shrunk until the whole of it fit
+           on screen, and a tab capture records only the pixels on screen -- so
+           on a laptop the frame was drawn at about half size and every picture
+           came back at half resolution, 840 wide instead of 1680, and blurred
+           when the demo stretched it to fill the pop-out. Dani, 12 Oct: "Why
+           are all the images so blurry?" Now nothing is shrunk: a frame taller
+           or wider than the window is photographed in tiles, moving it along
+           by a window's worth between them, and the tiles are joined. */
         tidyFrame();
-        let capScale = Math.min(1, window.innerWidth / SHOT_W, window.innerHeight / SHOT_H);
         document.body.classList.add("is-capturing");
-        stage.style.transform = "scale(" + capScale + ")";
-        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        stage.style.transform = "";
+        await paint();
         try {
           /* Through a <video>, not ImageCapture: grabFrame is not in every
-             browser, and a video element is. One frame is all we need. */
+             browser, and a video element is. */
           const video = document.createElement("video");
           video.srcObject = stream;
           video.muted = true;
           await video.play();
           await new Promise((r) => setTimeout(r, 260));
-          const vw = video.videoWidth;
-          if (!vw || !video.videoHeight) throw new Error("no frame came back");
-
-          /* The captured frame is the whole tab. Map CSS pixels onto it by the
-             ratio of its width to the viewport's, which covers both the device
-             pixel ratio and any browser zoom. */
-          let vhPx = video.videoHeight;
-          let r = stage.getBoundingClientRect();
-          if (tall) return await grabTall(video, vw, vhPx, capScale);
-          return await grabOne(video, vw, vhPx, capScale);
-
-
+          if (!video.videoWidth || !video.videoHeight) throw new Error("no frame came back");
+          return tall ? await grabTall(video) : await grabOne(video);
         } finally {
           stream.getTracks().forEach((t) => t.stop());
+          stage.style.transform = "";
           document.body.classList.remove("is-capturing");
           fit();   // back to the page's own layout
         }
+      }
+
+      const paint = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      /* Wait until the stream has delivered a frame drawn AFTER the last move,
+         so a tile never holds the previous position. Two fresh frames where
+         the browser can report them; a fixed pause where it cannot. */
+      const freshFrame = (video) => new Promise((done) => {
+        let finished = false;
+        const end = () => { if (!finished) { finished = true; done(); } };
+        setTimeout(end, 900);
+        if (typeof video.requestVideoFrameCallback === "function") {
+          video.requestVideoFrameCallback(() => video.requestVideoFrameCallback(() => setTimeout(end, 40)));
+        } else {
+          setTimeout(end, 320);
+        }
+      });
+
+      /* CSS pixels to captured pixels, on each axis. The captured frame is the
+         tab's viewport; the ratio covers the device pixel ratio and any zoom. */
+      const ratios = (video) => ({
+        rx: video.videoWidth / window.innerWidth,
+        ry: video.videoHeight / window.innerHeight,
+      });
+
+      /* The whole frame -- SHOT_W x SHOT_H of the Studio -- drawn into ctx with
+         its top at dy, at the capture's full resolution. Moves the frame up and
+         left a window's worth at a time and copies only the part that is on
+         screen, so it works on any window, however small. */
+      async function drawFrameful(video, ctx, dy) {
+        const { rx, ry } = ratios(video);
+        const viewW = Math.min(window.innerWidth, video.videoWidth / rx);
+        const viewH = Math.min(window.innerHeight, video.videoHeight / ry);
+        const stepX = Math.max(100, Math.floor(viewW));
+        const stepY = Math.max(100, Math.floor(viewH));
+        let tiles = 0;
+        for (let oy = 0; oy < SHOT_H; oy += stepY) {
+          for (let ox = 0; ox < SHOT_W; ox += stepX) {
+            stage.style.transform = (ox || oy) ? "translate(" + (-ox) + "px," + (-oy) + "px)" : "";
+            await paint();
+            await freshFrame(video);
+            const r = stage.getBoundingClientRect();
+            const L = Math.max(0, r.left), T = Math.max(0, r.top);
+            const R = Math.min(viewW, r.right), B = Math.min(viewH, r.bottom);
+            if (R <= L || B <= T) continue;
+            const sx = Math.round(L * rx), sy = Math.round(T * ry);
+            const sw = Math.min(Math.round((R - L) * rx), video.videoWidth - sx);
+            const sh = Math.min(Math.round((B - T) * ry), video.videoHeight - sy);
+            ctx.drawImage(video, sx, sy, sw, sh,
+              Math.round((L - r.left) * rx), Math.round(dy + (T - r.top) * ry), sw, sh);
+            tiles++;
+          }
+        }
+        stage.style.transform = "";
+        return tiles;
       }
 
       const failed = (err) => {
@@ -455,88 +507,30 @@ const PICKER = COURSES.map((c) => ({
          automated scroll to the relevant piece." */
       /* One frameful: the whole of a page that does not scroll, or exactly what
          has been arranged on screen. */
-      async function grabOne(video, vw, vhPx, capScale) {
-        let r = stage.getBoundingClientRect();
-          /* Fit to what the capture can actually SEE, not to what the window
-             says. On Dani's screen the frame ran off the bottom: the captured
-             picture is not always the viewport -- it can carry the browser's
-             own chrome, so there is less room in it than innerHeight claims --
-             and the shortfall came back as a white band. Rather than guess at
-             the geometry, measure the first frame, work out how much of the
-             rig's frame actually fits, shrink it by that much and take a
-             second one from the same stream. Dani, 12 Oct, three times, and
-             rightly impatient by then. */
-          {
-            const needW = r.width * (vw / window.innerWidth);
-            const needH = r.height * (vhPx / window.innerHeight);
-            const roomW = vw - r.left * (vw / window.innerWidth);
-            const roomH = vhPx - r.top * (vhPx / window.innerHeight);
-            const squeeze = Math.min(1, roomW / needW, roomH / needH);
-            if (squeeze < 0.995) {
-              capScale = capScale * squeeze;
-              stage.style.transform = "scale(" + capScale + ")";
-              await new Promise((rr) => requestAnimationFrame(() => requestAnimationFrame(rr)));
-              await new Promise((rr) => setTimeout(rr, 220));
-              vhPx = video.videoHeight;
-              r = stage.getBoundingClientRect();
-            }
-          }
-
-          /* Map CSS pixels onto the captured frame on BOTH axes.
-             One ratio taken from the width assumed the video has the viewport's
-             shape. It does not always: a capture of a window or a screen
-             carries the browser's own chrome, so the vertical scale differs and
-             the source rect ran off the bottom of the video -- which is read as
-             transparent and came back as a white band across the picture.
-             Dani, 12 Oct, twice. */
-          const rx = vw / window.innerWidth;
-          const ry = vhPx / window.innerHeight;
-
-          /* And clamped to the video, so the source can never be asked for
-             pixels that are not in it. If the clamp bites, the picture is
-             short rather than white -- and the note says so, instead of me
-             guessing at it again. */
-          let sx = Math.round(r.left * rx);
-          let sy = Math.round(r.top * ry);
-          let sw = Math.round(r.width * rx);
-          let sh = Math.round(r.height * ry);
-          const clampedW = Math.max(0, Math.min(sw, vw - sx));
-          const clampedH = Math.max(0, Math.min(sh, vhPx - sy));
-          const short = clampedW < sw - 1 || clampedH < sh - 1;
-
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, clampedW);
-          canvas.height = Math.max(1, clampedH);
-          canvas.getContext("2d").drawImage(video, sx, sy, clampedW, clampedH, 0, 0, canvas.width, canvas.height);
-
-          lastShot = {
-            viewport: window.innerWidth + "x" + window.innerHeight,
-            video: vw + "x" + vhPx,
-            dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-            capScale: Math.round(capScale * 1000) / 1000,
-            frameOnScreen: Math.round(r.width) + "x" + Math.round(r.height) + " at " + Math.round(r.left) + "," + Math.round(r.top),
-            file: canvas.width + "x" + canvas.height,
-            short: short,
-          };
-          return await new Promise((done) => canvas.toBlob(done, "image/png"));
+      async function grabOne(video) {
+        const { rx, ry } = ratios(video);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(SHOT_W * rx);
+        canvas.height = Math.round(SHOT_H * ry);
+        const tiles = await drawFrameful(video, canvas.getContext("2d"), 0);
+        lastShot = report(video, canvas, { tiles });
+        return await new Promise((done) => canvas.toBlob(done, "image/png"));
       }
 
-      async function grabTall(video, vw, vhPx, capScale) {
+      /* The whole page, a frameful at a time, joined top to bottom. Each slice
+         is drawn where the page ACTUALLY scrolled to, not where it was asked to
+         go: the last request is past the end of the page, the browser stops it
+         at the bottom, and drawing it at the requested position repeated the
+         foot of the page. */
+      async function grabTall(video) {
         const sc = frameScroller();
-        if (!sc) return await grabOne(video, vw, vhPx, capScale);
+        if (!sc) return await grabOne(video);
         const d = frame.contentDocument;
-        const stepH = SHOT_H;                                   // one frameful of the page
-        const total = Math.min(4200, Math.max(SHOT_H, sc ? sc.el.scrollHeight : SHOT_H));
-        const slices = Math.ceil(total / stepH);
-
-        const rx = vw / window.innerWidth, ry = vhPx / window.innerHeight;
-        const r = stage.getBoundingClientRect();
-        const outW = Math.round(SHOT_W * rx * capScale);
-        const sliceH = Math.round(SHOT_H * ry * capScale);
-
+        const { rx, ry } = ratios(video);
+        const total = Math.min(4200, Math.max(SHOT_H, sc.el.scrollHeight));
         const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = Math.round(total * (sliceH / SHOT_H));
+        canvas.width = Math.round(SHOT_W * rx);
+        canvas.height = Math.round(total * ry);
         const ctx = canvas.getContext("2d");
 
         /* Anything pinned to the top repeats in every slice, so it is let go
@@ -547,36 +541,30 @@ const PICKER = COURSES.map((c) => ({
           if (cs.position === "fixed" || cs.position === "sticky") pinned.push([el, el.style.position]);
         });
 
-        for (let i = 0; i < slices; i++) {
-          const y = i * stepH;
-          if (sc) sc.el.scrollTop = y;
-          if (i === 1) pinned.forEach(([el]) => { el.style.position = "static"; });
+        let slices = 0, tiles = 0;
+        for (let y = 0; y < total; y += SHOT_H) {
+          sc.el.scrollTop = y;
+          if (slices === 1) pinned.forEach(([el]) => { el.style.position = "static"; });
           await new Promise((rr) => setTimeout(rr, 260));
-          const take = Math.min(stepH, total - y);
-          ctx.drawImage(
-            video,
-            Math.round(r.left * rx), Math.round(r.top * ry),
-            Math.round(r.width * rx), Math.round(take * ry * capScale),
-            0, Math.round(y * (sliceH / SHOT_H)),
-            outW, Math.round(take * (sliceH / SHOT_H))
-          );
+          const at = sc.el.scrollTop;
+          tiles += await drawFrameful(video, ctx, Math.round(at * ry));
+          slices++;
+          if (at + SHOT_H >= total) break;
         }
 
         pinned.forEach(([el, was]) => { el.style.position = was; });
-        if (sc) sc.el.scrollTop = 0;
-        lastShot = {
-          viewport: window.innerWidth + "x" + window.innerHeight,
-          video: vw + "x" + vhPx,
-          dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
-          capScale: Math.round(capScale * 1000) / 1000,
-          frameOnScreen: Math.round(r.width) + "x" + Math.round(r.height),
-          file: canvas.width + "x" + canvas.height,
-          pageHeight: total,
-          slices: slices,
-          short: false,
-        };
+        sc.el.scrollTop = 0;
+        lastShot = report(video, canvas, { pageHeight: total, slices, tiles });
         return await new Promise((done) => canvas.toBlob(done, "image/png"));
       }
+
+      const report = (video, canvas, extra) => Object.assign({
+        viewport: window.innerWidth + "x" + window.innerHeight,
+        video: video.videoWidth + "x" + video.videoHeight,
+        dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+        file: canvas.width + "x" + canvas.height,
+        short: false,
+      }, extra || {});
 
       const busy = (on) => { shotBtn.disabled = on; saveBtn.disabled = on; };
 

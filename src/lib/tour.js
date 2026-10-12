@@ -318,18 +318,18 @@ async function showShot(src, y) {
     try { await stage.img.decode(); } catch (_) { /* a broken path still shows the frame's background */ }
   }
   stage.img.hidden = false;
-  /* Pan to the part this step is about. The picture is drawn at the frame's
-     width, so an offset taken in the picture's own pixels has to be scaled by
-     however much it was shrunk or stretched to get there. */
+  /* Pan to the part this step is about. A step's offset is in the Studio's
+     own pixels -- the rig's frame is SHOT_NATURAL_W wide -- not the picture's,
+     so it means the same thing whatever resolution the picture was taken at:
+     a capture on a high-density screen is two or three times the frame's
+     width, and an offset in its own pixels would land in the wrong place. */
   const shown = stage.img.getBoundingClientRect().width || SHOT_NATURAL_W;
-  const k = shown / (stage.img.naturalWidth || SHOT_NATURAL_W);
-  /* Never past the foot of the picture. A step's offset is measured on the
-     whole page, so a picture that is only a frameful tall -- one taken before
-     the rig could capture the whole page -- would scroll off its own bottom
-     and show nothing. Clamped, it simply sits at the end instead, and comes
-     right of its own accord when a taller picture replaces it. */
+  const k = shown / SHOT_NATURAL_W;
+  /* Never past the foot of the picture. A picture only a frameful tall would
+     otherwise scroll off its own bottom and show nothing; clamped, it simply
+     sits at the end. */
   const frameH = (stage.frame && stage.frame.getBoundingClientRect().height) || 0;
-  const pictureH = stage.img.naturalHeight || 0;
+  const pictureH = (stage.img.naturalHeight || 0) * SHOT_NATURAL_W / (stage.img.naturalWidth || SHOT_NATURAL_W);
   const maxY = Math.max(0, pictureH - (frameH / (k || 1)));
   stage.img.style.transform = 'translateY(' + Math.round(-Math.min(y || 0, maxY) * k) + 'px)';
 }

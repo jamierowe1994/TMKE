@@ -17,6 +17,12 @@ Shoot from the training account (/demo?go=1&brand=demo), which wears Rimberio
 Homes and carries no "You're in the demo" badge. Capture the Studio at a
 window about 1400px wide and crop to what the step is about.
 
+Never resize them. On a high-density screen the rig's picture comes out at
+twice the frame's size (1680 wide for the 840 frame), and that is what keeps
+it sharp when the demo stretches it across a wide pop-out. Pictures taken
+between 13:51 and 17:10 on 12 Oct came out at 840 -- the rig shrank the frame
+to fit the window -- and are soft; retake those.
+
 Name them `<walk-id>-<step number>.jpg` so it is obvious which step a picture
 belongs to when one needs replacing.
 
