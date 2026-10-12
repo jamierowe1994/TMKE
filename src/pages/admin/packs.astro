@@ -956,19 +956,26 @@ import "../../styles/admin.css";
       actions.innerHTML = `<span class="demo-pack-note" style="margin:0">Live · ${escapeHtml(demoPack.title)}</span>`;
       body.hidden = false;
       dpNote("");
+      /* source_id is the original a Demo pack template follows
+         (supabase/templates_follow_source.sql). Asked for first; a database
+         that has not had that SQL run yet is read without it. */
+      const demoQ = (cols) => supabase.from("templates").select(cols).eq("pack_id", demoPack.id).order("sort_order", { ascending: true });
       const [{ data: inPack }, { data: all }, { data: packs }] = await Promise.all([
-        supabase.from("templates").select("id, name, thumb_url, category, sort_order").eq("pack_id", demoPack.id).order("sort_order", { ascending: true }),
+        demoQ("id, name, thumb_url, category, sort_order, source_id").then((r) => r.error ? demoQ("id, name, thumb_url, category, sort_order") : r),
         supabase.from("templates").select("id, name, pack_id, thumb_url, sort_order").eq("status", "active").neq("pack_id", demoPack.id).order("sort_order", { ascending: true }),
         supabase.from("packs").select("id, title, sort_order").eq("demo", false).order("sort_order", { ascending: true }),
       ]);
       const packTitle = new Map((packs || []).map((p) => [p.id, p.title]));
+      const originPack = new Map((all || []).map((t) => [t.id, t.pack_id]));
       dpSummary(`${(inPack || []).length} template${(inPack || []).length === 1 ? "" : "s"}`);
       const list = dpEl("demo-pack-list");
       list.innerHTML = (inPack || []).length ? (inPack || []).map((t) => `
         <div class="demo-pack-item">
           <div class="dp-thumb"${t.thumb_url ? ` style="background-image:url('${escapeHtml(t.thumb_url)}')"` : ""}></div>
           <div class="dp-name">${escapeHtml(t.name)}</div>
-          <div class="dp-from">${escapeHtml(t.category || "")}</div>
+          <div class="dp-from">${t.source_id
+            ? "Follows " + escapeHtml(packTitle.get(originPack.get(t.source_id)) || "its original")
+            : "A copy &mdash; not linked to its original"}</div>
           <button type="button" data-dp-remove="${escapeHtml(t.id)}">Remove</button>
         </div>`).join("") : `<p class="demo-pack-empty">Nothing in it yet. Add a template below.</p>`;
       list.querySelectorAll("[data-dp-remove]").forEach((b) => b.addEventListener("click", async () => {
@@ -1000,9 +1007,21 @@ import "../../styles/admin.css";
       copy.pack_id = demoPack.id;
       copy.status = "active";
       copy.sort_order = Date.now() % 100000;
-      const { error: e2 } = await supabase.from("templates").insert(copy);
+      /* Linked, not just copied: the database brings it up to date every time
+         the original is saved (supabase/templates_follow_source.sql). It used
+         to be a copy and nothing more, so a change to the original never
+         reached the Demo pack -- Testimonial 3's new quotation mark, 12 Oct. */
+      copy.source_id = src.id;
+      let { error: e2 } = await supabase.from("templates").insert(copy);
+      let unlinked = false;
+      if (e2 && /source_id/.test(e2.message || "")) {
+        delete copy.source_id;
+        ({ error: e2 } = await supabase.from("templates").insert(copy));
+        unlinked = !e2;
+      }
       if (e2) { dpNote("Couldn't add it: " + e2.message); return; }
-      loadDemoPack();
+      await loadDemoPack();   // clears the note, so anything to say comes after
+      if (unlinked) dpNote("Added, but as a copy: run supabase/templates_follow_source.sql so the Demo pack follows its originals.");
     }
 
     async function loadPacks() {
