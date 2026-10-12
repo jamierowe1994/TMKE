@@ -534,11 +534,17 @@ const PICKER = COURSES.map((c) => ({
         const ctx = canvas.getContext("2d");
 
         /* Anything pinned to the top repeats in every slice, so it is let go
-           after the first one and put back afterwards. */
+           after the first one and put back afterwards. Not a see-through layer
+           that only decorates -- the site's paper grain covers the whole page
+           at 14% and takes no clicks. Let go, it covered only the first slice,
+           and the top third of the picture came out greyer than the rest.
+           Dani, 12 Oct. */
         const pinned = [];
         d.querySelectorAll("*").forEach((el) => {
           const cs = frame.contentWindow.getComputedStyle(el);
-          if (cs.position === "fixed" || cs.position === "sticky") pinned.push([el, el.style.position]);
+          if (cs.position !== "fixed" && cs.position !== "sticky") return;
+          if (cs.pointerEvents === "none") return;
+          pinned.push([el, el.style.position]);
         });
 
         let slices = 0, tiles = 0;
@@ -579,6 +585,23 @@ const PICKER = COURSES.map((c) => ({
           const blob = await grab(true);
           if (!navigator.clipboard || !window.ClipboardItem) throw new Error("this browser will not copy images");
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          /* The chat shrinks any picture to 2000px on its longest side, so a
+             whole page at full resolution -- 4000px and more -- arrives at
+             under half size and blurred. Measured 12 Oct: a 1680-wide capture
+             of the Studio homepage landed 784 x 2000. Anything that tall is
+             saved to Downloads as well, where it is picked up at full size. */
+          const tooTall = lastShot && parseInt(String(lastShot.file).split("x")[1], 10) > 2000;
+          if (tooTall) {
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = shotName();
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+            say("This page is too tall to paste at full size &mdash; the chat would shrink it. "
+              + "So it is <strong>saved to your Downloads</strong> as <strong>" + shotName()
+              + "</strong>. Just say <strong>saved</strong> in the chat; no need to paste it." + shotReport(), "good");
+            return;
+          }
           say((lastShot && lastShot.short
             ? "Copied, but the capture was <strong>cut short</strong> &mdash; send it over with the line below and I will fix the rig."
             : "Copied. Paste it into the chat &mdash; it is <strong>" + shotName() + "</strong>, so you need say nothing else.")
