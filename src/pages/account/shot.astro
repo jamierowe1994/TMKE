@@ -354,6 +354,16 @@ const PICKER = COURSES.map((c) => ({
 
       // ---- the picture -----------------------------------------------------
       const shotName = () => (current ? current.walkId + "-" + current.n : "shot") + ".png";
+      /* What the last capture actually measured. Printed under the note so a
+         picture that comes back wrong can be diagnosed from the numbers rather
+         than from me reasoning about what a browser might have done. */
+      let lastShot = null;
+      const shotReport = () => {
+        if (!lastShot) return "";
+        return "<br><small>window " + lastShot.viewport + " &middot; capture " + lastShot.video
+          + " &middot; dpr " + lastShot.dpr + " &middot; frame " + lastShot.frameOnScreen
+          + " &middot; file " + lastShot.file + (lastShot.short ? " &middot; <strong>cut short</strong>" : "") + "</small>";
+      };
 
       async function grab() {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -368,7 +378,7 @@ const PICKER = COURSES.map((c) => ({
            frame hangs off the bottom of a laptop window -- which is the white
            band Dani got back. */
         tidyFrame();
-        const capScale = Math.min(1, window.innerWidth / SHOT_W, window.innerHeight / SHOT_H);
+        let capScale = Math.min(1, window.innerWidth / SHOT_W, window.innerHeight / SHOT_H);
         document.body.classList.add("is-capturing");
         stage.style.transform = "scale(" + capScale + ")";
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -386,20 +396,70 @@ const PICKER = COURSES.map((c) => ({
           /* The captured frame is the whole tab. Map CSS pixels onto it by the
              ratio of its width to the viewport's, which covers both the device
              pixel ratio and any browser zoom. */
-          const ratio = vw / window.innerWidth;
-          const r = stage.getBoundingClientRect();
-          /* The file is the frame's own size times whatever the screen gives
-             us, so a retina display yields a sharper picture and a scaled-down
-             frame does not yield a smaller one. */
+          let vhPx = video.videoHeight;
+          let r = stage.getBoundingClientRect();
+
+          /* Fit to what the capture can actually SEE, not to what the window
+             says. On Dani's screen the frame ran off the bottom: the captured
+             picture is not always the viewport -- it can carry the browser's
+             own chrome, so there is less room in it than innerHeight claims --
+             and the shortfall came back as a white band. Rather than guess at
+             the geometry, measure the first frame, work out how much of the
+             rig's frame actually fits, shrink it by that much and take a
+             second one from the same stream. Dani, 12 Oct, three times, and
+             rightly impatient by then. */
+          {
+            const needW = r.width * (vw / window.innerWidth);
+            const needH = r.height * (vhPx / window.innerHeight);
+            const roomW = vw - r.left * (vw / window.innerWidth);
+            const roomH = vhPx - r.top * (vhPx / window.innerHeight);
+            const squeeze = Math.min(1, roomW / needW, roomH / needH);
+            if (squeeze < 0.995) {
+              capScale = capScale * squeeze;
+              stage.style.transform = "scale(" + capScale + ")";
+              await new Promise((rr) => requestAnimationFrame(() => requestAnimationFrame(rr)));
+              await new Promise((rr) => setTimeout(rr, 220));
+              vhPx = video.videoHeight;
+              r = stage.getBoundingClientRect();
+            }
+          }
+
+          /* Map CSS pixels onto the captured frame on BOTH axes.
+             One ratio taken from the width assumed the video has the viewport's
+             shape. It does not always: a capture of a window or a screen
+             carries the browser's own chrome, so the vertical scale differs and
+             the source rect ran off the bottom of the video -- which is read as
+             transparent and came back as a white band across the picture.
+             Dani, 12 Oct, twice. */
+          const rx = vw / window.innerWidth;
+          const ry = vhPx / window.innerHeight;
+
+          /* And clamped to the video, so the source can never be asked for
+             pixels that are not in it. If the clamp bites, the picture is
+             short rather than white -- and the note says so, instead of me
+             guessing at it again. */
+          let sx = Math.round(r.left * rx);
+          let sy = Math.round(r.top * ry);
+          let sw = Math.round(r.width * rx);
+          let sh = Math.round(r.height * ry);
+          const clampedW = Math.max(0, Math.min(sw, vw - sx));
+          const clampedH = Math.max(0, Math.min(sh, vhPx - sy));
+          const short = clampedW < sw - 1 || clampedH < sh - 1;
+
           const canvas = document.createElement("canvas");
-          canvas.width = Math.round(SHOT_W * ratio * capScale);
-          canvas.height = Math.round(SHOT_H * ratio * capScale);
-          canvas.getContext("2d").drawImage(
-            video,
-            Math.round(r.left * ratio), Math.round(r.top * ratio),
-            Math.round(r.width * ratio), Math.round(r.height * ratio),
-            0, 0, canvas.width, canvas.height
-          );
+          canvas.width = Math.max(1, clampedW);
+          canvas.height = Math.max(1, clampedH);
+          canvas.getContext("2d").drawImage(video, sx, sy, clampedW, clampedH, 0, 0, canvas.width, canvas.height);
+
+          lastShot = {
+            viewport: window.innerWidth + "x" + window.innerHeight,
+            video: vw + "x" + vhPx,
+            dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+            capScale: Math.round(capScale * 1000) / 1000,
+            frameOnScreen: Math.round(r.width) + "x" + Math.round(r.height) + " at " + Math.round(r.left) + "," + Math.round(r.top),
+            file: canvas.width + "x" + canvas.height,
+            short: short,
+          };
           return await new Promise((done) => canvas.toBlob(done, "image/png"));
         } finally {
           stream.getTracks().forEach((t) => t.stop());
@@ -428,7 +488,10 @@ const PICKER = COURSES.map((c) => ({
           const blob = await grab();
           if (!navigator.clipboard || !window.ClipboardItem) throw new Error("this browser will not copy images");
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          say("Copied. Paste it into the chat &mdash; it is <strong>" + shotName() + "</strong>, so you need say nothing else.", "good");
+          say((lastShot && lastShot.short
+            ? "Copied, but the capture was <strong>cut short</strong> &mdash; send it over with the line below and I will fix the rig."
+            : "Copied. Paste it into the chat &mdash; it is <strong>" + shotName() + "</strong>, so you need say nothing else.")
+            + shotReport(), lastShot && lastShot.short ? "bad" : "good");
         } catch (err) { failed(err); }
         finally { busy(false); }
       });
@@ -443,7 +506,8 @@ const PICKER = COURSES.map((c) => ({
           a.download = shotName();
           a.click();
           setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-          say("Saved <strong>" + shotName() + "</strong> to your Downloads.", "good");
+          say("Saved <strong>" + shotName() + "</strong> to your Downloads." + shotReport(),
+            lastShot && lastShot.short ? "bad" : "good");
         } catch (err) { failed(err); }
         finally { busy(false); }
       });
