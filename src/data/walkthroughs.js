@@ -221,13 +221,19 @@ export const WALKS = {
     line: "Find your Demo Pack, choose a design and open it in the editor. The Studio creates your own copy, leaving the original template untouched. Your demo templates are there to experiment with. Change the wording, swap the imagery and move things around. You can always return to the original and start again.",
     stage: "/account/studio",
     steps: [
-      { target: ".ws-hero", placement: "bottom",
+      /* Dani's picture, taken in the rig. A step with a shot does not drive the
+         live Studio at all: no page to load, nothing to select, nothing to
+         scroll, and it looks the same every time. */
+      { shot: "/images/learn/demo/shots/studio-template-1.webp",
+        target: ".ws-hero", placement: "bottom",
         eyebrow: "Studio", title: "Welcome to the Studio",
         body: "You'll find your template packs, saved designs and creative tools in the Studio." },
-      { target: 'section[aria-labelledby="packs-h"]', placement: "top",
+      { shot: "/images/learn/demo/shots/studio-template-1.webp",
+        target: 'section[aria-labelledby="packs-h"]', placement: "top",
         eyebrow: "Your packs", title: "Find Your Templates",
         body: "Your packs are displayed here, including the free Demo Pack that comes with every Member Hub account." },
-      { target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
+      { shot: "/images/learn/demo/shots/studio-template-1.webp",
+  target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
         eyebrow: "Your packs", title: "Open Your Demo Pack",
         body: "Select the Demo Pack to see the three templates included with your account." },
       /* The whole pack view, not just the grid of designs. The pack page

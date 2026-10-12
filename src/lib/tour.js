@@ -483,7 +483,12 @@ function injectStyles() {
      a time. Dani, 12 Oct. */
   .tmke-stage-img {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: contain; object-position: center top; background: var(--ws-bg, #f6f4f2);
+    /* Fills the screen area and crops the bottom, rather than letterboxing.
+       The pop-out is not always the shape the picture was taken at -- its box
+       is a fraction of the window -- so fitting it whole left a white band
+       under the picture on a smaller screen. Cropping the foot of a page reads as the
+       page carrying on below, which is what the live frame did. */
+    object-fit: cover; object-position: center top; background: var(--ws-bg, #f6f4f2);
   }
   .tmke-stage-spin { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
   .tmke-stage-box.is-busy .tmke-stage-spin { display: flex; }
