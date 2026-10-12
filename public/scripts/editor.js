@@ -5991,12 +5991,18 @@ import { createResizeEngine } from "./resize-engine.js";
        commas with the weight of a serif face, so it sits with The Seasons
        rather than looking like a typographer's apostrophe. Each one tapers to
        a point at the top, like the picture on the testimonial template it
-       replaces. Slimmer than the first two attempts, which Dani put beside the
-       picture and found thick through the taper and heavy in the bowl: the
-       stroke narrows over a longer run to a finer tip, and the bowl is
-       smaller. Drawn four ways and looked at before choosing. The pair sits
-       7.6 apart, close enough that the bowls nearly meet. Dani, 12 Oct. */
-    quote: { w: 360, h: 308, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='2.6 1.4 18 15.4' fill='#1c1d22'><path d='M10.1 2.2C5.9 5 3.5 8.6 3.5 11.8c0 2.5 1.5 4.1 3.6 4.1 1.7 0 2.9-1.2 2.9-2.9 0-1.6-1.1-2.7-2.6-2.7-.2 0-.5 0-.7.1.7-2.6 2.7-4.9 5.3-6.4l-1.9-1.8zM17.7 2.2C13.5 5 11.1 8.6 11.1 11.8c0 2.5 1.5 4.1 3.6 4.1 1.7 0 2.9-1.2 2.9-2.9 0-1.6-1.1-2.7-2.6-2.7-.2 0-.5 0-.7.1.7-2.6 2.7-4.9 5.3-6.4l-1.9-1.8z'/></svg>` },
+       replaces: a round bowl with a tail that sweeps out of its left side and
+       narrows to an actual point.
+
+       Each mark is a circle and a tapering wedge rather than one outline,
+       because that is the only version of this I could steer: the bowl's size
+       and the tip's sharpness are two numbers instead of eight control points.
+       Both subpaths wind the same way -- drawn the other way round they
+       cancelled where they overlap and left a dark notch between tail and
+       bowl, which is what the fill rule does to opposed windings.
+
+       Four shapes and four spacings, drawn and looked at. Dani, 12 Oct. */
+    quote: { w: 380, h: 280, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='1.9 1.3 20.6 15.3' fill='#1c1d22'><path d='M2.2 11.9a4.3 4.3 0 1 1 8.6 0a4.3 4.3 0 1 1-8.6 0ZM2.4 10.9C3.2 7.0 6.7 3.3 13.0 1.7C10.7 4.8 9.4 7.5 9.1 10.1ZM11.4 11.9a4.3 4.3 0 1 1 8.6 0a4.3 4.3 0 1 1-8.6 0ZM11.6 10.9C12.4 7.0 15.9 3.3 22.2 1.7C19.9 4.8 18.6 7.5 18.3 10.1Z'/></svg>` },
     banner: { w: 520, h: 240, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 16' fill='#1c1d22'><polygon points='2,2 28,2 30,8 28,14 2,14 4,8'/></svg>` },
     plus: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9'/></svg>` },
 
