@@ -5981,7 +5981,16 @@ import { createResizeEngine } from "./resize-engine.js";
     'arrow-r': { w: 500, h: 360, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 24' fill='#1c1d22'><polygon points='2,9 18,9 18,3 30,12 18,21 18,15 2,15'/></svg>` },
     'arrow-l': { w: 500, h: 360, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 24' fill='#1c1d22'><polygon points='30,9 14,9 14,3 2,12 14,21 14,15 30,15'/></svg>` },
     speech: { w: 480, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20' fill='#1c1d22'><path d='M3 2h18a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-8l-5 4v-4H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z'/></svg>` },
+    /* Still here, and deliberately not on the palette: a design already using
+       it would go blank if the definition went with the button. */
     lightning: { w: 320, h: 500, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 24' fill='#1c1d22'><polygon points='11,2 2,13 8,13 6,22 16,11 10,11 12,2'/></svg>` },
+    /* A quotation mark as a shape rather than a picture. The testimonial
+       templates carry one as an image, which means it cannot be recoloured,
+       does not appear in the text list and is invisible to Make it yours. As a
+       shape it behaves like everything else on the page. Drawn as two filled
+       commas with the weight of a serif face, so it sits with The Seasons
+       rather than looking like a typographer's apostrophe. Dani, 12 Oct. */
+    quote: { w: 360, h: 300, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20' fill='#1c1d22'><path d='M10 3.2c-4 1.3-6.6 4.3-6.6 8 0 3 1.9 5.1 4.4 5.1 2.2 0 3.8-1.6 3.8-3.7 0-2-1.4-3.5-3.3-3.5-.4 0-.8.1-1.1.2.5-1.9 2-3.4 4-4.2l-1.2-1.9zm10.4 0c-4 1.3-6.6 4.3-6.6 8 0 3 1.9 5.1 4.4 5.1 2.2 0 3.8-1.6 3.8-3.7 0-2-1.4-3.5-3.3-3.5-.4 0-.8.1-1.1.2.5-1.9 2-3.4 4-4.2l-1.2-1.9z'/></svg>` },
     banner: { w: 520, h: 240, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 16' fill='#1c1d22'><polygon points='2,2 28,2 30,8 28,14 2,14 4,8'/></svg>` },
     plus: { w: 400, h: 400, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#1c1d22'><polygon points='9,2 15,2 15,9 22,9 22,15 15,15 15,22 9,22 9,15 2,15 2,9 9,9'/></svg>` },
 
@@ -6018,6 +6027,11 @@ import { createResizeEngine } from "./resize-engine.js";
     bed:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 19v-6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v6'/><path d='M4 11V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4'/><path d='M12 5v6'/><path d='M2 19h20'/></svg>` },
     bath: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M2 11h20v3a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5v-3z'/><path d='M6 11V7a2 2 0 0 1 4 0v1'/><path d='M6 19l-1.5 2'/><path d='M18 19l1.5 2'/></svg>` },
     sofa: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M5 12V8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4'/><path d='M3 12a2 2 0 0 1 4 0v3h10v-3a2 2 0 0 1 4 0v6H3z'/><path d='M6 18v2'/><path d='M18 18v2'/></svg>` },
+    /* Same hand as bed, bath and area: 24 x 24, no fill, 1.8 stroke, round
+       caps and joins. A post about a viewing wants a date and a time, and
+       there was no way to show either. Dani, 12 Oct. */
+    cal:  { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='5' width='18' height='16' rx='2'/><path d='M3 10h18'/><path d='M8 3v4'/><path d='M16 3v4'/></svg>` },
+    clock: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><path d='M12 7v5l3.5 2'/></svg>` },
     area: { w: 200, h: 200, svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8V4a1 1 0 0 1 1-1h4'/><path d='M16 3h4a1 1 0 0 1 1 1v4'/><path d='M21 16v4a1 1 0 0 1-1 1h-4'/><path d='M8 21H4a1 1 0 0 1-1-1v-4'/><path d='M8 16l8-8'/><path d='M8 11.5V16h4.5'/></svg>` },
     // Already a P in a box - ringing it again just draws a box in a box.
     park: { w: 200, h: 200, only: ["plain", "thin"], svg: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='#1c1d22' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><path d='M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4z'/><path d='M10 17V7h3.2a3.2 3.2 0 0 1 0 6.4H10'/></svg>` },
