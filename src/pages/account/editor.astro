@@ -7225,6 +7225,32 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       });
     }
 
+    /* "Regenerate all previews" on the Studio list lands here with
+       ?regenall=1: the same run as Shift-clicking Regenerate previews, started
+       for you once the studio is ready. */
+    if (isAdmin && regenBtn && new URLSearchParams(location.search).get("regenall") === "1") {
+      (async () => {
+        for (let i = 0; i < 60 && typeof window.__TMKE_REGEN_ALL__ !== "function"; i++) await new Promise((r) => setTimeout(r, 500));
+        try { const u = new URL(location.href); u.searchParams.delete("regenall"); history.replaceState(null, "", u.toString()); } catch (_) {}
+        if (typeof window.__TMKE_REGEN_ALL__ !== "function") { alert("The studio didn't finish loading, so the previews weren't regenerated. Refresh and try again."); return; }
+        if (!confirm("Re-draw EVERY template's preview from its saved design? It takes a minute or two, and only the previews change, not the designs.")) return;
+        const orig = regenBtn.textContent;
+        regenBtn.disabled = true;
+        try {
+          const res = await window.__TMKE_REGEN_ALL__((done, total) => { regenBtn.textContent = `Regenerating ${done}/${total}…`; }, null);
+          const ok = res.done - res.failed;
+          regenBtn.textContent = "Done ✓";
+          alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} couldn't be redrawn - see the console.` : ""));
+        } catch (e) {
+          console.error("[regen all]", e);
+          alert("Regenerating stopped: " + (e.message || e));
+        } finally {
+          regenBtn.disabled = false;
+          setTimeout(() => { regenBtn.textContent = orig; }, 3000);
+        }
+      })();
+    }
+
     // ---- Canva import (admin): a TWO-STAGE flow that fixes the duplicate-words
     // problem. Stage 1 = the finished designs (text baked in) — we read the
     // wording off these. Stage 2 = the same pages as plain backgrounds — these
