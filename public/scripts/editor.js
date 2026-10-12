@@ -9167,12 +9167,17 @@ import { createResizeEngine } from "./resize-engine.js";
     const note = { text: "Text", rect: "Shapes", ellipse: "Shapes", triangle: "Shapes", star: "Shapes", line: "Lines" };
     state.elements.forEach(function (el) {
       if (!el || memberLock(el)) return;   // a template's locked parts keep their colours
-      ["color", "fill", "stroke"].forEach(function (k) {
+      /* svgFill too: a drawn shape from Elements -- the quotation mark, the
+         icons -- keeps its colour there, not in fill, so it never had a row
+         and could not be made yours. Dani, 12 Oct, Testimonial 3's quotation
+         mark: "I'm still not seeing the ability to edit the shape". */
+      ["color", "fill", "stroke", "svgFill"].forEach(function (k) {
+        if (k === "svgFill" && !el.svgKey) return;
         const c = normHexSafe(el[k]);
         if (!c) return;
         if (!map[c]) map[c] = { hex: c, count: 0, kinds: {}, refs: [] };
         map[c].count++;
-        map[c].kinds[note[el.type] || el.type] = true;
+        map[c].kinds[k === "svgFill" ? "Shapes" : (note[el.type] || el.type)] = true;
         map[c].refs.push({ id: el.id, prop: k });
       });
     });
@@ -9185,8 +9190,12 @@ import { createResizeEngine } from "./resize-engine.js";
     let n = 0;
     state.elements.forEach(function (el) {
       if (memberLock(el)) return;
-      ["color", "fill", "stroke"].forEach(function (k) {
-        if (normHexSafe(el[k]) === fromHex) { el[k] = toHex; n++; }
+      ["color", "fill", "stroke", "svgFill"].forEach(function (k) {
+        if (k === "svgFill" && !el.svgKey) return;
+        if (normHexSafe(el[k]) === fromHex) {
+          el[k] = toHex; n++;
+          if (k === "svgFill") restyleSvgElement(el);   // the picture is drawn from svgFill
+        }
       });
     });
     if (n) { fullRender(); pushHistory(); }
