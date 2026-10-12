@@ -3593,8 +3593,14 @@ import { createResizeEngine } from "./resize-engine.js";
       /* With nothing selected the tab was simply blank, which reads as broken.
          One line says what fills it. Dani, 12 Oct. */
       const sel = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
-      wrap.innerHTML = (sel && sel.type === "text") ? ""
-        : '<p class="ed-textlist-empty">Click any text on your design to edit it here.</p>';
+      if (sel && sel.type === "text") { wrap.innerHTML = ""; return; }
+      /* And the next thing to do: Add text, which opens the tab beside this
+         one -- the only thing to do at all on a page with no text. Dani. */
+      const any = state.elements.some((e) => e.type === "text");
+      wrap.innerHTML = '<p class="ed-textlist-empty">' +
+        (any ? "Click any text on your design to edit it here." : "There is no text on this page yet.") + '</p>' +
+        '<button type="button" class="ed-rb-logo ed-textlist-add">Add text</button>';
+      wrap.querySelector(".ed-textlist-add").addEventListener("click", () => setTextTab("add"));
       return;
     }
     if (wrap.contains(document.activeElement)) return;   // never rebuild mid-type
