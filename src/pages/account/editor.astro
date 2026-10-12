@@ -5554,6 +5554,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       track('design_downloaded', { ...d, template: q.get('template') || null });
     };
     import { isAdminUser } from '../../lib/admin-gate.js';
+    import { designStore } from '../../lib/design-store.js';
 
     // ---- Externalise embedded images before writing to Supabase ----------
     // Canva imports (and pasted images) embed full-resolution pictures as
@@ -6026,11 +6027,22 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         })();
       }
 
-      const { data: { session: memberSession } } = await supabase.auth.getSession();
-      if (memberSession) {
-        const memberUid = memberSession.user.id;
+      /* Where this person's designs live (src/lib/design-store.js): a
+         member's own, or -- for the training account, which is not a login --
+         training_designs, kept under danielle@tmke.co.uk. Dani, 12 Oct: "I
+         can't actually save a design to the training account." */
+      const store = await designStore();
+      if (store && store.blocked) {
+        // The training account without Dani's admin login: Save says why.
+        window.__TMKE_DESIGN_SAVE__ = async () => ({ ok: false, reason: store.reason });
+      }
+      if (store && !store.blocked) {
+        const memberUid = store.uid;
+        const DB = store.db, DT = store.table;
         let currentDesignId = params.get('design') || null;
-        window.__TMKE_DESIGN_SAVE__ = trainingMode ? undefined : async (payload) => {
+        // A guided walk's demo design (?training=1) is never saved for a
+        // member; the training account's own work is.
+        window.__TMKE_DESIGN_SAVE__ = (trainingMode && !store.training) ? undefined : async (payload) => {
           try {
             // Externalise embedded data-URL images to storage (keeps the row small).
             try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (_) {}
@@ -6047,6 +6059,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               updated_at: new Date().toISOString(),
             };
             if (thumbUrl) row.thumb_url = thumbUrl;
+            // The training account cannot upload to storage; its preview is
+            // kept in the row instead -- ten designs, not ten thousand.
+            else if (store.training && typeof payload.thumb === 'string') row.thumb_url = payload.thumb;
             // A failed save says what went wrong: the editor shows it, rather
             // than only "saved on this device" with no reason to act on.
             const why = (e) => {
@@ -6065,25 +6080,25 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               let sourceTemplate = currentDesignId ? null : (payload.templateId || null);
               if (currentDesignId && payload.original) {
                 try { await externalizePages([{ canvas: payload.original.canvas, elements: payload.original.elements }]); } catch (_) {}
-                const { data: was, error: oe } = await supabase.from('user_designs')
+                const { data: was, error: oe } = await DB.from(DT)
                   .update({ canvas: payload.original.canvas, elements: payload.original.elements, pages: payload.original.pages || null, updated_at: new Date().toISOString() })
                   .eq('id', currentDesignId).eq('user_id', memberUid).select('source_template_id').single();
                 if (oe) return { ok: false, reason: why(oe) };
                 sourceTemplate = (was && was.source_template_id) || null;
               }
               row.source_template_id = sourceTemplate;
-              const { data, error } = await supabase.from('user_designs').insert(row).select('id').single();
+              const { data, error } = await DB.from(DT).insert(row).select('id').single();
               if (error || !data) return { ok: false, reason: why(error) };
               currentDesignId = data.id;
               try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
               return { ok: true, id: currentDesignId };
             }
             if (currentDesignId) {
-              const { error } = await supabase.from('user_designs').update(row).eq('id', currentDesignId).eq('user_id', memberUid);
+              const { error } = await DB.from(DT).update(row).eq('id', currentDesignId).eq('user_id', memberUid);
               return error ? { ok: false, reason: why(error) } : { ok: true, id: currentDesignId };
             }
             row.source_template_id = payload.templateId || null;
-            const { data, error } = await supabase.from('user_designs').insert(row).select('id').single();
+            const { data, error } = await DB.from(DT).insert(row).select('id').single();
             if (error || !data) return { ok: false, reason: why(error) };
             currentDesignId = data.id;
             try { const u = new URL(location.href); u.searchParams.set('design', currentDesignId); u.searchParams.delete('template'); history.replaceState(null, '', u); } catch (_) {}
@@ -6095,7 +6110,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           let design = null;
           let sourceTemplateId = null;
           try {
-            const { data: d } = await supabase.from('user_designs').select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
+            const { data: d } = await DB.from(DT).select('*').eq('id', currentDesignId).eq('user_id', memberUid).single();
             if (d) design = { id: d.id, name: d.name, canvas: d.canvas, elements: d.elements, pages: d.pages };
             if (d) sourceTemplateId = d.source_template_id || null;
           } catch (_) {}
@@ -7753,6 +7768,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   <!-- Studio onboarding: pick a pack, then play the build-in sequence -->
   <script>
     import { isDemo as demoOn, lockClicks, lock } from "../../lib/demo.js";
+    import { designStore } from "../../lib/design-store.js";
     // The demo's locks, set up here at the top of the module so they hold on
     // every route into the editor: a template, a saved design, a prompt's
     // blank canvas or the launcher. editor.js also guards the actions
@@ -7965,9 +7981,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
 
     async function galRefresh() {
-      const { data } = await supabase
-        .from("user_designs")
+      const store = await designStore();
+      if (!store || store.blocked) return;
+      const { data } = await store.db
+        .from(store.table)
         .select("id, name, thumb_url, updated_at, created_at, canvas, pages, folder")
+        .eq("user_id", store.uid)
         .order("updated_at", { ascending: false });
       GAL.rows = data || [];
       GAL.picked = new Set([...GAL.picked].filter((id) => GAL.rows.some((r) => r.id === id)));
@@ -8022,14 +8041,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     async function duplicatePicked() {
       const picked = GAL.rows.filter((d) => GAL.picked.has(d.id));
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !picked.length) return;
+      const store = await designStore();
+      if (!store || store.blocked || !picked.length) return;
       const copies = picked.map((d) => ({
-        user_id: session.user.id,
+        user_id: store.uid,
         name: `${d.name || "Untitled design"} (copy)`,
         canvas: d.canvas, pages: d.pages, thumb_url: d.thumb_url, folder: d.folder,
       }));
-      const { error } = await supabase.from("user_designs").insert(copies);
+      const { error } = await store.db.from(store.table).insert(copies);
       if (error) { alert("Couldn't duplicate that: " + error.message); return; }
       GAL.picked.clear();
       await galRefresh();
@@ -8047,7 +8066,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       );
       if (name === null) return;
       const folder = name.trim() || null;   // empty takes them back out of a folder
-      const { error } = await supabase.from("user_designs").update({ folder }).in("id", [...GAL.picked]);
+      const store = await designStore();
+      if (!store || store.blocked) return;
+      const { error } = await store.db.from(store.table).update({ folder }).in("id", [...GAL.picked]);
       if (error) { alert("Couldn't file that: " + error.message); return; }
       GAL.picked.clear();
       await galRefresh();
@@ -8057,7 +8078,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const c = GAL.picked.size;
       if (!c) return;
       if (!confirm(`Delete ${c} design${c === 1 ? "" : "s"}? This cannot be undone.`)) return;
-      const { error } = await supabase.from("user_designs").delete().in("id", [...GAL.picked]);
+      const store = await designStore();
+      if (!store || store.blocked) return;
+      const { error } = await store.db.from(store.table).delete().in("id", [...GAL.picked]);
       if (error) { alert("Couldn't delete that: " + error.message); return; }
       GAL.picked.clear();
       await galRefresh();
@@ -8065,15 +8088,18 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     async function loadSavedDesigns(session) {
       if (!savedGrid) return;
-      if (!session) {
+      // The training account has designs too, kept under Dani's admin login.
+      const store = await designStore();
+      if (!store || store.blocked) {
         if (savedLoading) savedLoading.hidden = true;
-        if (savedEmpty) { savedEmpty.textContent = "Sign in to see designs you've saved."; savedEmpty.hidden = false; }
+        if (savedEmpty) { savedEmpty.textContent = store && store.blocked ? store.reason : "Sign in to see designs you've saved."; savedEmpty.hidden = false; }
         return;
       }
       try {
-        const { data, error: e } = await supabase
-          .from("user_designs")
+        const { data, error: e } = await store.db
+          .from(store.table)
           .select("id, name, thumb_url, updated_at, created_at, canvas, pages, folder")
+          .eq("user_id", store.uid)
           .order("updated_at", { ascending: false });   // all of them: this page IS the library
         if (savedLoading) savedLoading.hidden = true;
         if (e || !data || !data.length) {

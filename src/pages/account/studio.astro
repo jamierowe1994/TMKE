@@ -432,6 +432,7 @@ const inspo = [
       if (locked.length) lockClicks('[data-demo-lock]', 'That one is for members.', 'The background remover and the 48 content ideas come with membership. In the demo, open the pack and try the editor.');
     }
     import { supabase } from "../../lib/supabase.js";
+    import { designStore } from "../../lib/design-store.js";
 
     // Shelf navigation: one dot per card, plus an arrow either side. Rebuilt on
     // demand because the packs are swapped in from Supabase after first paint -
@@ -576,21 +577,24 @@ const inspo = [
         if (!signedIn) document.documentElement.classList.remove('has-session');
       };
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session && demoOn()) {
+        /* Where this person's designs live: a member's own, or the training
+           account's, kept under danielle@tmke.co.uk (src/lib/design-store.js). */
+        const store = await designStore();
+        if ((!store || store.blocked) && demoOn()) {
           // The demo has nothing saved: just the way to start one.
           const row = document.querySelector('[data-designs]');
           if (row) row.innerHTML = `<a class="st-design st-design--new" href="/account/editor?new=1" data-new-design><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
           done(false);
           return;
         }
-        if (!session) { done(false); return; } // signed out (preview) → keep the SSR starter samples
+        if (!store || store.blocked) { done(false); return; } // signed out (preview) → keep the SSR starter samples
         /* All of them, not five: the toggle has to be able to say whether they
            have any print designs at all, and a shelf of three cannot answer
            that from a page of five. `canvas` is what tells print from social. */
-        const { data, error } = await supabase
-          .from('user_designs')
+        const { data, error } = await store.db
+          .from(store.table)
           .select('id, name, thumb_url, updated_at, canvas')
+          .eq('user_id', store.uid)
           .order('updated_at', { ascending: false });
         if (error) { done(true); return; }
         const designs = data || [];

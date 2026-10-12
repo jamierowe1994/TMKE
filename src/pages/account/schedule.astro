@@ -889,6 +889,7 @@ import "../../styles/account-sections.css";
   <script>
     import { isDemo as demoOn, lock } from "../../lib/demo.js";
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
+    import { designStore } from '../../lib/design-store.js';
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
     // ====== Elements ======
@@ -1308,12 +1309,13 @@ import "../../styles/account-sections.css";
       if (pickCache) return renderPickGrid(pickCache);
       $pickNote.textContent = 'Loading your designs…';
       $pickGrid.innerHTML = '';
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { $pickNote.textContent = "You're signed out — sign in again to see your designs."; return; }
-      const { data, error } = await supabase
-        .from('user_designs')
+      // A member's own, or the training account's (src/lib/design-store.js).
+      const store = await designStore();
+      if (!store || store.blocked) { $pickNote.textContent = store && store.blocked ? store.reason : "You're signed out — sign in again to see your designs."; return; }
+      const { data, error } = await store.db
+        .from(store.table)
         .select('id, name, thumb_url, canvas, updated_at')
-        .eq('user_id', session.user.id)
+        .eq('user_id', store.uid)
         .order('updated_at', { ascending: false })
         .limit(60);
       if (error) { $pickNote.textContent = "Couldn't load your designs — try again in a moment."; return; }

@@ -849,6 +849,7 @@ const recentTemplates = templates.slice(0, 4);
       lockClicks('[data-demo-lock]', 'That one is for members.', 'Reels guides and scheduling come with membership. In the demo, try the Studio, the Planner and the Getting Started guides.');
     }
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
+    import { designStore } from '../../lib/design-store.js';
     import { initNotifications } from '../../lib/notifications.js';
     import { initTour } from '../../lib/tour.js';
     // The dashboard carries its own copy of the workspace header, so it
@@ -1245,12 +1246,17 @@ const recentTemplates = templates.slice(0, 4);
     (async function wireWork() {
       let designs = [];
       try {
-        const { data } = await supabase
-          .from('user_designs')
-          .select('id, name, thumb_url, updated_at')
-          .order('updated_at', { ascending: false })
-          .limit(4);
-        designs = data || [];
+        // A member's own, or the training account's (src/lib/design-store.js).
+        const store = await designStore();
+        if (store && !store.blocked) {
+          const { data } = await store.db
+            .from(store.table)
+            .select('id, name, thumb_url, updated_at')
+            .eq('user_id', store.uid)
+            .order('updated_at', { ascending: false })
+            .limit(4);
+          designs = data || [];
+        }
       } catch (_) {}
       if (!designs.length) return; // no saved work yet → keep the starter templates
 
