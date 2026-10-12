@@ -300,20 +300,30 @@ function frameSettled(ms = 1200) {
    The picture is decoded before it is shown, so a step never arrives as a
    half-painted image, and the live frame is left loaded underneath: stepping
    from a picture back to a live step does not reload it. */
-async function showShot(src) {
+const SHOT_NATURAL_W = 840;   // the rig's capture width (src/pages/account/shot.astro)
+async function showShot(src, y) {
   if (!stage || !stage.img) return;
   if (!src) {
     stage.img.hidden = true;
+    stage.img.style.transform = '';
     stage.frame.style.visibility = '';
     return;
   }
   stage.box.classList.add('is-busy');
   stage.frame.style.visibility = 'hidden';
-  if (stage.img.getAttribute('src') !== src) {
+  const fresh = stage.img.getAttribute('src') !== src;
+  if (fresh) {
     stage.img.src = src;
+    stage.img.style.transform = '';   // a new picture starts at its top
     try { await stage.img.decode(); } catch (_) { /* a broken path still shows the frame's background */ }
   }
   stage.img.hidden = false;
+  /* Pan to the part this step is about. The picture is drawn at the frame's
+     width, so an offset taken in the picture's own pixels has to be scaled by
+     however much it was shrunk or stretched to get there. */
+  const shown = stage.img.getBoundingClientRect().width || SHOT_NATURAL_W;
+  const k = shown / (stage.img.naturalWidth || SHOT_NATURAL_W);
+  stage.img.style.transform = 'translateY(' + Math.round(-(y || 0) * k) + 'px)';
 }
 
 function stageReady() {
@@ -481,14 +491,21 @@ function injectStyles() {
      and nobody can edit the demo by accident. A step carrying a shot uses the
      picture; one without it stays live, so a walk can be converted a step at
      a time. Dani, 12 Oct. */
+  /* Pinned to the top-left and scaled to the frame's WIDTH, so it can be
+     panned: several steps often share one picture and each wants a different
+     part of it on screen -- the hero, then the packs, then the pack itself --
+     which is what the live frame did by scrolling. A step's shotY is how far
+     down the picture to start, in the picture's own pixels. Dani, 12 Oct:
+     "it kind of moves to the specific part that we're talking about." */
   .tmke-stage-img {
-    position: absolute; inset: 0; width: 100%; height: 100%;
+    position: absolute; left: 0; top: 0; width: 100%; height: auto;
+    transition: transform .32s cubic-bezier(.2,.75,.2,1);
     /* Fills the screen area and crops the bottom, rather than letterboxing.
        The pop-out is not always the shape the picture was taken at -- its box
        is a fraction of the window -- so fitting it whole left a white band
        under the picture on a smaller screen. Cropping the foot of a page reads as the
        page carrying on below, which is what the live frame did. */
-    object-fit: cover; object-position: center top; background: var(--ws-bg, #f6f4f2);
+    background: var(--ws-bg, #f6f4f2);
   }
   .tmke-stage-spin { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
   .tmke-stage-box.is-busy .tmke-stage-spin { display: flex; }
@@ -1306,7 +1323,7 @@ async function render(index) {
       /* A picture of the Studio rather than the Studio itself. Nothing to
          load, open, select or scroll: the step is its own illustration, so
          everything below this is skipped and the panel paints beside it. */
-      await showShot(step.shot);
+      await showShot(step.shot, step.shotY);
       if (renderCancelled(ticket)) return;
       paintCard(index, step);
       positionFor(step);
