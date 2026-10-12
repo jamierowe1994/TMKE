@@ -91,7 +91,8 @@ const PICKER = COURSES.map((c) => ({
     {/* What this step has to show, in its own words, so the shot can be set up
         without going back to the course to read it. */}
     <div class="sr-step" id="sr-step-card" hidden>
-      <p class="sr-step-eyebrow"><span id="sr-step-eyebrow"></span> &middot; <span id="sr-step-where"></span></p>
+      <p class="sr-step-eyebrow"><span id="sr-step-eyebrow"></span> &middot; <span id="sr-step-where"></span>
+        &middot; <button type="button" class="sr-step-go" id="sr-step-go">Open this step's page</button></p>
       <h2 id="sr-step-title"></h2>
       <p id="sr-step-body"></p>
     </div>
@@ -184,6 +185,8 @@ const PICKER = COURSES.map((c) => ({
 
     .sr-step { padding: 14px 18px; margin: 0 0 14px; background: var(--ws-soft, #fbfaf8); border: 1px solid var(--ws-line, rgba(28,29,34,0.14)); border-left: 3px solid var(--ws-accent, #371e28); border-radius: 6px; }
     .sr-step-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-accent, #371e28); margin: 0 0 4px; }
+    .sr-step-go { appearance: none; background: none; border: 0; padding: 0; font: inherit; color: var(--ws-accent, #371e28); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; letter-spacing: inherit; text-transform: inherit; }
+    .sr-step-go:hover { color: var(--english-violet, #371e28); }
     .sr-step h2 { font-family: var(--sans); font-size: 16px; font-weight: 700; margin: 0 0 4px; }
     .sr-step p:last-child { font-size: 14px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.7)); margin: 0; }
 
@@ -255,7 +258,13 @@ const PICKER = COURSES.map((c) => ({
         });
       };
 
-      const showStep = (walkId, n) => {
+      /* Choosing a walk or a step no longer moves the frame. It used to load
+         the step's page every time, so picking the walk after setting up a
+         design threw the design away and sent you back to the start. Dani,
+         12 Oct: "it just leaves you on the design that you're on." The frame
+         goes to the step's page only when asked (Open this step's page), and
+         on the first load, so it is never blank. */
+      const showStep = (walkId, n, go) => {
         const s = stepOf(walkId, n);
         current = { walkId: walkId, n: s.n };
         document.getElementById("sr-step-eyebrow").textContent = s.eyebrow || byId[walkId].title;
@@ -264,18 +273,22 @@ const PICKER = COURSES.map((c) => ({
         document.getElementById("sr-step-body").textContent = s.body || "";
         card.hidden = false;
         const want = location.origin + s.path;
-        if (frame.src !== want) frame.src = s.path;
-        say(s.hasShot
+        if (go && frame.src !== want) frame.src = s.path;
+        say((s.hasShot
           ? "This step already has a picture &mdash; a new one replaces it."
-          : "Set the frame up to match the step, then copy the picture.");
+          : "Set the frame up to match the step, then take the picture.")
+          + (go ? "" : " The frame stays where it is &mdash; <strong>Open this step's page</strong> takes it there."));
       };
 
-      walkSel.addEventListener("change", () => { fillSteps(walkSel.value); showStep(walkSel.value, 1); });
-      stepSel.addEventListener("change", () => showStep(walkSel.value, stepSel.value));
+      walkSel.addEventListener("change", () => { fillSteps(walkSel.value); showStep(walkSel.value, 1, false); });
+      stepSel.addEventListener("change", () => showStep(walkSel.value, stepSel.value, false));
+      document.getElementById("sr-step-go").addEventListener("click", () => {
+        if (current) showStep(current.walkId, current.n, true);
+      });
 
       walkSel.value = "studio-template";
       fillSteps(walkSel.value);
-      showStep(walkSel.value, 1);
+      showStep(walkSel.value, 1, true);
 
       /* The frame's own furniture.
          The cookie banner lives INSIDE the frame, so none of the rig's styles
