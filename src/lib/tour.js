@@ -1192,8 +1192,33 @@ async function render(index) {
   if (step.select !== undefined) {
     const w = scopeWin();
     for (let i = 0; i < 24 && !(w && w.__TMKE_TRAINING_SELECT__); i++) await new Promise((r) => setTimeout(r, 150));
-    try { if (w && w.__TMKE_TRAINING_SELECT__) w.__TMKE_TRAINING_SELECT__(step.select); } catch (_) {}
-    await new Promise((r) => setTimeout(r, 200));
+    /* Ask until it takes. Waiting for the hook to EXIST is not the same as
+       waiting for there to be anything to select: the editor publishes the
+       hook as it boots, well before the design's elements are on the canvas,
+       so the one call landed on an empty page and nothing was ever selected.
+       The step then sat out its nine-second wait for `.ed-element.is-selected`
+       and skipped -- a step that says "this one is selected now" with nothing
+       selected. Dani, 12 Oct. */
+    const wantsSelection = typeof step.select === 'string' && step.select !== '';
+    /* Wait for the DESIGN, not just the hook. The editor publishes the hook as
+       it boots and shows "Opening your design..." while it fetches the
+       artwork, so a page with no elements on it yet is a page with nothing to
+       select -- and a selection made on a half-built canvas is wiped when the
+       design finishes arriving. */
+    if (wantsSelection) await waitFor('.ed-element', 9000);
+    for (let i = 0; i < 12; i++) {
+      try { if (w && w.__TMKE_TRAINING_SELECT__) w.__TMKE_TRAINING_SELECT__(step.select); } catch (_) {}
+      await new Promise((r) => setTimeout(r, 220));
+      if (!wantsSelection) break;
+      let got = null;
+      try { got = scope().querySelector('.ed-element.is-selected'); } catch (_) {}
+      // It has to still be selected a moment later: one made mid-render is not.
+      if (got) {
+        await new Promise((r) => setTimeout(r, 260));
+        try { got = scope().querySelector('.ed-element.is-selected'); } catch (_) { got = null; }
+        if (got) break;
+      }
+    }
   }
 
   if (step.open) {
@@ -1428,7 +1453,10 @@ function probeStep() {
   /* A step can ask for no cutout at all (box: false) - the card simply sits
      beside the thing. There is no hole to check, and reporting the absent one
      as "collapsed" sent me chasing a step that was working. */
-  const centred = !step.target || step.placement === 'center' || step.box === false;
+  /* A staged step asks for no cutout at all -- the pop-out does not use one --
+     so there is no hole to judge, and reporting the absent one as collapsed
+     sent me chasing a step that was working. */
+  const centred = !step.target || step.placement === 'center' || step.box === false || stageOn();
   const hole = centred ? null : {
     x: L.x + L.w, y: T.y + T.h,
     w: Math.max(0, R.x - (L.x + L.w)), h: Math.max(0, B.y - (T.y + T.h)),
