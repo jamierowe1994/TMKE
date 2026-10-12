@@ -287,7 +287,7 @@ export const WALKS = {
         target: ".ed-rb-row[data-from]", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Apply Your Colours",
         body: "Choose a replacement from your saved colours. Every element using the original colour will update together." },
-      { shot: "/images/learn/demo/shots/studio-make-yours--brand-panel@2x.webp",
+      { shot: "/images/learn/demo/shots/studio-make-yours--fonts-applied@2x.webp",
         target: ".ed-rb-font", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Update Your Fonts",
         body: "Replace the template's fonts with those saved in your Brand Kit, updating matching text throughout the design." },

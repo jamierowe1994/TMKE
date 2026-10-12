@@ -9339,6 +9339,18 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   function refontRole(role, toName) {
+    /* The text keeps the row it was given its font from. A role is otherwise
+       read off the text's size, and a new font is refitted to keep its line
+       count -- so the quote in Testimonial 3, a Subheading, came out of "Use
+       Tangerine" a little larger, read as a Heading, and the panel moved it
+       there and offered Prata, which would have undone the font just chosen.
+       Dani's screenshot, 12 Oct. Pinned with fontRole, which textRole() reads
+       first and the design saves. */
+    if (toName) {
+      state.elements.forEach(function (el) {
+        if (el && el.type === "text" && !el.fontRole && !memberLock(el) && textRole(el) === role) el.fontRole = role;
+      });
+    }
     return refontWhere(function (el) { return textRole(el) === role; }, toName);
   }
   function refontWhere(match, toName) {
