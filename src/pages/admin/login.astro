@@ -157,7 +157,7 @@ import AdminBack from "../../components/AdminBack.astro";
       // Valid credentials, but not an admin → sign back out so a customer can't
       // sit on an admin session, and tell them why.
       if (!(await isAdminUser(signInData.user))) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });   // this side only: their hub login is theirs
         submitBtn.removeAttribute('disabled');
         labelEl.textContent = 'Sign in';
         showDenied();

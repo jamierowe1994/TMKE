@@ -280,7 +280,14 @@ const hideFromSearch = noindex || privateArea;
     )}
     <script is:inline>
       try {
-        if (localStorage.getItem("tmke-admin-auth")) {
+        /* Which login this page belongs to (src/lib/supabase.js: two front
+           doors). The admin side reads its own; the hub reads its own, or the
+           old shared slot a member has not been moved out of yet. */
+        var _q = new URLSearchParams(location.search);
+        var _admin = /^\/admin(\/|$)/.test(location.pathname)
+          || (location.pathname.replace(/\/+$/, "") === "/account/editor" && _q.get("mode") === "admin");
+        if (_admin ? localStorage.getItem("tmke-admin-auth")
+                   : (localStorage.getItem("tmke-member-auth") || localStorage.getItem("tmke-admin-auth"))) {
           document.documentElement.classList.add("has-session");
         }
         /* Admin opening a template in the editor: cover the page before the
