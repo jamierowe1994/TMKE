@@ -7991,6 +7991,7 @@ import { createResizeEngine } from "./resize-engine.js";
       mountPicturePicker({
         menu: body.querySelector("#ed-sel-imgmenu"),
         button: replaceBtn,
+        galleryKey: state.selectedIds[0] || "",
         onPick: put,
         onUpload: () => {
           const input = document.createElement("input");
@@ -12059,7 +12060,17 @@ import { createResizeEngine } from "./resize-engine.js";
      Clicking a result does what clicking one of your uploads does. Dani, 12
      Oct: people "might not fully understand that they can add a stock image
      from here too." */
-  function galleryBlock(onPick) {
+  /* The search stays open while you try photos. Dani, 12 Oct: people will be
+     "testing the ones that they want, so it shouldn't close the search ... We
+     shouldn't have to keep typing in our search every time we put a picture
+     in and realize it's not the right picture." Dropping a photo into a
+     selected picture redraws its panel, which would build a fresh, closed
+     menu -- so what the search held is remembered here, keyed to the picture
+     (or "background"), and put back. It is forgotten when you close the menu
+     yourself or choose a different picture. */
+  let _gallery = null;   // { key, q, results, scroll }
+
+  function galleryBlock(onPick, key) {
     const wrap = document.createElement("div");
     const toggle = document.createElement("button");
     toggle.type = "button"; toggle.className = "ed-bg-imgmenu-search"; toggle.textContent = "Search the gallery";
@@ -12069,7 +12080,23 @@ import { createResizeEngine } from "./resize-engine.js";
       '<p class="ed-gal-status">Type to search free photos from Pexels and Unsplash.</p>' +
       '<div class="ed-bg-imgmenu-grid"></div>';
     const input = panel.querySelector("input"), status = panel.querySelector(".ed-gal-status"), grid = panel.querySelector(".ed-bg-imgmenu-grid");
-    let timer = null, last = "", ticket = 0;
+    let timer = null, last = "", ticket = 0, shown = [];
+    function draw(q, results) {
+      grid.innerHTML = "";
+      shown = results;
+      status.textContent = results.length + " photos for \u201c" + q + "\u201d. Click one to try it.";
+      results.forEach(function (r) {
+        const b = document.createElement("button");
+        b.type = "button"; b.title = "Photo by " + r.credit;
+        b.style.backgroundImage = "url(" + JSON.stringify(r.thumb) + ")";
+        b.addEventListener("click", function () {
+          try { if (typeof window.__TMKE_STOCK_USED__ === "function") window.__TMKE_STOCK_USED__(r); } catch (_) {}
+          _gallery = { key: key, q: last, results: shown, scroll: grid.scrollTop };
+          onPick(r.full);
+        });
+        grid.appendChild(b);
+      });
+    }
     async function run() {
       const q = input.value.trim();
       if (q.length < 2) { grid.innerHTML = ""; status.textContent = "Type to search free photos from Pexels and Unsplash."; return; }
@@ -12083,23 +12110,21 @@ import { createResizeEngine } from "./resize-engine.js";
       if (mine !== ticket) return;   // a newer search has started
       grid.innerHTML = "";
       if (!results.length) { status.textContent = "No photos for \u201c" + q + "\u201d. Try a different word."; return; }
-      status.textContent = results.length + " photos for \u201c" + q + "\u201d. Click one to use it.";
-      results.forEach(function (r) {
-        const b = document.createElement("button");
-        b.type = "button"; b.title = "Photo by " + r.credit;
-        b.style.backgroundImage = "url(" + JSON.stringify(r.thumb) + ")";
-        b.addEventListener("click", function () {
-          try { if (typeof window.__TMKE_STOCK_USED__ === "function") window.__TMKE_STOCK_USED__(r); } catch (_) {}
-          onPick(r.full);
-        });
-        grid.appendChild(b);
-      });
+      draw(q, results);
     }
     input.addEventListener("input", function () { clearTimeout(timer); timer = setTimeout(run, 350); });
     toggle.addEventListener("click", function () {
       panel.hidden = !panel.hidden;
       if (!panel.hidden) input.focus();
     });
+    // Back where you were, if this is the picture you were just trying photos on.
+    if (_gallery && _gallery.key === key) {
+      panel.hidden = false;
+      input.value = _gallery.q; last = _gallery.q;
+      draw(_gallery.q, _gallery.results || []);
+      const top = _gallery.scroll || 0;
+      requestAnimationFrame(function () { grid.scrollTop = top; });
+    }
     wrap.appendChild(toggle); wrap.appendChild(panel);
     return wrap;
   }
@@ -12131,17 +12156,25 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       const up = menu.querySelector("[data-upload]");
       if (up) up.addEventListener("click", function () { open(false); opts.onUpload(); });
-      menu.appendChild(galleryBlock(function (src) { open(false); opts.onPick(src); }));
+      menu.appendChild(galleryBlock(function (src) { opts.onPick(src); }, opts.galleryKey));
     }
     function open(on) {
       if (on) build();
+      else if (_gallery && _gallery.key === opts.galleryKey) _gallery = null;   // closed on purpose
       menu.hidden = !on;
       button.setAttribute("aria-expanded", on ? "true" : "false");
     }
     button.addEventListener("click", function (e) { e.stopPropagation(); open(menu.hidden); });
     document.addEventListener("click", function (e) {
+      if (!menu.isConnected) return;   // an old panel, already redrawn away
+      /* Nor a click on something that has since been redrawn away -- the photo
+         just tried, whose panel was rebuilt while the click was still on its
+         way up. It reads as a click outside the new menu and shut it at once. */
+      if (e.target && e.target.isConnected === false) return;
       if (!menu.hidden && !menu.contains(e.target) && !button.contains(e.target)) open(false);
     });
+    // Redrawn while photos were being tried: open again, search and all.
+    if (_gallery && _gallery.key === opts.galleryKey) open(true);
   }
 
   // ---------- Background pane: change/upload image, fade tint, gradient menu, reposition ----------
@@ -12202,12 +12235,13 @@ import { createResizeEngine } from "./resize-engine.js";
       });
       const up = menu.querySelector("[data-upload]");
       if (up) up.addEventListener("click", () => { setImgMenu(false); if (fileInput) fileInput.click(); });
-      menu.appendChild(galleryBlock((src) => { setCanvasBackgroundImage(src); setImgMenu(false); }));
+      menu.appendChild(galleryBlock((src) => { setCanvasBackgroundImage(src); }, "background"));
     }
     // The chooser opens in the panel under the row, so the chevron says which
     // way it is and the button's aria-expanded goes with it.
     function setImgMenu(open) {
       if (!menu) return;
+      if (!open && _gallery && _gallery.key === "background") _gallery = null;   // closed on purpose
       if (open) buildImgMenu();
       menu.hidden = !open;
       if (changeBtn) changeBtn.setAttribute("aria-expanded", open ? "true" : "false");
