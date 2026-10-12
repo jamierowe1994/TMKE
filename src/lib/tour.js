@@ -173,6 +173,26 @@ const stageOffset = () => {
   return { x: r.left, y: r.top, w: r.width, h: r.height };
 };
 
+/* The commentary panel lives INSIDE the pop-out while one is open.
+   It used to be the same fixed column down the right of the SCREEN that a
+   walk on a real page uses, with the pop-out squeezed into what was left: on
+   a 1024px window the demo got 587px and the panel took a full-height 400px
+   strip beside it, so what began as a centred pop-out finished as two
+   separate things. Dani, 12 Oct: "I like the idea of these being more of a
+   central popout ... if we can do the new format in the popout, that would be
+   better." Same panel, same order, inside the box. */
+function dockCard() {
+  if (!stage || !els || !els.card || !stage.body) return;
+  if (els.card.parentElement === stage.body) return;
+  stage.body.appendChild(els.card);
+  els.card.classList.add('is-staged');
+}
+function undockCard() {
+  if (!els || !els.card) return;
+  els.card.classList.remove('is-staged');
+  if (els.root && els.card.parentElement !== els.root) els.root.appendChild(els.card);
+}
+
 function openStage(title) {
   if (stage) return;
   injectStyles();
@@ -184,13 +204,41 @@ function openStage(title) {
         <b>The demo &middot; <span data-stage-title></span></b>
         <button type="button" class="tmke-stage-x" data-stage-x>Close demo &times;</button>
       </div>
-      <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+      <div class="tmke-stage-body" data-stage-body>
+        <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+      </div>
     </div>`;
   document.body.appendChild(wrap);
   stage = {
     wrap, box: wrap.querySelector('.tmke-stage-box'),
+    body: wrap.querySelector('[data-stage-body]'),
     frame: wrap.querySelector('[data-stage-frame]'), url: null,
   };
+  dockCard();   // the commentary belongs inside the pop-out, not beside it
+  /* The demo's frame changes size whenever the panel docks beside it, the
+     window resizes, or the layout drops to a column on a narrow screen -- and
+     every measurement in positionFor is taken against that frame. Without
+     this, the spotlight was computed before the browser had re-laid the box
+     out: the cutout collapsed to nothing at the foot of the demo, and the
+     whole thing read as dimmed with nothing lit. Dani, 12 Oct. */
+  if (typeof ResizeObserver === 'function') {
+    stage.ro = new ResizeObserver(() => {
+      /* Re-aim as well as re-measure. The frame changing width re-flows the
+         page inside it, so whatever the step is pointing at moves -- on the
+         first step of a walk it ended up 961px down a 584px frame, which is
+         why the cutout collapsed even once the masks were right. Bringing it
+         back into view costs nothing when it has not moved. */
+      const step = STEPS[activeIndex];
+      if (step && step.target) {
+        try {
+          const t = scope().querySelector(step.target);
+          if (t) scrollTargetIntoView(t);
+        } catch (_) {}
+      }
+      scheduleReflow();
+    });
+    stage.ro.observe(stage.frame);
+  }
   wrap.querySelector('[data-stage-title]').textContent = title || '';
   wrap.addEventListener('click', (e) => {
     if (e.target === wrap || e.target.closest('[data-stage-x]')) finish(false);
@@ -202,7 +250,12 @@ function openStage(title) {
 function closeStage() {
   if (!stage) return;
   const wrap = stage.wrap;
+  if (stage.ro) { try { stage.ro.disconnect(); } catch (_) {} }
   stage = null;
+  /* Take the panel out before the pop-out is removed, or it goes with it and
+     a walk that carries on afterwards -- Finish chaining back to a menu walk,
+     say -- has no card to render into. */
+  undockCard();
   document.documentElement.style.overflow = '';
   wrap.classList.remove('is-in');
   setTimeout(() => wrap.remove(), 280);
@@ -330,16 +383,32 @@ function injectStyles() {
     transform: translateY(10px); transition: transform .3s cubic-bezier(.2,.75,.2,1);
   }
   .tmke-stage.is-in .tmke-stage-box { transform: none; }
-  /* The commentary panel is fixed to the right of the screen, so the pop-out
-     has to give up that strip or the panel covers the demo it is describing -
-     on a 1512px screen the panel sat over the right third of the Studio.
-     Dani, 9 Oct. */
-  @media (min-width: 900px) {
-    html.has-side .tmke-stage {
-      padding-right: calc(var(--tour-side, 400px) + clamp(10px, 2.4vh, 28px));
-    }
-    html.has-side .tmke-stage-box {
-      width: min(1240px, calc(100vw - var(--tour-side, 400px) - 2 * clamp(10px, 2.4vh, 28px)));
+  /* The demo and the words that describe it, side by side inside the one box.
+     The panel used to be the same fixed strip down the right of the SCREEN
+     that a walk on a real page uses, and the pop-out had to give up room for
+     it: on a 1024px window the demo was left 587px while a full-height panel
+     stood beside it, so a centred pop-out finished as two separate things.
+     Dani, 12 Oct. */
+  .tmke-stage-body { flex: 1 1 auto; display: flex; min-height: 0; }
+  .tmke-stage-body .tmke-stage-frame { flex: 1 1 auto; min-width: 0; }
+  .tmke-tour-card.is-staged {
+    position: static; flex: 0 0 auto; align-self: stretch;
+    width: clamp(300px, 34%, 400px); max-width: none; height: auto;
+    border: 0; border-left: 1px solid var(--ws-line, rgba(28,29,34,0.13));
+    border-radius: 0; box-shadow: none; opacity: 1; transform: none;
+    padding: 26px 28px; overflow-y: auto;
+    /* Anchored the same way the full-height panel is, so the words do not
+       jump as the copy changes length (11 Oct). */
+    justify-content: flex-start;
+  }
+  /* On a narrow window the box is the whole screen and there is no room for a
+     column beside the demo, so the panel goes under it. */
+  @media (max-width: 860px) {
+    .tmke-stage-body { flex-direction: column; }
+    .tmke-tour-card.is-staged {
+      width: auto; align-self: auto; flex: 0 0 auto; max-height: 45%;
+      border-left: 0; border-top: 1px solid var(--ws-line, rgba(28,29,34,0.13));
+      padding: 18px 20px;
     }
   }
   .tmke-stage-head {
@@ -824,6 +893,20 @@ function positionFor(step) {
        mid-walk was another layout jump, and it is the one the section menu
        made every time. The first-login tour keeps its centred card.
        Dani, 9 Oct. */
+    if (stageOn()) {
+      const off = stageOffset();
+      els.root.classList.add('is-center');
+      card.classList.add('is-side');
+      card.classList.remove('is-center');
+      card.style.left = '';
+      card.style.top = '';
+      // Dim the demo itself; the page behind is already dimmed by the pop-out.
+      setMask(els.maskT, off.x, off.y, off.w, off.h);
+      setMask(els.maskR, off.x + off.w, off.y, 0, 0);
+      setMask(els.maskB, off.x, off.y + off.h, off.w, 0);
+      setMask(els.maskL, off.x, off.y, 0, off.h);
+      return;
+    }
     const sideOK = !!activeWalk && vw >= 900 && !stageOn();
     els.root.classList.add('is-center');
     card.classList.toggle('is-center', !sideOK);
@@ -842,7 +925,10 @@ function positionFor(step) {
   /* Claim the panel's strip first. The page narrows to make room, so every
      rect below has to be read AFTER that, or the cutout is measured against a
      layout that no longer exists. */
-  document.documentElement.classList.toggle('has-side', vw >= 900);
+  /* Never while the pop-out is open: `has-side` makes the PAGE give up a strip
+     down its right for a fixed panel, which is what squeezed the pop-out.
+     Staged, the panel is a column inside the box instead (dockCard). */
+  document.documentElement.classList.toggle('has-side', vw >= 900 && !stageOn());
   const t = scope().querySelector(step.target);
   if (!t) return;
   const raw = t.getBoundingClientRect();
@@ -911,19 +997,26 @@ function positionFor(step) {
        down the page. A target entirely off-screen now simply dims
        everything. Dani, 11 Oct. */
     const bandTop = stageOn() ? minY : 0;
-    if (hy >= vh || hy + hh <= bandTop) {
-      setMask(els.maskT, 0, 0, vw, vh);
-      setMask(els.maskR, vw, 0, 0, 0);
-      setMask(els.maskB, 0, vh, vw, 0);
-      setMask(els.maskL, 0, 0, 0, vh);
+    /* The dim covers the DEMO, not the window. With the commentary panel now
+       inside the pop-out (dockCard), masks drawn edge to edge painted over the
+       panel and the pop-out's own frame as well, and the whole thing went
+       dark. Staged, the four panels are confined to the demo's rectangle, so
+       the words beside it stay lit. Dani, 12 Oct. */
+    const bx0 = stageOn() ? off.x : 0, bx1 = stageOn() ? off.x + off.w : vw;
+    const by0 = stageOn() ? off.y : 0, by1 = stageOn() ? off.y + off.h : vh;
+    if (hy >= by1 || hy + hh <= bandTop) {
+      setMask(els.maskT, bx0, by0, bx1 - bx0, by1 - by0);
+      setMask(els.maskR, bx1, by0, 0, 0);
+      setMask(els.maskB, bx0, by1, bx1 - bx0, 0);
+      setMask(els.maskL, bx0, by0, 0, by1 - by0);
       els.ring.style.display = 'none';
     } else {
-    const vy = Math.max(bandTop, hy);
-    const vhh = Math.max(0, Math.min(vh, hy + hh) - vy);
-    setMask(els.maskT, 0, 0, vw, vy);
-    setMask(els.maskB, 0, vy + vhh, vw, Math.max(0, vh - (vy + vhh)));
-    setMask(els.maskL, 0, vy, hx, vhh);
-    setMask(els.maskR, hx + hw, vy, Math.max(0, vw - (hx + hw)), vhh);
+    const vy = Math.max(Math.max(bandTop, by0), hy);
+    const vhh = Math.max(0, Math.min(by1, hy + hh) - vy);
+    setMask(els.maskT, bx0, by0, bx1 - bx0, Math.max(0, vy - by0));
+    setMask(els.maskB, bx0, vy + vhh, bx1 - bx0, Math.max(0, by1 - (vy + vhh)));
+    setMask(els.maskL, bx0, vy, Math.max(0, hx - bx0), vhh);
+    setMask(els.maskR, hx + hw, vy, Math.max(0, bx1 - (hx + hw)), vhh);
     }
     els.ring.style.left = hx + 'px';
     els.ring.style.top = hy + 'px';
@@ -945,7 +1038,7 @@ function positionFor(step) {
      spotlight does. Chasing the hole put the card somewhere new on every step,
      which is the popping around Dani described. Phones keep the old placement:
      there the card is nearly the full width anyway. */
-  if (vw >= 900) {
+  if (vw >= 900 || stageOn()) {
     card.classList.add('is-side');
     card.style.left = '';
     card.style.top = '';
@@ -971,6 +1064,10 @@ async function render(index) {
   activeIndex = index;
   const freshMount = !els;
   if (!els) buildDOM();
+  /* The pop-out opens before the panel is built, so its own dockCard found
+     nothing to move. Dock here as well, every render: cheap when it is already
+     in place, and it covers a walk that opens a stage part-way through. */
+  if (stageOn()) { dockCard(); settleReflow(); } else undockCard();
   /* Landing on a new page mid-walk. The panel was on screen a moment ago on
      the page before, so paint it straight away in its loading state instead of
      animating it in: across a page change the section switch still reads as
