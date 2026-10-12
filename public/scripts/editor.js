@@ -3589,7 +3589,14 @@ import { createResizeEngine } from "./resize-engine.js";
        mean is the same gesture as finding it in a list — so the list was a
        second place to do one job, and the longer of the two. Admin keeps it:
        drawing a template is exactly when a flat list of every string helps. */
-    if (!isAdminMode()) { wrap.innerHTML = ""; return; }
+    if (!isAdminMode()) {
+      /* With nothing selected the tab was simply blank, which reads as broken.
+         One line says what fills it. Dani, 12 Oct. */
+      const sel = state.selectedIds.length === 1 ? getEl(state.selectedIds[0]) : null;
+      wrap.innerHTML = (sel && sel.type === "text") ? ""
+        : '<p class="ed-textlist-empty">Click any text on your design to edit it here.</p>';
+      return;
+    }
     if (wrap.contains(document.activeElement)) return;   // never rebuild mid-type
     // A text the template has fixed outright isn't offered for rewording.
     const texts = state.elements.filter((e) => e.type === "text" && memberLock(e) !== "dead");
