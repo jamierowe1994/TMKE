@@ -15,6 +15,7 @@
  * image directly through to, so that you can put it into the demo."
  */
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { DEMO_BRAND } from "../../data/demo-brand.js";
 
 /* The pop-out's screen area at a large window, measured from the real thing:
    the box is min(1240px, 86vw) wide by min(82vh, 860px) tall, the panel takes
@@ -36,6 +37,16 @@ const SHOT_H = 774;
     </header>
 
     <div class="sr-bar">
+      {/* Which account the frame is signed into. The rig shares this browser's
+          session, so without this it shows whoever is signed in -- which for
+          Dani is her own hub, with her own brand on every picture. */}
+      <div class="sr-field">
+        <span>Account</span>
+        <div class="sr-seg" role="group" aria-label="Account the demo runs as">
+          <button type="button" id="sr-acc-training" data-on="training">Training</button>
+          <button type="button" id="sr-acc-mine" data-on="mine">Mine</button>
+        </div>
+      </div>
       <label class="sr-field sr-field--grow">
         <span>Page</span>
         <input id="sr-url" type="text" value="/account/editor?training=1" spellcheck="false" />
@@ -96,6 +107,11 @@ const SHOT_H = 774;
     .sr-btn--ghost { background: #fff; color: var(--english-violet, #371e28); }
     .sr-btn:disabled { opacity: 0.5; cursor: default; }
 
+    .sr-seg { display: inline-flex; border: 1px solid var(--ws-line, rgba(28,29,34,0.16)); border-radius: 6px; overflow: hidden; background: #fff; }
+    .sr-seg button { font: inherit; font-size: 13px; font-weight: 600; padding: 9px 14px; border: 0; background: transparent; color: var(--ws-tx, rgba(28,29,34,0.66)); cursor: pointer; }
+    .sr-seg button + button { border-left: 1px solid var(--ws-line, rgba(28,29,34,0.16)); }
+    .sr-seg button.is-on { background: var(--english-violet, #371e28); color: #fff; }
+
     .sr-note { font-size: 13px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.6)); margin: 0 0 20px; }
     .sr-note.is-bad { color: #8a2b2b; }
     .sr-note.is-good { color: #2b6b43; }
@@ -115,7 +131,7 @@ const SHOT_H = 774;
     .sr-small { font-size: 13px; line-height: 1.6; color: var(--ws-tx, rgba(28,29,34,0.6)); }
   </style>
 
-  <script is:inline define:vars={{ SHOT_W, SHOT_H }}>
+  <script is:inline define:vars={{ SHOT_W, SHOT_H, DEMO_BRAND }}>
     (function () {
       const stage = document.getElementById("sr-stage");
       const frame = document.getElementById("sr-frame");
@@ -143,6 +159,61 @@ const SHOT_H = 774;
       };
       fit();
       window.addEventListener("resize", fit, { passive: true });
+
+      /* The account the frame runs as.
+         The rig shares this browser's session with the frame inside it, so
+         signed in as herself Dani was photographing her own hub, with her own
+         brand kit on every picture. These put the browser into the training
+         account -- the same state /demo?go=1&brand=demo creates -- or back
+         into her own, and reload the frame either way. Her own login is left
+         alone: ending the demo does not sign anybody out, and the brand kit
+         it set aside is handed back. Dani, 12 Oct. */
+      const DEMO_KEY = "tmke_demo";
+      const inTraining = () => {
+        try {
+          const u = JSON.parse(localStorage.getItem(DEMO_KEY) || "null");
+          return !!(u && (u.kind === "training" || u.training));
+        } catch (_) { return false; }
+      };
+      const paintAccount = () => {
+        const on = inTraining();
+        document.getElementById("sr-acc-training").classList.toggle("is-on", on);
+        document.getElementById("sr-acc-mine").classList.toggle("is-on", !on);
+      };
+      const reloadFrame = () => { frame.src = frame.src; };
+
+      /* Training mode is entered through the real door, not a copy of it.
+         Seeding the flag and the kit by hand here meant two versions of the
+         same thing, and mine was already drifting from demo.astro's. The
+         frame visits /demo?go=1&brand=demo, which writes the state this
+         browser shares with it, and then goes to the page being photographed. */
+      document.getElementById("sr-acc-training").addEventListener("click", async () => {
+        say("Putting the frame into the training account&hellip;");
+        frame.src = "/demo?go=1&brand=demo";
+        await new Promise((r) => setTimeout(r, 1800));
+        const u = (urlIn.value || "/account/studio").trim();
+        frame.src = u;
+        paintAccount();
+        say("The frame is in the <strong>training account</strong> &mdash; Rimberio Homes, no demo badge. Your own login is untouched.", "good");
+      });
+
+      document.getElementById("sr-acc-mine").addEventListener("click", () => {
+        if (!inTraining()) return;
+        /* endDemo's own job, done where this page can reach it: the flag and
+           the training kit go, and the member's cached kit is handed back. */
+        try {
+          localStorage.removeItem(DEMO_KEY);
+          localStorage.removeItem("tmke.brand.training");
+          const stash = sessionStorage.getItem("tmke.brand.stash");
+          if (stash) { localStorage.setItem("tmke.brand", stash); sessionStorage.removeItem("tmke.brand.stash"); }
+          else { localStorage.removeItem("tmke.brand"); }
+        } catch (_) {}
+        paintAccount();
+        reloadFrame();
+        say("The frame is in <strong>your own account</strong>. Pictures taken now will carry your brand, not the training one.");
+      });
+
+      paintAccount();
 
       document.getElementById("sr-go").addEventListener("click", () => {
         const u = (urlIn.value || "").trim();
