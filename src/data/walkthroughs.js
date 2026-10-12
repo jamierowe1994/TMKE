@@ -283,7 +283,7 @@ export const WALKS = {
         target: ".ed-rebrand", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Make This Design Yours",
         body: "Open this section to see the colours and fonts used in your template alongside those saved in your Brand Kit." },
-      { shot: "/images/learn/demo/shots/studio-make-yours--brand-panel@2x.webp",
+      { shot: "/images/learn/demo/shots/studio-make-yours--colours-applied@2x.webp",
         target: ".ed-rb-row[data-from]", placement: "right", padding: 8, open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Apply Your Colours",
         body: "Choose a replacement from your saved colours. Every element using the original colour will update together." },
