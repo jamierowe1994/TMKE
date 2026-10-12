@@ -11073,6 +11073,15 @@ import { createResizeEngine } from "./resize-engine.js";
       p.classList.toggle("is-active", p.dataset.pane === name);
     });
   }
+  /* Choosing another tool puts the colour panel away. It floats over the side
+     panel, so with it left open the pane you just asked for - Layers, say - was
+     underneath it and out of reach. On pointerdown, a person's press, so the
+     editor's own programmatic rail .click()s never shut a panel it has just
+     opened. Dani, 12 Oct: "The color picker should close if I click on another
+     menu item to override it." */
+  document.addEventListener("pointerdown", function (e) {
+    if (e.target && e.target.closest && e.target.closest(".ed-rail-btn, [data-start-tool]")) closeColorPanel();
+  }, true);
   document.querySelectorAll(".ed-rail-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".ed-rail-btn").forEach((b) => b.classList.remove("is-active"));
