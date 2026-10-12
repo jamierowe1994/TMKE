@@ -907,7 +907,16 @@ function scrollTargetIntoView(t) {
       if (scrolls) {
         const pr = p.getBoundingClientRect(), tr = t.getBoundingClientRect();
         if (tr.top < pr.top + 8 || tr.bottom > pr.bottom - 8) {
-          p.scrollTop += (tr.top - pr.top) - (p.clientHeight - tr.height) / 2;
+          /* Centre what fits; top-align what does not. Centring something
+             taller than its own scroller puts its top ABOVE the top of the
+             panel: the brand block is longer than the rail it sits in, so the
+             step called "Make This Design Yours" scrolled its own heading out
+             of sight. Dani, 12 Oct: "we want to make sure that we can see Make
+             This Design Yours on that second page." */
+          const tooTall = tr.height > p.clientHeight - 16;
+          p.scrollTop += tooTall
+            ? (tr.top - pr.top) - 12
+            : (tr.top - pr.top) - (p.clientHeight - tr.height) / 2;
         }
         break;
       }
