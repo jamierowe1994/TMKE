@@ -23,6 +23,12 @@ it sharp when the demo stretches it across a wide pop-out. Pictures taken
 between 13:51 and 17:10 on 12 Oct came out at 840 -- the rig shrank the frame
 to fit the window -- and are soft; retake those.
 
+A replacement picture gets a NEW name, never the old one. Cloudflare keeps
+images for four hours, so a file swapped under the same name goes on being
+served old to everyone -- the sharp Studio homepage did exactly that on 12 Oct
+while the deploy check, which added a query string and so went round the
+cache, said it was live. The full-resolution set is named `@2x`.
+
 Name them `<walk-id>-<step number>.jpg` so it is obvious which step a picture
 belongs to when one needs replacing.
 
