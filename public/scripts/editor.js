@@ -9173,7 +9173,28 @@ import { createResizeEngine } from "./resize-engine.js";
     } catch (_) { return false; }
   }
 
+  /* Off, deliberately.
+     Opening a copy used to put the member's heading and body fonts straight
+     onto the template. It read as rebranded at a glance and it was rarely an
+     improvement: a heading that fitted on two lines in the template's face
+     wanted three in theirs, a weight meant as regular came through bold, and
+     nobody had asked for any of it. Dani, 12 Oct: "I like the idea of it. I
+     really do, but for now, I just don't think it's going to do us any
+     justice ... they have to do it themselves because that will encourage
+     them to edit it more."
+
+     Make this design yours, in the Brand panel, does the same thing on
+     purpose and shows what it is about to change. That is the way in now.
+
+     The merge tags, the logo and the headshot still fill themselves in: those
+     put the member's own details on the design rather than restyling what the
+     designer drew, and the course tells readers to expect them.
+
+     One word turns it back on. */
+  const AUTO_BRAND_FONTS = false;
+
   function applyBrandFontsToTemplate(templateId) {
+    if (!AUTO_BRAND_FONTS) return;
     /* Two cases are left exactly as drawn. A design made FOR one of our
        brands is already in that brand's typeface, and a print card has to
        print as drawn. Everywhere else a social template is neutral, so taking
