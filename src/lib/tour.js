@@ -265,13 +265,41 @@ function closeStage() {
 
 // Point the stage at a page and wait for it to be usable. Resolves either way -
 // a step that can't find its target is skipped, as it always was.
+/* Wait until the page inside the frame has stopped growing.
+   `load` fires before the Studio has its packs, its designs and their
+   pictures, so the page kept getting taller underneath the first step: it
+   opened scrolled to where the target was a moment ago, then jumped as
+   everything above it arrived. Dani, 12 Oct: "it loads in further down and
+   then moves up." Two readings the same, 140ms apart, and it has settled;
+   capped so a page that never settles does not hold the demo shut. */
+function frameSettled(ms = 2600) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    let last = -1, same = 0;
+    const tick = () => {
+      if (!stage || !stage.frame) return resolve();
+      let h = 0;
+      try { h = stage.frame.contentDocument.body.scrollHeight; } catch (_) { return resolve(); }
+      if (h === last) { if (++same >= 2) return resolve(); } else { same = 0; last = h; }
+      if (Date.now() - started > ms) return resolve();
+      setTimeout(tick, 140);
+    };
+    tick();
+  });
+}
+
 function stageGo(url) {
   return new Promise((resolve) => {
     if (!stage) return resolve();
     if (stage.url === url) return resolve();
     stage.url = url;
     let done = false;
-    const go = () => { if (done) return; done = true; dressStage(); setTimeout(resolve, 500); };
+    const go = () => {
+      if (done) return;
+      done = true;
+      dressStage();
+      frameSettled().then(() => setTimeout(resolve, 120));
+    };
     stage.frame.addEventListener('load', go, { once: true });
     setTimeout(go, 14000);
     stage.frame.src = url;
@@ -896,6 +924,24 @@ function positionFor(step) {
   if (!els || !step) return;
   const card = els.card;
   const vw = window.innerWidth, vh = window.innerHeight;
+  /* Inside the pop-out there is no spotlight at all. The demo is a small
+     window on a page, the words sit beside it, and scrolling to the part the
+     step is about says which part that is -- a dimmed cutout in a 480px frame
+     was more furniture than help, and it was the thing that visibly moved
+     while the page settled. Dani, 12 Oct: "I actually think we can drop the
+     highlight on these and just make sure that we are starting the viewpoint
+     from the relevant bit to the step that we're talking about." */
+  if (stageOn()) {
+    els.root.classList.remove('is-center');
+    card.classList.add('is-side');
+    card.classList.remove('is-center');
+    card.style.left = '';
+    card.style.top = '';
+    setMask(els.maskT, 0, 0, 0, 0); setMask(els.maskR, 0, 0, 0, 0);
+    setMask(els.maskB, 0, 0, 0, 0); setMask(els.maskL, 0, 0, 0, 0);
+    els.ring.style.display = 'none';
+    return;
+  }
   if (!step.target || step.placement === 'center') {
     // Full-screen dim, no cutout: top panel covers everything, others collapse.
     // A targeted step leaves its coordinates inline; a centred card must not
@@ -907,20 +953,6 @@ function positionFor(step) {
        mid-walk was another layout jump, and it is the one the section menu
        made every time. The first-login tour keeps its centred card.
        Dani, 9 Oct. */
-    if (stageOn()) {
-      const off = stageOffset();
-      els.root.classList.add('is-center');
-      card.classList.add('is-side');
-      card.classList.remove('is-center');
-      card.style.left = '';
-      card.style.top = '';
-      // Dim the demo itself; the page behind is already dimmed by the pop-out.
-      setMask(els.maskT, off.x, off.y, off.w, off.h);
-      setMask(els.maskR, off.x + off.w, off.y, 0, 0);
-      setMask(els.maskB, off.x, off.y + off.h, off.w, 0);
-      setMask(els.maskL, off.x, off.y, 0, off.h);
-      return;
-    }
     const sideOK = !!activeWalk && vw >= 900 && !stageOn();
     els.root.classList.add('is-center');
     card.classList.toggle('is-center', !sideOK);
