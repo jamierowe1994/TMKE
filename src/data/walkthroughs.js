@@ -310,7 +310,7 @@ export const WALKS = {
         target: ".ed-element.is-selected", placement: "left", padding: 10, select: "heading",
         eyebrow: "Text", title: "Edit Text on the Design",
         body: "Double-click any text to edit it directly. You can replace the wording or highlight individual words to make smaller changes." },
-      { shot: "/images/learn/demo/shots/studio-text--heading-selected@2x.webp",
+      { shot: "/images/learn/demo/shots/studio-text--fonts-tab@2x.webp",
         target: "#ed-context", placement: "bottom", padding: 8, select: "heading",
         eyebrow: "Text", title: "Font, Size and Colour",
         body: "Select a text box to change its font, size, colour, alignment and other formatting using the toolbar above your design." },
