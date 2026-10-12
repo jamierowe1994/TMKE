@@ -347,31 +347,39 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             Download
             <span class="ed-download-caret" aria-hidden="true">▾</span>
           </button>
-          <div class="ed-download-menu" id="ed-download-menu" role="menu" hidden>
-            <button class="ed-download-item" data-export="png-transparent" role="menuitem">
-              <strong>PNG · transparent</strong>
-              <span>Cut-outs &amp; overlays. No background.</span>
-            </button>
-            <button class="ed-download-item" data-export="png" role="menuitem">
-              <strong>PNG</strong>
-              <span>Highest quality. With background.</span>
-            </button>
-            <button class="ed-download-item" data-export="jpg" role="menuitem">
-              <strong>JPG</strong>
-              <span>Smaller file. With background.</span>
-            </button>
-            <button class="ed-download-item" data-export="pdf" role="menuitem">
-              <strong>PDF</strong>
-              <span id="ed-dl-pdf-note">Print-ready, single page.</span>
-            </button>
-            <!-- Only on a design with more than one side to it. A postcard's
-                 front and back are one PDF to a printer and two files to
-                 somebody emailing them one at a time, and neither is the
-                 obviously right answer, so both are offered. -->
-            <button class="ed-download-item" data-export="pdf-separate" id="ed-dl-pdf-each" role="menuitem" hidden>
-              <strong>PDF · a file for each page</strong>
-              <span>One PDF per page, numbered.</span>
-            </button>
+          <!-- The download panel, the way Canva lays it out (Dani, 12 Oct): choose
+               the file type, and only that type's options appear under it.
+               Which pages, and "a file for each page", only when there is
+               more than one page to choose from. -->
+          <div class="ed-download-menu" id="ed-download-menu" role="dialog" aria-label="Download" hidden>
+            <p class="ed-dl-head">Download</p>
+            <label class="ed-dl-label" for="ed-dl-type">File type</label>
+            <select class="ed-dl-select" id="ed-dl-type">
+              <option value="png">PNG &mdash; best for social media</option>
+              <option value="jpg">JPG &mdash; smaller file</option>
+              <option value="pdf">PDF &mdash; print-ready</option>
+            </select>
+            <label class="ed-dl-switch" data-dl-for="png">
+              <span>Transparent background</span>
+              <input type="checkbox" id="ed-dl-transparent" />
+              <i aria-hidden="true"></i>
+            </label>
+            <label class="ed-dl-switch" data-dl-for="pdf" data-dl-multi>
+              <span>Download pages as separate files</span>
+              <input type="checkbox" id="ed-dl-separate" />
+              <i aria-hidden="true"></i>
+            </label>
+            <div class="ed-dl-pages" data-dl-multi>
+              <span class="ed-dl-label">Select pages</span>
+              <div class="ed-dl-seg" role="radiogroup" aria-label="Select pages">
+                <button type="button" data-dl-pages="all" class="is-on" role="radio" aria-checked="true">All</button>
+                <button type="button" data-dl-pages="this" role="radio" aria-checked="false">This page <span id="ed-dl-this-n"></span></button>
+                <button type="button" data-dl-pages="custom" role="radio" aria-checked="false">Custom</button>
+              </div>
+              <input type="text" class="ed-dl-custom" id="ed-dl-custom" placeholder="e.g. 1-3, 5" hidden autocomplete="off" />
+            </div>
+            <button type="button" class="ed-dl-go" id="ed-dl-go">Download</button>
+          </div>
           </div>
         </div>
       </div>
@@ -1711,15 +1719,55 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       position: absolute;
       top: calc(100% + 6px);
       right: 0;
-      width: 260px;
+      width: 300px;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.12);
-      border-radius: 6px;
+      border-radius: 12px;
       box-shadow: 0 14px 40px -8px rgba(0,0,0,0.18);
-      padding: 6px;
+      padding: 16px;
       z-index: 90;
-      display: flex; flex-direction: column;
+      display: flex; flex-direction: column; gap: 10px;
+      font-family: var(--sans); color: var(--ink);
     }
+    .ed-dl-head { margin: 0 0 2px; font-size: var(--ws-t-body); font-weight: 700; }
+    .ed-dl-label { display: block; font-size: var(--ws-t-meta); font-weight: 700; margin: 0 0 -4px; }
+    .ed-dl-select {
+      width: 100%; padding: 9px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px;
+      font: inherit; font-size: var(--ws-t-body); background: #fff; color: var(--ink); cursor: pointer;
+    }
+    .ed-dl-select:focus { outline: none; border-color: var(--english-violet); }
+    .ed-dl-switch {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      font-size: var(--ws-t-body); cursor: pointer; position: relative;
+    }
+    .ed-dl-switch input { position: absolute; opacity: 0; pointer-events: none; }
+    .ed-dl-switch i {
+      flex: none; width: 36px; height: 20px; border-radius: 999px; background: rgba(28,29,34,0.2);
+      position: relative; transition: background 0.15s;
+    }
+    .ed-dl-switch i::after {
+      content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.25); transition: transform 0.15s;
+    }
+    .ed-dl-switch input:checked + i { background: var(--english-violet); }
+    .ed-dl-switch input:checked + i::after { transform: translateX(16px); }
+    .ed-dl-switch input:focus-visible + i { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .ed-dl-pages { display: flex; flex-direction: column; gap: 10px; }
+    .ed-dl-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 3px; background: rgba(28,29,34,0.06); border-radius: 8px; }
+    .ed-dl-seg button {
+      appearance: none; border: 0; background: transparent; border-radius: 6px; padding: 7px 4px; cursor: pointer;
+      font: inherit; font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.6); white-space: nowrap;
+    }
+    .ed-dl-seg button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+    .ed-dl-custom { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; font: inherit; font-size: var(--ws-t-body); }
+    .ed-dl-custom:focus { outline: none; border-color: var(--english-violet); }
+    .ed-dl-custom.is-bad { border-color: #b3261e; }
+    .ed-dl-go {
+      appearance: none; border: 0; border-radius: 8px; padding: 11px; margin-top: 4px; cursor: pointer;
+      font: inherit; font-size: var(--ws-t-body); font-weight: 700; background: var(--english-violet); color: var(--paper);
+    }
+    .ed-dl-go:hover { filter: brightness(1.12); }
+    .ed-download-menu [hidden] { display: none !important; }
     .ed-download-menu[hidden] { display: none; }
     .ed-download-item {
       display: flex;

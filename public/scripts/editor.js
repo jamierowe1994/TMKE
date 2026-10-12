@@ -6880,6 +6880,8 @@ import { createResizeEngine } from "./resize-engine.js";
     const pages = (Array.isArray(state.pages) && state.pages.length)
       ? state.pages
       : [{ elements: state.elements }];
+    // Loading fonts is an improvement to a render, never a reason to fail one.
+    try {
     for (const pg of pages) {
       for (const el of (pg.elements || [])) {
         if (el.hidden || el.type !== "text") continue;
@@ -6895,13 +6897,22 @@ import { createResizeEngine } from "./resize-engine.js";
         let chars = typeof el.text === "string" ? el.text : "";
         if (Array.isArray(el.runs)) el.runs.forEach(function (r) { if (r && typeof r.text === "string") chars += r.text; });
         want.forEach(function (name) {
-          const stack = name ? fontStackFor(name) : (FONTS[0] ? FONTS[0].stack : "sans-serif");
-          const fam = stack.split(",")[0].trim();
+          /* A font missing from the catalogue is loaded by its own name. The
+             fontStackFor() in force here (the later of two with that name)
+             answers null for one, and null.split threw -- out of this
+             function and out of every render: downloads, previews and
+             thumbnails all failed for a design using such a font, from 10 Oct
+             22:01 until found 12 Oct. */
+          const stack = name
+            ? (fontStackFor(name) || '"' + String(name).replace(/"/g, "") + '", sans-serif')
+            : (FONTS[0] && FONTS[0].stack ? FONTS[0].stack : "sans-serif");
+          const fam = String(stack).split(",")[0].trim();
           const spec = (el.italic ? "italic " : "") + (el.weight || 400) + " " + (el.size || 16) + "px " + fam;
           specs.set(spec, (specs.get(spec) || "") + chars);
         });
       }
     }
+    } catch (err) { console.warn("[fonts] could not work out the fonts to load", err); }
     try {
       await Promise.all([...specs].map(([s, text]) => document.fonts.load(s, (text || "") + " ").catch(function () {})));
       await document.fonts.ready;
@@ -7428,30 +7439,37 @@ import { createResizeEngine } from "./resize-engine.js";
   function nextTickPause() { return new Promise(function (r) { setTimeout(r, 350); }); }
 
   // type can be: "png" | "jpg" | "png-transparent" | "pdf" | "pdf-separate"
-  async function exportImage(type) {
+  // pages: the page indexes to include, or null for every page.
+  async function exportImage(type, pages) {
     if (demoLocked("Create an account to download your design.", "Everything you have made here can be yours: join the Member Hub and download it in any format.")) return;
     const total = state.pages.length;
+    /* Every page unless the panel chose fewer. A postcard downloaded as its
+       front alone is the kind of thing you only discover at the printer, so
+       "All" is where the panel starts. */
+    const list = Array.isArray(pages) && pages.length ? pages : state.pages.map(function (_, i) { return i; });
 
-    /* Every page, not just the one on screen. A postcard downloaded as its
-       front alone is the kind of thing you only discover at the printer. */
     if (type === "pdf" || type === "pdf-separate") {
-      return await exportToPdf(type === "pdf-separate");
+      return await exportToPdf(type === "pdf-separate", list);
     }
-    if (total > 1) {
-      toast("Saving " + total + " pages…");
-      for (let i = 0; i < total; i++) {
+    if (list.length > 1) {
+      toast("Saving " + list.length + " pages…");
+      for (let k = 0; k < list.length; k++) {
+        const i = list[k];
         const canvas = await renderPage(i, { transparent: type === "png-transparent" });
         saveCanvas(canvas, type, exportName(i, total, type === "png-transparent" ? "png" : type));
-        if (i < total - 1) await nextTickPause();
+        if (k < list.length - 1) await nextTickPause();
       }
-      toast("Saved " + total + " pages");
+      toast("Saved " + list.length + " pages");
       return true;
     }
-    const c = await _renderDesignToCanvas({ transparent: type === "png-transparent" });
+    const only = list[0] || 0;
+    const c = total > 1
+      ? await renderPage(only, { transparent: type === "png-transparent" })
+      : await _renderDesignToCanvas({ transparent: type === "png-transparent" });
 
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
     const ext = type === "png-transparent" ? "png" : type;
-    const name = (filenameEl.value || "design") + "." + ext;
+    const name = total > 1 ? exportName(only, total, ext) : (filenameEl.value || "design") + "." + ext;
     // On a phone a download lands in Files, which is not where anyone looks
     // for a picture. The share sheet offers Save Image, which puts it in
     // Photos - so that is the route there.
@@ -7499,8 +7517,10 @@ import { createResizeEngine } from "./resize-engine.js";
      separately wants the second, and neither is obviously the right answer.
      Each page keeps its own size and orientation, so a design whose back is
      a different shape from its front still comes out right. */
-  async function exportToPdf(separate) {
-    const total = state.pages.length;
+  async function exportToPdf(separate, pages) {
+    const all = state.pages.length;
+    const list = Array.isArray(pages) && pages.length ? pages : state.pages.map(function (_, i) { return i; });
+    const total = list.length;
     toast(total > 1 ? "Building " + (separate ? total + " PDFs" : "PDF, " + total + " pages") + "…" : "Building PDF…");
     try {
       const mod = await getJsPdf();
@@ -7514,20 +7534,22 @@ import { createResizeEngine } from "./resize-engine.js";
       });
 
       if (separate || total === 1) {
-        for (let i = 0; i < total; i++) {
+        for (let k = 0; k < total; k++) {
+          const i = list[k];
           const canvas = await renderPage(i, { transparent: false });
           const pdf = make(canvas.width, canvas.height);
           pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, canvas.width, canvas.height);
-          pdf.save(exportName(i, total, "pdf"));
-          if (i < total - 1) await nextTickPause();
+          // Named by the page's own number, so page 3 of 7 is "(page 3)".
+          pdf.save(exportName(i, all, "pdf"));
+          if (k < total - 1) await nextTickPause();
         }
         toast(total > 1 ? "Exported " + total + " PDFs" : "Exported PDF");
         return true;
       }
 
       let pdf = null;
-      for (let i = 0; i < total; i++) {
-        const canvas = await renderPage(i, { transparent: false });
+      for (let k = 0; k < total; k++) {
+        const canvas = await renderPage(list[k], { transparent: false });
         const w = canvas.width, h = canvas.height;
         if (!pdf) pdf = make(w, h);
         else pdf.addPage([w, h], w >= h ? "landscape" : "portrait");
@@ -13780,35 +13802,81 @@ import { createResizeEngine } from "./resize-engine.js";
     document.addEventListener("keydown", (e) => {
       if (!menu.hidden && e.key === "Escape") close();
     });
-    /* The menu tells the truth about a multi-page design before you press
-       anything: one PDF or several, and images a file per page. */
+    /* The download panel (Dani, 12 Oct: "the way they look in Canva"). Choose
+       the file type; only its options show. Which pages, and a PDF per page,
+       only on a design with more than one. */
+    const typeSel = $("ed-dl-type");
+    const transp = $("ed-dl-transparent");
+    const separate = $("ed-dl-separate");
+    const custom = $("ed-dl-custom");
+    let pagesMode = "all";
+
     function syncDownloadMenu() {
       const total = state.pages.length;
-      const each = document.getElementById("ed-dl-pdf-each");
-      const note = document.getElementById("ed-dl-pdf-note");
-      if (each) each.hidden = total <= 1;
-      if (note) note.textContent = total > 1
-        ? "Print-ready. All " + total + " pages in one file."
-        : "Print-ready, single page.";
-      menu.querySelectorAll('[data-export="png"], [data-export="jpg"], [data-export="png-transparent"]').forEach(function (b) {
-        const span = b.querySelector("span");
-        if (!span) return;
-        if (!span.dataset.one) span.dataset.one = span.textContent;
-        span.textContent = total > 1 ? span.dataset.one + " One file per page." : span.dataset.one;
+      const type = typeSel ? typeSel.value : "png";
+      menu.querySelectorAll("[data-dl-for]").forEach(function (el) {
+        el.hidden = el.getAttribute("data-dl-for") !== type;
       });
+      menu.querySelectorAll("[data-dl-multi]").forEach(function (el) {
+        if (total <= 1) el.hidden = true;
+        else if (!el.hasAttribute("data-dl-for")) el.hidden = false;
+      });
+      const thisN = $("ed-dl-this-n");
+      if (thisN) thisN.textContent = "(" + ((state.currentPage || 0) + 1) + ")";
+      if (custom) custom.hidden = pagesMode !== "custom" || total <= 1;
     }
     window.__TMKE_SYNC_DOWNLOAD__ = syncDownloadMenu;
-
-    menu.querySelectorAll("[data-export]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const type = btn.getAttribute("data-export");
-        close();
-        // A finished download is reported to the page, which records it
-        // (Danielle, 7 Oct 2026): nothing else would ever know it happened.
-        exportImage(type).then(function (ok) {
-          if (!ok || typeof window.__TMKE_ON_DOWNLOAD__ !== "function") return;
-          try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "" }); } catch (_) {}
+    if (typeSel) typeSel.addEventListener("change", syncDownloadMenu);
+    menu.querySelectorAll("[data-dl-pages]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        pagesMode = b.getAttribute("data-dl-pages");
+        menu.querySelectorAll("[data-dl-pages]").forEach(function (x) {
+          const on = x === b;
+          x.classList.toggle("is-on", on);
+          x.setAttribute("aria-checked", on ? "true" : "false");
         });
+        syncDownloadMenu();
+        if (pagesMode === "custom" && custom) custom.focus();
+      });
+    });
+    if (custom) custom.addEventListener("input", function () { custom.classList.remove("is-bad"); });
+
+    /* "1-3, 5" -> [0, 1, 2, 4]. Null when it names no page in range. */
+    function parsePages(text, total) {
+      const out = [];
+      String(text || "").split(",").forEach(function (part) {
+        const m = part.trim().match(/^(\d+)\s*(?:-\s*(\d+))?$/);
+        if (!m) return;
+        let a = parseInt(m[1], 10), b = m[2] ? parseInt(m[2], 10) : a;
+        if (a > b) { const t = a; a = b; b = t; }
+        for (let n = a; n <= b; n++) if (n >= 1 && n <= total && out.indexOf(n - 1) === -1) out.push(n - 1);
+      });
+      return out.length ? out.sort(function (x, y) { return x - y; }) : null;
+    }
+
+    const go = $("ed-dl-go");
+    if (go) go.addEventListener("click", function () {
+      const total = state.pages.length;
+      const kind = typeSel ? typeSel.value : "png";
+      let pages = null;
+      if (total > 1 && pagesMode === "this") pages = [state.currentPage || 0];
+      if (total > 1 && pagesMode === "custom") {
+        pages = parsePages(custom && custom.value, total);
+        if (!pages) {
+          if (custom) { custom.classList.add("is-bad"); custom.focus(); }
+          toast("Choose pages between 1 and " + total + " — for example 1-3, 5");
+          return;
+        }
+      }
+      const type = kind === "png" && transp && transp.checked ? "png-transparent"
+        : kind === "pdf" && total > 1 && separate && separate.checked ? "pdf-separate"
+        : kind;
+      close();
+      // A finished download is reported to the page, which records it
+      // (Danielle, 7 Oct 2026): nothing else would ever know it happened.
+      exportImage(type, pages).then(function (ok) {
+        if (!ok || typeof window.__TMKE_ON_DOWNLOAD__ !== "function") return;
+        try { window.__TMKE_ON_DOWNLOAD__({ format: type, pages: pages ? pages.length : state.pages.length, design_id: state.templateId || null, design_name: filenameEl.value || "" }); } catch (_) {}
       });
     });
   })();
