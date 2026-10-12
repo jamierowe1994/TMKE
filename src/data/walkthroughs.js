@@ -263,7 +263,10 @@ export const WALKS = {
          brand kit lives under Start, as "Make it yours". These steps pointed at
          the old tab, so the whole walk ran on a panel a member cannot open.
          Dani, 9 Oct. */
-      { target: '[data-start-tool="brand"]', placement: "right", padding: 8, open: '[data-tool="start"]',
+      /* The editor is an app shell: it does not scroll, so one frameful is the
+         whole of it and no offset is needed. */
+      { shot: "/images/learn/demo/shots/studio-make-yours--editor-start.webp",
+        target: '[data-start-tool="brand"]', placement: "right", padding: 8, open: '[data-tool="start"]',
         eyebrow: "Brand", title: "Your Brand Kit, in the Studio",
         body: "The Brand tab gives you access to your saved colours, fonts and logos. You'll need to complete your Brand Kit first to use these features." },
       { target: ".ed-rebrand", placement: "right", padding: 8, open: '[data-start-tool="brand"]',

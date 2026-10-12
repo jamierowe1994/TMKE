@@ -407,7 +407,56 @@ const PICKER = COURSES.map((c) => ({
           let vhPx = video.videoHeight;
           let r = stage.getBoundingClientRect();
           if (tall) return await grabTall(video, vw, vhPx, capScale);
+          return await grabOne(video, vw, vhPx, capScale);
 
+
+        } finally {
+          stream.getTracks().forEach((t) => t.stop());
+          document.body.classList.remove("is-capturing");
+          fit();   // back to the page's own layout
+        }
+      }
+
+      const failed = (err) => {
+        const msg = String((err && err.name) || err);
+        say(/NotAllowed/i.test(msg)
+          ? "Sharing was declined, so nothing was captured. Press the button again and choose this tab."
+          : "That did not work (" + msg + "). Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
+      };
+
+      /* What actually scrolls inside the frame.
+         Most hub pages scroll the window; the pack view scrolls a container of
+         its own. Taking the tallest thing that can scroll finds either. */
+      /* Only the PAGE itself, and only when it really scrolls.
+         An earlier version took the tallest scrollable thing it could find,
+         which inside the editor is the brand panel: scrolling that moved the
+         panel while the rail, the top bar and the canvas stayed put, so the
+         slices were nearly the same view and the chrome repeated down the
+         picture. The editor is an app shell -- it does not scroll as a page --
+         so it is photographed a frameful at a time, with whatever is on screen
+         arranged by hand. A document page like the Studio homepage does
+         scroll, and that is what the stitch is for. Dani, 12 Oct. */
+      const frameScroller = () => {
+        const d = frame.contentDocument;
+        if (!d) return null;
+        const el = d.scrollingElement || d.documentElement;
+        const over = (el.scrollHeight || 0) - (el.clientHeight || 0);
+        return over > 40 ? { el: el, over: over } : null;
+      };
+
+      /* The WHOLE page, in one tall picture.
+         A tab capture only holds what is on screen, so the page is walked down
+         a screenful at a time and the slices are stitched. This is the shape
+         the demo needs: the pop-out is a fraction of whoever's window is
+         looking at it, so a picture cut to one person's frame crops wrongly on
+         everybody else's. A tall picture plus a scroll offset per step is what
+         the live frame did, and it is the only version that survives a
+         different screen. Dani, 12 Oct: "you're still going to have to do the
+         automated scroll to the relevant piece." */
+      /* One frameful: the whole of a page that does not scroll, or exactly what
+         has been arranged on screen. */
+      async function grabOne(video, vw, vhPx, capScale) {
+        let r = stage.getBoundingClientRect();
           /* Fit to what the capture can actually SEE, not to what the window
              says. On Dani's screen the frame ran off the bottom: the captured
              picture is not always the viewport -- it can carry the browser's
@@ -470,48 +519,11 @@ const PICKER = COURSES.map((c) => ({
             short: short,
           };
           return await new Promise((done) => canvas.toBlob(done, "image/png"));
-        } finally {
-          stream.getTracks().forEach((t) => t.stop());
-          document.body.classList.remove("is-capturing");
-          fit();   // back to the page's own layout
-        }
       }
 
-      const failed = (err) => {
-        const msg = String((err && err.name) || err);
-        say(/NotAllowed/i.test(msg)
-          ? "Sharing was declined, so nothing was captured. Press the button again and choose this tab."
-          : "That did not work (" + msg + "). Take an ordinary screenshot of the framed area instead &mdash; it is the right shape.", "bad");
-      };
-
-      /* What actually scrolls inside the frame.
-         Most hub pages scroll the window; the pack view scrolls a container of
-         its own. Taking the tallest thing that can scroll finds either. */
-      const frameScroller = () => {
-        const d = frame.contentDocument;
-        if (!d) return null;
-        let best = d.scrollingElement || d.documentElement;
-        let bestOver = (best.scrollHeight || 0) - (best.clientHeight || 0);
-        d.querySelectorAll("*").forEach((el) => {
-          const cs = frame.contentWindow.getComputedStyle(el);
-          if (!/auto|scroll|overlay/.test(cs.overflowY)) return;
-          const over = el.scrollHeight - el.clientHeight;
-          if (over > bestOver + 8) { best = el; bestOver = over; }
-        });
-        return { el: best, over: bestOver };
-      };
-
-      /* The WHOLE page, in one tall picture.
-         A tab capture only holds what is on screen, so the page is walked down
-         a screenful at a time and the slices are stitched. This is the shape
-         the demo needs: the pop-out is a fraction of whoever's window is
-         looking at it, so a picture cut to one person's frame crops wrongly on
-         everybody else's. A tall picture plus a scroll offset per step is what
-         the live frame did, and it is the only version that survives a
-         different screen. Dani, 12 Oct: "you're still going to have to do the
-         automated scroll to the relevant piece." */
       async function grabTall(video, vw, vhPx, capScale) {
         const sc = frameScroller();
+        if (!sc) return await grabOne(video, vw, vhPx, capScale);
         const d = frame.contentDocument;
         const stepH = SHOT_H;                                   // one frameful of the page
         const total = Math.min(4200, Math.max(SHOT_H, sc ? sc.el.scrollHeight : SHOT_H));
