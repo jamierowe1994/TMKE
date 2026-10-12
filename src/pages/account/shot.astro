@@ -289,6 +289,17 @@ const PICKER = COURSES.map((c) => ({
           const d = frame.contentDocument;
           if (!d) return;
           d.querySelectorAll('[class*="cookie"], [id*="cookie"], .cc-banner, .dm-pill').forEach((el) => el.remove());
+          /* No scrollbar. On a Mac set to always show them, the page's
+             scrollbar sat down the right edge of every slice, so a tall
+             picture carried three thumbs. Most people's scrollbars are hidden
+             until they scroll, so this is also what the page looks like to
+             them. Dani's Studio homepage capture, 12 Oct. */
+          if (!d.getElementById("sr-no-scrollbar")) {
+            const st = d.createElement("style");
+            st.id = "sr-no-scrollbar";
+            st.textContent = "html,body{scrollbar-width:none!important}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important}";
+            (d.head || d.documentElement).appendChild(st);
+          }
         } catch (_) { /* a page that has not settled yet is tidied on its next load */ }
       };
       frame.addEventListener("load", () => { tidyFrame(); setTimeout(tidyFrame, 700); });
