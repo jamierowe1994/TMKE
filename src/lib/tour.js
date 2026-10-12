@@ -186,10 +186,12 @@ function dockCard() {
   if (els.card.parentElement === stage.body) return;
   stage.body.appendChild(els.card);
   els.card.classList.add('is-staged');
+  els.root.classList.add('is-staged');
 }
 function undockCard() {
   if (!els || !els.card) return;
   els.card.classList.remove('is-staged');
+  if (els.root) els.root.classList.remove('is-staged');
   if (els.root && els.card.parentElement !== els.root) els.root.appendChild(els.card);
 }
 
@@ -335,7 +337,14 @@ let lastPostAction = null;
 function injectStyles() {
   if (document.getElementById('tmke-tour-styles')) return;
   const css = `
-  .tmke-tour { position: fixed; inset: 0; z-index: 9000; font-family: var(--sans, system-ui, sans-serif); }
+  /* pointer-events: none on the sheet itself, auto on the parts that are
+     really there. The sheet is transparent but it still hit-tests, and at
+     z 9000 it covers the pop-out at 8990 -- so Close demo, Next and Stop all
+     stopped working the moment the panel moved inside the box. The masks keep
+     taking clicks, which is what stops anyone poking the page behind a walk.
+     Dani, 12 Oct. */
+  .tmke-tour { position: fixed; inset: 0; z-index: 9000; font-family: var(--sans, system-ui, sans-serif); pointer-events: none; }
+  .tmke-tour-card, .tmke-tour-top { pointer-events: auto; }
   /* During a training walk the page sits in the reader's frame: paper
      around it, a hairline card, and the course progress bar on top. */
   html.tmke-walk { background: var(--ws-bg, #f6f4f2); overflow-y: auto; }
@@ -445,6 +454,11 @@ function injectStyles() {
     transition: top .36s cubic-bezier(.4,.7,.2,1), left .36s cubic-bezier(.4,.7,.2,1),
                 width .36s cubic-bezier(.4,.7,.2,1), height .36s cubic-bezier(.4,.7,.2,1);
   }
+  /* Not in the pop-out. The demo re-flows as the panel docks, so the cutout is
+     measured, then measured again a frame later -- and a 360ms slide on each
+     turns that into the highlight arriving late and wandering into place.
+     Inside the box it simply appears where it belongs. Dani, 12 Oct. */
+  .tmke-tour.is-staged .tmke-tour-mask { transition: none; }
   /* No ring. It drew a rounded burgundy outline with a glow around whatever
      was being pointed at, which read as a bubble floating over the thing
      rather than the thing itself being lit — and its 8px radius never matched
