@@ -85,8 +85,19 @@ export const supabase = isConfigured
 // pages see no session at all, so a signed-in member (or Dani) walking through
 // the demo sees it as a brand-new visitor would. Scoped to the hub's own
 // paths; the admin centre keeps the real session.
+//
+// And so does the ADMIN STUDIO, which lives on a hub path:
+// /account/editor?mode=admin. It was hidden the session like any hub page, so
+// it sent Dani to the admin sign-in; the sign-in, not a hub path, saw her real
+// session and sent her straight back; round and round, flashing between the
+// two. Dani, 12 Oct, with the training account switched on in the shot rig:
+// "it's just flashing from the sign-in screen to the Opening your design
+// screen."
+const isAdminStudio = () => {
+  try { return new URLSearchParams(window.location.search).get('mode') === 'admin'; } catch (_) { return false; }
+};
 try {
-  if (typeof window !== 'undefined' && window.localStorage.getItem('tmke_demo')
+  if (typeof window !== 'undefined' && window.localStorage.getItem('tmke_demo') && !isAdminStudio()
       && /^\/(account|editor)(\/|$)/.test(window.location.pathname) && supabase && supabase.auth) {
     supabase.auth.getSession = async () => ({ data: { session: null }, error: null });
     supabase.auth.getUser = async () => ({ data: { user: null }, error: null });

@@ -159,7 +159,9 @@ import { createResizeEngine } from "./resize-engine.js";
        TRAINING account, ours, reads its own: Rimberio Homes, kept apart so no
        real member can ever inherit it. Dani, 11 Oct. */
     try {
-      const rec = JSON.parse(localStorage.getItem("tmke_demo") || "null");
+      // The admin Studio is never the demo (src/lib/demo.js, inAdminStudio).
+      const rec = new URLSearchParams(location.search).get("mode") === "admin"
+        ? null : JSON.parse(localStorage.getItem("tmke_demo") || "null");
       const key = !rec ? "tmke.brand"
         : (rec.kind === "training" || rec.training) ? "tmke.brand.training"
         : "tmke.brand.demo";
@@ -200,7 +202,7 @@ import { createResizeEngine } from "./resize-engine.js";
   // which editor.astro exposes on the window while the demo is on.
   function demoLocked(title, message) {
     let on = false;
-    try { on = !!localStorage.getItem("tmke_demo"); } catch (_) {}
+    try { on = !!localStorage.getItem("tmke_demo") && new URLSearchParams(location.search).get("mode") !== "admin"; } catch (_) {}
     if (!on) return false;
     if (typeof window.__TMKE_DEMO_LOCK__ === "function") window.__TMKE_DEMO_LOCK__(title, message);
     return true;

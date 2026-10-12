@@ -54,6 +54,7 @@ function demoKitKey() {
 
 export function restoreDemoBrand() {
   try {
+    if (inAdminStudio()) return false;                     // the admin Studio is never the demo
     if (!localStorage.getItem(KEY)) return false;          // not in the demo
     /* Deliberately NOT gated on being signed in. Signing out now ends the
        demo outright (signOutEverywhere clears both keys), so a flag that is
@@ -93,7 +94,16 @@ export function restoreDemoBrand() {
 }
 try { restoreDemoBrand(); } catch (_) {}
 
+/* The admin Studio (/account/editor?mode=admin) is never in the demo, even
+   with the demo switched on in this browser. It lives on a hub path, so it
+   was treated as part of the demo: told nobody was signed in -- which bounced
+   Dani between it and the admin sign-in, round and round -- with Save and
+   Download padlocked and the training brand kit swapped in. Dani, 12 Oct. */
+export function inAdminStudio() {
+  try { return new URLSearchParams(location.search).get("mode") === "admin"; } catch (_) { return false; }
+}
 export function demoUser() {
+  if (inAdminStudio()) return null;
   try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
 }
 export function isDemo() { return !!demoUser(); }
