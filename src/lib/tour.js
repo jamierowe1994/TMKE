@@ -586,6 +586,10 @@ function injectStyles() {
     align-items: center; justify-content: center; gap: 7px;
   }
   .tmke-tour-card.is-loading .tmke-tour-load { display: flex; }
+  /* Except in the pop-out, which has a spinner of its own over the demo. Two
+     loaders at once, one of them off-centre in the panel, read as a fault.
+     Dani, 12 Oct. */
+  .tmke-tour-card.is-staged .tmke-tour-load { display: none !important; }
   .tmke-tour-card.is-loading > *:not(.tmke-tour-load):not(.tmke-tour-exit) {
     opacity: 0; transition: opacity .16s ease;
   }
@@ -1144,7 +1148,17 @@ function positionFor(step) {
 }
 
 let shownIndex = 0;   // the step actually on screen, for the dev probe
+/* Every render takes its own ticket. A step waits on things -- the page in the
+   frame, a panel opening, something being selected -- and while it waits the
+   reader can press Close demo, Stop or Next. Without this the old render woke
+   up afterwards and carried on against a pop-out that had gone: it re-dressed
+   the panel, re-covered the frame and generally made Close look like it had
+   not worked. Dani, 12 Oct: "she just hit the button, and it should just
+   instantly close." */
+let renderSeq = 0;
+function renderCancelled(ticket) { return ticket !== renderSeq; }
 async function render(index) {
+  const ticket = ++renderSeq;
   shownIndex = index;
   const step = STEPS[index];
   if (!step) return finish(true);
@@ -1154,7 +1168,16 @@ async function render(index) {
   /* The pop-out opens before the panel is built, so its own dockCard found
      nothing to move. Dock here as well, every render: cheap when it is already
      in place, and it covers a walk that opens a stage part-way through. */
-  if (stageOn()) { dockCard(); settleReflow(); } else undockCard();
+  if (stageOn()) {
+    dockCard();
+    /* Covered for every step, not only the ones that load a new page. A step
+       on the SAME page still opens a panel and scrolls the frame, and Dani
+       watched step two "load and then flick to the correct position". It is
+       uncovered by stageReady() at the end of render, once it is where it
+       belongs. */
+    if (stage && stage.box) stage.box.classList.add('is-busy');
+    settleReflow();
+  } else undockCard();
   /* Landing on a new page mid-walk. The panel was on screen a moment ago on
      the page before, so paint it straight away in its loading state instead of
      animating it in: across a page change the section switch still reads as
@@ -1182,6 +1205,7 @@ async function render(index) {
   else els.card.classList.remove('is-in');
 
   if (step.preAction) { try { await step.preAction(); } catch (_) {} }
+  if (renderCancelled(ticket)) return;
   lastPostAction = step.postAction || null;
 
   // A staged walk: make sure the pop-out is showing the page this step is about
@@ -1189,6 +1213,7 @@ async function render(index) {
   if (stageOn()) {
     const want = step.href || (WALKS[activeWalk] && WALKS[activeWalk].stage);
     if (want) await stageGo(want);
+    if (renderCancelled(ticket)) return;
   }
 
   // `open`: a control to click before the step shows - a rail button whose
@@ -1215,23 +1240,28 @@ async function render(index) {
        select -- and a selection made on a half-built canvas is wiped when the
        design finishes arriving. */
     if (wantsSelection) await waitFor('.ed-element', 9000);
-    for (let i = 0; i < 12; i++) {
+    if (renderCancelled(ticket)) return;
+    /* Bounded by the clock, not by a retry count. Twelve attempts at half a
+       second each is six seconds a step, which is what Dani was waiting
+       through on the steps that ask for a shape: when the selection cannot be
+       made the walk should carry on, not sit there. A step is still a step
+       with nothing selected -- the copy reads a shade oddly, which is far
+       better than the demo appearing to hang. Dani, 12 Oct. */
+    const until = Date.now() + 1500;
+    do {
       try { if (w && w.__TMKE_TRAINING_SELECT__) w.__TMKE_TRAINING_SELECT__(step.select); } catch (_) {}
-      await new Promise((r) => setTimeout(r, 220));
+      await new Promise((r) => setTimeout(r, 180));
+      if (renderCancelled(ticket)) return;
       if (!wantsSelection) break;
       let got = null;
       try { got = scope().querySelector('.ed-element.is-selected'); } catch (_) {}
-      // It has to still be selected a moment later: one made mid-render is not.
-      if (got) {
-        await new Promise((r) => setTimeout(r, 260));
-        try { got = scope().querySelector('.ed-element.is-selected'); } catch (_) { got = null; }
-        if (got) break;
-      }
-    }
+      if (got) break;
+    } while (Date.now() < until);
   }
 
   if (step.open) {
     const opener = await waitFor(step.open, stageOn() ? 6000 : 2000);
+    if (renderCancelled(ticket)) return;
     if (opener) {
       try { opener.click(); } catch (_) {}
       await new Promise((r) => setTimeout(r, 220));
@@ -1248,6 +1278,7 @@ async function render(index) {
        seconds for it buys a dead pause and then skips anyway. Look once and
        move on. Dani, 9 Oct. */
     const t = await waitFor(step.target, step.optional ? 0 : (stageOn() ? 9000 : 4000));
+    if (renderCancelled(ticket)) return;
     /* Nothing is on show until stageReady(), so a step no longer has to sit
        through a fixed pause to look calm: it is covered until it is right.
        Dani, 12 Oct: "there's just a really long load time between all of
@@ -1336,6 +1367,7 @@ function goNext() {
 function goBack() { if (activeIndex > 0) advance(activeIndex, -1); }
 
 function finish(completed) {
+  renderSeq++;   // whatever step is mid-flight, it is not wanted now
   if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
   const wasStaged = stageOn();
   closeStage();
