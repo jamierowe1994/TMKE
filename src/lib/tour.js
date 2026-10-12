@@ -486,7 +486,10 @@ function injectStyles() {
      stood beside it, so a centred pop-out finished as two separate things.
      Dani, 12 Oct. */
   .tmke-stage-body { flex: 1 1 auto; display: flex; min-height: 0; }
-  .tmke-stage-screen { position: relative; flex: 1 1 auto; min-width: 0; display: flex; background: var(--ws-bg, #f6f4f2); }
+  /* Clipped: a picture panned down a long page is moved UP inside this box,
+     and unclipped it slid over the plum strip above and hid its title.
+     Dani, 12 Oct, the first step to pan. */
+  .tmke-stage-screen { position: relative; flex: 1 1 auto; min-width: 0; display: flex; overflow: hidden; background: var(--ws-bg, #f6f4f2); }
   .tmke-stage-body .tmke-stage-frame { flex: 1 1 auto; min-width: 0; transition: opacity .2s ease; }
   /* While the demo is loading or being scrolled into place, the reader sees a
      spinner over its own background rather than the page assembling itself. */
