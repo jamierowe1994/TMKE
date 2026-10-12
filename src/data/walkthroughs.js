@@ -318,10 +318,14 @@ export const WALKS = {
         target: '[data-tool="text"]', placement: "right", padding: 8, select: "",
         eyebrow: "Text", title: "Use the Text Panel",
         body: "Prefer not to edit directly on the design? The Text panel lets you find and change your wording from the side menu." },
-      /* "Find Every Text Box" was here: the list of every text on the page,
-         which members no longer have. Removed, Dani, 12 Oct: "that's no
-         longer a feature." */
-      { shot: "/images/learn/demo/shots/studio-text--4-add-text@2x.webp",
+      /* Every text on the page, in one list: the Edit pane, opened from Edit
+         in the Start menu. The list moved there from the Text panel, which is
+         why it went from this walk for an hour on 12 Oct and came back. */
+      { shot: "/images/learn/demo/shots/studio-text--4-edit-pane@2x.webp",
+        target: '.ed-panel-pane[data-pane="fields"]', placement: "right", padding: 8, open: '[data-start-tool="fields"]',
+        eyebrow: "Text", title: "Find Every Text Box",
+        body: "See all the text on your current page in one list. Edit the wording here or select an item to locate it on your design." },
+      { shot: "/images/learn/demo/shots/studio-text--5-add-text@2x.webp",
         target: ".ed-ttabs", placement: "right", padding: 8, open: '[data-tool="text"]',
         eyebrow: "Text", title: "Explore Your Text Tools",
         body: "Use Text Selection to edit existing wording, Add Text to create something new or Fonts to change typography across your design." },
