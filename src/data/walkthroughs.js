@@ -318,14 +318,11 @@ export const WALKS = {
         target: '[data-tool="text"]', placement: "right", padding: 8, select: "",
         eyebrow: "Text", title: "Use the Text Panel",
         body: "Prefer not to edit directly on the design? The Text panel lets you find and change your wording from the side menu." },
-      /* #ed-textlist is in the DOM but never fills - not on any of the three
-         tabs, and not with a text item selected. The step is marked optional so
-         it drops out cleanly instead of stalling, but it needs a decision:
-         point it at something real, or take it out. Dani, 9 Oct. */
-      { target: "#ed-textlist", placement: "right", padding: 8, optional: true, open: '[data-tool="text"]',
-        eyebrow: "Text", title: "Find Every Text Box",
-        body: "See all the text on your current page in one list. Edit the wording here or select an item to locate it on your design." },
-      { target: ".ed-ttabs", placement: "right", padding: 8, open: '[data-tool="text"]',
+      /* "Find Every Text Box" was here: the list of every text on the page,
+         which members no longer have. Removed, Dani, 12 Oct: "that's no
+         longer a feature." */
+      { shot: "/images/learn/demo/shots/studio-text--add-text-tab@2x.webp",
+        target: ".ed-ttabs", placement: "right", padding: 8, open: '[data-tool="text"]',
         eyebrow: "Text", title: "Explore Your Text Tools",
         body: "Use Text Selection to edit existing wording, Add Text to create something new or Fonts to change typography across your design." },
     ],
