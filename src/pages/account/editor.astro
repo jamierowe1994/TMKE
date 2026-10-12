@@ -6045,6 +6045,30 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // Editor.js reads this on init to populate the font picker.
         window.__TMKE_BRAND_FONTS__ = bf;
       }
+      /* Put The Seasons' punctuation back, last.
+         That font has no apostrophe, bracket, dash or exclamation mark -- each
+         is an ornament, which is the stray mark that keeps turning up at the
+         end of a line. global.css hands those characters to Cormorant
+         Garamond, but the loop above registers The Seasons from the brand
+         fonts table at its FULL range, and a face added through the FontFaceSet
+         is matched after every face the stylesheets declare. So the ornaments
+         came straight back, and no amount of editing the CSS could stop them.
+         Re-adding the narrow range here, after those faces, puts it last.
+         Measured before: an apostrophe, a bracket, a dash and an exclamation
+         mark all came out 119.4px wide at 200px -- one ornament repeated.
+         Dani, 12 Oct. */
+      const SEASONS_GAP = 'U+21-22, U+25-29, U+2D, U+2F, U+5B, U+5D, U+7B, U+7D';
+      if ((bf || []).some((f) => /^the seasons$/i.test(String(f.family || '').trim()))) {
+        for (const style of ['normal', 'italic']) {
+          for (const weight of ['300', '400', '700']) {
+            try {
+              const fix = new FontFace('The Seasons', 'url("/fonts/cormorant-garamond-latin.woff2")',
+                { style, weight, display: 'swap', unicodeRange: SEASONS_GAP });
+              facePromises.push(fix.load().then((l) => document.fonts.add(l)).catch(() => {}));
+            } catch (_) {}
+          }
+        }
+      }
       window.__TMKE_BRAND_FONTS_READY__ = Promise.all(facePromises);
     } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
     // Always resolvable, so a waiter never hangs when there are no uploads.
