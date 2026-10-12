@@ -209,6 +209,7 @@ function openStage(title) {
       <div class="tmke-stage-body" data-stage-body>
         <div class="tmke-stage-screen">
           <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+          <img class="tmke-stage-img" alt="" data-stage-img hidden>
           <div class="tmke-stage-spin" aria-hidden="true"><i></i></div>
         </div>
       </div>
@@ -217,7 +218,8 @@ function openStage(title) {
   stage = {
     wrap, box: wrap.querySelector('.tmke-stage-box'),
     body: wrap.querySelector('[data-stage-body]'),
-    frame: wrap.querySelector('[data-stage-frame]'), url: null,
+    frame: wrap.querySelector('[data-stage-frame]'),
+    img: wrap.querySelector('[data-stage-img]'), url: null,
   };
   dockCard();   // the commentary belongs inside the pop-out, not beside it
   /* The demo's frame changes size whenever the panel docks beside it, the
@@ -292,6 +294,26 @@ function frameSettled(ms = 1200) {
     };
     tick();
   });
+}
+
+/* Swap the pop-out between the live page and a picture.
+   The picture is decoded before it is shown, so a step never arrives as a
+   half-painted image, and the live frame is left loaded underneath: stepping
+   from a picture back to a live step does not reload it. */
+async function showShot(src) {
+  if (!stage || !stage.img) return;
+  if (!src) {
+    stage.img.hidden = true;
+    stage.frame.style.visibility = '';
+    return;
+  }
+  stage.box.classList.add('is-busy');
+  stage.frame.style.visibility = 'hidden';
+  if (stage.img.getAttribute('src') !== src) {
+    stage.img.src = src;
+    try { await stage.img.decode(); } catch (_) { /* a broken path still shows the frame's background */ }
+  }
+  stage.img.hidden = false;
 }
 
 function stageReady() {
@@ -451,6 +473,18 @@ function injectStyles() {
   /* While the demo is loading or being scrolled into place, the reader sees a
      spinner over its own background rather than the page assembling itself. */
   .tmke-stage-box.is-busy .tmke-stage-frame { opacity: 0; }
+  /* A step can show a PICTURE of the Studio instead of the Studio itself.
+     The live frame is honest -- change the hub and the demo changes with it --
+     but it brought a loading sequence, a selection that had to take, a panel
+     that had to open and a scroll that had to land, every one of which could
+     be caught halfway. A picture is the same every time and arrives at once,
+     and nobody can edit the demo by accident. A step carrying a shot uses the
+     picture; one without it stays live, so a walk can be converted a step at
+     a time. Dani, 12 Oct. */
+  .tmke-stage-img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: contain; object-position: center top; background: var(--ws-bg, #f6f4f2);
+  }
   .tmke-stage-spin { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; }
   .tmke-stage-box.is-busy .tmke-stage-spin { display: flex; }
   .tmke-stage-spin i {
@@ -1147,6 +1181,58 @@ function positionFor(step) {
   card.style.top = top + 'px';
 }
 
+/* The panel's own contents: the words, the buttons, the progress, the menu.
+   Lifted out of render so a step that shows a PICTURE paints exactly the
+   same panel as a step that drives the live page -- one of them taking a
+   different route to the same card is how they drift apart. */
+function paintCard(index, step) {
+  // Copy.
+  const first = firstStepName;
+  els.eyebrow.textContent = step.eyebrow || '';
+  els.title.innerHTML = (step.title || '').replace('{NAME}', first ? ', ' + first : '');
+  els.body.textContent = step.body || '';
+  els.progress.textContent = (index + 1) + ' / ' + STEPS.length;
+  els.back.style.visibility = index === 0 ? 'hidden' : 'visible';
+  els.next.textContent = (step.isFinish || index === STEPS.length - 1) ? 'Finish' : 'Next';
+  els.skip.textContent = activeWalk ? 'Stop' : 'Skip tour';
+  // Training walks run inside the reader's frame with its progress bar - unless
+  // the walk has a stage, where the pop-out's own header says where you are and
+  // the reader is left exactly as it was behind it.
+  if (activeWalk && !stageOn()) {
+    document.documentElement.classList.add('tmke-walk');
+    const walkTitle = (WALKS[activeWalk] && WALKS[activeWalk].title) || '';
+    const pct = Math.round(((index + 1) / STEPS.length) * 100);
+    els.top.hidden = false;
+    els.topFill.style.width = pct + '%';
+    els.topStep.textContent = step.menu ? walkTitle : `${walkTitle} · Step ${index + 1} of ${STEPS.length}`;
+    els.topPct.textContent = step.menu ? '' : pct + '%';
+    els.progress.textContent = '';
+  } else {
+    els.top.hidden = true;
+    document.documentElement.classList.remove('tmke-walk');
+  document.documentElement.classList.remove('has-side');
+  }
+  // A menu step: a page of cards, one per area, Done instead of Next.
+  els.skipto.hidden = !step.skipToMenu;
+  els.card.classList.toggle('is-menu', !!step.menu);
+  if (step.menu) {
+    const done = walkedSet();
+    els.menu.innerHTML = step.menu.map((m) =>
+      `<button type="button" data-walk="${m.walk}" class="${done.has(m.walk) ? 'is-done' : ''}">` +
+        `<span class="tmke-tour-ph${m.art ? ' has-art' : ''}"${m.art ? ` style="background-image:url('${m.art}')"` : ''}>Image</span>` +
+        `<b>${m.label}</b>${m.note ? `<i>${m.note}</i>` : ''}</button>`).join('');
+    els.menu.hidden = false;
+    els.menuIntro.textContent = step.body || '';
+    els.menuIntro.hidden = !step.body;
+    els.next.textContent = 'Done';
+    els.back.style.visibility = 'hidden';
+  } else {
+    els.menu.hidden = true;
+    els.menuIntro.hidden = true;
+  }
+
+}
+
 let shownIndex = 0;   // the step actually on screen, for the dev probe
 /* Every render takes its own ticket. A step waits on things -- the page in the
    frame, a panel opening, something being selected -- and while it waits the
@@ -1211,6 +1297,20 @@ async function render(index) {
   // A staged walk: make sure the pop-out is showing the page this step is about
   // before anything is looked for inside it.
   if (stageOn()) {
+    if (step.shot) {
+      /* A picture of the Studio rather than the Studio itself. Nothing to
+         load, open, select or scroll: the step is its own illustration, so
+         everything below this is skipped and the panel paints beside it. */
+      await showShot(step.shot);
+      if (renderCancelled(ticket)) return;
+      paintCard(index, step);
+      positionFor(step);
+      els.card.classList.remove('is-loading');
+      nextTick(() => els.card.classList.add('is-in'));
+      nextTick(stageReady);
+      return;
+    }
+    showShot(null);
     const want = step.href || (WALKS[activeWalk] && WALKS[activeWalk].stage);
     if (want) await stageGo(want);
     if (renderCancelled(ticket)) return;
@@ -1288,51 +1388,7 @@ async function render(index) {
     await new Promise((r) => setTimeout(r, 120)); // let layout settle
   }
 
-  // Copy.
-  const first = firstStepName;
-  els.eyebrow.textContent = step.eyebrow || '';
-  els.title.innerHTML = (step.title || '').replace('{NAME}', first ? ', ' + first : '');
-  els.body.textContent = step.body || '';
-  els.progress.textContent = (index + 1) + ' / ' + STEPS.length;
-  els.back.style.visibility = index === 0 ? 'hidden' : 'visible';
-  els.next.textContent = (step.isFinish || index === STEPS.length - 1) ? 'Finish' : 'Next';
-  els.skip.textContent = activeWalk ? 'Stop' : 'Skip tour';
-  // Training walks run inside the reader's frame with its progress bar - unless
-  // the walk has a stage, where the pop-out's own header says where you are and
-  // the reader is left exactly as it was behind it.
-  if (activeWalk && !stageOn()) {
-    document.documentElement.classList.add('tmke-walk');
-    const walkTitle = (WALKS[activeWalk] && WALKS[activeWalk].title) || '';
-    const pct = Math.round(((index + 1) / STEPS.length) * 100);
-    els.top.hidden = false;
-    els.topFill.style.width = pct + '%';
-    els.topStep.textContent = step.menu ? walkTitle : `${walkTitle} · Step ${index + 1} of ${STEPS.length}`;
-    els.topPct.textContent = step.menu ? '' : pct + '%';
-    els.progress.textContent = '';
-  } else {
-    els.top.hidden = true;
-    document.documentElement.classList.remove('tmke-walk');
-  document.documentElement.classList.remove('has-side');
-  }
-  // A menu step: a page of cards, one per area, Done instead of Next.
-  els.skipto.hidden = !step.skipToMenu;
-  els.card.classList.toggle('is-menu', !!step.menu);
-  if (step.menu) {
-    const done = walkedSet();
-    els.menu.innerHTML = step.menu.map((m) =>
-      `<button type="button" data-walk="${m.walk}" class="${done.has(m.walk) ? 'is-done' : ''}">` +
-        `<span class="tmke-tour-ph${m.art ? ' has-art' : ''}"${m.art ? ` style="background-image:url('${m.art}')"` : ''}>Image</span>` +
-        `<b>${m.label}</b>${m.note ? `<i>${m.note}</i>` : ''}</button>`).join('');
-    els.menu.hidden = false;
-    els.menuIntro.textContent = step.body || '';
-    els.menuIntro.hidden = !step.body;
-    els.next.textContent = 'Done';
-    els.back.style.visibility = 'hidden';
-  } else {
-    els.menu.hidden = true;
-    els.menuIntro.hidden = true;
-  }
-
+  paintCard(index, step);
   positionFor(step);
   settleReflow();
   els.card.classList.remove('is-loading');
