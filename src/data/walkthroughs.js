@@ -295,7 +295,7 @@ export const WALKS = {
         target: "#brand-colour-grid", placement: "right", padding: 8, select: "shape", open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Change Individual Colours",
         body: "Select an element first, then choose a colour to change just that element without affecting the rest of your design." },
-      { shot: "/images/learn/demo/shots/studio-make-yours--logo@2x.webp",
+      { shot: "/images/learn/demo/shots/studio-make-yours--logo-placed@2x.webp",
         target: "#brand-logo-grid", placement: "right", padding: 8, select: "", open: '[data-start-tool="brand"]',
         eyebrow: "Brand", title: "Add Your Logo",
         body: "Choose a logo from your Brand Kit to add it to the design. Your logo may already have been applied automatically." },
