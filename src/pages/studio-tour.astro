@@ -1,0 +1,312 @@
+---
+/**
+ * The Studio office — what the Studio does, told as a room you click round.
+ *
+ * One picture of the TMKE office; each object on it (the laptop, the mood
+ * board, the calendar...) opens a panel about one part of the Studio. Click
+ * an object and the room leans in towards it while the panel slides in.
+ * Every object uses the same panel: one step or several, stepped with the
+ * arrows, and the last step offers the next object.
+ *
+ * The objects and their copy are in src/data/studio-office.js. The picture is
+ * a placeholder until the illustration is drawn; the hotspots are measured in
+ * percent of the picture, so swapping it means re-measuring those only.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { OFFICE_IMAGE, OFFICE_SPOTS } from "../data/studio-office.js";
+---
+
+<BaseLayout
+  title="Inside the Studio — TMKE"
+  description="Have a look around the TMKE Studio: design, plan, learn and post, all from one place."
+  hideNav={true}
+  hideFooter={true}
+  noindex
+>
+  <main class="so">
+    <header class="so-top">
+      <a href="/" class="so-top-back" aria-label="Back to site"><span aria-hidden="true">&larr;</span> Back</a>
+      <a href="/" class="so-top-mark" aria-label="TMKE — home">TMKE</a>
+      <a href="/join" class="so-top-join">Join the Studio</a>
+    </header>
+
+    <section class="so-intro">
+      <p class="eyebrow">Inside the Studio</p>
+      <h1 class="so-title">Have a look around.</h1>
+      <p class="so-lede">Everything you need to do your marketing well is somewhere in this room. Click anything to see what it does.</p>
+    </section>
+
+    <section class="so-stage-wrap" aria-label="The studio office">
+      <div class="so-stage" data-stage>
+        <div class="so-view" data-view style={`aspect-ratio: ${OFFICE_IMAGE.width} / ${OFFICE_IMAGE.height};`}>
+        <div class="so-scene" data-scene>
+          <img src={OFFICE_IMAGE.src} alt={OFFICE_IMAGE.alt} width={OFFICE_IMAGE.width} height={OFFICE_IMAGE.height} draggable="false" />
+          {OFFICE_SPOTS.map((s) => (
+            <button
+              type="button"
+              class="so-spot"
+              data-spot={s.id}
+              style={`left:${s.spot.x}%;top:${s.spot.y}%;width:${s.spot.w}%;height:${s.spot.h}%;`}
+              aria-label={`${s.object}: ${s.name}`}
+            >
+              <span class="so-spot-dot" aria-hidden="true"></span>
+              <span class="so-spot-label" aria-hidden="true">{s.name}</span>
+            </button>
+          ))}
+        </div>
+        </div>
+
+        <aside class="so-panel" data-panel hidden aria-live="polite">
+          <button type="button" class="so-panel-close" data-close aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+          <p class="eyebrow so-panel-eyebrow" data-p-eyebrow></p>
+          <div class="so-panel-body" data-p-body></div>
+          <div class="so-panel-foot">
+            <div class="so-dots" data-p-dots aria-hidden="true"></div>
+            <div class="so-nav">
+              <button type="button" class="so-nav-btn" data-prev aria-label="Previous">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+              </button>
+              <button type="button" class="so-nav-btn so-nav-btn--next" data-next>
+                <span data-next-label>Next</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <nav class="so-list" aria-label="Or pick from the list">
+      {OFFICE_SPOTS.map((s) => (
+        <button type="button" class="so-chip" data-chip={s.id}>
+          <span class="so-chip-object">{s.object}</span>
+          <span class="so-chip-name">{s.name}</span>
+        </button>
+      ))}
+    </nav>
+  </main>
+
+  <script is:inline type="application/json" id="so-data" set:html={JSON.stringify(OFFICE_SPOTS)} />
+
+  <script>
+    type Step = { title: string; body: string; points?: string[]; img?: string; cta?: { label: string; href: string } };
+    type Spot = { id: string; object: string; name: string; spot: { x: number; y: number; w: number; h: number }; steps: Step[] };
+
+    const SPOTS: Spot[] = JSON.parse(document.getElementById("so-data")!.textContent || "[]");
+    const stage = document.querySelector<HTMLElement>("[data-stage]")!;
+    const view = document.querySelector<HTMLElement>("[data-view]")!;
+    const scene = document.querySelector<HTMLElement>("[data-scene]")!;
+    const panel = document.querySelector<HTMLElement>("[data-panel]")!;
+    const pEyebrow = panel.querySelector<HTMLElement>("[data-p-eyebrow]")!;
+    const pBody = panel.querySelector<HTMLElement>("[data-p-body]")!;
+    const pDots = panel.querySelector<HTMLElement>("[data-p-dots]")!;
+    const prevBtn = panel.querySelector<HTMLButtonElement>("[data-prev]")!;
+    const nextBtn = panel.querySelector<HTMLButtonElement>("[data-next]")!;
+    const nextLabel = panel.querySelector<HTMLElement>("[data-next-label]")!;
+
+    const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+    const narrow = () => window.matchMedia("(max-width: 760px)").matches;
+
+    let current: Spot | null = null;
+    let step = 0;
+    let lastTrigger: HTMLElement | null = null;
+
+    /* Lean the room in towards the object: scale up, then slide so the
+       object's centre lands in the middle of the space the panel leaves
+       free, without ever showing past the picture's edges. */
+    function zoomTo(s: Spot | null) {
+      if (!s) { scene.style.transform = ""; return; }
+      const W = view.clientWidth, H = view.clientHeight;
+      const k = narrow() ? 1.7 : 1.55;
+      const cx = ((s.spot.x + s.spot.w / 2) / 100) * W;
+      const cy = ((s.spot.y + s.spot.h / 2) / 100) * H;
+      const panelW = narrow() ? 0 : panel.offsetWidth + 24;
+      // The panel sits on the side away from the object, so it never covers it.
+      const left = !narrow() && s.spot.x + s.spot.w / 2 > 55;
+      stage.classList.toggle("is-left", left);
+      const tx0 = (left ? panelW : 0) + (W - panelW) / 2 - cx * k;
+      const ty0 = H / 2 - cy * k;
+      const tx = Math.min(0, Math.max(W - W * k, tx0));
+      const ty = Math.min(0, Math.max(H - H * k, ty0));
+      scene.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
+    }
+
+    function render() {
+      if (!current) return;
+      const st = current.steps[step];
+      const n = current.steps.length;
+      pEyebrow.textContent = `${current.object} · ${current.name}`;
+      pBody.innerHTML =
+        (st.img ? `<img class="so-panel-img" src="${esc(st.img)}" alt="" />` : "") +
+        `<h2 class="so-panel-title">${esc(st.title)}</h2>` +
+        `<p class="so-panel-text">${esc(st.body)}</p>` +
+        (st.points?.length ? `<ul class="so-panel-points">${st.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>` : "") +
+        (st.cta ? `<a class="btn btn--solid so-panel-cta" href="${esc(st.cta.href)}">${esc(st.cta.label)} <span class="btn-arrow" aria-hidden="true">&rarr;</span></a>` : "");
+      pBody.classList.remove("is-in");
+      void pBody.offsetWidth;
+      pBody.classList.add("is-in");
+
+      pDots.innerHTML = n > 1 ? current.steps.map((_, i) => `<span class="${i === step ? "is-on" : ""}"></span>`).join("") : "";
+      prevBtn.hidden = step === 0;
+      const last = step === n - 1;
+      const following = SPOTS[(SPOTS.indexOf(current) + 1) % SPOTS.length];
+      nextLabel.textContent = last ? `Next: ${following.name}` : "Next";
+      nextBtn.classList.toggle("is-onward", last);
+    }
+
+    function open(id: string, trigger?: HTMLElement) {
+      const s = SPOTS.find((x) => x.id === id);
+      if (!s) return;
+      if (trigger) lastTrigger = trigger;
+      current = s;
+      step = 0;
+      document.querySelectorAll<HTMLElement>("[data-spot]").forEach((b) => b.classList.toggle("is-current", b.dataset.spot === id));
+      document.querySelectorAll<HTMLElement>("[data-chip]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.chip === id)));
+      stage.classList.add("is-open");
+      panel.hidden = false;
+      render();
+      void panel.offsetWidth; // so the slide-in starts from its resting place
+      panel.classList.add("is-in");
+      zoomTo(s);
+      const box = stage.getBoundingClientRect();
+      if (box.top < 0 || box.bottom > window.innerHeight) stage.scrollIntoView({ behavior: "smooth", block: narrow() ? "start" : "center" });
+      history.replaceState(null, "", `#${id}`);
+    }
+
+    function close() {
+      if (!current) return;
+      current = null;
+      stage.classList.remove("is-open");
+      panel.classList.remove("is-in");
+      document.querySelectorAll<HTMLElement>("[data-spot]").forEach((b) => b.classList.remove("is-current"));
+      document.querySelectorAll<HTMLElement>("[data-chip]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+      zoomTo(null);
+      setTimeout(() => { if (!current) panel.hidden = true; }, 380);
+      history.replaceState(null, "", location.pathname);
+      lastTrigger?.focus({ preventScroll: true });
+    }
+
+    function next() {
+      if (!current) return;
+      if (step < current.steps.length - 1) { step++; render(); return; }
+      const following = SPOTS[(SPOTS.indexOf(current) + 1) % SPOTS.length];
+      open(following.id);
+    }
+    function prev() {
+      if (current && step > 0) { step--; render(); }
+    }
+
+    document.querySelectorAll<HTMLElement>("[data-spot]").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); open(b.dataset.spot!, b); }));
+    document.querySelectorAll<HTMLElement>("[data-chip]").forEach((b) => b.addEventListener("click", () => open(b.dataset.chip!, b)));
+    panel.querySelector("[data-close]")!.addEventListener("click", close);
+    nextBtn.addEventListener("click", next);
+    prevBtn.addEventListener("click", prev);
+    // Clicking the room away from any object steps back out.
+    scene.addEventListener("click", () => { if (current) close(); });
+
+    document.addEventListener("keydown", (e) => {
+      if (!current) return;
+      if (e.key === "Escape") close();
+      else if (e.key === "ArrowRight") next();
+      else if (e.key === "ArrowLeft") prev();
+    });
+    window.addEventListener("resize", () => zoomTo(current));
+
+    const start = location.hash.slice(1);
+    if (start && SPOTS.some((s) => s.id === start)) open(start);
+  </script>
+
+  <style>
+    main.so { --so-line: rgba(28,29,34,0.12); background: var(--paper); min-height: 100vh; padding-bottom: 64px; }
+    .so-top { display: flex; align-items: center; justify-content: space-between; padding: 16px clamp(16px, 2.4vw, 34px); }
+    .so-top-back { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .so-top-back:hover { color: var(--ink); }
+    .so-top-mark { font-family: var(--logo-serif); font-size: 22px; letter-spacing: 0.08em; color: var(--ink); position: absolute; left: 50%; transform: translateX(-50%); }
+    .so-top-join { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper); background: var(--english-violet); padding: 10px 16px; border-radius: 1px; transition: background 0.2s ease; }
+    .so-top-join:hover { background: var(--ink); }
+
+    .so-intro { padding: clamp(24px, 5vh, 56px) clamp(16px, 4vw, 64px) clamp(20px, 3vh, 36px); max-width: 1440px; margin: 0 auto; }
+    .so-title { font-family: var(--serif); font-size: clamp(34px, 5vw, 64px); line-height: 1.02; color: var(--ink); margin-top: 10px; }
+    .so-lede { font-family: var(--sans); font-size: clamp(17px, 1.5vw, 20px); line-height: 1.4; color: rgba(28,29,34,0.7); max-width: 75%; margin-top: 14px; }
+
+    .so-stage-wrap { padding: 0 clamp(16px, 4vw, 64px); max-width: 1440px; margin: 0 auto; }
+    /* As wide as the page allows, but never taller than the screen, so the panel's arrows are always in view. */
+    .so-stage { position: relative; width: min(100%, calc((100svh - 80px) * 1.6)); margin: 0 auto; }
+    .so-view { position: relative; width: 100%; overflow: hidden; border-radius: 4px; background: #f0eeeb; border: 1px solid var(--so-line); }
+    .so-scene { position: absolute; inset: 0; transform-origin: 0 0; transition: transform 0.7s cubic-bezier(.2,.7,.2,1); }
+    .so-scene img { width: 100%; height: 100%; display: block; user-select: none; }
+
+    /* The objects: a pulsing dot says "click me"; hover rings the object and names it. */
+    .so-spot { position: absolute; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 10px; outline: 2px solid transparent; outline-offset: 4px; transition: outline-color 0.25s ease, background 0.25s ease; }
+    .so-spot:hover, .so-spot:focus-visible { outline-color: rgba(55,30,40,0.55); background: rgba(255,255,255,0.14); }
+    .so-spot-dot { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--english-violet); box-shadow: 0 0 0 4px rgba(244,242,241,0.85); }
+    .so-spot-dot::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--english-violet); animation: so-pulse 2.2s ease-out infinite; }
+    @keyframes so-pulse { from { transform: scale(1); opacity: 0.7; } to { transform: scale(2.6); opacity: 0; } }
+    .so-spot-label { position: absolute; left: 50%; bottom: calc(100% + 10px); transform: translate(-50%, 4px); white-space: nowrap; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper); background: var(--english-violet); padding: 7px 11px; border-radius: 2px; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; }
+    .so-spot:hover .so-spot-label, .so-spot:focus-visible .so-spot-label { opacity: 1; transform: translate(-50%, 0); }
+    /* Labels near the top edge would be cut off above; show those below. */
+    .so-spot[data-spot="board"] .so-spot-label, .so-spot[data-spot="calendar"] .so-spot-label { bottom: auto; top: calc(100% + 10px); }
+    .so-stage.is-open .so-spot-dot, .so-stage.is-open .so-spot-label { opacity: 0; animation: none; }
+    .so-stage.is-open .so-spot-dot::after { animation: none; }
+    .so-stage.is-open .so-spot:hover { outline-color: transparent; background: none; }
+    .so-stage.is-open .so-spot.is-current { outline-color: rgba(55,30,40,0.35); }
+    @media (prefers-reduced-motion: reduce) { .so-scene { transition: none; } .so-spot-dot::after { animation: none; } }
+
+    /* The panel: one format for every object, one step or several. */
+    .so-panel { position: absolute; top: 16px; right: 16px; bottom: 16px; width: min(400px, 40%); background: var(--paper); border: 1px solid var(--so-line); border-radius: 4px; padding: 30px 28px 22px; display: flex; flex-direction: column; opacity: 0; transform: translateX(24px); transition: opacity 0.35s ease, transform 0.35s cubic-bezier(.2,.7,.2,1); z-index: 2; }
+    .so-panel.is-in { opacity: 1; transform: none; }
+    .so-stage.is-left .so-panel { right: auto; left: 16px; }
+    .so-stage.is-left .so-panel:not(.is-in) { transform: translateX(-24px); }
+    .so-panel-close { position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border: 0; background: none; color: var(--ink); cursor: pointer; border-radius: 2px; display: grid; place-items: center; }
+    .so-panel-close:hover { background: var(--lilac); }
+    .so-panel svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .so-panel-eyebrow { padding-right: 36px; font-size: 11px; }
+    .so-panel-body { flex: 1; overflow-y: auto; margin-top: 18px; }
+    .so-panel-body.is-in { animation: so-step 0.4s ease both; }
+    @keyframes so-step { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    .so-panel-body :global(.so-panel-img) { width: 100%; border-radius: 2px; margin-bottom: 18px; display: block; }
+    .so-panel-body :global(.so-panel-title) { font-family: var(--serif); font-size: clamp(26px, 2.4vw, 34px); line-height: 1.05; color: var(--ink); }
+    .so-panel-body :global(.so-panel-text) { font-family: var(--sans); font-size: 18px; line-height: 1.4; color: rgba(28,29,34,0.75); margin-top: 14px; }
+    .so-panel-body :global(.so-panel-points) { list-style: none; padding: 0; margin: 16px 0 0; border-top: 1px solid var(--so-line); }
+    .so-panel-body :global(.so-panel-points li) { font-family: var(--sans); font-size: 16px; color: var(--ink); padding: 9px 0; border-bottom: 1px solid var(--so-line); }
+    .so-panel-body :global(.so-panel-cta) { margin-top: 22px; }
+
+    .so-panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--so-line); margin-top: 16px; }
+    .so-dots { display: flex; gap: 6px; }
+    .so-dots :global(span) { width: 7px; height: 7px; border-radius: 50%; background: var(--french-grey); transition: background 0.2s ease; }
+    .so-dots :global(span.is-on) { background: var(--english-violet); }
+    .so-nav { display: flex; gap: 8px; margin-left: auto; }
+    .so-nav-btn { display: inline-flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border: 1px solid var(--english-violet); background: none; color: var(--english-violet); font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer; border-radius: 1px; transition: background 0.2s ease, color 0.2s ease; }
+    .so-nav-btn[hidden] { display: none; }
+    .so-nav-btn:hover { background: var(--english-violet); color: var(--paper); }
+    .so-nav-btn--next { background: var(--english-violet); color: var(--paper); padding: 0 14px 0 16px; }
+    .so-nav-btn--next:hover { background: var(--ink); border-color: var(--ink); }
+    .so-nav-btn--next.is-onward { background: none; color: var(--english-violet); }
+    .so-nav-btn--next.is-onward:hover { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
+
+    /* The list under the room: the same objects, for anyone who'd rather read than hunt. */
+    .so-list { display: flex; flex-wrap: wrap; gap: 8px; padding: 20px clamp(16px, 4vw, 64px) 0; max-width: 1440px; margin: 0 auto; }
+    .so-chip { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--so-line); background: none; border-radius: 2px; cursor: pointer; text-align: left; transition: border-color 0.2s ease, background 0.2s ease; }
+    .so-chip:hover { border-color: var(--english-violet); }
+    .so-chip[aria-pressed="true"] { background: var(--english-violet); border-color: var(--english-violet); }
+    .so-chip-object { font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .so-chip-name { font-family: var(--sans); font-size: 16px; font-weight: 600; color: var(--ink); }
+    .so-chip[aria-pressed="true"] .so-chip-object { color: rgba(244,242,241,0.7); }
+    .so-chip[aria-pressed="true"] .so-chip-name { color: var(--paper); }
+
+    /* Phone: the room stays a picture you tap; the panel sits underneath it. */
+    @media (max-width: 760px) {
+      .so-top-mark { display: none; }
+      .so-lede { max-width: none; }
+      .so-stage-wrap { padding: 0; }
+      .so-stage { width: 100%; }
+      .so-view { border-radius: 0; border-left: 0; border-right: 0; }
+      .so-panel { position: relative; inset: auto; width: auto; margin: 0; border-left: 0; border-right: 0; border-bottom: 0; border-radius: 0; transform: translateY(12px); padding: 24px 16px 18px; }
+      .so-spot-dot { width: 10px; height: 10px; margin: -5px 0 0 -5px; }
+      .so-spot-label { display: none; }
+      .so-list { padding-left: 16px; padding-right: 16px; }
+    }
+  </style>
+</BaseLayout>
