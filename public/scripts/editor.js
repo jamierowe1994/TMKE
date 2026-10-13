@@ -3829,7 +3829,10 @@ import { createResizeEngine } from "./resize-engine.js";
         img.crossOrigin = "anonymous";
         // A logo (and anything set to "fit it all in") is shown whole and
         // centred, never cropped to its box.
-        if (el.imgFit === "contain") img.style.objectFit = "contain";
+        if (el.imgFit === "contain") {
+          img.style.objectFit = "contain";
+          if (el.brandRole === "photo") { img.style.transformOrigin = "50% 100%"; img.style.transform = photoSlotTransform(el); }
+        }
         // A photo slot holding a picture with its own backdrop fills its box
         // (placeBrandPhoto), as the download does; the stylesheet would
         // otherwise show it whole.
@@ -7138,8 +7141,24 @@ import { createResizeEngine } from "./resize-engine.js";
             // must here (it was printed floating mid-box).
             const k = Math.min(el.w / img.naturalWidth, el.h / img.naturalHeight);
             const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
-            const dy = el.brandRole === "photo" ? (el.h - dh) : (el.h - dh) / 2;
-            ctx.drawImage(img, (el.w - dw) / 2, dy, dw, dh);
+            if (el.brandRole === "photo") {
+              // Grown from its feet and moved, as Reposition left it, and
+              // cropped to its box like the canvas.
+              const s2 = el.imgScale || 1, w2 = dw * s2, h2 = dh * s2;
+              ctx.save();
+              ctx.beginPath();
+              if (hasPerCorner(el) || el.radius) {
+                roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+                  cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+              } else {
+                ctx.rect(0, 0, el.w, el.h);
+              }
+              ctx.clip();
+              ctx.drawImage(img, (el.w - w2) / 2 + (el.imgOffsetX || 0), el.h - h2 + (el.imgOffsetY || 0), w2, h2);
+              ctx.restore();
+            } else {
+              ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
+            }
           } else {
             /* Cropped to fill its box at its own position, exactly as the
                screen shows it (object-fit: cover). It used to be stretched to
@@ -8300,7 +8319,7 @@ import { createResizeEngine } from "./resize-engine.js";
            13 Oct), as a backstop when the head lands in the wrong place.
            Never swapped, never deleted. */
         body.innerHTML = '<p class="ed-selection-empty">This is your brand\u2019s own photograph of you. You can move it within its box, but it can\u2019t be swapped for another picture.</p>' +
-          (el.src && el.imgFit !== "contain" ? '<div class="ed-props-section"><button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Reposition</button></div>' : "");
+          (canReposition(el) ? '<div class="ed-props-section"><button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Reposition</button></div>' : "");
         wireReposition(body, el);
       } else if (ml === "light" && isPic) {
         body.innerHTML = '<p class="ed-selection-empty">This photo stays where it is in the template. You can change the picture.</p>' +
@@ -8308,7 +8327,7 @@ import { createResizeEngine } from "./resize-engine.js";
           '<button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image ' +
           '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></button>' +
           '<div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>' +
-          (el.src && el.imgFit !== "contain" ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : "") + '</div>';
+          (canReposition(el) ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : "") + '</div>';
         wireReplaceImage(body);
         wireReposition(body, el);
         if (_lastFieldPick !== el.id) {
@@ -8466,12 +8485,12 @@ import { createResizeEngine } from "./resize-engine.js";
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
           </button>
           <div class="ed-bg-imgmenu" id="ed-sel-imgmenu" hidden></div>
-          ${el.src && el.imgFit !== "contain" ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : ""}
+          ${canReposition(el) ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : ""}
         </div>`);
       } else {
         html.push(`<div class="ed-props-section"><h4>Image</h4>
           <p class="ed-props-hint">This is your brand&rsquo;s own photograph of you, so it can&rsquo;t be swapped for another &mdash; move it or resize it as you like.</p>
-          ${el.src && el.imgFit !== "contain" ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : ""}
+          ${canReposition(el) ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : ""}
         </div>`);
       }
       html.push(cornerRadiusSectionHtml());
@@ -10809,7 +10828,7 @@ import { createResizeEngine } from "./resize-engine.js";
         input.click();
       });
       g.appendChild(btn);
-      if (el.src && el.imgFit !== "contain") {
+      if (canReposition(el)) {
         const rp = document.createElement("button");
         rp.className = "ed-ctx-btn"; rp.textContent = "Reposition";
         rp.title = "Move the photo inside its box";
@@ -12677,6 +12696,18 @@ import { createResizeEngine } from "./resize-engine.js";
      design: "what I'd want to do is then move the image up. I can't see
      anywhere ... that I can reposition said image." One entry point, behind a
      Reposition button in the panel and on the bar. */
+  /* A photo that fills its box moves inside it; an agent photo (a cut-out,
+     shown whole on the floor of its box) moves and resizes inside it -- some
+     people's photos need adjusting (Dani, 13 Oct). Anything else shown whole,
+     like a logo, stays put. */
+  function canReposition(el) {
+    return !!(el && el.src && (el.imgFit !== "contain" || el.brandRole === "photo"));
+  }
+  // Where a cut-out agent photo sits: shown whole, standing on the floor,
+  // then moved by its offset and grown from its feet by its scale.
+  function photoSlotTransform(el) {
+    return "translate(" + (el.imgOffsetX || 0) + "px, " + (el.imgOffsetY || 0) + "px) scale(" + (el.imgScale || 1) + ")";
+  }
   function startReposition(el) {
     if (!el || !el.src) return;
     const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
@@ -12686,6 +12717,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   let _imgRepo = null;
   function enterImageReposition(el, node) {
+    if (el.imgFit === "contain" && el.brandRole === "photo") { enterCutoutReposition(el, node); return; }
     if (el.imgFit === "contain") return;
     if (_imgRepo) _imgRepo();
     const img = node.querySelector("img");
@@ -12739,6 +12771,61 @@ import { createResizeEngine } from "./resize-engine.js";
     window.addEventListener("pointerup", up);
     document.addEventListener("keydown", key, true);
     // A tick later, so the click that started this does not also end it.
+    setTimeout(function () { if (_imgRepo === exit) document.addEventListener("pointerdown", outside, true); }, 0);
+    _imgRepo = exit;
+  }
+
+  /* Drag to move the cut-out, scroll to make it bigger or smaller. It stays
+     inside its box -- anything moved past the edge is simply cropped, as in
+     the download. */
+  function enterCutoutReposition(el, node) {
+    if (_imgRepo) _imgRepo();
+    const img = node.querySelector("img");
+    if (!img) return;
+    node.classList.add("is-img-repositioning");
+    toast("Drag the photo to move it, scroll to make it bigger or smaller \u2014 click away, or press Enter or Esc, when done.", 3600);
+    let dragging = false, lx = 0, ly = 0;
+    const paint = function () { img.style.transform = photoSlotTransform(el); };
+    function down(ev) {
+      if (ev.button !== 0 || !node.contains(ev.target)) return;
+      ev.preventDefault(); ev.stopPropagation();
+      dragging = true; lx = ev.clientX; ly = ev.clientY;
+    }
+    function move(ev) {
+      if (!dragging) return;
+      const z = state.zoom || 1;
+      el.imgOffsetX = Math.round(((el.imgOffsetX || 0) + (ev.clientX - lx) / z) * 10) / 10;
+      el.imgOffsetY = Math.round(((el.imgOffsetY || 0) + (ev.clientY - ly) / z) * 10) / 10;
+      lx = ev.clientX; ly = ev.clientY;
+      paint();
+    }
+    function up() { dragging = false; }
+    function wheel(ev) {
+      if (!node.contains(ev.target)) return;
+      ev.preventDefault();
+      const f = ev.deltaY < 0 ? 1.05 : 1 / 1.05;
+      el.imgScale = Math.round(Math.max(0.5, Math.min(4, (el.imgScale || 1) * f)) * 1000) / 1000;
+      paint();
+    }
+    function key(ev) { if (ev.key === "Escape" || ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); exit(); } }
+    function outside(ev) { if (!node.contains(ev.target)) exit(); }
+    function exit() {
+      _imgRepo = null;
+      canvasEl.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      node.removeEventListener("wheel", wheel);
+      document.removeEventListener("keydown", key, true);
+      document.removeEventListener("pointerdown", outside, true);
+      node.classList.remove("is-img-repositioning");
+      pushHistory();
+      fullRender();
+    }
+    canvasEl.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    node.addEventListener("wheel", wheel, { passive: false });
+    document.addEventListener("keydown", key, true);
     setTimeout(function () { if (_imgRepo === exit) document.addEventListener("pointerdown", outside, true); }, 0);
     _imgRepo = exit;
   }
