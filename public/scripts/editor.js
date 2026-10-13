@@ -2389,6 +2389,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   window.addEventListener("beforeunload", function () { try { if (ADMIN_MODE_URL) autosaveDraft(); } catch (_) {} });
 
+  let _pageTurnOnly = false;   // set by goToPage: a page turn is not a change to save
   function pushHistory() {
     // Drop forward history
     state.history = state.history.slice(0, state.historyIndex + 1);
@@ -2418,6 +2419,7 @@ import { createResizeEngine } from "./resize-engine.js";
        saving." A member's design saves from their first change; admin keeps
        its draft on open as before. */
     if (state.history.length === 1 && !ADMIN_MODE_URL) return;
+    if (_pageTurnOnly && !ADMIN_MODE_URL) return;
     scheduleAutosave();   // admin: persist a draft shortly after each change
   }
 
@@ -2669,9 +2671,13 @@ import { createResizeEngine } from "./resize-engine.js";
     fitZoom();
   }
 
+  /* Turning the page is recorded for Undo but is not a change to save: a
+     member looking at the back of a postcard was given a saved copy of it.
+     Adding or duplicating a page goes through loadPage too, and still saves. */
   function goToPage(i) {
     if (i === state.currentPage) return;
-    loadPage(i);
+    _pageTurnOnly = true;
+    try { loadPage(i); } finally { _pageTurnOnly = false; }
   }
 
   function addPage() {
@@ -8202,7 +8208,12 @@ import { createResizeEngine } from "./resize-engine.js";
       const isPic = el.type === "image" || el.type === "frame";
       if (ml === "light" && isPic && !canSwapPicture(el)) {
         // A supplied photograph: theirs to place, not to choose.
-        body.innerHTML = '<p class="ed-selection-empty">This is your brand\u2019s own photograph of you. You can move it and resize it, but it can\u2019t be swapped for another picture.</p>';
+        /* Reposition: the photo can be moved about inside its box (Dani,
+           13 Oct), as a backstop when the head lands in the wrong place.
+           Never swapped, never deleted. */
+        body.innerHTML = '<p class="ed-selection-empty">This is your brand\u2019s own photograph of you. You can move it within its box, but it can\u2019t be swapped for another picture.</p>' +
+          (el.src && el.imgFit !== "contain" ? '<div class="ed-props-section"><button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Reposition</button></div>' : "");
+        wireReposition(body, el);
       } else if (ml === "light" && isPic) {
         body.innerHTML = '<p class="ed-selection-empty">This photo stays where it is in the template. You can change the picture.</p>' +
           '<div class="ed-props-section"><h4>Photo</h4>' +
@@ -8372,6 +8383,7 @@ import { createResizeEngine } from "./resize-engine.js";
       } else {
         html.push(`<div class="ed-props-section"><h4>Image</h4>
           <p class="ed-props-hint">This is your brand&rsquo;s own photograph of you, so it can&rsquo;t be swapped for another &mdash; move it or resize it as you like.</p>
+          ${el.src && el.imgFit !== "contain" ? '<button type="button" class="ed-btn-ghost ed-bg-btn ed-sel-reposition" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center; margin-top:8px">Reposition</button>' : ""}
         </div>`);
       }
       html.push(cornerRadiusSectionHtml());
@@ -9797,10 +9809,82 @@ import { createResizeEngine } from "./resize-engine.js";
     slots.forEach(function (slot) {
       // A picture they chose themselves stays theirs.
       if (slot.src && !slot.autoPhoto) return;
-      if (pick) { slot.src = pick; slot.autoPhoto = true; slot.imgFit = "contain"; slot.imgAlign = "bottom"; }
+      if (pick) {
+        const fresh = slot.src !== pick;
+        slot.src = pick; slot.autoPhoto = true;
+        if (fresh || slot.autoPlacedFor !== pick) placeBrandPhoto(slot, pick);
+        else if (slot.imgFit === "contain") slot.imgAlign = "bottom";
+      }
       else if (slot.autoPhoto || !slot.src) { slot.src = null; delete slot.autoPhoto; }
     });
     nudgeIfNoBrandPhoto();
+  }
+
+  /* Where the brand photo sits in its box. A cut-out (a figure on a
+     transparent background) is shown whole, standing on the box's floor. A
+     photograph with its own backdrop fills the box, moved so the top of the
+     head is 12% down from the top: centred, a portrait photo in a square box
+     put the hair against the edge (Dani, 13 Oct: "see where the top of the
+     head is and position that so it's 10%, 15% lower than the top").
+     The head is found by reading down the picture for the first row where
+     the middle of it stops matching that row's own edges -- the backdrop.
+     If that cannot be read, the photo shows from its top. Done once per
+     photo: Reposition moves it from there, and a move is kept. */
+  const HEAD_FROM_TOP = 0.12;
+  function placeBrandPhoto(slot, src) {
+    if (slot.imgPosY != null && slot.autoPlacedFor === src) return;
+    const probe = new Image();
+    probe.crossOrigin = "anonymous";
+    probe.onload = function () {
+      if (slot.src !== src) return;
+      const iw = probe.naturalWidth, ih = probe.naturalHeight;
+      if (!iw || !ih) return;
+      let read = null;
+      try {
+        const W = 64, H = Math.max(1, Math.round(ih * W / iw));
+        const c = document.createElement("canvas"); c.width = W; c.height = H;
+        const cx = c.getContext("2d", { willReadFrequently: true });
+        cx.drawImage(probe, 0, 0, W, H);
+        read = { W: W, H: H, d: cx.getImageData(0, 0, W, H).data };
+      } catch (_) { read = null; }   // a picture we may not read
+      let cutout = false, headFrac = 0;
+      if (read) {
+        const W = read.W, H = read.H, d = read.d;
+        const at = (x, y) => (y * W + x) * 4;
+        // Transparent corners: a cut-out.
+        const corners = [at(0, 0), at(W - 1, 0), at(0, H - 1), at(W - 1, H - 1)];
+        cutout = corners.filter((i) => d[i + 3] < 32).length >= 2;
+        if (!cutout) {
+          const edge = Math.max(2, Math.round(W * 0.08));
+          const x0 = Math.round(W * 0.2), x1 = Math.round(W * 0.8);
+          for (let y = 0; y < H; y++) {
+            let r = 0, g = 0, b = 0, n = 0;
+            for (let x = 0; x < edge; x++) { [x, W - 1 - x].forEach((xx) => { const i = at(xx, y); r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }); }
+            r /= n; g /= n; b /= n;
+            let off = 0;
+            for (let x = x0; x < x1; x++) {
+              const i = at(x, y);
+              if (Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b) > 60) off++;
+            }
+            if (off >= (x1 - x0) * 0.06) { headFrac = y / H; break; }
+          }
+        }
+      }
+      if (cutout) {
+        slot.imgFit = "contain"; slot.imgAlign = "bottom";
+        delete slot.imgPosX; delete slot.imgPosY;
+      } else {
+        delete slot.imgFit; delete slot.imgAlign;
+        const k = Math.max(slot.w / iw, slot.h / ih);
+        const room = ih * k - slot.h;
+        const py = room > 1 ? (headFrac * ih * k - HEAD_FROM_TOP * slot.h) / room : 0;
+        slot.imgPosX = 50;
+        slot.imgPosY = Math.round(Math.max(0, Math.min(1, py)) * 1000) / 10;
+      }
+      slot.autoPlacedFor = src;
+      try { partialRenderElement(slot); } catch (_) { try { fullRender(); } catch (__) {} }
+    };
+    probe.src = src;
   }
 
   /* Print, a photo slot, and no brand photo: said out loud, because the
