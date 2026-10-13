@@ -5754,10 +5754,21 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       } catch (_) { return false; }
     };
 
+    /* A picture that cannot be moved out to storage stays IN the design.
+       This returned null on any failure, and the caller wrote that null over
+       the picture: a QR code -- SVG text, not base64, which the upload never
+       understood -- was deleted by every save, and any upload that failed
+       (a dropped connection, a stale sign-in) took its picture with it.
+       Dani, 13 Oct: "the QR codes are just disappearing, and the backgrounds
+       are just disappearing as well ... even when you're saving them."
+       Text SVGs (QR codes, icons) are small, so they simply stay inline. */
     async function externUrl(v) {
       if (typeof v !== 'string' || !v.startsWith('data:')) return v;
+      if (!/^data:[^;,]+;base64,/.test(v)) return v;
       if (_imgUrlCache.has(v)) return _imgUrlCache.get(v);
-      const url = await externUploadDataUrl(v);
+      let url = null;
+      try { url = await externUploadDataUrl(v); } catch (_) { url = null; }
+      if (!url) return v;                 // keep it; try again on the next save
       _imgUrlCache.set(v, url);
       return url;
     }

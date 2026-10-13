@@ -4088,6 +4088,12 @@ import { createResizeEngine } from "./resize-engine.js";
         node.appendChild(ring);
       }
     }
+    /* A QR code whose picture was lost by an older save still has its link
+       and colours: draw it again from them. */
+    if (el.brandRole === "qr" && !el.src && !el._qrHealing && qrTarget(el)) {
+      el._qrHealing = true;
+      regenerateQr(el).finally(function () { delete el._qrHealing; });
+    }
     if (el.brandRole === "qr" && !el.src) {
       node.classList.add("is-qrslot");
       const ph = document.createElement("div");
