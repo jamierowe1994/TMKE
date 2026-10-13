@@ -4326,7 +4326,10 @@ import { createResizeEngine } from "./resize-engine.js";
        fills the box -- it cannot be dragged or zoomed out far enough to leave
        a gap. Dani, 13 Oct: "I'm not really sure why there's a dark shadow ...
        a weird square with some writing ... they can fill the whole box." */
-    const quiet = !isAdminMode();
+    /* Everyone, the template's author included (Dani, 13 Oct): the photo
+       always fills its frame -- the bottom never rises above the frame's
+       bottom, the top never drops below its top; to move further, zoom. */
+    const quiet = true;
     if (quiet) node.classList.add("is-quiet-vp");
     const fill = function () {
       if (!quiet) return;
@@ -4336,6 +4339,8 @@ import { createResizeEngine } from "./resize-engine.js";
       el.imgOffsetX = Math.max(-mx, Math.min(mx, el.imgOffsetX || 0));
       el.imgOffsetY = Math.max(-my, Math.min(my, el.imgOffsetY || 0));
     };
+    // A frame left with a gap from before snaps back to filling it.
+    fill(); applyFrameImageTransform(img, el);
 
     // Dimmed, un-clipped "ghost" of the full photo, placed directly under the
     // frame so the in-frame region reads bright (the real clipped image on top)
