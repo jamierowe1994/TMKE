@@ -5373,10 +5373,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-ob-tick.is-on { background: var(--ws-accent); border-color: var(--ws-accent); }
     .ed-ob-tick.is-on::after { content: ""; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 
-    .ed-ob-actions { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 40; display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 16px; border-radius: 6px; background: var(--ws-accent, #371e28); box-shadow: 0 18px 40px -18px rgba(20,16,22,0.7); }
+    /* left: 50% leaves the bar only half the window to fit in, so its labels
+       wrapped (Dani, 13 Oct); max-content keeps it on one line. */
+    .ed-ob-actions { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 40; width: max-content; max-width: calc(100vw - 32px); white-space: nowrap; display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 16px; border-radius: 6px; background: var(--ws-accent, #371e28); box-shadow: 0 18px 40px -18px rgba(20,16,22,0.7); }
     .ed-ob-actions[hidden] { display: none; }
+    /* A phone has no room for one line: the buttons wrap, the bar centred. */
+    @media (max-width: 600px) { .ed-ob-actions { flex-wrap: wrap; justify-content: center; } }
     .ed-ob-actions-n { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; letter-spacing: 0.04em; color: rgba(255,255,255,0.75); margin-right: 6px; }
-    .ed-ob-act { appearance: none; height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.24); border-radius: 4px; background: transparent; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: #fff; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
+    .ed-ob-act { flex: none; appearance: none; height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.24); border-radius: 4px; background: transparent; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: #fff; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
     .ed-ob-act:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
     .ed-ob-act:disabled { opacity: 0.4; cursor: default; }
     .ed-ob-act--bad { border-color: rgba(255,140,120,0.5); color: #ffb4a4; }
