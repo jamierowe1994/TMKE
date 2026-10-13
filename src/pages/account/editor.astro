@@ -6729,6 +6729,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   -->
   <script>
     import { supabase, isConfigured } from "../../lib/supabase.js";
+    import { plannerStore } from "../../lib/design-store.js";
 
     const $btn      = document.getElementById("ed-schedule");
     const $modal    = document.getElementById("ed-schedule-modal");
@@ -6824,15 +6825,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // Rasterize the current design and push it to Storage. Shared by both the
     // "Plan post" submit and the "Email it to me now" button so they never
     // drift apart. Returns the public asset URL.
-    async function renderAndUpload(session) {
+    // `acct` is plannerStore(): a member, or the training account through
+    // Dani's login -- its client uploads, its id names the folder.
+    async function renderAndUpload(acct) {
       if (typeof window.__TMKE_RENDER_PNG_BLOB__ !== "function") {
         throw new Error("Editor isn't ready yet. Give it a second and try again.");
       }
       const blob = await window.__TMKE_RENDER_PNG_BLOB__();
       if (!blob || blob.size === 0) throw new Error("Couldn't render the canvas. Try again.");
       const id = crypto.randomUUID();
-      const path = `${session.user.id}/${id}.png`;
-      const { error: upErr } = await supabase.storage
+      const path = `${acct.uid}/${id}.png`;
+      const { error: upErr } = await acct.db.storage
         .from("calendar-assets")
         .upload(path, blob, { contentType: "image/png", upsert: false });
       if (upErr) {
@@ -6841,7 +6844,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         }
         throw new Error(upErr.message || "Upload failed.");
       }
-      const { data: pub } = supabase.storage.from("calendar-assets").getPublicUrl(path);
+      const { data: pub } = acct.db.storage.from("calendar-assets").getPublicUrl(path);
       return pub?.publicUrl || "";
     }
 
@@ -6890,11 +6893,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         return showError("Supabase isn't configured in this environment — set PUBLIC_SUPABASE_URL / PUBLIC_SUPABASE_ANON_KEY to enable scheduling.");
       }
 
-      // Auth check before we spend cycles rasterizing.
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return showError("You're signed out. Sign in again, then re-open Schedule.");
-      }
+      // Auth check before we spend cycles rasterizing. A member, or the
+      // training account through Dani's login (src/lib/design-store.js).
+      const acct = await plannerStore();
+      if (!acct) return showError("You're signed out. Sign in again, then re-open Schedule.");
+      if (acct.blocked) return showError(acct.reason);
 
       $submit.disabled = true;
       if ($emailNow) $emailNow.disabled = true;
@@ -6902,13 +6905,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
       try {
         // 1 & 2. Rasterize + upload to Storage (shared helper).
-        const assetUrl = await renderAndUpload(session);
+        const assetUrl = await renderAndUpload(acct);
 
         // 3. Insert the calendar row. `reminder` opts them into the 8am
         //    morning-of email (default on via the toggle).
         const wantsReminder = $remind ? !!$remind.checked : true;
-        const { error: insErr } = await supabase.from("calendar_items").insert({
-          user_id: session.user.id,
+        const { error: insErr } = await acct.db.from(acct.table).insert({
+          user_id: acct.uid,
           scheduled_date: dateStr,
           scheduled_time: timeStr,
           title,
@@ -6927,8 +6930,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           // If the `reminder` column hasn't been migrated yet, retry without it
           // rather than blocking the whole plan.
           if (/reminder/i.test(insErr.message) && /column/i.test(insErr.message)) {
-            const { error: retryErr } = await supabase.from("calendar_items").insert({
-              user_id: session.user.id, scheduled_date: dateStr, scheduled_time: timeStr,
+            const { error: retryErr } = await acct.db.from(acct.table).insert({
+              user_id: acct.uid, scheduled_date: dateStr, scheduled_time: timeStr,
               title, caption: caption || null, asset_url: assetUrl, thumbnail_url: assetUrl,
               design_ref: designRef, platform_hint: platform, status: "scheduled",
             });
@@ -6968,21 +6971,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (!API_BASE) {
         return showError("Email isn't available here — set PUBLIC_R2_WORKER_URL.");
       }
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return showError("You're signed out. Sign in again, then re-open this.");
-      }
+      const acct = await plannerStore();
+      if (!acct) return showError("You're signed out. Sign in again, then re-open this.");
+      if (acct.blocked) return showError(acct.reason);
 
       $emailNow.disabled = true;
       $submit.disabled = true;
       $emailNow.textContent = "Sending…";
       try {
-        const assetUrl = await renderAndUpload(session);
+        const assetUrl = await renderAndUpload(acct);
         const res = await fetch(`${API_BASE}/calendar/send-now`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
+            Authorization: `Bearer ${acct.token}`,
           },
           body: JSON.stringify({ asset_url: assetUrl, caption, title, platform }),
         });

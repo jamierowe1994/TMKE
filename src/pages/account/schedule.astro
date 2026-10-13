@@ -887,7 +887,8 @@ import "../../styles/account-sections.css";
   </style>
 
   <script>
-    import { isDemo as demoOn, lock } from "../../lib/demo.js";
+    import { isDemo as demoOn, isTrainingDemo, lock } from "../../lib/demo.js";
+    import { plannerStore } from '../../lib/design-store.js';
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { designStore } from '../../lib/design-store.js';
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
@@ -1274,7 +1275,8 @@ import "../../styles/account-sections.css";
     let pickDate = null, pickChosen = null, pickCache = null;
 
     function openPick(dateStr) {
-      if (demoOn()) {
+      // The public demo's padlock; the training account plans, under Dani's login.
+      if (demoOn() && !isTrainingDemo()) {
         lock("Planning is for members.", "In the demo you can open any day and see how the planner works. Members plan posts from their own designs.");
         return;
       }
@@ -1389,13 +1391,15 @@ import "../../styles/account-sections.css";
       const asset = pickChosen.thumb_url || '';
       if (!asset) return showPickError("That design has no preview saved yet. Open it in the Studio, let it save, then plan it.");
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return showPickError("You're signed out — sign in again.");
+      // A member, or the training account through Dani's login.
+      const acct = await plannerStore();
+      if (!acct) return showPickError("You're signed out — sign in again.");
+      if (acct.blocked) return showPickError(acct.reason);
 
       $pickSave.disabled = true;
       $pickSave.textContent = 'Planning…';
       const row = {
-        user_id: session.user.id,
+        user_id: acct.uid,
         scheduled_date: dateStr,
         scheduled_time: timeStr,
         title,
@@ -1407,10 +1411,10 @@ import "../../styles/account-sections.css";
         status: 'scheduled',
         reminder: !!$pickRemind.checked,
       };
-      let { data, error } = await supabase.from('calendar_items').insert(row).select('*').single();
+      let { data, error } = await acct.db.from(acct.table).insert(row).select('*').single();
       if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
         const { reminder, ...rest } = row;
-        ({ data, error } = await supabase.from('calendar_items').insert(rest).select('*').single());
+        ({ data, error } = await acct.db.from(acct.table).insert(rest).select('*').single());
       }
       if (error) {
         $pickSave.disabled = false;
@@ -1444,7 +1448,7 @@ import "../../styles/account-sections.css";
     }
 
     async function savePost() {
-      if (demoOn()) { lock("Adding to the planner is for members.", "In the demo you can open any day and see how planning works. Members add posts, ideas and key dates here."); return; }
+      if (demoOn() && !isTrainingDemo()) { lock("Adding to the planner is for members.", "In the demo you can open any day and see how planning works. Members add posts, ideas and key dates here."); return; }
       if (!openPostId) return;
       clearPostError();
       const title   = ($postTitle.value || '').trim();
@@ -1455,13 +1459,16 @@ import "../../styles/account-sections.css";
       if (!title)   return showPostError('Give the post a short title.');
       if (!dateStr) return showPostError('Pick a date for the post.');
 
+      const acct = await plannerStore();
+      if (!acct) return showPostError("You're signed out — sign in again.");
+      if (acct.blocked) return showPostError(acct.reason);
       $postSave.disabled = true; $postSave.textContent = 'Saving…';
       const patch = { title, scheduled_date: dateStr, scheduled_time: timeStr, caption: caption || null, reminder: wantsReminder };
-      let { error } = await supabase.from('calendar_items').update(patch).eq('id', openPostId);
+      let { error } = await acct.db.from(acct.table).update(patch).eq('id', openPostId);
       if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
         // reminder column not migrated yet — persist everything else.
         const { reminder, ...rest } = patch;
-        ({ error } = await supabase.from('calendar_items').update(rest).eq('id', openPostId));
+        ({ error } = await acct.db.from(acct.table).update(rest).eq('id', openPostId));
       }
       if (error) {
         $postSave.disabled = false; $postSave.textContent = 'Save changes';
@@ -1483,14 +1490,15 @@ import "../../styles/account-sections.css";
       const asset = p.asset_url || p.thumbnail_url || '';
       if (!asset)    return showPostError('This post has no image to send.');
       if (!API_BASE) return showPostError("Email isn't available here (PUBLIC_R2_WORKER_URL not set).");
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session)  return showPostError("You're signed out — sign in again.");
+      const acct = await plannerStore();
+      if (!acct)  return showPostError("You're signed out — sign in again.");
+      if (acct.blocked) return showPostError(acct.reason);
 
       $postEmail.disabled = true; $postEmail.textContent = 'Sending…';
       try {
         const res = await fetch(`${API_BASE}/calendar/send-now`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${acct.token}` },
           body: JSON.stringify({
             asset_url: asset,
             caption: ($postCaption.value || '').trim(),
@@ -1514,7 +1522,9 @@ import "../../styles/account-sections.css";
       if (!confirm("Remove this planned post from your calendar? This can't be undone.")) return;
       clearPostError();
       $postDelete.disabled = true; $postDelete.textContent = 'Removing…';
-      const { error } = await supabase.from('calendar_items').delete().eq('id', openPostId);
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) { $postDelete.disabled = false; $postDelete.textContent = 'Remove'; return showPostError(acct ? acct.reason : "You're signed out — sign in again."); }
+      const { error } = await acct.db.from(acct.table).delete().eq('id', openPostId);
       if (error) {
         $postDelete.disabled = false; $postDelete.textContent = 'Remove';
         return showPostError(error.message || "Couldn't remove that post.");
@@ -1554,9 +1564,14 @@ import "../../styles/account-sections.css";
       sessionConfirmed = true;
       $footerEmail.textContent = session ? (session.user.email ?? '') : 'The demo';
 
+      /* Posts from the account's own Planner: a member's, or the training
+         account's (Dani's login). Nobody's at all for the public demo. */
+      const acct = await plannerStore();
+      const postsQuery = (acct && !acct.blocked)
+        ? acct.db.from(acct.table).select('*').eq('user_id', acct.uid)
+        : supabase.from('calendar_items').select('*');
       const [itemsRes, holsRes] = await Promise.all([
-        supabase.from('calendar_items')
-          .select('*')
+        postsQuery
           .gte('scheduled_date', fromYmd)
           .lte('scheduled_date', toYmd)
           .order('scheduled_date', { ascending: true })

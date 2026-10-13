@@ -155,6 +155,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
 <script>
   import { supabase } from "../lib/supabase.js";
+  import { account } from "../lib/design-store.js";
   import { syncBrandCache } from "../lib/brand-cache.js";
   // The kit is read when it's used (your tone of voice, your colours), so a
   // background fetch is enough for a device that hasn't cached it yet.
@@ -214,8 +215,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       catch (_) { return ""; }
     }
 
+    /* A member's own sign-in, or -- for the training account, which is not a
+       login -- Dani's admin login (src/lib/design-store.js). Dani, 12 Oct: the
+       training account "can't access the caption generator". */
     async function token() {
-      try { const { data: { session } } = await supabase.auth.getSession(); return session ? session.access_token : null; }
+      try { const a = await account(); return a && !a.blocked ? a.token : null; }
       catch (_) { return null; }
     }
 
@@ -239,7 +243,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
       if (!WORKER) { showError("The AI service isn't available here (no Worker URL configured)."); return; }
       const tok = await token();
-      if (!tok) { showError("Please sign in to generate captions."); return; }
+      if (!tok) {
+        const a = await account();
+        showError(a && a.blocked ? a.reason : "Please sign in to generate captions.");
+        return;
+      }
 
       const btn = scrim.querySelector(`[data-cg-generate="${mode}"]`);
       const label = btn ? btn.querySelector(".cg-gen-l") : null;
