@@ -5310,13 +5310,26 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-size: 12.5px; line-height: 1.5; margin-top: 10px;
       display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 7; overflow: hidden;
     }
-    /* iPad-sized and smaller (Dani, 13 Oct): one pack a row, as on a phone,
-       the words on three quarters of the card and the cover at the end, set
-       10px in from the card's top, right and bottom edges. */
-    @media (max-width: 1024px) {
-      #ed-ob-shop-grid { grid-template-columns: 1fr; }
-      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) clamp(96px, 25%, 220px); }
-      #ed-ob-shop-grid .ws-news-art { width: auto; margin: 10px 10px 10px 0; align-self: start; }
+    /* iPad portrait and smaller (Dani, 13 Oct): one pack a row, as on a phone;
+       iPad landscape keeps two a row, like the desktop.
+       The words set the height: every card is as tall as the one with the
+       most to say, with the same space above and below its words as to their
+       left. The cover fills that height, 10px in from the card's top, right
+       and bottom edges, and fitPackCovers() gives it the width that keeps it
+       at 3:4. Until that runs it is 20% wide and crops a little. */
+    @media (max-width: 900px) {
+      #ed-ob-shop-grid { grid-template-columns: 1fr; grid-auto-rows: 1fr; }
+      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) var(--pack-art-w, 20%); }
+      #ed-ob-shop-grid .ws-news-tx { padding: 24px; }
+      #ed-ob-shop-grid .ws-news-art { width: auto; height: auto; aspect-ratio: auto; margin: 10px 10px 10px 0; align-self: stretch; }
+      #ed-ob-shop-grid.is-cover-capped .ws-news-art { aspect-ratio: 1080 / 1440; align-self: center; }
+    }
+    /* A phone, as Dani approved it: each card its own height, the cover a
+       quarter of the card at 3:4, in the middle. */
+    @media (max-width: 560px) {
+      #ed-ob-shop-grid { grid-auto-rows: auto; }
+      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) clamp(96px, 28%, 150px); }
+      #ed-ob-shop-grid .ws-news-art { aspect-ratio: 1080 / 1440; align-self: center; }
     }
 
     /* Design cards, on the same grid the rest of the hub uses. */
@@ -7913,8 +7926,34 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           <span class="ws-news-art"${p.cover_image_url ? ` style="background-image:url('${escapeHtml(p.cover_image_url)}')"` : ""}></span>
         </a>`).join("");
       sec.hidden = false;
+      fitPackCovers();
       if (cta) cta.hidden = true;   // the row says it better than the strip did
     }
+    /* Up to iPad portrait width the cards are as tall as their words (see the CSS),
+       and the cover's width is worked out from that height so it stays 3:4.
+       A narrower cover gives the words more room, which can shorten the card,
+       so it settles over a pass or two. */
+    function fitPackCovers() {
+      const grid = document.getElementById("ed-ob-shop-grid");
+      if (!grid) return;
+      grid.style.removeProperty("--pack-art-w");
+      grid.classList.remove("is-cover-capped");
+      if (!matchMedia("(min-width: 561px) and (max-width: 900px)").matches) return;
+      for (let i = 0; i < 4; i++) {
+        const card = grid.querySelector(".ws-news-card");
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        const w = Math.round((r.height - 20) * 0.75) + 10;   // + the 10px right inset
+        /* Near phone width the words wrap so much that the cover would take
+           the card. It stops at 28%, keeps its shape and sits in the middle. */
+        const cap = Math.round(r.width * 0.28);
+        if (w > cap) { grid.style.setProperty("--pack-art-w", cap + "px"); grid.classList.add("is-cover-capped"); return; }
+        if (Math.abs(w - (parseFloat(grid.style.getPropertyValue("--pack-art-w")) || 0)) < 2) return;
+        grid.style.setProperty("--pack-art-w", w + "px");
+      }
+    }
+    window.addEventListener("resize", fitPackCovers, { passive: true });
+    document.fonts?.ready.then(fitPackCovers);
     loadPackBanner();
 
     // ---- The gallery: folders, sorting, selection and the quick actions ----
