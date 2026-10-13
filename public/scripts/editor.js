@@ -10299,19 +10299,20 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // The panel: where it goes, and -- for the template's author, or a member
   // on a design that is not print -- its two colours.
-  function qrPanel(el) {
+  function qrPanel(el, opts) {
+    opts = opts || {};
     const q = el.qr || (el.qr = { kind: "web", dark: "#000000", light: "#ffffff" });
     const admin = isAdminMode();
     const canColour = admin || (!isPrintDesign() && !memberLock(el));
     let kind = q.kind === "whatsapp" ? "whatsapp" : "web";
     const sec = document.createElement("div");
-    sec.className = "ed-props-section ed-qr";
+    sec.className = opts.compact ? "ed-qr ed-qr--field" : "ed-props-section ed-qr";
     sec.innerHTML =
-      "<h4>QR code</h4>" +
+      (opts.compact ? "" : "<h4>QR code</h4>") +
       '<div class="ed-qr-kinds"><button type="button" data-qrkind="web">Web link</button><button type="button" data-qrkind="whatsapp">WhatsApp</button></div>' +
       '<div class="ed-qr-pane" data-qrpane="web">' +
         '<label class="ed-qr-label">Where should this QR code take people?</label>' +
-        '<input type="url" class="ed-qr-in" data-qr="url" placeholder="yourwebsite.co.uk/page" spellcheck="false">' +
+        '<input type="text" inputmode="url" autocomplete="url" class="ed-qr-in" data-qr="url" placeholder="yourwebsite.co.uk/page" spellcheck="false">' +
         '<p class="ed-props-hint">Your website, your microsite page or a listing.</p>' +
       "</div>" +
       '<div class="ed-qr-pane" data-qrpane="whatsapp">' +
@@ -10354,7 +10355,11 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       say("");
       el.qr = Object.assign({}, q, next);
-      if (await regenerateQr(el)) { pushHistory(); renderProps(); }
+      if (await regenerateQr(el)) {
+        pushHistory();
+        if (opts.onDone) { opts.onDone(); sec.querySelector(".ed-qr-go").textContent = "Update QR code"; showTest(); }
+        else renderProps();
+      }
     };
     sec.querySelector(".ed-qr-go").addEventListener("click", go);
     sec.querySelectorAll(".ed-qr-in").forEach(function (inp) {
@@ -12276,12 +12281,19 @@ import { createResizeEngine } from "./resize-engine.js";
       btn.addEventListener("click", function () { panel.hidden = !panel.hidden; });
       box.appendChild(btn);
       box.appendChild(panel);
+    } else if (el.brandRole === "qr") {
+      /* The QR code's card carries the whole panel -- web link or WhatsApp,
+         and Update -- so nobody has to go and select it on the design
+         (Dani, 13 Oct). */
+      box.classList.add("is-qr");
+      box.appendChild(qrPanel(el, {
+        compact: true,
+        onDone: function () { if (el.src) { thumb.classList.remove("is-empty"); thumb.style.backgroundImage = "url(" + JSON.stringify(el.src) + ")"; } },
+      }));
     } else {
       const note = document.createElement("span");
       note.className = "ed-field-note";
-      note.textContent = el.brandRole === "qr"
-        ? "Your QR code \u2014 select it on the design to change where it takes people."
-        : "Your brand\u2019s own photograph \u2014 move or resize it, but it can\u2019t be swapped.";
+      note.textContent = "Your brand\u2019s own photograph \u2014 move or resize it, but it can\u2019t be swapped.";
       box.appendChild(note);
     }
     return box;
