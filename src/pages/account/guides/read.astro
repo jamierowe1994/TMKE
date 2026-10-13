@@ -409,6 +409,11 @@ const DEFAULT_COVER = (await getImage({
     body.gr-fixed .gr-main { padding-bottom: 0; }
     .gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - clamp(20px, 2.4vh, 34px)); }
     .gc.is-part .gc-progress { position: static; margin: 8px 0 12px; }
+    /* The gap under the cover is the page's side margin, so the picture sits
+       in an even frame. */
+    .gc.is-cover { display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - clamp(22px, 2.6vw, 56px)); }
+    .gc.is-cover .gc-stage { flex: 1 1 auto; min-height: 0; }
+    .gc.is-cover .gc-slide--intro { box-sizing: border-box; height: 100%; min-height: 0; }
     .gc.is-part .gc-stage { flex: 1 1 auto; min-height: 0; }
     .gc.is-part .gc-slide--part { box-sizing: border-box; height: 100%; overflow-y: auto; padding-bottom: 96px; scrollbar-width: thin; }
     .gc.is-part .gc-nav { position: absolute; left: 1px; right: 1px; bottom: 1px; margin: 0; padding: 14px var(--gc-pad-r, clamp(26px, 3vw, 40px)) 18px clamp(26px, 3vw, 40px); background: var(--ws-card); border-top: 0; border-radius: 0 0 var(--ws-r-lg) var(--ws-r-lg); z-index: 3; }
@@ -709,12 +714,19 @@ const DEFAULT_COVER = (await getImage({
         // holds still. Measured, because the header and the main's padding
         // above the course differ by screen.
         const gc = $("#gr-course");
-        document.body.classList.toggle("gr-fixed", onPart);
+        // The cover fills the window too, down to the same margin as a part,
+        // so the overview is one screen with nothing to scroll (Dani, 13 Oct).
+        // Only where the window is tall enough to hold its card.
+        const onCover = pos === 0 && matchMedia("(min-height: 520px)").matches;
+        document.body.classList.toggle("gr-fixed", onPart || onCover);
         gc.classList.toggle("is-part", onPart);
-        if (onPart) {
+        gc.classList.toggle("is-cover", onCover);
+        if (onPart || onCover) {
           const fit = () => { gc.style.setProperty("--gc-top", Math.max(0, Math.round(gc.getBoundingClientRect().top + window.scrollY)) + "px"); };
           fit(); requestAnimationFrame(fit);
           if (!gc._fitBound) { gc._fitBound = true; window.addEventListener("resize", fit); }
+        }
+        if (onPart) {
           const slide = stage.querySelector(".gc-slide--part");
           if (slide) {
             slide.scrollTop = 0;

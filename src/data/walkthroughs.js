@@ -451,7 +451,9 @@ export const WALKS = {
         target: "#ed-ob-designs-q", placement: "bottom", padding: 8,
         eyebrow: "Your designs", title: "Find a Design",
         body: "Search by name to locate a particular design. Giving your designs clear names makes them easier to find later." },
-      { shot: "/images/learn/demo/shots/studio-designs--3-selected@2x.webp",
+      /* Starts lower, so the ticked design and the bar with Delete on it are
+         in view, not just the sort menu (Dani, 13 Oct). */
+      { shot: "/images/learn/demo/shots/studio-designs--3-selected@2x.webp", shotY: 180,
         target: "#ed-ob-sort", placement: "bottom", padding: 8,
         eyebrow: "Your designs", title: "Organise Your Designs",
         body: "Sort by date, name or format. You can also select designs to duplicate, organise into folders, add to your Planner or delete." },

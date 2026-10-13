@@ -303,9 +303,11 @@ function frameSettled(ms = 1200) {
 const SHOT_NATURAL_W = 840;   // the rig's capture width (src/pages/account/shot.astro)
 async function showShot(src, y) {
   if (!stage || !stage.img) return;
+  const screen = stage.img.parentElement;
   if (!src) {
     stage.img.hidden = true;
-    stage.img.style.transform = '';
+    screen.classList.remove('is-shot');
+    screen.scrollTop = 0;
     stage.frame.style.visibility = '';
     return;
   }
@@ -314,24 +316,22 @@ async function showShot(src, y) {
   const fresh = stage.img.getAttribute('src') !== src;
   if (fresh) {
     stage.img.src = src;
-    stage.img.style.transform = '';   // a new picture starts at its top
     try { await stage.img.decode(); } catch (_) { /* a broken path still shows the frame's background */ }
   }
   stage.img.hidden = false;
-  /* Pan to the part this step is about. A step's offset is in the Studio's
-     own pixels -- the rig's frame is SHOT_NATURAL_W wide -- not the picture's,
-     so it means the same thing whatever resolution the picture was taken at:
-     a capture on a high-density screen is two or three times the frame's
-     width, and an offset in its own pixels would land in the wrong place. */
+  screen.classList.add('is-shot');
+  /* Scroll to the part this step is about. The picture scrolls in its box,
+     so the reader can also move it up and down themselves -- the parts below
+     the fold (Replace your background, the bar with Delete on it) were out of
+     reach when it could only be panned (Dani, 13 Oct). A step's offset is in
+     the Studio's own pixels -- the rig's frame is SHOT_NATURAL_W wide -- not
+     the picture's, so it means the same thing whatever resolution the
+     picture was taken at. A new picture jumps; the same one glides. */
   const shown = stage.img.getBoundingClientRect().width || SHOT_NATURAL_W;
   const k = shown / SHOT_NATURAL_W;
-  /* Never past the foot of the picture. A picture only a frameful tall would
-     otherwise scroll off its own bottom and show nothing; clamped, it simply
-     sits at the end. */
-  const frameH = (stage.frame && stage.frame.getBoundingClientRect().height) || 0;
-  const pictureH = (stage.img.naturalHeight || 0) * SHOT_NATURAL_W / (stage.img.naturalWidth || SHOT_NATURAL_W);
-  const maxY = Math.max(0, pictureH - (frameH / (k || 1)));
-  stage.img.style.transform = 'translateY(' + Math.round(-Math.min(y || 0, maxY) * k) + 'px)';
+  const top = Math.round((y || 0) * k);
+  if (fresh) screen.scrollTop = top;
+  else screen.scrollTo({ top, behavior: 'smooth' });
 }
 
 function stageReady() {
@@ -490,6 +490,15 @@ function injectStyles() {
      and unclipped it slid over the plum strip above and hid its title.
      Dani, 12 Oct, the first step to pan. */
   .tmke-stage-screen { position: relative; flex: 1 1 auto; min-width: 0; display: flex; overflow: hidden; background: var(--ws-bg, #f6f4f2); }
+  /* Showing a picture, the box scrolls it. A thin plum bar down the right
+     says there is more below, and stays visible on a Mac, whose own
+     scrollbars only appear mid-scroll (Dani, 13 Oct: "a subtle scroll
+     element"). The live frame sits under the picture and is not scrolled. */
+  .tmke-stage-screen.is-shot { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(55,30,40,0.38) transparent; }
+  .tmke-stage-screen.is-shot::-webkit-scrollbar { width: 8px; }
+  .tmke-stage-screen.is-shot::-webkit-scrollbar-track { background: transparent; }
+  .tmke-stage-screen.is-shot::-webkit-scrollbar-thumb { background: rgba(55,30,40,0.38); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  .tmke-stage-screen.is-shot::-webkit-scrollbar-thumb:hover { background-color: rgba(55,30,40,0.6); }
   .tmke-stage-body .tmke-stage-frame { flex: 1 1 auto; min-width: 0; transition: opacity .2s ease; }
   /* While the demo is loading or being scrolled into place, the reader sees a
      spinner over its own background rather than the page assembling itself. */
@@ -510,7 +519,6 @@ function injectStyles() {
      "it kind of moves to the specific part that we're talking about." */
   .tmke-stage-img {
     position: absolute; left: 0; top: 0; width: 100%; height: auto;
-    transition: transform .32s cubic-bezier(.2,.75,.2,1);
     /* Fills the screen area and crops the bottom, rather than letterboxing.
        The pop-out is not always the shape the picture was taken at -- its box
        is a fraction of the window -- so fitting it whole left a white band
@@ -1138,7 +1146,13 @@ function positionFor(step) {
     }
   }
 
-  if (step.box === false) {
+  /* A training walk never boxes: the page scrolls to the part the step is
+     about and the card points at it. Only a step with no target -- the
+     opening card, the Where Next menu -- dims the page. Dani, 13 Oct: "I
+     prefer the designs without the highlights ... the first slide on
+     everything should be darkened ... then everything should be lightened."
+     The first-login tour keeps its spotlight. */
+  if (step.box === false || activeWalk) {
     // No dim, no ring: the card simply points at the thing.
     setMask(els.maskT, 0, 0, 0, 0); setMask(els.maskB, 0, 0, 0, 0);
     setMask(els.maskL, 0, 0, 0, 0); setMask(els.maskR, 0, 0, 0, 0);
