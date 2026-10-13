@@ -6705,13 +6705,24 @@ import { createResizeEngine } from "./resize-engine.js";
     writeSharedClipboard(state.clipboard);
     toast("Copied " + state.clipboard.length + " element(s)");
   }
+  /* Pasted where it was copied from. It used to land 20px right and down
+     every time, which only makes sense on top of the original; pasted onto
+     another page, or into a design in another tab, it should stay exactly
+     where it was (Dani, 13 Oct). It steps aside only when the same thing
+     already sits in that spot on this page -- pasting twice in a row
+     cascades as before. */
   function paste() {
     const clip = readClipboard();
     if (!clip || !clip.length) return;
+    const taken = (dx) => clip.some((e) => state.elements.some((o) =>
+      o.type === e.type && Math.abs(o.x - (e.x + dx)) < 0.5 && Math.abs(o.y - (e.y + dx)) < 0.5 &&
+      Math.abs(o.w - e.w) < 0.5 && Math.abs(o.h - e.h) < 0.5));
+    let shift = 0;
+    while (shift < 400 && taken(shift)) shift += 20;
     const copies = clip.map((e) => {
       const c = deep(e);
       c.id = uid(c.type);
-      c.x += 20; c.y += 20;
+      c.x += shift; c.y += shift;
       return c;
     });
     state.elements.push(...copies);
