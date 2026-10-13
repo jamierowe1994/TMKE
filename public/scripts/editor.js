@@ -1783,6 +1783,18 @@ import { createResizeEngine } from "./resize-engine.js";
           toast(isSlot ? "No longer the logo slot" : "This is the logo slot now");
         },
       });
+      /* A QR code slot: members say where it goes, it fills itself in. */
+      const isQr = el.brandRole === "qr";
+      items.push({
+        label: isQr ? "\u2713 QR code slot" : "Mark as QR code slot",
+        action: function () {
+          if (isQr) { delete el.brandRole; delete el.qr; el.src = null; unmakeSlot(el); }
+          else { el.brandRole = "qr"; el.imgFit = "contain"; el.src = null; el.qr = el.qr || { kind: "web", dark: "#000000", light: "#ffffff" }; makeSlot(el); }
+          pushHistory();
+          fullRender();
+          toast(isQr ? "No longer the QR code slot" : "This is the QR code slot now");
+        },
+      });
       /* The brand-approved photo (docs/agent-photo-brief.md): the full-length
          cut-out TEG supplies, and the only picture allowed on print. */
       const isPhoto = el.brandRole === "photo";
@@ -4058,6 +4070,17 @@ import { createResizeEngine } from "./resize-engine.js";
         say.textContent = "This is where the photo of you goes.";
         ph.appendChild(say);
       }
+      node.appendChild(ph);
+    }
+    /* An empty QR code slot: lined like any empty box, with a QR mark and a
+       line saying what goes there. Never printed -- an export draws nothing
+       for an image with no picture. */
+    if (el.brandRole === "qr" && !el.src) {
+      node.classList.add("is-qrslot");
+      const ph = document.createElement("div");
+      ph.className = "ed-qrghost";
+      ph.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM18 14h3v2h-3zM14 19h2v2h-2z"/><path d="M5 5h3v3H5zM16 5h3v3h-3zM5 16h3v3H5z" fill="#fff"/></svg>' +
+        "<span>" + (isAdminMode() ? "QR code slot" : "Click to add your QR code") + "</span>";
       node.appendChild(ph);
     }
     if (el.hidden) node.classList.add("is-hidden");
@@ -8332,7 +8355,10 @@ import { createResizeEngine } from "./resize-engine.js";
       closeColorPanel();
       if (typeof showPane === "function") showPane("selection");
       const isPic = el.type === "image" || el.type === "frame";
-      if (ml === "light" && isPic && !canSwapPicture(el)) {
+      if (ml === "light" && isPic && el.brandRole === "qr") {
+        body.innerHTML = '<p class="ed-selection-empty">This QR code stays where it is in the template. Choose where it takes people.</p>';
+        body.appendChild(qrPanel(el));
+      } else if (ml === "light" && isPic && !canSwapPicture(el)) {
         // A supplied photograph: theirs to place, not to choose.
         /* Reposition: the photo can be moved about inside its box (Dani,
            13 Oct), as a backstop when the head lands in the wrong place.
@@ -8498,7 +8524,9 @@ import { createResizeEngine } from "./resize-engine.js";
           <div class="ed-props-field" style="flex-direction:row;align-items:center;gap:8px"><span data-mount="svg-fill"></span><label style="margin:0">Colour</label></div>
         </div>`);
       }
-      if (canSwapPicture(el)) {
+      if (el.brandRole === "qr") {
+        html.push('<div data-mount="qr"></div>');
+      } else if (canSwapPicture(el)) {
         html.push(`<div class="ed-props-section"><h4>Image</h4>
           <button type="button" class="ed-btn-ghost ed-bg-btn" id="ed-replace-img" aria-expanded="false" aria-controls="ed-sel-imgmenu" style="background:rgba(28,29,34,0.06); width:100%; justify-content:center">Change image
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
@@ -8953,6 +8981,8 @@ import { createResizeEngine } from "./resize-engine.js";
 
     wireReplaceImage(body);
     wireReposition(body, el);
+    const qrMount = body.querySelector('[data-mount="qr"]');
+    if (qrMount && el.brandRole === "qr") qrMount.appendChild(qrPanel(el));
 
     /* The agent photo slot's own colour, behind the cut-out. Authoring only:
        the template decides it, the member sees it. */
@@ -9942,7 +9972,7 @@ import { createResizeEngine } from "./resize-engine.js";
      the rule about print exists. Locking the element outright would take the
      sizing away with it, so only the swap is withheld. */
   function isSuppliedPicture(el) {
-    return !!el && (el.brandRole === "photo" || el.brandRole === "headshot" || el.brandRole === "logo");
+    return !!el && (el.brandRole === "photo" || el.brandRole === "headshot" || el.brandRole === "logo" || el.brandRole === "qr");
   }
   function canSwapPicture(el) {
     return !(isSuppliedPicture(el) && !isAdminMode());
@@ -9969,6 +9999,8 @@ import { createResizeEngine } from "./resize-engine.js";
      that may go there - on a print design that means the brand photo and only
      the brand photo. */
   function fillTemplatePhotos() {
+    // QR code slots fill from the website on the same passes (fillTemplateQrs).
+    fillTemplateQrs();
     if (isAdminMode()) return;
     const slots = everyElement().filter(function (el) { return el.brandRole === "photo"; });
     if (!slots.length) return;
@@ -10077,6 +10109,182 @@ import { createResizeEngine } from "./resize-engine.js";
      by an offset from its centre rather than a percentage. A cut-out fills
      it too here, its head placed the same way. Dani's Valuation Invitation
      uses one of these, which is why the first version did not reach it. */
+  /* ---------- QR codes ----------
+     Made here, in the browser, rather than on a QR website: no watermark, no
+     redirect through somebody else's address that can stop working, and the
+     link stays with the code so it can be changed later. Drawn as an SVG, so
+     it is sharp at any print size. The encoder is a copy of qrcode-generator
+     2.0.4 (MIT, Kazuhiko Arase) in /scripts/vendor, so it never depends on
+     another site. Dani, 13 Oct.
+
+     el.qr = { kind: "web" | "whatsapp", url, phone, message, dark, light,
+               auto }  -- auto: true while it is the website we filled in for
+     them (or a template author's sample), false once they set their own. */
+  let _qrLib = null;
+  function qrLib() {
+    if (!_qrLib) _qrLib = import("/scripts/vendor/qrcode-generator-2.0.4.mjs").then(function (m) { return m.qrcode || m.default; });
+    return _qrLib;
+  }
+  function brandWebsite() { return String((BRAND && BRAND.website) || "").trim(); }
+  function brandPhone() { const b = BRAND || {}; return String(((b.about || {}).phone) || b.phone || "").trim(); }
+  function qrNormaliseUrl(u) {
+    u = String(u || "").trim();
+    if (!u) return "";
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = "https://" + u.replace(/^\/+/, "");
+    return u;
+  }
+  // A UK mobile written the usual way (07…) becomes the international number
+  // WhatsApp wants (447…).
+  function qrWhatsAppNumber(p) {
+    let d = String(p || "").replace(/[^0-9+]/g, "");
+    if (d.indexOf("+") === 0) d = d.slice(1);
+    else if (d.indexOf("00") === 0) d = d.slice(2);
+    else if (d.indexOf("0") === 0) d = "44" + d.slice(1);
+    return d.replace(/\D/g, "");
+  }
+  function qrTarget(el) {
+    const q = el.qr || {};
+    if (q.kind === "whatsapp") {
+      const n = qrWhatsAppNumber(q.phone);
+      if (n.length < 10) return "";
+      return "https://wa.me/" + n + (q.message ? "?text=" + encodeURIComponent(q.message) : "");
+    }
+    return qrNormaliseUrl(q.url);
+  }
+  async function qrDataUrl(text, dark, light) {
+    const qrcode = await qrLib();
+    const q = qrcode(0, "M");
+    q.addData(unescape(encodeURIComponent(text)), "Byte");   // UTF-8, so £ and ’ survive
+    q.make();
+    const n = q.getModuleCount(), m = 4, size = n + m * 2;   // 4 modules of margin: scanners need it
+    let d = "";
+    for (let y = 0; y < n; y++) {
+      for (let x = 0; x < n; x++) {
+        if (!q.isDark(y, x)) continue;
+        let run = 1;
+        while (x + run < n && q.isDark(y, x + run)) run++;
+        d += "M" + (x + m) + " " + (y + m) + "h" + run + "v1h-" + run + "z";
+        x += run - 1;
+      }
+    }
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + size + " " + size + '" shape-rendering="crispEdges">' +
+      '<rect width="' + size + '" height="' + size + '" fill="' + light + '"/><path fill="' + dark + '" d="' + d + '"/></svg>';
+    return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+  }
+  async function regenerateQr(el) {
+    const t = qrTarget(el);
+    if (!t) { el.src = null; fullRender(); return false; }
+    const q = el.qr || {};
+    el.src = await qrDataUrl(t, q.dark || "#000000", q.light || "#ffffff");
+    el.imgFit = "contain";
+    fullRender();
+    return true;
+  }
+  /* A template's QR slot starts as their website, so a member who never
+     touches it still prints a code that works. Theirs once they set it. */
+  function fillTemplateQrs() {
+    if (isAdminMode()) return;
+    const site = brandWebsite();
+    everyElement().filter(function (el) { return el.brandRole === "qr"; }).forEach(function (el) {
+      const q = el.qr || (el.qr = { kind: "web", dark: "#000000", light: "#ffffff" });
+      if (q.auto === false) return;
+      if (!site) return;
+      if (q.kind === "web" && q.url === site && q.auto && el.src) return;
+      q.kind = "web"; q.url = site; q.auto = true;
+      regenerateQr(el);
+    });
+  }
+  function addQrCode() {
+    const side = Math.round(Math.min(state.canvas.width, state.canvas.height) * 0.25);
+    addElement({
+      type: "image", brandRole: "qr", imgFit: "contain", src: null,
+      x: Math.round((state.canvas.width - side) / 2), y: Math.round((state.canvas.height - side) / 2),
+      w: side, h: side,
+      qr: { kind: "web", url: brandWebsite(), dark: "#000000", light: "#ffffff", auto: false },
+    });
+    const el = getEl(state.selectedIds[0]);
+    if (el && qrTarget(el)) regenerateQr(el);
+    if (typeof showPane === "function") showPane("selection");
+    renderProps();
+  }
+  // The panel: where it goes, and -- for the template's author, or a member
+  // on a design that is not print -- its two colours.
+  function qrPanel(el) {
+    const q = el.qr || (el.qr = { kind: "web", dark: "#000000", light: "#ffffff" });
+    const admin = isAdminMode();
+    const canColour = admin || (!isPrintDesign() && !memberLock(el));
+    let kind = q.kind === "whatsapp" ? "whatsapp" : "web";
+    const sec = document.createElement("div");
+    sec.className = "ed-props-section ed-qr";
+    sec.innerHTML =
+      "<h4>QR code</h4>" +
+      '<div class="ed-qr-kinds"><button type="button" data-qrkind="web">Web link</button><button type="button" data-qrkind="whatsapp">WhatsApp</button></div>' +
+      '<div class="ed-qr-pane" data-qrpane="web">' +
+        '<label class="ed-qr-label">Where should this QR code take people?</label>' +
+        '<input type="url" class="ed-qr-in" data-qr="url" placeholder="yourwebsite.co.uk/page" spellcheck="false">' +
+        '<p class="ed-props-hint">Your website, your microsite page or a listing.</p>' +
+      "</div>" +
+      '<div class="ed-qr-pane" data-qrpane="whatsapp">' +
+        '<label class="ed-qr-label">Your mobile number</label>' +
+        '<input type="tel" class="ed-qr-in" data-qr="phone" placeholder="07123 456789">' +
+        '<label class="ed-qr-label">Opening message <span>(optional)</span></label>' +
+        '<input type="text" class="ed-qr-in" data-qr="message" placeholder="Hi, I\u2019m interested in\u2026">' +
+        '<p class="ed-props-hint">Scanning opens a WhatsApp chat with you, with this message ready to send.</p>' +
+      "</div>" +
+      '<p class="ed-qr-warn" hidden></p>' +
+      '<button type="button" class="ed-btn-ghost ed-bg-btn ed-qr-go">' + (el.src ? "Update QR code" : "Create QR code") + "</button>" +
+      '<a class="ed-qr-test" target="_blank" rel="noopener" hidden>Test where it goes</a>' +
+      (canColour ? '<div class="ed-qr-colours"><div class="ed-qr-col"><span data-mount="qr-dark"></span><label>Code</label></div>' +
+        '<div class="ed-qr-col"><span data-mount="qr-light"></span><label>Background</label></div></div>' : "") +
+      (admin ? '<p class="ed-props-hint">Members see their own website here until they set a link. On print, only you choose the colours.</p>' : "");
+    const $q = function (k) { return sec.querySelector('[data-qr="' + k + '"]'); };
+    $q("url").value = q.url != null && q.url !== "" ? q.url : brandWebsite();
+    $q("phone").value = q.phone || brandPhone();
+    $q("message").value = q.message || "";
+    const warn = sec.querySelector(".ed-qr-warn"), test = sec.querySelector(".ed-qr-test");
+    const showTest = function () { const t = el.src ? qrTarget(el) : ""; test.hidden = !t; if (t) test.href = t; };
+    const paintKind = function () {
+      sec.querySelectorAll("[data-qrkind]").forEach(function (b) { b.classList.toggle("is-on", b.getAttribute("data-qrkind") === kind); });
+      sec.querySelectorAll("[data-qrpane]").forEach(function (p) { p.hidden = p.getAttribute("data-qrpane") !== kind; });
+    };
+    sec.querySelectorAll("[data-qrkind]").forEach(function (b) {
+      b.addEventListener("click", function () { kind = b.getAttribute("data-qrkind"); warn.hidden = true; paintKind(); });
+    });
+    const say = function (t) { warn.textContent = t; warn.hidden = !t; };
+    const go = async function () {
+      const next = { kind: kind, dark: q.dark || "#000000", light: q.light || "#ffffff", auto: admin };
+      if (kind === "web") {
+        const u = qrNormaliseUrl($q("url").value);
+        if (!/^https?:\/\/[^\s/]+\.[^\s]{2,}/i.test(u)) { say("That doesn\u2019t look like a web address yet \u2014 it should look like yourwebsite.co.uk or yourwebsite.co.uk/page."); return; }
+        next.url = u;
+      } else {
+        if (qrWhatsAppNumber($q("phone").value).length < 10) { say("That number looks too short \u2014 type your mobile in full, like 07123 456789."); return; }
+        next.phone = $q("phone").value.trim();
+        next.message = $q("message").value.trim();
+      }
+      say("");
+      el.qr = Object.assign({}, q, next);
+      if (await regenerateQr(el)) { pushHistory(); renderProps(); }
+    };
+    sec.querySelector(".ed-qr-go").addEventListener("click", go);
+    sec.querySelectorAll(".ed-qr-in").forEach(function (inp) {
+      // Typing here is typing, not a shortcut: Backspace must not delete the code.
+      inp.addEventListener("keydown", function (e) { e.stopPropagation(); if (e.key === "Enter") go(); });
+    });
+    if (canColour) {
+      const recolour = function (key) {
+        return function (hex) {
+          el.qr = Object.assign({}, el.qr, (function () { const o = {}; o[key] = hex; return o; })());
+          if (el.src || qrTarget(el)) regenerateQr(el);
+        };
+      };
+      sec.querySelector('[data-mount="qr-dark"]').appendChild(colorSwatchButton(function () { return (el.qr || {}).dark || "#000000"; }, { title: "QR code colour", key: "qr-dark", onSolid: recolour("dark") }));
+      sec.querySelector('[data-mount="qr-light"]').appendChild(colorSwatchButton(function () { return (el.qr || {}).light || "#ffffff"; }, { title: "QR background", key: "qr-light", onSolid: recolour("light") }));
+    }
+    paintKind(); showTest();
+    return sec;
+  }
+
   function placeHeadshot(slot, src) {
     if (slot.autoPlacedFor === src) return;
     readHead(src, function (p) {
@@ -11964,7 +12172,9 @@ import { createResizeEngine } from "./resize-engine.js";
     } else {
       const note = document.createElement("span");
       note.className = "ed-field-note";
-      note.textContent = "Your brand\u2019s own photograph \u2014 move or resize it, but it can\u2019t be swapped.";
+      note.textContent = el.brandRole === "qr"
+        ? "Your QR code \u2014 select it on the design to change where it takes people."
+        : "Your brand\u2019s own photograph \u2014 move or resize it, but it can\u2019t be swapped.";
       box.appendChild(note);
     }
     return box;
@@ -12330,6 +12540,7 @@ import { createResizeEngine } from "./resize-engine.js";
       else if (btn.dataset.frame) addFrame(btn.dataset.frame);
       else if (btn.dataset.svg) addSvgShape(btn.dataset.svg);
       else if (btn.dataset.gradient) addGradient(btn.dataset.gradient);
+      else if (btn.dataset.qr) addQrCode();
       else if (btn.dataset.shape) addShape(btn.dataset.shape);
     });
   });

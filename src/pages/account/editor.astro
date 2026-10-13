@@ -699,6 +699,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           </button>
           <div class="ed-cb-list" id="ed-cb-list" hidden></div>
         </div>
+        <!-- A QR code made here, from a link -- no QR website needed. -->
+        <div class="ed-section-title">QR code</div>
+        <div class="ed-shape-grid">
+          <button class="ed-shape" data-qr="1" title="A QR code that takes people to a link or opens WhatsApp"><div class="sh sh-svg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM18 18h3v3h-3zM18 14h3v2h-3zM14 19h2v2h-2z"/><path d="M5 5h3v3H5zM16 5h3v3h-3zM5 16h3v3H5z" fill="#fff"/></svg></div><span>QR code</span></button>
+        </div>
         <div class="ed-section-title">Shapes</div>
         <div class="ed-shape-grid">
           <button class="ed-shape" data-shape="rect"><div class="sh sh-rect"></div><span>Rectangle</span></button>
@@ -2727,6 +2732,33 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       font-family: var(--sans); font-size: 3cqw; font-weight: 600; text-align: center;
     }
     .ed-element.is-photoslot { container-type: size; }
+    /* QR codes: the empty slot, lined like any empty box, with a QR mark. */
+    .ed-element.is-qrslot {
+      container-type: size;
+      background: repeating-linear-gradient(45deg, rgba(255,255,255,0.32) 0 8px, rgba(var(--violet-rgb),0.22) 8px 16px);
+      outline: 1px dashed rgba(var(--violet-rgb),0.85); outline-offset: -1px;
+    }
+    .ed-qrghost { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6%; pointer-events: none; }
+    .ed-qrghost svg { width: 38%; height: auto; fill: rgba(28,29,34,0.28); }
+    .ed-qrghost span { padding: 0.35em 0.7em; border-radius: 0.4em; background: rgba(255,255,255,0.86); color: rgba(28,29,34,0.7); font-family: var(--sans); font-size: 6cqw; font-weight: 600; text-align: center; }
+    /* The QR panel. */
+    .ed-qr-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; border-radius: 6px; background: rgba(28,29,34,0.06); margin-bottom: 12px; }
+    .ed-qr-kinds button { appearance: none; border: 0; border-radius: 4px; padding: 7px 8px; background: transparent; cursor: pointer; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.6); }
+    .ed-qr-kinds button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(28,29,34,0.15); }
+    .ed-qr-pane[hidden] { display: none; }
+    .ed-qr-label { display: block; margin: 0 0 6px; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ink); }
+    .ed-qr-label span { font-weight: 400; color: rgba(28,29,34,0.5); }
+    .ed-qr-in { width: 100%; box-sizing: border-box; margin: 0 0 10px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff; font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ink); }
+    .ed-qr-in:focus { outline: 2px solid rgba(var(--violet-rgb),0.35); outline-offset: 0; border-color: var(--english-violet); }
+    .ed-qr-warn { margin: 6px 0 10px; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: #a3372b; }
+    .ed-qr-warn[hidden] { display: none; }
+    .ed-qr .ed-qr-go { width: 100%; justify-content: center; margin-top: 4px; background: var(--english-violet); color: #fff; border-color: var(--english-violet); }
+    .ed-qr .ed-qr-go:hover { background: #2a1620; }
+    .ed-qr-test { display: inline-block; margin-top: 10px; font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--english-violet); }
+    .ed-qr-test[hidden] { display: none; }
+    .ed-qr-colours { display: flex; gap: 18px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .ed-qr-col { display: flex; align-items: center; gap: 8px; }
+    .ed-qr-col label { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ink); }
     /* The empty slot keeps its own shape with the lined ground every empty
        box has (frames, above); the person is a light shape standing on its
        floor. A slot with a colour of its own shows the colour instead. */
