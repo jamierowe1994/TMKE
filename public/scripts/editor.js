@@ -514,9 +514,14 @@ import { createResizeEngine } from "./resize-engine.js";
        there is under 1.5pt and an email shrank until it could not be read
        (Dani, 13 Oct: "we don't want the font size to go smaller than 6"). */
     const floor = isPrintDesign() ? Math.ceil(ptToPx(6)) : 6;
-    let hi = Math.round(el.lockSize), lo = Math.min(floor, hi), best = lo;
-    inner.style.fontSize = hi + "px";
-    if (fits()) best = hi;
+    /* The size it was set at, exactly. Rounding it to a whole pixel first
+       turned 9pt on a print design (37.5px) into 38px, 9.1pt, the moment it
+       was locked (Dani, 13 Oct). Only a size that has to come down is
+       searched in whole pixels. */
+    const set = el.lockSize;
+    let hi = Math.floor(set), lo = Math.min(floor, hi), best = lo;
+    inner.style.fontSize = set + "px";
+    if (fits()) { best = set; lo = hi + 1; }
     else {
       while (lo <= hi) {
         const mid = (lo + hi) >> 1;
