@@ -12561,13 +12561,22 @@ import { createResizeEngine } from "./resize-engine.js";
   // Text pane tabs — On this page / Add text / Brand kit / Fonts. Keeps the
   // pane short instead of stacking every section into one long scroll.
   function setTextTab(name) {
-    document.querySelectorAll(".ed-ttab").forEach((t) => t.classList.toggle("is-active", t.dataset.ttab === name));
-    document.querySelectorAll(".ed-ttab-pane").forEach((p) => p.classList.toggle("is-active", p.dataset.ttabPane === name));
+    // The Text panel's own tabs only: Elements uses the same look (data-etab).
+    document.querySelectorAll(".ed-ttab[data-ttab]").forEach((t) => t.classList.toggle("is-active", t.dataset.ttab === name));
+    document.querySelectorAll(".ed-ttab-pane[data-ttab-pane]").forEach((p) => p.classList.toggle("is-active", p.dataset.ttabPane === name));
     if (name === "page") { placeSelectionBody(); renderTextList(); }
     if (name === "fonts") renderFontBrowser();
   }
-  document.querySelectorAll(".ed-ttab").forEach((t) => {
+  document.querySelectorAll(".ed-ttab[data-ttab]").forEach((t) => {
     t.addEventListener("click", () => setTextTab(t.dataset.ttab));
+  });
+  // Elements: Shapes & icons / Personalised. Opens on Shapes & icons.
+  function setElementsTab(name) {
+    document.querySelectorAll(".ed-ttab[data-etab]").forEach((t) => t.classList.toggle("is-active", t.dataset.etab === name));
+    document.querySelectorAll(".ed-ttab-pane[data-etab-pane]").forEach((p) => p.classList.toggle("is-active", p.dataset.etabPane === name));
+  }
+  document.querySelectorAll(".ed-ttab[data-etab]").forEach((t) => {
+    t.addEventListener("click", () => setElementsTab(t.dataset.etab));
   });
 
   // Anything inside a panel that formats the selected text holds focus too.
