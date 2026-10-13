@@ -604,7 +604,10 @@ import { createResizeEngine } from "./resize-engine.js";
     function position() {
       const r = btn.getBoundingClientRect();
       pop.style.top = (r.bottom + 6) + "px";
-      pop.style.left = Math.min(r.left, window.innerWidth - 280 - 12) + "px";
+      // Kept inside the window by its real width, not an assumed 280px: the
+      // spacing rows grew when they gained − and + buttons (13 Oct).
+      const w = pop.offsetWidth || 280;
+      pop.style.left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + "px";
     }
     function open() {
       // One popover at a time: close any other open popover + the colour panel.
@@ -680,64 +683,91 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   // One labelled slider+number row (shared by the combined spacing popover).
-  function _spacingRow(labelText, unit, min, max, step, get, set) {
+  /* A typed number with − and + either side, for the slider rows below.
+     The browser's own arrows are hidden across the Studio (editor.astro), so
+     a box with no steppers of its own had no way to nudge it at all. Dani,
+     13 Oct: "not giving me the plus or minus". */
+  function stepperBox(num, step, nudge) {
+    const ctl = document.createElement("span");
+    ctl.className = "ed-size-ctl";
+    const minus = document.createElement("button");
+    minus.type = "button"; minus.className = "ed-size-step"; minus.title = "Less"; minus.textContent = "\u2212";
+    const plus = document.createElement("button");
+    plus.type = "button"; plus.className = "ed-size-step"; plus.title = "More"; plus.textContent = "+";
+    plus.style.borderRadius = "0 4px 4px 0";
+    num.classList.add("ed-ctx-num");
+    num.style.cssText = "width:52px;text-align:center;border-radius:0;border-left:none;border-right:none;padding:5px 4px;";
+    minus.addEventListener("click", function (e) { e.stopPropagation(); nudge(-step * (e.shiftKey ? 10 : 1)); });
+    plus.addEventListener("click", function (e) { e.stopPropagation(); nudge(step * (e.shiftKey ? 10 : 1)); });
+    ctl.appendChild(minus); ctl.appendChild(num); ctl.appendChild(plus);
+    return ctl;
+  }
+
+  /* One slider + typed number. Typing used to redraw the whole design on
+     every key, which closed the spacing popover mid-number, and a half-typed
+     "-" or "1." read as nonsense and snapped back (Dani, 13 Oct: "every time I
+     try to type a different figure, it just closes the box"). Now a key only
+     repaints the element; an unfinished number waits; the value is settled
+     when you press Enter or leave the box. */
+  function _sliderRow(labelText, unit, min, max, step, get, set, live, labelMargin) {
     const wrap = document.createElement("div");
     const lab = document.createElement("div");
-    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin-bottom:7px;";
+    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin:" + labelMargin + ";";
     lab.textContent = labelText;
     wrap.appendChild(lab);
     const row = document.createElement("div");
     row.style.cssText = "display:flex;align-items:center;gap:8px;";
     const range = document.createElement("input");
     range.type = "range"; range.min = min; range.max = max; range.step = step; range.value = get();
-    range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
+    range.style.cssText = "flex:1 1 110px;width:110px;min-width:0;accent-color:var(--english-violet,#371e28);";
     const num = document.createElement("input");
     num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
-    num.style.cssText = "width:60px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font-family:var(--sans);font-size:var(--ws-t-meta,12px);color:var(--ink);";
-    const apply = function (v, fromNum) {
-      v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
-      set(v); range.value = v; if (!fromNum) num.value = v; fullRender();
+    const dp = (String(step).split(".")[1] || "").length;
+    const tidy = function (v) { return Math.round(v * Math.pow(10, dp)) / Math.pow(10, dp); };
+    const clamp = function (v) { return Math.max(min, Math.min(max, v)); };
+    const apply = function (v, writeBox) {
+      v = tidy(clamp(v));
+      set(v); range.value = v; if (writeBox) num.value = v; live();
     };
-    range.addEventListener("input", function () { apply(parseFloat(range.value), false); });
+    range.addEventListener("input", function () { apply(parseFloat(range.value), true); });
     range.addEventListener("change", function () { pushHistory(); });
-    num.addEventListener("input", function () { apply(parseFloat(num.value), true); });
-    num.addEventListener("change", function () { pushHistory(); });
-    row.appendChild(range); row.appendChild(num);
+    num.addEventListener("input", function () {
+      const v = parseFloat(num.value);
+      if (isFinite(v) && v >= min && v <= max) apply(v, false);   // "-", "1." and "" wait
+    });
+    num.addEventListener("keydown", function (e) { e.stopPropagation(); if (e.key === "Enter") num.blur(); });
+    num.addEventListener("change", function () {
+      const v = parseFloat(num.value);
+      apply(isFinite(v) ? v : get(), true);
+      pushHistory();
+    });
+    const nudge = function (d) {
+      const cur = parseFloat(num.value);
+      apply((isFinite(cur) ? cur : get()) + d, true);
+      pushHistory();
+    };
+    row.appendChild(range);
+    row.appendChild(stepperBox(num, step, nudge));
     if (unit) { const u = document.createElement("span"); u.textContent = unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
     wrap.appendChild(row);
     return wrap;
   }
 
+  // The spacing popover's rows. Repaints the one element, never the whole
+  // design: a full render rebuilt the toolbar and closed the popover.
+  function _spacingRow(labelText, unit, min, max, step, get, set, el) {
+    const live = el
+      ? function () { partialRenderElement(el); if (el.type === "text") fitTextHeight(el); renderHandles(); }
+      : function () { fullRender(); };
+    return _sliderRow(labelText, unit, min, max, step, get, set, live, "0 0 7px");
+  }
+
   // Like _spacingRow but the caller supplies the live-update callback (onLive)
-  // — used inside the properties panel so we can repaint just the element
+  // -- used inside the properties panel so we can repaint just the element
   // (partialRenderElement) instead of fullRender(), which would rebuild the
   // panel mid-drag and drop the control.
   function sliderNumberRow(labelText, unit, min, max, step, get, set, onLive) {
-    const wrap = document.createElement("div");
-    const lab = document.createElement("div");
-    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin:6px 0 7px;";
-    lab.textContent = labelText;
-    wrap.appendChild(lab);
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;gap:8px;";
-    const range = document.createElement("input");
-    range.type = "range"; range.min = min; range.max = max; range.step = step; range.value = get();
-    range.style.cssText = "flex:1;accent-color:var(--english-violet,#371e28);";
-    const num = document.createElement("input");
-    num.type = "number"; num.min = min; num.max = max; num.step = step; num.value = get();
-    num.style.cssText = "width:64px;text-align:right;border:1px solid rgba(28,29,34,0.18);border-radius:6px;padding:5px 7px;font-family:var(--sans);font-size:var(--ws-t-meta,12px);color:var(--ink);";
-    const apply = function (v, fromNum) {
-      v = Math.max(min, Math.min(max, isNaN(v) ? get() : v));
-      set(v); range.value = v; if (!fromNum) num.value = v; if (onLive) onLive();
-    };
-    range.addEventListener("input", function () { apply(parseFloat(range.value), false); });
-    range.addEventListener("change", function () { pushHistory(); });
-    num.addEventListener("input", function () { apply(parseFloat(num.value), true); });
-    num.addEventListener("change", function () { pushHistory(); });
-    row.appendChild(range); row.appendChild(num);
-    if (unit) { const u = document.createElement("span"); u.textContent = unit; u.style.cssText = "opacity:0.5;font-size:12px;"; row.appendChild(u); }
-    wrap.appendChild(row);
-    return wrap;
+    return _sliderRow(labelText, unit, min, max, step, get, set, function () { if (onLive) onLive(); }, "6px 0 7px");
   }
 
   // Markup for a corner-radius section (uniform slider+number, plus an
@@ -901,10 +931,10 @@ import { createResizeEngine } from "./resize-engine.js";
         box.style.cssText = "padding:14px 16px;min-width:236px;font-family:var(--sans,inherit);display:flex;flex-direction:column;gap:16px;";
         box.appendChild(_spacingRow("Letter spacing", "px", -5, 40, 0.5,
           function () { return el.letterSpacing != null ? el.letterSpacing : 0; },
-          function (v) { el.letterSpacing = v; }));
+          function (v) { el.letterSpacing = v; }, el));
         box.appendChild(_spacingRow("Line spacing", "", 0.8, 3, 0.05,
           function () { return el.lineHeight != null ? el.lineHeight : 1.3; },
-          function (v) { el.lineHeight = v; }));
+          function (v) { el.lineHeight = v; }, el));
         if (isAdminMode()) box.appendChild(_canvaHeightRow(el));
         return box;
       },
