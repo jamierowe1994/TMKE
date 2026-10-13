@@ -6703,23 +6703,61 @@ import { createResizeEngine } from "./resize-engine.js";
      would break saving as well as pasting. Over the cap the copy still works
      in this tab, as it always did. */
   const CLIP_KEY = "tmke.studio.clipboard";
-  const CLIP_MAX = 2000000;   // ~2MB of JSON
+  const CLIP_MAX = 2000000;   // ~2MB of JSON: the most localStorage is trusted with
+
+  /* The copy itself goes to IndexedDB. A picture uploaded into a design is
+     carried in it as text, so one photo -- or a frame holding one -- was over
+     the 2MB localStorage cap, and the copy never reached the other tab
+     (Dani, 13 Oct: "I don't seem to be able to copy and paste images or
+     frames from one tab to the other"). IndexedDB holds hundreds of MB and,
+     like localStorage, every tab on this site reads the same one.
+     localStorage keeps a small copy when it fits, for a tab still running the
+     older code. */
+  let _clipDb = null;
+  function clipDb() {
+    if (!_clipDb) _clipDb = new Promise(function (res, rej) {
+      const r = indexedDB.open("tmke-studio", 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore("kv"); };
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error); };
+    });
+    return _clipDb;
+  }
+  function clipIdb(mode, fn) {
+    return clipDb().then(function (db) {
+      return new Promise(function (res, rej) {
+        const tx = db.transaction("kv", mode);
+        const req = fn(tx.objectStore("kv"));
+        tx.oncomplete = function () { res(req && req.result); };
+        tx.onerror = function () { rej(tx.error); };
+      });
+    });
+  }
 
   function writeSharedClipboard(els) {
+    const rec = { at: Date.now(), els: els };
+    clipIdb("readwrite", function (st) { return st.put(rec, "clipboard"); }).catch(function () {});
     try {
-      const payload = JSON.stringify({ at: Date.now(), els: els });
+      const payload = JSON.stringify(rec);
       if (payload.length <= CLIP_MAX) localStorage.setItem(CLIP_KEY, payload);
       else localStorage.removeItem(CLIP_KEY);   // never leave a stale one behind
     } catch (_) {}
   }
 
-  /* The newer of the two. A copy made in this tab after one made in another
-     has to win, or pasting would reach back for something older. */
-  function readClipboard() {
+  /* The newest copy, wherever it is. A copy made in this tab after one made
+     in another has to win, or pasting would reach back for something older. */
+  async function readClipboard() {
     let shared = null;
     try {
+      const rec = await clipIdb("readonly", function (st) { return st.get("clipboard"); });
+      if (rec && Array.isArray(rec.els) && rec.els.length) shared = rec;
+    } catch (_) {}
+    try {
       const raw = localStorage.getItem(CLIP_KEY);
-      if (raw) { const p = JSON.parse(raw); if (p && Array.isArray(p.els) && p.els.length) shared = p; }
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && Array.isArray(p.els) && p.els.length && (!shared || (p.at || 0) > (shared.at || 0))) shared = p;
+      }
     } catch (_) {}
     if (!shared) return state.clipboard;
     if (!state.clipboard || !state.clipboard.length) return shared.els;
@@ -6739,8 +6777,8 @@ import { createResizeEngine } from "./resize-engine.js";
      where it was (Dani, 13 Oct). It steps aside only when the same thing
      already sits in that spot on this page -- pasting twice in a row
      cascades as before. */
-  function paste() {
-    const clip = readClipboard();
+  async function paste() {
+    const clip = await readClipboard();
     if (!clip || !clip.length) return;
     const taken = (dx) => clip.some((e) => state.elements.some((o) =>
       o.type === e.type && Math.abs(o.x - (e.x + dx)) < 0.5 && Math.abs(o.y - (e.y + dx)) < 0.5 &&
