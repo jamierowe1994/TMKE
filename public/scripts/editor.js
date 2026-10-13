@@ -2556,7 +2556,14 @@ import { createResizeEngine } from "./resize-engine.js";
     // (a Canva import or blank design autosaved under a "draft-…" id), keep the
     // id so we restore THAT draft rather than falling back to the first template.
     let draftRaw = null;
-    if (!tpl && tplId) { try { draftRaw = localStorage.getItem("tmke.editor." + tplId); } catch (_) {} }
+    if (!tpl && tplId) {
+      try {
+        // A member's stored copy of a real template is never a draft to bring
+        // back: it was a stale Save, and opening it hid the current template.
+        if (ADMIN_MODE_URL || String(tplId).indexOf("draft-") === 0) draftRaw = localStorage.getItem("tmke.editor." + tplId);
+        else localStorage.removeItem("tmke.editor." + tplId);
+      } catch (_) {}
+    }
     if (!tpl) tpl = TEMPLATES[0];
     if (!tpl) return;
     resetToSinglePage(tpl.canvas && tpl.canvas.background);
@@ -2571,6 +2578,16 @@ import { createResizeEngine } from "./resize-engine.js";
       try { window.__TMKE_ON_TEMPLATE_OPEN__(tpl.id); } catch (_) {}
     }
 
+    /* A member opening a template gets the template as it is NOW. A copy of
+       it kept in this browser -- written by Save -- used to be restored in its
+       place, so after Dani changed a template, Sam kept opening the old one in
+       her browser while Dani saw the new one in hers (13 Oct). A member's own
+       work lives in their account (?design=), not here. The admin Studio keeps
+       its local safety copy; a "draft-" design has nowhere else to come from. */
+    if (!ADMIN_MODE_URL && !draftRaw) {
+      try { localStorage.removeItem("tmke.editor." + tpl.id); } catch (_) {}
+      fresh = true;
+    }
     // Try to restore saved state
     if (!fresh) {
       try {
@@ -7009,7 +7026,9 @@ import { createResizeEngine } from "./resize-engine.js";
     // ALWAYS write the local copy first — the dead-man's-lock. Even if the cloud
     // save fails, the design is recoverable from this browser via "Sync local
     // drafts", so a failed Save never means lost work.
-    try { localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload)); } catch (_) {}
+    // Admin only: a member's work is saved to their account, and a copy here
+    // was being restored over the template itself (see loadTemplate).
+    if (ADMIN_MODE_URL) { try { localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload)); } catch (_) {} }
     // Cloud hook (set by editor.astro when ?mode=admin and signed in) — writes
     // back to the Supabase `templates` table.
     if (typeof window.__TMKE_ADMIN_SAVE__ === "function") {
