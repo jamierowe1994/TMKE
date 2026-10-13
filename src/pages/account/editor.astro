@@ -5865,6 +5865,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           // Every side of the design, so reopening a postcard to edit it does
           // not quietly lose its back the next time it is published.
           pages: Array.isArray(r.pages) && r.pages.length ? r.pages : null,
+          // When the database last saved it: a copy kept in this browser is
+          // only brought back if it is newer (editor.js, loadTemplate).
+          updatedAt: r.updated_at || null,
         });
 
         // Install the save hook the editor will pick up. Editor.js passes
@@ -6061,9 +6064,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (requestedId && tag) {
           try {
             const q = (cols) => supabase.from('templates').select(cols).eq('id', requestedId).maybeSingle();
-            let { data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, pages, status, sort_order, size_variants');
-            if (tErr) ({ data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants'));
-            if (tErr) ({ data: one } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order'));
+            let { data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, pages, status, sort_order, size_variants, updated_at');
+            if (tErr) ({ data: one, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants, updated_at'));
+            if (tErr) ({ data: one } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at'));
             if (one) {
               // Layouts saved for the other sizes, so the Resize panel can
               // show which sizes are already sorted and reopen them to edit.
@@ -6096,7 +6099,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         //    has already been pinned + booted above, so the editor paints now.
         supabase
           .from('templates')
-          .select('id, name, category, thumb_url, status, sort_order')
+          .select('id, name, category, thumb_url, status, sort_order, updated_at')
           .order('status', { ascending: true })
           .order('sort_order', { ascending: true })
           .then(({ data: rows, error }) => {

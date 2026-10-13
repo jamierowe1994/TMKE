@@ -2588,6 +2588,21 @@ import { createResizeEngine } from "./resize-engine.js";
       try { localStorage.removeItem("tmke.editor." + tpl.id); } catch (_) {}
       fresh = true;
     }
+    /* In the admin Studio a copy kept in this browser is the safety net for a
+       save that never reached the database -- so it is only brought back when
+       it is NEWER than the database. Restored regardless, it showed Sam her
+       own week-old copies of templates Dani had since changed, and her next
+       save would have written them back over Dani's work (13 Oct). */
+    if (ADMIN_MODE_URL && !draftRaw && !fresh) {
+      try {
+        const kept = JSON.parse(localStorage.getItem("tmke.editor." + tpl.id) || "null");
+        const dbAt = tpl.updatedAt ? Date.parse(tpl.updatedAt) : NaN;
+        if (kept && !(isFinite(dbAt) && (kept.savedAt || 0) > dbAt + 2000)) {
+          localStorage.removeItem("tmke.editor." + tpl.id);
+          fresh = true;
+        }
+      } catch (_) {}
+    }
     // Try to restore saved state
     if (!fresh) {
       try {
