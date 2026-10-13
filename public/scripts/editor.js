@@ -3830,6 +3830,13 @@ import { createResizeEngine } from "./resize-engine.js";
         // A logo (and anything set to "fit it all in") is shown whole and
         // centred, never cropped to its box.
         if (el.imgFit === "contain") img.style.objectFit = "contain";
+        // A photo slot holding a picture with its own backdrop fills its box
+        // (placeBrandPhoto), as the download does; the stylesheet would
+        // otherwise show it whole.
+        else if (el.brandRole === "photo") {
+          img.style.objectFit = "cover";
+          img.style.objectPosition = (el.imgPosX != null ? el.imgPosX : 50) + "% " + (el.imgPosY != null ? el.imgPosY : 50) + "%";
+        }
         // Where the photo sits in its box (Reposition); centred until moved.
         else if (el.imgPosX != null || el.imgPosY != null) {
           img.style.objectPosition = (el.imgPosX != null ? el.imgPosX : 50) + "% " + (el.imgPosY != null ? el.imgPosY : 50) + "%";
@@ -4030,10 +4037,11 @@ import { createResizeEngine } from "./resize-engine.js";
        where we say why. */
     if (el.brandRole === "photo" && !el.src && isAdminMode()) {
       node.classList.add("is-photoslot");
+      if (el.photoBg) node.classList.add("has-photobg");
       const standIn = isAdminMode() && _standIn && (window.__TMKE_STAND_INS__ || {})[_standIn];
       const ph = document.createElement("div");
       ph.className = "ed-photoghost" + (standIn ? " is-standin" : "");
-      ph.style.backgroundImage = "url(" + JSON.stringify(standIn || AGENT_GHOST) + ")";
+      ph.style.backgroundImage = "url(" + JSON.stringify(standIn || AGENT_BLOCKOUT) + ")";
       if (!standIn) {
         const say = document.createElement("span");
         say.textContent = "This is where the photo of you goes.";
@@ -4092,6 +4100,10 @@ import { createResizeEngine } from "./resize-engine.js";
       const r = frameRadiusCss(el);
       node.style.borderRadius = r;
       node.style.overflow = r ? "hidden" : "";
+      /* An agent photo slot can carry a colour behind the person: the photos
+         are cut-outs with clear backgrounds, so the box needs one of its own
+         (Dani, 13 Oct). Painted here and in the download alike. */
+      node.style.background = (el.brandRole === "photo" && el.photoBg) ? el.photoBg : "";
     }
     if (el.type === "line") {
       const grad = (el.fillGradient && el.fillGradient.enabled) ? textGradientCss(el.fillGradient) : null;
@@ -7103,14 +7115,31 @@ import { createResizeEngine } from "./resize-engine.js";
         ctx.shadowOffsetY = sh.offsetY || 0;
       }
 
-      if (el.type === "image") {
+      if (el.type === "image" && el.brandRole === "photo" && el.photoBg) {
+        // The slot's own colour, behind the person, inside its corners.
+        ctx.save();
+        ctx.beginPath();
+        if (hasPerCorner(el) || el.radius) {
+          roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+            cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+        } else {
+          ctx.rect(0, 0, el.w, el.h);
+        }
+        ctx.fillStyle = el.photoBg;
+        ctx.fill();
+        ctx.restore();
+      }
+      if (el.type === "image" && el.src) {
         try {
           const img = await loadImage(el.src);
           if (el.imgFit === "contain" && img.naturalWidth && img.naturalHeight) {
-            // Whole and centred, as on the canvas.
+            // Whole and centred, as on the canvas -- except the agent photo,
+            // a cut-out, which stands on the floor of its box there and so
+            // must here (it was printed floating mid-box).
             const k = Math.min(el.w / img.naturalWidth, el.h / img.naturalHeight);
             const dw = img.naturalWidth * k, dh = img.naturalHeight * k;
-            ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
+            const dy = el.brandRole === "photo" ? (el.h - dh) : (el.h - dh) / 2;
+            ctx.drawImage(img, (el.w - dw) / 2, dy, dw, dh);
           } else {
             /* Cropped to fill its box at its own position, exactly as the
                screen shows it (object-fit: cover). It used to be stretched to
@@ -8887,6 +8916,28 @@ import { createResizeEngine } from "./resize-engine.js";
     wireReplaceImage(body);
     wireReposition(body, el);
 
+    /* The agent photo slot's own colour, behind the cut-out. Authoring only:
+       the template decides it, the member sees it. */
+    if (el.type === "image" && el.brandRole === "photo" && isAdminMode()) {
+      const sec = document.createElement("div");
+      sec.className = "ed-props-section";
+      sec.innerHTML = '<h4>Slot background</h4><p class="ed-props-hint">Agent photos are cut-outs with no background of their own. Choose the colour that sits behind the person.</p>';
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:10px;margin-top:8px;";
+      row.appendChild(colorSwatchButton(function () { return el.photoBg || "#ffffff"; }, {
+        title: "Slot background", key: "photo-bg",
+        onSolid: function (hex) { el.photoBg = hex; },
+      }));
+      const none = document.createElement("button");
+      none.type = "button"; none.className = "ed-btn-ghost";
+      none.textContent = "No colour";
+      none.disabled = !el.photoBg;
+      none.addEventListener("click", function () { delete el.photoBg; pushHistory(); fullRender(); renderProps(); });
+      row.appendChild(none);
+      sec.appendChild(row);
+      body.appendChild(sec);
+    }
+
     // Frame controls
     const frameResetBtn = body.querySelector("#ed-frame-reset");
     if (frameResetBtn) {
@@ -9803,6 +9854,14 @@ import { createResizeEngine } from "./resize-engine.js";
      written to an element, so neither can reach a saved design or an export:
      see renderElement, which paints them from nothing. */
   const AGENT_GHOST = "/images/agent-photo-ghost.svg";
+  /* The empty slot as Dani wants it (13 Oct): the slot keeps its own shape
+     and the lined background every empty box has, and the person is a plain
+     light-grey shape standing on its floor -- no dashed upright card drawn
+     inside it. Inline, so it is never a cached file. */
+  const AGENT_BLOCKOUT = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1250" preserveAspectRatio="xMidYMax meet">' +
+    '<g fill="#f6f5f3"><ellipse cx="500" cy="358" rx="152" ry="181"/>' +
+    '<path d="M500 560c-40 0-78 6-113 19l-96 35c-71 26-116 94-116 170v466h650V784c0-76-45-144-116-170l-96-35c-35-13-73-19-113-19z"/></g></svg>');
   // "Show me a person" while drawing a template: design-time only, admin only,
   // and never written to the design (see renderElement).
   var _standIn = null;
@@ -9861,7 +9920,10 @@ import { createResizeEngine } from "./resize-engine.js";
   // What belongs in this slot, or null when we hold nothing that may go there.
   function photoForSlot(role) {
     const photo = brandPhotoSrc(), head = brandHeadshotSrc();
-    if (role === "headshot") return head || photo || null;
+    // Print takes the brand-approved photo or nothing -- never the member's
+    // own upload, which falls apart at print size (docs/agent-photo-brief.md).
+    // Dani, 13 Oct: "Print should never use anybody's own headshot."
+    if (role === "headshot") return isPrintDesign() ? photo : (head || photo || null);
     return isPrintDesign() ? photo : (photo || head);
   }
 
