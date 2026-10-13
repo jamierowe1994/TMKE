@@ -274,6 +274,17 @@ const inspo = [
     .st-design-img, .st-pack-img {
       background-size: contain; background-repeat: no-repeat;
     }
+    /* The Print tab (Dani, 13 Oct): a print card is the shape of its own
+       design -- landscape, mostly -- at 75% of a social card's picture
+       height, so nothing grey sits around it. --st-print-h is worked out from
+       the social column (fitPrintRow); --ar is each card's own shape. Social
+       is untouched. */
+    .st-row--print { grid-auto-columns: max-content; }
+    .st-row--print > .st-pack, .st-row--print > .st-design { width: calc(var(--st-print-h, 200px) * var(--ar, 1.414) + 26px); box-sizing: border-box; }
+    .st-row--print .st-pack-img, .st-row--print .st-design-img {
+      width: 100%; height: var(--st-print-h, 200px); aspect-ratio: auto; background-size: cover;
+    }
+    .st-row--print > .st-design--new, .st-row--print > .st-design--all { min-height: calc(var(--st-print-h, 200px) + 26px); }
     /* Social / Print over a shelf that holds both. The hub's own pill shape —
        quiet until chosen, the way the rest of the workspace behaves. */
     .st-kinds { display: inline-flex; gap: 4px; padding: 3px; margin: 0 0 14px; border-radius: 999px; background: rgba(28,29,34,0.05); }
@@ -551,6 +562,31 @@ const inspo = [
     // module: hand it over the way the rail re-wire is handed over.
     window.__ST_KIND_TOGGLE__ = mountKindToggle;
 
+    /* A print shelf: picture height is 75% of what a social card's picture
+       would be at this width, and each card takes the shape of its picture.
+       A pack cover's shape is only known once it has loaded. */
+    function fitPrintRow(row, on) {
+      row.classList.toggle('st-row--print', !!on);
+      if (!on) { row.style.removeProperty('--st-print-h'); return; }
+      const cs = getComputedStyle(row);
+      const across = parseFloat(cs.getPropertyValue('--st-across')) || 5;
+      const gap = parseFloat(cs.columnGap) || 16;
+      const col = (row.clientWidth - (across - 1) * gap) / across;
+      const picW = col - 26;                                    // the card's padding and border
+      row.style.setProperty('--st-print-h', Math.round(picW * (1440 / 1080) * 0.75) + 'px');
+      row.querySelectorAll('[data-cover]').forEach((card) => {
+        const src = card.getAttribute('data-cover');
+        if (!src || card.dataset.arDone) return;
+        const im = new Image();
+        im.onload = () => { if (im.naturalWidth && im.naturalHeight) { card.style.setProperty('--ar', (im.naturalWidth / im.naturalHeight).toFixed(4)); card.dataset.arDone = '1'; } };
+        im.src = src;
+      });
+    }
+    window.__ST_FIT_PRINT__ = fitPrintRow;
+    window.addEventListener('resize', () => {
+      document.querySelectorAll('.st-row--print').forEach((r) => fitPrintRow(r, true));
+    }, { passive: true });
+
     const rails = () => document.querySelectorAll('[data-rail]');
     rails().forEach(wireRail);
     // Re-wire after the real packs replace the sample ones.
@@ -604,8 +640,12 @@ const inspo = [
           <a class="st-design st-design--all" href="/account/editor" data-seeall-card>
             <span class="st-design-new"><span class="st-plus">&rarr;</span><span>See all designs</span></span>
           </a>`;
+        const shapeOf = (d) => {
+          const c = d && d.canvas, w = Number(c && c.width) || 0, h = Number(c && c.height) || 0;
+          return (w && h) ? ` style="--ar:${(w / h).toFixed(4)}"` : '';
+        };
         const card = (d) => `
-          <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}">
+          <a class="st-design" href="/account/editor?design=${encodeURIComponent(d.id)}"${shapeOf(d)}>
             <span class="st-design-img"${d.thumb_url ? ` style="background-image:url('${esc(d.thumb_url)}')"` : ''}><span class="st-design-tag">Saved</span></span>
             <span class="st-design-name">${esc(d.name || 'Untitled design')}</span>
             <span class="st-design-type">Your design</span>
@@ -613,9 +653,10 @@ const inspo = [
         /* Three designs, then the two ways on: a new one, and the rest of
            them. "See all" used to sit in the chapter heading, which is where
            the toggle now goes, so it comes onto the shelf as a card. */
-        const draw = (list) => {
+        const draw = (list, kind) => {
           row.innerHTML = list.slice(0, 3).map(card).join('') + newCard
             + (list.length > 3 ? seeAllCard : '');
+          fitPrintRow(row, kind === 'print' || (!kind && list.length && list.every(isPrintDesign)));
           window.__ST_REWIRE_RAILS__?.();
         };
 
@@ -623,8 +664,8 @@ const inspo = [
         const socialDesigns = designs.filter((d) => !isPrintDesign(d));
         if (seeall) seeall.hidden = true;        // it lives on the shelf now
         if (printDesigns.length && socialDesigns.length) {
-          mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns));
-          draw(socialDesigns);
+          mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns, kind));
+          draw(socialDesigns, 'social');
         } else {
           draw(designs);
         }
@@ -696,7 +737,7 @@ const inspo = [
         // The demo pack is marked so the "Opening a template" walk can point at
         // the one every member has, not at whichever pack happens to be first.
         const tile = (p) => `
-          <a class="st-pack"${p.demo ? ' data-demo-pack' : ''} href="/account/editor?pack=${encodeURIComponent(p.id)}">
+          <a class="st-pack"${p.demo ? ' data-demo-pack' : ''}${p.cover_image_url ? ` data-cover="${esc(p.cover_image_url)}"` : ''} href="/account/editor?pack=${encodeURIComponent(p.id)}">
             <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
             <span class="st-pack-name">${esc(p.title)}</span>
             <span class="st-pack-count">Open pack &rarr;</span>
@@ -709,12 +750,17 @@ const inspo = [
            row they did not want. No print packs, no toggle. */
         const printPacks  = owned.filter((p) => p.kind === 'print');
         const socialPacks = owned.filter((p) => p.kind !== 'print');
-        const draw = (list) => { row.innerHTML = list.map(tile).join('') + shopTile; window.__ST_REWIRE_RAILS__?.(); };
+        /* The Print tab has no "Shop more packs" card (Dani, 13 Oct). */
+        const draw = (list, print) => {
+          row.innerHTML = list.map(tile).join('') + (print ? '' : shopTile);
+          window.__ST_FIT_PRINT__?.(row, print);
+          window.__ST_REWIRE_RAILS__?.();
+        };
         if (printPacks.length && socialPacks.length) {
-          window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks));
-          draw(socialPacks);
+          window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks, kind === 'print'));
+          draw(socialPacks, false);
         } else {
-          draw(owned);
+          draw(owned, !socialPacks.length && printPacks.length > 0);
         }
         done();                           // the dot count follows the real packs
       } catch (_) { done(); /* keep the SSR sample packs on any error */ }

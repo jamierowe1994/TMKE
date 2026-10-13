@@ -5415,6 +5415,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        large"); two only on a phone. */
     @media (max-width: 900px)  { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 560px)  { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    #ed-onboard-design-grid.is-print { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 900px) { #ed-onboard-design-grid.is-print { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 560px) { #ed-onboard-design-grid.is-print { grid-template-columns: 1fr; } }
     #ed-ob-designs-grid .ed-onboard-card, #ed-onboard-design-grid .ed-onboard-card {
       display: flex; flex-direction: column; gap: 4px; padding: 12px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
@@ -8323,6 +8326,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const packBrands = Array.isArray(selectedPack.brands) ? selectedPack.brands.filter(Boolean) : [];
       (window as any).__TMKE_PACK_BRAND__ = packBrands.length === 1 ? packBrands[0] : null;
 
+      // A print pack's designs are landscape cards: three a row, bigger
+      // (Dani, 13 Oct). Social packs keep the five-across grid.
+      designGrid.classList.toggle("is-print", selectedPack.kind === "print");
       packTitleEl.innerHTML = escapeHtml(selectedPack.title || "This pack") + " <em>designs.</em>";
       packCatEl.textContent = selectedPack.category || "The pack";
       designGrid.innerHTML = "";
