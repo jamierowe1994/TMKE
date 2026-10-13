@@ -5291,11 +5291,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        the shape it was designed in: a portrait template, big enough to read,
        edge to edge. The art box IS 1080x1440, so "cover" crops nothing. */
     #ed-ob-shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) 216px; min-height: 0; }
+    /* The cover takes at most 38% of the card, so on a narrow window it gives
+       way and the words keep their room (Dani, 13 Oct: at reduced sizes the
+       title broke one word to a line). Full size it is the 216px it always was. */
+    #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) clamp(110px, 38%, 216px); min-height: 0; }
     #ed-ob-shop-grid .ws-news-art {
       background-size: cover; background-repeat: no-repeat; background-position: center;
       background-color: #f2f0ef; margin: 0; border-radius: 0;
-      width: 216px; aspect-ratio: 1080 / 1440;
+      width: 100%; aspect-ratio: 1080 / 1440;
     }
     /* The copy sits against a tall cover, so centre it rather than leaving it
        stranded at the top of the card. */
@@ -5310,14 +5313,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     @media (max-width: 1100px) { #ed-ob-shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 760px) {
       #ed-ob-shop-grid { grid-template-columns: 1fr; }
-      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) 150px; }
-      #ed-ob-shop-grid .ws-news-art { width: 150px; }
+      #ed-ob-shop-grid .ws-news-card { grid-template-columns: minmax(0, 1fr) clamp(110px, 34%, 150px); }
     }
 
     /* Design cards, on the same grid the rest of the hub uses. */
     #ed-ob-designs-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
     @media (max-width: 1200px) { #ed-ob-designs-grid { grid-template-columns: repeat(4, 1fr); } }
-    @media (max-width: 900px)  { #ed-ob-designs-grid { grid-template-columns: repeat(2, 1fr); } }
+    /* Three a row on a smaller window, not two (Dani, 13 Oct: two was "quite
+       large"); two only on a phone. */
+    @media (max-width: 900px)  { #ed-ob-designs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 560px)  { #ed-ob-designs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     #ed-ob-designs-grid .ed-onboard-card {
       display: flex; flex-direction: column; gap: 4px; padding: 12px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
