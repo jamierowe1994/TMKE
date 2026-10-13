@@ -2411,6 +2411,13 @@ import { createResizeEngine } from "./resize-engine.js";
     // Any change other than a resize makes the design as it now stands the
     // thing the next resize starts from.
     if (!_historyQuiet) _resizeBase = null;
+    /* The first snapshot is the design as it was opened, not a change: every
+       load empties the history and records where it starts. Saving on it put
+       a copy of every template a member merely opened into Your Designs.
+       Dani, 13 Oct: "I'm not creating anything, but things just randomly keep
+       saving." A member's design saves from their first change; admin keeps
+       its draft on open as before. */
+    if (state.history.length === 1 && !ADMIN_MODE_URL) return;
     scheduleAutosave();   // admin: persist a draft shortly after each change
   }
 

@@ -6065,7 +6065,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          training_designs, kept under danielle@tmke.co.uk. Dani, 12 Oct: "I
          can't actually save a design to the training account." */
       const store = await designStore();
-      if (store && store.blocked) {
+      if (store && store.blocked && !trainingMode) {
         // The training account without Dani's admin login: Save says why.
         window.__TMKE_DESIGN_SAVE__ = async () => ({ ok: false, reason: store.reason });
       }
@@ -6073,9 +6073,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const memberUid = store.uid;
         const DB = store.db, DT = store.table;
         let currentDesignId = params.get('design') || null;
-        // A guided walk's demo design (?training=1) is never saved for a
-        // member; the training account's own work is.
-        window.__TMKE_DESIGN_SAVE__ = (trainingMode && !store.training) ? undefined : async (payload) => {
+        // A guided walk's demo design (?training=1) is never saved, by a member
+        // or by the training account: the shot rig opens it for every picture,
+        // and each visit was adding a design to the training account
+        // (Dani, 13 Oct). The training account's own work -- a template opened
+        // from its packs -- saves as usual.
+        window.__TMKE_DESIGN_SAVE__ = trainingMode ? undefined : async (payload) => {
           try {
             // Externalise embedded data-URL images to storage (keeps the row small).
             try { await externalizePages([{ canvas: payload.canvas, elements: payload.elements }]); } catch (_) {}
