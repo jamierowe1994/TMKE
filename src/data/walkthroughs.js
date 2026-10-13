@@ -412,21 +412,25 @@ export const WALKS = {
     line: "See how to download your finished design or add it to your Planner.",
     stage: "/account/editor?training=1",
     steps: [
-      { target: "#ed-download", placement: "bottom", padding: 8,
+      { shot: "/images/learn/demo/shots/studio-finish--1-download@2x.webp",
+        target: "#ed-download", placement: "bottom", padding: 8,
         eyebrow: "Download", title: "Download Your Design",
         body: "Choose how you'd like to download your finished design. For social media graphics, we generally recommend PNG." },
-      { target: "#ed-schedule", placement: "bottom", padding: 8,
+      { shot: "/images/learn/demo/shots/studio-finish--2-planner@2x.webp",
+        target: "#ed-schedule", placement: "bottom", padding: 8,
         eyebrow: "Plan", title: "Add It to Your Planner",
         body: "Select the calendar button to choose a publishing date, platform and caption, then add your design to your content calendar." },
       /* Dani's step, 12 Oct. The reminder lives inside the scheduling panel,
          so this one opens that panel first (the same calendar button the step
          above points at) and then points at the reminder itself. */
-      { target: ".ed-sched-remind", placement: "left", padding: 8, open: "#ed-schedule",
+      { shot: "/images/learn/demo/shots/studio-finish--3-reminder@2x.webp",
+        target: ".ed-sched-remind", placement: "left", padding: 8, open: "#ed-schedule",
         eyebrow: "Remind", title: "Set a Posting Reminder",
         body: "Arrange for your finished content to be sent to your chosen device when it's time to post, making publishing easier." },
       /* Closes the scheduling panel again, so the step about saving is not
          talking over a sheet that covers the editor. */
-      { target: "#ed-save", placement: "bottom", padding: 8, open: "#ed-schedule-close",
+      { shot: "/images/learn/demo/shots/studio-finish--4-save@2x.webp",
+        target: "#ed-save", placement: "bottom", padding: 8, open: "#ed-schedule-close",
         eyebrow: "Saving", title: "Save Before You Leave",
         body: "The Studio automatically saves your work, but it's worth checking that your latest changes have finished saving before closing the editor." },
     ],
