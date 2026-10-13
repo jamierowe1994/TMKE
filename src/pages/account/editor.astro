@@ -166,10 +166,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   <!-- Selection actions. Sits over the gallery once something is ticked. -->
   <div class="ed-ob-actions" id="ed-ob-actions" hidden>
     <span class="ed-ob-actions-n" id="ed-ob-actions-n">1 selected</span>
-    <button type="button" class="ed-ob-act" data-act="duplicate">Duplicate</button>
-    <button type="button" class="ed-ob-act" data-act="folder">Add to folder</button>
-    <button type="button" class="ed-ob-act" data-act="planner" id="ed-ob-act-planner">Add to planner</button>
-    <button type="button" class="ed-ob-act ed-ob-act--bad" data-act="delete">Delete</button>
+    <!-- Words everywhere; on a phone the four actions are icons so the bar
+         stays on one line (Dani, 13 Oct). The label is the button's name. -->
+    <button type="button" class="ed-ob-act" data-act="duplicate" aria-label="Duplicate" title="Duplicate"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span class="ed-ob-act-tx">Duplicate</span></button>
+    <button type="button" class="ed-ob-act" data-act="folder" aria-label="Add to folder" title="Add to folder"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="ed-ob-act-tx">Add to folder</span></button>
+    <button type="button" class="ed-ob-act" data-act="planner" id="ed-ob-act-planner" aria-label="Add to planner" title="Add to planner"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="ed-ob-act-tx">Add to planner</span></button>
+    <button type="button" class="ed-ob-act ed-ob-act--bad" data-act="delete" aria-label="Delete" title="Delete"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg><span class="ed-ob-act-tx">Delete</span></button>
     <button type="button" class="ed-ob-act ed-ob-act--quiet" data-act="clear">Clear</button>
   </div>
 
@@ -5377,8 +5379,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        wrapped (Dani, 13 Oct); max-content keeps it on one line. */
     .ed-ob-actions { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 40; width: max-content; max-width: calc(100vw - 32px); white-space: nowrap; display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 16px; border-radius: 6px; background: var(--ws-accent, #371e28); box-shadow: 0 18px 40px -18px rgba(20,16,22,0.7); }
     .ed-ob-actions[hidden] { display: none; }
-    /* A phone has no room for one line: the buttons wrap, the bar centred. */
-    @media (max-width: 600px) { .ed-ob-actions { flex-wrap: wrap; justify-content: center; } }
+    .ed-ob-act-ic { display: none; }
+    /* A phone: the four actions become icons, so the bar still fits one line. */
+    @media (max-width: 600px) {
+      .ed-ob-actions { gap: 6px; padding-left: 14px; }
+      .ed-ob-act[data-act="duplicate"], .ed-ob-act[data-act="folder"], .ed-ob-act[data-act="planner"], .ed-ob-act[data-act="delete"] { width: 36px; padding: 0; display: inline-grid; place-items: center; }
+      .ed-ob-act .ed-ob-act-ic { display: block; }
+      .ed-ob-act[data-act] .ed-ob-act-tx { display: none; }
+    }
     .ed-ob-actions-n { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; letter-spacing: 0.04em; color: rgba(255,255,255,0.75); margin-right: 6px; }
     .ed-ob-act { flex: none; appearance: none; height: 30px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.24); border-radius: 4px; background: transparent; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: #fff; cursor: pointer; transition: background 0.15s, opacity 0.15s; }
     .ed-ob-act:hover:not(:disabled) { background: rgba(255,255,255,0.14); }
