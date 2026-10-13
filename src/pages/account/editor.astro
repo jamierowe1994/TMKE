@@ -5132,16 +5132,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        landscape-only pack a strip of short, wide slivers with a lot of empty
        page around them. Dani, 10 Oct: "I think we can make the thumbnail of
        this bigger... I think it should still be the same height." */
-    #ed-onboard-design-grid {
-      display: flex; flex-wrap: wrap; align-items: flex-start;
-      gap: 20px;
-    }
-    #ed-onboard-design-grid .ed-onboard-card { width: auto; max-width: 100%; }
-    #ed-onboard-design-grid .ed-onboard-card-cover {
-      height: clamp(200px, 24vh, 268px);
-      width: auto; max-width: 100%;
-      aspect-ratio: var(--ob-frame, 1080 / 1440);
-    }
+    /* Superseded 13 Oct: a pack's designs now use the Your Designs card
+       (below, shared with #ed-ob-designs-grid) -- one width per column, the
+       picture inside a white card, one frame for the whole grid. Dani: "why
+       are [they] all different sizes? ... use the same format with them
+       inside the card." */
     .ed-onboard-card-pages {
       position: absolute; right: 8px; bottom: 8px;
       padding: 3px 9px; border-radius: 999px;
@@ -5336,26 +5331,26 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
 
     /* Design cards, on the same grid the rest of the hub uses. */
-    #ed-ob-designs-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
-    @media (max-width: 1200px) { #ed-ob-designs-grid { grid-template-columns: repeat(4, 1fr); } }
+    #ed-ob-designs-grid, #ed-onboard-design-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--ws-gap); }
+    @media (max-width: 1200px) { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(4, 1fr); } }
     /* Three a row on a smaller window, not two (Dani, 13 Oct: two was "quite
        large"); two only on a phone. */
-    @media (max-width: 900px)  { #ed-ob-designs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-    @media (max-width: 560px)  { #ed-ob-designs-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    #ed-ob-designs-grid .ed-onboard-card {
+    @media (max-width: 900px)  { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 560px)  { #ed-ob-designs-grid, #ed-onboard-design-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    #ed-ob-designs-grid .ed-onboard-card, #ed-onboard-design-grid .ed-onboard-card {
       display: flex; flex-direction: column; gap: 4px; padding: 12px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
       text-decoration: none; color: var(--ws-ink);
       transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
     }
-    #ed-ob-designs-grid .ed-onboard-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
+    #ed-ob-designs-grid .ed-onboard-card:hover, #ed-onboard-design-grid .ed-onboard-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.22); }
     /* The shape of the thing it previews, like the Studio shelves. */
     /* One frame per grid, set from the pack's own designs, and `contain` so
        a card that is a different shape shows whole rather than cropped. */
-    #ed-ob-designs-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: var(--ob-frame, 1080 / 1440); border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
-    #ed-ob-designs-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
-    #ed-ob-designs-grid .ed-onboard-card-title { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
-    #ed-ob-designs-grid .ed-onboard-card-cat { font-size: var(--ws-t-meta); color: var(--ws-faint); }
+    #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: var(--ob-frame, 1080 / 1440); border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
+    #ed-ob-designs-grid .ed-onboard-card-body, #ed-onboard-design-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
+    #ed-ob-designs-grid .ed-onboard-card-title, #ed-onboard-design-grid .ed-onboard-card-title { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
+    #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat { font-size: var(--ws-t-meta); color: var(--ws-faint); }
 
     /* Folders, sort, selection and the action bar. */
     .ed-ob-tools { display: flex; align-items: center; gap: 8px; }
@@ -8180,14 +8175,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
     // A design card in the step-2 chooser (mirrors packCard).
     function designCard(d) {
-      /* Each card wears its OWN shape. One frame for the whole grid meant a
-         landscape design sat inside an upright frame with grey above and
-         below it, so the design looked to be floating higher than it really
-         is - and it looked that way everywhere the tile is used. Now that the
-         tiles share a height and take their width from their shape, a card
-         can be the shape of the thing it shows and the picture fills it
-         exactly. Dani, 10 Oct. */
-      const shape = (d.w && d.h) ? `--ob-frame:${d.w}/${d.h};` : "";
+      /* One frame for the whole grid, set from its commonest shape, with
+         every design shown whole inside it: the cards are the Your Designs
+         card, so they line up as one row of equal widths (Dani, 13 Oct).
+         Each card wearing its own shape (10 Oct) made a row of three sizes. */
+      const shape = "";
       const cover = d.thumb ? `background-image:url('${escapeHtml(d.thumb)}')` : "";
       /* One card per design, and the card says how many sides it has. "2
          pages" reads as a postcard; a card that says nothing looks like a
