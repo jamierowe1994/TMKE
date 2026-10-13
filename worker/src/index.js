@@ -2927,6 +2927,63 @@ async function notifyAdmins(env, { area, event, title, body = null, href = null,
   } catch (_) { return false; }
 }
 
+/* ── A contact that may be a duplicate ─────────────────────────────────────
+   upsert_contact (supabase/contact_dedup_review.sql) keeps a newcomer apart,
+   flagged for review, when their email is already on a contact with a
+   different name. Dani, 13 Oct: tell me as it happens, by email, with a link,
+   to danielle@ and hello@ -- rather than waiting until somebody next opens the
+   contacts list. Checked on the 5-minute tick. The admin_notifications row is
+   the record AND the "already told" marker: its once-only index refuses a
+   second row for the same contact, so each one is emailed once. */
+async function runContactReviewAlerts(env) {
+  try {
+    const rows = (await sbGet(env, "contacts",
+      "select=id,email,first_name,last_name,review_reason,created_at,company&needs_review=eq.true&order=created_at.desc&limit=200")) || [];
+    if (!rows.length) return;
+    const site = String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+    const to = ["danielle@tmke.co.uk", "hello@tmke.co.uk"];
+    // Already told about: read first, so nobody is emailed twice even if the
+    // once-only index were missing from the database.
+    const told = new Set(((await sbGet(env, "admin_notifications",
+      "select=meta&event=eq.contact_needs_review&limit=10000")) || [])
+      .map((r) => r && r.meta && String(r.meta.key || "")).filter(Boolean));
+    const fresh = [];
+    for (const c of rows) {
+      if (told.has(String(c.id))) continue;
+      const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || "(no name)";
+      const res = await sbPost(env, "admin_notifications", {
+        area: "hub", event: "contact_needs_review",
+        title: `Possible duplicate contact: ${name}`,
+        body: `${c.email} — ${c.review_reason || "same email as another contact with a different name"}`,
+        href: `/admin/contacts?contact=${encodeURIComponent(c.id)}`,
+        recipients: to,
+        meta: { key: String(c.id), email: c.email },
+      });
+      if (res && (res.status === 201 || res.ok)) fresh.push(Object.assign({ name }, c));
+    }
+    if (!fresh.length) return;
+    // One entry per email address: both sides of a pair are flagged together.
+    const byEmail = new Map();
+    fresh.forEach((c) => { const k = String(c.email || "").toLowerCase(); if (!byEmail.has(k)) byEmail.set(k, []); byEmail.get(k).push(c); });
+    const items = [...byEmail.entries()].map(([email, list]) => `
+      <div style="${EM_QUOTE}">
+        <div><span style="color:#888">Email:</span> ${esc(email)}</div>
+        ${list.map((c) => `<div style="margin-top:6px">${esc(c.name)}${c.company ? ` <span style="color:#888">(${esc(c.company)})</span>` : ""} &mdash; <a href="${site}/admin/contacts?contact=${encodeURIComponent(c.id)}">review</a></div>`).join("")}
+      </div>`).join("");
+    const n = byEmail.size;
+    await sendEmail(env, {
+      to,
+      subject: n === 1 ? "A contact needs reviewing." : `${n} contacts need reviewing.`,
+      html: `<div style="${EM_WRAP}">
+        <h1 style="${EM_H1}">${n === 1 ? "A Possible Duplicate Contact." : "Possible Duplicate Contacts."}</h1>
+        <p style="${EM_P}">${n === 1 ? "This email address is" : "These email addresses are"} already on a contact with a different name, so the newcomer has been kept apart and flagged for review. Open each one to merge it, or confirm they are different people.</p>
+        ${items}
+        <p style="${EM_P}"><a href="${site}/admin/contacts" style="${EM_BTN}">Open contacts &rarr;</a></p>
+      </div>`,
+    });
+  } catch (e) { console.error("runContactReviewAlerts", String((e && e.message) || e).slice(0, 200)); }
+}
+
 /* The account manager for a social client, as an address.
    `smm_leads.social_media_manager` holds a NAME and `admins` holds addresses,
    so the name is matched against them — the same match the shoot-ready mail
@@ -3673,6 +3730,7 @@ export default {
     else {
       ctx.waitUntil(runAutomationsTick(env));
       ctx.waitUntil(runSetupReminders(env));
+      ctx.waitUntil(runContactReviewAlerts(env));
       ctx.waitUntil(pollSmmInbox(env));
       // Poll the TEG new-starter sheet ~every 15 min (the 5-min tick, gated to
       // :00/:15/:30/:45) so new Pro/Academy rows enrol into the funnel.
