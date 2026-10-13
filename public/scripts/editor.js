@@ -4075,6 +4075,15 @@ import { createResizeEngine } from "./resize-engine.js";
     /* An empty QR code slot: lined like any empty box, with a QR mark and a
        line saying what goes there. Never printed -- an export draws nothing
        for an image with no picture. */
+    {
+      const qb = qrBorderOf(el);
+      if (qb) {
+        const ring = document.createElement("div");
+        ring.className = "ed-qr-ring";
+        ring.style.border = qb.w + "px solid " + qb.c;
+        node.appendChild(ring);
+      }
+    }
     if (el.brandRole === "qr" && !el.src) {
       node.classList.add("is-qrslot");
       const ph = document.createElement("div");
@@ -7237,7 +7246,18 @@ import { createResizeEngine } from "./resize-engine.js";
               ctx.drawImage(img, (el.w - w2) / 2 + (el.imgOffsetX || 0), el.h - h2 + (el.imgOffsetY || 0), w2, h2);
               ctx.restore();
             } else {
+              // Inside its rounded corners, as the canvas clips it -- a QR
+              // code with rounded corners came out square in the download.
+              const rounded = hasPerCorner(el) || el.radius;
+              if (rounded) {
+                ctx.save();
+                ctx.beginPath();
+                roundedRectPerCorner(ctx, 0, 0, el.w, el.h,
+                  cornerRadius(el, "tl"), cornerRadius(el, "tr"), cornerRadius(el, "br"), cornerRadius(el, "bl"));
+                ctx.clip();
+              }
               ctx.drawImage(img, (el.w - dw) / 2, (el.h - dh) / 2, dw, dh);
+              if (rounded) ctx.restore();
             }
           } else {
             /* Cropped to fill its box at its own position, exactly as the
@@ -7268,6 +7288,7 @@ import { createResizeEngine } from "./resize-engine.js";
             ctx.restore();
           }
         } catch (e) {}
+        drawQrBorder(ctx, el);
       } else if (el.type === "screen") {
         await drawScreenToCanvas(ctx, el);
       } else if (el.type === "frame") {
@@ -10209,6 +10230,37 @@ import { createResizeEngine } from "./resize-engine.js";
       '<rect width="' + size + '" height="' + size + '" fill="' + light + '"/><path fill="' + dark + '" d="' + d + '"/></svg>';
     return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
   }
+  /* The QR box's border: drawn inside the box so it never changes its size,
+     following its rounded corners. On the canvas a layer over the picture; in
+     the download a stroke after it. Dani, 13 Oct: "add a border to the QR
+     code box". */
+  function qrBorderOf(el) {
+    const q = el && el.brandRole === "qr" ? (el.qr || {}) : null;
+    return q && q.borderW > 0 ? { w: q.borderW, c: q.borderColor || "#000000" } : null;
+  }
+  // Just the border, while the thickness is being dragged.
+  function paintQrRing(el) {
+    const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
+    if (!node) return;
+    const b = qrBorderOf(el);
+    let ring = node.querySelector(".ed-qr-ring");
+    if (!b) { if (ring) ring.remove(); return; }
+    if (!ring) { ring = document.createElement("div"); ring.className = "ed-qr-ring"; node.appendChild(ring); }
+    ring.style.border = b.w + "px solid " + b.c;
+  }
+  function drawQrBorder(ctx, el) {
+    const b = qrBorderOf(el);
+    if (!b) return;
+    const h = b.w / 2;
+    const r = function (k) { return Math.max(0, cornerRadius(el, k) - h); };
+    ctx.save();
+    ctx.beginPath();
+    roundedRectPerCorner(ctx, h, h, el.w - b.w, el.h - b.w, r("tl"), r("tr"), r("br"), r("bl"));
+    ctx.lineWidth = b.w;
+    ctx.strokeStyle = b.c;
+    ctx.stroke();
+    ctx.restore();
+  }
   async function regenerateQr(el) {
     const t = qrTarget(el);
     if (!t) { el.src = null; fullRender(); return false; }
@@ -10310,6 +10362,23 @@ import { createResizeEngine } from "./resize-engine.js";
       inp.addEventListener("keydown", function (e) { e.stopPropagation(); if (e.key === "Enter") go(); });
     });
     if (canColour) {
+      const bsec = document.createElement("div");
+      bsec.className = "ed-qr-border";
+      const brow = document.createElement("div");
+      brow.className = "ed-qr-col";
+      const bmount = document.createElement("span");
+      bmount.appendChild(colorSwatchButton(function () { return (el.qr || {}).borderColor || "#000000"; }, {
+        title: "QR border colour", key: "qr-border",
+        onSolid: function (hex) { el.qr = Object.assign({}, el.qr, { borderColor: hex, borderW: (el.qr || {}).borderW || 4 }); },
+      }));
+      brow.appendChild(bmount);
+      const blab = document.createElement("label"); blab.textContent = "Border colour"; brow.appendChild(blab);
+      bsec.appendChild(sliderNumberRow("Border", "px", 0, 60, 1,
+        function () { return (el.qr || {}).borderW || 0; },
+        function (v) { el.qr = Object.assign({}, el.qr, { borderW: v }); },
+        function () { paintQrRing(el); }));
+      bsec.appendChild(brow);
+      sec.appendChild(bsec);
       const recolour = function (key) {
         return function (hex) {
           el.qr = Object.assign({}, el.qr, (function () { const o = {}; o[key] = hex; return o; })());
