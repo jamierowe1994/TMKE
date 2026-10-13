@@ -711,10 +711,13 @@ import { createResizeEngine } from "./resize-engine.js";
      when you press Enter or leave the box. */
   function _sliderRow(labelText, unit, min, max, step, get, set, live, labelMargin) {
     const wrap = document.createElement("div");
-    const lab = document.createElement("div");
-    lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin:" + labelMargin + ";";
-    lab.textContent = labelText;
-    wrap.appendChild(lab);
+    // No label when the section's own heading already says it.
+    if (labelText) {
+      const lab = document.createElement("div");
+      lab.style.cssText = "font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(28,29,34,0.55);margin:" + labelMargin + ";";
+      lab.textContent = labelText;
+      wrap.appendChild(lab);
+    }
     const row = document.createElement("div");
     row.style.cssText = "display:flex;align-items:center;gap:8px;";
     const range = document.createElement("input");
@@ -8733,7 +8736,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // corners, clears per-corner overrides) plus the four individual corners.
     const elRadiusMount = body.querySelector('[data-mount="el-radius"]');
     if (elRadiusMount && el) {
-      elRadiusMount.appendChild(sliderNumberRow("Corner radius", "px", 0, 500, 1,
+      elRadiusMount.appendChild(sliderNumberRow("", "px", 0, 500, 1,
         function () { return el.radius || 0; },
         function (v) { el.radius = v; el.radii = null; },
         function () { partialRenderElement(el); }));
