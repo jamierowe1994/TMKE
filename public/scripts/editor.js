@@ -6842,6 +6842,39 @@ import { createResizeEngine } from "./resize-engine.js";
         return false;
       }
     }
+    /* A member's Save (and the training account's) goes to the cloud too.
+       It only ever handled the admin hook, so for everyone else Save wrote the
+       browser copy and said "Saved on this device — not yet in the cloud"
+       while autosave quietly put the same design in the cloud a moment later:
+       a warning that was not true, from the first version of the Studio until
+       Dani asked about it on the training account, 13 Oct. */
+    if (!ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function") {
+      // One cloud save at a time: an autosave already running could be
+      // creating this design's row, and a second insert would make a copy.
+      for (let i = 0; i < 100 && _dbSaving; i++) await new Promise(function (r) { setTimeout(r, 100); });
+      _dbSaving = true;
+      clearTimeout(_dbSaveTimer);
+      setSaveStatus("saving");
+      try {
+        const res = await window.__TMKE_DESIGN_SAVE__(payload);
+        const ok = res === true || (res && res.ok === true);
+        if (res && res.id && state.templateId !== res.id) state.templateId = res.id;
+        if (ok) { _dbRetries = 0; _lastSaveWhy = null; setSaveStatus("saved"); return true; }
+        _lastSaveWhy = (res && res.reason) || "the cloud save was refused";
+        setSaveStatus("local");
+        toast("Saved on this device. " + _lastSaveWhy, 7000);
+        scheduleAutosave();
+        return false;
+      } catch (e) {
+        _lastSaveWhy = String((e && e.message) || "") || "couldn't reach the server";
+        setSaveStatus("local");
+        toast("Saved on this device. Couldn't reach the server.", 7000);
+        scheduleAutosave();
+        return false;
+      } finally {
+        _dbSaving = false;
+      }
+    }
     // No cloud hook (bootstrap not up) — the local copy above is the safety net.
     setSaveStatus("local");
     toast("Saved on this device");
