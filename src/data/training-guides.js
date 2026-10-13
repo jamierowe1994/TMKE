@@ -371,3 +371,93 @@ export const TRAINING_GUIDES = [
     ],
   }),
 ];
+
+/* ---- Print ---------------------------------------------------------------
+   Your First Print Design: a canvassing card from the print pack, start to
+   PDF. For The Experts Group's agents only (`audience: "teg"`, checked on the
+   Learn page and in the reader). It sits in the Guides grid, not the
+   Training row (`training: false`). Copy: Dani's review, 13 Oct, with three
+   changes for accuracy -- the Brand Kit is opened from the hub's menu, the
+   PDF is not called "print-ready" (the Studio exports no bleed), and no card
+   size is given until the Canvassing Cards' size is confirmed.
+   The walkthroughs are in walkthroughs.js (print-*), held back with
+   `pending` until their pictures are taken. */
+export const PRINT_GUIDES = [
+  guide({
+    slug: "print-first-design",
+    title: "Your First Print Design",
+    summary: "Create your first canvassing card using the print templates available to agents of The Experts Group.",
+    topic: "getting-started", audience: "teg", training: false,
+    est_minutes: 12, sort_order: 5,
+    lessons: [
+      { title: "Finding Your Print Templates", walk: "print-find",
+        body_html:
+          p("<strong>Your print templates, ready to personalise.</strong>") +
+          p("Your print templates live in the Studio alongside your social media designs.") +
+          p("They're organised into packs, with each pack containing a collection of templates created for a particular purpose.") +
+          p("In this course, we'll be using the Canvassing Cards pack. Each template gives you a starting point for reaching homeowners in your local area, whether you're introducing yourself, promoting a property or encouraging someone to request a valuation.") +
+          "<!--WALK-->" },
+
+      { title: "Where Your Details Come From", walk: "print-details",
+        body_html:
+          p("<strong>Your details are already taken care of.</strong>") +
+          p("When you open a print template, the Studio uses the information saved in your Brand Kit to personalise the design.") +
+          p("This includes your logo, name, job title, contact details and business information, helping you create consistent marketing without entering everything manually.") +
+          p("Before making any changes, take a moment to check that everything is correct.<br>If something needs updating, make the change in your Brand Kit, which you can open from the menu in your Member Hub. You'll then need to reopen the template to apply the updated information.") +
+          ctaBox("Haven't completed your Brand Kit?",
+            "Your Brand Kit stores the business information, branding and contact details used throughout your designs, so it's worth completing before you personalise your print templates.",
+            "/account/profile", "Set up your Brand Kit") +
+          "<!--WALK-->" },
+
+      { title: "Your Headshot", walk: "print-headshot",
+        body_html:
+          p("<strong>A consistent face for your personal brand.</strong>") +
+          p("Your canvassing cards automatically include your approved headshot, helping keep your printed marketing consistent with The Experts Group's branding.") +
+          p("Your headshot is managed centrally, so you won't need to upload or replace it yourself.") +
+          p("You can, however, adjust how it sits within the design, making sure it looks right before you download.") +
+          "<!--WALK-->" },
+
+      { title: "Changing the Photos", walk: "print-photos",
+        body_html:
+          p("<strong>Make the property the focus.</strong>") +
+          p("Your canvassing card includes placeholder photography to show you how the finished design could look.") +
+          p("Replace these images with your own property photography to make the card relevant to the home you're promoting.") +
+          p("Once you've added your photo, you can adjust how it sits within the frame without changing the rest of the design.") +
+          "<!--WALK-->" },
+
+      { title: "Writing the Back", walk: "print-words",
+        body_html:
+          p("<strong>Give people a reason to respond.</strong>") +
+          p("The front of your canvassing card catches someone's attention. The back is where you explain why you're contacting them and what you'd like them to do next.") +
+          p("Most templates have two main areas to personalise: the message itself and the call to action.") +
+          p("If you're struggling with what to write, your Creative Assistant can help. It's designed for estate agency marketing and writes in the tone of voice saved in your Brand Kit. Tell it what the card is for, who you're targeting and what you want the reader to do, then refine the suggested wording and add it to your design.") +
+          cards([
+            ["TMKE Tip", "Keep your message short and focused. Your text will automatically adjust to fit the available space, but that doesn't mean you need to fill every line.", "tip"],
+          ], 1) +
+          "<!--WALK-->" },
+
+      { title: "Your QR Code", walk: "print-qr",
+        body_html:
+          p("<strong>Make it easy to take the next step.</strong>") +
+          p("Every canvassing card includes a QR code, giving homeowners a quick way to find out more or get in touch.") +
+          p("By default, your QR code links to your website. However, you can change it to something more relevant to the card, such as a particular property listing or valuation page.") +
+          p("You can also choose WhatsApp, allowing somebody to open a conversation with you directly. Add your mobile number and, if you'd like, a short message ready for them to send.") +
+          p("Once you've chosen the destination, select <strong>Update QR code</strong> to apply your changes.") +
+          panel("Always test your QR code",
+            p("Test your QR code before downloading your design. Once your cards are printed, the destination can't be changed, so make sure it takes people to the right place.")) +
+          "<!--WALK-->" },
+
+      { title: "Downloading for Print", walk: "print-download",
+        body_html:
+          p("<strong>Ready to print?</strong>") +
+          p("Once you've finished personalising your card, take a moment to check both sides.") +
+          p("Make sure your contact details are correct, the property photography is right, your message reads naturally and your QR code takes people to the intended destination.") +
+          p("When you're happy with everything, open <strong>Download</strong>. The Studio automatically selects PDF for print designs, giving you one file containing both sides of your card.") +
+          "<!--WALK-->" +
+          panel("Getting your cards printed",
+            p("Your print design is supplied as a PDF containing both sides of the card. When ordering, make sure you select the correct dimensions and double-sided printing.<br>You can find the dimensions of your design in the Studio, next to the design's name.")) +
+          p("<strong>Your first print design is ready.</strong>") +
+          p("You've chosen a template, personalised the content, updated your imagery and prepared your card for printing. Next time, you'll know exactly where to start.") },
+    ],
+  }),
+];

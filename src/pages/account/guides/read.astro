@@ -481,10 +481,11 @@ const DEFAULT_COVER = (await getImage({
     import { supabase } from "../../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../../data/content-ideas-guide.js";
-    import { TRAINING_GUIDES } from "../../../data/training-guides.js";
+    import { TRAINING_GUIDES, PRINT_GUIDES } from "../../../data/training-guides.js";
+    import { guideViewer, guideVisibleTo } from "../../../lib/guide-audience.js";
     import { startWalk } from "../../../lib/tour.js";
     import { WALKS } from "../../../data/walkthroughs.js";
-    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES];
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES, ...PRINT_GUIDES];
 
     const $ = (s) => document.querySelector(s);
     const DEV = import.meta.env.DEV;
@@ -608,7 +609,8 @@ const DEFAULT_COVER = (await getImage({
         return `<div class="gr-video"><video controls preload="metadata" src="${esc(u)}"></video></div>`;
       };
       const walkHtml = (id, i) => {
-        if (!id || !WALKS[id]) return "";
+        // A walk still waiting for its pictures keeps its Show me back.
+        if (!id || !WALKS[id] || WALKS[id].pending) return "";
         // A walk can name itself (lead / line in walkthroughs.js) when the
         // lesson has already said what it is about to show.
         const lead = WALKS[id].lead || "See it on the page";
@@ -810,6 +812,21 @@ const DEFAULT_COVER = (await getImage({
       }
 
       const devSample = slug === "sample-course" ? SAMPLE_COURSE : SAMPLE_ARTICLE;
+      /* A guide for The Experts Group's agents only shows them a short note
+         instead, pointing back to Learn (src/lib/guide-audience.js). */
+      async function renderFor(g) {
+        if (g && g.audience === "teg") {
+          let viewer = { teg: false };
+          try { viewer = await guideViewer(supabase); } catch (_) {}
+          if (!guideVisibleTo(g, viewer)) {
+            render({ slug: g.slug, kind: "article", title: g.title, topic: g.topic,
+              summary: "This course is for agents of The Experts Group.",
+              lessons: [{ title: g.title, body_html: "<p>It uses the print templates made for The Experts Group's brands. Head back to Learn for the guides and courses available to you.</p>" }] });
+            return;
+          }
+        }
+        render(g);
+      }
       // Guides that ship with the site (content-ideas). A published DB row with
       // the same slug wins; until one exists the static copy is what members read.
       const builtIn = STATIC_GUIDES.find((g) => g.slug === slug) || null;
@@ -817,8 +834,8 @@ const DEFAULT_COVER = (await getImage({
       try {
         const { data, error } = await supabase.from("guides").select("*").eq("slug", slug).eq("status","published").maybeSingle();
         if (error) throw error;
-        render(data || builtIn || (DEV ? devSample : null));
-      } catch (_) { render(builtIn || (DEV ? devSample : null)); }
+        await renderFor(data || builtIn || (DEV ? devSample : null));
+      } catch (_) { await renderFor(builtIn || (DEV ? devSample : null)); }
     })();
   </script>
 </BaseLayout>

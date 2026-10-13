@@ -343,8 +343,9 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
     import { supabase } from "../../lib/supabase.js";
     import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
-    import { TRAINING_GUIDES } from "../../data/training-guides.js";
-    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES];
+    import { TRAINING_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
+    import { guideViewer, guideVisibleTo } from "../../lib/guide-audience.js";
+    const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES, ...PRINT_GUIDES];
     // Slug -> built-in, so a database row can borrow its twin's picture.
     const STATIC_BY_SLUG = Object.fromEntries(STATIC_GUIDES.map((g) => [g.slug, g]));
     const DEV = import.meta.env.DEV;
@@ -541,13 +542,19 @@ const fmtDate = (d) => { try { return new Date(String(d) + "T12:00:00").toLocale
 
       try {
         const { data, error } = await supabase.from('guides')
-          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes')
+          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience')
           .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
         if (error) throw error;
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
       } catch (_) { ALL = DEV ? SAMPLE : []; }
       // Built-in guides that ship with the site, unless the DB has its own copy.
       STATIC_GUIDES.forEach((g) => { if (!ALL.some((x) => x.slug === g.slug)) ALL.unshift(g); });
+      // Only the guides meant for this member (src/lib/guide-audience.js):
+      // a TEG-only course is left out for anyone outside The Experts Group.
+      try {
+        const viewer = await guideViewer(supabase);   // nobody signed in: no brands, so no TEG-only guides
+        ALL = ALL.filter((g) => guideVisibleTo(g, viewer));
+      } catch (_) { ALL = ALL.filter((g) => g.audience !== 'teg'); }
 
       // Completion state for the signed-in member (RLS returns only their rows).
       if (session) {

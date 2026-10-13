@@ -460,6 +460,122 @@ export const WALKS = {
     ],
   },
 
+  /* ---- Your First Print Design (training-guides.js, PRINT_GUIDES) ----
+     For The Experts Group's agents. Copy: Dani's review, 13 Oct. `pending`
+     until the pictures are taken: the guide keeps the Show me box back, and
+     the shot rig still lists every step so they can be taken. Remove
+     `pending` from a walk once its pictures are wired in. */
+  "print-find": {
+    title: "Find Your Print Templates", pending: true,
+    lead: "Find your print templates",
+    line: "Open the Studio, find your print packs and choose the canvassing card you'd like to personalise.",
+    stage: "/account/studio",
+    steps: [
+      { target: ".st-kinds", placement: "bottom", padding: 8,
+        eyebrow: "Your packs", title: "Find Your Print Packs",
+        body: "Open the Studio and select Print under Your Packs to see the print templates available to you." },
+      { target: ".st-row--print .st-pack", placement: "bottom", padding: 8,
+        eyebrow: "Your packs", title: "Open Canvassing Cards",
+        body: "Select the Canvassing Cards pack to see the designs included." },
+      { target: "#ed-onboard-design-grid", placement: "top", padding: 8,
+        eyebrow: "The pack", title: "Choose Your Template",
+        body: "Each card has a different purpose. Select the design you'd like to personalise to open it in the editor." },
+    ],
+  },
+  "print-details": {
+    title: "Your Brand Details", pending: true,
+    lead: "Your brand details",
+    line: "See which details come from your Brand Kit, and where to update them.",
+    stage: "/account/editor",
+    steps: [
+      { target: ".ed-panel-pane[data-pane=\"fields\"]", placement: "right", padding: 8, open: "[data-start-tool=\"fields\"]",
+        eyebrow: "Your details", title: "Your Details, Already Added",
+        body: "Your print template uses the information saved in your Brand Kit, including your name, contact details and business branding." },
+      { target: null, placement: "center",
+        eyebrow: "Brand Kit", title: "Update Your Brand Kit",
+        body: "Spotted something incorrect? Head to your Brand Kit, update the relevant information and reopen the template to apply your changes." },
+    ],
+  },
+  "print-headshot": {
+    title: "Position Your Headshot", pending: true,
+    lead: "Position your headshot",
+    line: "Select your headshot and use Reposition to move or resize it within its frame.",
+    stage: "/account/editor",
+    steps: [
+      { target: ".ed-selection-body", placement: "right", padding: 8,
+        eyebrow: "Headshot", title: "Your Approved Headshot",
+        body: "Your headshot is already included in the template. You can adjust its position, but the image itself cannot be replaced." },
+      { target: ".ed-sel-reposition", placement: "right", padding: 8,
+        eyebrow: "Headshot", title: "Adjust the Position",
+        body: "Select Reposition, then drag to move your photo or scroll to zoom in and out until you're happy with how it looks." },
+    ],
+  },
+  "print-photos": {
+    title: "Change Your Photos", pending: true,
+    lead: "Change your photos",
+    line: "Replace the placeholder photography with your own pictures of the property.",
+    stage: "/account/editor",
+    steps: [
+      { target: ".ed-panel-pane[data-pane=\"fields\"]", placement: "right", padding: 8, open: "[data-start-tool=\"fields\"]",
+        eyebrow: "Photos", title: "Choose an Image",
+        body: "Open the Edit panel and select Change beside the property photo you'd like to replace." },
+      { target: ".ed-panel-pane[data-pane=\"fields\"]", placement: "right", padding: 8,
+        eyebrow: "Photos", title: "Add Your Photography",
+        body: "Upload your own property image, then adjust its position within the design if needed." },
+    ],
+  },
+  "print-words": {
+    title: "Personalise Your Message", pending: true,
+    lead: "Personalise your message",
+    line: "Find the wording you can change, write your message and add a clear call to action.",
+    stage: "/account/editor",
+    steps: [
+      { target: ".ed-panel-pane[data-pane=\"fields\"]", placement: "right", padding: 8, open: "[data-start-tool=\"fields\"]",
+        eyebrow: "Edit", title: "Find Your Editable Content",
+        body: "The Edit panel shows the sections of your card that you can personalise." },
+      { target: ".ed-panel-pane[data-pane=\"fields\"]", placement: "right", padding: 8,
+        eyebrow: "Edit", title: "Write Your Message",
+        body: "Select the main text area and update the wording to suit the property or purpose of your card." },
+      { target: ".ed-panel-pane[data-pane=\"fields\"]", placement: "right", padding: 8,
+        eyebrow: "Edit", title: "Add Your Call to Action",
+        body: "Tell the reader what you'd like them to do next, whether that's calling you, scanning the QR code or requesting a valuation." },
+      { target: "#ask-expert-trigger", placement: "left", padding: 8,
+        eyebrow: "Creative Assistant", title: "Need Help With the Wording?",
+        body: "Open the Creative Assistant and select What to post. Explain what you're creating and ask it to help draft your message." },
+    ],
+  },
+  "print-qr": {
+    title: "Set Up Your QR Code", pending: true,
+    lead: "Set up your QR code",
+    line: "Choose where your QR code takes people, then update it and test it before you download.",
+    stage: "/account/editor",
+    steps: [
+      { target: ".ed-field-pic.is-qr", placement: "right", padding: 8, open: "[data-start-tool=\"fields\"]",
+        eyebrow: "QR code", title: "Choose Your Destination",
+        body: "Open the QR code settings in the Edit panel and enter the website or property listing you'd like people to visit." },
+      { target: ".ed-field-pic.is-qr", placement: "right", padding: 8,
+        eyebrow: "QR code", title: "Or Use WhatsApp",
+        body: "Select WhatsApp, check your mobile number and add an optional opening message." },
+      { target: ".ed-field-pic.is-qr .ed-qr-go", placement: "right", padding: 8,
+        eyebrow: "QR code", title: "Update and Test",
+        body: "Select Update QR code to save your changes, then use Test where it goes to check the destination." },
+    ],
+  },
+  "print-download": {
+    title: "Download Your Print Design", pending: true,
+    lead: "Download your print design",
+    line: "Download your finished card as a PDF with both sides in one file.",
+    stage: "/account/editor",
+    steps: [
+      { target: "#ed-download", placement: "bottom", padding: 8, open: "#ed-download-trigger",
+        eyebrow: "Download", title: "Download Your Design",
+        body: "Open Download. PDF is already selected for print designs, so choose Download to save your finished file." },
+      { target: "#ed-download-menu", placement: "left", padding: 8,
+        eyebrow: "Download", title: "Both Sides, One File",
+        body: "Your PDF contains the front and back of your canvassing card, ready to send to your printer." },
+    ],
+  },
+
   "planner": {
     title: "Planning and Posting",
     steps: [
