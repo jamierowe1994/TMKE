@@ -7983,7 +7983,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     function showStep2() { showView("pack"); }
     function showHome() { showView("home"); }
-    if (back2Btn) back2Btn.addEventListener("click", showHome);
+    /* "All packs" goes back to the Studio home, where the packs are now --
+       not to Your Designs, which is what this page's home view became
+       (Dani, 13 Oct). The Studio remembers Social or Print. The admin Studio
+       keeps its own pack list here. */
+    if (back2Btn) back2Btn.addEventListener("click", () => {
+      if (new URLSearchParams(location.search).get("mode") === "admin") { showHome(); return; }
+      location.href = "/account/studio";
+    });
     document.querySelectorAll("[data-back-home]").forEach((b) => b.addEventListener("click", showHome));
 
     // "Your designs" — the member's saved copies (user_designs), newest first.

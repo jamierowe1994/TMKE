@@ -531,8 +531,15 @@ const inspo = [
     /* Social / Print, over a shelf that has both. Two pills, the hub's own
        shape, not the browser's own buttons. Built here rather than in the
        markup because a member with only social packs should never see it. */
+    /* The tab you were on, remembered for this browser tab: back from a print
+       pack or template lands on Print again, not Social (Dani, 13 Oct). */
+    const kindKey = (name) => 'tmke.studio.kind.' + name;
+    function rememberedKind(name) {
+      try { return sessionStorage.getItem(kindKey(name)) === 'print' ? 'print' : 'social'; } catch (_) { return 'social'; }
+    }
     function mountKindToggle(rail, name, onChange) {
-      if (!rail || rail.previousElementSibling?.classList.contains('st-kinds')) return;
+      const start = rememberedKind(name);
+      if (!rail || rail.previousElementSibling?.classList.contains('st-kinds')) return start;
       const wrap = document.createElement('div');
       wrap.className = 'st-kinds';
       wrap.setAttribute('role', 'tablist');
@@ -540,13 +547,14 @@ const inspo = [
       [['social', 'Social'], ['print', 'Print']].forEach(([k, label], i) => {
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'st-kind' + (i === 0 ? ' is-on' : '');
+        b.className = 'st-kind' + (k === start ? ' is-on' : '');
         b.dataset.kind = k;
         b.textContent = label;
         b.setAttribute('role', 'tab');
-        b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+        b.setAttribute('aria-selected', k === start ? 'true' : 'false');
         b.addEventListener('click', () => {
           if (b.classList.contains('is-on')) return;
+          try { sessionStorage.setItem(kindKey(name), k); } catch (_) {}
           wrap.querySelectorAll('.st-kind').forEach((x) => {
             const on = x === b;
             x.classList.toggle('is-on', on);
@@ -557,6 +565,7 @@ const inspo = [
         wrap.appendChild(b);
       });
       rail.parentNode.insertBefore(wrap, rail);
+      return start;
     }
     // The packs shelf is wired from a different <script>, which is a different
     // module: hand it over the way the rail re-wire is handed over.
@@ -664,8 +673,8 @@ const inspo = [
         const socialDesigns = designs.filter((d) => !isPrintDesign(d));
         if (seeall) seeall.hidden = true;        // it lives on the shelf now
         if (printDesigns.length && socialDesigns.length) {
-          mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns, kind));
-          draw(socialDesigns, 'social');
+          const startKind = mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns, kind));
+          draw(startKind === 'print' ? printDesigns : socialDesigns, startKind);
         } else {
           draw(designs);
         }
@@ -757,8 +766,8 @@ const inspo = [
           window.__ST_REWIRE_RAILS__?.();
         };
         if (printPacks.length && socialPacks.length) {
-          window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks, kind === 'print'));
-          draw(socialPacks, false);
+          const startKind = window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks, kind === 'print')) || 'social';
+          draw(startKind === 'print' ? printPacks : socialPacks, startKind === 'print');
         } else {
           draw(owned, !socialPacks.length && printPacks.length > 0);
         }
