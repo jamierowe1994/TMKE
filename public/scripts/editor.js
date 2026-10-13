@@ -2394,7 +2394,11 @@ import { createResizeEngine } from "./resize-engine.js";
          showed its back on every card that names it. */
       let thumb, render;
       const _onPage = state.currentPage;
-      try {
+      /* A print template's preview is made by hand, one template at a time
+         (Regenerate previews), and saving leaves it alone: Dani builds it with
+         a photo in the empty frames and then takes the photo out again, and
+         every save after that redrew it empty (13 Oct). */
+      if (!keepsHandMadePreview()) try {
         state.currentPage = 0;
         ({ thumb, render } = await _renderPreviewPair());
       } catch (_) {} finally { state.currentPage = _onPage; }
@@ -6978,7 +6982,7 @@ import { createResizeEngine } from "./resize-engine.js";
     let thumb, render;
     try {
       state.currentPage = 0;
-      ({ thumb, render } = await _renderPreviewPair());
+      if (!keepsHandMadePreview()) ({ thumb, render } = await _renderPreviewPair());
     } finally { state.currentPage = _onPage; }
     const payload = {
       templateId: state.templateId,
@@ -10041,6 +10045,15 @@ import { createResizeEngine } from "./resize-engine.js";
     const src = BRAND && typeof BRAND.brandPhoto === "string" ? BRAND.brandPhoto.trim() : "";
     return src || null;
   }
+  // Admin, on a print template: its preview is hand-made, so saving keeps it.
+  function keepsHandMadePreview() { return isAdminMode() && isPrintDesign(); }
+  window.__TMKE_IS_PRINT__ = function () { try { return isPrintDesign(); } catch (_) { return false; } };
+  window.__TMKE_SIZE_FAMILY__ = function (w, h) { try { return sizeFamily(w, h); } catch (_) { return null; } };
+  // Page one of the design as it stands on screen, for Regenerate previews.
+  window.__TMKE_OPEN_PAGE_ONE__ = function () {
+    const pg = (state.pages && state.pages[0]) || { canvas: state.canvas, elements: state.elements };
+    return { canvas: deep(pg.canvas), elements: deep(pg.elements) };
+  };
   function isPrintDesign() {
     return sizeFamily(state.canvas.width, state.canvas.height) === "print";
   }

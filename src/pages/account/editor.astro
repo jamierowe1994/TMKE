@@ -5988,11 +5988,19 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         /* `onlyId` re-renders ONE template. Redrawing all 114 to fix the one
            you are looking at is absurd, as Dani put it on 10 Oct, and it is
            minutes of work for a change to a single card. */
-        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId) {
+        /* Print templates are left out of the full run: their previews are
+           made by hand -- a photo dropped into the empty frames, the preview
+           made, the photo taken out again -- so redrawing them from the saved
+           design would put the empty frames back (Dani, 13 Oct). One is
+           redrawn only from its own design, open on screen (`fromOpen`). */
+        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen) {
           let query = supabase.from('templates').select('id, canvas, elements');
           if (onlyId) query = query.eq('id', onlyId);
-          const { data: list, error } = await query;
-          if (error || !list) throw error || new Error('Could not load templates.');
+          const { data: rows, error } = await query;
+          if (error || !rows) throw error || new Error('Could not load templates.');
+          const fam = (c) => (typeof window.__TMKE_SIZE_FAMILY__ === 'function' && c) ? window.__TMKE_SIZE_FAMILY__(c.width, c.height) : null;
+          const list = onlyId ? rows : rows.filter((t) => fam(t.canvas) !== 'print');
+          if (onlyId && fromOpen && list[0]) Object.assign(list[0], fromOpen);
           let done = 0, failed = 0;
           for (const t of list) {
             try {
@@ -7371,6 +7379,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           // this only for a single page; two pages fell through to the insert
           // below and left the originals sitting beside the new ones.
           const patch = Object.assign({}, body);
+          // A print template keeps its hand-made preview when it is sent
+          // again; Regenerate previews is the one way to change it.
+          if (typeof window.__TMKE_IS_PRINT__ === "function" && window.__TMKE_IS_PRINT__()) { delete patch.thumb_url; delete patch.render_url; }
           if (choice.mode !== "none") patch.pack_id = packId;   // move into the chosen pack
           let { error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId);
           if (uErr) {
@@ -7426,13 +7437,17 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const openId = (typeof window.__TMKE_TEMPLATE_ID__ === "function")
           ? window.__TMKE_TEMPLATE_ID__() : null;
         const onlyId = (openId && !ev.shiftKey) ? openId : null;
-        if (!onlyId && !confirm("Re-render EVERY template preview at full resolution? This updates all packs and can take a minute or two. It only changes previews, not your designs.")) return;
+        if (!onlyId && !confirm("Re-render EVERY template preview at full resolution? This updates all packs and can take a minute or two. It only changes previews, not your designs. Print templates are left as they are.")) return;
+        // A print template is drawn from what is on screen now, so a photo
+        // just dropped in for the preview is in it.
+        const printOpen = !!(onlyId && typeof window.__TMKE_IS_PRINT__ === "function" && window.__TMKE_IS_PRINT__());
+        const fromOpen = (printOpen && typeof window.__TMKE_OPEN_PAGE_ONE__ === "function") ? window.__TMKE_OPEN_PAGE_ONE__() : null;
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
         try {
           const res = await window.__TMKE_REGEN_ALL__((done, total) => {
             regenBtn.textContent = onlyId ? "Regenerating…" : `Regenerating ${done}/${total}…`;
-          }, onlyId);
+          }, onlyId, fromOpen);
           const ok = res.done - res.failed;
           regenBtn.textContent = `Done ✓`;
           if (onlyId) {
@@ -7460,7 +7475,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         for (let i = 0; i < 60 && typeof window.__TMKE_REGEN_ALL__ !== "function"; i++) await new Promise((r) => setTimeout(r, 500));
         try { const u = new URL(location.href); u.searchParams.delete("regenall"); history.replaceState(null, "", u.toString()); } catch (_) {}
         if (typeof window.__TMKE_REGEN_ALL__ !== "function") { alert("The studio didn't finish loading, so the previews weren't regenerated. Refresh and try again."); return; }
-        if (!confirm("Re-draw EVERY template's preview from its saved design? It takes a minute or two, and only the previews change, not the designs.")) return;
+        if (!confirm("Re-draw EVERY template's preview from its saved design? It takes a minute or two, and only the previews change, not the designs. Print templates are left as they are.")) return;
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
         try {
