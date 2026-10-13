@@ -510,7 +510,11 @@ import { createResizeEngine } from "./resize-engine.js";
     if (!force && _lockFit.get(el) === key) return;
     if (!el.lockSize) el.lockSize = el.size || 16;
     const fits = () => inner.offsetHeight <= el.h + 1 && inner.scrollWidth <= inner.clientWidth + 1;
-    let hi = Math.round(el.lockSize), lo = 6, best = lo;
+    /* The floor. On screen, 6px. On paper, 6pt: the canvas is 300dpi, so 6px
+       there is under 1.5pt and an email shrank until it could not be read
+       (Dani, 13 Oct: "we don't want the font size to go smaller than 6"). */
+    const floor = isPrintDesign() ? Math.ceil(ptToPx(6)) : 6;
+    let hi = Math.round(el.lockSize), lo = Math.min(floor, hi), best = lo;
     inner.style.fontSize = hi + "px";
     if (fits()) best = hi;
     else {
@@ -523,6 +527,13 @@ import { createResizeEngine } from "./resize-engine.js";
     inner.style.fontSize = best + "px";
     el.size = best;
     _lockFit.set(el, key);
+    // Still too long at the floor: say so once, rather than print it cut off.
+    if (!isAdminMode() && !fits() && el._tooLongFor !== el.text) {
+      el._tooLongFor = el.text;
+      toast(isPrintDesign()
+        ? "Some of your details are too long for their space at the smallest print size (6pt), so they may be cut off. A shorter version will fit."
+        : "Some words are too long for their space, so they may be cut off.", 6000);
+    }
   }
 
   /* Ratio lock. Sticky on purpose — it stays on until you turn it off, rather
