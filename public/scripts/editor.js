@@ -9525,6 +9525,17 @@ import { createResizeEngine } from "./resize-engine.js";
         // Two or three lines: a one-line title changing width doesn't disturb
         // the design, and refitting it would only move the size for nothing.
         if (lines >= 2 && lines <= 3) heads.push({ el: el, lines: lines });
+        /* Parts of the words styled on their own -- a coloured or bold phone
+           number, often a merge tag -- carry the box's font by name. Left
+           behind, they stayed in the old font while the rest changed, and
+           two fonts on one line sit at different heights: the number looked
+           pushed up (Dani, 13 Oct). A part deliberately set in another font
+           keeps it. */
+        const was = el.font;
+        if (Array.isArray(el.runs)) {
+          el.runs.forEach(function (r) { if (r && r.font && r.font === was) r.font = null; });
+          if (runsAreUniform(el.runs)) el.runs = null;
+        }
         el.font = toName; n++;
       }
     });
