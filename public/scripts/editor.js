@@ -14587,6 +14587,11 @@ import { createResizeEngine } from "./resize-engine.js";
       trigger.setAttribute("aria-expanded", "false");
     }
     function open() {
+      /* A print design opens on PDF, the file a printer wants; anything else
+         on PNG (Dani, 13 Oct). Until they pick a type themselves, which then
+         stays for the rest of the session. */
+      const sel = $("ed-dl-type");
+      if (sel && !sel.dataset.chosen) sel.value = isPrintDesign() ? "pdf" : "png";
       // Said fresh each time: a page may have been added since it last opened.
       if (typeof window.__TMKE_SYNC_DOWNLOAD__ === "function") window.__TMKE_SYNC_DOWNLOAD__();
       menu.hidden = false;
@@ -14626,7 +14631,7 @@ import { createResizeEngine } from "./resize-engine.js";
       if (custom) custom.hidden = pagesMode !== "custom" || total <= 1;
     }
     window.__TMKE_SYNC_DOWNLOAD__ = syncDownloadMenu;
-    if (typeSel) typeSel.addEventListener("change", syncDownloadMenu);
+    if (typeSel) typeSel.addEventListener("change", function () { typeSel.dataset.chosen = "1"; syncDownloadMenu(); });
     menu.querySelectorAll("[data-dl-pages]").forEach(function (b) {
       b.addEventListener("click", function () {
         pagesMode = b.getAttribute("data-dl-pages");
