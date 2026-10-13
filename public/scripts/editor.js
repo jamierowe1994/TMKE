@@ -4262,14 +4262,30 @@ import { createResizeEngine } from "./resize-engine.js";
     const img = node.querySelector(".fr-img");
     if (!img) return;
 
+    /* A member gets the plain version: no faint copy of the photo spilling
+       out round the box, no instruction badge on it, and the photo always
+       fills the box -- it cannot be dragged or zoomed out far enough to leave
+       a gap. Dani, 13 Oct: "I'm not really sure why there's a dark shadow ...
+       a weird square with some writing ... they can fill the whole box." */
+    const quiet = !isAdminMode();
+    if (quiet) node.classList.add("is-quiet-vp");
+    const fill = function () {
+      if (!quiet) return;
+      el.imgScale = Math.max(1, el.imgScale || 1);
+      const fit = frameCoverFit(el), s = el.imgScale;
+      const mx = Math.max(0, (fit.baseW * s - el.w) / 2), my = Math.max(0, (fit.baseH * s - el.h) / 2);
+      el.imgOffsetX = Math.max(-mx, Math.min(mx, el.imgOffsetX || 0));
+      el.imgOffsetY = Math.max(-my, Math.min(my, el.imgOffsetY || 0));
+    };
+
     // Dimmed, un-clipped "ghost" of the full photo, placed directly under the
     // frame so the in-frame region reads bright (the real clipped image on top)
     // while the cropped-away parts show faintly around it. This is the area the
-    // user is reframing into — nothing else on the canvas moves.
+    // user is reframing into — nothing else on the canvas moves. Admin only.
     const ghost = document.createElement("div");
     ghost.className = "ed-frame-ghost";
     const gsx = el.flipX ? -1 : 1, gsy = el.flipY ? -1 : 1;
-    ghost.style.cssText =
+    ghost.style.cssText = (quiet ? "display:none;" : "") +
       "position:absolute;left:" + el.x + "px;top:" + el.y + "px;width:" + el.w + "px;height:" + el.h +
       "px;overflow:visible;pointer-events:none;z-index:49;transform:rotate(" + (el.rotation || 0) + "deg) scale(" + gsx + "," + gsy + ");";
     const gimg = document.createElement("img");
@@ -4299,6 +4315,7 @@ import { createResizeEngine } from "./resize-engine.js";
       lastY = ev.clientY;
       el.imgOffsetX = (el.imgOffsetX || 0) + dx;
       el.imgOffsetY = (el.imgOffsetY || 0) + dy;
+      fill();
       applyFrameImageTransform(img, el);
       syncGhost();
     }
@@ -4312,6 +4329,7 @@ import { createResizeEngine } from "./resize-engine.js";
       ev.preventDefault();
       const step = ev.deltaY < 0 ? 1.06 : 1 / 1.06;
       el.imgScale = Math.max(0.3, Math.min(6, (el.imgScale || 1) * step));
+      fill();
       applyFrameImageTransform(img, el);
       syncGhost();
       // Debounce history pushes — store on wheel-end via a small timer.
@@ -4342,7 +4360,7 @@ import { createResizeEngine } from "./resize-engine.js";
     viewpointSession = {
       el, node, img, wheelTimer: null,
       teardown: function () {
-        node.classList.remove("is-editing-viewpoint");
+        node.classList.remove("is-editing-viewpoint", "is-quiet-vp");
         if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
         node.removeEventListener("pointerdown", onDown);
         node.removeEventListener("pointermove", onMove);
@@ -9883,60 +9901,103 @@ import { createResizeEngine } from "./resize-engine.js";
      If that cannot be read, the photo shows from its top. Done once per
      photo: Reposition moves it from there, and a move is kept. */
   const HEAD_FROM_TOP = 0.12;
-  function placeBrandPhoto(slot, src) {
-    if (slot.imgPosY != null && slot.autoPlacedFor === src) return;
+  /* Read a photo for where the person starts. Calls back with the picture's
+     size, whether it is a cut-out (transparent corners), and how far down
+     the top of the head is, as a fraction of its height -- 0 when it cannot
+     be read, which shows the photo from its top. */
+  function readHead(src, done) {
     const probe = new Image();
     probe.crossOrigin = "anonymous";
     probe.onload = function () {
-      if (slot.src !== src) return;
       const iw = probe.naturalWidth, ih = probe.naturalHeight;
       if (!iw || !ih) return;
-      let read = null;
+      let cutout = false, headFrac = 0;
       try {
         const W = 64, H = Math.max(1, Math.round(ih * W / iw));
         const c = document.createElement("canvas"); c.width = W; c.height = H;
         const cx = c.getContext("2d", { willReadFrequently: true });
         cx.drawImage(probe, 0, 0, W, H);
-        read = { W: W, H: H, d: cx.getImageData(0, 0, W, H).data };
-      } catch (_) { read = null; }   // a picture we may not read
-      let cutout = false, headFrac = 0;
-      if (read) {
-        const W = read.W, H = read.H, d = read.d;
+        const d = cx.getImageData(0, 0, W, H).data;
         const at = (x, y) => (y * W + x) * 4;
-        // Transparent corners: a cut-out.
-        const corners = [at(0, 0), at(W - 1, 0), at(0, H - 1), at(W - 1, H - 1)];
-        cutout = corners.filter((i) => d[i + 3] < 32).length >= 2;
-        if (!cutout) {
-          const edge = Math.max(2, Math.round(W * 0.08));
-          const x0 = Math.round(W * 0.2), x1 = Math.round(W * 0.8);
-          for (let y = 0; y < H; y++) {
-            let r = 0, g = 0, b = 0, n = 0;
-            for (let x = 0; x < edge; x++) { [x, W - 1 - x].forEach((xx) => { const i = at(xx, y); r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }); }
-            r /= n; g /= n; b /= n;
-            let off = 0;
+        cutout = [at(0, 0), at(W - 1, 0), at(0, H - 1), at(W - 1, H - 1)].filter((i) => d[i + 3] < 32).length >= 2;
+        const x0 = Math.round(W * 0.2), x1 = Math.round(W * 0.8), need = (x1 - x0) * 0.06;
+        const edge = Math.max(2, Math.round(W * 0.08));
+        for (let y = 0; y < H; y++) {
+          let off = 0;
+          if (cutout) {
+            // A cut-out: the person starts where the picture stops being clear.
+            for (let x = x0; x < x1; x++) if (d[at(x, y) + 3] > 64) off++;
+          } else {
+            // A backdrop: the person starts where the middle of a row stops
+            // matching that row's own edges.
+            let r = 0, g = 0, bl = 0, n = 0;
+            for (let x = 0; x < edge; x++) { [x, W - 1 - x].forEach((xx) => { const i = at(xx, y); r += d[i]; g += d[i + 1]; bl += d[i + 2]; n++; }); }
+            r /= n; g /= n; bl /= n;
             for (let x = x0; x < x1; x++) {
               const i = at(x, y);
-              if (Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - b) > 60) off++;
+              if (Math.abs(d[i] - r) + Math.abs(d[i + 1] - g) + Math.abs(d[i + 2] - bl) > 60) off++;
             }
-            if (off >= (x1 - x0) * 0.06) { headFrac = y / H; break; }
           }
+          if (off >= need) { headFrac = y / H; break; }
         }
-      }
-      if (cutout) {
+      } catch (_) { /* a picture we may not read */ }
+      done({ iw: iw, ih: ih, cutout: cutout, headFrac: headFrac });
+    };
+    probe.src = src;
+  }
+
+  /* Where the brand photo sits in its box. A cut-out (a figure on a
+     transparent background) is shown whole, standing on the box's floor. A
+     photograph with its own backdrop fills the box, moved so the top of the
+     head is 12% down from the top: centred, a portrait photo in a square box
+     put the hair against the edge (Dani, 13 Oct: "see where the top of the
+     head is and position that so it's 10%, 15% lower than the top").
+     Done once per photo: Reposition moves it from there, and a move is kept. */
+  function placeBrandPhoto(slot, src) {
+    if (slot.imgPosY != null && slot.autoPlacedFor === src) return;
+    readHead(src, function (p) {
+      if (slot.src !== src) return;
+      if (p.cutout) {
         slot.imgFit = "contain"; slot.imgAlign = "bottom";
         delete slot.imgPosX; delete slot.imgPosY;
       } else {
         delete slot.imgFit; delete slot.imgAlign;
-        const k = Math.max(slot.w / iw, slot.h / ih);
-        const room = ih * k - slot.h;
-        const py = room > 1 ? (headFrac * ih * k - HEAD_FROM_TOP * slot.h) / room : 0;
+        const k = Math.max(slot.w / p.iw, slot.h / p.ih);
+        const room = p.ih * k - slot.h;
+        const py = room > 1 ? (p.headFrac * p.ih * k - HEAD_FROM_TOP * slot.h) / room : 0;
         slot.imgPosX = 50;
         slot.imgPosY = Math.round(Math.max(0, Math.min(1, py)) * 1000) / 10;
       }
       slot.autoPlacedFor = src;
       try { partialRenderElement(slot); } catch (_) { try { fullRender(); } catch (__) {} }
-    };
-    probe.src = src;
+    });
+  }
+
+  /* The same for a headshot box -- a frame, which always fills and is moved
+     by an offset from its centre rather than a percentage. A cut-out fills
+     it too here, its head placed the same way. Dani's Valuation Invitation
+     uses one of these, which is why the first version did not reach it. */
+  function placeHeadshot(slot, src) {
+    if (slot.autoPlacedFor === src) return;
+    readHead(src, function (p) {
+      if (slot.src !== src) return;
+      slot.imgNaturalW = p.iw; slot.imgNaturalH = p.ih;
+      if (slot.type === "frame") {
+        const fit = frameCoverFit(slot);
+        const spare = Math.max(0, (fit.baseH - slot.h) / 2);
+        const ty = HEAD_FROM_TOP * slot.h - (slot.h - fit.baseH) / 2 - p.headFrac * fit.baseH;
+        slot.imgScale = 1; slot.imgOffsetX = 0;
+        slot.imgOffsetY = Math.round(Math.max(-spare, Math.min(spare, ty)) * 10) / 10;
+      } else {
+        const k = Math.max(slot.w / p.iw, slot.h / p.ih);
+        const room = p.ih * k - slot.h;
+        const py = room > 1 ? (p.headFrac * p.ih * k - HEAD_FROM_TOP * slot.h) / room : 0;
+        slot.imgPosX = 50;
+        slot.imgPosY = Math.round(Math.max(0, Math.min(1, py)) * 1000) / 10;
+      }
+      slot.autoPlacedFor = src;
+      try { partialRenderElement(slot); } catch (_) { try { fullRender(); } catch (__) {} }
+    });
   }
 
   /* Print, a photo slot, and no brand photo: said out loud, because the
@@ -10014,18 +10075,16 @@ import { createResizeEngine } from "./resize-engine.js";
       }
       if (slot.autoHidden) { slot.hidden = false; delete slot.autoHidden; }
       // Already filled - by the author, or by the member moving it about on a
-      // design they saved earlier. Leave it alone.
-      if (slot.src) return;
+      // design they saved earlier. Leave it alone -- except our own photo,
+      // never moved, which is placed by the head once (placeHeadshot).
+      if (slot.src) {
+        if (slot.src === src && slot.autoPlacedFor !== src && !slot.imgOffsetX && !slot.imgOffsetY && (slot.imgScale || 1) === 1) placeHeadshot(slot, src);
+        return;
+      }
       slot.src = src;
       slot.imgScale = 1; slot.imgOffsetX = 0; slot.imgOffsetY = 0;
       slot.imgNaturalW = 0; slot.imgNaturalH = 0;
-      const probe = new Image();
-      probe.crossOrigin = "anonymous";
-      probe.onload = function () {
-        slot.imgNaturalW = probe.naturalWidth; slot.imgNaturalH = probe.naturalHeight;
-        partialRenderElement(slot);
-      };
-      probe.src = src;
+      placeHeadshot(slot, src);
     });
   }
 
