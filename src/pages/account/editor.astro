@@ -8644,8 +8644,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         /* RLS lets staff read every brand's packs, so their own Studio has to
            ask which brand they are in, the same as the shelves do. */
         let myBrand;
-        try { const br = await supabase.rpc("member_brand"); if (!br.error) myBrand = br.data ?? null; } catch (_) {}
-        const { visibleToMember } = await import("../../lib/pack-access.js");
+        const { visibleToMember, memberBrandsFor } = await import("../../lib/pack-access.js");
+        myBrand = await memberBrandsFor(supabase);   // every brand they are in
         visibleToMember(free || [], myBrand).forEach((p) => {
           if (!packIds.includes(p.id)) packIds.push(p.id);
           const list = Array.isArray(p.brands) ? p.brands.filter(Boolean) : [];
@@ -8843,12 +8843,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
          and vanish from the other. It also brings print packs in: this filter
          only ever counted what had been paid for, which is not how a pack
          drawn for a brand reaches its agents. */
-      let memberBrand;
-      try {
-        const br = await supabase.rpc("member_brand");
-        if (!br.error) memberBrand = br.data ?? null;
-      } catch (_) { /* could not ask — leave undefined, and take nobody's pack away */ }
-      const { ownedPacks } = await import("../../lib/pack-access.js");
+      // Every brand they are in -- an agent in two sees both brands' packs.
+      const { ownedPacks, memberBrandsFor } = await import("../../lib/pack-access.js");
+      const memberBrand = await memberBrandsFor(supabase);
       const owned = ownedPacks(allPacks, ownedIds, memberBrand);
 
       // Deep-link /editor?pack=<id> jumps straight to that pack's designs.

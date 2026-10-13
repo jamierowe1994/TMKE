@@ -1378,7 +1378,7 @@ const recentTemplates = templates.slice(0, 4);
              announce a Property Experts pack to somebody who is not one. In
              here they are a member like anybody else. */
           let packBrand;
-          try { const br = await supabase.rpc('member_brand'); if (!br.error) packBrand = br.data ?? null; } catch (_) {}
+          packBrand = await (await import('../../lib/pack-access.js')).memberBrandsFor(supabase);   // every brand they are in
           const packRows = visibleToMember(packAll || [], packBrand);
           const weekDates = [...week.querySelectorAll('.ws-day')].map((c) => c.getAttribute('data-date'));
           const emptyDates = [...week.querySelectorAll('.ws-day--empty')].map((c) => c.getAttribute('data-date'));

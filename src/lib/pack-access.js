@@ -32,15 +32,35 @@
  *   undefined    we could not ask. Fall back to what the database allowed,
  *                so a lookup that fails takes nobody's pack away from them.
  */
+/* `memberBrand` may also be a LIST: an agent in two brands sees both brands'
+ * packs. Dani, 13 Oct: "say somebody is a Prestige agent but they're also a
+ * TPE, but Prestige is their main one, then they should be able to see TPE's
+ * packs as well." The database already allowed it (member_brands()); this
+ * page-side check only ever asked for the main brand. */
 export function visibleToMember(packs, memberBrand) {
   const norm = (v) => (v == null ? '' : String(v).trim().toLowerCase());
-  const mine = norm(memberBrand);
+  const mine = new Set((Array.isArray(memberBrand) ? memberBrand : [memberBrand]).map(norm).filter(Boolean));
   return (packs || []).filter((p) => {
     if (!p || p.access !== 'brands') return !!p;
     if (memberBrand === undefined) return true;            // could not ask
-    if (!mine) return false;                               // asked: no brand
-    return (Array.isArray(p.brands) ? p.brands : []).some((b) => norm(b) === mine);
+    if (!mine.size) return false;                          // asked: no brand
+    return (Array.isArray(p.brands) ? p.brands : []).some((b) => mine.has(norm(b)));
   });
+}
+
+/* Every brand this account is in, from the database: an array (empty when
+ * none), or undefined when it could not be asked -- which takes nobody's pack
+ * away. Falls back to the single main brand if member_brands() is missing. */
+export async function memberBrandsFor(supabase) {
+  try {
+    const r = await supabase.rpc('member_brands');
+    if (!r.error && Array.isArray(r.data)) return r.data;
+  } catch (_) {}
+  try {
+    const r = await supabase.rpc('member_brand');
+    if (!r.error) return r.data ? [r.data] : [];
+  } catch (_) {}
+  return undefined;
 }
 
 export function ownedPacks(packs, paidPackIds, memberBrand) {

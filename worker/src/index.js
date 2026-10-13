@@ -1391,9 +1391,17 @@ async function seedBrandKit(env, { userId, email }) {
     if (!brand || !kit) return false;   // not a TEG agent: nothing to hand them
     const clean = Object.fromEntries(Object.entries(kit).filter(([, v]) => v != null && v !== ""));
     clean.updatedAt = Date.now();
+    /* `base` is the brand's version this kit came from. Without it the hub's
+       brand sync took a brand-new agent for someone who had built their own
+       kit and offered to "Load my brand's kit" over the one we had just given
+       them (Dani, 13 Oct: "it should just be auto-populated ... they don't
+       need to see that"). The same three fields the sync writes itself. */
     await sbPost(env, "member_brand_kits", {
       user_id: userId,
       kit: clean,
+      base: kit,
+      base_brand: brand,
+      synced_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, "resolution=merge-duplicates,return=minimal");
     return true;

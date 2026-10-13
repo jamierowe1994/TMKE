@@ -730,9 +730,9 @@ const inspo = [
         const [packsRes, ordersRes, brandRes] = await Promise.all([
           supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
           supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`),
-          supabase.rpc('member_brand').then((r) => r, () => null),
+          import('../../lib/pack-access.js').then((m) => m.memberBrandsFor(supabase), () => undefined),
         ]);
-        if (brandRes && !brandRes.error) memberBrand = brandRes.data ?? null;
+        memberBrand = brandRes;   // every brand they are in (pack-access.js)
         const allPacks = packsRes.data || [];
         // Packs with no cover set borrow one of their own templates.
         const { fillPackCovers } = await import('../../lib/pack-cover.js');
