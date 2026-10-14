@@ -7039,8 +7039,9 @@ import { createResizeEngine } from "./resize-engine.js";
       render,
     };
     // ALWAYS write the local copy first — the dead-man's-lock. Even if the cloud
-    // save fails, the design is recoverable from this browser via "Sync local
-    // drafts", so a failed Save never means lost work.
+    // save fails, reopening the template in this browser brings the copy back
+    // (it is newer than the database: see loadTemplate), and saving it then
+    // reaches the database, so a failed Save never means lost work.
     // Admin only: a member's work is saved to their account, and a copy here
     // was being restored over the template itself (see loadTemplate).
     if (ADMIN_MODE_URL) { try { localStorage.setItem("tmke.editor." + state.templateId, JSON.stringify(payload)); } catch (_) {} }

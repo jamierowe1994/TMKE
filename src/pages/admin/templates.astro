@@ -43,7 +43,6 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       <!-- Every template's preview, re-rendered from its saved design (Danielle,
            12 Oct 2026). Runs in the editor, which has the renderer. -->
       <a href="/account/editor?mode=admin&regenall=1" class="admin-btn admin-btn-ghost" title="Re-draw every template's preview from its saved design. Designs are not changed.">Regenerate all previews</a>
-      <button type="button" id="rebuild-thumbs-btn" class="admin-btn admin-btn-ghost">Sync local drafts</button>
       <button type="button" id="new-btn" class="admin-btn admin-btn-primary">+ New template</button>
     </Fragment>
   </StudioBar>
@@ -435,7 +434,6 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       loading: document.getElementById('tpl-loading'),
       count: document.getElementById('tpl-count'),
       seedBtn: document.getElementById('seed-btn'),
-      rebuildBtn: document.getElementById('rebuild-thumbs-btn'),
       newBtn: document.getElementById('new-btn'),
       search: document.getElementById('tpl-search'),
       filter: document.getElementById('tpl-filter'),
@@ -882,138 +880,20 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       await loadPackFilter();
       restoreView();
       await loadTemplates();
-      autoSyncNewDrafts();   // heal new/orphaned local drafts so previews show automatically
     })();
 
     els.seedBtn.addEventListener('click', seedFromLibrary);
     els.newBtn.addEventListener('click', newTemplate);
-    els.rebuildBtn?.addEventListener('click', rebuildThumbnails);
     els.search?.addEventListener('input', applyView);
     els.filter?.addEventListener('change', applyView);
     els.pack?.addEventListener('change', applyView);
 
-    // ---- Sync local drafts to the database -----------------------------------
-    // Designs created before DB-autosave existed live only in THIS browser's
-    // localStorage; their DB row is empty so the list shows "Blank canvas". This
-    // reads each template's local autosave and writes it straight to the DB (no
-    // hidden editor — far fewer moving parts), so the preview renders. It reports
-    // exactly what it found per template so any gaps are visible.
-    async function externalizeDesign(canvas, elements) {
-      // Upload embedded data-URL images to storage and swap in their URLs, so the
-      // row stays small (matches the editor's save path).
-      let uid = null;
-      try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
-      const cache = new Map();
-      async function ext(v) {
-        if (typeof v !== 'string' || !v.startsWith('data:')) return v;
-        if (cache.has(v)) return cache.get(v);
-        const m = /^data:([^;]+);base64,(.+)$/.exec(v); if (!m) return v;
-        const mime = m[1], b64 = m[2];
-        let h = 5381; for (let i = 0; i < v.length; i++) h = ((h * 33) ^ v.charCodeAt(i)) >>> 0;
-        const extn = ((mime.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg').replace(/[^a-z0-9]/g, '')) || 'png';
-        const key = (uid ? uid + '/' : '') + 'templates/' + h.toString(36) + '.' + extn;
-        const bin = atob(b64), bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        const { error } = await supabase.storage.from('calendar-assets').upload(key, new Blob([bytes], { type: mime }), { cacheControl: '31536000', upsert: true, contentType: mime });
-        if (error && !/exists|duplicate/i.test(error.message || '')) throw error;
-        const { data } = supabase.storage.from('calendar-assets').getPublicUrl(key);
-        const url = (data && data.publicUrl) || v; cache.set(v, url); return url;
-      }
-      if (canvas && typeof canvas.backgroundImage === 'string') canvas.backgroundImage = await ext(canvas.backgroundImage);
-      for (const el of (elements || [])) { if (el && typeof el.src === 'string') el.src = await ext(el.src); }
-    }
-
-    function showSyncReport(lines, synced, total) {
-      const existing = document.getElementById('tpl-sync-report');
-      if (existing) existing.remove();
-      const box = document.createElement('div');
-      box.id = 'tpl-sync-report';
-      box.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:90;max-width:400px;max-height:64vh;overflow:auto;background:#fff;border:1px solid rgba(28,29,34,0.15);border-radius:12px;box-shadow:0 18px 50px -12px rgba(28,29,34,0.4);padding:14px 16px;font-family:var(--sans);font-size:12px;line-height:1.55;color:var(--ink);';
-      box.innerHTML =
-        '<div style="font-weight:700;margin-bottom:8px">Sync complete — ' + synced + ' of ' + total + ' updated from this browser</div>' +
-        lines.map((l) => '<div>' + escapeHtml(l) + '</div>').join('') +
-        '<button type="button" style="margin-top:12px;border:1px solid rgba(28,29,34,0.3);background:#fff;border-radius:6px;padding:6px 14px;cursor:pointer;font:inherit">Close</button>';
-      box.querySelector('button').addEventListener('click', () => box.remove());
-      document.body.appendChild(box);
-    }
-
-    async function rebuildThumbnails() {
-      const btn = els.rebuildBtn;
-      // Scan every locally-saved design in THIS browser (not by template id —
-      // the original load bug autosaved some designs under the wrong id, e.g.
-      // "tmpl-01"). Match each to a template by its title, falling back to id.
-      const PREFIX = 'tmke.editor.';
-      const localKeys = [];
-      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(PREFIX) === 0) localKeys.push(k); } } catch (_) {}
-      if (!localKeys.length) { alert('No locally-saved designs found in this browser.'); return; }
-      const orig = btn.textContent;
-      btn.disabled = true;
-      const report = [];
-      let done = 0, synced = 0;
-      const norm = (s) => (s || '').trim().toLowerCase();
-      for (const key of localKeys) {
-        btn.textContent = `Syncing ${++done}/${localKeys.length}…`;
-        let saved; try { saved = JSON.parse(localStorage.getItem(key)); } catch (_) {}
-        if (!saved) { report.push(`• ${key}: unreadable`); continue; }
-        const fname = (saved.filename || '').trim();
-        let canvas = saved.canvas, elements = saved.elements;
-        if (saved.pages && saved.pages.length) { canvas = saved.pages[0].canvas; elements = saved.pages[0].elements; }
-        const hasContent = (Array.isArray(elements) && elements.length) || (canvas && canvas.backgroundImage);
-        if (!hasContent) { report.push(`• "${fname || key}": empty — skipped`); continue; }
-        // Match to a template by title (the design's name), else by the key's id.
-        const idFromKey = key.slice(PREFIX.length);
-        const target =
-          (fname && ALL.find((t) => norm(t.name) === norm(fname))) ||
-          ALL.find((t) => t.id === idFromKey);
-        if (!target) { report.push(`• "${fname || idFromKey}" (${(elements || []).length} els): no template named "${fname}" — skipped`); continue; }
-        try {
-          await externalizeDesign(canvas, elements);
-          const { error } = await supabase.from('templates').update({ canvas, elements }).eq('id', target.id);
-          if (error) { report.push(`• "${fname}" → ${target.name}: save failed — ${error.message}`); }
-          else { synced++; report.push(`• "${fname}" → ${target.name}: synced ${(elements || []).length} element(s) ✓`); }
-        } catch (e) { report.push(`• "${fname}": error — ${(e && e.message) || e}`); }
-      }
-      console.log('[tmke sync]\n' + report.join('\n'));
-      btn.textContent = `Synced ${synced} ✓`;
-      await loadTemplates();
-      showSyncReport(report, synced, localKeys.length);
-      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2200);
-    }
-
-    // Silently push any locally-saved design whose matched template is still
-    // EMPTY in the DB (a brand-new draft, or one orphaned under a mismatched id)
-    // — so its preview appears without anyone clicking "Sync local drafts".
-    // Idempotent: once a template has content it's skipped, so this is cheap to
-    // run on every list load.
-    async function autoSyncNewDrafts() {
-      const PREFIX = 'tmke.editor.';
-      const keys = [];
-      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(PREFIX) === 0) keys.push(k); } } catch (_) { return; }
-      if (!keys.length) return;
-      const norm = (s) => (s || '').trim().toLowerCase();
-      let changed = 0;
-      for (const key of keys) {
-        let saved; try { saved = JSON.parse(localStorage.getItem(key)); } catch (_) { continue; }
-        if (!saved) continue;
-        const fname = (saved.filename || '').trim();
-        let canvas = saved.canvas, elements = saved.elements;
-        if (saved.pages && saved.pages.length) { canvas = saved.pages[0].canvas; elements = saved.pages[0].elements; }
-        const hasContent = (Array.isArray(elements) && elements.length) || (canvas && canvas.backgroundImage);
-        if (!hasContent) continue;
-        const idFromKey = key.slice(PREFIX.length);
-        const target = (fname && ALL.find((t) => norm(t.name) === norm(fname))) || ALL.find((t) => t.id === idFromKey);
-        if (!target) continue;
-        // Only heal templates that are still empty — never clobber saved work.
-        const targetEmpty = !(Array.isArray(target.elements) && target.elements.length) && !(target.canvas && target.canvas.backgroundImage) && !target.thumb_url;
-        if (!targetEmpty) continue;
-        try {
-          await externalizeDesign(canvas, elements);
-          const { error } = await supabase.from('templates').update({ canvas, elements }).eq('id', target.id);
-          if (!error) changed++;
-        } catch (_) {}
-      }
-      if (changed) await loadTemplates();
-    }
+    /* "Sync local drafts" and its automatic twin were removed on 14 Oct 2026.
+       They moved designs saved only in a browser -- from before the admin
+       Studio saved to the database -- into the database, matched by name and
+       with no check for which was newer. Every save goes to the database now,
+       so all they could still do was put a colleague's old browser copy over
+       the current template (Dani: "if we don't need them, get rid of them"). */
 
     els.grid.addEventListener('click', (e) => {
       const t = e.target;
