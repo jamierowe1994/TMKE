@@ -305,6 +305,32 @@ const hideFromSearch = noindex || privateArea;
         }
       } catch (e) {}
     </script>
+    {inHub && !readyGate && (
+      /* The hub's entrance (ws-system.css, Entrances) waits for the banner's
+         photograph, so the banner fades in whole instead of its picture
+         landing after it. Never longer than 0.9s: a slow picture does not
+         hold the page. */
+      <script is:inline>
+        (function () {
+          var r = document.documentElement, done = false;
+          var go = function () { if (done) return; done = true; r.classList.remove("tmke-enter-wait"); };
+          r.classList.add("tmke-enter-wait");
+          setTimeout(go, 900);
+          document.addEventListener("DOMContentLoaded", function () {
+            var urls = [];
+            document.querySelectorAll(".ws-hero-photo, .lrn-hero-bg, .bk-hero-bg, .mb-hero").forEach(function (el) {
+              try {
+                getComputedStyle(el).backgroundImage.replace(/url\(["']?([^"')]+)["']?\)/g, function (_, u) { urls.push(u); });
+                el.querySelectorAll("img").forEach(function (i) { var u = i.currentSrc || i.getAttribute("src"); if (u) urls.push(u); });
+              } catch (_) {}
+            });
+            if (!urls.length) return go();
+            var left = urls.length;
+            urls.forEach(function (u) { var im = new Image(); im.onload = im.onerror = function () { if (--left <= 0) go(); }; im.src = u; });
+          });
+        })();
+      </script>
+    )}
     {readyGate && (
       <>
         {/* THE READY GATE. Dani, 14 Oct: no placeholders, ever -- "until a
@@ -367,7 +393,7 @@ const hideFromSearch = noindex || privateArea;
             var MIN_SHOW = 1000;
             var root = document.documentElement;
             try { if (gateIf && !new RegExp(gateIf).test(location.search)) return; } catch (_) { return; }
-            root.classList.add("tmke-gated");
+            root.classList.add("tmke-gated", "tmke-gate-page");
             var waits = {}, holds = 0, opened = false, opening = false, domDone = false, after = [];
             function pending() { var out = []; for (var k in waits) if (!waits[k]) out.push(k); return out; }
             function open(timedOut) {

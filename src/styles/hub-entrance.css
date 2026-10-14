@@ -1,0 +1,44 @@
+/* ---------- Hub entrances (Dani, 14 Oct) ----------
+   Loaded by WorkspaceHeader, so every hub page with the header has it --
+   including the ones that do not use ws-system.css (Brand Kit, Learn).
+   Whole sections, not lines. The menu bar is simply there; the page's
+   sections -- the banner first -- fade up one after another, quickly. Dani:
+   "the header is just automatically there, and then the rest sort of fade in
+   quickly, one after the other ... nothing super long, but ... a premium
+   feel". The old line-by-line entrances (hero lines, headings, the
+   dashboard's sequence and its dropping menu bar) stay switched off inside
+   the sections, so each section arrives whole.
+
+   Not on a page behind the ready gate (the Studio, packs, Your Designs):
+   those appear finished from behind their loader, and stay as they are.
+
+   The sequence waits for the banner's photograph (BaseLayout,
+   tmke-enter-wait; never longer than 0.9s), so the banner arrives whole
+   rather than its picture landing after it. */
+@keyframes tmkeEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > * {
+  animation: tmkeEnter 0.45s cubic-bezier(.22, .8, .24, 1) both !important;
+}
+html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(2) { animation-delay: 0.06s !important; }
+html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.12s !important; }
+html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.18s !important; }
+html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(5) { animation-delay: 0.24s !important; }
+html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(n+6) { animation-delay: 0.3s !important; }
+/* Sections that sit beside the main column rather than in it (the
+   dashboard's last chapters) come in after it. */
+html:not(.tmke-gate-page) .ws-main > :not(.ws-left) {
+  animation: tmkeEnter 0.45s cubic-bezier(.22, .8, .24, 1) 0.3s both !important;
+}
+html.tmke-enter-wait :is(.ws-left, .lrn-main, .dash-main) > *,
+html.tmke-enter-wait .ws-main > :not(.ws-left) { animation-play-state: paused !important; }
+/* Inside a section, nothing moves on its own. */
+.ws-nav, .ed-onboard-inner,
+:is(.ws-left, .lrn-main, .dash-main) > * :is(.ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn, .ws-brief li, .ws-week .ws-day, .ws-tools .ws-tool),
+.ws-main > :not(.ws-left) :is(.ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn, .ws-brief li, .ws-week .ws-day, .ws-tools .ws-tool),
+html.tmke-gate-page :is(.ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn, .ws-brief li, .ws-week .ws-day, .ws-tools .ws-tool) {
+  animation: none !important; opacity: 1 !important;
+}
+:is(.ws-left, .lrn-main, .dash-main) > * :is(.ws-rise, .ws-brief li), html.tmke-gate-page :is(.ws-rise, .ws-brief li) { transform: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.ws-left, .lrn-main, .dash-main) > *, .ws-main > :not(.ws-left) { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
