@@ -243,6 +243,7 @@ export function initDemoChrome() {
   const first = (u.name || "there").trim().split(/\s+/)[0];
   const cap = first.charAt(0).toUpperCase() + first.slice(1);
   document.querySelectorAll(".ws-greet-name").forEach((e) => { e.textContent = cap + "."; });
+  document.querySelectorAll(".ws-greeting").forEach((e) => { e.style.visibility = ""; });   // hidden until named
   document.querySelectorAll(".ws-dropdown-head strong").forEach((e) => { e.textContent = u.name || "Demo"; });
   document.querySelectorAll(".ws-dropdown-head span").forEach((e) => { e.textContent = u.email || ""; });
   if (!isTrainingDemo()) {

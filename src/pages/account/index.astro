@@ -140,14 +140,15 @@ const recentTemplates = templates.slice(0, 4);
         <section class="ws-hero">
           <div class="ws-hero-copy">
             <p class="ws-hero-date" id="ws-hero-date">&nbsp;</p>
-            <h1 class="ws-greeting"><span class="ws-greet-line">Welcome back,</span> <span class="ws-greet-name"></span></h1>
+            <h1 class="ws-greeting" style="visibility:hidden"><span class="ws-greet-line"></span> <span class="ws-greet-name"></span></h1>
             <script is:inline>
               /* The greeting is written before the page is drawn, from the
                  sign-in this browser already holds. It used to arrive as
                  "Good morning, Danielle." -- the mock-up's placeholder --
                  and flick to the member's own name a moment later (Dani,
-                 14 Oct). The module below still sets it again once the
-                 session is checked; this only makes the first paint right. */
+                 14 Oct: no placeholders, ever). The line stays hidden until
+                 it holds the real name -- here, or from the module below once
+                 the session is checked. */
               (function () {
                 try {
                   var h = new Date().getHours();
@@ -167,7 +168,8 @@ const recentTemplates = templates.slice(0, 4);
                   var first = name.trim().split(/\s+/)[0];
                   var q = function (sel) { return document.querySelector(sel); };
                   q(".ws-greet-line").textContent = g + ",";
-                  if (first) q(".ws-greet-name").textContent = first + ".";
+                  // Shown only once the real name is in it; until then, nothing.
+                  if (first) { q(".ws-greet-name").textContent = first + "."; q(".ws-greeting").style.visibility = ""; }
                   if (name) {
                     var dh = q(".ws-dropdown-head strong"); if (dh) dh.textContent = name;
                     var av = q(".ws-whoav"); if (av) av.textContent = name.trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join("").toUpperCase();
@@ -1232,6 +1234,7 @@ const recentTemplates = templates.slice(0, 4);
         const gName = document.querySelector('.ws-greet-name');
         if (gLine) gLine.textContent = greeting + ',';
         if (gName) gName.textContent = firstName + '.';
+        { const gH = document.querySelector('.ws-greeting'); if (gH) gH.style.visibility = ''; }
 
         document.querySelectorAll('.ws-whoav').forEach((e) => { e.textContent = initials; });
         const setText = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.textContent = val; };
