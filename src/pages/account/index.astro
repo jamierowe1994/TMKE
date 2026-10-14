@@ -86,11 +86,11 @@ const recentTemplates = templates.slice(0, 4);
         <a class="ws-navic ws-logout" href="/login" data-logout data-tip="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><line x1="15" y1="12" x2="3" y2="12"/></svg></a>
         <div class="ws-menu ws-who" data-menu>
           <button type="button" class="ws-whobtn" data-menu-btn aria-expanded="false" aria-haspopup="true">
-            <span class="ws-whoav">DC</span>
+            <span class="ws-whoav"></span>
             <svg class="ws-caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="ws-dropdown ws-dropdown--right" role="menu">
-            <div class="ws-dropdown-head"><strong>Danielle Carter</strong><span>danielle@marinaestates.co.uk</span></div>
+            <div class="ws-dropdown-head"><strong></strong><span></span></div>
             <a role="menuitem" href="/account/profile">Your profile</a>
             <a role="menuitem" href="/account/profile">Brand Kit</a>
             <a role="menuitem" href="/account/orders">Billing</a>
@@ -140,7 +140,42 @@ const recentTemplates = templates.slice(0, 4);
         <section class="ws-hero">
           <div class="ws-hero-copy">
             <p class="ws-hero-date" id="ws-hero-date">&nbsp;</p>
-            <h1 class="ws-greeting"><span class="ws-greet-line">Good evening,</span> <span class="ws-greet-name">Danielle.</span></h1>
+            <h1 class="ws-greeting"><span class="ws-greet-line">Welcome back,</span> <span class="ws-greet-name"></span></h1>
+            <script is:inline>
+              /* The greeting is written before the page is drawn, from the
+                 sign-in this browser already holds. It used to arrive as
+                 "Good morning, Danielle." -- the mock-up's placeholder --
+                 and flick to the member's own name a moment later (Dani,
+                 14 Oct). The module below still sets it again once the
+                 session is checked; this only makes the first paint right. */
+              (function () {
+                try {
+                  var h = new Date().getHours();
+                  var g = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 17 ? "Good afternoon" : h >= 17 && h < 22 ? "Good evening" : "Burning the midnight oil";
+                  var name = "", email = "";
+                  var demo = JSON.parse(localStorage.getItem("tmke_demo") || "null");
+                  if (demo) { name = demo.name || ""; email = demo.email || ""; }
+                  else {
+                    var s = JSON.parse(localStorage.getItem("tmke-member-auth") || "null");
+                    var u = s && (s.user || (s.currentSession && s.currentSession.user));
+                    if (u) {
+                      email = u.email || "";
+                      name = (u.user_metadata && u.user_metadata.name) || email.split("@")[0].replace(/[._]/g, " ");
+                      name = String(name).toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+                    }
+                  }
+                  var first = name.trim().split(/\s+/)[0];
+                  var q = function (sel) { return document.querySelector(sel); };
+                  q(".ws-greet-line").textContent = g + ",";
+                  if (first) q(".ws-greet-name").textContent = first + ".";
+                  if (name) {
+                    var dh = q(".ws-dropdown-head strong"); if (dh) dh.textContent = name;
+                    var av = q(".ws-whoav"); if (av) av.textContent = name.trim().split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join("").toUpperCase();
+                  }
+                  if (email) { var de = q(".ws-dropdown-head span"); if (de) de.textContent = email; }
+                } catch (_) {}
+              })();
+            </script>
             <p class="ws-hero-sub">Your marketing's looking pretty organised.<br />Here's what needs your attention today.</p>
             <ul class="ws-brief">
               <li style="--d:1">
