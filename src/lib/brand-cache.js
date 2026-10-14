@@ -231,16 +231,28 @@ export function syncBrandCache(supabase, uid) {
 }
 
 /**
- * A brand kit made in the demo (tmke.brand.demo) becomes the kit of the first
- * account that signs in on this browser with no kit of its own: written to
- * the server and to the cache, stamped with the owner. Returns true when it
- * did so, so the page can redraw.
+ * A brand kit made in the demo (tmke.brand.demo) becomes the kit of the
+ * account that signs in on this browser with no kit of its own -- but only
+ * if it is the person who made it: the kit carries the email they gave at
+ * /demo (demo.js, endDemo), and it must match the account's. Anybody else's
+ * sign-in throws it away. Written to the server and to the cache, stamped
+ * with the owner. Returns true when it did so, so the page can redraw.
  */
 export async function claimDemoBrandKit(supabase, uid) {
   if (!uid) return false;
   let demo = null;
   try { demo = JSON.parse(localStorage.getItem("tmke.brand.demo") || "null"); } catch (_) {}
   if (!demo || typeof demo !== "object") return false;
+  try {
+    const { data: s } = await supabase.auth.getSession();
+    const email = String((s && s.session && s.session.user && s.session.user.email) || "").trim().toLowerCase();
+    const madeBy = String(demo.madeBy || "").trim().toLowerCase();
+    // Not theirs, not labelled (made before 14 Oct), or the training agency.
+    if (!email || !madeBy || madeBy !== email || /rimberio/i.test(String(demo.company || ""))) {
+      localStorage.removeItem("tmke.brand.demo");
+      return false;
+    }
+  } catch (_) { return false; }
   try {
     const { data } = await supabase.from("member_brand_kits").select("kit").eq("user_id", uid).maybeSingle();
     if (data && data.kit && typeof data.kit === "object" && Object.keys(data.kit).length) {

@@ -152,6 +152,20 @@ export function startDemo(u) {
   } catch (_) {}
 }
 export function endDemo() {
+  /* A kit built in the public demo is kept for the person who built it: it
+     is labelled with the email they gave at /demo, and claimDemoBrandKit
+     (brand-cache.js) hands it only to an account with that email. Before
+     this, the next account to sign in on the browser took it, whoever they
+     were -- one laptop at a sign-up session, and the second agent got the
+     first one's agency. Dani, 14 Oct. */
+  try {
+    const rec = JSON.parse(localStorage.getItem(KEY) || "null");
+    const kit = JSON.parse(localStorage.getItem("tmke.brand.demo") || "null");
+    if (rec && !(rec.kind === "training" || rec.training) && kit && typeof kit === "object" && !kit.madeBy) {
+      kit.madeBy = String(rec.email || "").trim().toLowerCase();
+      localStorage.setItem("tmke.brand.demo", JSON.stringify(kit));
+    }
+  } catch (_) {}
   try {
     localStorage.removeItem(KEY);
     localStorage.removeItem(TRAINING_KIT);   // ours, and it outlives nothing

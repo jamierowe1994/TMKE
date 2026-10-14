@@ -155,6 +155,10 @@ const recentTemplates = templates.slice(0, 4);
                   var g = h >= 5 && h < 12 ? "Good morning" : h >= 12 && h < 17 ? "Good afternoon" : h >= 17 && h < 22 ? "Good evening" : "Burning the midnight oil";
                   var name = "", email = "";
                   var demo = JSON.parse(localStorage.getItem("tmke_demo") || "null");
+                  var member = JSON.parse(localStorage.getItem("tmke-member-auth") || "null");
+                  // A public demo left in this browser is over once a member is
+                  // signed in (src/lib/demo.js): their name, not the visitor's.
+                  if (demo && !(demo.kind === "training" || demo.training) && member && (member.access_token || (member.currentSession && member.currentSession.access_token))) demo = null;
                   if (demo) { name = demo.name || ""; email = demo.email || ""; }
                   else {
                     var s = JSON.parse(localStorage.getItem("tmke-member-auth") || "null");

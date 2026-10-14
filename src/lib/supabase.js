@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { demoUser } from './demo.js';
 
 const url = import.meta.env.PUBLIC_SUPABASE_URL;
 const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
@@ -162,7 +163,12 @@ const isAdminStudio = () => {
   try { return new URLSearchParams(window.location.search).get('mode') === 'admin'; } catch (_) { return false; }
 };
 try {
-  if (typeof window !== 'undefined' && window.localStorage.getItem('tmke_demo') && !isAdminStudio()
+  /* demoUser(), not the bare flag: a public demo left in this browser ends
+     the moment a member is signed in (demo.js), and this has to agree. Read
+     the flag alone and a new member, first page after signing in, was told
+     nobody was signed in -- sent to the sign-in page, and straight back.
+     Dani, 14 Oct. */
+  if (typeof window !== 'undefined' && demoUser() && !isAdminStudio()
       && /^\/(account|editor)(\/|$)/.test(window.location.pathname) && supabase && supabase.auth) {
     supabase.auth.getSession = async () => ({ data: { session: null }, error: null });
     supabase.auth.getUser = async () => ({ data: { user: null }, error: null });
