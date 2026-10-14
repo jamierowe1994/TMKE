@@ -7780,7 +7780,7 @@ import { createResizeEngine } from "./resize-engine.js";
     // Only on a touch device: a narrow window on a Mac is still a Mac, and
     // there a download belongs in Downloads, not in the share sheet.
     if (window.innerWidth <= 760 && navigator.canShare && window.matchMedia("(pointer: coarse)").matches) {
-      const blob = await new Promise(function (r) { c.toBlob(r, mime, 0.95); });
+      const blob = await canvasBlob(c, mime);
       if (blob) {
         const file = new File([blob], name.replace(/[^a-z0-9-_.]+/gi, "-"), { type: mime });
         if (navigator.canShare({ files: [file] })) {
@@ -7795,12 +7795,59 @@ import { createResizeEngine } from "./resize-engine.js";
     return true;
   }
 
-  function saveCanvas(canvas, type, name) {
+  async function saveCanvas(canvas, type, name) {
     const mime = type === "jpg" ? "image/jpeg" : "image/png";
+    const blob = await canvasBlob(canvas, mime);
     const a = document.createElement("a");
-    a.href = canvas.toDataURL(mime, 0.95);
+    const url = URL.createObjectURL(blob);
+    a.href = url;
     a.download = name;
     a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+  }
+
+  /* A picture of a print design says it is 300 dpi. Its pixels were always
+     right, but with no density written into the file every program assumed
+     72 and reported an A5 postcard as 875 x 617 mm. Written into the JPEG's
+     JFIF header, or as a PNG pHYs chunk. A social design is left as it was. */
+  async function canvasBlob(canvas, mime) {
+    const blob = await new Promise(function (r) { canvas.toBlob(r, mime, 0.95); });
+    if (!blob || !isPrintCanvas(canvas)) return blob;
+    try { return new Blob([stampDpi(new Uint8Array(await blob.arrayBuffer()), mime, 300)], { type: mime }); }
+    catch (_) { return blob; }
+  }
+  let _crcTable = null;
+  function crc32(bytes) {
+    if (!_crcTable) {
+      _crcTable = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; _crcTable[n] = c >>> 0; }
+    }
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = _crcTable[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function stampDpi(b, mime, dpi) {
+    if (mime === "image/jpeg") {
+      // FF D8, then the JFIF APP0 segment: units at 13, densities at 14-17.
+      if (b[2] === 0xFF && b[3] === 0xE0 && b[6] === 0x4A && b[7] === 0x46 && b[8] === 0x49 && b[9] === 0x46) {
+        b[13] = 1; b[14] = dpi >> 8; b[15] = dpi & 255; b[16] = dpi >> 8; b[17] = dpi & 255;
+      }
+      return b;
+    }
+    // PNG: pixels per metre, in a pHYs chunk straight after IHDR (byte 33).
+    const ppm = Math.round(dpi / 0.0254);
+    const chunk = new Uint8Array(21), dv = new DataView(chunk.buffer);
+    dv.setUint32(0, 9);
+    chunk.set([0x70, 0x48, 0x59, 0x73], 4);              // "pHYs"
+    dv.setUint32(8, ppm); dv.setUint32(12, ppm); chunk[16] = 1;
+    dv.setUint32(17, crc32(chunk.subarray(4, 17)));
+    // A file that already has one gets it rewritten rather than a second.
+    for (let i = 33; i < Math.min(b.length - 8, 4096); i++) {
+      if (b[i] === 0x70 && b[i + 1] === 0x48 && b[i + 2] === 0x59 && b[i + 3] === 0x73) { b.set(chunk.subarray(4), i); return b; }
+    }
+    const out = new Uint8Array(b.length + 21);
+    out.set(b.subarray(0, 33), 0); out.set(chunk, 33); out.set(b.subarray(33), 54);
+    return out;
   }
 
   // Lazy-loaded so the jsPDF library only downloads when the user actually
@@ -7814,6 +7861,27 @@ import { createResizeEngine } from "./resize-engine.js";
       "https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm"
     );
     return _jspdfModule;
+  }
+
+  /* PRINT SIZES. A print design is drawn at 300 pixels to the inch
+     (studio-sizes.js), and the PDF used to be sized by counting those pixels
+     as if they were screen pixels -- so an A5 postcard came out at 656 x 462
+     mm, more than four times too big (14 Oct, the TPE valuation invitation).
+     A print page is now laid out in millimetres from its own pixels at 300
+     dpi: an A5 page is exactly 148 x 210 mm.
+
+     No bleed is added. Dani, 14 Oct: the printer's 3mm is room to keep clear,
+     not something to put in the file -- and the Studio's print guide already
+     marks that 3mm inside the edge. Social designs keep the pixel page they
+     always had. */
+  const EXPORT_PX_PER_MM = 300 / 25.4;
+  function isPrintCanvas(c) {
+    try { return sizeFamily(c.width, c.height) === "print"; } catch (_) { return false; }
+  }
+  // One page of the PDF: the picture to place and the page it goes on.
+  function pdfPage(canvas) {
+    if (!isPrintCanvas(canvas)) return { unit: "px", w: canvas.width, h: canvas.height, img: canvas };
+    return { unit: "mm", w: canvas.width / EXPORT_PX_PER_MM, h: canvas.height / EXPORT_PX_PER_MM, img: canvas };
   }
 
   /* Every page of the design. One PDF with a page each, or a PDF per page —
@@ -7830,19 +7898,27 @@ import { createResizeEngine } from "./resize-engine.js";
       const mod = await getJsPdf();
       const jsPDF = mod.jsPDF || mod.default;
       const base = (filenameEl.value || "design").trim() || "design";
-      // Pixels at 72 DPI translate roughly 1:1 to PDF points, so this preserves
-      // the on-screen aspect ratio without surprising the user with margins.
-      const make = (w, h) => new jsPDF({
-        orientation: w >= h ? "landscape" : "portrait",
-        unit: "px", format: [w, h], hotfixes: ["px_scaling"],
+      // A social page: its pixels as screen pixels, the page it always was.
+      // A print page: millimetres (see pdfPage). One document holds one unit,
+      // so a page in the other unit is converted into it.
+      const make = (pg) => new jsPDF({
+        orientation: pg.w >= pg.h ? "landscape" : "portrait",
+        unit: pg.unit, format: [pg.w, pg.h], hotfixes: ["px_scaling"],
       });
+      const place = (pdf, pg, first) => {
+        const unit = pdf.__tmkeUnit;
+        const k = unit === pg.unit ? 1 : (unit === "mm" ? 25.4 / 96 : 96 / 25.4);
+        const w = pg.w * k, h = pg.h * k;
+        if (!first) pdf.addPage([w, h], w >= h ? "landscape" : "portrait");
+        pdf.addImage(pg.img.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
+      };
 
       if (separate || total === 1) {
         for (let k = 0; k < total; k++) {
           const i = list[k];
-          const canvas = await renderPage(i, { transparent: false });
-          const pdf = make(canvas.width, canvas.height);
-          pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, canvas.width, canvas.height);
+          const pg = pdfPage(await renderPage(i, { transparent: false }));
+          const pdf = make(pg); pdf.__tmkeUnit = pg.unit;
+          place(pdf, pg, true);
           // Named by the page's own number, so page 3 of 7 is "(page 3)".
           pdf.save(exportName(i, all, "pdf"));
           if (k < total - 1) await nextTickPause();
@@ -7853,11 +7929,9 @@ import { createResizeEngine } from "./resize-engine.js";
 
       let pdf = null;
       for (let k = 0; k < total; k++) {
-        const canvas = await renderPage(list[k], { transparent: false });
-        const w = canvas.width, h = canvas.height;
-        if (!pdf) pdf = make(w, h);
-        else pdf.addPage([w, h], w >= h ? "landscape" : "portrait");
-        pdf.addImage(canvas.toDataURL("image/jpeg", 0.95), "JPEG", 0, 0, w, h);
+        const pg = pdfPage(await renderPage(list[k], { transparent: false }));
+        if (!pdf) { pdf = make(pg); pdf.__tmkeUnit = pg.unit; place(pdf, pg, true); }
+        else place(pdf, pg, false);
       }
       pdf.save(base + ".pdf");
       toast("Exported PDF — " + total + " pages");
