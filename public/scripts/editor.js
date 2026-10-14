@@ -7863,25 +7863,54 @@ import { createResizeEngine } from "./resize-engine.js";
     return _jspdfModule;
   }
 
-  /* PRINT SIZES. A print design is drawn at 300 pixels to the inch
-     (studio-sizes.js), and the PDF used to be sized by counting those pixels
-     as if they were screen pixels -- so an A5 postcard came out at 656 x 462
-     mm, more than four times too big (14 Oct, the TPE valuation invitation).
-     A print page is now laid out in millimetres from its own pixels at 300
-     dpi: an A5 page is exactly 148 x 210 mm.
+  /* PRINT SIZES, AND BLEED. A print design is drawn at 300 pixels to the
+     inch (studio-sizes.js), and the PDF used to be sized by counting those
+     pixels as if they were screen pixels -- so an A5 postcard came out at
+     656 x 462 mm, more than four times too big (14 Oct, the TPE valuation
+     invitation). A print page is now laid out in millimetres from its own
+     pixels at 300 dpi.
 
-     No bleed is added. Dani, 14 Oct: the printer's 3mm is room to keep clear,
-     not something to put in the file -- and the Studio's print guide already
-     marks that 3mm inside the edge. Social designs keep the pixel page they
-     always had. */
+     With 3mm of bleed on every side, added at download the way Canva's
+     "crop marks and bleed" does it: the canvas stays the finished piece and
+     the PDF is 6mm bigger each way -- A5 portrait 154 x 216 mm, which is what
+     the printer asked for. The artwork is carried out into the bleed by
+     reflecting the outer 3mm of the design outwards: a grey background goes
+     on being grey, a photo running to the edge carries on past it, and the
+     printer trims it all away. Words and logos are already kept 3mm inside
+     the edge by the print guide. Social designs keep the pixel page they
+     always had, and PNG / JPG downloads stay the finished size. */
   const EXPORT_PX_PER_MM = 300 / 25.4;
+  const BLEED_MM = 3;
   function isPrintCanvas(c) {
     try { return sizeFamily(c.width, c.height) === "print"; } catch (_) { return false; }
+  }
+  function withBleed(src, b) {
+    const w = src.width, h = src.height;
+    const out = document.createElement("canvas");
+    out.width = w + 2 * b; out.height = h + 2 * b;
+    const ctx = out.getContext("2d");
+    ctx.drawImage(src, b, b);
+    // Each strip is the outer b pixels of that side, reflected outwards.
+    const strip = (tx, ty, sx, sy, sw, sh, dx, dy, fx, fy) => {
+      ctx.save(); ctx.translate(tx, ty); ctx.scale(fx, fy);
+      ctx.drawImage(src, sx, sy, sw, sh, dx, dy, sw, sh);
+      ctx.restore();
+    };
+    strip(b, b,         0, 0,     w, b,   0, 0,   1, -1);   // top
+    strip(b, b + h,     0, h - b, w, b,   0, -b,  1, -1);   // bottom
+    strip(b, b,         0, 0,     b, h,   0, 0,  -1,  1);   // left
+    strip(b + w, b,     w - b, 0, b, h,  -b, 0,  -1,  1);   // right
+    strip(b, b,         0, 0,         b, b,   0, 0,   -1, -1);   // corners
+    strip(b + w, b,     w - b, 0,     b, b,  -b, 0,   -1, -1);
+    strip(b, b + h,     0, h - b,     b, b,   0, -b,  -1, -1);
+    strip(b + w, b + h, w - b, h - b, b, b,  -b, -b,  -1, -1);
+    return out;
   }
   // One page of the PDF: the picture to place and the page it goes on.
   function pdfPage(canvas) {
     if (!isPrintCanvas(canvas)) return { unit: "px", w: canvas.width, h: canvas.height, img: canvas };
-    return { unit: "mm", w: canvas.width / EXPORT_PX_PER_MM, h: canvas.height / EXPORT_PX_PER_MM, img: canvas };
+    const img = withBleed(canvas, Math.round(BLEED_MM * EXPORT_PX_PER_MM));
+    return { unit: "mm", w: canvas.width / EXPORT_PX_PER_MM + 2 * BLEED_MM, h: canvas.height / EXPORT_PX_PER_MM + 2 * BLEED_MM, img: img };
   }
 
   /* Every page of the design. One PDF with a page each, or a PDF per page —
