@@ -13,7 +13,13 @@ import { areaImg } from "./hub-art.js";
 //             sentences: what you're looking at and why you'd use it.
 //
 // A walk is opened from a training lesson's "Show me" button and finishes
-// back on that lesson. Selectors are the pages' own ids and classes, so a
+// back on that lesson.
+//
+// EVERY walk has a `stage`, and runs in the pop-out: the training window,
+// which is the training account and never the member's (src/lib/training.js).
+// Until 14 Oct the area walks below ran on the member's own pages, in their
+// own login. Dani: "Anything within those walkthroughs should be pulled from
+// the training environment." Selectors are the pages' own ids and classes, so a
 // page change here is the place to look when a step starts skipping.
 
 const DASHBOARD_STEPS = [
@@ -57,6 +63,7 @@ export const WALKS = {
   // The full hub tour: a look at the dashboard, then the menu of areas.
   "hub-tour": {
     title: "Around the Hub",
+    stage: "/account",
     steps: [
       { path: "/account", target: null, placement: "center", skipToMenu: true,
         eyebrow: "Around the hub", title: "Take a Look Around",
@@ -65,10 +72,11 @@ export const WALKS = {
       HUB_MENU,
     ],
   },
-  "dashboard": { title: "Dashboard", steps: DASHBOARD_STEPS },
+  "dashboard": { title: "Dashboard", stage: "/account", steps: DASHBOARD_STEPS },
 
   "studio-tour": {
     title: "Studio",
+    stage: "/account/studio",
     steps: [
       { path: "/account/studio", target: ".ws-hero", placement: "bottom",
         eyebrow: "Studio", title: "Your Studio",
@@ -90,6 +98,7 @@ export const WALKS = {
 
   "orders": {
     title: "Orders",
+    stage: "/account/orders",
     steps: [
       { path: "/account/orders", target: ".ord-hero", placement: "bottom",
         eyebrow: "Orders", title: "Everything You've Bought",
@@ -105,6 +114,7 @@ export const WALKS = {
 
   "bookings": {
     title: "Bookings",
+    stage: "/account/bookings",
     steps: [
       { path: "/account/bookings", target: ".bk-hero", placement: "bottom",
         eyebrow: "Bookings", title: "Your Videography",
@@ -123,6 +133,7 @@ export const WALKS = {
 
   "smm": {
     title: "Your SMM",
+    stage: "/account/social",
     steps: [
       { path: "/account/social", target: ".soc-hero", placement: "bottom",
         eyebrow: "Your SMM", title: "Managed Social Media",
@@ -141,6 +152,7 @@ export const WALKS = {
 
   "learn": {
     title: "Learn",
+    stage: "/account/guides",
     steps: [
       { path: "/account/guides", target: 'section[aria-labelledby="topics-h"]', placement: "bottom",
         eyebrow: "Learn", title: "Explore by Topic",
@@ -166,6 +178,7 @@ export const WALKS = {
      step lights one card and nothing either side of it. */
   "brand-kit": {
     title: "Your Brand Kit",
+    stage: "/account/profile",
     steps: [
       { path: "/account/profile", target: null, placement: "center",
         eyebrow: "Brand kit", title: "Set It Once, Use It Everywhere",
@@ -567,6 +580,7 @@ export const WALKS = {
 
   "planner": {
     title: "Planning and Posting",
+    stage: "/account/schedule",
     steps: [
       { path: "/account/schedule", target: null, placement: "center",
         eyebrow: "Planner", title: "Your Month, Laid Out",

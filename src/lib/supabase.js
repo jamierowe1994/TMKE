@@ -106,7 +106,14 @@ function adminPlace(pathname, search) {
   return false;
 }
 const onAdminSide = typeof window !== 'undefined' && adminPlace(window.location.pathname, window.location.search);
-const activeKey = onAdminSide ? ADMIN_KEY : MEMBER_KEY;
+/* The walkthrough's training window (BaseLayout) has a login slot of its own,
+   which is always empty. Not just tidiness: Supabase tells every client that
+   shares a slot name when one of them signs out, over a channel named after
+   the slot. A training window on the member's slot, finding nobody signed in
+   inside its own sealed storage, could have announced that to the member's
+   own tab. Dani, 14 Oct. */
+const inTrainingWindow = typeof window !== 'undefined' && !!window.__TMKE_TRAINING_WINDOW__;
+const activeKey = inTrainingWindow ? 'tmke-training-auth' : onAdminSide ? ADMIN_KEY : MEMBER_KEY;
 
 /* Members signed in before the split have their session in the old shared
    slot, which is now the admin one. On their first hub page it is MOVED to
@@ -206,6 +213,8 @@ export async function signOutEverywhere(redirectTo = '/login') {
     // with the session: nothing of one person's walk survives to the next.
     localStorage.removeItem('tmke.tour');
     localStorage.removeItem('tmke.brand.training.scratch');
+    // And the walkthrough window's own space (BaseLayout), should one be left.
+    Object.keys(localStorage).filter((k) => k.startsWith('tmke-training:')).forEach((k) => localStorage.removeItem(k));
     localStorage.removeItem('tmke.brand.demo');
     localStorage.removeItem('tmke.brand.training');
     // Any stray default-keyed sessions from an older build.

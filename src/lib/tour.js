@@ -17,6 +17,7 @@
 //
 import { supabase } from './supabase.js';
 import { WALKS } from '../data/walkthroughs.js';
+import { TRAINING_WINDOW, clearTrainingWindow } from './training.js';
 
 const LS_STATE = 'tmke.tour';        // { active: true, index: N, walk?: id, returnTo?: url }
 const LS_DONE  = 'tmke.tour.done';   // fast/offline "already seen" guard
@@ -197,6 +198,10 @@ function undockCard() {
 
 function openStage(title) {
   if (stage) return;
+  /* The frame is named TRAINING_WINDOW, which makes it the training account
+     with storage of its own (BaseLayout). Emptied first, so every walkthrough
+     starts as the training account fresh. Dani, 14 Oct. */
+  clearTrainingWindow();
   injectStyles();
   const wrap = document.createElement('div');
   wrap.className = 'tmke-stage';
@@ -208,7 +213,7 @@ function openStage(title) {
       </div>
       <div class="tmke-stage-body" data-stage-body>
         <div class="tmke-stage-screen">
-          <iframe class="tmke-stage-frame" title="Studio demo" data-stage-frame></iframe>
+          <iframe class="tmke-stage-frame" name="${TRAINING_WINDOW}" title="Studio demo" data-stage-frame></iframe>
           <img class="tmke-stage-img" alt="" data-stage-img hidden>
           <div class="tmke-stage-spin" aria-hidden="true"><i></i></div>
         </div>
@@ -249,7 +254,9 @@ function openStage(title) {
   stage.box.classList.add('is-busy');
   wrap.querySelector('[data-stage-title]').textContent = title || '';
   wrap.addEventListener('click', (e) => {
-    if (e.target === wrap || e.target.closest('[data-stage-x]')) finish(false);
+    /* Close demo means close: an area walk opened from the hub tour's menu
+       would otherwise go back to that menu, now that the menu is in here. */
+    if (e.target === wrap || e.target.closest('[data-stage-x]')) { menuBack = null; finish(false); }
   });
   document.documentElement.style.overflow = 'hidden';
   nextTick(() => wrap.classList.add('is-in'));
@@ -266,7 +273,8 @@ function closeStage() {
   undockCard();
   document.documentElement.style.overflow = '';
   wrap.classList.remove('is-in');
-  setTimeout(() => wrap.remove(), 280);
+  // Nothing of the training window outlives it.
+  setTimeout(() => { wrap.remove(); clearTrainingWindow(); }, 280);
 }
 
 // Point the stage at a page and wait for it to be usable. Resolves either way -
@@ -1365,7 +1373,10 @@ async function render(index) {
       return;
     }
     showShot(null);
-    const want = step.href || (WALKS[activeWalk] && WALKS[activeWalk].stage);
+    /* The step's own page, or the walk's. `path` counts too: the walks that
+       used to run on the member's real pages name their page that way. */
+    const want = step.href || (step.path && step.path !== '*' ? step.path : '')
+      || (WALKS[activeWalk] && WALKS[activeWalk].stage);
     if (want) await stageGo(want);
     if (renderCancelled(ticket)) return;
   }
@@ -1480,7 +1491,10 @@ function finish(completed) {
   renderSeq++;   // whatever step is mid-flight, it is not wanted now
   if (lastPostAction) { try { lastPostAction(); } catch (_) {} lastPostAction = null; }
   const wasStaged = stageOn();
-  closeStage();
+  /* An area walk going back to the hub tour's menu keeps the pop-out open:
+     the menu is in it too, so closing it would only flash the lesson. */
+  const toMenu = !!(activeWalk && menuBack && WALKS[menuBack] && WALKS[menuBack].stage && wasStaged);
+  if (!toMenu) closeStage();
   if (activeWalk) {
     clearState();
     const back = returnTo, menu = menuBack, walked = activeWalk;

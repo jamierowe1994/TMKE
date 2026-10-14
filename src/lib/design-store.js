@@ -43,8 +43,16 @@ export const TRAINING_SIGN_IN =
 
 /* The account in use: a member, the training account (through Dani's
    login), or nobody. */
+/* Inside a walkthrough's training window (BaseLayout) nothing is saved at
+   all, and Dani's admin login is not reached for: the window is sealed from
+   this browser's logins, and a client on the admin slot would share its
+   sign-out channel with her real admin tabs. */
+export const TRAINING_WINDOW_NOTE = "This is the training demo, so nothing you do here is saved.";
 export async function account() {
   try {
+    if (typeof window !== 'undefined' && window.__TMKE_TRAINING_WINDOW__) {
+      return { training: true, blocked: true, reason: TRAINING_WINDOW_NOTE };
+    }
     if (isTrainingDemo()) {
       if (!url || !anonKey) return { training: true, blocked: true, reason: TRAINING_SIGN_IN };
       const db = trainingDb();

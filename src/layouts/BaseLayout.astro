@@ -195,67 +195,81 @@ const hideFromSearch = noindex || privateArea;
         packs and designs for the length of a round trip, then sees them
         flip. This only says "a token is stored here", not that it is still
         valid; the fetch settles that, and clears the class if not. */}
-    {inHub && (
-      /* The training area wears the training account (src/lib/training.js).
-         A guides walkthrough runs on the real page in whoever is signed in, so
-         filming the guides as Dani put her own brand kit in every shot. For as
-         long as a named walkthrough is running, a read of a brand key answers
-         with the training kit and a write is diverted to a scratch key.
+    {/* THE TRAINING WINDOW. Every guides walkthrough opens in a pop-out
+        (src/lib/tour.js, openStage), and the frame inside it is named
+        "tmke-training". That frame is the training account and nothing else:
+        Alex Mercer of Rimberio Homes, with storage of its own.
 
-         Done here, at the single door every reader goes through, because the
-         kit is read in fourteen places across seven files including a plain
-         script in public/ -- and the one that gets missed is the one that ends
-         up on camera. Nothing of the member's is moved or overwritten: their
-         kit stays exactly where it was and is read normally the moment the
-         walkthrough stops, so closing the tab mid-walk costs nothing.
+        Dani, 14 Oct: "You need to make the training environment a separate
+        entity ... although it's not a real account, it's treating it like a
+        real account." It was: the walkthrough ran in the member's own login
+        and only the brand kit was swapped, by a switch kept in the member's
+        own storage -- so a walk left half-way left their hub wearing the
+        training kit, and their Brand Kit page not saving.
 
-         In the head, ahead of every module script, or the first paint has
-         already read the wrong kit. Dani, 11 Oct. */
-      <script is:inline set:html={`
-      (function () {
-        var TOUR = "tmke.tour", SCRATCH = "tmke.brand.training.scratch";
-        var KEYS = { "tmke.brand": 1, "tmke.brand.training": 1, "tmke.brand.demo": 1 };
-        var KIT = ${TRAINING_KIT_JSON};
-        // Only a walkthrough opened by name from the guides. The first-login
-        // tour has no walk id and belongs to a real new member, whose own
-        // details are the whole point of it.
-        /* Only inside the walkthrough's demonstration window -- the frame
-           the guide opens -- never on the member's own pages. Dani, 14 Oct:
-           "Member Hub and the information in it should not be linked to the
-           training kit. The training kit is solely there for that
-           demonstration environment." A walk left half-finished used to
-           leave every hub page wearing Rimberio Homes, and their Brand Kit
-           page quietly not saving. */
-        function walking() {
-          try {
-            if (window.self === window.top) return false;
-            var s = JSON.parse(localStorage.getItem(TOUR) || "null");
-            return !!(s && s.active && s.walk);
-          } catch (_) { return false; }
+        Now the separation is the window itself, not a setting. Inside it,
+        every read and write of localStorage, sessionStorage and IndexedDB goes
+        to a space of its own (keys start "tmke-training:"), so the member's
+        login, kit and drafts are not there to be seen, and nothing done in the
+        window can reach them. Outside it, nothing changes at all: no flag of
+        the training account's lives in the member's storage, so there is
+        nothing to get stuck. A frame's name is kept by the frame as it moves
+        between pages, and is never given to a tab of the member's own.
+
+        In the head, ahead of every page script, so nothing reads first.
+        The names are shared with src/lib/training.js. */}
+    <script is:inline set:html={`
+    (function () {
+      var WIN = "tmke-training", PFX = "tmke-training:";
+      var KIT = ${TRAINING_KIT_JSON || "null"};
+      var sealed = false;
+      try { sealed = window.name === WIN && window.self !== window.top; } catch (_) {}
+      if (!sealed) {
+        // Left by the walkthrough switch before 14 Oct; nothing reads it now.
+        try { localStorage.removeItem("tmke.brand.training.scratch"); } catch (_) {}
+        return;
+      }
+      window.__TMKE_TRAINING_WINDOW__ = true;
+      var proto = Storage.prototype;
+      var get = proto.getItem, set = proto.setItem, del = proto.removeItem, key = proto.key;
+      var lenDesc = Object.getOwnPropertyDescriptor(proto, "length");
+      var ours = function (st) { return st === window.localStorage || st === window.sessionStorage; };
+      var mine = function (st) {
+        var out = [], n = lenDesc.get.call(st);
+        for (var i = 0; i < n; i++) { var k = key.call(st, i); if (k && k.indexOf(PFX) === 0) out.push(k.slice(PFX.length)); }
+        return out;
+      };
+      proto.getItem = function (k) { return ours(this) ? get.call(this, PFX + k) : get.apply(this, arguments); };
+      proto.setItem = function (k, v) { return ours(this) ? set.call(this, PFX + k, v) : set.apply(this, arguments); };
+      proto.removeItem = function (k) { return ours(this) ? del.call(this, PFX + k) : del.apply(this, arguments); };
+      proto.key = function (i) { if (!ours(this)) return key.apply(this, arguments); var m = mine(this); return i < m.length ? m[i] : null; };
+      proto.clear = function () { var st = this; mine(st).forEach(function (k) { del.call(st, PFX + k); }); };
+      Object.defineProperty(proto, "length", { configurable: true, get: function () { return ours(this) ? mine(this).length : lenDesc.get.call(this); } });
+      // The member's own tab writing its storage is no news to this window.
+      window.addEventListener("storage", function (e) {
+        if (e.key == null || String(e.key).indexOf(PFX) !== 0) e.stopImmediatePropagation();
+      }, true);
+      // The Studio's clipboard and anything else kept in IndexedDB, likewise.
+      try {
+        var idb = IDBFactory.prototype, open = idb.open, drop = idb.deleteDatabase;
+        idb.open = function (n) { var a = [].slice.call(arguments); a[0] = PFX + n; return open.apply(this, a); };
+        idb.deleteDatabase = function (n) { return drop.call(this, PFX + n); };
+      } catch (_) {}
+      // The training account, every time: nobody signed in, the training demo
+      // on, and Rimberio Homes' kit. Laid in once per walkthrough (the window's
+      // space is emptied when the pop-out opens and when it closes).
+      try {
+        if (!localStorage.getItem("tmke_demo")) {
+          localStorage.setItem("tmke_demo", JSON.stringify({ name: KIT && KIT.about ? KIT.about.name : "Alex Mercer", email: "", since: Date.now(), kind: "training", training: true }));
         }
-        var proto = Storage.prototype, get = proto.getItem, set = proto.setItem, del = proto.removeItem;
-        proto.getItem = function (k) {
-          // sessionStorage shares this prototype and is left alone.
-          if (this === localStorage && KEYS[k] && walking()) {
-            var edited = get.call(this, SCRATCH);
-            return edited != null ? edited : JSON.stringify(KIT);
-          }
-          return get.apply(this, arguments);
-        };
-        proto.setItem = function (k, v) {
-          if (this === localStorage && KEYS[k] && walking()) return set.call(this, SCRATCH, v);
-          return set.apply(this, arguments);
-        };
-        /* Removing counts as writing. clearBrandCache() throws away a kit that
-           belongs to nobody, which is exactly what the training kit looks
-           like, and it would have taken the member's real one with it. */
-        proto.removeItem = function (k) {
-          if (this === localStorage && KEYS[k] && walking()) return del.call(this, SCRATCH);
-          return del.apply(this, arguments);
-        };
-      })();
-      `} />
-    )}
+        if (KIT && !localStorage.getItem("tmke.brand.training")) {
+          var kit = JSON.stringify(Object.assign({}, KIT, { updatedAt: Date.now() }));
+          localStorage.setItem("tmke.brand.training", kit);
+          localStorage.setItem("tmke.brand", kit);
+        }
+      } catch (_) {}
+    })();
+    `} />
     <script is:inline>
       try {
         /* Which login this page belongs to (src/lib/supabase.js: two front
