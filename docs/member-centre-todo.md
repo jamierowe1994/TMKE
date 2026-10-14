@@ -213,6 +213,19 @@ of-...`), not by position. A position changes the moment somebody reorders the
 table, and every link made before that would open a different prompt. Numeric
 keys are still honoured so an open tab does not break, but nothing makes one.
 
+## 8 · Training, optimised for mobile
+
+Raised 14 October 2026. Likely a bigger project: the training area has not
+been reviewed on a phone yet.
+
+- Go through every course (Learn, the course reader, its pop-outs) at phone
+  width, and every walkthrough in the demo pop-out.
+- Known already: on a phone the walkthrough's commentary panel under the
+  pop-out fills only half the width (the Studio walks too, so it predates the
+  14 Oct move of every walk into the pop-out).
+- Walkthrough pictures (`shot`) were taken at the rig's desktop width; check
+  they read on a phone, or whether phone walks need their own.
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.
