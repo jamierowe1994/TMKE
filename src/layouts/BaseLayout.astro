@@ -28,6 +28,10 @@ interface Props {
       loading cover until every section that shows real content says it is
       ready, then appears all at once. Off unless a page asks for it. */
   readyGate?: boolean;
+  /** Only engage the gate when the address's query string matches this
+      pattern (a RegExp source). The editor page is several pages in one: its
+      pack and design library are gated, the canvas has a loader of its own. */
+  readyGateIf?: string;
 }
 
 // Installable apps. The admin centre and the member hub are each their own
@@ -55,6 +59,7 @@ const {
   dashboard = false,
   pageTransition = undefined,
   readyGate = false,
+  readyGateIf = "",
 } = Astro.props;
 
 // Front-end-only page transition. Back-end tools — /admin/* and /editor (the
@@ -332,10 +337,11 @@ const hideFromSearch = noindex || privateArea;
           @keyframes tmke-gate-failsafe { to { visibility: hidden; opacity: 0; pointer-events: none; } }
           @media (prefers-reduced-motion: reduce) { html.tmke-gate-lifting .tmke-gate { transition: none; } }
         </style>
-        <script is:inline>
+        <script is:inline define:vars={{ gateIf: readyGateIf }}>
           (function () {
             var GATE_MAX = 12000;
             var root = document.documentElement;
+            try { if (gateIf && !new RegExp(gateIf).test(location.search)) return; } catch (_) { return; }
             root.classList.add("tmke-gated");
             var waits = {}, holds = 0, opened = false, domDone = false, after = [];
             function pending() { var out = []; for (var k in waits) if (!waits[k]) out.push(k); return out; }
@@ -392,6 +398,7 @@ const hideFromSearch = noindex || privateArea;
               isOpen: function () { return opened; },
             };
             document.addEventListener("DOMContentLoaded", function () {
+              try { document.body.setAttribute("aria-busy", "true"); } catch (_) {}
               document.querySelectorAll("[data-gate]").forEach(function (el) {
                 var n = el.getAttribute("data-gate");
                 if (n && !(n in waits)) waits[n] = false;
@@ -405,7 +412,7 @@ const hideFromSearch = noindex || privateArea;
       </>
     )}
   </head>
-  <body data-dashboard={dashboard ? "" : undefined} aria-busy={readyGate ? "true" : undefined}>
+  <body data-dashboard={dashboard ? "" : undefined}>
     {readyGate && <div class="tmke-gate" aria-hidden="true"></div>}
     {!hideNav && <Nav />}
     <slot />

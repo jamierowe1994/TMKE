@@ -132,6 +132,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   description="Edit your purchased templates in the TMKE design studio."
   hideNav={true}
   hideFooter={true}
+  readyGate
+  readyGateIf={"^(\\?pack=[^&]*)?$"}
 >
   <!-- =================== ONBOARDING OVERLAY =================== -->
   <!-- Studio entry keeps the dashboard sidebar (left) so it reads as part of the
@@ -7912,6 +7914,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   <script>
     import { isDemo as demoOn, lockClicks, lock } from "../../lib/demo.js";
     import { designStore } from "../../lib/design-store.js";
+    import { gateWait, gateReady } from "../../lib/ready-gate.js";
     // The demo's locks, set up here at the top of the module so they hold on
     // every route into the editor: a template, a saved design, a prompt's
     // blank canvas or the launcher. editor.js also guards the actions
@@ -8082,7 +8085,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     }
     window.addEventListener("resize", fitPackCovers, { passive: true });
     document.fonts?.ready.then(fitPackCovers);
-    loadPackBanner();
+    const bannerLoaded = loadPackBanner();
 
     // ---- The gallery: folders, sorting, selection and the quick actions ----
     // One list of rows is held here and every view is derived from it, so
@@ -8751,11 +8754,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       // NewDesignModal opens itself off the query string. Picking a size there
       // comes back as ?blank=<w>x<h>, which the engine opens a canvas at.
       showView("home");
+      /* The library and a pack's page are behind the ready gate (BaseLayout
+         readyGateIf): nothing shows until the view you asked for is finished.
+         It used to draw Your Designs, then switch to the pack -- the page
+         working its way there in front of you. Dani, 14 Oct: "You go A to B.
+         You don't see the journey that it's taken to get to B." */
+      gateWait("view");
+      let savedLoaded = Promise.resolve();
+      const homeReady = () => Promise.all([savedLoaded, bannerLoaded]).catch(() => {}).then(() => gateReady("view", homeView));
+      const packReady = async (p) => { try { await showPackDesigns(p); } catch (_) {} gateReady("view", packView); };
 
       // Dev-only preview: /editor?demo=1 fills the packs with example packs.
       const isDemo = (import.meta.env.DEV && params.has("demo")) || demoOn();
       if (isDemo) {
-        loadSavedDesigns(null);
+        savedLoaded = loadSavedDesigns(null);
         loading.hidden = true;
         // The dev preview keeps its example packs; the real demo offers the
         // one pack made for it in the admin (a slug or title starting "demo"),
@@ -8797,8 +8809,10 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            designs waited on a page that never opened. */
         const demoParam = params.get("pack");
         if (demoParam && demoPacks.length) {
-          showPackDesigns(demoParam === "demo" ? demoPacks[0] : (demoPacks.find((x) => x.id === demoParam) || demoPacks[0]));
+          await packReady(demoParam === "demo" ? demoPacks[0] : (demoPacks.find((x) => x.id === demoParam) || demoPacks[0]));
+          return;
         }
+        homeReady();
         return;
       }
 
@@ -8807,7 +8821,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const email = session?.user?.email || "";
 
       // Saved designs load independently (don't block the packs fetch).
-      loadSavedDesigns(session);
+      savedLoaded = loadSavedDesigns(session);
 
       // All active packs + the user's paid orders, in parallel.
       const [packsRes, ordersRes] = await Promise.all([
@@ -8829,6 +8843,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (packsRes.error) {
         error.textContent = "Couldn't load your packs — start from a blank canvas above, or refresh to retry.";
         error.hidden = false;
+        homeReady();
         return;
       }
 
@@ -8861,7 +8876,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           grid.innerHTML = packGridHtml(owned);
           grid.hidden = false;
           wirePackGrid(owned);
-          showPackDesigns(p);
+          await packReady(p);
           return;
         }
       }
@@ -8869,12 +8884,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       if (owned.length === 0) {
         error.innerHTML = "You haven't added any packs yet — start from a blank canvas above, or browse <a href=\"/edit\" data-shop>The Edit</a>.";
         error.hidden = false;
+        homeReady();
         return;
       }
 
       grid.innerHTML = packGridHtml(owned);
       grid.hidden = false;
       wirePackGrid(owned);
+      homeReady();
     })();
   </script>
 
