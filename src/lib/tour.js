@@ -387,11 +387,18 @@ function loadWalk(id) {
   return true;
 }
 
+/* A walk has a last-touched time. One left alone for three hours -- closed
+   half-way, the tab shut -- is over, and is cleared rather than lying in wait
+   (14 Oct). A record from before the time was kept counts as abandoned. */
+const WALK_IDLE_MS = 3 * 60 * 60 * 1000;
 function readState() {
-  try { return JSON.parse(localStorage.getItem(LS_STATE) || 'null'); } catch (_) { return null; }
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(LS_STATE) || 'null'); } catch (_) { return null; }
+  if (s && s.walk && !(Number(s.at) > Date.now() - WALK_IDLE_MS)) { clearState(); return null; }
+  return s;
 }
 function writeState(s) {
-  try { localStorage.setItem(LS_STATE, JSON.stringify(s)); } catch (_) {}
+  try { localStorage.setItem(LS_STATE, JSON.stringify(Object.assign({}, s, { at: Date.now() }))); } catch (_) {}
 }
 function clearState() {
   try { localStorage.removeItem(LS_STATE); } catch (_) {}

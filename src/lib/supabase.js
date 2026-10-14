@@ -202,6 +202,10 @@ export async function signOutEverywhere(redirectTo = '/login') {
        signed out and logged back in... it shouldn't be applying any of the
        demo features." */
     localStorage.removeItem('tmke_demo');
+    // A walkthrough left open, and anything typed into its training kit, end
+    // with the session: nothing of one person's walk survives to the next.
+    localStorage.removeItem('tmke.tour');
+    localStorage.removeItem('tmke.brand.training.scratch');
     localStorage.removeItem('tmke.brand.demo');
     localStorage.removeItem('tmke.brand.training');
     // Any stray default-keyed sessions from an older build.

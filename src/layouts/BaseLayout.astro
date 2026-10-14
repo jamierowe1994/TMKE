@@ -219,8 +219,16 @@ const hideFromSearch = noindex || privateArea;
         // Only a walkthrough opened by name from the guides. The first-login
         // tour has no walk id and belongs to a real new member, whose own
         // details are the whole point of it.
+        /* Only inside the walkthrough's demonstration window -- the frame
+           the guide opens -- never on the member's own pages. Dani, 14 Oct:
+           "Member Hub and the information in it should not be linked to the
+           training kit. The training kit is solely there for that
+           demonstration environment." A walk left half-finished used to
+           leave every hub page wearing Rimberio Homes, and their Brand Kit
+           page quietly not saving. */
         function walking() {
           try {
+            if (window.self === window.top) return false;
             var s = JSON.parse(localStorage.getItem(TOUR) || "null");
             return !!(s && s.active && s.walk);
           } catch (_) { return false; }

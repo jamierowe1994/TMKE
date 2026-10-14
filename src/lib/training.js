@@ -30,6 +30,8 @@ export const SCRATCH = "tmke.brand.training.scratch";
 
 export function walkthroughRunning() {
   try {
+    // The demonstration window only (see BaseLayout): never a member's own page.
+    if (window.self === window.top) return false;
     const s = JSON.parse(localStorage.getItem(TOUR_STATE) || "null");
     return !!(s && s.active && s.walk);
   } catch (_) { return false; }
