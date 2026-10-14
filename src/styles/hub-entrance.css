@@ -1,37 +1,68 @@
 /* ---------- Hub entrances (Dani, 14 Oct) ----------
-   Loaded by WorkspaceHeader, so every hub page with the header has it --
-   including the ones that do not use ws-system.css (Brand Kit, Learn).
-   Whole sections, not lines. The menu bar is simply there; the page's
-   sections -- the banner first -- fade up one after another, quickly. Dani:
-   "the header is just automatically there, and then the rest sort of fade in
-   quickly, one after the other ... nothing super long, but ... a premium
-   feel". The old line-by-line entrances (hero lines, headings, the
-   dashboard's sequence and its dropping menu bar) stay switched off inside
-   the sections, so each section arrives whole.
+   Loaded by WorkspaceHeader (and the dashboard, which draws its own header),
+   so every hub page has it, including the ones without ws-system.css.
+
+   The menu bar is always simply there. Whole sections arrive, never lines
+   inside them. Which entrance is being tried out is html[data-entrance],
+   set by BaseLayout from ?anim= (a-e, remembered for the browser tab) so Dani
+   can feel each one across real pages and pick. Subtle, classy, no sudden
+   movement:
+
+     a  Still          nothing moves; the page is there
+     b  Soft fade      the whole page fades in together, 0.35s
+     c  Banner first   the banner is there; the sections below fade in turn
+     d  Cascade        every section, banner too, fades in turn, slower
+     e  Drift          as d, with a 4px lift
 
    Not on a page behind the ready gate (the Studio, packs, Your Designs):
-   those appear finished from behind their loader, and stay as they are.
+   those appear finished from behind their loader. The sequence waits for
+   the banner's photograph (tmke-enter-wait, at most 0.9s). */
+@keyframes tmkeFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tmkeFadeAgain { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tmkeDrift { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 
-   The sequence waits for the banner's photograph (BaseLayout,
-   tmke-enter-wait; never longer than 0.9s), so the banner arrives whole
-   rather than its picture landing after it. */
-@keyframes tmkeEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > * {
-  animation: tmkeEnter 0.45s cubic-bezier(.22, .8, .24, 1) both !important;
+/* The sections of a page: the main column's children, and anything that
+   sits beside it (the dashboard's last chapters). */
+html:not(.tmke-gate-page)[data-entrance="b"] :is(.ws-left, .lrn-main, .dash-main) > *,
+html:not(.tmke-gate-page)[data-entrance="b"] .ws-main > :not(.ws-left) {
+  animation: tmkeFade 0.35s ease-out both !important;
 }
-html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(2) { animation-delay: 0.06s !important; }
-html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.12s !important; }
-html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.18s !important; }
-html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(5) { animation-delay: 0.24s !important; }
-html:not(.tmke-gate-page) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(n+6) { animation-delay: 0.3s !important; }
-/* Sections that sit beside the main column rather than in it (the
-   dashboard's last chapters) come in after it. */
-html:not(.tmke-gate-page) .ws-main > :not(.ws-left) {
-  animation: tmkeEnter 0.45s cubic-bezier(.22, .8, .24, 1) 0.3s both !important;
+html:not(.tmke-gate-page)[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :not(:first-child),
+html:not(.tmke-gate-page)[data-entrance="c"] .ws-main > :not(.ws-left) {
+  animation: tmkeFade 0.4s ease-out both !important;
 }
+html:not(.tmke-gate-page)[data-entrance="d"] :is(.ws-left, .lrn-main, .dash-main) > *,
+html:not(.tmke-gate-page)[data-entrance="d"] .ws-main > :not(.ws-left) {
+  animation: tmkeFade 0.55s ease-out both !important;
+}
+html:not(.tmke-gate-page)[data-entrance="e"] :is(.ws-left, .lrn-main, .dash-main) > *,
+html:not(.tmke-gate-page)[data-entrance="e"] .ws-main > :not(.ws-left) {
+  animation: tmkeDrift 0.6s cubic-bezier(.25, .1, .25, 1) both !important;
+}
+/* The turn each section takes. */
+html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.05s !important; }
+html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.1s !important; }
+html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :nth-child(n+5),
+html[data-entrance="c"] .ws-main > :not(.ws-left) { animation-delay: 0.15s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(2) { animation-delay: 0.08s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.16s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.24s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(n+5),
+html:is([data-entrance="d"], [data-entrance="e"]) .ws-main > :not(.ws-left) { animation-delay: 0.3s !important; }
+
 html.tmke-enter-wait :is(.ws-left, .lrn-main, .dash-main) > *,
 html.tmke-enter-wait .ws-main > :not(.ws-left) { animation-play-state: paused !important; }
-/* Inside a section, nothing moves on its own. */
+
+/* Bookings' chapters are shown once their data is in, after the page's own
+   entrance has played: they take a plain fade of their own then (a new
+   name, so it starts afresh), never a lift. Nothing at all on Still. */
+html:not(.tmke-gate-page):not([data-entrance="a"]) .ws-left > .bk-entered {
+  animation: tmkeFadeAgain 0.4s ease-out both !important;
+}
+
+/* Inside a section, nothing moves on its own: the old line-by-line
+   entrances (hero lines, headings, the dashboard's sequence and its dropping
+   menu bar) stay off everywhere. */
 .ws-nav, .ed-onboard-inner,
 :is(.ws-left, .lrn-main, .dash-main) > * :is(.ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn, .ws-brief li, .ws-week .ws-day, .ws-tools .ws-tool),
 .ws-main > :not(.ws-left) :is(.ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .ws-hero-sub, .ws-hero-cta-btn, .ws-brief li, .ws-week .ws-day, .ws-tools .ws-tool),
@@ -39,6 +70,13 @@ html.tmke-gate-page :is(.ws-rise, .ws-block-head, .ws-hero-date, .ws-greeting, .
   animation: none !important; opacity: 1 !important;
 }
 :is(.ws-left, .lrn-main, .dash-main) > * :is(.ws-rise, .ws-brief li), html.tmke-gate-page :is(.ws-rise, .ws-brief li) { transform: none !important; }
+/* A section with an entrance of its own from its page (.ws-rise) is shown
+   still unless one of the entrances above is running it. */
+html:is([data-entrance="a"], .tmke-gate-page, :not([data-entrance])) :is(.ws-left, .lrn-main, .dash-main) > *,
+html:is([data-entrance="a"], .tmke-gate-page, :not([data-entrance])) .ws-main > :not(.ws-left),
+html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :first-child {
+  animation: none !important; opacity: 1 !important; transform: none !important;
+}
 @media (prefers-reduced-motion: reduce) {
   :is(.ws-left, .lrn-main, .dash-main) > *, .ws-main > :not(.ws-left) { animation: none !important; opacity: 1 !important; transform: none !important; }
 }

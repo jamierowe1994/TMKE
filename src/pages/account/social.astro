@@ -277,6 +277,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
       border-radius: var(--ws-r); padding: 20px 22px;
     }
     .soc-state { font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-faint); line-height: 1.6; margin: 0; }
+    .soc-retry { margin-left: 6px; padding: 0; border: 0; background: none; font: inherit; color: var(--ws-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
     /* Status rides the strip, so it is white-on-wine like everything else
        there rather than a green pill the strip has to make room for. */
@@ -548,6 +549,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
     function show(data) {
+      clearTimeout(socTimer);
       $("soc-loading").hidden = true;
       if (!data || !data.client) { $("soc-noclient").hidden = false; return; }
       $("soc-client").hidden = false;
@@ -757,7 +759,21 @@ import { gbpFromPence } from "../../lib/supabase.js";
       });
     }
 
+    /* Never stuck on "Loading your social media…". It waited, with nothing
+       said, on the sign-in check and on the Worker; if either stalled the
+       message sat there for good (Dani, 14 Oct: "Loading your social media
+       does not seem to be working"). After 12 seconds it says so, offers a
+       retry, and the console says which step it was waiting on. */
+    let socStep = "starting";
+    const socTimer = setTimeout(() => {
+      const el = $("soc-loading");
+      if (!el || el.hidden) return;
+      console.error("[smm] still waiting after 12s on:", socStep);
+      el.innerHTML = 'Your social media didn\u2019t load. <button type="button" class="soc-retry">Try again</button>';
+      el.querySelector(".soc-retry")?.addEventListener("click", () => location.reload());
+    }, 12000);
     (async () => {
+      socStep = "the sign-in";
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) $("footer-email").textContent = session.user.email || "";
       wireWaitlist(session);
@@ -769,17 +785,21 @@ import { gbpFromPence } from "../../lib/supabase.js";
       // getSession() is local-only - a cleared/revoked session can still look
       // valid to it. Confirm with the server before letting anyone in.
       if (!DEV && !isTrainingDemo()) {
+        socStep = "the server's check of the sign-in";
         const { data: { user }, error } = await supabase.auth.getUser();
         if (!user || error) { location.replace("/login?next=" + encodeURIComponent("/account/social")); return; }
       }
       if (!WORKER) { show({ client: null }); return; }
       try {
+        socStep = "the Worker (/smm/mine)";
         const res = await fetch(`${WORKER}/smm/mine`, { headers: { Authorization: "Bearer " + session.access_token } });
+        if (!res.ok) console.error("[smm] /smm/mine answered", res.status);
         const j = await res.json().catch(() => ({}));
+        socStep = "drawing the page";
         show(j);
         // Back from reading the sample report: land on the sample again.
         if (!j.client && new URLSearchParams(location.search).has("sample")) showSample();
-      } catch (_) { show({ client: null }); }
-    })();
+      } catch (e) { console.error("[smm] failed at", socStep, e); show({ client: null }); }
+    })().catch((e) => console.error("[smm] failed at", socStep, e));
   </script>
 </BaseLayout>

@@ -313,6 +313,17 @@ const hideFromSearch = noindex || privateArea;
       <script is:inline>
         (function () {
           var r = document.documentElement, done = false;
+          /* Which entrance (hub-entrance.css): ?anim=a..e tries one, and it is
+             remembered for this browser tab so it can be felt across pages.
+             c until Dani picks (14 Oct). */
+          var pick = "c";
+          try {
+            var q = (new URLSearchParams(location.search).get("anim") || "").toLowerCase();
+            if (/^[a-e]$/.test(q)) sessionStorage.setItem("tmke.anim", q);
+            var kept = sessionStorage.getItem("tmke.anim");
+            if (kept && /^[a-e]$/.test(kept)) pick = kept;
+          } catch (_) {}
+          r.setAttribute("data-entrance", pick);
           var go = function () { if (done) return; done = true; r.classList.remove("tmke-enter-wait"); };
           r.classList.add("tmke-enter-wait");
           setTimeout(go, 900);
