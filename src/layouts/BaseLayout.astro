@@ -360,13 +360,24 @@ const hideFromSearch = noindex || privateArea;
         <script is:inline define:vars={{ gateIf: readyGateIf }}>
           (function () {
             var GATE_MAX = 12000;
+            /* Shown for at least a second from the start of the page, so a
+               quick load reads as a deliberate moment rather than a flash of
+               burgundy (Dani, 14 Oct). The page is finished behind it either
+               way; this only decides when the cover lifts. */
+            var MIN_SHOW = 1000;
             var root = document.documentElement;
             try { if (gateIf && !new RegExp(gateIf).test(location.search)) return; } catch (_) { return; }
             root.classList.add("tmke-gated");
-            var waits = {}, holds = 0, opened = false, domDone = false, after = [];
+            var waits = {}, holds = 0, opened = false, opening = false, domDone = false, after = [];
             function pending() { var out = []; for (var k in waits) if (!waits[k]) out.push(k); return out; }
             function open(timedOut) {
-              if (opened) return;
+              if (opened || (opening && !timedOut)) return;
+              var early = MIN_SHOW - (window.performance ? performance.now() : MIN_SHOW);
+              if (!timedOut && early > 0) {
+                opening = true;
+                setTimeout(function () { opening = false; open(false); }, early);
+                return;
+              }
               opened = true;
               if (timedOut) {
                 var left = pending();
