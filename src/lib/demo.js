@@ -55,7 +55,8 @@ function demoKitKey() {
 export function restoreDemoBrand() {
   try {
     if (inAdminStudio()) return false;                     // the admin Studio is never the demo
-    if (!localStorage.getItem(KEY)) return false;          // not in the demo
+    // Not in the demo -- or a public demo that a real sign-in has just ended.
+    if (!demoUser()) return false;
     /* Deliberately NOT gated on being signed in. Signing out now ends the
        demo outright (signOutEverywhere clears both keys), so a flag that is
        still here means a demo somebody started on purpose - and Dani starts
@@ -102,9 +103,28 @@ try { restoreDemoBrand(); } catch (_) {}
 export function inAdminStudio() {
   try { return new URLSearchParams(location.search).get("mode") === "admin"; } catch (_) { return false; }
 }
+/* Somebody really signed in, as a member. The public demo ends the moment
+   they are: a person who tried the demo on this device and then joined was
+   signing in to the demo account instead of their own (14 Oct, at the first
+   TEG sign-up session). The TRAINING demo is ours and is run while signed in,
+   so it is left alone. */
+function memberSignedIn() {
+  try {
+    const raw = localStorage.getItem("tmke-member-auth");
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    return !!(s && (s.access_token || (s.currentSession && s.currentSession.access_token)));
+  } catch (_) { return false; }
+}
 export function demoUser() {
   if (inAdminStudio()) return null;
-  try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
+  let rec = null;
+  try { rec = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) { return null; }
+  if (rec && !(rec.kind === "training" || rec.training) && memberSignedIn()) {
+    try { endDemo(); } catch (_) {}
+    return null;
+  }
+  return rec;
 }
 export function isDemo() { return !!demoUser(); }
 /* The training demo — /demo?go=1&brand=demo. It wears a brand kit and nothing
