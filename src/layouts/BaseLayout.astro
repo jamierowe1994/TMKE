@@ -327,15 +327,35 @@ const hideFromSearch = noindex || privateArea;
             cover lifts anyway. Helpers: src/lib/ready-gate.js. */}
         <style is:inline>
           html.tmke-gated { background: #371e28; overflow: hidden; }
+          /* The loader, drawn rather than a picture (Dani, 14 Oct): flat
+             burgundy board with a fine even grain, "The Studio" pressed into
+             it, and a small TMKE under its last letter. */
           .tmke-gate { position: fixed; inset: 0; z-index: 9400; pointer-events: none; visibility: hidden; opacity: 0;
-            background: #371e28 url("/images/loading-tmke.webp") center / cover no-repeat; }
-          @media (max-aspect-ratio: 16 / 9) { .tmke-gate { background-size: contain; } }
+            display: grid; place-items: center; overflow: hidden; background: #371e28; }
           html.tmke-gated .tmke-gate { visibility: visible; opacity: 1; pointer-events: auto;
             /* Belt and braces: if the script never runs, the page still shows. */
             animation: tmke-gate-failsafe 0s 15s forwards; }
           html.tmke-gate-lifting .tmke-gate { visibility: visible; opacity: 0; transition: opacity .3s ease; }
           @keyframes tmke-gate-failsafe { to { visibility: hidden; opacity: 0; pointer-events: none; } }
           @media (prefers-reduced-motion: reduce) { html.tmke-gate-lifting .tmke-gate { transition: none; } }
+          .tmke-gate-paper { position: absolute; inset: 0; pointer-events: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='t'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch' seed='11'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%25' height='100%25' filter='url(%23t)'/></svg>");
+            background-size: 180px 180px; opacity: 0.07; mix-blend-mode: overlay; }
+          /* The words wait for the brand serif, so they never appear in a
+             stand-in font and change; if it is slow, the board shows alone. */
+          .tmke-gate-words { position: relative; display: inline-flex; flex-direction: column; align-items: flex-end;
+            font-size: clamp(31px, 5.04vw, 83px); opacity: 0; transition: opacity .25s ease; }
+          .tmke-gate.has-type .tmke-gate-words { opacity: 1; }
+          .tmke-gate-mark, .tmke-gate-sub { font-family: "The Seasons", "Cormorant Garamond", Georgia, serif; font-weight: 400;
+            line-height: 1; color: #381f29; filter: url(#tmke-gate-press); }
+          .tmke-gate-mark { font-size: 1em; letter-spacing: 0.01em; }
+          /* A fixed share of the words above, so the E sits under the o at
+             any size (measured from the font: the o's ink ends 0.053em short
+             of its box, the E's 0.037em). */
+          .tmke-gate-sub { margin-top: 0.55em; font-size: 0.26em; letter-spacing: 0.16em; margin-right: 0.007em; }
+          /* On a phone "The Studio" spans about 45% of the screen (Dani,
+             14 Oct); the small TMKE would be too small to read, so it goes. */
+          @media (max-width: 640px) { .tmke-gate-words { font-size: 9.5vw; } .tmke-gate-mark { filter: url(#tmke-gate-press-sm); color: #3e2330; } .tmke-gate-sub { display: none; } }
         </style>
         <script is:inline define:vars={{ gateIf: readyGateIf }}>
           (function () {
@@ -413,7 +433,64 @@ const hideFromSearch = noindex || privateArea;
     )}
   </head>
   <body data-dashboard={dashboard ? "" : undefined}>
-    {readyGate && <div class="tmke-gate" aria-hidden="true"></div>}
+    {readyGate && (
+      <div class="tmke-gate" aria-hidden="true">
+        <svg width="0" height="0" style="position:absolute">
+          {/* Pressed into the board, lit from the top left: the upper-left
+              walls of each stroke in shadow, the lower-right catching the
+              light, both inside the letter as on real debossed paper. */}
+          <filter id="tmke-gate-press" x="-10%" y="-30%" width="120%" height="160%" color-interpolation-filters="sRGB">
+            <feOffset in="SourceAlpha" dx="1.3" dy="1.6" result="dn" />
+            <feGaussianBlur in="dn" stdDeviation="0.8" result="dnb" />
+            <feComposite in="SourceAlpha" in2="dnb" operator="out" result="topWall" />
+            <feFlood flood-color="#000" flood-opacity="0.52" />
+            <feComposite in2="topWall" operator="in" result="shade" />
+            <feOffset in="SourceAlpha" dx="-1" dy="-1.2" result="up" />
+            <feGaussianBlur in="up" stdDeviation="0.7" result="upb" />
+            <feComposite in="SourceAlpha" in2="upb" operator="out" result="lowWall" />
+            <feFlood flood-color="#fff" flood-opacity="0.14" />
+            <feComposite in2="lowWall" operator="in" result="lit" />
+            <feMerge><feMergeNode in="SourceGraphic" /><feMergeNode in="shade" /><feMergeNode in="lit" /></feMerge>
+          </filter>
+          {/* The same press, deeper, for a phone: small type needs more to read as pressed. */}
+          <filter id="tmke-gate-press-sm" x="-10%" y="-30%" width="120%" height="160%" color-interpolation-filters="sRGB">
+            <feOffset in="SourceAlpha" dx="1.3" dy="1.6" result="dn" />
+            <feGaussianBlur in="dn" stdDeviation="0.8" result="dnb" />
+            <feComposite in="SourceAlpha" in2="dnb" operator="out" result="topWall" />
+            <feFlood flood-color="#000" flood-opacity="0.78" />
+            <feComposite in2="topWall" operator="in" result="shade" />
+            <feOffset in="SourceAlpha" dx="-1" dy="-1.2" result="up" />
+            <feGaussianBlur in="up" stdDeviation="0.7" result="upb" />
+            <feComposite in="SourceAlpha" in2="upb" operator="out" result="lowWall" />
+            <feFlood flood-color="#fff" flood-opacity="0.3" />
+            <feComposite in2="lowWall" operator="in" result="lit" />
+            <feMerge><feMergeNode in="SourceGraphic" /><feMergeNode in="shade" /><feMergeNode in="lit" /></feMerge>
+          </filter>
+        </svg>
+        <div class="tmke-gate-words">
+          <span class="tmke-gate-mark">The Studio</span>
+          <span class="tmke-gate-sub">TMKE</span>
+        </div>
+        <div class="tmke-gate-paper"></div>
+      </div>
+    )}
+    {readyGate && (
+      <script is:inline>
+        (function () {
+          var g = document.querySelector(".tmke-gate"), tries = 0;
+          if (!g || !document.fonts) return;
+          (function look() {
+            try { document.fonts.load('400 40px "The Seasons"'); } catch (_) {}
+            /* Not fonts.check(): that also says yes before the font's
+               stylesheet has even arrived, when it has no face to look for. */
+            var ready = false;
+            try { document.fonts.forEach(function (f) { if (String(f.family).replace(/["']/g, "") === "The Seasons" && f.status === "loaded") ready = true; }); } catch (_) {}
+            if (ready) { g.classList.add("has-type"); return; }
+            if (++tries < 40) setTimeout(look, 100);
+          })();
+        })();
+      </script>
+    )}
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
