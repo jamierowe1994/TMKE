@@ -313,19 +313,55 @@ const hideFromSearch = noindex || privateArea;
       <script is:inline>
         (function () {
           var r = document.documentElement, done = false;
-          /* Which entrance (hub-entrance.css): ?anim=a..e tries one, and it is
-             remembered for this browser tab so it can be felt across pages.
-             e by default: "smooth and premium over just whacking it on the
-             page" (Dani, 14 Oct). */
-          var pick = "e";
-          try {
-            var q = (new URLSearchParams(location.search).get("anim") || "").toLowerCase();
-            if (/^[a-e]$/.test(q)) sessionStorage.setItem("tmke.anim2", q);
-            var kept = sessionStorage.getItem("tmke.anim2");
-            if (kept && /^[a-e]$/.test(kept)) pick = kept;
-          } catch (_) {}
-          r.setAttribute("data-entrance", pick);
-          var go = function () { if (done) return; done = true; r.classList.remove("tmke-enter-wait"); };
+          /* The entrance (hub-entrance.css: Ink + Soft focus, Dani's pick,
+             14 Oct). Not with reduced motion asked for: the page is shown
+             still. */
+          var still0 = false;
+          try { still0 = window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) {}
+          if (!still0) r.classList.add("tmke-enter");
+          /* The banner title, written in a letter at a time: each letter
+             its own span with its own delay, kept inside its word so a line
+             never breaks mid-word. --te is when the last letter lands; the
+             intro, the button and the sections below are timed from it. */
+          var ink = function () {
+            var te = 0.6, START = 0.15, STEP = 0.028, n = 0;
+            var t = document.querySelector(".ws-left > .ws-hero .ws-greeting, .lrn-hero .lrn-title, .bk-hero .bk-hero-title");
+            if (t && !still0 && !t.getAttribute("data-inked")) {
+              t.setAttribute("data-inked", "1");
+              t.setAttribute("aria-label", (t.textContent || "").replace(/\s+/g, " ").trim());
+              var walk = function (node) {
+                [].slice.call(node.childNodes).forEach(function (c) {
+                  if (c.nodeType === 1) { walk(c); return; }
+                  if (c.nodeType !== 3) return;
+                  var frag = document.createDocumentFragment();
+                  c.nodeValue.split(/(\s+)/).forEach(function (part) {
+                    if (!part) return;
+                    if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(" ")); return; }
+                    var w = document.createElement("span");
+                    w.className = "tmke-word"; w.setAttribute("aria-hidden", "true");
+                    part.split("").forEach(function (ch) {
+                      var sp = document.createElement("span");
+                      sp.className = "tmke-ch"; sp.textContent = ch;
+                      sp.style.animationDelay = (START + (n++) * STEP).toFixed(3) + "s";
+                      w.appendChild(sp);
+                    });
+                    frag.appendChild(w);
+                  });
+                  c.parentNode.replaceChild(frag, c);
+                });
+              };
+              walk(t);
+              if (n) te = START + n * STEP + 0.7;
+            }
+            r.style.setProperty("--te", te.toFixed(2) + "s");
+          };
+          var go = function () {
+            if (done) return; done = true;
+            try { ink(); } catch (_) {}
+            void r.offsetWidth;             // the measured --te is in place before anything starts
+            r.classList.add("tmke-go");
+            r.classList.remove("tmke-enter-wait");
+          };
           r.classList.add("tmke-enter-wait");
           /* The page shows once it has SETTLED, then glides in once (Dani,
              14 Oct: "still very jumpy ... I'm not fussed if it's going to take

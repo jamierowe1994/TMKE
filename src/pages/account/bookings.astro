@@ -240,11 +240,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
        once, together. The failsafe shows them whatever happens. */
     .bk-wait { visibility: hidden; animation: bk-wait-failsafe 0s 10s forwards; }
     @keyframes bk-wait-failsafe { to { visibility: visible; } }
-    /* The page's entrance (ws-system.css) has played by the time the chapters
-       are ready, so they take their own when they are shown: a new name, so
-       the browser starts it afresh, keeping the page's stagger. */
-    @keyframes bkEnter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    html:not(.tmke-gate-page) .ws-left > .bk-entered { animation-name: bkEnter !important; }
+    /* The page's entrance waits for the chapters (the hold below), so they
+       come in with the rest of the page, in turn. */
     .bk-state { font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.55); padding: 18px 22px; border: 1px solid rgba(28,29,34,0.1); }
     .bk-hero { --ws-hero-img: url('/assets/hub/bookings.jpg'); }
     /* Spacing comes from .ws-hero-cta. */
@@ -563,9 +560,12 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     const docsByKey = new Map();
     const invsByKey = new Map();
 
-    // Show the three chapters, once, when they are final (see .bk-wait).
+    // Show the three chapters, once, when they are final (see .bk-wait), and
+    // let the page's entrance begin (hub-entrance.css).
+    const releaseEntrance = (window as any).__tmkeEnterHold ? (window as any).__tmkeEnterHold() : null;
     function revealChapters() {
-      document.querySelectorAll('.bk-wait').forEach((el) => { el.classList.remove('bk-wait'); el.classList.add('bk-entered'); });
+      document.querySelectorAll('.bk-wait').forEach((el) => el.classList.remove('bk-wait'));
+      if (releaseEntrance) releaseEntrance();
     }
     // A wait that cannot hold the page for longer than `ms`.
     const atMost = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise((r) => setTimeout(r, ms))]);
