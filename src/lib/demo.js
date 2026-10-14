@@ -175,6 +175,43 @@ export function endDemo() {
   } catch (_) {}
 }
 
+/* The moment somebody signs in, the demo is over and nothing of it stays
+   behind. Dani, 14 Oct: "as soon as somebody is signed in, any remnants of
+   the demo are gone." Called by every page that signs a person in: login,
+   the email link (auth/callback), reset-password and join.
+
+   Gone: the demo flag (public or training), the training kit, the demo's
+   copy in the brand cache (the member's own is fetched from the server), and
+   what a visitor leaves in the Studio -- recent colours and fonts, favourite
+   fonts, saved photo collections, coaching tips seen. The one thing kept is
+   a public demo kit built by THIS person (same email), which the dashboard
+   then adopts into their account (brand-cache claimDemoBrandKit). */
+const DEMO_LEFTOVERS = ["tmke.recentColors", "tmke.editor.recentFonts", "tmke.editor.favFonts", "tmke.collections", "tmke.coach.seen"];
+export function clearDemoAtSignIn(email) {
+  try {
+    let who = String(email || "").trim().toLowerCase();
+    if (!who) {
+      try {
+        const s = JSON.parse(localStorage.getItem("tmke-member-auth") || "null");
+        who = String((s && s.user && s.user.email) || "").trim().toLowerCase();
+      } catch (_) {}
+    }
+    let rec = null;
+    try { rec = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (_) {}
+    if (rec) {
+      endDemo();   // labels a public demo's kit with its maker, then ends it
+      localStorage.removeItem("tmke.brand");
+      localStorage.removeItem("tmke.brand.skipped");
+      sessionStorage.removeItem("tmke.brand.stash");
+      if (!(rec.kind === "training" || rec.training)) DEMO_LEFTOVERS.forEach((k) => localStorage.removeItem(k));
+    }
+    localStorage.removeItem(TRAINING_KIT);
+    let kit = null;
+    try { kit = JSON.parse(localStorage.getItem("tmke.brand.demo") || "null"); } catch (_) {}
+    if (kit && (!who || String(kit.madeBy || "").trim().toLowerCase() !== who)) localStorage.removeItem("tmke.brand.demo");
+  } catch (_) {}
+}
+
 const STYLE = `
 .dm-lock{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;background:rgba(28,29,34,0.55);opacity:0;transition:opacity .25s}
 .dm-lock.is-in{opacity:1}

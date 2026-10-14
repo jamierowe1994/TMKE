@@ -199,6 +199,7 @@ const TILES = [
 
   <script>
     import { supabase } from "../lib/supabase.js";
+    import { clearDemoAtSignIn } from "../lib/demo.js";
     import { signUpMember } from "../lib/member-signup.js";
     import { track } from "../lib/track.js";
 
@@ -346,8 +347,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").trim().replace(/\/+$
       if (res.needsConfirm) {
         form.hidden = true; altEl.hidden = true; doneEl.hidden = false;
         resendBtn.dataset.email = String(data.get("email") || "").trim();
+        return;
       }
-      else if (typeof window.tmkeSplash === "function") window.tmkeSplash(NEXT);
+      clearDemoAtSignIn(String(data.get("email") || ""));   // straight in: the demo is over
+      if (typeof window.tmkeSplash === "function") window.tmkeSplash(NEXT);
       else location.href = NEXT;
     });
   </script>
