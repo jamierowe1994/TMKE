@@ -19,7 +19,13 @@
    the banner's photograph (tmke-enter-wait, at most 0.9s). */
 @keyframes tmkeFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes tmkeFadeAgain { from { opacity: 0; } to { opacity: 1; } }
-@keyframes tmkeDrift { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes tmkeDrift { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* No sideways shift. A page opened short has no scrollbar; its content
+   arrives, a scrollbar appears, and everything moved left by its width
+   (Dani, 14 Oct: "why does the page shift slightly from right to left?").
+   The scrollbar's room is kept from the start. */
+html { scrollbar-gutter: stable; }
 
 /* The sections of a page: the main column's children, and anything that
    sits beside it (the dashboard's last chapters). */
@@ -33,22 +39,23 @@ html:not(.tmke-gate-page)[data-entrance="c"] .ws-main > :not(.ws-left) {
 }
 html:not(.tmke-gate-page)[data-entrance="d"] :is(.ws-left, .lrn-main, .dash-main) > *,
 html:not(.tmke-gate-page)[data-entrance="d"] .ws-main > :not(.ws-left) {
-  animation: tmkeFade 0.55s ease-out both !important;
+  animation: tmkeFade 0.7s cubic-bezier(.16, 1, .3, 1) both !important;
 }
 html:not(.tmke-gate-page)[data-entrance="e"] :is(.ws-left, .lrn-main, .dash-main) > *,
 html:not(.tmke-gate-page)[data-entrance="e"] .ws-main > :not(.ws-left) {
-  animation: tmkeDrift 0.6s cubic-bezier(.25, .1, .25, 1) both !important;
+  /* Eases to a soft stop: most of the travel early, the last of it slow. */
+  animation: tmkeDrift 0.7s cubic-bezier(.16, 1, .3, 1) both !important;
 }
 /* The turn each section takes. */
 html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.05s !important; }
 html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.1s !important; }
 html[data-entrance="c"] :is(.ws-left, .lrn-main, .dash-main) > :nth-child(n+5),
 html[data-entrance="c"] .ws-main > :not(.ws-left) { animation-delay: 0.15s !important; }
-html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(2) { animation-delay: 0.08s !important; }
-html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.16s !important; }
-html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.24s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(2) { animation-delay: 0.09s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(3) { animation-delay: 0.18s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(4) { animation-delay: 0.27s !important; }
 html:is([data-entrance="d"], [data-entrance="e"]) :is(.ws-left, .lrn-main, .dash-main) > :nth-child(n+5),
-html:is([data-entrance="d"], [data-entrance="e"]) .ws-main > :not(.ws-left) { animation-delay: 0.3s !important; }
+html:is([data-entrance="d"], [data-entrance="e"]) .ws-main > :not(.ws-left) { animation-delay: 0.34s !important; }
 
 html.tmke-enter-wait :is(.ws-left, .lrn-main, .dash-main) > *,
 html.tmke-enter-wait .ws-main > :not(.ws-left) { animation-play-state: paused !important; }
@@ -57,7 +64,7 @@ html.tmke-enter-wait .ws-main > :not(.ws-left) { animation-play-state: paused !i
    entrance has played: they take a plain fade of their own then (a new
    name, so it starts afresh), never a lift. Nothing at all on Still. */
 html:not(.tmke-gate-page):not([data-entrance="a"]) .ws-left > .bk-entered {
-  animation: tmkeFadeAgain 0.4s ease-out both !important;
+  animation: tmkeFadeAgain 0.7s cubic-bezier(.16, 1, .3, 1) both !important;
 }
 
 /* Inside a section, nothing moves on its own: the old line-by-line

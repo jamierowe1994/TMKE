@@ -315,18 +315,29 @@ const hideFromSearch = noindex || privateArea;
           var r = document.documentElement, done = false;
           /* Which entrance (hub-entrance.css): ?anim=a..e tries one, and it is
              remembered for this browser tab so it can be felt across pages.
-             c until Dani picks (14 Oct). */
-          var pick = "c";
+             e by default: "smooth and premium over just whacking it on the
+             page" (Dani, 14 Oct). */
+          var pick = "e";
           try {
             var q = (new URLSearchParams(location.search).get("anim") || "").toLowerCase();
-            if (/^[a-e]$/.test(q)) sessionStorage.setItem("tmke.anim", q);
-            var kept = sessionStorage.getItem("tmke.anim");
+            if (/^[a-e]$/.test(q)) sessionStorage.setItem("tmke.anim2", q);
+            var kept = sessionStorage.getItem("tmke.anim2");
             if (kept && /^[a-e]$/.test(kept)) pick = kept;
           } catch (_) {}
           r.setAttribute("data-entrance", pick);
           var go = function () { if (done) return; done = true; r.classList.remove("tmke-enter-wait"); };
           r.classList.add("tmke-enter-wait");
-          setTimeout(go, 900);
+          /* The page shows once it has SETTLED, then glides in once (Dani,
+             14 Oct: "still very jumpy ... I'm not fussed if it's going to take
+             a second for everything to load in"). Settled means: the banner's
+             photograph is in, the fonts are in, and the page has stopped
+             changing size for a quarter of a second -- the calendar, the
+             orders, the dashboard's sections have arrived. Never longer than
+             1.6s; a slow page shows what it has. */
+          setTimeout(go, 1600);
+          var photo = false, fonts = false, still = false;
+          var check = function () { if (photo && fonts && still) go(); };
+          try { (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { fonts = true; check(); }); } catch (_) { fonts = true; }
           document.addEventListener("DOMContentLoaded", function () {
             var urls = [];
             document.querySelectorAll(".ws-hero-photo, .lrn-hero-bg, .bk-hero-bg, .mb-hero").forEach(function (el) {
@@ -335,9 +346,22 @@ const hideFromSearch = noindex || privateArea;
                 el.querySelectorAll("img").forEach(function (i) { var u = i.currentSrc || i.getAttribute("src"); if (u) urls.push(u); });
               } catch (_) {}
             });
-            if (!urls.length) return go();
-            var left = urls.length;
-            urls.forEach(function (u) { var im = new Image(); im.onload = im.onerror = function () { if (--left <= 0) go(); }; im.src = u; });
+            if (!urls.length) { photo = true; check(); }
+            else {
+              var left = urls.length;
+              urls.forEach(function (u) { var im = new Image(); im.onload = im.onerror = function () { if (--left <= 0) { photo = true; check(); } }; im.src = u; });
+            }
+            // Still for 250ms: no change in the size of the page's content.
+            var main = document.querySelector(".ws-main, .lrn-main, .dash-main") || document.body;
+            var timer = null;
+            var calm = function () { clearTimeout(timer); still = false; timer = setTimeout(function () { still = true; check(); }, 250); };
+            calm();
+            try {
+              var ro = new ResizeObserver(calm); ro.observe(main);
+              var mo = new MutationObserver(calm); mo.observe(main, { childList: true, subtree: true });
+              var stop = function () { try { ro.disconnect(); mo.disconnect(); } catch (_) {} };
+              var t = setInterval(function () { if (done) { stop(); clearInterval(t); } }, 100);
+            } catch (_) {}
           });
         })();
       </script>
