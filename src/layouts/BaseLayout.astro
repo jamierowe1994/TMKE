@@ -633,35 +633,149 @@ const hideFromSearch = noindex || privateArea;
          never intercepts clicks. -->
     <div class="site-grain" aria-hidden="true"></div>
 
-    <!-- Sign-in splash overlay — fired by window.tmkeSplash().
-         All-CSS animation: aurora gradient, drifting confetti shapes, and
-         a marquee wordmark. No video, no images — runs on any connection. -->
-    <div class="splash" id="tmke-splash" aria-hidden="true">
-      <div class="splash-glow"></div>
-      <div class="splash-inner">
-        <div class="splash-eyebrow">Members Only</div>
-        <h1 class="splash-title">Studio&nbsp;Hub</h1>
-        <p class="splash-sub">Built for better marketing</p>
-        <div class="splash-dots" aria-hidden="true"><span></span><span></span><span></span></div>
-      </div>
+    <!-- Sign-in screen -- fired by window.tmkeSplash(destination). The board,
+         "The Studio" pressed in, and a design from the packs riding with the
+         cursor (styles: global.css, Sign-in splash). Dani, 14 Oct. -->
+    <div class="tsplash" id="tmke-splash" aria-hidden="true">
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <filter id="tsplash-press" x="-10%" y="-30%" width="120%" height="160%" color-interpolation-filters="sRGB">
+          <feOffset in="SourceAlpha" dx="1.6" dy="2" result="dn" /><feGaussianBlur in="dn" stdDeviation="1" result="dnb" />
+          <feComposite in="SourceAlpha" in2="dnb" operator="out" result="topWall" /><feFlood flood-color="#000" flood-opacity="0.52" /><feComposite in2="topWall" operator="in" result="shade" />
+          <feOffset in="SourceAlpha" dx="-1.2" dy="-1.5" result="up" /><feGaussianBlur in="up" stdDeviation="0.9" result="upb" />
+          <feComposite in="SourceAlpha" in2="upb" operator="out" result="lowWall" /><feFlood flood-color="#fff" flood-opacity="0.14" /><feComposite in2="lowWall" operator="in" result="lit" />
+          <feMerge><feMergeNode in="SourceGraphic" /><feMergeNode in="shade" /><feMergeNode in="lit" /></feMerge>
+        </filter>
+        <filter id="tsplash-press-sm" x="-10%" y="-30%" width="120%" height="160%" color-interpolation-filters="sRGB">
+          <feOffset in="SourceAlpha" dx="1" dy="1.2" result="dn" /><feGaussianBlur in="dn" stdDeviation="0.6" result="dnb" />
+          <feComposite in="SourceAlpha" in2="dnb" operator="out" result="topWall" /><feFlood flood-color="#000" flood-opacity="0.6" /><feComposite in2="topWall" operator="in" result="shade" />
+          <feOffset in="SourceAlpha" dx="-0.8" dy="-1" result="up" /><feGaussianBlur in="up" stdDeviation="0.5" result="upb" />
+          <feComposite in="SourceAlpha" in2="upb" operator="out" result="lowWall" /><feFlood flood-color="#fff" flood-opacity="0.2" /><feComposite in2="lowWall" operator="in" result="lit" />
+          <feMerge><feMergeNode in="SourceGraphic" /><feMergeNode in="shade" /><feMergeNode in="lit" /></feMerge>
+        </filter>
+      </svg>
+      <div class="tsplash-words"><div class="tsplash-lockup"><span class="tsplash-mark">The Studio</span><span class="tsplash-sub">TMKE</span></div></div>
+      <div class="tsplash-card"><img alt="" /></div>
+      <div class="tsplash-paper"></div>
+      <div class="tsplash-dot"></div>
     </div>
 
-    <script is:inline>
-      window.tmkeSplash = function (destination, opts) {
-        opts = opts || {};
-        // CSS animation only — no video to wait on. Total runtime is short
-        // and predictable: HOLD is how long the splash holds on screen.
-        const HOLD = opts.duration || 2600;
-        const splash = document.getElementById("tmke-splash");
-        if (!splash) { window.location.href = destination; return; }
+    <script is:inline define:vars={{ sbUrl: import.meta.env.PUBLIC_SUPABASE_URL || "", sbKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY || "" }}>
+      (function () {
+        var MIN_HOLD = 3000;
 
-        splash.classList.add("is-on");
-        document.documentElement.style.overflow = "hidden";
+        /* The designs: social posts only (1080 x 1440 -- no reels, nothing
+           print), two from each pack in turn, round and round. The seasonal
+           pack first, then the property pack, then the rest in the order they
+           were made; the demo pack is left out (it repeats the others). Read
+           with the public key: these are the shop's own active designs. */
+        var list = null, loading = null;
+        function designs() {
+          if (list) return Promise.resolve(list);
+          if (loading) return loading;
+          if (!sbUrl || !sbKey) return Promise.resolve([]);
+          var h = { apikey: sbKey, Authorization: "Bearer " + sbKey };
+          var get = function (q) { return fetch(sbUrl + "/rest/v1/" + q, { headers: h }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }); };
+          loading = Promise.all([
+            get("packs?select=id,category,created_at,demo,kind&status=eq.active&order=created_at.asc"),
+            get("templates?select=pack_id,thumb_url,canvas,sort_order&status=eq.active&thumb_url=not.is.null&order=sort_order.asc&limit=1000"),
+          ]).then(function (res) {
+            var packs = (res[0] || []).filter(function (p) { return !p.demo && p.kind !== "print"; });
+            var rank = function (p) { var c = String(p.category || "").toLowerCase(); return c.indexOf("season") >= 0 ? 0 : (c.indexOf("market") >= 0 || c.indexOf("property") >= 0) ? 1 : 2; };
+            packs.sort(function (a, b) { return rank(a) - rank(b) || String(a.created_at).localeCompare(String(b.created_at)); });
+            var by = {};
+            (res[1] || []).forEach(function (t) {
+              var c = t.canvas || {};
+              if (c.width !== 1080 || c.height !== 1440 || !t.thumb_url || !t.pack_id) return;
+              (by[t.pack_id] = by[t.pack_id] || []).push(t.thumb_url);
+            });
+            var queues = packs.map(function (p) { return (by[p.id] || []).slice(); }).filter(function (q) { return q.length; });
+            var out = [];
+            while (queues.some(function (q) { return q.length; })) {
+              queues.forEach(function (q) { out.push.apply(out, q.splice(0, 2)); });
+            }
+            list = out;
+            return list;
+          });
+          return loading;
+        }
+        // The sign-in pages ask early, so the designs are ready at sign-in.
+        if (/^\/(login|join|reset-password|auth\/callback|demo)(\/|$)/.test(location.pathname)) {
+          var early = function () { designs().then(function (l) { l.slice(0, 8).forEach(function (u) { var i = new Image(); i.src = u; }); }); };
+          if ("requestIdleCallback" in window) requestIdleCallback(early, { timeout: 2000 }); else setTimeout(early, 600);
+        }
 
-        setTimeout(function () {
-          window.location.href = destination;
-        }, HOLD);
-      };
+        window.tmkeSplash = function (destination, opts) {
+          opts = opts || {};
+          var HOLD = Math.max(MIN_HOLD, opts.duration || 0);
+          var el = document.getElementById("tmke-splash");
+          if (!el) { window.location.href = destination; return; }
+          var card = el.querySelector(".tsplash-card"), img = card.querySelector("img"), dot = el.querySelector(".tsplash-dot");
+          var phone = false;
+          try { phone = window.matchMedia("(hover: none)").matches; } catch (_) {}
+          el.classList.toggle("is-phone", phone);
+          el.classList.add("is-on");
+          document.documentElement.style.overflow = "hidden";
+
+          // The words wait for the brand serif, so they never show in a stand-in.
+          var tries = 0;
+          (function type() {
+            var ok = false;
+            try { document.fonts.forEach(function (f) { if (String(f.family).replace(/["']/g, "") === "The Seasons" && f.status === "loaded") ok = true; }); } catch (_) { ok = true; }
+            if (ok || ++tries > 20) { el.classList.add("has-type"); return; }
+            try { document.fonts.load('400 40px "The Seasons"'); } catch (_) {}
+            setTimeout(type, 60);
+          })();
+
+          // Only pictures that have arrived are shown, so a change is instant.
+          var ready = [], at = 0;
+          var show = function (n) { if (!ready.length) return; at = (n + ready.length) % ready.length; img.src = ready[at]; };
+          designs().then(function (l) {
+            l.forEach(function (u, i) {
+              var im = new Image();
+              im.onload = function () { ready.push(u); if (ready.length === 1) { img.src = u; card.classList.add("is-ready"); } };
+              im.src = u;
+            });
+          });
+
+          // The card waits in the middle until the cursor arrives.
+          var centre = function () { return { x: innerWidth / 2 - card.offsetWidth / 2, y: innerHeight / 2 - card.offsetHeight / 2 }; };
+          var c0 = centre(), cx = c0.x, cy = c0.y, ctx = cx, cty = cy, tx = 0, ty = 0, x = 0, y = 0, raf = null;
+          var place = function () { card.style.transform = "translate(" + cx + "px," + cy + "px)"; };
+          place();
+          var follow = function () {
+            x += (tx - x) * 0.3; y += (ty - y) * 0.3; cx += (ctx - cx) * 0.16; cy += (cty - cy) * 0.16;
+            dot.style.transform = "translate(" + x + "px," + y + "px)"; place();
+            raf = (Math.abs(tx - x) + Math.abs(ty - y) + Math.abs(ctx - cx) + Math.abs(cty - cy) > 0.3) ? requestAnimationFrame(follow) : null;
+          };
+          var BAND = 30, lastBand = null;
+          var move = function (e) {
+            if (phone || e.pointerType === "touch") return;
+            tx = e.clientX; ty = e.clientY;
+            // The circle on the card's left edge, halfway down.
+            ctx = tx + 24; cty = ty - card.offsetHeight / 2;
+            if (!raf) raf = requestAnimationFrame(follow);
+            el.classList.add("is-over");
+            var b = Math.floor(ty / BAND);
+            if (lastBand !== null && b !== lastBand) show(at + (b > lastBand ? 1 : -1));
+            lastBand = b;
+          };
+          el.addEventListener("pointermove", move);
+
+          // A phone: "The Studio" for about a second, then the designs flash.
+          var flash = null;
+          if (phone) {
+            setTimeout(function () {
+              el.classList.add("is-flashing");
+              flash = setInterval(function () { show(at + 1); }, 140);
+            }, 1250);
+          }
+
+          setTimeout(function () {
+            if (flash) clearInterval(flash);
+            window.location.href = destination;
+          }, HOLD);
+        };
+      })();
     </script>
 
     <script src="/scripts/app.js" is:inline></script>
