@@ -24,6 +24,10 @@ interface Props {
   /** Force the page-transition on/off, overriding the hideNav default. The deck
       pages (chrome-less but public) opt in so navigation stays consistent. */
   pageTransition?: boolean;
+  /** The ready gate (src/lib/ready-gate.js): the page stays behind the
+      loading cover until every section that shows real content says it is
+      ready, then appears all at once. Off unless a page asks for it. */
+  readyGate?: boolean;
 }
 
 // Installable apps. The admin centre and the member hub are each their own
@@ -50,6 +54,7 @@ const {
   noindex = false,
   dashboard = false,
   pageTransition = undefined,
+  readyGate = false,
 } = Astro.props;
 
 // Front-end-only page transition. Back-end tools — /admin/* and /editor (the
@@ -295,8 +300,104 @@ const hideFromSearch = noindex || privateArea;
         }
       } catch (e) {}
     </script>
+    {readyGate && (
+      <>
+        {/* THE READY GATE. Dani, 14 Oct: no placeholders, ever -- "until a
+            page is loaded, it does not appear ... card by card ... when they
+            all go to yes, that's when you load the page."
+
+            The page starts behind a cover that looks exactly like the page
+            transition's (burgundy, the embossed wordmark), so arriving through
+            a transition shows one unbroken loader. It is its own cover, not
+            the transition's: that one lifts once fonts are in (500ms at most),
+            whatever the data is doing, and its script is a public file
+            Cloudflare can serve stale for hours.
+
+            Every section that shows real content registers -- data-gate="name"
+            in the markup, or gateWait("name") from a script -- and says
+            gateReady("name", el) once its real content is in, pictures and
+            all. When every one has, the cover lifts. A section that has not
+            answered by GATE_MAX is marked data-gate-failed (the page shows its
+            own "didn't load" message there, never sample content) and the
+            cover lifts anyway. Helpers: src/lib/ready-gate.js. */}
+        <style is:inline>
+          html.tmke-gated { background: #371e28; overflow: hidden; }
+          .tmke-gate { position: fixed; inset: 0; z-index: 9400; pointer-events: none; visibility: hidden; opacity: 0;
+            background: #371e28 url("/images/loading-tmke.webp") center / cover no-repeat; }
+          @media (max-aspect-ratio: 16 / 9) { .tmke-gate { background-size: contain; } }
+          html.tmke-gated .tmke-gate { visibility: visible; opacity: 1; pointer-events: auto;
+            /* Belt and braces: if the script never runs, the page still shows. */
+            animation: tmke-gate-failsafe 0s 15s forwards; }
+          html.tmke-gate-lifting .tmke-gate { visibility: visible; opacity: 0; transition: opacity .3s ease; }
+          @keyframes tmke-gate-failsafe { to { visibility: hidden; opacity: 0; pointer-events: none; } }
+          @media (prefers-reduced-motion: reduce) { html.tmke-gate-lifting .tmke-gate { transition: none; } }
+        </style>
+        <script is:inline>
+          (function () {
+            var GATE_MAX = 12000;
+            var root = document.documentElement;
+            root.classList.add("tmke-gated");
+            var waits = {}, holds = 0, opened = false, domDone = false, after = [];
+            function pending() { var out = []; for (var k in waits) if (!waits[k]) out.push(k); return out; }
+            function open(timedOut) {
+              if (opened) return;
+              opened = true;
+              if (timedOut) {
+                var left = pending();
+                left.forEach(function (n) {
+                  document.querySelectorAll('[data-gate="' + n + '"]').forEach(function (el) { el.setAttribute("data-gate-failed", ""); });
+                });
+                try { console.warn("[ready gate] opened without:", left.join(", ")); } catch (_) {}
+              }
+              try { document.body.removeAttribute("aria-busy"); } catch (_) {}
+              root.classList.add("tmke-gate-lifting");
+              root.classList.remove("tmke-gated");
+              setTimeout(function () { root.classList.remove("tmke-gate-lifting"); }, 320);
+              after.forEach(function (f) { try { f(!!timedOut); } catch (_) {} });
+              after = [];
+            }
+            function check() { if (!opened && domDone && holds === 0 && pending().length === 0) open(false); }
+            /* A section's pictures count as part of it: "loaded" with its
+               thumbnails still arriving one by one is the flashing all over
+               again. Each picture gets four seconds; a broken one does not
+               hold the page. */
+            function settle(el) {
+              if (!el || !el.querySelectorAll) return Promise.resolve();
+              var imgs = [].slice.call(el.querySelectorAll("img")).filter(function (i) { return i.getAttribute("src"); });
+              return Promise.all(imgs.map(function (img) {
+                var done = img.complete && img.naturalWidth ? Promise.resolve()
+                  : (img.decode ? img.decode() : new Promise(function (r) { img.onload = img.onerror = r; }));
+                return Promise.race([done.catch(function () {}), new Promise(function (r) { setTimeout(r, 4000); })]);
+              }));
+            }
+            window.__tmkeGate = {
+              on: true,
+              wait: function (name) { if (!opened && !(name in waits)) waits[name] = false; },
+              ready: function (name, el) {
+                if (!(name in waits)) waits[name] = false;
+                holds++;
+                settle(el).then(function () { holds--; waits[name] = true; check(); });
+              },
+              whenOpen: function (f) { if (opened) f(false); else after.push(f); },
+              pending: pending,
+              isOpen: function () { return opened; },
+            };
+            document.addEventListener("DOMContentLoaded", function () {
+              document.querySelectorAll("[data-gate]").forEach(function (el) {
+                var n = el.getAttribute("data-gate");
+                if (n && !(n in waits)) waits[n] = false;
+              });
+              domDone = true;
+              check();
+            });
+            setTimeout(function () { open(true); }, GATE_MAX);
+          })();
+        </script>
+      </>
+    )}
   </head>
-  <body data-dashboard={dashboard ? "" : undefined}>
+  <body data-dashboard={dashboard ? "" : undefined} aria-busy={readyGate ? "true" : undefined}>
+    {readyGate && <div class="tmke-gate" aria-hidden="true"></div>}
     {!hideNav && <Nav />}
     <slot />
     {!hideFooter && <Footer />}
