@@ -334,9 +334,20 @@ const hideFromSearch = noindex || privateArea;
              changing size for a quarter of a second -- the calendar, the
              orders, the dashboard's sections have arrived. Never longer than
              1.6s; a slow page shows what it has. */
-          setTimeout(go, 1600);
-          var photo = false, fonts = false, still = false;
-          var check = function () { if (photo && fonts && still) go(); };
+          setTimeout(function () { if (!holds) go(); }, 1600);
+          setTimeout(go, 3000);   // a held page still shows, if late
+          var photo = false, fonts = false, still = false, holds = 0;
+          var check = function () { if (photo && fonts && still && !holds) go(); };
+          /* A page whose content takes longer than a quarter-second pause to
+             arrive (the Planner's month) holds the entrance itself:
+               var release = window.__tmkeEnterHold && window.__tmkeEnterHold();
+               ...draw...; release && release();                            */
+          window.__tmkeEnterHold = function () {
+            if (done) return function () {};
+            holds++;
+            var once = false;
+            return function () { if (once) return; once = true; holds--; check(); };
+          };
           try { (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { fonts = true; check(); }); } catch (_) { fonts = true; }
           document.addEventListener("DOMContentLoaded", function () {
             var urls = [];

@@ -1713,10 +1713,17 @@ import "../../styles/account-sections.css";
     });
 
     // ====== Bootstrap ======
+    /* The page does not show until the month is drawn: dates, month name,
+       posts and all (Dani, 14 Oct: "it's coming in without the dates and the
+       months, and then it's flashing up once it's loaded"). */
+    const releaseEntrance = window.__tmkeEnterHold ? window.__tmkeEnterHold() : null;
     (async () => {
-      await loadWindow();
-      renderCalendar();
-      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      try {
+        await loadWindow();
+        renderCalendar();
+      } finally {
+        requestAnimationFrame(() => { document.body.classList.add('is-loaded'); releaseEntrance && releaseEntrance(); });
+      }
     })();
   </script>
 
