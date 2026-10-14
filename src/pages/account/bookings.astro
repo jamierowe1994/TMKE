@@ -33,28 +33,26 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       <div class="ws-hero-photo"></div>
     </section>
 
-    <section class="ws-block" id="bk-upcoming-sec">
+    <section class="ws-block bk-wait" id="bk-upcoming-sec">
       <header class="ws-block-head">
         <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 01</span>Upcoming</h2>
         <a class="ws-block-link" href="/videography">Book another</a>
       </header>
       <div id="bk-next"></div>
-      <div id="bk-upcoming" class="bk-list">
-        <div class="bk-state">Loading bookings&hellip;</div>
-      </div>
+      <div id="bk-upcoming" class="bk-list"></div>
     </section>
 
     <!-- Between "coming up" and "done" there is a stretch where the shoot has
          happened and we are working on it. Filed under Previously it read as
          finished, which is the one thing it is not. -->
-    <section class="ws-block bk-progress-sec" id="bk-progress-sec">
+    <section class="ws-block bk-progress-sec bk-wait" id="bk-progress-sec">
       <header class="ws-block-head">
         <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 02</span>In progress</h2>
       </header>
       <div id="bk-progress" class="bk-list"></div>
     </section>
 
-    <section class="ws-block bk-past-sec" id="bk-past-sec">
+    <section class="ws-block bk-past-sec bk-wait" id="bk-past-sec">
       <header class="ws-block-head">
         <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 03</span>Previously</h2>
       </header>
@@ -234,6 +232,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     .bk-inv .bk-btn { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
     .bk-inv.is-paid { border-color: rgba(46,106,74,0.3); }
 
+    /* The three chapters stay hidden until they are final: the bookings, then
+       the messages and documents that change their cards, then the review
+       request. They used to be drawn with their "nothing here" notes, then
+       redrawn with the bookings, then again when the documents came -- Dani,
+       14 Oct: they "load one after the other ... then flash". Now they appear
+       once, together. The failsafe shows them whatever happens. */
+    .bk-wait { visibility: hidden; animation: bk-wait-failsafe 0s 10s forwards; }
+    @keyframes bk-wait-failsafe { to { visibility: visible; } }
     .bk-state { font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.55); padding: 18px 22px; border: 1px solid rgba(28,29,34,0.1); }
     .bk-hero { --ws-hero-img: url('/assets/hub/bookings.jpg'); }
     /* Spacing comes from .ws-hero-cta. */
@@ -552,6 +558,14 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
     const docsByKey = new Map();
     const invsByKey = new Map();
 
+    // Show the three chapters, once, when they are final (see .bk-wait).
+    function revealChapters() {
+      document.querySelectorAll('.bk-wait').forEach((el) => el.classList.remove('bk-wait'));
+    }
+    // A wait that cannot hold the page for longer than `ms`.
+    const atMost = (p, ms) => Promise.race([Promise.resolve(p).catch(() => {}), new Promise((r) => setTimeout(r, ms))]);
+    let reviewAsked = Promise.resolve();
+
     // ---------- Load ----------
     (async () => {
       /* The sample rows also stand up the training demo, which has no session
@@ -562,6 +576,8 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
         if (!isDemo) { location.replace('/login?next=' + encodeURIComponent('/account/bookings')); return; }
         seedDemo();
         render();
+        await atMost(reviewAsked, 3000);
+        revealChapters();
         openFromUrl();
         return;
       }
@@ -597,30 +613,36 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
 
       if (vidErr) {
         $('bk-upcoming').innerHTML = `<div class="lib-state" style="padding:18px 22px;">Couldn't load bookings: ${escapeHtml(vidErr.message)}</div>`;
+        revealChapters();
         return;
       }
       rows = (vid || []).map(normVid).concat((smm || []).map(normSmm));
-      render();
-      openFromUrl();
 
       // Messages + documents come through the Worker (service role + verified
       // session), so nothing is lost to an RLS or email-casing edge case.
+      // Fetched BEFORE the first draw: they change the cards (the banner offers
+      // the prep document), so drawing first meant drawing twice.
+      const mine = WORKER
+        ? atMost(fetch(`${WORKER}/booking/mine`, { headers: { Authorization: 'Bearer ' + session.access_token } }), 5000)
+        : Promise.resolve(null);
       if (WORKER) {
         try {
-          const res = await fetch(`${WORKER}/booking/mine`, { headers: { Authorization: 'Bearer ' + session.access_token } });
-          if (res.ok) {
+          const res = await mine;
+          if (res && res.ok) {
             const t = await res.json();
             // Belt and braces on top of the Worker's own filter: an internal
             // note must never render here, whatever the server sends.
             (t.messages || []).filter((m) => m.channel === 'email').forEach((m) => { const k = `${m.booking_source}:${m.booking_id}`; if (!msgsByKey.has(k)) msgsByKey.set(k, []); msgsByKey.get(k).push(m); });
             (t.documents || []).forEach((d) => { const k = `${d.booking_source}:${d.booking_id}`; if (!docsByKey.has(k)) docsByKey.set(k, []); docsByKey.get(k).push(d); });
-            // The banner offers the prep document, and documents arrive after
-            // the first paint — so the list has to be drawn again, not just an
-            // open drawer refreshed.
-            render();
-            if (currentKey) openDetail(currentKey);
           }
         } catch (_) {}
+      }
+      // One draw, with everything that changes it already in hand.
+      render();
+      await atMost(reviewAsked, 3000);
+      revealChapters();
+      openFromUrl();
+      if (WORKER) {
         // Invoices come from their own route: the pay link has to be signed
         // server-side, and brand-billed bookings are filtered out there.
         try {
@@ -707,7 +729,7 @@ import "../../styles/booking-wizard.css";   // reuse .dc-cal / .dc-slot for the 
       $('bk-progress').innerHTML = progress.length
         ? progress.map(cardHtml).join('')
         : `<div class="bk-none"><p class="bk-none-h">Nothing in progress</p><p class="bk-none-p">Once a shoot has happened it sits here while we edit it and build your gallery.</p></div>`;
-      renderReviewAsk(past);
+      reviewAsked = renderReviewAsk(past);
       // Previous bookings always show — with an empty state until a booking is done.
       $('bk-past').innerHTML = past.length
         ? past.map(cardHtml).join('')
