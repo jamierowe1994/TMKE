@@ -359,15 +359,24 @@ const hideFromSearch = noindex || privateArea;
             function check() { if (!opened && domDone && holds === 0 && pending().length === 0) open(false); }
             /* A section's pictures count as part of it: "loaded" with its
                thumbnails still arriving one by one is the flashing all over
-               again. Each picture gets four seconds; a broken one does not
-               hold the page. */
+               again. Every picture in it -- <img> and CSS backgrounds alike,
+               which is how most of the hub draws its cards -- is fetched and
+               waited for. Each gets four seconds; a broken one does not hold
+               the page. */
+            function urlsIn(el) {
+              var out = [], nodes = [el].concat([].slice.call(el.querySelectorAll("*")));
+              var grab = function (bg) { if (bg && bg !== "none") bg.replace(/url\(["']?([^"')]+)["']?\)/g, function (_, u) { out.push(u); }); };
+              nodes.forEach(function (n) {
+                if (n.tagName === "IMG") { var s = n.currentSrc || n.getAttribute("src"); if (s) out.push(s); }
+                try { grab(getComputedStyle(n).backgroundImage); } catch (_) {}
+              });
+              return out;
+            }
             function settle(el) {
               if (!el || !el.querySelectorAll) return Promise.resolve();
-              var imgs = [].slice.call(el.querySelectorAll("img")).filter(function (i) { return i.getAttribute("src"); });
-              return Promise.all(imgs.map(function (img) {
-                var done = img.complete && img.naturalWidth ? Promise.resolve()
-                  : (img.decode ? img.decode() : new Promise(function (r) { img.onload = img.onerror = r; }));
-                return Promise.race([done.catch(function () {}), new Promise(function (r) { setTimeout(r, 4000); })]);
+              return Promise.all(urlsIn(el).map(function (u) {
+                var load = new Promise(function (r) { var im = new Image(); im.onload = im.onerror = function () { r(); }; im.src = u; if (im.complete) r(); });
+                return Promise.race([load, new Promise(function (r) { setTimeout(r, 4000); })]);
               }));
             }
             window.__tmkeGate = {

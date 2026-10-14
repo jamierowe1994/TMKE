@@ -45,11 +45,11 @@ const cur = (k: string) => (active === k ? "page" : undefined);
     <a class="ws-navic ws-logout" href="/login" data-logout data-tip="Log out" aria-label="Log out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 17l5-5-5-5"/><line x1="15" y1="12" x2="3" y2="12"/></svg></a>
     <div class="ws-menu ws-who" data-menu>
       <button type="button" class="ws-whobtn" data-menu-btn aria-expanded="false" aria-haspopup="true">
-        <span class="ws-whoav">··</span>
+        <span class="ws-whoav"></span>
         <svg class="ws-caret" viewBox="0 0 10 6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="ws-dropdown ws-dropdown--right" role="menu">
-        <div class="ws-dropdown-head"><strong>Your account</strong><span>…</span></div>
+        <div class="ws-dropdown-head"><strong></strong><span></span></div>
         <a role="menuitem" href="/account/profile">Your profile</a>
         <a role="menuitem" href="/account/profile">Brand Kit</a>
         <a role="menuitem" href="/account/orders">Billing</a>
@@ -233,6 +233,8 @@ const cur = (k: string) => (active === k ? "page" : undefined);
   import { initNotifications } from "../../lib/notifications.js";
   import { wireInstallButton } from "../../lib/pwa-install.js";
   import { initTour } from "../../lib/tour.js";
+  import { gateWait, gateReady } from "../../lib/ready-gate.js";
+  import { demoUser } from "../../lib/demo.js";
 
   wireInstallButton("ws-install");
   // A training walkthrough in progress carries on here; inert otherwise.
@@ -282,22 +284,33 @@ const cur = (k: string) => (active === k ? "page" : undefined);
     el.addEventListener("click", async (e) => { e.preventDefault(); await signOutEverywhere(); });
   });
 
-  // Identity — avatar initials + account dropdown head
+  // Identity — avatar initials + account dropdown head. Empty in the markup
+  // (no placeholder name): on a page with the ready gate, the page waits for
+  // this (Dani, 14 Oct: no placeholders, ever).
   const titleCase = (s: string) => String(s || "").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  gateWait("header");
   (async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const email = session.user.email ?? "";
-      const meta = (session.user.user_metadata ?? {}) as Record<string, any>;
-      const fullName = titleCase(meta.name || email.split("@")[0].replace(/[._]/g, " "));
-      const initials = fullName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "T";
-      document.querySelectorAll(".ws-whoav").forEach((e) => { (e as HTMLElement).textContent = initials; });
-      const headStrong = document.querySelector(".ws-dropdown-head strong");
-      const headSpan = document.querySelector(".ws-dropdown-head span");
-      if (headStrong) headStrong.textContent = fullName;
-      if (headSpan) headSpan.textContent = email;
-    } catch (_) { /* keep placeholders */ }
+      let fullName = "", email = "";
+      if (session) {
+        email = session.user.email ?? "";
+        const meta = (session.user.user_metadata ?? {}) as Record<string, any>;
+        fullName = titleCase(meta.name || email.split("@")[0].replace(/[._]/g, " "));
+      } else {
+        const d = demoUser();   // the demo or the training account
+        if (d) { fullName = String(d.name || "Demo"); email = String(d.email || ""); }
+      }
+      if (fullName) {
+        const initials = fullName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "T";
+        document.querySelectorAll(".ws-whoav").forEach((e) => { (e as HTMLElement).textContent = initials; });
+        const headStrong = document.querySelector(".ws-dropdown-head strong");
+        const headSpan = document.querySelector(".ws-dropdown-head span");
+        if (headStrong) headStrong.textContent = fullName;
+        if (headSpan) headSpan.textContent = email;
+      }
+    } catch (_) { /* nothing to show; the avatar stays plain */ }
+    gateReady("header", document.querySelector(".ws-nav"));
   })();
 </script>
 

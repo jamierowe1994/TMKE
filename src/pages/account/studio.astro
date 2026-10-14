@@ -1,6 +1,5 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { templates } from "../../data/library.js";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/ws-system.css";
@@ -13,28 +12,6 @@ import StudioInspo from "../../components/account/StudioInspo.astro";
 // pack -> your designs -> design tools -> inspiration. Picks open the real
 // editor at /editor; pack browsing/buying lives in The Edit (/edit).
 // ---------------------------------------------------------------------------
-
-// "Pick from your packs" — the packs this account can draw on. Imagery comes
-// from real template stills; counts are illustrative until packs are wired.
-const packLabels = [
-  { name: "Real Estate", count: 42 },
-  { name: "Market Updates", count: 35 },
-  { name: "Open House", count: 28 },
-  { name: "Testimonials", count: 18 },
-  { name: "Tips & Advice", count: 34 },
-  { name: "Behind the Scenes", count: 22 },
-];
-const packs = packLabels.map((p, i) => ({
-  ...p,
-  thumb: templates[i % templates.length]?.thumb,
-}));
-
-// "Your designs" falls back to starter templates so it's never blank; JS swaps
-// in the user's real saved drafts when present.
-const starters = templates.slice(0, 4);
-
-// A real design still for the hero mock canvas.
-const heroPhoto = templates[0]?.thumb;
 
 const tools = [
   { name: "Caption Generator", desc: "Write on-brand captions & hashtags with AI.", action: "caption", ic: "caption" },
@@ -75,6 +52,7 @@ const inspo = [
   hideNav
   hideFooter
   title="Studio — TMKE"
+  readyGate
   description="Bring ideas to life. Start from your packs, pick up a design in progress, or open the Studio with a blank canvas."
 >
   <div class="ws">
@@ -83,7 +61,7 @@ const inspo = [
     <main class="ws-main">
       <div class="ws-left">
       <!-- ============ HERO ============ -->
-      <section class="ws-hero ws-hero--sub">
+      <section class="ws-hero ws-hero--sub" data-gate="hero">
         <div class="ws-hero-copy">
           <p class="ws-hero-date"><a href="/account" class="st-back">&larr; Workspace</a></p>
           <h1 class="ws-greeting">Your Design Studio.</h1>
@@ -104,26 +82,10 @@ const inspo = [
           <a class="ws-block-link" href="/edit">View All Templates <span aria-hidden="true">→</span></a>
         </header>
         <div class="st-rail" data-rail>
-          <!-- SSR sample packs; the wirePacks script below swaps in the member's
-               actually-purchased packs (or a "Shop packs" card if they own none). -->
-          <div class="st-row st-row--packs" data-packs>
-            {/* Shown only while a signed-in member's own packs are on their
-                way. Signed-out visitors never see these — the samples below
-                are the preview they are meant to get. */}
-            {[0, 1, 2, 3, 4].map(() => <span class="st-skel st-skel--pack" aria-hidden="true"></span>)}
-            {packs.map((p) => (
-              <a class="st-pack" href="/edit">
-                <span class="st-pack-img" style={`background-image:url('${p.thumb}')`}></span>
-                <span class="st-pack-name">{p.name}</span>
-                <span class="st-pack-count">{p.count} templates</span>
-              </a>
-            ))}
-            <a class="st-pack st-pack--shop" href="/edit">
-              <span class="st-pack-img"><span class="st-pack-shop-ic">+</span></span>
-              <span class="st-pack-name">Shop more packs</span>
-              <span class="st-pack-count">Visit The Edit &rarr;</span>
-            </a>
-          </div>
+          <!-- Empty until the member's own packs are in (wirePacks, below).
+               The page stays behind the ready gate until then: no sample
+               packs, no stand-in cards (Dani, 14 Oct). -->
+          <div class="st-row st-row--packs" data-packs data-gate="packs"></div>
           <!-- One dot per pack. Built by wireRail() once the real packs are in,
                so the count always matches what is on the shelf. -->
           <div class="st-nav" data-rail-nav hidden>
@@ -144,21 +106,8 @@ const inspo = [
           <h2 class="ws-block-h" id="designs-h"><span class="ws-block-ch">Chapter 02</span>Your designs</h2>
           <a class="ws-block-link" href="/account/editor" data-seeall hidden>See All Designs <span aria-hidden="true">→</span></a>
         </header>
-        <div class="st-row st-row--designs" data-designs>
-          {[0, 1, 2, 3].map(() => <span class="st-skel st-skel--design" aria-hidden="true"></span>)}
-          {starters.slice(0, 4).map((t, i) => (
-            <a class="st-design" href={`/account/editor?template=${encodeURIComponent(t.id)}`}>
-              <span class="st-design-img" style={`background-image:url('${t.thumb}')`}>
-                <span class="st-design-tag">{i === 0 ? "In progress" : "Template"}</span>
-              </span>
-              <span class="st-design-name">{t.name}</span>
-              <span class="st-design-type">Instagram Post</span>
-            </a>
-          ))}
-          <a class="st-design st-design--new" href="/account/editor?new=1" data-new-design>
-            <span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span>
-          </a>
-        </div>
+        <!-- Empty until the member's own designs are in (wireDesigns). -->
+        <div class="st-row st-row--designs" data-designs data-gate="designs"></div>
       </section>
 
       <!-- ============ DESIGN TOOLS ============ -->
@@ -191,7 +140,7 @@ const inspo = [
           <h2 class="ws-block-h" id="inspo-h"><span class="ws-block-ch">Chapter 04</span>Inspiration</h2>
           <a class="ws-block-link" href="/account/guides">Explore More <span aria-hidden="true">→</span></a>
         </header>
-        <div class="st-row st-row--inspo">
+        <div class="st-row st-row--inspo" data-gate="inspo">
           {inspo.map((c) => (
             c.href
               ? <a class="st-insp" href={c.href}>
@@ -325,55 +274,22 @@ const inspo = [
     /* On its own in the row (the demo, or nothing saved yet) it keeps a card's shape. */
     .st-design--new:only-child { aspect-ratio: 1080 / 1600; }
 
-    /* ---- Loading, for members only -----------------------------------------
-       The packs and designs baked into this page are a preview for people who
-       are not signed in — six invented packs with illustrative counts, and
-       four starter templates, one labelled "In progress". A member used to
-       get all of that for the length of an auth check plus two queries, then
-       watch it flip to their own. Signed in, they get these instead until
-       their real content lands: a shape in the right place, saying nothing
-       untrue. The class comes from BaseLayout, before the body paints. */
-    /* The skeleton is the default for everyone now, not only for a member the
-       layout already knew about. The page ships 22 sample designs — Just
-       Listed 01, New To Market 02, Open House Sunday 03 — and anyone the
-       has-session check missed, the demo included, watched those thumbnails
-       for the length of an auth check and two queries before their own
-       content replaced them. That is the flashing Dani kept seeing: not a
-       transition, a page full of somebody else's designs. Dani, 9 Oct. */
-    .st-skel { display: none; }
-    .st-row--packs > .st-pack,
-    .st-row--designs > .st-design { display: none; }
-    .st-skel {
-      display: flex; flex-direction: column; gap: 4px; padding: 12px;
+    /* ---- Loading ---------------------------------------------------------
+       None on the page. It used to ship six invented packs and four starter
+       designs, then grey shimmering stand-in cards over them, swapped row by
+       row for the member's own -- each swap a flash. Now the shelves are
+       empty in the markup and the page waits behind the ready gate
+       (BaseLayout readyGate) until both are filled with the real thing,
+       pictures included. Dani, 14 Oct: no placeholders, ever. */
+    /* A shelf that could not be loaded says so, in place of its cards. */
+    .st-fail {
+      grid-column: 1 / -1; margin: 0; padding: 22px 20px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
+      font-size: 15px; color: rgba(28,29,34,0.72);
     }
-    .st-skel::before {
-      content: ""; display: block; width: 100%; aspect-ratio: 1080 / 1440;
-      border-radius: 4px; background: rgba(28,29,34,0.06);
-    }
-    .st-skel::after {
-      content: ""; display: block; width: 62%; height: 9px; margin-top: 8px;
-      border-radius: 3px; background: rgba(28,29,34,0.06);
-    }
-    /* One shimmer crossing the row, so it reads as a single thing loading
-       rather than four cards each doing their own animation. */
-    .st-skel::before,
-    .st-skel::after {
-      background-image: linear-gradient(90deg, transparent, rgba(28,29,34,0.05) 45%, transparent);
-      background-size: 260px 100%; background-repeat: no-repeat;
-      animation: st-shimmer 1.15s linear infinite;
-    }
-    @keyframes st-shimmer {
-      from { background-position: -260px 0; }
-      to   { background-position: calc(100% + 260px) 0; }
-    }
-    /* Resolved: whichever way it went, the skeletons go and whatever is in the
-       row is what should be there. */
-    .st-row.is-ready .st-skel { display: none !important; }
-    .st-row.is-ready > .st-pack,
-    .st-row.is-ready > .st-design { display: flex; }
-    @media (prefers-reduced-motion: reduce) {
-      .st-skel::before, .st-skel::after { animation: none; }
+    .st-fail button {
+      margin-left: 6px; padding: 0; border: 0; background: none; font: inherit;
+      color: var(--ws-ink, #1c1d22); text-decoration: underline; cursor: pointer;
     }
 
     /* Inspiration — a picture with the words laid over it. */
@@ -444,6 +360,7 @@ const inspo = [
     }
     import { supabase } from "../../lib/supabase.js";
     import { designStore } from "../../lib/design-store.js";
+    import { gateReady, gateFailed } from "../../lib/ready-gate.js";
 
     // Shelf navigation: one dot per card, plus an arrow either side. Rebuilt on
     // demand because the packs are swapped in from Supabase after first paint -
@@ -576,25 +493,42 @@ const inspo = [
        A pack cover's shape is only known once it has loaded. */
     function fitPrintRow(row, on) {
       row.classList.toggle('st-row--print', !!on);
-      if (!on) { row.style.removeProperty('--st-print-h'); return; }
+      if (!on) { row.style.removeProperty('--st-print-h'); return Promise.resolve(); }
       const cs = getComputedStyle(row);
       const across = parseFloat(cs.getPropertyValue('--st-across')) || 5;
       const gap = parseFloat(cs.columnGap) || 16;
       const col = (row.clientWidth - (across - 1) * gap) / across;
       const picW = col - 26;                                    // the card's padding and border
       row.style.setProperty('--st-print-h', Math.round(picW * (1440 / 1080) * 0.75) + 'px');
+      /* Resolves once every card has its shape, so the ready gate can hold
+         the page until then rather than let the cards change size in view. */
+      const shaped = [];
       row.querySelectorAll('[data-cover]').forEach((card) => {
         const src = card.getAttribute('data-cover');
         if (!src || card.dataset.arDone) return;
-        const im = new Image();
-        im.onload = () => { if (im.naturalWidth && im.naturalHeight) { card.style.setProperty('--ar', (im.naturalWidth / im.naturalHeight).toFixed(4)); card.dataset.arDone = '1'; } };
-        im.src = src;
+        shaped.push(new Promise((resolve) => {
+          const im = new Image();
+          im.onload = () => { if (im.naturalWidth && im.naturalHeight) { card.style.setProperty('--ar', (im.naturalWidth / im.naturalHeight).toFixed(4)); card.dataset.arDone = '1'; } resolve(); };
+          im.onerror = () => resolve();
+          setTimeout(resolve, 4000);
+          im.src = src;
+        }));
       });
+      return Promise.all(shaped);
     }
     window.__ST_FIT_PRINT__ = fitPrintRow;
     window.addEventListener('resize', () => {
       document.querySelectorAll('.st-row--print').forEach((r) => fitPrintRow(r, true));
     }, { passive: true });
+
+    /* The hero and the inspiration cards are fixed artwork: ready as soon as
+       their pictures have arrived (the gate waits for those). */
+    gateReady('hero', document.querySelector('[data-gate="hero"]'));
+    gateReady('inspo', document.querySelector('[data-gate="inspo"]'));
+
+    /* A shelf that could not be loaded says so, with a way to try again. */
+    window.__ST_FAIL__ = (what) => `<p class="st-fail">Your ${what} didn't load.<button type="button" data-st-retry>Try again</button></p>`;
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-st-retry]')) location.reload(); });
 
     const rails = () => document.querySelectorAll('[data-rail]');
     rails().forEach(wireRail);
@@ -613,26 +547,23 @@ const inspo = [
       const seeall = document.querySelector('[data-seeall]');
       const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const newCard = `<a class="st-design st-design--new" href="/account/editor?new=1" data-new-design><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
-      // However this ends — their designs, none yet, signed out, or a failed
-      // query — the skeletons come down and whatever is in the row is final.
-      // A stored token that turned out to be dead also drops the class, so the
-      // samples show rather than an empty shelf.
-      const done = (signedIn) => {
-        row.classList.add('is-ready');
-        if (!signedIn) document.documentElement.classList.remove('has-session');
-      };
+      /* However this ends, the row is final before the page is shown: their
+         designs, just "New design", or a plain "didn't load". Signed out, it
+         is the sign-in page -- there is no preview of somebody's Studio. */
+      const done = () => { row.classList.add('is-ready'); gateReady('designs', row); };
+      const failed = () => { row.innerHTML = window.__ST_FAIL__('designs'); row.classList.add('is-ready'); gateFailed('designs', row); };
       try {
         /* Where this person's designs live: a member's own, or the training
            account's, kept under danielle@tmke.co.uk (src/lib/design-store.js). */
         const store = await designStore();
         if ((!store || store.blocked) && demoOn()) {
           // The demo has nothing saved: just the way to start one.
-          const row = document.querySelector('[data-designs]');
-          if (row) row.innerHTML = `<a class="st-design st-design--new" href="/account/editor?new=1" data-new-design><span class="st-design-new"><span class="st-plus">+</span><span>New design</span></span></a>`;
-          done(false);
+          row.innerHTML = newCard;
+          done();
           return;
         }
-        if (!store || store.blocked) { done(false); return; } // signed out (preview) → keep the SSR starter samples
+        if (!store) { location.replace('/login?next=' + encodeURIComponent('/account/studio')); return; }
+        if (store.blocked) { failed(); return; }
         /* All of them, not five: the toggle has to be able to say whether they
            have any print designs at all, and a shelf of three cannot answer
            that from a page of five. `canvas` is what tells print from social. */
@@ -641,9 +572,9 @@ const inspo = [
           .select('id, name, thumb_url, updated_at, canvas')
           .eq('user_id', store.uid)
           .order('updated_at', { ascending: false });
-        if (error) { done(true); return; }
+        if (error) { failed(); return; }
         const designs = data || [];
-        if (!designs.length) { row.innerHTML = newCard; done(true); return; } // signed in, none yet → just "New design"
+        if (!designs.length) { row.innerHTML = newCard; done(); return; } // signed in, none yet → just "New design"
 
         const seeAllCard = `
           <a class="st-design st-design--all" href="/account/editor" data-seeall-card>
@@ -665,8 +596,9 @@ const inspo = [
         const draw = (list, kind) => {
           row.innerHTML = list.slice(0, 3).map(card).join('') + newCard
             + (list.length > 3 ? seeAllCard : '');
-          fitPrintRow(row, kind === 'print' || (!kind && list.length && list.every(isPrintDesign)));
+          const shaped = fitPrintRow(row, kind === 'print' || (!kind && list.length && list.every(isPrintDesign)));
           window.__ST_REWIRE_RAILS__?.();
+          return shaped;
         };
 
         const printDesigns  = designs.filter(isPrintDesign);
@@ -674,12 +606,12 @@ const inspo = [
         if (seeall) seeall.hidden = true;        // it lives on the shelf now
         if (printDesigns.length && socialDesigns.length) {
           const startKind = mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns, kind));
-          draw(startKind === 'print' ? printDesigns : socialDesigns, startKind);
+          await draw(startKind === 'print' ? printDesigns : socialDesigns, startKind);
         } else {
-          draw(designs);
+          await draw(designs);
         }
-        done(true);
-      } catch (_) { done(true); /* keep the SSR sample designs on any error */ }
+        done();
+      } catch (_) { failed(); }
     })();
   </script>
 
@@ -687,6 +619,7 @@ const inspo = [
   <script>
     import { isDemo as demoOn } from "../../lib/demo.js";
     import { supabase } from "../../lib/supabase.js";
+    import { gateReady, gateFailed } from "../../lib/ready-gate.js";
     (async function wirePacks() {
       const row = document.querySelector('[data-packs]');
       if (!row) return;
@@ -697,7 +630,13 @@ const inspo = [
           <span class="st-pack-name">Shop more packs</span>
           <span class="st-pack-count">Visit The Edit &rarr;</span>
         </a>`;
-      const done = () => { row.classList.add('is-ready'); window.__ST_REWIRE_RAILS__?.(); };
+      // Final before the page is shown: the packs, the shop, or "didn't load".
+      const done = () => { row.classList.add('is-ready'); window.__ST_REWIRE_RAILS__?.(); gateReady('packs', row); };
+      const failed = () => {
+        row.innerHTML = window.__ST_FAIL__ ? window.__ST_FAIL__('packs') : '';
+        row.classList.add('is-ready');
+        gateFailed('packs', row);
+      };
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session && demoOn()) {
@@ -719,7 +658,7 @@ const inspo = [
           done();
           return;
         }
-        if (!session) { done(); return; } // signed out (preview) → keep the SSR sample packs
+        if (!session) { location.replace('/login?next=' + encodeURIComponent('/account/studio')); return; }
         const email = session.user.email || '';
         /* Which brand this account is actually in, asked of the database
            rather than assumed. Staff can read every pack, so without this
@@ -733,6 +672,8 @@ const inspo = [
           import('../../lib/pack-access.js').then((m) => m.memberBrandsFor(supabase), () => undefined),
         ]);
         memberBrand = brandRes;   // every brand they are in (pack-access.js)
+        // A failed read is not "you own nothing": say it did not load.
+        if (packsRes.error || ordersRes.error) { failed(); return; }
         const allPacks = packsRes.data || [];
         // Packs with no cover set borrow one of their own templates.
         const { fillPackCovers } = await import('../../lib/pack-cover.js');
@@ -762,17 +703,18 @@ const inspo = [
         /* The Print tab has no "Shop more packs" card (Dani, 13 Oct). */
         const draw = (list, print) => {
           row.innerHTML = list.map(tile).join('') + (print ? '' : shopTile);
-          window.__ST_FIT_PRINT__?.(row, print);
+          const shaped = window.__ST_FIT_PRINT__?.(row, print);
           window.__ST_REWIRE_RAILS__?.();
+          return shaped;
         };
         if (printPacks.length && socialPacks.length) {
           const startKind = window.__ST_KIND_TOGGLE__?.(row.closest('.st-rail'), 'packs', (kind) => draw(kind === 'print' ? printPacks : socialPacks, kind === 'print')) || 'social';
-          draw(startKind === 'print' ? printPacks : socialPacks, startKind === 'print');
+          await draw(startKind === 'print' ? printPacks : socialPacks, startKind === 'print');
         } else {
-          draw(owned, !socialPacks.length && printPacks.length > 0);
+          await draw(owned, !socialPacks.length && printPacks.length > 0);
         }
         done();                           // the dot count follows the real packs
-      } catch (_) { done(); /* keep the SSR sample packs on any error */ }
+      } catch (_) { failed(); }
     })();
   </script>
 </BaseLayout>
