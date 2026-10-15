@@ -2207,6 +2207,63 @@ function reminderHtml(item, platform, caption) {
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
 }
+/* The reminder for anything on the marketing calendar that isn't a post
+   (Dani, 15 Oct 2026): what it is, when, its details and notes, and what's
+   still unticked on its checklist. Labels mirror src/data/marketing-
+   activities.js; keep them in step. */
+const ACTIVITY_LABELS = {
+  content_planning: "Content planning session", email_newsletter: "Email / newsletter", paid_ads: "Paid advertising",
+  print_design: "Create print design", print_order: "Order print marketing", canvassing: "Canvassing / leaflet drop",
+  property_shoot: "Property photography / filming", property_launch: "Property launch campaign", open_house: "Open house / property event",
+  local_event: "Local event / networking", review_request: "Review / testimonial request", follow_up: "Marketing follow-up", other: "Something else",
+};
+const ACTIVITY_DETAIL_LABELS = {
+  address: "Property address", area: "Area", location: "Location", platform: "Platform", campaign: "Campaign",
+  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event",
+};
+function activityHtml(item) {
+  const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const label = ACTIVITY_LABELS[item.activity] || "Marketing activity";
+  const d = item.details && typeof item.details === "object" ? item.details : {};
+  const when = item.has_time === false ? "All day" : String(item.scheduled_time || "").slice(0, 5);
+  const endTime = d.end_time ? ` to ${esc(String(d.end_time).slice(0, 5))}` : "";
+  let until = "";
+  if (item.end_date && item.end_date > item.scheduled_date) {
+    try { until = ` &middot; until ${new Date(item.end_date + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`; } catch (_) {}
+  }
+  const rows = Object.keys(ACTIVITY_DETAIL_LABELS)
+    .filter((k) => d[k] !== undefined && d[k] !== null && String(d[k]).trim() && ACTIVITY_DETAIL_LABELS[k] && String(d[k]) !== String(item.title))
+    .map((k) => `<div><strong>${ACTIVITY_DETAIL_LABELS[k]}:</strong> ${esc(d[k])}</div>`).join("");
+  const todo = (Array.isArray(item.checklist) ? item.checklist : []).filter((x) => x && !x.done && x.text);
+  return `<div style="${EM_WRAP}">
+    <h1 style="${EM_H1}">On Your Calendar Today.</h1>
+    <p style="${EM_P}"><strong>${esc(label)}</strong>${item.title && item.title !== label ? ` &ndash; ${esc(item.title)}` : ""}<br>${esc(when)}${endTime}${until}</p>
+    ${rows ? `<div style="${EM_QUOTE}">${rows}</div>` : ""}
+    ${item.notes ? `<div style="${EM_QUOTE_TEXT}">${esc(item.notes)}</div>` : ""}
+    ${todo.length ? `<p style="${EM_P}"><strong>Still to do:</strong></p><ul style="${EM_P}">${todo.map((x) => `<li>${esc(x.text)}</li>`).join("")}</ul>` : ""}
+    <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
+  </div>`;
+}
+async function sendActivityEmail(env, { email, item }) {
+  const label = ACTIVITY_LABELS[item.activity] || "Marketing activity";
+  const what = item.title && item.title !== label ? `${label.toLowerCase()} – ${item.title}` : label.toLowerCase();
+  try {
+    const html = activityHtml(item);
+    const sent = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: env.MAIL_FROM || "TMKE <onboarding@resend.dev>",
+        reply_to: env.MAIL_REPLY_TO || "hello@tmke.co.uk",
+        to: email,
+        subject: `Today: ${what}.`,
+        html,
+        text: htmlToText(html),
+      }),
+    });
+    return sent.ok;
+  } catch (_) { return false; }
+}
 function waitlistHtml({ name, service, pkg, date, time }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   let niceDate = esc(date);
@@ -2541,7 +2598,10 @@ async function runReminders(env) {
       const email = await sbAdminUserEmail(env, item.user_id);
       if (!email) continue;
       const platform = item.platform_hint || "instagram";
-      const ok = await sendPostEmail(env, { email, item, subject: `Your ${platform} post is planned for today` });
+      // A post brings its design and caption; any other activity, its plan.
+      const ok = (item.activity && item.activity !== "social_post")
+        ? await sendActivityEmail(env, { email, item })
+        : await sendPostEmail(env, { email, item, subject: `Your ${platform} post is planned for today` });
       if (ok) {
         await sbPatch(env, "calendar_items", `id=eq.${item.id}`,
           { status: "reminder_sent", reminder_sent_at: new Date().toISOString() });

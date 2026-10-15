@@ -589,6 +589,9 @@ const recentTemplates = templates.slice(0, 4);
     .ws-day.is-today { border-color: rgba(28,29,34,0.42); }
     .ws-day--empty { justify-content: flex-start; }
     .ws-day-empty-msg { margin-top: auto; font-size: var(--ws-t-meta); font-weight: 500; color: var(--ws-faint); }
+    /* A day whose plan is an activity rather than a post: its name, in the
+       wine of the calendar, where a post would show its picture. */
+    .ws-day-act { margin-top: auto; padding: 8px 10px; border-radius: 4px; background: color-mix(in srgb, var(--ws-accent) 8%, #fff); color: var(--ws-accent); font-size: var(--ws-t-meta); font-weight: 600; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
     /* Recent designs reel — portrait, fan out on hover */
     /* A day carrying a starter idea. Tinted in the brand plum rather than left
        white: an untouched week was seven identical blank boxes, which is a poor
@@ -1391,8 +1394,16 @@ const recentTemplates = templates.slice(0, 4);
           .order('scheduled_date', { ascending: true });
         if (error) return;
 
+        /* One entry per day: a post with its picture if the day has one,
+           otherwise the first thing planned (the Planner is a marketing
+           calendar now -- a canvassing round has no picture, Dani, 15 Oct). */
         const byDate = {};
-        (data || []).forEach((it) => { if (it.scheduled_date && !byDate[it.scheduled_date]) byDate[it.scheduled_date] = it; });
+        (data || []).forEach((it) => {
+          if (!it.scheduled_date) return;
+          const cur = byDate[it.scheduled_date];
+          const pic = (x) => !!(x && (x.thumbnail_url || x.asset_url));
+          if (!cur || (!pic(cur) && pic(it))) byDate[it.scheduled_date] = it;
+        });
 
         const week = document.querySelector('.ws-week');
         if (!week) return;
@@ -1412,6 +1423,9 @@ const recentTemplates = templates.slice(0, 4);
             // is lives in the tooltip, because seven of these across one line
             // has no room for a title without shrinking the date.
             const label = it.title || it.caption || it.content_type || it.name || 'Scheduled';
+            if (!thumb && it.activity && it.activity !== 'social_post') {
+              return `<a class="ws-day ws-day--act${isToday}" href="${href}"${dateAttr} title="${escapeHtml(String(label))}">${nameHtml}<span class="ws-day-act">${escapeHtml(String(label))}</span></a>`;
+            }
             return `<a class="ws-day${isToday}" href="${href}"${dateAttr} title="${escapeHtml(String(label))}">${nameHtml}<span class="ws-day-thumb"${thumb ? ` style="background-image:url('${escapeHtml(thumb)}')"` : ''}></span></a>`;
           }
           return `<a class="ws-day ws-day--empty${isToday}" href="${href}"${dateAttr}>${nameHtml}<span class="ws-day-empty-msg">No post planned</span></a>`;

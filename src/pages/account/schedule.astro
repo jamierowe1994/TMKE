@@ -44,8 +44,14 @@ import "../../styles/account-sections.css";
         </div>
       </header>
 
+      <!-- The key: the five kinds of marketing activity, then what the
+           calendar marks for you. -->
       <div class="cal-legend" aria-hidden="true">
-        <span class="cal-leg cal-leg--post">Your posts</span>
+        <span class="cal-leg cal-leg--content">Content &amp; Social</span>
+        <span class="cal-leg cal-leg--print">Print &amp; Canvassing</span>
+        <span class="cal-leg cal-leg--property">Property Marketing</span>
+        <span class="cal-leg cal-leg--business">Business &amp; Community</span>
+        <span class="cal-leg cal-leg--other">Something Else</span>
         <span class="cal-leg cal-leg--prompt">Idea ready</span>
         <span class="cal-leg cal-leg--date">Key date</span>
       </div>
@@ -93,7 +99,7 @@ import "../../styles/account-sections.css";
       <footer class="day-foot">
         <!-- Two ways in. Plan one you've already made, without leaving the
              calendar; or start a new design for this day. -->
-        <button type="button" id="day-plan" class="day-new-btn">+ Plan a post for this day</button>
+        <button type="button" id="day-plan" class="day-new-btn">+ Add to this day</button>
         <a href="#" id="day-new" class="day-new-btn day-new-btn--ghost">Create a post for this day</a>
       </footer>
     </aside>
@@ -147,6 +153,28 @@ import "../../styles/account-sections.css";
         <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
         <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
         <button type="button" class="post-btn post-btn--primary" id="post-save">Save changes</button>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- Add to this day: choose the marketing activity, then fill in what it
+       needs (src/data/marketing-activities.js). A social post goes on to the
+       design library below; everything else is this one form. -->
+  <div class="day-backdrop" id="act-modal" hidden role="dialog" aria-modal="true" aria-labelledby="act-h">
+    <aside class="pick-panel act-panel" aria-label="Add to this day">
+      <header class="day-head">
+        <div>
+          <p class="day-eyebrow" id="act-eyebrow">Add to this day</p>
+          <h2 id="act-h" class="day-h">What are you planning?</h2>
+        </div>
+        <button type="button" class="day-close" id="act-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="pick-body act-choose" id="act-choose"></div>
+      <div class="pick-body act-form" id="act-form" hidden></div>
+      <footer class="day-foot post-foot act-foot" id="act-foot" hidden>
+        <button type="button" class="post-btn post-btn--danger" id="act-delete" hidden>Remove</button>
+        <button type="button" class="post-btn post-btn--ghost" id="act-back">Back</button>
+        <button type="button" class="post-btn post-btn--primary" id="act-save">Add to calendar</button>
       </footer>
     </aside>
   </div>
@@ -264,6 +292,13 @@ import "../../styles/account-sections.css";
       content: ""; width: 10px; height: 10px; border-radius: 2px;
     }
     .cal-leg--post::before   { background: var(--violet-deep); }      /* your own scheduled posts */
+    /* The five kinds of marketing activity (src/data/marketing-activities.js,
+       CATEGORIES -- keep the colours in step). */
+    .cal-leg--content::before  { background: #371e28; }
+    .cal-leg--print::before    { background: #2f5d62; }
+    .cal-leg--property::before { background: #8c5f37; }
+    .cal-leg--business::before { background: #465a86; }
+    .cal-leg--other::before    { background: #62666e; }
     .cal-leg--prompt::before { background: #fff; box-shadow: inset 0 0 0 2px var(--english-violet); }  /* wine outline — an angle is written for you */
     .cal-leg--date::before   { background: #887d77; }                 /* stone — a date to know, nothing to do */
 
@@ -411,6 +446,16 @@ import "../../styles/account-sections.css";
     .cal-chip--post.is-done       { background: #2e6f4f; border-color: #2e6f4f; }
     .cal-chip--post.is-sent       { background: var(--violet); border-color: var(--violet); }
     .cal-chip--post.is-cancelled  { background: rgba(28,29,34,0.35); border-color: rgba(28,29,34,0.35); text-decoration: line-through; }
+    /* Every other activity: its category's colour. A run (a campaign, paid
+       ads) is drawn on each of its days; after the first, as a thin bar. */
+    .cal-chip--act { color: #fff; padding: 4px 8px; border: 1px solid transparent; }
+    .cal-chip--content  { background: #371e28; border-color: #371e28; }
+    .cal-chip--print    { background: #2f5d62; border-color: #2f5d62; }
+    .cal-chip--property { background: #8c5f37; border-color: #8c5f37; }
+    .cal-chip--business { background: #465a86; border-color: #465a86; }
+    .cal-chip--other    { background: #62666e; border-color: #62666e; }
+    .cal-chip--act.is-cont { padding: 0; height: 6px; min-height: 6px; font-size: 0; opacity: 0.7; }
+    .cal-chip--booking { font-style: italic; }
 
     .cal-day-more {
       font-family: var(--sans);
@@ -754,6 +799,46 @@ import "../../styles/account-sections.css";
       .pick-chosen img { max-width: 180px; }
     }
 
+    /* ---- Add to this day: the activity chooser and its form ---- */
+    .act-panel { width: min(820px, calc(100vw - 32px)); }
+    #act-modal { display: flex; align-items: center; justify-content: center; padding: 16px; }
+    #act-modal[hidden], .act-form[hidden], .act-choose[hidden], #act-foot[hidden], #act-delete[hidden] { display: none; }
+    .act-choose { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px 22px; }
+    .act-cat h3 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); display: flex; align-items: center; gap: 7px; }
+    .act-cat h3::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
+    .act-cat ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+    .act-pick { width: 100%; text-align: left; cursor: pointer; padding: 10px 12px; border-radius: 6px; border: 1px solid rgba(28,29,34,0.12); background: #fff;
+      font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: var(--ink); transition: border-color .18s, transform .18s; }
+    .act-pick:hover { border-color: var(--cat); transform: translateY(-1px); }
+    .act-pick:focus-visible { outline: 2px solid var(--cat); outline-offset: 2px; }
+    .act-form { display: grid; gap: 14px; }
+    .act-kind { display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cat); }
+    .act-kind::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
+    .act-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .act-allday { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.65); margin-top: 6px; }
+    .act-link { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; color: var(--violet-deep); }
+    .act-designs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; max-height: 260px; overflow: auto; padding: 2px; }
+    .act-design { position: relative; padding: 0; border: 1px solid rgba(28,29,34,0.12); border-radius: 4px; overflow: hidden; background: #fff; cursor: pointer; text-align: left; }
+    .act-design img { display: block; width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: #e9e6e2; }
+    .act-design span { display: block; padding: 4px 6px; font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .act-design.is-on { border-color: var(--violet-deep); box-shadow: 0 0 0 2px var(--violet-deep); }
+    .act-none { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); margin: 0; }
+    .act-check { display: grid; gap: 6px; }
+    .act-check-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 5px; font-family: var(--sans); font-size: var(--ws-t-body); }
+    .act-check-item label { flex: 1; display: flex; align-items: center; gap: 8px; cursor: pointer; min-width: 0; }
+    .act-check-item input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--violet-deep); flex: 0 0 auto; }
+    .act-check-item.is-done label span { text-decoration: line-through; color: rgba(28,29,34,0.45); }
+    .act-check-del { border: 0; background: none; cursor: pointer; color: rgba(28,29,34,0.4); font-size: 18px; line-height: 1; padding: 0 2px; }
+    .act-check-del:hover { color: #9b2c2c; }
+    .act-check-add { display: flex; gap: 8px; }
+    .act-check-add input { flex: 1; }
+    .act-check-add button { border: 1px solid rgba(28,29,34,0.2); background: #fff; border-radius: 5px; padding: 0 12px; cursor: pointer; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 700; }
+    .act-progress { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); }
+
+    /* An activity in the day list: its category's colour down the side. */
+    .day-item--act { border-left: 3px solid var(--cat, #62666e); }
+    .day-item-kind { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cat, #62666e); }
+
     /* Planned posts are clickable — nudge on hover to signal it. */
     .day-item { cursor: pointer; transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s; }
     .day-item:hover {
@@ -892,6 +977,7 @@ import "../../styles/account-sections.css";
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { designStore } from '../../lib/design-store.js';
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
+    import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
     // ====== Elements ======
@@ -1035,7 +1121,19 @@ import "../../styles/account-sections.css";
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
       // Pre-bucket items + holidays by YMD for O(1) day lookups.
-      const itemsByDate    = bucketBy(items,    (i) => i.scheduled_date);
+      // Each entry on every day it covers: a run (a campaign, paid ads) is on
+      // each day from its start to its end, marked as a continuation after
+      // the first so it draws as a thin bar.
+      const itemsByDate = new Map();
+      for (const it of items) {
+        const start = new Date(it.scheduled_date + 'T00:00:00');
+        const end = new Date(lastDay(it) + 'T00:00:00');
+        for (let d = new Date(start), n = 0; d <= end && n < 400; d.setDate(d.getDate() + 1), n++) {
+          const k = ymd(d);
+          if (!itemsByDate.has(k)) itemsByDate.set(k, []);
+          itemsByDate.get(k).push(n === 0 ? it : { ...it, __cont: true });
+        }
+      }
       const holidaysByDate = bucketBy(holidays, (h) => h.date);
       const promptsByDate  = bucketBy(prompts,  (p) => p.date);
 
@@ -1079,6 +1177,10 @@ import "../../styles/account-sections.css";
           `<span class="cal-chip ${h.kind === 'bank' ? 'cal-chip--bank' : 'cal-chip--aware'}" title="${escapeHtml(h.name)}">${escapeHtml(h.name)}</span>`
         ).join('');
         const postsHtml = visiblePosts.map((p) => {
+          if (isAct(p)) {
+            const c = catOfItem(p);
+            return `<span class="cal-chip cal-chip--act cal-chip--${c.key}${p.__cont ? ' is-cont' : ''}${p.booking ? ' cal-chip--booking' : ''}" title="${escapeHtml(activityOf(p.activity).label + ' — ' + (p.title || ''))}">${p.__cont ? '' : escapeHtml(p.title || activityOf(p.activity).label)}</span>`;
+          }
           const statusClass = p.status === 'done' ? 'is-done'
             : p.status === 'reminder_sent' ? 'is-sent'
             : p.status === 'cancelled' ? 'is-cancelled' : '';
@@ -1116,8 +1218,8 @@ import "../../styles/account-sections.css";
     function openDay(dateStr) {
       openDayDate = dateStr;
       const d = new Date(dateStr + 'T00:00:00');
-      const dayItems = items.filter((i) => i.scheduled_date === dateStr)
-        .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''));
+      const dayItems = items.filter((i) => occursOn(i, dateStr))
+        .sort((a, b) => ((a.has_time === false ? '' : a.scheduled_time) || '').localeCompare((b.has_time === false ? '' : b.scheduled_time) || ''));
       const dayPrompts = prompts.filter((p) => p.date === dateStr);
       const dayHols  = dayPrompts.length ? [] : holidays.filter((h) => h.date === dateStr);
 
@@ -1160,8 +1262,26 @@ import "../../styles/account-sections.css";
 
       const itemsHtml = dayItems.length ? `
         <div>
-          <h3 class="day-section-h">Planned posts</h3>
+          <h3 class="day-section-h">Planned</h3>
           ${dayItems.map((p) => {
+            if (isAct(p)) {
+              const a = activityOf(p.activity), c = catOfItem(p);
+              const list = Array.isArray(p.checklist) ? p.checklist : [];
+              const done = list.filter((x) => x && x.done).length;
+              const when = p.has_time === false ? 'All day' : fmtTime(p.scheduled_time);
+              const run = p.end_date && p.end_date > p.scheduled_date
+                ? ` · until ${new Date(p.end_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : '';
+              return `
+              <div class="day-item day-item--act" style="--cat:${c.colour}" data-id="${escapeHtml(String(p.id))}" role="button" tabindex="0" title="${p.booking ? 'Open your bookings' : 'Open this'}">
+                <div class="day-item-body">
+                  <span class="day-item-kind">${escapeHtml(a.label)}${p.booking ? ' · TMKE booking' : ''}</span>
+                  <h4 class="day-item-title">${escapeHtml(p.title || a.label)}</h4>
+                  <span class="day-item-time">${escapeHtml(when + run)}</span>
+                  ${p.notes ? `<p class="day-item-caption">${escapeHtml(p.notes)}</p>` : ''}
+                  ${list.length ? `<span class="act-progress">Checklist: ${done} of ${list.length} done</span>` : ''}
+                </div>
+              </div>`;
+            }
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
             const statusLabel = ({
@@ -1193,7 +1313,7 @@ import "../../styles/account-sections.css";
 
       const empty = (!dayHols.length && !dayItems.length && !dayPrompts.length) ? `
         <div class="day-empty">
-          Nothing planned for this day yet. Use the button below to design and plan a post — your calendar will fill up as you plan ahead.
+          Nothing planned for this day yet. Use Add to this day to plan a post, a canvassing round, a launch or anything else you're doing.
         </div>
       ` : '';
 
@@ -1451,7 +1571,7 @@ import "../../styles/account-sections.css";
       setTimeout(() => { closePick(); refreshDayUnder(); }, 800);
     }
 
-    if ($dayPlan) $dayPlan.addEventListener('click', () => { if (openDayDate) openPick(openDayDate); });
+    if ($dayPlan) $dayPlan.addEventListener('click', () => { if (openDayDate) openAct(openDayDate); });
     if ($pickClose) $pickClose.addEventListener('click', closePick);
     if ($pickCancel) $pickCancel.addEventListener('click', closePick);
     if ($pickBack) $pickBack.addEventListener('click', backToPick);
@@ -1464,6 +1584,260 @@ import "../../styles/account-sections.css";
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && $pickModal && !$pickModal.hidden) closePick();
     });
+
+    // ====== Add to this day: the marketing activities ======
+    /* Everything an estate agent's marketing involves, not only posts (Dani,
+       15 Oct). The chooser lists the categories in working order; a social
+       post goes on to the design library above, everything else is one form
+       drawn from the activity's own fields (src/data/marketing-activities.js). */
+    const $actModal  = document.getElementById('act-modal');
+    const $actClose  = document.getElementById('act-close');
+    const $actH      = document.getElementById('act-h');
+    const $actEyebrow = document.getElementById('act-eyebrow');
+    const $actChoose = document.getElementById('act-choose');
+    const $actForm   = document.getElementById('act-form');
+    const $actFoot   = document.getElementById('act-foot');
+    const $actSave   = document.getElementById('act-save');
+    const $actBack   = document.getElementById('act-back');
+    const $actDelete = document.getElementById('act-delete');
+    let actDate = null, actKey = null, actEditing = null, actChecklist = [], actDesigns = null;
+
+    const isAct = (it) => it && it.activity && it.activity !== 'social_post';
+    const catOfItem = (it) => categoryOf(activityOf(it.activity || 'social_post').category);
+    const lastDay = (it) => it.end_date && it.end_date > it.scheduled_date ? it.end_date : it.scheduled_date;
+    const occursOn = (it, dateStr) => it.scheduled_date <= dateStr && lastDay(it) >= dateStr;
+
+    function openAct(dateStr) {
+      if (demoOn() && !isTrainingDemo()) {
+        lock("Planning is for members.", "In the demo you can open any day and see how the planner works. Members plan their marketing here.");
+        return;
+      }
+      actDate = dateStr; actKey = null; actEditing = null;
+      $actEyebrow.textContent = fmtFullDate(new Date(dateStr + 'T00:00:00'));
+      $actH.textContent = 'What are you planning?';
+      $actChoose.innerHTML = CATEGORIES.map((c) => {
+        const list = ACTIVITIES.filter((a) => a.category === c.key);
+        return `<section class="act-cat" style="--cat:${c.colour}"><h3>${escapeHtml(c.label)}</h3><ol>${
+          list.map((a) => `<li><button type="button" class="act-pick" data-act="${a.key}">${escapeHtml(a.label)}</button></li>`).join('')
+        }</ol></section>`;
+      }).join('');
+      $actChoose.hidden = false; $actForm.hidden = true; $actFoot.hidden = true;
+      showActModal();
+    }
+    function showActModal() {
+      $actModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => $actModal.classList.add('is-open'));
+    }
+    function closeAct() {
+      $actModal.classList.remove('is-open');
+      $actModal.hidden = true;
+      actEditing = null;
+      if ($dayModal.hidden) document.body.style.overflow = '';
+    }
+
+    /* The designs a form can attach: print designs for print and canvassing,
+       any design for a launch campaign. Loaded once. */
+    async function loadActDesigns() {
+      if (actDesigns) return actDesigns;
+      const store = await designStore();
+      if (!store || store.blocked) return (actDesigns = []);
+      const { data } = await store.db.from(store.table)
+        .select('id, name, thumb_url, canvas, updated_at').eq('user_id', store.uid)
+        .order('updated_at', { ascending: false }).limit(80);
+      return (actDesigns = data || []);
+    }
+
+    async function chooseAct(key, item) {
+      const a = activityOf(key);
+      if (a.social && !item) { closeAct(); openPick(actDate); return; }
+      actKey = a.key; actEditing = item || null;
+      const c = categoryOf(a.category);
+      const d = (item && item.details) || {};
+      actChecklist = item ? (Array.isArray(item.checklist) ? item.checklist.map((x) => ({ ...x })) : [])
+                          : (a.checklist || []).map((text) => ({ text, done: false }));
+      $actH.textContent = item ? entryTitle(a.key, d) : a.label;
+      $actEyebrow.textContent = fmtFullDate(new Date((item ? item.scheduled_date : actDate) + 'T00:00:00'));
+      const hasTime = item ? item.has_time !== false : !!a.timeRequired;
+      const time = item && item.has_time !== false ? fmtTime(item.scheduled_time) : (a.timeRequired ? '09:00' : '');
+      // An entry keeps what was chosen for it; a new one starts on only for the
+      // time-sensitive activities (a post, a property shoot -- Dani, 15 Oct).
+      const remind = item ? item.reminder === true : !!a.reminder;
+      const field = (f) => {
+        const v = f.kind === 'endDate' ? (item && item.end_date) || '' : (d[f.key] ?? '');
+        const lab = `<span class="post-label">${escapeHtml(f.label)}${f.optional ? ' <span class="pick-optional">— optional</span>' : ''}</span>`;
+        if (f.kind === 'area') return `<label class="post-field">${lab}<textarea class="post-textarea" data-f="${f.key}" rows="3">${escapeHtml(v)}</textarea></label>`;
+        if (f.kind === 'number') return `<label class="post-field">${lab}<input type="number" min="0" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" /></label>`;
+        if (f.kind === 'endDate') return `<label class="post-field">${lab}<input type="date" class="post-input" data-f="end_date" value="${escapeHtml(v)}" /></label>`;
+        if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
+        if (f.kind === 'platform') return `<label class="post-field">${lab}<select class="post-input" data-f="platform"><option value="">Choose…</option>${PLATFORMS.map((p) => `<option${p === v ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></label>`;
+        if (f.kind === 'printDesign' || f.kind === 'linkedDesigns') return `<div class="post-field">${lab}<div class="act-designs" data-designs="${f.kind}" data-f="${f.key}"><p class="act-none">Loading your designs…</p></div></div>`;
+        return `<label class="post-field">${lab}<input type="text" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" placeholder="${escapeHtml(f.placeholder || '')}" maxlength="160" /></label>`;
+      };
+      const fields = a.fields || [];
+      $actForm.style.setProperty('--cat', c.colour);
+      $actForm.innerHTML = `
+        <p class="act-kind">${escapeHtml(c.label)} · ${escapeHtml(a.label)}</p>
+        ${fields.filter((f) => !['endDate', 'endTime', 'printDesign', 'linkedDesigns', 'area'].includes(f.kind)).map(field).join('')}
+        <div class="act-row">
+          <label class="post-field"><span class="post-label">${fields.some((f) => f.kind === 'endDate') ? 'Start date' : 'Date'}</span>
+            <input type="date" class="post-input" data-f="date" value="${escapeHtml(item ? item.scheduled_date : actDate)}" /></label>
+          ${fields.filter((f) => f.kind === 'endDate').map(field).join('')}
+          <label class="post-field"><span class="post-label">${a.key === 'open_house' ? 'Start time' : 'Time'}${a.timeRequired ? '' : ' <span class="pick-optional">— optional</span>'}</span>
+            <input type="time" class="post-input" data-f="time" value="${escapeHtml(hasTime ? time : '')}" /></label>
+          ${fields.filter((f) => f.kind === 'endTime').map(field).join('')}
+        </div>
+        ${fields.filter((f) => f.kind === 'printDesign' || f.kind === 'linkedDesigns' || f.kind === 'area').map(field).join('')}
+        ${a.link ? `<a class="act-link" href="${a.link.href}">${escapeHtml(a.link.label)} &rarr;</a>` : ''}
+        <label class="post-field"><span class="post-label">Notes <span class="pick-optional">— optional</span></span>
+          <textarea class="post-textarea" data-f="notes" rows="3" maxlength="2000">${escapeHtml((item && item.notes) || '')}</textarea></label>
+        <div class="post-field"><span class="post-label">Checklist <span class="act-progress" data-progress></span></span>
+          <div class="act-check" data-check></div>
+          <div class="act-check-add"><input type="text" class="post-input" data-check-new placeholder="Add an item" maxlength="160" /><button type="button" data-check-add>Add</button></div>
+        </div>
+        <label class="post-remind"><input type="checkbox" data-f="reminder" ${remind ? 'checked' : ''} />
+          <span>Remind me on the day <span class="post-remind-note">&mdash; we'll email you at 8am that morning</span></span></label>
+        <div class="post-error" data-act-error hidden></div>`;
+      drawChecklist();
+      $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
+      $actDelete.hidden = !item;
+      $actBack.textContent = item ? 'Cancel' : 'Back';
+      $actSave.disabled = false; $actSave.textContent = item ? 'Save changes' : 'Add to calendar';
+      if ($actModal.hidden) showActModal();
+      $actForm.scrollTop = 0;
+      // Designs, once they have loaded.
+      const pickers = [...$actForm.querySelectorAll('[data-designs]')];
+      if (pickers.length) {
+        const all = await loadActDesigns();
+        pickers.forEach((box) => {
+          const multi = box.dataset.designs === 'linkedDesigns';
+          const list = multi ? all : all.filter((x) => isPrintDesign(x));
+          const chosen = new Set([].concat(d[box.dataset.f] || []).map(String));
+          box.innerHTML = list.length
+            ? list.map((x) => `<button type="button" class="act-design${chosen.has(String(x.id)) ? ' is-on' : ''}" data-design-id="${escapeHtml(String(x.id))}" aria-pressed="${chosen.has(String(x.id))}"><img src="${escapeHtml(x.thumb_url || '')}" alt="" loading="lazy" /><span>${escapeHtml(x.name || 'Untitled design')}</span></button>`).join('')
+            : `<p class="act-none">${multi ? 'No saved designs yet.' : 'No print designs yet. Make one from your print packs in the Studio.'}</p>`;
+          box.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-design-id]'); if (!b) return;
+            if (!multi) box.querySelectorAll('.act-design.is-on').forEach((o) => { if (o !== b) { o.classList.remove('is-on'); o.setAttribute('aria-pressed', 'false'); } });
+            const on = !b.classList.contains('is-on');
+            b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on));
+          });
+        });
+      }
+    }
+
+    function drawChecklist() {
+      const box = $actForm.querySelector('[data-check]'); if (!box) return;
+      box.innerHTML = actChecklist.map((x, i) => `
+        <div class="act-check-item${x.done ? ' is-done' : ''}">
+          <label><input type="checkbox" data-check-i="${i}" ${x.done ? 'checked' : ''} /><span>${escapeHtml(x.text)}</span></label>
+          <button type="button" class="act-check-del" data-check-del="${i}" aria-label="Remove ${escapeHtml(x.text)}">&times;</button>
+        </div>`).join('');
+      const done = actChecklist.filter((x) => x.done).length;
+      const pr = $actForm.querySelector('[data-progress]');
+      if (pr) pr.textContent = actChecklist.length ? `${done} of ${actChecklist.length} done` : '— optional';
+    }
+    function actError(msg, ok) {
+      const el = $actForm.querySelector('[data-act-error]'); if (!el) return;
+      el.hidden = !msg; el.textContent = msg || ''; el.classList.toggle('is-ok', !!ok);
+    }
+
+    async function saveAct() {
+      const a = activityOf(actKey);
+      const val = (k) => { const el = $actForm.querySelector(`[data-f="${k}"]`); return el ? (el.type === 'checkbox' ? el.checked : String(el.value || '').trim()) : ''; };
+      actError('');
+      const details = {};
+      for (const f of a.fields || []) {
+        if (f.kind === 'endDate') continue;
+        if (f.kind === 'printDesign' || f.kind === 'linkedDesigns') {
+          const ids = [...$actForm.querySelectorAll(`[data-f="${f.key}"] .act-design.is-on`)].map((b) => b.dataset.designId);
+          if (f.kind === 'printDesign') { if (ids[0]) details[f.key] = ids[0]; } else if (ids.length) details[f.key] = ids;
+          continue;
+        }
+        const v = val(f.key);
+        if (f.required && !v) return actError(`Add the ${f.label.toLowerCase()}.`);
+        if (v) details[f.key] = f.kind === 'number' ? Number(v) : v;
+      }
+      const date = val('date');
+      if (!date) return actError('Choose a date.');
+      const endDate = (a.fields || []).some((f) => f.kind === 'endDate') ? val('end_date') : '';
+      if (endDate && endDate < date) return actError('The end date is before the start.');
+      const time = val('time');
+      if (a.timeRequired && !time) return actError('Choose a time.');
+      const acct = await plannerStore();
+      if (!acct) return actError("You're signed out — sign in again.");
+      if (acct.blocked) return actError(acct.reason);
+      const row = {
+        activity: a.key,
+        title: entryTitle(a.key, details),
+        scheduled_date: date,
+        end_date: endDate || null,
+        scheduled_time: time || '09:00',
+        has_time: !!time,
+        details,
+        notes: val('notes') || null,
+        checklist: actChecklist,
+        reminder: !!val('reminder'),
+        platform_hint: 'other',
+      };
+      $actSave.disabled = true; $actSave.textContent = 'Saving…';
+      let res;
+      if (actEditing) res = await acct.db.from(acct.table).update(row).eq('id', actEditing.id).eq('user_id', acct.uid).select('*').single();
+      else res = await acct.db.from(acct.table).insert({ ...row, user_id: acct.uid, status: 'scheduled' }).select('*').single();
+      if (res.error) {
+        $actSave.disabled = false; $actSave.textContent = actEditing ? 'Save changes' : 'Add to calendar';
+        const m = res.error.message || '';
+        return actError(/column|activity/i.test(m) ? 'The calendar needs one update before it can hold this (supabase/calendar_activities.sql).' : (m || "Couldn't save that."));
+      }
+      items = items.filter((x) => !actEditing || String(x.id) !== String(actEditing.id)).concat(res.data);
+      renderCalendar();
+      $actSave.textContent = 'Saved ✓';
+      setTimeout(() => { closeAct(); refreshDayUnder(); }, 500);
+    }
+
+    async function deleteAct() {
+      if (!actEditing) return;
+      if (!confirm('Remove this from your calendar? This can\'t be undone.')) return;
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return actError(acct ? acct.reason : "You're signed out — sign in again.");
+      const { error } = await acct.db.from(acct.table).delete().eq('id', actEditing.id).eq('user_id', acct.uid);
+      if (error) return actError(error.message || "Couldn't remove it.");
+      items = items.filter((x) => String(x.id) !== String(actEditing.id));
+      renderCalendar(); closeAct(); refreshDayUnder();
+    }
+
+    // One door for anything in a day's list.
+    function openEntry(id) {
+      const it = items.find((i) => String(i.id) === String(id));
+      if (!it) return;
+      if (it.booking) { location.href = '/account/bookings'; return; }
+      if (isAct(it)) { actDate = it.scheduled_date; chooseAct(it.activity, it); return; }
+      openPost(id);
+    }
+
+    $actClose?.addEventListener('click', closeAct);
+    $actModal?.addEventListener('click', (e) => { if (e.target === $actModal) closeAct(); });
+    $actChoose?.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) chooseAct(b.dataset.act); });
+    $actBack?.addEventListener('click', () => { if (actEditing) closeAct(); else openAct(actDate); });
+    $actSave?.addEventListener('click', saveAct);
+    $actDelete?.addEventListener('click', deleteAct);
+    $actForm?.addEventListener('change', (e) => {
+      const i = e.target.getAttribute && e.target.getAttribute('data-check-i');
+      if (i != null) { actChecklist[+i].done = e.target.checked; drawChecklist(); }
+    });
+    $actForm?.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-check-del]');
+      if (del) { actChecklist.splice(+del.dataset.checkDel, 1); drawChecklist(); return; }
+      if (e.target.closest('[data-check-add]')) {
+        const inp = $actForm.querySelector('[data-check-new]');
+        const t = String(inp.value || '').trim();
+        if (t) { actChecklist.push({ text: t, done: false }); inp.value = ''; drawChecklist(); inp.focus(); }
+      }
+    });
+    $actForm?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches('[data-check-new]')) { e.preventDefault(); $actForm.querySelector('[data-check-add]').click(); }
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && $actModal && !$actModal.hidden) closeAct(); });
 
     // Refresh the day modal beneath (it's static once rendered).
     function refreshDayUnder() {
@@ -1590,15 +1964,27 @@ import "../../styles/account-sections.css";
       /* Posts from the account's own Planner: a member's, or the training
          account's (Dani's login). Nobody's at all for the public demo. */
       const acct = await plannerStore();
-      const postsQuery = (acct && !acct.blocked)
+      const postsQuery = () => (acct && !acct.blocked)
         ? acct.db.from(acct.table).select('*').eq('user_id', acct.uid)
         : supabase.from('calendar_items').select('*');
-      const [itemsRes, holsRes] = await Promise.all([
-        postsQuery
-          .gte('scheduled_date', fromYmd)
+      /* Anything that touches the window: an entry on a day in it, or a run
+         (a campaign, paid ads) that started earlier and is still going. A
+         database without end_date yet (supabase/calendar_activities.sql not
+         run) falls back to the days in the window. */
+      const ranged = async () => {
+        let r = await postsQuery()
           .lte('scheduled_date', toYmd)
+          .or(`scheduled_date.gte.${fromYmd},end_date.gte.${fromYmd}`)
           .order('scheduled_date', { ascending: true })
-          .order('scheduled_time', { ascending: true }),
+          .order('scheduled_time', { ascending: true });
+        if (r.error && /end_date/i.test(r.error.message || '')) {
+          r = await postsQuery().gte('scheduled_date', fromYmd).lte('scheduled_date', toYmd)
+            .order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true });
+        }
+        return r;
+      };
+      const [itemsRes, holsRes] = await Promise.all([
+        ranged(),
         supabase.from('uk_holidays')
           .select('date, name, kind, country')
           .gte('date', fromYmd)
@@ -1615,6 +2001,28 @@ import "../../styles/account-sections.css";
       } else {
         items = itemsRes.data || [];
         $state.hidden = true;
+      }
+      /* TMKE photography and filming you've booked with us appear as Property
+         Marketing on their day, read from Bookings, so nothing is entered
+         twice. A member's own only; not the training account or the demo. */
+      if (session && acct && !acct.training) {
+        try {
+          const email = session.user.email || '';
+          const { data: shoots } = await supabase.from('videography_bookings')
+            .select('id, service, shoot_date, stage, postcode, kind')
+            .or(`account_user_id.eq.${session.user.id},client_email.ilike.${email}`)
+            .gte('shoot_date', fromYmd + 'T00:00:00').lte('shoot_date', toYmd + 'T23:59:59');
+          (shoots || []).forEach((b) => {
+            if (!b.shoot_date || b.stage === 'cancelled' || b.kind === 'discovery') return;
+            const when = new Date(b.shoot_date);
+            items.push({
+              id: 'booking-' + b.id, booking: true, activity: 'property_shoot',
+              title: (b.service || 'TMKE shoot') + (b.postcode ? ' · ' + b.postcode : ''),
+              scheduled_date: ymd(when), scheduled_time: when.toTimeString().slice(0, 5), has_time: true,
+              details: {}, checklist: [], status: 'scheduled',
+            });
+          });
+        } catch (_) { /* the calendar is fine without them */ }
       }
 
       // Holidays — fall back silently to a small stub so the demo still
@@ -1686,12 +2094,12 @@ import "../../styles/account-sections.css";
     // Click (or keyboard) a planned post in the day list to open its detail.
     $dayBody?.addEventListener('click', (e) => {
       const item = e.target.closest('.day-item');
-      if (item && item.dataset.id) openPost(item.dataset.id);
+      if (item && item.dataset.id) openEntry(item.dataset.id);
     });
     $dayBody?.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;
       const item = e.target.closest('.day-item');
-      if (item && item.dataset.id) { e.preventDefault(); openPost(item.dataset.id); }
+      if (item && item.dataset.id) { e.preventDefault(); openEntry(item.dataset.id); }
     });
 
     // Post detail modal wiring.
