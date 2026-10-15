@@ -5381,7 +5381,9 @@ export default {
             title: `Shoot booked — ${service || "Shoot"}`,
             body: [name, dateNice, start].filter(Boolean).join(" · "),
             href: "/admin/videography", key: newBookingId || undefined,
-            meta: { booking_id: newBookingId || null, email: em || null },
+            // `email`, not `em`: the undefined name threw inside this try, so
+            // the admin centre never heard about a shoot booking (15 Oct).
+            meta: { booking_id: newBookingId || null, email: email || null },
           });
         } catch (_) {}
 
