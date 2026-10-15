@@ -46,6 +46,25 @@ const navLinks = [
   hideFooter
   pageTransition
 >
+  <!-- Opened on a product's link (#studio, #property, #agent -- the hub's
+       Marketing Calendar sends members here): hold the site's loading screen
+       until that product's panel is open, rather than showing the page work
+       its way there (Dani, 15 Oct). Lifted by openFromHash below. -->
+  <script is:inline>
+    if (/^#(studio|property|agent)$/.test(location.hash)) document.documentElement.classList.add("vg-hold");
+  </script>
+  <style is:inline>
+    .vg-hold-cover { position: fixed; inset: 0; z-index: 9600; visibility: hidden; opacity: 0; transition: opacity .45s ease;
+      background: #371e28 url("/images/loading-tmke.webp") center / cover no-repeat; }
+    @media (max-aspect-ratio: 16 / 9) { .vg-hold-cover { background-size: contain; } }
+    html.vg-hold { overflow: hidden; }
+    html.vg-hold .vg-hold-cover, html.vg-holding-out .vg-hold-cover { visibility: visible; opacity: 1; }
+    html.vg-holding-out .vg-hold-cover { opacity: 0; }
+    /* Never stuck: the page shows after 6s whatever happens. */
+    html.vg-hold .vg-hold-cover { animation: vgHoldFailsafe 0s 6s forwards; }
+    @keyframes vgHoldFailsafe { to { visibility: hidden; opacity: 0; } }
+  </style>
+  <div class="vg-hold-cover" aria-hidden="true"></div>
   <div class="pf">
     <!-- Top nav — TMKE (left) + Menu (right); hover the top strip to reveal links. -->
     <header class="pf-top" id="pf-top">
@@ -1998,7 +2017,23 @@ const navLinks = [
     // --- Deep link (open a showcase from #slug) ---
     (function openFromHash() {
       const h = (location.hash || "").replace("#", "");
-      if (h && PRODUCTS.some((p) => p.slug === h)) openProduct(h);
+      const root = document.documentElement;
+      // Lift the loading screen (see .vg-hold-cover) once the panel is open
+      // and its first picture is in, or straight away if there's no panel.
+      const lift = () => {
+        if (!root.classList.contains("vg-hold")) return;
+        root.classList.add("vg-holding-out");
+        root.classList.remove("vg-hold");
+        setTimeout(() => root.classList.remove("vg-holding-out"), 500);
+      };
+      if (h && PRODUCTS.some((p) => p.slug === h)) {
+        openProduct(h);
+        const draw = document.querySelector(`.vdraw[data-product="${h}"]`);
+        const pics = draw ? [...draw.querySelectorAll("img")].slice(0, 2) : [];
+        const loaded = Promise.all(pics.map((im) => im.complete ? null : new Promise((r) => { im.onload = im.onerror = r; })));
+        // The panel slides in over about half a second; wait for that, and its pictures (at most 2.5s).
+        Promise.race([Promise.all([loaded, new Promise((r) => setTimeout(r, 650))]), new Promise((r) => setTimeout(r, 2500))]).then(lift);
+      } else lift();
     })();
 
 
