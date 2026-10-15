@@ -137,7 +137,7 @@ import "../../styles/account-sections.css";
             </label>
             <label class="post-field">
               <span class="post-label">Time</span>
-              <input type="time" id="post-time" class="post-input" />
+              <input type="text" readonly data-time id="post-time" class="post-input" placeholder="Choose a time" />
             </label>
           </div>
           <p class="post-plat" id="post-plat">Instagram</p>
@@ -268,7 +268,7 @@ import "../../styles/account-sections.css";
             </label>
             <label class="post-field">
               <span class="post-label">Reminder time</span>
-              <input type="time" id="pick-time" class="post-input" value="09:00" />
+              <input type="text" readonly data-time id="pick-time" class="post-input" value="09:00" placeholder="Choose a time" />
             </label>
           </div>
           <label class="post-field">
@@ -1070,6 +1070,8 @@ import "../../styles/account-sections.css";
     import { designStore } from '../../lib/design-store.js';
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
+    import { installTimePicker } from '../../lib/time-picker.js';
+    installTimePicker();
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
     // ====== Elements ======
@@ -1797,7 +1799,7 @@ import "../../styles/account-sections.css";
         if (f.kind === 'area') return `<label class="post-field">${lab}<textarea class="post-textarea" data-f="${f.key}" rows="3">${escapeHtml(v)}</textarea></label>`;
         if (f.kind === 'number') return `<label class="post-field">${lab}<input type="number" min="0" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'endDate') return `<label class="post-field">${lab}<input type="date" class="post-input" data-f="end_date" value="${escapeHtml(v)}" /></label>`;
-        if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
+        if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="text" readonly data-time data-time-optional placeholder="Choose a time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'platform') return `<label class="post-field">${lab}<select class="post-input" data-f="platform"><option value="">Choose…</option>${PLATFORMS.map((p) => `<option${p === v ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></label>`;
         if (f.kind === 'printDesign' || f.kind === 'linkedDesigns') return `<div class="post-field">${lab}<div class="act-designs" data-designs="${f.kind}" data-f="${f.key}"><p class="act-none">Loading your designs…</p></div></div>`;
         return `<label class="post-field">${lab}<input type="text" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" placeholder="${escapeHtml(f.placeholder || '')}" maxlength="160" /></label>`;
@@ -1812,7 +1814,7 @@ import "../../styles/account-sections.css";
             <input type="date" class="post-input" data-f="date" value="${escapeHtml(item ? item.scheduled_date : actDate)}" /></label>
           ${fields.filter((f) => f.kind === 'endDate').map(field).join('')}
           <label class="post-field"><span class="post-label">${a.key === 'open_house' ? 'Start time' : 'Time'}${a.timeRequired ? '' : ' <span class="pick-optional">— optional</span>'}</span>
-            <input type="time" class="post-input" data-f="time" value="${escapeHtml(hasTime ? time : '')}" /></label>
+            <input type="text" readonly data-time${a.timeRequired ? '' : ' data-time-optional'} placeholder="${a.timeRequired ? 'Choose a time' : 'All day'}" class="post-input" data-f="time" value="${escapeHtml(hasTime ? time : '')}" /></label>
           ${fields.filter((f) => f.kind === 'endTime').map(field).join('')}
         </div>
         ${fields.filter((f) => f.kind === 'printDesign' || f.kind === 'linkedDesigns' || f.kind === 'area').map(field).join('')}
