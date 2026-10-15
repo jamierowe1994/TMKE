@@ -11,7 +11,14 @@
 
    Stored on calendar_items / training_calendar_items (supabase/
    calendar_activities.sql): `activity` is the key, `details` holds the
-   activity's own fields, `checklist` its items, `end_date` a run's last day. */
+   activity's own fields, `checklist` its items, `end_date` a run's last day.
+
+   Two kinds are not entries at all:
+     book   a "Book ..." option: a panel with what's included, the brochure
+            and the way to book on the website. Once booked with us, the
+            booking appears on the calendar by itself (from Bookings).
+     teg    shown to agents of The Experts Group only (guide-audience.js).
+   Names are in Title Case (Dani, 15 Oct). */
 
 export const CATEGORIES = [
   { key: "content",  label: "Content & Social",     colour: "#371e28" },
@@ -35,13 +42,23 @@ export const CATEGORIES = [
    value becomes the entry's title on the calendar. */
 export const ACTIVITIES = [
   // Content & Social
-  { key: "content_planning", category: "content", label: "Content planning session",
+  { key: "content_planning", category: "content", label: "Content Planning",
     title: null, fields: [] },
-  { key: "social_post", category: "content", label: "Social media post",
+  { key: "book_content_studio", category: "content", label: "Book a Content Studio Session", teg: true,
+    book: { blurb: "A session in our Content Studio, filming content that's ready to post.",
+      info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", bookHref: "/videography#studio" } },
+  { key: "content_studio", category: "content", label: "Content Studio Session", teg: true,
+    reminder: true, timeRequired: true, title: null, fields: [] },
+  { key: "book_agent_filming", category: "content", label: "Book an Agent Filming Day", teg: true,
+    book: { blurb: "A day of filming with you on camera: presenter-led content for your social media.",
+      info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", bookHref: "/videography#agent" } },
+  { key: "agent_filming", category: "content", label: "Agent Filming Day", teg: true,
+    reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true }] },
+  { key: "social_post", category: "content", label: "Social Media Post",
     reminder: true, timeRequired: true, social: true },
-  { key: "email_newsletter", category: "content", label: "Email / newsletter",
+  { key: "email_newsletter", category: "content", label: "Email / Newsletter",
     title: "subject", fields: [{ key: "subject", kind: "text", label: "Subject", required: true }] },
-  { key: "paid_ads", category: "content", label: "Paid advertising",
+  { key: "paid_ads", category: "content", label: "Paid Advertising",
     title: "campaign", fields: [
       { key: "platform", kind: "platform", label: "Platform" },
       { key: "campaign", kind: "text", label: "Campaign name", required: true },
@@ -50,25 +67,28 @@ export const ACTIVITIES = [
     ] },
 
   // Print & Canvassing
-  { key: "print_design", category: "print", label: "Create print design",
+  { key: "print_design", category: "print", label: "Create Print Design",
     title: "purpose", link: { href: "/account/studio", label: "Open your print packs in the Studio" },
     fields: [{ key: "purpose", kind: "text", label: "What it's for", required: true, placeholder: "e.g. Just sold card for Bilton" }] },
-  { key: "print_order", category: "print", label: "Order print marketing",
+  { key: "print_order", category: "print", label: "Order Print Marketing",
     title: "materials", fields: [
       { key: "materials", kind: "text", label: "Materials required", required: true, placeholder: "e.g. A5 canvassing cards" },
       { key: "quantity", kind: "number", label: "Quantity", optional: true },
       { key: "design_id", kind: "printDesign", label: "Print design", optional: true },
     ] },
-  { key: "canvassing", category: "print", label: "Canvassing / leaflet drop",
+  { key: "canvassing", category: "print", label: "Canvassing / Leaflet Drop",
     title: "area", fields: [
       { key: "area", kind: "text", label: "Area", required: true, placeholder: "e.g. Bilton, Rugby" },
       { key: "design_id", kind: "printDesign", label: "Print design you're taking", optional: true },
     ] },
 
   // Property Marketing
-  { key: "property_shoot", category: "property", label: "Property photography / filming",
+  { key: "book_property_shoot", category: "property", label: "Book Property Photography or Filming",
+    book: { blurb: "Property photography and filming by TMKE: tours, Reels and stills that sell the home.",
+      info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", bookHref: "/videography#property" } },
+  { key: "property_shoot", category: "property", label: "Property Photography / Filming",
     reminder: true, title: "address", fields: [{ key: "address", kind: "text", label: "Property address", required: true }] },
-  { key: "property_launch", category: "property", label: "Property launch campaign",
+  { key: "property_launch", category: "property", label: "Property Launch Campaign",
     title: "campaign", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
       { key: "campaign", kind: "text", label: "Campaign name", optional: true },
@@ -86,7 +106,7 @@ export const ACTIVITIES = [
       "Listing live on the portals",
       "Email sent to your buyer list",
     ] },
-  { key: "open_house", category: "property", label: "Open house / property event",
+  { key: "open_house", category: "property", label: "Open House / Property Event",
     timeRequired: true, title: "address", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
       { key: "end_time", kind: "endTime", label: "End time", optional: true },
@@ -102,18 +122,18 @@ export const ACTIVITIES = [
     ] },
 
   // Business & Community
-  { key: "local_event", category: "business", label: "Local event / networking",
+  { key: "local_event", category: "business", label: "Local Event / Networking",
     title: "event", fields: [
       { key: "event", kind: "text", label: "Event name", required: true },
       { key: "location", kind: "text", label: "Location", optional: true },
     ] },
-  { key: "review_request", category: "business", label: "Review / testimonial request",
+  { key: "review_request", category: "business", label: "Review / Testimonial Request",
     title: "client", fields: [{ key: "client", kind: "text", label: "Client or property", required: true }] },
-  { key: "follow_up", category: "business", label: "Marketing follow-up",
+  { key: "follow_up", category: "business", label: "Marketing Follow-Up",
     title: "title", fields: [{ key: "title", kind: "text", label: "What you're following up", required: true }] },
 
   // Something else
-  { key: "other", category: "other", label: "Something else",
+  { key: "other", category: "other", label: "Something Else",
     title: "title", fields: [{ key: "title", kind: "text", label: "Title", required: true }] },
 ];
 

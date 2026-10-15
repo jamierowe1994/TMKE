@@ -10,7 +10,7 @@ import "../../styles/account-sections.css";
 
 <BaseLayout
   dashboard
-  title="Content calendar — TMKE workspace"
+  title="Marketing calendar — TMKE workspace"
   description="Plan and schedule your social posts. A month-by-month diary of what's going out, with UK holidays and awareness days baked in."
   hideNav
   hideFooter
@@ -22,7 +22,7 @@ import "../../styles/account-sections.css";
     <section class="ws-hero ws-hero--sub cal-hero">
       <div class="ws-hero-copy">
         <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
-        <h1 class="ws-greeting">Your Content Calendar.</h1>
+        <h1 class="ws-greeting">Your Marketing Calendar.</h1>
         <p class="ws-hero-sub">See what&rsquo;s planned, explore fresh post ideas and keep your content consistent all month.</p>
         <div class="ws-hero-cta cal-hero-cta">
           <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
@@ -99,7 +99,10 @@ import "../../styles/account-sections.css";
       <footer class="day-foot">
         <!-- Two ways in. Plan one you've already made, without leaving the
              calendar; or start a new design for this day. -->
-        <button type="button" id="day-plan" class="day-new-btn">+ Add to this day</button>
+        <!-- Three ways in: any marketing activity; the shortcut to plan one of
+             your saved designs as a post; or a new design for this day. -->
+        <button type="button" id="day-plan" class="day-new-btn">+ Add activity to this day</button>
+        <button type="button" id="day-pick" class="day-new-btn day-new-btn--ghost">Plan a post for this day</button>
         <a href="#" id="day-new" class="day-new-btn day-new-btn--ghost">Create a post for this day</a>
       </footer>
     </aside>
@@ -802,8 +805,20 @@ import "../../styles/account-sections.css";
     /* ---- Add to this day: the activity chooser and its form ---- */
     .act-panel { width: min(820px, calc(100vw - 32px)); }
     #act-modal { display: flex; align-items: center; justify-content: center; padding: 16px; }
-    #act-modal[hidden], .act-form[hidden], .act-choose[hidden], #act-foot[hidden], #act-delete[hidden] { display: none; }
-    .act-choose { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px 22px; }
+    #act-modal[hidden], .act-form[hidden], .act-choose[hidden], #act-foot[hidden], #act-delete[hidden], #act-save[hidden] { display: none; }
+    /* Content & Social down one long column; the other four in a 2 x 2
+       beside it (Dani, 15 Oct). One column on a phone. */
+    .act-choose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px 22px; align-items: start; }
+    .act-rest { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 22px; }
+    @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
+    .act-book { display: grid; gap: 14px; }
+    .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
+    .act-book-links { display: flex; flex-wrap: wrap; gap: 10px; }
+    .act-book-links a { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 4px; text-decoration: none;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      border: 1px solid rgba(28,29,34,0.2); color: var(--ink); background: #fff; }
+    .act-book-links a.is-primary { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
+    .act-book-note { font-size: var(--ws-t-meta) !important; color: rgba(28,29,34,0.55) !important; }
     .act-cat h3 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); display: flex; align-items: center; gap: 7px; }
     .act-cat h3::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
     .act-cat ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1572,6 +1587,7 @@ import "../../styles/account-sections.css";
     }
 
     if ($dayPlan) $dayPlan.addEventListener('click', () => { if (openDayDate) openAct(openDayDate); });
+    document.getElementById('day-pick')?.addEventListener('click', () => { if (openDayDate) openPick(openDayDate); });
     if ($pickClose) $pickClose.addEventListener('click', closePick);
     if ($pickCancel) $pickCancel.addEventListener('click', closePick);
     if ($pickBack) $pickBack.addEventListener('click', backToPick);
@@ -1601,6 +1617,10 @@ import "../../styles/account-sections.css";
     const $actBack   = document.getElementById('act-back');
     const $actDelete = document.getElementById('act-delete');
     let actDate = null, actKey = null, actEditing = null, actChecklist = [], actDesigns = null;
+    /* Content Studio sessions and agent filming days are for agents of The
+       Experts Group only (the same test as the TEG guides). */
+    let isTeg = false;
+    import('../../lib/guide-audience.js').then((m) => m.guideViewer(supabase)).then((v) => { isTeg = !!(v && v.teg); }).catch(() => {});
 
     const isAct = (it) => it && it.activity && it.activity !== 'social_post';
     const catOfItem = (it) => categoryOf(activityOf(it.activity || 'social_post').category);
@@ -1615,12 +1635,13 @@ import "../../styles/account-sections.css";
       actDate = dateStr; actKey = null; actEditing = null;
       $actEyebrow.textContent = fmtFullDate(new Date(dateStr + 'T00:00:00'));
       $actH.textContent = 'What are you planning?';
-      $actChoose.innerHTML = CATEGORIES.map((c) => {
-        const list = ACTIVITIES.filter((a) => a.category === c.key);
+      const cat = (c) => {
+        const list = ACTIVITIES.filter((a) => a.category === c.key && (!a.teg || isTeg));
         return `<section class="act-cat" style="--cat:${c.colour}"><h3>${escapeHtml(c.label)}</h3><ol>${
           list.map((a) => `<li><button type="button" class="act-pick" data-act="${a.key}">${escapeHtml(a.label)}</button></li>`).join('')
         }</ol></section>`;
-      }).join('');
+      };
+      $actChoose.innerHTML = cat(CATEGORIES[0]) + `<div class="act-rest">${CATEGORIES.slice(1).map(cat).join('')}</div>`;
       $actChoose.hidden = false; $actForm.hidden = true; $actFoot.hidden = true;
       showActModal();
     }
@@ -1651,6 +1672,27 @@ import "../../styles/account-sections.css";
     async function chooseAct(key, item) {
       const a = activityOf(key);
       if (a.social && !item) { closeAct(); openPick(actDate); return; }
+      if (a.book) {
+        // Not an entry: what it is, the brochure, and the way to book.
+        const c0 = categoryOf(a.category);
+        $actH.textContent = a.label;
+        $actForm.style.setProperty('--cat', c0.colour);
+        $actForm.innerHTML = `<div class="act-book">
+          <p class="act-kind">${escapeHtml(c0.label)}</p>
+          <p>${escapeHtml(a.book.blurb)}</p>
+          <div class="act-book-links">
+            <a href="${a.book.info}" target="_blank" rel="noopener">See what's included</a>
+            <a href="${a.book.brochure}" target="_blank" rel="noopener">Download the brochure</a>
+            <a class="is-primary" href="${a.book.bookHref}" target="_blank" rel="noopener">Book now</a>
+          </div>
+          <p class="act-book-note">Once it's booked with us, it appears on your calendar by itself.</p>
+        </div>`;
+        $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
+        $actDelete.hidden = true; $actSave.hidden = true; $actBack.textContent = 'Back';
+        if ($actModal.hidden) showActModal();
+        return;
+      }
+      $actSave.hidden = false;
       actKey = a.key; actEditing = item || null;
       const c = categoryOf(a.category);
       const d = (item && item.details) || {};
@@ -2009,14 +2051,17 @@ import "../../styles/account-sections.css";
         try {
           const email = session.user.email || '';
           const { data: shoots } = await supabase.from('videography_bookings')
-            .select('id, service, shoot_date, stage, postcode, kind')
+            .select('id, service, service_type, shoot_date, stage, postcode, kind')
             .or(`account_user_id.eq.${session.user.id},client_email.ilike.${email}`)
             .gte('shoot_date', fromYmd + 'T00:00:00').lte('shoot_date', toYmd + 'T23:59:59');
           (shoots || []).forEach((b) => {
             if (!b.shoot_date || b.stage === 'cancelled' || b.kind === 'discovery') return;
             const when = new Date(b.shoot_date);
             items.push({
-              id: 'booking-' + b.id, booking: true, activity: 'property_shoot',
+              id: 'booking-' + b.id, booking: true,
+              // A studio session or a filming day is its own activity; any other shoot is the property's.
+              activity: /studio/i.test(String(b.service_type || b.service)) ? 'content_studio'
+                : /agent/i.test(String(b.service_type || b.service)) ? 'agent_filming' : 'property_shoot',
               title: (b.service || 'TMKE shoot') + (b.postcode ? ' · ' + b.postcode : ''),
               scheduled_date: ymd(when), scheduled_time: when.toTimeString().slice(0, 5), has_time: true,
               details: {}, checklist: [], status: 'scheduled',

@@ -2212,7 +2212,8 @@ function reminderHtml(item, platform, caption) {
    still unticked on its checklist. Labels mirror src/data/marketing-
    activities.js; keep them in step. */
 const ACTIVITY_LABELS = {
-  content_planning: "Content planning session", email_newsletter: "Email / newsletter", paid_ads: "Paid advertising",
+  content_planning: "Content planning", content_studio: "Content Studio session", agent_filming: "Agent filming day",
+  email_newsletter: "Email / newsletter", paid_ads: "Paid advertising",
   print_design: "Create print design", print_order: "Order print marketing", canvassing: "Canvassing / leaflet drop",
   property_shoot: "Property photography / filming", property_launch: "Property launch campaign", open_house: "Open house / property event",
   local_event: "Local event / networking", review_request: "Review / testimonial request", follow_up: "Marketing follow-up", other: "Something else",

@@ -9,6 +9,9 @@
 -- Existing rows are social posts, which is the default, so nothing already
 -- planned changes. Run in the Supabase SQL editor. Safe to re-run. The last
 -- statement is a check: it is the result the editor shows.
+--
+-- 15 Oct, later: Content Studio sessions and agent filming days added to the
+-- list (Experts Group agents). Re-run to allow them.
 
 do $$
 declare t text;
@@ -24,7 +27,7 @@ begin
     execute format('alter table public.%I add column if not exists has_time boolean not null default true', t);
     execute format('alter table public.%I drop constraint if exists %I', t, t || '_activity_check');
     execute format($c$alter table public.%I add constraint %I check (activity in (
-      'content_planning', 'social_post', 'email_newsletter', 'paid_ads',
+      'content_planning', 'content_studio', 'agent_filming', 'social_post', 'email_newsletter', 'paid_ads',
       'print_design', 'print_order', 'canvassing',
       'property_shoot', 'property_launch', 'open_house',
       'local_event', 'review_request', 'follow_up',
