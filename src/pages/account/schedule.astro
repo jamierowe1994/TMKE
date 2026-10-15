@@ -170,6 +170,7 @@ import "../../styles/account-sections.css";
         <div>
           <p class="day-eyebrow" id="act-eyebrow">Add to this day</p>
           <h2 id="act-h" class="day-h">What are you planning?</h2>
+          <p class="act-line" id="act-line" hidden></p>
         </div>
         <button type="button" class="day-close" id="act-close" aria-label="Close">&times;</button>
       </header>
@@ -574,6 +575,13 @@ import "../../styles/account-sections.css";
       margin: 4px 0 0;
       color: var(--ink);
     }
+    .act-line {
+      margin: 8px 0 0; max-width: 75%;
+      font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.5;
+      color: rgba(28,29,34,0.65);
+    }
+    .act-line[hidden] { display: none; }
+    .act-panel .day-head > div { flex: 1; min-width: 0; }
     .day-close {
       background: transparent;
       border: 1px solid rgba(var(--violet-rgb), 0.3);
@@ -1610,6 +1618,8 @@ import "../../styles/account-sections.css";
     const $actModal  = document.getElementById('act-modal');
     const $actClose  = document.getElementById('act-close');
     const $actH      = document.getElementById('act-h');
+    const $actLine   = document.getElementById('act-line');
+    const setActLine = (t) => { $actLine.textContent = t || ''; $actLine.hidden = !t; };
     const $actEyebrow = document.getElementById('act-eyebrow');
     const $actChoose = document.getElementById('act-choose');
     const $actForm   = document.getElementById('act-form');
@@ -1636,6 +1646,7 @@ import "../../styles/account-sections.css";
       actDate = dateStr; actKey = null; actEditing = null;
       $actEyebrow.textContent = fmtFullDate(new Date(dateStr + 'T00:00:00'));
       $actH.textContent = 'What are you planning?';
+      setActLine('');
       const cat = (c) => {
         const list = ACTIVITIES.filter((a) => a.category === c.key && (!a.teg || isTeg));
         return `<section class="act-cat" style="--cat:${c.colour}"><h3>${escapeHtml(c.label)}</h3><ol>${
@@ -1677,6 +1688,7 @@ import "../../styles/account-sections.css";
         // Not an entry: what it is, the brochure, and the way to book.
         const c0 = categoryOf(a.category);
         $actH.textContent = a.label;
+        setActLine('');
         $actForm.style.setProperty('--cat', c0.colour);
         $actForm.innerHTML = `<div class="act-book">
           <p class="act-kind">${escapeHtml(c0.label)}</p>
@@ -1701,6 +1713,7 @@ import "../../styles/account-sections.css";
       actChecklist = item ? (Array.isArray(item.checklist) ? item.checklist.map((x) => ({ ...x })) : [])
                           : (a.checklist || []).map((text) => ({ text, done: false }));
       $actH.textContent = item ? entryTitle(a.key, d) : a.label;
+      setActLine(a.line);
       $actEyebrow.textContent = fmtFullDate(new Date((item ? item.scheduled_date : actDate) + 'T00:00:00'));
       const hasTime = item ? item.has_time !== false : !!a.timeRequired;
       const time = item && item.has_time !== false ? fmtTime(item.scheduled_time) : (a.timeRequired ? '09:00' : '');
