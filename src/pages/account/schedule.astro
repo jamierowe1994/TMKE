@@ -29,6 +29,7 @@ import "../../styles/account-sections.css";
           <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
           </button>
+          <button type="button" class="ws-btn ws-btn--ghost" id="cal-sync">Sync to my calendar</button>
         </div>
       </div>
       <div class="ws-hero-photo"></div>
@@ -156,6 +157,7 @@ import "../../styles/account-sections.css";
       <footer class="day-foot post-foot">
         <button type="button" class="post-btn post-btn--danger" id="post-delete">Remove</button>
         <button type="button" class="post-btn post-btn--ghost" id="post-email">Email it to me now</button>
+        <button type="button" class="post-btn post-btn--ghost" id="post-mycal" data-mycal>Add to my calendar</button>
         <button type="button" class="post-btn post-btn--primary" id="post-save">Save changes</button>
       </footer>
     </aside>
@@ -179,8 +181,52 @@ import "../../styles/account-sections.css";
       <footer class="day-foot post-foot act-foot" id="act-foot" hidden>
         <button type="button" class="post-btn post-btn--danger" id="act-delete" hidden>Remove</button>
         <button type="button" class="post-btn post-btn--ghost" id="act-back">Back</button>
-        <button type="button" class="post-btn post-btn--primary" id="act-save">Add to calendar</button>
+        <button type="button" class="post-btn post-btn--ghost" id="act-mycal" data-mycal hidden>Add to my calendar</button>
+        <button type="button" class="post-btn post-btn--primary" id="act-save">Save</button>
       </footer>
+    </aside>
+  </div>
+
+  <!-- One entry into their own calendar: a copy, added now. -->
+  <div class="mycal-menu" id="mycal-menu" hidden role="menu" aria-label="Add to my calendar">
+    <button type="button" role="menuitem" data-mycal-to="file">Apple Calendar or iPhone</button>
+    <button type="button" role="menuitem" data-mycal-to="file">Outlook</button>
+    <button type="button" role="menuitem" data-mycal-to="outlookweb">Outlook on the web</button>
+    <button type="button" role="menuitem" data-mycal-to="google">Google Calendar</button>
+  </div>
+
+  <!-- Sync: their whole Marketing Calendar in their own calendar, subscribed
+       once and kept up to date (the Worker's /calendar/feed). -->
+  <div class="day-backdrop" id="sync-modal" hidden role="dialog" aria-modal="true" aria-labelledby="sync-h">
+    <aside class="pick-panel act-panel sync-panel" aria-label="Sync to my calendar">
+      <header class="day-head">
+        <div>
+          <p class="day-eyebrow">Your own calendar</p>
+          <h2 id="sync-h" class="day-h">Sync to My Calendar</h2>
+          <p class="act-line">Subscribe once and everything on your Marketing Calendar appears in your own calendar. Add, move or remove something here and your calendar follows.</p>
+        </div>
+        <button type="button" class="day-close" id="sync-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="pick-body sync-body">
+        <p class="sync-state" id="sync-state">Getting your link&hellip;</p>
+        <div class="sync-ready" id="sync-ready" hidden>
+          <p class="post-label">Choose your calendar</p>
+          <div class="sync-apps">
+            <a class="sync-app" id="sync-apple" href="#"><strong>Apple Calendar or iPhone</strong><span>Opens Calendar and asks to subscribe.</span></a>
+            <a class="sync-app" id="sync-outlook" href="#" target="_blank" rel="noopener"><strong>Outlook</strong><span>Work or school account. Opens Outlook on the web; it then shows in the Outlook app too.</span></a>
+            <a class="sync-app" id="sync-outlookcom" href="#" target="_blank" rel="noopener"><strong>Outlook.com</strong><span>A personal Outlook, Hotmail or Live account.</span></a>
+            <a class="sync-app" id="sync-google" href="#" target="_blank" rel="noopener"><strong>Google Calendar</strong><span>Opens Google Calendar and asks to add it.</span></a>
+          </div>
+          <p class="post-label">Another calendar</p>
+          <div class="sync-copy">
+            <input type="text" id="sync-link" class="post-input" readonly aria-label="Your calendar link" />
+            <button type="button" class="post-btn post-btn--ghost" id="sync-copy">Copy link</button>
+          </div>
+          <p class="sync-note">Paste it wherever your calendar says &ldquo;subscribe&rdquo; or &ldquo;add from the web&rdquo;.</p>
+          <p class="sync-note">Changes don&rsquo;t appear instantly: each calendar app checks the link on its own schedule, from about an hour to a day. For something you need there straight away, open the entry and choose <strong>Add to my calendar</strong>.</p>
+          <p class="sync-note">This link is private to you: anyone who has it can see your calendar. <button type="button" class="sync-reset" id="sync-reset">Reset the link</button> if it&rsquo;s been shared by mistake.</p>
+        </div>
+      </div>
     </aside>
   </div>
 
@@ -581,6 +627,28 @@ import "../../styles/account-sections.css";
       color: rgba(28,29,34,0.65);
     }
     .act-line[hidden] { display: none; }
+    /* Their own calendar: the entry menu and the sync panel. */
+    .mycal-menu { position: fixed; z-index: 1300; min-width: 220px; padding: 6px; background: #fff; border-radius: 8px;
+      border: 1px solid rgba(28,29,34,0.12); box-shadow: 0 14px 34px rgba(28,29,34,0.18); display: grid; }
+    .mycal-menu[hidden] { display: none; }
+    .mycal-menu button { all: unset; cursor: pointer; padding: 10px 12px; border-radius: 5px; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ink); }
+    .mycal-menu button:hover, .mycal-menu button:focus-visible { background: rgba(var(--violet-rgb), 0.08); color: var(--violet-deep); }
+    .sync-panel { max-width: 640px; }
+    .sync-body { display: grid; gap: 14px; }
+    .sync-state { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); color: rgba(28,29,34,0.65); }
+    .sync-state[hidden], .sync-ready[hidden] { display: none; }
+    .sync-ready { display: grid; gap: 12px; }
+    .sync-apps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .sync-app { display: grid; gap: 4px; padding: 14px 16px; border-radius: 6px; text-decoration: none; background: #fff;
+      border: 1px solid rgba(var(--violet-rgb), 0.25); transition: border-color 0.2s, background 0.2s; }
+    .sync-app:hover { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.04); }
+    .sync-app strong { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: var(--violet-deep); }
+    .sync-app span { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: rgba(28,29,34,0.6); }
+    .sync-copy { display: flex; gap: 10px; }
+    .sync-copy .post-input { flex: 1; min-width: 0; font-size: var(--ws-t-meta); }
+    .sync-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.55; color: rgba(28,29,34,0.6); }
+    .sync-reset { all: unset; cursor: pointer; color: var(--violet-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+    @media (max-width: 640px) { .sync-apps { grid-template-columns: 1fr; } }
     .act-panel .day-head > div { flex: 1; min-width: 0; }
     .day-close {
       background: transparent;
@@ -1394,6 +1462,7 @@ import "../../styles/account-sections.css";
       $postSave.disabled = false;  $postSave.textContent = 'Save changes';
       $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
+      $postMycal.hidden = demoOn();
       $postModal.hidden = false;
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => requestAnimationFrame(() => $postModal.classList.add('is-open')));
@@ -1619,6 +1688,8 @@ import "../../styles/account-sections.css";
     const $actClose  = document.getElementById('act-close');
     const $actH      = document.getElementById('act-h');
     const $actLine   = document.getElementById('act-line');
+    const $actMycal  = document.getElementById('act-mycal');
+    const $postMycal = document.getElementById('post-mycal');
     const setActLine = (t) => { $actLine.textContent = t || ''; $actLine.hidden = !t; };
     const $actEyebrow = document.getElementById('act-eyebrow');
     const $actChoose = document.getElementById('act-choose');
@@ -1702,7 +1773,7 @@ import "../../styles/account-sections.css";
           <div class="post-error" data-act-error hidden></div>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
-        $actDelete.hidden = true; $actSave.hidden = true; $actBack.textContent = 'Back';
+        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Back';
         if ($actModal.hidden) showActModal();
         return;
       }
@@ -1759,7 +1830,8 @@ import "../../styles/account-sections.css";
       $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
       $actDelete.hidden = !item;
       $actBack.textContent = item ? 'Cancel' : 'Back';
-      $actSave.disabled = false; $actSave.textContent = item ? 'Save changes' : 'Add to calendar';
+      $actSave.disabled = false; $actSave.textContent = item ? 'Save changes' : 'Save';
+      $actMycal.hidden = !item || demoOn();
       if ($actModal.hidden) showActModal();
       $actForm.scrollTop = 0;
       // Designs, once they have loaded.
@@ -1842,7 +1914,7 @@ import "../../styles/account-sections.css";
       if (actEditing) res = await acct.db.from(acct.table).update(row).eq('id', actEditing.id).eq('user_id', acct.uid).select('*').single();
       else res = await acct.db.from(acct.table).insert({ ...row, user_id: acct.uid, status: 'scheduled' }).select('*').single();
       if (res.error) {
-        $actSave.disabled = false; $actSave.textContent = actEditing ? 'Save changes' : 'Add to calendar';
+        $actSave.disabled = false; $actSave.textContent = actEditing ? 'Save changes' : 'Save';
         const m = res.error.message || '';
         return actError(/column|activity/i.test(m) ? 'The calendar needs one update before it can hold this (supabase/calendar_activities.sql).' : (m || "Couldn't save that."));
       }
@@ -1871,6 +1943,143 @@ import "../../styles/account-sections.css";
       if (isAct(it)) { actDate = it.scheduled_date; chooseAct(it.activity, it); return; }
       openPost(id);
     }
+
+    /* ---- Their own calendar (Dani, 17 Oct) ----
+       Two ways, for Apple, Outlook and Google alike: sync the whole Marketing
+       Calendar (subscribe once to a private link, which the calendar app checks
+       for changes), or add one entry now as a copy. The link comes from the
+       Worker, made from their sign-in. */
+    let feedLink = null;
+    async function getFeedLink(reset) {
+      if (feedLink && !reset) return feedLink;
+      if (!API_BASE) throw new Error("Calendar links aren't available here.");
+      const { data } = await supabase.auth.getSession();
+      const token = data && data.session && data.session.access_token;
+      if (!token) throw new Error("You're signed out. Sign in again.");
+      const res = await fetch(`${API_BASE}/calendar/feed-link`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ reset: !!reset }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.feed) throw new Error(j.error || "Couldn't get your link just now.");
+      feedLink = j;
+      return j;
+    }
+
+    // An entry's start and end, as the feed writes them: a time on the day
+    // (an hour, half an hour for a post, or to its end time), or all day,
+    // running to its end date.
+    function entryWhen(it) {
+      const ymd = (d) => String(d).slice(0, 10).replace(/-/g, '');
+      const addDay = (d, n) => { const t = new Date(String(d).slice(0, 10) + 'T12:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+      const date = String(it.scheduled_date).slice(0, 10);
+      const end = it.end_date && String(it.end_date).slice(0, 10) > date ? String(it.end_date).slice(0, 10) : null;
+      if (it.has_time === false || end) return { allDay: true, date, endDate: addDay(end || date, 1), ymd, };
+      const st = String(it.scheduled_time || '09:00').slice(0, 5);
+      const toMin = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+      let en = toMin(st) + ((it.activity || 'social_post') === 'social_post' ? 30 : 60);
+      const et = it.details && it.details.end_time ? String(it.details.end_time).slice(0, 5) : '';
+      if (et && toMin(et) > toMin(st)) en = toMin(et);
+      en = Math.min(en, 23 * 60 + 59);
+      const hm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+      return { allDay: false, date, start: st, end: hm(en), ymd };
+    }
+    function entryText(it) {
+      const a = activityOf(it.activity || 'social_post');
+      const title = String(it.title || '').trim();
+      const summary = !title || title === a.label ? a.label : `${a.label}: ${title}`;
+      const d = it.details || {};
+      const where = d.address || d.location || d.area || '';
+      const body = [a.line, it.caption, it.notes, 'On your Marketing Calendar: https://tmke.co.uk/account/schedule'].filter(Boolean).join('\n\n');
+      return { summary, where, body };
+    }
+
+    const $mycalMenu = document.getElementById('mycal-menu');
+    let mycalItem = null;
+    function closeMycal() { $mycalMenu.hidden = true; mycalItem = null; }
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-mycal]');
+      if (b) {
+        const id = b.id === 'post-mycal' ? openPostId : actEditing && actEditing.id;
+        const it = items.find((i) => String(i.id) === String(id));
+        if (!it) return;
+        if (!$mycalMenu.hidden && mycalItem === it) { closeMycal(); return; }
+        mycalItem = it;
+        $mycalMenu.hidden = false;
+        const r = b.getBoundingClientRect(), m = $mycalMenu.getBoundingClientRect();
+        $mycalMenu.style.left = Math.max(12, Math.min(r.left, innerWidth - m.width - 12)) + 'px';
+        $mycalMenu.style.top = Math.max(12, r.top - m.height - 8) + 'px';
+        getFeedLink().catch(() => {});   // ready for the file, if they choose it
+        return;
+      }
+      if (!$mycalMenu.hidden && !e.target.closest('#mycal-menu')) closeMycal();
+    });
+    $mycalMenu.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-mycal-to]'); if (!b || !mycalItem) return;
+      const it = mycalItem, to = b.dataset.mycalTo;
+      const w = entryWhen(it), t = entryText(it);
+      closeMycal();
+      if (to === 'google') {
+        const dates = w.allDay ? `${w.ymd(w.date)}/${w.ymd(w.endDate)}` : `${w.ymd(w.date)}T${w.start.replace(':', '')}00/${w.ymd(w.date)}T${w.end.replace(':', '')}00`;
+        const q = new URLSearchParams({ action: 'TEMPLATE', text: t.summary, dates, details: t.body, location: t.where, ctz: 'Europe/London' });
+        window.open('https://calendar.google.com/calendar/render?' + q.toString(), '_blank', 'noopener');
+        return;
+      }
+      if (to === 'outlookweb') {
+        const q = new URLSearchParams({ path: '/calendar/action/compose', rru: 'addevent', subject: t.summary, body: t.body, location: t.where,
+          startdt: w.allDay ? w.date : `${w.date}T${w.start}:00`, enddt: w.allDay ? w.endDate : `${w.date}T${w.end}:00`, allday: w.allDay ? 'true' : 'false' });
+        window.open('https://outlook.office.com/calendar/0/deeplink/compose?' + q.toString(), '_blank', 'noopener');
+        return;
+      }
+      // Apple and Outlook open a calendar file; on an iPhone it asks to add it.
+      try { const f = await getFeedLink(); location.href = `${f.base}/${it.id}.ics`; }
+      catch (err) { alert(err.message || "Couldn't make the calendar file just now."); }
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$mycalMenu.hidden) { e.stopPropagation(); closeMycal(); } }, true);
+
+    const $syncModal = document.getElementById('sync-modal');
+    const $syncState = document.getElementById('sync-state');
+    const $syncReady = document.getElementById('sync-ready');
+    function fillSync(f) {
+      const https = f.feed, webcal = https.replace(/^https?:/, 'webcal:');
+      const name = encodeURIComponent('TMKE Marketing Calendar');
+      document.getElementById('sync-apple').href = webcal;
+      document.getElementById('sync-outlook').href = `https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${name}`;
+      document.getElementById('sync-outlookcom').href = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${name}`;
+      document.getElementById('sync-google').href = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`;
+      document.getElementById('sync-link').value = https;
+      $syncState.hidden = true; $syncReady.hidden = false;
+    }
+    async function openSync() {
+      if (isTrainingDemo()) { $syncState.textContent = "Training has nothing to sync. On your own Marketing Calendar, this gives you a private link that puts everything in your Apple, Outlook or Google calendar."; $syncState.hidden = false; $syncReady.hidden = true; }
+      else if (demoOn()) { lock("Syncing is for members.", "Members put their whole Marketing Calendar into their Apple, Outlook or Google calendar from here."); return; }
+      else {
+        $syncState.textContent = 'Getting your link…'; $syncState.hidden = false; $syncReady.hidden = true;
+        getFeedLink().then(fillSync).catch((err) => { $syncState.textContent = err.message || "Couldn't get your link just now."; });
+      }
+      $syncModal.hidden = false;
+      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => $syncModal.classList.add('is-open'));
+    }
+    function closeSync() {
+      $syncModal.classList.remove('is-open'); $syncModal.hidden = true;
+      if ($dayModal.hidden) document.body.style.overflow = '';
+    }
+    document.getElementById('cal-sync')?.addEventListener('click', openSync);
+    document.getElementById('sync-close')?.addEventListener('click', closeSync);
+    $syncModal?.addEventListener('click', (e) => { if (e.target === $syncModal) closeSync(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$syncModal.hidden) closeSync(); });
+    document.getElementById('sync-copy')?.addEventListener('click', async (e) => {
+      const b = e.currentTarget, v = document.getElementById('sync-link').value;
+      try { await navigator.clipboard.writeText(v); } catch (_) { const i = document.getElementById('sync-link'); i.select(); document.execCommand('copy'); }
+      b.textContent = 'Copied ✓'; setTimeout(() => { b.textContent = 'Copy link'; }, 1600);
+    });
+    document.getElementById('sync-reset')?.addEventListener('click', async () => {
+      if (!confirm("Reset your link? Any calendar using the old one stops updating, and you'll need to subscribe again with the new one.")) return;
+      $syncState.textContent = 'Making a new link…'; $syncState.hidden = false; $syncReady.hidden = true;
+      try { fillSync(await getFeedLink(true)); $syncState.textContent = ''; }
+      catch (err) { $syncState.textContent = err.message || "Couldn't reset your link just now."; }
+    });
 
     $actClose?.addEventListener('click', closeAct);
     $actModal?.addEventListener('click', (e) => { if (e.target === $actModal) closeAct(); });

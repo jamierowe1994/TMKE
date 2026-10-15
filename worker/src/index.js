@@ -23,6 +23,7 @@ import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, pac
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
+import { ACTIVITIES as CAL_ACTIVITIES } from "../../src/data/marketing-activities.js";
 import puppeteer from "@cloudflare/puppeteer";
 
 const PART_PREFIX = "deliverables";
@@ -2222,6 +2223,127 @@ const ACTIVITY_DETAIL_LABELS = {
   address: "Property address", area: "Area", location: "Location", platform: "Platform", campaign: "Campaign",
   budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event",
 };
+/* ---- The Marketing Calendar in the member's own calendar (Dani, 17 Oct) ----
+   Two ways, both working in Apple (and iPhone), Outlook and Google:
+     a feed they subscribe to once  /calendar/feed/<token>.ics
+       every entry, kept up to date whenever their calendar app checks it;
+     one entry as a file            /calendar/feed/<token>/<entry id>.ics
+       a copy of that entry, added now.
+   The token is <user id>.<version>.<signature>: signed, so no table to keep.
+   Resetting the link bumps the version on their account
+   (app_metadata.cal_feed_v) and every older link stops working. */
+function calFeedSecret(env) { return env.CAL_FEED_SECRET || env.SUPABASE_SERVICE_ROLE || ""; }
+async function calFeedSig(env, uid, v) {
+  const secret = calFeedSecret(env);
+  if (!secret) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`calfeed:${uid}:${v}`));
+  return _b64url(mac).slice(0, 32);
+}
+async function calFeedVersion(env, uid) {
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${uid}`, {
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
+  });
+  if (!res.ok) return null;
+  const u = await res.json();
+  return Number((u && u.app_metadata && u.app_metadata.cal_feed_v) || 0);
+}
+async function calFeedToken(env, uid, v) {
+  const sig = await calFeedSig(env, uid, v);
+  return sig ? `${uid}.${v}.${sig}` : null;
+}
+// The user a token vouches for, or null (tampered with, or reset since).
+async function calFeedVerify(env, token) {
+  const m = /^([0-9a-f-]{36})\.(\d+)\.([A-Za-z0-9_-]{32})$/.exec(String(token || ""));
+  if (!m) return null;
+  const expect = await calFeedSig(env, m[1], m[2]);
+  if (!expect || expect.length !== m[3].length) return null;
+  let diff = 0;
+  for (let i = 0; i < expect.length; i++) diff |= expect.charCodeAt(i) ^ m[3].charCodeAt(i);
+  if (diff !== 0) return null;
+  const v = await calFeedVersion(env, m[1]);
+  return v !== null && String(v) === m[2] ? m[1] : null;
+}
+
+function calIcsText(s) { return String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
+// Lines longer than 75 bytes are folded onto continuation lines (RFC 5545).
+function calIcsFold(line) {
+  const enc = new TextEncoder();
+  if (enc.encode(line).length <= 75) return line;
+  const out = []; let cur = "", len = 0;
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    if (len + n > (out.length ? 74 : 75)) { out.push(cur); cur = ""; len = 0; }
+    cur += ch; len += n;
+  }
+  out.push(cur);
+  return out.join("\r\n ");
+}
+function calYmd(d) { return String(d).slice(0, 10).replace(/-/g, ""); }
+function calAddDays(d, n) {
+  const t = new Date(String(d).slice(0, 10) + "T12:00:00Z");
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
+}
+function calHm(t) { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? m[1].padStart(2, "0") + m[2] : "0900"; }
+function calStamp(ts) {
+  const t = ts ? new Date(ts) : new Date();
+  return (isNaN(t) ? new Date() : t).toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+}
+const CAL_LONDON_TZ = [
+  "BEGIN:VTIMEZONE", "TZID:Europe/London",
+  "BEGIN:DAYLIGHT", "TZOFFSETFROM:+0000", "TZOFFSETTO:+0100", "TZNAME:BST", "DTSTART:19700329T010000", "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU", "END:DAYLIGHT",
+  "BEGIN:STANDARD", "TZOFFSETFROM:+0100", "TZOFFSETTO:+0000", "TZNAME:GMT", "DTSTART:19701025T020000", "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU", "END:STANDARD",
+  "END:VTIMEZONE",
+];
+// One entry as an event: titled "Activity: what it's for", the activity's line,
+// the caption, details, notes and checklist in the description.
+function calEventLines(item, site) {
+  const key = item.activity || "social_post";
+  const a = CAL_ACTIVITIES.find((x) => x.key === key) || {};
+  const label = a.label || "Marketing Activity";
+  const d = item.details && typeof item.details === "object" ? item.details : {};
+  const title = String(item.title || "").trim();
+  const summary = !title || title === label ? label : `${label}: ${title}`;
+  const date = String(item.scheduled_date).slice(0, 10);
+  const end = item.end_date && String(item.end_date).slice(0, 10) > date ? String(item.end_date).slice(0, 10) : null;
+  const out = ["BEGIN:VEVENT", `UID:${item.id}@calendar.tmke.co.uk`, `DTSTAMP:${calStamp(item.updated_at || item.created_at)}`];
+  if (item.has_time === false || end) {
+    out.push(`DTSTART;VALUE=DATE:${calYmd(date)}`, `DTEND;VALUE=DATE:${calYmd(calAddDays(end || date, 1))}`);
+  } else {
+    const st = calHm(item.scheduled_time);
+    const stMin = +st.slice(0, 2) * 60 + +st.slice(2);
+    let enMin = stMin + (key === "social_post" ? 30 : 60);
+    if (d.end_time) { const e = calHm(d.end_time); const m = +e.slice(0, 2) * 60 + +e.slice(2); if (m > stMin) enMin = m; }
+    enMin = Math.min(enMin, 23 * 60 + 59);
+    const en = String(Math.floor(enMin / 60)).padStart(2, "0") + String(enMin % 60).padStart(2, "0");
+    out.push(`DTSTART;TZID=Europe/London:${calYmd(date)}T${st}00`, `DTEND;TZID=Europe/London:${calYmd(date)}T${en}00`);
+  }
+  out.push(`SUMMARY:${calIcsText(summary)}`);
+  const where = d.address || d.location || d.area;
+  if (where) out.push(`LOCATION:${calIcsText(where)}`);
+  const desc = [];
+  if (a.line) desc.push(a.line);
+  if (item.caption) desc.push(`Caption:\n${item.caption}`);
+  const rows = Object.keys(ACTIVITY_DETAIL_LABELS)
+    .filter((k) => !["address", "location", "area"].includes(k) && d[k] !== undefined && d[k] !== null && String(d[k]).trim() && String(d[k]) !== title)
+    .map((k) => `${ACTIVITY_DETAIL_LABELS[k]}: ${d[k]}`);
+  if (rows.length) desc.push(rows.join("\n"));
+  if (item.notes) desc.push(`Notes:\n${item.notes}`);
+  const list = Array.isArray(item.checklist) ? item.checklist.filter((c) => c && String(c.text || "").trim()) : [];
+  if (list.length) desc.push("Checklist:\n" + list.map((c) => `${c.done ? "[x]" : "[ ]"} ${c.text}`).join("\n"));
+  desc.push(`On your Marketing Calendar: ${site}/account/schedule`);
+  out.push(`DESCRIPTION:${calIcsText(desc.join("\n\n"))}`, `URL:${site}/account/schedule`, "END:VEVENT");
+  return out;
+}
+function calIcs(items, site, feed) {
+  const head = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TMKE//Marketing Calendar//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+  if (feed) head.push("X-WR-CALNAME:TMKE Marketing Calendar", "X-WR-TIMEZONE:Europe/London", "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H");
+  const lines = [...head, ...CAL_LONDON_TZ, ...items.flatMap((it) => calEventLines(it, site)), "END:VCALENDAR"];
+  return lines.map(calIcsFold).join("\r\n") + "\r\n";
+}
+
 function activityHtml(item) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const label = ACTIVITY_LABELS[item.activity] || "Marketing activity";
@@ -3813,6 +3935,49 @@ export default {
     await loadEmailStyles(env);
 
     try {
+      // ---- The Marketing Calendar in their own calendar ----------------------
+      // The member's private link (made from their sign-in; reset on request).
+      if (path.endsWith("/calendar/feed-link") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        const b = await request.json().catch(() => ({}));
+        let v = await calFeedVersion(env, user.id);
+        if (v === null) return json({ error: "Couldn't make your link just now." }, 500, request, env);
+        if (b && b.reset) {
+          v += 1;
+          const up = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
+            method: "PUT",
+            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ app_metadata: { cal_feed_v: v } }),
+          });
+          if (!up.ok) return json({ error: "Couldn't reset your link just now." }, 500, request, env);
+        }
+        const token = await calFeedToken(env, user.id, v);
+        if (!token) return json({ error: "Calendar links aren't set up." }, 503, request, env);
+        const base = (env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
+        return json({ feed: `${base}/calendar/feed/${token}.ics`, base: `${base}/calendar/feed/${token}` }, 200, request, env);
+      }
+      // The feed (every entry) or one entry, as a calendar file.
+      const calFeedM = request.method === "GET" && /\/calendar\/feed\/([^/]+?)(?:\/([0-9a-f-]{36}))?\.ics$/.exec(path);
+      if (calFeedM) {
+        const uid = await calFeedVerify(env, calFeedM[1]);
+        if (!uid) return new Response("This calendar link has been reset or isn't valid.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
+        let rows;
+        if (calFeedM[2]) {
+          rows = await sbGet(env, "calendar_items", `select=*&user_id=eq.${uid}&id=eq.${calFeedM[2]}`);
+        } else {
+          // From three months back, so recent history stays in place.
+          rows = await sbGetAll(env, "calendar_items", `select=*&user_id=eq.${uid}&status=neq.cancelled&scheduled_date=gte.${calAddDays(new Date().toISOString().slice(0, 10), -90)}&order=scheduled_date.asc,id.asc`);
+        }
+        if (!rows) return new Response("Couldn't read the calendar just now.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        if (calFeedM[2] && !rows.length) return new Response("That entry isn't on the calendar any more.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        const name = calFeedM[2] ? "tmke-calendar-entry.ics" : "tmke-marketing-calendar.ics";
+        return new Response(calIcs(rows, site, !calFeedM[2]), {
+          headers: { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `inline; filename="${name}"`, "Cache-Control": "private, max-age=0" },
+        });
+      }
+
       // ---- Trigger a site rebuild (publish/edit a blog -> push live) ----------
       // The public site is a static Astro build, so DB writes don't change the
       // live pages until a redeploy. The admin editor calls this after a
