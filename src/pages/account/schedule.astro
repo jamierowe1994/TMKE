@@ -891,6 +891,7 @@ import "../../styles/account-sections.css";
     import { plannerStore } from '../../lib/design-store.js';
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { designStore } from '../../lib/design-store.js';
+    import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
     // ====== Elements ======
@@ -1289,10 +1290,17 @@ import "../../styles/account-sections.css";
       $pickPlan.hidden = true;
       $pickFoot.hidden = true;
       $pickModal.hidden = false;
+      /* .is-open is what makes a .day-backdrop take clicks and scrolling. The
+         Choose a design window was unhidden without it, so every click, the
+         scroll and the X went straight through to the day panel underneath
+         (Dani, 15 Oct: "This whole 'Choose a design' window isn't
+         functional"). */
+      requestAnimationFrame(() => $pickModal.classList.add('is-open'));
       loadPickDesigns();
     }
 
     function closePick() {
+      $pickModal.classList.remove('is-open');
       $pickModal.hidden = true;
       pickChosen = null;
       $pickSave.disabled = false;
@@ -1321,8 +1329,23 @@ import "../../styles/account-sections.css";
         .order('updated_at', { ascending: false })
         .limit(60);
       if (error) { $pickNote.textContent = "Couldn't load your designs — try again in a moment."; return; }
-      pickCache = data || [];
+      // Social posts only: a print design (A4, A5, A6, business card) is not
+      // something you post (Dani, 15 Oct).
+      pickCache = (data || []).filter((d) => !isPrintDesign(d));
       renderPickGrid(pickCache);
+    }
+
+    const PRINT_SIZES = new Set(
+      STUDIO_SIZES.filter((g) => g.family === 'print')     // the same rule as the Studio shelf
+        .flatMap((g) => g.sizes.map((z) => `${z.w}x${z.h}`))
+    );
+    function isPrintDesign(d) {
+      const c = d && d.canvas;
+      const w = Math.round(Number(c && c.width) || 0), h = Math.round(Number(c && c.height) || 0);
+      if (!w || !h) return false;
+      if (PRINT_SIZES.has(`${w}x${h}`) || PRINT_SIZES.has(`${h}x${w}`)) return true;
+      const r = Math.max(w, h) / Math.min(w, h);
+      return Math.abs(r - Math.SQRT2) < 0.01 && Math.min(w, h) >= 1200;   // any ISO paper size at print resolution
     }
 
     function formatOfDesign(d) {
