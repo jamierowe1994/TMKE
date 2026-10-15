@@ -222,7 +222,10 @@ export const TRAINING_GUIDES = [
     slug: "training-studio",
     title: "Your First Design",
     summary: "Open your first template, make it your own and turn it into a finished post.",
-    est_minutes: 10, sort_order: 3, art: "https://assets.tmke.co.uk/table.webp",
+    est_minutes: 10, sort_order: 3,
+    // Dani, 15 Oct: the coffee and magazine, on the card and on the cover.
+    art: "/images/learn/your-first-design-cover.webp",
+    cover_url: "/images/learn/your-first-design-cover.webp",
     lessons: [
       { title: "Start With a Template", walk: "studio-template", video_url: "",
         body_html:
