@@ -45,6 +45,30 @@ export function audienceForEmail(email) {
   return { audience: "non-member", brand: null, label: "Non-member", domain };
 }
 
+/* A signed-in member of the hub (Dani, 15 Oct): an Experts Group agent if the
+   CRM has them under one of its brands, or their work email says so. We know
+   more about members than an email address, so a brand on their record counts
+   even with a personal email. Everyone else is external. `brands` is
+   member_brands() -- the CRM's names, e.g. "The Property Experts". */
+const BRAND_NAME_KEYS = [
+  [/fine\s*&?\s*(and\s*)?country/i, "fc", "Fine & Country"],
+  [/prestige/i, "prestige", "Prestige Property Experts"],
+  [/letting/i, "tle", "The Letting Experts"],
+  [/mortgage/i, "tme", "The Mortgage Experts"],
+  [/recruitment/i, "tre", "The Recruitment Experts"],
+  [/property experts/i, "tpe", "The Property Experts"],
+  [/tmke|marketing experts/i, "tmke", "TMKE"],
+];
+export function audienceForMember(email, brands) {
+  const byEmail = audienceForEmail(email);
+  if (byEmail.audience === "member") return byEmail;
+  for (const name of Array.isArray(brands) ? brands : []) {
+    const hit = BRAND_NAME_KEYS.find(([re]) => re.test(String(name || "")));
+    if (hit) return { audience: "member", brand: hit[1], label: hit[2], domain: byEmail.domain };
+  }
+  return byEmail;
+}
+
 // Property package tier from member brand: Fine & Country → Platinum, every
 // other TEG brand → Gold. Listed explicitly rather than leaning on the caller's
 // `|| "gold"` fallback, so adding a brand to MEMBER_DOMAINS without deciding its

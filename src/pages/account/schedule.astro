@@ -5,6 +5,7 @@ import CaptionGenerator from "../../components/CaptionGenerator.astro";
 import "../../styles/workspace.css";
 import "../../styles/ws-system.css";
 import NewDesignModal from "../../components/account/NewDesignModal.astro";
+import VideographyBooking from "../../components/VideographyBooking.astro";
 import "../../styles/account-sections.css";
 ---
 
@@ -814,10 +815,10 @@ import "../../styles/account-sections.css";
     .act-book { display: grid; gap: 14px; }
     .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
     .act-book-links { display: flex; flex-wrap: wrap; gap: 10px; }
-    .act-book-links a { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 4px; text-decoration: none;
+    .act-book-links a, .act-book-links button { display: inline-flex; cursor: pointer; align-items: center; height: 34px; padding: 0 14px; border-radius: 4px; text-decoration: none;
       font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
       border: 1px solid rgba(28,29,34,0.2); color: var(--ink); background: #fff; }
-    .act-book-links a.is-primary { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
+    .act-book-links .is-primary { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
     .act-book-note { font-size: var(--ws-t-meta) !important; color: rgba(28,29,34,0.55) !important; }
     .act-cat h3 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); display: flex; align-items: center; gap: 7px; }
     .act-cat h3::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
@@ -1683,9 +1684,10 @@ import "../../styles/account-sections.css";
           <div class="act-book-links">
             <a href="${a.book.info}" target="_blank" rel="noopener">See what's included</a>
             <a href="${a.book.brochure}" target="_blank" rel="noopener">Download the brochure</a>
-            <a class="is-primary" href="${a.book.bookHref}" target="_blank" rel="noopener">Book now</a>
+            ${a.book.book.map((b) => `<button type="button" class="is-primary" data-book-service="${b.service}">${escapeHtml(b.label)}</button>`).join('')}
           </div>
-          <p class="act-book-note">Once it's booked with us, it appears on your calendar by itself.</p>
+          <p class="act-book-note">Book here, without leaving your calendar. Once it's booked, it appears on your calendar by itself.</p>
+          <div class="post-error" data-act-error hidden></div>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
         $actDelete.hidden = true; $actSave.hidden = true; $actBack.textContent = 'Back';
@@ -1862,6 +1864,39 @@ import "../../styles/account-sections.css";
     $actChoose?.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) chooseAct(b.dataset.act); });
     $actBack?.addEventListener('click', () => { if (actEditing) closeAct(); else openAct(actDate); });
     $actSave?.addEventListener('click', saveAct);
+
+    /* Book now: the website's booking form, in member mode -- their details
+       from their account, and member or external decided by the CRM's brands
+       as well as their email (src/lib/videography-config.js). */
+    async function hubMemberForBooking() {
+      const { data } = await supabase.auth.getSession();
+      const u = data && data.session && data.session.user;
+      if (!u) return null;
+      const meta = u.user_metadata || {};
+      let brands = [];
+      try { const m = await import('../../lib/pack-access.js'); brands = (await m.memberBrandsFor(supabase)) || []; } catch (_) {}
+      const { audienceForMember } = await import('../../lib/videography-config.js');
+      const audience = audienceForMember(u.email, brands);
+      return {
+        email: u.email, audience,
+        name: meta.full_name || meta.name || '',
+        phone: meta.phone || '',
+        company: meta.company || (audience.audience === 'member' ? audience.label : '') || '',
+      };
+    }
+    $actForm?.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-book-service]'); if (!b) return;
+      // The demo and the training window never book a real shoot.
+      if (isTrainingDemo()) { actError("Training doesn't book anything. On your own Marketing Calendar, this opens the booking form with your details already filled in.", true); return; }
+      if (demoOn()) { lock("Booking is for members.", "Members book filming and photography from here, with their details already filled in."); return; }
+      const member = await hubMemberForBooking();
+      if (!member) { location.href = '/login?next=' + encodeURIComponent('/account/schedule'); return; }
+      const date = actDate;
+      closeAct();
+      if (typeof window.tmkeVideographyBook === 'function') window.tmkeVideographyBook(b.dataset.bookService, { member, date });
+    });
+    // Booked: reload the window so it shows on its day straight away.
+    window.addEventListener('tmke:videography-booked', async () => { loadedWindow = null; await loadWindow(); renderCalendar(); });
     $actDelete?.addEventListener('click', deleteAct);
     $actForm?.addEventListener('change', (e) => {
       const i = e.target.getAttribute && e.target.getAttribute('data-check-i');
@@ -2204,5 +2239,8 @@ import "../../styles/account-sections.css";
   </script>
 
   <NewDesignModal />
+  <!-- The website's own booking form, opened by Book now in Add activity
+       (member mode: their details known, member or external from the CRM). -->
+  <VideographyBooking />
   <CaptionGenerator />
 </BaseLayout>

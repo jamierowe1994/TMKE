@@ -5232,14 +5232,20 @@ export default {
         const {
           date, start, duration, service, service_type, audience, brand,
           add_ons, postcode, distance_miles, surcharge_pence, property_address,
-          name, email, phone, company, notes, signed_name, signed_at,
+          name, email: bodyEmail, phone, company, notes, signed_name, signed_at,
           marketing_opt_in, password, total_pence, account_exists, promo_code, discount_pence,
         } = b || {};
         const pkg = b && b.package;
+        /* A booking sent with a signed-in member's login (the hub's Marketing
+           Calendar, or anyone already signed in on the site) is theirs: the
+           email and the account come from the login itself, not from what the
+           form says. Without one, the form's email stands, as before. */
+        const booker = await getUser(request, env);
+        const email = (booker && booker.email) || bodyEmail;
         if (!date || !start || !name || !email) return json({ error: "Missing booking details" }, 400, request, env);
         // New customers create an account (password required). Existing members
         // sign in client-side first and send account_exists, so no password here.
-        if (!account_exists && (!password || String(password).length < 8)) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
+        if (!booker && !account_exists && (!password || String(password).length < 8)) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
         const dur = parseInt(duration || "60", 10);
         const endHm = minToHm(hmToMin(start) + dur);
 
@@ -5264,7 +5270,9 @@ export default {
         // 2) Create or link the Supabase account (never overwrite an existing one).
         let accountUserId = null, accountCreated = false;
         try {
-          if (account_exists) {
+          if (booker) {
+            accountUserId = booker.id;   // signed in: the login is the account
+          } else if (account_exists) {
             // Existing member (already signed in client-side) — just link the id.
             const u = await findUserByEmail(env, email);
             if (u) accountUserId = u.id;

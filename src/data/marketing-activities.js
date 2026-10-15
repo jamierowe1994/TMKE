@@ -15,7 +15,8 @@
 
    Two kinds are not entries at all:
      book   a "Book ..." option: a panel with what's included, the brochure
-            and the way to book on the website. Once booked with us, the
+            and Book now, which opens the website's own booking form inside
+            the calendar (src/components/VideographyBooking.astro, member mode). Once booked with us, the
             booking appears on the calendar by itself (from Bookings).
      teg    shown to agents of The Experts Group only (guide-audience.js).
    Names are in Title Case (Dani, 15 Oct). */
@@ -46,12 +47,12 @@ export const ACTIVITIES = [
     title: null, fields: [] },
   { key: "book_content_studio", category: "content", label: "Book a Content Studio Session", teg: true,
     book: { blurb: "A session in our Content Studio, filming content that's ready to post.",
-      info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", bookHref: "/videography#studio" } },
+      info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "content-studio", label: "Book now" }] } },
   { key: "content_studio", category: "content", label: "Content Studio Session", teg: true,
     reminder: true, timeRequired: true, title: null, fields: [] },
   { key: "book_agent_filming", category: "content", label: "Book an Agent Filming Day", teg: true,
     book: { blurb: "A day of filming with you on camera: presenter-led content for your social media.",
-      info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", bookHref: "/videography#agent" } },
+      info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "agent", label: "Book now" }] } },
   { key: "agent_filming", category: "content", label: "Agent Filming Day", teg: true,
     reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true }] },
   { key: "social_post", category: "content", label: "Social Media Post",
@@ -85,7 +86,7 @@ export const ACTIVITIES = [
   // Property Marketing
   { key: "book_property_shoot", category: "property", label: "Book Property Photography or Filming",
     book: { blurb: "Property photography and filming by TMKE: tours, Reels and stills that sell the home.",
-      info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", bookHref: "/videography#property" } },
+      info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "property", label: "Book property filming" }, { service: "photography", label: "Book property photography" }] } },
   { key: "property_shoot", category: "property", label: "Property Photography / Filming",
     reminder: true, title: "address", fields: [{ key: "address", kind: "text", label: "Property address", required: true }] },
   { key: "property_launch", category: "property", label: "Property Launch Campaign",

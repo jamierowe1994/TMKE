@@ -81,18 +81,32 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <p class="vb-brochure"><a href={BROCHURE_URL} target="_blank" rel="noopener">Prefer to browse first? Download our brochure (PDF) <em>&rarr;</em></a></p>
       </section>
 
+      <!-- 2c. Not offered (an external member asking for a members-only
+           service, from the hub's Marketing Calendar -- Dani, 15 Oct). -->
+      <section class="dc-step" id="vb-step-notoffered" hidden>
+        <h2 class="dc-step-title">Not available <em>just yet.</em></h2>
+        <p class="dc-step-sub" id="vb-notoffered-sub">Content Studio sessions are for agents of The Experts Group, and aren't something we offer to other members at the moment.</p>
+        <p class="dc-step-sub">Our agent videography is: a filming day with you on camera, producing presenter-led content for your social media.</p>
+        <div class="vb-notoffered-acts">
+          <button type="button" class="dc-form-cta" id="vb-notoffered-agent">Ask about agent videography <em>&rarr;</em></button>
+          <a class="vmodal-consult" href="/videography#agent" target="_blank" rel="noopener">See what's included</a>
+        </div>
+      </section>
+
       <!-- 2b. Enquiry (non-member, Property / Agent) -->
       <section class="dc-step" id="vb-step-enquiry" hidden>
         <h2 class="dc-step-title">Tell us about your <em>project.</em></h2>
         <p class="dc-step-sub" id="vb-enquiry-sub">Leave your details and Jack will be in touch with a tailored quote.</p>
         <form class="dc-panel-form" id="vb-enquiry-form">
-          <label class="dc-field"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
-          <div class="dc-field-row">
+          <!-- vb-hub-hide: a signed-in member's own details, already filled in
+               from their account, so they only say what they're after. -->
+          <label class="dc-field vb-hub-hide"><span>Full name *</span><input name="name" autocomplete="name" required /></label>
+          <div class="dc-field-row vb-hub-hide">
             <label class="dc-field"><span>Email *</span><input name="email" type="email" autocomplete="email" required /></label>
             <label class="dc-field"><span>Phone *</span><input name="phone" type="tel" autocomplete="tel" required /></label>
           </div>
           <div class="dc-field-row">
-            <label class="dc-field"><span>Company / Brand</span><input name="company" /></label>
+            <label class="dc-field vb-hub-hide"><span>Company / Brand</span><input name="company" /></label>
             <label class="dc-field"><span>Property / shoot postcode</span><input name="postcode" autocomplete="postal-code" /></label>
           </div>
           <label class="dc-field"><span>What do you need? *</span><textarea name="message" rows="3" required placeholder="Tell us about the property or shoot, timings, and anything specific you're after."></textarea></label>
@@ -297,6 +311,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 </aside>
 
 <style is:global>
+  /* The hub's member mode (Marketing Calendar): their own details are known. */
+  .dc-panel.is-hub .vb-hub-hide { display: none !important; }
+  .vb-notoffered-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 8px; }
+  /* Styled on the videography page by the page itself; in the hub's member
+     mode the panel brings its own, so the website's look is untouched. */
+  .dc-panel.is-hub .vmodal-consult { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-size: 14px; color: var(--english-violet, #371e28); text-decoration: underline; text-underline-offset: 3px; }
   /* Booking summary + opt-in (chrome reuses the global .dc-* styles). */
   .vb-summary { display: flex; flex-direction: column; gap: 2px; border: 1px solid rgba(var(--violet-rgb),0.16); border-radius: 12px; overflow: hidden; background: #fff; }
   .vb-srow { display: flex; justify-content: space-between; gap: 16px; padding: 14px 18px; font-family: var(--sans); font-size: 14px; color: var(--ink); border-bottom: 1px solid rgba(var(--violet-rgb),0.08); }
@@ -386,9 +406,17 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     let existingAccount = false; // gate email already has a TMKE account → sign in, don't create
     let sessionEmail = null;     // signed-in Supabase user's email (lowercase) — skips the password entirely
     let sessionToken = null;     // their access token — sent as a Bearer so the Worker links the record
+    /* Opened from the hub's Marketing Calendar for a signed-in member:
+       { member: { email, name, phone, company, audience: {audience, brand,
+       label} }, date: "YYYY-MM-DD" }. Their details are filled in, the email
+       gate and sign-in are skipped, and the CRM (not only the email address)
+       has decided member or external. Dani, 15 Oct. */
+    let hubMember = null;
     // Detect a live session up front; if the booker is already signed in under
-    // the gate email, the details step asks for no password at all.
-    (async () => {
+    // the gate email, the details step asks for no password at all. Read again
+    // when the hub opens the form and on submit: a calendar left open for an
+    // hour holds a token that has since been refreshed.
+    async function readSession() {
       try {
         const m = await import("../lib/supabase.js");
         if (!m || !m.isConfigured || !m.supabase) return;
@@ -397,7 +425,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         sessionEmail = s && s.user && s.user.email ? String(s.user.email).toLowerCase() : null;
         sessionToken = (s && s.access_token) || null;
       } catch (_) { /* signed-out flow stays as-is */ }
-    })();
+    }
+    readSession();
     const signedInAsGate = () => !!(sessionEmail && gateEmail && sessionEmail === gateEmail.trim().toLowerCase());
     let selectedInterests = []; // discovery-call interests
     let duration = 90;         // minutes (for availability)
@@ -433,7 +462,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
     function back() { const prev = history.pop(); if (prev) showStepRaw(prev); }
     backBtn.addEventListener("click", back);
-    function hideAll() { ["service","email","register","enquiry","interests","options","postcode","day","time","summary","terms","call-details","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
+    function hideAll() { ["service","email","register","notoffered","enquiry","interests","options","postcode","day","time","summary","terms","call-details","details"].forEach((n) => { const e = stepEl(n); if (e) { e.hidden = true; e.classList.remove("dc-anim-in","dc-anim-out"); } }); const s = stepEl("success"); if (s) { s.hidden = true; s.classList.remove("dc-anim-in","dc-anim-out"); } }
 
     async function fetchConfig() {
       if (configFetched) return; configFetched = true; if (!WORKER) return;
@@ -441,7 +470,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     }
 
     // ---- open / close ----
-    function open(serviceKey) {
+    function open(serviceKey, opts) {
+      hubMember = (opts && opts.member) || null;
+      panel.classList.toggle("is-hub", !!hubMember);
+      if (opts && opts.date) { const d0 = new Date(opts.date + "T00:00:00"); if (!isNaN(d0)) { viewMonth = new Date(d0.getFullYear(), d0.getMonth(), 1); } }
       audience = null; chosen = null; selectedAddOns = []; selectedPackages = []; paymentRoute = null; fcOffice = null;
       postcode = ""; distanceMiles = null; surchargeP = 0; selectedInterests = []; flow = "booking";
       promo = null; existingAccount = false;
@@ -469,8 +501,44 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (!svc) return;
       eyebrow.textContent = `TMKE — ${svc.name}`;
       if (svc.key === "discovery") { flow = "discovery"; duration = 30; renderInterests(); showStepRaw("interests"); return; }
+      if (hubMember) { startForMember(); return; }
       showStepRaw("email");
     }
+
+    // The hub's member: no email gate. Members book; an external member asks
+    // (an enquiry), or for a members-only service hears it isn't offered.
+    function startForMember() {
+      const m = hubMember;
+      gateEmail = m.email;
+      audience = m.audience || audienceForEmail(m.email);
+      const fill = (form) => {
+        const f = $(form); if (!f) return;
+        [["name", m.name], ["email", m.email], ["phone", m.phone], ["company", m.company]].forEach(([k, v]) => {
+          const el = f.querySelector(`[name="${k}"]`); if (el && v && !el.value) el.value = v;
+        });
+      };
+      if (audience.audience !== "member") {
+        if (svc.membersOnly) { showStepRaw("notoffered"); return; }
+        fill("vb-enquiry-form");
+        // A required field they can't see must still pass: their account has
+        // it, or the Worker takes it from their sign-in.
+        const ph = $("vb-enquiry-form")?.querySelector('[name="phone"]'); if (ph && !ph.value) ph.required = false;
+        showStepRaw("enquiry"); return;
+      }
+      existingAccount = true;
+      readSession();
+      renderOptions();
+      showStepRaw("options");
+    }
+    $("vb-notoffered-agent")?.addEventListener("click", () => {
+      svc = SERVICES["agent"]; if (!svc) return;
+      eyebrow.textContent = `TMKE — ${svc.name}`;
+      const f = $("vb-enquiry-form"); if (f && hubMember) {
+        [["name", hubMember.name], ["email", hubMember.email], ["phone", hubMember.phone], ["company", hubMember.company]].forEach(([k, v]) => { const el = f.querySelector(`[name="${k}"]`); if (el && v) el.value = v; });
+        const ph = f.querySelector('[name="phone"]'); if (ph && !ph.value) ph.required = false;
+      }
+      goTo("enquiry");
+    });
 
     // Service chooser (the generic "Book a Shoot" entry).
     function renderServices() {
@@ -1128,6 +1196,11 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (termsCta.disabled) return;
       const f = $("vb-details-form");
       if (f) f.querySelector('[name="email"]').value = gateEmail;   // pre-fill from the gate
+      // In the hub it's their login, and the booking goes to that account.
+      if (f) f.querySelector('[name="email"]').readOnly = !!hubMember;
+      if (f && hubMember) {   // a hub member's own details, from their account
+        [["name", hubMember.name], ["phone", hubMember.phone], ["company", hubMember.company]].forEach(([k, v]) => { const el = f.querySelector(`[name="${k}"]`); if (el && v && !el.value) el.value = v; });
+      }
       // Signed in under the gate email → no password at all. Existing account
       // (signed out) → sign in. Brand new → create a password.
       const signedIn = signedInAsGate();
@@ -1203,8 +1276,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         if (!WORKER) throw new Error("Booking is being set up — please check back shortly.");
         // Books Jack's 365 diary, creates/links the account, writes the full
         // pipeline row, and sends the confirmation (with .ics) + Jack's notice.
+        // The member's sign-in goes with it, so the Worker ties the booking to
+        // their account from the login itself rather than the form's say-so.
+        const bookHeaders = { "Content-Type": "application/json" };
+        if (hubMember) await readSession();
+        if (sessionToken && signedInAsGate()) bookHeaders.Authorization = "Bearer " + sessionToken;
         const res = await fetch(`${WORKER}/videography/book`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
+          method: "POST", headers: bookHeaders,
           body: JSON.stringify({
             date: localISO(selectedDate), start: selectedSlot, duration,
             service: svc.name, service_type: svc.key,
@@ -1237,7 +1315,10 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         const wait = 1100 - (Date.now() - t0); if (wait > 0) await sleep(wait);
         const dt = selectedDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
         $("vb-success-title").textContent = "Booking Confirmed";
-        $("vb-success-msg").textContent = `We've booked ${svc.name} for ${dt} at ${selectedSlot}, and set up your account so you can manage it any time. A confirmation email with a calendar invite is on its way.`;
+        $("vb-success-msg").textContent = hubMember
+          ? `We've booked ${svc.name} for ${dt} at ${selectedSlot}. It's on your Marketing Calendar, and a confirmation email with a calendar invite is on its way.`
+          : `We've booked ${svc.name} for ${dt} at ${selectedSlot}, and set up your account so you can manage it any time. A confirmation email with a calendar invite is on its way.`;
+        try { window.dispatchEvent(new CustomEvent("tmke:videography-booked", { detail: { date: localISO(selectedDate) } })); } catch (_) {}
         history = []; goTo("success"); history = []; backBtn.hidden = true;
         resetCta(btn, "Confirm booking");
       } catch (e2) {
