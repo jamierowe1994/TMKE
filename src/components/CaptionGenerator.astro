@@ -8,7 +8,9 @@
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 ---
 
-<div class="cg-scrim" id="cg-scrim" data-worker={WORKER} hidden>
+<!-- data-lenis-prevent: the page's smooth scroll leaves this alone, so the
+     wheel scrolls the pop-out rather than the page behind it (Dani, 17 Oct). -->
+<div class="cg-scrim" id="cg-scrim" data-worker={WORKER} data-lenis-prevent hidden>
   <div class="cg-modal" role="dialog" aria-modal="true" aria-label="Caption generator">
     <button type="button" class="cg-x" data-cg-close aria-label="Close">
       <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
@@ -29,6 +31,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     <!-- PROPERTY -->
     <div class="cg-pane" data-cg-pane="property">
+      <p class="cg-pane-intro">For a listing post: new to market, coming soon, an open house, a price change or a sale. Add the area and a few details and we&rsquo;ll write a caption that sells the home, in your tone of voice.</p>
       <div class="cg-grid">
         <label class="cg-field cg-col2"><span>Location</span><input type="text" data-cg="location" placeholder="e.g. Bilton, Rugby" /></label>
         <label class="cg-field"><span>Post angle</span>
@@ -64,6 +67,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     <!-- GENERAL -->
     <div class="cg-pane" data-cg-pane="general" hidden>
+      <p class="cg-pane-intro">For anything that isn&rsquo;t a listing: tips for buyers and sellers, local news, your team, a market update. Tell us what the post is about in a line or two and we&rsquo;ll draft it.</p>
       <label class="cg-field"><span>What's your post about?</span><textarea data-cg="topic" rows="5" placeholder="e.g. 5 tips for first-time buyers / our team volunteering at the local food bank / why spring is a great time to sell"></textarea></label>
       <label class="cg-check"><input type="checkbox" data-cg-tags checked /> <span>Add up to 4 hashtags</span></label>
       <button type="button" class="cg-gen" data-cg-generate="general"><span class="cg-gen-l">Generate caption</span></button>
@@ -71,14 +75,15 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     <!-- WRITE MY OWN -->
     <div class="cg-pane" data-cg-pane="own" hidden>
+      <p class="cg-pane-intro">Already know what you want to say? Write it here, make a word or a line bold, italic or underlined, then copy it into your post.</p>
       <label class="cg-field"><span>Your caption</span></label>
+      <textarea class="cg-out" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea>
       <div class="cg-style" role="toolbar" aria-label="Style the selected words">
         <button type="button" class="cg-style-b" data-cg-style="b" title="Bold (Ctrl/⌘ B)" aria-label="Bold"><b>B</b></button>
         <button type="button" class="cg-style-b" data-cg-style="i" title="Italic (Ctrl/⌘ I)" aria-label="Italic"><i>I</i></button>
         <button type="button" class="cg-style-b" data-cg-style="u" title="Underline (Ctrl/⌘ U)" aria-label="Underline"><u>U</u></button>
         <span class="cg-style-note">Select words, then style them. Keeps its look in Instagram and Facebook; best for a word or a line.</span>
       </div>
-      <textarea class="cg-out" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea>
       <div class="cg-actions">
         <button type="button" class="cg-act cg-act--primary" data-cg-useown><span>Use this caption</span></button>
       </div>
@@ -87,13 +92,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     <!-- RESULT (shared by property + general) -->
     <div class="cg-result" hidden>
       <div class="cg-result-head"><span class="cg-result-label">Your caption</span><button type="button" class="cg-regen" data-cg-regen>↻ Regenerate</button></div>
+      <textarea class="cg-out" data-cg-out data-cg-styled rows="6"></textarea>
       <div class="cg-style" role="toolbar" aria-label="Style the selected words">
         <button type="button" class="cg-style-b" data-cg-style="b" title="Bold (Ctrl/⌘ B)" aria-label="Bold"><b>B</b></button>
         <button type="button" class="cg-style-b" data-cg-style="i" title="Italic (Ctrl/⌘ I)" aria-label="Italic"><i>I</i></button>
         <button type="button" class="cg-style-b" data-cg-style="u" title="Underline (Ctrl/⌘ U)" aria-label="Underline"><u>U</u></button>
         <span class="cg-style-note">Select words, then style them. Keeps its look in Instagram and Facebook; best for a word or a line.</span>
       </div>
-      <textarea class="cg-out" data-cg-out data-cg-styled rows="6"></textarea>
       <div class="cg-tags-block" data-cg-tags-block hidden>
         <span class="cg-result-label cg-tags-label">Hashtags</span>
         <textarea class="cg-out cg-tags-out" data-cg-tags-box rows="2"></textarea>
@@ -110,7 +115,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-scrim[hidden] { display: none; }
   /* One height whichever tab is open (Dani, 17 Oct): the tallest pane's,
      and anything longer (a caption and its result) scrolls inside it. */
-  .cg-modal { position: relative; width: min(560px, 100%); height: min(860px, 92vh); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 28px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
+  .cg-modal { position: relative; width: min(560px, 100%); height: min(860px, 92vh); max-height: 92vh; overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 16px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 28px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
   @keyframes cgIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .cg-modal { animation: none; } }
   .cg-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(28,29,34,0.05); cursor: pointer; display: grid; place-items: center; color: rgba(28,29,34,0.6); }
@@ -156,7 +161,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-out { width: 100%; font-family: inherit; font-size: 14.5px; line-height: 1.6; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 12px 14px; resize: vertical; }
   .cg-out:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
   /* B / I / U over a caption box (src/lib/unicode-style.js). */
-  .cg-style { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 0 0 8px; }
+  .cg-style { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 8px 0 0; }
+  .cg-pane-intro { margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.6); }
   .cg-style-b { appearance: none; width: 30px; height: 30px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff; color: var(--ink); font-family: Georgia, serif; font-size: 14px; cursor: pointer; display: inline-grid; place-items: center; transition: border-color .2s, color .2s; }
   .cg-style-b:hover { border-color: var(--english-violet); color: var(--english-violet); }
   .cg-style-b:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
@@ -210,8 +216,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       switchTab("property");
       scrim.hidden = false;
       document.body.style.overflow = "hidden";
+      window.__lenis?.stop?.();
     }
-    function close() { scrim.hidden = true; document.body.style.overflow = ""; }
+    function close() { scrim.hidden = true; document.body.style.overflow = ""; window.__lenis?.start?.(); }
     window.tmkeCaption = { open, close };
 
     // ---- tabs ----
@@ -356,9 +363,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     scrim.addEventListener("click", (e) => {
       const btn = e.target.closest("[data-cg-style]");
       if (!btn) return;
-      // The box this toolbar sits over: the next styled textarea after it.
-      let el = btn.closest(".cg-style").nextElementSibling;
-      while (el && !el.matches("[data-cg-styled]")) el = el.nextElementSibling;
+      // The box this toolbar sits under: the styled textarea before it.
+      let el = btn.closest(".cg-style").previousElementSibling;
+      while (el && !el.matches("[data-cg-styled]")) el = el.previousElementSibling;
       styleSelection(el, btn.dataset.cgStyle);
     });
     scrim.addEventListener("keydown", (e) => {
