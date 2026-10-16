@@ -886,15 +886,12 @@ import "../../styles/account-sections.css";
     .act-panel { width: min(820px, calc(100vw - 32px)); }
     #act-modal { display: flex; align-items: center; justify-content: center; padding: 16px; }
     #act-modal[hidden], .act-form[hidden], .act-choose[hidden], #act-foot[hidden], #act-delete[hidden], #act-save[hidden] { display: none; }
-    /* Content & Social down one long column; beside it Property Marketing over
-       Campaigns, then Print & Canvassing over Business & Community, Something
-       Else across the foot (Dani, 15 and 16 Oct). One column on a phone. */
+    /* Content & Social over Something Else down the first column; beside it
+       Property Marketing over Campaigns, then Print & Canvassing over Business
+       & Community (Dani, 15 and 16 Oct). One column on a phone. */
     .act-choose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px 22px; align-items: start; }
     .act-rest { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 22px; }
     .act-col { display: grid; gap: 20px; align-content: start; }
-    .act-rest > .act-cat { grid-column: 1 / -1; }   /* Something Else, across both */
-    .act-rest > .act-cat ol { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 22px; }
-    @media (max-width: 720px) { .act-rest > .act-cat ol { grid-template-columns: 1fr; } }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
     .act-book { display: grid; gap: 14px; }
     .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
@@ -1735,11 +1732,11 @@ import "../../styles/account-sections.css";
           list.map((a) => `<li><button type="button" class="act-pick" data-act="${a.key}">${escapeHtml(a.label)}</button></li>`).join('')
         }</ol></section>`;
       };
-      // Content & Social first, then Property Marketing over Campaigns, then
-      // Print & Canvassing over Business & Community (Dani, 16 Oct).
+      // Content & Social over Something Else, then Property Marketing over
+      // Campaigns, then Print & Canvassing over Business & Community (Dani, 16 Oct).
       const col = (keys) => `<div class="act-col">${keys.map((k) => cat(categoryOf(k))).join('')}</div>`;
-      $actChoose.innerHTML = cat(categoryOf('content'))
-        + `<div class="act-rest">${col(['property', 'campaigns'])}${col(['print', 'business'])}${cat(categoryOf('other'))}</div>`;
+      $actChoose.innerHTML = col(['content', 'other'])
+        + `<div class="act-rest">${col(['property', 'campaigns'])}${col(['print', 'business'])}</div>`;
       $actChoose.hidden = false; $actForm.hidden = true; $actFoot.hidden = true;
       showActModal();
     }

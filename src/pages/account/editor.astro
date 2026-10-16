@@ -5935,7 +5935,27 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           // A long editing session can outlive the access token. Refresh once
           // and try again before calling it a failure — the design is fine, the
           // sign-in just went stale underneath it.
-          const write = (body) => supabase.from('templates').update(body).eq('id', payload.templateId);
+          /* An old tab can't save over newer work. The editor says which
+             version it opened (baseAt); if the database has moved on since -
+             someone saved this template in another tab or on another computer
+             - the save stops and says so, rather than putting the old design
+             back over theirs. Sam's tab on the old Recently Sold card, 16 Oct. */
+          if (payload.baseAt) {
+            try {
+              const { data: now } = await supabase.from('templates').select('updated_at').eq('id', payload.templateId).maybeSingle();
+              const dbAt = now && now.updated_at ? Date.parse(now.updated_at) : NaN;
+              if (isFinite(dbAt) && dbAt > Date.parse(payload.baseAt) + 1000) {
+                const when = new Date(dbAt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+                return { ok: false, conflict: true, reason: `This template was changed at ${when}, after you opened it. Reload the page to get the latest version; saving from here would replace those changes.` };
+              }
+            } catch (_) { /* can't check: save as before */ }
+          }
+          let savedAt = null;
+          const write = async (body) => {
+            const r = await supabase.from('templates').update(body).eq('id', payload.templateId).select('updated_at');
+            if (!r.error && Array.isArray(r.data) && r.data[0]) savedAt = r.data[0].updated_at || null;
+            return r;
+          };
           let { error: saveErr } = await write(patch);
           if (saveErr && /jwt|token|expired|auth/i.test(saveErr.message || '')) {
             try { await supabase.auth.refreshSession(); } catch (_) {}
@@ -5946,7 +5966,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             const { pages: _drop, ...noPages } = patch;
             ({ error: saveErr } = await write(noPages));
           }
-          if (!saveErr) return { ok: true };
+          if (!saveErr) return { ok: true, updatedAt: savedAt };
 
           const size = Math.round(JSON.stringify(patch).length / 1024);
           let reason = saveErr.message || 'The database refused the save.';
@@ -5993,9 +6013,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           if (!id) return null;
           try {
             const q = (cols) => supabase.from('templates').select(cols).eq('id', id).maybeSingle();
-            let { data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, pages, status, sort_order, size_variants');
-            if (tErr) ({ data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants'));
-            if (tErr) ({ data } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order'));
+            let { data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, pages, status, sort_order, size_variants, updated_at');
+            if (tErr) ({ data, error: tErr } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, size_variants, updated_at'));
+            if (tErr) ({ data } = await q('id, name, category, thumb_url, canvas, elements, status, sort_order, updated_at'));
             return data ? shape(data) : null;
           } catch (_) { return null; }
         };

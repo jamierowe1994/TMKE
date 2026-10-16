@@ -2371,6 +2371,7 @@ import { createResizeEngine } from "./resize-engine.js";
         pages: deep(state.pages),
         guides: deep(state.guides || []),
         savedAt: Date.now(),
+        baseAt: state.baseAt || null,
       }));
     } catch (_) {}
   }
@@ -2410,12 +2411,16 @@ import { createResizeEngine } from "./resize-engine.js";
         pages: deep(state.pages),
         guides: deep(state.guides || []),
         savedAt: Date.now(),
+        baseAt: state.baseAt || null,
         thumb,
         render,
       };
       const res = await (adminHook ? window.__TMKE_ADMIN_SAVE__(payload) : window.__TMKE_DESIGN_SAVE__(payload));
       ok = res === true || (res && res.ok === true);
       _lastSaveWhy = ok ? null : ((res && res.reason) || null);
+      if (adminHook && ok && res.updatedAt) state.baseAt = res.updatedAt;
+      // Someone saved this template since it was opened: retrying can't help.
+      if (adminHook && res && res.conflict) _dbRetries = 99;
       // Customer: adopt the new copy's id so subsequent saves update the same row.
       if (designHook && res && res.id && state.templateId !== res.id) state.templateId = res.id;
     } catch (e) { ok = false; _lastSaveWhy = String((e && e.message) || "") || null; }
@@ -2593,16 +2598,26 @@ import { createResizeEngine } from "./resize-engine.js";
        it is NEWER than the database. Restored regardless, it showed Sam her
        own week-old copies of templates Dani had since changed, and her next
        save would have written them back over Dani's work (13 Oct). */
+    /* Newer is not enough, though: a tab left open on the old version wrote
+       copies stamped with the time, so they looked newer than the change made
+       since, and Sam kept opening the old Recently Sold card (16 Oct). A copy
+       now records the version it was made from (baseAt), and comes back only
+       when the database still holds that version. */
     if (ADMIN_MODE_URL && !draftRaw && !fresh) {
       try {
         const kept = JSON.parse(localStorage.getItem("tmke.editor." + tpl.id) || "null");
         const dbAt = tpl.updatedAt ? Date.parse(tpl.updatedAt) : NaN;
-        if (kept && !(isFinite(dbAt) && (kept.savedAt || 0) > dbAt + 2000)) {
+        const sameBase = kept && kept.baseAt && isFinite(dbAt) && Math.abs(Date.parse(kept.baseAt) - dbAt) < 1000;
+        if (kept && !(sameBase && (kept.savedAt || 0) > dbAt + 2000)) {
           localStorage.removeItem("tmke.editor." + tpl.id);
+          if (kept.baseAt && !sameBase) toast("This template has changed since your last unsaved edits here, so the latest version is open.", 6000);
           fresh = true;
         }
       } catch (_) {}
     }
+    // The version this design was opened from: a save checks it is still the
+    // one in the database, so an old tab can't save over newer work.
+    state.baseAt = (!draftRaw && tpl.updatedAt) || null;
     // Try to restore saved state
     if (!fresh) {
       try {
@@ -7035,6 +7050,7 @@ import { createResizeEngine } from "./resize-engine.js";
       pages: deep(state.pages),
       guides: deep(state.guides || []),
       savedAt: Date.now(),
+      baseAt: state.baseAt || null,
       thumb,
       render,
     };
@@ -7054,6 +7070,7 @@ import { createResizeEngine } from "./resize-engine.js";
         // every failure read the same and none of them said what to do.
         const res = await window.__TMKE_ADMIN_SAVE__(payload);
         const ok = res === true || (res && res.ok);
+        if (ok && res.updatedAt) state.baseAt = res.updatedAt;
         if (ok) { _dbRetries = 0; setSaveStatus("saved"); toast("Template saved"); return true; }
         const why = (res && res.reason) || "the cloud save was refused";
         setSaveStatus("local");
@@ -11772,7 +11789,7 @@ import { createResizeEngine } from "./resize-engine.js";
           b.style.opacity = "0.5";
           try {
             const full = await window.__TMKE_FETCH_TEMPLATE__(t.id);
-            if (full) { t.canvas = full.canvas; t.elements = full.elements; }
+            if (full) { t.canvas = full.canvas; t.elements = full.elements; t.pages = full.pages; t.updatedAt = full.updatedAt; }
           } catch (_) {}
           b.style.opacity = prevOpacity || "";
         }
