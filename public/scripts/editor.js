@@ -2340,7 +2340,6 @@ import { createResizeEngine } from "./resize-engine.js";
   let _dbSaving = false;
   let _dbRetries = 0;
   let _saveFails = 0;          // cloud saves failed in a row; three puts the bar up
-  let _trialEdited = false;    // edited while a size is on trial (nothing reaches the cloud)
   let _lastSaveWhy = null;                 // why the last cloud save failed
   const _saveWhyToldFor = new Set();       // each reason is said once, not per retry
 
@@ -2369,9 +2368,8 @@ import { createResizeEngine } from "./resize-engine.js";
   function saveAlarm() {
     if (!ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ !== "function") return;
     let bar = document.getElementById("ed-save-alarm");
-    const trial = sizePreviewPending() && _trialEdited;
+    const trial = sizePreviewPending();
     const failing = !trial && _saveFails >= 3;
-    if (!trial) _trialEdited = sizePreviewPending() && _trialEdited;
     if (!trial && !failing) { if (bar) bar.hidden = true; return; }
     if (!bar) {
       bar = document.createElement("div");
@@ -2386,10 +2384,19 @@ import { createResizeEngine } from "./resize-engine.js";
     const btn = "all:unset;cursor:pointer;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;";
     if (trial) {
       const now = sizeName(state.canvas.width, state.canvas.height), was = sizeName(_sizePreview.W, _sizePreview.H);
-      bar.innerHTML = '<span style="flex:1 1 280px"><strong>Not saved yet.</strong> You\u2019re trying ' + escapeHtml(now) + (ADMIN_MODE_URL ? '. Your work is kept in this browser, but it won\u2019t save to TMKE until you keep this size.' : '. Nothing you do at this size is saved until you keep it.') + '</span>' +
-        '<button type="button" data-size-act="keep" style="' + btn + 'background:#fff;color:#a3372f;">Keep ' + escapeHtml(now) + '</button>' +
-        '<button type="button" data-size-act="back" style="' + btn + 'border:1px solid rgba(255,255,255,0.6);color:#fff;">Go back to ' + escapeHtml(was) + '</button>';
-      syncSizeDecision();   // the keep button's own wording
+      const solid = btn + "background:#fff;color:#a3372f;", ghost = btn + "border:1px solid rgba(255,255,255,0.6);color:#fff;";
+      /* Admin: trying a size is for fixing how the template looks at it, and
+         saving that layout. A member only previews: editing waits until they
+         keep the size or save a copy (Dani, 16 Oct). */
+      bar.innerHTML = ADMIN_MODE_URL
+        ? '<span style="flex:1 1 280px"><strong>Not saved yet.</strong> You\u2019re adjusting how this template looks at ' + escapeHtml(now) + '. Changes are kept in this browser until you choose.</span>' +
+          '<button type="button" data-size-act="variant" style="' + solid + '">Save how this looks</button>' +
+          '<button type="button" data-size-act="keep" style="' + ghost + '">Make ' + escapeHtml(now) + ' the template\u2019s size</button>' +
+          '<button type="button" data-size-act="back" style="' + ghost + '">Go back to ' + escapeHtml(was) + '</button>'
+        : '<span style="flex:1 1 280px"><strong>Previewing ' + escapeHtml(now) + '.</strong> To edit at this size, resize this design or save a copy at it.</span>' +
+          '<button type="button" data-size-act="keep" style="' + solid + '">Resize this design</button>' +
+          '<button type="button" data-size-act="copy" style="' + ghost + '">Save a copy</button>' +
+          '<button type="button" data-size-act="back" style="' + ghost + '">Back to ' + escapeHtml(was) + '</button>';
     } else {
       bar.innerHTML = '<span style="flex:1 1 280px"><strong>Your changes aren\u2019t saving to TMKE.</strong> ' + escapeHtml(_lastSaveWhy || "The last three saves didn\u2019t go through.") + ' ' + (ADMIN_MODE_URL ? 'They\u2019re kept in this browser in the meantime. ' : '') + 'Don\u2019t close this tab until they save.</span>' +
         '<button type="button" data-alarm-retry style="' + btn + 'background:#fff;color:#a3372f;">Try again</button>';
@@ -2492,7 +2499,6 @@ import { createResizeEngine } from "./resize-engine.js";
        saved, with nothing to say so (16 Oct). */
     if (sizePreviewPending()) {
       if (ADMIN_MODE_URL) { clearTimeout(_autosaveTimer); _autosaveTimer = setTimeout(autosaveDraft, 1200); }
-      _trialEdited = true;
       saveAlarm();
       return;
     }
@@ -13676,7 +13682,13 @@ import { createResizeEngine } from "./resize-engine.js";
     state.selectedIds = [];
     base.entries.add(pushDesignHistory(before, curBefore));
     if (!sizePreviewPending()) _sizePreview = null;   // back at the saved size
+    else _sizePreview.after = JSON.stringify(snapshotPages());
     afterDesignChange();
+    syncSizeDecision();
+  }
+  // Has anything been changed at the size on trial, beyond the resize itself?
+  function trialEdited() {
+    return !!(sizePreviewPending() && _sizePreview.after && JSON.stringify(snapshotPages()) !== _sizePreview.after);
   }
   window.__TMKE_RESIZE_DESIGN__ = resizeDesign;
 
@@ -13808,7 +13820,8 @@ import { createResizeEngine } from "./resize-engine.js";
     _resizeBase = null;
     pushDesignHistory(before, curBefore);
     afterDesignChange();
-    _trialEdited = false; saveAlarm();
+    saveAlarm();
+    syncSizeDecision();
   }
 
   // Save the size on show as a new design, and leave the one it came from
@@ -13871,6 +13884,7 @@ import { createResizeEngine } from "./resize-engine.js";
     const key = pending ? sizeKey(state.canvas.width, state.canvas.height) : "";
     const hasSaved = admin && pending && !!sizeVariants()[key];
     document.querySelectorAll('[data-size-act="variant"]').forEach((b) => {
+      if (b.closest("#ed-save-alarm")) return;
       b.hidden = !(admin && pending);
       b.textContent = hasSaved ? "Update the saved " + now : "Save how this looks at " + now;
     });
@@ -13883,6 +13897,7 @@ import { createResizeEngine } from "./resize-engine.js";
        layout for the size, above, leaves the template as drawn; this makes the
        size on show the template's own. */
     document.querySelectorAll('[data-size-act="keep"]').forEach((b) => {
+      if (b.closest("#ed-save-alarm")) return;
       b.hidden = false;
       b.textContent = isAdminMode() && pending ? "Make " + now + " the template's size" : "Resize this design";
     });
@@ -13901,7 +13916,10 @@ import { createResizeEngine } from "./resize-engine.js";
           : '<div class="ed-rc-head">Nothing moved or changed size.</div>';
       }
     }
-    if (!pending) { const m = $("ed-size-modal"); if (m) m.hidden = true; if (_trialEdited) { _trialEdited = false; saveAlarm(); } }
+    if (!pending) { const m = $("ed-size-modal"); if (m) m.hidden = true; }
+    document.documentElement.classList.toggle("ed-size-preview", pending && !isAdminMode());
+    if (pending) { state.selectedIds = state.selectedIds && state.selectedIds.length && !isAdminMode() ? [] : state.selectedIds; }
+    saveAlarm();
     // Safe zones are worth a look on the sizes that have them.
     const tip = $("ed-resize-safe");
     if (tip) tip.hidden = !safeZoneFor(state.canvas.width, state.canvas.height).length;
@@ -13917,7 +13935,7 @@ import { createResizeEngine } from "./resize-engine.js";
     else if (act === "variant") { b.disabled = true; try { await saveSizeLayout(); } finally { b.disabled = false; } return; }
     else if (act === "forget") { await forgetSizeLayout(b.getAttribute("data-size-key")); return; }
     else if (act === "back") {
-      if (_trialEdited && !window.confirm("Go back to " + sizeName(_sizePreview.W, _sizePreview.H) + "?\n\nThis puts the design back as it was before you changed size. Everything you've done at " + sizeName(state.canvas.width, state.canvas.height) + " will be undone.")) return;
+      if (trialEdited() && !window.confirm("Go back to " + sizeName(_sizePreview.W, _sizePreview.H) + "?\n\nThis puts the design back as it was before you changed size. Everything you've done at " + sizeName(state.canvas.width, state.canvas.height) + " will be undone.")) return;
       backToSavedSize();
     }
     else if (act === "copy") { b.disabled = true; try { await saveSizeCopy(); } finally { b.disabled = false; } }
@@ -13926,6 +13944,30 @@ import { createResizeEngine } from "./resize-engine.js";
   window.addEventListener("beforeunload", (e) => {
     if (sizePreviewPending()) { e.preventDefault(); e.returnValue = ""; }
   });
+  /* A member previewing a size can look, not edit (Dani, 16 Oct): the canvas,
+     pages and panels other than Resize are switched off by the ed-size-preview
+     class (editor.astro), and so are the editing keys. */
+  const memberPreview = () => sizePreviewPending() && !isAdminMode();
+  function previewNudge() {
+    toast("You\u2019re previewing " + sizeName(state.canvas.width, state.canvas.height) + ". Resize this design or save a copy to edit it.", 4000);
+    const bar = $("ed-save-alarm");
+    if (bar && bar.animate) bar.animate([{ transform: "translateX(-50%) scale(1)" }, { transform: "translateX(-50%) scale(1.03)" }, { transform: "translateX(-50%) scale(1)" }], { duration: 320 });
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (!memberPreview()) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && t.closest("#ed-stage") && !t.closest("#ed-save-alarm")) previewNudge();
+  }, true);
+  document.addEventListener("keydown", (e) => {
+    if (!memberPreview()) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (t && t.closest('[data-pane="resize"], #ed-size-modal, #ed-save-alarm, .ed-modal')) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (e.key === "Escape" || e.key === "Tab" || (mod && /^[zys0=+-]$/i.test(e.key))) return;
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !t.closest("#ed-panel")) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (e.key.length === 1 || /^(Delete|Backspace|Arrow)/.test(e.key)) previewNudge();
+  }, true);
 
   // The panel shows the size you are on, and the custom boxes start from it.
   // It offers only the family the design belongs to - judged from the size
