@@ -13724,8 +13724,10 @@ import { createResizeEngine } from "./resize-engine.js";
     state.selectedIds = [];
     base.entries.add(pushDesignHistory(before, curBefore));
     if (!sizePreviewPending()) _sizePreview = null;   // back at the saved size
-    else _sizePreview.after = JSON.stringify(snapshotPages());
     afterDesignChange();
+    // Taken once text heights have settled at the new size, or "Go back"
+    // thinks the design was edited when it wasn't.
+    if (_sizePreview) _sizePreview.after = JSON.stringify(snapshotPages());
     syncSizeDecision();
   }
   // Has anything been changed at the size on trial, beyond the resize itself?
