@@ -1,30 +1,40 @@
-/* Chapter 04 on the dashboard: a carousel of ways to learn (Dani, 16 Oct).
-   Each slide goes to one place and says where it goes. Add a slide by adding
-   an entry to SLIDES; the blog slide is first and names the latest piece. */
+/* Chapter 05 on the dashboard, Learn (Dani, 16 Oct): a section that holds
+   still while you scroll through it. The titles roll up on the left, and each
+   picture slides over the last on the right, with what the course covers
+   across its top and its length at its foot.
 
-const SLIDES = [
-  {
-    key: "studio-series",
-    flag: "Getting started",
-    title: "Learning to navigate the Studio.",
-    desc: "Open your first template, make it your own and turn it into a finished post.",
-    cta: "Start the series",
-    href: "/account/guides/read?g=training-studio",
-    art: "/images/learn/your-first-design-cover.webp",
-  },
-];
+   The Getting Started series, in its own order, then the latest blog. A new
+   course in the series (src/data/training-guides.js) joins on its own. */
+import { TRAINING_GUIDES } from "./training-guides.js";
 
 export function learnSlides({ blogTitle, blogHref } = {}) {
+  const series = TRAINING_GUIDES
+    .filter((g) => g.topic === "getting-started" && g.training && g.audience === "members" && g.status === "published")
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const courses = series.map((g, i) => {
+    const lessons = (g.lessons || []).map((l) => l.title).filter(Boolean);
+    return {
+      key: g.slug,
+      title: g.title,
+      href: `/account/guides/read?g=${encodeURIComponent(g.slug)}`,
+      art: g.art || g.cover_url || "/assets/chapter-04.jpg",
+      // Across the top: what's in it. The rest of the corners: where it sits.
+      top: lessons.slice(0, 4),
+      corner: [`Getting started`, `${i + 1} of ${series.length}`],
+      foot: [g.est_minutes ? `${g.est_minutes} minutes` : "", `${lessons.length} lesson${lessons.length === 1 ? "" : "s"}`].filter(Boolean),
+    };
+  });
   return [
+    ...courses,
     {
       key: "blog",
-      flag: "From the blog",
-      title: "Five minutes well spent.",
-      desc: blogTitle || "Practical marketing for estate agents, a few minutes at a time.",
-      cta: "Read our latest blog",
+      title: "Five minutes well spent",
       href: blogHref || "/account/blog",
       art: "/assets/chapter-04.jpg",
+      top: ["From the blog", blogTitle || "Practical marketing for estate agents"],
+      corner: ["Read our latest blog"],
+      foot: ["A few minutes", "Something you can use"],
+      blog: true,
     },
-    ...SLIDES,
   ];
 }

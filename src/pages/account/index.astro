@@ -345,12 +345,11 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
           <div class="ws-wn-col ws-wn-col--keys">
             <p class="ws-wn-label">Explore</p>
             <nav class="ws-wn-pills" aria-label="Explore">
-              <a class="ws-wn-pill" href="/edit">Template packs</a>
-              <a class="ws-wn-pill" href="#" data-inspo="news">Hub updates</a>
-              <a class="ws-wn-pill" href="#" data-inspo="trending">See what's working</a>
-              <a class="ws-wn-pill" href="/account/schedule">Content calendar</a>
-              <a class="ws-wn-pill" href="/account/guides">Guides</a>
-              <a class="ws-wn-pill" href="/account/blog">Blog</a>
+              <!-- Three lines, two to a line, whatever the width (Dani: Guides
+                   starts the third line, so it isn't crowded). -->
+              <span class="ws-wn-row"><a class="ws-wn-pill" href="/edit">Template packs</a><a class="ws-wn-pill" href="#" data-inspo="news">Hub updates</a></span>
+              <span class="ws-wn-row"><a class="ws-wn-pill" href="#" data-inspo="trending">See what's working</a><a class="ws-wn-pill" href="/account/schedule">Content calendar</a></span>
+              <span class="ws-wn-row"><a class="ws-wn-pill" href="/account/guides">Guides</a><a class="ws-wn-pill" href="/account/blog">Blog</a></span>
             </nav>
           </div>
           <div class="ws-wn-col">
@@ -384,30 +383,40 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
           </div>
         </div>
       </section>
-      <!-- ============ Chapter 05 — Learn, a carousel ============
-           One slide per way in: the latest blog, the Getting Started series.
-           More are added in src/data/dashboard-slides.js. -->
-      <section class="ws-learn ws-rise" style="--delay:1.65s" aria-label="Learn" data-learn>
-        <div class="ws-learn-track">
-          {LEARN_SLIDES.map((sl, i) => (
-            <a class={`ws-learn-slide${i === 0 ? " is-on" : ""}`} href={sl.href} data-learn-slide={i} aria-hidden={i === 0 ? undefined : "true"} tabindex={i === 0 ? undefined : -1}>
-              <span class="ws-learn-body">
-                <span class="ws-learn-flag">Chapter 05 &mdash; {sl.flag}</span>
-                <strong class="ws-learn-h">{sl.title}</strong>
-                <span class="ws-learn-desc">{sl.desc}</span>
-                <span class="ws-learn-cta">{sl.cta} <em aria-hidden="true">&rarr;</em></span>
-              </span>
-              <span class="ws-learn-art" style={`background-image:url('${sl.art}')`}></span>
-            </a>
-          ))}
-        </div>
-        {LEARN_SLIDES.length > 1 && (
-          <div class="ws-learn-dots" role="tablist" aria-label="Choose a slide">
-            {LEARN_SLIDES.map((sl, i) => (
-              <button type="button" class={`ws-learn-dot${i === 0 ? " is-on" : ""}`} data-learn-dot={i} aria-label={sl.flag}></button>
-            ))}
+      <!-- ============ Chapter 05 — Learn ============
+           Holds still while you scroll through it: the titles roll up on the
+           left, each picture slides over the last on the right (Dani, 16 Oct).
+           A phone gets the pictures one under another instead. -->
+      <section class="ws-block ws-learn" aria-labelledby="learn-h" data-learn style={`--n:${LEARN_SLIDES.length}`}>
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="learn-h"><span class="ws-block-ch">Chapter 05</span>Learn</h2>
+          <a class="ws-block-link" href="/account/guides">All guides
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </header>
+        <div class="ws-learn-run" data-learn-run>
+          <div class="ws-learn-stick">
+            <div class="ws-learn-side">
+              <ol class="ws-learn-titles" data-learn-titles>
+                {LEARN_SLIDES.map((sl, i) => (
+                  <li><button type="button" class={`ws-learn-t${i === 0 ? " is-on" : ""}`} data-learn-go={i}>{sl.title}</button></li>
+                ))}
+              </ol>
+              <span class="ws-learn-hint" aria-hidden="true">Scroll &uarr;&darr;</span>
+            </div>
+            <div class="ws-learn-stage">
+              {LEARN_SLIDES.map((sl, i) => (
+                <a class="ws-learn-pane" href={sl.href} data-learn-pane={i} data-blog={sl.blog ? "" : undefined} style={`z-index:${i + 1}`}>
+                  <span class="ws-learn-pic" style={`background-image:url('${sl.art}')`}></span>
+                  <span class="ws-learn-top">{sl.top.map((t) => <span>{t}</span>)}</span>
+                  <span class="ws-learn-corner">{sl.corner.map((t) => <span>{t}</span>)}</span>
+                  <span class="ws-learn-name">{sl.title}</span>
+                  <span class="ws-learn-foot">{sl.foot.map((t) => <span>{t}</span>)}</span>
+                </a>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
       </section>
     </main>
 
@@ -715,11 +724,11 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     @media (max-width: 1000px) { .ws-inspire { grid-template-columns: 1fr; } .ws-inspire-side { flex-direction: row; } .ws-inspire-side .ws-side { flex: 1 1 0; min-width: 0; } }
     @media (max-width: 620px) { .ws-inspire-side { flex-direction: column; } }
     /* The reel: the designs going by on their own, straight on the page --
-       no box, no fade at the ends, square corners, the pictures touching,
+       no box, no fade at the ends, square corners, a hairline 6px between pictures,
        each pack's name on the line above it (Dani, 16 Oct). Hovering stops
        it so one can be read and clicked. */
     .ws-reel { position: relative; overflow: hidden; min-width: 0; }
-    .ws-reel-track { display: flex; gap: 0; width: max-content; height: 100%; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
+    .ws-reel-track { display: flex; gap: 6px; width: max-content; height: 100%; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
     .ws-reel.is-ready .ws-reel-track { opacity: 1; animation: wsReel var(--reel-dur, 60s) linear infinite; }
     .ws-reel:hover .ws-reel-track, .ws-reel:focus-within .ws-reel-track { animation-play-state: paused; }
     @keyframes wsReel { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -754,37 +763,47 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-idea-again { margin-left: auto; width: 33px; height: 33px; }
     .ws-idea-again svg { width: 15px; height: 15px; }
     .ws-idea { font-family: var(--serif); font-style: normal; font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; line-height: 1.45; letter-spacing: -0.01em; color: var(--ws-ink); margin: 0; }
-    /* ---------- Chapter 05 — Learn, a carousel ----------
-       The plum panel and the picture side by side, no wash over the picture
-       (Dani, 16 Oct). Slides change on their own every few seconds, stop
-       while the pointer is on them, and the dots choose one. */
-    .ws-learn { position: relative; border-radius: var(--ws-r-lg); overflow: hidden; background: #2f1b25; }
-    .ws-learn-track { display: grid; }
-    .ws-learn-slide { grid-area: 1 / 1; display: grid; grid-template-columns: 1fr 1.15fr; min-height: 268px; text-decoration: none; color: #fff;
-      opacity: 0; visibility: hidden; transition: opacity 0.7s var(--ws-ease), visibility 0s linear 0.7s; }
-    .ws-learn-slide.is-on { opacity: 1; visibility: visible; transition: opacity 0.7s var(--ws-ease), visibility 0s; z-index: 1; }
-    .ws-learn-body { padding: clamp(28px, 3vw, 48px); padding-bottom: 52px; display: flex; flex-direction: column; color: #fff; background: #2f1b25; }
-    .ws-learn-flag { color: rgba(255,255,255,0.6); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
-    .ws-learn-h { font-family: var(--subhead); font-weight: 400; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.015em; margin-top: clamp(16px, 2vw, 26px); }
-    .ws-learn-desc { font-size: var(--ws-t-row); line-height: 1.55; color: rgba(255,255,255,0.72); margin-top: 7px; max-width: 40ch; }
-    .ws-learn-cta { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; height: 33px; box-sizing: border-box; padding: 0 16px; margin-top: auto; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 33px; letter-spacing: 0.04em; text-transform: uppercase; }
-    .ws-learn-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
-    .ws-learn-slide:hover .ws-learn-cta em { transform: translateX(4px); }
-    .ws-learn-art { background-size: cover; background-position: center; transform: scale(1.03); transition: transform 6s linear; }
-    .ws-learn-slide.is-on .ws-learn-art { transform: none; }
-    .ws-learn-slide:hover .ws-learn-art { transform: scale(1.03); transition-duration: 1.2s; }
-    .ws-learn-dots { position: absolute; z-index: 2; left: clamp(28px, 3vw, 48px); bottom: 20px; display: flex; gap: 8px; }
-    /* Positioned over the plum half; the button sits above them, so they go
-       at the very foot under it. */
-    .ws-learn-dot { all: unset; cursor: pointer; width: 22px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); transition: background 0.3s, width 0.3s var(--ws-ease); }
-    .ws-learn-dot.is-on { width: 38px; background: #fff; }
-    .ws-learn-dot:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
-    @media (max-width: 620px) {
-      .ws-learn-slide { grid-template-columns: 1fr; }
-      .ws-learn-art { min-height: 180px; order: -1; }
-      .ws-learn-dots { left: auto; right: 20px; top: 16px; bottom: auto; }
+    /* ---------- Chapter 05 — Learn ----------
+       The run is as tall as the slides need; the stick holds the titles and
+       the pictures still inside it while the page scrolls past. The script
+       turns how far through the run you are into which title is up and how
+       far the next picture has slid over. */
+    .ws-learn-run { position: relative; height: calc(var(--n) * 62vh + 20vh); }
+    .ws-learn-stick { position: sticky; top: 16px; height: min(calc(100vh - 32px), 760px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr); gap: clamp(20px, 2.4vw, 40px); }
+    .ws-learn-side { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding-bottom: 4px; }
+    /* Every title is one line of the same height, so the list can be moved by
+       whole lines; the one that's up is full size, the rest shrink and fade
+       by how far away they are. */
+    .ws-learn-titles { --line: clamp(46px, 4.2vw, 62px); list-style: none; margin: 0 0 calc(var(--line) * 1.4); padding: 0; transform: translateY(calc(var(--at, 0) * var(--line) * -1)); will-change: transform; }
+    .ws-learn-titles li { height: var(--line); display: flex; align-items: center; }
+    .ws-learn-t { all: unset; cursor: pointer; font-family: var(--serif); font-size: clamp(24px, 2.5vw, 38px); font-weight: 500; line-height: 1.05; letter-spacing: -0.02em; color: var(--ws-ink); white-space: nowrap;
+      transform-origin: left center; transform: scale(var(--sc, 0.5)); opacity: var(--op, 0.22); transition: color 0.3s; }
+    .ws-learn-t:hover { color: var(--english-violet); }
+    .ws-learn-t:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 4px; }
+    .ws-learn-hint { font-size: var(--ws-t-meta); font-weight: 600; letter-spacing: 0.04em; color: var(--ws-ink); }
+    .ws-learn-stage { position: relative; overflow: hidden; background: #2f1b25; }
+    .ws-learn-pane { position: absolute; inset: 0; display: block; overflow: hidden; color: #fff; text-decoration: none; clip-path: inset(0 0 0 100%); will-change: clip-path; }
+    .ws-learn-pane[data-learn-pane="0"] { clip-path: none; }
+    .ws-learn-pic { position: absolute; inset: 0; background-size: cover; background-position: center; transform: translateX(var(--px, 0%)) scale(1.06); will-change: transform; }
+    /* The words sit straight on the picture, as in Dani's reference, with a
+       soft shadow under them rather than a wash over the picture. */
+    .ws-learn-top, .ws-learn-corner, .ws-learn-foot, .ws-learn-name { position: absolute; z-index: 1; display: flex; flex-direction: column; font-family: var(--sans); font-size: clamp(14px, 1.15vw, 17px); font-weight: 600; line-height: 1.22; text-shadow: 0 1px 14px rgba(0,0,0,0.5), 0 0 2px rgba(0,0,0,0.25); }
+    .ws-learn-top { top: clamp(22px, 3vw, 44px); left: clamp(22px, 3vw, 48px); right: 40%; }
+    .ws-learn-corner { top: clamp(22px, 3vw, 44px); right: clamp(22px, 3vw, 48px); text-align: right; }
+    .ws-learn-foot { bottom: clamp(22px, 3vw, 44px); right: clamp(22px, 3vw, 48px); text-align: right; }
+    .ws-learn-name { bottom: clamp(18px, 2.6vw, 38px); left: clamp(22px, 3vw, 48px); font-family: var(--subhead); font-weight: 400; font-size: clamp(30px, 3.6vw, 56px); line-height: 1; letter-spacing: -0.02em; max-width: 60%; }
+    .ws-learn-corner span:first-child { text-transform: uppercase; letter-spacing: 0.16em; font-size: var(--ws-t-label); font-weight: 700; margin-bottom: 4px; }
+    .ws-learn-pane:hover .ws-learn-pic { transform: translateX(var(--px, 0%)) scale(1.09); transition: transform 1.2s var(--ws-ease); }
+    /* A phone, or anyone who has asked for less movement: the pictures one
+       under another, nothing held still. */
+    @media (max-width: 760px), (prefers-reduced-motion: reduce) {
+      .ws-learn-run { height: auto; }
+      .ws-learn-stick { position: static; height: auto; display: block; }
+      .ws-learn-side { display: none; }
+      .ws-learn-stage { background: none; overflow: visible; display: grid; gap: 12px; }
+      .ws-learn-pane, .ws-learn-pane[data-learn-pane="0"] { position: relative; inset: auto; aspect-ratio: 4 / 3.4; clip-path: none !important; }
+      .ws-learn-pic { transform: none !important; }
     }
-    @media (prefers-reduced-motion: reduce) { .ws-learn-slide, .ws-learn-art { transition: none !important; } }
     /* ---------- Tooltips ---------- */
     [data-tip] { position: relative; }
     [data-tip]::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px); width: max-content; max-width: 220px; padding: 9px 12px; border-radius: 10px; background: #1c1d22; color: #fff; font-size: var(--ws-t-meta); font-weight: 500; line-height: 1.4; letter-spacing: 0; text-transform: none; text-align: center; white-space: normal; opacity: 0; pointer-events: none; z-index: 60; box-shadow: 0 12px 28px -10px rgba(0,0,0,0.4); transition: opacity 0.22s var(--ws-ease), transform 0.22s var(--ws-ease); }
@@ -821,16 +840,23 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
        the foot (Dani, 16 Oct). It runs straight on into Learn. */
     .ws-wn { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.7fr); gap: clamp(20px, 2.2vw, 34px); }
     .ws-wn-label { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.35); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-ink); }
-    .ws-wn-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ws-wn-pills { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .ws-wn-row { display: flex; flex-wrap: wrap; gap: 6px; }
     .ws-wn-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px; font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); text-decoration: none; transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
     .ws-wn-pill:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .ws-wn-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    .ws-wn-card { display: grid; grid-template-columns: minmax(0, 46fr) minmax(0, 54fr); gap: 14px; padding: 5px; min-height: 150px; background: #fff; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+    /* Rounded like the doors and the days, and each its own soft tint of the
+       palette, so the row isn't three of the same (Dani, 16 Oct). */
+    .ws-wn-card { display: grid; grid-template-columns: minmax(0, 46fr) minmax(0, 54fr); gap: 14px; padding: 6px; min-height: 150px; border-radius: var(--ws-r); overflow: hidden; background: var(--wn, #fff); border: 1px solid transparent; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
     .ws-wn-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.25); }
-    .ws-wn-art { background-size: cover; background-position: center; background-color: #eae5e1; }
+    .ws-wn-card:nth-child(1) { --wn: color-mix(in srgb, #7e6765 26%, #fff); }
+    .ws-wn-card:nth-child(2) { --wn: color-mix(in srgb, #B9826A 30%, #fff); }
+    .ws-wn-card:nth-child(3) { --wn: color-mix(in srgb, #969AB0 32%, #fff); }
+    .ws-wn-art { border-radius: calc(var(--ws-r) - 3px); background-size: cover; background-position: center; background-color: #eae5e1; }
     .ws-wn-tx { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 8px 8px 6px 0; min-width: 0; }
     .ws-wn-flag { font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-tx); }
-    .ws-wn-h { font-family: var(--serif); font-size: clamp(15px, 1.2vw, 18px); font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; }
+    /* The voice of Today's prompt and Coming up, a size down from before. */
+    .ws-wn-h { font-family: var(--serif); font-size: clamp(14px, 1.1vw, 16px); font-weight: 400; line-height: 1.3; letter-spacing: -0.01em; }
     /* Straight on into Learn: the carousel sits closer under this than the
        other chapters sit under each other. */
     section[aria-labelledby="new-h"] + .ws-learn { margin-top: calc(-1 * var(--ws-gap) / 2); }
@@ -1681,47 +1707,64 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       } catch (_) { reel.setAttribute('aria-busy', 'false'); }
     })();
 
-    // ---- Chapter 05: the Learn carousel ----
+    // ---- Chapter 05: Learn, held still while the page scrolls ----
     (function wireLearn() {
       const box = document.querySelector('[data-learn]');
-      if (!box) return;
-      const slides = [...box.querySelectorAll('[data-learn-slide]')];
-      const dots = [...box.querySelectorAll('[data-learn-dot]')];
-      // The blog slide names the newest piece, read now rather than at the last deploy.
+      const run = box && box.querySelector('[data-learn-run]');
+      if (!box || !run) return;
+      const panes = [...box.querySelectorAll('[data-learn-pane]')];
+      const titles = box.querySelector('[data-learn-titles]');
+      const tBtns = [...box.querySelectorAll('[data-learn-go]')];
+      const stick = box.querySelector('.ws-learn-stick');
+      const n = panes.length;
+      // The blog's picture names the newest piece, read now rather than at the last deploy.
       (async () => {
         try {
           const { data } = await supabase.from('blog_posts').select('slug,title')
             .eq('status', 'published').in('audience', ['members', 'both'])
             .order('publish_date', { ascending: false }).limit(1);
           const post = data && data[0];
-          const blog = slides[0];
-          if (post && blog) {
-            blog.setAttribute('href', '/account/blog#' + post.slug);
-            const d = blog.querySelector('.ws-learn-desc'); if (d && post.title) d.textContent = post.title;
+          const pane = box.querySelector('[data-blog]');
+          if (post && pane) {
+            pane.setAttribute('href', '/account/blog#' + post.slug);
+            const line = pane.querySelectorAll('.ws-learn-top span')[1];
+            if (line && post.title) line.textContent = post.title;
           }
         } catch (_) {}
       })();
-      if (slides.length < 2) return;
-      let at = 0, timer = null;
-      const show = (i) => {
-        at = (i + slides.length) % slides.length;
-        slides.forEach((s, j) => {
-          const on = j === at;
-          s.classList.toggle('is-on', on);
-          if (on) { s.removeAttribute('aria-hidden'); s.removeAttribute('tabindex'); }
-          else { s.setAttribute('aria-hidden', 'true'); s.setAttribute('tabindex', '-1'); }
+      const still = matchMedia('(max-width: 760px), (prefers-reduced-motion: reduce)');
+      const range = () => Math.max(1, run.offsetHeight - stick.offsetHeight);
+      let ticking = false, lastAt = -1;
+      function paint() {
+        ticking = false;
+        if (still.matches || n < 2) return;
+        const p = Math.min(1, Math.max(0, -run.getBoundingClientRect().top / range())) * (n - 1);
+        const at = Math.min(n - 1, Math.floor(p)), f = p - at;
+        panes.forEach((pane, j) => {
+          const pic = pane.firstElementChild;
+          if (j <= at) { pane.style.clipPath = 'none'; pic.style.setProperty('--px', '0%'); }
+          else if (j === at + 1) { pane.style.clipPath = `inset(0 0 0 ${((1 - f) * 100).toFixed(2)}%)`; pic.style.setProperty('--px', `${((1 - f) * 18).toFixed(2)}%`); }
+          else pane.style.clipPath = 'inset(0 0 0 100%)';
         });
-        dots.forEach((d, j) => d.classList.toggle('is-on', j === at));
-      };
-      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const play = () => { if (reduce) return; clearInterval(timer); timer = setInterval(() => show(at + 1), 7000); };
-      const stop = () => clearInterval(timer);
-      dots.forEach((d, j) => d.addEventListener('click', () => { show(j); play(); }));
-      box.addEventListener('mouseenter', stop);
-      box.addEventListener('mouseleave', play);
-      box.addEventListener('focusin', stop);
-      box.addEventListener('focusout', play);
-      play();
+        titles.style.setProperty('--at', p.toFixed(3));
+        tBtns.forEach((b, j) => {
+          const d = Math.abs(j - p);
+          b.style.setProperty('--sc', String(Math.max(0.46, 1 - d * 0.54)));
+          b.style.setProperty('--op', String(Math.max(0.16, 1 - d * 0.7)));
+        });
+        const on = Math.round(p);
+        if (on !== lastAt) { lastAt = on; tBtns.forEach((b, j) => b.classList.toggle('is-on', j === on)); }
+      }
+      const kick = () => { if (!ticking) { ticking = true; requestAnimationFrame(paint); } };
+      addEventListener('scroll', kick, { passive: true });
+      addEventListener('resize', kick);
+      still.addEventListener?.('change', () => { panes.forEach((p) => { p.style.clipPath = ''; }); kick(); });
+      // A title takes you to its picture.
+      tBtns.forEach((b, j) => b.addEventListener('click', () => {
+        const top = run.getBoundingClientRect().top + scrollY + (j / (n - 1)) * range() + 2;
+        if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(top); else scrollTo({ top, behavior: 'smooth' });
+      }));
+      paint();
     })();
 
     // The full-width card is a guide (Chapter 04), not a pack, so nothing
