@@ -339,34 +339,49 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </a>
         </header>
-        <!-- Three, not four, so each card has room for its picture. -->
-        <div class="ws-news ws-news--three">
-          <a class="ws-news-card" href="/edit">
-            <span class="ws-news-tx">
-              <span class="ws-news-flag">Template pack</span>
-              <strong class="ws-news-h">The Property Pack</strong>
-              <span class="ws-news-desc">Our most-used pack — listings, from teaser to sold.</span>
-            </span>
-            <span class="ws-news-art" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/Property%20Pack%20-%20Dashboard.png')"></span>
-          </a>
-          <a class="ws-news-card" href="#" data-inspo="news">
-            <span class="ws-news-tx">
-              <span class="ws-news-flag">What's new in the Member Hub</span>
-              <strong class="ws-news-h">{latestNews.title}</strong>
-              <span class="ws-news-desc">The latest five updates, and where to find them.</span>
-            </span>
-            <span class="ws-news-art" style={`background-image:url('${latestNews.media}')`}></span>
-          </a>
-          <!-- Month and link are set at runtime by wireNextMonth(): a card
-               hard-coded to "September" is wrong for eleven months of the year. -->
-          <a class="ws-news-card" id="ws-news-cal" href="/account/schedule">
-            <span class="ws-news-tx">
-              <span class="ws-news-flag">Seasonal content</span>
-              <strong class="ws-news-h" id="ws-news-cal-h">Next month's Content Calendar</strong>
-              <span class="ws-news-desc">Plan your month with our seasonal and industry prompts.</span>
-            </span>
-            <span class="ws-news-art" style="background-image:url('/assets/home%20kitchen.jpg')"></span>
-          </a>
+        <!-- Keywords on the left, the latest three on the right (Dani, 16 Oct,
+             from a reference she liked). Leads straight into Learn below. -->
+        <div class="ws-wn">
+          <div class="ws-wn-col ws-wn-col--keys">
+            <p class="ws-wn-label">Explore</p>
+            <nav class="ws-wn-pills" aria-label="Explore">
+              <a class="ws-wn-pill" href="/edit">Template packs</a>
+              <a class="ws-wn-pill" href="#" data-inspo="news">Hub updates</a>
+              <a class="ws-wn-pill" href="#" data-inspo="trending">See what's working</a>
+              <a class="ws-wn-pill" href="/account/schedule">Content calendar</a>
+              <a class="ws-wn-pill" href="/account/guides">Guides</a>
+              <a class="ws-wn-pill" href="/account/blog">Blog</a>
+            </nav>
+          </div>
+          <div class="ws-wn-col">
+            <p class="ws-wn-label">Latest</p>
+            <div class="ws-wn-cards">
+              <a class="ws-wn-card" href="/edit">
+                <span class="ws-wn-art" style="background-image:url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/Property%20Pack%20-%20Dashboard.png')"></span>
+                <span class="ws-wn-tx">
+                  <span class="ws-wn-flag">Template pack</span>
+                  <strong class="ws-wn-h">The Property Pack</strong>
+                </span>
+              </a>
+              <a class="ws-wn-card" href="#" data-inspo="news">
+                <span class="ws-wn-art" style={`background-image:url('${latestNews.media}')`}></span>
+                <span class="ws-wn-tx">
+                  <span class="ws-wn-flag">Hub update</span>
+                  <strong class="ws-wn-h">{latestNews.title}</strong>
+                </span>
+              </a>
+              <!-- Month, picture and link are set by wireNextMonth(): a card
+                   built in September is wrong the rest of the year, so it holds
+                   nothing until it knows. -->
+              <a class="ws-wn-card ws-news-cal" id="ws-news-cal" href="/account/schedule">
+                <span class="ws-wn-art ws-news-art"></span>
+                <span class="ws-wn-tx">
+                  <span class="ws-wn-flag">Seasonal content</span>
+                  <strong class="ws-wn-h" id="ws-news-cal-h">&nbsp;</strong>
+                </span>
+              </a>
+            </div>
+          </div>
         </div>
       </section>
       <!-- ============ Chapter 05 — Learn, a carousel ============
@@ -800,6 +815,27 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     @media (prefers-reduced-motion: reduce) {
       .ws-rise, .ws-brief li, .ws-greeting, .ws-hero-cta-btn, .ws-block-head, .ws-week .ws-day, .ws-tools .ws-tool, .ws-nav { opacity: 1 !important; transform: none !important; animation: none !important; }
     }
+    /* ---------- Chapter 04 — New in The Studio ----------
+       Keywords on the left under a rule, the latest three on the right under
+       theirs: white cards, picture left, the label at the top and the title at
+       the foot (Dani, 16 Oct). It runs straight on into Learn. */
+    .ws-wn { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.7fr); gap: clamp(20px, 2.2vw, 34px); }
+    .ws-wn-label { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.35); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-ink); }
+    .ws-wn-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ws-wn-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px; font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); text-decoration: none; transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
+    .ws-wn-pill:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .ws-wn-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .ws-wn-card { display: grid; grid-template-columns: minmax(0, 46fr) minmax(0, 54fr); gap: 14px; padding: 5px; min-height: 150px; background: #fff; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+    .ws-wn-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.25); }
+    .ws-wn-art { background-size: cover; background-position: center; background-color: #eae5e1; }
+    .ws-wn-tx { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 8px 8px 6px 0; min-width: 0; }
+    .ws-wn-flag { font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-tx); }
+    .ws-wn-h { font-family: var(--serif); font-size: clamp(15px, 1.2vw, 18px); font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; }
+    /* Straight on into Learn: the carousel sits closer under this than the
+       other chapters sit under each other. */
+    section[aria-labelledby="new-h"] + .ws-learn { margin-top: calc(-1 * var(--ws-gap) / 2); }
+    @media (max-width: 1100px) { .ws-wn { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .ws-wn-cards { grid-template-columns: 1fr; } .ws-wn-card { min-height: 120px; grid-template-columns: 120px minmax(0, 1fr); } }
     /* Chapter 04's card titles in Today's Prompt's voice, to the letter: the
        same serif, size, weight and leading as .ws-idea one section up. */
     .ws-news--three .ws-news-h { font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; line-height: 1.45; letter-spacing: -0.01em; }
@@ -1245,8 +1281,8 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       card.setAttribute('href', `/account/schedule?focus=${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
       const art = CAL_ART[m.getMonth()];
       const slot = card.querySelector('.ws-news-art');
-      if (art && slot) {
-        slot.style.backgroundImage = `url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/${encodeURIComponent(art)}')`;
+      if (slot) {
+        slot.style.backgroundImage = art ? `url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/${encodeURIComponent(art)}')` : "url('/assets/home%20kitchen.jpg')";
       }
     })();
 
