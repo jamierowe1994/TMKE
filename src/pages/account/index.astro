@@ -1,7 +1,7 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import BrandKitOffer from "../../components/BrandKitOffer.astro";
-import { templates } from "../../data/library.js";
+import { learnSlides } from "../../data/dashboard-slides.js";
 import { getMembersPosts } from "../../data/blog.js";
 import "../../styles/ws-system.css";
 import "../../styles/hub-entrance.css";   // the dashboard draws its own header
@@ -19,10 +19,8 @@ const latestPost = (await getMembersPosts())[0] ?? null;
 // The members blog opens a piece at /account/blog#<slug>, so the dashboard links there too.
 const latestPostHref = latestPost?.slug ? `/account/blog#${latestPost.slug}` : "/account/blog";
 
-// "Pick up where you left off" falls back to a template the member can start
-// from, so the card is never empty. wireWork() swaps in their most recently
-// edited design as soon as there is one.
-const recentTemplates = templates.slice(0, 4);
+// Chapter 04's carousel: the latest blog first, then the rest in order.
+const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: latestPostHref });
 ---
 
 <!--
@@ -32,11 +30,15 @@ const recentTemplates = templates.slice(0, 4);
   One full-width column, read as numbered chapters:
 
     hero        date, greeting, three stats, one call to action, photograph
-    chapter 01  the week, seven days, today outlined darker
-    chapter 02  four ways into the Studio
-    chapter 03  the last thing worked on, today's prompt, the next booking
-    chapter 04  a guide (the full-bleed banner)
+    chapter 01  your Studio: five portrait doors, the fifth the last design
+    chapter 02  the week, seven days, today outlined darker
+    chapter 03  be inspired: the reel of pack designs, with today's prompt
+                and the next booking stacked beside it
+    chapter 04  learn: a carousel (src/data/dashboard-slides.js)
     chapter 05  what is new
+
+  Reordered on 16 Oct 2026 (Dani): the Studio first, because it is what
+  people come here for.
 
   The third hero stat is claimed by whatever most needs attention - see
   claimSlot() for the ranking. Everything else on the page is fixed.
@@ -213,10 +215,52 @@ const recentTemplates = templates.slice(0, 4);
           <div class="ws-hero-photo" role="img" aria-label="A styled living room with a marble table"></div>
         </section>
 
-        <!-- PLAN -->
+        <!-- YOUR STUDIO — five ways in, portrait, shading down from the brand
+             secondary (Dani, 16 Oct). The fifth is the last design, so its
+             card is the shape a post is and the design can be seen. -->
+        <section class="ws-block" aria-labelledby="studio-h">
+          <header class="ws-block-head">
+            <h2 class="ws-block-h" id="studio-h"><span class="ws-block-ch">Chapter 01</span>Your Studio</h2>
+            <a class="ws-block-link" href="/account/studio">View All Tools
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </a>
+          </header>
+          <div class="ws-tools ws-doors">
+            <a class="ws-tool ws-door" href="/account/editor?new=1" data-new-design>
+              <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span>
+              <span class="ws-door-tx"><strong>Create something</strong><span>Start with a blank canvas.</span></span>
+              <span class="ws-door-go" aria-hidden="true">&rarr;</span>
+            </a>
+            <a class="ws-tool ws-door" href="/account/studio">
+              <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+              <span class="ws-door-tx"><strong>Your packs</strong><span id="tool-packs">Templates ready to edit.</span></span>
+              <span class="ws-door-go" aria-hidden="true">&rarr;</span>
+            </a>
+            <a class="ws-tool ws-door" href="/account/profile">
+              <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span>
+              <span class="ws-door-tx"><strong>Brand kit</strong><span id="tool-kit">Everything looking like you.</span></span>
+              <span class="ws-door-go" aria-hidden="true">&rarr;</span>
+            </a>
+            <a class="ws-tool ws-door" href="/account/schedule">
+              <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
+              <span class="ws-door-tx"><strong>Content planner</strong><span>See what's coming up.</span></span>
+              <span class="ws-door-go" aria-hidden="true">&rarr;</span>
+            </a>
+            <!-- The last design, once we know what it is: until then the card
+                 is its shade and nothing else, never a stand-in picture that
+                 swaps out (wireWork fills it). -->
+            <a class="ws-tool ws-door ws-resume" id="ws-resume" href="/account/studio">
+              <span class="ws-resume-img" id="ws-resume-img" aria-hidden="true"></span>
+              <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2"/><path d="M20 4v5h-5"/><path d="M12 8v4l3 2"/></svg></span>
+              <span class="ws-door-tx"><strong>Continue design</strong><span id="ws-resume-name">&nbsp;</span></span>
+              <span class="ws-door-go" aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        </section>
+
         <section class="ws-block" aria-labelledby="plan-h">
           <header class="ws-block-head">
-            <h2 class="ws-block-h" id="plan-h"><span class="ws-block-ch">Chapter 01</span>Your week</h2>
+            <h2 class="ws-block-h" id="plan-h"><span class="ws-block-ch">Chapter 02</span>Your week</h2>
             <a class="ws-block-link" href="/account/schedule">View Planner
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
@@ -237,93 +281,81 @@ const recentTemplates = templates.slice(0, 4);
           <span id="ws-starters" hidden data-blog-title={latestPost?.title ?? ""} data-blog-href={latestPostHref}></span>
         </section>
 
-        <!-- YOUR STUDIO — four ways in, wider than they are tall -->
-        <section class="ws-block" aria-labelledby="studio-h">
+        <!-- BE INSPIRED — the packs going by, and today's prompt and the next
+             booking stacked at the right (Dani, 16 Oct). -->
+        <section class="ws-block" aria-labelledby="inspire-h">
           <header class="ws-block-head">
-            <h2 class="ws-block-h" id="studio-h"><span class="ws-block-ch">Chapter 02</span>Your Studio</h2>
-            <a class="ws-block-link" href="/account/studio">View All Tools
+            <h2 class="ws-block-h" id="inspire-h"><span class="ws-block-ch">Chapter 03</span>Be inspired</h2>
+            <a class="ws-block-link" href="/edit">Browse The Edit
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </a>
           </header>
-          <div class="ws-tools">
-            <a class="ws-tool" href="/account/editor?new=1" data-new-design>
-              <span class="ws-tool-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span>
-              <span class="ws-tool-tx"><strong>Create something</strong><span>Start with a blank canvas.</span></span>
-              <span class="ws-tool-go" aria-hidden="true">→</span>
-            </a>
-            <a class="ws-tool" href="/account/studio">
-              <span class="ws-tool-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
-              <span class="ws-tool-tx"><strong>Your packs</strong><span id="tool-packs">Templates ready to edit.</span></span>
-              <span class="ws-tool-go" aria-hidden="true">→</span>
-            </a>
-            <a class="ws-tool" href="/account/profile">
-              <span class="ws-tool-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span>
-              <span class="ws-tool-tx"><strong>Brand kit</strong><span id="tool-kit">Everything looking like you.</span></span>
-              <span class="ws-tool-go" aria-hidden="true">→</span>
-            </a>
-            <a class="ws-tool" href="/account/schedule">
-              <span class="ws-tool-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
-              <span class="ws-tool-tx"><strong>Content planner</strong><span>See what's coming up.</span></span>
-              <span class="ws-tool-go" aria-hidden="true">→</span>
-            </a>
-          </div>
-        </section>
-
-        <!-- PICK UP WHERE YOU LEFT OFF — the last thing worked on at half
-             width, then the prompt and the next booking beside it -->
-        <section class="ws-block" aria-labelledby="pickup-h">
-          <header class="ws-block-head">
-            <h2 class="ws-block-h" id="pickup-h"><span class="ws-block-ch">Chapter 03</span>Pick up where you left off</h2>
-          </header>
-          <div class="ws-pickup">
-            <a class="ws-resume" id="ws-resume" href={`/account/editor?template=${encodeURIComponent(recentTemplates[0].id)}`} style={`background-image:url('${recentTemplates[0].thumb}')`}>
-              <span class="ws-resume-body">
-                <strong class="ws-resume-h" id="ws-resume-name">{recentTemplates[0].name}</strong>
-                <span class="ws-resume-cta">Continue with this pack <em aria-hidden="true">→</em></span>
-              </span>
-            </a>
-
-            <div class="ws-side">
-              <span class="ws-side-eyebrow">Today's prompt</span>
-              <div class="ws-idea-wrap">
-                <p class="ws-idea" id="idea-h">“Three questions every buyer asks during a viewing — and how you answer them.”</p>
-                <p class="ws-idea-hint" id="idea-hint">Talk straight to camera. One question per line on screen.</p>
-              </div>
-              <div class="ws-side-foot">
-                <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/editor?blank=1">Create this post
-                  <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </a>
-                <button type="button" class="ws-iconround ws-tip-right ws-idea-again" data-tip="Another idea" aria-label="Another idea">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg>
-                </button>
-              </div>
+          <div class="ws-inspire">
+            <!-- Filled by wireReel(): Dani's mockups (src/data/inspiration-reel.js)
+                 or, until there are any, the packs' own templates. Empty and
+                 dark until they've loaded; nothing stands in for them. -->
+            <div class="ws-reel" id="ws-reel" aria-label="Templates from our packs" aria-busy="true">
+              <div class="ws-reel-track" id="ws-reel-track"></div>
             </div>
 
-            <div class="ws-side">
-              <span class="ws-side-eyebrow">Coming up</span>
-              <div id="ws-next-bk">
-                <p class="ws-side-h">Loading…</p>
+            <div class="ws-inspire-side">
+              <div class="ws-side">
+                <span class="ws-side-eyebrow">Today's prompt</span>
+                <div class="ws-idea-wrap">
+                  <p class="ws-idea" id="idea-h">&nbsp;</p>
+                  <p class="ws-idea-hint" id="idea-hint">&nbsp;</p>
+                </div>
+                <div class="ws-side-foot">
+                  <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/editor?blank=1">Create this post
+                    <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </a>
+                  <button type="button" class="ws-iconround ws-tip-right ws-idea-again" data-tip="Another idea" aria-label="Another idea">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5l2 2M20 12a8 8 0 0 1-14 5l-2-2"/><path d="M20 4v5h-5M4 20v-5h5"/></svg>
+                  </button>
+                </div>
               </div>
-              <div class="ws-side-foot">
-                <a class="ws-btn ws-btn--ghost ws-btn--sm" href="/account/bookings">View bookings
-                  <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                </a>
+
+              <div class="ws-side">
+                <span class="ws-side-eyebrow">Coming up</span>
+                <div id="ws-next-bk">
+                  <p class="ws-side-h">&nbsp;</p>
+                </div>
+                <div class="ws-side-foot">
+                  <a class="ws-btn ws-btn--ghost ws-btn--sm" href="/account/bookings">View bookings
+                    <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </section>
       </div>
 
-      <!-- ============ Chapter 04 — full width ============ -->
-      <a class="ws-discover ws-rise" style="--delay:1.65s" href="/account/guides" aria-label="Read the guide: five minutes well spent">
-        <div class="ws-discover-body">
-          <span class="ws-discover-flag">Chapter 04 — Learn</span>
-          <h2 class="ws-discover-h">Five minutes well spent.</h2>
-          <p class="ws-discover-desc">Why your listing posts aren't getting saved.</p>
-          <span class="ws-discover-cta">Read the guide <span aria-hidden="true">→</span></span>
+      <!-- ============ Chapter 04 — Learn, a carousel ============
+           One slide per way in: the latest blog, the Getting Started series.
+           More are added in src/data/dashboard-slides.js. -->
+      <section class="ws-learn ws-rise" style="--delay:1.65s" aria-label="Learn" data-learn>
+        <div class="ws-learn-track">
+          {LEARN_SLIDES.map((sl, i) => (
+            <a class={`ws-learn-slide${i === 0 ? " is-on" : ""}`} href={sl.href} data-learn-slide={i} aria-hidden={i === 0 ? undefined : "true"} tabindex={i === 0 ? undefined : -1}>
+              <span class="ws-learn-body">
+                <span class="ws-learn-flag">Chapter 04 &mdash; {sl.flag}</span>
+                <strong class="ws-learn-h">{sl.title}</strong>
+                <span class="ws-learn-desc">{sl.desc}</span>
+                <span class="ws-learn-cta">{sl.cta} <em aria-hidden="true">&rarr;</em></span>
+              </span>
+              <span class="ws-learn-art" style={`background-image:url('${sl.art}')`}></span>
+            </a>
+          ))}
         </div>
-        <div class="ws-discover-art" style="background-image:url('/assets/chapter-04.jpg')"></div>
-      </a>
+        {LEARN_SLIDES.length > 1 && (
+          <div class="ws-learn-dots" role="tablist" aria-label="Choose a slide">
+            {LEARN_SLIDES.map((sl, i) => (
+              <button type="button" class={`ws-learn-dot${i === 0 ? " is-on" : ""}`} data-learn-dot={i} aria-label={sl.flag}></button>
+            ))}
+          </div>
+        )}
+      </section>
       <!-- ============ New in The Studio — full width ============ -->
       <section class="ws-block" aria-labelledby="new-h">
         <header class="ws-block-head">
@@ -607,50 +639,90 @@ const recentTemplates = templates.slice(0, 4);
     .ws-day-cta { margin-top: auto; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-accent); }
     .ws-day-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
     .ws-day--idea:hover .ws-day-cta em { transform: translateX(3px); }
-    /* Your Studio — four ways in, wider than they are tall so they read as a
-       row of doors rather than as more day squares. */
-    /* Pick up where you left off — the last thing worked on at half width,
-       then the prompt and the next booking at a quarter each. */
-    .ws-pickup { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--ws-gap); align-items: stretch; }
-    @media (max-width: 1000px) { .ws-pickup { grid-template-columns: 1fr 1fr; } .ws-resume { grid-column: 1 / -1; } }
-    @media (max-width: 620px) { .ws-pickup { grid-template-columns: 1fr; } }
-    /* Less padding at the foot than the sides: the block sat 17px above the
-       button in the column beside it, which is the gap Dani could see. The
-       two lines land together now. Dani, 9 Oct. */
-    .ws-resume { position: relative; display: flex; align-items: flex-end; min-height: 240px; padding: 26px 26px 12px; border-radius: var(--ws-r); overflow: hidden; background-size: cover; background-position: center; background-color: #2a2126; text-decoration: none; color: #fff; }
-    /* A wash rather than a flat panel: the template underneath still has to be
-       recognisable, which is the whole point of showing it. */
-    /* No scrim: the picture is the reason the card exists, and a wash over it
-       to make white text readable was hiding the thing being sold. The words
-       carry their own chip instead, in the wine the chapter bars use. */
-    .ws-resume::after { content: none; }
-    /* The demo: no design to pick up, so a plain wine block. */
-    /* The card with nothing to resume yet takes Dani's own dark landscape
-       rather than a flat wine block, and its heading is The Seasons — the
-       house sub-heading face — a size down (Dani, 8 Oct). The trailing space
-       before .png is in the filename itself; checked against the bucket. */
-    /* The picture itself is set inline by the script — the card carries a
-       server-rendered inline background-image, which no rule here can beat. */
-    .ws-resume.is-demo-resume {
-      background-color: var(--english-violet);
-      background-size: cover; background-position: center;
+    /* Your Studio — five doors, portrait, shading down from the brand
+       secondary (#7e6765, the colour the wordmark settles to) towards paper.
+       The first two carry white words, the lighter three the wine (Dani,
+       16 Oct). The fifth is the last design: its picture fills the card once
+       it's known; until then it is its shade. */
+    .ws-doors { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .ws-tool.ws-door {
+      --door: #7e6765; --door-ink: #fff;
+      position: relative; overflow: hidden; isolation: isolate;
+      flex-direction: column; align-items: stretch; gap: 0;
+      aspect-ratio: 4 / 5; min-height: 0; padding: clamp(16px, 1.5vw, 22px);
+      border: 0; background: var(--door); color: var(--door-ink);
+      transition: transform 0.35s var(--ws-ease), box-shadow 0.35s var(--ws-ease);
     }
-    .ws-resume.is-demo-resume::after { display: none; }
-    /* line-height 1.1, not the inherited 1.35: the 4px gap under the heading
-       was fine, it was seven pixels of leading below the cap that made the
-       space read as double. Dani, 9 Oct. */
-    .ws-resume.is-demo-resume .ws-resume-h {
-      font-family: var(--subhead, "The Seasons", "Cormorant Garamond", Georgia, serif);
-      font-weight: 700; font-size: clamp(18px, 1.5vw, 21px); letter-spacing: -0.01em;
-      line-height: 1.1;
+    .ws-door:nth-child(2) { --door: color-mix(in srgb, #7e6765 84%, #fff); }
+    .ws-door:nth-child(3) { --door: color-mix(in srgb, #7e6765 64%, #fff); --door-ink: var(--english-violet); }
+    .ws-door:nth-child(4) { --door: color-mix(in srgb, #7e6765 46%, #fff); --door-ink: var(--english-violet); }
+    .ws-door:nth-child(5) { --door: color-mix(in srgb, #7e6765 30%, #fff); --door-ink: var(--english-violet); }
+    .ws-tool.ws-door:hover { transform: translateY(-4px); border-color: transparent; box-shadow: 0 22px 40px -24px rgba(55,30,40,0.55); }
+    /* A soft light that drifts across on hover, so the doors feel like
+       something to open rather than five swatches. */
+    .ws-door::before { content: ""; position: absolute; inset: -40% -60%; z-index: -1; pointer-events: none;
+      background: radial-gradient(closest-side, rgba(255,255,255,0.22), rgba(255,255,255,0));
+      transform: translate(-40%, 30%); opacity: 0; transition: transform 0.9s var(--ws-ease), opacity 0.5s var(--ws-ease); }
+    .ws-door:hover::before { transform: translate(10%, -10%); opacity: 1; }
+    .ws-door-ic { flex: none; width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      background: color-mix(in srgb, var(--door-ink) 14%, transparent); color: var(--door-ink); transition: transform 0.45s var(--ws-ease); }
+    .ws-door:hover .ws-door-ic { transform: rotate(-8deg) scale(1.06); }
+    .ws-door-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .ws-door-tx { margin-top: auto; display: flex; flex-direction: column; gap: 5px; min-width: 0; padding-right: 22px; }
+    .ws-door-tx strong { font-size: clamp(15px, 1.15vw, 18px); font-weight: 600; line-height: 1.2; letter-spacing: -0.005em; }
+    .ws-door-tx span { font-size: var(--ws-t-meta); line-height: 1.4; opacity: 0.82; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .ws-door-go { position: absolute; right: clamp(16px, 1.5vw, 22px); bottom: clamp(16px, 1.5vw, 22px); font-size: 16px; line-height: 1; transition: transform 0.3s var(--ws-ease); }
+    .ws-door:hover .ws-door-go { transform: translateX(4px); }
+    /* Continue design: the picture, with its words on a wine band at the foot. */
+    .ws-resume-img { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; opacity: 0; transform: scale(1.04);
+      transition: opacity 0.6s var(--ws-ease), transform 1.2s var(--ws-ease); }
+    .ws-resume.has-img .ws-resume-img { opacity: 1; transform: none; }
+    .ws-resume.has-img:hover .ws-resume-img { transform: scale(1.04); }
+    .ws-resume.has-img { --door-ink: #fff; }
+    .ws-resume.has-img .ws-door-ic { background: rgba(55,30,40,0.72); }
+    .ws-resume.has-img .ws-door-tx { margin: auto calc(-1 * clamp(16px, 1.5vw, 22px)) calc(-1 * clamp(16px, 1.5vw, 22px)); padding: 12px clamp(16px, 1.5vw, 22px) clamp(16px, 1.5vw, 22px); padding-right: 40px; background: var(--english-violet); }
+    @media (max-width: 1000px) {
+      .ws-doors { display: flex; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 4px; }
+      .ws-doors::-webkit-scrollbar { display: none; }
+      .ws-doors .ws-door { flex: 0 0 calc((100% - 2 * var(--ws-gap)) / 3.3); scroll-snap-align: start; }
     }
-    .ws-resume-body { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; padding: 13px 16px 14px; border-radius: var(--ws-r-sm); background: var(--english-violet); max-width: 100%; }
-    /* The same size as the prompt beside it — it was reading as a headline
-       against a body-sized neighbour. */
-    .ws-resume-h { font-family: var(--serif); font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; letter-spacing: -0.01em; line-height: 1.35; }
-    .ws-resume-cta { display: inline-flex; align-items: center; gap: 8px; font-size: var(--ws-t-body); font-weight: 600; }
-    .ws-resume-cta em { font-style: normal; transition: transform 0.25s var(--ws-ease); }
-    .ws-resume:hover .ws-resume-cta em { transform: translateX(4px); }
+    @media (max-width: 560px) { .ws-doors .ws-door { flex-basis: 58%; } }
+
+    /* Be inspired — the reel takes three quarters, today's prompt and the next
+       booking stack in the last quarter. */
+    .ws-inspire { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: var(--ws-gap); align-items: stretch; }
+    .ws-inspire-side { display: flex; flex-direction: column; gap: var(--ws-gap); min-width: 0; }
+    .ws-inspire-side .ws-side { flex: 1 1 0; }
+    @media (max-width: 1000px) { .ws-inspire { grid-template-columns: 1fr; } .ws-inspire-side { flex-direction: row; } .ws-inspire-side .ws-side { flex: 1 1 0; min-width: 0; } }
+    @media (max-width: 620px) { .ws-inspire-side { flex-direction: column; } }
+    /* The reel: dark, the designs going by on their own, each with what it's
+       for above it. Hovering stops it so one can be read and clicked. */
+    .ws-reel { position: relative; overflow: hidden; min-height: 360px; border-radius: var(--ws-r); background: #241419; display: flex; align-items: center; }
+    .ws-reel::before, .ws-reel::after { content: ""; position: absolute; top: 0; bottom: 0; width: 56px; z-index: 2; pointer-events: none; }
+    .ws-reel::before { left: 0; background: linear-gradient(90deg, #241419, rgba(36,20,25,0)); }
+    .ws-reel::after { right: 0; background: linear-gradient(-90deg, #241419, rgba(36,20,25,0)); }
+    .ws-reel-track { display: flex; gap: 14px; padding: 22px 0 22px 14px; width: max-content; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
+    .ws-reel.is-ready .ws-reel-track { opacity: 1; animation: wsReel var(--reel-dur, 60s) linear infinite; }
+    .ws-reel:hover .ws-reel-track, .ws-reel:focus-within .ws-reel-track { animation-play-state: paused; }
+    @keyframes wsReel { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    .ws-reel-tile { flex: none; width: clamp(205px, 18vw, 260px); display: flex; flex-direction: column; gap: 10px; text-decoration: none; color: #fff; }
+    .ws-reel-label { font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ws-reel-pic { position: relative; display: block; aspect-ratio: 4 / 5; border-radius: 4px; overflow: hidden; background: #33222a; }
+    .ws-reel-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.9s var(--ws-ease); }
+    .ws-reel-tile:hover .ws-reel-pic img { transform: scale(1.05); }
+    .ws-reel-go { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 9px 11px; border-radius: 4px; background: rgba(255,255,255,0.94); color: var(--english-violet);
+      font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; transform: translateY(6px); transition: opacity 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+    .ws-reel-tile:hover .ws-reel-go, .ws-reel-tile:focus-visible .ws-reel-go { opacity: 1; transform: none; }
+    .ws-reel-sub { font-size: var(--ws-t-meta); color: rgba(255,255,255,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -4px; }
+    @media (max-width: 620px) { .ws-reel { min-height: 0; } .ws-reel-tile { width: 150px; } }
+    .ws-inspire.is-no-reel { grid-template-columns: 1fr; }
+    .ws-inspire.is-no-reel .ws-reel { display: none; }
+    .ws-inspire.is-no-reel .ws-inspire-side { flex-direction: row; }
+    @media (prefers-reduced-motion: reduce) {
+      .ws-reel { overflow-x: auto; }
+      .ws-reel.is-ready .ws-reel-track { animation: none; }
+      .ws-reel-tile[data-copy] { display: none; }
+    }
     .ws-side { display: flex; flex-direction: column; gap: 12px; padding: 22px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; }
     .ws-side-eyebrow { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ws-faint); }
     .ws-side-h { margin: 0; font-family: var(--serif); font-size: var(--ws-t-title); font-weight: 400; line-height: 1.25; letter-spacing: -0.01em; color: var(--ws-ink); }
@@ -665,35 +737,37 @@ const recentTemplates = templates.slice(0, 4);
     .ws-idea-again { margin-left: auto; width: 33px; height: 33px; }
     .ws-idea-again svg { width: 15px; height: 15px; }
     .ws-idea { font-family: var(--serif); font-style: normal; font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; line-height: 1.45; letter-spacing: -0.01em; color: var(--ws-ink); margin: 0; }
-    /* ---------- Discovery — full-width finish ---------- */
-    .ws-discover { position: relative; display: grid; grid-template-columns: 1fr 1.15fr; min-height: 268px; border-radius: var(--ws-r-lg); overflow: hidden; background: transparent; border: 1px solid var(--ws-line); text-decoration: none; transition: border-color 0.25s var(--ws-ease); }
-    .ws-discover:hover { border-color: rgba(28, 29, 34, 0.22); }
-    .ws-discover-art { position: relative; background-size: cover; background-position: center; transition: transform 1.2s var(--ws-ease); }
-    /* The plum panel bleeds into the photograph instead of butting against it,
-       and the whole image sits under a wash so the two halves are one picture.
-       On the art rather than the body so the zoom on hover carries it along. */
-    .ws-discover-art::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background:
-        linear-gradient(to right, #2f1b25 0%, rgba(47,27,37,0.86) 14%, rgba(47,27,37,0.34) 38%, rgba(47,27,37,0) 62%),
-        rgba(35,22,29,0.24);
+    /* ---------- Chapter 04 — Learn, a carousel ----------
+       The plum panel and the picture side by side, no wash over the picture
+       (Dani, 16 Oct). Slides change on their own every few seconds, stop
+       while the pointer is on them, and the dots choose one. */
+    .ws-learn { position: relative; border-radius: var(--ws-r-lg); overflow: hidden; background: #2f1b25; }
+    .ws-learn-track { display: grid; }
+    .ws-learn-slide { grid-area: 1 / 1; display: grid; grid-template-columns: 1fr 1.15fr; min-height: 268px; text-decoration: none; color: #fff;
+      opacity: 0; visibility: hidden; transition: opacity 0.7s var(--ws-ease), visibility 0s linear 0.7s; }
+    .ws-learn-slide.is-on { opacity: 1; visibility: visible; transition: opacity 0.7s var(--ws-ease), visibility 0s; z-index: 1; }
+    .ws-learn-body { padding: clamp(28px, 3vw, 48px); padding-bottom: 52px; display: flex; flex-direction: column; color: #fff; background: #2f1b25; }
+    .ws-learn-flag { color: rgba(255,255,255,0.6); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+    .ws-learn-h { font-family: var(--subhead); font-weight: 400; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.015em; margin-top: clamp(16px, 2vw, 26px); }
+    .ws-learn-desc { font-size: var(--ws-t-row); line-height: 1.55; color: rgba(255,255,255,0.72); margin-top: 7px; max-width: 40ch; }
+    .ws-learn-cta { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; height: 33px; box-sizing: border-box; padding: 0 16px; margin-top: auto; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 33px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .ws-learn-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
+    .ws-learn-slide:hover .ws-learn-cta em { transform: translateX(4px); }
+    .ws-learn-art { background-size: cover; background-position: center; transform: scale(1.03); transition: transform 6s linear; }
+    .ws-learn-slide.is-on .ws-learn-art { transform: none; }
+    .ws-learn-slide:hover .ws-learn-art { transform: scale(1.03); transition-duration: 1.2s; }
+    .ws-learn-dots { position: absolute; z-index: 2; left: clamp(28px, 3vw, 48px); bottom: 20px; display: flex; gap: 8px; }
+    /* Positioned over the plum half; the button sits above them, so they go
+       at the very foot under it. */
+    .ws-learn-dot { all: unset; cursor: pointer; width: 22px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.3); transition: background 0.3s, width 0.3s var(--ws-ease); }
+    .ws-learn-dot.is-on { width: 38px; background: #fff; }
+    .ws-learn-dot:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    @media (max-width: 620px) {
+      .ws-learn-slide { grid-template-columns: 1fr; }
+      .ws-learn-art { min-height: 180px; order: -1; }
+      .ws-learn-dots { left: auto; right: 20px; top: 16px; bottom: auto; }
     }
-    .ws-discover:hover .ws-discover-art { transform: scale(1.05); }
-    .ws-discover-body { position: relative; padding: clamp(28px, 3vw, 48px); padding-bottom: 32px; display: flex; flex-direction: column; justify-content: flex-start; gap: 0; color: #fff; background: #2f1b25; }
-    .ws-discover-flag { align-self: flex-start; padding: 0; background: none; border: 0; color: rgba(255,255,255,0.6); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
-    /* One line at this size in this column - measured, not hoped. */
-    .ws-discover-h { font-family: var(--subhead); font-weight: 400; font-size: clamp(24px, 2.5vw, 36px); line-height: 1.06; letter-spacing: -0.015em; margin: clamp(16px, 2vw, 26px) 0 0; color: #fff; white-space: nowrap; }
-    @media (max-width: 900px) { .ws-discover-h { white-space: normal; } }
-    .ws-discover-desc { font-size: var(--ws-t-row); line-height: 1.55; color: rgba(255,255,255,0.72); margin: 7px 0 0; max-width: 34ch; }
-    /* 33px and 16px of padding: the same box as .ws-btn--sm, so this and
-       "Create this post" are one button in two colours. */
-    /* The box was already .ws-btn--sm's — 33px, 0 16px — but the type was the
-       heading face at 0.18em, which made it read wider and heavier than View
-       bookings beside it. Same face, size and tracking as .ws-btn now. */
-    .ws-discover-cta { display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: flex-start; margin-top: auto; height: 33px; box-sizing: border-box; padding: 0 16px; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-family: var(--sans); font-size: 12px; font-weight: 700; line-height: 1; letter-spacing: 0.04em; text-transform: uppercase; }
-    .ws-discover-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
-    .ws-discover:hover .ws-discover-cta em { transform: translateX(4px); }
-    @media (max-width: 620px) { .ws-discover { grid-template-columns: 1fr; } .ws-discover-art { min-height: 180px; } }
+    @media (prefers-reduced-motion: reduce) { .ws-learn-slide, .ws-learn-art { transition: none !important; } }
     /* ---------- Tooltips ---------- */
     [data-tip] { position: relative; }
     [data-tip]::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 9px); left: 50%; transform: translateX(-50%) translateY(4px); width: max-content; max-width: 220px; padding: 9px 12px; border-radius: 10px; background: #1c1d22; color: #fff; font-size: var(--ws-t-meta); font-weight: 500; line-height: 1.4; letter-spacing: 0; text-transform: none; text-align: center; white-space: normal; opacity: 0; pointer-events: none; z-index: 60; box-shadow: 0 12px 28px -10px rgba(0,0,0,0.4); transition: opacity 0.22s var(--ws-ease), transform 0.22s var(--ws-ease); }
@@ -860,20 +934,8 @@ const recentTemplates = templates.slice(0, 4);
     if (initDemoChrome()) {
       // Nothing saved yet, so the "pick up where you left off" card becomes
       // the way in: a wine block that opens the Studio.
-      const resume = document.getElementById('ws-resume');
-      if (resume) {
-        resume.classList.add('is-demo-resume');
-        /* Inline, not in the stylesheet: the card is server-rendered with an
-           inline background-image for the last pack, and an inline style beats
-           any rule. Setting the class alone left the old photo showing. */
-        /* The brackets have to be percent-encoded too: inside CSS url() a bare
-           ( or ) ends the value, so the browser truncated it at "(Landscape"
-           and the picture silently never loaded. */
-        resume.style.backgroundImage = "url('https://assets.tmke.co.uk/TMKE%20Member%20Hub/TMKE%20Background%20Dark%20%28Landscape%29%20.png')";
-        resume.setAttribute('href', '/account/studio');
-        const rn = document.getElementById('ws-resume-name'); if (rn) rn.textContent = 'Get started';
-        const cta = resume.querySelector('.ws-resume-cta'); if (cta) cta.innerHTML = 'Open a template in the Studio <em aria-hidden="true">→</em>';
-      }
+      // Nothing saved in the demo, so Continue design is the way into the packs.
+      const rn = document.getElementById('ws-resume-name'); if (rn) rn.textContent = 'Start from one of your packs.';
       // The week: two sample posts stay; two empty days carry a prompt each,
       // so the strip shows what "idea ready" looks like.
       const days = Array.from(document.querySelectorAll('.ws-week .ws-day'));
@@ -985,19 +1047,21 @@ const recentTemplates = templates.slice(0, 4);
         nav.hidden = true;
       }
     }
-    // ---- Starter ideas, for a week with nothing in it ----
-    // Three reporters have to agree the week is quiet before this shows:
-    // nothing planned, nothing booked, nothing owed. Anything that fails to
-    // report leaves the row hidden, which is the right way round - showing
-    // "nothing planned" to someone with a full diary is the worse mistake.
+    // ---- Starter ideas, on the days still to come with nothing on them ----
+    // They used to wait until the whole week was quiet -- nothing planned,
+    // nothing booked, nothing owed -- so one booking in the diary took every
+    // idea off the week (Dani, 16 Oct: "I seem to be losing prompts"). An
+    // empty day is an empty day whatever else is going on, so they fill as
+    // soon as the week itself has loaded. The others still report in, for
+    // anything that wants to know.
     const quiet = {};
+    let startersDone = false;
     function reportQuiet(key, isQuiet) {
       quiet[key] = isQuiet;
+      if (key !== 'posts' || startersDone) return;
       const box = document.getElementById('ws-starters');
       if (!box) return;
-      const keys = ['posts', 'bookings', 'due'];
-      if (!keys.every((k) => k in quiet)) return;
-      if (!keys.every((k) => quiet[k])) return;
+      startersDone = true;
       fillStarterDays(box);
     }
 
@@ -1069,7 +1133,7 @@ const recentTemplates = templates.slice(0, 4);
         const pool = PROMPTS.evergreen;
         if (!pool.length) return;
         const pr = pool[(wk + i) % pool.length];
-        paintStarter(card, { flag: 'Nothing planned', title: pr[0], hint: pr[1],
+        paintStarter(card, { flag: 'Idea ready', title: pr[0], hint: pr[1],
           cta: pr[2] ? 'Design the cover' : 'Design this post',
           href: `/account/editor?blank=${pr[2] ? '1080x1920' : '1'}&prompt=${keyForEvergreen(pr)}` });
       });
@@ -1336,7 +1400,13 @@ const recentTemplates = templates.slice(0, 4);
           designs = data || [];
         }
       } catch (_) {}
-      if (!designs.length) return; // no saved work yet → keep the starter templates
+      const resume = document.getElementById('ws-resume');
+      const rn = document.getElementById('ws-resume-name');
+      // Nothing saved yet: the card is the way into the packs instead.
+      if (!designs.length) {
+        if (rn && rn.textContent.trim() === '') rn.textContent = 'Start from one of your packs.';
+        return;
+      }
 
       // Hero preview = the most recently edited design.
       const top = designs[0];
@@ -1351,15 +1421,17 @@ const recentTemplates = templates.slice(0, 4);
       if (heroLink) heroLink.setAttribute('href', editHref(top.id));
       if (heroProg) heroProg.innerHTML = `<span class="ws-hero-pct">Last edited ${escapeHtml(fmtSaved(top.updated_at))}</span>`;
 
-      // "Pick up where you left off" = the most recently edited design. The
-      // starter template rendered at build time stays put until there is real
-      // saved work to show, so the card is never empty.
-      const resume = document.getElementById('ws-resume');
+      // Continue design = the most recently edited design. Its picture fades
+      // in once it has loaded, so the card never shows a broken one.
       if (resume) {
         resume.setAttribute('href', editHref(top.id));
-        if (top.thumb_url) resume.style.backgroundImage = `url('${top.thumb_url}')`;
-        const rn = document.getElementById('ws-resume-name');
         if (rn) rn.textContent = name;
+        const img = document.getElementById('ws-resume-img');
+        if (top.thumb_url && img) {
+          const pre = new Image();
+          pre.onload = () => { img.style.backgroundImage = `url('${top.thumb_url}')`; resume.classList.add('has-img'); };
+          pre.src = top.thumb_url;
+        }
       }
     })();
 
@@ -1497,6 +1569,123 @@ const recentTemplates = templates.slice(0, 4);
       } catch (_) { /* keep the mock week */ }
     })();
 
+    // ---- Chapter 03: the reel of designs (Dani, 16 Oct) ----
+    // Dani's mockups when there are some (src/data/inspiration-reel.js), the
+    // packs' own templates until then. Each opens its pack in the Studio for
+    // someone who has it, or its page in The Edit for someone who hasn't. The
+    // strip stays dark and empty until the first pictures have loaded.
+    (async function wireReel() {
+      const reel = document.getElementById('ws-reel');
+      const track = document.getElementById('ws-reel-track');
+      if (!reel || !track) return;
+      try {
+        const [{ INSPIRATION_REEL }, access] = await Promise.all([
+          import('../../data/inspiration-reel.js'), import('../../lib/pack-access.js'),
+        ]);
+        let session = null;
+        try { session = (await supabase.auth.getSession()).data.session; } catch (_) {}
+        const email = (session && session.user.email) || '';
+        const [packsRes, ordersRes, brands] = await Promise.all([
+          supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
+          session ? supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`) : Promise.resolve({ data: [] }),
+          session ? access.memberBrandsFor(supabase) : Promise.resolve(undefined),
+        ]);
+        if (packsRes.error) return;
+        const all = packsRes.data || [];
+        const paid = new Set(((ordersRes && ordersRes.data) || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
+        const owned = new Set(access.ownedPacks(all, paid, brands).map((p) => p.id));
+        // Social packs on sale or already theirs; never the demo pack.
+        const packs = access.visibleToMember(all, brands).filter((p) => !p.demo && (p.kind || 'social') !== 'print'
+          && (owned.has(p.id) || (p.access || 'buy') === 'buy'));
+        const bySlug = new Map(packs.map((p) => [p.slug, p]));
+        const hrefFor = (p) => !p ? '/edit' : owned.has(p.id) ? `/account/editor?pack=${encodeURIComponent(p.id)}` : `/edit/${encodeURIComponent(p.slug)}`;
+        const goFor = (p) => p && owned.has(p.id) ? 'Open your pack' : 'See the pack';
+
+        let tiles = [];
+        if (INSPIRATION_REEL.length) {
+          tiles = INSPIRATION_REEL.filter((r) => r && r.image).map((r) => {
+            const p = bySlug.get(r.pack);
+            return { img: r.image, label: r.line || (p && p.title) || '', sub: r.line && p ? p.title : '', href: hrefFor(p), go: goFor(p) };
+          });
+        } else if (packs.length) {
+          const { data: tpls } = await supabase.from('templates').select('pack_id, name, thumb_url, sort_order')
+            .in('pack_id', packs.map((p) => p.id)).eq('status', 'active').order('sort_order', { ascending: true });
+          const byPack = new Map();
+          (tpls || []).forEach((t) => { if (!t.thumb_url) return; const l = byPack.get(t.pack_id) || []; if (l.length < 4) l.push(t); byPack.set(t.pack_id, l); });
+          // One from each pack in turn, so neighbours are never the same pack.
+          const lists = packs.map((p) => (byPack.get(p.id) || []).map((t) => ({ p, t }))).filter((l) => l.length);
+          for (let i = 0; lists.some((l) => l[i]); i++) lists.forEach((l) => { if (l[i]) tiles.push(l[i]); });
+          // "Local Favourite - Community - Static" is shown as "Local Favourite".
+          tiles = tiles.map(({ p, t }) => ({ img: t.thumb_url, label: p.title, sub: String(t.name || '').split(' - ')[0], href: hrefFor(p), go: goFor(p) }));
+        }
+        if (!tiles.length) { reel.closest('.ws-inspire')?.classList.add('is-no-reel'); return; }
+
+        // Enough to fill a wide screen, then the whole set again, so sliding
+        // back by half lands on the same picture and the loop has no seam.
+        let set = tiles.slice();
+        while (set.length < 10) set = set.concat(tiles);
+        const tile = (t, copy) => `<a class="ws-reel-tile" href="${escapeHtml(t.href)}"${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ''}>
+            <span class="ws-reel-label">${escapeHtml(t.label)}</span>
+            <span class="ws-reel-pic"><img src="${escapeHtml(t.img)}" alt="${copy ? '' : escapeHtml(t.sub || t.label)}" decoding="async"><span class="ws-reel-go">${escapeHtml(t.go)} &rarr;</span></span>
+            ${t.sub ? `<span class="ws-reel-sub">${escapeHtml(t.sub)}</span>` : ''}
+          </a>`;
+        track.innerHTML = set.map((t) => tile(t, false)).join('') + set.map((t) => tile(t, true)).join('');
+        track.style.setProperty('--reel-dur', `${set.length * 6}s`);
+        reel.style.setProperty('--reel-dur', `${set.length * 6}s`);
+        // Shown once the first few on screen have their pictures.
+        const first = [...track.querySelectorAll('img')].slice(0, 5);
+        await Promise.race([
+          Promise.all(first.map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))),
+          new Promise((r) => setTimeout(r, 2500)),
+        ]);
+        reel.classList.add('is-ready');
+        reel.setAttribute('aria-busy', 'false');
+      } catch (_) { reel.setAttribute('aria-busy', 'false'); }
+    })();
+
+    // ---- Chapter 04: the Learn carousel ----
+    (function wireLearn() {
+      const box = document.querySelector('[data-learn]');
+      if (!box) return;
+      const slides = [...box.querySelectorAll('[data-learn-slide]')];
+      const dots = [...box.querySelectorAll('[data-learn-dot]')];
+      // The blog slide names the newest piece, read now rather than at the last deploy.
+      (async () => {
+        try {
+          const { data } = await supabase.from('blog_posts').select('slug,title')
+            .eq('status', 'published').in('audience', ['members', 'both'])
+            .order('publish_date', { ascending: false }).limit(1);
+          const post = data && data[0];
+          const blog = slides[0];
+          if (post && blog) {
+            blog.setAttribute('href', '/account/blog#' + post.slug);
+            const d = blog.querySelector('.ws-learn-desc'); if (d && post.title) d.textContent = post.title;
+          }
+        } catch (_) {}
+      })();
+      if (slides.length < 2) return;
+      let at = 0, timer = null;
+      const show = (i) => {
+        at = (i + slides.length) % slides.length;
+        slides.forEach((s, j) => {
+          const on = j === at;
+          s.classList.toggle('is-on', on);
+          if (on) { s.removeAttribute('aria-hidden'); s.removeAttribute('tabindex'); }
+          else { s.setAttribute('aria-hidden', 'true'); s.setAttribute('tabindex', '-1'); }
+        });
+        dots.forEach((d, j) => d.classList.toggle('is-on', j === at));
+      };
+      const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const play = () => { if (reduce) return; clearInterval(timer); timer = setInterval(() => show(at + 1), 7000); };
+      const stop = () => clearInterval(timer);
+      dots.forEach((d, j) => d.addEventListener('click', () => { show(j); play(); }));
+      box.addEventListener('mouseenter', stop);
+      box.addEventListener('mouseleave', play);
+      box.addEventListener('focusin', stop);
+      box.addEventListener('focusout', play);
+      play();
+    })();
+
     // The full-width card is a guide (Chapter 04), not a pack, so nothing
     // fetches into it any more - the old wireDiscovery would have replaced its
     // title, art and link with whatever pack sorted first.
@@ -1530,7 +1719,7 @@ const recentTemplates = templates.slice(0, 4);
 
       const RULES = [
         { id: 'brand-health', when: () => !brandDone, target: '.ws-textlink--accent', text: 'Finishing your Brand Kit means every design comes out on-brand automatically — worth a couple of minutes.' },
-        { id: 'continue-draft', when: () => hasDraft, target: '.ws-resume', text: 'Pick up where you left off — your most recent design is right here.' },
+        { id: 'continue-draft', when: () => hasDraft, target: '.ws-resume', text: 'Continue design takes you straight back to your most recent design.' },
         // The Chapter 03 card, which reads "Get started - open a template in the
         // Studio" for anyone without a draft. The top-nav tab it used to point
         // at is hidden on a phone, and a bubble anchored to a hidden element
@@ -1545,7 +1734,9 @@ const recentTemplates = templates.slice(0, 4);
       const onScreen = (el) => {
         if (!el || !el.getClientRects().length) return false;
         const b = el.getBoundingClientRect();
-        return b.width > 0 && b.height > 0;
+        // And inside the window: on a phone the doors are a swipe strip, and
+        // Continue design starts off its right-hand edge.
+        return b.width > 0 && b.height > 0 && b.left >= 0 && b.right <= document.documentElement.clientWidth;
       };
       const pick = RULES.find((r) => !seen.includes(r.id) && r.when() && onScreen(document.querySelector(r.target)));
       if (!pick) return;
