@@ -5210,6 +5210,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     /* How many sides this design has, on the picture rather than under it:
        it belongs to the thing shown, not to its name. */
     .ed-onboard-card-cover { position: relative; display: block; }
+    /* The back, over the front, shown while the card is hovered. */
+    .ed-onboard-card-back { position: absolute; inset: 0; border-radius: inherit; background-color: var(--platinum); background-size: contain; background-repeat: no-repeat; background-position: center; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+    .ed-onboard-card:hover .ed-onboard-card-back.is-ready,
+    .ed-onboard-card:focus-visible .ed-onboard-card-back.is-ready { opacity: 1; }
+    .ed-onboard-card-pages { z-index: 1; }
 
     /* A pack's designs share a HEIGHT, and each one is as wide as its own
        shape makes it: a landscape card is wide and a portrait card narrow,
@@ -6064,8 +6069,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            made, the photo taken out again -- so redrawing them from the saved
            design would put the empty frames back (Dani, 13 Oct). One is
            redrawn only from its own design, open on screen (`fromOpen`). */
-        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen) {
-          let query = supabase.from('templates').select('id, canvas, elements');
+        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen, fromOpenBack) {
+          let query = supabase.from('templates').select('id, canvas, elements, pages');
           if (onlyId) query = query.eq('id', onlyId);
           const { data: rows, error } = await query;
           if (error || !rows) throw error || new Error('Could not load templates.');
@@ -6089,6 +6094,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
                 const { error: uErr } = await supabase.from('templates').update(update).eq('id', t.id);
                 if (uErr) { failed++; console.error('[regen update]', t.id, uErr); }
               } else { failed++; }
+              /* The back preview (Sam, 16 Oct): page two, shown on hover in a
+                 pack. Its own write, so a database without the column yet
+                 (supabase/template_back_preview.sql) keeps the front. */
+              const p2 = (onlyId && fromOpenBack) || (Array.isArray(t.pages) && t.pages[1]) || null;
+              if (p2 && typeof window.__TMKE_RENDER_THUMB_FROM__ === 'function') {
+                try {
+                  const back = await window.__TMKE_RENDER_THUMB_FROM__(p2.canvas, p2.elements);
+                  if (typeof back === 'string' && back.startsWith('data:')) {
+                    const url = await externUploadDataUrl(back);
+                    const { error: bErr } = await supabase.from('templates').update({ back_thumb_url: url }).eq('id', t.id);
+                    if (bErr) console.error('[regen back]', t.id, bErr.message);
+                  }
+                } catch (e) { console.error('[regen back]', t.id, e); }
+              }
             } catch (e) { failed++; console.error('[regen render]', t.id, e); }
             done++;
             if (onProgress) onProgress(done, list.length, failed);
@@ -7523,12 +7542,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // just dropped in for the preview is in it.
         const printOpen = !!(onlyId && typeof window.__TMKE_IS_PRINT__ === "function" && window.__TMKE_IS_PRINT__());
         const fromOpen = (printOpen && typeof window.__TMKE_OPEN_PAGE_ONE__ === "function") ? window.__TMKE_OPEN_PAGE_ONE__() : null;
+        // The back as it is on screen too, photos and all, for the same reason.
+        const fromOpenBack = (printOpen && typeof window.__TMKE_OPEN_PAGE_TWO__ === "function") ? window.__TMKE_OPEN_PAGE_TWO__() : null;
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
         try {
           const res = await window.__TMKE_REGEN_ALL__((done, total) => {
             regenBtn.textContent = onlyId ? "Regenerating…" : `Regenerating ${done}/${total}…`;
-          }, onlyId, fromOpen);
+          }, onlyId, fromOpen, fromOpenBack);
           const ok = res.done - res.failed;
           regenBtn.textContent = `Done ✓`;
           if (onlyId) {
@@ -8001,6 +8022,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     const savedEmpty = document.getElementById("ed-ob-designs-empty");
     // Pack design chooser (step 2).
     const designGrid = document.getElementById("ed-onboard-design-grid");
+    let packRows = [];   // the open pack's template rows, for drawing backs (fillBacks)
     const designsLoading = document.getElementById("ed-onboard-designs-loading");
     const designsEmpty = document.getElementById("ed-onboard-designs-empty");
     const packTitleEl = document.getElementById("ed-onboard-pack-title");
@@ -8367,7 +8389,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const cat = escapeHtml(d.category || "Template");
       return `
         <button type="button" class="ed-onboard-card ed-onboard-design" data-template-id="${escapeHtml(d.id)}">
-          <span class="ed-onboard-card-cover"${(shape + cover) ? ` style="${shape}${cover}"` : ""}>${sides ? `<span class="ed-onboard-card-pages">${sides}</span>` : ""}</span>
+          <span class="ed-onboard-card-cover"${(shape + cover) ? ` style="${shape}${cover}"` : ""}>${Number(d.pages) > 1 ? `<span class="ed-onboard-card-back" aria-hidden="true"></span>` : ""}${sides ? `<span class="ed-onboard-card-pages">${sides}</span>` : ""}</span>
           <span class="ed-onboard-card-body">
             <span class="ed-onboard-card-title">${escapeHtml(d.name || "Design")}</span>
             <span class="ed-onboard-card-cat">${cat}</span>
@@ -8433,12 +8455,15 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           // ask again without it rather than show a member no templates.
           const q = (cols) => supabase.from("templates").select(cols)
             .eq("pack_id", selectedPack.id).eq("status", "active").order("sort_order", { ascending: true });
-          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants");
+          // back_thumb_url exists once supabase/template_back_preview.sql has run.
+          let { data: tpls, error: tErr } = await q("id, name, category, thumb_url, back_thumb_url, canvas, elements, pages, size_variants");
+          if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, pages, size_variants"));
           if (tErr) ({ data: tpls, error: tErr } = await q("id, name, category, thumb_url, canvas, elements, size_variants"));
           if (tErr) ({ data: tpls } = await q("id, name, category, thumb_url, canvas, elements"));
           if (tpls && tpls.length && typeof window.__TMKE_OPEN_PACK_TEMPLATES__ === "function") {
             notePackBrand(selectedPack, tpls);
             designs = window.__TMKE_OPEN_PACK_TEMPLATES__(tpls, { load: false }) || [];
+            packRows = tpls;
           }
         } catch (_) { /* leave designs empty */ }
         designsLoading.hidden = true;
@@ -8471,6 +8496,33 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const common = [...shapes.values()].sort((a, b) => b.n - a.n)[0];
       designGrid.style.setProperty("--ob-frame", common ? `${common.w}/${common.h}` : "1080/1440");
       designGrid.innerHTML = designs.map(designCard).join("");
+      fillBacks(designs);
+    }
+
+    /* The back on hover (Sam, 16 Oct): a design with more than one page shows
+       its second page while the pointer is on it, and its front again after.
+       The back is the preview made with Regenerate previews; one that hasn't
+       been made yet is drawn here from the design's own page two, quietly,
+       one at a time, after the grid is on show. */
+    async function fillBacks(designs) {
+      for (const d of designs) {
+        if (!(Number(d.pages) > 1)) continue;
+        const layer = designGrid.querySelector(`[data-template-id="${CSS.escape(d.id)}"] .ed-onboard-card-back`);
+        if (!layer) continue;
+        let src = d.back;
+        if (!src) {
+          const row = packRows.find((r) => r.id === d.id);
+          const p2 = row && Array.isArray(row.pages) ? row.pages[1] : null;
+          if (p2 && typeof window.__TMKE_RENDER_THUMB_FROM__ === "function") {
+            try { src = await window.__TMKE_RENDER_THUMB_FROM__(p2.canvas, p2.elements); } catch (_) { src = null; }
+          }
+        }
+        if (!src) continue;
+        // Shown only once the picture has loaded, so a hover never shows a blank.
+        const img = new Image();
+        img.onload = () => { layer.style.backgroundImage = `url('${src}')`; layer.classList.add("is-ready"); };
+        img.src = src;
+      }
     }
 
     /* Print and social are different jobs. When a member has both, the grid

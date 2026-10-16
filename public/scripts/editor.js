@@ -10298,6 +10298,11 @@ import { createResizeEngine } from "./resize-engine.js";
     const pg = (state.pages && state.pages[0]) || { canvas: state.canvas, elements: state.elements };
     return { canvas: deep(pg.canvas), elements: deep(pg.elements) };
   };
+  // Page two of the design on screen, for its back preview; null if it has one page.
+  window.__TMKE_OPEN_PAGE_TWO__ = function () {
+    const pg = state.pages && state.pages[1];
+    return pg ? { canvas: deep(pg.canvas), elements: deep(pg.elements) } : null;
+  };
   function isPrintDesign() {
     return sizeFamily(state.canvas.width, state.canvas.height) === "print";
   }
@@ -15307,6 +15312,7 @@ import { createResizeEngine } from "./resize-engine.js";
       name: r.name,
       category: r.category || null,
       thumb: r.thumb_url || null,
+      back: r.back_thumb_url || null,
       canvas: r.canvas || { width: 1080, height: 1440, background: "#F2EFE9" },
       elements: r.elements || [],
       // Every side of the design. One row, one card, however many pages.
@@ -15333,7 +15339,7 @@ import { createResizeEngine } from "./resize-engine.js";
        design at its own shape. Without it every design was framed 3:4 and a
        landscape postcard was shown as the middle third of itself. */
     return shaped.map((t) => ({
-      id: t.id, name: t.name, thumb: t.thumb || null, category: t.category || null,
+      id: t.id, name: t.name, thumb: t.thumb || null, back: t.back || null, category: t.category || null,
       w: (t.canvas && t.canvas.width) || null, h: (t.canvas && t.canvas.height) || null,
       // Worth saying: "2 pages" reads as a postcard rather than a mystery.
       pages: t.pages ? t.pages.length : 1,
