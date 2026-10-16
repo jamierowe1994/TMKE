@@ -3,14 +3,7 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
-import { getImage } from "astro:assets";
 
-// The header photograph (Dani, 7 Sep): a 3600×620 PNG in the assets bucket,
-// served as a WebP at the same size so a 2 MB banner becomes a few hundred KB.
-const HERO_BG = (await getImage({
-  src: "https://assets.tmke.co.uk/TMKE%20Member%20Hub/Brand%20Kit.png",
-  width: 3600, height: 620, format: "webp", quality: 82,
-})).src;
 ---
 
 <BaseLayout
@@ -23,13 +16,11 @@ const HERO_BG = (await getImage({
   <WorkspaceHeader active="brand" />
   <div class="dash-shell dash-shell--top">
     <main class="app-main dash-main">
-      <!-- Header in the Learn page's clothes: the photograph behind, a dark
-           gradient over it, the title in white. The split hero it replaces
-           (copy left, portrait right) left the top of the page looking empty
-           beside the cards below, and Brand kit and Learn are the two pages
-           a member sets up from, so they should read as a pair. -->
+      <!-- Header as on the dashboard (Dani, 17 Oct): straight on the page, the
+           save status at the bottom left and three boxes on the right saying
+           what is still to do -- or that it is all done, or, for a kit their
+           brand supplies, which brand and whether it's up to date. -->
       <section class="bk-hero">
-        <div class="bk-hero-bg" style={`background-image:url('${HERO_BG}')`}></div>
         <div class="bk-hero-inner">
           <p class="bk-hero-eyebrow"><a href="/account" class="bk-hero-back">&larr; Workspace</a></p>
           <h1 class="bk-hero-title">Your Brand Kit.</h1>
@@ -38,6 +29,9 @@ const HERO_BG = (await getImage({
             <span class="brand-save-dot" aria-hidden="true"></span>
             <span class="brand-save-text">All changes saved</span>
           </span>
+          <!-- Filled by wireBrief(), once the kit and its brand are known;
+               empty until then, never sample boxes. -->
+          <ul class="bk-brief" id="bk-brief" aria-live="polite"></ul>
         </div>
       </section>
 
@@ -363,25 +357,25 @@ const HERO_BG = (await getImage({
          with the hero and every other hub page; no extra horizontal padding here. */
       max-width: none;
       margin: 0;
-      padding: 0 0 140px;
+      padding: 0 0 80px;
       display: flex;
       flex-direction: column;
-      gap: 40px;
+      gap: 22px;   /* tighter all round, to the dashboard's measure (Dani, 17 Oct) */
     }
     /* Full-width two-column layout: company + logos (left), colours +
        typography (right). Stacks on narrow screens. */
     .brand-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: clamp(32px, 4vw, 72px);
+      gap: clamp(14px, 1.4vw, 22px);
       /* stretch, so both columns finish on the same line (see .brand-col) */
       align-items: stretch;
     }
     /* Both columns finish on the same line: the last card in each takes
        whatever height is left, so the page has a bottom edge rather than two. */
-    .brand-col { display: flex; flex-direction: column; gap: clamp(22px, 2.4vw, 36px); }
+    .brand-col { display: flex; flex-direction: column; gap: clamp(14px, 1.4vw, 22px); }
     .brand-col > .profile-section:last-child { flex: 1 1 auto; }
-    @media (max-width: 1080px) { .brand-grid { grid-template-columns: 1fr; gap: 48px; } }
+    @media (max-width: 1080px) { .brand-grid { grid-template-columns: 1fr; gap: 14px; } }
 
     /* Autosave status pill in the header */
     .brand-save {
@@ -412,11 +406,11 @@ const HERO_BG = (await getImage({
     /* Flat white outline cards — matches the bookings/orders hub styling
        (hairline border, near-square corners, no shadow). */
     .profile-section {
-      display: flex; flex-direction: column; gap: 22px;
-      padding: 26px clamp(22px, 3vw, 32px) 30px;
+      display: flex; flex-direction: column; gap: 14px;
+      padding: 18px clamp(16px, 1.8vw, 22px) 20px;
       background: #fff;
       border: 1px solid rgba(28, 29, 34, 0.13);
-      border-radius: 6px;
+      border-radius: 4px;
       box-shadow: none;
     }
     /* Logos and Tone of voice are pictures and words rather than fields, so
@@ -434,22 +428,22 @@ const HERO_BG = (await getImage({
     .profile-section-head {
       display: flex;
       flex-direction: column;
-      gap: 5px;
-      padding-bottom: 18px;
+      gap: 3px;
+      padding-bottom: 12px;
       border-bottom: 1px solid rgba(28, 29, 34, 0.09);
     }
     .profile-section-head .eyebrow {
       font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700;
       letter-spacing: 0.2em; text-transform: uppercase;
-      color: rgba(28,29,34,0.38); margin-bottom: 4px;
+      color: rgba(28,29,34,0.38); margin-bottom: 2px;
     }
     .profile-section-head h2 {
       /* Was --subhead (The Seasons) on every section head. That face is a
          once-a-page mark; a repeated section heading is panel-title scale. */
       font-family: var(--serif);
       font-weight: 400;
-      font-size: var(--ws-t-panel, 26px);
-      line-height: 1.15;
+      font-size: var(--ws-t-title, 17px);
+      line-height: 1.2;
       letter-spacing: 0;
       margin: 0;
     }
@@ -459,34 +453,34 @@ const HERO_BG = (await getImage({
     .profile-section-head p {
       font-family: var(--sans);
       font-style: normal;
-      font-size: var(--ws-t-body);
-      line-height: 1.55;
+      font-size: var(--ws-t-meta);
+      line-height: 1.5;
       color: rgba(28,29,34,0.58);
-      margin: 2px 0 0;
+      margin: 1px 0 0;
       max-width: 80%;
     }
 
     .profile-row {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 18px;
+      gap: 12px;
     }
-    .profile-field { display: flex; flex-direction: column; gap: 8px; }
+    .profile-field { display: flex; flex-direction: column; gap: 6px; }
     .profile-field--full { grid-column: 1 / -1; }
     .profile-field > span {
       font-family: var(--sans);
       font-size: var(--ws-t-label);
       font-weight: 700;
-      letter-spacing: 0.22em;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
       color: rgba(28, 29, 34, 0.55);
     }
     .profile-field input, .profile-field select {
-      padding: 12px 14px;
+      padding: 8px 11px;
       font-family: var(--sans);
-      font-size: var(--ws-t-row);
+      font-size: var(--ws-t-body);
       border: 1px solid rgba(28,29,34,0.16);
-      border-radius: 6px;
+      border-radius: 4px;
       background: #fff;
       color: var(--ink);
       transition: border-color 0.25s, box-shadow 0.25s;
@@ -498,12 +492,12 @@ const HERO_BG = (await getImage({
     }
     .profile-textarea {
       width: 100%;
-      padding: 12px 14px;
+      padding: 9px 11px;
       font-family: var(--sans);
-      font-size: var(--ws-t-row);
-      line-height: 1.55;
+      font-size: var(--ws-t-body);
+      line-height: 1.5;
       border: 1px solid rgba(28,29,34,0.16);
-      border-radius: 6px;
+      border-radius: 4px;
       background: #fff;
       color: var(--ink);
       resize: vertical;
@@ -576,13 +570,13 @@ const HERO_BG = (await getImage({
     .font-picker { position: relative; }
     .font-picker-btn {
       width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
-      padding: 12px 14px; background: #fff; cursor: pointer; text-align: left;
-      border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; color: var(--ink);
+      padding: 8px 11px; background: #fff; cursor: pointer; text-align: left;
+      border: 1px solid rgba(28,29,34,0.16); border-radius: 4px; color: var(--ink);
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .font-picker-btn:hover { border-color: rgba(28,29,34,0.4); }
     .font-picker.is-open .font-picker-btn { border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
-    .font-picker-current { font-size: 20px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .font-picker-current { font-size: 16px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .font-picker-caret { font-size: var(--ws-t-label); color: rgba(28,29,34,0.5); transition: transform 0.2s; }
     .font-picker.is-open .font-picker-caret { transform: rotate(180deg); }
     .font-picker-pop {
@@ -609,18 +603,18 @@ const HERO_BG = (await getImage({
     /* Colour grid */
     .colour-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
     }
     .colour-slot {
       position: relative;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      padding: 12px;
+      gap: 5px;
+      padding: 8px;
       background: #fff;
       border: 1px solid rgba(28,29,34,0.1);
-      border-radius: 6px;
+      border-radius: 4px;
     }
     .colour-slot.is-empty { opacity: 0.5; }
     .colour-tile {
@@ -641,9 +635,9 @@ const HERO_BG = (await getImage({
       box-shadow: inset 0 0 0 1px rgba(28,29,34,0.08);
     }
     .colour-hex {
-      padding: 8px 10px;
+      padding: 6px 8px;
       font-family: var(--sans);
-      font-size: var(--ws-t-body);
+      font-size: var(--ws-t-meta);
       letter-spacing: 0.04em;
       border: 1px solid rgba(28,29,34,0.12);
       border-radius: 5px;
@@ -709,10 +703,10 @@ const HERO_BG = (await getImage({
     .logo-drop {
       display: flex;
       flex-direction: column; align-items: center; justify-content: center;
-      gap: 6px;
-      padding: 40px;
+      gap: 4px;
+      padding: 22px;
       border: 1.5px dashed rgba(var(--violet-rgb),0.3);
-      border-radius: 8px;
+      border-radius: 4px;
       background: rgba(var(--violet-rgb),0.035);
       cursor: pointer;
       text-align: center;
@@ -734,9 +728,9 @@ const HERO_BG = (await getImage({
        are created in JS, so Astro's scoped CSS would not reach them). */
 
     /* Headshot (optional) */
-    .profile-row--pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .profile-row--pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     @media (max-width: 620px) { .profile-row--pair { grid-template-columns: 1fr; } }
-    .headshot-row + .profile-row { margin-top: 18px; }
+    .headshot-row + .profile-row { margin-top: 10px; }
     /* Rectangular beside the round headshot, at the 4:5 the real ones come
        in, because the two photos are different things and should not look
        like a matching pair. */
@@ -756,10 +750,10 @@ const HERO_BG = (await getImage({
     .brandphoto-row .headshot-text p { max-width: 46ch; }
     .headshot-h { font-family: var(--subhead); font-weight: 400; font-size: var(--ws-t-title); color: var(--ink); margin: 0; }
     .headshot-h span { font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: rgba(28,29,34,0.45); letter-spacing: 0.02em; }
-    .headshot-row { display: flex; align-items: center; gap: 18px; margin-top: 14px; }
+    .headshot-row { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
     .headshot-drop { flex: 0 0 auto; cursor: pointer; }
     .headshot-circle {
-      width: 84px; height: 84px; border-radius: 50%;
+      width: 68px; height: 68px; border-radius: 50%;
       border: 2px dashed rgba(var(--violet-rgb),0.4);
       display: flex; align-items: center; justify-content: center;
       background-size: cover; background-position: center; background-color: var(--paper);
@@ -814,27 +808,43 @@ const HERO_BG = (await getImage({
        the split heroes' (see ws-system.css, "one geometry for both styles");
        only the type and the picture differ. Tokens spelled out because this
        page doesn't carry the .ws token set. ---- */
-    .bk-hero { position: relative; isolation: isolate; display: flex; align-items: stretch; min-height: clamp(220px, 20.7vw, 298px); border: 1px solid rgba(28,29,34,0.13); border-radius: 6px; overflow: hidden; margin: 0 0 clamp(22px, 2.4vw, 40px); }
-    .bk-hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center; transform: scale(1.02); transition: transform 1.8s cubic-bezier(.2,.8,.2,1); }
-    .bk-hero:hover .bk-hero-bg { transform: scale(1.06); }
-    .bk-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(96deg, rgba(22,15,19,0.9) 0%, rgba(22,15,19,0.66) 34%, rgba(22,15,19,0.28) 62%, rgba(22,15,19,0.04) 100%); }
-    /* The other banners' layout (Dani, 14 Oct): the back link in the top
-       left corner, the title, intro and save status together bottom left. */
-    .bk-hero-inner { padding: clamp(24px, 2.6vw, 38px); max-width: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; width: 100%; box-sizing: border-box; }
-    .bk-hero-inner > .bk-hero-eyebrow { margin-bottom: auto; padding-bottom: clamp(14px, 1.8vh, 22px); }
-    .bk-hero-eyebrow { margin: 0 0 clamp(14px, 1.8vh, 22px); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; }
-    .bk-hero-back { color: rgba(255,255,255,0.72); text-decoration: none; transition: color 0.2s; }
-    .bk-hero-back:hover { color: #fff; }
-    .bk-hero-title { font-family: var(--serif); font-weight: 400; font-size: clamp(32px, 3.6vw, 52px); /* the subpage greeting size */ line-height: 1.0; letter-spacing: -0.02em; margin: 0; color: #fff; }
-    /* One sentence, one line — no measure cap to fold the last word off. */
-    .bk-hero-lede { font-family: var(--sans); font-size: clamp(15px, 1.4vw, 17px); line-height: 1.6; color: rgba(255,255,255,0.84); margin: clamp(8px, 1vh, 12px) 0 0; max-width: none; }
-    /* The save status lives in the hero now, on a dark ground. */
-    /* The button row's slot: same distance off the floor as a hero's button. */
-    .bk-hero .brand-save { display: inline-flex; align-items: center; height: var(--ws-btn-h, 30px); margin: 0; padding-top: 0; box-sizing: border-box; margin-top: clamp(24px, 3vh, 36px); color: rgba(255,255,255,0.78); }
-    /* On the photograph the wine dot vanished into the fade: white in every state. */
-    .bk-hero .brand-save-dot, .bk-hero .brand-save[data-state="saving"] .brand-save-dot, .bk-hero .brand-save[data-state="saved"] .brand-save-dot { background: #fff; }
-    .bk-hero .brand-save[data-state="saving"], .bk-hero .brand-save[data-state="saved"] { color: #fff; }
-    @media (max-width: 620px) { .bk-hero { min-height: 360px; } }
+    /* The header as on the dashboard (Dani, 17 Oct): straight on the page,
+       no photograph or card; back link, title and intro across the top, the
+       save status bottom left and the boxes bottom right. */
+    .bk-hero { margin: 0; }
+    .bk-hero-inner { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(24px, 3vw, 48px); align-items: end; }
+    .bk-hero-eyebrow, .bk-hero-title, .bk-hero-lede { grid-column: 1 / -1; }
+    .bk-hero-eyebrow { margin: 0; padding-bottom: clamp(16px, 2.2vh, 26px); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
+    .bk-hero-back { color: inherit; text-decoration: none; transition: color 0.2s; }
+    .bk-hero-back:hover { color: var(--ink); }
+    .bk-hero-title { font-family: var(--subhead); font-weight: 500; font-size: clamp(32px, 3.6vw, 52px); line-height: 1.08; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
+    .bk-hero-lede { font-family: var(--sans); font-size: 15.5px; line-height: 1.55; color: rgba(28,29,34,0.64); margin: clamp(8px, 1vh, 12px) 0 0; }
+    .bk-hero .brand-save { grid-column: 1; grid-row: 4; align-self: end; margin: clamp(20px, 2.6vh, 30px) 0 0; height: 30px; }
+    .bk-brief { grid-column: 2; grid-row: 4; align-self: end; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(170px, auto)); gap: 10px; }
+    .bk-brief:empty { display: none; }
+    .bk-brief-i { position: relative; display: flex; align-items: center; gap: 10px; padding: 13px 14px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; transition: border-color 0.2s; }
+    .bk-brief-i:has(a.bk-brief-slot:hover) { border-color: rgba(28,29,34,0.3); }
+    .bk-brief-slot { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; text-decoration: none; color: inherit; }
+    a.bk-brief-slot::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+    .bk-brief-ic { flex: none; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; }
+    .bk-brief-ic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .bk-brief-i--todo .bk-brief-ic { color: #b4553f; }
+    .bk-brief-i--done .bk-brief-ic { color: #2e7d52; }
+    .bk-brief-i--brand .bk-brief-ic { color: var(--english-violet); }
+    .bk-brief-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .bk-brief-tx strong { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bk-brief-tx span { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.64); }
+    .bk-brief-btn { all: unset; position: relative; z-index: 1; flex: none; cursor: pointer; height: 26px; padding: 0 10px; border-radius: 4px; background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; display: inline-flex; align-items: center; }
+    .bk-brief-i--done .bk-brief-btn { background: none; color: var(--english-violet); border: 1px solid rgba(55,30,40,0.35); }
+    .bk-brief-btn:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    @media (max-width: 960px) {
+      .bk-hero-inner { grid-template-columns: minmax(0, 1fr); }
+      .bk-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); }
+      .bk-hero .brand-save { grid-row: 5; }
+    }
+    @media (max-width: 620px) { .bk-brief { grid-template-columns: 1fr; } }
+    /* The page's measure: the dashboard's gutters and the space under its bar. */
+    body[data-dashboard] .dash-shell .dash-main { padding: calc(clamp(52px, 6.8vh, 92px) + 10px) clamp(22px, 2.6vw, 56px) 80px; gap: clamp(36px, 4.6vh, 64px); }
 
     /* The brand-kits card and its buttons. In the global block because the
        buttons are built by script: a scoped style never reaches an element
@@ -998,7 +1008,7 @@ const HERO_BG = (await getImage({
       // ---- Load existing brand or seed defaults ----
       const DEFAULT_COLOURS = [
         { hex: "#1c1d22", name: "Ink" },
-        { hex: "var(--english-violet)", name: "Violet" },
+        { hex: "#371E28", name: "Violet" },   // the wine itself: a CSS variable showed as text in the hex box
         { hex: "#B9826A", name: "Accent" },
         { hex: "#DFDCDE", name: "Platinum" },
         { hex: "#f4f2f1", name: "Paper" },
@@ -1328,6 +1338,9 @@ const HERO_BG = (await getImage({
       const headshotRemove = document.getElementById("headshot-remove");
       const headshotDrop = document.getElementById("headshot-drop");
       let headshot = (brand && typeof brand.headshot === "string") ? brand.headshot : null;
+      // When they last said a kit their brand supplies is up to date (the
+      // header's box). Kept in the kit, so it follows them like the rest.
+      let confirmedAt = (brand && Number(brand.confirmedAt)) || null;
       function renderHeadshot() {
         if (!headshotCircle) return;
         if (headshot) {
@@ -1419,6 +1432,7 @@ const HERO_BG = (await getImage({
              is which. Carried, never edited from this form. */
           byBrand: (brand && brand.byBrand && typeof brand.byBrand === "object") ? brand.byBrand : undefined,
           activeBrand: (brand && brand.activeBrand) || undefined,
+          confirmedAt: confirmedAt || undefined,
           updatedAt: Date.now(),
         };
       }
@@ -1436,6 +1450,11 @@ const HERO_BG = (await getImage({
         try { localStorage.setItem("tmke.brand.skipped", "1"); } catch (_) {}
         location.href = "/account";
       });
+
+      // For the header's boxes: the kit as it stands, and the confirm button.
+      window.__BK_KIT__ = () => collect();
+      window.__BK_CONFIRM__ = () => { confirmedAt = Date.now(); clearTimeout(saveTimer); doSave(false); };
+      window.dispatchEvent(new CustomEvent("bk-kit-ready"));
 
       // Everything is wired — allow autosave to fire from here on.
       ready = true;
@@ -1551,14 +1570,17 @@ const HERO_BG = (await getImage({
       } catch (_) { /* one brand, or the Worker is quiet: no card, no harm */ }
     })();
     import { supabase } from "../../lib/supabase.js";
+    // The header's boxes wait for the brand check below; a page that never
+    // makes it (signed out, a demo) answers "no brand" straight away.
+    const noBrandCheck = () => { window.__BK_BRAND_DONE__ = true; window.dispatchEvent(new CustomEvent("bk-brand")); };
     (async () => {
-      if (wearingSomebodyElsesKit()) return;   // a demo or the training area owns the kit on screen
+      if (wearingSomebodyElsesKit()) { noBrandCheck(); return; }   // a demo or the training area owns the kit on screen
       let uid = null;
       try { const { data } = await supabase.auth.getSession(); uid = data?.session?.user?.id || null; } catch (_) {}
       // The cache is this login's or nobody's; a stranger's kit is dropped and
       // the form redrawn from what the server holds for this user.
       adoptBrandCacheOrReload(uid);
-      if (!uid) return;   // signed out — localStorage-only, nothing to sync
+      if (!uid) { noBrandCheck(); return; }   // signed out — localStorage-only, nothing to sync
       // A kit made in the demo, before this account existed, becomes theirs.
       if (await claimDemoBrandKit(supabase, uid)) { location.reload(); return; }
 
@@ -1740,6 +1762,7 @@ const HERO_BG = (await getImage({
         const token = sess?.session?.access_token;
         const uid = sess?.session?.user?.id;
         const box = document.getElementById("brand-switch");
+        window.__BK_BRAND__ = null;
         if (WORKER && token && uid && box) {
           const res = await fetch(WORKER + "/member/brand-prefill", {
             headers: { Authorization: "Bearer " + token },
@@ -1757,6 +1780,9 @@ const HERO_BG = (await getImage({
             const { kitMatchesBrand } = await import("../../lib/brand-cache.js");
             if (localKit && kitMatchesBrand(localKit, out.kit)) onTheirBrands = true;
           }
+          // For the header: a kit their brand supplies, and they are on it.
+          window.__BK_BRAND__ = (out && out.ok && out.brand && out.hasKit && onTheirBrands) ? { brand: out.brand } : null;
+          window.dispatchEvent(new CustomEvent("bk-brand"));
           if (out && out.ok && out.brand && out.hasKit && !onTheirBrands) {
             const copy = document.getElementById("brand-switch-copy");
             const go = document.getElementById("brand-switch-go");
@@ -1810,7 +1836,79 @@ const HERO_BG = (await getImage({
           }
         }
       } catch (_) { /* no panel is better than a broken one */ }
+      // However that went, the header has its answer now.
+      window.__BK_BRAND_DONE__ = true;
+      window.dispatchEvent(new CustomEvent("bk-brand"));
     })();
+  </script>
+
+  <script>
+    /* The header's three boxes (Dani, 17 Oct). Anything not done yet, first
+       three, each a link to where it's done; or one box saying it's all done.
+       A kit their brand supplies (TEG) says so, with a box to confirm it's up
+       to date. Redrawn whenever the kit saves, so they go as things are done. */
+    const ICON = {
+      todo: '<path d="M12 8v5"/><circle cx="12" cy="16.5" r=".6"/><circle cx="12" cy="12" r="9"/>',
+      done: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-4.9"/>',
+      brand: '<path d="M6 3h12v18l-6-4-6 4z"/>',
+    };
+    const CHECKS = [
+      ["Logo", "not added yet", "#sec-logos", (k) => (k.logos || []).length > 0],
+      ["Brand colours", "not chosen yet", "#sec-colours", (k) => (k.colors || []).some((c) => c && c.hex)],
+      ["Company name", "not added yet", "#sec-company", (k) => !!k.company],
+      ["Area you cover", "not added yet", "#sec-company", (k) => !!k.location],
+      ["Your details", "a name, and a phone or email", "#sec-about", (k) => !!(k.about && k.about.name && (k.about.phone || k.about.email))],
+      ["Your photo", "not added yet", "#sec-about", (k) => !!(k.headshot || k.brandPhoto)],
+      ["Review link", "not added yet", "#sec-about", (k) => !!(k.about && k.about.review)],
+      ["Tone of voice", "not written yet", "#sec-tone", (k) => !!k.tone],
+    ];
+    const esc = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const box = (icon, tone, title, sub, href, extra) => `<li class="bk-brief-i bk-brief-i--${tone}">
+        ${href ? `<a class="bk-brief-slot" href="${href}">` : '<span class="bk-brief-slot">'}
+          <span class="bk-brief-ic"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[icon]}</svg></span>
+          <span class="bk-brief-tx"><strong>${esc(title)}</strong><span>${esc(sub)}</span></span>
+        ${href ? "</a>" : "</span>"}${extra || ""}
+      </li>`;
+
+    function draw(kit) {
+      const ul = document.getElementById("bk-brief");
+      if (!ul || !kit) return;
+      const brand = window.__BK_BRAND__;
+      const todo = CHECKS.filter((c) => !c[3](kit));
+      const out = [];
+      if (brand) {
+        out.push(box("brand", "brand", `${brand.brand} brand kit`, "supplied by your brand", ""));
+        const when = kit.confirmedAt ? new Date(Number(kit.confirmedAt)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+        out.push(when
+          ? box("done", "done", "Confirmed up to date", `on ${when}`, "", '<button type="button" class="bk-brief-btn" data-bk-confirm>Again</button>')
+          : box("todo", "todo", "Is it up to date?", "colours, logo and details", "", '<button type="button" class="bk-brief-btn" data-bk-confirm>Confirm</button>'));
+        out.push(todo[0] ? box("todo", "todo", todo[0][0], todo[0][1], todo[0][2]) : box("done", "done", "All set up", "nothing left to add", ""));
+      } else if (todo.length) {
+        todo.slice(0, 3).forEach((c) => out.push(box("todo", "todo", c[0], c[1], c[2])));
+      } else {
+        out.push(box("done", "done", "All set up", "your brand kit is complete", ""));
+      }
+      ul.style.setProperty("--n", String(out.length));
+      ul.innerHTML = out.join("");
+    }
+
+    let kitReady = !!window.__BK_KIT__, brandDone = !!window.__BK_BRAND_DONE__;
+    const tryDraw = () => { if (kitReady && brandDone && window.__BK_KIT__) draw(window.__BK_KIT__()); };
+    addEventListener("bk-kit-ready", () => { kitReady = true; tryDraw(); });
+    addEventListener("bk-brand", () => { if (window.__BK_BRAND_DONE__ || window.__BK_BRAND__) { brandDone = true; tryDraw(); } });
+    // Not left empty if the brand check never answers.
+    setTimeout(() => { brandDone = true; tryDraw(); }, 6000);
+    addEventListener("tmke:brand-changed", (e) => { if (kitReady && brandDone) draw(e.detail); });
+    document.addEventListener("click", (e) => {
+      if (e.target.closest && e.target.closest("[data-bk-confirm]")) { window.__BK_CONFIRM__?.(); return; }
+      const a = e.target.closest && e.target.closest(".bk-brief-slot[href^='#']");
+      if (a) {
+        e.preventDefault();
+        const t = document.querySelector(a.getAttribute("href"));
+        if (t) { const y = t.getBoundingClientRect().top + scrollY - 20; window.__lenis?.scrollTo ? window.__lenis.scrollTo(y) : scrollTo({ top: y, behavior: "smooth" }); }
+      }
+    });
+    tryDraw();
   </script>
 
   <!-- First-time login tour — resumes here (the final leg) only if in progress. -->
