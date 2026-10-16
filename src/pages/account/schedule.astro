@@ -36,10 +36,16 @@ import "../../styles/account-sections.css";
     </section>
 
     <!-- Calendar shell -->
-    <section class="ws-block cal" aria-labelledby="cal-title">
+    <section class="ws-block cal" aria-labelledby="cal-title" data-cal-view="all">
       <header class="ws-block-head cal-strip">
         <h2 class="ws-block-h" id="cal-title"><span class="ws-block-ch">Chapter 01</span><span class="cal-month">—</span></h2>
         <div class="cal-strip-nav">
+          <!-- What the calendar shows (Dani, 16 Oct). Remembered in this browser. -->
+          <div class="cal-view" role="group" aria-label="Show">
+            <button type="button" class="cal-nav cal-view-btn" data-view="all" aria-pressed="true">Everything</button>
+            <button type="button" class="cal-nav cal-view-btn" data-view="posts" aria-pressed="false" title="Your planned social media posts, and post ideas">Posts</button>
+            <button type="button" class="cal-nav cal-view-btn" data-view="activity" aria-pressed="false" title="Everything except planned posts">Activities</button>
+          </div>
           <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">&larr;</button>
           <button type="button" class="cal-nav cal-today" id="cal-today">Today</button>
           <button type="button" class="cal-nav" id="cal-next" aria-label="Next month">&rarr;</button>
@@ -49,13 +55,14 @@ import "../../styles/account-sections.css";
       <!-- The key: the five kinds of marketing activity, then what the
            calendar marks for you. -->
       <div class="cal-legend" aria-hidden="true">
-        <span class="cal-leg cal-leg--content">Content &amp; Social</span>
-        <span class="cal-leg cal-leg--print">Print &amp; Canvassing</span>
-        <span class="cal-leg cal-leg--business">Business &amp; Community</span>
-        <span class="cal-leg cal-leg--property">Property Marketing</span>
-        <span class="cal-leg cal-leg--campaigns">Campaigns</span>
-        <span class="cal-leg cal-leg--other">Something Else</span>
-        <span class="cal-leg cal-leg--prompt">Idea ready</span>
+        <span class="cal-leg cal-leg--post" data-in="posts">Social post</span>
+        <span class="cal-leg cal-leg--content" data-in="activity">Content &amp; Social</span>
+        <span class="cal-leg cal-leg--print" data-in="activity">Print &amp; Canvassing</span>
+        <span class="cal-leg cal-leg--business" data-in="activity">Business &amp; Community</span>
+        <span class="cal-leg cal-leg--property" data-in="activity">Property Marketing</span>
+        <span class="cal-leg cal-leg--campaigns" data-in="activity">Campaigns</span>
+        <span class="cal-leg cal-leg--other" data-in="activity">Something Else</span>
+        <span class="cal-leg cal-leg--prompt" data-in="posts">Idea ready</span>
         <span class="cal-leg cal-leg--date">Key date</span>
       </div>
 
@@ -202,9 +209,9 @@ import "../../styles/account-sections.css";
     <aside class="pick-panel act-panel sync-panel" aria-label="Sync to my calendar">
       <header class="day-head">
         <div>
-          <p class="day-eyebrow">Your own calendar</p>
+          <p class="day-eyebrow">Stay updated</p>
           <h2 id="sync-h" class="day-h">Sync to My Calendar</h2>
-          <p class="act-line">Subscribe once and everything on your Marketing Calendar appears in your own calendar. Add, move or remove something here and your calendar follows.</p>
+          <p class="act-line">Subscribe once and everything on your Marketing Calendar appears in your own calendar.<br class="sync-br" /> Add, move or remove something here and your calendar follows.</p>
         </div>
         <button type="button" class="day-close" id="sync-close" aria-label="Close">&times;</button>
       </header>
@@ -213,10 +220,10 @@ import "../../styles/account-sections.css";
         <div class="sync-ready" id="sync-ready" hidden>
           <p class="post-label">Choose your calendar</p>
           <div class="sync-apps">
-            <a class="sync-app" id="sync-apple" href="#"><strong>Apple Calendar or iPhone</strong><span>Opens Calendar and asks to subscribe.</span></a>
-            <a class="sync-app" id="sync-outlook" href="#" target="_blank" rel="noopener"><strong>Outlook</strong><span>Work or school account. Opens Outlook on the web; it then shows in the Outlook app too.</span></a>
-            <a class="sync-app" id="sync-outlookcom" href="#" target="_blank" rel="noopener"><strong>Outlook.com</strong><span>A personal Outlook, Hotmail or Live account.</span></a>
-            <a class="sync-app" id="sync-google" href="#" target="_blank" rel="noopener"><strong>Google Calendar</strong><span>Opens Google Calendar and asks to add it.</span></a>
+            <a class="sync-app" id="sync-apple" href="#"><strong>Apple Calendar or iPhone<em class="sync-tag">Synced</em></strong><span>Opens Calendar and asks to subscribe.</span></a>
+            <a class="sync-app" id="sync-outlook" href="#" target="_blank" rel="noopener"><strong>Outlook<em class="sync-tag">Synced</em></strong><span>Work or school account.</span></a>
+            <a class="sync-app" id="sync-outlookcom" href="#" target="_blank" rel="noopener"><strong>Outlook.com<em class="sync-tag">Synced</em></strong><span>A personal Outlook, Hotmail or Live account.</span></a>
+            <a class="sync-app" id="sync-google" href="#" target="_blank" rel="noopener"><strong>Google Calendar<em class="sync-tag">Synced</em></strong><span>Opens Google Calendar and asks to add it.</span></a>
           </div>
           <p class="post-label">Another calendar</p>
           <div class="sync-copy">
@@ -328,6 +335,23 @@ import "../../styles/account-sections.css";
     }
     .cal-nav:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); }
     .cal-today { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .cal-view { display: inline-flex; margin-right: 8px; }
+    .cal-view-btn { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 0; margin-left: -1px; }
+    .cal-view-btn:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
+    .cal-view-btn:last-child { border-radius: 0 3px 3px 0; }
+    .cal-view-btn[aria-pressed="true"] { background: #fff; border-color: #fff; color: var(--violet-deep); position: relative; }
+    /* On a phone the switch takes its own row under the month and arrows. */
+    @media (max-width: 780px) {
+      .cal-strip { flex-wrap: wrap; row-gap: 6px; }
+      .cal-strip-nav { flex-wrap: wrap; width: 100%; justify-content: flex-end; row-gap: 6px; }
+      .cal-view { order: 2; width: 100%; margin: 0; }
+      .cal-view-btn { flex: 1 1 0; }
+    }
+    /* The key follows the view. */
+    .cal[data-cal-view="posts"] .cal-leg[data-in="activity"],
+    .cal[data-cal-view="activity"] .cal-leg[data-in="posts"] { display: none; }
+    .day-view-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
+    .day-view-note button { all: unset; cursor: pointer; color: var(--violet-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
     .cal-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px var(--ws-gap); }
 
@@ -642,11 +666,20 @@ import "../../styles/account-sections.css";
     .sync-state[hidden], .sync-ready[hidden] { display: none; }
     .sync-ready { display: grid; gap: 12px; }
     .sync-apps { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .sync-app { display: grid; gap: 4px; padding: 14px 16px; border-radius: 6px; text-decoration: none; background: #fff;
+    .sync-panel .act-line { max-width: none; }
+    @media (max-width: 640px) { .sync-br { display: none; } }
+    .sync-app { display: grid; gap: 6px; padding: 14px 16px; border-radius: 6px; text-decoration: none; background: #fff;
       border: 1px solid rgba(var(--violet-rgb), 0.25); transition: border-color 0.2s, background 0.2s; }
     .sync-app:hover { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.04); }
-    .sync-app strong { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; color: var(--violet-deep); }
-    .sync-app span { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.45; color: rgba(28,29,34,0.6); }
+    .sync-app strong { display: flex !important; align-items: center; justify-content: space-between; gap: 10px; }
+    .sync-tag { display: none; font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #2e6f4f; }
+    .sync-tag::before { content: "✓ "; }
+    .sync-app.is-synced { background: rgba(28,29,34,0.035); border-color: rgba(28,29,34,0.1); }
+    .sync-app.is-synced strong { color: rgba(28,29,34,0.5); }
+    .sync-app.is-synced span { color: rgba(28,29,34,0.42); }
+    .sync-app.is-synced .sync-tag { display: inline; }
+    .sync-app strong { display: block; font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 600; line-height: 1.4; color: var(--violet-deep); }
+    .sync-app span { display: block; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.3; color: rgba(28,29,34,0.6); }
     .sync-copy { display: flex; gap: 10px; }
     .sync-copy .post-input { flex: 1; min-width: 0; font-size: var(--ws-t-meta); }
     .sync-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.55; color: rgba(28,29,34,0.6); }
@@ -1160,6 +1193,25 @@ import "../../styles/account-sections.css";
     let items     = [];           // user's scheduled posts (in window)
     let holidays  = [];           // uk_holidays rows (in window)
     let prompts   = [];           // content prompts falling in the window
+    /* The view (Dani, 16 Oct): everything, social posts only (with their
+       ideas), or activities only (everything but planned posts). Bank
+       holidays and key dates show in all three. Kept in this browser. */
+    let calView = 'all';
+    try { const v = localStorage.getItem('tmke.calendar.view'); if (v === 'posts' || v === 'activity') calView = v; } catch (_) {}
+    const isPostItem = (it) => !(it && it.activity && it.activity !== 'social_post');
+    const inView = (it) => calView === 'all' || (calView === 'posts' ? isPostItem(it) : !isPostItem(it));
+    function setCalView(v) {
+      calView = v;
+      try { localStorage.setItem('tmke.calendar.view', v); } catch (_) {}
+      document.querySelector('.cal')?.setAttribute('data-cal-view', v);
+      document.querySelectorAll('.cal-view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+      renderCalendar();
+      if (openDayDate && !$dayModal.hidden) openDay(openDayDate);
+    }
+    document.querySelectorAll('.cal-view-btn').forEach((b) => b.addEventListener('click', () => setCalView(b.dataset.view)));
+    document.querySelector('.cal')?.setAttribute('data-cal-view', calView);
+    document.querySelectorAll('.cal-view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === calView)));
+    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-view-all]')) setCalView('all'); });
 
     // ====== Date helpers ======
     function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -1228,7 +1280,7 @@ import "../../styles/account-sections.css";
       // each day from its start to its end, marked as a continuation after
       // the first so it draws as a thin bar.
       const itemsByDate = new Map();
-      for (const it of items) {
+      for (const it of items.filter(inView)) {
         const start = new Date(it.scheduled_date + 'T00:00:00');
         const end = new Date(lastDay(it) + 'T00:00:00');
         for (let d = new Date(start), n = 0; d <= end && n < 400; d.setDate(d.getDate() + 1), n++) {
@@ -1238,7 +1290,7 @@ import "../../styles/account-sections.css";
         }
       }
       const holidaysByDate = bucketBy(holidays, (h) => h.date);
-      const promptsByDate  = bucketBy(prompts,  (p) => p.date);
+      const promptsByDate  = bucketBy(calView === 'activity' ? [] : prompts,  (p) => p.date);
 
       $grid.innerHTML = days.map((d) => {
         const key       = ymd(d);
@@ -1321,9 +1373,12 @@ import "../../styles/account-sections.css";
     function openDay(dateStr) {
       openDayDate = dateStr;
       const d = new Date(dateStr + 'T00:00:00');
-      const dayItems = items.filter((i) => occursOn(i, dateStr))
+      const allDayItems = items.filter((i) => occursOn(i, dateStr));
+      const dayItems = allDayItems.filter(inView)
         .sort((a, b) => ((a.has_time === false ? '' : a.scheduled_time) || '').localeCompare((b.has_time === false ? '' : b.scheduled_time) || ''));
-      const dayPrompts = prompts.filter((p) => p.date === dateStr);
+      const dayPrompts = calView === 'activity' ? [] : prompts.filter((p) => p.date === dateStr);
+      const hiddenHere = allDayItems.length - dayItems.length;
+      const viewNote = hiddenHere ? `<p class="day-view-note">Showing ${calView === 'posts' ? 'posts' : 'activities'} only. ${hiddenHere} more on this day. <button type="button" data-view-all>Show everything</button></p>` : '';
       const dayHols  = dayPrompts.length ? [] : holidays.filter((h) => h.date === dateStr);
 
       $dayEyebrow.textContent = dayPrompts.length
@@ -1414,13 +1469,13 @@ import "../../styles/account-sections.css";
         </div>
       ` : '';
 
-      const empty = (!dayHols.length && !dayItems.length && !dayPrompts.length) ? `
+      const empty = (!dayHols.length && !dayItems.length && !dayPrompts.length && !hiddenHere) ? `
         <div class="day-empty">
           Nothing planned for this day yet. Use Add to this day to plan a post, a canvassing round, a launch or anything else you're doing.
         </div>
       ` : '';
 
-      $dayBody.innerHTML = promptHtml + holsHtml + itemsHtml + empty;
+      $dayBody.innerHTML = promptHtml + holsHtml + itemsHtml + viewNote + empty;
 
       $dayModal.hidden = false;
       document.body.style.overflow = 'hidden';
@@ -2069,11 +2124,25 @@ import "../../styles/account-sections.css";
     function fillSync(f) {
       const https = f.feed, webcal = https.replace(/^https?:/, 'webcal:');
       const name = encodeURIComponent('TMKE Marketing Calendar');
-      document.getElementById('sync-apple').href = webcal;
-      document.getElementById('sync-outlook').href = `https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${name}`;
-      document.getElementById('sync-outlookcom').href = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(https)}&name=${name}`;
-      document.getElementById('sync-google').href = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}`;
+      // Each link says which calendar it's for, so the Worker can tell which
+      // ones are syncing.
+      const tag = (u, app) => `${u}?app=${app}`;
+      document.getElementById('sync-apple').href = tag(webcal, 'apple');
+      document.getElementById('sync-outlook').href = `https://outlook.office.com/calendar/0/addfromweb?url=${encodeURIComponent(tag(https, 'outlook'))}&name=${name}`;
+      document.getElementById('sync-outlookcom').href = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(tag(https, 'outlookcom'))}&name=${name}`;
+      document.getElementById('sync-google').href = `https://calendar.google.com/calendar/render?cid=${encodeURIComponent(tag(webcal, 'google'))}`;
       document.getElementById('sync-link').value = https;
+      /* Synced: that calendar has checked the feed in the last week (Dani,
+         16 Oct). Greyed, with a tag; still there to press, for another device. */
+      const seen = f.synced || {};
+      const week = 7 * 24 * 3600 * 1000;
+      ['apple', 'outlook', 'outlookcom', 'google'].forEach((app) => {
+        const el = document.getElementById('sync-' + app); if (!el) return;
+        const at = Date.parse(seen[app] || '');
+        const on = isFinite(at) && Date.now() - at < week;
+        el.classList.toggle('is-synced', on);
+        el.title = on ? 'Already syncing with your Marketing Calendar.' : '';
+      });
       $syncState.hidden = true; $syncReady.hidden = false;
     }
     async function openSync() {

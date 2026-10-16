@@ -2242,13 +2242,39 @@ async function calFeedSig(env, uid, v) {
   const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`calfeed:${uid}:${v}`));
   return _b64url(mac).slice(0, 32);
 }
-async function calFeedVersion(env, uid) {
+// Their account's feed settings: the link's version, and which calendar apps
+// have been checking it (cal_feed_seen: { apple: <ISO>, outlook: ..., ... }).
+async function calFeedUser(env, uid) {
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${uid}`, {
     headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` },
   });
   if (!res.ok) return null;
   const u = await res.json();
-  return Number((u && u.app_metadata && u.app_metadata.cal_feed_v) || 0);
+  const meta = (u && u.app_metadata) || {};
+  const seen = meta.cal_feed_seen && typeof meta.cal_feed_seen === "object" ? meta.cal_feed_seen : {};
+  return { v: Number(meta.cal_feed_v || 0), seen };
+}
+async function calFeedSetMeta(env, uid, meta) {
+  const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${uid}`, {
+    method: "PUT",
+    headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ app_metadata: meta }),
+  });
+  return res.ok;
+}
+/* Which calendar is asking. The links in Sync to my calendar say so (?app=);
+   a link subscribed before they did is told by the app's own name for
+   itself. Outlook work and Outlook.com both fetch from Microsoft, so an
+   untagged Microsoft request counts as Outlook (work). */
+const CAL_APPS = ["apple", "outlook", "outlookcom", "google", "other"];
+function calFeedApp(url, request) {
+  const tag = String(url.searchParams.get("app") || "").toLowerCase();
+  if (CAL_APPS.includes(tag)) return tag;
+  const ua = request.headers.get("User-Agent") || "";
+  if (/google/i.test(ua)) return "google";
+  if (/CalendarAgent|dataaccessd|iCal|iOS\/|macOS\/|Mac OS X|iPhone|iPad|iCloud/i.test(ua)) return "apple";
+  if (/Microsoft|Outlook|Exchange|MSFT/i.test(ua)) return "outlook";
+  return "other";
 }
 async function calFeedToken(env, uid, v) {
   const sig = await calFeedSig(env, uid, v);
@@ -2263,8 +2289,8 @@ async function calFeedVerify(env, token) {
   let diff = 0;
   for (let i = 0; i < expect.length; i++) diff |= expect.charCodeAt(i) ^ m[3].charCodeAt(i);
   if (diff !== 0) return null;
-  const v = await calFeedVersion(env, m[1]);
-  return v !== null && String(v) === m[2] ? m[1] : null;
+  const u = await calFeedUser(env, m[1]);
+  return u && String(u.v) === m[2] ? { uid: m[1], v: u.v, seen: u.seen } : null;
 }
 
 function calIcsText(s) { return String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
@@ -3942,27 +3968,35 @@ export default {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const b = await request.json().catch(() => ({}));
-        let v = await calFeedVersion(env, user.id);
-        if (v === null) return json({ error: "Couldn't make your link just now." }, 500, request, env);
+        const fu = await calFeedUser(env, user.id);
+        if (!fu) return json({ error: "Couldn't make your link just now." }, 500, request, env);
+        let v = fu.v, seen = fu.seen;
         if (b && b.reset) {
-          v += 1;
-          const up = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
-            method: "PUT",
-            headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ app_metadata: { cal_feed_v: v } }),
-          });
-          if (!up.ok) return json({ error: "Couldn't reset your link just now." }, 500, request, env);
+          // A new link: nothing is subscribed to it yet.
+          v += 1; seen = {};
+          if (!(await calFeedSetMeta(env, user.id, { cal_feed_v: v, cal_feed_seen: {} }))) return json({ error: "Couldn't reset your link just now." }, 500, request, env);
         }
         const token = await calFeedToken(env, user.id, v);
         if (!token) return json({ error: "Calendar links aren't set up." }, 503, request, env);
         const base = (env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
-        return json({ feed: `${base}/calendar/feed/${token}.ics`, base: `${base}/calendar/feed/${token}` }, 200, request, env);
+        return json({ feed: `${base}/calendar/feed/${token}.ics`, base: `${base}/calendar/feed/${token}`, synced: seen }, 200, request, env);
       }
       // The feed (every entry) or one entry, as a calendar file.
       const calFeedM = request.method === "GET" && /\/calendar\/feed\/([^/]+?)(?:\/([0-9a-f-]{36}))?\.ics$/.exec(path);
       if (calFeedM) {
-        const uid = await calFeedVerify(env, calFeedM[1]);
-        if (!uid) return new Response("This calendar link has been reset or isn't valid.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        const who = await calFeedVerify(env, calFeedM[1]);
+        if (!who) return new Response("This calendar link has been reset or isn't valid.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+        const uid = who.uid;
+        // The whole feed: note which calendar app is checking it, at most every
+        // six hours, so Sync to my calendar can say "Synced" on that one.
+        if (!calFeedM[2]) {
+          const app = calFeedApp(url, request);
+          console.log("[cal feed]", app, (request.headers.get("User-Agent") || "").slice(0, 160));
+          const last = Date.parse(who.seen[app] || "");
+          if (!isFinite(last) || Date.now() - last > 6 * 3600 * 1000) {
+            try { await calFeedSetMeta(env, uid, { cal_feed_seen: { ...who.seen, [app]: new Date().toISOString() } }); } catch (_) {}
+          }
+        }
         const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
         let rows;
         if (calFeedM[2]) {
