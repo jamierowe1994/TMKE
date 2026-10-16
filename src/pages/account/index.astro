@@ -410,8 +410,8 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
             </div>
             <div class="ws-learn-stage">
               <div class="ws-learn-reel" data-learn-reel>
-                {LEARN_SLIDES.map((sl, i) => (
-                  <a class="ws-learn-pane" href={sl.href} data-learn-pane={i} data-blog={sl.blog ? "" : undefined} aria-label={sl.title}>
+                {[...LEARN_SLIDES, LEARN_SLIDES[0]].map((sl, i) => (
+                  <a class="ws-learn-pane" href={sl.href} data-learn-pane={i} data-blog={sl.blog ? "" : undefined} aria-label={sl.title} style={`top:${i * 100}%`} aria-hidden={i === LEARN_SLIDES.length ? "true" : undefined} tabindex={i === LEARN_SLIDES.length ? -1 : undefined}>
                     <span class="ws-learn-pic" style={`background-image:url('${sl.art}')`}></span>
                     <span class="ws-learn-top">{sl.top.map((t) => <span>{t}</span>)}</span>
                     <span class="ws-learn-corner">{sl.corner.map((t) => <span>{t}</span>)}</span>
@@ -677,7 +677,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     /* Darker Grotesque semi-bold, the face of the doors' titles and the hero's
        stats: softer than the heading face (Dani, 16 Oct). */
     .ws-day-idea { margin-top: 3px; font-family: var(--sans); font-size: calc(var(--ws-t-meta) + 2px); font-weight: 600; line-height: 1.2; letter-spacing: 0; color: var(--ws-ink); }
-    .ws-day-hint { margin-top: 5px; font-size: var(--ws-t-label); line-height: 1.4; color: var(--ws-tx); }
+    .ws-day-hint { margin-top: 5px; font-size: var(--ws-t-meta);   /* Today's prompt's hint size (Dani, 16 Oct) */ line-height: 1.4; color: var(--ws-tx); }
     .ws-day-cta { margin-top: auto; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-accent); }
     .ws-day-cta em { font-style: normal; display: inline-block; transition: transform 0.25s var(--ws-ease); }
     .ws-day--idea:hover .ws-day-cta em { transform: translateX(3px); }
@@ -791,34 +791,35 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
        the picture still inside it while the page scrolls past. The script
        turns how far through the run you are into where the titles and the
        pictures sit, so the two move up together. */
-    .ws-learn-run { position: relative; height: calc((var(--n) - 1) * 50vh + 70vh); }
-    .ws-learn-stick { position: sticky; top: max(16px, calc(50vh - 20vw)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr); gap: clamp(20px, 2.4vw, 40px); align-items: stretch; }
+    /* One step per slide and one more back round to the first, so it reads
+       as a loop rather than an end (Dani, 16 Oct). */
+    .ws-learn-run { position: relative; height: calc(var(--n) * 50vh + 70vh); }
+    .ws-learn-stick { position: sticky; top: max(16px, calc(50vh - 20vw)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.9fr); gap: clamp(16px, 1.6vw, 24px); align-items: stretch; }
     .ws-learn-side { position: relative; overflow: hidden; }
     /* Every title is placed by the script; only the one that's up and one either
        side of it can be seen. The line under the one that's up shows only when
        it has settled there. */
-    .ws-learn-titles { position: absolute; left: 0; right: 0; top: 46%; margin: 0; padding: 0; list-style: none; }
+    /* Low in the column, coming up towards the title, as in the reference. */
+    .ws-learn-titles { position: absolute; left: 0; right: 0; top: 64%; margin: 0; padding: 0; list-style: none; }
     .ws-learn-item { position: absolute; left: 0; right: 0; top: 0; transform: translateY(var(--y, 0px)); opacity: var(--op, 0); will-change: transform, opacity; }
     .ws-learn-t { all: unset; cursor: pointer; display: block; font-family: var(--serif); font-size: clamp(17px, 1.45vw, 22px); font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink);
       transform-origin: left center; transform: scale(var(--sc, 0.78)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; transition: color 0.3s; }
     .ws-learn-t:hover { color: var(--english-violet); }
     .ws-learn-t:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 4px; }
-    .ws-learn-sum { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 6px; max-width: 34ch; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.4; color: var(--ws-tx); opacity: var(--sum, 0); }
+    .ws-learn-sum { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 6px; max-width: 100%; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.4; color: var(--ws-tx); opacity: var(--sum, 0); }
     .ws-learn-hint { position: absolute; left: 0; bottom: 0; font-size: var(--ws-t-meta); font-weight: 600; letter-spacing: 0.04em; color: var(--ws-ink); }
     .ws-learn-stage { position: relative; overflow: hidden; aspect-ratio: 16 / 9; background: #2f1b25; }
     .ws-learn-reel { position: absolute; inset: 0; transform: translateY(calc(var(--at, 0) * -100%)); will-change: transform; }
     .ws-learn-pane { position: absolute; left: 0; right: 0; height: 100%; display: block; overflow: hidden; color: #fff; text-decoration: none; }
-    .ws-learn-pane:nth-child(1) { top: 0; } .ws-learn-pane:nth-child(2) { top: 100%; } .ws-learn-pane:nth-child(3) { top: 200%; }
-    .ws-learn-pane:nth-child(4) { top: 300%; } .ws-learn-pane:nth-child(5) { top: 400%; } .ws-learn-pane:nth-child(6) { top: 500%; }
-    .ws-learn-pane:nth-child(7) { top: 600%; } .ws-learn-pane:nth-child(8) { top: 700%; }
     .ws-learn-pic { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 1.2s var(--ws-ease); }
     .ws-learn-pane:hover .ws-learn-pic { transform: scale(1.04); }
     /* The words straight on the picture in the copy face, set like the
        "Getting started" label: capitals, spaced, across the top. */
-    .ws-learn-top, .ws-learn-corner, .ws-learn-foot { position: absolute; z-index: 1; display: flex; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; line-height: 1.3; text-transform: uppercase; text-shadow: 0 1px 12px rgba(0,0,0,0.55), 0 0 2px rgba(0,0,0,0.3); }
-    .ws-learn-top { top: clamp(18px, 2.2vw, 32px); left: clamp(18px, 2.2vw, 32px); right: 26%; flex-wrap: wrap; gap: 6px clamp(18px, 2vw, 30px); }
+    /* 13px, the size of "Nothing in the diary" (Dani, 16 Oct). */
+    .ws-learn-top, .ws-learn-corner, .ws-learn-foot { position: absolute; z-index: 1; display: flex; font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 700; letter-spacing: 0.1em; line-height: 1.3; text-transform: uppercase; text-shadow: 0 1px 12px rgba(0,0,0,0.55), 0 0 2px rgba(0,0,0,0.3); }
+    .ws-learn-top { top: clamp(18px, 2.2vw, 32px); left: clamp(18px, 2.2vw, 32px); right: 210px; gap: clamp(16px, 1.8vw, 28px); white-space: nowrap; overflow: hidden; }
     .ws-learn-corner { top: clamp(18px, 2.2vw, 32px); right: clamp(18px, 2.2vw, 32px); flex-direction: column; align-items: flex-end; gap: 4px; }
-    .ws-learn-corner span + span { letter-spacing: 0.02em; text-transform: none; font-size: var(--ws-t-row); font-weight: 600; }
+    .ws-learn-corner span + span { letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
     .ws-learn-foot { bottom: clamp(18px, 2.2vw, 32px); right: clamp(18px, 2.2vw, 32px); gap: clamp(18px, 2vw, 30px); }
     .ws-learn-cap { display: none; }
     /* A phone, or anyone who has asked for less movement: the pictures one
@@ -1765,24 +1766,27 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       const still = matchMedia('(max-width: 760px), (prefers-reduced-motion: reduce)');
       const range = () => Math.max(1, run.offsetHeight - stick.offsetHeight);
       let ticking = false;
+      // Round and round: 0 to n, where n is the first again.
+      const wrap = (d) => { const h = n / 2; return ((((d + h) % n) + n) % n) - h; };
       function paint() {
         ticking = false;
         if (still.matches) return;
-        const p = n < 2 ? 0 : Math.min(1, Math.max(0, -run.getBoundingClientRect().top / range())) * (n - 1);
-        const r = Math.round(p);
+        const p = Math.min(1, Math.max(0, -run.getBoundingClientRect().top / range())) * n;
+        const r = Math.round(p) % n;
         // How settled the one that's up is: 1 when it's there, 0 halfway to the next.
-        const show = Math.max(0, 1 - Math.abs(p - r) * 2.4);
-        const line = tBtns[0] ? tBtns[0].offsetHeight * 1.55 : 34;
+        const show = Math.max(0, 1 - Math.abs(p - Math.round(p)) * 2.4);
+        const line = tBtns[0] ? tBtns[0].offsetHeight * 1.5 : 34;
         const sumH = items[r] ? items[r].querySelector('.ws-learn-sum').offsetHeight + 6 : 0;
         reel.style.setProperty('--at', p.toFixed(4));
         items.forEach((it, j) => {
-          const d = j - p, a = Math.abs(d);
-          let y = d * line + (j > r ? sumH * show : 0);
+          const d = wrap(j - p), a = Math.abs(d);
+          const y = d * line + (wrap(j - r) > 0 ? sumH * show : 0);
           it.style.setProperty('--y', `${y.toFixed(1)}px`);
           // The one that's up, and one either side; nothing further away.
-          const op = a <= 1 ? 1 - a * 0.72 : Math.max(0, 0.28 * (1.7 - a) / 0.7);
+          const op = a <= 1 ? 1 - a * 0.7 : Math.max(0, 0.3 * (1.7 - a) / 0.7);
           it.style.setProperty('--op', op.toFixed(3));
-          tBtns[j].style.setProperty('--sc', (1 - Math.min(1, a) * 0.22).toFixed(3));
+          // Either side: between the line under it and the title in size.
+          tBtns[j].style.setProperty('--sc', (1 - Math.min(1, a) * 0.3).toFixed(3));
           it.style.setProperty('--sum', j === r ? show.toFixed(3) : '0');
         });
       }
@@ -1792,7 +1796,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       still.addEventListener?.('change', kick);
       // A title takes you to its picture.
       tBtns.forEach((b, j) => b.addEventListener('click', () => {
-        const top = run.getBoundingClientRect().top + scrollY + (n < 2 ? 0 : (j / (n - 1)) * range()) + 2;
+        const top = run.getBoundingClientRect().top + scrollY + (j / n) * range() + 2;
         if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(top); else scrollTo({ top, behavior: 'smooth' });
       }));
       paint();

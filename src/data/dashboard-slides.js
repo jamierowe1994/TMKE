@@ -21,7 +21,7 @@ export function learnSlides({ blogTitle, blogHref } = {}) {
       href: `/account/guides/read?g=${encodeURIComponent(g.slug)}`,
       art: g.art || g.cover_url || "/assets/chapter-04.jpg",
       // Across the top: what's in it. The rest of the corners: where it sits.
-      top: lessons.slice(0, 4),
+      top: lessons.slice(0, 3),   // one line across the top
       corner: [`Getting started`, `${i + 1} of ${series.length}`],
       foot: [g.est_minutes ? `${g.est_minutes} minutes` : "", `${lessons.length} lesson${lessons.length === 1 ? "" : "s"}`].filter(Boolean),
     };
