@@ -961,6 +961,22 @@ import "../../styles/account-sections.css";
     .act-cat--solo .act-pick::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); flex: none; }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
     .act-files-list { display: grid; gap: 6px; }
+    .act-testi-tones { display: flex; flex-wrap: wrap; gap: 8px; }
+    .act-testi-tones [aria-pressed="true"] { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
+    .act-testi-out { display: grid; gap: 10px; margin-top: 6px; padding: 14px; background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; }
+    .act-testi-out[hidden] { display: none; }
+    .act-testi-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .act-testi-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
+    .act-testi-channel { display: inline-flex; border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 999px; padding: 2px; }
+    .act-testi-channel button { all: unset; cursor: pointer; padding: 5px 12px; border-radius: 999px; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--violet-deep); }
+    .act-testi-channel [aria-pressed="true"] { background: var(--violet-deep); color: #fff; }
+    .act-testi-body { min-height: 220px; line-height: 1.55; }
+    .act-testi-missing { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
+    .act-testi-missing a { color: var(--violet-deep); font-weight: 600; }
+    .act-testi-acts { display: flex; justify-content: flex-end; gap: 8px; }
+    .act-testi-acts [hidden] { display: none; }
+    .act-testi [data-testi-subject-row][hidden], .act-testi-missing[hidden] { display: none; }
+    .act-testi-copy { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
     /* Room on the activity forms (Dani, 16 Oct): a fifth less between a label
        and its box, and boxes a fifth shorter. */
     #act-form .post-field { gap: 5px; }
@@ -1184,6 +1200,8 @@ import "../../styles/account-sections.css";
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
     import { installTimePicker } from '../../lib/time-picker.js';
     import { bookingLocation } from '../../lib/videography-config.js';
+    import { TESTIMONIAL_TONES, fillTestimonial } from '../../data/testimonial-templates.js';
+    import { readBrandCache } from '../../lib/brand-cache.js';
     installTimePicker();
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
@@ -2114,6 +2132,7 @@ import "../../styles/account-sections.css";
       actChecklist = item ? (Array.isArray(item.checklist) ? item.checklist.map((x) => ({ ...x })) : [])
                           : (a.checklist || []).map((text) => ({ text, done: false }));
       actFiles = {};
+      testiTone = null; testiCh = 'email';
       (a.fields || []).filter((f) => f.kind === 'files').forEach((f) => { actFiles[f.key] = (Array.isArray(d[f.key]) ? d[f.key] : []).map((x) => ({ ...x })); });
       $actH.textContent = item ? entryTitle(a.key, d) : (actShoot === 'Photography' ? 'Photography Shoot' : actShoot === 'Videography' ? 'Property Videography' : a.label);
       setActLine(a.line);
@@ -2139,6 +2158,24 @@ import "../../styles/account-sections.css";
         if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="text" readonly data-time data-time-optional placeholder="Choose a time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'platform') return `<label class="post-field">${lab}<select class="post-input" data-f="platform"><option value="">Choose…</option>${PLATFORMS.map((p) => `<option${p === v ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></label>`;
         if (f.kind === 'printDesign' || f.kind === 'printDesigns' || f.kind === 'linkedDesigns') return `<div class="post-field">${lab}<div class="act-designs" data-designs="${f.kind}" data-f="${f.key}"><p class="act-none">Loading your designs…</p></div></div>`;
+        if (f.kind === 'testimonial') return `<div class="post-field act-testi" data-testi>${lab.replace(' <span class="pick-optional">— optional</span>', '')}
+          <div class="act-testi-tones">${TESTIMONIAL_TONES.map((t) => `<button type="button" class="act-files-btn" data-testi-tone="${t.key}" aria-pressed="false">${escapeHtml(t.label)}</button>`).join('')}</div>
+          <div class="act-testi-out" hidden>
+            <div class="act-testi-head">
+              <p class="act-testi-note" data-testi-note></p>
+              <div class="act-testi-channel" role="group" aria-label="Send it as">
+                <button type="button" data-testi-ch="email" aria-pressed="true">Email</button>
+                <button type="button" data-testi-ch="whatsapp" aria-pressed="false">WhatsApp</button>
+              </div>
+            </div>
+            <label class="post-field" data-testi-subject-row><span class="post-label">Subject</span><input type="text" class="post-input" data-testi-subject /></label>
+            <textarea class="post-textarea act-testi-body" data-testi-body rows="11"></textarea>
+            <p class="act-testi-missing" data-testi-missing hidden></p>
+            <div class="act-testi-acts">
+              <button type="button" class="act-files-btn" data-testi-copy="subject">Copy subject</button>
+              <button type="button" class="act-files-btn act-testi-copy" data-testi-copy="body">Copy message</button>
+            </div>
+          </div></div>`;
         if (f.kind === 'campaignLink') return `<div class="post-field">${lab}<div class="act-campaign"><select class="post-input" data-f="${f.key}" data-campaign-pick data-was="${escapeHtml(v)}"><option value="">No campaign</option></select><button type="button" class="act-files-btn" data-open-campaign hidden>Open it</button></div></div>`;
         return `<label class="post-field">${lab}<input type="text" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" placeholder="${escapeHtml(f.placeholder || '')}" maxlength="160" /></label>`;
       };
@@ -2301,6 +2338,57 @@ import "../../styles/account-sections.css";
       if (ent) openLinked(ent.dataset.openEntry);
     });
 
+    /* Request a Testimonial (Dani, 16 Oct): pick a tone, email or WhatsApp,
+       and the message is there, filled in from the brand kit, to copy. */
+    let testiTone = null, testiCh = 'email', testiKit;
+    async function brandKitNow() {
+      if (testiKit !== undefined) return testiKit;
+      if (isTrainingDemo()) { try { testiKit = JSON.parse(localStorage.getItem('tmke.brand.training') || 'null'); } catch (_) { testiKit = null; } return testiKit; }
+      const { data } = await supabase.auth.getSession();
+      const uid = data && data.session && data.session.user.id;
+      const cached = readBrandCache();
+      if (cached && (!cached.owner || cached.owner === uid)) return (testiKit = cached);
+      if (!uid) return (testiKit = null);
+      const r = await supabase.from('member_brand_kits').select('kit').eq('user_id', uid).maybeSingle();
+      return (testiKit = (r.data && r.data.kit) || null);
+    }
+    async function drawTestimonial() {
+      const box = $actForm.querySelector('[data-testi]'); if (!box) return;
+      const tone = TESTIMONIAL_TONES.find((t) => t.key === testiTone);
+      box.querySelectorAll('[data-testi-tone]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.testiTone === testiTone)));
+      box.querySelectorAll('[data-testi-ch]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.testiCh === testiCh)));
+      const out = box.querySelector('.act-testi-out');
+      out.hidden = !tone;
+      if (!tone) return;
+      const kit = await brandKitNow();
+      const email = testiCh === 'email';
+      box.querySelector('[data-testi-note]').textContent = tone.note;
+      box.querySelector('[data-testi-subject-row]').hidden = !email;
+      box.querySelector('[data-testi-copy="subject"]').hidden = !email;
+      box.querySelector('[data-testi-subject]').value = email ? fillTestimonial(tone.email.subject, 'email', kit) : '';
+      box.querySelector('[data-testi-body]').value = fillTestimonial(email ? tone.email.body : tone.whatsapp, testiCh, kit);
+      // Say what's still to fill, and where it comes from.
+      const about = (kit && kit.about) || {};
+      const gaps = [!about.review && 'your review link', !about.name && 'your name', email && testiTone === 'professional' && !(kit && kit.company) && 'your business name'].filter(Boolean);
+      const miss = box.querySelector('[data-testi-missing]');
+      miss.hidden = false;
+      miss.innerHTML = `Change [First Name] to your client's.${gaps.length ? ` Add ${gaps.join(' and ')} to your <a href="/account/profile" target="_blank" rel="noopener">Brand Kit</a> and ${gaps.length > 1 ? 'they fill' : 'it fills'} in here.` : ''}`;
+    }
+    $actForm?.addEventListener('click', async (e) => {
+      const t = e.target.closest && e.target.closest('[data-testi-tone]');
+      if (t) { testiTone = t.dataset.testiTone; drawTestimonial(); return; }
+      const ch = e.target.closest && e.target.closest('[data-testi-ch]');
+      if (ch) { testiCh = ch.dataset.testiCh; drawTestimonial(); return; }
+      const cp = e.target.closest && e.target.closest('[data-testi-copy]');
+      if (cp) {
+        const box = $actForm.querySelector('[data-testi]');
+        const text = cp.dataset.testiCopy === 'subject' ? box.querySelector('[data-testi-subject]').value : box.querySelector('[data-testi-body]').value;
+        try { await navigator.clipboard.writeText(text); }
+        catch (_) { const el = cp.dataset.testiCopy === 'subject' ? box.querySelector('[data-testi-subject]') : box.querySelector('[data-testi-body]'); el.select(); document.execCommand('copy'); }
+        const was = cp.textContent; cp.textContent = 'Copied ✓'; setTimeout(() => { cp.textContent = was; }, 1600);
+      }
+    });
+
     function drawChecklist() {
       const box = $actForm.querySelector('[data-check]'); if (!box) return;
       box.innerHTML = actChecklist.map((x, i) => `
@@ -2407,6 +2495,7 @@ import "../../styles/account-sections.css";
       const details = {};
       for (const f of a.fields || []) {
         if (f.kind === 'endDate') continue;
+        if (f.kind === 'testimonial') continue;   // a message to copy, not a field to keep
         if (f.kind === 'files') {
           const list = (actFiles[f.key] || []);
           if (list.some((x) => x.uploading)) return actError('Wait for the files to finish uploading.');

@@ -650,6 +650,18 @@ test(name("business"), async ({ page }) => {
   await step("business", 1, async () => {
     await addActivity(page, day(5), "review_request");
     await expect(page.locator("#act-h")).toHaveText("Request a Testimonial");
+    await expect(page.locator("#act-form [data-check]")).toHaveCount(0);
+    expect(await page.locator("#act-form [data-testi-tone]").allTextContents()).toEqual(["Friendly and personal", "Professional and appreciative", "Short and direct"]);
+    await page.click('#act-form [data-testi-tone="professional"]');
+    await expect(page.locator("#act-form [data-testi-subject]")).toBeVisible();
+    const kit = await page.evaluate(() => { try { return JSON.parse(localStorage.getItem("tmke.brand.training") || "null"); } catch (_) { return null; } });
+    const name = kit && kit.about && kit.about.name;
+    if (name) await expect(page.locator("#act-form [data-testi-body]")).toHaveValue(new RegExp(`${name}\\s*\\n?.*$`));
+    await page.click('#act-form [data-testi-ch="whatsapp"]');
+    await expect(page.locator("#act-form [data-testi-subject]")).toBeHidden();
+    const wa = await page.locator("#act-form [data-testi-body]").inputValue();
+    expect(/[\u{1F300}-\u{1FAFF}]/u.test(wa), "no emojis").toBe(false);
+    if (name) expect(wa.trim().endsWith(name.split(/\s+/)[0])).toBe(true);
     await form(page, "client").fill(`${TAG} Mrs Smith`);
     await saveAct(page);
   });

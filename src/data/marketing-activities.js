@@ -240,7 +240,12 @@ export const ACTIVITIES = [
     ] },
   { key: "review_request", category: "business", label: "Request a Testimonial",
     line: "Ask a happy client for a testimonial while the move is fresh.",
-    title: "client", fields: [{ key: "client", kind: "text", label: "Client or property", required: true }] },
+    // A message to send, not a list to tick (Dani, 16 Oct): three tones, as
+    // an email or a WhatsApp, filled in from the brand kit.
+    noChecklist: true, title: "client", fields: [
+      { key: "client", kind: "text", label: "Client or property", required: true },
+      { key: "message", kind: "testimonial", label: "Your message", afterDates: true },
+    ] },
   { key: "follow_up", category: "business", label: "Marketing Follow-Up",
     line: "Follow up on your marketing: a lead, a campaign or a conversation.",
     // A contact rather than a checklist (Dani, 16 Oct).

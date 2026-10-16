@@ -111,7 +111,7 @@ export const PLAN = [
   // ---- Business & Community ----
   { id: "business", area: "Business & Community", name: "Events, testimonials and follow-ups", steps: [
     "Local Event / Networking: event name, location, a document and a link; save",
-    "Request a Testimonial: the client; save",
+    "Request a Testimonial: no checklist; three tones, as an email (with its subject) or a WhatsApp, signed from the brand kit; save",
     "Marketing Follow-Up has a contact (name, address, phone or email) and no checklist; save",
   ] },
   { id: "other", area: "Something Else", name: "Something Else", steps: [
