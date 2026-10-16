@@ -7,12 +7,8 @@ bottom; tick things off here rather than in a chat thread.
 
 **Still to do**
 
-- **2a, the last part:** the dashboard's "payment due" stat counts unpaid
-  shoots only (`claimFromBookings` in account/index.astro); it should count
-  unpaid invoices too, from `/booking/invoices/mine`.
 - **4, the last part:** the "Reels that actually get watched" guide doesn't
   exist yet; its card points at the guides index.
-- **5:** remove the unreachable blank-canvas size chooser from editor.astro.
 - **8:** training, optimised for mobile.
 - **9:** testimonial templates, guides on activities, Paid Advertising, plan
   your route.
@@ -22,8 +18,13 @@ bottom; tick things off here rather than in a chat thread.
 - 0 · the Worker is deployed (both fixes live: `/booking/mine` returns email
   correspondence only; `isSettled()` and the `smm_package` route).
 - 1 · Bookings show the stage track, the gallery link and the PIN once paid.
-- 2a · members see their own invoices on Bookings (`/booking/invoices/mine`,
-  a Worker endpoint, so the table stays shut).
+- 2a · members see their own invoices: shoots on Bookings
+  (`/booking/invoices/mine`), the social media retainer on Your SMM
+  (`/smm/invoices`); Worker endpoints, so the table stays shut. The
+  dashboard's "payment due" stat counts unpaid invoices from both (16 Oct),
+  and the page waits for it so the stat doesn't change once on show.
+- 5 · the blank-canvas size chooser is gone (only a stray comment was left,
+  removed 16 Oct). New design (`?new=1`) and Resize cover sizes.
 - 2b · the monthly report, at /account/social/report.
 - 2c · Message your account manager, from Your SMM (`/smm/message`).
 - 3 · ideas carry into the editor (`?prompt=`), and prompts are edited in the

@@ -1115,15 +1115,35 @@ const recentTemplates = templates.slice(0, 4);
       ic.innerHTML = `<svg viewBox="0 0 24 24">${SLOT_ICONS[win.icon] || ''}</svg>`;
     }
 
-    // Payment owed and a gallery waiting both come off the bookings we already
-    // fetch. Rank 1 and 2: an unpaid shoot is the only thing here that actively
-    // blocks the member - their content stays locked until it is settled.
-    function claimFromBookings(vid) {
-      const unpaid = vid.filter((b) => !b.paid_at && b.stage && b.stage !== 'booked');
-      reportQuiet('due', unpaid.length === 0);
-      if (unpaid.length) {
-        claimSlot(1, 'due', `${unpaid.length} payment${unpaid.length === 1 ? '' : 's'}`, 'due on your shoots', '/account/bookings');
+    /* Rank 1: payment due. Counted from the invoices themselves (16 Oct): a
+       shoot's, from Bookings, and the social media retainer's, from Your SMM
+       - the same two routes those pages use, so what's counted is what they
+       show. It used to guess from shoots with no paid date, which missed the
+       retainer altogether and counted shoots a package covers, which are never
+       "paid". If neither route answers, it falls back to that guess, without
+       the package shoots. */
+    const DASH_WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+    async function claimPaymentsDue(session, vid) {
+      const get = (route) => fetch(`${DASH_WORKER}${route}`, { headers: { Authorization: 'Bearer ' + session.access_token } })
+        .then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const [shootInv, smmInv] = DASH_WORKER ? await Promise.all([get('/booking/invoices/mine'), get('/smm/invoices')]) : [null, null];
+      if (!shootInv && !smmInv) {
+        const unpaid = vid.filter((b) => !b.paid_at && b.payment_route !== 'smm_package' && b.stage && b.stage !== 'booked');
+        reportQuiet('due', unpaid.length === 0);
+        if (unpaid.length) claimSlot(1, 'due', `${unpaid.length} payment${unpaid.length === 1 ? '' : 's'}`, 'due on your shoots', '/account/bookings');
+        return;
       }
+      const open = (j) => ((j && j.invoices) || []).filter((i) => i.status === 'sent');
+      const shoots = open(shootInv), retainer = open(smmInv);
+      const n = shoots.length + retainer.length;
+      reportQuiet('due', n === 0);
+      if (!n) return;
+      const label = !shoots.length ? 'due for your social media' : !retainer.length ? 'due on your shoots' : 'to pay';
+      claimSlot(1, 'due', `${n} invoice${n === 1 ? '' : 's'}`, label, shoots.length ? '/account/bookings' : '/account/social');
+    }
+
+    // A gallery waiting comes off the bookings we already fetch.
+    function claimFromBookings(vid) {
       const live = vid.filter((b) => b.gallery_url && b.gallery_sent_at);
       if (live.length) {
         const exp = live.map((b) => b.gallery_expires_on).filter(Boolean).sort()[0];
@@ -1176,16 +1196,23 @@ const recentTemplates = templates.slice(0, 4);
       const now = Date.now();
       if (session) {
         const email = session.user.email ?? '';
+        // The page waits for the payment count, so the stat doesn't change
+        // after it's on show (the entrance caps any wait at 3 seconds).
+        const releaseDue = window.__tmkeEnterHold ? window.__tmkeEnterHold() : null;
+        let dueAsked = false;
         try {
           const [v, s] = await Promise.all([
-            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage, postcode, paid_at, gallery_url, gallery_sent_at, gallery_expires_on').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
+            supabase.from('videography_bookings').select('id, service, service_type, shoot_date, stage, postcode, paid_at, payment_route, gallery_url, gallery_sent_at, gallery_expires_on').or(`account_user_id.eq.${session.user.id},client_email.eq.${email}`),
             supabase.from('smm_leads').select('id, call_at, stage').eq('kind', 'discovery').or(`account_user_id.eq.${session.user.id},email.eq.${email}`),
           ]);
-          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage, postcode: r.postcode, paid_at: r.paid_at, gallery_url: r.gallery_url, gallery_sent_at: r.gallery_sent_at, gallery_expires_on: r.gallery_expires_on }));
+          const vid = (v.data || []).map((r) => ({ source: 'videography', id: r.id, title: r.service || 'Videography booking', service_type: r.service_type, when: r.shoot_date, stage: r.stage, postcode: r.postcode, paid_at: r.paid_at, payment_route: r.payment_route, gallery_url: r.gallery_url, gallery_sent_at: r.gallery_sent_at, gallery_expires_on: r.gallery_expires_on }));
           claimFromBookings(vid);
+          dueAsked = true;
+          claimPaymentsDue(session, vid).finally(() => releaseDue && releaseDue());
           const smm = (s.data || []).map((r) => ({ source: 'smm', id: r.id, title: 'Social media discovery call', service_type: 'discovery', when: r.call_at, stage: r.stage || 'discovery_call_booked' }));
           items = vid.concat(smm);
         } catch (_) {}
+        if (!dueAsked && releaseDue) releaseDue();
       } else {
         items = [
           { source: 'videography', id: 'demo-1', title: 'Property shoot', service_type: 'property', when: new Date(now + 6 * 86400000).toISOString(), stage: 'booked', postcode: 'NN1 1AA' },
