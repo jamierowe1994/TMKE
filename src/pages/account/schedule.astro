@@ -31,8 +31,25 @@ import "../../styles/account-sections.css";
           </button>
           <button type="button" class="ws-btn ws-btn--ghost" id="cal-sync">Sync to my calendar</button>
         </div>
+        <!-- The dashboard's three boxes, for the Planner (Dani, 16 Oct): posts
+             coming up, activities coming up, and the next thing to do and
+             when. Filled by wireCalBrief(); empty, never sample figures,
+             until it knows. -->
+        <ul class="ws-brief cal-brief" aria-live="polite">
+          <li><span class="ws-brief-slot">
+            <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
+            <span class="ws-brief-tx"><strong id="cb-posts">&nbsp;</strong><span>coming up</span></span>
+          </span></li>
+          <li><span class="ws-brief-slot">
+            <span class="ws-brief-ic ws-brief-ic--time"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span>
+            <span class="ws-brief-tx"><strong id="cb-acts">&nbsp;</strong><span>coming up</span></span>
+          </span></li>
+          <li><a class="ws-brief-slot" id="cb-next-link">
+            <span class="ws-brief-ic ws-brief-ic--due"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+            <span class="ws-brief-tx"><strong id="cb-next">&nbsp;</strong><span id="cb-next-when">next up</span></span>
+          </a></li>
+        </ul>
       </div>
-      <div class="ws-hero-photo"></div>
     </section>
 
     <!-- Calendar shell -->
@@ -329,6 +346,19 @@ import "../../styles/account-sections.css";
 
     /* ---- Planner on the shared hub system ---- */
     .cal-hero { --ws-hero-img: url('/assets/hub/planner.jpg'); }
+    /* The dashboard's arrangement: the words across the top, the buttons at
+       the bottom left and the three boxes level with them on the right. */
+    .cal-hero > .ws-hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(24px, 3vw, 48px); align-items: end; }
+    .cal-hero .ws-hero-date, .cal-hero .ws-greeting, .cal-hero .ws-hero-sub { grid-column: 1 / -1; }
+    .cal-hero .ws-hero-cta { grid-column: 1; grid-row: 4; align-self: end; }
+    .cal-hero .cal-brief { grid-column: 2; grid-row: 4; align-self: end; }
+    .cal-brief .ws-brief-tx strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+    @media (max-width: 900px) {
+      .cal-hero > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
+      .cal-hero .cal-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .cal-hero .ws-hero-cta { grid-row: 5; }
+    }
+    @media (max-width: 620px) { .cal-hero .cal-brief { grid-template-columns: 1fr; } }
     /* Spacing comes from .ws-hero-cta. */
     .cal-hero-cta { }
 
@@ -1198,6 +1228,47 @@ import "../../styles/account-sections.css";
     import { designStore } from '../../lib/design-store.js';
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
+
+    /* The three boxes in the header: posts and activities from today on, and
+       the very next entry, what and when (Dani, 16 Oct). From the same
+       account the calendar shows: the member's, or training's. */
+    (async function wireCalBrief() {
+      const $p = document.getElementById('cb-posts'), $a = document.getElementById('cb-acts');
+      const $n = document.getElementById('cb-next'), $w = document.getElementById('cb-next-when'), $l = document.getElementById('cb-next-link');
+      if (!$p || !$a || !$n) return;
+      try {
+        const { plannerStore } = await import('../../lib/design-store.js');
+        const acct = await plannerStore();
+        if (!acct || acct.blocked) { $p.textContent = 'No posts'; $a.textContent = 'No activities'; $n.textContent = 'Nothing planned'; $w.textContent = 'yet'; return; }
+        const d = new Date();
+        const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const nowHm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+        // Paged: a busy diary passes the 1,000-row cap.
+        const rows = [];
+        for (let from = 0; ; from += 1000) {
+          const { data, error } = await acct.db.from(acct.table).select('id, title, activity, details, scheduled_date, scheduled_time, has_time, status')
+            .eq('user_id', acct.uid).gte('scheduled_date', today).in('status', ['scheduled', 'reminder_sent'])
+            .order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true }).range(from, from + 999);
+          if (error) throw error;
+          rows.push(...(data || []));
+          if (!data || data.length < 1000) break;
+        }
+        const posts = rows.filter((it) => isPostItem(it)).length, acts = rows.length - posts;
+        $p.textContent = posts ? `${posts} post${posts === 1 ? '' : 's'}` : 'No posts';
+        $a.textContent = acts ? `${acts} ${acts === 1 ? 'activity' : 'activities'}` : 'No activities';
+        // Next: the first still ahead of now (today's earlier ones have passed).
+        const next = rows.find((it) => it.scheduled_date > today || it.has_time === false || String(it.scheduled_time || '').slice(0, 5) >= nowHm);
+        if (!next) { $n.textContent = 'Nothing planned'; $w.textContent = 'yet'; return; }
+        const what = next.title || (isPostItem(next) ? 'Post' : entryTitle(next.activity, next.details || {}));
+        const [y, m, dd] = next.scheduled_date.split('-').map(Number);
+        const day = new Date(y, m - 1, dd);
+        const dayTx = next.scheduled_date === today ? 'Today' : day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        const t = next.has_time === false ? '' : String(next.scheduled_time || '').slice(0, 5);
+        $n.textContent = what; $n.title = what;
+        $w.textContent = t ? `${dayTx}, ${t}` : dayTx;
+        $l.setAttribute('href', `/account/schedule?focus=${next.scheduled_date}`);
+      } catch (_) { $p.textContent = '\u2014'; $a.textContent = '\u2014'; $n.textContent = '\u2014'; }
+    })();
     import { installTimePicker } from '../../lib/time-picker.js';
     import { bookingLocation } from '../../lib/videography-config.js';
     import { TESTIMONIAL_TONES, fillTestimonial } from '../../data/testimonial-templates.js';
