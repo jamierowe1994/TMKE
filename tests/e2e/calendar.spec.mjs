@@ -255,9 +255,15 @@ test(name("content_studio"), async ({ page }) => {
     await page.click('#act-form [data-act-log="0"]');
     await expect(page.locator("#act-h")).toHaveText("Content Studio Session");
     await setTime(page, '#act-form [data-f="time"]', "11", "00");
+    const order = await page.evaluate(() => {
+      const top = (sel) => document.querySelector(sel).getBoundingClientRect().top;
+      return [top('#act-form [data-f="time"]'), top('#act-form [data-f="address"]'), top('#act-form [data-f="notes"]')];
+    });
+    expect(order[0]).toBeLessThan(order[1]); expect(order[1]).toBeLessThan(order[2]);
+    await form(page, "address").fill(`${TAG} 5 Regent Street, Rugby`);
     await form(page, "notes").fill(`${TAG} Studio session`);
     const row = await saveAct(page);
-    await expect(page.locator(`#day-modal .day-item[data-id="${row.id}"]`)).toBeVisible();
+    await expect(page.locator(`#day-modal .day-item[data-id="${row.id}"]`)).toContainText("5 Regent Street");
   });
 });
 
@@ -462,7 +468,9 @@ test(name("print"), async ({ page }) => {
   await openCalendar(page);
   await step("print", 0, async () => {
     await addActivity(page, day(4), "print_design");
-    await expect(page.locator('#act-form a.act-link[href="/account/studio"]')).toBeVisible();
+    expect(await page.locator("#act-form .act-btns a").allTextContents()).toEqual(["Open your print packs", "Design a print asset"]);
+    await expect(page.locator('#act-form .act-btns a', { hasText: "Open your print packs" })).toHaveAttribute("href", "/account/studio#packs");
+    await expect(page.locator('#act-form [data-files="files"]')).toBeVisible();
     await form(page, "purpose").fill(`${TAG} Just sold card`);
     await saveAct(page);
   });
@@ -470,13 +478,18 @@ test(name("print"), async ({ page }) => {
     await addActivity(page, day(5), "print_order");
     await form(page, "materials").fill(`${TAG} A5 canvassing cards`);
     await form(page, "quantity").fill("500");
+    await form(page, "supplier").fill("Vistaprint");
+    await expect(page.locator('#act-form [data-designs="printDesigns"]')).toBeVisible();
     const row = await saveAct(page);
-    expect((await dbRow(row.id)).details.quantity).toBe(500);
+    const d = (await dbRow(row.id)).details;
+    expect([d.quantity, d.supplier]).toEqual([500, "Vistaprint"]);
   });
   await step("print", 2, async () => {
     await addActivity(page, day(6), "canvassing");
     await form(page, "area").fill(`${TAG} Bilton, Rugby`);
-    await saveAct(page);
+    await form(page, "leaflets").fill("250");
+    const row = await saveAct(page);
+    expect((await dbRow(row.id)).details.leaflets).toBe(250);
   });
 });
 
@@ -527,6 +540,29 @@ test(name("open_house"), async ({ page }) => {
     await openEntry(page, row.id);
     await expect(form(page, "time")).toHaveValue("11:00");
     await expect(form(page, "end_time")).toHaveValue("14:30");
+    await page.click("#act-close");
+  });
+  await step("open_house", 2, async () => {
+    // A campaign to link it to.
+    await addActivity(page, day(9), "open_house_campaign");
+    await form(page, "address").fill(`${TAG} 3 Open Lane campaign`);
+    const camp = await saveAct(page);
+    await addActivity(page, day(10), "open_house");
+    await form(page, "address").fill(`${TAG} 3 Open Lane, linked`);
+    await setTime(page, '#act-form [data-f="time"]', "12", "00");
+    await expect(page.locator(`#act-form [data-campaign-pick] option[value="${camp.id}"]`)).toBeAttached({ timeout: 15_000 });
+    await page.selectOption("#act-form [data-campaign-pick]", camp.id);
+    const ev = await saveAct(page);
+    expect((await dbRow(ev.id)).details.campaign_id).toBe(camp.id);
+    // The campaign lists the event; each opens the other.
+    await openDay(page, day(9));
+    await openEntry(page, camp.id);
+    const link = page.locator(`#act-form [data-open-entry="${ev.id}"]`);
+    await expect(link).toBeVisible({ timeout: 15_000 });
+    await link.click();
+    await expect(page.locator("#act-h")).toContainText("3 Open Lane, linked");
+    await page.click("#act-form [data-open-campaign]");
+    await expect(page.locator("#act-h")).toContainText("3 Open Lane campaign");
     await page.click("#act-close");
   });
 });

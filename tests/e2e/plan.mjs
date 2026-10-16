@@ -43,7 +43,7 @@ export const PLAN = [
     "Discover our studio opens the studio page",
     "Download the brochure opens the brochure (a PDF)",
     "Book now in training says training doesn't book anything",
-    "Add a studio booking: a date and time, save, it shows on its day",
+    "Add a studio booking: date, time, then the address; save, it shows on its day with its address",
   ] },
   { id: "agent_filming", area: "Content & Social", name: "Agent Filming Day", steps: [
     "Discover videography packages opens the agent videography page",
@@ -76,9 +76,9 @@ export const PLAN = [
 
   // ---- Print & Canvassing ----
   { id: "print", area: "Print & Canvassing", name: "Print design, ordering and canvassing", steps: [
-    "Create Print Design asks what it's for and links to the Studio",
-    "Order Print Marketing: materials and quantity; save",
-    "Canvassing / Leaflet Drop: the area; save",
+    "Create Print Design asks what it's for, has Open your print packs and Design a print asset, and takes files and links",
+    "Order Print Marketing: materials, quantity and supplier, and several print designs can be chosen; save",
+    "Canvassing / Leaflet Drop: the area and how many leaflets; save",
   ] },
 
   // ---- Property Marketing ----
@@ -92,6 +92,7 @@ export const PLAN = [
   { id: "open_house", area: "Property Marketing", name: "Open House / Property Event", steps: [
     "It starts with no checklist and needs a time",
     "Start and end time; save; open it again",
+    "Link it to a campaign: the campaign then lists it, and each opens the other",
   ] },
 
   // ---- Campaigns ----

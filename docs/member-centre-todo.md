@@ -237,6 +237,11 @@ Raised 16 October 2026.
   point at the guide that goes with it (ordering print, canvassing, a launch).
 - **Paid Advertising** is left as it is for now: a different job, to be
   thought through on its own.
+- **Plan your route (Canvassing / Leaflet Drop).** Raised 16 Oct. Pick the
+  area and where you start, say how many houses or how long you'll be out,
+  and get a walking route on a map. Needs a mapping service (Google Maps
+  Directions, or similar) and a source of addresses or streets in the area;
+  to be scoped and costed before building.
 
 ## Notes
 

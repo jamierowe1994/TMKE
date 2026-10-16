@@ -961,6 +961,18 @@ import "../../styles/account-sections.css";
     .act-cat--solo .act-pick::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); flex: none; }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
     .act-files-list { display: grid; gap: 6px; }
+    /* Room on the activity forms (Dani, 16 Oct): a fifth less between a label
+       and its box, and boxes a fifth shorter. */
+    #act-form .post-field { gap: 5px; }
+    #act-form .post-input { padding-top: 6px; padding-bottom: 6px; }
+    #act-form .post-textarea { padding-top: 7px; padding-bottom: 7px; min-height: 0; }
+    #act-form .act-notes { min-height: 58px; }
+    #act-form .act-files-btn, #act-form .act-check-add button { height: 31px; }
+    .act-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    .act-btns .act-files-btn { text-decoration: none; }
+    .act-campaign { display: flex; gap: 8px; align-items: center; }
+    .act-campaign .post-input { flex: 1; min-width: 0; }
+    .act-linked { display: flex; flex-wrap: wrap; gap: 8px; }
     .act-plan-designs { justify-self: start; margin-top: 4px; background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
     .act-plan-designs:hover { background: var(--violet-deep); opacity: 0.92; }
     .act-plan-designs[hidden] { display: none; }
@@ -1171,6 +1183,7 @@ import "../../styles/account-sections.css";
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
     import { installTimePicker } from '../../lib/time-picker.js';
+    import { bookingLocation } from '../../lib/videography-config.js';
     installTimePicker();
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
 
@@ -1493,6 +1506,7 @@ import "../../styles/account-sections.css";
                   <span class="day-item-kind">${escapeHtml(a.label)}${p.details && p.details.shoot ? ' · ' + escapeHtml(p.details.shoot) : ''}${p.booking ? ' · TMKE booking' : ''}</span>
                   <h4 class="day-item-title">${escapeHtml(p.title || a.label)}</h4>
                   <span class="day-item-time">${escapeHtml(when + run)}</span>
+                  ${(p.details && (p.details.address || p.details.location)) && (p.details.address || p.details.location) !== p.title ? `<span class="day-item-time">${escapeHtml(p.details.address || p.details.location)}</span>` : ''}
                   ${p.notes ? `<p class="day-item-caption">${escapeHtml(p.notes)}</p>` : ''}
                   ${list.length ? `<span class="act-progress">Checklist: ${done} of ${list.length} done</span>` : ''}
                 </div>
@@ -2124,7 +2138,8 @@ import "../../styles/account-sections.css";
         if (f.kind === 'endDate') return `<label class="post-field">${lab}<input type="date" class="post-input" data-f="end_date" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="text" readonly data-time data-time-optional placeholder="Choose a time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'platform') return `<label class="post-field">${lab}<select class="post-input" data-f="platform"><option value="">Choose…</option>${PLATFORMS.map((p) => `<option${p === v ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('')}</select></label>`;
-        if (f.kind === 'printDesign' || f.kind === 'linkedDesigns') return `<div class="post-field">${lab}<div class="act-designs" data-designs="${f.kind}" data-f="${f.key}"><p class="act-none">Loading your designs…</p></div></div>`;
+        if (f.kind === 'printDesign' || f.kind === 'printDesigns' || f.kind === 'linkedDesigns') return `<div class="post-field">${lab}<div class="act-designs" data-designs="${f.kind}" data-f="${f.key}"><p class="act-none">Loading your designs…</p></div></div>`;
+        if (f.kind === 'campaignLink') return `<div class="post-field">${lab}<div class="act-campaign"><select class="post-input" data-f="${f.key}" data-campaign-pick data-was="${escapeHtml(v)}"><option value="">No campaign</option></select><button type="button" class="act-files-btn" data-open-campaign hidden>Open it</button></div></div>`;
         return `<label class="post-field">${lab}<input type="text" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" placeholder="${escapeHtml(f.placeholder || '')}" maxlength="160" /></label>`;
       };
       const fields = a.fields || [];
@@ -2135,7 +2150,7 @@ import "../../styles/account-sections.css";
       $actForm.style.setProperty('--cat', c.colour);
       $actForm.innerHTML = `
         <p class="act-kind">${escapeHtml(c.label)} · ${escapeHtml(a.label)}</p>
-        ${fields.filter((f) => !['endDate', 'endTime', 'printDesign', 'linkedDesigns', 'area', 'files'].includes(f.kind)).map(field).join('')}
+        ${fields.filter((f) => !f.afterDates && !['endDate', 'endTime', 'printDesign', 'printDesigns', 'linkedDesigns', 'area', 'files', 'campaignLink'].includes(f.kind)).map(field).join('')}
         <div class="act-row">
           <label class="post-field"><span class="post-label">${fields.some((f) => f.kind === 'endDate') ? 'Start date' : 'Date'}</span>
             <input type="date" class="post-input" data-f="date" value="${escapeHtml(item ? item.scheduled_date : actDate)}" /></label>
@@ -2144,11 +2159,15 @@ import "../../styles/account-sections.css";
             <input type="text" readonly data-time${a.timeRequired ? '' : ' data-time-optional'} placeholder="${a.timeRequired ? 'Choose a time' : 'All day'}" class="post-input" data-f="time" value="${escapeHtml(hasTime ? time : '')}" /></label>
           ${fields.filter((f) => f.kind === 'endTime').map(field).join('')}
         </div>
+        ${fields.filter((f) => f.afterDates).map(field).join('')}
+        ${a.buttons ? `<div class="act-btns">${a.buttons.map((b) => `<a class="act-files-btn" href="${b.href}" target="_blank" rel="noopener">${escapeHtml(b.label)}</a>`).join('')}</div>` : ''}
+        ${a.category === 'campaigns' && item ? `<div class="post-field" data-linked-events hidden></div>` : ''}
         ${a.checklistFirst ? checklistHtml : ''}
-        ${fields.filter((f) => f.kind === 'printDesign' || f.kind === 'linkedDesigns' || f.kind === 'area' || f.kind === 'files').map(field).join('')}
+        ${fields.filter((f) => !f.afterDates && ['printDesign', 'printDesigns', 'linkedDesigns', 'area', 'files'].includes(f.kind)).map(field).join('')}
         ${a.link ? `<a class="act-link" href="${a.link.href}">${escapeHtml(a.link.label)} &rarr;</a>` : ''}
         <label class="post-field"><span class="post-label">Notes <span class="pick-optional">— optional</span></span>
-          <textarea class="post-textarea" data-f="notes" rows="3" maxlength="2000">${escapeHtml((item && item.notes) || '')}</textarea></label>
+          <textarea class="post-textarea act-notes" data-f="notes" rows="2" maxlength="2000">${escapeHtml((item && item.notes) || '')}</textarea></label>
+        ${fields.filter((f) => f.kind === 'campaignLink').map(field).join('')}
         ${a.checklistFirst || a.noChecklist ? '' : checklistHtml}
         <label class="post-remind"><input type="checkbox" data-f="reminder" ${remind ? 'checked' : ''} />
           <span>Remind me on the day <span class="post-remind-note">&mdash; we'll email you at 8am that morning</span></span></label>
@@ -2162,17 +2181,19 @@ import "../../styles/account-sections.css";
       $actMycal.hidden = !item || (demoOn() && !isTrainingDemo());
       if ($actModal.hidden) showActModal();
       $actForm.scrollTop = 0;
+      linkCampaigns(item);
       // Designs, once they have loaded.
       const pickers = [...$actForm.querySelectorAll('[data-designs]')];
       if (pickers.length) {
         const all = await loadActDesigns();
         pickers.forEach((box) => {
-          const multi = box.dataset.designs === 'linkedDesigns';
-          const list = multi ? all : all.filter((x) => isPrintDesign(x));
-          const chosen = new Set([].concat(d[box.dataset.f] || []).map(String));
+          const multi = box.dataset.designs === 'linkedDesigns' || box.dataset.designs === 'printDesigns';
+          const list = box.dataset.designs === 'linkedDesigns' ? all : all.filter((x) => isPrintDesign(x));
+          // An entry from before several could be chosen kept one, as design_id.
+          const chosen = new Set([].concat(d[box.dataset.f] || [], box.dataset.f === 'design_ids' && d.design_id ? [d.design_id] : []).map(String));
           box.innerHTML = list.length
             ? list.map((x) => `<button type="button" class="act-design${chosen.has(String(x.id)) ? ' is-on' : ''}" data-design-id="${escapeHtml(String(x.id))}" aria-pressed="${chosen.has(String(x.id))}"><img src="${escapeHtml(x.thumb_url || '')}" alt="" loading="lazy" /><span>${escapeHtml(x.name || 'Untitled design')}</span></button>`).join('')
-            : `<p class="act-none">${multi ? 'No saved designs yet.' : 'No print designs yet. Make one from your print packs in the Studio.'}</p>`;
+            : `<p class="act-none">${box.dataset.designs === 'linkedDesigns' ? 'No saved designs yet.' : 'No print designs yet. Make one from your print packs in the Studio.'}</p>`;
           /* Linked designs can be planned as posts from here (Dani, 16 Oct):
              choose them, then Plan these posts takes each in turn. */
           let planBtn = null;
@@ -2185,7 +2206,7 @@ import "../../styles/account-sections.css";
             planBtn.hidden = !n;
             planBtn.textContent = n === 1 ? 'Plan this post' : `Plan these ${n} posts`;
           };
-          if (multi && list.length) {
+          if (box.dataset.designs === 'linkedDesigns' && list.length) {
             box.insertAdjacentHTML('afterend', `<button type="button" class="act-files-btn act-plan-designs" data-plan-designs hidden>Plan these posts</button>`);
             planBtn = box.nextElementSibling;
             planBtn.addEventListener('click', () => {
@@ -2209,6 +2230,76 @@ import "../../styles/account-sections.css";
         });
       }
     }
+
+    /* An event and its campaign, linked both ways (Dani, 16 Oct). The event's
+       Campaign list is every campaign they've made; the campaign shows the
+       events linked to it. Either opens the other, which may still have steps
+       left on its checklist. */
+    const CAMPAIGN_KEYS = ACTIVITIES.filter((x) => x.category === 'campaigns').map((x) => x.key);
+
+    /* With a pop-out open, the wheel scrolls the pop-out (Dani, 16 Oct). The
+       site's smooth scrolling (Lenis, app.js) takes the wheel for the page,
+       locked or not, so it's paused while any of them is open. */
+    (() => {
+      const pops = () => [...document.querySelectorAll('.day-backdrop, .dc-panel')];
+      const sync = () => {
+        const open = pops().some((el) => el.classList.contains('dc-panel')
+          ? el.getAttribute('aria-hidden') === 'false' || el.classList.contains('is-open')
+          : !el.hidden);
+        const l = window.__lenis;
+        if (l) { if (open) l.stop(); else l.start(); }
+      };
+      const mo = new MutationObserver(sync);
+      pops().forEach((el) => { el.setAttribute('data-lenis-prevent', ''); mo.observe(el, { attributes: true, attributeFilter: ['hidden', 'class', 'aria-hidden'] }); });
+    })();
+    async function linkCampaigns(item) {
+      const pick = $actForm.querySelector('[data-campaign-pick]');
+      const back = $actForm.querySelector('[data-linked-events]');
+      if (!pick && !back) return;
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return;
+      if (pick) {
+        const { data } = await acct.db.from(acct.table).select('id, title, activity, scheduled_date')
+          .eq('user_id', acct.uid).in('activity', CAMPAIGN_KEYS).order('scheduled_date', { ascending: false }).limit(60);
+        const was = pick.dataset.was || '';
+        (data || []).forEach((c) => {
+          const o = document.createElement('option');
+          o.value = c.id;
+          const label = activityOf(c.activity).label;
+          const when = new Date(c.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+          o.textContent = (c.title && c.title !== label ? `${c.title} · ` : '') + `${label} · ${when}`;
+          if (String(c.id) === was) o.selected = true;
+          pick.appendChild(o);
+        });
+        const btn = $actForm.querySelector('[data-open-campaign]');
+        const sync = () => { btn.hidden = !pick.value; };
+        pick.addEventListener('change', sync); sync();
+      }
+      if (back && item) {
+        const { data } = await acct.db.from(acct.table).select('id, title, activity, scheduled_date')
+          .eq('user_id', acct.uid).eq('details->>campaign_id', String(item.id)).order('scheduled_date', { ascending: true });
+        if (data && data.length) {
+          back.innerHTML = `<span class="post-label">Linked to this campaign</span><div class="act-linked">${data.map((e) =>
+            `<button type="button" class="act-files-btn" data-open-entry="${escapeHtml(String(e.id))}">${escapeHtml(activityOf(e.activity).label)} · ${escapeHtml(new Date(e.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</button>`).join('')}</div>`;
+          back.hidden = false;
+        }
+      }
+    }
+    // Open a linked entry in place of this one.
+    async function openLinked(id) {
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return;
+      const { data } = await acct.db.from(acct.table).select('*').eq('user_id', acct.uid).eq('id', id).maybeSingle();
+      if (!data) return actError("That entry isn't on your calendar any more.");
+      actDate = data.scheduled_date;
+      chooseAct(data.activity, data);
+    }
+    $actForm?.addEventListener('click', (e) => {
+      const open = e.target.closest && e.target.closest('[data-open-campaign]');
+      if (open) { const v = $actForm.querySelector('[data-campaign-pick]').value; if (v) openLinked(v); return; }
+      const ent = e.target.closest && e.target.closest('[data-open-entry]');
+      if (ent) openLinked(ent.dataset.openEntry);
+    });
 
     function drawChecklist() {
       const box = $actForm.querySelector('[data-check]'); if (!box) return;
@@ -2322,7 +2413,7 @@ import "../../styles/account-sections.css";
           if (list.length) details[f.key] = list.map(({ uploading, fresh, ...x }) => x);
           continue;
         }
-        if (f.kind === 'printDesign' || f.kind === 'linkedDesigns') {
+        if (f.kind === 'printDesign' || f.kind === 'printDesigns' || f.kind === 'linkedDesigns') {
           const ids = [...$actForm.querySelectorAll(`[data-f="${f.key}"] .act-design.is-on`)].map((b) => b.dataset.designId);
           if (f.kind === 'printDesign') { if (ids[0]) details[f.key] = ids[0]; } else if (ids.length) details[f.key] = ids;
           continue;
@@ -2806,7 +2897,7 @@ import "../../styles/account-sections.css";
                 : /agent/i.test(String(b.service_type || b.service)) ? 'agent_filming' : 'property_shoot',
               title: (b.service || 'TMKE shoot') + (b.postcode ? ' · ' + b.postcode : ''),
               scheduled_date: ymd(when), scheduled_time: when.toTimeString().slice(0, 5), has_time: true,
-              details: {}, checklist: [], status: 'scheduled',
+              details: { address: bookingLocation(b) }, checklist: [], status: 'scheduled',
             });
           });
         } catch (_) { /* the calendar is fine without them */ }

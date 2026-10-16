@@ -13,6 +13,8 @@
    calendar_activities.sql): `activity` is the key, `details` holds the
    activity's own fields, `checklist` its items, `end_date` a run's last day.
 
+   `afterDates` puts a field straight after the date and time; `buttons` are
+   links shown as buttons after the dates (print: the packs, a new design).
    `line` is the one sentence under the title saying what the activity is
    (Dani, 17 Oct). `checklistFirst` puts the checklist straight after the
    dates (campaigns); `noChecklist` leaves it off (a follow-up has a contact).
@@ -46,6 +48,9 @@ export const CATEGORIES = [
      platform  where it runs (a choice)    (details.platform)
      printDesign   one of your print designs, optional   (details.design_id)
      linkedDesigns any of your designs, several          (details.design_ids)
+     printDesigns  print designs, several              (details[key])
+     campaignLink  one of their campaigns       (details.campaign_id); the
+               campaign lists what's linked to it
      files     uploads and links, several   (details[key]: [{ kind: "file",
                name, path, size, mime } | { kind: "link", url }]). Files go to
                the private calendar-files bucket (supabase/calendar_files.sql)
@@ -66,13 +71,17 @@ export const ACTIVITIES = [
     book: { blurb: "Book a session in our Content Studio and leave with content that's ready to post.",
       discover: "Discover our studio", logs: [{ label: "Add a studio booking" }],
       info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "content-studio", label: "Book now" }] },
-    reminder: true, timeRequired: true, title: null, fields: [] },
+    // Date, time, then where (Dani, 16 Oct). A booking with us brings the
+    // studio's own address.
+    reminder: true, timeRequired: true, title: null, fields: [
+      { key: "address", kind: "text", label: "Address", optional: true, afterDates: true },
+    ] },
   { key: "agent_filming", category: "content", label: "Agent Filming Day",
     line: "Your day of filming with us, on camera for your social media.",
     book: { blurb: "Book a day of filming with you on camera: presenter-led content for your social media.",
       discover: "Discover videography packages", logs: [{ label: "Add a filming day" }],
       info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "agent", label: "Book now" }] },
-    reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true }] },
+    reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true, afterDates: true }] },
   { key: "email_newsletter", category: "content", label: "Email / Newsletter",
     line: "An email to your contacts, such as your newsletter or a new listing.",
     title: "subject", fields: [
@@ -94,21 +103,39 @@ export const ACTIVITIES = [
   // Print & Canvassing
   { key: "print_design", category: "print", label: "Create Print Design",
     line: "Set aside time to design your print marketing in the Studio, ready to order.",
-    title: "purpose", link: { href: "/account/studio", label: "Open your print packs in the Studio" },
-    fields: [{ key: "purpose", kind: "text", label: "What it's for", required: true, placeholder: "e.g. Just sold card for Bilton" }] },
+    title: "purpose", buttons: [
+      { href: "/account/studio#packs", label: "Open your print packs" },
+      { href: "/account/editor?new=1", label: "Design a print asset" },
+    ],
+    fields: [
+      { key: "purpose", kind: "text", label: "What it's for", required: true, placeholder: "e.g. Just sold card for Bilton" },
+      { key: "files", kind: "files", label: "Files and links", optional: true },
+    ] },
   { key: "print_order", category: "print", label: "Order Print Marketing",
     line: "Order your print marketing, so it arrives in time to go out.",
     title: "materials", fields: [
       { key: "materials", kind: "text", label: "Materials required", required: true, placeholder: "e.g. A5 canvassing cards" },
       { key: "quantity", kind: "number", label: "Quantity", optional: true },
-      { key: "design_id", kind: "printDesign", label: "Print design", optional: true },
-    ] },
+      { key: "supplier", kind: "text", label: "Supplier", optional: true, placeholder: "e.g. Vistaprint, or your printer's website" },
+      { key: "design_ids", kind: "printDesigns", label: "Print designs", optional: true },
+      { key: "files", kind: "files", label: "Your own files and links", optional: true },
+    ],
+    buttons: [
+      { href: "/account/studio#packs", label: "Open your print packs" },
+      { href: "/account/editor?new=1", label: "Design a print asset" },
+    ], },
   { key: "canvassing", category: "print", label: "Canvassing / Leaflet Drop",
     line: "Get your cards and leaflets through the doors in the area you want to win.",
     title: "area", fields: [
       { key: "area", kind: "text", label: "Area", required: true, placeholder: "e.g. Bilton, Rugby" },
-      { key: "design_id", kind: "printDesign", label: "Print design you're taking", optional: true },
-    ] },
+      { key: "leaflets", kind: "number", label: "How many leaflets", optional: true },
+      { key: "design_ids", kind: "printDesigns", label: "Designs you're taking", optional: true },
+      { key: "files", kind: "files", label: "Your own files and links", optional: true },
+    ],
+    buttons: [
+      { href: "/account/studio#packs", label: "Open your print packs" },
+      { href: "/account/editor?new=1", label: "Design a print asset" },
+    ], },
 
   // Property Marketing
   { key: "property_shoot", category: "property", label: "Property Photography or Filming",
@@ -124,6 +151,8 @@ export const ACTIVITIES = [
     timeRequired: true, title: "address", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
       { key: "end_time", kind: "endTime", label: "End time", optional: true },
+      // An open house belongs to its campaign: linked both ways (Dani, 16 Oct).
+      { key: "campaign_id", kind: "campaignLink", label: "Campaign", optional: true },
     ] },
 
   // Campaigns: a run of marketing towards one goal, each with its own steps
