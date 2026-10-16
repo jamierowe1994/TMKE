@@ -929,15 +929,17 @@ import "../../styles/account-sections.css";
     .act-cat--solo .act-pick { display: flex; align-items: center; gap: 8px; color: rgba(28,29,34,0.75); }
     .act-cat--solo .act-pick::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); flex: none; }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
-    .act-book { display: grid; gap: 14px; }
+    .act-book-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+    @media (max-width: 720px) { .act-book-cards { grid-template-columns: 1fr; } }
+    .act-book { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; }
     .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
-    .act-book-links { display: flex; flex-wrap: wrap; gap: 10px; }
-    .act-book-links a, .act-book-links button { display: inline-flex; cursor: pointer; align-items: center; height: 34px; padding: 0 14px; border-radius: 4px; text-decoration: none;
+    .act-book-links { display: grid; gap: 8px; }
+    .act-book-links a, .act-book-links button { display: flex; justify-content: center; cursor: pointer; align-items: center; height: 36px; padding: 0 14px; border-radius: 4px; text-decoration: none;
       font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
       border: 1px solid rgba(28,29,34,0.2); color: var(--ink); background: #fff; }
     .act-book-links .is-primary { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
     .act-book-note { font-size: var(--ws-t-meta) !important; color: rgba(28,29,34,0.55) !important; }
-    .act-book--log { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .act-book--log .act-book-links { margin-top: auto; }
     .act-cat h3 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); display: flex; align-items: center; gap: 7px; }
     .act-cat h3::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
     .act-cat ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1837,21 +1839,24 @@ import "../../styles/account-sections.css";
         $actH.textContent = a.label;
         setActLine(a.line);
         $actForm.style.setProperty('--cat', c0.colour);
-        $actForm.innerHTML = `<div class="act-book">
-          <p class="act-kind">Book with TMKE</p>
-          <p>${escapeHtml(a.book.blurb)}</p>
-          <div class="act-book-links">
-            <a href="${a.book.info}" target="_blank" rel="noopener">See what's included</a>
-            <a href="${a.book.brochure}" target="_blank" rel="noopener">Download the brochure</a>
-            ${a.book.book.map((b) => `<button type="button" class="is-primary" data-book-service="${b.service}">${escapeHtml(b.label)}</button>`).join('')}
-          </div>
-          <p class="act-book-note">Book here, without leaving your calendar. Once it's booked, it appears on your calendar by itself.</p>
-          <div class="post-error" data-act-error hidden></div>
-        </div>
-        <div class="act-book act-book--log">
-          <p class="act-kind">Already booked, or arranging it yourself?</p>
-          <p>Add it to your calendar with its date and time.</p>
-          <div class="act-book-links"><button type="button" data-act-log>Add it as a day</button></div>
+        // Two cards side by side, the buttons stacked (Dani, 16 Oct).
+        $actForm.innerHTML = `<div class="act-book-cards">
+          <section class="act-book">
+            <p class="act-kind">Book with TMKE</p>
+            <p>${escapeHtml(a.book.blurb)}</p>
+            <div class="act-book-links">
+              ${a.book.book.map((b) => `<button type="button" class="is-primary" data-book-service="${b.service}">${escapeHtml(b.label)}</button>`).join('')}
+              <a href="${a.book.info}" target="_blank" rel="noopener">${escapeHtml(a.book.discover || "See what's included")}</a>
+              <a href="${a.book.brochure}" target="_blank" rel="noopener">Download the brochure</a>
+            </div>
+            <p class="act-book-note">Once it's booked, it appears on your calendar by itself.</p>
+            <div class="post-error" data-act-error hidden></div>
+          </section>
+          <section class="act-book act-book--log">
+            <p class="act-kind">Already booked or arranged it yourself?</p>
+            <p>Add it to your calendar with its date and time.</p>
+            <div class="act-book-links"><button type="button" data-act-log>${escapeHtml(a.book.log || 'Add it as a day')}</button></div>
+          </section>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
         $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Back';
@@ -1884,6 +1889,10 @@ import "../../styles/account-sections.css";
         return `<label class="post-field">${lab}<input type="text" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" placeholder="${escapeHtml(f.placeholder || '')}" maxlength="160" /></label>`;
       };
       const fields = a.fields || [];
+      const checklistHtml = `<div class="post-field"><span class="post-label">Checklist <span class="act-progress" data-progress></span></span>
+          <div class="act-check" data-check></div>
+          <div class="act-check-add"><input type="text" class="post-input" data-check-new placeholder="Add an item" maxlength="160" /><button type="button" data-check-add>Add</button></div>
+        </div>`;
       $actForm.style.setProperty('--cat', c.colour);
       $actForm.innerHTML = `
         <p class="act-kind">${escapeHtml(c.label)} · ${escapeHtml(a.label)}</p>
@@ -1896,14 +1905,12 @@ import "../../styles/account-sections.css";
             <input type="text" readonly data-time${a.timeRequired ? '' : ' data-time-optional'} placeholder="${a.timeRequired ? 'Choose a time' : 'All day'}" class="post-input" data-f="time" value="${escapeHtml(hasTime ? time : '')}" /></label>
           ${fields.filter((f) => f.kind === 'endTime').map(field).join('')}
         </div>
+        ${a.checklistFirst ? checklistHtml : ''}
         ${fields.filter((f) => f.kind === 'printDesign' || f.kind === 'linkedDesigns' || f.kind === 'area').map(field).join('')}
         ${a.link ? `<a class="act-link" href="${a.link.href}">${escapeHtml(a.link.label)} &rarr;</a>` : ''}
         <label class="post-field"><span class="post-label">Notes <span class="pick-optional">— optional</span></span>
           <textarea class="post-textarea" data-f="notes" rows="3" maxlength="2000">${escapeHtml((item && item.notes) || '')}</textarea></label>
-        <div class="post-field"><span class="post-label">Checklist <span class="act-progress" data-progress></span></span>
-          <div class="act-check" data-check></div>
-          <div class="act-check-add"><input type="text" class="post-input" data-check-new placeholder="Add an item" maxlength="160" /><button type="button" data-check-add>Add</button></div>
-        </div>
+        ${a.checklistFirst || a.noChecklist ? '' : checklistHtml}
         <label class="post-remind"><input type="checkbox" data-f="reminder" ${remind ? 'checked' : ''} />
           <span>Remind me on the day <span class="post-remind-note">&mdash; we'll email you at 8am that morning</span></span></label>
         <div class="post-error" data-act-error hidden></div>`;

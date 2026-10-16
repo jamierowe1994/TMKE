@@ -226,6 +226,18 @@ been reviewed on a phone yet.
 - Walkthrough pictures (`shot`) were taken at the rig's desktop width; check
   they read on a phone, or whether phone walks need their own.
 
+## 9 · Marketing Calendar, later
+
+Raised 16 October 2026.
+
+- **Request a Testimonial: templates to send.** A recommended email and a
+  WhatsApp message the member can copy and send to a client, written for
+  them, from the Request a Testimonial entry.
+- **Guides linked to activities.** Once the guides are up, each activity can
+  point at the guide that goes with it (ordering print, canvassing, a launch).
+- **Paid Advertising** is left as it is for now: a different job, to be
+  thought through on its own.
+
 ## Notes
 
 - The dashboard's "New in The Studio" row is **placeholder copy and images**.

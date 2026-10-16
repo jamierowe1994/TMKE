@@ -2218,11 +2218,11 @@ const ACTIVITY_LABELS = {
   print_design: "Create print design", print_order: "Order print marketing", canvassing: "Canvassing / leaflet drop",
   property_shoot: "Property photography or filming", open_house: "Open house / property event",
   story_of_sale: "Story of the sale", property_launch: "New listing campaign", open_house_campaign: "Open house campaign", seasonal_campaign: "Seasonal campaign",
-  local_event: "Local event / networking", review_request: "Review / testimonial request", follow_up: "Marketing follow-up", other: "Something else",
+  local_event: "Local event / networking", review_request: "Testimonial request", follow_up: "Marketing follow-up", other: "Something else",
 };
 const ACTIVITY_DETAIL_LABELS = {
   address: "Property address", area: "Area", location: "Location", platform: "Platform", campaign: "Campaign",
-  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event", occasion: "Occasion",
+  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event", occasion: "Occasion", contact_name: "Contact", contact_address: "Address", contact_reach: "Phone or email",
 };
 /* ---- The Marketing Calendar in the member's own calendar (Dani, 17 Oct) ----
    Two ways, both working in Apple (and iPhone), Outlook and Google:

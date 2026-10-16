@@ -14,7 +14,8 @@
    activity's own fields, `checklist` its items, `end_date` a run's last day.
 
    `line` is the one sentence under the title saying what the activity is
-   (Dani, 17 Oct).
+   (Dani, 17 Oct). `checklistFirst` puts the checklist straight after the
+   dates (campaigns); `noChecklist` leaves it off (a follow-up has a contact).
 
    Two flags:
      book   something we film: choosing it offers Book with TMKE (what's
@@ -59,11 +60,13 @@ export const ACTIVITIES = [
   { key: "content_studio", category: "content", label: "Content Studio Session",
     line: "Your session in our Content Studio, filming content that's ready to post.", teg: true,
     book: { blurb: "Book a session in our Content Studio and leave with content that's ready to post.",
+      discover: "Discover our studio", log: "Add a studio booking",
       info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "content-studio", label: "Book now" }] },
     reminder: true, timeRequired: true, title: null, fields: [] },
   { key: "agent_filming", category: "content", label: "Agent Filming Day",
     line: "Your day of filming with us, on camera for your social media.",
     book: { blurb: "Book a day of filming with you on camera: presenter-led content for your social media.",
+      discover: "Discover videography packages", log: "Add a filming day",
       info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "agent", label: "Book now" }] },
     reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true }] },
   { key: "email_newsletter", category: "content", label: "Email / Newsletter",
@@ -101,6 +104,7 @@ export const ACTIVITIES = [
   { key: "property_shoot", category: "property", label: "Property Photography or Filming",
     line: "The day the property is photographed or filmed.",
     book: { blurb: "Property photography and filming by TMKE: tours, Reels and stills that sell the home.",
+      discover: "Discover our property packages", log: "Add a property shoot",
       info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "property", label: "Book property filming" }, { service: "photography", label: "Book property photography" }] },
     reminder: true, title: "address", fields: [{ key: "address", kind: "text", label: "Property address", required: true }] },
   { key: "open_house", category: "property", label: "Open House / Property Event",
@@ -114,6 +118,7 @@ export const ACTIVITIES = [
   // (Dani, 16 Oct). New Listing keeps the key property_launch, so launches
   // planned before the move are New Listing campaigns now.
   { key: "story_of_sale", category: "campaigns", label: "Story of the Sale",
+    checklistFirst: true,
     line: "Show how a sale happened, from going on the market to the keys, to win the next instruction.",
     title: "address", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
@@ -130,6 +135,7 @@ export const ACTIVITIES = [
       "Just Sold cards ordered and delivered",
     ] },
   { key: "property_launch", category: "campaigns", label: "New Listing Campaign",
+    checklistFirst: true,
     line: "Everything that goes into launching a property, from the photos to the portals.",
     title: "campaign", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
@@ -149,6 +155,7 @@ export const ACTIVITIES = [
       "Email sent to your buyer list",
     ] },
   { key: "open_house_campaign", category: "campaigns", label: "Open House Campaign",
+    checklistFirst: true,
     line: "The marketing that fills an open house: the announcement, invitations, reminders and follow-up.",
     title: "address", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
@@ -166,6 +173,7 @@ export const ACTIVITIES = [
       "Thank-you post and follow-up calls after the event",
     ] },
   { key: "seasonal_campaign", category: "campaigns", label: "Seasonal Campaign",
+    checklistFirst: true,
     line: "A campaign around a time of year, such as the spring market, the summer holidays or Christmas.",
     title: "occasion", fields: [
       { key: "occasion", kind: "text", label: "Season or occasion", required: true, placeholder: "e.g. Spring market" },
@@ -188,14 +196,17 @@ export const ACTIVITIES = [
       { key: "event", kind: "text", label: "Event name", required: true },
       { key: "location", kind: "text", label: "Location", optional: true },
     ] },
-  { key: "review_request", category: "business", label: "Review / Testimonial Request",
-    line: "Ask a happy client for a review or testimonial while the move is fresh.",
+  { key: "review_request", category: "business", label: "Request a Testimonial",
+    line: "Ask a happy client for a testimonial while the move is fresh.",
     title: "client", fields: [{ key: "client", kind: "text", label: "Client or property", required: true }] },
   { key: "follow_up", category: "business", label: "Marketing Follow-Up",
     line: "Follow up on your marketing: a lead, a campaign or a conversation.",
-    title: "title", fields: [{ key: "title", kind: "text", label: "What you're following up", required: true }] },
-
-  // Something else
+    // A contact rather than a checklist (Dani, 16 Oct).
+    noChecklist: true, title: "contact_name", fields: [
+      { key: "contact_name", kind: "text", label: "Contact name", optional: true },
+      { key: "contact_address", kind: "text", label: "Address", optional: true },
+      { key: "contact_reach", kind: "text", label: "Phone or email", optional: true },
+    ] },
   { key: "other", category: "other", label: "Something Else",
     line: "Anything else in your marketing that you want on the calendar.",
     title: "title", fields: [{ key: "title", kind: "text", label: "Title", required: true }] },
