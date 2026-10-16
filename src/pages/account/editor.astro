@@ -342,7 +342,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           Review
         </button>
         <!-- Publish — admin only; shown via JS when ?mode=admin. -->
-        <button class="ed-btn-ghost" id="ed-regen" hidden title="Re-render this template's preview at full resolution. Hold Shift to do every template in the catalogue.">Regenerate previews</button>
+        <button class="ed-btn-ghost" id="ed-regen" hidden title="Re-render this template's preview at full resolution: on page one the front (and back), on page two the back only. Hold Shift to do every template in the catalogue.">Regenerate previews</button>
         <button class="ed-btn-solid" id="ed-publish" hidden>Send to catalogue</button>
         <div class="ed-download" id="ed-download">
           <button class="ed-btn-solid" id="ed-download-trigger" aria-haspopup="menu" aria-expanded="false">
@@ -6069,7 +6069,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            made, the photo taken out again -- so redrawing them from the saved
            design would put the empty frames back (Dani, 13 Oct). One is
            redrawn only from its own design, open on screen (`fromOpen`). */
-        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen, fromOpenBack) {
+        window.__TMKE_REGEN_ALL__ = async function (onProgress, onlyId, fromOpen, fromOpenBack, backOnly) {
           let query = supabase.from('templates').select('id, canvas, elements, pages');
           if (onlyId) query = query.eq('id', onlyId);
           const { data: rows, error } = await query;
@@ -6080,7 +6080,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           let done = 0, failed = 0;
           for (const t of list) {
             try {
-              const pair = (typeof window.__TMKE_RENDER_PAIR_FROM__ === 'function')
+              const pair = backOnly ? { thumb: null, render: null } : (typeof window.__TMKE_RENDER_PAIR_FROM__ === 'function')
                 ? await window.__TMKE_RENDER_PAIR_FROM__(t.canvas, t.elements)
                 : { thumb: null, render: null };
               const update = {};
@@ -6093,7 +6093,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
               if (update.thumb_url || update.render_url) {
                 const { error: uErr } = await supabase.from('templates').update(update).eq('id', t.id);
                 if (uErr) { failed++; console.error('[regen update]', t.id, uErr); }
-              } else { failed++; }
+              } else if (!backOnly) { failed++; }
               /* The back preview (Sam, 16 Oct): page two, shown on hover in a
                  pack. Its own write, so a database without the column yet
                  (supabase/template_back_preview.sql) keeps the front. */
@@ -6104,9 +6104,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
                   if (typeof back === 'string' && back.startsWith('data:')) {
                     const url = await externUploadDataUrl(back);
                     const { error: bErr } = await supabase.from('templates').update({ back_thumb_url: url }).eq('id', t.id);
-                    if (bErr) console.error('[regen back]', t.id, bErr.message);
-                  }
-                } catch (e) { console.error('[regen back]', t.id, e); }
+                    if (bErr) { console.error('[regen back]', t.id, bErr.message); if (backOnly) failed++; }
+                  } else if (backOnly) failed++;
+                } catch (e) { console.error('[regen back]', t.id, e); if (backOnly) failed++; }
               }
             } catch (e) { failed++; console.error('[regen render]', t.id, e); }
             done++;
@@ -7544,18 +7544,25 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         const fromOpen = (printOpen && typeof window.__TMKE_OPEN_PAGE_ONE__ === "function") ? window.__TMKE_OPEN_PAGE_ONE__() : null;
         // The back as it is on screen too, photos and all, for the same reason.
         const fromOpenBack = (printOpen && typeof window.__TMKE_OPEN_PAGE_TWO__ === "function") ? window.__TMKE_OPEN_PAGE_TWO__() : null;
+        /* On page two, only the back is redone (Dani, 16 Oct): photos go in the
+           back for its picture, and the front preview, made already, is left
+           exactly as it is. */
+        const pageInfo = typeof window.__TMKE_PAGE_INFO__ === "function" ? window.__TMKE_PAGE_INFO__() : null;
+        const backOnly = !!(onlyId && pageInfo && pageInfo.count > 1 && pageInfo.current === 1);
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
         try {
           const res = await window.__TMKE_REGEN_ALL__((done, total) => {
             regenBtn.textContent = onlyId ? "Regenerating…" : `Regenerating ${done}/${total}…`;
-          }, onlyId, fromOpen, fromOpenBack);
+          }, onlyId, fromOpen, fromOpenBack, backOnly);
           const ok = res.done - res.failed;
           regenBtn.textContent = `Done ✓`;
           if (onlyId) {
             alert(res.failed
               ? "That preview could not be regenerated — see the console."
-              : "This template's preview has been regenerated.\n\nHold Shift and click to do the whole catalogue.");
+              : backOnly
+                ? "The back preview has been regenerated. The front preview is unchanged.\n\nOn page one, Regenerate previews does the front and the back."
+                : "This template's preview has been regenerated" + (pageInfo && pageInfo.count > 1 ? ", front and back" : "") + ".\n\nOn page two, it does the back only. Hold Shift and click to do the whole catalogue.");
           } else {
             alert(`Regenerated ${ok} of ${res.total} previews.` + (res.failed ? ` ${res.failed} failed — see the console.` : " Re-publishing covers will now use the crisp versions."));
           }
