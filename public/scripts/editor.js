@@ -2339,6 +2339,8 @@ import { createResizeEngine } from "./resize-engine.js";
   let _dbSaveTimer = null;
   let _dbSaving = false;
   let _dbRetries = 0;
+  let _saveFails = 0;          // cloud saves failed in a row; three puts the bar up
+  let _trialEdited = false;    // edited while a size is on trial (nothing reaches the cloud)
   let _lastSaveWhy = null;                 // why the last cloud save failed
   const _saveWhyToldFor = new Set();       // each reason is said once, not per retry
 
@@ -2357,6 +2359,42 @@ import { createResizeEngine } from "./resize-engine.js";
     if (kind === "saving") { el.textContent = "Saving…"; el.style.background = "#fff"; el.style.color = "rgba(28,29,34,0.7)"; }
     else if (kind === "saved") { el.textContent = "All changes saved ✓"; el.style.background = "#e7f3ea"; el.style.color = "#2d6a44"; el._hideT = setTimeout(function () { el.style.opacity = "0"; }, 1800); }
     else if (kind === "local") { el.textContent = "⚠ Saved on this device — not yet in the cloud"; el.style.background = "#fcefe6"; el.style.color = "#a05a3c"; el.title = (_lastSaveWhy ? "Why: " + _lastSaveWhy + "\n\n" : "") + "Your work is safe in this browser. The message that appeared says why the cloud save failed."; }
+  }
+
+  /* The save bar (Dani, 16 Oct): a warning that stays on screen, not a toast,
+     whenever work isn't reaching TMKE -
+       a size on trial that has been edited: keep the size, or go back;
+       three cloud saves failed in a row: why, and Try again.
+     It goes as soon as the work is saved again. */
+  function saveAlarm() {
+    if (!ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ !== "function") return;
+    let bar = document.getElementById("ed-save-alarm");
+    const trial = sizePreviewPending() && _trialEdited;
+    const failing = !trial && _saveFails >= 3;
+    if (!trial) _trialEdited = sizePreviewPending() && _trialEdited;
+    if (!trial && !failing) { if (bar) bar.hidden = true; return; }
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "ed-save-alarm";
+      bar.setAttribute("role", "alert");
+      bar.style.cssText = "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:130;max-width:min(760px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 16px;border-radius:8px;background:#a3372f;color:#fff;font-family:var(--sans,sans-serif);font-size:13px;line-height:1.45;box-shadow:0 14px 34px -10px rgba(28,29,34,0.55);";
+      document.body.appendChild(bar);
+      bar.addEventListener("click", (e) => {
+        if (e.target.closest("[data-alarm-retry]")) { _dbRetries = 0; autosaveToDb(); }
+      });
+    }
+    const btn = "all:unset;cursor:pointer;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;";
+    if (trial) {
+      const now = sizeName(state.canvas.width, state.canvas.height), was = sizeName(_sizePreview.W, _sizePreview.H);
+      bar.innerHTML = '<span style="flex:1 1 280px"><strong>Not saved yet.</strong> You\u2019re trying ' + escapeHtml(now) + (ADMIN_MODE_URL ? '. Your work is kept in this browser, but it won\u2019t save to TMKE until you keep this size.' : '. Nothing you do at this size is saved until you keep it.') + '</span>' +
+        '<button type="button" data-size-act="keep" style="' + btn + 'background:#fff;color:#a3372f;">Keep ' + escapeHtml(now) + '</button>' +
+        '<button type="button" data-size-act="back" style="' + btn + 'border:1px solid rgba(255,255,255,0.6);color:#fff;">Go back to ' + escapeHtml(was) + '</button>';
+      syncSizeDecision();   // the keep button's own wording
+    } else {
+      bar.innerHTML = '<span style="flex:1 1 280px"><strong>Your changes aren\u2019t saving to TMKE.</strong> ' + escapeHtml(_lastSaveWhy || "The last three saves didn\u2019t go through.") + ' ' + (ADMIN_MODE_URL ? 'They\u2019re kept in this browser in the meantime. ' : '') + 'Don\u2019t close this tab until they save.</span>' +
+        '<button type="button" data-alarm-retry style="' + btn + 'background:#fff;color:#a3372f;">Try again</button>';
+    }
+    bar.hidden = false;
   }
 
   function autosaveDraft() {
@@ -2425,8 +2463,10 @@ import { createResizeEngine } from "./resize-engine.js";
       if (designHook && res && res.id && state.templateId !== res.id) state.templateId = res.id;
     } catch (e) { ok = false; _lastSaveWhy = String((e && e.message) || "") || null; }
     _dbSaving = false;
-    if (ok) { _dbRetries = 0; setSaveStatus("saved"); }
+    if (ok) { _dbRetries = 0; _saveFails = 0; setSaveStatus("saved"); saveAlarm(); }
     else {
+      _saveFails += 1;
+      saveAlarm();
       // Cloud save failed — work is safe locally. Retry a few times with backoff
       // so a transient blip self-heals; then stop hammering (the next edit or a
       // manual Save tries again). The localStorage copy never depends on this.
@@ -2446,8 +2486,16 @@ import { createResizeEngine } from "./resize-engine.js";
     }
   }
   function scheduleAutosave() {
-    // Trying sizes never saves over the design; see _sizePreview.
-    if (sizePreviewPending()) return;
+    /* Trying a size never saves over the design in the cloud (_sizePreview).
+       But the work goes on being kept in this browser, and the bar says it
+       isn't saved yet: Sam designed four A5 pages on a trial size that never
+       saved, with nothing to say so (16 Oct). */
+    if (sizePreviewPending()) {
+      if (ADMIN_MODE_URL) { clearTimeout(_autosaveTimer); _autosaveTimer = setTimeout(autosaveDraft, 1200); }
+      _trialEdited = true;
+      saveAlarm();
+      return;
+    }
     const customer = !ADMIN_MODE_URL && typeof window.__TMKE_DESIGN_SAVE__ === "function";
     if (!ADMIN_MODE_URL && !customer) return;
     if (ADMIN_MODE_URL) {   // admin also keeps a local draft; customers save to their copy only
@@ -13760,6 +13808,7 @@ import { createResizeEngine } from "./resize-engine.js";
     _resizeBase = null;
     pushDesignHistory(before, curBefore);
     afterDesignChange();
+    _trialEdited = false; saveAlarm();
   }
 
   // Save the size on show as a new design, and leave the one it came from
@@ -13852,7 +13901,7 @@ import { createResizeEngine } from "./resize-engine.js";
           : '<div class="ed-rc-head">Nothing moved or changed size.</div>';
       }
     }
-    if (!pending) { const m = $("ed-size-modal"); if (m) m.hidden = true; }
+    if (!pending) { const m = $("ed-size-modal"); if (m) m.hidden = true; if (_trialEdited) { _trialEdited = false; saveAlarm(); } }
     // Safe zones are worth a look on the sizes that have them.
     const tip = $("ed-resize-safe");
     if (tip) tip.hidden = !safeZoneFor(state.canvas.width, state.canvas.height).length;
@@ -13867,7 +13916,10 @@ import { createResizeEngine } from "./resize-engine.js";
     if (act === "keep") keepPreviewSize();
     else if (act === "variant") { b.disabled = true; try { await saveSizeLayout(); } finally { b.disabled = false; } return; }
     else if (act === "forget") { await forgetSizeLayout(b.getAttribute("data-size-key")); return; }
-    else if (act === "back") backToSavedSize();
+    else if (act === "back") {
+      if (_trialEdited && !window.confirm("Go back to " + sizeName(_sizePreview.W, _sizePreview.H) + "?\n\nThis puts the design back as it was before you changed size. Everything you've done at " + sizeName(state.canvas.width, state.canvas.height) + " will be undone.")) return;
+      backToSavedSize();
+    }
     else if (act === "copy") { b.disabled = true; try { await saveSizeCopy(); } finally { b.disabled = false; } }
     if (m) m.hidden = true;
   });
