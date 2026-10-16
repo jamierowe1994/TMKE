@@ -16,11 +16,14 @@
    `line` is the one sentence under the title saying what the activity is
    (Dani, 17 Oct).
 
-   Two kinds are not entries at all:
-     book   a "Book ..." option: a panel with what's included, the brochure
-            and Book now, which opens the website's own booking form inside
-            the calendar (src/components/VideographyBooking.astro, member mode). Once booked with us, the
-            booking appears on the calendar by itself (from Bookings).
+   Two flags:
+     book   something we film: choosing it offers Book with TMKE (what's
+            included, the brochure, and Book now, which opens the website's
+            own booking form inside the calendar: src/components/
+            VideographyBooking.astro, member mode) or adding it as a day
+            yourself. Once booked with us, the booking appears on the calendar
+            by itself (from Bookings). One item each since 16 Oct, not a
+            "Book ..." item and a day item.
      teg    shown to agents of The Experts Group only (guide-audience.js).
    Names are in Title Case (Dani, 15 Oct). */
 
@@ -28,6 +31,7 @@ export const CATEGORIES = [
   { key: "content",  label: "Content & Social",     colour: "#371e28" },
   { key: "print",    label: "Print & Canvassing",   colour: "#2f5d62" },
   { key: "property", label: "Property Marketing",   colour: "#8c5f37" },
+  { key: "campaigns", label: "Campaigns",           colour: "#5f6a35" },
   { key: "business", label: "Business & Community", colour: "#465a86" },
   { key: "other",    label: "Something Else",       colour: "#62666e" },
 ];
@@ -49,17 +53,15 @@ export const ACTIVITIES = [
   { key: "content_planning", category: "content", label: "Content Planning",
     line: "Take some time out to plan your social media content for the month.",
     title: null, fields: [] },
-  { key: "book_content_studio", category: "content", label: "Book a Content Studio Session", teg: true,
-    book: { blurb: "A session in our Content Studio, filming content that's ready to post.",
-      info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "content-studio", label: "Book now" }] } },
   { key: "content_studio", category: "content", label: "Content Studio Session",
     line: "Your session in our Content Studio, filming content that's ready to post.", teg: true,
+    book: { blurb: "Book a session in our Content Studio and leave with content that's ready to post.",
+      info: "/videography#studio", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "content-studio", label: "Book now" }] },
     reminder: true, timeRequired: true, title: null, fields: [] },
-  { key: "book_agent_filming", category: "content", label: "Book an Agent Filming Day", teg: true,
-    book: { blurb: "A day of filming with you on camera: presenter-led content for your social media.",
-      info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "agent", label: "Book now" }] } },
   { key: "agent_filming", category: "content", label: "Agent Filming Day",
     line: "Your day of filming with us, on camera for your social media.", teg: true,
+    book: { blurb: "Book a day of filming with you on camera: presenter-led content for your social media.",
+      info: "/videography#agent", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "agent", label: "Book now" }] },
     reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true }] },
   { key: "social_post", category: "content", label: "Social Media Post",
     line: "A post going out on your social media, with its caption and design ready.",
@@ -96,13 +98,47 @@ export const ACTIVITIES = [
     ] },
 
   // Property Marketing
-  { key: "book_property_shoot", category: "property", label: "Book Property Photography or Filming",
-    book: { blurb: "Property photography and filming by TMKE: tours, Reels and stills that sell the home.",
-      info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "property", label: "Book property filming" }, { service: "photography", label: "Book property photography" }] } },
-  { key: "property_shoot", category: "property", label: "Property Photography / Filming",
+  { key: "property_shoot", category: "property", label: "Property Photography or Filming",
     line: "The day the property is photographed or filmed.",
+    book: { blurb: "Property photography and filming by TMKE: tours, Reels and stills that sell the home.",
+      info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "property", label: "Book property filming" }, { service: "photography", label: "Book property photography" }] },
     reminder: true, title: "address", fields: [{ key: "address", kind: "text", label: "Property address", required: true }] },
-  { key: "property_launch", category: "property", label: "Property Launch Campaign",
+  { key: "open_house", category: "property", label: "Open House / Property Event",
+    line: "An open house or event at a property, and everything to get ready for it.",
+    timeRequired: true, title: "address", fields: [
+      { key: "address", kind: "text", label: "Property address", required: true },
+      { key: "end_time", kind: "endTime", label: "End time", optional: true },
+    ],
+    checklist: [
+      "Social posts planned for the event",
+      "Invitation cards designed and delivered",
+      "Signs and balloons ready",
+      "Refreshments sorted (cookies, drinks)",
+      "Brochures printed",
+      "Visitor sign-in sheet ready",
+      "Follow-up planned for after the event",
+    ] },
+
+  // Campaigns: a run of marketing towards one goal, each with its own steps
+  // (Dani, 16 Oct). New Listing keeps the key property_launch, so launches
+  // planned before the move are New Listing campaigns now.
+  { key: "story_of_sale", category: "campaigns", label: "Story of the Sale",
+    line: "Show how a sale happened, from going on the market to the keys, to win the next instruction.",
+    title: "address", fields: [
+      { key: "address", kind: "text", label: "Property address", required: true },
+      { key: "end_date", kind: "endDate", label: "End date", optional: true },
+      { key: "design_ids", kind: "linkedDesigns", label: "Linked designs", optional: true },
+    ],
+    checklist: [
+      "Seller happy for the sale to be shared",
+      "Sale details gathered: days on the market, viewings and offers",
+      "Photos chosen, including the sold board",
+      "Testimonial from the seller",
+      "Story of the Sale post created and planned",
+      "Just Sold cards designed for the street",
+      "Just Sold cards ordered and delivered",
+    ] },
+  { key: "property_launch", category: "campaigns", label: "New Listing Campaign",
     line: "Everything that goes into launching a property, from the photos to the portals.",
     title: "campaign", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
@@ -121,20 +157,37 @@ export const ACTIVITIES = [
       "Listing live on the portals",
       "Email sent to your buyer list",
     ] },
-  { key: "open_house", category: "property", label: "Open House / Property Event",
-    line: "An open house or event at a property, and everything to get ready for it.",
-    timeRequired: true, title: "address", fields: [
+  { key: "open_house_campaign", category: "campaigns", label: "Open House Campaign",
+    line: "The marketing that fills an open house: the announcement, invitations, reminders and follow-up.",
+    title: "address", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
-      { key: "end_time", kind: "endTime", label: "End time", optional: true },
+      { key: "end_date", kind: "endDate", label: "End date", optional: true },
+      { key: "design_ids", kind: "linkedDesigns", label: "Linked designs", optional: true },
     ],
     checklist: [
-      "Social posts planned for the event",
-      "Invitation cards designed and delivered",
-      "Signs and balloons ready",
-      "Refreshments sorted (cookies, drinks)",
-      "Brochures printed",
-      "Visitor sign-in sheet ready",
-      "Follow-up planned for after the event",
+      "Date and time agreed with the seller",
+      "Open house added to the portals",
+      "Announcement post created and planned",
+      "Invitation cards designed",
+      "Invitation cards delivered to the street",
+      "Email sent to your buyer list",
+      "Reminder post planned for the day before",
+      "Thank-you post and follow-up calls after the event",
+    ] },
+  { key: "seasonal_campaign", category: "campaigns", label: "Seasonal Campaign",
+    line: "A campaign around a time of year, such as the spring market, the summer holidays or Christmas.",
+    title: "occasion", fields: [
+      { key: "occasion", kind: "text", label: "Season or occasion", required: true, placeholder: "e.g. Spring market" },
+      { key: "end_date", kind: "endDate", label: "End date", optional: true },
+      { key: "design_ids", kind: "linkedDesigns", label: "Linked designs", optional: true },
+    ],
+    checklist: [
+      "Seasonal message decided",
+      "Seasonal posts created and planned",
+      "Seasonal print design created",
+      "Print ordered and delivered",
+      "Email sent to your contacts",
+      "Profile and cover images updated for the season",
     ] },
 
   // Business & Community

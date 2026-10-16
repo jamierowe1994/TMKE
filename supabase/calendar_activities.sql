@@ -12,6 +12,10 @@
 --
 -- 15 Oct, later: Content Studio sessions and agent filming days added to the
 -- list (Experts Group agents). Re-run to allow them.
+--
+-- 16 Oct: a sixth category, Campaigns: Story of the Sale, New Listing (the
+-- old property launch, same key), Open House and Seasonal. Re-run to allow
+-- the three new ones.
 
 do $$
 declare t text;
@@ -30,6 +34,7 @@ begin
       'content_planning', 'content_studio', 'agent_filming', 'social_post', 'email_newsletter', 'paid_ads',
       'print_design', 'print_order', 'canvassing',
       'property_shoot', 'property_launch', 'open_house',
+      'story_of_sale', 'open_house_campaign', 'seasonal_campaign',
       'local_event', 'review_request', 'follow_up',
       'other'))$c$, t, t || '_activity_check');
     execute format('alter table public.%I drop constraint if exists %I', t, t || '_end_after_start');

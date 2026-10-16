@@ -52,6 +52,7 @@ import "../../styles/account-sections.css";
         <span class="cal-leg cal-leg--content">Content &amp; Social</span>
         <span class="cal-leg cal-leg--print">Print &amp; Canvassing</span>
         <span class="cal-leg cal-leg--property">Property Marketing</span>
+        <span class="cal-leg cal-leg--campaigns">Campaigns</span>
         <span class="cal-leg cal-leg--business">Business &amp; Community</span>
         <span class="cal-leg cal-leg--other">Something Else</span>
         <span class="cal-leg cal-leg--prompt">Idea ready</span>
@@ -348,6 +349,7 @@ import "../../styles/account-sections.css";
     .cal-leg--content::before  { background: #371e28; }
     .cal-leg--print::before    { background: #2f5d62; }
     .cal-leg--property::before { background: #8c5f37; }
+    .cal-leg--campaigns::before { background: #5f6a35; }
     .cal-leg--business::before { background: #465a86; }
     .cal-leg--other::before    { background: #62666e; }
     .cal-leg--prompt::before { background: #fff; box-shadow: inset 0 0 0 2px var(--english-violet); }  /* wine outline — an angle is written for you */
@@ -503,6 +505,7 @@ import "../../styles/account-sections.css";
     .cal-chip--content  { background: #371e28; border-color: #371e28; }
     .cal-chip--print    { background: #2f5d62; border-color: #2f5d62; }
     .cal-chip--property { background: #8c5f37; border-color: #8c5f37; }
+    .cal-chip--campaigns { background: #5f6a35; border-color: #5f6a35; }
     .cal-chip--business { background: #465a86; border-color: #465a86; }
     .cal-chip--other    { background: #62666e; border-color: #62666e; }
     .cal-chip--act.is-cont { padding: 0; height: 6px; min-height: 6px; font-size: 0; opacity: 0.7; }
@@ -883,10 +886,13 @@ import "../../styles/account-sections.css";
     .act-panel { width: min(820px, calc(100vw - 32px)); }
     #act-modal { display: flex; align-items: center; justify-content: center; padding: 16px; }
     #act-modal[hidden], .act-form[hidden], .act-choose[hidden], #act-foot[hidden], #act-delete[hidden], #act-save[hidden] { display: none; }
-    /* Content & Social down one long column; the other four in a 2 x 2
-       beside it (Dani, 15 Oct). One column on a phone. */
+    /* Content & Social down one long column; the other five in two columns
+       beside it, Something Else across the foot (Dani, 15 and 16 Oct). One
+       column on a phone. */
     .act-choose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px 22px; align-items: start; }
     .act-rest { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 22px; }
+    .act-rest > .act-cat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+    .act-rest > .act-cat:last-child:nth-child(odd) ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
     .act-book { display: grid; gap: 14px; }
     .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
@@ -896,6 +902,7 @@ import "../../styles/account-sections.css";
       border: 1px solid rgba(28,29,34,0.2); color: var(--ink); background: #fff; }
     .act-book-links .is-primary { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
     .act-book-note { font-size: var(--ws-t-meta) !important; color: rgba(28,29,34,0.55) !important; }
+    .act-book--log { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(28,29,34,0.1); }
     .act-cat h3 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); display: flex; align-items: center; gap: 7px; }
     .act-cat h3::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
     .act-cat ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1754,17 +1761,19 @@ import "../../styles/account-sections.css";
       return (actDesigns = data || []);
     }
 
-    async function chooseAct(key, item) {
+    async function chooseAct(key, item, opts) {
       const a = activityOf(key);
       if (a.social && !item) { closeAct(); openPick(actDate); return; }
-      if (a.book) {
-        // Not an entry: what it is, the brochure, and the way to book.
+      if (a.book && !item && !(opts && opts.log)) {
+        // Something we film: book it with us, or add it as a day yourself
+        // (Dani, 16 Oct). A booking lands on the calendar by itself.
         const c0 = categoryOf(a.category);
+        actKey = a.key;
         $actH.textContent = a.label;
-        setActLine('');
+        setActLine(a.line);
         $actForm.style.setProperty('--cat', c0.colour);
         $actForm.innerHTML = `<div class="act-book">
-          <p class="act-kind">${escapeHtml(c0.label)}</p>
+          <p class="act-kind">Book with TMKE</p>
           <p>${escapeHtml(a.book.blurb)}</p>
           <div class="act-book-links">
             <a href="${a.book.info}" target="_blank" rel="noopener">See what's included</a>
@@ -1773,6 +1782,11 @@ import "../../styles/account-sections.css";
           </div>
           <p class="act-book-note">Book here, without leaving your calendar. Once it's booked, it appears on your calendar by itself.</p>
           <div class="post-error" data-act-error hidden></div>
+        </div>
+        <div class="act-book act-book--log">
+          <p class="act-kind">Already booked, or arranging it yourself?</p>
+          <p>Add it to your calendar with its date and time.</p>
+          <div class="act-book-links"><button type="button" data-act-log>Add it as a day</button></div>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
         $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Back';
@@ -2086,7 +2100,12 @@ import "../../styles/account-sections.css";
     $actClose?.addEventListener('click', closeAct);
     $actModal?.addEventListener('click', (e) => { if (e.target === $actModal) closeAct(); });
     $actChoose?.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) chooseAct(b.dataset.act); });
-    $actBack?.addEventListener('click', () => { if (actEditing) closeAct(); else openAct(actDate); });
+    $actForm?.addEventListener('click', (e) => { if (e.target.closest('[data-act-log]') && actKey) chooseAct(actKey, null, { log: true }); });
+    $actBack?.addEventListener('click', () => {
+      if (actEditing) closeAct();
+      else if (actKey && activityOf(actKey).book && !$actSave.hidden) chooseAct(actKey);   // the log form: back to book or log
+      else openAct(actDate);
+    });
     $actSave?.addEventListener('click', saveAct);
 
     /* Book now: the website's booking form, in member mode -- their details
