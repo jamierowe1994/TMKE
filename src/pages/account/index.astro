@@ -331,10 +331,10 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
         </section>
       </div>
 
-      <!-- ============ Chapter 04 — Learn, a folder ============
-           The titles are its tabs; the picture fills the width, and a tab
-           slides across to its own picture, with the title, what it's about
-           and its lessons on it (Dani, 16 Oct). -->
+      <!-- ============ Chapter 04 — Learn ============
+           A row of buttons, one per title, over a picture that fills the
+           width; a button slides across to its own picture, with the title,
+           what it's about and its lessons on it (Dani, 16 Oct). -->
       <section class="ws-block ws-folder" aria-labelledby="learn-h" data-folder>
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="learn-h"><span class="ws-block-ch">Chapter 04</span>Learn</h2>
@@ -357,8 +357,8 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
                     <span class="ws-folder-flag">{sl.flag}</span>
                     <strong class="ws-folder-h">{sl.title}</strong>
                     <span class="ws-folder-about" data-blog-sum={sl.blog ? "" : undefined}>{sl.summary}</span>
-                    {sl.lessons.length > 0 && <span class="ws-folder-lessons">{sl.lessons.map((t) => <span>{t}</span>)}</span>}
-                    <span class="ws-folder-cta">{sl.cta} <em aria-hidden="true">&rarr;</em></span>
+                    <span class="ws-btn ws-btn--sm ws-folder-cta">{sl.cta} <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+                    <span class="ws-folder-lessons">{sl.lessons.map((t) => <span>{t}</span>)}</span>
                   </span>
                   {sl.foot.length > 0 && <span class="ws-folder-foot">{sl.foot.join(" · ")}</span>}
                 </a>
@@ -445,6 +445,9 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
        feels less dense (Dani, 16 Oct): the gaps in ws-system.css, doubled. */
     body[data-dashboard] .ws-main { gap: clamp(44px, 4.8vw, 80px); }
     body[data-dashboard] .ws-left { gap: clamp(52px, 6.8vh, 92px); }
+    /* The bar to the date as much as Continue creating to Chapter 01 (Dani). */
+    body[data-dashboard] .ws-main { padding-top: calc(clamp(52px, 6.8vh, 92px) + 10px); }
+    body[data-dashboard] .ws-left > .ws-hero > .ws-hero-copy { padding-top: 0; }
     /* ---------- Navigation — clean, no chrome, not sticky ---------- */
     .ws-nav {
       position: relative;
@@ -722,6 +725,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-resume.has-img .ws-resume-img { opacity: 1; transform: none; }
     .ws-resume.has-img:hover .ws-resume-img { transform: scale(1.04); }
     .ws-resume.has-img { --door-ink: #fff; }
+    .ws-tool.ws-door.ws-resume.is-wine { --door: var(--english-violet); }
     .ws-resume.has-img .ws-door-ic { background: rgba(55,30,40,0.72); }
     .ws-resume.has-img .ws-door-tx { margin: auto calc(-1 * clamp(16px, 1.5vw, 22px)) calc(-1 * clamp(16px, 1.5vw, 22px)); padding: 12px clamp(16px, 1.5vw, 22px) clamp(16px, 1.5vw, 22px); padding-right: 40px; background: var(--english-violet); }
     @media (max-width: 1000px) {
@@ -786,44 +790,45 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-idea-again { margin-left: auto; width: 33px; height: 33px; }
     .ws-idea-again svg { width: 15px; height: 15px; }
     .ws-idea { font-family: var(--serif); font-style: normal; font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; line-height: 1.45; letter-spacing: -0.01em; color: var(--ws-ink); margin: 0; }
-    /* ---------- Chapter 04 — Learn, a folder ----------
-       Tabs along the top in the doors' shades, the open one in wine and
-       joined to a wine frame round the picture, so it reads as a folder.
-       The picture fills the width; its words sit on a wine panel rather than
-       under a wash, so a pale picture stays readable. */
-    .ws-folder-wrap { display: flex; flex-direction: column; }
-    .ws-folder-tabs { display: flex; align-items: flex-end; overflow-x: auto; scrollbar-width: none; padding-top: 4px; }
-    .ws-folder-tabs::-webkit-scrollbar { display: none; }
-    .ws-folder-tab { all: unset; box-sizing: border-box; position: relative; flex: none; cursor: pointer; margin-right: -10px; padding: 12px 30px 11px 22px;
-      border-radius: 10px 10px 0 0; background: var(--tab, #7e6765); color: #fff; font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 600; white-space: nowrap;
-      z-index: calc(10 - var(--i)); transition: background 0.3s var(--ws-ease), transform 0.3s var(--ws-ease), padding 0.3s var(--ws-ease); }
-    .ws-folder-tab:nth-child(1) { --tab: #7e6765; }
-    .ws-folder-tab:nth-child(2) { --tab: color-mix(in srgb, #7e6765 84%, #fff); }
-    .ws-folder-tab:nth-child(3) { --tab: color-mix(in srgb, #7e6765 68%, #fff); }
-    .ws-folder-tab:nth-child(4) { --tab: color-mix(in srgb, #7e6765 54%, #fff); }
-    .ws-folder-tab:nth-child(n+5) { --tab: color-mix(in srgb, #7e6765 42%, #fff); }
-    .ws-folder-tab:hover { transform: translateY(-2px); }
-    .ws-folder-tab.is-on { background: #2f1b25; z-index: 20; padding-top: 15px; transform: none; }
+    /* ---------- Chapter 04 — Learn ----------
+       Buttons along the top, the Explore ones' shape, the chosen one filled;
+       the picture under them fills the width, no frame (Dani, 16 Oct). Its
+       words sit on a wine panel the same size on every slide, so a pale
+       picture stays readable and nothing jumps as they change. */
+    .ws-folder-wrap { display: flex; flex-direction: column; gap: 12px; }
+    .ws-folder-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ws-folder-tab { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px;
+      font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); white-space: nowrap;
+      transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
+    .ws-folder-tab:hover { border-color: var(--english-violet); }
+    .ws-folder-tab.is-on { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     .ws-folder-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
-    .ws-folder-body { position: relative; z-index: 15; padding: 6px; background: #2f1b25; border-radius: 0 var(--ws-r) var(--ws-r) var(--ws-r); overflow: hidden; }
+    .ws-folder-body { position: relative; overflow: hidden; border-radius: var(--ws-r); }
     .ws-folder-track { display: flex; transition: transform 0.75s cubic-bezier(.65, 0, .25, 1); }
-    .ws-folder-slide { position: relative; flex: 0 0 100%; display: block; aspect-ratio: 21 / 9; min-height: 340px; overflow: hidden; border-radius: 2px; color: #fff; text-decoration: none; }
+    .ws-folder-slide { position: relative; flex: 0 0 100%; display: block; aspect-ratio: 21 / 9; min-height: 360px; overflow: hidden; color: #fff; text-decoration: none; }
     .ws-folder-pic { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 1.4s var(--ws-ease); }
     .ws-folder-slide:hover .ws-folder-pic { transform: scale(1.03); }
-    .ws-folder-card { position: absolute; left: clamp(16px, 2.4vw, 36px); bottom: clamp(16px, 2.4vw, 36px); max-width: min(460px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 8px;
-      padding: clamp(18px, 1.8vw, 26px); border-radius: var(--ws-r); background: rgba(47, 27, 37, 0.88); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+    .ws-folder-card { position: absolute; left: clamp(16px, 2.4vw, 36px); bottom: clamp(16px, 2.4vw, 36px); width: min(690px, calc(100% - 32px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 8px;
+      padding: clamp(18px, 1.8vw, 26px); border-radius: var(--ws-r); background: rgba(47, 27, 37, 0.9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
     .ws-folder-flag { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
     .ws-folder-h { font-family: var(--serif); font-size: clamp(19px, 1.6vw, 24px); font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; }
-    .ws-folder-about { font-size: var(--ws-t-body); line-height: 1.5; color: rgba(255,255,255,0.82); }
-    .ws-folder-lessons { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 2px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
-    .ws-folder-cta { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 33px; margin-top: 8px; padding: 0 16px; border-radius: var(--ws-r); background: #fff; color: var(--ws-ink); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-    .ws-folder-cta em { font-style: normal; transition: transform 0.25s var(--ws-ease); }
-    .ws-folder-slide:hover .ws-folder-cta em { transform: translateX(4px); }
+    /* "Nothing in the diary"'s size and voice; two lines kept for it on every
+       slide, so the panels are all one height. */
+    .ws-folder-about { font-size: var(--ws-t-body); line-height: 1.45; color: rgba(255,255,255,0.8); min-height: calc(2 * 1.45em); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    /* "Create this post"'s button, in white on the wine. */
+    .ws-folder-card .ws-folder-cta { align-self: flex-start; margin-top: 6px; background: #fff; border-color: #fff; color: var(--ws-ink); }
+    .ws-folder-cta svg { width: 13px; height: 13px; transition: transform 0.25s var(--ws-ease); }
+    .ws-folder-slide:hover .ws-folder-cta svg { transform: translateX(3px); }
+    /* The lessons on one line under the button; the line is kept even when a
+       slide has none. */
+    .ws-folder-lessons { display: flex; gap: 16px; min-height: 1.3em; margin-top: 4px; white-space: nowrap; overflow: hidden; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; line-height: 1.3; text-transform: uppercase; color: rgba(255,255,255,0.72); }
     .ws-folder-foot { position: absolute; right: clamp(16px, 2.4vw, 36px); bottom: clamp(16px, 2.4vw, 36px); font-size: var(--ws-t-body); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 0 1px 12px rgba(0,0,0,0.55), 0 0 2px rgba(0,0,0,0.3); }
     @media (max-width: 760px) {
-      .ws-folder-tab { padding: 10px 24px 9px 16px; font-size: var(--ws-t-body); }
+      .ws-folder-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+      .ws-folder-tabs::-webkit-scrollbar { display: none; }
       .ws-folder-slide { aspect-ratio: 4 / 5; min-height: 0; }
-      .ws-folder-card { left: 10px; right: 10px; bottom: 10px; max-width: none; }
+      .ws-folder-card { left: 10px; right: 10px; bottom: 10px; width: auto; }
+      .ws-folder-lessons { flex-wrap: wrap; white-space: normal; gap: 4px 14px; }
       .ws-folder-foot { top: 16px; bottom: auto; }
     }
     @media (prefers-reduced-motion: reduce) { .ws-folder-track { transition: none; } }
@@ -880,6 +885,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-wn-flag { font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-tx); }
     /* The doors' face: Darker Grotesque semi-bold (Dani, 16 Oct). */
     .ws-wn-h { font-family: var(--sans); font-size: clamp(14px, calc(0.8vw + 4.5px), 17px); font-weight: 600; line-height: 1.2; letter-spacing: 0; text-wrap: balance; max-width: 22ch; }
+    @media (max-width: 760px) { .ws-br-desk { display: none; } }
     @media (max-width: 1100px) { .ws-wn { grid-template-columns: 1fr; } }
     @media (max-width: 760px) { .ws-wn-cards { grid-template-columns: 1fr; } .ws-wn-card { min-height: 120px; grid-template-columns: 120px minmax(0, 1fr); } }
     /* Chapter 05's card titles in Today's Prompt's voice, to the letter: the
@@ -1323,7 +1329,8 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       if (!card || !head) return;
       const now = new Date();
       const m = new Date(now.getFullYear(), now.getMonth() + (now.getDate() >= 21 ? 1 : 0), 1);
-      head.textContent = m.toLocaleDateString('en-GB', { month: 'long' }) + ' Content Calendar';
+      // Two lines on a desktop, like its neighbours: "October Content / Calendar".
+      head.innerHTML = m.toLocaleDateString('en-GB', { month: 'long' }) + ' Content <br class="ws-br-desk" />Calendar';
       card.setAttribute('href', `/account/schedule?focus=${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
       const art = CAL_ART[m.getMonth()];
       const slot = card.querySelector('.ws-news-art');
@@ -1514,7 +1521,12 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
         const img = document.getElementById('ws-resume-img');
         if (top.thumb_url && img) {
           const pre = new Image();
-          pre.onload = () => { img.style.backgroundImage = `url('${top.thumb_url}')`; resume.classList.add('has-img'); };
+          pre.onload = () => {
+            // A landscape design doesn't sit in a portrait card: plain wine
+            // instead. Portrait and square ones show (Dani, 16 Oct).
+            if (pre.naturalWidth > pre.naturalHeight * 1.02) { resume.classList.add('is-wine'); return; }
+            img.style.backgroundImage = `url('${top.thumb_url}')`; resume.classList.add('has-img');
+          };
           pre.src = top.thumb_url;
         }
       }
