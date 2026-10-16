@@ -288,10 +288,16 @@ test(name("social_choice"), async ({ page }) => {
     expect(await page.locator("#act-form .act-book .act-kind").allTextContents()).toEqual(["Use one of your designs", "Design from a template", "Upload a post"]);
   });
   await step("social_choice", 1, async () => {
-    const a = page.locator('#act-form a', { hasText: "Open the templates" });
-    await expect(a).toHaveAttribute("href", `/account/editor?for=${date}`);
+    const a = page.locator('#act-form a', { hasText: "Open your packs" });
+    await expect(a).toHaveAttribute("href", `/account/studio?for=${date}#packs`);
     await a.click();
-    await expect(page.locator("#ed-onboard")).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator("#packs-h")).toBeVisible({ timeout: 30_000 });
+    // A pack opened from here carries the day on.
+    const pack = page.locator("a.st-pack").first();
+    if (await pack.count()) {
+      await pack.dispatchEvent("click", { button: 0 }).catch(() => {});
+      await expect.poll(async () => (await pack.getAttribute("href")) || "").toContain(`for=${date}`);
+    }
     await openCalendar(page);
   });
   await step("social_choice", 2, async () => {

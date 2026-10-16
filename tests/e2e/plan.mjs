@@ -51,7 +51,7 @@ export const PLAN = [
   ] },
   { id: "social_choice", area: "Content & Social", name: "Social Media Post: three ways", steps: [
     "Social Media Post offers Use one of your designs, Design from a template and Upload a post",
-    "Design from a template goes to the Studio's packs for that day",
+    "Design from a template goes to your packs in the Studio, and a pack opened from there keeps the day",
     "Use one of your designs opens your designs; plan one with a caption (when training has a design)",
   ] },
   { id: "social_upload", area: "Content & Social", name: "Social Media Post: upload", steps: [
