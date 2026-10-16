@@ -2168,9 +2168,12 @@ import "../../styles/account-sections.css";
           /* Linked designs can be planned as posts from here (Dani, 16 Oct):
              choose them, then Plan these posts takes each in turn. */
           let planBtn = null;
+          // In the order they were picked: that's the order they go out in.
+          const picked = [...box.querySelectorAll('.act-design.is-on')].map((b) => b.dataset.designId);
+          const pickedDesigns = () => picked.map((id) => all.find((x) => String(x.id) === id)).filter((x) => x && !isPrintDesign(x));
           const syncPlan = () => {
             if (!planBtn) return;
-            const n = [...box.querySelectorAll('.act-design.is-on')].map((b) => all.find((x) => String(x.id) === b.dataset.designId)).filter((x) => x && !isPrintDesign(x)).length;
+            const n = pickedDesigns().length;
             planBtn.hidden = !n;
             planBtn.textContent = n === 1 ? 'Plan this post' : `Plan these ${n} posts`;
           };
@@ -2178,7 +2181,7 @@ import "../../styles/account-sections.css";
             box.insertAdjacentHTML('afterend', `<button type="button" class="act-files-btn act-plan-designs" data-plan-designs hidden>Plan these posts</button>`);
             planBtn = box.nextElementSibling;
             planBtn.addEventListener('click', () => {
-              const chosen = [...box.querySelectorAll('.act-design.is-on')].map((b) => all.find((x) => String(x.id) === b.dataset.designId)).filter((x) => x && !isPrintDesign(x));
+              const chosen = pickedDesigns();
               const start = ($actForm.querySelector('[data-f="date"]') || {}).value || actDate;
               if (chosen.length) planSequence(chosen, start);
             });
@@ -2189,6 +2192,10 @@ import "../../styles/account-sections.css";
             if (!multi) box.querySelectorAll('.act-design.is-on').forEach((o) => { if (o !== b) { o.classList.remove('is-on'); o.setAttribute('aria-pressed', 'false'); } });
             const on = !b.classList.contains('is-on');
             b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on));
+            const id = b.dataset.designId, at = picked.indexOf(id);
+            if (on && at < 0) picked.push(id);
+            if (!on && at >= 0) picked.splice(at, 1);
+            if (!multi) { picked.length = 0; if (on) picked.push(id); }
             syncPlan();
           });
         });

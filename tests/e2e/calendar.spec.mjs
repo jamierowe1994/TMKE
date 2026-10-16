@@ -23,8 +23,10 @@ test.beforeEach(async ({ page, context }) => {
 
 // ---- Moving around ----
 async function openCalendar(page) {
-  await page.goto("/demo?go=1&brand=demo");          // the training account
-  await page.waitForURL(/\/account/);
+  // The training account. Its page sends you on to the dashboard, and a
+  // navigation cut short by that redirect isn't a failure.
+  await page.goto("/demo?go=1&brand=demo", { waitUntil: "commit" }).catch(() => {});
+  await expect(page).toHaveURL(/\/account/, { timeout: 30_000 });
   await page.goto("/account/schedule");
   await expect(page.locator("html")).not.toHaveClass(/tmke-gated/, { timeout: 30_000 });
   await expect(page.locator("#cal-grid button.cal-day").first()).toBeVisible();
@@ -687,8 +689,13 @@ test(name("mycal"), async ({ page, context }) => {
     await openDay(page, day(8));
     await openEntry(page, row.id);
     await page.click("#act-mycal");
-    const [tab] = await Promise.all([context.waitForEvent("page"), page.click('#mycal-menu [data-mycal-to="google"]')]);
-    const u = new URL(tab.url());
+    // Google isn't visited: the link it would open is read from the request.
+    const [req] = await Promise.all([
+      context.waitForEvent("request", (r) => r.url().startsWith("https://calendar.google.com/")),
+      page.click('#mycal-menu [data-mycal-to="google"]'),
+    ]);
+    const u = new URL(req.url());
+    const tab = req.frame().page();
     expect(u.hostname).toBe("calendar.google.com");
     expect(u.searchParams.get("text")).toContain("Property Photography or Filming");
     expect(u.searchParams.get("dates")).toBe(`${day(8).replace(/-/g, "")}T093000/${day(8).replace(/-/g, "")}T103000`);
