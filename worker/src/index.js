@@ -2617,6 +2617,31 @@ function jackNotifyHtml({ name, company, email, phone, service, packageLabel, ad
 //
 // The POST target must unsubscribe with no further interaction (RFC 8058) —
 // that's why the page has no "are you sure?" step.
+/* Resend's sending allowance (Dani, 16 Oct). The plan sends 200 a day, so a
+   big campaign can run out part-way. Whoever it couldn't reach is held on
+   that email and tried again at the same time the next day - not moved past
+   it, which is what used to happen, so they never got it. Once the
+   allowance is gone, the rest of the run is held without asking Resend
+   again. Kept per Worker instance; it's only a short cut. */
+const RESEND_QUOTA_CODES = ["daily_quota_exceeded", "monthly_quota_exceeded"];
+let resendHeldUntil = 0, resendHeldCode = null;
+function resendQuotaHit(code) {
+  const now = new Date();
+  // Daily allowance resets at midnight UTC; no point asking before then.
+  resendHeldUntil = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  resendHeldCode = code;
+}
+// The same time tomorrow: a dated email at its own time, anything else 24 hours on.
+function sameTimeTomorrow(node) {
+  const at = node && node.config && node.config.send_at;
+  const ms = at ? msUntilSendWindow(at) : 0;
+  let t = Date.now() + (ms > 0 && ms <= 864e5 ? ms : 864e5);
+  // Never before the allowance comes back (midnight UTC).
+  const now = new Date(), reset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  while (t < reset) t += 864e5;
+  return new Date(t).toISOString();
+}
+
 async function sendMarketingEmail(env, { to, subject, html, unsubUrl, replyTo }) {
   if (!env.RESEND_API_KEY) return { ok: false, error: "Resend isn't configured on the Worker (RESEND_API_KEY)." };
   if (!to) return { ok: false, error: "No recipient." };
@@ -2643,7 +2668,9 @@ async function sendMarketingEmail(env, { to, subject, html, unsubUrl, replyTo })
       }),
     });
     const body = await res.json().catch(() => ({}));
-    if (!res.ok) return { ok: false, error: body.message || `Resend returned ${res.status}` };
+    // Resend names the error (resend.com/docs/api-reference/errors): a 429 is
+    // daily_quota_exceeded, monthly_quota_exceeded or rate_limit_exceeded.
+    if (!res.ok) return { ok: false, error: body.message || `Resend returned ${res.status}`, code: body.name || null, status: res.status };
     // Resend's id ties this send to the bounce/open/click events that come back
     // on the webhook, so it has to be kept.
     return { ok: true, id: body.id || null };
@@ -3541,9 +3568,36 @@ async function autoExecAction(env, node, contact, ctx) {
       }
       // Record what actually went out (and whether it did) — this is what the
       // funnel audit shows, and the only way to answer "did they get it?".
+      // Resend's allowance already gone today: hold this one too, unasked.
+      if (sendKind === "marketing" && Date.now() < resendHeldUntil) {
+        return { outcome: "deferred", retryAt: sameTimeTomorrow(node), detail: `held: Resend's ${resendHeldCode === "monthly_quota_exceeded" ? "monthly" : "daily"} limit was reached` };
+      }
       const sent = sendKind === "marketing"
         ? await sendMarketingEmail(env, { to, subject, html: htmlOut, unsubUrl })
         : await sendEmail(env, { to, subject, html: htmlOut });
+      if (sendKind === "marketing" && sent && !sent.ok) {
+        if (RESEND_QUOTA_CODES.includes(sent.code)) {
+          const first = Date.now() >= resendHeldUntil;
+          resendQuotaHit(sent.code);
+          if (first) {
+            const monthly = sent.code === "monthly_quota_exceeded";
+            const day = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+            await notifyAdmins(env, {
+              area: "problem", event: "resend_quota",
+              title: monthly ? "Resend's monthly email limit has been reached" : "Resend's daily email limit has been reached",
+              body: monthly
+                ? "Campaign emails that couldn't go out are held, and tried again at the same time each day until the monthly allowance comes back. Upgrading the Resend plan sends them sooner."
+                : "Campaign emails that couldn't go out today will go at the same time tomorrow. Nobody is skipped.",
+              also: [env.MARKETING_NOTIFY], key: `resend_quota:${sent.code}:${day}`,
+            }).catch(() => {});
+          }
+          return { outcome: "deferred", retryAt: sameTimeTomorrow(node), detail: `held: ${sent.error}` };
+        }
+        // Too many a second: a moment later, not tomorrow.
+        if (sent.code === "rate_limit_exceeded") {
+          return { outcome: "deferred", retryAt: new Date(Date.now() + 60e3).toISOString(), detail: "held: Resend's per-second limit" };
+        }
+      }
       await logEmailEvent(env, {
         contact, email: contact.email,
         event: (sent && sent.ok) ? "sent" : "blocked",
@@ -3646,6 +3700,11 @@ async function advanceEnrollment(env, enr) {
       acted = { outcome: "ok", detail: yes ? "condition met → yes" : "condition not met → no" };
     } else {
       acted = await autoExecAction(env, node, contact, { automationId: auto.id, enrollmentId: enr.id, nodeId: cur, campaign: auto.name || null });
+      // Held (Resend's allowance): they stay on this email and try again then.
+      // No run is written, so the email doesn't count as sent or as passed.
+      if (acted && acted.outcome === "deferred") {
+        return sbPatch(env, "automation_enrollments", `id=eq.${enr.id}`, { current_node_id: cur, next_run_at: acted.retryAt });
+      }
     }
     await sbPost(env, "automation_runs", {
       enrollment_id: enr.id, automation_id: auto.id, contact_id: contact.id,
@@ -3769,6 +3828,10 @@ async function notifyCampaignSends(env) {
       // batch isn't finished; wait for the next tick.
       const pending = (await sbGet(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&current_node_id=eq.${encodeURIComponent(g.node_id)}&status=eq.active&next_run_at=lte.${encodeURIComponent(nowIso)}&select=id&limit=1`)) || [];
       if (pending.length) continue;
+      // Anyone still on this email after its moment has gone is being held
+      // for tomorrow (Resend's allowance), so the notice says so.
+      const heldRows = (await sbGet(env, "automation_enrollments", `automation_id=eq.${encodeURIComponent(a.id)}&current_node_id=eq.${encodeURIComponent(g.node_id)}&status=eq.active&next_run_at=gt.${encodeURIComponent(nowIso)}&select=id&limit=5000`)) || [];
+      const held = msUntilSendMoment(node.config.send_on, node.config.send_at) === 0 ? heldRows.length : 0;
       const sends = nodes.filter((n) => n.type === "send_email").sort((x, y) => String(x.config?.send_on || "9999").localeCompare(String(y.config?.send_on || "9999")));
       const which = sends.indexOf(node) + 1;
       let tplName = null;
@@ -3776,7 +3839,8 @@ async function notifyCampaignSends(env) {
       const t = (iso) => new Date(iso).toLocaleTimeString("en-GB", { timeZone: "Europe/London", hour: "2-digit", minute: "2-digit" });
       const day = new Date(g.first).toLocaleDateString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short" });
       const span = t(g.first) === t(g.last) ? `at ${t(g.first)}` : `between ${t(g.first)} and ${t(g.last)}`;
-      const extra = [g.skipped ? `${g.skipped} skipped (unsubscribed or not opted in)` : "", g.error ? `${g.error} failed` : ""].filter(Boolean).join(", ");
+      const extra = [g.skipped ? `${g.skipped} skipped (unsubscribed or not opted in)` : "", g.error ? `${g.error} failed` : "",
+        held ? `${held} held for the same time tomorrow (Resend's daily limit)` : ""].filter(Boolean).join(", ");
       await notifyAdmins(env, {
         area: g.error ? "problem" : "marketing", event: "campaign_email_sent",
         title: `${a.name}: email ${which} sent to ${g.ok} ${g.ok === 1 ? "person" : "people"}`,
@@ -3784,7 +3848,7 @@ async function notifyCampaignSends(env) {
         href: `/admin/automations/edit?id=${a.id}`,
         also: g.error ? [env.MARKETING_NOTIFY] : [],
         key: `campaign_sent:${a.id}:${g.node_id}:${new Date(g.first).toLocaleDateString("en-CA", { timeZone: "Europe/London" })}`,
-        meta: { automation_id: a.id, node_id: g.node_id, ok: g.ok, skipped: g.skipped, error: g.error },
+        meta: { automation_id: a.id, node_id: g.node_id, ok: g.ok, skipped: g.skipped, error: g.error, held },
       });
     }
   } catch (e) { console.error("notifyCampaignSends", String((e && e.message) || e).slice(0, 200)); }
