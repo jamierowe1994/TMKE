@@ -9063,7 +9063,9 @@ export default {
         // Two we ship with the site, so the toggle has somebody to show
         // before anybody has uploaded anything. Both 1080x1350 cut-outs --
         // the same shape a real photograph arrives in.
-        const SI_DEFAULT = { female: "/images/stand-in-female.webp", male: "/images/stand-in-male.webp" };
+        // New names, not the old files replaced: Cloudflare keeps a replaced
+        // image for hours (Dani's new stand-ins, 16 Oct).
+        const SI_DEFAULT = { female: "/images/stand-in-female-2.webp", male: "/images/stand-in-male-2.webp" };
         return json({
           ok: true,
           // The hub's own kit, under the name it is known by rather than the
@@ -9093,8 +9095,8 @@ export default {
         const si = (rows && rows[0] && rows[0].stand_ins) || {};
         return json({
           ok: true,
-          female: si.female || "/images/stand-in-female.webp",
-          male: si.male || "/images/stand-in-male.webp",
+          female: si.female || "/images/stand-in-female-2.webp",
+          male: si.male || "/images/stand-in-male-2.webp",
           ghost: "/images/agent-photo-ghost.svg",
         }, 200, request, env);
       }
