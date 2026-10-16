@@ -353,11 +353,9 @@ import "../../styles/account-sections.css";
     }
     .cal-nav:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); }
     .cal-today { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-    .cal-view { display: inline-flex; margin-right: 8px; }
-    .cal-view-btn { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; border-radius: 0; margin-left: -1px; }
-    .cal-view-btn:first-child { border-radius: 3px 0 0 3px; margin-left: 0; }
-    .cal-view-btn:last-child { border-radius: 0 3px 3px 0; }
-    .cal-view-btn[aria-pressed="true"] { background: #fff; border-color: #fff; color: var(--violet-deep); position: relative; }
+    .cal-view { display: inline-flex; gap: 6px; margin-right: 14px; }
+    .cal-view-btn { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .cal-view-btn[aria-pressed="true"] { background: #fff; border-color: #fff; color: var(--violet-deep); }
     /* On a phone the switch takes its own row under the month and arrows. */
     @media (max-width: 780px) {
       .cal-strip { flex-wrap: wrap; row-gap: 6px; }
@@ -371,10 +369,12 @@ import "../../styles/account-sections.css";
     .day-view-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
     .day-view-note button { all: unset; cursor: pointer; color: var(--violet-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
-    .cal-legend { display: flex; gap: 14px; flex-wrap: wrap; padding: 0 2px var(--ws-gap); }
+    .cal-legend { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 0 var(--ws-gap); }
 
     .cal-leg {
       display: inline-flex; align-items: center; gap: 6px;
+      height: 25px; padding: 0 9px; box-sizing: border-box;
+      border: 1px solid rgba(28, 29, 34, 0.14); border-radius: 3px;
       font-family: var(--sans);
       font-size: var(--ws-t-label);
       font-weight: 700;
@@ -973,8 +973,10 @@ import "../../styles/account-sections.css";
       border: 1px solid rgba(var(--violet-rgb), 0.3); color: var(--violet-deep); font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
     .act-files-btn:hover { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.05); }
     @media (max-width: 560px) { .act-files-add { flex-wrap: wrap; } .act-files-add .post-input { flex-basis: 100%; order: 2; } }
-    .act-book-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
-    @media (max-width: 720px) { .act-book-cards { grid-template-columns: 1fr; } }
+    .act-book-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto 1fr auto; gap: 0 16px; align-items: stretch; }
+    .act-book-cards:not(.act-book-cards--3) > .act-book { grid-row: span 4; display: grid; grid-template-rows: subgrid; }
+    .act-book-cards:not(.act-book-cards--3) > .act-book > .act-book-links { margin-top: 0; align-self: end; }
+    @media (max-width: 720px) { .act-book-cards { grid-template-columns: 1fr; grid-template-rows: none; gap: 16px; } .act-book-cards:not(.act-book-cards--3) > .act-book { grid-row: auto; grid-template-rows: none; } }
     .act-book { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; }
     .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
     .act-book-links { display: grid; gap: 8px; }
@@ -1480,7 +1482,7 @@ import "../../styles/account-sections.css";
               return `
               <div class="day-item day-item--act" style="--cat:${c.colour}" data-id="${escapeHtml(String(p.id))}" role="button" tabindex="0" title="${p.booking ? 'Open your bookings' : 'Open this'}">
                 <div class="day-item-body">
-                  <span class="day-item-kind">${escapeHtml(a.label)}${p.booking ? ' · TMKE booking' : ''}</span>
+                  <span class="day-item-kind">${escapeHtml(a.label)}${p.details && p.details.shoot ? ' · ' + escapeHtml(p.details.shoot) : ''}${p.booking ? ' · TMKE booking' : ''}</span>
                   <h4 class="day-item-title">${escapeHtml(p.title || a.label)}</h4>
                   <span class="day-item-time">${escapeHtml(when + run)}</span>
                   ${p.notes ? `<p class="day-item-caption">${escapeHtml(p.notes)}</p>` : ''}
@@ -2067,13 +2069,14 @@ import "../../styles/account-sections.css";
               <a href="${a.book.info}" target="_blank" rel="noopener">${escapeHtml(a.book.discover || "See what's included")}</a>
               <a href="${a.book.brochure}" target="_blank" rel="noopener">Download the brochure</a>
             </div>
-            <p class="act-book-note">Once it's booked, it appears on your calendar by itself.</p>
-            <div class="post-error" data-act-error hidden></div>
+            <div><p class="act-book-note">Once it's booked, it appears on your calendar by itself.</p>
+            <div class="post-error" data-act-error hidden></div></div>
           </section>
           <section class="act-book act-book--log">
-            <p class="act-kind">Already booked or arranged it yourself?</p>
+            <p class="act-kind">Booked or arranged it yourself?</p>
             <p>Add it to your calendar with its date and time.</p>
-            <div class="act-book-links"><button type="button" data-act-log>${escapeHtml(a.book.log || 'Add it as a day')}</button></div>
+            <div class="act-book-links">${(a.book.logs || [{ label: 'Add it as a day' }]).map((l, i) => `<button type="button" data-act-log="${i}">${escapeHtml(l.label)}</button>`).join('')}</div>
+            <div></div>
           </section>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
@@ -2085,11 +2088,13 @@ import "../../styles/account-sections.css";
       actKey = a.key; actEditing = item || null;
       const c = categoryOf(a.category);
       const d = (item && item.details) || {};
+      // Property photography or videography, when it was logged as one.
+      actShoot = (opts && opts.shoot) || d.shoot || null;
       actChecklist = item ? (Array.isArray(item.checklist) ? item.checklist.map((x) => ({ ...x })) : [])
                           : (a.checklist || []).map((text) => ({ text, done: false }));
       actFiles = {};
       (a.fields || []).filter((f) => f.kind === 'files').forEach((f) => { actFiles[f.key] = (Array.isArray(d[f.key]) ? d[f.key] : []).map((x) => ({ ...x })); });
-      $actH.textContent = item ? entryTitle(a.key, d) : a.label;
+      $actH.textContent = item ? entryTitle(a.key, d) : (actShoot === 'Photography' ? 'Photography Shoot' : actShoot === 'Videography' ? 'Property Videography' : a.label);
       setActLine(a.line);
       $actEyebrow.textContent = fmtFullDate(new Date((item ? item.scheduled_date : actDate) + 'T00:00:00'));
       const hasTime = item ? item.has_time !== false : !!a.timeRequired;
@@ -2209,6 +2214,7 @@ import "../../styles/account-sections.css";
     const FILE_ACCEPT = '.pdf,.doc,.docx,.txt,.rtf,.odt,.pages,.xls,.xlsx,.csv,.numbers,.ppt,.pptx,.key,.png,.jpg,.jpeg,.webp,.heic';
     const FILE_MAX = 25 * 1024 * 1024;
     let actFiles = {};
+    let actShoot = null;
     const actFreshPaths = new Set();   // uploaded since the form opened, not saved yet
     const filePathsOf = (it) => {
       const d = (it && it.details) || {};
@@ -2310,6 +2316,7 @@ import "../../styles/account-sections.css";
         if (f.required && !v) return actError(`Add the ${f.label.toLowerCase()}.`);
         if (v) details[f.key] = f.kind === 'number' ? Number(v) : v;
       }
+      if (actShoot) details.shoot = actShoot;
       const date = val('date');
       if (!date) return actError('Choose a date.');
       const endDate = (a.fields || []).some((f) => f.kind === 'endDate') ? val('end_date') : '';
@@ -2528,7 +2535,11 @@ import "../../styles/account-sections.css";
     $actClose?.addEventListener('click', closeAct);
     $actModal?.addEventListener('click', (e) => { if (e.target === $actModal) closeAct(); });
     $actChoose?.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) chooseAct(b.dataset.act); });
-    $actForm?.addEventListener('click', (e) => { if (e.target.closest('[data-act-log]') && actKey) chooseAct(actKey, null, { log: true }); });
+    $actForm?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-act-log]'); if (!b || !actKey) return;
+      const l = ((activityOf(actKey).book || {}).logs || [])[+b.dataset.actLog] || {};
+      chooseAct(actKey, null, { log: true, shoot: l.shoot || null });
+    });
     $actForm?.addEventListener('click', (e) => {
       const r = e.target.closest && e.target.closest('[data-post-route]'); if (!r) return;
       const date = actDate; closeAct();

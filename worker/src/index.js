@@ -2232,7 +2232,7 @@ const ACTIVITY_LABELS = {
 };
 const ACTIVITY_DETAIL_LABELS = {
   address: "Property address", area: "Area", location: "Location", platform: "Platform", campaign: "Campaign",
-  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event", occasion: "Occasion", audience: "Audience", contact_name: "Contact", contact_address: "Address", contact_reach: "Phone or email",
+  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event", occasion: "Occasion", audience: "Audience", shoot: "Type", contact_name: "Contact", contact_address: "Address", contact_reach: "Phone or email",
 };
 /* ---- The Marketing Calendar in the member's own calendar (Dani, 17 Oct) ----
    Two ways, both working in Apple (and iPhone), Outlook and Google:
