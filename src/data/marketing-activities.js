@@ -30,9 +30,9 @@
 export const CATEGORIES = [
   { key: "content",  label: "Content & Social",     colour: "#371e28" },
   { key: "print",    label: "Print & Canvassing",   colour: "#2f5d62" },
+  { key: "business", label: "Business & Community", colour: "#465a86" },
   { key: "property", label: "Property Marketing",   colour: "#8c5f37" },
   { key: "campaigns", label: "Campaigns",           colour: "#5f6a35" },
-  { key: "business", label: "Business & Community", colour: "#465a86" },
   { key: "other",    label: "Something Else",       colour: "#62666e" },
 ];
 
@@ -104,19 +104,10 @@ export const ACTIVITIES = [
       info: "/videography#property", brochure: "https://assets.tmke.co.uk/TMKE%20-%20Videography%20Services.pdf", book: [{ service: "property", label: "Book property filming" }, { service: "photography", label: "Book property photography" }] },
     reminder: true, title: "address", fields: [{ key: "address", kind: "text", label: "Property address", required: true }] },
   { key: "open_house", category: "property", label: "Open House / Property Event",
-    line: "An open house or event at a property, and everything to get ready for it.",
+    line: "The day of an open house or event at a property.",
     timeRequired: true, title: "address", fields: [
       { key: "address", kind: "text", label: "Property address", required: true },
       { key: "end_time", kind: "endTime", label: "End time", optional: true },
-    ],
-    checklist: [
-      "Social posts planned for the event",
-      "Invitation cards designed and delivered",
-      "Signs and balloons ready",
-      "Refreshments sorted (cookies, drinks)",
-      "Brochures printed",
-      "Visitor sign-in sheet ready",
-      "Follow-up planned for after the event",
     ] },
 
   // Campaigns: a run of marketing towards one goal, each with its own steps
