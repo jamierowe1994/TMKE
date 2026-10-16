@@ -2603,15 +2603,39 @@ import { createResizeEngine } from "./resize-engine.js";
        since, and Sam kept opening the old Recently Sold card (16 Oct). A copy
        now records the version it was made from (baseAt), and comes back only
        when the database still holds that version. */
+    /* And a copy is never thrown away (16 Oct). Sam's four A5 pages never
+       reached the database - saving was blocked while a size was on trial -
+       and the rule above deleted the copy her browser had kept. Now:
+         the same version, and newer       brought back, as before;
+         newer, from another version or    the Studio ASKS which to open;
+           made before copies said which
+         older than the database           put aside, not deleted.
+       Whatever isn't opened is kept under tmke.editor.backup.<id>.<time>. */
     if (ADMIN_MODE_URL && !draftRaw && !fresh) {
       try {
-        const kept = JSON.parse(localStorage.getItem("tmke.editor." + tpl.id) || "null");
+        const key = "tmke.editor." + tpl.id;
+        const raw = localStorage.getItem(key);
+        const kept = JSON.parse(raw || "null");
         const dbAt = tpl.updatedAt ? Date.parse(tpl.updatedAt) : NaN;
         const sameBase = kept && kept.baseAt && isFinite(dbAt) && Math.abs(Date.parse(kept.baseAt) - dbAt) < 1000;
-        if (kept && !(sameBase && (kept.savedAt || 0) > dbAt + 2000)) {
-          localStorage.removeItem("tmke.editor." + tpl.id);
-          if (kept.baseAt && !sameBase) toast("This template has changed since your last unsaved edits here, so the latest version is open.", 6000);
-          fresh = true;
+        const newer = kept && (!isFinite(dbAt) || (kept.savedAt || 0) > dbAt + 2000);
+        const putAside = () => {
+          try {
+            localStorage.setItem("tmke.editor.backup." + tpl.id + "." + (kept.savedAt || Date.now()), raw);
+            // The three most recent per template are plenty.
+            Object.keys(localStorage).filter((k) => k.indexOf("tmke.editor.backup." + tpl.id + ".") === 0)
+              .sort().reverse().slice(3).forEach((k) => localStorage.removeItem(k));
+          } catch (_) {}
+          localStorage.removeItem(key);
+        };
+        if (kept && !(sameBase && newer)) {
+          let open = false;
+          if (newer) {
+            const pages = Array.isArray(kept.pages) ? kept.pages.length : 1;
+            const when = new Date(kept.savedAt || Date.now()).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+            open = window.confirm("This browser has changes to this template that were never saved: " + pages + (pages === 1 ? " page" : " pages") + ", last edited " + when + ".\n\nOK opens those changes. Cancel opens the saved version, and the changes are kept in this browser.");
+          }
+          if (!open) { putAside(); fresh = true; }
         }
       } catch (_) {}
     }
