@@ -1,7 +1,8 @@
 /* Chapter 05 on the dashboard, Learn (Dani, 16 Oct): a section that holds
-   still while you scroll through it. The titles roll up on the left, and each
-   picture slides over the last on the right, with what the course covers
-   across its top and its length at its foot.
+   still while you scroll through it. The titles roll up on the left -- the one
+   that's up, with a line about it, and one either side -- and the pictures
+   roll up with them on the right, 16:9, with what the course covers across
+   the top and its length at the foot.
 
    The Getting Started series, in its own order, then the latest blog. A new
    course in the series (src/data/training-guides.js) joins on its own. */
@@ -16,6 +17,7 @@ export function learnSlides({ blogTitle, blogHref } = {}) {
     return {
       key: g.slug,
       title: g.title,
+      summary: g.summary || "",
       href: `/account/guides/read?g=${encodeURIComponent(g.slug)}`,
       art: g.art || g.cover_url || "/assets/chapter-04.jpg",
       // Across the top: what's in it. The rest of the corners: where it sits.
@@ -29,9 +31,10 @@ export function learnSlides({ blogTitle, blogHref } = {}) {
     {
       key: "blog",
       title: "Five minutes well spent",
+      summary: blogTitle || "Practical marketing for estate agents, a few minutes at a time.",
       href: blogHref || "/account/blog",
       art: "/assets/chapter-04.jpg",
-      top: ["From the blog", blogTitle || "Practical marketing for estate agents"],
+      top: ["From the blog"],
       corner: ["Read our latest blog"],
       foot: ["A few minutes", "Something you can use"],
       blog: true,
