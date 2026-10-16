@@ -14977,10 +14977,14 @@ import { createResizeEngine } from "./resize-engine.js";
     return {
       filename: (filenameEl && filenameEl.value) || "Design",
       templateId: state.templateId || null,
+      // The version this was opened from: re-publishing checks it too.
+      baseAt: state.baseAt || null,
       pages: pages,
       cover: (pages[orig] && pages[orig].thumb) || (pages[0] && pages[0].thumb) || "",
     };
   };
+  // Re-publishing saved a new version: later saves check against that one.
+  window.__TMKE_SET_BASE_AT__ = function (at) { if (at) state.baseAt = at; };
 
   // Render an arbitrary stored design ({canvas, elements}) to a high-res JPEG
   // data URL — used by the admin "Regenerate previews" tool to refresh every

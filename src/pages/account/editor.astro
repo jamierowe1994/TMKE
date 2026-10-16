@@ -7423,14 +7423,27 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           // again; Regenerate previews is the one way to change it.
           if (typeof window.__TMKE_IS_PRINT__ === "function" && window.__TMKE_IS_PRINT__()) { delete patch.thumb_url; delete patch.render_url; }
           if (choice.mode !== "none") patch.pack_id = packId;   // move into the chosen pack
-          let { error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId);
+          /* The same check as Save: an old tab can't re-publish over a newer
+             version of this template (Dani, 16 Oct). */
+          if (data.baseAt) {
+            const { data: now } = await supabase.from("templates").select("updated_at").eq("id", existingId).maybeSingle();
+            const dbAt = now && now.updated_at ? Date.parse(now.updated_at) : NaN;
+            if (isFinite(dbAt) && dbAt > Date.parse(data.baseAt) + 1000) {
+              const when = new Date(dbAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+              alert(`Not published. This template was changed at ${when}, after you opened it. Reload the page to get the latest version; publishing from here would replace those changes.`);
+              publishBtn.textContent = original; publishBtn.disabled = false;
+              return;
+            }
+          }
+          let { data: upd, error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId).select("updated_at");
           if (uErr) {
             // A database that hasn't run supabase/template_pages.sql yet.
             const { pages: _drop, ...noPages } = patch;
-            ({ error: uErr } = await supabase.from("templates").update(noPages).eq("id", existingId));
+            ({ data: upd, error: uErr } = await supabase.from("templates").update(noPages).eq("id", existingId).select("updated_at"));
             if (uErr) throw uErr;
             alert("Saved, but this database has no `pages` column yet, so only the first page was kept. Run supabase/template_pages.sql, then publish again.");
           }
+          if (Array.isArray(upd) && upd[0] && typeof window.__TMKE_SET_BASE_AT__ === "function") window.__TMKE_SET_BASE_AT__(upd[0].updated_at);
           publishBtn.textContent = "Re-published ✓";
           alert(choice.mode !== "none"
             ? "Updated this template in place and moved it to the chosen pack — no duplicate created."
