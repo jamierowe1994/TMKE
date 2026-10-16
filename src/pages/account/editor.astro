@@ -5879,6 +5879,31 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            a photo that would not upload and a dropped connection all surfaced
            as the same "reconnecting to cloud…" and none of them told you what
            to do about it. */
+        /* Has someone ELSE changed this design since it was opened? (16 Oct.)
+           The row's updated_at alone can't say: this tab's own background
+           writes move it too - a size's layout, a preview - and the check was
+           refusing Dani's own saves and publishes. Each change to a design is
+           kept in template_versions with who made it, so only a change there
+           by another person counts. Writes that don't touch the design leave
+           no version, and can't be overwritten by a save anyway. */
+        async function changedByOthersSince(id, baseAt) {
+          try {
+            const base = Date.parse(baseAt);
+            if (!isFinite(base)) return null;
+            const { data: now } = await supabase.from('templates').select('updated_at').eq('id', id).maybeSingle();
+            const dbAt = now && now.updated_at ? Date.parse(now.updated_at) : NaN;
+            if (!isFinite(dbAt) || dbAt <= base + 1000) return null;
+            const { data: sess } = await supabase.auth.getSession();
+            const me = sess && sess.session && sess.session.user && sess.session.user.id;
+            if (!me) return null;
+            const { data: v } = await supabase.from('template_versions').select('saved_at, saved_by')
+              .eq('template_id', id).gt('saved_at', new Date(base + 1000).toISOString()).neq('saved_by', me)
+              .order('saved_at', { ascending: false }).limit(1);
+            return v && v.length ? v[0].saved_at : null;
+          } catch (_) { return null; }   // can't check: save as before
+        }
+        window.__TMKE_CHANGED_BY_OTHERS__ = changedByOthersSince;
+
         window.__TMKE_ADMIN_SAVE__ = async (payload) => {
           if (!payload?.templateId) return { ok: false, reason: 'No design open to save into.' };
 
@@ -5941,14 +5966,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
              - the save stops and says so, rather than putting the old design
              back over theirs. Sam's tab on the old Recently Sold card, 16 Oct. */
           if (payload.baseAt) {
-            try {
-              const { data: now } = await supabase.from('templates').select('updated_at').eq('id', payload.templateId).maybeSingle();
-              const dbAt = now && now.updated_at ? Date.parse(now.updated_at) : NaN;
-              if (isFinite(dbAt) && dbAt > Date.parse(payload.baseAt) + 1000) {
-                const when = new Date(dbAt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
-                return { ok: false, conflict: true, reason: `This template was changed at ${when}, after you opened it. Reload the page to get the latest version; saving from here would replace those changes.` };
-              }
-            } catch (_) { /* can't check: save as before */ }
+            const at = await changedByOthersSince(payload.templateId, payload.baseAt);
+            if (at) {
+              const when = new Date(at).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' });
+              return { ok: false, conflict: true, reason: `Someone else changed this template at ${when}, after you opened it. Reload the page to get the latest version; saving from here would replace their changes.` };
+            }
           }
           let savedAt = null;
           const write = async (body) => {
@@ -7425,15 +7447,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           if (choice.mode !== "none") patch.pack_id = packId;   // move into the chosen pack
           /* The same check as Save: an old tab can't re-publish over a newer
              version of this template (Dani, 16 Oct). */
-          if (data.baseAt) {
-            const { data: now } = await supabase.from("templates").select("updated_at").eq("id", existingId).maybeSingle();
-            const dbAt = now && now.updated_at ? Date.parse(now.updated_at) : NaN;
-            if (isFinite(dbAt) && dbAt > Date.parse(data.baseAt) + 1000) {
-              const when = new Date(dbAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
-              alert(`Not published. This template was changed at ${when}, after you opened it. Reload the page to get the latest version; publishing from here would replace those changes.`);
-              publishBtn.textContent = original; publishBtn.disabled = false;
-              return;
-            }
+          const othersAt = data.baseAt && typeof window.__TMKE_CHANGED_BY_OTHERS__ === "function" ? await window.__TMKE_CHANGED_BY_OTHERS__(existingId, data.baseAt) : null;
+          if (othersAt) {
+            const when = new Date(othersAt).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+            alert(`Not published. Someone else changed this template at ${when}, after you opened it. Reload the page to get the latest version; publishing from here would replace their changes.`);
+            publishBtn.textContent = original; publishBtn.disabled = false;
+            return;
           }
           let { data: upd, error: uErr } = await supabase.from("templates").update(patch).eq("id", existingId).select("updated_at");
           if (uErr) {
