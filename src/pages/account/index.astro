@@ -21,6 +21,14 @@ const latestPostHref = latestPost?.slug ? `/account/blog#${latestPost.slug}` : "
 
 // Chapter 04's folder: the Getting Started series, then the latest blog.
 const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: latestPostHref });
+
+// The Content planner door's hover picture: a small month drawn like the
+// Planner, filled in (Dani, 16 Oct). An illustration of the Planner, not
+// anybody's diary, so it has no month name and no real entries.
+const CAL_CATS = { content: "#371e28", print: "#2f5d62", business: "#465a86", property: "#8c5f37", campaigns: "#5f6a35" };
+const CAL_POSTS = { 2: "home%20window.jpg", 9: "sitting%20chair.jpg", 15: "home%20chair.jpg", 23: "home%20kitchen.jpg", 29: "home%20window.jpg" };
+const CAL_ACTS = { 3: ["property"], 6: ["content"], 8: ["print", "print"], 13: ["business"], 16: ["campaigns", "campaigns"], 17: ["campaigns"], 20: ["content", "property"], 24: ["print"], 27: ["business"], 30: ["campaigns"] };
+const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => i + 1), ...Array(1).fill(0)];
 ---
 
 <!--
@@ -227,21 +235,39 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
           </header>
           <div class="ws-tools ws-doors">
             <a class="ws-tool ws-door" href="/account/editor?new=1" data-new-design>
+              <span class="ws-door-img" aria-hidden="true" style="background-image:url('/images/dashboard/door-create-v1.webp')"></span>
               <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span>
               <span class="ws-door-tx"><strong>Create something</strong><span>Start with a blank canvas.</span></span>
               <span class="ws-door-go" aria-hidden="true">&rarr;</span>
             </a>
             <a class="ws-tool ws-door" href="/account/studio">
+              <!-- A template from the demo pack, set by wireDoorPack(). -->
+              <span class="ws-door-img" id="ws-door-pack-img" aria-hidden="true"></span>
               <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
               <span class="ws-door-tx"><strong>Your packs</strong><span id="tool-packs">Templates ready to edit.</span></span>
               <span class="ws-door-go" aria-hidden="true">&rarr;</span>
             </a>
             <a class="ws-tool ws-door" href="/account/profile">
+              <span class="ws-door-img" aria-hidden="true" style="background-image:url('/images/dashboard/door-brand-kit-v1.webp')"></span>
               <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg></span>
               <span class="ws-door-tx"><strong>Brand kit</strong><span id="tool-kit">Everything looking like you.</span></span>
               <span class="ws-door-go" aria-hidden="true">&rarr;</span>
             </a>
             <a class="ws-tool ws-door" href="/account/schedule">
+              <span class="ws-door-img ws-door-cal" aria-hidden="true">
+                <span class="ws-mcal">
+                  <span class="ws-mcal-wd">{["M", "T", "W", "T", "F", "S", "S"].map((d) => <span>{d}</span>)}</span>
+                  <span class="ws-mcal-grid">
+                    {CAL_CELLS.map((d) => d === 0 ? <span class="ws-mcal-c is-off"></span> : (
+                      <span class="ws-mcal-c">
+                        <span class="ws-mcal-n">{d}</span>
+                        {CAL_POSTS[d] && <span class="ws-mcal-pic" style={`background-image:url('/assets/${CAL_POSTS[d]}')`}></span>}
+                        {(CAL_ACTS[d] || []).map((k) => <span class="ws-mcal-bar" style={`background:${CAL_CATS[k]}`}></span>)}
+                      </span>
+                    ))}
+                  </span>
+                </span>
+              </span>
               <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
               <span class="ws-door-tx"><strong>Content planner</strong><span>See what's coming up.</span></span>
               <span class="ws-door-go" aria-hidden="true">&rarr;</span>
@@ -729,7 +755,29 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       background: color-mix(in srgb, var(--door-ink) 14%, transparent); color: var(--door-ink); transition: transform 0.45s var(--ws-ease); }
     .ws-door:hover .ws-door-ic { transform: rotate(-8deg) scale(1.06); }
     .ws-door-ic svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-    .ws-door-tx { margin-top: auto; display: flex; flex-direction: column; gap: 5px; min-width: 0; padding-right: 22px; }
+    /* The words sit in a band at the foot, wine once there's a picture above
+       them: on hover for the first four, always for a last design that shows
+       (Dani, 16 Oct). Laid out the same either way, so nothing moves. */
+    .ws-door { --pad: clamp(16px, 1.5vw, 22px); }
+    .ws-door-tx { margin: auto calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px 40px var(--pad) var(--pad); display: flex; flex-direction: column; gap: 5px; min-width: 0; transition: background 0.45s var(--ws-ease); }
+    .ws-door-img { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; opacity: 0; transform: scale(1.04);
+      transition: opacity 0.5s var(--ws-ease), transform 1.2s var(--ws-ease); pointer-events: none; }
+    @media (hover: hover) {
+      .ws-door:hover .ws-door-img, .ws-door:focus-visible .ws-door-img { opacity: 1; transform: none; }
+      .ws-door:not(.ws-resume):hover .ws-door-tx, .ws-door:not(.ws-resume):focus-visible .ws-door-tx { background: var(--english-violet); }
+      .ws-door:not(.ws-resume):hover .ws-door-ic { background: rgba(55,30,40,0.72); }
+    }
+    /* The planner's picture: a little month on paper, posts as pictures and
+       everything else as bars in the Planner's category colours. */
+    .ws-door-cal { background: #efebe8; display: flex; align-items: flex-start; justify-content: center; padding: 70px 12px 0; box-sizing: border-box; }
+    .ws-mcal { width: 100%; padding: 8px 7px 9px; border-radius: 4px; background: #fff; box-shadow: 0 10px 24px -14px rgba(28,29,34,0.35); color: var(--ws-ink); }
+    .ws-mcal-wd, .ws-mcal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+    .ws-mcal-wd { margin-bottom: 3px; font-size: 7px; font-weight: 700; letter-spacing: 0.08em; color: var(--ws-faint); text-align: center; }
+    .ws-mcal-c { position: relative; display: flex; flex-direction: column; gap: 1.5px; aspect-ratio: 1 / 1.15; padding: 2px; border-radius: 2px; background: #f7f5f4; overflow: hidden; }
+    .ws-mcal-c.is-off { background: transparent; }
+    .ws-mcal-n { font-size: 6.5px; font-weight: 600; line-height: 1; color: var(--ws-tx); }
+    .ws-mcal-pic { flex: 1 1 auto; min-height: 0; border-radius: 1.5px; background-size: cover; background-position: center; }
+    .ws-mcal-bar { flex: none; height: 3px; border-radius: 1px; }
     .ws-door-tx strong { font-size: clamp(15px, 1.15vw, 18px); font-weight: 600; line-height: 1.2; letter-spacing: -0.005em; }
     .ws-door-tx span { font-size: var(--ws-t-meta); line-height: 1.4; opacity: 0.82; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .ws-door-go { position: absolute; right: clamp(16px, 1.5vw, 22px); bottom: clamp(16px, 1.5vw, 22px); font-size: 16px; line-height: 1; transition: transform 0.3s var(--ws-ease); }
@@ -742,7 +790,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-resume.has-img { --door-ink: #fff; }
     .ws-tool.ws-door.ws-resume.is-wine { --door: var(--english-violet); }
     .ws-resume.has-img .ws-door-ic { background: rgba(55,30,40,0.72); }
-    .ws-resume.has-img .ws-door-tx { margin: auto calc(-1 * clamp(16px, 1.5vw, 22px)) calc(-1 * clamp(16px, 1.5vw, 22px)); padding: 12px clamp(16px, 1.5vw, 22px) clamp(16px, 1.5vw, 22px); padding-right: 40px; background: var(--english-violet); }
+    .ws-resume.has-img .ws-door-tx { background: var(--english-violet); }
     @media (max-width: 1000px) {
       .ws-tools.ws-doors { display: flex; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 4px; }
       .ws-doors::-webkit-scrollbar { display: none; }
@@ -1752,6 +1800,21 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
         reel.classList.add('is-ready');
         reel.setAttribute('aria-busy', 'false');
       } catch (_) { reel.setAttribute('aria-busy', 'false'); }
+    })();
+
+    // The Your packs door's hover picture: a template from the demo pack, the
+    // "New to Market" one where there is one (Dani's pick for that pack).
+    (async function wireDoorPack() {
+      const slot = document.getElementById('ws-door-pack-img');
+      if (!slot) return;
+      try {
+        const { data: packs } = await supabase.from('packs').select('id').eq('demo', true).eq('status', 'active').limit(1);
+        const id = packs && packs[0] && packs[0].id;
+        if (!id) return;
+        const { data: tpls } = await supabase.from('templates').select('name, thumb_url').eq('pack_id', id).eq('status', 'active').order('sort_order', { ascending: true });
+        const pick = (tpls || []).find((t) => /new to market/i.test(t.name || '') && t.thumb_url) || (tpls || []).find((t) => t.thumb_url);
+        if (pick) slot.style.backgroundImage = `url('${pick.thumb_url}')`;
+      } catch (_) {}
     })();
 
     // Back to top, smoothly where the page scrolls smoothly.
