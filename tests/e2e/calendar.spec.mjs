@@ -66,7 +66,11 @@ async function waitForWrite(page, method) {
 async function saveAct(page) {
   const wait = page.waitForResponse((r) => /\/rest\/v1\/training_calendar_items/.test(r.url()) && ["POST", "PATCH"].includes(r.request().method()), { timeout: 25_000 });
   await page.click("#act-save");
-  const r = await wait;
+  const r = await wait.catch(async (e) => {
+    // Say what the form said, if it said anything, rather than only "timed out".
+    const msg = await page.locator("#act-form [data-act-error]").textContent().catch(() => "");
+    throw new Error(`Save didn't reach the database. The form said: "${(msg || "").trim() || "nothing"}"`);
+  });
   expect(r.ok(), "the save reached the database").toBeTruthy();
   let row = await r.json();
   if (Array.isArray(row)) row = row[0];
@@ -398,13 +402,17 @@ test(name("email_newsletter"), async ({ page }) => {
     await expect(page.locator('#act-form [data-files="audience_files"] .act-file')).toHaveCount(1);
   });
   await step("email_newsletter", 4, async () => {
-    const [tab] = await Promise.all([
-      page.context().waitForEvent("page"),
+    // A PDF opened in a new tab downloads in the test browser, so the tab's
+    // request is what's checked: a short-lived link that opens the file.
+    // (The page first asks storage for the link, at the same address: the
+    // tab's own request is the GET that carries the token.)
+    const [req] = await Promise.all([
+      page.context().waitForEvent("request", (r) => r.method() === "GET" && /\/object\/sign\/calendar-files\/.+\?token=/.test(r.url()), { timeout: 20_000 }),
       page.click('#act-form [data-files="copy"] [data-file-open="0"]'),
     ]);
-    await tab.waitForURL(/\/object\/sign\/calendar-files\//, { timeout: 20_000 });
-    expect((await page.request.get(tab.url())).ok(), "the file opens").toBeTruthy();
-    await tab.close();
+    const got = await page.request.get(req.url());
+    expect(got.ok(), `the file opens (${got.status()})`).toBeTruthy();
+    for (const p of page.context().pages()) if (p !== page) await p.close().catch(() => {});
   });
   await step("email_newsletter", 5, async () => {
     await page.click('#act-form [data-files="audience_files"] [data-file-del="0"]');
@@ -695,11 +703,10 @@ test(name("mycal"), async ({ page, context }) => {
       page.click('#mycal-menu [data-mycal-to="google"]'),
     ]);
     const u = new URL(req.url());
-    const tab = req.frame().page();
     expect(u.hostname).toBe("calendar.google.com");
     expect(u.searchParams.get("text")).toContain("Property Photography or Filming");
     expect(u.searchParams.get("dates")).toBe(`${day(8).replace(/-/g, "")}T093000/${day(8).replace(/-/g, "")}T103000`);
-    await tab.close();
+    for (const p of context.pages()) if (p !== page) await p.close().catch(() => {});
   });
 });
 

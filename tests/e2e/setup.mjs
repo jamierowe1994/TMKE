@@ -21,6 +21,8 @@ export default async function setup() {
   if (String(fresh.user && fresh.user.email).toLowerCase() !== "danielle@tmke.co.uk") throw new Error("The saved sign-in isn't danielle@tmke.co.uk. Run: npm run test:signin");
   writeSession({ ...s, ...fresh, expires_at: fresh.expires_at || Math.round(Date.now() / 1000) + (fresh.expires_in || 3600) });
 
+  // A run cut short never reached its clean-up: clear what it left first.
+  await (await import("./teardown.mjs")).default();
   rmSync(CREATED, { force: true });
 
   // Test files: a PNG, a JPEG and a PDF.
