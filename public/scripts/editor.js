@@ -13719,8 +13719,9 @@ import { createResizeEngine } from "./resize-engine.js";
     _sizePreview = null;
     _resizeBase = null;
     syncSizeDecision();
+    syncResizePanel();
     scheduleAutosave();
-    toast("Resized to " + name);
+    toast(isAdminMode() ? "This template is now " + name : "Resized to " + name);
   }
 
   // Put the design back exactly as it was before the first resize.
@@ -13804,8 +13805,14 @@ import { createResizeEngine } from "./resize-engine.js";
       b.hidden = !hasSaved;
       b.setAttribute("data-size-key", key);
     });
-    // In admin, resizing the template itself is not what this panel is for.
-    document.querySelectorAll('[data-size-act="keep"]').forEach((b) => { b.hidden = admin; });
+    /* In admin the template itself can change size too: Sam turned an
+       Instagram portrait into an A5 and could only go back (16 Oct). Saving a
+       layout for the size, above, leaves the template as drawn; this makes the
+       size on show the template's own. */
+    document.querySelectorAll('[data-size-act="keep"]').forEach((b) => {
+      b.hidden = false;
+      b.textContent = isAdminMode() && pending ? "Make " + now + " the template's size" : "Resize this design";
+    });
     const list = $("ed-resize-changes");
     if (list) {
       const show = admin && pending && _sizePreview;
