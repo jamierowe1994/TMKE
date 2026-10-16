@@ -2200,11 +2200,21 @@ function reminderHtml(item, platform, caption) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const cap = esc(caption);
   const asset = item && item.asset_url ? esc(item.asset_url) : "";
+  /* A post uploaded rather than designed (Dani, 16 Oct) can carry several
+     files and links: every one is listed, so nothing is only in the app. */
+  const d = item && item.details && typeof item.details === "object" ? item.details : {};
+  const files = (Array.isArray(d.files) ? d.files : []).filter((x) => x && x.url);
+  const links = (Array.isArray(d.links) ? d.links : []).filter(Boolean);
+  const extra = (files.length > 1 || links.length) ? `<p style="${EM_P}"><strong>Your post</strong></p><p style="${EM_P}">${[
+    ...files.map((x) => `<a href="${esc(x.url)}" style="color:#371e28">${esc(x.name || "File")}</a>`),
+    ...links.map((u) => `<a href="${esc(u)}" style="color:#371e28">${esc(String(u).replace(/^https?:\/\//, ""))}</a>`),
+  ].join("<br>")}</p>` : "";
   return `<div style="${EM_WRAP}">
     <h1 style="${EM_H1}">Your post is ready to go out</h1>
     <p style="${EM_P}">Here's your planned <strong>${esc(platform)}</strong> post${item.title ? ` - &ldquo;${esc(item.title)}&rdquo;` : ""}. The image is attached, and there's a download button below - copy your caption and you're set.</p>
     ${cap ? `<div style="${EM_QUOTE_TEXT}">${cap}</div>` : `<p style="${EM_P}">No caption saved for this post.</p>`}
-    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="${EM_BTN}">Download the image &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : `<p style="${EM_P}">&#128206; Your post image is attached to this email.</p>`}
+    ${asset ? `<p style="margin:20px 0 0"><a href="${asset}" style="${EM_BTN}">Download the image &darr;</a></p><p style="${EM_SMALL}">Tip: open this on your phone and tap Download to save it to your camera roll.</p>` : (files.length || links.length ? "" : `<p style="${EM_P}">No image is saved with this post.</p>`)}
+    ${extra}
     <p style="${EM_SMALL}">Sent by TMKE &middot; <a href="https://tmke.co.uk/account/schedule" style="color:#371e28">View your calendar</a></p>
   </div>`;
 }
@@ -2222,7 +2232,7 @@ const ACTIVITY_LABELS = {
 };
 const ACTIVITY_DETAIL_LABELS = {
   address: "Property address", area: "Area", location: "Location", platform: "Platform", campaign: "Campaign",
-  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event", occasion: "Occasion", contact_name: "Contact", contact_address: "Address", contact_reach: "Phone or email",
+  budget: "Budget", materials: "Materials", quantity: "Quantity", subject: "Subject", purpose: "For", client: "Client or property", event: "Event", occasion: "Occasion", audience: "Audience", contact_name: "Contact", contact_address: "Address", contact_reach: "Phone or email",
 };
 /* ---- The Marketing Calendar in the member's own calendar (Dani, 17 Oct) ----
    Two ways, both working in Apple (and iPhone), Outlook and Google:
@@ -2702,15 +2712,18 @@ async function sendPostEmail(env, { email, item, subject }) {
   if (!env.RESEND_API_KEY || !email) return false;
   const platform = item.platform_hint || "instagram";
   const attachments = [];
-  if (item.asset_url) {
+  // The image, and an uploaded post's other files: five at most.
+  const det = item.details && typeof item.details === "object" ? item.details : {};
+  const urls = [item.asset_url, ...(Array.isArray(det.files) ? det.files.map((x) => x && x.url) : [])].filter(Boolean);
+  for (const u of [...new Set(urls)].slice(0, 5)) {
     try {
-      const aRes = await fetch(item.asset_url);
+      const aRes = await fetch(u);
       if (aRes.ok) {
         const buf = await aRes.arrayBuffer();
-        const name = (item.asset_url.split("/").pop() || "post.png").split("?")[0] || "post.png";
+        const name = decodeURIComponent((u.split("/").pop() || "post.png").split("?")[0] || "post.png").replace(/^[a-z0-9]+-[a-z0-9]+-/, "");
         attachments.push({ filename: name, content: bufToBase64(buf) });
       }
-    } catch (_) { /* attach nothing if the asset can't be fetched */ }
+    } catch (_) { /* attach nothing if the file can't be fetched */ }
   }
   try {
     const sent = await fetch("https://api.resend.com/emails", {

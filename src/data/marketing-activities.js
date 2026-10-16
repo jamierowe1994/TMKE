@@ -46,6 +46,10 @@ export const CATEGORIES = [
      platform  where it runs (a choice)    (details.platform)
      printDesign   one of your print designs, optional   (details.design_id)
      linkedDesigns any of your designs, several          (details.design_ids)
+     files     uploads and links, several   (details[key]: [{ kind: "file",
+               name, path, size, mime } | { kind: "link", url }]). Files go to
+               the private calendar-files bucket (supabase/calendar_files.sql)
+               and open through a short-lived link.
    Every activity also has its date, an optional time (unless `timeRequired`),
    notes, a checklist and the reminder tickbox. `title` names the field whose
    value becomes the entry's title on the calendar. */
@@ -71,7 +75,13 @@ export const ACTIVITIES = [
     reminder: true, timeRequired: true, title: "location", fields: [{ key: "location", kind: "text", label: "Location", optional: true }] },
   { key: "email_newsletter", category: "content", label: "Email / Newsletter",
     line: "An email to your contacts, such as your newsletter or a new listing.",
-    title: "subject", fields: [{ key: "subject", kind: "text", label: "Subject", required: true }] },
+    title: "subject", fields: [
+      { key: "subject", kind: "text", label: "Subject", required: true },
+      { key: "copy", kind: "files", label: "The copy", optional: true },
+      // Who it's for, to refer back to; nothing is sent to them (Dani, 16 Oct).
+      { key: "audience", kind: "area", label: "Your audience", optional: true, placeholder: "e.g. Sellers within two miles of CV22" },
+      { key: "audience_files", kind: "files", label: "Audience details", optional: true },
+    ] },
   { key: "paid_ads", category: "content", label: "Paid Advertising",
     line: "A paid campaign on social media or the portals, from the day it starts to the day it ends.",
     title: "campaign", fields: [
@@ -195,6 +205,7 @@ export const ACTIVITIES = [
     title: "event", fields: [
       { key: "event", kind: "text", label: "Event name", required: true },
       { key: "location", kind: "text", label: "Location", optional: true },
+      { key: "files", kind: "files", label: "Documents and links", optional: true },
     ] },
   { key: "review_request", category: "business", label: "Request a Testimonial",
     line: "Ask a happy client for a testimonial while the move is fresh.",
@@ -209,7 +220,10 @@ export const ACTIVITIES = [
     ] },
   { key: "other", category: "other", label: "Something Else",
     line: "Anything else in your marketing that you want on the calendar.",
-    title: "title", fields: [{ key: "title", kind: "text", label: "Title", required: true }] },
+    title: "title", fields: [
+      { key: "title", kind: "text", label: "Title", required: true },
+      { key: "files", kind: "files", label: "Files and links", optional: true },
+    ] },
 ];
 
 export const PLATFORMS = ["Instagram", "Facebook", "LinkedIn", "TikTok", "Google", "Rightmove", "Zoopla", "Other"];

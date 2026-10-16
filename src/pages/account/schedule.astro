@@ -133,6 +133,7 @@ import "../../styles/account-sections.css";
       </header>
       <div class="day-body post-body">
         <figure class="post-preview"><img id="post-img" alt="Your post design" /></figure>
+        <div class="act-files-list post-files" id="post-files" style="--cat: var(--violet-deep)"></div>
         <div class="post-fields">
           <label class="post-field">
             <span class="post-label">Title</span>
@@ -257,10 +258,26 @@ import "../../styles/account-sections.css";
         <div class="pick-grid" id="pick-grid"></div>
       </div>
 
+      <!-- Or: a post made elsewhere, uploaded or linked (Dani, 16 Oct). -->
+      <div class="pick-body" id="pick-step-upload" hidden>
+        <p class="pick-note">Upload the post you've made, as a PNG, JPEG or PDF: one file or several. Or add a link to it.</p>
+        <label class="pick-drop" id="pick-drop">
+          <input type="file" id="pick-files" accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf" multiple hidden />
+          <strong>Choose files</strong><span>or drop them here</span>
+        </label>
+        <div class="act-files-list pick-up-list" id="pick-up-list"></div>
+        <div class="act-files-add">
+          <input type="url" class="post-input" id="pick-up-url" placeholder="Or paste a link, e.g. to your Canva design" />
+          <button type="button" class="act-files-btn" id="pick-up-link">Add link</button>
+        </div>
+        <div class="post-error" id="pick-up-error" hidden></div>
+      </div>
+
       <!-- Step two: the same details the editor asks for. -->
       <div class="pick-body pick-body--plan" id="pick-step-plan" hidden>
         <figure class="pick-chosen">
           <img id="pick-chosen-img" alt="" />
+          <span class="pick-file-tile" id="pick-file-tile">PDF</span>
           <figcaption id="pick-chosen-name">Your design</figcaption>
           <button type="button" class="pick-back" id="pick-back">Choose another</button>
         </figure>
@@ -293,6 +310,7 @@ import "../../styles/account-sections.css";
 
       <footer class="day-foot post-foot" id="pick-foot" hidden>
         <button type="button" class="post-btn post-btn--ghost" id="pick-cancel">Cancel</button>
+        <button type="button" class="post-btn post-btn--primary" id="pick-continue" hidden>Continue</button>
         <button type="button" class="post-btn post-btn--primary" id="pick-save">Plan post</button>
       </footer>
     </aside>
@@ -901,7 +919,15 @@ import "../../styles/account-sections.css";
     .pick-body--plan { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 26px; align-items: start; }
     /* A class that sets display beats the browser's own [hidden] rule, so say
        it here: a step that is hidden is hidden. */
-    .pick-body[hidden], .pick-body--plan[hidden], #pick-foot[hidden] { display: none; }
+    .pick-body[hidden], .pick-body--plan[hidden], #pick-foot[hidden], #pick-continue[hidden], #pick-save[hidden] { display: none; }
+    #pick-step-upload { display: grid; gap: 12px; align-content: start; --cat: var(--violet-deep); }
+    .pick-drop { display: grid; place-items: center; gap: 4px; padding: 30px 16px; border: 1.5px dashed rgba(var(--violet-rgb), 0.35); border-radius: 8px; background: #fff; cursor: pointer; text-align: center; font-family: var(--sans); transition: border-color .2s, background .2s; }
+    .pick-drop strong { font-size: var(--ws-t-body); color: var(--violet-deep); }
+    .pick-drop span { font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); }
+    .pick-drop:hover, .pick-drop.is-over { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.04); }
+    .pick-chosen.is-file img { display: none; }
+    .pick-file-tile { display: none; aspect-ratio: 1080 / 1440; border-radius: 6px; background: #e9e6e2; place-items: center; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; color: rgba(28,29,34,0.55); }
+    .pick-chosen.is-file .pick-file-tile { display: grid; }
     .pick-chosen { margin: 0; }
     .pick-chosen img { display: block; width: 100%; aspect-ratio: 1080 / 1440; object-fit: cover; border-radius: 6px; background: #e9e6e2; }
     .pick-chosen figcaption { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); margin-top: 8px; }
@@ -929,6 +955,24 @@ import "../../styles/account-sections.css";
     .act-cat--solo .act-pick { display: flex; align-items: center; gap: 8px; color: rgba(28,29,34,0.75); }
     .act-cat--solo .act-pick::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); flex: none; }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
+    .act-files-list { display: grid; gap: 6px; }
+    .act-plan-designs { justify-self: start; margin-top: 4px; background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
+    .act-plan-designs:hover { background: var(--violet-deep); opacity: 0.92; }
+    .act-plan-designs[hidden] { display: none; }
+    .act-files-list:empty { display: none; }
+    .act-file { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 4px 6px 4px 4px; }
+    .act-file-open { all: unset; cursor: pointer; flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 4px; font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ink); }
+    .act-file-open:hover:not(:disabled) { background: rgba(var(--violet-rgb), 0.06); }
+    .act-file-kind { flex: none; min-width: 38px; padding: 3px 6px; border-radius: 3px; background: var(--cat); color: #fff; text-align: center; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .act-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .act-file-meta { flex: none; font-size: var(--ws-t-meta); color: rgba(28,29,34,0.5); }
+    .act-file.is-uploading { opacity: 0.6; }
+    .act-files-add { display: flex; gap: 8px; align-items: center; }
+    .act-files-add .post-input { flex: 1; min-width: 0; }
+    .act-files-btn { flex: none; display: inline-flex; align-items: center; height: 38px; padding: 0 14px; border-radius: 4px; cursor: pointer; background: #fff;
+      border: 1px solid rgba(var(--violet-rgb), 0.3); color: var(--violet-deep); font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+    .act-files-btn:hover { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.05); }
+    @media (max-width: 560px) { .act-files-add { flex-wrap: wrap; } .act-files-add .post-input { flex-basis: 100%; order: 2; } }
     .act-book-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
     @media (max-width: 720px) { .act-book-cards { grid-template-columns: 1fr; } }
     .act-book { display: flex; flex-direction: column; gap: 12px; padding: 20px; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; }
@@ -939,7 +983,9 @@ import "../../styles/account-sections.css";
       border: 1px solid rgba(28,29,34,0.2); color: var(--ink); background: #fff; }
     .act-book-links .is-primary { background: var(--violet-deep); border-color: var(--violet-deep); color: #fff; }
     .act-book-note { font-size: var(--ws-t-meta) !important; color: rgba(28,29,34,0.55) !important; }
-    .act-book--log .act-book-links { margin-top: auto; }
+    .act-book .act-book-links { margin-top: auto; }
+    .act-book-cards--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    @media (max-width: 720px) { .act-book-cards--3 { grid-template-columns: 1fr; } }
     .act-cat h3 { margin: 0 0 8px; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); display: flex; align-items: center; gap: 7px; }
     .act-cat h3::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); }
     .act-cat ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1521,6 +1567,14 @@ import "../../styles/account-sections.css";
       const $preview = $postImg.closest('.post-preview');
       if (img) { $postImg.src = img; $postImg.style.display = ''; if ($preview) $preview.style.display = ''; }
       else { $postImg.removeAttribute('src'); if ($preview) $preview.style.display = 'none'; }
+      // An uploaded post: its files and links, to open again.
+      const pd = p.details || {};
+      const pf = (Array.isArray(pd.files) ? pd.files : []).filter((x) => x && x.url);
+      const pl = (Array.isArray(pd.links) ? pd.links : []).filter(Boolean);
+      document.getElementById('post-files').innerHTML = [
+        ...pf.map((x) => `<a class="act-file act-file-open" href="${escapeHtml(x.url)}" target="_blank" rel="noopener"><span class="act-file-kind">${escapeHtml(String(x.name || '').split('.').pop().slice(0, 5) || 'File')}</span><span class="act-file-name">${escapeHtml(x.name || 'File')}</span></a>`),
+        ...pl.map((u) => `<a class="act-file act-file-open" href="${escapeHtml(u)}" target="_blank" rel="noopener"><span class="act-file-kind">Link</span><span class="act-file-name">${escapeHtml(u.replace(/^https?:\/\//, ''))}</span></a>`),
+      ].join('');
       $postTitle.value = p.title || '';
       $postDate.value = p.scheduled_date || '';
       $postTime.value = (p.scheduled_time || '09:00').slice(0, 5);
@@ -1555,6 +1609,18 @@ import "../../styles/account-sections.css";
     // it - the saved preview is the image the post carries - so planning is the
     // three or four fields below and nothing else.
     let pickDate = null, pickChosen = null, pickCache = null;
+    /* Two more ways through this window (Dani, 16 Oct):
+         upload    a post made elsewhere: files (PNG, JPEG, PDF) or links,
+                   then the same plan step. Files go to calendar-assets, as a
+                   design's image does, so the 8am reminder can attach them.
+         sequence  a campaign's linked designs, planned one after another. */
+    let pickMode = 'designs', pickUploads = [], pickLinks = [], pickQueue = null, pickIndex = 0;
+    const $pickUpload  = document.getElementById('pick-step-upload');
+    const $pickUpList  = document.getElementById('pick-up-list');
+    const $pickUpErr   = document.getElementById('pick-up-error');
+    const $pickContinue = document.getElementById('pick-continue');
+    const $pickFileTile = document.getElementById('pick-file-tile');
+    const showPickModal = () => { $pickModal.hidden = false; requestAnimationFrame(() => $pickModal.classList.add('is-open')); };
 
     function openPick(dateStr) {
       // The public demo's padlock; the training account plans, under Dani's login.
@@ -1563,11 +1629,12 @@ import "../../styles/account-sections.css";
         return;
       }
       pickDate = dateStr;
-      pickChosen = null;
+      pickChosen = null; pickMode = 'designs'; pickQueue = null;
       const d = new Date(dateStr + 'T00:00:00');
       $pickEyebrow.textContent = fmtFullDate(d);
       $pickH.textContent = 'Choose a design';
       $pickDesigns.hidden = false;
+      $pickUpload.hidden = true;
       $pickPlan.hidden = true;
       $pickFoot.hidden = true;
       $pickModal.hidden = false;
@@ -1580,9 +1647,87 @@ import "../../styles/account-sections.css";
       loadPickDesigns();
     }
 
+    function openPickUpload(dateStr) {
+      if (demoOn() && !isTrainingDemo()) {
+        lock("Planning is for members.", "In the demo you can open any day and see how the planner works. Members plan and upload their own posts.");
+        return;
+      }
+      pickDate = dateStr; pickChosen = null; pickMode = 'upload'; pickQueue = null;
+      pickUploads = []; pickLinks = []; drawPickUploads();
+      $pickUpErr.hidden = true;
+      $pickEyebrow.textContent = fmtFullDate(new Date(dateStr + 'T00:00:00'));
+      $pickH.textContent = 'Upload a post';
+      $pickDesigns.hidden = true; $pickPlan.hidden = true; $pickUpload.hidden = false;
+      $pickFoot.hidden = false; $pickContinue.hidden = false; $pickSave.hidden = true;
+      showPickModal();
+    }
+    function pickUpError(msg) { $pickUpErr.hidden = !msg; $pickUpErr.textContent = msg || ''; }
+    function drawPickUploads() {
+      const rows = [
+        ...pickUploads.map((x, i) => ({ i, kind: 'file', label: x.name, meta: x.uploading ? 'Uploading…' : fmtSize(x.size || 0), ext: String(x.name).split('.').pop() })),
+        ...pickLinks.map((u, i) => ({ i, kind: 'link', label: u.replace(/^https?:\/\//, ''), meta: 'Link', ext: 'Link' })),
+      ];
+      $pickUpList.innerHTML = rows.map((r) => `<div class="act-file"><span class="act-file-open"><span class="act-file-kind">${escapeHtml(String(r.ext).slice(0, 5))}</span><span class="act-file-name">${escapeHtml(r.label)}</span><span class="act-file-meta">${escapeHtml(r.meta)}</span></span>
+        <button type="button" class="act-check-del" data-up-del="${r.kind}:${r.i}" aria-label="Remove ${escapeHtml(r.label)}">&times;</button></div>`).join('');
+    }
+    async function uploadPickFiles(files) {
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return pickUpError(acct ? acct.reason : "You're signed out — sign in again.");
+      if (acct.training) return pickUpError("Posts can't be uploaded in training. On your own calendar they can.");
+      pickUpError('');
+      for (const file of files) {
+        if (!/^(image\/(png|jpeg)|application\/pdf)$/.test(file.type) && !/\.(png|jpe?g|pdf)$/i.test(file.name)) { pickUpError(`${file.name} isn't a PNG, JPEG or PDF.`); continue; }
+        if (file.size > FILE_MAX) { pickUpError(`${file.name} is over 25 MB. Add a link to it instead.`); continue; }
+        const safe = file.name.replace(/[^\w.\-]+/g, '-').slice(-80);
+        const path = `${acct.uid}/posts/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+        const entry = { kind: 'file', name: file.name, size: file.size, mime: file.type || '', uploading: true };
+        pickUploads.push(entry); drawPickUploads();
+        const { error } = await acct.db.storage.from('calendar-assets').upload(path, file, { contentType: file.type || undefined, upsert: false });
+        if (error) { pickUploads = pickUploads.filter((x) => x !== entry); drawPickUploads(); pickUpError(`${file.name} didn't upload: ${error.message || 'try again'}.`); continue; }
+        entry.url = acct.db.storage.from('calendar-assets').getPublicUrl(path).data.publicUrl;
+        entry.path = path; entry.uploading = false; drawPickUploads();
+      }
+    }
+    document.getElementById('pick-files')?.addEventListener('change', (e) => { uploadPickFiles([...e.target.files]); e.target.value = ''; });
+    const $pickDrop = document.getElementById('pick-drop');
+    $pickDrop?.addEventListener('dragover', (e) => { e.preventDefault(); $pickDrop.classList.add('is-over'); });
+    $pickDrop?.addEventListener('dragleave', () => $pickDrop.classList.remove('is-over'));
+    $pickDrop?.addEventListener('drop', (e) => { e.preventDefault(); $pickDrop.classList.remove('is-over'); uploadPickFiles([...(e.dataTransfer && e.dataTransfer.files || [])]); });
+    document.getElementById('pick-up-link')?.addEventListener('click', () => {
+      const inp = document.getElementById('pick-up-url');
+      let url = String(inp.value || '').trim(); if (!url) return;
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      try { new URL(url); } catch (_) { return pickUpError("That doesn't look like a link."); }
+      pickLinks.push(url); inp.value = ''; pickUpError(''); drawPickUploads();
+    });
+    document.getElementById('pick-up-url')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('pick-up-link').click(); } });
+    $pickUpList?.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-up-del]'); if (!b) return;
+      const [kind, i] = b.dataset.upDel.split(':');
+      if (kind === 'link') pickLinks.splice(+i, 1);
+      else { const [x] = pickUploads.splice(+i, 1); if (x && x.path) supabase.storage.from('calendar-assets').remove([x.path]).catch(() => {}); }
+      drawPickUploads();
+    });
+    $pickContinue?.addEventListener('click', () => {
+      if (pickUploads.some((x) => x.uploading)) return pickUpError('Wait for the files to finish uploading.');
+      if (!pickUploads.length && !pickLinks.length) return pickUpError('Upload your post, or add a link to it.');
+      const firstImg = pickUploads.find((x) => /^image\//.test(x.mime) || /\.(png|jpe?g)$/i.test(x.name));
+      const first = pickUploads[0];
+      choosePick({ upload: true, name: first ? first.name.replace(/\.[^.]+$/, '') : '', thumb_url: firstImg ? firstImg.url : '',
+        fileLabel: first ? String(first.name.split('.').pop()).toUpperCase() : 'LINK' });
+    });
+
     function closePick() {
       $pickModal.classList.remove('is-open');
       $pickModal.hidden = true;
+      // An upload that was never planned leaves nothing behind.
+      if (pickMode === 'upload' && pickUploads.length && !pickSaved) {
+        const paths = pickUploads.map((x) => x.path).filter(Boolean);
+        if (paths.length) supabase.storage.from('calendar-assets').remove(paths).catch(() => {});
+      }
+      pickUploads = []; pickLinks = []; pickSaved = false;
+      pickMode = 'designs'; pickQueue = null;
+      $pickContinue.hidden = true; $pickSave.hidden = false;
       pickChosen = null;
       $pickSave.disabled = false;
       $pickSave.textContent = 'Plan post';
@@ -1655,12 +1800,21 @@ import "../../styles/account-sections.css";
         </button>`).join('');
     }
 
+    let pickSaved = false;
     function choosePick(id) {
-      const d = (pickCache || []).find((x) => String(x.id) === String(id));
+      const d = typeof id === 'object' ? id : (pickCache || []).find((x) => String(x.id) === String(id));
       if (!d) return;
       pickChosen = d;
+      const fig = $pickImg.closest('.pick-chosen');
+      fig.classList.toggle('is-file', !d.thumb_url);
+      $pickFileTile.textContent = d.fileLabel || 'FILE';
       $pickImg.src = d.thumb_url || '';
-      $pickName.textContent = d.name || 'Untitled design';
+      $pickName.textContent = d.upload
+        ? [pickUploads.length && `${pickUploads.length} ${pickUploads.length === 1 ? 'file' : 'files'}`, pickLinks.length && `${pickLinks.length} ${pickLinks.length === 1 ? 'link' : 'links'}`].filter(Boolean).join(', ')
+        : (d.name || 'Untitled design');
+      $pickBack.textContent = pickMode === 'sequence' ? 'Skip this one' : (d.upload ? 'Back to upload' : 'Choose another');
+      $pickContinue.hidden = true; $pickSave.hidden = false;
+      $pickUpload.hidden = true;
       $pickTitle.value = d.name || '';
       $pickDate.value = pickDate;
       $pickDate.min = ymd(new Date());
@@ -1668,7 +1822,8 @@ import "../../styles/account-sections.css";
       $pickCaption.value = '';
       $pickRemind.checked = true;
       clearPickError();
-      $pickH.textContent = 'Plan this post';
+      $pickH.textContent = pickMode === 'sequence' ? `Plan post ${pickIndex + 1} of ${pickQueue.length}` : 'Plan this post';
+      $pickSave.textContent = pickMode === 'sequence' && pickIndex < pickQueue.length - 1 ? 'Plan post & next' : 'Plan post';
       $pickDesigns.hidden = true;
       $pickPlan.hidden = false;
       $pickFoot.hidden = false;
@@ -1676,6 +1831,13 @@ import "../../styles/account-sections.css";
     }
 
     function backToPick() {
+      if (pickMode === 'sequence') { nextInSequence(); return; }
+      if (pickMode === 'upload') {
+        $pickH.textContent = 'Upload a post';
+        $pickPlan.hidden = true; $pickUpload.hidden = false;
+        $pickContinue.hidden = false; $pickSave.hidden = true; pickChosen = null;
+        return;
+      }
       $pickH.textContent = 'Choose a design';
       $pickDesigns.hidden = false;
       $pickPlan.hidden = true;
@@ -1693,7 +1855,7 @@ import "../../styles/account-sections.css";
       if (!title) return showPickError('Give the post a short title — it shows on your calendar.');
       if (!dateStr) return showPickError('Pick a date for the post.');
       const asset = pickChosen.thumb_url || '';
-      if (!asset) return showPickError("That design has no preview saved yet. Open it in the Studio, let it save, then plan it.");
+      if (!asset && !pickChosen.upload) return showPickError("That design has no preview saved yet. Open it in the Studio, let it save, then plan it.");
 
       // A member, or the training account through Dani's login.
       const acct = await plannerStore();
@@ -1708,12 +1870,16 @@ import "../../styles/account-sections.css";
         scheduled_time: timeStr,
         title,
         caption: caption || null,
-        asset_url: asset,
-        thumbnail_url: asset,
-        design_ref: String(pickChosen.id),
+        asset_url: asset || null,
+        thumbnail_url: asset || null,
+        design_ref: pickChosen.upload ? null : String(pickChosen.id),
         platform_hint: 'instagram',
         status: 'scheduled',
         reminder: !!$pickRemind.checked,
+      };
+      if (pickChosen.upload) row.details = {
+        files: pickUploads.map((x) => ({ kind: 'file', name: x.name, url: x.url, path: x.path, size: x.size, mime: x.mime })),
+        links: pickLinks.slice(),
       };
       let { data, error } = await acct.db.from(acct.table).insert(row).select('*').single();
       if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
@@ -1726,10 +1892,32 @@ import "../../styles/account-sections.css";
         return showPickError(error.message || "Couldn't add that to your calendar.");
       }
       if (data) items.push(data);
+      pickSaved = true;
       renderCalendar();
       $pickSave.textContent = 'Planned ✓';
       showPickError('On your calendar for ' + fmtFullDate(new Date(dateStr + 'T00:00:00')) + '.', true);
+      if (pickMode === 'sequence') { pickDate = addDays(dateStr, 1); setTimeout(nextInSequence, 700); return; }
       setTimeout(() => { closePick(); refreshDayUnder(); }, 800);
+    }
+
+    /* Plan your posts (Dani, 16 Oct): a campaign's linked designs, one after
+       another - date, time and caption for each - all from the campaign. A
+       print design isn't a post, so it's left out. Each starts the day after
+       the one before. */
+    function addDays(ymdStr, n) { const t = new Date(ymdStr + 'T12:00:00'); t.setDate(t.getDate() + n); return ymd(t); }
+    function planSequence(designs, startDate) {
+      if (demoOn() && !isTrainingDemo()) { lock("Planning is for members.", "Members plan a campaign's posts from here."); return; }
+      pickQueue = designs; pickIndex = -1; pickMode = 'sequence';
+      pickDate = startDate;
+      $pickEyebrow.textContent = 'Plan your posts';
+      showPickModal();
+      nextInSequence();
+    }
+    function nextInSequence() {
+      pickIndex += 1;
+      if (!pickQueue || pickIndex >= pickQueue.length) { closePick(); return; }
+      $pickSave.disabled = false; clearPickError();
+      choosePick(pickQueue[pickIndex]);
     }
 
     if ($dayPlan) $dayPlan.addEventListener('click', () => { if (openDayDate) openAct(openDayDate); });
@@ -1810,6 +1998,7 @@ import "../../styles/account-sections.css";
       requestAnimationFrame(() => $actModal.classList.add('is-open'));
     }
     function closeAct() {
+      if (actFreshPaths.size) { const p = [...actFreshPaths]; actFreshPaths.clear(); supabase.storage.from(CAL_FILES).remove(p).catch(() => {}); }
       $actModal.classList.remove('is-open');
       $actModal.hidden = true;
       actEditing = null;
@@ -1830,7 +2019,36 @@ import "../../styles/account-sections.css";
 
     async function chooseAct(key, item, opts) {
       const a = activityOf(key);
-      if (a.social && !item) { closeAct(); openPick(actDate); return; }
+      if (a.social && !item) {
+        // Three ways to a post (Dani, 16 Oct): one of your designs, a fresh
+        // design from a template, or one made elsewhere, uploaded or linked.
+        const c0 = categoryOf(a.category);
+        actKey = a.key;
+        $actH.textContent = a.label;
+        setActLine(a.line);
+        $actForm.style.setProperty('--cat', c0.colour);
+        $actForm.innerHTML = `<div class="act-book-cards act-book-cards--3">
+          <section class="act-book">
+            <p class="act-kind">Use one of your designs</p>
+            <p>Plan a post from the designs you've saved in the Studio.</p>
+            <div class="act-book-links"><button type="button" class="is-primary" data-post-route="designs">Choose a design</button></div>
+          </section>
+          <section class="act-book">
+            <p class="act-kind">Design from a template</p>
+            <p>Open your packs in the Studio. When it's ready, plan it for this day from there.</p>
+            <div class="act-book-links"><a class="is-primary" href="/account/editor?for=${encodeURIComponent(actDate)}">Open the templates</a></div>
+          </section>
+          <section class="act-book">
+            <p class="act-kind">Upload a post</p>
+            <p>Made it somewhere else, like Canva? Upload the PNG, JPEG or PDF, or add a link.</p>
+            <div class="act-book-links"><button type="button" class="is-primary" data-post-route="upload">Upload a post</button></div>
+          </section>
+        </div>`;
+        $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
+        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Back';
+        if ($actModal.hidden) showActModal();
+        return;
+      }
       if (a.book && !item && !(opts && opts.log)) {
         // Something we film: book it with us, or add it as a day yourself
         // (Dani, 16 Oct). A booking lands on the calendar by itself.
@@ -1869,6 +2087,8 @@ import "../../styles/account-sections.css";
       const d = (item && item.details) || {};
       actChecklist = item ? (Array.isArray(item.checklist) ? item.checklist.map((x) => ({ ...x })) : [])
                           : (a.checklist || []).map((text) => ({ text, done: false }));
+      actFiles = {};
+      (a.fields || []).filter((f) => f.kind === 'files').forEach((f) => { actFiles[f.key] = (Array.isArray(d[f.key]) ? d[f.key] : []).map((x) => ({ ...x })); });
       $actH.textContent = item ? entryTitle(a.key, d) : a.label;
       setActLine(a.line);
       $actEyebrow.textContent = fmtFullDate(new Date((item ? item.scheduled_date : actDate) + 'T00:00:00'));
@@ -1880,7 +2100,14 @@ import "../../styles/account-sections.css";
       const field = (f) => {
         const v = f.kind === 'endDate' ? (item && item.end_date) || '' : (d[f.key] ?? '');
         const lab = `<span class="post-label">${escapeHtml(f.label)}${f.optional ? ' <span class="pick-optional">— optional</span>' : ''}</span>`;
-        if (f.kind === 'area') return `<label class="post-field">${lab}<textarea class="post-textarea" data-f="${f.key}" rows="3">${escapeHtml(v)}</textarea></label>`;
+        if (f.kind === 'area') return `<label class="post-field">${lab}<textarea class="post-textarea" data-f="${f.key}" rows="3" placeholder="${escapeHtml(f.placeholder || '')}">${escapeHtml(v)}</textarea></label>`;
+        if (f.kind === 'files') return `<div class="post-field act-files" data-files="${f.key}">${lab}
+          <div class="act-files-list" data-files-list></div>
+          <div class="act-files-add">
+            <label class="act-files-btn"><input type="file" multiple accept="${FILE_ACCEPT}" data-files-input hidden />Upload files</label>
+            <input type="url" class="post-input" data-files-url placeholder="Or paste a link" />
+            <button type="button" class="act-files-btn" data-files-link>Add link</button>
+          </div></div>`;
         if (f.kind === 'number') return `<label class="post-field">${lab}<input type="number" min="0" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'endDate') return `<label class="post-field">${lab}<input type="date" class="post-input" data-f="end_date" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="text" readonly data-time data-time-optional placeholder="Choose a time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
@@ -1896,7 +2123,7 @@ import "../../styles/account-sections.css";
       $actForm.style.setProperty('--cat', c.colour);
       $actForm.innerHTML = `
         <p class="act-kind">${escapeHtml(c.label)} · ${escapeHtml(a.label)}</p>
-        ${fields.filter((f) => !['endDate', 'endTime', 'printDesign', 'linkedDesigns', 'area'].includes(f.kind)).map(field).join('')}
+        ${fields.filter((f) => !['endDate', 'endTime', 'printDesign', 'linkedDesigns', 'area', 'files'].includes(f.kind)).map(field).join('')}
         <div class="act-row">
           <label class="post-field"><span class="post-label">${fields.some((f) => f.kind === 'endDate') ? 'Start date' : 'Date'}</span>
             <input type="date" class="post-input" data-f="date" value="${escapeHtml(item ? item.scheduled_date : actDate)}" /></label>
@@ -1906,7 +2133,7 @@ import "../../styles/account-sections.css";
           ${fields.filter((f) => f.kind === 'endTime').map(field).join('')}
         </div>
         ${a.checklistFirst ? checklistHtml : ''}
-        ${fields.filter((f) => f.kind === 'printDesign' || f.kind === 'linkedDesigns' || f.kind === 'area').map(field).join('')}
+        ${fields.filter((f) => f.kind === 'printDesign' || f.kind === 'linkedDesigns' || f.kind === 'area' || f.kind === 'files').map(field).join('')}
         ${a.link ? `<a class="act-link" href="${a.link.href}">${escapeHtml(a.link.label)} &rarr;</a>` : ''}
         <label class="post-field"><span class="post-label">Notes <span class="pick-optional">— optional</span></span>
           <textarea class="post-textarea" data-f="notes" rows="3" maxlength="2000">${escapeHtml((item && item.notes) || '')}</textarea></label>
@@ -1915,6 +2142,7 @@ import "../../styles/account-sections.css";
           <span>Remind me on the day <span class="post-remind-note">&mdash; we'll email you at 8am that morning</span></span></label>
         <div class="post-error" data-act-error hidden></div>`;
       drawChecklist();
+      Object.keys(actFiles).forEach(drawFiles);
       $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
       $actDelete.hidden = !item;
       $actBack.textContent = item ? 'Cancel' : 'Back';
@@ -1933,11 +2161,31 @@ import "../../styles/account-sections.css";
           box.innerHTML = list.length
             ? list.map((x) => `<button type="button" class="act-design${chosen.has(String(x.id)) ? ' is-on' : ''}" data-design-id="${escapeHtml(String(x.id))}" aria-pressed="${chosen.has(String(x.id))}"><img src="${escapeHtml(x.thumb_url || '')}" alt="" loading="lazy" /><span>${escapeHtml(x.name || 'Untitled design')}</span></button>`).join('')
             : `<p class="act-none">${multi ? 'No saved designs yet.' : 'No print designs yet. Make one from your print packs in the Studio.'}</p>`;
+          /* Linked designs can be planned as posts from here (Dani, 16 Oct):
+             choose them, then Plan these posts takes each in turn. */
+          let planBtn = null;
+          const syncPlan = () => {
+            if (!planBtn) return;
+            const n = [...box.querySelectorAll('.act-design.is-on')].map((b) => all.find((x) => String(x.id) === b.dataset.designId)).filter((x) => x && !isPrintDesign(x)).length;
+            planBtn.hidden = !n;
+            planBtn.textContent = n === 1 ? 'Plan this post' : `Plan these ${n} posts`;
+          };
+          if (multi && list.length) {
+            box.insertAdjacentHTML('afterend', `<button type="button" class="act-files-btn act-plan-designs" data-plan-designs hidden>Plan these posts</button>`);
+            planBtn = box.nextElementSibling;
+            planBtn.addEventListener('click', () => {
+              const chosen = [...box.querySelectorAll('.act-design.is-on')].map((b) => all.find((x) => String(x.id) === b.dataset.designId)).filter((x) => x && !isPrintDesign(x));
+              const start = ($actForm.querySelector('[data-f="date"]') || {}).value || actDate;
+              if (chosen.length) planSequence(chosen, start);
+            });
+            syncPlan();
+          }
           box.addEventListener('click', (e) => {
             const b = e.target.closest('[data-design-id]'); if (!b) return;
             if (!multi) box.querySelectorAll('.act-design.is-on').forEach((o) => { if (o !== b) { o.classList.remove('is-on'); o.setAttribute('aria-pressed', 'false'); } });
             const on = !b.classList.contains('is-on');
             b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on));
+            syncPlan();
           });
         });
       }
@@ -1954,6 +2202,87 @@ import "../../styles/account-sections.css";
       const pr = $actForm.querySelector('[data-progress]');
       if (pr) pr.textContent = actChecklist.length ? `${done} of ${actChecklist.length} done` : '— optional';
     }
+    /* Files and links on an entry (Dani, 16 Oct). Files go to the private
+       calendar-files bucket under the member's own folder and open through a
+       link that lasts five minutes (supabase/calendar_files.sql). */
+    const CAL_FILES = 'calendar-files';
+    const FILE_ACCEPT = '.pdf,.doc,.docx,.txt,.rtf,.odt,.pages,.xls,.xlsx,.csv,.numbers,.ppt,.pptx,.key,.png,.jpg,.jpeg,.webp,.heic';
+    const FILE_MAX = 25 * 1024 * 1024;
+    let actFiles = {};
+    const actFreshPaths = new Set();   // uploaded since the form opened, not saved yet
+    const filePathsOf = (it) => {
+      const d = (it && it.details) || {};
+      return Object.values(d).filter(Array.isArray).flat().filter((x) => x && x.kind === 'file' && x.path).map((x) => x.path);
+    };
+    const fmtSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+    function drawFiles(key) {
+      const box = $actForm.querySelector(`[data-files="${key}"] [data-files-list]`); if (!box) return;
+      const list = actFiles[key] || [];
+      box.innerHTML = list.map((x, i) => {
+        const name = x.kind === 'link' ? x.url.replace(/^https?:\/\//, '').replace(/\/$/, '') : x.name;
+        const meta = x.kind === 'link' ? 'Link' : (x.uploading ? 'Uploading…' : fmtSize(x.size || 0));
+        return `<div class="act-file${x.uploading ? ' is-uploading' : ''}">
+          <button type="button" class="act-file-open" data-file-open="${i}" ${x.uploading ? 'disabled' : ''}><span class="act-file-kind">${x.kind === 'link' ? 'Link' : escapeHtml((String(x.name).split('.').pop() || 'File').slice(0, 5))}</span><span class="act-file-name">${escapeHtml(name)}</span><span class="act-file-meta">${escapeHtml(meta)}</span></button>
+          <button type="button" class="act-check-del" data-file-del="${i}" aria-label="Remove ${escapeHtml(name)}">&times;</button>
+        </div>`;
+      }).join('');
+    }
+    async function uploadCalFiles(key, files) {
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) return actError(acct ? acct.reason : "You're signed out — sign in again.");
+      if (acct.training) return actError("Files can't be uploaded in training. On your own calendar they can.");
+      actError('');
+      for (const file of files) {
+        if (file.size > FILE_MAX) { actError(`${file.name} is over 25 MB, so it can't be added. Add a link to it instead.`); continue; }
+        const safe = file.name.replace(/[^\w.\-]+/g, '-').slice(-80);
+        const path = `${acct.uid}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+        const entry = { kind: 'file', name: file.name, size: file.size, mime: file.type || '', path, uploading: true };
+        (actFiles[key] = actFiles[key] || []).push(entry); drawFiles(key);
+        const { error } = await acct.db.storage.from(CAL_FILES).upload(path, file, { contentType: file.type || undefined, upsert: false });
+        if (error) {
+          actFiles[key] = actFiles[key].filter((x) => x !== entry); drawFiles(key);
+          actError(/bucket|not found/i.test(error.message || '') ? 'File uploads need one update before they work (supabase/calendar_files.sql).' : `${file.name} didn't upload: ${error.message || 'try again'}.`);
+          continue;
+        }
+        entry.uploading = false; actFreshPaths.add(path); drawFiles(key);
+      }
+    }
+    $actForm?.addEventListener('change', (e) => {
+      const inp = e.target.closest && e.target.closest('[data-files-input]'); if (!inp) return;
+      const key = inp.closest('[data-files]').dataset.files;
+      uploadCalFiles(key, [...inp.files]); inp.value = '';
+    });
+    $actForm?.addEventListener('click', async (e) => {
+      const wrap = e.target.closest && e.target.closest('[data-files]'); if (!wrap) return;
+      const key = wrap.dataset.files, list = actFiles[key] || [];
+      if (e.target.closest('[data-files-link]')) {
+        const inp = wrap.querySelector('[data-files-url]');
+        let url = String(inp.value || '').trim(); if (!url) return;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        try { new URL(url); } catch (_) { return actError("That doesn't look like a link."); }
+        list.push({ kind: 'link', url }); actFiles[key] = list; inp.value = ''; drawFiles(key); return;
+      }
+      const del = e.target.closest('[data-file-del]');
+      if (del) {
+        const [x] = list.splice(+del.dataset.fileDel, 1); drawFiles(key);
+        if (x && x.kind === 'file' && actFreshPaths.has(x.path)) { actFreshPaths.delete(x.path); supabase.storage.from(CAL_FILES).remove([x.path]).catch(() => {}); }
+        return;
+      }
+      const open = e.target.closest('[data-file-open]');
+      if (open) {
+        const x = list[+open.dataset.fileOpen]; if (!x) return;
+        if (x.kind === 'link') { window.open(x.url, '_blank', 'noopener'); return; }
+        const w = window.open('', '_blank');   // opened now, so it isn't blocked as a pop-up
+        const acct = await plannerStore();
+        const { data, error } = acct && !acct.blocked ? await acct.db.storage.from(CAL_FILES).createSignedUrl(x.path, 300) : { error: true };
+        if (error || !data) { if (w) w.close(); return actError("Couldn't open that file just now."); }
+        if (w) w.location.href = data.signedUrl; else location.href = data.signedUrl;
+      }
+    });
+    $actForm?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.target.matches && e.target.matches('[data-files-url]')) { e.preventDefault(); e.target.closest('[data-files]').querySelector('[data-files-link]').click(); }
+    });
+
     function actError(msg, ok) {
       const el = $actForm.querySelector('[data-act-error]'); if (!el) return;
       el.hidden = !msg; el.textContent = msg || ''; el.classList.toggle('is-ok', !!ok);
@@ -1966,6 +2295,12 @@ import "../../styles/account-sections.css";
       const details = {};
       for (const f of a.fields || []) {
         if (f.kind === 'endDate') continue;
+        if (f.kind === 'files') {
+          const list = (actFiles[f.key] || []);
+          if (list.some((x) => x.uploading)) return actError('Wait for the files to finish uploading.');
+          if (list.length) details[f.key] = list.map(({ uploading, fresh, ...x }) => x);
+          continue;
+        }
         if (f.kind === 'printDesign' || f.kind === 'linkedDesigns') {
           const ids = [...$actForm.querySelectorAll(`[data-f="${f.key}"] .act-design.is-on`)].map((b) => b.dataset.designId);
           if (f.kind === 'printDesign') { if (ids[0]) details[f.key] = ids[0]; } else if (ids.length) details[f.key] = ids;
@@ -2006,6 +2341,11 @@ import "../../styles/account-sections.css";
         const m = res.error.message || '';
         return actError(/column|activity/i.test(m) ? 'The calendar needs one update before it can hold this (supabase/calendar_activities.sql).' : (m || "Couldn't save that."));
       }
+      // Files taken off a saved entry go from storage too, now it's saved.
+      const keptPaths = new Set(Object.values(details).flat().filter((x) => x && x.kind === 'file').map((x) => x.path));
+      const dropped = filePathsOf(actEditing).filter((p) => !keptPaths.has(p));
+      if (dropped.length) acct.db.storage.from(CAL_FILES).remove(dropped).catch(() => {});
+      actFreshPaths.clear();
       items = items.filter((x) => !actEditing || String(x.id) !== String(actEditing.id)).concat(res.data);
       renderCalendar();
       $actSave.textContent = 'Saved ✓';
@@ -2019,6 +2359,8 @@ import "../../styles/account-sections.css";
       if (!acct || acct.blocked) return actError(acct ? acct.reason : "You're signed out — sign in again.");
       const { error } = await acct.db.from(acct.table).delete().eq('id', actEditing.id).eq('user_id', acct.uid);
       if (error) return actError(error.message || "Couldn't remove it.");
+      const gone = filePathsOf(actEditing);
+      if (gone.length) acct.db.storage.from(CAL_FILES).remove(gone).catch(() => {});
       items = items.filter((x) => String(x.id) !== String(actEditing.id));
       renderCalendar(); closeAct(); refreshDayUnder();
     }
@@ -2187,6 +2529,11 @@ import "../../styles/account-sections.css";
     $actModal?.addEventListener('click', (e) => { if (e.target === $actModal) closeAct(); });
     $actChoose?.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b) chooseAct(b.dataset.act); });
     $actForm?.addEventListener('click', (e) => { if (e.target.closest('[data-act-log]') && actKey) chooseAct(actKey, null, { log: true }); });
+    $actForm?.addEventListener('click', (e) => {
+      const r = e.target.closest && e.target.closest('[data-post-route]'); if (!r) return;
+      const date = actDate; closeAct();
+      if (r.dataset.postRoute === 'upload') openPickUpload(date); else openPick(date);
+    });
     $actBack?.addEventListener('click', () => {
       if (actEditing) closeAct();
       else if (actKey && activityOf(actKey).book && !$actSave.hidden) chooseAct(actKey);   // the log form: back to book or log
