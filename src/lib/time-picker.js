@@ -1,8 +1,10 @@
 /* A time picker in the hub's own style (Dani, 17 Oct 2026).
 
    The browser's own time list can't be styled, and its minutes run 00 to 59.
-   This one has two columns, hours then minutes in quarter hours, and looks
-   like the rest of the hub.
+   This one is the width of its box, in two rows (Dani, 16 Oct): the hours, a
+   strip that slides sideways with the chosen one in the middle, and below
+   them the minutes in quarter hours. What's chosen is larger and plum; the
+   rest are smaller and quieter, so the time on show is plain at a glance.
 
    Any <input data-time> becomes one. It is a read-only text box holding
    "HH:MM" (or "" when it's optional and empty), exactly the value a time
@@ -19,23 +21,26 @@ input[data-time] {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6.2' fill='none' stroke='%23371e28' stroke-width='1.3'/%3E%3Cpath d='M8 4.6V8l2.3 1.5' fill='none' stroke='%23371e28' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 12px center; background-size: 15px; padding-right: 38px !important;
 }
-.tp-pop { position: fixed; z-index: 1400; width: 212px; background: #fff; border-radius: 8px;
+.tp-pop { position: fixed; z-index: 1400; min-width: 200px; box-sizing: border-box; background: #fff; border-radius: 8px;
   border: 1px solid rgba(28,29,34,0.12); box-shadow: 0 14px 34px rgba(28,29,34,0.18);
   font-family: var(--sans); color: var(--ink, #1c1d22); opacity: 0; transform: translateY(-4px);
   transition: opacity 0.14s ease, transform 0.14s ease; }
 .tp-pop.is-open { opacity: 1; transform: none; }
 .tp-pop[hidden] { display: none; }
-.tp-heads, .tp-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 8px; }
-.tp-heads { padding-top: 10px; border-bottom: 1px solid rgba(28,29,34,0.08); }
-.tp-cols { padding-top: 6px; padding-bottom: 6px; }
-.tp-col { display: grid; align-content: start; gap: 2px; max-height: 236px; overflow-y: auto; scrollbar-width: thin; padding-right: 2px; }
-.tp-head { padding: 4px 0 6px; text-align: center; font-size: var(--ws-t-label, 10px); font-weight: 700; letter-spacing: 0.22em;
-  text-transform: uppercase; color: rgba(28,29,34,0.5); }
-.tp-opt { all: unset; box-sizing: border-box; height: 34px; border-radius: 5px; text-align: center; cursor: pointer;
-  font-size: var(--ws-t-row, 14px); font-variant-numeric: tabular-nums; color: var(--ink, #1c1d22); }
-.tp-opt:hover { background: rgba(var(--violet-rgb, 55, 30, 40), 0.08); color: var(--violet-deep, #371e28); }
+.tp-row { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 6px; padding: 8px 10px 4px; }
+.tp-row + .tp-row { padding-top: 4px; padding-bottom: 8px; }
+.tp-head { font-size: var(--ws-t-label, 10px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+.tp-hours { display: flex; gap: 2px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; cursor: grab;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
+.tp-hours::-webkit-scrollbar { display: none; }
+.tp-hours.is-dragging { cursor: grabbing; scroll-behavior: auto; }
+.tp-mins { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; }
+.tp-opt { all: unset; box-sizing: border-box; flex: none; min-width: 40px; height: 40px; border-radius: 5px; text-align: center; cursor: pointer;
+  font-size: 13px; font-variant-numeric: tabular-nums; color: rgba(28,29,34,0.55); transition: font-size 0.12s, color 0.12s, background 0.12s; }
+.tp-opt:hover { background: rgba(var(--violet-rgb, 55, 30, 40), 0.06); color: var(--violet-deep, #371e28); }
 .tp-opt:focus-visible { outline: 2px solid var(--violet-deep, #371e28); outline-offset: -2px; }
-.tp-opt.is-on { background: var(--violet-deep, #371e28); color: #fff; font-weight: 600; }
+.tp-opt.is-on { font-size: 19px; font-weight: 700; color: var(--violet-deep, #371e28); background: rgba(var(--violet-rgb, 55, 30, 40), 0.08); }
 .tp-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 8px; border-top: 1px solid rgba(28,29,34,0.08); }
 .tp-btn { all: unset; cursor: pointer; height: 28px; padding: 0 12px; border-radius: 4px; font-size: 10px; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--violet-deep, #371e28); border: 1px solid rgba(var(--violet-rgb, 55, 30, 40), 0.3); }
@@ -56,11 +61,8 @@ function build() {
   pop.className = "tp-pop"; pop.hidden = true;
   pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Choose a time");
   const opts = (list, kind) => list.map((v) => `<button type="button" class="tp-opt" data-tp-${kind}="${v}">${v}</button>`).join("");
-  pop.innerHTML = `<div class="tp-heads"><div class="tp-head">Hour</div><div class="tp-head">Min</div></div>
-    <div class="tp-cols">
-      <div class="tp-col" data-tp-col="h">${opts(HOURS, "h")}</div>
-      <div class="tp-col" data-tp-col="m">${opts(MINUTES, "m")}</div>
-    </div>
+  pop.innerHTML = `<div class="tp-row"><div class="tp-head">Hour</div><div class="tp-hours" data-tp-col="h">${opts(HOURS, "h")}</div></div>
+    <div class="tp-row"><div class="tp-head">Min</div><div class="tp-mins" data-tp-col="m">${opts(MINUTES, "m")}</div></div>
     <div class="tp-foot">
       <button type="button" class="tp-btn" data-tp-clear>Clear</button>
       <button type="button" class="tp-btn tp-btn--primary" data-tp-done>Done</button>
@@ -68,9 +70,28 @@ function build() {
   document.body.appendChild(pop);
   // mousedown would blur the input and move focus; keep it where it is.
   pop.addEventListener("mousedown", (e) => e.preventDefault());
+  // The hours slide sideways: a trackpad or touch does it already; a mouse
+  // wheel turns it, and a mouse can drag it. A drag isn't a click.
+  const strip = pop.querySelector("[data-tp-col=\"h\"]");
+  let drag = null, dragged = false;
+  strip.addEventListener("wheel", (e) => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); strip.scrollLeft += e.deltaY; }
+  }, { passive: false });
+  strip.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "mouse") return;
+    drag = { x: e.clientX, left: strip.scrollLeft }; dragged = false;
+  });
+  addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 4) { dragged = true; strip.classList.add("is-dragging"); }
+    if (dragged) strip.scrollLeft = drag.left - dx;
+  });
+  addEventListener("pointerup", () => { drag = null; strip.classList.remove("is-dragging"); });
   pop.addEventListener("click", (e) => {
     const h = e.target.closest("[data-tp-h]"), m = e.target.closest("[data-tp-m]");
-    if (h) { hour = h.dataset.tpH; if (!minute) minute = "00"; commit(); mark(); return; }
+    if (h && dragged) { dragged = false; return; }
+    if (h) { hour = h.dataset.tpH; if (!minute) minute = "00"; commit(); mark(); centreHour(); return; }
     if (m) { minute = m.dataset.tpM; if (!hour) hour = "09"; commit(); close(); return; }
     if (e.target.closest("[data-tp-clear]")) { hour = minute = ""; commit(); close(); return; }
     if (e.target.closest("[data-tp-done]")) close();
@@ -91,9 +112,20 @@ function mark() {
   pop.querySelectorAll("[data-tp-m]").forEach((b) => b.classList.toggle("is-on", b.dataset.tpM === minute));
 }
 
+// The chosen hour (or nine o'clock) in the middle of the strip.
+function centreHour(instant) {
+  const strip = pop.querySelector('[data-tp-col="h"]');
+  const at = pop.querySelector(`[data-tp-h="${hour || "09"}"]`);
+  if (!strip || !at) return;
+  const left = at.offsetLeft - strip.offsetLeft - (strip.clientWidth - at.offsetWidth) / 2;
+  if (instant) { strip.style.scrollBehavior = "auto"; strip.scrollLeft = left; strip.style.scrollBehavior = ""; }
+  else strip.scrollLeft = left;
+}
+
 function place() {
   if (!input || pop.hidden) return;
   const r = input.getBoundingClientRect();
+  pop.style.width = Math.max(200, Math.round(r.width)) + "px";   // as wide as its box
   const h = pop.offsetHeight, w = pop.offsetWidth;
   const below = innerHeight - r.bottom;
   const top = below >= h + 12 || r.top < h + 12 ? Math.min(r.bottom + 6, innerHeight - h - 8) : r.top - h - 6;
@@ -111,10 +143,7 @@ function open(el) {
   pop.querySelector("[data-tp-clear]").hidden = !el.hasAttribute("data-time-optional");
   pop.hidden = false;
   place();
-  // The chosen hour (or nine o'clock) in view.
-  const col = pop.querySelector('[data-tp-col="h"]');
-  const at = pop.querySelector(`[data-tp-h="${hour || "09"}"]`);
-  if (col && at) col.scrollTop = at.offsetTop - col.offsetTop - 36;
+  centreHour(true);
   requestAnimationFrame(() => pop.classList.add("is-open"));
 }
 
