@@ -1,0 +1,165 @@
+---
+/* A held-still scroll showcase (Dani, 16 Oct 2026).
+
+   Built for the dashboard's Learn chapter, then kept for the blog: Dani,
+   "it looks really cool (and I actually want to keep it to use as the blog
+   here so remember it) but it's probably not right for a dashboard."
+
+   While you scroll through it, the section holds still: the titles roll up
+   on the left, low in the column -- the one that's up full size with a line
+   under it, one either side smaller, nothing further away -- and the pictures
+   roll up with them on the right at 16:9. It goes round once, back to the
+   first, then lets the page carry on. A phone, or reduced motion, gets the
+   pictures one under another with their titles.
+
+   Not used anywhere yet. Each slide:
+     { title, summary, href, art, top: [..], corner: [..], foot: [..] }
+   top runs across the picture's top (three short phrases fit on one line),
+   corner sits top right (a label, then a line), foot bottom right.
+
+   The page it goes on must not clip overflow on an ancestor (overflow:
+   hidden breaks position: sticky; overflow-x: clip is fine). */
+const { slides = [], heading = "", headingId = "sc-h", chapter = "", link = null } = Astro.props;
+---
+
+<section class="ws-block sc" aria-labelledby={headingId} data-sc style={`--n:${slides.length}`}>
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id={headingId}>{chapter && <span class="ws-block-ch">{chapter}</span>}{heading}</h2>
+          {link && <a class="ws-block-link" href={link.href}>{link.label}
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>}
+        </header>
+        <div class="sc-run" data-sc-run>
+          <div class="sc-stick">
+            <div class="sc-side">
+              <ol class="sc-titles" data-sc-titles>
+                {slides.map((sl, i) => (
+                  <li class="sc-item" data-sc-item={i}>
+                    <button type="button" class="sc-t" data-sc-go={i}>{sl.title}</button>
+                    <span class="sc-sum">{sl.summary}</span>
+                  </li>
+                ))}
+              </ol>
+              <span class="sc-hint" aria-hidden="true">Scroll &uarr;&darr;</span>
+            </div>
+            <div class="sc-stage">
+              <div class="sc-reel" data-sc-reel>
+                {[...slides, slides[0]].map((sl, i) => (
+                  <a class="sc-pane" href={sl.href} data-sc-pane={i} aria-label={sl.title} style={`top:${i * 100}%`} aria-hidden={i === slides.length ? "true" : undefined} tabindex={i === slides.length ? -1 : undefined}>
+                    <span class="sc-pic" style={`background-image:url('${sl.art}')`}></span>
+                    <span class="sc-top">{sl.top.map((t) => <span>{t}</span>)}</span>
+                    <span class="sc-corner">{sl.corner.map((t) => <span>{t}</span>)}</span>
+                    <span class="sc-foot">{sl.foot.map((t) => <span>{t}</span>)}</span>
+                    <span class="sc-cap"><strong>{sl.title}</strong><span>{sl.summary}</span></span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+<style is:global>
+  /* ---------- Chapter 05 — Learn ----------
+     The run is as tall as the slides need; the stick holds the titles and
+     the picture still inside it while the page scrolls past. The script
+     turns how far through the run you are into where the titles and the
+     pictures sit, so the two move up together. */
+  /* One step per slide and one more back round to the first, so it reads
+     as a loop rather than an end (Dani, 16 Oct). */
+  .sc-run { position: relative; height: calc(var(--n) * 50vh + 70vh); }
+  .sc-stick { position: sticky; top: max(16px, calc(50vh - 20vw)); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.9fr); gap: clamp(16px, 1.6vw, 24px); align-items: stretch; }
+  .sc-side { position: relative; overflow: hidden; }
+  /* Every title is placed by the script; only the one that's up and one either
+     side of it can be seen. The line under the one that's up shows only when
+     it has settled there. */
+  /* Low in the column, coming up towards the title, as in the reference. */
+  .sc-titles { position: absolute; left: 0; right: 0; top: 64%; margin: 0; padding: 0; list-style: none; }
+  .sc-item { position: absolute; left: 0; right: 0; top: 0; transform: translateY(var(--y, 0px)); opacity: var(--op, 0); will-change: transform, opacity; }
+  .sc-t { all: unset; cursor: pointer; display: block; font-family: var(--serif); font-size: clamp(17px, 1.45vw, 22px); font-weight: 500; line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink);
+    transform-origin: left center; transform: scale(var(--sc, 0.78)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; transition: color 0.3s; }
+  .sc-t:hover { color: var(--english-violet); }
+  .sc-t:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 4px; }
+  .sc-sum { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 6px; max-width: 100%; font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.4; color: var(--ws-tx); opacity: var(--sum, 0); }
+  .sc-hint { position: absolute; left: 0; bottom: 0; font-size: var(--ws-t-meta); font-weight: 600; letter-spacing: 0.04em; color: var(--ws-ink); }
+  .sc-stage { position: relative; overflow: hidden; aspect-ratio: 16 / 9; background: #2f1b25; }
+  .sc-reel { position: absolute; inset: 0; transform: translateY(calc(var(--at, 0) * -100%)); will-change: transform; }
+  .sc-pane { position: absolute; left: 0; right: 0; height: 100%; display: block; overflow: hidden; color: #fff; text-decoration: none; }
+  .sc-pic { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 1.2s var(--ws-ease); }
+  .sc-pane:hover .sc-pic { transform: scale(1.04); }
+  /* The words straight on the picture in the copy face, set like the
+     "Getting started" label: capitals, spaced, across the top. */
+  /* 13px, the size of "Nothing in the diary" (Dani, 16 Oct). */
+  .sc-top, .sc-corner, .sc-foot { position: absolute; z-index: 1; display: flex; font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 700; letter-spacing: 0.1em; line-height: 1.3; text-transform: uppercase; text-shadow: 0 1px 12px rgba(0,0,0,0.55), 0 0 2px rgba(0,0,0,0.3); }
+  .sc-top { top: clamp(18px, 2.2vw, 32px); left: clamp(18px, 2.2vw, 32px); right: 210px; gap: clamp(16px, 1.8vw, 28px); white-space: nowrap; overflow: hidden; }
+  .sc-corner { top: clamp(18px, 2.2vw, 32px); right: clamp(18px, 2.2vw, 32px); flex-direction: column; align-items: flex-end; gap: 4px; }
+  .sc-corner span + span { letter-spacing: 0.02em; text-transform: none; font-weight: 600; }
+  .sc-foot { bottom: clamp(18px, 2.2vw, 32px); right: clamp(18px, 2.2vw, 32px); gap: clamp(18px, 2vw, 30px); }
+  .sc-cap { display: none; }
+  /* A phone, or anyone who has asked for less movement: the pictures one
+     under another, each with its title and line under it, nothing held still. */
+  @media (max-width: 760px), (prefers-reduced-motion: reduce) {
+    .sc-run { height: auto; }
+    .sc-stick { position: static; display: block; }
+    .sc-side { display: none; }
+    .sc-stage { aspect-ratio: auto; background: none; overflow: visible; }
+    .sc-reel { position: static; transform: none !important; display: grid; gap: 18px; }
+    .sc-pane, .sc-pane:nth-child(n) { position: relative; top: auto; height: auto; color: var(--ws-ink); }
+    .sc-pic { position: relative; display: block; aspect-ratio: 16 / 9; }
+    .sc-top, .sc-corner, .sc-foot { color: #fff; }
+    .sc-foot { bottom: auto; top: calc((100vw - 32px) * 9 / 16 - 40px); }
+    .sc-cap { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; }
+    .sc-cap strong { font-family: var(--serif); font-size: 17px; font-weight: 500; }
+    .sc-cap span { font-size: var(--ws-t-meta); line-height: 1.4; color: var(--ws-tx); }
+  }
+</style>
+
+<script>
+  // ---- Chapter 05: Learn, held still while the page scrolls ----
+  document.querySelectorAll('[data-sc]').forEach(function wireShowcase(box) {
+    const run = box && box.querySelector('[data-sc-run]');
+    if (!run) return;
+    const reel = box.querySelector('[data-sc-reel]');
+    const items = [...box.querySelectorAll('[data-sc-item]')];
+    const tBtns = [...box.querySelectorAll('[data-sc-go]')];
+    const stick = box.querySelector('.sc-stick');
+    const n = items.length;
+    const still = matchMedia('(max-width: 760px), (prefers-reduced-motion: reduce)');
+    const range = () => Math.max(1, run.offsetHeight - stick.offsetHeight);
+    let ticking = false;
+    // Round and round: 0 to n, where n is the first again.
+    const wrap = (d) => { const h = n / 2; return ((((d + h) % n) + n) % n) - h; };
+    function paint() {
+      ticking = false;
+      if (still.matches) return;
+      const p = Math.min(1, Math.max(0, -run.getBoundingClientRect().top / range())) * n;
+      const r = Math.round(p) % n;
+      // How settled the one that's up is: 1 when it's there, 0 halfway to the next.
+      const show = Math.max(0, 1 - Math.abs(p - Math.round(p)) * 2.4);
+      const line = tBtns[0] ? tBtns[0].offsetHeight * 1.5 : 34;
+      const sumH = items[r] ? items[r].querySelector('.sc-sum').offsetHeight + 6 : 0;
+      reel.style.setProperty('--at', p.toFixed(4));
+      items.forEach((it, j) => {
+        const d = wrap(j - p), a = Math.abs(d);
+        const y = d * line + (wrap(j - r) > 0 ? sumH * show : 0);
+        it.style.setProperty('--y', `${y.toFixed(1)}px`);
+        // The one that's up, and one either side; nothing further away.
+        const op = a <= 1 ? 1 - a * 0.7 : Math.max(0, 0.3 * (1.7 - a) / 0.7);
+        it.style.setProperty('--op', op.toFixed(3));
+        // Either side: between the line under it and the title in size.
+        tBtns[j].style.setProperty('--sc', (1 - Math.min(1, a) * 0.3).toFixed(3));
+        it.style.setProperty('--sum', j === r ? show.toFixed(3) : '0');
+      });
+    }
+    const kick = () => { if (!ticking) { ticking = true; requestAnimationFrame(paint); } };
+    addEventListener('scroll', kick, { passive: true });
+    addEventListener('resize', kick);
+    still.addEventListener?.('change', kick);
+    // A title takes you to its picture.
+    tBtns.forEach((b, j) => b.addEventListener('click', () => {
+      const top = run.getBoundingClientRect().top + scrollY + (j / n) * range() + 2;
+      if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(top); else scrollTo({ top, behavior: 'smooth' });
+    }));
+    paint();
+  });
+</script>

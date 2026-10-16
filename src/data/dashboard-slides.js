@@ -1,8 +1,9 @@
-/* Chapter 05 on the dashboard, Learn (Dani, 16 Oct): a section that holds
-   still while you scroll through it. The titles roll up on the left -- the one
-   that's up, with a line about it, and one either side -- and the pictures
-   roll up with them on the right, 16:9, with what the course covers across
-   the top and its length at the foot.
+/* Chapter 04 on the dashboard, Learn (Dani, 16 Oct): a folder. The titles
+   are its tabs; the picture fills the width, and choosing a tab slides across
+   to that one, with its title, what it's about and its lessons on it.
+
+   (The same slides also suit src/components/ScrollShowcase.astro, the
+   held-still scroll version, kept for the blog.)
 
    The Getting Started series, in its own order, then the latest blog. A new
    course in the series (src/data/training-guides.js) joins on its own. */
@@ -20,8 +21,11 @@ export function learnSlides({ blogTitle, blogHref } = {}) {
       summary: g.summary || "",
       href: `/account/guides/read?g=${encodeURIComponent(g.slug)}`,
       art: g.art || g.cover_url || "/assets/chapter-04.jpg",
-      // Across the top: what's in it. The rest of the corners: where it sits.
-      top: lessons.slice(0, 3),   // one line across the top
+      flag: `Getting started \u00b7 ${i + 1} of ${series.length}`,
+      lessons: lessons.slice(0, 3),
+      cta: "Start the course",
+      // For ScrollShowcase: across the top, what's in it; the corners, where it sits.
+      top: lessons.slice(0, 3),
       corner: [`Getting started`, `${i + 1} of ${series.length}`],
       foot: [g.est_minutes ? `${g.est_minutes} minutes` : "", `${lessons.length} lesson${lessons.length === 1 ? "" : "s"}`].filter(Boolean),
     };
@@ -34,6 +38,9 @@ export function learnSlides({ blogTitle, blogHref } = {}) {
       summary: blogTitle || "Practical marketing for estate agents, a few minutes at a time.",
       href: blogHref || "/account/blog",
       art: "/assets/chapter-04.jpg",
+      flag: "From the blog",
+      lessons: [],
+      cta: "Read our latest blog",
       top: ["From the blog"],
       corner: ["Read our latest blog"],
       foot: ["A few minutes", "Something you can use"],
