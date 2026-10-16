@@ -891,7 +891,10 @@ import "../../styles/account-sections.css";
        & Community (Dani, 15 and 16 Oct). One column on a phone. */
     .act-choose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px 22px; align-items: start; }
     .act-rest { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 22px; }
-    .act-col { display: grid; gap: 20px; align-content: start; }
+    .act-col { display: grid; gap: 28px; align-content: start; }
+    .act-cat--solo { margin-top: -22px; }   /* sits on as the list's last row */
+    .act-cat--solo .act-pick { display: flex; align-items: center; gap: 8px; color: rgba(28,29,34,0.75); }
+    .act-cat--solo .act-pick::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--cat); flex: none; }
     @media (max-width: 720px) { .act-choose, .act-rest { grid-template-columns: 1fr; } }
     .act-book { display: grid; gap: 14px; }
     .act-book p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: rgba(28,29,34,0.75); }
@@ -1735,7 +1738,11 @@ import "../../styles/account-sections.css";
       // Content & Social over Something Else, then Property Marketing over
       // Campaigns, then Print & Canvassing over Business & Community (Dani, 16 Oct).
       const col = (keys) => `<div class="act-col">${keys.map((k) => cat(categoryOf(k))).join('')}</div>`;
-      $actChoose.innerHTML = col(['content', 'other'])
+      // Something Else is one button under Content & Social, wearing its grey
+      // square rather than a heading, so the three columns end level (Dani, 16 Oct).
+      const other = categoryOf('other');
+      const solo = `<section class="act-cat act-cat--solo" style="--cat:${other.colour}"><ol><li><button type="button" class="act-pick" data-act="other">${escapeHtml(other.label)}</button></li></ol></section>`;
+      $actChoose.innerHTML = `<div class="act-col">${cat(categoryOf('content'))}${solo}</div>`
         + `<div class="act-rest">${col(['property', 'campaigns'])}${col(['print', 'business'])}</div>`;
       $actChoose.hidden = false; $actForm.hidden = true; $actFoot.hidden = true;
       showActModal();
