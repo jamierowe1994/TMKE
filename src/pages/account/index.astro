@@ -420,6 +420,15 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
           </div>
         </div>
       </section>
+
+      <!-- The foot of the page: a wine bar like the chapter heads, so the page
+           ends rather than stops (Dani, 16 Oct). -->
+      <footer class="ws-block-head ws-foot-bar">
+        <span class="ws-block-h"><span class="ws-block-ch">TMKE</span>The Marketing Experts</span>
+        <a class="ws-block-link" href="#top" data-to-top>Back to top
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </footer>
     </main>
 
     <NewDesignModal />
@@ -449,6 +458,8 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     body[data-dashboard] { --ws-chapter-gap: clamp(52px, 6.8vh, 92px); }
     body[data-dashboard] .ws-main { gap: var(--ws-chapter-gap); }
     body[data-dashboard] .ws-left { gap: var(--ws-chapter-gap); }
+    /* Below the foot bar, only a little page: the bar is the end. */
+    body[data-dashboard] .ws-main { padding-bottom: clamp(22px, 2.6vw, 40px); }
     /* The bar to the date as much as Continue creating to Chapter 01 (Dani). */
     body[data-dashboard] .ws-main { padding-top: calc(clamp(52px, 6.8vh, 92px) + 10px); }
     body[data-dashboard] .ws-left > .ws-hero > .ws-hero-copy { padding-top: 0; padding-bottom: 0; }
@@ -1742,6 +1753,12 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
         reel.setAttribute('aria-busy', 'false');
       } catch (_) { reel.setAttribute('aria-busy', 'false'); }
     })();
+
+    // Back to top, smoothly where the page scrolls smoothly.
+    document.querySelector('[data-to-top]')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(0); else scrollTo({ top: 0, behavior: 'smooth' });
+    });
 
     // ---- Chapter 04: Learn, a folder ----
     (function wireFolder() {
