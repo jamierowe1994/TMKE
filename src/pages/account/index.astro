@@ -721,14 +721,22 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     .ws-inspire { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: var(--ws-gap); align-items: stretch; }
     .ws-inspire-side { display: flex; flex-direction: column; gap: var(--ws-gap); min-width: 0; }
     .ws-inspire-side .ws-side { flex: 1 1 0; }
+    /* "Another idea" sits at the right edge of the page now, and its tooltip
+       opened further right, past the window: unseen, but wide enough that the
+       whole page could be pushed sideways (Dani, 16 Oct). It opens leftwards. */
+    .ws-inspire-side .ws-tip-right[data-tip]::after { left: auto; right: calc(100% + 12px); transform: translateY(-50%) translateX(4px); }
+    .ws-inspire-side .ws-tip-right[data-tip]:hover::after { transform: translateY(-50%) translateX(0); }
+    /* And nothing on the dashboard may make it wider than the window. clip, not
+       hidden: hidden would make this a scroll box and stop Learn holding still. */
+    .ws { overflow-x: clip; }
     @media (max-width: 1000px) { .ws-inspire { grid-template-columns: 1fr; } .ws-inspire-side { flex-direction: row; } .ws-inspire-side .ws-side { flex: 1 1 0; min-width: 0; } }
     @media (max-width: 620px) { .ws-inspire-side { flex-direction: column; } }
     /* The reel: the designs going by on their own, straight on the page --
-       no box, no fade at the ends, square corners, a hairline 6px between pictures,
+       no box, no fade at the ends, square corners, 4px between pictures,
        each pack's name on the line above it (Dani, 16 Oct). Hovering stops
        it so one can be read and clicked. */
     .ws-reel { position: relative; overflow: hidden; min-width: 0; }
-    .ws-reel-track { display: flex; gap: 6px; width: max-content; height: 100%; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
+    .ws-reel-track { display: flex; gap: 4px; width: max-content; height: 100%; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
     .ws-reel.is-ready .ws-reel-track { opacity: 1; animation: wsReel var(--reel-dur, 60s) linear infinite; }
     .ws-reel:hover .ws-reel-track, .ws-reel:focus-within .ws-reel-track { animation-play-state: paused; }
     @keyframes wsReel { from { transform: translateX(0); } to { transform: translateX(-50%); } }
