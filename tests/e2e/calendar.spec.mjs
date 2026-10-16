@@ -293,11 +293,14 @@ test(name("social_choice"), async ({ page }) => {
     await a.click();
     await expect(page.locator("#packs-h")).toBeVisible({ timeout: 30_000 });
     // A pack opened from here carries the day on.
-    const pack = page.locator("a.st-pack").first();
-    if (await pack.count()) {
-      await pack.dispatchEvent("click", { button: 0 }).catch(() => {});
-      await expect.poll(async () => (await pack.getAttribute("href")) || "").toContain(`for=${date}`);
-    }
+    await expect(page.locator("a.st-pack").first()).toBeVisible({ timeout: 30_000 });
+    const href = await page.evaluate(() => {
+      const a = document.querySelector("a.st-pack");
+      a.addEventListener("click", (e) => e.preventDefault(), { once: true });   // look, don't go
+      a.click();
+      return a.getAttribute("href");
+    });
+    expect(href).toContain(`for=${date}`);
     await openCalendar(page);
   });
   await step("social_choice", 2, async () => {
