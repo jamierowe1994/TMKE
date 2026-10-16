@@ -28,6 +28,10 @@ function timeAgo(iso) {
 const ICON_BOOKING = '<rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/>';
 const ICON_REPORT = '<line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="11" width="3" height="7"/><rect x="11" y="7" width="3" height="11"/><rect x="16" y="13" width="3" height="5"/>';
 const ICON_MESSAGE = '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>';
+// A pack: Hub notices from the admin (member_broadcasts.sql), kind "pack_news".
+const ICON_PACK = '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>';
+// A link off the hub opens in a new tab, so the hub stays where it was.
+const isExternal = (h) => /^https?:\/\//i.test(h || "") && !h.startsWith(location.origin);
 
 function titleFor(m) {
   if (m.subject) return m.subject;
@@ -71,14 +75,14 @@ export async function initNotifications() {
       })),
     ...direct.map((n) => ({
       id: n.id, at: n.created_at, unread: !n.read_at,
-      title: n.title, body: n.body, icon: /report/.test(n.kind || "") ? ICON_REPORT : ICON_MESSAGE, tone: "order",
+      title: n.title, body: n.body, icon: /report/.test(n.kind || "") ? ICON_REPORT : /pack/.test(n.kind || "") ? ICON_PACK : ICON_MESSAGE, tone: "order",
       href: n.href || "/account",
     })),
   ].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 10);
 
   const unread = items.filter((i) => i.unread).length;
   const html = items.length
-    ? items.map((i) => `<a class="ws-notif-item${i.unread ? " is-unread" : ""}" role="menuitem" href="${esc(i.href)}" data-notif-item${i.id ? ` data-notif-id="${esc(i.id)}"` : ""}>
+    ? items.map((i) => `<a class="ws-notif-item${i.unread ? " is-unread" : ""}" role="menuitem" href="${esc(i.href)}"${isExternal(i.href) ? ' target="_blank" rel="noopener"' : ""} data-notif-item${i.id ? ` data-notif-id="${esc(i.id)}"` : ""}>
           <span class="ws-notif-ic ws-notif-ic--${i.tone}"><svg viewBox="0 0 24 24" aria-hidden="true">${i.icon}</svg></span>
           <span class="ws-notif-txt"><b>${esc(i.title)}</b><i>${esc((i.body || "").slice(0, 90))}</i></span>
           <span class="ws-notif-time">${timeAgo(i.at)}</span>
@@ -103,6 +107,12 @@ export async function initNotifications() {
     localStorage.setItem(SEEN_KEY, String(Date.now()));
     const id = a.getAttribute("data-notif-id");
     if (!id || e.metaKey || e.ctrlKey) return;
+    // A new tab leaves this page open, so the read can finish in its own time.
+    if (a.target === "_blank") {
+      supabase.rpc("member_notification_read", { p_id: id }).then(() => {}, () => {});
+      a.classList.remove("is-unread");
+      return;
+    }
     e.preventDefault();
     await Promise.race([supabase.rpc("member_notification_read", { p_id: id }).then(() => {}, () => {}), new Promise((r) => setTimeout(r, 900))]);
     location.href = a.getAttribute("href");

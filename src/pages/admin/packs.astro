@@ -43,6 +43,78 @@ import "../../styles/admin.css";
     </div>
   </div>
 
+  <!-- Hub notices: one message in every member's bell, sent when it's set for
+       (supabase/member_broadcasts.sql; the Worker sends them). -->
+  <div class="ash-panel demo-pack hn is-collapsed" id="hn">
+    <div class="demo-pack-head">
+      <button type="button" class="demo-pack-toggle" id="hn-toggle" aria-expanded="false" aria-controls="hn-inner">
+        <span class="demo-pack-chev" aria-hidden="true">&#9662;</span>
+        <span><h2>Hub notifications</h2><span class="demo-pack-summary" id="hn-summary"></span></span>
+      </button>
+    </div>
+    <div class="demo-pack-inner" id="hn-inner">
+      <p class="demo-pack-intro">Tell every member about something new, such as a pack, new templates in the demo pack or an update. It appears in the bell in their hub at the time you set.</p>
+      <p class="demo-pack-note" id="hn-note" hidden></p>
+      <div class="hn-body" id="hn-body">
+        <form class="hn-form" id="hn-form" novalidate>
+          <label class="hn-field">
+            <span>Headline</span>
+            <input type="text" id="hn-title" maxlength="80" placeholder="e.g. New in your demo pack: Testimonial 4" required />
+          </label>
+          <label class="hn-field">
+            <span>Message <em>(optional)</em></span>
+            <textarea id="hn-text" rows="2" maxlength="200" placeholder="e.g. A fresh testimonial layout is ready to use in the Studio."></textarea>
+            <small id="hn-count">The bell shows the first 90 characters.</small>
+          </label>
+          <div class="hn-row">
+            <label class="hn-field">
+              <span>Takes them to</span>
+              <select id="hn-link">
+                <option value="pack">A pack in the Studio</option>
+                <option value="/account/studio">The Studio</option>
+                <option value="/account">Their dashboard</option>
+                <option value="/account/guides">Learn</option>
+                <option value="/account/blog">Inside the Edit (blog)</option>
+                <option value="url">A web address</option>
+              </select>
+            </label>
+            <label class="hn-field" id="hn-pack-wrap">
+              <span>Pack</span>
+              <select id="hn-pack"><option value="demo">Demo pack</option></select>
+            </label>
+            <label class="hn-field" id="hn-url-wrap" hidden>
+              <span>Web address</span>
+              <input type="url" id="hn-url" placeholder="https://" />
+            </label>
+          </div>
+          <div class="hn-row">
+            <fieldset class="hn-field hn-when">
+              <span>When</span>
+              <div class="hn-when-opts">
+                <label><input type="radio" name="hn-when" value="now" checked /> Now</label>
+                <label><input type="radio" name="hn-when" value="later" /> Later</label>
+                <input type="datetime-local" id="hn-at" disabled />
+              </div>
+            </fieldset>
+          </div>
+          <div class="hn-preview" aria-label="How it looks in the bell">
+            <span class="hn-preview-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
+            <span class="hn-preview-txt"><b id="hn-pv-title">Your headline</b><i id="hn-pv-text"></i></span>
+            <span class="hn-preview-time">now</span>
+          </div>
+          <p class="gift-error" id="hn-error" hidden></p>
+          <div class="hn-actions">
+            <button type="submit" class="admin-btn admin-btn-primary" id="hn-send">Send to every member</button>
+          </div>
+        </form>
+        <div class="hn-list-wrap">
+          <p class="demo-pack-add-h">Scheduled and sent</p>
+          <div class="hn-list" id="hn-list"><p class="demo-pack-empty">Loading…</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="ash-panel ash-page">
 
   <section class="catalogue-controls">
@@ -203,6 +275,54 @@ import "../../styles/admin.css";
     .demo-pack-add-sub { margin: 0 0 12px; font-size: 13px; color: var(--muted, #6b6670); }
     .demo-pack-picker h3 { margin: 14px 0 8px; font-size: 13px; font-weight: 600; }
     .demo-pack-picker h3:first-child { margin-top: 0; }
+
+    /* Hub notifications: a form on the left, what's scheduled and sent beside it. */
+    .hn-body { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+    @media (max-width: 900px) { .hn-body { grid-template-columns: 1fr; } }
+    .hn-form { display: grid; gap: 14px; }
+    .hn-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .hn-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; border: 0; padding: 0; margin: 0; }
+    .hn-field[hidden] { display: none; }
+    .hn-field > span {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.55);
+    }
+    .hn-field > span em { font-style: normal; font-weight: 500; color: rgba(28,29,34,0.4); letter-spacing: 0.04em; text-transform: none; }
+    .hn-field input[type="text"], .hn-field input[type="url"], .hn-field input[type="datetime-local"], .hn-field textarea, .hn-field select {
+      font-family: var(--sans); font-size: 14px; padding: 10px 12px;
+      border: 1px solid rgba(var(--violet-rgb), 0.28); border-radius: 4px;
+      background: #fff; color: var(--ink); width: 100%; box-sizing: border-box;
+    }
+    .hn-field textarea { resize: vertical; line-height: 1.45; }
+    .hn-field input:focus, .hn-field textarea:focus, .hn-field select:focus { outline: none; border-color: #371e28; box-shadow: 0 0 0 3px rgba(55,30,40,0.12); }
+    .hn-field small { font-size: 12px; color: var(--muted, #6b6670); }
+    .hn-field small.is-over { color: #8a2a2a; }
+    .hn-when-opts { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .hn-when-opts label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; }
+    .hn-when-opts input[type="radio"] { accent-color: #371e28; }
+    .hn-when-opts input[type="datetime-local"] { width: auto; }
+    .hn-when-opts input:disabled { opacity: 0.45; }
+    /* The bell item as members will see it. */
+    .hn-preview { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: start; padding: 12px 14px; border: 1px dashed rgba(55,30,40,0.25); border-radius: 8px; background: #fbf9f7; }
+    .hn-preview-ic { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #371e28; background: rgba(55,30,40,0.1); }
+    .hn-preview-ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .hn-preview-txt { display: grid; gap: 2px; min-width: 0; }
+    .hn-preview-txt b { font-size: 13.5px; font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+    .hn-preview-txt i { font-style: normal; font-size: 12.5px; color: var(--muted, #6b6670); overflow-wrap: anywhere; }
+    .hn-preview-time { font-size: 11.5px; color: var(--muted, #6b6670); }
+    .hn-actions { display: flex; justify-content: flex-start; }
+    .hn-list { display: grid; gap: 8px; margin-top: 10px; }
+    .hn-item { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; background: #fff; }
+    .hn-item-title { font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+    .hn-item-meta { grid-column: 1; font-size: 12px; color: var(--muted, #6b6670); }
+    .hn-item-side { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .hn-pill { font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+    .hn-pill--scheduled { background: rgba(55,30,40,0.1); color: #371e28; }
+    .hn-pill--sending { background: rgba(196,140,40,0.15); color: #8a5a10; }
+    .hn-pill--sent { background: rgba(47,158,94,0.12); color: #2f7a4e; }
+    .hn-pill--failed { background: rgba(138,42,42,0.12); color: #8a2a2a; }
+    .hn-pill--off { background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.55); }
+    .hn-item button { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: #8a2a2a; cursor: pointer; }
     .dp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; }
     .dp-pick { border: 1px solid rgba(28,29,34,0.12); border-radius: 6px; padding: 4px; background: #fff; cursor: pointer; display: grid; gap: 5px; text-align: left; font: inherit; color: inherit; }
     .dp-pick:hover { border-color: var(--english-violet, #371e28); }
@@ -1065,8 +1185,160 @@ import "../../styles/admin.css";
       syncInitialUI();
       await loadPacks();
       loadDemoPack();
+      loadHubNotices();
       loadCustomerEmails();
     })();
+
+    // ---- Hub notifications (supabase/member_broadcasts.sql) ----
+    // The admin writes the notice; the Worker puts it in every member's bell
+    // when it's due (runMemberBroadcasts), and is nudged straight away for
+    // "Now" and for a withdrawal rather than waiting for its five-minute tick.
+    const hnEl = (id) => document.getElementById(id);
+    const HN_WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    (function foldHubNotices() {
+      const panel = hnEl("hn"), btn = hnEl("hn-toggle");
+      let open = false;
+      try { open = localStorage.getItem("tmke.admin.hubNoticesOpen") === "1"; } catch (_) {}
+      const apply = () => { panel.classList.toggle("is-collapsed", !open); btn.setAttribute("aria-expanded", open ? "true" : "false"); };
+      apply();
+      btn.addEventListener("click", () => { open = !open; try { localStorage.setItem("tmke.admin.hubNoticesOpen", open ? "1" : "0"); } catch (_) {} apply(); });
+    })();
+    function hnNote(text) { const n = hnEl("hn-note"); n.textContent = text || ""; n.hidden = !text; }
+    function hnError(text) { const n = hnEl("hn-error"); n.textContent = text || ""; n.hidden = !text; }
+    async function hnNudge() {
+      if (!HN_WORKER) return;
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        await fetch(`${HN_WORKER}/admin/broadcasts/run`, { method: "POST", headers: { Authorization: "Bearer " + (session && session.access_token) } });
+      } catch (_) {}
+    }
+    const hnWhen = (iso) => new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+    // The Studio's packs for the "Takes them to" list: the demo pack first.
+    let hnPacks = [];
+    async function loadHubNoticePacks() {
+      const { data } = await supabase.from("packs").select("id, title, demo, status, sort_order").neq("status", "archived").order("sort_order", { ascending: true });
+      hnPacks = data || [];
+      const sel = hnEl("hn-pack");
+      const others = hnPacks.filter((p) => !p.demo);
+      sel.innerHTML = `<option value="demo">Demo pack</option>` + others.map((p) =>
+        `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title)}${p.status === "draft" ? " (draft)" : ""}</option>`).join("");
+    }
+    function hnTarget() {
+      const kind = hnEl("hn-link").value;
+      if (kind === "pack") {
+        const id = hnEl("hn-pack").value;
+        const p = id === "demo" ? null : hnPacks.find((x) => x.id === id);
+        return { href: `/account/editor?pack=${encodeURIComponent(id)}`, label: p ? p.title : "Demo pack" };
+      }
+      if (kind === "url") {
+        const u = hnEl("hn-url").value.trim();
+        return { href: u, label: u };
+      }
+      return { href: kind, label: hnEl("hn-link").selectedOptions[0].textContent };
+    }
+    function hnSyncForm() {
+      const kind = hnEl("hn-link").value;
+      hnEl("hn-pack-wrap").hidden = kind !== "pack";
+      hnEl("hn-url-wrap").hidden = kind !== "url";
+      const later = document.querySelector('input[name="hn-when"]:checked').value === "later";
+      hnEl("hn-at").disabled = !later;
+      hnEl("hn-send").textContent = later ? "Schedule for every member" : "Send to every member";
+      const t = hnEl("hn-title").value.trim(), m = hnEl("hn-text").value.trim();
+      hnEl("hn-pv-title").textContent = t || "Your headline";
+      hnEl("hn-pv-text").textContent = m.slice(0, 90);
+      const c = hnEl("hn-count");
+      c.textContent = m.length > 90 ? `${m.length} characters. The bell shows the first 90, so put the point first.` : "The bell shows the first 90 characters.";
+      c.classList.toggle("is-over", m.length > 90);
+    }
+    ["hn-title", "hn-text", "hn-url", "hn-at"].forEach((id) => hnEl(id).addEventListener("input", hnSyncForm));
+    ["hn-link", "hn-pack"].forEach((id) => hnEl(id).addEventListener("change", hnSyncForm));
+    document.querySelectorAll('input[name="hn-when"]').forEach((r) => r.addEventListener("change", () => {
+      if (r.value === "later" && !hnEl("hn-at").value) {
+        // Tomorrow at 9am to start from.
+        const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
+        const pad = (n) => String(n).padStart(2, "0");
+        hnEl("hn-at").value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+      }
+      hnSyncForm();
+    }));
+    hnEl("hn-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hnError("");
+      const title = hnEl("hn-title").value.trim();
+      const body = hnEl("hn-text").value.trim();
+      if (!title) { hnError("Add a headline."); hnEl("hn-title").focus(); return; }
+      const target = hnTarget();
+      if (hnEl("hn-link").value === "url" && !/^https?:\/\/\S+\.\S+/i.test(target.href)) { hnError("Add the full web address, starting https://"); hnEl("hn-url").focus(); return; }
+      const later = document.querySelector('input[name="hn-when"]:checked').value === "later";
+      let sendAt = new Date();
+      if (later) {
+        const v = hnEl("hn-at").value;
+        sendAt = v ? new Date(v) : null;
+        if (!sendAt || isNaN(sendAt)) { hnError("Choose the date and time it goes out."); return; }
+        if (sendAt < new Date()) { hnError("That time has passed. Choose a later one, or send it now."); return; }
+      }
+      const ask = later
+        ? `Schedule "${title}" for every member's hub on ${hnWhen(sendAt)}?`
+        : `Send "${title}" to every member's hub now?`;
+      if (!confirm(ask)) return;
+      const btn = hnEl("hn-send");
+      btn.disabled = true;
+      const { error } = await supabase.from("member_broadcasts").insert({
+        title, body: body || null, href: target.href, link_label: target.label, send_at: sendAt.toISOString(), status: "scheduled",
+      });
+      btn.disabled = false;
+      if (error) { hnError("Couldn't save it: " + error.message); return; }
+      hnEl("hn-title").value = ""; hnEl("hn-text").value = "";
+      hnSyncForm();
+      if (!later) { await hnNudge(); toast("Sent. It's in every member's bell."); }
+      else toast(`Scheduled for ${hnWhen(sendAt)}.`);
+      loadHubNotices();
+    });
+    async function loadHubNotices() {
+      hnSyncForm();
+      if (!hnPacks.length) loadHubNoticePacks().then(hnSyncForm);
+      const { data, error } = await supabase.from("member_broadcasts").select("*").order("send_at", { ascending: false }).limit(20);
+      const list = hnEl("hn-list");
+      if (error) {
+        hnEl("hn-body").hidden = true;
+        hnEl("hn-summary").textContent = "needs the SQL run";
+        hnNote("Run supabase/member_broadcasts.sql in the Supabase SQL editor, then reload this page.");
+        return;
+      }
+      hnEl("hn-body").hidden = false;
+      hnNote("");
+      const rows = data || [];
+      const upcoming = rows.filter((r) => r.status === "scheduled").length;
+      hnEl("hn-summary").textContent = upcoming ? `${upcoming} scheduled` : "";
+      const STATUS = { scheduled: ["Scheduled", "scheduled"], sending: ["Sending", "sending"], sent: ["Sent", "sent"], failed: ["Didn't send", "failed"], cancelled: ["Cancelled", "off"], withdraw: ["Withdrawing", "sending"], withdrawn: ["Withdrawn", "off"] };
+      list.innerHTML = rows.length ? rows.map((r) => {
+        const [label, tone] = STATUS[r.status] || [r.status, "off"];
+        const when = r.status === "sent" || r.status === "withdrawn"
+          ? `Sent ${hnWhen(r.sent_at || r.send_at)} to ${r.sent_count || 0} account${r.sent_count === 1 ? "" : "s"}`
+          : r.status === "scheduled" ? `Goes out ${hnWhen(r.send_at)}` : hnWhen(r.send_at);
+        const action = r.status === "scheduled" ? `<button type="button" data-hn-cancel="${escapeHtml(r.id)}">Cancel</button>`
+          : r.status === "sent" ? `<button type="button" data-hn-withdraw="${escapeHtml(r.id)}">Withdraw</button>` : "";
+        return `<div class="hn-item">
+          <div class="hn-item-title">${escapeHtml(r.title)}</div>
+          <div class="hn-item-side"><span class="hn-pill hn-pill--${tone}">${label}</span>${action}</div>
+          <div class="hn-item-meta">${escapeHtml(when)}${r.link_label ? " · Opens " + escapeHtml(r.link_label) : ""}${r.error ? " · " + escapeHtml(r.error) : ""}</div>
+        </div>`;
+      }).join("") : `<p class="demo-pack-empty">Nothing yet.</p>`;
+      list.querySelectorAll("[data-hn-cancel]").forEach((b) => b.addEventListener("click", async () => {
+        if (!confirm("Cancel this notification? It won't go out.")) return;
+        const { error: e } = await supabase.from("member_broadcasts").update({ status: "cancelled" }).eq("id", b.getAttribute("data-hn-cancel")).eq("status", "scheduled");
+        if (e) { hnError("Couldn't cancel it: " + e.message); return; }
+        loadHubNotices();
+      }));
+      list.querySelectorAll("[data-hn-withdraw]").forEach((b) => b.addEventListener("click", async () => {
+        if (!confirm("Take this out of every member's bell?")) return;
+        const { error: e } = await supabase.from("member_broadcasts").update({ status: "withdraw" }).eq("id", b.getAttribute("data-hn-withdraw")).eq("status", "sent");
+        if (e) { hnError("Couldn't withdraw it: " + e.message); return; }
+        await hnNudge();
+        toast("Withdrawn from every member's bell.");
+        loadHubNotices();
+      }));
+    }
 
     // Filter chips
     document.querySelectorAll("[data-filter]").forEach((el) => {
