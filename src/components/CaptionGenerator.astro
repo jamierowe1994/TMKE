@@ -71,7 +71,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     <!-- WRITE MY OWN -->
     <div class="cg-pane" data-cg-pane="own" hidden>
-      <label class="cg-field"><span>Your caption</span><textarea data-cg="own" rows="7" placeholder="Write your caption here…"></textarea></label>
+      <label class="cg-field"><span>Your caption</span></label>
+      <div class="cg-style" role="toolbar" aria-label="Style the selected words">
+        <button type="button" class="cg-style-b" data-cg-style="b" title="Bold (Ctrl/⌘ B)" aria-label="Bold"><b>B</b></button>
+        <button type="button" class="cg-style-b" data-cg-style="i" title="Italic (Ctrl/⌘ I)" aria-label="Italic"><i>I</i></button>
+        <button type="button" class="cg-style-b" data-cg-style="u" title="Underline (Ctrl/⌘ U)" aria-label="Underline"><u>U</u></button>
+        <span class="cg-style-note">Select words, then style them. Keeps its look in Instagram and Facebook; best for a word or a line.</span>
+      </div>
+      <textarea class="cg-out" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea>
       <div class="cg-actions">
         <button type="button" class="cg-act cg-act--primary" data-cg-useown><span>Use this caption</span></button>
       </div>
@@ -80,7 +87,13 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     <!-- RESULT (shared by property + general) -->
     <div class="cg-result" hidden>
       <div class="cg-result-head"><span class="cg-result-label">Your caption</span><button type="button" class="cg-regen" data-cg-regen>↻ Regenerate</button></div>
-      <textarea class="cg-out" data-cg-out rows="6"></textarea>
+      <div class="cg-style" role="toolbar" aria-label="Style the selected words">
+        <button type="button" class="cg-style-b" data-cg-style="b" title="Bold (Ctrl/⌘ B)" aria-label="Bold"><b>B</b></button>
+        <button type="button" class="cg-style-b" data-cg-style="i" title="Italic (Ctrl/⌘ I)" aria-label="Italic"><i>I</i></button>
+        <button type="button" class="cg-style-b" data-cg-style="u" title="Underline (Ctrl/⌘ U)" aria-label="Underline"><u>U</u></button>
+        <span class="cg-style-note">Select words, then style them. Keeps its look in Instagram and Facebook; best for a word or a line.</span>
+      </div>
+      <textarea class="cg-out" data-cg-out data-cg-styled rows="6"></textarea>
       <div class="cg-tags-block" data-cg-tags-block hidden>
         <span class="cg-result-label cg-tags-label">Hashtags</span>
         <textarea class="cg-out cg-tags-out" data-cg-tags-box rows="2"></textarea>
@@ -95,7 +108,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 <style is:global>
   .cg-scrim { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
   .cg-scrim[hidden] { display: none; }
-  .cg-modal { position: relative; width: min(560px, 100%); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 28px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
+  /* One height whichever tab is open (Dani, 17 Oct): the tallest pane's,
+     and anything longer (a caption and its result) scrolls inside it. */
+  .cg-modal { position: relative; width: min(560px, 100%); height: min(860px, 92vh); max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 28px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
   @keyframes cgIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .cg-modal { animation: none; } }
   .cg-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(28,29,34,0.05); cursor: pointer; display: grid; place-items: center; color: rgba(28,29,34,0.6); }
@@ -140,6 +155,12 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-regen:hover { text-decoration: underline; }
   .cg-out { width: 100%; font-family: inherit; font-size: 14.5px; line-height: 1.6; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; padding: 12px 14px; resize: vertical; }
   .cg-out:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
+  /* B / I / U over a caption box (src/lib/unicode-style.js). */
+  .cg-style { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 0 0 8px; }
+  .cg-style-b { appearance: none; width: 30px; height: 30px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; background: #fff; color: var(--ink); font-family: Georgia, serif; font-size: 14px; cursor: pointer; display: inline-grid; place-items: center; transition: border-color .2s, color .2s; }
+  .cg-style-b:hover { border-color: var(--english-violet); color: var(--english-violet); }
+  .cg-style-b:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+  .cg-style-note { margin-left: 6px; font-size: 11.5px; line-height: 1.35; color: rgba(28,29,34,0.5); flex: 1 1 200px; }
   .cg-tags-block { margin-top: 16px; }
   .cg-tags-block[hidden] { display: none; }
   .cg-tags-label { display: block; margin-bottom: 8px; }
@@ -157,6 +178,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   import { supabase } from "../lib/supabase.js";
   import { account } from "../lib/design-store.js";
   import { syncBrandCache } from "../lib/brand-cache.js";
+  import { toggleStyle } from "../lib/unicode-style.js";
   // The kit is read when it's used (your tone of voice, your colours), so a
   // background fetch is enough for a device that hasn't cached it yet.
   syncBrandCache(supabase);
@@ -299,7 +321,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       } else {
         const copy = document.createElement("button");
         copy.type = "button"; copy.className = "cg-act cg-act--primary";
-        copy.textContent = hasTags ? "Copy caption + hashtags" : "Copy caption";
+        copy.textContent = hasTags ? "Copy all" : "Copy caption";
         copy.addEventListener("click", () => doCopy(fullText(), copy));
         resultActions.appendChild(copy);
         if (hasTags) {
@@ -318,6 +340,33 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const orig = btn.textContent; btn.textContent = "Copied ✓";
       setTimeout(() => { btn.textContent = orig; }, 1600);
     }
+
+    // ---- bold / italic / underline on the selected words ----
+    function styleSelection(ta, style) {
+      if (!ta) return;
+      const a = ta.selectionStart, b = ta.selectionEnd;
+      if (a === b) { showError("Select the words to style first."); return; }
+      errEl.hidden = true;
+      const next = toggleStyle(ta.value.slice(a, b), style);
+      ta.setRangeText(next, a, b, "select");
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      ta.focus();
+    }
+    scrim.addEventListener("mousedown", (e) => { if (e.target.closest("[data-cg-style]")) e.preventDefault(); });   // keep the selection
+    scrim.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-cg-style]");
+      if (!btn) return;
+      // The box this toolbar sits over: the next styled textarea after it.
+      let el = btn.closest(".cg-style").nextElementSibling;
+      while (el && !el.matches("[data-cg-styled]")) el = el.nextElementSibling;
+      styleSelection(el, btn.dataset.cgStyle);
+    });
+    scrim.addEventListener("keydown", (e) => {
+      const ta = e.target.closest && e.target.closest("[data-cg-styled]");
+      if (!ta || !(e.metaKey || e.ctrlKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === "b" || k === "i" || k === "u") { e.preventDefault(); styleSelection(ta, k); }
+    });
 
     // ---- write my own ----
     $("[data-cg-useown]").addEventListener("click", () => {
