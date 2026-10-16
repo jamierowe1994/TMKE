@@ -278,3 +278,58 @@
     }
 
 /* The hub's entrances live in hub-entrance.css, loaded by WorkspaceHeader. */
+
+
+/* ---- The moving strip of pack designs (src/lib/pack-reel.js) ----
+   Shared by the dashboard's Be inspired and the Studio's Chapter 04. */
+/* The reel: the designs going by on their own, straight on the page --
+   no box, no fade at the ends, square corners, 4px between pictures,
+   each pack's name on the line above it (Dani, 16 Oct). Hovering stops
+   it so one can be read and clicked. */
+.ws-reel { position: relative; overflow: hidden; min-width: 0; }
+.ws-reel-track { display: flex; gap: 4px; width: max-content; height: 100%; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
+.ws-reel.is-ready .ws-reel-track { opacity: 1; animation: wsReel var(--reel-dur, 60s) linear infinite; }
+.ws-reel:hover .ws-reel-track, .ws-reel:focus-within .ws-reel-track { animation-play-state: paused; }
+@keyframes wsReel { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ws-reel-tile { flex: none; width: clamp(230px, 21vw, 320px); display: flex; flex-direction: column; text-decoration: none; color: var(--ws-ink); }
+.ws-reel-label { padding: 0 12px 10px 0; font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; color: var(--ws-tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ws-reel-pic { position: relative; display: block; flex: 1 1 auto; aspect-ratio: 4 / 5; overflow: hidden; background: #eae5e1; }
+.ws-reel-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.9s var(--ws-ease); }
+.ws-reel-tile:hover .ws-reel-pic img { transform: scale(1.05); }
+.ws-reel-go { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 9px 11px; border-radius: 4px; background: rgba(255,255,255,0.94); color: var(--english-violet);
+  font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; transform: translateY(6px); transition: opacity 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+.ws-reel-tile:hover .ws-reel-go, .ws-reel-tile:focus-visible .ws-reel-go { opacity: 1; transform: none; }
+@media (max-width: 620px) { .ws-reel-tile { width: 190px; } }
+@media (prefers-reduced-motion: reduce) {
+  .ws-reel { overflow-x: auto; }
+  .ws-reel.is-ready .ws-reel-track { animation: none; }
+  .ws-reel-tile[data-copy] { display: none; }
+}
+
+
+/* ---- Explore and Latest (dashboard Chapter 05, Studio Chapter 04) ----
+   Keywords on the left under a rule, the latest three on the right under
+   theirs: white cards, picture left, the label at the top and the title at
+   the foot (Dani, 16 Oct). */
+.ws-wn { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.7fr); gap: clamp(20px, 2.2vw, 34px); }
+.ws-wn-label { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.35); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-ink); }
+.ws-wn-pills { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.ws-wn-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ws-wn-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px; font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); text-decoration: none; transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
+.ws-wn-pill:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+.ws-wn-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+/* Rounded like the doors and the days, and each its own soft tint of the
+   palette, so the row isn't three of the same (Dani, 16 Oct). */
+.ws-wn-card { display: grid; grid-template-columns: minmax(0, 40fr) minmax(0, 60fr); gap: 14px; padding: 6px; min-height: 150px; border-radius: var(--ws-r); overflow: hidden; background: var(--wn, #fff); border: 1px solid transparent; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
+.ws-wn-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.25); }
+.ws-wn-card:nth-child(1) { --wn: color-mix(in srgb, #7e6765 26%, #fff); }
+.ws-wn-card:nth-child(2) { --wn: color-mix(in srgb, #B9826A 30%, #fff); }
+.ws-wn-card:nth-child(3) { --wn: color-mix(in srgb, #969AB0 32%, #fff); }
+.ws-wn-art { border-radius: calc(var(--ws-r) - 3px); background-size: cover; background-position: center; background-color: #eae5e1; }
+.ws-wn-tx { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 8px 8px 6px 0; min-width: 0; }
+.ws-wn-flag { font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-tx); }
+/* The doors' face: Darker Grotesque semi-bold (Dani, 16 Oct). */
+.ws-wn-h { font-family: var(--sans); font-size: clamp(14px, calc(0.8vw + 4.5px), 17px); font-weight: 600; line-height: 1.2; letter-spacing: 0; text-wrap: balance; max-width: 22ch; }
+@media (max-width: 760px) { .ws-br-desk { display: none; } }
+@media (max-width: 1100px) { .ws-wn { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .ws-wn-cards { grid-template-columns: 1fr; } .ws-wn-card { min-height: 120px; grid-template-columns: 120px minmax(0, 1fr); } }

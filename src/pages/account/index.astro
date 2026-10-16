@@ -815,29 +815,6 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
     .ws { overflow-x: clip; }
     @media (max-width: 1000px) { .ws-inspire { grid-template-columns: 1fr; } .ws-inspire-side { flex-direction: row; } .ws-inspire-side .ws-side { flex: 1 1 0; min-width: 0; } }
     @media (max-width: 620px) { .ws-inspire-side { flex-direction: column; } }
-    /* The reel: the designs going by on their own, straight on the page --
-       no box, no fade at the ends, square corners, 4px between pictures,
-       each pack's name on the line above it (Dani, 16 Oct). Hovering stops
-       it so one can be read and clicked. */
-    .ws-reel { position: relative; overflow: hidden; min-width: 0; }
-    .ws-reel-track { display: flex; gap: 4px; width: max-content; height: 100%; opacity: 0; transition: opacity 0.7s var(--ws-ease); }
-    .ws-reel.is-ready .ws-reel-track { opacity: 1; animation: wsReel var(--reel-dur, 60s) linear infinite; }
-    .ws-reel:hover .ws-reel-track, .ws-reel:focus-within .ws-reel-track { animation-play-state: paused; }
-    @keyframes wsReel { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-    .ws-reel-tile { flex: none; width: clamp(230px, 21vw, 320px); display: flex; flex-direction: column; text-decoration: none; color: var(--ws-ink); }
-    .ws-reel-label { padding: 0 12px 10px 0; font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.14em; line-height: 1.2; text-transform: uppercase; color: var(--ws-tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ws-reel-pic { position: relative; display: block; flex: 1 1 auto; aspect-ratio: 4 / 5; overflow: hidden; background: #eae5e1; }
-    .ws-reel-pic img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.9s var(--ws-ease); }
-    .ws-reel-tile:hover .ws-reel-pic img { transform: scale(1.05); }
-    .ws-reel-go { position: absolute; left: 10px; right: 10px; bottom: 10px; padding: 9px 11px; border-radius: 4px; background: rgba(255,255,255,0.94); color: var(--english-violet);
-      font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; transform: translateY(6px); transition: opacity 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
-    .ws-reel-tile:hover .ws-reel-go, .ws-reel-tile:focus-visible .ws-reel-go { opacity: 1; transform: none; }
-    @media (max-width: 620px) { .ws-reel-tile { width: 190px; } }
-    @media (prefers-reduced-motion: reduce) {
-      .ws-reel { overflow-x: auto; }
-      .ws-reel.is-ready .ws-reel-track { animation: none; }
-      .ws-reel-tile[data-copy] { display: none; }
-    }
     .ws-inspire.is-no-reel { grid-template-columns: 1fr; }
     .ws-inspire.is-no-reel .ws-reel { display: none; }
     .ws-inspire.is-no-reel .ws-inspire-side { flex-direction: row; }
@@ -927,32 +904,6 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
     @media (prefers-reduced-motion: reduce) {
       .ws-rise, .ws-brief li, .ws-greeting, .ws-hero-cta-btn, .ws-block-head, .ws-week .ws-day, .ws-tools .ws-tool, .ws-nav { opacity: 1 !important; transform: none !important; animation: none !important; }
     }
-    /* ---------- Chapter 04 — New in The Studio ----------
-       Keywords on the left under a rule, the latest three on the right under
-       theirs: white cards, picture left, the label at the top and the title at
-       the foot (Dani, 16 Oct). */
-    .ws-wn { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.7fr); gap: clamp(20px, 2.2vw, 34px); }
-    .ws-wn-label { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.35); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-ink); }
-    .ws-wn-pills { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
-    .ws-wn-row { display: flex; flex-wrap: wrap; gap: 6px; }
-    .ws-wn-pill { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px; font-size: var(--ws-t-label); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); text-decoration: none; transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
-    .ws-wn-pill:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
-    .ws-wn-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
-    /* Rounded like the doors and the days, and each its own soft tint of the
-       palette, so the row isn't three of the same (Dani, 16 Oct). */
-    .ws-wn-card { display: grid; grid-template-columns: minmax(0, 40fr) minmax(0, 60fr); gap: 14px; padding: 6px; min-height: 150px; border-radius: var(--ws-r); overflow: hidden; background: var(--wn, #fff); border: 1px solid transparent; text-decoration: none; color: var(--ws-ink); transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease); }
-    .ws-wn-card:hover { transform: translateY(-3px); border-color: rgba(28,29,34,0.25); }
-    .ws-wn-card:nth-child(1) { --wn: color-mix(in srgb, #7e6765 26%, #fff); }
-    .ws-wn-card:nth-child(2) { --wn: color-mix(in srgb, #B9826A 30%, #fff); }
-    .ws-wn-card:nth-child(3) { --wn: color-mix(in srgb, #969AB0 32%, #fff); }
-    .ws-wn-art { border-radius: calc(var(--ws-r) - 3px); background-size: cover; background-position: center; background-color: #eae5e1; }
-    .ws-wn-tx { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; padding: 8px 8px 6px 0; min-width: 0; }
-    .ws-wn-flag { font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-tx); }
-    /* The doors' face: Darker Grotesque semi-bold (Dani, 16 Oct). */
-    .ws-wn-h { font-family: var(--sans); font-size: clamp(14px, calc(0.8vw + 4.5px), 17px); font-weight: 600; line-height: 1.2; letter-spacing: 0; text-wrap: balance; max-width: 22ch; }
-    @media (max-width: 760px) { .ws-br-desk { display: none; } }
-    @media (max-width: 1100px) { .ws-wn { grid-template-columns: 1fr; } }
-    @media (max-width: 760px) { .ws-wn-cards { grid-template-columns: 1fr; } .ws-wn-card { min-height: 120px; grid-template-columns: 120px minmax(0, 1fr); } }
     /* Chapter 05's card titles in Today's Prompt's voice, to the letter: the
        same serif, size, weight and leading as .ws-idea one section up. */
     .ws-news--three .ws-news-h { font-size: clamp(15px, 1.3vw, 17px); font-weight: 400; line-height: 1.45; letter-spacing: -0.01em; }
@@ -1731,77 +1682,14 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
       } catch (_) { /* keep the mock week */ }
     })();
 
-    // ---- Chapter 03: the reel of designs (Dani, 16 Oct) ----
-    // Dani's mockups when there are some (src/data/inspiration-reel.js), the
-    // packs' own templates until then. Each opens its pack in the Studio for
-    // someone who has it, or its page in The Edit for someone who hasn't. The
-    // strip stays dark and empty until the first pictures have loaded.
+    // ---- Chapter 03: the reel of designs (src/lib/pack-reel.js) ----
     (async function wireReel() {
       const reel = document.getElementById('ws-reel');
-      const track = document.getElementById('ws-reel-track');
-      if (!reel || !track) return;
-      try {
-        const [{ INSPIRATION_REEL }, access] = await Promise.all([
-          import('../../data/inspiration-reel.js'), import('../../lib/pack-access.js'),
-        ]);
-        let session = null;
-        try { session = (await supabase.auth.getSession()).data.session; } catch (_) {}
-        const email = (session && session.user.email) || '';
-        const [packsRes, ordersRes, brands] = await Promise.all([
-          supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
-          session ? supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`) : Promise.resolve({ data: [] }),
-          session ? access.memberBrandsFor(supabase) : Promise.resolve(undefined),
-        ]);
-        if (packsRes.error) return;
-        const all = packsRes.data || [];
-        const paid = new Set(((ordersRes && ordersRes.data) || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
-        const owned = new Set(access.ownedPacks(all, paid, brands).map((p) => p.id));
-        // Social packs on sale or already theirs; never the demo pack.
-        const packs = access.visibleToMember(all, brands).filter((p) => !p.demo && (p.kind || 'social') !== 'print'
-          && (owned.has(p.id) || (p.access || 'buy') === 'buy'));
-        const bySlug = new Map(packs.map((p) => [p.slug, p]));
-        const hrefFor = (p) => !p ? '/edit' : owned.has(p.id) ? `/account/editor?pack=${encodeURIComponent(p.id)}` : `/edit/${encodeURIComponent(p.slug)}`;
-        const goFor = (p) => p && owned.has(p.id) ? 'Open your pack' : 'See the pack';
-
-        let tiles = [];
-        if (INSPIRATION_REEL.length) {
-          tiles = INSPIRATION_REEL.filter((r) => r && r.image).map((r) => {
-            const p = bySlug.get(r.pack);
-            return { img: r.image, label: r.line || (p && p.title) || '', sub: r.line && p ? p.title : '', href: hrefFor(p), go: goFor(p) };
-          });
-        } else if (packs.length) {
-          const { data: tpls } = await supabase.from('templates').select('pack_id, name, thumb_url, sort_order')
-            .in('pack_id', packs.map((p) => p.id)).eq('status', 'active').order('sort_order', { ascending: true });
-          const byPack = new Map();
-          (tpls || []).forEach((t) => { if (!t.thumb_url) return; const l = byPack.get(t.pack_id) || []; if (l.length < 4) l.push(t); byPack.set(t.pack_id, l); });
-          // One from each pack in turn, so neighbours are never the same pack.
-          const lists = packs.map((p) => (byPack.get(p.id) || []).map((t) => ({ p, t }))).filter((l) => l.length);
-          for (let i = 0; lists.some((l) => l[i]); i++) lists.forEach((l) => { if (l[i]) tiles.push(l[i]); });
-          // "Local Favourite - Community - Static" is shown as "Local Favourite".
-          tiles = tiles.map(({ p, t }) => ({ img: t.thumb_url, label: p.title, sub: String(t.name || '').split(' - ')[0], href: hrefFor(p), go: goFor(p) }));
-        }
-        if (!tiles.length) { reel.closest('.ws-inspire')?.classList.add('is-no-reel'); return; }
-
-        // Enough to fill a wide screen, then the whole set again, so sliding
-        // back by half lands on the same picture and the loop has no seam.
-        let set = tiles.slice();
-        while (set.length < 10) set = set.concat(tiles);
-        const tile = (t, copy) => `<a class="ws-reel-tile" href="${escapeHtml(t.href)}"${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ''}>
-            <span class="ws-reel-label">${escapeHtml(t.label)}</span>
-            <span class="ws-reel-pic"><img src="${escapeHtml(t.img)}" alt="${copy ? '' : escapeHtml(t.sub || t.label)}" decoding="async"><span class="ws-reel-go">${escapeHtml(t.go)} &rarr;</span></span>
-          </a>`;
-        track.innerHTML = set.map((t) => tile(t, false)).join('') + set.map((t) => tile(t, true)).join('');
-        // About 12 seconds a picture: slow enough to read as it passes (Dani, 16 Oct).
-        track.style.setProperty('--reel-dur', `${set.length * 12}s`);
-        // Shown once the first few on screen have their pictures.
-        const first = [...track.querySelectorAll('img')].slice(0, 5);
-        await Promise.race([
-          Promise.all(first.map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))),
-          new Promise((r) => setTimeout(r, 2500)),
-        ]);
-        reel.classList.add('is-ready');
-        reel.setAttribute('aria-busy', 'false');
-      } catch (_) { reel.setAttribute('aria-busy', 'false'); }
+      if (!reel) return;
+      const { fillPackReel } = await import('../../lib/pack-reel.js');
+      // One from each pack in turn: never two of a pack side by side.
+      const ok = await fillPackReel(supabase, reel, { runs: [1], perPack: 4 });
+      if (!ok) reel.closest('.ws-inspire')?.classList.add('is-no-reel');
     })();
 
     // The Your packs door's hover picture: a template from the demo pack, the

@@ -35,16 +35,17 @@ const R2 = (n) => `https://assets.tmke.co.uk/${n}.webp`;
    checked against the bucket rather than typed from the brief — the spaces and
    the apostrophes are exactly where a guess goes wrong. */
 const HUB = (n) => `https://assets.tmke.co.uk/TMKE%20Member%20Hub/${encodeURIComponent(n)}.png`;
+// Chapter 04's second row (Dani, 16 Oct): these three as cards; Content
+// ideas moves to the Explore links beside them, as a link, not a picture.
 const inspo = [
-  { key: "trending", name: "See what's working", desc: "Five formats performing right now, updated monthly.", thumb: HUB("See whats working"), cta: "View" },
+  { key: "trending", name: "See what's working", flag: "Updated monthly", desc: "Five formats performing right now, updated monthly.", thumb: HUB("See whats working"), cta: "View" },
   /* Seasonal moments does NOT follow the calendar, unlike the card of nearly
      the same name on the dashboard. This one shows the seasonal PACK, and the
      pack changes when the pack is made, not when the month turns — it is the
      autumn pack until the winter one is built (Dani, 8 Oct). Swap it by
      replacing Seasonal Moments.png in the hub folder on R2; no deploy. */
-  { key: "seasonal", name: "Seasonal moments",   desc: "The pack for this time of year.",                  thumb: HUB("Seasonal Moments"), cta: "Browse" },
-  { key: "ideas",    name: "Content ideas",      desc: "48 evergreen post ideas across four pillars.",     thumb: HUB("Evergreen Content Ideas"), href: "/account/guides/read?g=content-ideas", cta: "Read" },
-  { key: "brand",    name: "Brand inspo",        desc: "Our templates, in your colours.",                  thumb: HUB("Brand Inspo"), cta: "See" },
+  { key: "seasonal", name: "Seasonal moments",   flag: "This season",     desc: "The pack for this time of year.",                  thumb: HUB("Seasonal Moments"), cta: "Browse" },
+  { key: "brand",    name: "Brand inspo",        flag: "In your colours", desc: "Our templates, in your colours.",                  thumb: HUB("Brand Inspo"), cta: "See" },
 ];
 ---
 <BaseLayout
@@ -72,7 +73,6 @@ const inspo = [
               </button>
           </div>
         </div>
-        <div class="ws-hero-photo" role="img" aria-label="A styled kitchen"></div>
       </section>
 
       <!-- ============ PICK FROM YOUR PACKS ============ -->
@@ -134,31 +134,45 @@ const inspo = [
         </div>
       </section>
 
-      <!-- ============ NEED INSPIRATION ============ -->
+      <!-- ============ INSPIRATION ============
+           Two rows (Dani, 16 Oct): the packs going by, two or three of a pack
+           together before the next; then Explore links and three cards, the
+           dashboard's Chapter 05 layout. -->
       <section class="ws-block ws-rise" style="--i:4" aria-labelledby="inspo-h">
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="inspo-h"><span class="ws-block-ch">Chapter 04</span>Inspiration</h2>
           <a class="ws-block-link" href="/account/guides">Explore More <span aria-hidden="true">→</span></a>
         </header>
-        <div class="st-row st-row--inspo" data-gate="inspo">
-          {inspo.map((c) => (
-            c.href
-              ? <a class="st-insp" href={c.href}>
-                  <span class="st-insp-img" style={`background-image:url('${c.thumb}')`}></span>
-                  <span class="st-insp-name">{c.name}</span>
-                  <span class="st-insp-desc">{c.desc}</span>
-                  <span class="st-insp-cta">{c.cta || "View"}</span>
-                </a>
-              : <button type="button" class="st-insp" data-inspo={c.key}>
-                  <span class="st-insp-img" style={`background-image:url('${c.thumb}')`}></span>
-                  <span class="st-insp-name">{c.name}</span>
-                  <span class="st-insp-desc">{c.desc}</span>
-                  <span class="st-insp-cta">{c.cta || "View"}</span>
+        <!-- Filled by fillPackReel (src/lib/pack-reel.js); empty until its
+             pictures have loaded, nothing standing in for them. -->
+        <div class="ws-reel st-reel" id="st-reel" aria-label="Templates from our packs" aria-busy="true">
+          <div class="ws-reel-track"></div>
+        </div>
+        <div class="ws-wn st-wn" data-gate="inspo">
+          <div class="ws-wn-col ws-wn-col--keys">
+            <p class="ws-wn-label">Explore</p>
+            <nav class="ws-wn-pills" aria-label="Explore">
+              <span class="ws-wn-row"><a class="ws-wn-pill" href="/account/guides/read?g=content-ideas">Evergreen content ideas</a></span>
+              <span class="ws-wn-row"><a class="ws-wn-pill" href="/account/guides/read?g=training-studio">How to edit a template</a></span>
+              <!-- This month's "What to post" piece from the blog, once it's
+                   found (wireMonthIdeas); a month without one has no link. -->
+              <span class="ws-wn-row"><a class="ws-wn-pill" id="st-month-ideas" href="/account/blog" hidden>This month's content ideas</a><a class="ws-wn-pill" href="/account/guides">All guides</a></span>
+            </nav>
+          </div>
+          <div class="ws-wn-col">
+            <p class="ws-wn-label">Latest</p>
+            <div class="ws-wn-cards">
+              {inspo.map((c) => (
+                <button type="button" class="ws-wn-card" data-inspo={c.key}>
+                  <span class="ws-wn-art" style={`background-image:url('${c.thumb}')`}></span>
+                  <span class="ws-wn-tx">
+                    <span class="ws-wn-flag">{c.flag}</span>
+                    <strong class="ws-wn-h">{c.name}</strong>
+                  </span>
                 </button>
-          ))}
-          <button type="button" class="st-arrow st-arrow--inspo" aria-label="More inspiration">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
       </div>
@@ -170,6 +184,20 @@ const inspo = [
   <StudioInspo />
 
   <style is:global>
+    /* The header as on the dashboard (Dani, 16 Oct): straight on the page, no
+       card and no photograph, the button at the bottom left; and the same
+       space round it and between the chapters. */
+    body[data-dashboard] { --ws-chapter-gap: clamp(52px, 6.8vh, 92px); }
+    body[data-dashboard] .ws-main { padding-top: calc(var(--ws-chapter-gap) + 10px); }
+    body[data-dashboard] .ws-left { gap: var(--ws-chapter-gap); }
+    .ws-left > .ws-hero.ws-hero--sub { grid-template-columns: minmax(0, 1fr); min-height: 0; background: none; border: 0; border-radius: 0; overflow: visible; }
+    .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { padding: 0; justify-content: flex-start; }
+    .ws-left > .ws-hero.ws-hero--sub .ws-hero-date { margin: 0; padding-bottom: clamp(16px, 2.2vh, 26px); }
+    .ws-left > .ws-hero.ws-hero--sub .ws-hero-cta { padding-top: clamp(20px, 2.6vh, 30px); }
+    /* Chapter 04: the strip, then Explore and Latest under it. */
+    .st-reel { margin-bottom: clamp(18px, 2.4vw, 32px); }
+    .st-wn button.ws-wn-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
+
     /* Studio's own furniture. The tokens, layout, buttons, chapter strips and
        the tool cards all come from ws-system.css - only the pack, design and
        inspiration shelves are particular to this page. */
@@ -364,7 +392,7 @@ const inspo = [
     if (demoOn()) {
       // The demo: the background remover and the content ideas are for members.
       const locked = [];
-      document.querySelectorAll('.ws-tool, .st-insp').forEach((el) => {
+      document.querySelectorAll('.ws-tool, .st-insp, .ws-wn-pill').forEach((el) => {
         const t = (el.textContent || '').toLowerCase();
         if (t.includes('background remover') || t.includes('content ideas')) { el.setAttribute('data-demo-lock', ''); el.classList.add('is-demo-locked'); locked.push(el); }
       });
@@ -537,6 +565,28 @@ const inspo = [
        their pictures have arrived (the gate waits for those). */
     gateReady('hero', document.querySelector('[data-gate="hero"]'));
     gateReady('inspo', document.querySelector('[data-gate="inspo"]'));
+
+    // Chapter 04: the packs going by, two or three of a pack together.
+    (async () => {
+      const reel = document.getElementById('st-reel');
+      if (!reel) return;
+      const { fillPackReel } = await import('../../lib/pack-reel.js');
+      const ok = await fillPackReel(supabase, reel, { runs: [2, 3], perPack: 6 });
+      if (!ok) reel.hidden = true;
+    })();
+
+    // This month's "What to post" piece, by its address: october-what-to-post-...
+    (async function wireMonthIdeas() {
+      const a = document.getElementById('st-month-ideas');
+      if (!a) return;
+      try {
+        const month = new Date().toLocaleDateString('en-GB', { month: 'long' });
+        const { data } = await supabase.from('blog_posts').select('slug').eq('status', 'published')
+          .in('audience', ['members', 'both']).ilike('slug', `${month.toLowerCase()}-what-to-post%`)
+          .order('publish_date', { ascending: false }).limit(1);
+        if (data && data[0]) { a.href = '/account/blog#' + data[0].slug; a.textContent = `${month} content ideas`; a.hidden = false; }
+      } catch (_) {}
+    })();
 
     /* A shelf that could not be loaded says so, with a way to try again. */
     window.__ST_FAIL__ = (what) => `<p class="st-fail">Your ${what} didn't load.<button type="button" data-st-retry>Try again</button></p>`;
