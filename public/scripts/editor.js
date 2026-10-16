@@ -3967,20 +3967,25 @@ import { createResizeEngine } from "./resize-engine.js";
       applyTextStyles(inner, el);
       node.appendChild(inner);
     } else if (el.type === "image") {
+      /* An admin's stand-in is drawn exactly as a real cut-out would be -
+         contained, on the floor, moved by the slot's offset and grown by its
+         scale - so it can be repositioned like one (Dani, 16 Oct). It is
+         never written to the element: `src` stays empty. */
+      const standIn = standInFor(el);
       // An empty agent-photo slot draws the ghost further down instead; an
       // <img> with no source is a broken-picture icon.
-      if (el.src || el.brandRole !== "photo") {
+      if (el.src || standIn || el.brandRole !== "photo") {
         const img = document.createElement("img");
         img.decoding = "async";
-        img.src = el.src;
+        img.src = el.src || standIn;
         img.draggable = false;
         img.alt = "";
         img.crossOrigin = "anonymous";
         // A logo (and anything set to "fit it all in") is shown whole and
         // centred, never cropped to its box.
-        if (el.imgFit === "contain") {
+        if (el.imgFit === "contain" || standIn) {
           img.style.objectFit = "contain";
-          if (el.brandRole === "photo") { img.style.transformOrigin = "50% 100%"; img.style.transform = photoSlotTransform(el); }
+          if (el.brandRole === "photo") { img.style.objectPosition = "50% 100%"; img.style.transformOrigin = "50% 100%"; img.style.transform = photoSlotTransform(el); }
         }
         // A photo slot holding a picture with its own backdrop fills its box
         // (placeBrandPhoto), as the download does; the stylesheet would
@@ -4190,16 +4195,16 @@ import { createResizeEngine } from "./resize-engine.js";
     if (el.brandRole === "photo" && !el.src && isAdminMode()) {
       node.classList.add("is-photoslot");
       if (el.photoBg) node.classList.add("has-photobg");
-      const standIn = isAdminMode() && _standIn && (window.__TMKE_STAND_INS__ || {})[_standIn];
-      const ph = document.createElement("div");
-      ph.className = "ed-photoghost" + (standIn ? " is-standin" : "");
-      ph.style.backgroundImage = "url(" + JSON.stringify(standIn || AGENT_BLOCKOUT) + ")";
-      if (!standIn) {
+      // With a stand-in on, it's drawn above as the slot's picture.
+      if (!standInFor(el)) {
+        const ph = document.createElement("div");
+        ph.className = "ed-photoghost";
+        ph.style.backgroundImage = "url(" + JSON.stringify(AGENT_BLOCKOUT) + ")";
         const say = document.createElement("span");
         say.textContent = "This is where the photo of you goes.";
         ph.appendChild(say);
+        node.appendChild(ph);
       }
-      node.appendChild(ph);
     }
     /* An empty QR code slot: lined like any empty box, with a QR mark and a
        line saying what goes there. Never printed -- an export draws nothing
@@ -10240,6 +10245,24 @@ import { createResizeEngine } from "./resize-engine.js";
   // "Show me a person" while drawing a template: design-time only, admin only,
   // and never written to the design (see renderElement).
   var _standIn = null;
+  // The stand-in picture for an empty agent-photo slot, admin only; else null.
+  function standInFor(el) {
+    if (!el || el.type !== "image" || el.brandRole !== "photo" || el.src || !isAdminMode() || !_standIn) return null;
+    return (window.__TMKE_STAND_INS__ || {})[_standIn] || null;
+  }
+  /* A page as the previews draw it: with the stand-in in its empty agent-
+     photo slots, so a template's preview shows there's a person there (Dani,
+     16 Oct). A copy - the design itself never holds a made-up person. */
+  window.__TMKE_WITH_STAND_IN__ = function (page) {
+    if (!page || !_standIn) return page;
+    const copy = deep(page);
+    (copy.elements || []).forEach(function (e) {
+      const src = standInFor(e);
+      if (src) { e.src = src; e.imgFit = "contain"; }
+    });
+    return copy;
+  };
+  window.__TMKE_STAND_IN_ON__ = function () { return !!_standIn; };
   window.__TMKE_SET_STAND_IN__ = function (which) {
     _standIn = (which === "female" || which === "male") ? which : null;
     fullRender();
@@ -13321,6 +13344,7 @@ import { createResizeEngine } from "./resize-engine.js";
      people's photos need adjusting (Dani, 13 Oct). Anything else shown whole,
      like a logo, stays put. */
   function canReposition(el) {
+    if (standInFor(el)) return true;   // a stand-in moves like the real photo will
     return !!(el && el.src && (el.imgFit !== "contain" || el.brandRole === "photo"));
   }
   // Where a cut-out agent photo sits: shown whole, standing on the floor,
@@ -13329,7 +13353,7 @@ import { createResizeEngine } from "./resize-engine.js";
     return "translate(" + (el.imgOffsetX || 0) + "px, " + (el.imgOffsetY || 0) + "px) scale(" + (el.imgScale || 1) + ")";
   }
   function startReposition(el) {
-    if (!el || !el.src) return;
+    if (!el || (!el.src && !standInFor(el))) return;
     const node = canvasEl.querySelector('.ed-element[data-id="' + el.id + '"]');
     if (!node) return;
     if (el.type === "frame") { enterViewpointEdit(el, node); return; }
@@ -13337,7 +13361,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   let _imgRepo = null;
   function enterImageReposition(el, node) {
-    if (el.imgFit === "contain" && el.brandRole === "photo") { enterCutoutReposition(el, node); return; }
+    if ((el.imgFit === "contain" || standInFor(el)) && el.brandRole === "photo") { enterCutoutReposition(el, node); return; }
     if (el.imgFit === "contain") return;
     if (_imgRepo) _imgRepo();
     const img = node.querySelector("img");

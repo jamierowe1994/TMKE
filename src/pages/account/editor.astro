@@ -2791,7 +2791,6 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       background: repeating-linear-gradient(45deg, rgba(255,255,255,0.32) 0 8px, rgba(var(--violet-rgb),0.22) 8px 16px);
       outline: 1px dashed rgba(var(--violet-rgb),0.85); outline-offset: -1px;
     }
-    .ed-photoghost.is-standin { opacity: 0.92; }
     .ed-standins { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
     .ed-standins[hidden] { display: none; }
     .ed-standins > span { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
@@ -7541,14 +7540,24 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // A print template is drawn from what is on screen now, so a photo
         // just dropped in for the preview is in it.
         const printOpen = !!(onlyId && typeof window.__TMKE_IS_PRINT__ === "function" && window.__TMKE_IS_PRINT__());
-        const fromOpen = (printOpen && typeof window.__TMKE_OPEN_PAGE_ONE__ === "function") ? window.__TMKE_OPEN_PAGE_ONE__() : null;
+        /* With a stand-in showing (Woman or Man), the preview has them in the
+           agent-photo slot, so it shows there's a person there (Dani, 16 Oct).
+           Drawn from the design on screen, as a print one is. */
+        const standOn = !!(onlyId && typeof window.__TMKE_STAND_IN_ON__ === "function" && window.__TMKE_STAND_IN_ON__());
+        const fromScreen = printOpen || standOn;
+        const withStandIn = (pg) => (pg && typeof window.__TMKE_WITH_STAND_IN__ === "function") ? window.__TMKE_WITH_STAND_IN__(pg) : pg;
+        const fromOpen = (fromScreen && typeof window.__TMKE_OPEN_PAGE_ONE__ === "function") ? withStandIn(window.__TMKE_OPEN_PAGE_ONE__()) : null;
         // The back as it is on screen too, photos and all, for the same reason.
-        const fromOpenBack = (printOpen && typeof window.__TMKE_OPEN_PAGE_TWO__ === "function") ? window.__TMKE_OPEN_PAGE_TWO__() : null;
+        const fromOpenBack = (fromScreen && typeof window.__TMKE_OPEN_PAGE_TWO__ === "function") ? withStandIn(window.__TMKE_OPEN_PAGE_TWO__()) : null;
         /* On page two, only the back is redone (Dani, 16 Oct): photos go in the
            back for its picture, and the front preview, made already, is left
            exactly as it is. */
         const pageInfo = typeof window.__TMKE_PAGE_INFO__ === "function" ? window.__TMKE_PAGE_INFO__() : null;
         const backOnly = !!(onlyId && pageInfo && pageInfo.count > 1 && pageInfo.current === 1);
+        // Say which side it's about to redo, so it's never a surprise.
+        if (onlyId && pageInfo && pageInfo.count > 1 && !confirm(backOnly
+          ? "Redo the back preview only?\n\nThe front stays exactly as it is."
+          : "Redo the front and back previews, from the design as it is on screen?\n\nTo redo only the back, go to page two first.")) return;
         const orig = regenBtn.textContent;
         regenBtn.disabled = true;
         try {
