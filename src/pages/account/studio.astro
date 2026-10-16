@@ -2,6 +2,7 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import CaptionGenerator from "../../components/CaptionGenerator.astro";
+import QrGenerator from "../../components/QrGenerator.astro";
 import "../../styles/ws-system.css";
 import NewDesignModal from "../../components/account/NewDesignModal.astro";
 import StudioInspo from "../../components/account/StudioInspo.astro";
@@ -15,7 +16,8 @@ import StudioInspo from "../../components/account/StudioInspo.astro";
 
 const tools = [
   { name: "Caption Generator", desc: "Write on-brand captions & hashtags with AI.", action: "caption", ic: "caption" },
-  { name: "Background Remover", desc: "Remove backgrounds in one click.", href: "/account/editor", ic: "scissors" },
+  // In Background Remover's place (Dani, 16 Oct): a pop-out of its own.
+  { name: "QR Code Generator", desc: "A QR code for any link or a WhatsApp chat.", action: "qr", ic: "qr" },
   { name: "Brand Kit", desc: "Apply your brand colours and fonts instantly.", href: "/account/profile", ic: "brand" },
   { name: "Templates", desc: "Browse beautiful on-brand templates.", href: "/edit", ic: "grid" },
 ];
@@ -23,7 +25,7 @@ const tools = [
 // Icons for the shared tool cards, keyed by the `ic` on each tool above.
 const TOOL_ICONS = {
   caption: '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>',
-  scissors: '<svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
+  qr: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h3v3"/></svg>',
   brand: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   grid: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
 };
@@ -180,6 +182,7 @@ const inspo = [
   </div>
 
   <CaptionGenerator />
+  <QrGenerator />
   <NewDesignModal />
   <StudioInspo />
 
@@ -381,13 +384,13 @@ const inspo = [
     })();
     import { STUDIO_SIZES } from "../../data/studio-sizes.js";
     if (demoOn()) {
-      // The demo: the background remover and the content ideas are for members.
+      // The demo: the content ideas are for members.
       const locked = [];
       document.querySelectorAll('.ws-tool, .st-insp, .ws-wn-pill').forEach((el) => {
         const t = (el.textContent || '').toLowerCase();
-        if (t.includes('background remover') || t.includes('content ideas')) { el.setAttribute('data-demo-lock', ''); el.classList.add('is-demo-locked'); locked.push(el); }
+        if (t.includes('content ideas')) { el.setAttribute('data-demo-lock', ''); el.classList.add('is-demo-locked'); locked.push(el); }
       });
-      if (locked.length) lockClicks('[data-demo-lock]', 'That one is for members.', 'The background remover and the 48 content ideas come with membership. In the demo, open the pack and try the editor.');
+      if (locked.length) lockClicks('[data-demo-lock]', 'That one is for members.', 'The 48 content ideas come with membership. In the demo, open the pack and try the editor.');
     }
     import { supabase } from "../../lib/supabase.js";
     import { designStore } from "../../lib/design-store.js";
@@ -592,6 +595,8 @@ const inspo = [
     document.querySelector('[data-tool="caption"]')?.addEventListener('click', () => {
       window.tmkeCaption?.open({ output: 'copy' });
     });
+    // QR Code Generator tool -> its own pop-out (src/components/QrGenerator.astro).
+    document.querySelector('[data-tool="qr"]')?.addEventListener('click', () => { window.tmkeQr?.open(); });
 
     // "Your designs": the member's own saved copies (user_designs), newest first.
     (async function wireDesigns() {
