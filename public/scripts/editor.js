@@ -2370,21 +2370,32 @@ import { createResizeEngine } from "./resize-engine.js";
     let bar = document.getElementById("ed-save-alarm");
     const trial = sizePreviewPending();
     const failing = !trial && _saveFails >= 3;
-    if (!trial && !failing) { if (bar) bar.hidden = true; return; }
+    // Its inline display:flex beats the hidden attribute, so hide it by style too.
+    if (!trial && !failing) { if (bar) { bar.hidden = true; bar.style.display = "none"; } return; }
     if (!bar) {
       bar = document.createElement("div");
       bar.id = "ed-save-alarm";
       bar.setAttribute("role", "alert");
-      bar.style.cssText = "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:130;max-width:min(760px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 16px;border-radius:8px;background:#a3372f;color:#fff;font-family:var(--sans,sans-serif);font-size:13px;line-height:1.45;box-shadow:0 14px 34px -10px rgba(28,29,34,0.55);";
+      bar.style.cssText = "position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:130;max-width:min(760px,calc(100vw - 32px));display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:12px 16px;border-radius:8px;background:var(--violet-deep,#371e28);color:#fff;font-family:var(--sans,sans-serif);font-size:13px;line-height:1.45;box-shadow:0 14px 34px -10px rgba(28,29,34,0.55);";
       document.body.appendChild(bar);
+      // Centred on the design area, not the window (Dani, 16 Oct).
+      const stage = document.getElementById("ed-stage");
+      bar._centre = function () {
+        if (!stage || bar.style.display === "none") return;
+        const r = stage.getBoundingClientRect();
+        if (r.width > 0) { bar.style.left = Math.round(r.left + r.width / 2) + "px"; bar.style.maxWidth = "min(760px, " + Math.max(280, Math.round(r.width - 32)) + "px)"; }
+      };
+      if (stage && window.ResizeObserver) new ResizeObserver(bar._centre).observe(stage);
+      addEventListener("resize", bar._centre);
       bar.addEventListener("click", (e) => {
         if (e.target.closest("[data-alarm-retry]")) { _dbRetries = 0; autosaveToDb(); }
       });
     }
     const btn = "all:unset;cursor:pointer;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;";
+    const wine = "var(--violet-deep,#371e28)";
     if (trial) {
       const now = sizeName(state.canvas.width, state.canvas.height), was = sizeName(_sizePreview.W, _sizePreview.H);
-      const solid = btn + "background:#fff;color:#a3372f;", ghost = btn + "border:1px solid rgba(255,255,255,0.6);color:#fff;";
+      const solid = btn + "background:#fff;color:" + wine + ";", ghost = btn + "border:1px solid rgba(255,255,255,0.6);color:#fff;";
       /* Admin: trying a size is for fixing how the template looks at it, and
          saving that layout. A member only previews: editing waits until they
          keep the size or save a copy (Dani, 16 Oct). */
@@ -2399,9 +2410,11 @@ import { createResizeEngine } from "./resize-engine.js";
           '<button type="button" data-size-act="back" style="' + ghost + '">Back to ' + escapeHtml(was) + '</button>';
     } else {
       bar.innerHTML = '<span style="flex:1 1 280px"><strong>Your changes aren\u2019t saving to TMKE.</strong> ' + escapeHtml(_lastSaveWhy || "The last three saves didn\u2019t go through.") + ' ' + (ADMIN_MODE_URL ? 'They\u2019re kept in this browser in the meantime. ' : '') + 'Don\u2019t close this tab until they save.</span>' +
-        '<button type="button" data-alarm-retry style="' + btn + 'background:#fff;color:#a3372f;">Try again</button>';
+        '<button type="button" data-alarm-retry style="' + btn + 'background:#fff;color:' + wine + ';">Try again</button>';
     }
     bar.hidden = false;
+    bar.style.display = "flex";
+    bar._centre();
   }
 
   function autosaveDraft() {
