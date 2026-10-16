@@ -113,7 +113,8 @@ export function fillTestimonial(text, channel, kit) {
   const name = String(about.name || "").trim();
   const first = name.split(/\s+/)[0] || "";
   const agency = String((kit && kit.company) || "").trim();
-  const link = String(about.review || "").trim();
+  let link = String(about.review || "").trim();
+  if (link && !/^[a-z][a-z0-9+.-]*:/i.test(link)) link = "https://" + link;
   return String(text || "")
     .replace(/\[Agent Name\]/g, (channel === "whatsapp" ? first : name) || "[Agent Name]")
     .replace(/\[Agency Name\]/g, agency || "[Agency Name]")

@@ -231,7 +231,7 @@ const HERO_BG = (await getImage({
             <label class="profile-field profile-field--full">
               <span>Review link <span class="profile-optional">optional</span></span>
               <div class="field-wrap">
-                <input type="url" name="about_review" placeholder="e.g. your Google reviews page" autocomplete="url" />
+                <input type="text" inputmode="url" name="about_review" placeholder="e.g. your Google reviews page" autocomplete="url" spellcheck="false" />
                 <span class="field-ok" id="about_review-ok" hidden><span class="field-ok-tick" aria-hidden="true">&#10003;</span> Saved</span>
               </div>
             </label>
@@ -978,6 +978,17 @@ const HERO_BG = (await getImage({
       const saveEl = document.getElementById("brand-save");
       const saveText = saveEl.querySelector(".brand-save-text");
 
+      // A link typed as www.example.com is a link: add the https:// for them
+      // rather than refuse it (Dani, 16 Oct).
+      function withScheme(v) {
+        v = String(v || "").trim();
+        return v && !/^[a-z][a-z0-9+.-]*:/i.test(v) ? "https://" + v.replace(/^\/+/, "") : v;
+      }
+      if (aboutInputs.review) aboutInputs.review.addEventListener("blur", () => {
+        const v = withScheme(aboutInputs.review.value);
+        if (v !== aboutInputs.review.value) aboutInputs.review.value = v;
+      });
+
       function escapeHtml(s) {
         return String(s ?? "").replace(/[&<>"']/g, (c) => ({
           "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -1388,7 +1399,7 @@ const HERO_BG = (await getImage({
             role: aboutInputs.role ? aboutInputs.role.value.trim() : "",
             phone: aboutInputs.phone ? aboutInputs.phone.value.trim() : "",
             email: aboutInputs.email ? aboutInputs.email.value.trim() : "",
-            review: aboutInputs.review ? aboutInputs.review.value.trim() : "",
+            review: aboutInputs.review ? withScheme(aboutInputs.review.value) : "",
           },
           colors: colours,
           fonts: {
