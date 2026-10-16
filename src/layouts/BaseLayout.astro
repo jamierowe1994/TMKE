@@ -779,6 +779,21 @@ const hideFromSearch = noindex || privateArea;
     </script>
 
     <script src="/scripts/app.js" is:inline></script>
+    <!-- Link boxes (inputmode="url") are plain text boxes, so the browser's
+         "Please enter a URL" never pops up. A web address typed without its
+         https:// (www.tmke.co.uk) gets it on leaving the box; anything else
+         (/blog/a-post, #top, mailto:, {{merge}}) is left as typed (Dani, 16 Oct). -->
+    <script is:inline>
+      document.addEventListener("focusout", function (e) {
+        var el = e.target;
+        if (!el || el.tagName !== "INPUT" || el.inputMode !== "url") return;
+        var v = el.value.trim();
+        if (!v || /^[a-z][a-z0-9+.-]*:/i.test(v) || /^[\/#{.]/.test(v) || /\s/.test(v) || !/^[^\/?#]+\.[a-z]{2,}/i.test(v)) return;
+        el.value = "https://" + v;
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    </script>
     {enableTransition && <script src="/scripts/page-transition.js" is:inline />}
 
     <!-- Website Editor — Supabase bridge. Exposes window.tmkeStore (auth +
