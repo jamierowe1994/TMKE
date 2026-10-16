@@ -2244,12 +2244,16 @@ const ACTIVITY_DETAIL_LABELS = {
    Resetting the link bumps the version on their account
    (app_metadata.cal_feed_v) and every older link stops working. */
 function calFeedSecret(env) { return env.CAL_FEED_SECRET || env.SUPABASE_SERVICE_ROLE || ""; }
-async function calFeedSig(env, uid, v) {
+/* The training account has a feed of its own: its entries, under Dani's
+   login, at /calendar/feed/t/<token>.ics, with its own version and its own
+   "synced" record, so testing it never touches her real link (16 Oct). */
+const CAL_TRAINER = "danielle@tmke.co.uk";
+async function calFeedSig(env, uid, v, training) {
   const secret = calFeedSecret(env);
   if (!secret) return null;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`calfeed:${uid}:${v}`));
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${training ? "calfeed-training" : "calfeed"}:${uid}:${v}`));
   return _b64url(mac).slice(0, 32);
 }
 // Their account's feed settings: the link's version, and which calendar apps
@@ -2261,8 +2265,11 @@ async function calFeedUser(env, uid) {
   if (!res.ok) return null;
   const u = await res.json();
   const meta = (u && u.app_metadata) || {};
-  const seen = meta.cal_feed_seen && typeof meta.cal_feed_seen === "object" ? meta.cal_feed_seen : {};
-  return { v: Number(meta.cal_feed_v || 0), seen };
+  const obj = (x) => (x && typeof x === "object" ? x : {});
+  return {
+    v: Number(meta.cal_feed_v || 0), seen: obj(meta.cal_feed_seen),
+    vT: Number(meta.cal_feed_v_training || 0), seenT: obj(meta.cal_feed_seen_training),
+  };
 }
 async function calFeedSetMeta(env, uid, meta) {
   const res = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users/${uid}`, {
@@ -2286,21 +2293,22 @@ function calFeedApp(url, request) {
   if (/Microsoft|Outlook|Exchange|MSFT/i.test(ua)) return "outlook";
   return "other";
 }
-async function calFeedToken(env, uid, v) {
-  const sig = await calFeedSig(env, uid, v);
+async function calFeedToken(env, uid, v, training) {
+  const sig = await calFeedSig(env, uid, v, training);
   return sig ? `${uid}.${v}.${sig}` : null;
 }
 // The user a token vouches for, or null (tampered with, or reset since).
-async function calFeedVerify(env, token) {
+async function calFeedVerify(env, token, training) {
   const m = /^([0-9a-f-]{36})\.(\d+)\.([A-Za-z0-9_-]{32})$/.exec(String(token || ""));
   if (!m) return null;
-  const expect = await calFeedSig(env, m[1], m[2]);
+  const expect = await calFeedSig(env, m[1], m[2], training);
   if (!expect || expect.length !== m[3].length) return null;
   let diff = 0;
   for (let i = 0; i < expect.length; i++) diff |= expect.charCodeAt(i) ^ m[3].charCodeAt(i);
   if (diff !== 0) return null;
   const u = await calFeedUser(env, m[1]);
-  return u && String(u.v) === m[2] ? { uid: m[1], v: u.v, seen: u.seen } : null;
+  const v = training ? u && u.vT : u && u.v;
+  return u && String(v) === m[2] ? { uid: m[1], v, seen: training ? u.seenT : u.seen } : null;
 }
 
 function calIcsText(s) { return String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n"); }
@@ -3981,23 +3989,29 @@ export default {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
         const b = await request.json().catch(() => ({}));
+        const training = !!(b && b.training);
+        if (training && String(user.email || "").toLowerCase() !== CAL_TRAINER) return json({ error: "The training calendar is Dani's." }, 403, request, env);
         const fu = await calFeedUser(env, user.id);
         if (!fu) return json({ error: "Couldn't make your link just now." }, 500, request, env);
-        let v = fu.v, seen = fu.seen;
+        let v = training ? fu.vT : fu.v, seen = training ? fu.seenT : fu.seen;
         if (b && b.reset) {
           // A new link: nothing is subscribed to it yet.
           v += 1; seen = {};
-          if (!(await calFeedSetMeta(env, user.id, { cal_feed_v: v, cal_feed_seen: {} }))) return json({ error: "Couldn't reset your link just now." }, 500, request, env);
+          const meta = training ? { cal_feed_v_training: v, cal_feed_seen_training: {} } : { cal_feed_v: v, cal_feed_seen: {} };
+          if (!(await calFeedSetMeta(env, user.id, meta))) return json({ error: "Couldn't reset your link just now." }, 500, request, env);
         }
-        const token = await calFeedToken(env, user.id, v);
+        const token = await calFeedToken(env, user.id, v, training);
         if (!token) return json({ error: "Calendar links aren't set up." }, 503, request, env);
         const base = (env.WORKER_PUBLIC_URL || url.origin).replace(/\/+$/, "");
-        return json({ feed: `${base}/calendar/feed/${token}.ics`, base: `${base}/calendar/feed/${token}`, synced: seen }, 200, request, env);
+        const at = `${base}/calendar/feed/${training ? "t/" : ""}${token}`;
+        return json({ feed: `${at}.ics`, base: at, synced: seen }, 200, request, env);
       }
       // The feed (every entry) or one entry, as a calendar file.
-      const calFeedM = request.method === "GET" && /\/calendar\/feed\/([^/]+?)(?:\/([0-9a-f-]{36}))?\.ics$/.exec(path);
+      const calFeedT = request.method === "GET" && /\/calendar\/feed\/t\/([^/]+?)(?:\/([0-9a-f-]{36}))?\.ics$/.exec(path);
+      const calFeedM = calFeedT || (request.method === "GET" && /\/calendar\/feed\/([^/]+?)(?:\/([0-9a-f-]{36}))?\.ics$/.exec(path));
       if (calFeedM) {
-        const who = await calFeedVerify(env, calFeedM[1]);
+        const calTable = calFeedT ? "training_calendar_items" : "calendar_items";
+        const who = await calFeedVerify(env, calFeedM[1], !!calFeedT);
         if (!who) return new Response("This calendar link has been reset or isn't valid.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
         const uid = who.uid;
         // The whole feed: note which calendar app is checking it, at most every
@@ -4007,16 +4021,17 @@ export default {
           console.log("[cal feed]", app, (request.headers.get("User-Agent") || "").slice(0, 160));
           const last = Date.parse(who.seen[app] || "");
           if (!isFinite(last) || Date.now() - last > 6 * 3600 * 1000) {
-            try { await calFeedSetMeta(env, uid, { cal_feed_seen: { ...who.seen, [app]: new Date().toISOString() } }); } catch (_) {}
+            const k = calFeedT ? "cal_feed_seen_training" : "cal_feed_seen";
+            try { await calFeedSetMeta(env, uid, { [k]: { ...who.seen, [app]: new Date().toISOString() } }); } catch (_) {}
           }
         }
         const site = (env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "");
         let rows;
         if (calFeedM[2]) {
-          rows = await sbGet(env, "calendar_items", `select=*&user_id=eq.${uid}&id=eq.${calFeedM[2]}`);
+          rows = await sbGet(env, calTable, `select=*&user_id=eq.${uid}&id=eq.${calFeedM[2]}`);
         } else {
           // From three months back, so recent history stays in place.
-          rows = await sbGetAll(env, "calendar_items", `select=*&user_id=eq.${uid}&status=neq.cancelled&scheduled_date=gte.${calAddDays(new Date().toISOString().slice(0, 10), -90)}&order=scheduled_date.asc,id.asc`);
+          rows = await sbGetAll(env, calTable, `select=*&user_id=eq.${uid}&status=neq.cancelled&scheduled_date=gte.${calAddDays(new Date().toISOString().slice(0, 10), -90)}&order=scheduled_date.asc,id.asc`);
         }
         if (!rows) return new Response("Couldn't read the calendar just now.", { status: 503, headers: { "Content-Type": "text/plain; charset=utf-8" } });
         if (calFeedM[2] && !rows.length) return new Response("That entry isn't on the calendar any more.", { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -5134,13 +5149,39 @@ export default {
       // ---- Email a planned post to the signed-in member now ------------------
       // The "Email it to me now" button in the editor's plan modal — sends the
       // caption + image to their own inbox straight away (grab it on your phone).
+      /* The 8am reminder for one training entry, sent now (16 Oct): so the
+         test run can check the email each kind of entry produces. Admins
+         only, training entries only, to the admin's own address. */
+      if (path.endsWith("/calendar/test-reminder") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !user._isAdmin) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.id) || "");
+        if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "Which entry?" }, 400, request, env);
+        const rows = await sbGet(env, "training_calendar_items", `select=*&id=eq.${id}&user_id=eq.${user.id}`);
+        const item = rows && rows[0];
+        if (!item) return json({ error: "No such training entry." }, 404, request, env);
+        const isPost = !item.activity || item.activity === "social_post";
+        const ok = isPost
+          ? await sendPostEmail(env, { email: user.email, item, subject: `[Test] Your ${item.platform_hint || "instagram"} post is planned for today` })
+          : await sendActivityEmail(env, { email: user.email, item });
+        return json({ ok: !!ok, to: user.email, kind: isPost ? "post" : "activity" }, ok ? 200 : 502, request, env);
+      }
+
       if (path.endsWith("/calendar/send-now") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !user.email) return json({ error: "Sign in first." }, 401, request, env);
         if (!env.RESEND_API_KEY) return json({ error: "Email isn't configured on the Worker." }, 503, request, env);
         const b = await request.json().catch(() => ({}));
         const item = { asset_url: String((b && b.asset_url) || ""), caption: (b && b.caption) || "", title: (b && b.title) || "", platform_hint: (b && b.platform) || "instagram" };
-        if (!item.asset_url) return json({ error: "Nothing to send." }, 400, request, env);
+        /* An uploaded post's files and links (Dani, 16 Oct). Only files from
+           our own storage are fetched and attached; anything else is dropped. */
+        const ours = `${env.SUPABASE_URL}/storage/v1/object/public/calendar-assets/`;
+        const files = (Array.isArray(b && b.files) ? b.files : []).filter((x) => x && typeof x.url === "string" && x.url.startsWith(ours)).slice(0, 10)
+          .map((x) => ({ name: String(x.name || "File").slice(0, 120), url: x.url }));
+        const links = (Array.isArray(b && b.links) ? b.links : []).filter((u) => typeof u === "string" && /^https?:\/\//.test(u)).slice(0, 10);
+        if (files.length || links.length) item.details = { files, links };
+        if (!item.asset_url && !files.length && !links.length) return json({ error: "Nothing to send." }, 400, request, env);
         const ok = await sendPostEmail(env, { email: user.email, item, subject: `Your ${item.platform_hint} post - ready to go` });
         if (!ok) return json({ error: "Couldn't send the email - try again." }, 502, request, env);
         return json({ ok: true, to: user.email }, 200, request, env);

@@ -1586,7 +1586,7 @@ import "../../styles/account-sections.css";
       $postSave.disabled = false;  $postSave.textContent = 'Save changes';
       $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
-      $postMycal.hidden = demoOn();
+      $postMycal.hidden = demoOn() && !isTrainingDemo();
       $postModal.hidden = false;
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => requestAnimationFrame(() => $postModal.classList.add('is-open')));
@@ -1675,13 +1675,12 @@ import "../../styles/account-sections.css";
     async function uploadPickFiles(files) {
       const acct = await plannerStore();
       if (!acct || acct.blocked) return pickUpError(acct ? acct.reason : "You're signed out — sign in again.");
-      if (acct.training) return pickUpError("Posts can't be uploaded in training. On your own calendar they can.");
       pickUpError('');
       for (const file of files) {
         if (!/^(image\/(png|jpeg)|application\/pdf)$/.test(file.type) && !/\.(png|jpe?g|pdf)$/i.test(file.name)) { pickUpError(`${file.name} isn't a PNG, JPEG or PDF.`); continue; }
         if (file.size > FILE_MAX) { pickUpError(`${file.name} is over 25 MB. Add a link to it instead.`); continue; }
         const safe = file.name.replace(/[^\w.\-]+/g, '-').slice(-80);
-        const path = `${acct.uid}/posts/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+        const path = `${acct.uid}/${acct.training ? 'training/' : ''}posts/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
         const entry = { kind: 'file', name: file.name, size: file.size, mime: file.type || '', uploading: true };
         pickUploads.push(entry); drawPickUploads();
         const { error } = await acct.db.storage.from('calendar-assets').upload(path, file, { contentType: file.type || undefined, upsert: false });
@@ -1707,7 +1706,7 @@ import "../../styles/account-sections.css";
       const b = e.target.closest('[data-up-del]'); if (!b) return;
       const [kind, i] = b.dataset.upDel.split(':');
       if (kind === 'link') pickLinks.splice(+i, 1);
-      else { const [x] = pickUploads.splice(+i, 1); if (x && x.path) supabase.storage.from('calendar-assets').remove([x.path]).catch(() => {}); }
+      else { const [x] = pickUploads.splice(+i, 1); if (x && x.path) filesDb().then((db) => db.storage.from('calendar-assets').remove([x.path])).catch(() => {}); }
       drawPickUploads();
     });
     $pickContinue?.addEventListener('click', () => {
@@ -1725,7 +1724,7 @@ import "../../styles/account-sections.css";
       // An upload that was never planned leaves nothing behind.
       if (pickMode === 'upload' && pickUploads.length && !pickSaved) {
         const paths = pickUploads.map((x) => x.path).filter(Boolean);
-        if (paths.length) supabase.storage.from('calendar-assets').remove(paths).catch(() => {});
+        if (paths.length) filesDb().then((db) => db.storage.from('calendar-assets').remove(paths)).catch(() => {});
       }
       pickUploads = []; pickLinks = []; pickSaved = false;
       pickMode = 'designs'; pickQueue = null;
@@ -1960,7 +1959,7 @@ import "../../styles/account-sections.css";
     /* Content Studio sessions and agent filming days are for agents of The
        Experts Group only (the same test as the TEG guides). */
     let isTeg = false;
-    import('../../lib/guide-audience.js').then((m) => m.guideViewer(supabase)).then((v) => { isTeg = !!(v && v.teg); }).catch(() => {});
+    import('../../lib/guide-audience.js').then((m) => m.guideViewer(supabase)).then((v) => { isTeg = !!(v && v.teg) || isTrainingDemo(); }).catch(() => { isTeg = isTrainingDemo(); });
 
     const isAct = (it) => it && it.activity && it.activity !== 'social_post';
     const catOfItem = (it) => categoryOf(activityOf(it.activity || 'social_post').category);
@@ -2000,7 +1999,7 @@ import "../../styles/account-sections.css";
       requestAnimationFrame(() => $actModal.classList.add('is-open'));
     }
     function closeAct() {
-      if (actFreshPaths.size) { const p = [...actFreshPaths]; actFreshPaths.clear(); supabase.storage.from(CAL_FILES).remove(p).catch(() => {}); }
+      if (actFreshPaths.size) { const p = [...actFreshPaths]; actFreshPaths.clear(); filesDb().then((db) => db.storage.from(CAL_FILES).remove(p)).catch(() => {}); }
       $actModal.classList.remove('is-open');
       $actModal.hidden = true;
       actEditing = null;
@@ -2152,7 +2151,7 @@ import "../../styles/account-sections.css";
       $actDelete.hidden = !item;
       $actBack.textContent = item ? 'Cancel' : 'Back';
       $actSave.disabled = false; $actSave.textContent = item ? 'Save changes' : 'Save';
-      $actMycal.hidden = !item || demoOn();
+      $actMycal.hidden = !item || (demoOn() && !isTrainingDemo());
       if ($actModal.hidden) showActModal();
       $actForm.scrollTop = 0;
       // Designs, once they have loaded.
@@ -2211,6 +2210,8 @@ import "../../styles/account-sections.css";
        calendar-files bucket under the member's own folder and open through a
        link that lasts five minutes (supabase/calendar_files.sql). */
     const CAL_FILES = 'calendar-files';
+    // The login that owns the files: a member's, or Dani's for the training account.
+    const filesDb = async () => { const a = await plannerStore(); return a && !a.blocked ? a.db : supabase; };
     const FILE_ACCEPT = '.pdf,.doc,.docx,.txt,.rtf,.odt,.pages,.xls,.xlsx,.csv,.numbers,.ppt,.pptx,.key,.png,.jpg,.jpeg,.webp,.heic';
     const FILE_MAX = 25 * 1024 * 1024;
     let actFiles = {};
@@ -2236,12 +2237,11 @@ import "../../styles/account-sections.css";
     async function uploadCalFiles(key, files) {
       const acct = await plannerStore();
       if (!acct || acct.blocked) return actError(acct ? acct.reason : "You're signed out — sign in again.");
-      if (acct.training) return actError("Files can't be uploaded in training. On your own calendar they can.");
       actError('');
       for (const file of files) {
         if (file.size > FILE_MAX) { actError(`${file.name} is over 25 MB, so it can't be added. Add a link to it instead.`); continue; }
         const safe = file.name.replace(/[^\w.\-]+/g, '-').slice(-80);
-        const path = `${acct.uid}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+        const path = `${acct.uid}/${acct.training ? 'training/' : ''}${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
         const entry = { kind: 'file', name: file.name, size: file.size, mime: file.type || '', path, uploading: true };
         (actFiles[key] = actFiles[key] || []).push(entry); drawFiles(key);
         const { error } = await acct.db.storage.from(CAL_FILES).upload(path, file, { contentType: file.type || undefined, upsert: false });
@@ -2271,7 +2271,7 @@ import "../../styles/account-sections.css";
       const del = e.target.closest('[data-file-del]');
       if (del) {
         const [x] = list.splice(+del.dataset.fileDel, 1); drawFiles(key);
-        if (x && x.kind === 'file' && actFreshPaths.has(x.path)) { actFreshPaths.delete(x.path); supabase.storage.from(CAL_FILES).remove([x.path]).catch(() => {}); }
+        if (x && x.kind === 'file' && actFreshPaths.has(x.path)) { actFreshPaths.delete(x.path); filesDb().then((db) => db.storage.from(CAL_FILES).remove([x.path])).catch(() => {}); }
         return;
       }
       const open = e.target.closest('[data-file-open]');
@@ -2390,12 +2390,14 @@ import "../../styles/account-sections.css";
     async function getFeedLink(reset) {
       if (feedLink && !reset) return feedLink;
       if (!API_BASE) throw new Error("Calendar links aren't available here.");
-      const { data } = await supabase.auth.getSession();
-      const token = data && data.session && data.session.access_token;
-      if (!token) throw new Error("You're signed out. Sign in again.");
+      // A member's own login, or Dani's for the training account, whose feed
+      // is the training entries (Worker: /calendar/feed/t/...).
+      const acct = await plannerStore();
+      if (!acct) throw new Error("You're signed out. Sign in again.");
+      if (acct.blocked) throw new Error(acct.reason);
       const res = await fetch(`${API_BASE}/calendar/feed-link`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ reset: !!reset }),
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + acct.token },
+        body: JSON.stringify({ reset: !!reset, training: !!acct.training }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.feed) throw new Error(j.error || "Couldn't get your link just now.");
@@ -2502,8 +2504,7 @@ import "../../styles/account-sections.css";
       $syncState.hidden = true; $syncReady.hidden = false;
     }
     async function openSync() {
-      if (isTrainingDemo()) { $syncState.textContent = "Training has nothing to sync. On your own Marketing Calendar, this gives you a private link that puts everything in your Apple, Outlook or Google calendar."; $syncState.hidden = false; $syncReady.hidden = true; }
-      else if (demoOn()) { lock("Syncing is for members.", "Members put their whole Marketing Calendar into their Apple, Outlook or Google calendar from here."); return; }
+      if (demoOn() && !isTrainingDemo()) { lock("Syncing is for members.", "Members put their whole Marketing Calendar into their Apple, Outlook or Google calendar from here."); return; }
       else {
         $syncState.textContent = 'Getting your link…'; $syncState.hidden = false; $syncReady.hidden = true;
         getFeedLink().then(fillSync).catch((err) => { $syncState.textContent = err.message || "Couldn't get your link just now."; });
@@ -2649,7 +2650,9 @@ import "../../styles/account-sections.css";
       const p = items.find((i) => String(i.id) === String(openPostId));
       if (!p) return;
       const asset = p.asset_url || p.thumbnail_url || '';
-      if (!asset)    return showPostError('This post has no image to send.');
+      const pd = p.details || {};
+      const hasFiles = (Array.isArray(pd.files) && pd.files.length) || (Array.isArray(pd.links) && pd.links.length);
+      if (!asset && !hasFiles) return showPostError('This post has no image to send.');
       if (!API_BASE) return showPostError("Email isn't available here (PUBLIC_R2_WORKER_URL not set).");
       const acct = await plannerStore();
       if (!acct)  return showPostError("You're signed out — sign in again.");
@@ -2665,6 +2668,8 @@ import "../../styles/account-sections.css";
             caption: ($postCaption.value || '').trim(),
             title: ($postTitle.value || '').trim(),
             platform: p.platform_hint || 'instagram',
+            files: (Array.isArray(pd.files) ? pd.files : []).map((x) => ({ name: x.name, url: x.url })),
+            links: Array.isArray(pd.links) ? pd.links : [],
           }),
         });
         const out = await res.json().catch(() => ({}));
