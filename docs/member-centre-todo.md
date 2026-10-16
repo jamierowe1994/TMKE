@@ -3,9 +3,39 @@
 The running list for `/account`. Raised 14 August 2026. Newest sections at the
 bottom; tick things off here rather than in a chat thread.
 
+## Where it stands (checked against the code, 16 October 2026)
+
+**Still to do**
+
+- **2a, the last part:** the dashboard's "payment due" stat counts unpaid
+  shoots only (`claimFromBookings` in account/index.astro); it should count
+  unpaid invoices too, from `/booking/invoices/mine`.
+- **4, the last part:** the "Reels that actually get watched" guide doesn't
+  exist yet; its card points at the guides index.
+- **5:** remove the unreachable blank-canvas size chooser from editor.astro.
+- **8:** training, optimised for mobile.
+- **9:** testimonial templates, guides on activities, Paid Advertising, plan
+  your route.
+
+**Done** (detail kept below for reference)
+
+- 0 · the Worker is deployed (both fixes live: `/booking/mine` returns email
+  correspondence only; `isSettled()` and the `smm_package` route).
+- 1 · Bookings show the stage track, the gallery link and the PIN once paid.
+- 2a · members see their own invoices on Bookings (`/booking/invoices/mine`,
+  a Worker endpoint, so the table stays shut).
+- 2b · the monthly report, at /account/social/report.
+- 2c · Message your account manager, from Your SMM (`/smm/message`).
+- 3 · ideas carry into the editor (`?prompt=`), and prompts are edited in the
+  admin centre (section 7).
+- 6 · folders: `user_designs.folder` exists on the live database.
+- 7 · `content_prompts` exists on the live database.
+- Notes · "New in The Studio" is real now (the Property Pack, What's new,
+  next month's content calendar).
+
 ---
 
-## 0 · Waiting on a Worker deploy
+## 0 · Waiting on a Worker deploy — done
 
 The site auto-deploys from `main` via Railway. **The Worker does not** — there
 is no CI, so it only updates when someone runs wrangler by hand:
@@ -26,7 +56,7 @@ Committed but not yet live in the Worker:
 
 ---
 
-## 1 · Bookings — show the member where their shoot actually is
+## 1 · Bookings — show the member where their shoot actually is — done
 
 **Today:** `/account/bookings` lists a booking and its raw `stage`. The member
 can see *that* they booked something, not what is happening to it.
@@ -88,7 +118,7 @@ message arrives attached to their account and the right person gets it.
 
 ---
 
-## 3 · Starter ideas — the parts still to do
+## 3 · Starter ideas — done
 
 The quiet-week starter row ships automatic: `src/data/content-calendar.js`
 holds UK dated hooks already turned into estate agency angles, resolved in the
@@ -166,7 +196,7 @@ that says what a pack is FOR is the pack's own `description`, edited where
 packs are edited. If no packs come back, the plain "Browse The Edit" strip
 shows instead — which is what happens signed out.
 
-## 6 · Design gallery — quick actions and folders
+## 6 · Design gallery — quick actions and folders — done
 
 Needs `supabase/user_designs_folders.sql` run before folders do anything. The
 rest works without it.
@@ -185,7 +215,7 @@ modal already open. Worth revisiting if a headless render ever exists.
 ratio and names it, falling back to `pages[0].canvas` for multi-page designs.
 Nothing to migrate, but it means an unusual size lands in "Other".
 
-## 7 · Prompts are editable from the admin centre
+## 7 · Prompts are editable from the admin centre — done
 
 Insights > Prompts. Needs two migrations, in order:
 
@@ -245,6 +275,6 @@ Raised 16 October 2026.
 
 ## Notes
 
-- The dashboard's "New in The Studio" row is **placeholder copy and images**.
-  The links go to real pages but nothing fetches those four items. If it should
-  list real packs and guides, that is a separate piece of work.
+- ~~The dashboard's "New in The Studio" row is placeholder copy and images.~~
+  Done: it is the Property Pack, What's new (src/data/whats-new.js) and next
+  month's content calendar.
