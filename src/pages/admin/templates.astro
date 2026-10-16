@@ -379,8 +379,8 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin-bottom: 8px;
     }
     .tpl-ask-input {
-      width: 100%; box-sizing: border-box; padding: 14px 16px;
-      font-family: var(--serif); font-size: 22px; color: var(--ink);
+      width: 100%; box-sizing: border-box; padding: 10px 12px;
+      font-family: var(--sans); font-size: 15px; color: var(--ink);
       background: #fff; border: 1px solid rgba(28,29,34,0.2); border-radius: 6px;
     }
     .tpl-ask-input:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(55, 30, 40,0.14); }
@@ -394,6 +394,22 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     .tpl-ask-cancel:hover { color: var(--ink); border-color: rgba(28,29,34,0.45); }
     .tpl-ask-ok { background: var(--english-violet); color: var(--paper); }
     .tpl-ask-ok:hover { background: var(--ink); }
+    /* New template: the name, then the size it's drawn at (Dani, 16 Oct). */
+    .tpl-ask--new { max-width: 600px; }
+    .tpl-size-group { margin-top: 20px; }
+    .tpl-size-opts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .tpl-size-opt {
+      display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
+      padding: 7px 11px; border-radius: 4px; cursor: pointer; text-align: left;
+      background: #fff; border: 1px solid rgba(28,29,34,0.16); color: var(--ink);
+      font-family: var(--sans); font-size: 12px; font-weight: 600; line-height: 1.25;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+    .tpl-size-opt small { font-size: 10px; font-weight: 500; color: rgba(28,29,34,0.5); }
+    .tpl-size-opt:hover { border-color: var(--english-violet); }
+    .tpl-size-opt[aria-pressed="true"] { background: var(--english-violet); border-color: var(--english-violet); color: var(--paper); }
+    .tpl-size-opt[aria-pressed="true"] small { color: rgba(244,242,241,0.75); }
+    .tpl-size-opt:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
     /* The contact-block picker: same sheet, a list of four instead of a field. */
     .tpl-ask--block { max-width: 520px; }
     .tpl-block-opts { display: grid; gap: 8px; }
@@ -427,6 +443,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     import {
       escapeHtml, renderEl, renderBlockPreview, blockBoxOf, VARIANT_LABEL,
     } from '../../lib/design-preview.js';
+    import { STUDIO_SIZES } from '../../data/studio-sizes.js';
 
     const els = {
       grid: document.getElementById('tpl-grid'),
@@ -842,21 +859,63 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       });
     }
 
-    async function newTemplate() {
-      const name = await askName({
-        title: 'New template',
-        label: 'Template name',
-        placeholder: 'e.g. Just Listed — Editorial',
-        confirm: 'Create template',
+    /* The name and the size together, so a template starts at the size it's
+       for: an A5 flyer begins as an A5, not as an Instagram post resized
+       afterwards (Dani, 16 Oct, after Sam's A5 flyer). */
+    function askNewTemplate() {
+      return new Promise((resolve) => {
+        const first = STUDIO_SIZES[0].sizes[0];
+        let chosen = { w: first.w, h: first.h };
+        const scrim = document.createElement('div');
+        scrim.className = 'tpl-ask-scrim';
+        scrim.innerHTML = `
+          <div class="tpl-ask tpl-ask--new" role="dialog" aria-modal="true" aria-label="New template">
+            <div class="tpl-ask-eyebrow">New template</div>
+            <label class="tpl-ask-label" for="tpl-new-name">Template name</label>
+            <input type="text" class="tpl-ask-input" id="tpl-new-name" placeholder="e.g. Just Listed — Editorial" />
+            ${STUDIO_SIZES.map((g) => `<div class="tpl-size-group">
+              <div class="tpl-ask-label">${escapeHtml(g.label)}</div>
+              <div class="tpl-size-opts">${g.sizes.map((z) => `<button type="button" class="tpl-size-opt" data-w="${z.w}" data-h="${z.h}" aria-pressed="${z === first}">${escapeHtml(z.name)}<small>${escapeHtml(z.mm || `${z.w} × ${z.h}`)}</small></button>`).join('')}</div>
+            </div>`).join('')}
+            <div class="tpl-ask-actions">
+              <button type="button" class="tpl-ask-cancel">Cancel</button>
+              <button type="button" class="tpl-ask-ok">Create template</button>
+            </div>
+          </div>`;
+        document.body.appendChild(scrim);
+        const input = scrim.querySelector('.tpl-ask-input');
+        const done = (val) => {
+          scrim.classList.remove('is-open');
+          setTimeout(() => scrim.remove(), 220);
+          resolve(val);
+        };
+        const ok = () => { const name = input.value.trim(); if (!name) { input.focus(); return; } done({ name, ...chosen }); };
+        scrim.querySelectorAll('.tpl-size-opt').forEach((b) => b.addEventListener('click', () => {
+          scrim.querySelectorAll('.tpl-size-opt').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+          chosen = { w: +b.dataset.w, h: +b.dataset.h };
+        }));
+        scrim.querySelector('.tpl-ask-ok').addEventListener('click', ok);
+        scrim.querySelector('.tpl-ask-cancel').addEventListener('click', () => done(null));
+        scrim.addEventListener('mousedown', (e) => { if (e.target === scrim) done(null); });
+        scrim.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && e.target === input) { e.preventDefault(); ok(); }
+          else if (e.key === 'Escape') { e.preventDefault(); done(null); }
+        });
+        requestAnimationFrame(() => { scrim.classList.add('is-open'); input.focus(); });
       });
-      if (!name) return;
+    }
+
+    async function newTemplate() {
+      const picked = await askNewTemplate();
+      if (!picked) return;
+      const name = picked.name;
       const id = 'tmpl-' + Math.random().toString(36).slice(2, 8);
       const row = {
         id,
         name: name.trim(),
         category: null,
         thumb_url: null,
-        canvas: { width: 1080, height: 1440, background: '#f4f2f1' },
+        canvas: { width: picked.w, height: picked.h, background: '#f4f2f1' },
         elements: [],
         status: 'draft',
         sort_order: 9000,
