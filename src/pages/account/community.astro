@@ -236,6 +236,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-need svg { width: 11px; height: 11px; }
     .cm-mine { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); }
 
+    .cm-more svg { width: 12px; height: 12px; margin-left: 6px; vertical-align: -1px; }
     .cm-more { all: unset; cursor: pointer; align-self: flex-start; margin-top: 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-ink); border-bottom: 1px solid rgba(28,29,34,0.35); padding-bottom: 3px; }
     .cm-more:hover { color: var(--english-violet); border-color: var(--english-violet); }
 
@@ -266,10 +267,11 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-fortnight { display: flex; flex-direction: column; gap: var(--ws-gap); }
     .cm-disc { display: flex; flex-direction: column; gap: var(--ws-gap); }
     /* Paragraphs a quarter closer than a blank line would put them. */
-    .cm-paras { display: flex; flex-direction: column; gap: 1.2em; white-space: normal !important; }
+    .cm-paras { display: flex; flex-direction: column; gap: 0.55em; white-space: normal !important; }
     .cm-para { display: block; white-space: pre-line; }
-    /* The pinned one, once a newer discussion is up: the slate, not the wine. */
-    .cm-fold.cm-pin, .cm-topic-card.cm-pin { background: #333747; }
+    /* The pinned one, once a newer discussion is up: the brand's second
+       darkest, #7e6765, not the wine (Dani, 17 Oct). */
+    .cm-fold.cm-pin, .cm-topic-card.cm-pin { background: #7e6765; }
     .cm-view-foot { margin-top: auto; padding-top: 4px; }
     .cm-topic-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .cm-topic-card .cm-topic-p { max-width: 75%; }
@@ -445,7 +447,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
 
     const CATS = JSON.parse(document.getElementById("cm-cats").textContent || "[]");
     const STATUS = { planned: "Planned", building: "Being built", done: "Done", declined: "Not for now" };
-    const SHOW = 6;   // rows before "Show all"
+    const SHOW = 5;   // rows before "Show more" (Dani, 17 Oct: never an endless list)
     const $ = (s, r = document) => r.querySelector(s);
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
     // Paragraphs as blocks, a quarter closer than a blank line (Dani, 17 Oct).
@@ -531,6 +533,10 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       return `<div class="cm-none"><p class="cm-none-h">${esc(h)}</p><p class="cm-none-p">${esc(p)}</p>${go ? `<button type="button" class="cm-none-go" data-cm-new="${go.kind}">${esc(go.label)} &rarr;</button>` : ""}</div>`;
     }
 
+    // Five, then an arrow to drop the rest down (and back up).
+    function moreBtn(which, open, extra, noun) {
+      return `<button type="button" class="cm-more" data-more="${which}" aria-expanded="${open}">${open ? "Show fewer" : `Show ${extra} more ${extra === 1 ? noun : noun + "s"}`}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${open ? "M4 10l4-4 4 4" : "M4 6l4 4 4-4"}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+    }
     function paintTalk() {
       const box = $("[data-cm-talk]");
       box.innerHTML = "";
@@ -538,7 +544,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       if (!S.talk.length) { box.innerHTML = none("No conversations yet", "Ask the room: a post that worked, a listing that wouldn't shift, a tool you swear by.", { kind: "discussion", label: "Start the first one" }); return; }
       const list = S.allTalk ? S.talk : S.talk.slice(0, SHOW);
       list.forEach((p) => box.appendChild(talkRow(p)));
-      if (S.talk.length > SHOW && !S.allTalk) box.insertAdjacentHTML("beforeend", `<button type="button" class="cm-more" data-more="talk">Show all ${S.talk.length} conversations</button>`);
+      if (S.talk.length > SHOW) box.insertAdjacentHTML("beforeend", moreBtn("talk", S.allTalk, S.talk.length - SHOW, "conversation"));
     }
     function sortedReqs() {
       const r = [...S.reqs];
@@ -555,7 +561,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       if (!S.reqs.length) { box.innerHTML = none("No requests yet", "Be the first: a template you keep wishing existed, a tool that would save you an hour, a change that would make something easier.", { kind: "request", label: "Ask for something" }); return; }
       const all = sortedReqs();
       (S.allReqs ? all : all.slice(0, SHOW)).forEach((p) => box.appendChild(reqRow(p)));
-      if (all.length > SHOW && !S.allReqs) box.insertAdjacentHTML("beforeend", `<button type="button" class="cm-more" data-more="reqs">Show all ${all.length} requests</button>`);
+      if (all.length > SHOW) box.insertAdjacentHTML("beforeend", moreBtn("reqs", S.allReqs, all.length - SHOW, "request"));
     }
     // ── Reactions (Dani, 17 Oct): on posts and comments, one each ─────────────
     const RX = [["heart", "❤️", "Love"], ["thumbs", "👍", "Like"], ["hug", "🤗", "Hug"], ["cry", "😢", "Sad"], ["laugh", "😂", "Haha"]];
@@ -916,7 +922,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       if (t.closest("[data-cm-me]")) { e.preventDefault(); openMe(); return; }
       const op = t.closest("[data-open]"); if (op) { e.preventDefault(); const u = new URL(location.href); u.searchParams.set("post", op.dataset.open); history.replaceState(null, "", u); openThread(op.dataset.open); return; }
       const nd = t.closest("[data-need]"); if (nd) { e.preventDefault(); toggleNeed(nd); return; }
-      const mo = t.closest("[data-more]"); if (mo) { if (mo.dataset.more === "talk") { S.allTalk = true; paintTalk(); } else { S.allReqs = true; paintReqs(); } return; }
+      const mo = t.closest("[data-more]"); if (mo) { if (mo.dataset.more === "talk") { S.allTalk = !S.allTalk; paintTalk(); } else { S.allReqs = !S.allReqs; paintReqs(); } return; }
       const so = t.closest("[data-sort]"); if (so) {
         S.sort = so.dataset.sort;
         document.querySelectorAll("[data-sort]").forEach((b) => { b.classList.toggle("is-on", b === so); b.setAttribute("aria-pressed", String(b === so)); });
