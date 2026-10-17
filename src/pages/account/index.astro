@@ -22,13 +22,6 @@ const latestPostHref = latestPost?.slug ? `/account/blog#${latestPost.slug}` : "
 // Chapter 04's folder: the Getting Started series, then the latest blog.
 const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: latestPostHref });
 
-// The Content planner door's hover picture: a small month drawn like the
-// Planner, filled in (Dani, 16 Oct). An illustration of the Planner, not
-// anybody's diary, so it has no month name and no real entries.
-const CAL_CATS = { content: "#371e28", print: "#2f5d62", business: "#465a86", property: "#8c5f37", campaigns: "#5f6a35" };
-const CAL_POSTS = { 2: "home%20window.jpg", 9: "sitting%20chair.jpg", 15: "home%20chair.jpg", 23: "home%20kitchen.jpg", 29: "home%20window.jpg" };
-const CAL_ACTS = { 3: ["property"], 6: ["content"], 8: ["print", "print"], 13: ["business"], 16: ["campaigns", "campaigns"], 17: ["campaigns"], 20: ["content", "property"], 24: ["print"], 27: ["business"], 30: ["campaigns"] };
-const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => i + 1), ...Array(1).fill(0)];
 ---
 
 <!--
@@ -254,20 +247,7 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
               <span class="ws-door-go" aria-hidden="true">&rarr;</span>
             </a>
             <a class="ws-tool ws-door" href="/account/schedule">
-              <span class="ws-door-img ws-door-cal" aria-hidden="true">
-                <span class="ws-mcal">
-                  <span class="ws-mcal-wd">{["M", "T", "W", "T", "F", "S", "S"].map((d) => <span>{d}</span>)}</span>
-                  <span class="ws-mcal-grid">
-                    {CAL_CELLS.map((d) => d === 0 ? <span class="ws-mcal-c is-off"></span> : (
-                      <span class="ws-mcal-c">
-                        <span class="ws-mcal-n">{d}</span>
-                        {CAL_POSTS[d] && <span class="ws-mcal-pic" style={`background-image:url('/assets/${CAL_POSTS[d]}')`}></span>}
-                        {(CAL_ACTS[d] || []).map((k) => <span class="ws-mcal-bar" style={`background:${CAL_CATS[k]}`}></span>)}
-                      </span>
-                    ))}
-                  </span>
-                </span>
-              </span>
+              <span class="ws-door-img" aria-hidden="true" style="background-image:url('/images/dashboard/door-planner-v1.webp')"></span>
               <span class="ws-door-ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
               <span class="ws-door-tx"><strong>Content planner</strong><span>See what's coming up.</span></span>
               <span class="ws-door-go" aria-hidden="true">&rarr;</span>
@@ -764,25 +744,13 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
        stays exactly as it was (Dani, 17 Oct: it used to fade in with the
        picture, so the whole card seemed to blink). */
     .ws-door-tx { position: relative; margin: auto calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px 40px var(--pad) var(--pad); display: flex; flex-direction: column; gap: 5px; min-width: 0; background: var(--door); }
-    .ws-door-img { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; opacity: 0; transform: scale(1.04);
+    /* On hover the picture covers the whole card, words and band included;
+       off it, the card and its words come back (Dani, 17 Oct). */
+    .ws-door-img { position: absolute; inset: 0; z-index: 3; background-size: cover; background-position: center; opacity: 0; transform: scale(1.04);
       transition: opacity 0.5s var(--ws-ease), transform 1.2s var(--ws-ease); pointer-events: none; }
     @media (hover: hover) {
       .ws-door:hover .ws-door-img, .ws-door:focus-visible .ws-door-img { opacity: 1; transform: none; }
-      .ws-door:not(.ws-resume):hover .ws-door-ic { background: rgba(55,30,40,0.72); }
     }
-    /* The planner's picture: a little month filling the card (no paper round
-       it, Dani, 16 Oct), posts as pictures and everything else as bars in the
-       Planner's category colours. It runs from under the icon to the band. */
-    .ws-door-cal { background: #fff; }
-    .ws-mcal { position: absolute; top: 66px; left: 10px; right: 10px; bottom: 82px; display: flex; flex-direction: column; color: var(--ws-ink); }
-    .ws-mcal-wd, .ws-mcal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
-    .ws-mcal-grid { flex: 1 1 auto; grid-auto-rows: minmax(0, 1fr); }
-    .ws-mcal-wd { margin-bottom: 3px; font-size: 7px; font-weight: 700; letter-spacing: 0.08em; color: var(--ws-faint); text-align: center; }
-    .ws-mcal-c { position: relative; display: flex; flex-direction: column; gap: 1.5px; min-height: 0; padding: 2px; border-radius: 2px; background: #f7f5f4; overflow: hidden; }
-    .ws-mcal-c.is-off { background: transparent; }
-    .ws-mcal-n { font-size: 6.5px; font-weight: 600; line-height: 1; color: var(--ws-tx); }
-    .ws-mcal-pic { flex: 1 1 auto; min-height: 0; border-radius: 1.5px; background-size: cover; background-position: center; }
-    .ws-mcal-bar { flex: none; height: 3px; border-radius: 1px; }
     .ws-door-tx strong { font-size: clamp(15px, 1.15vw, 18px); font-weight: 600; line-height: 1.2; letter-spacing: -0.005em; }
     .ws-door-tx span { font-size: var(--ws-t-meta); line-height: 1.4; opacity: 0.82; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .ws-door-go { position: absolute; right: clamp(16px, 1.5vw, 22px); bottom: clamp(16px, 1.5vw, 22px); font-size: 16px; line-height: 1; transition: transform 0.3s var(--ws-ease); }
