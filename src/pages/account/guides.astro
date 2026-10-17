@@ -503,7 +503,11 @@ import "../../styles/reel.css";
       const p = PROGRESS[g.slug];
       let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`;
       let footer;
-      if (p && p.completed) {
+      // Finished, or read to its last part: back in at the start, since coming
+      // back usually means wanting something from it. Part-way: where they
+      // left off (Dani, 17 Oct).
+      const finished = p && (p.completed || (p.total > 0 && p.furthest >= p.total));
+      if (finished) {
         footer = `<span class="lrn-gcard-meta lrn-done">${TICK} Completed</span>`;
       } else if (p && g.kind === 'course' && p.total > 0 && p.furthest >= 1) {
         const at = Math.min(p.furthest, p.total);
@@ -541,7 +545,7 @@ import "../../styles/reel.css";
         const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
         const p = PROGRESS[g.slug];
         let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`, meta;
-        if (p && p.completed) meta = 'Completed \u2713';
+        if (p && (p.completed || (p.total > 0 && p.furthest >= p.total))) meta = 'Completed \u2713';
         else if (p && p.total > 0 && p.furthest >= 1) { href += `&p=${p.furthest}`; meta = `Resume \u00b7 part ${Math.min(p.furthest, p.total)} of ${p.total}`; }
         else meta = `${lessons} lesson${lessons === 1 ? '' : 's'}${g.est_minutes ? ` \u00b7 ${g.est_minutes} min` : ''}`;
         return `<a class="lrn-door" href="${href}">

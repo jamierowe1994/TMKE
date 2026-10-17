@@ -241,25 +241,18 @@ export const WALKS = {
     line: "Find your Demo Pack, choose a design and open it in the editor. The Studio creates your own copy, leaving the original template untouched. Your demo templates are there to experiment with. Change the wording, swap the imagery and move things around. You can always return to the original and start again.",
     stage: "/account/studio",
     steps: [
-      /* Dani's picture, taken in the rig. A step with a shot does not drive the
-         live Studio at all: no page to load, nothing to select, nothing to
-         scroll, and it looks the same every time. */
-      { shot: "/images/learn/demo/shots/studio-template--account-studio@2x.webp",
-        target: ".ws-hero", placement: "bottom",
+      /* The first three are the live Studio page again (Dani, 17 Oct): the
+         training window is the training account now, so there is nothing of
+         anyone's to show, and a page that only scrolls and highlights needs no
+         picture -- and no reshoot when the page changes. The editor steps
+         below keep theirs. */
+      { path: "/account/studio", target: ".ws-hero", placement: "bottom",
         eyebrow: "Studio", title: "Welcome to the Studio",
         body: "You'll find your template packs, saved designs and creative tools in the Studio." },
-      /* Steps 2 and 3 slide the picture down so it starts at "Chapter 01 -
-         Your Packs": the bar's top is 350 Studio pixels down the page,
-         measured on the picture, and 330 leaves it a margin above. An offset is
-         in Studio pixels, so it holds whatever resolution the picture is.
-         Dani, 12 Oct: "We show the top of the page. We zoom down. We zoom
-         down." */
-      { shot: "/images/learn/demo/shots/studio-template--account-studio@2x.webp", shotY: 330,
-        target: 'section[aria-labelledby="packs-h"]', placement: "top",
+      { path: "/account/studio", target: 'section[aria-labelledby="packs-h"]', placement: "top",
         eyebrow: "Your packs", title: "Find Your Templates",
         body: "Your packs are displayed here, including the free Demo Pack that comes with every Member Hub account." },
-      { shot: "/images/learn/demo/shots/studio-template--account-studio@2x.webp", shotY: 330,
-        target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
+      { path: "/account/studio", target: ".st-pack[data-demo-pack], .st-pack", placement: "bottom", padding: 8,
         eyebrow: "Your packs", title: "Open Your Demo Pack",
         body: "Select the Demo Pack to see the three templates included with your account." },
       /* The whole pack view, not just the grid of designs. The pack page
