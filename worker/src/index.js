@@ -3919,6 +3919,25 @@ async function notifyMember(env, userId, { kind, title, body, href, meta }) {
   } catch (_) { return false; }
 }
 
+// Every sign-in account, a thousand at a time, banned ones left out.
+// { users: [{ id, email, created_at }], error } -- error is "" when complete.
+async function listAccounts(env) {
+  const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` };
+  const out = [];
+  for (let page = 1; page <= 50; page++) {
+    const r = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=1000`, { headers: H }).catch(() => null);
+    if (!r || !r.ok) return { users: out, error: `Couldn't list accounts (${r ? r.status : "no answer"}).` };
+    const j = await r.json().catch(() => ({}));
+    const users = Array.isArray(j.users) ? j.users : [];
+    for (const u of users) {
+      if (!u.id || (u.banned_until && new Date(u.banned_until) > new Date())) continue;
+      out.push({ id: u.id, email: String(u.email || "").toLowerCase(), created_at: u.created_at });
+    }
+    if (users.length < 1000) break;
+  }
+  return { users: out, error: "" };
+}
+
 // Hub notices (member_broadcasts.sql): a message the admin writes once for
 // every member's bell, sent at the time it was set for. Each due notice is
 // claimed first (scheduled → sending, only if still scheduled), so two ticks
@@ -3940,20 +3959,8 @@ async function runMemberBroadcasts(env) {
     }).catch(() => null);
     const claimed = claim && claim.ok ? await claim.json().catch(() => []) : [];
     if (!claimed.length) continue;
-    // Every account, a thousand at a time. Banned accounts are skipped.
-    const ids = [];
-    let listError = "";
-    for (let page = 1; page <= 50; page++) {
-      const r = await fetch(`${env.SUPABASE_URL}/auth/v1/admin/users?page=${page}&per_page=1000`, { headers: H }).catch(() => null);
-      if (!r || !r.ok) { listError = `Couldn't list accounts (${r ? r.status : "no answer"}).`; break; }
-      const j = await r.json().catch(() => ({}));
-      const users = Array.isArray(j.users) ? j.users : [];
-      for (const u of users) {
-        if (u.banned_until && new Date(u.banned_until) > new Date()) continue;
-        if (u.id) ids.push(u.id);
-      }
-      if (users.length < 1000) break;
-    }
+    const { users, error: listError } = await listAccounts(env);
+    const ids = users.map((u) => u.id);
     let sent = 0, failed = 0;
     const meta = { broadcast_id: b.id };
     for (let i = 0; i < ids.length; i += 500) {
@@ -4103,6 +4110,19 @@ export default {
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         await runMemberBroadcasts(env);
         return json({ ok: true }, 200, request, env);
+      }
+
+      // ---- Members on the admin dashboard -----------------------------------
+      // Everyone with a hub account, staff left out, and when each joined.
+      // Counted from the accounts themselves: a contact's CRM stage moves on
+      // from "member" when they buy or book, so it undercounts members.
+      if (path.endsWith("/admin/members/stats") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const { users, error } = await listAccounts(env);
+        if (error && !users.length) return json({ error }, 502, request, env);
+        const members = users.filter((u) => !emailLooksAdmin(u));
+        return json({ total: members.length, joined: members.map((u) => u.created_at).filter(Boolean), partial: !!error }, 200, request, env);
       }
 
       // ---- The Marketing Calendar in their own calendar ----------------------

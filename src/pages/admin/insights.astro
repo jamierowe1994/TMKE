@@ -243,6 +243,7 @@ import "../../styles/admin.css";
   <script>
     import { supabase } from "../../lib/supabase.js";
     import { requireAdmin } from "../../lib/admin-gate.js";
+    import { pageAll } from "../../lib/site-traffic.js";
 
     const el = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -475,10 +476,12 @@ import "../../styles/admin.css";
       el("wi-empty").hidden = true;
       el("wi-count").textContent = "Loading…";
       const since = new Date(Date.now() - days * 864e5).toISOString();
-      let q = supabase.from("site_events").select("id, name, path, session_id, user_id, referrer, props, created_at")
-        .order("created_at", { ascending: false }).limit(50000);
-      if (days <= 400) q = q.gte("created_at", since);
-      const { data, error } = await q;
+      /* Every row in the range. A plain select stops at 1,000 rows without
+         saying so, which cut this page to the last few days' visits. */
+      const base = (sel, opts) => { const q = supabase.from("site_events").select(sel, opts); return days <= 400 ? q.gte("created_at", since) : q; };
+      const head = await base("id", { count: "exact", head: true });
+      const { data, error } = head.error ? head : await pageAll(Math.min(head.count || 0, 200000), (a, b) =>
+        base("id, name, path, session_id, user_id, referrer, props, created_at").order("created_at", { ascending: false }).order("id", { ascending: true }).range(a, b));
       if (error) {
         el("wi-body").hidden = true;
         el("wi-empty").hidden = false;

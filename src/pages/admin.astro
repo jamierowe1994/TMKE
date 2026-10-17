@@ -301,6 +301,8 @@ import AdminShell from "../components/admin/AdminShell.astro";
 
   <script>
     import { supabase, gbpFromPence } from "../lib/supabase.js";
+    import { packageBrief } from "../lib/videography-config.js";
+    import { pageAll, publicSite } from "../lib/site-traffic.js";
 
     function setStat(key, value) { document.querySelectorAll(`[data-stat="${key}"]`).forEach((el) => { el.textContent = value; }); }
     function esc(s) { return String(s ?? "").replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])); }
@@ -377,6 +379,43 @@ import AdminShell from "../components/admin/AdminShell.astro";
         buckets.push({ label: d.toLocaleDateString("en-GB", { month: "short" }), year: d.getFullYear(), month: d.getMonth() });
       }
       return buckets;
+    }
+
+    /* Videography: the board's own columns (admin/videography.astro STAGES).
+       The same table also holds enquiries and discovery calls, and cancelled
+       bookings, none of which is a booking to count. */
+    const VID_PIPELINE = ["booked", "awaiting_invoice", "invoiced", "shoot_day", "editing", "gallery_ready", "sent", "delivered"];
+    // One client per email; a booking added by hand without one counts by name.
+    const vidClientKey = (r) => {
+      const email = (r.client_email || "").trim().toLowerCase();
+      if (email) return email;
+      const name = [r.client_name, r.client_company].map((v) => (v || "").trim().toLowerCase()).filter(Boolean).join("|");
+      return name ? "name:" + name : "id:" + r.id;
+    };
+    /* Members: everyone with a hub account (staff left out), from the Worker,
+       which can see the accounts. Not the CRM stage: a member who buys or
+       books becomes a "customer" there. Falls back to contacts with an
+       account if the Worker can't be reached. */
+    async function memberStats() {
+      const W = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const r = await fetch(`${W}/admin/members/stats`, { headers: { Authorization: "Bearer " + (session && session.access_token) } });
+        if (r.ok) return await r.json();
+      } catch (_) {}
+      const { data, error } = await supabase.from("contacts").select("created_at").not("user_id", "is", null);
+      return error ? null : { total: (data || []).length, joined: (data || []).map((c) => c.created_at) };
+    }
+
+    /* Every pageview of the public website: not the hub or the admin, and not
+       a visit that also opened the admin (us). All of them, a thousand at a
+       time; a plain select stops at 1,000 rows without saying so. */
+    async function sitePageviews() {
+      const base = (sel, opts) => supabase.from("site_events").select(sel, opts).eq("name", "pageview");
+      const { count, error } = await base("id", { count: "exact", head: true });
+      if (error) return { data: null, error };
+      const r = await pageAll(count, (a, b) => base("id, path, session_id, created_at").order("created_at", { ascending: true }).order("id", { ascending: true }).range(a, b));
+      return r.error ? r : { data: publicSite(r.data), error: null };
     }
 
     // Single-series month bars — same visual language as the Revenue graph.
@@ -481,30 +520,28 @@ import AdminShell from "../components/admin/AdminShell.astro";
         vidBookingsThisMonth,
         blogPub,
         enquiriesThisMonth, smmLeadsThisMonth,
-        pageviewsMonth, pageviewsTotal, visitorsMonth, pageviewsDaily,
+        siteViews,
         revenueYTD,
         contactsForGrowth, smmForGrowth,
         ordersForEdit, vidBookingsForChart,
         blogViewsThisMonth, blogPosts,
       ] = await Promise.all([
         supabase.from("contacts").select("*", { count: "exact", head: true }),
-        supabase.from("contacts").select("*", { count: "exact", head: true }).eq("lifecycle", "member"),
+        memberStats(),
         supabase.from("smm_leads").select("package_name, contracted_hours_per_month").eq("pipeline_stage", "active_client"),
-        supabase.from("videography_bookings").select("client_email, created_at").neq("stage", "cancelled"),
+        supabase.from("videography_bookings").select("id, stage, client_email, client_name, client_company, created_at").in("stage", VID_PIPELINE),
         supabase.from("invoices").select("number, bill_to_name, status, total_pence, issued_date, due_date").gte("issued_date", monthStartDate).order("issued_date", { ascending: false }),
         supabase.from("packs").select("*", { count: "exact", head: true }).eq("status", "active"),
         supabase.from("templates").select("*", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").gte("created_at", monthStartISO),
-        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid"),
+        // Gifts are packs we gave away, not purchases (they're in the chart, as gifts).
+        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").or("payment_method.is.null,payment_method.neq.gift").gte("created_at", monthStartISO),
+        supabase.from("orders").select("*", { count: "exact", head: true }).eq("status", "paid").or("payment_method.is.null,payment_method.neq.gift"),
         supabase.from("automations").select("id, name, graph").eq("status", "active"),
-        supabase.from("videography_bookings").select("stage, duration_min, client_email").gte("shoot_date", monthStartISO).lt("shoot_date", new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()),
+        supabase.from("videography_bookings").select("id, stage, duration_min, client_email, client_name, client_company, service_type, package").in("stage", VID_PIPELINE).gte("shoot_date", monthStartISO).lt("shoot_date", new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()),
         supabase.from("blog_posts").select("*", { count: "exact", head: true }).eq("status", "published"),
         supabase.from("enquiries").select("*", { count: "exact", head: true }).gte("created_at", monthStartISO),
         supabase.from("smm_leads").select("kind").gte("created_at", monthStartISO),
-        supabase.from("site_events").select("*", { count: "exact", head: true }).eq("name", "pageview").gte("created_at", monthStartISO),
-        supabase.from("site_events").select("*", { count: "exact", head: true }).eq("name", "pageview"),
-        supabase.from("site_events").select("session_id").eq("name", "pageview").gte("created_at", monthStartISO),
-        supabase.from("site_events").select("created_at").eq("name", "pageview").gte("created_at", monthStartISO),
+        sitePageviews(),
         supabase.from("orders").select("amount_pence, created_at").eq("status", "paid").gte("created_at", yearStart),
         // Cumulative-growth series (CRM slide 2) needs full history, not just
         // the last 6 months — someone created 2 years ago still counts
@@ -512,17 +549,17 @@ import AdminShell from "../components/admin/AdminShell.astro";
         supabase.from("contacts").select("created_at, lifecycle"),
         supabase.from("smm_leads").select("created_at").eq("pipeline_stage", "active_client"),
         supabase.from("orders").select("created_at, payment_method").eq("status", "paid").gte("created_at", sixMonthsAgoISO),
-        supabase.from("videography_bookings").select("created_at").neq("stage", "cancelled").gte("created_at", sixMonthsAgoISO),
+        supabase.from("videography_bookings").select("created_at").in("stage", VID_PIPELINE).gte("created_at", sixMonthsAgoISO),
         supabase.from("site_events").select("path").eq("name", "pageview").gte("created_at", monthStartISO).ilike("path", "/blog/%"),
         supabase.from("blog_posts").select("slug, title"),
       ]);
 
       // ---- CRM ----
       if (!contactsTotal.error) setStat("crm-contacts", String(contactsTotal.count ?? 0));
-      if (!contactsMembers.error) setStat("crm-members", String(contactsMembers.count ?? 0));
+      if (contactsMembers) setStat("crm-members", String(contactsMembers.total));
       const smmClientCount = (!smmActiveRows.error && smmActiveRows.data) ? smmActiveRows.data.length : 0;
       const vidClientCount = (!vidClientRows.error && vidClientRows.data)
-        ? new Set(vidClientRows.data.map((r) => (r.client_email || "").toLowerCase()).filter(Boolean)).size
+        ? new Set(vidClientRows.data.map(vidClientKey)).size
         : 0;
       setStat("crm-clients", String(smmClientCount + vidClientCount));
       setStat("social-clients", String(smmClientCount));
@@ -542,9 +579,14 @@ import AdminShell from "../components/admin/AdminShell.astro";
           for (const r of contactsForGrowth.data || []) {
             const d = new Date(r.created_at);
             buckets.forEach((b, i) => {
-              if (d < cutoffOf(b)) { contactsSeries[i]++; if (r.lifecycle === "member") membersSeries[i]++; }
+              if (d < cutoffOf(b)) contactsSeries[i]++;
             });
           }
+        }
+        // Members by the day their account was made.
+        for (const at of (contactsMembers && contactsMembers.joined) || []) {
+          const d = new Date(at);
+          buckets.forEach((b, i) => { if (d < cutoffOf(b)) membersSeries[i]++; });
         }
         if (!smmForGrowth.error) {
           for (const r of smmForGrowth.data || []) {
@@ -557,7 +599,7 @@ import AdminShell from "../components/admin/AdminShell.astro";
             const cutoff = cutoffOf(b);
             const emails = new Set((vidClientRows.data || [])
               .filter((r) => new Date(r.created_at) < cutoff)
-              .map((r) => (r.client_email || "").toLowerCase()).filter(Boolean));
+              .map(vidClientKey));
             clientsSeries[i] += emails.size;
           });
         }
@@ -652,15 +694,21 @@ import AdminShell from "../components/admin/AdminShell.astro";
       // ---- Videography this month ----
       if (!vidBookingsThisMonth.error) {
         const rows = vidBookingsThisMonth.data || [];
-        const active = rows.filter((r) => r.stage !== "delivered" && r.stage !== "cancelled");
+        const active = rows.filter((r) => r.stage !== "delivered");
         const done = rows.filter((r) => r.stage === "delivered");
         setStat("vid-progress", String(active.length));
         setStat("vid-complete", String(done.length));
         // Clients this month: anyone with a shoot dated anywhere in this month —
         // already happened (1st–today) or still booked in (today–month end).
-        const clientsThisMonth = new Set(rows.filter((r) => r.stage !== "cancelled").map((r) => (r.client_email || "").toLowerCase()).filter(Boolean)).size;
+        const clientsThisMonth = new Set(rows.map(vidClientKey)).size;
         setStat("vid-clients", String(clientsThisMonth));
-        const minutes = rows.filter((r) => r.stage !== "cancelled").reduce((s, r) => s + (r.duration_min || 0), 0);
+        // The slot an online booking saved, else the package's shoot time
+        // (a booking added by hand has no slot).
+        const minutes = rows.reduce((s, r) => {
+          if (r.duration_min) return s + r.duration_min;
+          const brief = packageBrief(r.service_type, r.package);
+          return s + (brief && brief.shoot ? brief.shoot * 60 : 0);
+        }, 0);
         setStat("vid-hours", (minutes / 60).toFixed(1).replace(/\.0$/, ""));
       }
 
@@ -684,7 +732,10 @@ import AdminShell from "../components/admin/AdminShell.astro";
       // ---- Blog: top 5 this month by views ----
       if (!blogViewsThisMonth.error && !blogPosts.error) {
         const counts = new Map();
-        for (const r of blogViewsThisMonth.data || []) {
+        // The public site's views (staff visits left out), else the plain query.
+        const blogRows = siteViews.error ? (blogViewsThisMonth.data || [])
+          : siteViews.data.filter((r) => /^\/blog\//.test(r.path || "") && new Date(r.created_at) >= monthStart);
+        for (const r of blogRows) {
           const slug = (r.path || "").replace(/^\/blog\//, "").replace(/\/$/, "");
           if (!slug) continue;
           counts.set(slug, (counts.get(slug) || 0) + 1);
@@ -724,16 +775,16 @@ import AdminShell from "../components/admin/AdminShell.astro";
       }
       renderBreakdown(document.getElementById("dash-inq-breakdown"), inqRows.filter((r) => r.count > 0), "No inquiries yet this month.");
 
-      // ---- Website ----
-      if (!pageviewsMonth.error) setStat("site-views-month", String(pageviewsMonth.count ?? 0));
-      if (!pageviewsTotal.error) setStat("site-views-total", String(pageviewsTotal.count ?? 0));
-      if (!visitorsMonth.error && Array.isArray(visitorsMonth.data)) {
-        setStat("site-visitors-month", String(new Set(visitorsMonth.data.map((r) => r.session_id).filter(Boolean)).size));
-      }
-      if (!pageviewsDaily.error && Array.isArray(pageviewsDaily.data)) {
+      // ---- Website: the public site, as Insights counts it ----
+      if (!siteViews.error) {
+        const all = siteViews.data;
+        const month = all.filter((r) => new Date(r.created_at) >= monthStart);
+        setStat("site-views-month", String(month.length));
+        setStat("site-views-total", String(all.length));
+        setStat("site-visitors-month", String(new Set(month.map((r) => r.session_id || r.id)).size));
         const daysSoFar = now.getDate();
         const byDay = new Array(daysSoFar).fill(0);
-        for (const r of pageviewsDaily.data) {
+        for (const r of month) {
           const d = new Date(r.created_at).getDate();
           if (d >= 1 && d <= daysSoFar) byDay[d - 1]++;
         }
