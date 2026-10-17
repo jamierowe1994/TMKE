@@ -92,7 +92,27 @@ export async function drawReel(reel, tiles) {
   ]);
   reel.classList.add("is-ready");
   reel.setAttribute("aria-busy", "false");
+  fitCaptions(reel);
   return true;
+}
+
+/* Blog titles under the pictures: one size for every title, the largest at
+   which none runs past two lines (Dani, 17 Oct: "we want the fonts to be
+   exactly the same ... work out what you need to reduce the font to"). */
+function fitCaptions(reel) {
+  const caps = [...reel.querySelectorAll(".ws-reel-cap")];
+  if (!caps.length) return;
+  const fit = () => {
+    let size = 15;
+    for (; size >= 11; size -= 0.5) {
+      reel.style.setProperty("--cap-size", size + "px");
+      // Over two lines shows as the clamped box holding more than it shows.
+      if (!caps.some((c) => c.scrollHeight > c.clientHeight + 1)) break;
+    }
+  };
+  fit();
+  if (!reel._capFit) { reel._capFit = true; addEventListener("resize", () => requestAnimationFrame(fit)); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
 }
 
 /* The members' blog as a strip: every published piece for members, newest

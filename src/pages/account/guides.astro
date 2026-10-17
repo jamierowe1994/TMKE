@@ -249,11 +249,20 @@ import "../../styles/reel.css";
     /* The others: the picture over the whole card on hover. */
     .lrn-door-pic--hover { z-index: 3; opacity: 0; transform: scale(1.04); transition: opacity 0.5s var(--ws-ease), transform 1.2s var(--ws-ease); pointer-events: none; }
     @media (hover: hover) { .lrn-door:hover .lrn-door-pic--hover, .lrn-door:focus-visible .lrn-door-pic--hover { opacity: 1; transform: none; } }
+    /* Below 1000px all five still fit across (Dani, 17 Oct: in the training
+       pop-out they ran off with no way to scroll), the line under each title
+       dropped so nothing overflows; a swipe strip only on a phone. */
     @media (max-width: 1000px) {
+      .lrn-door-tx span:not(.lrn-door-meta) { display: none; }
+      .lrn-door { --pad: 12px; }
+      .lrn-door-tx strong { font-size: 14px; }
+    }
+    @media (max-width: 620px) {
       .lrn-doors { display: flex; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
       .lrn-doors::-webkit-scrollbar { display: none; }
       .lrn-doors .lrn-door { flex: 0 0 calc((100% - 24px) / 3.3); scroll-snap-align: start; }
       .lrn-doors-fill { display: contents; }
+      .lrn-door-tx span:not(.lrn-door-meta) { display: block; }
     }
     @media (max-width: 560px) { .lrn-doors .lrn-door { flex-basis: 62%; } }
 
@@ -627,11 +636,17 @@ import "../../styles/reel.css";
       openList(`Results for \u201C${q}\u201D`, `${list.length} guide${list.length === 1 ? '' : 's'} found.`, list);
     });
 
+    // Inside a walkthrough's training window nobody is signed in, so content
+    // every member sees alike comes from the lesson page around it (tour.js).
+    const fromLesson = async (what) => {
+      try { const f = window.__TMKE_TRAINING_WINDOW__ && window.parent !== window && window.parent.__tmkeContent; return f ? await f(what) : undefined; } catch (_) { return undefined; }
+    };
     // This month: the latest published Trending month, when there is one.
     let monthTopics = TRENDING_SAMPLE_TOPICS;
     (async () => {
       try {
-        const { data } = await supabase.from('trending_months').select('month, intro, topics').eq('status', 'published').order('month', { ascending: false }).limit(1).maybeSingle();
+        let data = await fromLesson('trending');
+        if (data === undefined) ({ data } = await supabase.from('trending_months').select('month, intro, topics').eq('status', 'published').order('month', { ascending: false }).limit(1).maybeSingle());
         if (data) {
         const d = new Date(String(data.month).slice(0, 10) + 'T00:00:00');
         const name = document.getElementById('lrn-month-name'); if (name && !Number.isNaN(d.getTime())) name.textContent = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -677,9 +692,10 @@ import "../../styles/reel.css";
       }
 
       try {
-        const { data, error } = await supabase.from('guides')
+        let data = await fromLesson('guides'), error = null;
+        if (data === undefined || data === null) ({ data, error } = await supabase.from('guides')
           .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience,created_at')
-          .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+          .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false }));
         if (error) throw error;
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
       } catch (_) { ALL = DEV ? SAMPLE : []; }

@@ -103,18 +103,19 @@ export const TRAINING_GUIDES = [
             ["Orders", "Find everything you've purchased from The Edit, including your packs, order details and receipts.", "orders"],
             ["Bookings", "Manage your TMKE videography bookings, follow their progress and access your finished galleries.", "bookings"],
             ["Your SMM", "Everything relating to Social Media Management, from what's included to your current package and monthly performance.", "smm"],
-            ["Learn", "Your training and insights library. Find practical guides, Member Hub courses and our latest social media trends.", "learn"],
-            ["Brand kit", "Save your logo, colours and fonts so Studio templates automatically adapt to your brand.", "brand-kit"],
+            ["Training Studio", "Your training and insights library. Find practical guides, Member Hub courses and our latest social media trends.", "learn"],
+            // No picture until Dani's is in (public/images/learn/hub/areas/community-v5.jpg).
+            ["Community", "Talk estate agency marketing with other members, join the fortnight's discussion and tell us what to build next.", null],
           ]) },
       { title: "Where to Go First",
         body_html:
           p("If you're new to the Member Hub, start with these three things. They'll set up the basics and make everything else considerably easier.") +
           go([
             ["Set up your Brand Kit", "Add your logo, colours and fonts once, then let the Studio apply them to your templates automatically.", "/account/profile", "start-brand-kit"],
-            ["Make one design", "Choose a template, make it your own and download your finished post. The more you use the Studio, the quicker it becomes.", "/account/editor?new=1", "start-design"],
             ["Plan a week", "Add a few posts to your Planner so you can see what's coming up and start building a consistent rhythm.", "/account/schedule", "start-plan"],
+            ["Make a design", "Choose a template, make it your own and download your finished post. The more you use the Studio, the quicker it becomes.", "/account/editor?new=1", "start-design"],
           ]) +
-          tip("Need help later? Head to Learn for guides and training, or contact the TMKE team from your dashboard if you can't find what you need.") },
+          tip("Need help later? Head to the Training Studio for guides and training, or open the Help Centre from the menu if you can't find what you need.") },
     ],
   }),
 
@@ -159,6 +160,7 @@ export const TRAINING_GUIDES = [
       { title: "Build Your Brand Kit",
         body_html:
           p("Six parts to fill in. Open any of them for what to add and why it matters.") +
+          tip("The three boxes at the top of your Brand Kit keep track for you. They show what's still missing and take you straight to it. If your brand supplies your kit, you'll see that there too, with a button to confirm it's still up to date.") +
           openers([
             ["Business", "Your name, location and slogan",
               p("Add your business name, the area you cover and your slogan if you use one.") +
@@ -180,11 +182,12 @@ export const TRAINING_GUIDES = [
               p("Your tone of voice describes how your business communicates, from the personality behind your writing to the language you use with your audience.") +
               p("Add as much useful detail as you can. The Creative Assistant uses this information alongside its knowledge of property when generating captions, helping the content it creates better reflect your business.") +
               p("Not sure what to write? The next part covers what makes a useful tone of voice, what to include and an example.")],
-            ["Your details", "Headshot, email and telephone number",
-              p("Add your headshot, email address and telephone number. These details can then be used within selected Studio designs and your contact presets for calls to action and closing slides.") +
+            ["Your details", "Headshot, contact details and review link",
+              p("Add your headshot, email address, telephone number and review link. These details can then be used within selected Studio designs and your contact presets for calls to action and closing slides.") +
               ul("<strong>Headshot:</strong> a clear, recent image you're happy to use across your marketing. Square works best, around 600&times;600.",
                  "<strong>Email:</strong> the address you want customers to contact you on.",
-                 "<strong>Telephone:</strong> the number you'd normally publish across your marketing.")],
+                 "<strong>Telephone:</strong> the number you'd normally publish across your marketing.",
+                 "<strong>Review link:</strong> where customers leave you a review, such as your Google reviews page. When you plan a testimonial request in your Planner, this is the link it sends.")],
           ]) },
 
       { title: "Finding Your Voice",

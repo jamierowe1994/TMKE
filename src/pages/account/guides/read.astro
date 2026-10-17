@@ -24,7 +24,7 @@ const DEFAULT_COVER = (await getImage({
   dashboard
   hideNav
   hideFooter
-  title="Learn — TMKE workspace"
+  title="Training Studio — TMKE workspace"
   description="A TMKE Learn guide."
 >
   <div class="ws lrn">
@@ -32,7 +32,7 @@ const DEFAULT_COVER = (await getImage({
 
     <main class="lrn-main gr-main">
       <a class="gr-back" href="/account/guides">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg> Back to Learn
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg> Back to the Training Studio
       </a>
 
       <article class="gr" id="gr" aria-busy="true">
@@ -49,7 +49,7 @@ const DEFAULT_COVER = (await getImage({
           <figure class="gr-cover" id="ar-cover" hidden><img id="ar-cover-img" alt="" /></figure>
           <div class="gr-body" id="ar-body"></div>
           <footer class="gr-artfoot">
-            <a class="ws-btn ws-btn--ghost ws-btn--sm" href="/account/guides">← Back to Learn</a>
+            <a class="ws-btn ws-btn--ghost ws-btn--sm" href="/account/guides">← Back to the Training Studio</a>
           </footer>
         </div>
 
@@ -81,7 +81,7 @@ const DEFAULT_COVER = (await getImage({
         <div class="gr-empty" id="gr-empty" hidden>
           <h1>Not found</h1>
           <p>This may have moved or isn't published yet.</p>
-          <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/guides">Back to Learn</a>
+          <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/guides">Back to the Training Studio</a>
         </div>
       </article>
       <HubFootBar />
@@ -412,11 +412,14 @@ const DEFAULT_COVER = (await getImage({
        the finish keep the flowing layout. */
     body.gr-fixed { overflow: hidden; }
     body.gr-fixed .gr-main { padding-bottom: 0; }
-    .gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - clamp(20px, 2.4vh, 34px)); }
+    /* The card, a 2px gap, the foot bar and a 2px margin under it: the whole
+       of it on one screen, on the cover and on every part alike (Dani, 17 Oct:
+       the bar was cut off under the parts). */
+    .gc.is-part { position: relative; display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - var(--gc-foot, 36px) - 4px); margin-bottom: 2px; }
     .gc.is-part .gc-progress { position: static; margin: 8px 0 12px; }
     /* The gap under the cover is the page's side margin, so the picture sits
        in an even frame. */
-    .gc.is-cover { display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - clamp(22px, 2.6vw, 56px)); }
+    .gc.is-cover { display: flex; flex-direction: column; height: calc(100dvh - var(--gc-top, 120px) - var(--gc-foot, 36px) - 4px); margin-bottom: 2px; }
     .gc.is-cover .gc-stage { flex: 1 1 auto; min-height: 0; }
     .gc.is-cover .gc-slide--intro { box-sizing: border-box; height: 100%; min-height: 0; }
     .gc.is-part .gc-stage { flex: 1 1 auto; min-height: 0; }
@@ -694,7 +697,7 @@ const DEFAULT_COVER = (await getImage({
         <h2>That's a wrap</h2>
         <p>You've finished <strong>${esc(guide.title || "this course")}</strong>. Nice work — put it into practice, then come back for the next one.</p>
         <div class="gc-done-actions">
-          <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/guides">Back to Learn</a>
+          <a class="ws-btn ws-btn--primary ws-btn--sm" href="/account/guides">Back to the Training Studio</a>
           <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-restart>Start over</button>
         </div>
       </div>`;
@@ -737,7 +740,12 @@ const DEFAULT_COVER = (await getImage({
         gc.classList.toggle("is-part", onPart);
         gc.classList.toggle("is-cover", onCover);
         if (onPart || onCover) {
-          const fit = () => { gc.style.setProperty("--gc-top", Math.max(0, Math.round(gc.getBoundingClientRect().top + window.scrollY)) + "px"); };
+          const fit = () => {
+            gc.style.setProperty("--gc-top", Math.max(0, Math.round(gc.getBoundingClientRect().top + window.scrollY)) + "px");
+            // The foot bar's own height, so it fits on the screen under the card.
+            const foot = document.querySelector(".hub-foot");
+            if (foot) gc.style.setProperty("--gc-foot", foot.offsetHeight + "px");
+          };
           fit(); requestAnimationFrame(fit);
           if (!gc._fitBound) { gc._fitBound = true; window.addEventListener("resize", fit); }
         }

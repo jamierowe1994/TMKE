@@ -19,6 +19,30 @@ import { supabase } from './supabase.js';
 import { WALKS } from '../data/walkthroughs.js';
 import { TRAINING_WINDOW, clearTrainingWindow } from './training.js';
 
+/* The training window is sealed: nobody is signed in inside it, so content
+   every member sees alike (this month's trends, the published guides) never
+   reached it, and the Training Studio there showed the stand-in month and was
+   short of guides. Dani, 17 Oct. The lesson page around it is signed in, so it
+   reads that content and hands it over. Nothing of the member's own goes in:
+   only these two, the same for every member. */
+if (typeof window !== 'undefined' && !window.__TMKE_TRAINING_WINDOW__) {
+  window.__tmkeContent = async (what) => {
+    try {
+      if (what === 'trending') {
+        const { data } = await supabase.from('trending_months').select('month, intro, topics').eq('status', 'published').order('month', { ascending: false }).limit(1).maybeSingle();
+        return data || null;
+      }
+      if (what === 'guides') {
+        const { data, error } = await supabase.from('guides')
+          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience,created_at')
+          .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+        return error ? null : (data || []);
+      }
+    } catch (_) {}
+    return null;
+  };
+}
+
 const LS_STATE = 'tmke.tour';        // { active: true, index: N, walk?: id, returnTo?: url }
 const LS_DONE  = 'tmke.tour.done';   // fast/offline "already seen" guard
 
@@ -342,6 +366,32 @@ async function showShot(src, y) {
   else screen.scrollTo({ top, behavior: 'smooth' });
 }
 
+/* A hub page covers itself until its content is in (BaseLayout's ready gate,
+   up to 12s). Looking for a step's target under the cover found nothing, so a
+   walk like the Studio's skipped every step and went straight back to the
+   menu with a tick. Dani, 17 Oct: "I click on Studio ... it's not bringing up
+   the walkthrough". Wait for the cover to lift first. */
+function frameGateLifted(ms = 15000) {
+  return new Promise((resolve) => {
+    const started = Date.now();
+    const tick = () => {
+      let gated = false;
+      try { gated = stage.frame.contentDocument.documentElement.classList.contains('tmke-gated'); } catch (_) { return resolve(); }
+      if (!gated || Date.now() - started > ms) return resolve();
+      setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
+/* The hub's pages scroll through Lenis, which put a page moved by
+   window.scrollTo straight back where it was: the planner's steps changed
+   their words and the page never moved. Dani, 17 Oct. */
+function scrollWin(w, y) {
+  try { if (w.__lenis && w.__lenis.scrollTo) { w.__lenis.scrollTo(y, { immediate: true, force: true }); return; } } catch (_) {}
+  w.scrollTo(0, y);
+}
+
 function stageReady() {
   if (stage && stage.box) stage.box.classList.remove('is-busy');
 }
@@ -365,7 +415,7 @@ function stageGo(url) {
       if (done) return;
       done = true;
       dressStage();
-      frameSettled().then(resolve);
+      frameSettled().then(frameGateLifted).then(() => frameSettled()).then(resolve);
     };
     stage.frame.addEventListener('load', go, { once: true });
     setTimeout(go, 14000);
@@ -1038,14 +1088,14 @@ function scrollTargetIntoView(t) {
   if (activeWalk) {
     const want = bandTop + 24;
     if (Math.abs(r.top - want) <= 2) return;   // already sitting there
-    w.scrollTo(0, Math.max(0, (w.scrollY || 0) + r.top - want));
+    scrollWin(w, Math.max(0, (w.scrollY || 0) + r.top - want));
     return;
   }
   if (r.top >= bandTop + 16 && r.bottom <= vh - 16) return; // already fully visible
   const top = (w.scrollY || 0) + r.top + r.height / 2 - (bandTop + (vh - bandTop) / 2);
   // Instant, not smooth: the background is dimmed so the scroll is barely
   // perceptible, and instant lands the spotlight reliably across browsers.
-  w.scrollTo(0, Math.max(0, top));
+  scrollWin(w, Math.max(0, top));
 }
 
 function setMask(el, left, top, width, height) {
