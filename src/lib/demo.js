@@ -277,7 +277,7 @@ export function lockClicks(selector, title, message, root) {
 }
 
 // What the demo does not include, wherever a link to it appears.
-const LOCKED_LINKS = 'a[href="/account/orders"], a[href="/account/bookings"], a[href="/account/social"], a[href="/account/services"], a[href="/account/contact"], a[href^="/account/contact?"]';
+const LOCKED_LINKS = 'a[href="/account/orders"], a[href="/account/bookings"], a[href="/account/social"], a[href="/account/services"], a[href="/account/contact"], a[href^="/account/contact?"], a[href="/account/help"]';
 
 /**
  * The hub's chrome in demo mode: the pill and Join button in the header, the

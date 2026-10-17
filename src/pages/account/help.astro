@@ -1,0 +1,48 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import HubFootBar from "../../components/account/HubFootBar.astro";
+import ContactPanel from "../../components/account/ContactPanel.astro";
+import "../../styles/workspace.css";
+import "../../styles/account-sections.css";
+---
+<!-- The Help Centre (Dani, 17 Oct): the lines they can raise a request on,
+     each with its own form. It was at /account/contact, which is now the
+     plain contact page. -->
+
+<BaseLayout
+  dashboard
+  title="Help Centre — TMKE workspace"
+  description="Pick the right line and reach the right inbox — pack support, managed socials, billing, feedback, press."
+  hideNav
+  hideFooter
+>
+  <WorkspaceHeader active="help" />
+  <div class="dash-shell dash-shell--top">
+    <main class="app-main dash-main">
+      <ContactPanel />
+      <HubFootBar />
+    </main>
+  </div>
+
+  <script>
+    import { supabase, signOutEverywhere} from "../../lib/supabase.js";
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/help'));
+        return;
+      }
+      // getSession() is local-only - a cleared/revoked session can still look
+      // valid to it. Confirm with the server before letting anyone in.
+      if (!import.meta.env.DEV) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/help')); return; }
+      }
+      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
+      document.getElementById('app-signout')?.addEventListener('click', async () => {
+        await signOutEverywhere();
+      });
+    })();
+  </script>
+</BaseLayout>

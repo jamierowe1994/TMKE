@@ -1,44 +1,186 @@
 ---
+/* The hub's own Contact page (Dani, 17 Oct). One screen, no scrolling: how to
+   reach us on the left, a short form on the right already filled in from the
+   member's account, and our latest Instagram posts going by along the foot.
+   Messages land in the enquiries table like the Help Centre's (/account/help),
+   with the subject and where they came from attached. */
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import HubFootBar from "../../components/account/HubFootBar.astro";
-import ContactPanel from "../../components/account/ContactPanel.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
+import "../../styles/reel.css";
+import { INSTAGRAM_POSTS, INSTAGRAM_HANDLE } from "../../data/instagram-feed.js";
+const SUBJECTS = [
+  ["general", "A general question"],
+  ["packs", "Packs and templates"],
+  ["studio", "The Studio"],
+  ["planner", "The Planner"],
+  ["socials", "Social media management"],
+  ["billing", "Billing"],
+  ["other", "Something else"],
+];
 ---
 
 <BaseLayout
   dashboard
   title="Contact — TMKE workspace"
-  description="Pick the right line and reach the right inbox — pack support, managed socials, billing, feedback, press."
+  description="Get in touch with TMKE: a short form, already filled in from your account."
   hideNav
   hideFooter
 >
   <WorkspaceHeader active="contact" />
   <div class="dash-shell dash-shell--top">
-    <main class="app-main dash-main">
-      <ContactPanel />
+    <main class="app-main dash-main ct-main">
+      <section class="ct-grid">
+        <div class="ct-intro">
+          <p class="ct-eyebrow"><a href="/account">&larr; Workspace</a></p>
+          <h1 class="ct-title">Get in touch.</h1>
+          <p class="ct-lede">Send us a note and it reaches the team with your account attached, so there&rsquo;s nothing to explain twice.</p>
+          <dl class="ct-facts">
+            <div><dt>Email</dt><dd><a href="mailto:hello@tmke.co.uk">hello@tmke.co.uk</a></dd></div>
+            <div><dt>Hours</dt><dd>Monday to Friday, 9:00 to 17:30. Out of hours, we&rsquo;ll pick it up first thing.</dd></div>
+            <div><dt>Something specific?</dt><dd><a href="/account/help">The Help Centre</a> has a line for packs, billing, managed socials, feedback and press.</dd></div>
+          </dl>
+        </div>
+
+        <form class="ct-form" id="ct-form" novalidate>
+          <div class="ct-row">
+            <label class="ct-field"><span>Your name</span><input type="text" id="ct-name" autocomplete="name" required /></label>
+            <label class="ct-field"><span>Your email</span><input type="email" id="ct-email" autocomplete="email" required /></label>
+          </div>
+          <label class="ct-field"><span>What it&rsquo;s about</span>
+            <select id="ct-subject">
+              {SUBJECTS.map(([v, l]) => <option value={v}>{l}</option>)}
+            </select>
+          </label>
+          <label class="ct-field ct-field--grow"><span>Your message</span><textarea id="ct-message" required placeholder="Tell us what you need, and anything that would help us answer it."></textarea></label>
+          <p class="ct-error" id="ct-error" hidden></p>
+          <div class="ct-foot">
+            <button type="submit" class="ct-send" id="ct-send">Send message <span aria-hidden="true">&rarr;</span></button>
+          </div>
+          <div class="ct-done" id="ct-done" hidden>
+            <strong>Thank you, that&rsquo;s with us.</strong>
+            <span>We&rsquo;ll reply to your email, usually the same working day.</span>
+          </div>
+        </form>
+      </section>
+
+      {INSTAGRAM_POSTS.length > 0 && (
+        <section class="ct-ig" aria-label="Our latest Instagram posts">
+          <p class="ct-ig-h">From our Instagram{INSTAGRAM_HANDLE && <a href={`https://www.instagram.com/${INSTAGRAM_HANDLE}/`} target="_blank" rel="noopener">@{INSTAGRAM_HANDLE} &rarr;</a>}</p>
+          <div class="ws-reel ct-reel" id="ct-reel" aria-busy="true"><div class="ws-reel-track"></div></div>
+        </section>
+      )}
+      <script type="application/json" id="ct-ig" set:html={JSON.stringify(INSTAGRAM_POSTS)}></script>
       <HubFootBar />
     </main>
   </div>
 
+  <style>
+    /* One screen: the page is the window's height under the bar, and the
+       form's message box takes whatever is left, so nothing scrolls. */
+    .ct-main { display: flex; flex-direction: column; gap: clamp(18px, 2.4vh, 30px) !important; height: calc(100vh - 82px); box-sizing: border-box; padding-bottom: clamp(14px, 2vh, 24px) !important; }
+    .ct-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: clamp(24px, 4vw, 72px); align-items: stretch; }
+    .ct-intro { display: flex; flex-direction: column; min-height: 0; }
+    .ct-eyebrow { margin: 0 0 clamp(14px, 2vh, 24px); font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
+    .ct-eyebrow a { color: inherit; text-decoration: none; }
+    .ct-title { font-family: var(--subhead); font-weight: 500; font-size: clamp(32px, 3.6vw, 52px); line-height: 1.08; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
+    .ct-lede { font-family: var(--sans); font-size: 15.5px; line-height: 1.55; color: rgba(28,29,34,0.64); margin: 10px 0 0; max-width: 46ch; }
+    .ct-facts { margin: auto 0 0; padding-top: 20px; display: grid; gap: 14px; }
+    .ct-facts > div { padding-top: 12px; border-top: 1px solid rgba(28,29,34,0.13); }
+    .ct-facts dt { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .ct-facts dd { margin: 4px 0 0; font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ink); }
+    .ct-facts a { color: #371e28; font-weight: 600; text-decoration: none; }
+    .ct-facts a:hover { text-decoration: underline; }
+    .ct-form { position: relative; display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: clamp(18px, 2vw, 26px); border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; background: #fff; }
+    .ct-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ct-field { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+    .ct-field--grow { flex: 1 1 auto; }
+    .ct-field > span { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ct-field input, .ct-field select, .ct-field textarea { font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px; padding: 9px 11px; transition: border-color 0.2s, box-shadow 0.2s; }
+    .ct-field textarea { flex: 1 1 auto; min-height: 90px; resize: none; line-height: 1.5; }
+    .ct-field input:focus, .ct-field select:focus, .ct-field textarea:focus { outline: none; border-color: #371e28; box-shadow: 0 0 0 3px rgba(55,30,40,0.1); }
+    .ct-error { margin: 0; font-family: var(--sans); font-size: 13px; color: #a05a3c; }
+    .ct-foot { display: flex; justify-content: flex-end; }
+    .ct-send { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 18px; border: 0; border-radius: 4px; background: #371e28; color: #fff; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; }
+    .ct-send[disabled] { opacity: 0.6; cursor: progress; }
+    .ct-done { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; background: #fff; border-radius: 4px; font-family: var(--sans); }
+    .ct-done[hidden] { display: none; }
+    .ct-done strong { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
+    .ct-done span { font-size: 14px; color: rgba(28,29,34,0.64); }
+    .ct-ig { flex: none; }
+    .ct-ig-h { display: flex; justify-content: space-between; margin: 0 0 8px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .ct-ig-h a { color: #371e28; text-decoration: none; letter-spacing: 0.04em; text-transform: none; font-size: 12px; }
+    .ct-reel .ws-reel-tile { width: clamp(110px, 9vw, 150px); }
+    .ct-reel .ws-reel-label { display: none; }
+    .ct-reel .ws-reel-pic { aspect-ratio: 1 / 1; }
+    /* A phone has no room for one screen: it scrolls like any page. */
+    @media (max-width: 860px) {
+      .ct-main { height: auto; }
+      .ct-grid { grid-template-columns: 1fr; }
+      .ct-facts { margin-top: 20px; }
+      .ct-field textarea { min-height: 160px; }
+    }
+  </style>
+
   <script>
-    import { supabase, signOutEverywhere} from "../../lib/supabase.js";
+    import { supabase } from "../../lib/supabase.js";
+    import { drawReel } from "../../lib/pack-reel.js";
+
+    // Our latest Instagram posts along the foot (src/data/instagram-feed.js).
+    (async () => {
+      const reel = document.getElementById("ct-reel");
+      if (!reel) return;
+      let posts = [];
+      try { posts = JSON.parse(document.getElementById("ct-ig").textContent || "[]"); } catch (_) {}
+      await drawReel(reel, posts.filter((p) => p && p.image).map((p) => ({ img: p.image, label: "", href: p.href || "#", go: "View" })));
+    })();
+
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent('/account/contact'));
+        if (!import.meta.env.DEV) location.replace("/login?next=" + encodeURIComponent("/account/contact"));
         return;
       }
-      // getSession() is local-only - a cleared/revoked session can still look
-      // valid to it. Confirm with the server before letting anyone in.
       if (!import.meta.env.DEV) {
         const { data: { user }, error } = await supabase.auth.getUser();
-        if (!user || error) { location.replace('/login?next=' + encodeURIComponent('/account/contact')); return; }
+        if (!user || error) { location.replace("/login?next=" + encodeURIComponent("/account/contact")); return; }
       }
-      requestAnimationFrame(() => document.body.classList.add('is-loaded'));
-      document.getElementById('app-signout')?.addEventListener('click', async () => {
-        await signOutEverywhere();
+      const u = session.user;
+      // Filled in from their account: the name from the brand kit or the
+      // sign-up, the email they sign in with.
+      let kitName = "";
+      try { const kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); kitName = (kit && kit.about && kit.about.name) || ""; } catch (_) {}
+      const name = kitName || (u.user_metadata && (u.user_metadata.name || u.user_metadata.full_name)) || "";
+      const $ = (id) => document.getElementById(id);
+      if (name) $("ct-name").value = name;
+      if (u.email) $("ct-email").value = u.email;
+      // "Talk to us" from another page brings its subject with it.
+      const from = new URLSearchParams(location.search).get("from") || "";
+      if (/social|services/.test(from)) $("ct-subject").value = "socials";
+      else if (/guide/.test(from)) $("ct-subject").value = "general";
+      $(name ? "ct-message" : "ct-name").focus({ preventScroll: true });
+
+      $("ct-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const err = $("ct-error"); err.hidden = true;
+        const n = $("ct-name").value.trim(), em = $("ct-email").value.trim(), msg = $("ct-message").value.trim();
+        if (!n || !em || !msg) { err.textContent = "Please add your name, your email and a short message."; err.hidden = false; return; }
+        const subject = $("ct-subject");
+        const parts = n.split(/\s+/);
+        const btn = $("ct-send"); btn.disabled = true;
+        const { error } = await supabase.from("enquiries").insert({
+          first_name: parts.shift() || n,
+          last_name: parts.join(" ") || "",   // required by the table; a single name has none
+          email: em,
+          message: `Subject: ${subject.options[subject.selectedIndex].text}\n\n${msg}`,
+          business_name: (u.user_metadata && u.user_metadata.company) || null,
+          source: "account_contact" + (from ? ":" + from : ""),
+        });
+        btn.disabled = false;
+        if (error) { err.textContent = "Sorry, that didn't send. Please try again, or email hello@tmke.co.uk."; err.hidden = false; return; }
+        $("ct-done").hidden = false;
       });
     })();
   </script>
