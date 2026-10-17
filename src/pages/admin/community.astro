@@ -1,0 +1,962 @@
+---
+// The staff side of the member Community (supabase/community.sql).
+//
+// Dani: "We could set a different topic every fortnight for people if they
+// want to talk about it, and then we would be active in that so we can provide
+// advice and feedback." Plus a request board where members say "I need this
+// too", so we can see how many people want what.
+//
+// Posts go live straight away; this page is where we hide any of them, move a
+// request on, set the next fortnight's topic and answer as TMKE. Admin
+// notifications link here as /admin/community?post=<id>, which opens that
+// post's thread on load.
+import AdminShell from "../../components/admin/AdminShell.astro";
+import "../../styles/admin.css";
+---
+
+<AdminShell active="community" title="Community" skin="hub">
+  <div class="page-header">
+    <div class="page-header-top">
+      <div class="page-header-left">
+        <div>
+          <div class="page-header-title">Community</div>
+          <div class="page-header-sub">The fortnight's topic, members' requests and conversations, and anything reported.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ash-panel ash-page">
+    <p class="cm-status" id="cm-status">Loading the Community…</p>
+
+    <div id="cm-app" hidden>
+      <section class="studio-bar">
+        <div class="studio-bar-row">
+          <nav class="studio-tabs" id="cm-tabs" aria-label="Community sections">
+            <button type="button" class="studio-tab is-on" data-tab="topic">Fortnight topics<span class="cm-tab-n" data-n="topic"></span></button>
+            <button type="button" class="studio-tab" data-tab="request">Requests<span class="cm-tab-n" data-n="request"></span></button>
+            <button type="button" class="studio-tab" data-tab="discussion">Conversations<span class="cm-tab-n" data-n="discussion"></span></button>
+            <button type="button" class="studio-tab" data-tab="report">Reports<span class="cm-tab-n" data-n="report"></span></button>
+          </nav>
+        </div>
+      </section>
+
+      <!-- ── Fortnight topics ─────────────────────────────────────────── -->
+      <section class="cm-pane is-on" data-pane="topic">
+        <form class="card cm-form" id="cm-topic-form" autocomplete="off">
+          <div class="card-head">
+            <div class="card-title" id="cm-topic-form-title">Set the next topic</div>
+          </div>
+          <div class="cm-field">
+            <label for="cm-t-title">Title</label>
+            <input id="cm-t-title" name="title" maxlength="140" required placeholder="What members will talk about" />
+          </div>
+          <div class="cm-field">
+            <label for="cm-t-body">Prompt</label>
+            <textarea id="cm-t-body" name="body" maxlength="5000" rows="4" placeholder="A few lines to get the conversation going"></textarea>
+          </div>
+          <div class="cm-field-row">
+            <div class="cm-field">
+              <label for="cm-t-start">Starts</label>
+              <input type="date" id="cm-t-start" name="starts_on" required />
+            </div>
+            <div class="cm-field">
+              <label for="cm-t-end">Ends</label>
+              <input type="date" id="cm-t-end" name="ends_on" required />
+            </div>
+          </div>
+          <div class="cm-form-foot">
+            <span class="cm-form-msg" id="cm-topic-msg" role="status"></span>
+            <button type="button" class="admin-btn admin-btn-ghost" id="cm-topic-cancel" hidden>Cancel</button>
+            <button type="submit" class="admin-btn admin-btn-primary" id="cm-topic-save">Add topic</button>
+          </div>
+        </form>
+        <div class="cm-list wrap" data-list="topic"><p class="cm-loading">Loading topics…</p></div>
+      </section>
+
+      <!-- ── Requests ─────────────────────────────────────────────────── -->
+      <section class="cm-pane" data-pane="request">
+        <div class="cm-list wrap" data-list="request"><p class="cm-loading">Loading requests…</p></div>
+      </section>
+
+      <!-- ── Conversations ────────────────────────────────────────────── -->
+      <section class="cm-pane" data-pane="discussion">
+        <div class="cm-list wrap" data-list="discussion"><p class="cm-loading">Loading conversations…</p></div>
+      </section>
+
+      <!-- ── Reports ──────────────────────────────────────────────────── -->
+      <section class="cm-pane" data-pane="report">
+        <div class="cm-list wrap" data-list="report"><p class="cm-loading">Loading reports…</p></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- The thread: the post, every reply (hidden ones included, marked), and a
+       reply box that posts as TMKE. -->
+  <div class="modal-backdrop" id="cm-modal" hidden>
+    <div class="modal cm-modal" role="dialog" aria-modal="true" aria-labelledby="cm-modal-title">
+      <header class="modal-head">
+        <h2 id="cm-modal-title">Thread</h2>
+        <button type="button" class="modal-close" id="cm-modal-close" aria-label="Close">&times;</button>
+      </header>
+      <div class="cm-thread" id="cm-thread"></div>
+      <footer class="modal-foot cm-reply-foot" id="cm-reply-foot" hidden>
+        <textarea id="cm-reply-text" maxlength="5000" rows="3" placeholder="Reply as TMKE"></textarea>
+        <div class="cm-reply-row">
+          <span class="cm-form-msg" id="cm-reply-msg" role="status"></span>
+          <button type="button" class="admin-btn admin-btn-primary" id="cm-reply-send">Post reply</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <style is:global>
+    .cm-status { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 40px 0; margin: 0; }
+    .cm-status[hidden], #cm-app[hidden] { display: none; }
+    .cm-status.is-setup {
+      padding: 28px 30px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+      max-width: 640px; color: var(--hub-text); line-height: 1.55;
+    }
+
+    .cm-tab-n { margin-left: 7px; font-size: 11px; opacity: 0.7; }
+    .cm-tab-n:empty { display: none; }
+    .cm-tab-n.is-alert { opacity: 1; font-weight: 800; }
+    .studio-tabs button.studio-tab { font-family: var(--sans); }
+
+    .cm-pane { display: none; }
+    .cm-pane.is-on { display: block; }
+
+    /* The topic form */
+    .cm-form { max-width: 760px; margin-bottom: 26px; }
+    .cm-field { margin-bottom: 14px; }
+    .cm-field input, .cm-field textarea { width: 100%; box-sizing: border-box; }
+    .cm-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .cm-form-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+    .cm-form-msg { margin-right: auto; font-family: var(--sans); font-size: 12px; color: var(--muted); }
+    .cm-form-msg.is-bad { color: var(--red); }
+
+    /* The lists: the Enquiries table look */
+    .cm-loading, .cm-empty { font-family: var(--sans); font-size: 14px; color: rgba(28, 29, 34, 0.55); padding: 30px 0; margin: 0; }
+    .cm-table {
+      display: grid; gap: 1px;
+      background: rgba(var(--violet-rgb), 0.18);
+      border: 1px solid rgba(var(--violet-rgb), 0.18);
+      border-radius: 2px; overflow: hidden;
+    }
+    .cm-row {
+      display: grid; gap: 16px; padding: 14px 20px; background: var(--paper);
+      align-items: center; cursor: pointer; transition: background 0.15s;
+    }
+    .cm-row:not(.is-header):hover { background: rgba(var(--violet-rgb), 0.04); }
+    .cm-row.is-header {
+      cursor: default; background: rgba(var(--violet-rgb), 0.04);
+      font-family: var(--sans); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+      font-weight: 700; color: rgba(28, 29, 34, 0.55);
+    }
+    .cm-row.is-hidden-row > div:not(.cm-acts) { opacity: 0.55; }
+    .cm-table[data-kind="topic"] .cm-row { grid-template-columns: 150px 1fr 80px 150px 230px; }
+    .cm-table[data-kind="request"] .cm-row { grid-template-columns: 70px 1fr 80px 150px 110px; }
+    .cm-table[data-kind="discussion"] .cm-row { grid-template-columns: 110px 1fr 80px 140px 190px; }
+    .cm-table[data-kind="report"] .cm-row { grid-template-columns: 100px 1.4fr 1fr 110px 260px; }
+
+    .cm-when { font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.7); }
+    .cm-title { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); }
+    .cm-meta { font-family: var(--sans); font-size: 12px; color: rgba(28, 29, 34, 0.55); margin-top: 2px; }
+    .cm-snippet {
+      font-family: var(--sans); font-size: 13px; color: rgba(28, 29, 34, 0.7); line-height: 1.5; margin-top: 3px;
+      overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: pre-wrap;
+    }
+    .cm-num { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .cm-need { font-family: var(--serif); font-size: 26px; line-height: 1; color: var(--primary); font-variant-numeric: tabular-nums; }
+    .cm-badges { display: flex; flex-wrap: wrap; gap: 5px; }
+    .cm-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .hub-skin .cm-acts .admin-btn { padding: 6px 11px; font-size: 11px; }
+    .cm-pill {
+      display: inline-block; margin-right: 6px; vertical-align: middle;
+      font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--english-violet); background: rgba(var(--violet-rgb), 0.1); padding: 2px 7px; border-radius: 999px;
+    }
+    .hub-skin .cm-status-sel { padding: 6px 10px; font-size: 12px; font-weight: 600; width: 100%; cursor: pointer; }
+    .cm-saved { display: block; font-family: var(--sans); font-size: 11px; color: var(--muted); margin-top: 3px; min-height: 14px; }
+    .cm-more { display: flex; justify-content: center; padding: 18px 0 0; }
+    .cm-quote {
+      background: rgba(var(--violet-rgb), 0.04); border-left: 3px solid var(--english-violet);
+      padding: 8px 12px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink);
+      white-space: pre-wrap; border-radius: 2px; overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+    }
+
+    /* ----- The thread pop-out: the Enquiries modal ----- */
+    .hub-skin.cm-portal { background: none; }
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 200; background: rgba(20, 18, 26, 0.55);
+      display: flex; align-items: center; justify-content: center; padding: 24px;
+    }
+    .modal-backdrop[hidden] { display: none; }
+    .modal.cm-modal {
+      background: var(--paper); max-width: 760px; width: 100%; max-height: 88vh;
+      display: flex; flex-direction: column; border-radius: 4px; overflow: hidden;
+      box-shadow: 0 30px 80px rgba(20, 18, 26, 0.35);
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center; gap: 16px;
+      padding: 20px 28px; border-bottom: 1px solid rgba(var(--violet-rgb), 0.12);
+    }
+    .modal-head h2 { font-family: var(--sans); font-size: 18px; font-weight: 700; margin: 0; color: var(--ink); }
+    .modal-close { background: transparent; border: none; font-size: 28px; line-height: 1; color: var(--english-violet); cursor: pointer; padding: 0 4px; }
+    .modal-foot {
+      display: flex; gap: 8px; align-items: center; padding: 16px 28px;
+      border-top: 1px solid rgba(var(--violet-rgb), 0.12); flex-wrap: wrap;
+    }
+    .modal-foot[hidden] { display: none; }
+
+    .cm-thread { padding: 22px 28px; overflow-y: auto; flex: 1; font-family: var(--sans); }
+    .cm-thread-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12.5px; color: rgba(28, 29, 34, 0.6); margin-bottom: 14px; }
+    .cm-thread-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .cm-body {
+      background: rgba(var(--violet-rgb), 0.04); border-left: 3px solid var(--english-violet);
+      padding: 14px 18px; font-size: 14px; line-height: 1.6; color: var(--ink);
+      white-space: pre-wrap; word-break: break-word; border-radius: 2px; margin-bottom: 22px;
+    }
+    .cm-body.is-empty { color: rgba(28, 29, 34, 0.5); }
+    .cm-replies-h { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 10px; }
+    .cm-reply { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; background: #fff; }
+    .cm-reply.is-staff { border-color: rgba(var(--violet-rgb), 0.35); background: var(--primary-light); }
+    .cm-reply.is-hidden .cm-reply-body { opacity: 0.5; }
+    .cm-reply-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+    .cm-reply-who { font-size: 13px; font-weight: 700; color: var(--ink); }
+    .cm-reply-when { font-size: 11.5px; color: rgba(28, 29, 34, 0.5); margin-right: auto; }
+    .cm-reply-body { font-size: 13.5px; line-height: 1.6; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+    .hub-skin .cm-reply-top .admin-btn { padding: 5px 10px; font-size: 10.5px; }
+    .cm-tmke {
+      display: inline-block; padding: 2px 7px; border-radius: var(--radius-sm); background: var(--primary); color: #fff;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.1em;
+    }
+    .cm-reply-foot { flex-direction: column; align-items: stretch; }
+    .cm-reply-foot textarea { width: 100%; box-sizing: border-box; min-height: 72px; }
+    .cm-reply-row { display: flex; align-items: center; gap: 8px; }
+
+    @media (max-width: 960px) {
+      .cm-table[data-kind] .cm-row { grid-template-columns: 1fr; gap: 6px; padding: 14px 16px; }
+      .cm-row.is-header { display: none; }
+      .cm-acts { justify-content: flex-start; }
+      .cm-field-row { grid-template-columns: 1fr; }
+    }
+  </style>
+
+  <script>
+    import { requireAdmin } from "../../lib/admin-gate.js";
+    import { supabase } from "../../lib/supabase.js";
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    const PAGE = 50;            // REST reads stop at 1,000 silently: page everything
+    const STATUSES = ["open", "planned", "building", "done", "declined"];
+    const STATUS_LABEL = { open: "Open", planned: "Planned", building: "Building", done: "Done", declined: "Declined" };
+    const STATUS_BADGE = { open: "b-gray", planned: "b-blue", building: "b-amber", done: "b-green", declined: "b-red" };
+    const KIND_LABEL = { topic: "Fortnight topic", discussion: "Conversation", request: "Request" };
+    const SETUP_MSG = "The Community tables aren't set up yet — run supabase/community.sql in the Supabase SQL editor.";
+
+    // A missing table: Postgres says 42P01; newer PostgREST says PGRST205
+    // ("Could not find the table … in the schema cache").
+    const isMissing = (err) => !!err && (
+      err.code === "42P01" || err.code === "PGRST205" ||
+      /does not exist|schema cache/i.test(String(err.message || "")));
+
+    function setupMissing() {
+      const s = $("cm-status");
+      s.textContent = SETUP_MSG;
+      s.classList.add("is-setup");
+      s.hidden = false;
+      $("cm-app").hidden = true;
+      closeThread();
+    }
+
+    // ---- dates (local, so "today" is the UK day Dani is in) ----------------
+    const pad = (n) => String(n).padStart(2, "0");
+    const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const parseYmd = (s) => { const [y, m, d] = String(s).split("-").map(Number); return new Date(y, m - 1, d); };
+    const addDays = (s, n) => { const d = parseYmd(s); d.setDate(d.getDate() + n); return ymd(d); };
+    const today = () => ymd(new Date());
+    const fmtDay = (s) => s ? parseYmd(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+    const fmtDayShort = (s) => s ? parseYmd(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "";
+    function fmtWhen(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      const diff = (Date.now() - d.getTime()) / 1000;
+      if (diff < 60) return "just now";
+      if (diff < 3600) return Math.floor(diff / 60) + "m ago";
+      if (diff < 86400) return Math.floor(diff / 3600) + "h ago";
+      if (diff < 86400 * 7) return Math.floor(diff / 86400) + "d ago";
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    }
+    const fmtStamp = (iso) => iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+    function topicPhase(t) {
+      const now = today();
+      if (!t.starts_on || !t.ends_on) return "undated";
+      if (t.starts_on <= now && now <= t.ends_on) return "current";
+      return t.starts_on > now ? "upcoming" : "past";
+    }
+
+    // ---- names --------------------------------------------------------------
+    const NAMES = new Map();   // user_id -> display_name (or null when they have none)
+    const nameOf = (id) => (id && NAMES.get(id)) || "Member";
+    async function ensureNames(ids) {
+      const want = [...new Set(ids.filter((id) => id && !NAMES.has(id)))];
+      // One .in() per batch of ids; chunked only so the URL stays a sane length.
+      for (let i = 0; i < want.length; i += 150) {
+        const chunk = want.slice(i, i + 150);
+        const { data, error } = await supabase.from("community_names").select("user_id, display_name").in("user_id", chunk);
+        if (error) return;
+        chunk.forEach((id) => NAMES.set(id, null));
+        (data || []).forEach((r) => NAMES.set(r.user_id, r.display_name || null));
+      }
+    }
+
+    // ---- state --------------------------------------------------------------
+    const POST_COLS = "id, kind, title, body, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
+    const LISTS = {
+      topic: { rows: [], done: false, loaded: false, busy: false },
+      request: { rows: [], done: false, loaded: false, busy: false },
+      discussion: { rows: [], done: false, loaded: false, busy: false },
+      report: { rows: [], done: false, loaded: false, busy: false },
+    };
+    const REPORTED_POSTS = new Map();    // id -> post (for the Reports tab)
+    const REPORTED_REPLIES = new Map();  // id -> reply
+    let activeTab = "topic";
+    let me = null;                       // the signed-in admin's user
+
+    function postQuery(kind) {
+      let q = supabase.from("community_posts").select(POST_COLS).eq("kind", kind);
+      if (kind === "topic") q = q.order("starts_on", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false });
+      else if (kind === "request") q = q.order("need_count", { ascending: false }).order("created_at", { ascending: false });
+      else q = q.order("last_activity_at", { ascending: false });
+      return q;
+    }
+
+    async function loadPage(kind, reset) {
+      const L = LISTS[kind];
+      if (L.busy) return;
+      L.busy = true;
+      if (reset) { L.rows = []; L.done = false; }
+      const from = L.rows.length;
+      let data, error;
+      if (kind === "report") {
+        ({ data, error } = await supabase.from("community_reports")
+          .select("id, post_id, reply_id, reporter_id, reason, resolved, created_at")
+          .eq("resolved", false).order("created_at", { ascending: false }).range(from, from + PAGE - 1));
+      } else {
+        ({ data, error } = await postQuery(kind).range(from, from + PAGE - 1));
+      }
+      L.busy = false;
+      if (error) {
+        if (isMissing(error)) { setupMissing(); return false; }
+        listEl(kind).innerHTML = `<p class="cm-empty">Couldn't load: ${esc(error.message)}</p>`;
+        return false;
+      }
+      const rows = data || [];
+      L.done = rows.length < PAGE;
+      L.rows = L.rows.concat(rows);
+      if (kind === "report") await loadReportedContent(rows);
+      await ensureNames(kind === "report"
+        ? rows.map((r) => r.reporter_id).concat([...REPORTED_POSTS.values()].map((p) => p.author_id), [...REPORTED_REPLIES.values()].map((r) => r.author_id))
+        : rows.map((r) => r.author_id));
+      L.loaded = true;
+      render(kind);
+      if (kind === "topic" && reset && !editingTopic) resetTopicForm();
+      return true;
+    }
+
+    async function loadReportedContent(reports) {
+      const replyIds = reports.map((r) => r.reply_id).filter((id) => id && !REPORTED_REPLIES.has(id));
+      if (replyIds.length) {
+        const { data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").in("id", [...new Set(replyIds)]);
+        (data || []).forEach((r) => REPORTED_REPLIES.set(r.id, r));
+      }
+      const postIds = reports.map((r) => r.post_id || (REPORTED_REPLIES.get(r.reply_id) || {}).post_id)
+        .filter((id) => id && !REPORTED_POSTS.has(id));
+      if (postIds.length) {
+        const { data } = await supabase.from("community_posts").select(POST_COLS).in("id", [...new Set(postIds)]);
+        (data || []).forEach((p) => REPORTED_POSTS.set(p.id, p));
+      }
+    }
+
+    // Tab counts: one head-only count per tab, so they're the table's, not the page's.
+    async function loadCounts() {
+      const set = (k, n, alert) => {
+        const el = document.querySelector(`[data-n="${k}"]`);
+        if (!el) return;
+        el.textContent = n == null ? "" : String(n);
+        el.classList.toggle("is-alert", !!alert && n > 0);
+      };
+      const kinds = ["topic", "request", "discussion"];
+      const res = await Promise.all([
+        ...kinds.map((k) => supabase.from("community_posts").select("id", { count: "exact", head: true }).eq("kind", k)),
+        supabase.from("community_reports").select("id", { count: "exact", head: true }).eq("resolved", false),
+      ]);
+      if (res.some((r) => isMissing(r.error))) { setupMissing(); return false; }
+      kinds.forEach((k, i) => set(k, res[i].error ? null : res[i].count));
+      set("report", res[3].error ? null : res[3].count, true);
+      return true;
+    }
+
+    // ---- rendering ------------------------------------------------------------
+    const listEl = (kind) => document.querySelector(`[data-list="${kind}"]`);
+    const badge = (cls, text) => `<span class="badge ${cls}">${esc(text)}</span>`;
+    const btn = (act, id, label, cls = "admin-btn-ghost") =>
+      `<button type="button" class="admin-btn ${cls}" data-act="${esc(act)}" data-id="${esc(id)}">${esc(label)}</button>`;
+    const snippet = (s, n = 220) => { const t = String(s || "").trim(); return t.length > n ? t.slice(0, n) + "…" : t; };
+
+    function rowTopic(t) {
+      const phase = topicPhase(t);
+      const phaseBadge = phase === "current" ? badge("b-green", "Current")
+        : phase === "upcoming" ? badge("b-blue", "Upcoming")
+        : phase === "past" ? badge("b-gray", "Past") : badge("b-gray", "No dates");
+      return `
+        <div class="cm-row${t.hidden ? " is-hidden-row" : ""}" data-open="${esc(t.id)}">
+          <div class="cm-when">${t.starts_on ? `${esc(fmtDayShort(t.starts_on))} – ${esc(fmtDay(t.ends_on))}` : "—"}</div>
+          <div>
+            <div class="cm-title">${esc(t.title)}</div>
+            ${t.body ? `<div class="cm-snippet">${esc(snippet(t.body))}</div>` : ""}
+          </div>
+          <div class="cm-num">${esc(t.reply_count)}</div>
+          <div class="cm-badges">${phaseBadge}${t.hidden ? badge("b-red", "Hidden") : ""}</div>
+          <div class="cm-acts">
+            ${btn("edit-topic", t.id, "Edit")}
+            ${btn("hide", t.id, t.hidden ? "Unhide" : "Hide")}
+            ${btn("delete-topic", t.id, "Delete", "admin-btn-danger")}
+          </div>
+        </div>`;
+    }
+
+    function rowRequest(r) {
+      return `
+        <div class="cm-row${r.hidden ? " is-hidden-row" : ""}" data-open="${esc(r.id)}">
+          <div class="cm-need" title="Members who need this">${esc(r.need_count)}</div>
+          <div>
+            <div class="cm-title">${r.category ? `<span class="cm-pill">${esc(r.category)}</span>` : ""}${esc(r.title)}</div>
+            <div class="cm-meta">${esc(r.is_staff ? "TMKE" : nameOf(r.author_id))} · ${esc(fmtWhen(r.created_at))}${r.hidden ? " · Hidden" : ""}</div>
+          </div>
+          <div class="cm-num">${esc(r.reply_count)}</div>
+          <div data-stop>
+            <select class="cm-status-sel" data-status="${esc(r.id)}" aria-label="Status">
+              ${STATUSES.map((s) => `<option value="${s}"${r.status === s ? " selected" : ""}>${STATUS_LABEL[s]}</option>`).join("")}
+            </select>
+            <span class="cm-saved" data-saved="${esc(r.id)}"></span>
+          </div>
+          <div class="cm-acts">${btn("hide", r.id, r.hidden ? "Unhide" : "Hide")}</div>
+        </div>`;
+    }
+
+    function rowDiscussion(d) {
+      return `
+        <div class="cm-row${d.hidden ? " is-hidden-row" : ""}" data-open="${esc(d.id)}">
+          <div class="cm-when">${esc(fmtWhen(d.last_activity_at))}</div>
+          <div>
+            <div class="cm-title">${esc(d.title)}</div>
+            <div class="cm-meta">${esc(d.is_staff ? "TMKE" : nameOf(d.author_id))} · started ${esc(fmtWhen(d.created_at))}</div>
+            ${d.body ? `<div class="cm-snippet">${esc(snippet(d.body))}</div>` : ""}
+          </div>
+          <div class="cm-num">${esc(d.reply_count)}</div>
+          <div class="cm-badges">${d.pinned ? badge("b-purple", "Pinned") : ""}${d.hidden ? badge("b-red", "Hidden") : ""}</div>
+          <div class="cm-acts">
+            ${btn("pin", d.id, d.pinned ? "Unpin" : "Pin")}
+            ${btn("hide", d.id, d.hidden ? "Unhide" : "Hide")}
+          </div>
+        </div>`;
+    }
+
+    function rowReport(rep) {
+      const reply = rep.reply_id ? REPORTED_REPLIES.get(rep.reply_id) : null;
+      const post = REPORTED_POSTS.get(rep.post_id || (reply && reply.post_id));
+      const target = reply || post;
+      const gone = !target;
+      const hidden = target && target.hidden;
+      const what = reply ? "Reply" : "Post";
+      const text = reply ? reply.body : post ? [post.title, post.body].filter(Boolean).join("\n\n") : "";
+      return `
+        <div class="cm-row" ${post ? `data-open="${esc(post.id)}"` : ""}>
+          <div class="cm-when">${esc(fmtWhen(rep.created_at))}</div>
+          <div>
+            <div class="cm-meta"><span class="cm-pill">${what}</span>${target ? `by ${esc(target.is_staff ? "TMKE" : nameOf(target.author_id))}` : ""}${post && reply ? ` on “${esc(snippet(post.title, 80))}”` : ""}</div>
+            ${gone ? `<div class="cm-snippet">This content has since been deleted.</div>` : `<div class="cm-quote">${esc(snippet(text, 500))}</div>`}
+          </div>
+          <div>
+            <div class="cm-snippet">${rep.reason ? esc(rep.reason) : "No reason given."}</div>
+            <div class="cm-meta">Reported by ${esc(nameOf(rep.reporter_id))}</div>
+          </div>
+          <div class="cm-badges">${gone ? badge("b-gray", "Deleted") : hidden ? badge("b-red", "Hidden") : badge("b-amber", "Visible")}</div>
+          <div class="cm-acts">
+            ${gone ? "" : btn("report-hide", rep.id, hidden ? "Unhide" : `Hide ${what.toLowerCase()}`, hidden ? "admin-btn-ghost" : "admin-btn-danger")}
+            ${btn("resolve", rep.id, "Mark resolved", "admin-btn-primary")}
+          </div>
+        </div>`;
+    }
+
+    const HEADERS = {
+      topic: ["Dates", "Topic", "Replies", "State", ""],
+      request: ["Need it", "Request", "Replies", "Status", ""],
+      discussion: ["Activity", "Conversation", "Replies", "State", ""],
+      report: ["When", "Reported", "Reason", "Now", ""],
+    };
+    const EMPTY = {
+      topic: "No topics yet. Set the first one above.",
+      request: "No requests yet.",
+      discussion: "No conversations yet.",
+      report: "Nothing reported. All clear.",
+    };
+    const ROW = { topic: rowTopic, request: rowRequest, discussion: rowDiscussion, report: rowReport };
+
+    function render(kind) {
+      const L = LISTS[kind];
+      const el = listEl(kind);
+      if (!el || !L.loaded) return;
+      if (!L.rows.length) { el.innerHTML = `<p class="cm-empty">${EMPTY[kind]}</p>`; return; }
+      el.innerHTML = `
+        <div class="cm-table" data-kind="${kind}" role="table">
+          <div class="cm-row is-header">${HEADERS[kind].map((h) => `<div>${h}</div>`).join("")}</div>
+          ${L.rows.map(ROW[kind]).join("")}
+        </div>
+        ${L.done ? "" : `<div class="cm-more"><button type="button" class="admin-btn admin-btn-ghost" data-more="${kind}">Load more</button></div>`}`;
+    }
+
+    // One post changed: put the fresh copy everywhere it is shown.
+    function patchPost(p) {
+      if (!p) return;
+      const L = LISTS[p.kind];
+      if (L) {
+        const i = L.rows.findIndex((r) => r.id === p.id);
+        if (i >= 0) { L.rows[i] = p; render(p.kind); }
+      }
+      if (REPORTED_POSTS.has(p.id)) { REPORTED_POSTS.set(p.id, p); render("report"); }
+    }
+    function findPost(id) {
+      for (const k of ["topic", "request", "discussion"]) {
+        const r = LISTS[k].rows.find((x) => x.id === id);
+        if (r) return r;
+      }
+      return REPORTED_POSTS.get(id) || null;
+    }
+    async function refetchPost(id) {
+      const { data } = await supabase.from("community_posts").select(POST_COLS).eq("id", id).maybeSingle();
+      if (data) patchPost(data);
+      return data;
+    }
+
+    // ---- actions --------------------------------------------------------------
+    async function updatePost(id, patch) {
+      const { error } = await supabase.from("community_posts").update(patch).eq("id", id);
+      if (error) { alert("Couldn't save: " + error.message); return null; }
+      const p = await refetchPost(id);
+      if (thread && thread.post.id === id && p) { thread.post = p; renderThread(); }
+      return p;
+    }
+
+    async function toggleHidden(id) {
+      const p = findPost(id) || (thread && thread.post.id === id ? thread.post : null);
+      if (!p) return;
+      await updatePost(id, { hidden: !p.hidden });
+    }
+
+    async function togglePinned(id) {
+      const p = findPost(id) || (thread && thread.post.id === id ? thread.post : null);
+      if (!p) return;
+      await updatePost(id, { pinned: !p.pinned });
+    }
+
+    async function deleteTopic(id) {
+      const t = LISTS.topic.rows.find((r) => r.id === id);
+      if (!t) return;
+      if (!confirm(`Delete the topic "${t.title}" and every reply under it? This can't be undone. Hiding it keeps the replies.`)) return;
+      const { error } = await supabase.from("community_posts").delete().eq("id", id);
+      if (error) { alert("Couldn't delete: " + error.message); return; }
+      LISTS.topic.rows = LISTS.topic.rows.filter((r) => r.id !== id);
+      render("topic");
+      if (editingTopic === id) resetTopicForm();
+      if (thread && thread.post.id === id) closeThread();
+      loadCounts();
+    }
+
+    async function setStatus(id, status, sel) {
+      const saved = document.querySelector(`[data-saved="${CSS.escape(id)}"]`);
+      sel.disabled = true;
+      if (saved) saved.textContent = "Saving…";
+      const { error } = await supabase.from("community_posts").update({ status }).eq("id", id);
+      sel.disabled = false;
+      if (error) {
+        const p = findPost(id);
+        if (p) sel.value = p.status;
+        if (saved) saved.textContent = "Couldn't save";
+        alert("Couldn't change the status: " + error.message);
+        return;
+      }
+      const p = findPost(id);
+      if (p) p.status = status;
+      if (saved) { saved.textContent = "Saved"; setTimeout(() => { if (saved.textContent === "Saved") saved.textContent = ""; }, 1600); }
+      if (thread && thread.post.id === id) { thread.post.status = status; renderThread(); }
+    }
+
+    async function reportHide(repId) {
+      const rep = LISTS.report.rows.find((r) => r.id === repId);
+      if (!rep) return;
+      if (rep.reply_id) {
+        const reply = REPORTED_REPLIES.get(rep.reply_id);
+        if (!reply) return;
+        const { error } = await supabase.from("community_replies").update({ hidden: !reply.hidden }).eq("id", reply.id);
+        if (error) { alert("Couldn't save: " + error.message); return; }
+        reply.hidden = !reply.hidden;
+        render("report");
+        refetchPost(reply.post_id);   // the reply count moves with it
+      } else {
+        await toggleHidden(rep.post_id);
+        render("report");
+      }
+    }
+
+    async function resolveReport(repId) {
+      const { error } = await supabase.from("community_reports").update({ resolved: true }).eq("id", repId);
+      if (error) { alert("Couldn't mark it resolved: " + error.message); return; }
+      LISTS.report.rows = LISTS.report.rows.filter((r) => r.id !== repId);
+      render("report");
+      loadCounts();
+    }
+
+    // ---- topic form -----------------------------------------------------------
+    let editingTopic = null;
+    let endsTouched = false;
+    function defaultStart() {
+      const ends = LISTS.topic.rows.map((t) => t.ends_on).filter(Boolean).sort();
+      if (!ends.length) return today();
+      const next = addDays(ends[ends.length - 1], 1);
+      return next < today() ? today() : next;    // never default a new topic into the past
+    }
+    // By id, not form.title: a form's own title attribute shadows an input named "title".
+    const topicFields = () => ({ title: $("cm-t-title"), body: $("cm-t-body"), starts_on: $("cm-t-start"), ends_on: $("cm-t-end") });
+    function resetTopicForm() {
+      editingTopic = null;
+      endsTouched = false;
+      const f = topicFields();
+      f.title.value = "";
+      f.body.value = "";
+      f.starts_on.value = defaultStart();
+      f.ends_on.value = addDays(f.starts_on.value, 13);
+      $("cm-topic-form-title").textContent = "Set the next topic";
+      $("cm-topic-save").textContent = "Add topic";
+      $("cm-topic-cancel").hidden = true;
+      setMsg("cm-topic-msg", "");
+    }
+    function editTopic(id) {
+      const t = LISTS.topic.rows.find((r) => r.id === id);
+      if (!t) return;
+      editingTopic = id;
+      endsTouched = true;
+      const f = topicFields();
+      f.title.value = t.title || "";
+      f.body.value = t.body || "";
+      f.starts_on.value = t.starts_on || "";
+      f.ends_on.value = t.ends_on || "";
+      $("cm-topic-form-title").textContent = "Edit topic";
+      $("cm-topic-save").textContent = "Save changes";
+      $("cm-topic-cancel").hidden = false;
+      setMsg("cm-topic-msg", "");
+      $("cm-topic-form").scrollIntoView({ behavior: "smooth", block: "start" });
+      f.title.focus({ preventScroll: true });
+    }
+    function setMsg(id, text, bad) {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = text;
+      el.classList.toggle("is-bad", !!bad);
+    }
+
+    $("cm-t-start").addEventListener("change", (e) => {
+      const v = e.target.value;
+      if (v && !endsTouched) $("cm-t-end").value = addDays(v, 13);
+    });
+    $("cm-t-end").addEventListener("input", () => { endsTouched = true; });
+    $("cm-topic-cancel").addEventListener("click", resetTopicForm);
+
+    $("cm-topic-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const f = topicFields();
+      const title = f.title.value.trim();
+      const body = f.body.value.trim();
+      const starts_on = f.starts_on.value;
+      const ends_on = f.ends_on.value;
+      if (title.length < 3) return setMsg("cm-topic-msg", "The title needs at least 3 characters.", true);
+      if (!starts_on || !ends_on) return setMsg("cm-topic-msg", "Both dates are needed.", true);
+      if (ends_on < starts_on) return setMsg("cm-topic-msg", "It can't end before it starts.", true);
+      const save = $("cm-topic-save");
+      save.disabled = true;
+      setMsg("cm-topic-msg", "Saving…");
+      const row = { title, body, starts_on, ends_on };
+      const { error } = editingTopic
+        ? await supabase.from("community_posts").update(row).eq("id", editingTopic)
+        : await supabase.from("community_posts").insert({ kind: "topic", ...row });
+      save.disabled = false;
+      if (error) {
+        if (isMissing(error)) return setupMissing();
+        return setMsg("cm-topic-msg", "Couldn't save: " + error.message, true);
+      }
+      const wasEditing = !!editingTopic;
+      editingTopic = null;
+      await loadPage("topic", true);
+      resetTopicForm();
+      setMsg("cm-topic-msg", wasEditing ? "Saved." : "Topic added.");
+      loadCounts();
+    });
+
+    // ---- the thread -------------------------------------------------------------
+    let thread = null;   // { post, replies }
+
+    async function openThread(id) {
+      const modal = $("cm-modal");
+      const body = $("cm-thread");
+      $("cm-modal-title").textContent = "Loading…";
+      body.innerHTML = '<p class="cm-loading">Loading the thread…</p>';
+      $("cm-reply-foot").hidden = true;
+      modal.hidden = false;
+      thread = { post: { id }, replies: [] };
+      const url = new URL(location.href);
+      url.searchParams.set("post", id);
+      history.replaceState(null, "", url);
+
+      const { data: post, error } = await supabase.from("community_posts").select(POST_COLS).eq("id", id).maybeSingle();
+      if (error) {
+        if (isMissing(error)) return setupMissing();
+        $("cm-modal-title").textContent = "Thread";
+        body.innerHTML = `<p class="cm-empty">Couldn't load this post: ${esc(error.message)}</p>`;
+        return;
+      }
+      if (!post) {
+        $("cm-modal-title").textContent = "Thread";
+        body.innerHTML = '<p class="cm-empty">This post no longer exists.</p>';
+        return;
+      }
+      // Every reply, hidden ones included, a page at a time past the row cap.
+      let replies = [];
+      for (let from = 0; ; from += 500) {
+        const { data, error: rErr } = await supabase.from("community_replies")
+          .select("id, post_id, body, author_id, is_staff, hidden, created_at")
+          .eq("post_id", id).order("created_at", { ascending: true }).range(from, from + 499);
+        if (rErr) {
+          body.innerHTML = `<p class="cm-empty">Couldn't load the replies: ${esc(rErr.message)}</p>`;
+          return;
+        }
+        replies = replies.concat(data || []);
+        if (!data || data.length < 500) break;
+      }
+      if (!thread || thread.post.id !== id) return;   // closed or moved on meanwhile
+      await ensureNames([post.author_id, ...replies.map((r) => r.author_id)]);
+      thread = { post, replies };
+      patchPost(post);
+      renderThread();
+    }
+
+    function renderThread() {
+      if (!thread || !thread.post.kind) return;
+      const p = thread.post;
+      $("cm-modal-title").textContent = p.title;
+      const meta = [
+        `<span class="cm-pill">${esc(KIND_LABEL[p.kind] || p.kind)}</span>`,
+        p.is_staff ? '<span class="cm-tmke">TMKE</span>' : `<span>${esc(nameOf(p.author_id))}</span>`,
+        `<span>${esc(fmtStamp(p.created_at))}</span>`,
+        p.kind === "topic" && p.starts_on ? `<span>Runs ${esc(fmtDayShort(p.starts_on))} – ${esc(fmtDay(p.ends_on))}</span>` : "",
+        p.kind === "request" && p.category ? `<span>${esc(p.category)}</span>` : "",
+        p.kind === "request" ? `<span>${esc(p.need_count)} need this</span>` : "",
+        p.kind === "request" ? badge(STATUS_BADGE[p.status] || "b-gray", STATUS_LABEL[p.status] || p.status) : "",
+        p.kind === "topic" && topicPhase(p) === "current" ? badge("b-green", "Current") : "",
+        p.pinned ? badge("b-purple", "Pinned") : "",
+        p.hidden ? badge("b-red", "Hidden") : "",
+      ].filter(Boolean).join("");
+      const acts = [
+        btn("hide", p.id, p.hidden ? "Unhide post" : "Hide post", p.hidden ? "admin-btn-ghost" : "admin-btn-danger"),
+        p.kind === "discussion" ? btn("pin", p.id, p.pinned ? "Unpin" : "Pin") : "",
+        p.kind === "topic" ? btn("edit-topic", p.id, "Edit topic") : "",
+      ].join("");
+      const replies = thread.replies.length
+        ? thread.replies.map((r) => `
+            <div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}">
+              <div class="cm-reply-top">
+                <span class="cm-reply-who">${esc(nameOf(r.author_id))}</span>
+                ${r.is_staff ? '<span class="cm-tmke">TMKE</span>' : ""}
+                ${r.hidden ? badge("b-red", "Hidden") : ""}
+                <span class="cm-reply-when">${esc(fmtStamp(r.created_at))}</span>
+                ${btn("hide-reply", r.id, r.hidden ? "Unhide" : "Hide")}
+              </div>
+              <div class="cm-reply-body">${esc(r.body)}</div>
+            </div>`).join("")
+        : '<p class="cm-empty">No replies yet.</p>';
+      $("cm-thread").innerHTML = `
+        <div class="cm-thread-meta">${meta}</div>
+        <div class="cm-thread-acts">${acts}</div>
+        <div class="cm-body${p.body ? "" : " is-empty"}">${p.body ? esc(p.body) : "No further detail."}</div>
+        <div class="cm-replies-h">Replies · ${thread.replies.length}</div>
+        ${replies}`;
+
+      // Replies can only go under a post members can see (the insert policy).
+      const foot = $("cm-reply-foot");
+      foot.hidden = false;
+      const ta = $("cm-reply-text");
+      const send = $("cm-reply-send");
+      ta.disabled = !!p.hidden;
+      send.disabled = !!p.hidden;
+      ta.placeholder = p.hidden ? "Unhide the post to reply." : "Reply as TMKE";
+    }
+
+    function closeThread() {
+      $("cm-modal").hidden = true;
+      thread = null;
+      $("cm-reply-text").value = "";
+      setMsg("cm-reply-msg", "");
+      const url = new URL(location.href);
+      if (url.searchParams.has("post")) { url.searchParams.delete("post"); history.replaceState(null, "", url); }
+    }
+
+    async function toggleReply(replyId) {
+      if (!thread) return;
+      const r = thread.replies.find((x) => x.id === replyId);
+      if (!r) return;
+      const { error } = await supabase.from("community_replies").update({ hidden: !r.hidden }).eq("id", replyId);
+      if (error) { alert("Couldn't save: " + error.message); return; }
+      r.hidden = !r.hidden;
+      if (REPORTED_REPLIES.has(replyId)) { REPORTED_REPLIES.get(replyId).hidden = r.hidden; render("report"); }
+      const p = await refetchPost(thread.post.id);
+      if (p && thread) thread.post = p;
+      renderThread();
+    }
+
+    $("cm-reply-send").addEventListener("click", async () => {
+      if (!thread || !thread.post.kind) return;
+      const ta = $("cm-reply-text");
+      const text = ta.value.trim();
+      if (!text) return setMsg("cm-reply-msg", "Write something first.", true);
+      const send = $("cm-reply-send");
+      send.disabled = true;
+      setMsg("cm-reply-msg", "Posting…");
+      // post_id and body only: the triggers set who wrote it and the badge.
+      const { data, error } = await supabase.from("community_replies")
+        .insert({ post_id: thread.post.id, body: text })
+        .select("id, post_id, body, author_id, is_staff, hidden, created_at").maybeSingle();
+      send.disabled = false;
+      if (error) return setMsg("cm-reply-msg", "Couldn't post: " + error.message, true);
+      ta.value = "";
+      setMsg("cm-reply-msg", "Posted.");
+      if (data) {
+        await ensureNames([data.author_id]);
+        thread.replies.push(data);
+      }
+      const p = await refetchPost(thread.post.id);
+      if (p && thread) thread.post = p;
+      renderThread();
+    });
+
+    // .ash-content is position:relative with z-index:2, a stacking context the
+    // sidebar (z-index 30) paints over, so the pop-out goes to <body> as the
+    // Contacts drawer does. Wrapped in .hub-skin so the Hub's buttons, badges
+    // and fields still reach it out there.
+    const portal = document.createElement("div");
+    portal.className = "hub-skin cm-portal";
+    portal.append($("cm-modal"));
+    document.body.append(portal);
+
+    $("cm-modal-close").addEventListener("click", closeThread);
+    $("cm-modal").addEventListener("click", (e) => { if (e.target === e.currentTarget) closeThread(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("cm-modal").hidden) closeThread(); });
+
+    // ---- one click handler for every button and row --------------------------
+    document.addEventListener("click", (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const more = t.closest("[data-more]");
+      if (more) { more.disabled = true; more.textContent = "Loading…"; loadPage(more.getAttribute("data-more")); return; }
+      const a = t.closest("[data-act]");
+      if (a) {
+        e.stopPropagation();
+        const id = a.getAttribute("data-id");
+        const act = a.getAttribute("data-act");
+        if (act === "hide") toggleHidden(id);
+        else if (act === "pin") togglePinned(id);
+        else if (act === "edit-topic") { if (thread) closeThread(); switchTab("topic"); editTopic(id); }
+        else if (act === "delete-topic") deleteTopic(id);
+        else if (act === "report-hide") reportHide(id);
+        else if (act === "resolve") resolveReport(id);
+        else if (act === "hide-reply") toggleReply(id);
+        return;
+      }
+      if (t.closest("[data-stop]")) return;
+      const row = t.closest("[data-open]");
+      if (row && row.closest("#cm-app")) openThread(row.getAttribute("data-open"));
+    });
+    document.addEventListener("change", (e) => {
+      const sel = e.target;
+      if (sel instanceof HTMLSelectElement && sel.hasAttribute("data-status")) setStatus(sel.getAttribute("data-status"), sel.value, sel);
+    });
+
+    // ---- tabs -------------------------------------------------------------------
+    function switchTab(kind) {
+      activeTab = kind;
+      document.querySelectorAll("#cm-tabs [data-tab]").forEach((b) => b.classList.toggle("is-on", b.getAttribute("data-tab") === kind));
+      document.querySelectorAll("[data-pane]").forEach((p) => p.classList.toggle("is-on", p.getAttribute("data-pane") === kind));
+      if (!LISTS[kind].loaded) loadPage(kind, true);
+    }
+    $("cm-tabs").addEventListener("click", (e) => {
+      const b = e.target instanceof Element && e.target.closest("[data-tab]");
+      if (b) switchTab(b.getAttribute("data-tab"));
+    });
+
+    // ---- so TMKE's replies carry a name -------------------------------------------
+    async function ensureStaffMember(user) {
+      if (!user || !/^[0-9a-f-]{36}$/i.test(String(user.id))) return;   // dev preview has no real user
+      const { data: mine, error } = await supabase.from("community_members").select("user_id").eq("user_id", user.id).maybeSingle();
+      if (error || mine) return;
+      let full = "";
+      try {
+        const { data: prof } = await supabase.from("admin_profiles").select("full_name").eq("user_id", user.id).maybeSingle();
+        full = (prof && prof.full_name) || "";
+      } catch (_) {}
+      const md = user.user_metadata || {};
+      let first = String(full || md.first_name || md.full_name || md.name || "").trim().split(/\s+/)[0] || "";
+      if (!first) {
+        const local = String(user.email || "").split("@")[0].split(/[._-]/)[0] || "TMKE";
+        first = local.charAt(0).toUpperCase() + local.slice(1);
+      }
+      await supabase.from("community_members").upsert({ user_id: user.id, first_name: first.slice(0, 60), last_name: "" }, { onConflict: "user_id" });
+      NAMES.delete(user.id);
+    }
+
+    // ---- start ------------------------------------------------------------------
+    (async () => {
+      const session = await requireAdmin();
+      if (!session) return;
+      me = session.user;
+
+      // A real read first: a head-only count on a missing table comes back
+      // without an error, so it can't tell us the SQL hasn't been run.
+      const probe = await supabase.from("community_posts").select("id").limit(1);
+      if (probe.error) {
+        if (isMissing(probe.error)) return setupMissing();
+        $("cm-status").textContent = "Couldn't load the Community: " + probe.error.message;
+        return;
+      }
+      if (!(await loadCounts())) return;
+      $("cm-status").hidden = true;
+      $("cm-app").hidden = false;
+      await ensureStaffMember(me);
+
+      const want = new URL(location.href).searchParams.get("post");
+      if (want) {
+        // Land on the tab the post belongs to, then open it.
+        const { data } = await supabase.from("community_posts").select("kind").eq("id", want).maybeSingle();
+        if (data && LISTS[data.kind]) switchTab(data.kind);
+        else switchTab("topic");
+        openThread(want);
+      } else {
+        switchTab("topic");
+      }
+      // Reports are the one thing that wants us; fetch them now so the tab is ready.
+      if (!LISTS.report.loaded) loadPage("report", true);
+    })();
+  </script>
+</AdminShell>

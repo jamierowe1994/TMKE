@@ -1,0 +1,704 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import HubFootBar from "../../components/account/HubFootBar.astro";
+import "../../styles/ws-system.css";
+
+// ---------------------------------------------------------------------------
+// The Community (Dani, 17 Oct 2026): "the element of community is something
+// that I always wanted to include in this hub. It feels very people-driven."
+//
+//   Chapter 01  This fortnight -- a topic we set every two weeks; members talk
+//               under it and we join in with advice and feedback.
+//   Chapter 02  Conversations -- open talk about estate agency marketing.
+//   Chapter 03  Requests -- something to add or change. Others say "I need
+//               this too", so we can see how many want what. The Help
+//               Centre's Feedback card comes here.
+//
+// Posts go live straight away; we can hide any of them (/admin/community).
+// Members show as "Sarah H." unless they choose their full name and agency.
+// Schema and rules: supabase/community.sql.
+// ---------------------------------------------------------------------------
+
+const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoots & video", "Socials", "Something else"];
+---
+<BaseLayout
+  dashboard
+  hideNav
+  hideFooter
+  title="Community — TMKE"
+  readyGate
+  description="Talk estate agency marketing with other members, join this fortnight's topic, and tell us what to build next."
+>
+  <div class="ws">
+    <WorkspaceHeader active="community" />
+
+    <main class="ws-main">
+      <div class="ws-left">
+      <section class="ws-hero ws-hero--sub" data-gate="hero">
+        <div class="ws-hero-copy">
+          <p class="ws-hero-date"><a href="/account" class="cm-back">&larr; Workspace</a></p>
+          <h1 class="ws-greeting">The Community.</h1>
+          <p class="ws-hero-sub">Talk estate agency marketing with other members, join this fortnight&rsquo;s topic, and tell us what to build next.</p>
+          <div class="ws-hero-cta cm-cta">
+            <button type="button" class="ws-btn ws-btn--primary" data-cm-new="discussion">Start a conversation
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <ul class="ws-brief cm-brief">
+            <li><a class="ws-brief-slot" href="#cm-topic-h">
+              <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              <span class="ws-brief-tx"><strong>This fortnight</strong><span>the topic we&rsquo;re all on</span></span>
+            </a></li>
+            <li><a class="ws-brief-slot" href="#requests">
+              <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></span>
+              <span class="ws-brief-tx"><strong>Requests</strong><span>what members want next</span></span>
+            </a></li>
+            <li><button type="button" class="ws-brief-slot cm-brief-btn" data-cm-me>
+              <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+              <span class="ws-brief-tx"><strong>How you appear</strong><span data-cm-me-name></span></span>
+            </button></li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============ CHAPTER 01 — THIS FORTNIGHT ============ -->
+      <section class="ws-block" aria-labelledby="cm-topic-h" data-gate="topic">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="cm-topic-h"><span class="ws-block-ch">Chapter 01</span>This fortnight</h2>
+        </header>
+        <div data-cm-topic></div>
+      </section>
+
+      <!-- ============ CHAPTER 02 — CONVERSATIONS ============ -->
+      <section class="ws-block" aria-labelledby="cm-talk-h" data-gate="talk">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="cm-talk-h"><span class="ws-block-ch">Chapter 02</span>Conversations</h2>
+          <button type="button" class="ws-block-link cm-head-btn" data-cm-new="discussion">Start one
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </header>
+        <div class="cm-list" data-cm-talk></div>
+      </section>
+
+      <!-- ============ CHAPTER 03 — REQUESTS ============ -->
+      <section class="ws-block" aria-labelledby="cm-req-h" id="requests" data-gate="requests">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="cm-req-h"><span class="ws-block-ch">Chapter 03</span>Requests</h2>
+          <div class="cm-sort" role="group" aria-label="Order" data-cm-sort>
+            <button type="button" class="cm-sort-b is-on" data-sort="wanted" aria-pressed="true">Most wanted</button>
+            <button type="button" class="cm-sort-b" data-sort="new" aria-pressed="false">Newest</button>
+          </div>
+          <button type="button" class="ws-block-link cm-head-btn" data-cm-new="request">Ask for something
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </header>
+        <p class="cm-intro">Something you&rsquo;d like added or changed &mdash; in the Studio, the packs, the Planner, anything. If someone has asked already, say you need it too: the most wanted is what we build first.</p>
+        <div class="cm-list" data-cm-reqs></div>
+      </section>
+
+      <HubFootBar />
+      </div>
+    </main>
+  </div>
+
+  <!-- One pop-out, the Help Centre's size, for a thread, a new post and your name. -->
+  <div class="cm-modal" data-cm-modal hidden>
+    <div class="cm-modal-card" role="dialog" aria-modal="true" aria-labelledby="cm-modal-h" data-lenis-prevent>
+      <button type="button" class="cm-x" data-cm-close aria-label="Close">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+      <div data-cm-modal-body></div>
+    </div>
+  </div>
+
+  <script type="application/json" id="cm-cats" set:html={JSON.stringify(CATEGORIES)}></script>
+
+  <style is:global>
+    /* The header is the shared flat one; the three boxes sit at the right,
+       level with the button, as on the Studio. */
+    .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(24px, 3vw, 48px); align-items: end; }
+    .ws-hero--sub .ws-hero-date, .ws-hero--sub .ws-greeting, .ws-hero--sub .ws-hero-sub { grid-column: 1 / -1; }
+    .ws-hero--sub .cm-cta { grid-column: 1; grid-row: 4; align-self: end; }
+    .cm-brief { grid-column: 2; grid-row: 4; align-self: end; }
+    .cm-brief-btn { all: unset; cursor: pointer; display: flex; align-items: center; gap: 11px; }
+    .cm-brief li:has(.cm-brief-btn:hover) { border-color: rgba(28,29,34,0.3); }
+    .cm-back { color: inherit; text-decoration: none; }
+    @media (max-width: 900px) {
+      .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
+      .cm-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .ws-hero--sub .cm-cta { grid-row: 5; margin-top: 14px; }
+    }
+    @media (max-width: 620px) { .cm-brief { grid-template-columns: minmax(0, 1fr); } }
+
+    /* The bar's own buttons, set like its links. */
+    .cm-head-btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12px; line-height: 14px; font-weight: 600; letter-spacing: 0.01em; color: rgba(255,255,255,0.78); transition: color 0.2s; }
+    .cm-head-btn:hover { color: #fff; }
+    .cm-head-btn:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+    .cm-head-btn svg { width: 12px; height: 12px; }
+    .cm-sort { display: inline-flex; gap: 2px; margin-left: auto; padding: 2px; border: 1px solid rgba(255,255,255,0.22); border-radius: 4px; }
+    .cm-sort-b { all: unset; cursor: pointer; padding: 4px 10px; border-radius: 3px; font-family: var(--sans); font-size: 11px; line-height: 14px; font-weight: 600; color: rgba(255,255,255,0.72); transition: background 0.2s, color 0.2s; }
+    .cm-sort-b:hover { color: #fff; }
+    .cm-sort-b.is-on { background: #fff; color: var(--english-violet); }
+    .cm-sort-b:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+    .cm-sort-b, .cm-head-btn { white-space: nowrap; }
+    /* A phone: the order buttons go to their own line under the title. */
+    @media (max-width: 620px) {
+      #requests .ws-block-head { flex-wrap: wrap; row-gap: 10px; }
+      #requests .cm-sort { order: 3; margin-left: 0; }
+    }
+    .cm-intro { margin: 0; max-width: 75%; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: var(--ws-tx); }
+    @media (max-width: 760px) { .cm-intro { max-width: none; } }
+    .cm-list { display: flex; flex-direction: column; gap: var(--ws-gap); }
+
+    /* A row: what it is on the left, the count (and for a request, the
+       button) on the right. White, the one outline, like every hub card. */
+    .cm-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center; padding: 16px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .cm-row-open { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .cm-row-open:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 4px; }
+    .cm-row-t { font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 700; line-height: 1.35; color: var(--ws-ink); overflow-wrap: anywhere; }
+    .cm-row-open:hover .cm-row-t { color: var(--english-violet); }
+    .cm-row-x { font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.5; color: var(--ws-tx); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .cm-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); }
+    .cm-meta > * + *::before { content: "·"; margin-right: 10px; color: rgba(28,29,34,0.3); }
+    .cm-side { display: flex; flex-direction: column; align-items: flex-end; gap: 7px; text-align: right; }
+    .cm-count { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); white-space: nowrap; }
+    .cm-count b { color: var(--ws-ink); font-weight: 700; }
+    .cm-badge { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 3px; background: var(--english-violet); color: #fff; font-family: var(--sans); font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .cm-meta > .cm-badge::before { content: none; }
+    .cm-status { display: inline-flex; align-items: center; height: 19px; padding: 0 7px; border-radius: 3px; font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; background: rgba(28,29,34,0.06); color: var(--ws-ink); }
+    .cm-status[data-s="planned"]  { background: #ece6ee; color: #4a3550; }
+    .cm-status[data-s="building"] { background: #f4e7df; color: #8a4f35; }
+    .cm-status[data-s="done"]     { background: #e3efe7; color: #2f6e4c; }
+    .cm-status[data-s="declined"] { background: rgba(28,29,34,0.06); color: var(--ws-faint); }
+    .cm-hidden-note { color: #a1452f; }
+
+    /* "I need this too": outlined until you need it, then filled. */
+    .cm-need { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: var(--ws-btn-h, 26px); padding: 0 13px; border-radius: var(--ws-r); border: 1px solid var(--english-violet); color: var(--english-violet); background: #fff; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; transition: background 0.18s, color 0.18s; }
+    .cm-need:hover { background: rgba(55,30,40,0.06); }
+    .cm-need.is-on { background: var(--english-violet); color: #fff; }
+    .cm-need.is-on:hover { background: color-mix(in srgb, var(--english-violet) 86%, #000); }
+    .cm-need:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .cm-need[disabled] { cursor: default; opacity: 0.6; }
+    .cm-need svg { width: 11px; height: 11px; }
+    .cm-mine { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); }
+
+    .cm-more { all: unset; cursor: pointer; align-self: flex-start; margin-top: 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-ink); border-bottom: 1px solid rgba(28,29,34,0.35); padding-bottom: 3px; }
+    .cm-more:hover { color: var(--english-violet); border-color: var(--english-violet); }
+
+    /* Nothing yet: said plainly, the bookings page's empty card. */
+    .cm-none { padding: 20px 22px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .cm-none-h { margin: 0 0 6px; font-family: var(--serif); font-size: var(--ws-t-label, 11px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .cm-none-p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: rgba(28,29,34,0.6); }
+    .cm-none-go { all: unset; cursor: pointer; display: inline-block; margin-top: 8px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; font-weight: 700; color: var(--english-violet); border-bottom: 1px solid rgba(55,30,40,0.35); }
+
+    /* Chapter 01: the topic in the wine, the talk under it on white. */
+    .cm-topic { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--ws-gap); }
+    .cm-topic-card { display: flex; flex-direction: column; gap: 12px; padding: clamp(22px, 2.4vw, 34px); background: var(--english-violet); color: #fff; border-radius: var(--ws-r); }
+    .cm-topic-when { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+    .cm-topic-t { margin: 0; font-family: var(--sans); font-size: clamp(20px, 1.7vw, 26px); font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; color: #fff; }
+    .cm-topic-p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.65; color: rgba(255,255,255,0.8); white-space: pre-line; }
+    .cm-topic-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 8px; }
+    .cm-btn-w { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; height: var(--ws-btn-h, 26px); padding: 0 13px; border-radius: var(--ws-r); background: #fff; color: var(--english-violet); font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; transition: background 0.18s; }
+    .cm-btn-w:hover { background: #f1ecee; }
+    .cm-btn-w--line { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,0.4); }
+    .cm-btn-w--line:hover { background: rgba(255,255,255,0.08); }
+    .cm-topic-past { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(255,255,255,0.6); }
+    .cm-topic-past button { all: unset; cursor: pointer; color: rgba(255,255,255,0.85); border-bottom: 1px solid rgba(255,255,255,0.3); }
+    .cm-topic-past button:hover { color: #fff; }
+    .cm-topic-talk { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
+    .cm-talk-h { margin: 0; font-family: var(--serif); font-size: var(--ws-t-label, 11px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    @media (max-width: 900px) { .cm-topic { grid-template-columns: minmax(0, 1fr); } }
+
+    /* A reply: who, when, what. */
+    .cm-reply { display: flex; flex-direction: column; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .cm-reply:last-child { border-bottom: 0; padding-bottom: 0; }
+    .cm-reply-p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: var(--ws-ink); white-space: pre-line; overflow-wrap: anywhere; }
+    .cm-reply.is-staff { padding: 12px 14px; border: 0; border-radius: var(--ws-r); background: #f6f1f3; }
+    .cm-reply.is-hidden { opacity: 0.55; }
+    .cm-replies { display: flex; flex-direction: column; gap: 12px; }
+
+    /* Writing: one box and a button, the hub's field. */
+    .cm-say { display: flex; flex-direction: column; gap: 8px; }
+    .cm-say textarea, .cm-field input, .cm-field textarea, .cm-field select { box-sizing: border-box; width: 100%; padding: 10px 12px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; font-family: var(--sans); font-size: 14px; line-height: 1.5; color: var(--ws-ink); resize: vertical; transition: border-color 0.2s; }
+    .cm-say textarea { min-height: 76px; }
+    .cm-say textarea:focus, .cm-field :is(input, textarea, select):focus { outline: none; border-color: var(--english-violet); }
+    .cm-say-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .cm-as { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-faint); }
+    .cm-as button { all: unset; cursor: pointer; color: var(--english-violet); font-weight: 600; border-bottom: 1px solid rgba(55,30,40,0.3); }
+    .cm-err { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: #a1452f; }
+
+    /* The pop-out: the Help Centre's size, always. */
+    .cm-modal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 24px; background: rgba(28,20,24,0.5); opacity: 0; transition: opacity 0.22s ease; }
+    .cm-modal.is-in { opacity: 1; }
+    .cm-modal[hidden] { display: none; }
+    .cm-modal-card { position: relative; box-sizing: border-box; width: min(560px, 100%); height: min(720px, calc(100vh - 48px)); overflow-y: auto; overscroll-behavior: contain; padding: 30px 30px 26px; background: #fff; border-radius: 6px; border-top: 4px solid var(--english-violet); transform: translateY(8px); transition: transform 0.25s var(--ws-ease, ease); }
+    .cm-modal.is-in .cm-modal-card { transform: none; }
+    .cm-x { all: unset; cursor: pointer; position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 4px; color: var(--ws-tx); }
+    .cm-x:hover { background: rgba(28,29,34,0.06); color: var(--ws-ink); }
+    .cm-x svg { width: 14px; height: 14px; }
+    .cm-m-eyebrow { margin: 0 0 10px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--english-violet); }
+    .cm-m-h { margin: 0 40px 8px 0; font-family: var(--sans); font-size: 22px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; color: var(--ws-ink); overflow-wrap: anywhere; }
+    .cm-m-body { margin: 12px 0 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.65; color: var(--ws-ink); white-space: pre-line; overflow-wrap: anywhere; }
+    .cm-m-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin: 16px 0 0; }
+    .cm-m-sec { margin: 22px 0 12px; padding-top: 16px; border-top: 1px solid rgba(28,29,34,0.08); font-family: var(--serif); font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .cm-m-sub { margin: 0 0 18px; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.6; color: var(--ws-tx); }
+    .cm-link { all: unset; cursor: pointer; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); }
+    .cm-link:hover { color: var(--english-violet); }
+    .cm-tools { display: inline-flex; gap: 12px; }
+    .cm-report { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .cm-form { display: flex; flex-direction: column; gap: 14px; }
+    .cm-field { display: flex; flex-direction: column; gap: 6px; }
+    .cm-field > span { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .cm-field textarea { min-height: 150px; }
+    .cm-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .cm-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .cm-kind button, .cm-pick button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); font-family: var(--sans); font-size: var(--ws-t-meta); line-height: 1.4; color: var(--ws-tx); transition: border-color 0.2s, background 0.2s; }
+    .cm-kind button strong, .cm-pick button strong { font-size: 14px; color: var(--ws-ink); font-weight: 600; }
+    .cm-kind button:hover, .cm-pick button:hover { border-color: rgba(28,29,34,0.3); }
+    .cm-kind button.is-on, .cm-pick button.is-on { border-color: var(--english-violet); background: #f6f1f3; }
+    .cm-pick { display: flex; flex-direction: column; gap: 8px; }
+    .cm-form-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+    @media (max-width: 560px) { .cm-two { grid-template-columns: 1fr; } .cm-modal { padding: 10px; } .cm-modal-card { height: calc(100vh - 20px); padding: 24px 20px 20px; } .cm-row { grid-template-columns: minmax(0, 1fr); } .cm-side { align-items: flex-start; text-align: left; flex-direction: row; flex-wrap: wrap; } }
+  </style>
+
+  <script>
+    import { supabase } from "../../lib/supabase.js";
+    import { gateReady, gateFailed } from "../../lib/ready-gate.js";
+
+    const CATS = JSON.parse(document.getElementById("cm-cats").textContent || "[]");
+    const STATUS = { planned: "Planned", building: "Being built", done: "Done", declined: "Not for now" };
+    const SHOW = 6;   // rows before "Show all"
+    const $ = (s, r = document) => r.querySelector(s);
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+    function ago(iso) {
+      const s = (Date.now() - new Date(iso).getTime()) / 1000;
+      if (s < 60) return "just now";
+      if (s < 3600) return Math.floor(s / 60) + "m ago";
+      if (s < 86400) return Math.floor(s / 3600) + "h ago";
+      if (s < 86400 * 7) return Math.floor(s / 86400) + "d ago";
+      return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    }
+    const dayFmt = (d) => new Date(d + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+    const missing = (e) => e && (e.code === "42P01" || e.code === "PGRST205" || /does not exist|could not find the table/i.test(e.message || ""));
+
+    const S = { me: null, profile: null, names: new Map(), topics: [], talk: [], reqs: [], needs: new Set(), sort: "wanted", allTalk: false, allReqs: false, topicReplies: [], closed: false };
+    const nameOf = (id) => S.names.get(id) || "Member";
+
+    async function loadNames(ids) {
+      const want = [...new Set(ids)].filter((id) => id && !S.names.has(id));
+      if (!want.length) return;
+      const { data } = await supabase.from("community_names").select("user_id, display_name").in("user_id", want);
+      (data || []).forEach((r) => S.names.set(r.user_id, r.display_name || "Member"));
+    }
+
+    // ── How you appear ──────────────────────────────────────────────────────
+    // First visit: a row from their own account (the brand kit's name, else
+    // the sign-up's; the kit's company as the agency), shown as "Sarah H."
+    async function ensureProfile(user) {
+      const { data, error } = await supabase.from("community_members").select("*").eq("user_id", user.id).maybeSingle();
+      if (error) throw error;
+      if (data) return data;
+      let kit = null;
+      try { kit = JSON.parse(localStorage.getItem("tmke.brand") || "null"); } catch (_) {}
+      const md = user.user_metadata || {};
+      const full = String((kit && kit.about && kit.about.name) || md.name || md.full_name || "").trim();
+      const parts = full.split(/\s+/).filter(Boolean);
+      const first = parts.shift() || String(user.email || "").split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).split(" ")[0] || "Member";
+      const row = { user_id: user.id, first_name: first.slice(0, 60), last_name: parts.join(" ").slice(0, 60), agency: String((kit && kit.company) || md.company || "").slice(0, 80) };
+      const ins = await supabase.from("community_members").insert(row).select("*").single();
+      if (ins.error) throw ins.error;
+      return ins.data;
+    }
+    function paintMe() {
+      $("[data-cm-me-name]").textContent = S.profile ? `as ${S.profile.display_name}` : "";
+      if (S.profile) S.names.set(S.me.id, S.profile.display_name);
+    }
+
+    // ── Rows ────────────────────────────────────────────────────────────────
+    function talkRow(p) {
+      const el = document.createElement("article");
+      el.className = "cm-row";
+      el.innerHTML = `
+        <button type="button" class="cm-row-open" data-open="${p.id}">
+          <span class="cm-row-t">${esc(p.title)}</span>
+          ${p.body ? `<span class="cm-row-x">${esc(p.body)}</span>` : ""}
+          <span class="cm-meta"><span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(p.last_activity_at))}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+        </button>
+        <div class="cm-side"><span class="cm-count"><b>${p.reply_count}</b> ${p.reply_count === 1 ? "reply" : "replies"}</span></div>`;
+      return el;
+    }
+    function needBtn(p) {
+      if (p.author_id === S.me.id) return `<span class="cm-mine">Your request</span>`;
+      const on = S.needs.has(p.id);
+      return `<button type="button" class="cm-need${on ? " is-on" : ""}" data-need="${p.id}" aria-pressed="${on}">${on
+        ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>You need this'
+        : "I need this too"}</button>`;
+    }
+    function reqRow(p) {
+      const el = document.createElement("article");
+      el.className = "cm-row";
+      el.innerHTML = `
+        <button type="button" class="cm-row-open" data-open="${p.id}">
+          <span class="cm-row-t">${esc(p.title)}</span>
+          <span class="cm-meta">${p.status !== "open" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span><span>${p.reply_count ? `See what members said (${p.reply_count})` : "Add a comment"}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+        </button>
+        <div class="cm-side">${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span></div>`;
+      return el;
+    }
+    function none(h, p, go) {
+      return `<div class="cm-none"><p class="cm-none-h">${esc(h)}</p><p class="cm-none-p">${esc(p)}</p>${go ? `<button type="button" class="cm-none-go" data-cm-new="${go.kind}">${esc(go.label)} &rarr;</button>` : ""}</div>`;
+    }
+
+    function paintTalk() {
+      const box = $("[data-cm-talk]");
+      box.innerHTML = "";
+      if (S.closed) { box.innerHTML = none("Opening soon", "The Community isn't quite open yet. Check back shortly."); return; }
+      if (!S.talk.length) { box.innerHTML = none("No conversations yet", "Ask the room: a post that worked, a listing that wouldn't shift, a tool you swear by.", { kind: "discussion", label: "Start the first one" }); return; }
+      const list = S.allTalk ? S.talk : S.talk.slice(0, SHOW);
+      list.forEach((p) => box.appendChild(talkRow(p)));
+      if (S.talk.length > SHOW && !S.allTalk) box.insertAdjacentHTML("beforeend", `<button type="button" class="cm-more" data-more="talk">Show all ${S.talk.length} conversations</button>`);
+    }
+    function sortedReqs() {
+      const r = [...S.reqs];
+      if (S.sort === "new") r.sort((a, b) => b.created_at.localeCompare(a.created_at));
+      else r.sort((a, b) => (b.need_count - a.need_count) || b.created_at.localeCompare(a.created_at));
+      // Done and declined drop to the foot either way.
+      const rank = (p) => (p.status === "done" || p.status === "declined" ? 1 : 0);
+      return r.sort((a, b) => rank(a) - rank(b));
+    }
+    function paintReqs() {
+      const box = $("[data-cm-reqs]");
+      box.innerHTML = "";
+      if (S.closed) { box.innerHTML = none("Opening soon", "The request board isn't quite open yet. Check back shortly."); return; }
+      if (!S.reqs.length) { box.innerHTML = none("No requests yet", "Be the first: a template you keep wishing existed, a tool that would save you an hour, a change that would make something easier.", { kind: "request", label: "Ask for something" }); return; }
+      const all = sortedReqs();
+      (S.allReqs ? all : all.slice(0, SHOW)).forEach((p) => box.appendChild(reqRow(p)));
+      if (all.length > SHOW && !S.allReqs) box.insertAdjacentHTML("beforeend", `<button type="button" class="cm-more" data-more="reqs">Show all ${all.length} requests</button>`);
+    }
+    function replyHtml(r, tools) {
+      const mine = r.author_id === S.me.id;
+      return `<div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}" data-reply="${r.id}">
+        <span class="cm-meta"><span>${esc(nameOf(r.author_id))}</span>${r.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(r.created_at))}</span>${r.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+        <p class="cm-reply-p">${esc(r.body)}</p>
+        ${tools ? `<span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span>` : ""}
+      </div>`;
+    }
+    function currentTopic() {
+      const t = todayISO();
+      return S.topics.find((p) => (!p.starts_on || p.starts_on <= t) && (!p.ends_on || p.ends_on >= t)) || null;
+    }
+    function paintTopic() {
+      const box = $("[data-cm-topic]");
+      if (S.closed) { box.innerHTML = none("Opening soon", "The first topic lands when the Community opens."); return; }
+      const t = currentTopic();
+      const past = S.topics.filter((p) => p !== t && (!p.starts_on || p.starts_on <= todayISO())).slice(0, 3);
+      const pastHtml = past.length ? `<p class="cm-topic-past">Earlier: ${past.map((p) => `<button type="button" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : "";
+      if (!t) {
+        box.innerHTML = `<div class="cm-none"><p class="cm-none-h">Next topic coming up</p><p class="cm-none-p">Every fortnight we set a topic and join in with advice and feedback. The next one is on its way.</p>${past.length ? `<p class="cm-none-p" style="margin-top:8px">Earlier topics: ${past.map((p) => `<button type="button" class="cm-none-go" style="margin:0" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : ""}</div>`;
+        return;
+      }
+      const when = t.starts_on && t.ends_on ? `${dayFmt(t.starts_on)} – ${dayFmt(t.ends_on)}` : "This fortnight";
+      const latest = S.topicReplies.slice(-3);
+      box.innerHTML = `<div class="cm-topic">
+        <div class="cm-topic-card">
+          <span class="cm-topic-when">${esc(when)}</span>
+          <h3 class="cm-topic-t">${esc(t.title)}</h3>
+          ${t.body ? `<p class="cm-topic-p">${esc(t.body)}</p>` : ""}
+          <div class="cm-topic-acts">
+            <button type="button" class="cm-btn-w" data-open="${t.id}">${S.topicReplies.length ? `Read all ${plural(S.topicReplies.length, "reply", "replies")}` : "Open the topic"}</button>
+          </div>
+          ${pastHtml}
+        </div>
+        <div class="cm-topic-talk">
+          <p class="cm-talk-h">${latest.length ? "The latest" : "Be the first to say something"}</p>
+          ${latest.length ? `<div class="cm-replies">${latest.map((r) => replyHtml(r, false)).join("")}</div>` : ""}
+          <form class="cm-say" data-say="${t.id}">
+            <textarea name="body" maxlength="5000" placeholder="What's working for you? What isn't?" aria-label="Your reply" required></textarea>
+            <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)} &middot; <button type="button" data-cm-me>change</button></span><button type="submit" class="ws-btn ws-btn--primary">Post</button></div>
+            <p class="cm-err" data-err hidden></p>
+          </form>
+        </div>
+      </div>`;
+    }
+
+    // ── Loading ─────────────────────────────────────────────────────────────
+    const COLS = "id, kind, title, body, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
+    async function loadAll() {
+      const [tp, tk, rq, nd] = await Promise.all([
+        supabase.from("community_posts").select(COLS).eq("kind", "topic").order("starts_on", { ascending: false, nullsFirst: false }).limit(12),
+        supabase.from("community_posts").select(COLS).eq("kind", "discussion").order("pinned", { ascending: false }).order("last_activity_at", { ascending: false }).limit(300),
+        supabase.from("community_posts").select(COLS).eq("kind", "request").order("need_count", { ascending: false }).limit(500),
+        supabase.from("community_needs").select("post_id").eq("user_id", S.me.id).limit(1000),
+      ]);
+      const err = tp.error || tk.error || rq.error || nd.error;
+      if (err) throw err;
+      S.topics = tp.data || []; S.talk = tk.data || []; S.reqs = rq.data || [];
+      S.needs = new Set((nd.data || []).map((r) => r.post_id));
+      const t = currentTopic();
+      S.topicReplies = [];
+      if (t) {
+        const { data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").eq("post_id", t.id).order("created_at", { ascending: true }).limit(1000);
+        S.topicReplies = data || [];
+      }
+      await loadNames([...S.topics, ...S.talk, ...S.reqs, ...S.topicReplies].map((p) => p.author_id));
+    }
+    function paintAll() { paintMe(); paintTopic(); paintTalk(); paintReqs(); }
+
+    // ── The pop-out ─────────────────────────────────────────────────────────
+    const modal = $("[data-cm-modal]");
+    const mBody = $("[data-cm-modal-body]");
+    function openModal(html) {
+      mBody.innerHTML = html;
+      modal.hidden = false;
+      window.__lenis?.stop?.();
+      requestAnimationFrame(() => modal.classList.add("is-in"));
+      $(".cm-modal-card").scrollTop = 0;
+    }
+    function closeModal() {
+      S.inModal = false; S.openId = null;
+      modal.classList.remove("is-in");
+      window.__lenis?.start?.();
+      setTimeout(() => { modal.hidden = true; mBody.innerHTML = ""; }, 220);
+      const u = new URL(location.href);
+      if (u.searchParams.has("post")) { u.searchParams.delete("post"); history.replaceState(null, "", u); }
+    }
+    modal.addEventListener("click", (e) => { if (e.target === modal || e.target.closest("[data-cm-close]")) closeModal(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
+
+    const allPosts = () => [...S.topics, ...S.talk, ...S.reqs];
+    async function openThread(id) {
+      let p = allPosts().find((x) => x.id === id);
+      if (!p) {
+        const { data } = await supabase.from("community_posts").select(COLS).eq("id", id).maybeSingle();
+        if (!data) return;
+        p = data; await loadNames([p.author_id]);
+      }
+      S.inModal = true; S.openId = id;
+      const kindLabel = p.kind === "topic" ? "This fortnight's topic" : p.kind === "request" ? "Request" : "Conversation";
+      openModal(`<p class="cm-m-eyebrow">${kindLabel}</p><h2 class="cm-m-h" id="cm-modal-h">${esc(p.title)}</h2><div data-thread><p class="cm-m-sub">&nbsp;</p></div>`);
+      const { data: reps } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").eq("post_id", id).order("created_at", { ascending: true }).limit(1000);
+      const replies = reps || [];
+      await loadNames(replies.map((r) => r.author_id));
+      if (S.openId !== id) return;
+      const mine = p.author_id === S.me.id;
+      const when = p.kind === "topic" && p.starts_on && p.ends_on ? `${dayFmt(p.starts_on)} – ${dayFmt(p.ends_on)}` : ago(p.created_at);
+      $("[data-thread]", mBody).innerHTML = `
+        <span class="cm-meta">${p.status !== "open" && p.kind === "request" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(when)}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+        ${p.body ? `<p class="cm-m-body">${esc(p.body)}</p>` : ""}
+        <div class="cm-m-bar">
+          ${p.kind === "request" ? `${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span>` : ""}
+          <span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-post="${p.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-post="${p.id}">Report</button>`}</span>
+        </div>
+        <div data-report-slot></div>
+        <p class="cm-m-sec">${replies.length ? plural(replies.length, "reply", "replies") : (p.kind === "request" ? "Comments" : "Replies")}</p>
+        ${replies.length ? `<div class="cm-replies">${replies.map((r) => replyHtml(r, true)).join("")}</div>` : `<p class="cm-m-sub">Nothing yet${p.kind === "request" ? " &mdash; add how you'd use it" : ""}.</p>`}
+        ${p.hidden ? "" : `<form class="cm-say" data-say="${p.id}" style="margin-top:16px">
+          <textarea name="body" maxlength="5000" placeholder="${p.kind === "request" ? "How would you use it?" : "Add your reply"}" aria-label="Your reply" required></textarea>
+          <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)}</span><button type="submit" class="ws-btn ws-btn--primary">Post</button></div>
+          <p class="cm-err" data-err hidden></p>
+        </form>`}`;
+    }
+
+    function openComposer(kind) {
+      S.inModal = true; S.openId = null;
+      const k = kind === "request" ? "request" : "discussion";
+      openModal(`<p class="cm-m-eyebrow">New post</p><h2 class="cm-m-h" id="cm-modal-h">${k === "request" ? "Ask for something" : "Start a conversation"}</h2>
+        <form class="cm-form" data-compose>
+          <div class="cm-kind" role="group" aria-label="What is it?">
+            <button type="button" data-k="discussion" class="${k === "discussion" ? "is-on" : ""}"><strong>A conversation</strong>Ask the room, share what worked</button>
+            <button type="button" data-k="request" class="${k === "request" ? "is-on" : ""}"><strong>A request</strong>Something to add or change</button>
+          </div>
+          <input type="hidden" name="kind" value="${k}">
+          <label class="cm-field"><span>Title</span><input name="title" maxlength="140" required placeholder="${k === "request" ? "e.g. Interior design templates" : "e.g. What's your best-performing listing post?"}"></label>
+          <label class="cm-field" data-cat ${k === "request" ? "" : "hidden"}><span>What's it about?</span><select name="category">${CATS.map((c) => `<option>${esc(c)}</option>`).join("")}</select></label>
+          <label class="cm-field"><span>${k === "request" ? "Tell us more (optional)" : "Say more (optional)"}</span><textarea name="body" maxlength="5000" placeholder="${k === "request" ? "What would you use it for?" : "Give people something to reply to."}"></textarea></label>
+          <p class="cm-as">Posting as ${esc(S.profile.display_name)} &middot; <button type="button" data-cm-me>change</button></p>
+          <p class="cm-err" data-err hidden></p>
+          <div class="cm-form-acts"><button type="button" class="ws-btn ws-btn--ghost" data-cm-close>Cancel</button><button type="submit" class="ws-btn ws-btn--primary">Post it</button></div>
+        </form>`);
+    }
+
+    function openMe() {
+      S.inModal = true; S.openId = null;
+      const p = S.profile;
+      const short = `${p.first_name}${p.last_name ? " " + p.last_name.trim()[0].toUpperCase() + "." : ""}`;
+      const full = `${p.first_name} ${p.last_name}`.trim() + (p.agency ? ` · ${p.agency}` : "");
+      openModal(`<p class="cm-m-eyebrow">Your name in the Community</p><h2 class="cm-m-h" id="cm-modal-h">How you appear</h2>
+        <p class="cm-m-sub">Only what you choose below is shown to other members. Your surname and agency stay private unless you show them.</p>
+        <form class="cm-form" data-me>
+          <div class="cm-two">
+            <label class="cm-field"><span>First name</span><input name="first_name" maxlength="60" required value="${esc(p.first_name)}"></label>
+            <label class="cm-field"><span>Surname</span><input name="last_name" maxlength="60" value="${esc(p.last_name)}"></label>
+          </div>
+          <label class="cm-field"><span>Agency</span><input name="agency" maxlength="80" value="${esc(p.agency)}"></label>
+          <div class="cm-pick" role="radiogroup" aria-label="Show me as">
+            <button type="button" role="radio" data-full="0" aria-checked="${!p.show_full}" class="${p.show_full ? "" : "is-on"}"><strong data-prev="short">${esc(short)}</strong>First name and initial</button>
+            <button type="button" role="radio" data-full="1" aria-checked="${p.show_full}" class="${p.show_full ? "is-on" : ""}"><strong data-prev="full">${esc(full)}</strong>Full name and agency</button>
+          </div>
+          <p class="cm-err" data-err hidden></p>
+          <div class="cm-form-acts"><button type="button" class="ws-btn ws-btn--ghost" data-cm-close>Cancel</button><button type="submit" class="ws-btn ws-btn--primary">Save</button></div>
+        </form>`);
+    }
+
+    // ── Doing things ────────────────────────────────────────────────────────
+    function showErr(form, msg) { const e = $("[data-err]", form); if (e) { e.textContent = msg; e.hidden = false; } }
+    async function refresh() { await loadAll(); paintAll(); }
+
+    async function toggleNeed(btn) {
+      const id = btn.dataset.need;
+      const on = S.needs.has(id);
+      btn.disabled = true;
+      const res = on
+        ? await supabase.from("community_needs").delete().eq("post_id", id).eq("user_id", S.me.id)
+        : await supabase.from("community_needs").insert({ post_id: id, user_id: S.me.id });
+      btn.disabled = false;
+      if (res.error && !/duplicate/i.test(res.error.message || "")) return;
+      if (on) S.needs.delete(id); else S.needs.add(id);
+      const { data } = await supabase.from("community_posts").select("need_count").eq("id", id).maybeSingle();
+      const p = S.reqs.find((x) => x.id === id);
+      if (p && data) p.need_count = data.need_count;
+      paintReqs();
+      if (S.openId === id) openThread(id);
+    }
+
+    document.addEventListener("click", async (e) => {
+      const t = e.target;
+      const nw = t.closest("[data-cm-new]"); if (nw) { e.preventDefault(); openComposer(nw.dataset.cmNew); return; }
+      if (t.closest("[data-cm-me]")) { e.preventDefault(); openMe(); return; }
+      const op = t.closest("[data-open]"); if (op) { e.preventDefault(); const u = new URL(location.href); u.searchParams.set("post", op.dataset.open); history.replaceState(null, "", u); openThread(op.dataset.open); return; }
+      const nd = t.closest("[data-need]"); if (nd) { e.preventDefault(); toggleNeed(nd); return; }
+      const mo = t.closest("[data-more]"); if (mo) { if (mo.dataset.more === "talk") { S.allTalk = true; paintTalk(); } else { S.allReqs = true; paintReqs(); } return; }
+      const so = t.closest("[data-sort]"); if (so) {
+        S.sort = so.dataset.sort;
+        document.querySelectorAll("[data-sort]").forEach((b) => { b.classList.toggle("is-on", b === so); b.setAttribute("aria-pressed", String(b === so)); });
+        paintReqs(); return;
+      }
+      const kb = t.closest(".cm-kind [data-k]"); if (kb) {
+        const f = kb.closest("form");
+        f.querySelectorAll("[data-k]").forEach((b) => b.classList.toggle("is-on", b === kb));
+        f.kind.value = kb.dataset.k;
+        $("[data-cat]", f).hidden = kb.dataset.k !== "request";
+        $("#cm-modal-h").textContent = kb.dataset.k === "request" ? "Ask for something" : "Start a conversation";
+        return;
+      }
+      const pk = t.closest(".cm-pick [data-full]"); if (pk) {
+        pk.parentElement.querySelectorAll("[data-full]").forEach((b) => { b.classList.toggle("is-on", b === pk); b.setAttribute("aria-checked", String(b === pk)); });
+        return;
+      }
+      // Delete your own: asked once, in place.
+      const dp = t.closest("[data-del-post], [data-del-reply]"); if (dp) {
+        if (dp.dataset.sure !== "1") { dp.dataset.sure = "1"; dp.textContent = "Sure? Delete"; return; }
+        const isPost = !!dp.dataset.delPost;
+        const { error } = await supabase.from(isPost ? "community_posts" : "community_replies").delete().eq("id", isPost ? dp.dataset.delPost : dp.dataset.delReply);
+        if (error) { dp.textContent = "Couldn't delete"; return; }
+        if (isPost) { closeModal(); } else { await openThread(S.openId); }
+        refresh();
+        return;
+      }
+      // Report: a line on why, then it's with us.
+      const rp = t.closest("[data-report-post], [data-report-reply]"); if (rp) {
+        const slot = rp.closest(".cm-reply") || $("[data-report-slot]", mBody);
+        if (slot.querySelector(".cm-report")) return;
+        slot.insertAdjacentHTML("beforeend", `<form class="cm-report" data-report="${rp.dataset.reportPost ? "post" : "reply"}:${rp.dataset.reportPost || rp.dataset.reportReply}">
+          <label class="cm-field"><span>What's wrong with it?</span><input name="reason" maxlength="1000" placeholder="Optional"></label>
+          <div class="cm-form-acts"><button type="submit" class="ws-btn ws-btn--ghost">Send to TMKE</button></div></form>`);
+        return;
+      }
+    });
+
+    // The two choices show the name as it will read, as they type.
+    document.addEventListener("input", (e) => {
+      const f = e.target.closest && e.target.closest("[data-me]");
+      if (!f) return;
+      const fn = f.first_name.value.trim(), ln = f.last_name.value.trim(), ag = f.agency.value.trim();
+      $('[data-prev="short"]', f).textContent = fn + (ln ? " " + ln[0].toUpperCase() + "." : "");
+      $('[data-prev="full"]', f).textContent = `${fn} ${ln}`.trim() + (ag ? ` · ${ag}` : "");
+    });
+
+    document.addEventListener("submit", async (e) => {
+      const f = e.target;
+      if (f.matches("[data-say]")) {
+        e.preventDefault();
+        const body = f.body.value.trim();
+        if (!body) return;
+        const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
+        const { error } = await supabase.from("community_replies").insert({ post_id: f.dataset.say, body });
+        btn.disabled = false;
+        if (error) { showErr(f, "That didn't post. Try again in a moment."); return; }
+        f.body.value = "";
+        await refresh();
+        if (S.openId === f.dataset.say) openThread(f.dataset.say);
+        return;
+      }
+      if (f.matches("[data-compose]")) {
+        e.preventDefault();
+        const kind = f.kind.value;
+        const row = { kind, title: f.title.value.trim(), body: f.body.value.trim(), category: kind === "request" ? f.category.value : null };
+        if (row.title.length < 3) { showErr(f, "Give it a title of a few words."); return; }
+        const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
+        const { data, error } = await supabase.from("community_posts").insert(row).select("id").single();
+        if (error) { btn.disabled = false; showErr(f, "That didn't post. Try again in a moment."); return; }
+        // Asking for it counts as needing it.
+        if (kind === "request") await supabase.from("community_needs").insert({ post_id: data.id, user_id: S.me.id });
+        await refresh();
+        openThread(data.id);
+        return;
+      }
+      if (f.matches("[data-me]")) {
+        e.preventDefault();
+        const showFull = $(".cm-pick .is-on", f)?.dataset.full === "1";
+        const row = { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), agency: f.agency.value.trim(), show_full: showFull, updated_at: new Date().toISOString() };
+        if (!row.first_name) { showErr(f, "Your first name, at least."); return; }
+        const { data, error } = await supabase.from("community_members").update(row).eq("user_id", S.me.id).select("*").single();
+        if (error) { showErr(f, "That didn't save. Try again in a moment."); return; }
+        S.profile = data; S.names.set(S.me.id, data.display_name);
+        paintAll(); closeModal();
+        return;
+      }
+      if (f.matches("[data-report]")) {
+        e.preventDefault();
+        const [what, id] = f.dataset.report.split(":");
+        const { error } = await supabase.from("community_reports").insert(what === "post" ? { post_id: id, reason: f.reason.value.trim() } : { reply_id: id, reason: f.reason.value.trim() });
+        f.innerHTML = `<p class="cm-as">${error ? "That didn't send. Try again in a moment." : "Thanks. It's with us and we'll take a look."}</p>`;
+      }
+    });
+
+    // ── In ──────────────────────────────────────────────────────────────────
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (!import.meta.env.DEV) location.replace("/login?next=" + encodeURIComponent("/account/community"));
+        return;
+      }
+      if (!import.meta.env.DEV) {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!user || error) { location.replace("/login?next=" + encodeURIComponent("/account/community")); return; }
+      }
+      S.me = session.user;
+      const sections = ["topic", "talk", "requests"].map((n) => [n, document.querySelector(`[data-gate="${n}"]`)]);
+      try {
+        S.profile = await ensureProfile(S.me);
+        await loadAll();
+      } catch (err) {
+        if (missing(err)) S.closed = true;
+        else {
+          sections.forEach(([n, el]) => { el.querySelector("[data-cm-topic], [data-cm-talk], [data-cm-reqs]").innerHTML = none("Didn't load", "Something went wrong loading the Community. Refresh to try again."); gateFailed(n, el); });
+          gateReady("hero", document.querySelector('[data-gate="hero"]'));
+          return;
+        }
+      }
+      if (S.closed) { S.profile = { display_name: "" }; document.querySelectorAll("[data-cm-new], [data-cm-me]").forEach((b) => (b.disabled = true)); }
+      paintAll();
+      gateReady("hero", document.querySelector('[data-gate="hero"]'));
+      sections.forEach(([n, el]) => gateReady(n, el));
+      // A notification, or the Help Centre, can open straight onto a post or the board.
+      const want = new URLSearchParams(location.search).get("post");
+      if (want && !S.closed) openThread(want);
+      if (location.hash === "#requests") setTimeout(() => document.getElementById("requests")?.scrollIntoView({ block: "start" }), 50);
+    })();
+  </script>
+</BaseLayout>
