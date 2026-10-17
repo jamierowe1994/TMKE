@@ -75,7 +75,8 @@ export async function drawReel(reel, tiles) {
   if (!track || !tiles || !tiles.length) { reel && reel.setAttribute("aria-busy", "false"); return false; }
   let set = tiles.slice();
   while (set.length < 10) set = set.concat(tiles);
-  const tile = (t, copy) => `<a class="ws-reel-tile" href="${esc(t.href)}"${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ""}>
+  // `inspo`: the tile opens that StudioInspo pop-out (Learn's This month).
+  const tile = (t, copy) => `<a class="ws-reel-tile" href="${esc(t.href)}"${t.inspo ? ` data-inspo="${esc(t.inspo)}"` : ""}${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ""}>
       <span class="ws-reel-label">${esc(t.label)}</span>
       <span class="ws-reel-pic">${t.img ? `<img src="${esc(t.img)}" alt="${copy ? "" : esc(t.sub || t.label)}" decoding="async">` : ""}<span class="ws-reel-go">${esc(t.go)} &rarr;</span></span>
       ${t.caption ? `<span class="ws-reel-cap">${esc(t.caption)}</span>` : ""}

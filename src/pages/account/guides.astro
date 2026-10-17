@@ -49,50 +49,54 @@ import "../../styles/reel.css";
         </div>
       </section>
 
-      <!-- ============ Explore by topic ============ -->
+      <!-- ============ Explore by topic ============
+           Buttons in the dashboard's Explore style (Dani, 17 Oct); each opens
+           a pop-out of every guide and course in that topic. -->
       <section class="lrn-sec ws-rise" style="--i:1" aria-labelledby="topics-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="topics-h">Explore By Topic</h2>
         </header>
-        <div class="lrn-rail">
-          <div class="lrn-row" data-rail id="lrn-topics">
-            {GUIDE_TOPICS.map((t) => (
-              <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug}>
-                <span class="lrn-topic-ic"><svg viewBox="0 0 24 24" set:html={t.icon}></svg></span>
-                <span class="lrn-topic-name" set:html={t.label}></span>
-                <span class="lrn-topic-count" data-count={t.slug}>—</span>
-              </a>
-            ))}
-          </div>
-          <button type="button" class="lrn-arrow" data-rail-next aria-label="Show more topics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
-        </div>
+        <nav class="lrn-topic-pills" id="lrn-topics" aria-label="Topics">
+          {GUIDE_TOPICS.map((t) => (
+            <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug}><span set:html={t.label}></span> <span class="lrn-topic-count" data-count={t.slug}></span></a>
+          ))}
+        </nav>
       </section>
 
-      <!-- ============ Guides (real — hydrated from the guides table) ============ -->
-      <!-- ============ This month — See what's working ============
-           The Trending month lives in the Studio's inspiration pop-out; it is
-           training as much as inspiration, and it changes every month, so it
-           gets a place of its own here. The button opens the same pop-out. -->
+      <!-- ============ Getting Started ============
+           The dashboard's Your Studio doors (Dani, 17 Oct): a picture card
+           with the title first, then a card per course; a course's picture
+           covers its card on hover. Drawn by renderTraining(). -->
       <section class="lrn-sec ws-rise" style="--i:2" aria-labelledby="training-h" id="training">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="training-h">Getting Started</h2>
         </header>
-        <div class="lrn-guides-grid lrn-guides-grid--four" id="lrn-training" aria-busy="true"></div>
+        <div class="lrn-doors" style="--cols:5">
+          <a class="lrn-door lrn-door--title" href="/account/guides/read?g=training-hub">
+            <span class="lrn-door-pic" style="background-image:url('/images/dashboard/door-create-v1.webp')"></span>
+            <span class="lrn-door-tx"><strong>Getting Started</strong><span>Four short courses to find your way round the hub and make your first post.</span></span>
+          </a>
+          <div class="lrn-doors-fill" id="lrn-training" aria-busy="true"></div>
+        </div>
       </section>
 
+      <!-- ============ This month: See what's working ============
+           The dashboard's Be inspired (Dani, 17 Oct): the month's five formats
+           going by, each with its title above, and one box with the month's
+           words beside them. Any of it opens the month (StudioInspo). -->
       <section class="lrn-sec ws-rise" style="--i:3" aria-labelledby="month-h">
         <header class="lrn-sec-head">
           <h2 class="ws-eyebrow" id="month-h">This Month</h2>
         </header>
-        <button type="button" class="lrn-month" data-inspo="trending" id="lrn-month">
-          <span class="lrn-month-art" id="lrn-month-art" data-cover={MONTH_COVER || undefined} style={`background-image:url('${MONTH_COVER || TRENDING_SAMPLE.topics[0].media_url}')`}></span>
-          <span class="lrn-month-tx">
+        <div class="lrn-month">
+          <div class="ws-reel lrn-month-reel" id="lrn-month-reel" aria-label="This month's formats" aria-busy="true"><div class="ws-reel-track"></div></div>
+          <button type="button" class="lrn-month-box" data-inspo="trending">
             <span class="lrn-month-eyebrow">See what&rsquo;s working &middot; <span id="lrn-month-name">{monthLabel(TRENDING_SAMPLE.month)}</span></span>
             <strong class="lrn-month-title" id="lrn-month-title">{TRENDING_SAMPLE.intro}</strong>
-            <span class="lrn-month-sub">Five formats pulling reach for agents right now &mdash; what each is, why it works, and how to use it. Updated monthly.</span>
-            <span class="lrn-month-cta">Open this month &rarr;</span>
-          </span>
-        </button>
+            <span class="lrn-month-sub">Five formats pulling reach for agents right now: what each is, why it works, and how to use it. Updated monthly.</span>
+            <span class="lrn-month-cta">Open this month <em aria-hidden="true">&rarr;</em></span>
+          </button>
+        </div>
       </section>
 
       <section class="lrn-sec ws-rise" style="--i:4" aria-labelledby="cont-h">
@@ -105,6 +109,31 @@ import "../../styles/reel.css";
       </section>
 
       <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
+      <!-- ============ New to TMKE: the same doors (Dani, 17 Oct) ============ -->
+      <section class="lrn-sec ws-rise" style="--i:5" aria-labelledby="onb-h">
+        <header class="lrn-sec-head">
+          <h2 class="ws-eyebrow" id="onb-h">New to TMKE?</h2>
+        </header>
+        <div class="lrn-doors" style="--cols:4">
+          <a class="lrn-door lrn-door--title" href="/account/guides/read?g=training-hub">
+            <span class="lrn-door-pic" style="background-image:url('/assets/lay%20down.jpg')"></span>
+            <span class="lrn-door-tx"><strong>Start here</strong><span>The essentials that set you up for success, in this order.</span></span>
+          </a>
+          <a class="lrn-door" href="/account/profile">
+            <span class="lrn-door-pic lrn-door-pic--hover" style="background-image:url('/assets/home%20ginger.jpg')"></span>
+            <span class="lrn-door-tx"><em>Step 1</em><strong>Set up your brand kit</strong><span>Your colours, fonts and logo, so every design comes out on brand.</span></span>
+          </a>
+          <a class="lrn-door" href="/account/schedule">
+            <span class="lrn-door-pic lrn-door-pic--hover" style="background-image:url('/assets/lay%20down.jpg')"></span>
+            <span class="lrn-door-tx"><em>Step 2</em><strong>Plan your content</strong><span>A month of posts and activity on one calendar you can keep to.</span></span>
+          </a>
+          <a class="lrn-door" href="/account/studio">
+            <span class="lrn-door-pic lrn-door-pic--hover" style="background-image:url('/assets/home%20deer.jpg')"></span>
+            <span class="lrn-door-tx"><em>Step 3</em><strong>Post with confidence</strong><span>Know what to post, and when, from your packs in the Studio.</span></span>
+          </a>
+        </div>
+      </section>
+
       <!-- ============ From the blog: every piece going by, as on the Blog
            page (Dani, 17 Oct). Filled by fillPostReel; the section stays out
            of sight if there's nothing to show. ============ -->
@@ -154,64 +183,85 @@ import "../../styles/reel.css";
         </div>
       </section>
 
-      <!-- ============ New to TMKE ============ -->
-      <section class="lrn-onboard ws-rise" style="--i:5" aria-labelledby="onb-h">
-        <div class="lrn-onboard-intro">
-          <span class="lrn-onboard-star"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg></span>
-          <div>
-            <h2 class="lrn-onboard-h" id="onb-h">New to TMKE?</h2>
-            <p class="lrn-onboard-sub">Start here. These essentials will get you set up for success.</p>
-            <a class="ws-btn ws-btn--primary ws-btn--sm" href="#">Start the essentials
-              <svg viewBox="0 0 16 16"><path d="M2 8h11M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </a>
-          </div>
-        </div>
-        <ol class="lrn-steps">
-          <li class="lrn-step">
-            <span class="lrn-step-thumb" style="background-image:url('/assets/home%20ginger.jpg')"></span>
-            <span class="lrn-step-no">1</span>
-            <span class="lrn-step-text"><strong>Set up your brand kit</strong>Build a recognisable brand in minutes.</span>
-          </li>
-          <li class="lrn-step">
-            <span class="lrn-step-thumb" style="background-image:url('/assets/lay%20down.jpg')"></span>
-            <span class="lrn-step-no">2</span>
-            <span class="lrn-step-text"><strong>Plan your content</strong>Create consistent content with ease.</span>
-          </li>
-          <li class="lrn-step">
-            <span class="lrn-step-thumb" style="background-image:url('/assets/home%20deer.jpg')"></span>
-            <span class="lrn-step-no">3</span>
-            <span class="lrn-step-text"><strong>Post with confidence</strong>Know what to post, and when.</span>
-          </li>
-        </ol>
-      </section>
       <HubFootBar />
     </main>
     <StudioInspo />
   </div>
 
+  <!-- A topic's guides and courses, in a pop-out (Dani, 17 Oct). -->
+  <div class="lrn-sheet-scrim" id="lrn-sheet" data-lenis-prevent hidden>
+    <div class="lrn-sheet" role="dialog" aria-modal="true" aria-labelledby="lrn-sheet-h">
+      <button type="button" class="lrn-sheet-x" data-sheet-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+      <span class="lrn-sheet-eyebrow">Topic</span>
+      <h2 class="lrn-sheet-h" id="lrn-sheet-h"></h2>
+      <p class="lrn-sheet-sub" id="lrn-sheet-sub"></p>
+      <div class="lrn-guides-grid" id="lrn-sheet-grid"></div>
+      <p class="lrn-guides-empty" id="lrn-sheet-empty" hidden>Nothing in this topic yet. Guides appear here as they&rsquo;re published.</p>
+    </div>
+  </div>
+
   <style is:global>
     /* ---------- Real guides grid ---------- */
-    /* This month: one wide card — picture left, the month's line right. */
-    /* Two boxes on the same four-column grid as the cards above, so the picture
-       ends where the first card ends and the words start where the second one
-       starts (Dani, 8 Oct). It was one 300px-wide box, which lined up with
-       nothing. Both halves still belong to one button, so a click anywhere
-       opens the month. */
-    .lrn-month { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(14px, 1.4vw, 20px); width: 100%; padding: 0; text-align: left; background: none; border: 0; cursor: pointer; font: inherit; color: inherit; }
-    .lrn-month-art, .lrn-month-tx { border: 1px solid var(--ws-line); border-radius: var(--ws-r-lg); transition: border-color 0.2s, transform 0.25s var(--ws-ease); }
-    .lrn-month:hover .lrn-month-art, .lrn-month:hover .lrn-month-tx { border-color: var(--ws-accent); transform: translateY(-2px); }
-    .lrn-month-art { grid-column: 1; display: block; min-height: 200px; overflow: hidden; background: #e6e3e1 center / cover no-repeat; }
-    .lrn-month-tx { grid-column: 2 / -1; background: #fff; }
-    /* Half the gap it had: title to standfirst was reading as a paragraph
-       break rather than one block. Dani, 9 Oct. */
-    .lrn-month-tx { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: clamp(20px, 2.4vw, 32px); }
-    .lrn-month-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-accent); }
-    .lrn-month-title { font-family: var(--serif); font-weight: 400; font-size: clamp(22px, 2.2vw, 30px); line-height: 1.1; letter-spacing: -0.015em; color: var(--ws-ink); }
-    .lrn-month-sub { font-size: 14px; line-height: 1.6; color: var(--ws-tx); max-width: 60ch; }
-    .lrn-month-cta { margin-top: 6px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--ws-accent); }
-    /* The same two breakpoints the four-card grid uses, so the two stay in step. */
-    @media (max-width: 1000px) { .lrn-month { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lrn-month-tx { grid-column: 2 / -1; } }
-    @media (max-width: 560px) { .lrn-month { grid-template-columns: 1fr; } .lrn-month-art { grid-column: 1; aspect-ratio: 16 / 9; min-height: 0; } .lrn-month-tx { grid-column: 1; } }
+    /* ---------- Explore by topic: the dashboard's Explore buttons ---------- */
+    .lrn-topic-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lrn-topic { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid rgba(55,30,40,0.45); border-radius: 6px; font-family: var(--sans); font-size: 10.5px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); text-decoration: none; transition: background 0.2s var(--ws-ease), color 0.2s var(--ws-ease), border-color 0.2s; }
+    .lrn-topic:hover { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .lrn-topic-count { opacity: 0.6; letter-spacing: 0.04em; }
+
+    /* ---------- Doors: the dashboard's Your Studio cards ----------
+       Portrait, shading down from the brand secondary, white words on a band
+       at the foot. The first is a picture card with the title; on the others
+       a picture covers the card on hover, words and all. */
+    .lrn-doors { display: grid; grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr)); gap: var(--ws-gap, 12px); }
+    .lrn-doors-fill { display: contents; }
+    .lrn-door { --door: #7e6765; --pad: clamp(16px, 1.5vw, 22px); position: relative; overflow: hidden; isolation: isolate; display: flex; flex-direction: column; aspect-ratio: 4 / 5; padding: var(--pad); border-radius: var(--ws-r, 4px); background: var(--door); color: #fff; text-decoration: none; transition: transform 0.35s var(--ws-ease), box-shadow 0.35s var(--ws-ease); }
+    .lrn-door:nth-child(2), .lrn-doors-fill > .lrn-door:nth-child(1) { --door: color-mix(in srgb, #7e6765 84%, #fff); }
+    .lrn-door:nth-child(3), .lrn-doors-fill > .lrn-door:nth-child(2) { --door: color-mix(in srgb, #7e6765 68%, #fff); }
+    .lrn-door:nth-child(4), .lrn-doors-fill > .lrn-door:nth-child(3) { --door: color-mix(in srgb, #7e6765 54%, #fff); }
+    .lrn-door:nth-child(5), .lrn-doors-fill > .lrn-door:nth-child(4) { --door: color-mix(in srgb, #7e6765 42%, #fff); }
+    .lrn-door:hover { transform: translateY(-4px); box-shadow: 0 22px 40px -24px rgba(55,30,40,0.55); }
+    .lrn-door-tx { position: relative; margin: auto calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px var(--pad) var(--pad); display: flex; flex-direction: column; gap: 5px; background: var(--door); }
+    .lrn-door-tx em { font-style: normal; font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.75; }
+    .lrn-door-tx strong { font-family: var(--sans); font-size: clamp(15px, 1.15vw, 18px); font-weight: 600; line-height: 1.2; }
+    .lrn-door-tx span { font-size: var(--ws-t-meta, 12px); line-height: 1.4; opacity: 0.85; }
+    .lrn-door-tx .lrn-door-meta { margin-top: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; opacity: 0.85; }
+    .lrn-door-pic { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; }
+    /* The title card: its picture always, the band wine. */
+    .lrn-door--title { --door: var(--english-violet); }
+    .lrn-door--title .lrn-door-tx strong { font-size: clamp(18px, 1.5vw, 22px); }
+    /* The others: the picture over the whole card on hover. */
+    .lrn-door-pic--hover { z-index: 3; opacity: 0; transform: scale(1.04); transition: opacity 0.5s var(--ws-ease), transform 1.2s var(--ws-ease); pointer-events: none; }
+    @media (hover: hover) { .lrn-door:hover .lrn-door-pic--hover, .lrn-door:focus-visible .lrn-door-pic--hover { opacity: 1; transform: none; } }
+    @media (max-width: 1000px) {
+      .lrn-doors { display: flex; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
+      .lrn-doors::-webkit-scrollbar { display: none; }
+      .lrn-doors .lrn-door { flex: 0 0 calc((100% - 24px) / 3.3); scroll-snap-align: start; }
+      .lrn-doors-fill { display: contents; }
+    }
+    @media (max-width: 560px) { .lrn-doors .lrn-door { flex-basis: 62%; } }
+
+    /* ---------- This month: the dashboard's Be inspired ---------- */
+    .lrn-month { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: var(--ws-gap, 12px); align-items: stretch; }
+    .lrn-month-box { display: flex; flex-direction: column; gap: 10px; padding: 22px; border: 1px solid rgba(28,29,34,0.13); border-radius: var(--ws-r, 4px); background: #fff; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color 0.2s; }
+    .lrn-month-box:hover { border-color: rgba(28,29,34,0.3); }
+    .lrn-month-eyebrow { font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
+    /* The size of the dashboard's "Getting Around Your Hub" (Dani, 17 Oct). */
+    .lrn-month-title { font-family: var(--serif); font-weight: 500; font-size: clamp(19px, 1.6vw, 24px); line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .lrn-month-sub { font-size: var(--ws-t-body, 13px); line-height: 1.5; color: var(--ws-tx); }
+    .lrn-month-cta { margin-top: auto; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; height: 33px; padding: 0 16px; border-radius: var(--ws-r, 4px); background: var(--english-violet); color: #fff; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .lrn-month-cta em { font-style: normal; transition: transform 0.25s var(--ws-ease); }
+    .lrn-month-box:hover .lrn-month-cta em { transform: translateX(3px); }
+    @media (max-width: 1000px) { .lrn-month { grid-template-columns: 1fr; } }
+
+    /* ---------- A topic's pop-out ---------- */
+    .lrn-sheet-scrim { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+    .lrn-sheet-scrim[hidden] { display: none; }
+    .lrn-sheet { position: relative; width: min(1100px, 100%); max-height: 90vh; overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 16px; padding: 30px clamp(22px, 3vw, 36px) 32px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); }
+    .lrn-sheet-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(28,29,34,0.05); cursor: pointer; display: grid; place-items: center; color: rgba(28,29,34,0.6); }
+    .lrn-sheet-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+    .lrn-sheet-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
+    .lrn-sheet-h { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 3vw, 30px); line-height: 1.1; color: var(--ws-ink); margin: 10px 0 0; }
+    .lrn-sheet-sub { font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 4px 0 20px; }
     .lrn-guides-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: clamp(14px, 1.4vw, 20px); }
     .lrn-guides-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     @media (max-width: 1000px) { .lrn-guides-grid--four { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -231,7 +281,6 @@ import "../../styles/reel.css";
     .lrn-gcard-prog-bar { height: 3px; border-radius: 999px; background: var(--ws-line); overflow: hidden; }
     .lrn-gcard-prog-bar i { display: block; height: 100%; background: var(--ws-accent); border-radius: 999px; }
     .lrn-gcard-prog-t { font-size: var(--ws-t-meta); font-weight: 700; letter-spacing: 0.01em; color: var(--ws-accent); }
-    .lrn-topic.is-active { border-color: var(--ws-accent); box-shadow: inset 0 0 0 1px var(--ws-accent); }
 
     /* Horizontal rails (topics / courses / clips) */
     .lrn-rail { position: relative; }
@@ -244,12 +293,6 @@ import "../../styles/reel.css";
     @media (max-width: 720px) { .lrn-arrow { display: none; } .lrn-row { grid-auto-columns: 132px; } }
 
     /* Topic cards */
-    .lrn-topic { min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 22px 14px; border-radius: var(--ws-r-sm); background: var(--ws-card); border: 1px solid var(--ws-line); text-decoration: none; transition: transform 0.24s var(--ws-ease), box-shadow 0.24s, border-color 0.2s; }
-    .lrn-topic:hover { transform: translateY(-4px); border-color: transparent; box-shadow: 0 2px 4px rgba(28,29,34,0.04), 0 22px 40px -26px rgba(28,29,34,0.3); }
-    .lrn-topic-ic { width: 42px; height: 42px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ws-accent) 9%, #fff); color: var(--ws-accent); }
-    .lrn-topic-ic svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-    .lrn-topic-name { font-size: var(--ws-t-body); font-weight: 600; color: var(--ws-ink); line-height: 1.25; }
-    .lrn-topic-count { font-size: var(--ws-t-label); color: var(--ws-faint); }
 
     /* Course cards */
     .lrn-course { min-width: 250px; display: flex; flex-direction: column; text-decoration: none; }
@@ -333,6 +376,8 @@ import "../../styles/reel.css";
     import { GUIDE_TOPIC_MAP } from "../../data/guide-topics.js";
     import { CONTENT_IDEAS_GUIDE } from "../../data/content-ideas-guide.js";
     import { TRAINING_GUIDES, PRINT_GUIDES } from "../../data/training-guides.js";
+    import { TRENDING_SAMPLE as TRENDING_SAMPLE_JS } from "../../data/trending-sample.js";
+    const TRENDING_SAMPLE_TOPICS = TRENDING_SAMPLE_JS.topics;
     import { guideViewer, guideVisibleTo } from "../../lib/guide-audience.js";
     const STATIC_GUIDES = [CONTENT_IDEAS_GUIDE, ...TRAINING_GUIDES, ...PRINT_GUIDES];
     // Slug -> built-in, so a database row can borrow its twin's picture.
@@ -341,29 +386,6 @@ import "../../styles/reel.css";
     const titleCase = (s) => String(s || '').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
     const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
-    /* Notes from the Desk: the two newest members' pieces, read on load so a
-       new one shows without waiting for a deploy. Same markup as the build. */
-    (async () => {
-      const host = document.getElementById('lrn-notes');
-      if (!host) return;
-      const { data } = await supabase.from('blog_posts').select('slug,title,category,standfirst,hero_image_url,publish_date,published_at,created_at,audience')
-        .eq('status', 'published').in('audience', ['members', 'both']).order('publish_date', { ascending: false }).limit(2);
-      if (!data || !data.length) return;
-      const day = (d) => { const t = new Date(String(d).slice(0, 10) + 'T12:00:00'); return isNaN(t) ? '' : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); };
-      host.innerHTML = data.map((n) => {
-        const when = day(n.publish_date || n.published_at || n.created_at);
-        return `<a class="lrn-path" href="/account/blog#${esc(n.slug)}">
-          <div class="lrn-path-body">
-            <span class="lrn-path-eyebrow">${esc(n.category || 'Insights')}${when ? ' · ' + esc(when) : ''}</span>
-            <h3 class="lrn-path-title">${esc(n.title)}</h3>
-            ${n.standfirst ? `<p class="lrn-path-desc">${esc(n.standfirst)}</p>` : ''}
-            <span class="lrn-path-cta">Read <em>→</em></span>
-          </div>
-          <span class="lrn-path-art"${n.hero_image_url ? ` style="background-image:url('${esc(n.hero_image_url)}')"` : ''}>${n.audience === 'members' ? '<span class="edit-tag">Members Only</span>' : ''}</span>
-        </a>`;
-      }).join('');
-      document.getElementById('notes').hidden = false;
-    })();
 
     // Dev-only sample so the grid + counts render without a DB/session.
     const SAMPLE = [
@@ -445,11 +467,24 @@ import "../../styles/reel.css";
     // The same card the guides grid uses, four in a row, with each member's
     // progress. Built-in guides, or a published copy from the database when
     // one exists (same slug).
+    // Getting Started as the dashboard's doors: one per course, with the
+    // member's progress, its picture over the card on hover.
     function renderTraining() {
       const host = document.getElementById('lrn-training'); if (!host) return;
-      host.innerHTML = TRAINING_GUIDES.map((t) => {
+      const series = TRAINING_GUIDES.filter((t) => t.audience === 'members' || !t.audience).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+      host.innerHTML = series.map((t, i) => {
         const g = ALL.find((x) => x.slug === t.slug) || t;
-        return cardHtml({ ...g, cover_url: g.cover_url || t.art || '' });
+        const cover = g.cover_url || t.art || t.cover_url || '';
+        const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
+        const p = PROGRESS[g.slug];
+        let href = `/account/guides/read?g=${encodeURIComponent(g.slug)}`, meta;
+        if (p && p.completed) meta = 'Completed \u2713';
+        else if (p && p.total > 0 && p.furthest >= 1) { href += `&p=${p.furthest}`; meta = `Resume \u00b7 part ${Math.min(p.furthest, p.total)} of ${p.total}`; }
+        else meta = `${lessons} lesson${lessons === 1 ? '' : 's'}${g.est_minutes ? ` \u00b7 ${g.est_minutes} min` : ''}`;
+        return `<a class="lrn-door" href="${href}">
+          ${cover ? `<span class="lrn-door-pic lrn-door-pic--hover" style="background-image:url('${esc(cover)}')"></span>` : ''}
+          <span class="lrn-door-tx"><em>Course ${i + 1} of ${series.length}</em><strong>${esc(g.title)}</strong>${g.summary ? `<span>${esc(g.summary)}</span>` : ''}<span class="lrn-door-meta">${esc(meta)}</span></span>
+        </a>`;
       }).join('');
       host.setAttribute('aria-busy', 'false');
     }
@@ -468,36 +503,51 @@ import "../../styles/reel.css";
 
     function hydrateCounts() {
       const counts = {};
-      ALL.forEach((g) => { if (g.training || TRAINING_GUIDES.some((t) => t.slug === g.slug)) return; counts[g.topic] = (counts[g.topic] || 0) + 1; });
+      ALL.forEach((g) => { counts[g.topic] = (counts[g.topic] || 0) + 1; });
       document.querySelectorAll('.lrn-topic-count[data-count]').forEach((el) => {
-        const n = counts[el.dataset.count] || 0;
-        el.textContent = n === 1 ? '1 guide' : `${n} guides`;
+        el.textContent = String(counts[el.dataset.count] || 0);
       });
     }
 
-    // Topic tiles filter the grid in place (no reload).
+    // A topic opens a pop-out of every guide and course in it (Dani, 17 Oct).
+    const sheet = document.getElementById('lrn-sheet');
+    function openTopic(slug) {
+      const topic = GUIDE_TOPIC_MAP[slug]; if (!topic || !sheet) return;
+      const list = ALL.filter((g) => g.topic === slug);
+      document.getElementById('lrn-sheet-h').innerHTML = topic.label;
+      document.getElementById('lrn-sheet-sub').textContent = topic.blurb || '';
+      document.getElementById('lrn-sheet-grid').innerHTML = list.map(cardHtml).join('');
+      document.getElementById('lrn-sheet-empty').hidden = list.length > 0;
+      sheet.hidden = false; window.__lenis?.stop?.();
+    }
+    function closeTopic() { if (!sheet || sheet.hidden) return; sheet.hidden = true; window.__lenis?.start?.(); }
     document.querySelectorAll('.lrn-topic[data-topic]').forEach((t) => t.addEventListener('click', (e) => {
-      e.preventDefault(); activeTopic = (activeTopic === t.dataset.topic) ? '' : t.dataset.topic;
-      const u = new URL(location.href); if (activeTopic) u.searchParams.set('topic', activeTopic); else u.searchParams.delete('topic');
-      history.replaceState({}, '', u); renderGrid(document.querySelector('.lrn-search input')?.value || '');
+      if (t.classList.contains('is-demo-locked')) return;
+      e.preventDefault(); openTopic(t.dataset.topic);
     }));
+    sheet?.addEventListener('click', (e) => { if (e.target === sheet || e.target.closest('[data-sheet-close]')) closeTopic(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTopic(); });
     clearBtn?.addEventListener('click', () => { activeTopic = ''; const u = new URL(location.href); u.searchParams.delete('topic'); history.replaceState({}, '', u); renderGrid(document.querySelector('.lrn-search input')?.value || ''); });
     document.querySelector('.lrn-search input')?.addEventListener('input', (e) => renderGrid(e.target.value));
 
-    // This month's card: the latest published Trending month, when there is one.
+    // This month: the latest published Trending month, when there is one.
+    let monthTopics = TRENDING_SAMPLE_TOPICS;
     (async () => {
       try {
         const { data } = await supabase.from('trending_months').select('month, intro, topics').eq('status', 'published').order('month', { ascending: false }).limit(1).maybeSingle();
-        if (!data) return;
+        if (data) {
         const d = new Date(String(data.month).slice(0, 10) + 'T00:00:00');
         const name = document.getElementById('lrn-month-name'); if (name && !Number.isNaN(d.getTime())) name.textContent = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
         const title = document.getElementById('lrn-month-title'); if (title && data.intro) title.textContent = data.intro;
-        const first = Array.isArray(data.topics) ? data.topics.find((t) => t && t.media_url && (t.media_type || 'image') === 'image') : null;
-        // A cover set on the element is the cover; the first topic's media is
-        // only the fallback for a month that hasn't been given one.
-        const art = document.getElementById('lrn-month-art');
-        if (art && first && !art.dataset.cover) art.style.backgroundImage = `url('${first.media_url}')`;
+        monthTopics = Array.isArray(data.topics) ? data.topics : monthTopics;
+        }
       } catch (_) { /* the sample stays */ }
+      // The five formats going by, each with its title above; any opens the month.
+      const reel = document.getElementById('lrn-month-reel');
+      const { drawReel } = await import('../../lib/pack-reel.js');
+      const tiles = (monthTopics || []).filter((t) => t && t.media_url && (t.media_type || 'image') === 'image')
+        .map((t) => ({ img: t.media_url, label: t.title || 'See what\u2019s working', sub: t.title, href: '#this-month', go: 'Read', inspo: 'trending' }));
+      if (reel && !(await drawReel(reel, tiles))) reel.hidden = true;
     })();
 
     (async () => {
