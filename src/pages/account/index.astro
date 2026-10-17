@@ -759,13 +759,15 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
        them: on hover for the first four, always for a last design that shows
        (Dani, 16 Oct). Laid out the same either way, so nothing moves. */
     .ws-door { --pad: clamp(16px, 1.5vw, 22px); }
-    .ws-door-tx { margin: auto calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px 40px var(--pad) var(--pad); display: flex; flex-direction: column; gap: 5px; min-width: 0; transition: background 0.45s var(--ws-ease); }
+    /* The band is always there, in the card's own colour, so at rest it is
+       just the card; on hover the picture comes up above it and the band
+       stays exactly as it was (Dani, 17 Oct: it used to fade in with the
+       picture, so the whole card seemed to blink). */
+    .ws-door-tx { position: relative; margin: auto calc(-1 * var(--pad)) calc(-1 * var(--pad)); padding: 12px 40px var(--pad) var(--pad); display: flex; flex-direction: column; gap: 5px; min-width: 0; background: var(--door); }
     .ws-door-img { position: absolute; inset: 0; z-index: -1; background-size: cover; background-position: center; opacity: 0; transform: scale(1.04);
       transition: opacity 0.5s var(--ws-ease), transform 1.2s var(--ws-ease); pointer-events: none; }
     @media (hover: hover) {
       .ws-door:hover .ws-door-img, .ws-door:focus-visible .ws-door-img { opacity: 1; transform: none; }
-      /* The band in the card's own shade, not wine (Dani, 17 Oct). */
-      .ws-door:not(.ws-resume):hover .ws-door-tx, .ws-door:not(.ws-resume):focus-visible .ws-door-tx { background: var(--door); }
       .ws-door:not(.ws-resume):hover .ws-door-ic { background: rgba(55,30,40,0.72); }
     }
     /* The planner's picture: a little month filling the card (no paper round
@@ -793,7 +795,6 @@ const CAL_CELLS = [...Array(3).fill(0), ...Array.from({ length: 31 }, (_, i) => 
     .ws-resume.has-img { --door-ink: #fff; }
     .ws-tool.ws-door.ws-resume.is-wine { --door: var(--english-violet); }
     .ws-resume.has-img .ws-door-ic { background: rgba(55,30,40,0.72); }
-    .ws-resume.has-img .ws-door-tx { background: var(--door); }
     @media (max-width: 1000px) {
       .ws-tools.ws-doors { display: flex; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 4px; }
       .ws-doors::-webkit-scrollbar { display: none; }
