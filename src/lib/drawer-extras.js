@@ -7,6 +7,7 @@
    only opens and closes the menu's copy. */
 import { ownedPacks, shopPacks, memberBrandsFor } from "./pack-access.js";
 import { fillPackCovers } from "./pack-cover.js";
+import { MENU_CARDS } from "../data/menu-cards.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -52,7 +53,9 @@ export async function fillDrawerPack(supabase) {
     cards.forEach((card) => {
       card.href = `/edit/${encodeURIComponent(pick.slug)}`;
       const pic = card.querySelector(".ws-drawer-card-pic");
-      if (pic && pick.cover_image_url) pic.style.backgroundImage = `url('${esc(pick.cover_image_url)}')`;
+      // A picture made for the menu wins over the pack's cover (src/data/menu-cards.js).
+      const img = (MENU_CARDS.packs && MENU_CARDS.packs[pick.slug]) || pick.cover_image_url;
+      if (pic && img) pic.style.backgroundImage = `url('${esc(img)}')`;
       const t = card.querySelector("strong"); if (t) t.textContent = pick.title;
       card.hidden = false;
     });

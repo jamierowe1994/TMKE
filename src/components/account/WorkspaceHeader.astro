@@ -12,6 +12,8 @@ const cur = (k: string) => (active === k ? "page" : undefined);
 // The newest Hub update, for the menu's "What's new to the Hub" card.
 import { WHATS_NEW } from "../../data/whats-new.js";
 const HUB_NEWS = WHATS_NEW[0];
+import { MENU_CARDS } from "../../data/menu-cards.js";
+const HUB_NEWS_IMG = MENU_CARDS.news || HUB_NEWS.media;
 ---
 
 <header class="ws-nav" aria-label="Primary">
@@ -66,7 +68,7 @@ const HUB_NEWS = WHATS_NEW[0];
 <!-- Off-canvas drawer — slides in from the left (everything that isn't a tab) -->
 <div class="ws-drawer" data-drawer hidden>
   <div class="ws-drawer-scrim" data-drawer-close></div>
-  <aside class="ws-drawer-panel" aria-label="More menu">
+  <aside class="ws-drawer-panel" data-lenis-prevent aria-label="More menu">
     <div class="ws-drawer-top">
       <a class="ws-logo" href="/account">TMKE</a>
       <span class="ws-drawer-acts">
@@ -96,7 +98,7 @@ const HUB_NEWS = WHATS_NEW[0];
       <a href="/account/guides" class={is("guides")} aria-current={cur("guides")}>Training Studio</a>
       <a href="/account/blog" class={is("blog")}>Blog</a>
       <a class="ws-drawer-card" href="/account?inspo=news">
-        <span class="ws-drawer-card-pic" style={`background-image:url('${HUB_NEWS.media}')`}></span>
+        <span class="ws-drawer-card-pic" style={`background-image:url('${HUB_NEWS_IMG}')`}></span>
         <span class="ws-drawer-card-tx"><em>What&rsquo;s new to the Hub</em><strong>{HUB_NEWS.title}</strong></span>
       </a>
       <span class="ws-drawer-label">Manage</span>
@@ -199,7 +201,7 @@ const HUB_NEWS = WHATS_NEW[0];
 .ws-drawer-nav a.ws-drawer-card { position: relative; display: block; margin: 6px 0 4px; padding: 0; border-radius: 4px; overflow: hidden; background: #371e28; color: #fff; font-weight: 400; text-decoration: none; transition: transform 0.25s, box-shadow 0.25s; }
   .ws-drawer-nav a.ws-drawer-card[hidden] { display: none; }
   .ws-drawer-nav a.ws-drawer-card:hover { background: #371e28; color: #fff; transform: translateY(-2px); box-shadow: 0 14px 26px -18px rgba(55,30,40,0.6); }
-  .ws-drawer-card-pic { display: block; height: 64px; background: #e6e1de center / cover no-repeat; }   /* a strip, so the menu fits on one screen */
+  .ws-drawer-card-pic { display: block; height: 77px; background: #e6e1de center / cover no-repeat; }   /* a strip, so the menu fits on one screen */
   .ws-drawer-card-tx { position: absolute; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; gap: 2px; padding: 9px 12px 10px; background: #371e28; opacity: 0; transform: translateY(100%); transition: opacity 0.3s, transform 0.35s cubic-bezier(.2,.8,.2,1); }
 .ws-drawer-nav a.ws-drawer-card:hover .ws-drawer-card-tx, .ws-drawer-nav a.ws-drawer-card:focus-visible .ws-drawer-card-tx { opacity: 1; transform: none; }
   .ws-drawer-card-tx em { font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
@@ -292,8 +294,8 @@ const HUB_NEWS = WHATS_NEW[0];
   const drawer = document.querySelector("[data-drawer]") as HTMLElement | null;
   const burger = document.querySelector("[data-drawer-open]");
   let drawerTimer: ReturnType<typeof setTimeout>;
-  function openDrawer() { if (!drawer) return; clearTimeout(drawerTimer); drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add("is-open")); burger?.setAttribute("aria-expanded", "true"); }
-  function closeDrawer() { if (!drawer) return; drawer.classList.remove("is-open"); burger?.setAttribute("aria-expanded", "false"); drawerTimer = setTimeout(() => { drawer.hidden = true; }, 340); }
+  function openDrawer() { if (!drawer) return; clearTimeout(drawerTimer); drawer.hidden = false; requestAnimationFrame(() => drawer.classList.add("is-open")); burger?.setAttribute("aria-expanded", "true"); window.__lenis?.stop?.(); }   // the wheel scrolls the menu, not the page behind (Dani, 17 Oct)
+  function closeDrawer() { if (!drawer) return; drawer.classList.remove("is-open"); burger?.setAttribute("aria-expanded", "false"); window.__lenis?.start?.(); drawerTimer = setTimeout(() => { drawer.hidden = true; }, 340); }
   burger?.addEventListener("click", openDrawer);
 
   // The tab strip scrolls where it is shown; land with the current page's tab
