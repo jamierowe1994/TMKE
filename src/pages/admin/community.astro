@@ -52,10 +52,17 @@ import "../../styles/admin.css";
             <input id="cm-t-title" name="title" maxlength="140" required placeholder="What members will talk about" />
           </div>
           <div class="cm-field">
-            <label for="cm-t-body">Prompt</label>
+            <label for="cm-t-body">Intro</label>
             <textarea id="cm-t-body" name="body" maxlength="5000" rows="4" placeholder="A few lines to get the conversation going"></textarea>
           </div>
-          <div class="cm-field-row">
+          <!-- Dani, 17 Oct: each topic is the topic, the intro, then our view;
+               members' comments open underneath. -->
+          <div class="cm-field" data-view-field>
+            <label for="cm-t-view">TMKE's view</label>
+            <textarea id="cm-t-view" name="viewpoint" maxlength="5000" rows="5" placeholder="What we think, and what we've seen work"></textarea>
+          </div>
+          <label class="cm-check"><input type="checkbox" id="cm-t-pin" /> The pinned intro: always first on the Community, above the fortnight's topic, with no dates</label>
+          <div class="cm-field-row" data-date-fields>
             <div class="cm-field">
               <label for="cm-t-start">Starts</label>
               <input type="date" id="cm-t-start" name="starts_on" required />
@@ -131,6 +138,8 @@ import "../../styles/admin.css";
     .cm-field { margin-bottom: 14px; }
     .cm-field input, .cm-field textarea { width: 100%; box-sizing: border-box; }
     .cm-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .cm-field-row[hidden], .cm-field[hidden] { display: none; }
+    .cm-check { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
     .cm-form-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
     .cm-form-msg { margin-right: auto; font-family: var(--sans); font-size: 12px; color: var(--muted); }
     .cm-form-msg.is-bad { color: var(--red); }
@@ -293,6 +302,7 @@ import "../../styles/admin.css";
     }
     const fmtStamp = (iso) => iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
     function topicPhase(t) {
+      if (t.pinned) return "intro";
       const now = today();
       if (!t.starts_on || !t.ends_on) return "undated";
       if (t.starts_on <= now && now <= t.ends_on) return "current";
@@ -315,7 +325,7 @@ import "../../styles/admin.css";
     }
 
     // ---- state --------------------------------------------------------------
-    const POST_COLS = "id, kind, title, body, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
+    const POST_COLS = "id, kind, title, body, viewpoint, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
     const LISTS = {
       topic: { rows: [], done: false, loaded: false, busy: false },
       request: { rows: [], done: false, loaded: false, busy: false },
@@ -410,7 +420,8 @@ import "../../styles/admin.css";
 
     function rowTopic(t) {
       const phase = topicPhase(t);
-      const phaseBadge = phase === "current" ? badge("b-green", "Current")
+      const phaseBadge = phase === "intro" ? badge("b-green", "Pinned intro")
+        : phase === "current" ? badge("b-green", "Current")
         : phase === "upcoming" ? badge("b-blue", "Upcoming")
         : phase === "past" ? badge("b-gray", "Past") : badge("b-gray", "No dates");
       return `
@@ -632,13 +643,23 @@ import "../../styles/admin.css";
       return next < today() ? today() : next;    // never default a new topic into the past
     }
     // By id, not form.title: a form's own title attribute shadows an input named "title".
-    const topicFields = () => ({ title: $("cm-t-title"), body: $("cm-t-body"), starts_on: $("cm-t-start"), ends_on: $("cm-t-end") });
+    const topicFields = () => ({ title: $("cm-t-title"), body: $("cm-t-body"), viewpoint: $("cm-t-view"), pin: $("cm-t-pin"), starts_on: $("cm-t-start"), ends_on: $("cm-t-end") });
+    // The pinned intro has no dates and no view of its own.
+    function syncPin() {
+      const on = $("cm-t-pin").checked;
+      document.querySelector("[data-date-fields]").hidden = on;
+      document.querySelector("[data-view-field]").hidden = on;
+      $("cm-t-start").required = !on; $("cm-t-end").required = !on;
+    }
+    $("cm-t-pin").addEventListener("change", syncPin);
     function resetTopicForm() {
       editingTopic = null;
       endsTouched = false;
       const f = topicFields();
       f.title.value = "";
       f.body.value = "";
+      f.viewpoint.value = "";
+      f.pin.checked = false; syncPin();
       f.starts_on.value = defaultStart();
       f.ends_on.value = addDays(f.starts_on.value, 13);
       $("cm-topic-form-title").textContent = "Set the next topic";
@@ -654,6 +675,8 @@ import "../../styles/admin.css";
       const f = topicFields();
       f.title.value = t.title || "";
       f.body.value = t.body || "";
+      f.viewpoint.value = t.viewpoint || "";
+      f.pin.checked = !!t.pinned; syncPin();
       f.starts_on.value = t.starts_on || "";
       f.ends_on.value = t.ends_on || "";
       $("cm-topic-form-title").textContent = "Edit topic";
@@ -684,13 +707,15 @@ import "../../styles/admin.css";
       const body = f.body.value.trim();
       const starts_on = f.starts_on.value;
       const ends_on = f.ends_on.value;
+      const pinned = f.pin.checked;
+      const viewpoint = pinned ? "" : f.viewpoint.value.trim();
       if (title.length < 3) return setMsg("cm-topic-msg", "The title needs at least 3 characters.", true);
-      if (!starts_on || !ends_on) return setMsg("cm-topic-msg", "Both dates are needed.", true);
-      if (ends_on < starts_on) return setMsg("cm-topic-msg", "It can't end before it starts.", true);
+      if (!pinned && (!starts_on || !ends_on)) return setMsg("cm-topic-msg", "Both dates are needed.", true);
+      if (!pinned && ends_on < starts_on) return setMsg("cm-topic-msg", "It can't end before it starts.", true);
       const save = $("cm-topic-save");
       save.disabled = true;
       setMsg("cm-topic-msg", "Saving…");
-      const row = { title, body, starts_on, ends_on };
+      const row = pinned ? { title, body, viewpoint: "", pinned: true, starts_on: null, ends_on: null } : { title, body, viewpoint, pinned: false, starts_on, ends_on };
       const { error } = editingTopic
         ? await supabase.from("community_posts").update(row).eq("id", editingTopic)
         : await supabase.from("community_posts").insert({ kind: "topic", ...row });
@@ -792,6 +817,7 @@ import "../../styles/admin.css";
         <div class="cm-thread-meta">${meta}</div>
         <div class="cm-thread-acts">${acts}</div>
         <div class="cm-body${p.body ? "" : " is-empty"}">${p.body ? esc(p.body) : "No further detail."}</div>
+        ${p.viewpoint ? `<div class="cm-body"><strong>TMKE's view</strong>\n${esc(p.viewpoint)}</div>` : ""}
         <div class="cm-replies-h">Replies · ${thread.replies.length}</div>
         ${replies}`;
 

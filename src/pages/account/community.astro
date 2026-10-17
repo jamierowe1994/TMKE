@@ -262,6 +262,25 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-topic-talk { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
     .cm-talk-h { margin: 0; font-family: var(--serif); font-size: var(--ws-t-label, 11px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
     @media (max-width: 900px) { .cm-topic { grid-template-columns: minmax(0, 1fr); } }
+    .cm-topic--solo { grid-template-columns: minmax(0, 1fr); }
+    .cm-fortnight { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    /* The pinned intro: white, the one outline, first. */
+    .cm-intro-card { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .cm-intro-t { margin: 0; font-family: var(--sans); font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--ws-ink); }
+    .cm-intro-p { margin: 0; max-width: 75%; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.65; color: var(--ws-tx); white-space: pre-line; }
+    @media (max-width: 760px) { .cm-intro-p { max-width: none; } }
+    /* TMKE's view, beside the topic in the wine's own tint. */
+    .cm-view { display: flex; flex-direction: column; gap: 10px; padding: clamp(22px, 2.4vw, 34px); background: #f6f1f3; border-radius: var(--ws-r); min-width: 0; }
+    .cm-view-p { margin: 0; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.7; color: var(--ws-ink); white-space: pre-line; overflow-wrap: anywhere; }
+    /* The comments: one bar, opening to the comments and the box to add one. */
+    .cm-comments { background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
+    .cm-comments-bar { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 14px 20px; font-family: var(--sans); font-size: var(--ws-t-row); font-weight: 600; color: var(--ws-ink); }
+    .cm-comments-bar:hover .cm-comments-go { color: var(--english-violet); }
+    .cm-comments-bar:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
+    .cm-comments-go { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ws-faint); white-space: nowrap; }
+    .cm-comments-go svg { width: 13px; height: 13px; transition: transform 0.25s var(--ws-ease, ease); }
+    .cm-comments.is-open .cm-comments-go svg { transform: rotate(180deg); }
+    .cm-comments-body { display: flex; flex-direction: column; gap: 16px; padding: 4px 20px 20px; border-top: 1px solid rgba(28,29,34,0.08); padding-top: 16px; }
 
     /* A reply: who, when, what. */
     .cm-reply { display: flex; flex-direction: column; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid rgba(28,29,34,0.08); }
@@ -461,49 +480,76 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         ${tools ? `<span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span>` : ""}
       </div>`;
     }
+    // The pinned intro sits above everything; the fortnight's topic is the
+    // dated one running today (Dani, 17 Oct). Scheduled ones stay out of
+    // sight until their day (the database won't hand them over before).
+    const introTopic = () => S.topics.find((p) => p.pinned && !p.hidden) || null;
     function currentTopic() {
       const t = todayISO();
-      return S.topics.find((p) => (!p.starts_on || p.starts_on <= t) && (!p.ends_on || p.ends_on >= t)) || null;
+      return S.topics.find((p) => !p.pinned && p.starts_on && p.starts_on <= t && (!p.ends_on || p.ends_on >= t)) || null;
     }
     function paintTopic() {
       const box = $("[data-cm-topic]");
       if (S.closed) { box.innerHTML = none("Opening soon", "The first topic lands when the Community opens."); return; }
+      const intro = introTopic();
       const t = currentTopic();
-      const past = S.topics.filter((p) => p !== t && (!p.starts_on || p.starts_on <= todayISO())).slice(0, 3);
+      const past = S.topics.filter((p) => p !== t && !p.pinned && p.starts_on && p.starts_on <= todayISO()).slice(0, 3);
       const pastHtml = past.length ? `<p class="cm-topic-past">Earlier: ${past.map((p) => `<button type="button" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : "";
+      const introHtml = intro ? `<article class="cm-intro-card">
+          <span class="cm-meta"><span class="cm-badge">TMKE</span><span>Pinned</span></span>
+          <h3 class="cm-intro-t">${esc(intro.title)}</h3>
+          ${intro.body ? `<p class="cm-intro-p">${esc(intro.body)}</p>` : ""}
+        </article>` : "";
       if (!t) {
-        box.innerHTML = `<div class="cm-none"><p class="cm-none-h">Next topic coming up</p><p class="cm-none-p">Every fortnight we set a topic and join in with advice and feedback. The next one is on its way.</p>${past.length ? `<p class="cm-none-p" style="margin-top:8px">Earlier topics: ${past.map((p) => `<button type="button" class="cm-none-go" style="margin:0" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : ""}</div>`;
+        box.innerHTML = `<div class="cm-fortnight">${introHtml}<div class="cm-none"><p class="cm-none-h">Next topic coming up</p><p class="cm-none-p">Every fortnight we set a topic, share our view and talk it through with you. The next one is on its way.</p>${past.length ? `<p class="cm-none-p" style="margin-top:8px">Earlier topics: ${past.map((p) => `<button type="button" class="cm-none-go" style="margin:0" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : ""}</div></div>`;
         return;
       }
       const when = t.starts_on && t.ends_on ? `${dayFmt(t.starts_on)} – ${dayFmt(t.ends_on)}` : "This fortnight";
-      const latest = S.topicReplies.slice(-3);
-      box.innerHTML = `<div class="cm-topic">
-        <div class="cm-topic-card">
-          <span class="cm-topic-when">${esc(when)}</span>
-          <h3 class="cm-topic-t">${esc(t.title)}</h3>
-          ${t.body ? `<p class="cm-topic-p">${esc(t.body)}</p>` : ""}
-          <div class="cm-topic-acts">
-            <button type="button" class="cm-btn-w" data-open="${t.id}">${S.topicReplies.length ? `Read all ${plural(S.topicReplies.length, "reply", "replies")}` : "Open the topic"}</button>
+      const n = S.topicReplies.length;
+      // The topic, its intro, then our view; the comments open underneath
+      // rather than running on as one long feed.
+      box.innerHTML = `<div class="cm-fortnight">${introHtml}
+        <div class="cm-topic${t.viewpoint ? "" : " cm-topic--solo"}">
+          <div class="cm-topic-card">
+            <span class="cm-topic-when">${esc(when)}</span>
+            <h3 class="cm-topic-t">${esc(t.title)}</h3>
+            ${t.body ? `<p class="cm-topic-p">${esc(t.body)}</p>` : ""}
+            ${pastHtml}
           </div>
-          ${pastHtml}
+          ${t.viewpoint ? `<div class="cm-view">
+            <span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span>
+            <p class="cm-view-p">${esc(t.viewpoint)}</p>
+          </div>` : ""}
         </div>
-        <div class="cm-topic-talk">
-          <p class="cm-talk-h">${latest.length ? "The latest" : "Be the first to say something"}</p>
-          ${latest.length ? `<div class="cm-replies">${latest.map((r) => replyHtml(r, false)).join("")}</div>` : ""}
-          <form class="cm-say" data-say="${t.id}">
-            <textarea name="body" maxlength="5000" placeholder="What's working for you? What isn't?" aria-label="Your reply" required></textarea>
-            <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)} &middot; <button type="button" data-cm-me>change</button></span><button type="submit" class="ws-btn ws-btn--primary">Post</button></div>
-            <p class="cm-err" data-err hidden></p>
-          </form>
+        <div class="cm-comments${S.showComments ? " is-open" : ""}">
+          <button type="button" class="cm-comments-bar" data-cm-comments aria-expanded="${S.showComments ? "true" : "false"}">
+            <span>${n ? plural(n, "comment") : "No comments yet: be the first"}</span>
+            <span class="cm-comments-go">${S.showComments ? "Hide" : n ? "Show comments" : "Add yours"}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          </button>
+          ${S.showComments ? `<div class="cm-comments-body">
+            ${n ? `<div class="cm-replies">${S.topicReplies.map((r) => replyHtml(r, true)).join("")}</div>` : ""}
+            <form class="cm-say" data-say="${t.id}">
+              <textarea name="body" maxlength="5000" placeholder="What's working for you? What have you found?" aria-label="Your comment" required></textarea>
+              <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)} &middot; <button type="button" data-cm-me>change</button></span><button type="submit" class="ws-btn ws-btn--primary">Post</button></div>
+              <p class="cm-err" data-err hidden></p>
+            </form>
+          </div>` : ""}
         </div>
       </div>`;
     }
 
     // ── Loading ─────────────────────────────────────────────────────────────
-    const COLS = "id, kind, title, body, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
+    // `viewpoint` arrives with supabase/community_fortnight.sql; until that has
+    // run the page asks without it rather than failing.
+    let COLS = "id, kind, title, body, viewpoint, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
     async function loadAll() {
+      if (!S.colsChecked) {
+        S.colsChecked = true;
+        const probe = await supabase.from("community_posts").select("viewpoint").limit(1);
+        if (probe.error && (probe.error.code === "42703" || /viewpoint/.test(probe.error.message || ""))) COLS = COLS.replace(" viewpoint,", "");
+      }
       const [tp, tk, rq, nd] = await Promise.all([
-        supabase.from("community_posts").select(COLS).eq("kind", "topic").order("starts_on", { ascending: false, nullsFirst: false }).limit(12),
+        supabase.from("community_posts").select(COLS).eq("kind", "topic").order("pinned", { ascending: false }).order("starts_on", { ascending: false, nullsFirst: false }).limit(12),
         supabase.from("community_posts").select(COLS).eq("kind", "discussion").order("pinned", { ascending: false }).order("last_activity_at", { ascending: false }).limit(300),
         supabase.from("community_posts").select(COLS).eq("kind", "request").order("need_count", { ascending: false }).limit(500),
         supabase.from("community_needs").select("post_id").eq("user_id", S.me.id).limit(1000),
@@ -563,12 +609,13 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       $("[data-thread]", mBody).innerHTML = `
         <span class="cm-meta">${p.status !== "open" && p.kind === "request" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(when)}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
         ${p.body ? `<p class="cm-m-body">${esc(p.body)}</p>` : ""}
+        ${p.viewpoint ? `<div class="cm-view" style="margin-top:16px"><span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span><p class="cm-view-p">${esc(p.viewpoint)}</p></div>` : ""}
         <div class="cm-m-bar">
           ${p.kind === "request" ? `${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span>` : ""}
           <span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-post="${p.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-post="${p.id}">Report</button>`}</span>
         </div>
         <div data-report-slot></div>
-        <p class="cm-m-sec">${replies.length ? plural(replies.length, "reply", "replies") : (p.kind === "request" ? "Comments" : "Replies")}</p>
+        <p class="cm-m-sec">${replies.length ? plural(replies.length, "reply", "replies") : (p.kind === "discussion" ? "Replies" : "Comments")}</p>
         ${replies.length ? `<div class="cm-replies">${replies.map((r) => replyHtml(r, true)).join("")}</div>` : `<p class="cm-m-sub">Nothing yet${p.kind === "request" ? " &mdash; add how you'd use it" : ""}.</p>`}
         ${p.hidden ? "" : `<form class="cm-say" data-say="${p.id}" style="margin-top:16px">
           <textarea name="body" maxlength="5000" placeholder="${p.kind === "request" ? "How would you use it?" : "Add your reply"}" aria-label="Your reply" required></textarea>
@@ -655,6 +702,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
 
     document.addEventListener("click", async (e) => {
       const t = e.target;
+      if (t.closest("[data-cm-comments]")) { S.showComments = !S.showComments; paintTopic(); if (S.showComments) setTimeout(() => $(".cm-comments-body textarea")?.focus({ preventScroll: true }), 30); return; }
       const tm = t.closest("[data-team]"); if (tm) { e.preventDefault(); openPerson(tm.dataset.team); return; }
       const qq = t.closest("[data-q]"); if (qq) { const o = !qq.classList.contains("is-open"); qq.classList.toggle("is-open", o); qq.setAttribute("aria-expanded", String(o)); return; }
       const nw = t.closest("[data-cm-new]"); if (nw) { e.preventDefault(); openComposer(nw.dataset.cmNew); return; }
@@ -685,7 +733,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         const isPost = !!dp.dataset.delPost;
         const { error } = await supabase.from(isPost ? "community_posts" : "community_replies").delete().eq("id", isPost ? dp.dataset.delPost : dp.dataset.delReply);
         if (error) { dp.textContent = "Couldn't delete"; return; }
-        if (isPost) { closeModal(); } else { await openThread(S.openId); }
+        if (isPost) { closeModal(); } else if (S.openId) { await openThread(S.openId); }
         refresh();
         return;
       }
