@@ -13,6 +13,7 @@ import { WHATS_NEW } from "../../data/whats-new.js";
 
 // The What's new card shows the latest update's picture and headline.
 const latestNews = WHATS_NEW[0];
+const HUB_NEWS = latestNews;   // the menu's "What's new to the Hub" card
 
 // Named on the "from the blog" starter card. Build-time is fine: the card
 // links to the blog either way, so a stale title is a stale title, not a
@@ -112,21 +113,39 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       <aside class="ws-drawer-panel" aria-label="More menu">
         <div class="ws-drawer-top">
           <a class="ws-logo" href="/account">TMKE</a>
-          <button type="button" class="ws-navic ws-drawer-x" data-drawer-close aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+          <span class="ws-drawer-acts">
+            <button type="button" class="ws-navic ws-notif is-read ws-drawer-bell" data-drawer-bell aria-expanded="false" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="ws-dot"></span></button>
+            <button type="button" class="ws-navic ws-drawer-x" data-drawer-close aria-label="Close menu"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+          </span>
         </div>
+        <!-- The notifications, in the menu (Dani, 17 Oct): filled by
+             lib/notifications.js like the bell's own list. -->
+        <section class="ws-drawer-notifs" data-drawer-notifs hidden aria-label="Notifications">
+          <div class="ws-notif-head"><strong>Notifications</strong><button type="button" class="ws-notif-clear" data-notif-clear>Mark all read</button></div>
+          <div class="ws-notif-list"><div class="ws-notif-empty">You&rsquo;re all caught up.</div></div>
+        </section>
         <nav class="ws-drawer-nav" aria-label="All sections">
           <span class="ws-drawer-label">Workspace</span>
           <a href="/account" class="is-active" aria-current="page">Dashboard</a>
           <a href="/account/studio">Studio</a>
+          <a href="/account/profile">Brand Kit</a>
           <a href="/account/schedule">Planner</a>
-          <a href="/account/orders">Orders</a>
-          <a href="/account/bookings">Bookings</a>
           <a href="/edit">Shop</a>
+          <!-- The newest pack on sale they don't have (lib/drawer-extras.js). -->
+          <a class="ws-drawer-card" data-drawer-pack href="/edit" hidden>
+            <span class="ws-drawer-card-pic"></span>
+            <span class="ws-drawer-card-tx"><em>New in The Edit</em><strong></strong></span>
+          </a>
           <span class="ws-drawer-label">Learn</span>
           <a href="/account/guides">Training Studio</a>
           <a href="/account/blog">Blog</a>
+          <a class="ws-drawer-card" href="/account?inspo=news">
+            <span class="ws-drawer-card-pic" style={`background-image:url('${HUB_NEWS.media}')`}></span>
+            <span class="ws-drawer-card-tx"><em>What&rsquo;s new to the Hub</em><strong>{HUB_NEWS.title}</strong></span>
+          </a>
           <span class="ws-drawer-label">Manage</span>
-          <a href="/account/profile">Brand Kit</a>
+          <a href="/account/orders">Orders</a>
+          <a href="/account/bookings">Bookings</a>
           <a href="/account/social">Your SMM</a>
           <a href="/account/orders">Billing</a>
           <a href="/account/profile">Settings</a>
@@ -491,14 +510,29 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     /* The menu (Dani, 17 Oct): each section's name a small wine bar like the
     chapter heads, so it can be found at a glance; the links closer together;
     the page you're on marked in wine. */
+    /* The menu's top: the bell beside the close (Dani, 17 Oct). */
+    .ws-drawer-acts { display: flex; align-items: center; gap: 2px; }
+    .ws-drawer-bell svg { width: 19px; height: 19px; }
+    .ws-drawer-bell.is-on { background: rgba(55,30,40,0.08); color: #371e28; }
+    .ws-drawer-nav[hidden], .ws-drawer-notifs[hidden] { display: none; }
+    .ws-drawer-notifs { display: flex; flex-direction: column; gap: 4px; }
+    /* The two picture cards: a picture, its words on a wine band. */
+    .ws-drawer-nav a.ws-drawer-card { display: flex; flex-direction: column; margin: 6px 0 4px; padding: 0; border-radius: 4px; overflow: hidden; background: #371e28; color: #fff; font-weight: 400; text-decoration: none; transition: transform 0.25s, box-shadow 0.25s; }
+    .ws-drawer-nav a.ws-drawer-card[hidden] { display: none; }
+    .ws-drawer-nav a.ws-drawer-card:hover { background: #371e28; color: #fff; transform: translateY(-2px); box-shadow: 0 14px 26px -18px rgba(55,30,40,0.6); }
+    .ws-drawer-card-pic { display: block; aspect-ratio: 16 / 8; background: #e6e1de center / cover no-repeat; }
+    .ws-drawer-card-tx { display: flex; flex-direction: column; gap: 2px; padding: 9px 12px 10px; }
+    .ws-drawer-card-tx em { font-style: normal; font-size: 9.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.65); }
+    .ws-drawer-card-tx strong { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+    /* Sign out: the section bars' size, as a button (Dani, 17 Oct). */
+    .ws-drawer-out { display: block; margin-top: auto; padding: 6px 12px; border: 1px solid #371e28; border-radius: 4px; background: transparent; color: #371e28; text-align: center; text-decoration: none; font-family: var(--serif); font-size: 10px; font-weight: 700; line-height: 15px; letter-spacing: 0.18em; text-transform: uppercase; transition: background 0.18s, color 0.18s; }
+    .ws-drawer-out:hover { background: #371e28; color: #fff; }
     .ws-drawer-nav { display: flex; flex-direction: column; gap: 1px; }   /* a quarter closer (Dani, 17 Oct) */
     .ws-drawer-label { display: block; margin: 16px 0 6px; padding: 7px 12px; border-radius: 4px; background: #371e28; color: #fff; font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
     .ws-drawer-label:first-child { margin-top: 4px; }
     .ws-drawer-nav a { display: block; padding: 4px 12px; line-height: 1.35; border-radius: 4px; font-size: 14px; font-weight: 500; color: var(--ws-ink, #1c1d22); text-decoration: none; transition: background 0.16s, color 0.16s; }
     .ws-drawer-nav a:hover { background: rgba(55,30,40,0.07); color: #371e28; }
     .ws-drawer-nav a.is-active { background: rgba(55,30,40,0.08); color: #371e28; font-weight: 600; box-shadow: inset 3px 0 0 #371e28; }
-    .ws-drawer-out { margin-top: auto; padding: 12px; border-radius: 11px; text-align: center; font-size: var(--ws-t-body); font-weight: 600; color: var(--ws-accent); text-decoration: none; border: 1px solid var(--ws-line); transition: background 0.18s; }
-    .ws-drawer-out:hover { background: rgba(28,29,34,0.05); }
     .ws-tabs { flex: 1; display: flex; align-items: center; justify-content: center; gap: clamp(12px, 1.9vw, 36px); }
     .ws-tab {
       position: relative; display: inline-flex; align-items: center;
@@ -1038,6 +1072,10 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
     import { supabase, signOutEverywhere} from '../../lib/supabase.js';
     import { designStore, plannerStore } from '../../lib/design-store.js';
     import { initNotifications } from '../../lib/notifications.js';
+    // The menu's bell and its new-pack card (lib/drawer-extras.js).
+    import { wireDrawerBell, fillDrawerPack } from "../../lib/drawer-extras.js";
+    wireDrawerBell();
+    fillDrawerPack(supabase);
     import { initTour } from '../../lib/tour.js';
     // The dashboard carries its own copy of the workspace header, so it
     // resumes a training walkthrough itself.
