@@ -13,6 +13,6 @@
 
    With neither, the row isn't shown. */
 
-export const INSTAGRAM_HANDLE = "";      // e.g. "themarketingexperts", for "Follow along on Instagram @..."
+export const INSTAGRAM_HANDLE = "tmke_propertymarketing";      // e.g. "themarketingexperts", for "Follow along on Instagram @..."
 export const INSTAGRAM_FEED_URL = "";
 export const INSTAGRAM_POSTS = [];

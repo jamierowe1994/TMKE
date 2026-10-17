@@ -62,11 +62,11 @@ export const TEAM = [
 ];
 
 // TMKE's own socials, for the chapter's Explore links. Only the ones with a
-// link show. (The website's footer icons point nowhere yet either.)
+// link show. The website's footer icons use the same links (src/components/Footer.astro).
 export const TMKE_SOCIALS = [
-  { label: "Instagram", href: "" },
-  { label: "Facebook", href: "" },
-  { label: "LinkedIn", href: "" },
+  { label: "Instagram", href: "https://www.instagram.com/tmke_propertymarketing/" },
+  { label: "Facebook", href: "https://www.facebook.com/tmkepropertymarketing/" },
+  { label: "LinkedIn", href: "https://uk.linkedin.com/company/tmke-property-marketing-experts" },
   { label: "TikTok", href: "" },
   { label: "YouTube", href: "" },
 ];

@@ -77,16 +77,18 @@ const { hideHead = false } = Astro.props;
            chat that knows the hub and their account. If it can't help, the
            message form below takes their question to the team. -->
       <div class="cai" id="contact-ai" hidden>
-        <div class="cai-thread" id="cai-thread" aria-live="polite"></div>
+        <!-- The conversation fills the pop-out and scrolls; the box to type in
+             stays at the foot (Dani, 17 Oct). -->
+        <div class="cai-thread" id="cai-thread" aria-live="polite" data-lenis-prevent></div>
+        <div class="cai-acts" id="cai-acts" hidden>
+          <button type="button" class="cbtn cbtn-ghost" data-cmodal-close>That's sorted</button>
+          <button type="button" class="cbtn cbtn-solid" id="cai-team">Message the team <em>&rarr;</em></button>
+        </div>
         <form class="cai-ask" id="cai-form">
           <textarea id="cai-q" rows="2" maxlength="1500" placeholder="Ask anything about your packs, the Studio or the hub" aria-label="Your question" required></textarea>
           <button type="submit" class="cbtn cbtn-solid" id="cai-send">Ask <em>&rarr;</em></button>
         </form>
-        <div class="cai-acts" id="cai-acts" hidden>
-          <button type="button" class="cbtn cbtn-ghost" data-cmodal-close>That's sorted</button>
-          <button type="button" class="cbtn cbtn-solid" id="cai-team">Send it to the team <em>&rarr;</em></button>
-        </div>
-        <button type="button" class="cai-skip" id="cai-skip">Skip this and message the team</button>
+        <button type="button" class="cai-skip" id="cai-skip">Message the team</button>
       </div>
 
       <form id="contact-form" class="cmodal-form" novalidate>
@@ -180,7 +182,8 @@ const { hideHead = false } = Astro.props;
   /* ---- The hub's cards (Dani, 17 Oct, "align to the dashboard"): three
      across, 10px apart, each in its brand tint as the dashboard's Latest
      cards are; no rail, no shadow; the tag and the arrow in the line's colour. */
-  [data-contact-panel] { display: flex; flex-direction: column; gap: var(--ws-gap, 10px); }
+  /* .acc-section's own 32px gap sat the studio hours apart from the cards. */
+  .acc-section[data-contact-panel] { display: flex; flex-direction: column; gap: var(--ws-gap, 10px); }
   [data-contact-panel] .acc-contact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ws-gap, 10px); }
   @media (max-width: 1000px) { [data-contact-panel] .acc-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 620px) { [data-contact-panel] .acc-contact-grid { grid-template-columns: 1fr; } }
@@ -345,10 +348,16 @@ const { hideHead = false } = Astro.props;
   .cbtn:focus-visible { outline: 2px solid #371e28; outline-offset: 2px; }
 
   /* Ask first: their questions on the right in the wine, answers on the left. */
+  /* With the chat up, the pop-out is a column: the heading, then the
+     conversation taking the room left (scrolling), then the box to type in. */
+  .cmodal-card.is-chat { display: flex; flex-direction: column; overflow: hidden; }
+  .cmodal-card.is-chat > * { flex: none; }
+  .cmodal-card.is-chat > .cai { flex: 1 1 auto; min-height: 0; }
   .cai { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
   .cai[hidden] { display: none; }
-  .cai-thread { display: flex; flex-direction: column; gap: 10px; }
-  .cai-thread:empty { display: none; }
+  .cai-thread { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 4px; }
+  /* Short conversations sit down by the box, as in any chat. */
+  .cai-thread > :first-child { margin-top: auto; }
   .cai-msg { max-width: 88%; padding: 10px 13px; border-radius: 4px; font-family: var(--sans); font-size: 14px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
   .cai-msg--me { align-self: flex-end; background: #371e28; color: #fff; }
   .cai-msg--ai { align-self: flex-start; background: #f4f2f1; color: #1c1d22; }
@@ -360,7 +369,7 @@ const { hideHead = false } = Astro.props;
   .cai-ask textarea:focus { outline: none; border-color: #371e28; }
   .cai-acts { display: flex; justify-content: flex-end; gap: 8px; }
   .cai-acts[hidden] { display: none; }
-  .cai-skip { all: unset; cursor: pointer; align-self: flex-start; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); border-bottom: 1px solid rgba(28,29,34,0.25); padding-bottom: 2px; }
+  .cai-skip { all: unset; cursor: pointer; align-self: flex-end; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); border-bottom: 1px solid rgba(28,29,34,0.25); padding-bottom: 2px; }
   .cai-skip:hover { color: #371e28; border-color: #371e28; }
   .cai-skip[hidden] { display: none; }
 
@@ -599,7 +608,7 @@ const { hideHead = false } = Astro.props;
       el.className = "cai-msg cai-msg--" + kind;
       el.textContent = text;
       ai.thread.appendChild(el);
-      el.scrollIntoView({ block: "nearest" });
+      ai.thread.scrollTop = ai.thread.scrollHeight;
       return el;
     }
     function aiReset(source) {
@@ -613,11 +622,17 @@ const { hideHead = false } = Astro.props;
       ai.box.hidden = !ai.line || !WORKER;
       // With the chat up, the message form waits until they want it.
       form.hidden = !ai.box.hidden;
-      if (!ai.box.hidden && subEl) { ai.formSub = subEl.textContent; subEl.textContent = "Ask here first for an answer straight away. If it doesn't sort it, send it on to the team."; subEl.hidden = false; }
+      if (formCard) formCard.classList.toggle("is-chat", !ai.box.hidden);
+      if (!ai.box.hidden) {
+        const first = String((sessionUser && sessionUser.user_metadata && (sessionUser.user_metadata.name || sessionUser.user_metadata.full_name)) || "").trim().split(/\s+/)[0];
+        aiMsg("ai", `Hi${first ? " " + first : ""}, what can I help with? ${ai.line === "pack_support" ? "Ask me anything about your packs or the Studio." : "Ask me anything about the hub."}`);
+      }
+      if (!ai.box.hidden && subEl) { ai.formSub = subEl.textContent; subEl.textContent = "Ask here first for an answer straight away. If it doesn't sort it, message the team."; subEl.hidden = false; }
     }
     function aiToTeam() {
       ai.box.hidden = true;
       form.hidden = false;
+      if (formCard) formCard.classList.remove("is-chat");
       if (subEl && ai.formSub) subEl.textContent = ai.formSub;
       const asked = ai.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n\n");
       const msg = document.getElementById("contact-message");
@@ -651,11 +666,11 @@ const { hideHead = false } = Astro.props;
           aiMsg("ai", j.answer);
           ai.acts.hidden = false;
           // When it says the team should take it, that button leads.
-          ai.team.textContent = j.handoff ? "Send it to the team →" : "Still stuck? Send it to the team →";
+          ai.team.textContent = j.handoff ? "Message the team →" : "Still stuck? Message the team →";
         } catch (err) {
           wait.remove();
           ai.turns.pop();
-          aiMsg("ai", (err && err.message ? err.message + " " : "") + "You can send it straight to the team instead.");
+          aiMsg("ai", (err && err.message ? err.message + " " : "") + "You can message the team instead.");
           ai.acts.hidden = false;
         } finally {
           ai.send.disabled = false;
