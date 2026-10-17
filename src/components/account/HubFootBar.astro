@@ -1,0 +1,43 @@
+---
+/* The foot of every hub page (Dani, 17 Oct): one wine bar, like the chapter
+   heads, so a page ends rather than stops. The dashboard's own bar is the
+   model. Self-contained, with its colours written out, because some hub
+   pages (Blog, Learn, Brand Kit) don't load ws-system.css.
+
+   `emailSlot`: pages whose script writes the member's email into
+   #footer-email (the footer this replaced showed it) keep that element,
+   hidden, so their scripts carry on. */
+const { emailSlot = false } = Astro.props;
+---
+
+<footer class="hub-foot" aria-label="Page footer">
+  <span class="hub-foot-l"><span class="hub-foot-ch">TMKE</span>The Marketing Experts</span>
+  <span class="hub-foot-r">
+    <a class="hub-foot-a" href="mailto:hello@tmke.co.uk">Help</a>
+    <a class="hub-foot-a" href="#top" data-hub-top>Back to top
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 13V3M4 7l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </span>
+  {emailSlot && <strong id="footer-email" hidden></strong>}
+</footer>
+
+<style is:global>
+  .hub-foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: clamp(28px, 4vh, 56px); padding: 11px 18px; background: #371e28; border-radius: 4px; color: #fff; }
+  .hub-foot-l { font-family: var(--serif); font-weight: 700; font-size: 10px; line-height: 14px; letter-spacing: 0.18em; text-transform: uppercase; }
+  .hub-foot-ch { color: rgba(255,255,255,0.5); font-weight: 500; }
+  .hub-foot-ch::after { content: " \2014  "; }
+  .hub-foot-r { display: flex; align-items: center; gap: 22px; }
+  .hub-foot-a { display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12px; line-height: 14px; letter-spacing: 0.01em; font-weight: 600; color: rgba(255,255,255,0.78); text-decoration: none; transition: color 0.2s; }
+  .hub-foot-a:hover { color: #fff; }
+  .hub-foot-a svg { width: 13px; height: 13px; }
+  /* Where the column already spaces its sections, it spaces this too. */
+  :is(.ws-main, .lrn-main, .dash-main, .ws-left, .app-main) > .hub-foot { margin-top: 0; }
+  @media (max-width: 520px) { .hub-foot-l { font-size: 9px; letter-spacing: 0.14em; } .hub-foot-r { gap: 14px; } }
+</style>
+
+<script>
+  document.querySelectorAll("[data-hub-top]").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (window.__lenis && window.__lenis.scrollTo) window.__lenis.scrollTo(0); else scrollTo({ top: 0, behavior: "smooth" });
+  }));
+</script>

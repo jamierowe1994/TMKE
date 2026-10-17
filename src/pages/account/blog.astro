@@ -1,16 +1,11 @@
 ---
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
-import { getImage } from "astro:assets";
+import HubFootBar from "../../components/account/HubFootBar.astro";
 import "../../styles/learn.css";
+import "../../styles/reel.css";
 import { getMembersPosts } from "../../data/blog.js";
 
-// The header row's three photographs: from the public Insights archive's
-// stock set (not its first row), never a piece's own picture.
-const PHOTOS = await Promise.all([9, 12, 14].map((n) => getImage({
-  src: `https://assets.tmke.co.uk/Blog%20Static%20Images/${n}.png`,
-  width: 700, height: 933, quality: 72, format: "webp",
-}).then((r) => r.src)));
 
 // Bodies of the pieces known at build, for the reader to fall back on (the
 // built-in set has no database row). Live pieces are read fresh on open.
@@ -29,9 +24,9 @@ try { built = await getMembersPosts(); } catch (_) {}
   <WorkspaceHeader active="blog" />
     <main class="lrn-main">
       <div id="acc-blog-list" class="mb-list">
-        <!-- The header is this row (Danielle, 5 Oct 2026): the title, three
-             photographs, then the two newest pieces as the public archive's
-             tiles. The title takes you to every piece, below. -->
+        <!-- The header row: the title, then every piece going by as a moving
+             strip, like the pack designs on the dashboard and in the Studio
+             (Dani, 17 Oct). The title takes you to every piece, below. -->
         <section class="lrn-sec ws-rise" style="--i:0" aria-labelledby="mb-new-h">
           <header class="lrn-sec-head"><h2 class="ws-eyebrow" id="mb-new-h">New</h2></header>
           <div class="mb-arc">
@@ -42,8 +37,9 @@ try { built = await getMembersPosts(); } catch (_) {}
                 <span class="mb-intro-cta">View All Articles <em>&darr;</em></span>
               </span>
             </a>
-            {PHOTOS.map((src) => (<div class="mb-tile mb-tile--photo" style={`background-image:url('${src}')`} aria-hidden="true"></div>))}
-            <div class="mb-arc-new" id="mb-new"></div>
+            <!-- Filled by fillPostReel (src/lib/pack-reel.js); empty until its
+                 pictures are in, nothing standing in for them. -->
+            <div class="ws-reel mb-reel" id="mb-reel" aria-label="Articles" aria-busy="true"><div class="ws-reel-track"></div></div>
           </div>
         </section>
 
@@ -104,12 +100,16 @@ try { built = await getMembersPosts(); } catch (_) {}
       </article>
       {built.map((p) => (<template data-mb={p.slug} set:html={p.body}></template>))}
       <script type="application/json" id="mb-built" set:html={JSON.stringify(built.map((p) => ({ slug: p.slug, title: p.title, eyebrow: p.eyebrow || "", category: p.category || "", standfirst: p.standfirst || "", hero: p.hero || "", heroAlt: p.heroAlt || "", date: p.date || "", readTime: p.readTime || null, author: p.author || "The TMKE Desk", styles: p.styles || {}, audience: p.audience || "members" })))}></script>
+      <HubFootBar />
     </main>
   </div>
 
   <script>
     import { isDemo as demoOn, lock, lockClicks } from "../../lib/demo.js";
     import { supabase, signOutEverywhere} from "../../lib/supabase.js";
+    import { fillPostReel } from "../../lib/pack-reel.js";
+    // The header row's moving strip of every piece.
+    fillPostReel(supabase, document.getElementById('mb-reel'));
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -178,14 +178,10 @@ try { built = await getMembersPosts(); } catch (_) {}
     }
 
     function drawList() {
-      const newHost = document.getElementById('mb-new'), cards = document.getElementById('mb-cards');
-      if (!newHost || !cards) return;
+      const cards = document.getElementById('mb-cards');
+      if (!cards) return;
       const bg = (u) => (u ? ` style="background-image:url('${esc(u)}')"` : '');
       const tag = (p) => (p.audience === 'members' ? '<span class="edit-tag">Members Only</span>' : '');
-      newHost.innerHTML = posts.slice(0, 2).map((p, i) => `<a class="mb-tile mb-tile--post" href="/account/blog#${esc(p.slug)}">
-          ${tag(p)}<span class="mb-tile-img"${bg(p.hero)}></span>
-          <span class="mb-tile-cap"><span class="mb-tile-num">${i === 0 ? 'Newest' : esc(p.category || 'Insights')}</span><span class="mb-tile-name">${esc(p.title)}</span></span>
-        </a>`).join('');
       // The categories the articles actually use, keeping the one chosen.
       const catSel = document.getElementById('mb-cat');
       if (catSel) {
@@ -287,7 +283,9 @@ try { built = await getMembersPosts(); } catch (_) {}
        three photographs, the two newest pieces (title bottom-left, their
        picture through on hover). */
     /* 6px apart with 2px corners: the public archive's own spacing. */
-    .mb-arc { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+    .mb-arc { display: grid; grid-template-columns: minmax(200px, 1fr) minmax(0, 4.4fr); gap: 4px; align-items: stretch; }
+    .mb-arc .mb-tile--intro { aspect-ratio: auto; min-height: 100%; }
+    @media (max-width: 760px) { .mb-arc { grid-template-columns: 1fr; } .mb-arc .mb-tile--intro { min-height: 220px; } }
     .mb-arc-new { display: contents; }
     @media (max-width: 1100px) { .mb-arc { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     @media (max-width: 640px) { .mb-arc { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

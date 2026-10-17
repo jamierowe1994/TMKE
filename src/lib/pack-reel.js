@@ -61,25 +61,51 @@ export async function fillPackReel(supabase, reel, { runs = [1], perPack = 4 } =
     }
     if (!tiles.length) { reel.setAttribute("aria-busy", "false"); return false; }
 
-    // Enough to fill a wide screen, then the whole set again, so sliding
-    // back by half lands on the same picture and the loop has no seam.
-    let set = tiles.slice();
-    while (set.length < 10) set = set.concat(tiles);
-    const tile = (t, copy) => `<a class="ws-reel-tile" href="${esc(t.href)}"${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ""}>
-        <span class="ws-reel-label">${esc(t.label)}</span>
-        <span class="ws-reel-pic"><img src="${esc(t.img)}" alt="${copy ? "" : esc(t.sub || t.label)}" decoding="async"><span class="ws-reel-go">${esc(t.go)} &rarr;</span></span>
-      </a>`;
-    track.innerHTML = set.map((t) => tile(t, false)).join("") + set.map((t) => tile(t, true)).join("");
-    // About 12 seconds a picture: slow enough to read as it passes (Dani, 16 Oct).
-    track.style.setProperty("--reel-dur", `${set.length * 12}s`);
-    // Shown once the first few on screen have their pictures.
-    const first = [...track.querySelectorAll("img")].slice(0, 5);
-    await Promise.race([
-      Promise.all(first.map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))),
-      new Promise((r) => setTimeout(r, 2500)),
-    ]);
-    reel.classList.add("is-ready");
-    reel.setAttribute("aria-busy", "false");
-    return true;
+    return await drawReel(reel, tiles);
+  } catch (_) { reel.setAttribute("aria-busy", "false"); return false; }
+}
+
+/* Draw a strip from tiles { img, label, href, go, sub?, caption? } and set
+   it moving once the first pictures are in. Enough to fill a wide screen,
+   then the whole set again, so sliding back by half lands on the same
+   picture and the loop has no seam. `caption` puts the title under the
+   picture (blog posts); packs go without. */
+export async function drawReel(reel, tiles) {
+  const track = reel && reel.querySelector(".ws-reel-track");
+  if (!track || !tiles || !tiles.length) { reel && reel.setAttribute("aria-busy", "false"); return false; }
+  let set = tiles.slice();
+  while (set.length < 10) set = set.concat(tiles);
+  const tile = (t, copy) => `<a class="ws-reel-tile" href="${esc(t.href)}"${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ""}>
+      <span class="ws-reel-label">${esc(t.label)}</span>
+      <span class="ws-reel-pic">${t.img ? `<img src="${esc(t.img)}" alt="${copy ? "" : esc(t.sub || t.label)}" decoding="async">` : ""}<span class="ws-reel-go">${esc(t.go)} &rarr;</span></span>
+      ${t.caption ? `<span class="ws-reel-cap">${esc(t.caption)}</span>` : ""}
+    </a>`;
+  track.innerHTML = set.map((t) => tile(t, false)).join("") + set.map((t) => tile(t, true)).join("");
+  // About 12 seconds a picture: slow enough to read as it passes (Dani, 16 Oct).
+  track.style.setProperty("--reel-dur", `${set.length * 12}s`);
+  // Shown once the first few on screen have their pictures.
+  const first = [...track.querySelectorAll("img")].slice(0, 5);
+  await Promise.race([
+    Promise.all(first.map((im) => im.complete ? 0 : new Promise((r) => { im.onload = im.onerror = r; }))),
+    new Promise((r) => setTimeout(r, 2500)),
+  ]);
+  reel.classList.add("is-ready");
+  reel.setAttribute("aria-busy", "false");
+  return true;
+}
+
+/* The members' blog as a strip: every published piece for members, newest
+   first, its category above and its title under. */
+export async function fillPostReel(supabase, reel) {
+  try {
+    const { data, error } = await supabase.from("blog_posts")
+      .select("slug, title, category, hero_image_url, publish_date")
+      .eq("status", "published").in("audience", ["members", "both"])
+      .order("publish_date", { ascending: false }).limit(24);
+    if (error || !data || !data.length) { reel.setAttribute("aria-busy", "false"); return false; }
+    return await drawReel(reel, data.filter((p) => p.hero_image_url).map((p) => ({
+      img: p.hero_image_url, label: p.category || "Insights", caption: p.title, sub: p.title,
+      href: `/account/blog#${encodeURIComponent(p.slug)}`, go: "Read",
+    })));
   } catch (_) { reel.setAttribute("aria-busy", "false"); return false; }
 }
