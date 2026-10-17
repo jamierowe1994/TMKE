@@ -133,9 +133,47 @@ const NAV = [
           <div class="ash-notif-panel" id="ash-notif-panel" hidden>
             <div class="ash-notif-head">
               <strong>Notifications</strong>
-              <button type="button" class="ash-notif-clear" id="ash-notif-clear">Mark all read</button>
+              <span class="ash-notif-head-acts">
+                <button type="button" class="ash-notif-clear" id="ash-notif-clear">Mark all read</button>
+                <button type="button" class="ash-notif-pop" id="ash-notif-pop" aria-label="Pop out notifications" title="Pop out: filter and sort">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
+                </button>
+              </span>
             </div>
             <div class="ash-notif-list" id="ash-notif-list"></div>
+          </div>
+        </div>
+        <!-- The bell, popped out: every notification, filtered and sorted. -->
+        <div class="ash-nx" id="ash-nx" hidden>
+          <div class="ash-nx-backdrop" data-nx-close></div>
+          <div class="ash-nx-card" role="dialog" aria-modal="true" aria-labelledby="ash-nx-title">
+            <div class="ash-nx-head">
+              <h2 id="ash-nx-title">Notifications</h2>
+              <span class="ash-nx-count" id="ash-nx-count"></span>
+              <button type="button" class="ash-notif-clear" id="ash-nx-clear">Mark all read</button>
+              <button type="button" class="ash-nx-x" data-nx-close aria-label="Close">&times;</button>
+            </div>
+            <div class="ash-nx-bar">
+              <div class="ash-nx-chips" id="ash-nx-types" role="group" aria-label="Type"></div>
+              <div class="ash-nx-row">
+                <div class="ash-nx-chips" role="group" aria-label="When">
+                  <button type="button" class="ash-nx-chip is-on" data-within="0">Any time</button>
+                  <button type="button" class="ash-nx-chip" data-within="24">Last 24 hours</button>
+                  <button type="button" class="ash-nx-chip" data-within="48">Last 48 hours</button>
+                  <button type="button" class="ash-nx-chip" data-within="168">Last 7 days</button>
+                </div>
+                <button type="button" class="ash-nx-chip" id="ash-nx-unread" aria-pressed="false">Unread only</button>
+                <label class="ash-nx-sort">Sort
+                  <select id="ash-nx-sort">
+                    <option value="new">Newest first</option>
+                    <option value="old">Oldest first</option>
+                    <option value="urgent">Most urgent first</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <p class="ash-nx-note" id="ash-nx-note" hidden></p>
+            <div class="ash-nx-list" id="ash-nx-list"></div>
           </div>
         </div>
         <label class="ash-search">
@@ -224,36 +262,141 @@ const NAV = [
         const esc = (v) => String(v == null ? "" : v)
           .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
         const unread = (r) => !(r.read_by || []).map((x) => String(x).toLowerCase()).includes(me);
+        // The pill on each one: its area in words, each in its own colour.
+        const AREA_LABEL = { videography: "Videography", social: "Social", money: "Money", hub: "Hub", community: "Community", problem: "Problem", marketing: "Marketing" };
+        const areaLabel = (a) => AREA_LABEL[a] || String(a || "Other").replace(/^./, (c) => c.toUpperCase());
+        // How urgent, once known (meta.urgency, set by the Worker's Claude read).
+        const urgencyOf = (r) => (r.meta && typeof r.meta.urgency === "number") ? r.meta.urgency : null;
+        const itemHtml = (r) => {
+          const u = urgencyOf(r);
+          return `
+                <a class="ash-notif-item${unread(r) ? " is-unread" : ""}" href="${esc(r.href || "#")}" data-id="${esc(r.id)}">
+                  <span class="ash-notif-t"><span class="ash-notif-area is-${esc(r.area)}">${esc(areaLabel(r.area))}</span>${u != null && u >= 2 ? `<span class="ash-notif-urgent${u === 3 ? " is-3" : ""}"${r.meta.urgency_why ? ` title="${esc(r.meta.urgency_why)}"` : ""}>${u === 3 ? "Urgent" : "Needs you"}</span>` : ""}${esc(r.title)}</span>
+                  ${r.body ? `<span class="ash-notif-b">${esc(r.body)}</span>` : ""}
+                  <span class="ash-notif-w">${esc(ago(r.created_at))}</span>
+                </a>`;
+        };
+        const wireReads = (box) => box.querySelectorAll("[data-id]").forEach((el) => {
+          el.addEventListener("click", () => {
+            // Opening it is reading it; the link carries on to the thing.
+            supabase.rpc("notification_read", { p_id: el.getAttribute("data-id") }).then(() => {}, () => {});
+          });
+        });
 
         function paint() {
           const n = rows.filter(unread).length;
           dot.hidden = n === 0;
           list.innerHTML = rows.length
-            ? rows.map((r) => `
-                <a class="ash-notif-item${unread(r) ? " is-unread" : ""}" href="${esc(r.href || "#")}" data-id="${esc(r.id)}">
-                  <span class="ash-notif-t"><span class="ash-notif-area is-${esc(r.area)}">${esc(r.area)}</span>${esc(r.title)}</span>
-                  ${r.body ? `<span class="ash-notif-b">${esc(r.body)}</span>` : ""}
-                  <span class="ash-notif-w">${esc(ago(r.created_at))}</span>
-                </a>`).join("")
+            ? rows.slice(0, 40).map(itemHtml).join("")
             : '<p class="ash-notif-empty">Nothing needs you right now.</p>';
-          list.querySelectorAll("[data-id]").forEach((el) => {
-            el.addEventListener("click", () => {
-              // Opening it is reading it; the link carries on to the thing.
-              supabase.rpc("notification_read", { p_id: el.getAttribute("data-id") }).then(() => {}, () => {});
-            });
-          });
+          wireReads(list);
+          if (!nx.hidden) paintNx();
         }
 
-        async function load() {
+        /* ---- Popped out: filter by type, unread and how recent; sort by
+           newest, oldest or most urgent. Urgency is asked for only when that
+           sort is chosen, and only for the ones not yet judged. ---- */
+        const nx = document.getElementById("ash-nx");
+        // Out of the top bar, whose styling would otherwise pin a fixed
+        // overlay inside it rather than over the page.
+        if (nx && nx.parentElement !== document.body) document.body.appendChild(nx);
+        const nxList = document.getElementById("ash-nx-list");
+        const nxNote = document.getElementById("ash-nx-note");
+        const NX = { type: "all", within: 0, unread: false, sort: "new" };
+        const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+        let judging = false;
+        function nxRows() {
+          const since = NX.within ? Date.now() - NX.within * 3600e3 : 0;
+          let out = rows.filter((r) => (NX.type === "all" || r.area === NX.type)
+            && (!NX.unread || unread(r))
+            && (!since || new Date(r.created_at).getTime() >= since));
+          const t = (r) => new Date(r.created_at).getTime();
+          if (NX.sort === "old") out = out.slice().sort((a, b) => t(a) - t(b));
+          else if (NX.sort === "urgent") out = out.slice().sort((a, b) => ((urgencyOf(b) ?? 1) - (urgencyOf(a) ?? 1)) || (t(b) - t(a)));
+          else out = out.slice().sort((a, b) => t(b) - t(a));
+          return out;
+        }
+        function paintNx() {
+          const areas = [...new Set(rows.map((r) => r.area).filter(Boolean))].sort((a, b) => areaLabel(a).localeCompare(areaLabel(b)));
+          document.getElementById("ash-nx-types").innerHTML = [["all", "All types"], ...areas.map((a) => [a, areaLabel(a)])].map(([k, l]) =>
+            `<button type="button" class="ash-nx-chip${NX.type === k ? " is-on" : ""}" data-type="${esc(k)}">${esc(l)} <b>${k === "all" ? rows.length : rows.filter((r) => r.area === k).length}</b></button>`).join("");
+          const shown = nxRows();
+          document.getElementById("ash-nx-count").textContent = `${shown.length} of ${rows.length}`;
+          nxList.innerHTML = shown.length ? shown.map(itemHtml).join("")
+            : '<p class="ash-notif-empty">Nothing matches. Try another type or a longer time.</p>';
+          wireReads(nxList);
+        }
+        async function judgeUrgency() {
+          const ids = rows.filter((r) => urgencyOf(r) == null).map((r) => r.id).slice(0, 80);
+          if (!ids.length || judging || !WORKER) return;
+          judging = true;
+          nxNote.hidden = false; nxNote.textContent = `Reading ${ids.length} notification${ids.length === 1 ? "" : "s"} to see which are urgent…`;
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const r = await fetch(`${WORKER}/admin/notifications/urgency`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: "Bearer " + (session && session.access_token) },
+              body: JSON.stringify({ ids }),
+            });
+            const j = r.ok ? await r.json() : {};
+            const u = j.urgency || {};
+            rows = rows.map((x) => u[x.id] ? Object.assign({}, x, { meta: Object.assign({}, x.meta || {}, { urgency: u[x.id].level, urgency_why: u[x.id].why }) }) : x);
+            nxNote.hidden = true;
+          } catch (_) {
+            nxNote.textContent = "Couldn't work out urgency just now, so these are newest first.";
+          }
+          judging = false;
+          paintNx();
+          // More than one batch's worth: carry on with the rest.
+          if (NX.sort === "urgent" && rows.some((r) => urgencyOf(r) == null) && nxNote.hidden) judgeUrgency();
+        }
+        function openNx() {
+          panel.hidden = true; btn.setAttribute("aria-expanded", "false");
+          nx.hidden = false; document.body.classList.add("ash-nx-open");
+          paintNx();
+          load(200);
+        }
+        function closeNx() { nx.hidden = true; document.body.classList.remove("ash-nx-open"); }
+        document.getElementById("ash-notif-pop")?.addEventListener("click", (e) => { e.stopPropagation(); openNx(); });
+        nx.addEventListener("click", (e) => {
+          if (e.target.closest("[data-nx-close]")) { closeNx(); return; }
+          const tb = e.target.closest("[data-type]");
+          if (tb) { NX.type = tb.getAttribute("data-type"); paintNx(); return; }
+          const wb = e.target.closest("[data-within]");
+          if (wb) {
+            NX.within = Number(wb.getAttribute("data-within")) || 0;
+            nx.querySelectorAll("[data-within]").forEach((b) => b.classList.toggle("is-on", b === wb));
+            paintNx(); return;
+          }
+          if (e.target.closest("#ash-nx-unread")) {
+            NX.unread = !NX.unread;
+            const ub = document.getElementById("ash-nx-unread");
+            ub.classList.toggle("is-on", NX.unread); ub.setAttribute("aria-pressed", String(NX.unread));
+            paintNx();
+          }
+        });
+        document.getElementById("ash-nx-sort")?.addEventListener("change", (e) => {
+          NX.sort = e.target.value;
+          paintNx();
+          if (NX.sort === "urgent") judgeUrgency();
+        });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !nx.hidden) closeNx(); });
+        document.getElementById("ash-nx-clear")?.addEventListener("click", () => document.getElementById("ash-notif-clear")?.click());
+
+        // The bell needs the latest 40; the pop-out reads further back.
+        let depth = 40;
+        async function load(n) {
+          if (n) depth = Math.max(depth, n);
           try {
             const { data, error } = await supabase
               .from("admin_notifications")
-              .select("id, created_at, area, event, title, body, href, read_by")
+              .select("id, created_at, area, event, title, body, href, read_by, meta")
               .order("created_at", { ascending: false })
-              .limit(40);
+              .limit(depth);
             if (error) return;          // table not migrated yet: stay quiet
             rows = data || [];
             paint();
+            if (!nx.hidden && NX.sort === "urgent") judgeUrgency();
           } catch (_) {}
         }
 

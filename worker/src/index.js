@@ -4150,6 +4150,76 @@ export default {
         return json({ total: members.length, joined: members.map((u) => u.created_at).filter(Boolean), partial: !!error }, 200, request, env);
       }
 
+      // ---- Admin bell: how urgent each notification is (Dani, 17 Oct) -------
+      // The pop-out's "Most urgent" sort. Claude reads each notification once
+      // and the answer is kept on the row (meta.urgency, meta.urgency_why), so
+      // the same one is never asked about twice. Only rows addressed to the
+      // person asking are read, as the bell itself shows them.
+      //   3  something is broken, or someone is stuck waiting on us
+      //   2  something was reported, we have to do something, or the member
+      //      has to do something within 48 hours
+      //   1  worth knowing     0  routine
+      if (path.endsWith("/admin/notifications/urgency") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const me = String(user.email || "").toLowerCase();
+        const b = await request.json().catch(() => ({}));
+        const ids = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 80);
+        if (!ids.length) return json({ urgency: {} }, 200, request, env);
+        const rows = ((await sbGet(env, "admin_notifications", `id=in.(${ids.join(",")})&select=id,created_at,area,event,title,body,recipients,meta`)) || [])
+          .filter((r) => (r.recipients || []).map((x) => String(x).toLowerCase()).includes(me));
+        const out = {};
+        const todo = [];
+        for (const r of rows) {
+          if (r.meta && typeof r.meta.urgency === "number") out[r.id] = { level: r.meta.urgency, why: r.meta.urgency_why || "" };
+          else todo.push(r);
+        }
+        // Without the AI: the area and the event say enough to rank roughly.
+        const byRule = (r) => r.area === "problem" ? 3 : /report|stall|fail|error|broken|bounce/i.test(r.event || "") ? 2 : /question|request|approval|waiting/i.test((r.event || "") + " " + (r.title || "")) ? 2 : 1;
+        let judged = {};
+        if (todo.length && env.ANTHROPIC_API_KEY) {
+          const list = todo.map((r) => ({ id: r.id, when: r.created_at, area: r.area, event: r.event, title: String(r.title || "").slice(0, 200), body: String(r.body || "").slice(0, 400) }));
+          const prompt = `You sort the notifications in the admin centre of TMKE, a marketing agency for estate agents, by how urgently the owner (Dani) needs to act. It is now ${new Date().toISOString()}.
+
+Rate each one 0-3:
+3 = something is broken or failing, or a person can't do something because they are waiting for Dani's approval or action.
+2 = something has been reported, Dani has to do something, or the customer/member has to do something within the next 48 hours.
+1 = worth knowing about but needs nothing now.
+0 = routine activity.
+
+Give a reason of at most 8 words, plain English, no full stop.
+
+Notifications (JSON):
+${JSON.stringify(list)}
+
+Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}]}`;
+          try {
+            const ai = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+              body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
+            });
+            if (ai.ok) {
+              const d = await ai.json();
+              const text = (d.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+              const s0 = text.indexOf("{"), e0 = text.lastIndexOf("}");
+              const parsed = JSON.parse(text.slice(s0, e0 + 1));
+              for (const x of (parsed.r || [])) {
+                const lv = Math.max(0, Math.min(3, Math.round(Number(x.level))));
+                if (x.id && !isNaN(lv)) judged[x.id] = { level: lv, why: String(x.why || "").slice(0, 80) };
+              }
+            }
+          } catch (_) { judged = {}; }
+        }
+        for (const r of todo) {
+          const j = judged[r.id];
+          out[r.id] = j || { level: byRule(r), why: "" };
+          // Kept only when Claude judged it, so a rough rule never sticks.
+          if (j) await sbPatch(env, "admin_notifications", `id=eq.${r.id}`, { meta: Object.assign({}, r.meta || {}, { urgency: j.level, urgency_why: j.why }) }).catch(() => null);
+        }
+        return json({ urgency: out }, 200, request, env);
+      }
+
       // ---- The Marketing Calendar in their own calendar ----------------------
       // The member's private link (made from their sign-in; reset on request).
       if (path.endsWith("/calendar/feed-link") && request.method === "POST") {
