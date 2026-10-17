@@ -37,12 +37,14 @@ import "../../styles/admin.css";
         <button type="button" class="pr-chip" data-filter="evergreen">Evergreen <b>0</b></button>
         <button type="button" class="pr-chip" data-filter="video">Reels <b>0</b></button>
         <button type="button" class="pr-chip pr-chip-warn" data-filter="incomplete">Needs attention <b>0</b></button>
+        <button type="button" class="pr-chip pr-chip-archive" data-filter="archive" title="Dated prompts whose day has passed this year. They come back by themselves in January.">Archive <b>0</b></button>
       </div>
       <label class="pr-search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="search" id="pr-q" placeholder="Search prompts…" aria-label="Search prompts" />
       </label>
     </div>
+    <div class="pr-months" id="pr-months" role="group" aria-label="Month"></div>
 
     <table class="pr-table">
       <thead>
@@ -67,6 +69,8 @@ import "../../styles/admin.css";
     let ROWS = [];
     let filter = "all";
     let q = "";
+    let month = 0;                 // 1-12 shows that month's dated prompts; 0 is the whole year
+    const DIRTY = new Set();       // rows edited but not saved, kept through a re-render
 
     // What the member's canvas opens at. Kept here rather than imported so the
     // table states the rule plainly next to the toggle that drives it.
@@ -97,8 +101,46 @@ import "../../styles/admin.css";
       return "no date";
     }
 
+    /* The day a dated prompt falls on this year (null for evergreen, or a date
+       that doesn't read). A rule repeats every year, so once its day has
+       passed it waits in the Archive and comes back by itself in January. */
+    function dayOf(r, year = new Date().getFullYear()) {
+      if (r.kind !== "dated" || !r.rule) return null;
+      if (r.rule.on) {
+        const [m, d] = String(r.rule.on).split("-").map(Number);
+        if (!(m >= 1 && m <= 12 && d >= 1 && d <= 31)) return null;
+        return new Date(year, m - 1, d);
+      }
+      if (r.rule.nth) {
+        const { month: m, weekday, n, offset } = r.rule.nth;
+        if (!(m >= 1 && m <= 12)) return null;
+        let d;
+        if (n === -1) {
+          d = new Date(year, m, 0);                                   // the month's last day
+          while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
+        } else {
+          d = new Date(year, m - 1, 1);
+          while (d.getDay() !== weekday) d.setDate(d.getDate() + 1);
+          d.setDate(d.getDate() + 7 * ((n || 1) - 1));
+        }
+        if (offset) d.setDate(d.getDate() + offset);
+        return d;
+      }
+      return null;
+    }
+    const monthOf = (r) => { const d = dayOf(r); return d ? d.getMonth() + 1 : 0; };
+    function isPast(r) {
+      const d = dayOf(r);
+      if (!d) return false;
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      return d < today;
+    }
+
     function view() {
-      let rows = ROWS;
+      // A month shows everything set in it, passed or not; otherwise the
+      // passed ones are only in the Archive.
+      let rows = month ? ROWS.filter((r) => monthOf(r) === month)
+        : filter === "archive" ? ROWS.filter(isPast) : ROWS.filter((r) => !isPast(r));
       if (filter === "dated") rows = rows.filter((r) => r.kind === "dated");
       else if (filter === "evergreen") rows = rows.filter((r) => r.kind === "evergreen");
       else if (filter === "video") rows = rows.filter((r) => r.is_video);
@@ -107,7 +149,9 @@ import "../../styles/admin.css";
         rows = rows.filter((r) =>
           [r.name, r.angle, r.brief, r.say, r.cover].some((v) => String(v || "").toLowerCase().includes(q)));
       }
-      return rows;
+      // Dated ones in the order they fall; evergreen after, as they were.
+      const t = (r) => { const d = dayOf(r); return d ? d.getTime() : Infinity; };
+      return rows.slice().sort((a, b) => t(a) - t(b));
     }
 
     function counts() {
@@ -115,13 +159,21 @@ import "../../styles/admin.css";
         const el = document.querySelector(`[data-filter="${f}"] b`);
         if (el) el.textContent = n;
       };
-      set("all", ROWS.length);
-      set("dated", ROWS.filter((r) => r.kind === "dated").length);
-      set("evergreen", ROWS.filter((r) => r.kind === "evergreen").length);
-      set("video", ROWS.filter((r) => r.is_video).length);
-      const bad = ROWS.filter(incomplete).length;
+      // The chips count what they'd show: this month's set when a month is
+      // chosen, else everything still to come (the Archive counts the rest).
+      const base = month ? ROWS.filter((r) => monthOf(r) === month) : ROWS.filter((r) => !isPast(r));
+      set("all", base.length);
+      set("dated", base.filter((r) => r.kind === "dated").length);
+      set("evergreen", base.filter((r) => r.kind === "evergreen").length);
+      set("video", base.filter((r) => r.is_video).length);
+      const bad = base.filter(incomplete).length;
       set("incomplete", bad);
+      set("archive", (month ? base : ROWS).filter(isPast).length);
       document.querySelector('[data-filter="incomplete"]')?.classList.toggle("is-bad", bad > 0);
+      const byMonth = new Array(13).fill(0);
+      ROWS.forEach((r) => { byMonth[monthOf(r)]++; });
+      $("pr-months").innerHTML = `<button type="button" class="pr-month${month ? "" : " is-active"}" data-month="0">Whole year</button>`
+        + MONTHS.map((m, i) => `<button type="button" class="pr-month${month === i + 1 ? " is-active" : ""}${i + 1 === new Date().getMonth() + 1 ? " is-now" : ""}" data-month="${i + 1}"${byMonth[i + 1] ? "" : " disabled"}>${m} <b>${byMonth[i + 1]}</b></button>`).join("");
     }
 
     function render() {
@@ -130,11 +182,12 @@ import "../../styles/admin.css";
       $("pr-rows").innerHTML = rows.map((r) => {
         const o = opensAs(r);
         return `
-        <tr data-id="${esc(r.id)}"${incomplete(r) ? ' class="is-incomplete"' : ""}>
+        <tr data-id="${esc(r.id)}" class="${[incomplete(r) ? "is-incomplete" : "", DIRTY.has(r.id) ? "is-dirty" : "", isPast(r) ? "is-past" : ""].filter(Boolean).join(" ")}">
           <td class="pr-c-when">
             ${r.kind === "dated"
               ? `<input class="pr-in pr-in-when" data-f="ruleText" value="${esc(r.rule && r.rule.on ? r.rule.on : "")}" placeholder="MM-DD" ${r.rule && r.rule.nth ? "disabled" : ""} />
-                 ${r.rule && r.rule.nth ? `<span class="pr-rule">${esc(whenLabel(r))}</span>` : ""}`
+                 ${r.rule && r.rule.nth ? `<span class="pr-rule">${esc(whenLabel(r))}</span>` : ""}
+                 ${isPast(r) ? `<span class="pr-past">Passed</span>` : ""}`
               : `<span class="pr-rule">Evergreen</span>`}
           </td>
           <td class="pr-c-name">
@@ -160,7 +213,9 @@ import "../../styles/admin.css";
           </td>
         </tr>`;
       }).join("");
-      $("pr-status").textContent = `${rows.length} of ${ROWS.length} shown`;
+      $("pr-status").textContent = `${rows.length} of ${ROWS.length} shown`
+        + (month ? ` · ${["", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][month]}` : "")
+        + (!month && filter === "archive" ? " · passed this year, back in January" : "");
     }
 
     function rowOf(el) {
@@ -205,6 +260,7 @@ import "../../styles/admin.css";
         return;
       } else row[f] = t.value;
       tr.classList.add("is-dirty");
+      DIRTY.add(row.id);
     });
 
     $("pr-rows").addEventListener("click", async (e) => {
@@ -223,8 +279,11 @@ import "../../styles/admin.css";
         saveBtn.disabled = false; saveBtn.textContent = error ? "Retry" : "Saved";
         if (error) { alert("Couldn't save: " + error.message); return; }
         tr.classList.remove("is-dirty");
+        DIRTY.delete(row.id);
         setTimeout(() => { saveBtn.textContent = "Save"; }, 1400);
         counts();
+        // A new date can move it in or out of the Archive (or the month on show).
+        if (!view().some((r) => r.id === row.id)) setTimeout(render, 900);
       }
       if (delBtn) {
         const { row } = rowOf(delBtn);
@@ -240,13 +299,14 @@ import "../../styles/admin.css";
     async function add(kind) {
       const { data, error } = await supabase.from("content_prompts").insert({
         kind, angle: "New prompt", brief: "",
-        rule: kind === "dated" ? { on: "01-01" } : null,
+        // Today, not 1 Jan: a day that's already passed would go straight to the Archive.
+        rule: kind === "dated" ? { on: `${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}` } : null,
         name: kind === "dated" ? "New day" : null,
         sort_order: ROWS.filter((r) => r.kind === kind).length,
       }).select().maybeSingle();
       if (error) { alert("Couldn't add: " + error.message); return; }
       ROWS.unshift(data);
-      filter = "all"; q = ""; $("pr-q").value = "";
+      filter = "all"; q = ""; month = 0; $("pr-q").value = "";
       document.querySelectorAll(".pr-chip").forEach((c) => c.classList.toggle("is-active", c.dataset.filter === "all"));
       render();
     }
@@ -257,10 +317,22 @@ import "../../styles/admin.css";
       const b = e.target.closest("[data-filter]");
       if (!b) return;
       filter = b.getAttribute("data-filter");
+      if (filter === "archive") month = 0;
       document.querySelectorAll(".pr-chip").forEach((c) => c.classList.toggle("is-active", c === b));
       render();
     });
     $("pr-q").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+    $("pr-months").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-month]");
+      if (!b || b.disabled) return;
+      month = Number(b.getAttribute("data-month")) || 0;
+      // The Archive is a whole-year view; a month already shows its passed days.
+      if (month && filter === "archive") {
+        filter = "all";
+        document.querySelectorAll(".pr-chip").forEach((c) => c.classList.toggle("is-active", c.dataset.filter === "all"));
+      }
+      render();
+    });
 
     // Loading the shipped set from code, so nobody has to paste 75 lines of SQL.
     // Guarded on the table being empty: this is a first fill, not a merge.
@@ -313,9 +385,23 @@ import "../../styles/admin.css";
     .pr-chip.is-active b { background: rgba(255,255,255,0.22); color: #fff; }
     .pr-chip.is-bad:not(.is-active) { border-color: rgba(165,53,47,0.4); color: #a5352f; }
     .pr-chip.is-bad:not(.is-active) b { background: rgba(165,53,47,0.12); color: #a5352f; }
-    .pr-search { display: flex; align-items: center; gap: 7px; height: 28px; box-sizing: border-box; padding: 0 10px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; }
-    .pr-search svg { width: 14px; height: 14px; fill: none; stroke: rgba(28,29,34,0.45); stroke-width: 2; }
-    .pr-search input { border: 0; outline: none; background: none; width: 190px; font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .pr-search { display: flex; align-items: center; gap: 8px; height: 32px; box-sizing: border-box; padding: 0 10px; background: #fff; border: 1px solid rgba(28,29,34,0.14); border-radius: 4px; }
+    .pr-search:focus-within { border-color: var(--english-violet); }
+    .pr-search svg { flex: none; width: 14px; height: 14px; fill: none; stroke: rgba(28,29,34,0.45); stroke-width: 2; }
+    /* The hub skin pads every input 9px 12px; inside this box that pushed the
+       words down below the icon. */
+    .hub-skin .pr-search input, .pr-search input { border: 0; outline: none; box-shadow: none; background: none; width: 200px; height: 100%; margin: 0; padding: 0; line-height: normal; font-family: var(--sans); font-size: 13px; color: var(--ink); -webkit-appearance: none; appearance: none; }
+    .pr-chip, .pr-search { height: 32px; }
+    .pr-chip-archive { margin-left: 8px; }
+    .pr-months { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px; }
+    .pr-month { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid rgba(28,29,34,0.12); border-radius: 4px; background: transparent; font-family: var(--sans); font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.7); cursor: pointer; }
+    .pr-month b { font-size: 11px; font-weight: 600; color: rgba(28,29,34,0.45); }
+    .pr-month.is-now { border-color: rgba(55,30,40,0.35); }
+    .pr-month.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .pr-month.is-active b { color: rgba(255,255,255,0.75); }
+    .pr-month:disabled { opacity: 0.4; cursor: default; }
+    .pr-past { display: inline-block; margin-top: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); background: rgba(28,29,34,0.07); padding: 2px 6px; border-radius: 3px; }
+    .pr-table tr.is-past td { background: rgba(28,29,34,0.02); }
 
     .pr-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; border: 1px solid rgba(28,29,34,0.14); }
     .pr-table thead th { text-align: left; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 800; color: rgba(28,29,34,0.72); background: rgba(28,29,34,0.05); padding: 9px 12px; border-right: 1px solid rgba(28,29,34,0.14); border-bottom: 1px solid rgba(28,29,34,0.14); }
