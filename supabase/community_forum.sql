@@ -16,6 +16,40 @@
 -- Run after community.sql and community_fortnight.sql, in the Supabase SQL
 -- editor. Safe to re-run.
 
+-- ── Hub notices (supabase/member_broadcasts.sql, never run on the live
+-- database before 17 Oct): the "Spill the tea" notice rides on them, and the
+-- Worker's five-minute tick already sends them. Repeated here so this file
+-- stands on its own.
+create table if not exists public.member_broadcasts (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  body        text,
+  href        text,                 -- where it opens; null = the dashboard
+  link_label  text,                 -- what href is, in words, for the admin list
+  send_at     timestamptz not null default now(),
+  status      text not null default 'scheduled'
+              check (status in ('scheduled', 'sending', 'sent', 'failed', 'cancelled', 'withdraw', 'withdrawn')),
+  sent_at     timestamptz,
+  sent_count  integer,
+  error       text,
+  created_by  uuid default auth.uid(),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists member_broadcasts_due on public.member_broadcasts (status, send_at);
+
+-- Lets the Worker find (and take back) one notice's rows in every bell.
+create index if not exists member_notifications_broadcast
+  on public.member_notifications ((meta->>'broadcast_id'))
+  where meta ? 'broadcast_id';
+
+alter table public.member_broadcasts enable row level security;
+
+drop policy if exists "member_broadcasts admin" on public.member_broadcasts;
+create policy "member_broadcasts admin" on public.member_broadcasts
+  for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
 -- ── Who's asking: a signed-in person, or us in the SQL editor / the Worker ──
 -- Requests from the site carry a role of anon or authenticated; the SQL editor
 -- and the service key carry none or service_role, and are trusted.
