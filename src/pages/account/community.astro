@@ -611,7 +611,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     function replyHtml(r, child) {
       const mine = r.author_id === S.me.id;
       return `<div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}${child ? " is-child" : ""}" data-reply="${r.id}">
-        <span class="cm-meta"><span>${esc(nameOf(r.author_id))}</span>${r.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(r.created_at))}</span>${r.hidden ? '<span class="cm-hidden-note">Hidden while we review it</span>' : ""}</span>
+        <span class="cm-meta">${r.as_tmke ? '<span class="cm-badge">TMKE</span>' : `<span>${esc(nameOf(r.author_id))}</span>${r.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}`}<span>${esc(ago(r.created_at))}</span>${r.hidden ? '<span class="cm-hidden-note">Hidden while we review it</span>' : ""}</span>
         <p class="cm-reply-p">${esc(r.body)}</p>
         <div class="cm-reply-foot">${rxBar(r.id, "reply")}<span class="cm-tools"><button type="button" class="cm-link" data-reply-to="${child ? r.parent_id : r.id}">Reply</button>${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : r.is_staff ? "" : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span></div>
       </div>`;
@@ -631,13 +631,13 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       return tops.map((r) => {
         const kids = reps.filter((k) => k.parent_id === r.id);
         const replying = S.replyTo === r.id;
-        return `<div class="cm-thread-item">${replyHtml(r, false)}${kids.length || replying ? `<div class="cm-kids">${kids.map((k) => replyHtml(k, true)).join("")}${replying ? sayForm(postId, r.id, `Reply to ${nameOf(r.author_id)}`) : ""}</div>` : ""}</div>`;
+        return `<div class="cm-thread-item">${replyHtml(r, false)}${kids.length || replying ? `<div class="cm-kids">${kids.map((k) => replyHtml(k, true)).join("")}${replying ? sayForm(postId, r.id, `Reply to ${r.as_tmke ? "TMKE" : nameOf(r.author_id)}`) : ""}</div>` : ""}</div>`;
       }).join("");
     }
     async function loadReplies(postIds) {
       const want = [...new Set(postIds)].filter(Boolean);
       if (!want.length) return;
-      let { data, error } = await supabase.from("community_replies").select("id, post_id, parent_id, body, author_id, is_staff, hidden, created_at").in("post_id", want).order("created_at", { ascending: true }).limit(1000);
+      let { data, error } = await supabase.from("community_replies").select("*").in("post_id", want).order("created_at", { ascending: true }).limit(1000);
       // Before community_forum.sql there are no replies-to-comments yet.
       if (error && /parent_id/.test(error.message || "")) ({ data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").in("post_id", want).order("created_at", { ascending: true }).limit(1000));
       want.forEach((id) => S.replies.set(id, []));

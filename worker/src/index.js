@@ -3158,13 +3158,14 @@ async function agentFunnelContext(env, contact) {
    `also` is for the person a thing actually belongs to. Everything else
    follows from the area. Best-effort throughout: being told is never the
    reason an order fails to save. */
-const NOTIFY_AREAS = ["videography", "social", "money", "hub", "problem", "marketing"];
+const NOTIFY_AREAS = ["videography", "social", "money", "hub", "problem", "marketing", "community"];
 
 function notifyRecipients(env, area, also) {
   const her = String(env.ACCOUNTS_NOTIFY || "danielle@tmke.co.uk").toLowerCase();
   const list = [her];
   if (area === "videography") list.push(String(env.JACK_NOTIFY || env.JACK_UPN || "").toLowerCase());
   if (area === "marketing") list.push(String(env.MARKETING_NOTIFY || "").toLowerCase());
+  if (area === "community") list.push(String(env.COMMUNITY_NOTIFY || "").toLowerCase());
   (Array.isArray(also) ? also : [also]).forEach((a) => { if (a) list.push(String(a).toLowerCase()); });
   return [...new Set(list.filter((a) => a && a.includes("@")))];
 }
@@ -3942,6 +3943,29 @@ async function listAccounts(env) {
 // every member's bell, sent at the time it was set for. Each due notice is
 // claimed first (scheduled → sending, only if still scheduled), so two ticks
 // can never send it twice. 'withdraw' takes a sent one back out of every bell.
+// The Community's next topic (Dani, 17 Oct): two weeks before the last one
+// scheduled runs out, a reminder in Danielle's and Sam's admin bells to set
+// the next. Daily at 08:00; once per due date (the once-only key), so a date
+// that passes unset is said once, not every morning.
+async function runCommunityTopicDue(env) {
+  try {
+    const rows = await sbGet(env, "community_posts", "kind=eq.topic&hidden=is.false&pinned=is.false&ends_on=not.is.null&select=ends_on&order=ends_on.desc&limit=1");
+    const due = rows && rows[0] && rows[0].ends_on;
+    if (!due) return;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    const from = new Date(due + "T12:00:00Z");
+    from.setUTCDate(from.getUTCDate() - 14);
+    if (today < from.toISOString().slice(0, 10)) return;
+    const nice = new Date(due + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "Europe/London" });
+    await notifyAdmins(env, {
+      area: "community", event: "community_topic_due",
+      title: `The next Community topic is due ${nice}`,
+      body: "Set it in Admin > Community > Fortnight topics: the topic, the question, the intro and TMKE's view. It goes live at 8am that day.",
+      href: "/admin/community", key: `topic_due:${due}`,
+    });
+  } catch (_) {}
+}
+
 async function runMemberBroadcasts(env) {
   if (!env.SUPABASE_SERVICE_ROLE) return;
   const H = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json" };
@@ -4074,6 +4098,7 @@ export default {
         ctx.waitUntil(runInvoicePrompt(env));
         ctx.waitUntil(runMonthlyInvoiceCheck(env));
         ctx.waitUntil(runLateVideoInvoiceCheck(env));
+        ctx.waitUntil(runCommunityTopicDue(env));
       }
     }
     else {

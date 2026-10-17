@@ -43,6 +43,9 @@ import "../../styles/admin.css";
 
       <!-- ── Fortnight topics ─────────────────────────────────────────── -->
       <section class="cm-pane is-on" data-pane="topic">
+        <!-- When the next one is due (Dani, 17 Oct): the day the last one
+             scheduled runs out. Two weeks before, a reminder lands in the bell. -->
+        <div class="cm-due" id="cm-topic-due" hidden></div>
         <form class="card cm-form" id="cm-topic-form" autocomplete="off">
           <div class="card-head">
             <div class="card-title" id="cm-topic-form-title">Set the next topic</div>
@@ -143,6 +146,10 @@ import "../../styles/admin.css";
     .cm-field input, .cm-field textarea { width: 100%; box-sizing: border-box; }
     .cm-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .cm-field-row[hidden], .cm-field[hidden] { display: none; }
+    .cm-due { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 12px 16px; border-radius: 4px; background: rgba(var(--violet-rgb), 0.06); border: 1px solid rgba(var(--violet-rgb), 0.16); font-family: var(--sans); font-size: 13.5px; color: var(--ink); }
+    .cm-due[hidden] { display: none; }
+    .cm-due b { font-weight: 700; }
+    .cm-due.is-soon { background: #371e28; border-color: #371e28; color: #fff; }
     .cm-check { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-family: var(--sans); font-size: 13px; color: var(--ink); cursor: pointer; }
     .cm-form-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
     .cm-form-msg { margin-right: auto; font-family: var(--sans); font-size: 12px; color: var(--muted); }
@@ -168,7 +175,11 @@ import "../../styles/admin.css";
     }
     .cm-row.is-hidden-row > div:not(.cm-acts) { opacity: 0.55; }
     .cm-table[data-kind="topic"] .cm-row { grid-template-columns: 150px 1fr 80px 150px 230px; }
-    .cm-table[data-kind="request"] .cm-row { grid-template-columns: 70px 1fr 80px 150px 110px; }
+    /* The status menu keeps to its own column (Dani, 17 Oct: replies, status
+       and Hide were running into each other). */
+    .cm-table[data-kind="request"] .cm-row { grid-template-columns: 70px minmax(0, 1fr) 80px 180px 100px; }
+    .cm-table[data-kind="request"] .cm-row > div { min-width: 0; }
+    .cm-status-sel { display: block; width: 100%; max-width: 100%; box-sizing: border-box; }
     .cm-table[data-kind="discussion"] .cm-row { grid-template-columns: 110px 1fr 80px 140px 190px; }
     .cm-table[data-kind="report"] .cm-row { grid-template-columns: 100px 1.4fr 1fr 110px 260px; }
 
@@ -379,13 +390,14 @@ import "../../styles/admin.css";
       L.loaded = true;
       render(kind);
       if (kind === "topic" && reset && !editingTopic) resetTopicForm();
+      if (kind === "topic") paintTopicDue();
       return true;
     }
 
     async function loadReportedContent(reports) {
       const replyIds = reports.map((r) => r.reply_id).filter((id) => id && !REPORTED_REPLIES.has(id));
       if (replyIds.length) {
-        const { data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").in("id", [...new Set(replyIds)]);
+        const { data } = await supabase.from("community_replies").select("*").in("id", [...new Set(replyIds)]);
         (data || []).forEach((r) => REPORTED_REPLIES.set(r.id, r));
       }
       const postIds = reports.map((r) => r.post_id || (REPORTED_REPLIES.get(r.reply_id) || {}).post_id)
@@ -659,6 +671,21 @@ import "../../styles/admin.css";
       $("cm-t-start").required = !on; $("cm-t-end").required = !on;
     }
     $("cm-t-pin").addEventListener("change", syncPin);
+    // The bar above the form: when the next topic is due.
+    function paintTopicDue() {
+      const el = $("cm-topic-due");
+      if (!el) return;
+      const ends = LISTS.topic.rows.filter((t) => !t.pinned && !t.hidden && t.ends_on).map((t) => t.ends_on).sort();
+      if (!ends.length) { el.hidden = true; return; }
+      const due = ends[ends.length - 1];
+      const days = Math.round((new Date(due + "T12:00:00") - new Date(today() + "T12:00:00")) / 864e5);
+      const nice = new Date(due + "T12:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+      el.innerHTML = days < 0 ? `The next topic was due <b>${esc(nice)}</b>. Members have nothing new until one is set.`
+        : days === 0 ? `The next topic is due <b>today</b>.`
+        : `The next topic is due <b>${esc(nice)}</b>, in ${days} day${days === 1 ? "" : "s"}. A reminder comes two weeks before.`;
+      el.classList.toggle("is-soon", days <= 14);
+      el.hidden = false;
+    }
     function resetTopicForm() {
       editingTopic = null;
       endsTouched = false;
@@ -773,7 +800,7 @@ import "../../styles/admin.css";
       let replies = [];
       for (let from = 0; ; from += 500) {
         const { data, error: rErr } = await supabase.from("community_replies")
-          .select("id, post_id, body, author_id, is_staff, hidden, created_at")
+          .select("*")
           .eq("post_id", id).order("created_at", { ascending: true }).range(from, from + 499);
         if (rErr) {
           body.innerHTML = `<p class="cm-empty">Couldn't load the replies: ${esc(rErr.message)}</p>`;
@@ -814,8 +841,8 @@ import "../../styles/admin.css";
         ? thread.replies.map((r) => `
             <div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}">
               <div class="cm-reply-top">
-                <span class="cm-reply-who">${esc(nameOf(r.author_id))}</span>
-                ${r.is_staff ? '<span class="cm-tmke">TMKE</span>' : ""}
+                <span class="cm-reply-who">${esc(r.as_tmke ? "TMKE" : nameOf(r.author_id))}</span>
+                ${r.is_staff && !r.as_tmke ? '<span class="cm-tmke">TMKE</span>' : ""}
                 ${r.hidden ? badge("b-red", "Hidden") : ""}
                 <span class="cm-reply-when">${esc(fmtStamp(r.created_at))}</span>
                 ${btn("hide-reply", r.id, r.hidden ? "Unhide" : "Hide")}
@@ -872,9 +899,13 @@ import "../../styles/admin.css";
       send.disabled = true;
       setMsg("cm-reply-msg", "Posting…");
       // post_id and body only: the triggers set who wrote it and the badge.
-      const { data, error } = await supabase.from("community_replies")
-        .insert({ post_id: thread.post.id, body: text })
-        .select("id, post_id, body, author_id, is_staff, hidden, created_at").maybeSingle();
+      // Sent from here, it shows as TMKE, not the sender's name (Dani, 17 Oct;
+      // community_admin_voice.sql). Before that file has run, plain.
+      let { data, error } = await supabase.from("community_replies")
+        .insert({ post_id: thread.post.id, body: text, as_tmke: true })
+        .select("*").maybeSingle();
+      if (error && /as_tmke/.test(error.message || "")) ({ data, error } = await supabase.from("community_replies")
+        .insert({ post_id: thread.post.id, body: text }).select("*").maybeSingle());
       send.disabled = false;
       if (error) return setMsg("cm-reply-msg", "Couldn't post: " + error.message, true);
       ta.value = "";
