@@ -812,6 +812,10 @@ function injectStyles() {
   .tmke-tour-menu button.is-done b::after { content: " ✓"; color: var(--ws-accent, #4a2a3c); }
   .tmke-tour-menu-intro { font-size: 14px; line-height: 1.5; color: var(--ws-tx, rgba(28,29,34,0.72)); margin: 0 0 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tmke-tour-menu-intro[hidden] { display: none; }
+  /* The menu's own display: grid outranked [hidden], so after choosing an area
+     its cards stayed in the panel under every step of that area's walk, and
+     Next looked as if it did nothing (Dani, 18 Oct). */
+  .tmke-tour-menu[hidden] { display: none; }
   @media (max-width: 980px) { .tmke-tour-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 560px) { .tmke-tour-menu { grid-template-columns: 1fr; } html.tmke-walk body { margin: 92px 8px 8px; } }
   /* Left, on its own line directly above Stop - it is a way out of the walk,
