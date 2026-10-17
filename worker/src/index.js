@@ -5219,6 +5219,104 @@ export default {
         return json({ ok: true, caption, hashtags }, 200, request, env);
       }
 
+      // ---- AI: the Help Centre's "Ask first" (Dani, 17 Oct) ----
+      // Pack support and Quick question open on a chat. It answers from what
+      // the hub is and from the member's own account -- their packs, brand
+      // kit, designs, bookings and managed socials -- read here with the
+      // VERIFIED user's id and email, never from what the page claims (bar the
+      // pack list, which the page works out by the same rules as the Studio
+      // and is only ever their own). Nothing sensitive goes in: no payments,
+      // phone numbers, addresses or anyone else's data. When it can't help it
+      // says so and the member sends the message to the team instead.
+      if (path.endsWith("/ai/help") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in to use this." }, 401, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured." }, 503, request, env);
+        let body; try { body = await request.json(); } catch (_) { return json({ error: "Bad JSON" }, 400, request, env); }
+        const clean = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n || 200);
+        const line = body.line === "pack_support" ? "Pack support" : "Quick question";
+        const turns = (Array.isArray(body.messages) ? body.messages : [])
+          .filter((m) => m && (m.role === "user" || m.role === "assistant") && String(m.content || "").trim())
+          .slice(-8)
+          .map((m) => ({ role: m.role, content: String(m.content).slice(0, 1500) }));
+        if (!turns.length || turns[turns.length - 1].role !== "user") return json({ error: "Ask a question first." }, 400, request, env);
+        if (turns[0].role !== "user") turns.shift();
+
+        // Their account, briefly. Each read on its own: one failing costs that
+        // line of context, not the answer.
+        const uid = encodeURIComponent(user.id);
+        const em = encodeURIComponent(String(user.email || "").toLowerCase());
+        const safe = (p) => p.then((r) => r || []).catch(() => []);
+        const [designs, kits, vids, leads] = await Promise.all([
+          safe(sbGet(env, "user_designs", `user_id=eq.${uid}&select=name,updated_at,canvas->>width,canvas->>height&order=updated_at.desc&limit=200`)),
+          safe(sbGet(env, "member_brand_kits", `user_id=eq.${uid}&select=kit,updated_at&limit=1`)),
+          safe(sbGet(env, "videography_bookings", `or=(account_user_id.eq.${uid},client_email.ilike.${em})&select=kind,service,service_type,package,shoot_date,stage&order=shoot_date.desc.nullslast&limit=10`)),
+          safe(sbGet(env, "smm_leads", `or=(account_user_id.eq.${uid},email.ilike.${em})&select=kind,pipeline_stage,client_status,package_name,platforms,start_date,call_at&order=created_at.desc&limit=5`)),
+        ]);
+        const kit = (kits[0] && kits[0].kit) || {};
+        const packs = (Array.isArray(body.packs) ? body.packs : []).slice(0, 40).map((p) => clean(p, 80)).filter(Boolean);
+        const ctx = [];
+        ctx.push(`Packs they have in their Studio: ${packs.length ? packs.join("; ") : "none listed"}.`);
+        ctx.push(`Saved Studio designs: ${designs.length}${designs.length ? ` (most recent: ${designs.slice(0, 5).map((d) => `"${clean(d.name || "Untitled", 60)}"${d.width && d.height ? ` ${d.width}x${d.height}` : ""}`).join(", ")})` : ""}.`);
+        const colours = Array.isArray(kit.colors) ? kit.colors.length : 0;
+        const logos = Array.isArray(kit.logos) ? kit.logos.length : 0;
+        const fonts = kit.fonts ? [kit.fonts.heading, kit.fonts.subheading, kit.fonts.body].map((f) => (f && (f.family || f.name || f)) || "").filter((f) => typeof f === "string" && f).join(", ") : "";
+        ctx.push(kits.length
+          ? `Brand Kit: company "${clean(kit.company, 80) || "not set"}", ${colours} colour${colours === 1 ? "" : "s"}, ${logos} logo${logos === 1 ? "" : "s"}, fonts: ${fonts || "not set"}, their name ${kit.about && kit.about.name ? "set" : "not set"}, tone of voice ${kit.tone ? "set" : "not set"}.`
+          : "Brand Kit: not set up yet.");
+        ctx.push(vids.length
+          ? `Videography bookings: ${vids.map((b) => `${clean(b.package || b.service || b.service_type || b.kind, 60)}${b.shoot_date ? " on " + String(b.shoot_date).slice(0, 10) : ""} (stage: ${clean(b.stage, 30)})`).join("; ")}.`
+          : "Videography bookings: none.");
+        const client = leads.find((l) => l.kind !== "discovery" && (l.client_status || l.package_name));
+        const call = leads.find((l) => l.kind === "discovery");
+        ctx.push(client
+          ? `Managed social media: ${clean(client.package_name, 60) || "a package"}${Array.isArray(client.platforms) && client.platforms.length ? " on " + client.platforms.join(", ") : ""}, status ${clean(client.client_status || client.pipeline_stage, 30)}${client.start_date ? ", started " + String(client.start_date).slice(0, 10) : ""}.`
+          : call ? `Managed social media: a discovery call${call.call_at ? " on " + String(call.call_at).slice(0, 10) : ""}, not a client yet.` : "Managed social media: not a client.");
+
+        const HUB = [
+          "Dashboard (/account): their week, inspiration, the Training Studio and what's new in the Studio.",
+          "The Studio (/account/studio): 'Your packs' are the template packs they have; 'Your designs' are designs they've saved (all of them at /account/editor, filterable All / Digital / Print); 'Create new design' starts one; Design tools are the Caption Generator (AI captions), the QR Code Generator, the Brand Kit and Templates.",
+          "Brand Kit (/account/profile): their colours, fonts, logos, details and tone of voice, used across their designs.",
+          "Planner (/account/schedule): a marketing calendar of social posts, marketing activities, key dates and post ideas.",
+          "Shop, The Edit (/edit): where packs are bought.",
+          "Orders (/account/orders): their orders and invoices. Bookings (/account/bookings): videography shoots and calls, with reschedule and cancel there.",
+          "Your SMM (/account/social): managed social media, with monthly reports.",
+          "Training Studio (/account/guides): guides and lessons, with a search. Blog (/account/blog).",
+          "Community (/account/community): this fortnight's topic, conversations with other members, and a request board for things to add or change.",
+          "Help Centre (/account/help) and Contact (/account/contact). TMKE's hours are Monday to Friday, 09:00 to 17:30 UK time.",
+        ].join("\n- ");
+        const system = `You are the help assistant in the TMKE Member Hub, the member area of The Marketing Experts, a UK marketing agency for estate agents. A member has opened "${line}" in the Help Centre. Answer their question briefly and practically, in British English, warm and plain, like a helpful person on the TMKE team. No em dashes. Two to five short sentences, or a few short steps, unless more is truly needed. Point them to the right place in the hub by name.
+
+What the hub has:
+- ${HUB}
+
+About this member's own account (use it to make the answer specific to them; never repeat it back unasked):
+- ${ctx.join("\n- ")}
+
+Rules:
+- Only use the facts above and general marketing common sense. Never invent features, prices, policies, timings, refunds or anything about their account you weren't told. If you don't know, say so plainly.
+- If they need something only the team can do (a missing or broken file, a fault, a refund, a change to an order or booking, access to a pack they think they should have, anything about money), say so and tell them to send it to the team with the button below.
+- Stay on TMKE, the hub and their marketing. Politely decline anything else.
+
+Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks as \\n", "handoff": true or false}. Set handoff true when the team should pick it up.`;
+        let aiRes;
+        try {
+          aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({ model: env.AI_MODEL || "claude-sonnet-4-6", max_tokens: 600, system, messages: turns }),
+          });
+        } catch (e) { return json({ error: "Couldn't reach the AI service." }, 502, request, env); }
+        if (!aiRes.ok) return json({ error: "AI request failed (" + aiRes.status + ")." }, 502, request, env);
+        const dataRes = await aiRes.json();
+        const text = (dataRes.content || []).filter((c) => c.type === "text").map((c) => c.text).join("").trim();
+        let out;
+        try { const s = text.indexOf("{"), e = text.lastIndexOf("}"); out = JSON.parse(text.slice(s, e + 1)); } catch (_) { out = { answer: text, handoff: false }; }
+        const answer = String(out.answer || "").trim();
+        if (!answer) return json({ error: "No answer came back. Try again, or send it to the team." }, 502, request, env);
+        return json({ ok: true, answer, handoff: out.handoff === true }, 200, request, env);
+      }
+
       // ---- AI: read text + positions from a finished design image ----
       // Powers the studio's "Read text with AI" (Canva import). Holds the
       // Anthropic key as a Worker secret so it never reaches the browser.

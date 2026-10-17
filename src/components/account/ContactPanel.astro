@@ -67,11 +67,27 @@ const { hideHead = false } = Astro.props;
   <!-- ===== Support request modal ===== -->
   <div class="cmodal" id="contact-form-modal" hidden>
     <div class="cmodal-backdrop" data-cmodal-close></div>
-    <div class="cmodal-card" data-accent="violet" role="dialog" aria-modal="true" aria-labelledby="cmodal-title">
+    <div class="cmodal-card" data-accent="violet" role="dialog" aria-modal="true" aria-labelledby="cmodal-title" data-lenis-prevent>
       <button type="button" class="cmodal-x" data-cmodal-close aria-label="Close">&times;</button>
       <p class="cmodal-eyebrow" id="cmodal-tag">Contact</p>
       <h3 class="cmodal-title" id="cmodal-title">How can we help?</h3>
       <p class="cmodal-sub" id="contact-sub" hidden></p>
+
+      <!-- Ask first (Dani, 17 Oct): Pack support and Quick question open on a
+           chat that knows the hub and their account. If it can't help, the
+           message form below takes their question to the team. -->
+      <div class="cai" id="contact-ai" hidden>
+        <div class="cai-thread" id="cai-thread" aria-live="polite"></div>
+        <form class="cai-ask" id="cai-form">
+          <textarea id="cai-q" rows="2" maxlength="1500" placeholder="Ask anything about your packs, the Studio or the hub" aria-label="Your question" required></textarea>
+          <button type="submit" class="cbtn cbtn-solid" id="cai-send">Ask <em>&rarr;</em></button>
+        </form>
+        <div class="cai-acts" id="cai-acts" hidden>
+          <button type="button" class="cbtn cbtn-ghost" data-cmodal-close>That's sorted</button>
+          <button type="button" class="cbtn cbtn-solid" id="cai-team">Send it to the team <em>&rarr;</em></button>
+        </div>
+        <button type="button" class="cai-skip" id="cai-skip">Skip this and message the team</button>
+      </div>
 
       <form id="contact-form" class="cmodal-form" novalidate>
         <input type="hidden" name="source" id="contact-source" value="account_general" />
@@ -108,7 +124,7 @@ const { hideHead = false } = Astro.props;
   <!-- ===== Invoices modal ===== -->
   <div class="cmodal" id="invoices-modal" hidden>
     <div class="cmodal-backdrop" data-cmodal-close></div>
-    <div class="cmodal-card cmodal-card--wide" data-accent="green" role="dialog" aria-modal="true" aria-labelledby="invoices-title">
+    <div class="cmodal-card cmodal-card--wide" data-accent="green" role="dialog" aria-modal="true" aria-labelledby="invoices-title" data-lenis-prevent>
       <button type="button" class="cmodal-x" data-cmodal-close aria-label="Close">&times;</button>
       <p class="cmodal-eyebrow">Billing</p>
       <h3 class="cmodal-title" id="invoices-title">Your invoices</h3>
@@ -161,30 +177,34 @@ const { hideHead = false } = Astro.props;
   }
   .acc-contact-card .acc-contact-card-cta { color: var(--ac); }
 
-  /* ---- Plum treatment: every contact line + the studio-hours footer go plum
-     with white text. The top tag stays a light pill (carrying the line's own
-     accent as its text) so it still pops off the dark card. Plum is the brand
-     #371e28 used literally — inside the account shell --english-violet is
-     remapped to the customer's theme accent, which isn't what we want here. ---- */
+  /* ---- The hub's cards (Dani, 17 Oct, "align to the dashboard"): three
+     across, 10px apart, each in its brand tint as the dashboard's Latest
+     cards are; no rail, no shadow; the tag and the arrow in the line's colour. */
+  [data-contact-panel] { display: flex; flex-direction: column; gap: var(--ws-gap, 10px); }
+  [data-contact-panel] .acc-contact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ws-gap, 10px); }
+  @media (max-width: 1000px) { [data-contact-panel] .acc-contact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 620px) { [data-contact-panel] .acc-contact-grid { grid-template-columns: 1fr; } }
   [data-contact-panel] .acc-contact-card {
-    background: #371e28;
-    border-color: #2a161e;
-    border-left-color: #2a161e;
-    color: #fff;
+    gap: 8px; min-height: 170px; padding: 18px 20px 16px;
+    background: color-mix(in srgb, var(--ac) 22%, #fff);
+    border: 1px solid transparent; border-radius: var(--ws-r, 4px);
+    color: var(--ws-ink, #1c1d22); box-shadow: none;
+    transition: transform 0.25s var(--ws-ease, ease), border-color 0.25s;
   }
-  [data-contact-panel] .acc-contact-card-title,
-  [data-contact-panel] .acc-contact-card .acc-contact-card-cta { color: #fff; }
-  [data-contact-panel] .acc-contact-card-desc { color: rgba(255, 255, 255, 0.82); }
+  [data-contact-panel] .acc-contact-card:hover { transform: translateY(-3px); box-shadow: none; border-color: rgba(28,29,34,0.25); }
   [data-contact-panel] .acc-contact-card .acc-contact-card-tag {
-    background: rgba(255, 255, 255, 0.92);
-    color: var(--ac);
+    padding: 0; border-radius: 0; background: none;
+    font-size: 9.5px; font-weight: 600; letter-spacing: 0.14em; color: var(--ws-tx, rgba(28,29,34,0.64));
   }
+  /* h3s turn into The Seasons through global.css; titles here are the sans. */
+  [data-contact-panel] .acc-contact-card-title { font-family: var(--sans); font-size: 17px; font-weight: 600; line-height: 1.25; letter-spacing: 0; color: var(--ws-ink, #1c1d22); }
+  [data-contact-panel] .acc-contact-card-desc { font-size: 13px; line-height: 1.55; color: rgba(28,29,34,0.7); }
+  [data-contact-panel] .acc-contact-card .acc-contact-card-cta { margin-top: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #371e28; }
   [data-contact-panel] .acc-section-foot {
-    background: #371e28;
-    border-color: #2a161e;
-    color: rgba(255, 255, 255, 0.85);
+    margin: 0; padding: 14px 18px; background: #fff; border: 1px solid var(--ws-line, rgba(28,29,34,0.13)); border-radius: var(--ws-r, 4px);
+    font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.64);
   }
-  [data-contact-panel] .acc-section-foot-tag { color: #fff; }
+  [data-contact-panel] .acc-section-foot-tag { color: #371e28; }
 
   /* ===== Modal ===== */
   .cmodal {
@@ -213,12 +233,13 @@ const { hideHead = false } = Astro.props;
     --ac: var(--english-violet);
     position: relative;
     /* Every pop-out one size (Dani, 17 Oct); longer ones scroll inside. */
-    width: min(560px, 100%); max-width: none;
+    width: min(720px, 100%); max-width: none;
     height: min(720px, calc(100vh - 48px)); max-height: none;
     overflow-y: auto; overscroll-behavior: contain;
-    background: var(--paper);
-    border: 1px solid rgba(28, 29, 34, 0.1);
-    border-radius: 14px;
+    box-sizing: border-box;
+    background: #fff;
+    border: 0;
+    border-radius: 6px;
     padding: 30px 30px 26px;
     box-shadow: 0 40px 90px -30px rgba(20, 18, 26, 0.55);
     animation: cmodalPop 0.28s cubic-bezier(.2,.7,.2,1) both;
@@ -228,7 +249,7 @@ const { hideHead = false } = Astro.props;
     content: "";
     position: absolute; left: 0; right: 0; top: 0; height: 4px;
     background: var(--ac);
-    border-radius: 14px 14px 0 0;
+    border-radius: 6px 6px 0 0;
   }
   .cmodal-card[data-accent="violet"] { --ac: #371e28; }
   .cmodal-card[data-accent="tan"]    { --ac: #B9826A; }
@@ -250,8 +271,8 @@ const { hideHead = false } = Astro.props;
     color: var(--ac); margin: 0 0 8px;
   }
   .cmodal-title {
-    font-family: var(--serif); font-size: 26px; font-weight: 500;
-    letter-spacing: -0.01em; color: var(--ink); margin: 0 0 6px;
+    font-family: var(--sans); font-size: 22px; font-weight: 600; line-height: 1.25;
+    letter-spacing: -0.01em; color: var(--ink); margin: 0 40px 6px 0;
   }
   .cmodal-sub {
     font-family: var(--sans); font-size: 13px; line-height: 1.55;
@@ -259,6 +280,7 @@ const { hideHead = false } = Astro.props;
   }
   .cmodal-sub[hidden] { display: none; }
   .cmodal-form { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
+  .cmodal-form[hidden] { display: none; }
   .cmodal-extra { display: flex; flex-direction: column; gap: 14px; }
   .cmodal-extra:empty { display: none; }
   .cmodal-field { display: flex; flex-direction: column; gap: 6px; }
@@ -269,8 +291,8 @@ const { hideHead = false } = Astro.props;
   .cmodal-field input, .cmodal-field textarea, .cmodal-field select {
     font-family: var(--sans); font-size: 15px;
     padding: 11px 13px;
-    border: 1px solid rgba(28, 29, 34, 0.18);
-    border-radius: 7px; background: #fff; color: var(--ink);
+    border: 1px solid rgba(28, 29, 34, 0.13);
+    border-radius: 4px; background: #fff; color: var(--ink);
     transition: border-color 0.2s, box-shadow 0.2s;
     resize: vertical;
   }
@@ -279,8 +301,7 @@ const { hideHead = false } = Astro.props;
     background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px;
   }
   .cmodal-field input:focus, .cmodal-field textarea:focus, .cmodal-field select:focus {
-    outline: none; border-color: var(--ac);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ac) 18%, transparent);
+    outline: none; border-color: #371e28; box-shadow: none;
   }
 
   /* Chip-style single-select (used for "what kind of idea?") */
@@ -288,15 +309,11 @@ const { hideHead = false } = Astro.props;
   .cmodal-chip {
     appearance: none; cursor: pointer;
     font-family: var(--sans); font-size: 13px; font-weight: 600;
-    padding: 9px 14px; border-radius: 999px;
+    padding: 8px 12px; border-radius: 4px;
     border: 1px solid rgba(28,29,34,0.2); background: #fff; color: var(--ink);
     transition: border-color 0.2s, background 0.2s, color 0.2s;
   }
-  .cmodal-chip[aria-pressed="true"] {
-    border-color: var(--ac);
-    background: color-mix(in srgb, var(--ac) 12%, transparent);
-    color: var(--ac);
-  }
+  .cmodal-chip[aria-pressed="true"] { border-color: #371e28; background: #371e28; color: #fff; }
 
   .cmodal-error {
     font-family: var(--sans); font-size: 13px;
@@ -308,20 +325,44 @@ const { hideHead = false } = Astro.props;
   .cmodal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
   .cmodal-actions--split { justify-content: space-between; }
 
+  /* The hub's buttons (ws-btn), written out because the pop-out sits on
+     <body>, outside the hub's tokens: the wine, whatever the line's colour. */
   .cbtn {
-    appearance: none; cursor: pointer;
-    font-family: var(--sans); font-size: 12px; font-weight: 700;
-    letter-spacing: 0.16em; text-transform: uppercase;
-    padding: 11px 18px; border-radius: 6px;
-    transition: background 0.25s, color 0.25s, border-color 0.25s, transform 0.2s;
+    appearance: none; cursor: pointer; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 26px; padding: 0 13px; border-radius: 4px;
+    font-family: var(--sans); font-size: 10px; font-weight: 700; line-height: 1;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    transition: background 0.18s, color 0.18s, border-color 0.18s;
   }
-  .cbtn em { font-style: normal; display: inline-block; transition: transform 0.2s; }
-  .cbtn-solid { background: var(--ac); color: var(--paper); border: 1px solid var(--ac); }
-  .cbtn-solid:hover { filter: brightness(0.92); }
+  .cbtn em { font-style: normal; display: inline-block; transition: transform 0.25s; }
+  .cbtn-solid { background: #371e28; color: #fff; border: 1px solid #371e28; }
+  .cbtn-solid:hover { background: color-mix(in srgb, #371e28 86%, #000); }
   .cbtn-solid:hover em { transform: translateX(3px); }
   .cbtn-solid[disabled] { opacity: 0.6; cursor: wait; }
-  .cbtn-ghost { background: transparent; color: var(--ac); border: 1px solid color-mix(in srgb, var(--ac) 35%, transparent); }
-  .cbtn-ghost:hover { background: color-mix(in srgb, var(--ac) 8%, transparent); }
+  .cbtn-ghost { background: #fff; color: #1c1d22; border: 1px solid rgba(28,29,34,0.13); }
+  .cbtn-ghost:hover { border-color: #371e28; color: #371e28; }
+  .cbtn:focus-visible { outline: 2px solid #371e28; outline-offset: 2px; }
+
+  /* Ask first: their questions on the right in the wine, answers on the left. */
+  .cai { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+  .cai[hidden] { display: none; }
+  .cai-thread { display: flex; flex-direction: column; gap: 10px; }
+  .cai-thread:empty { display: none; }
+  .cai-msg { max-width: 88%; padding: 10px 13px; border-radius: 4px; font-family: var(--sans); font-size: 14px; line-height: 1.55; white-space: pre-line; overflow-wrap: anywhere; }
+  .cai-msg--me { align-self: flex-end; background: #371e28; color: #fff; }
+  .cai-msg--ai { align-self: flex-start; background: #f4f2f1; color: #1c1d22; }
+  .cai-msg--wait { color: rgba(28,29,34,0.55); }
+  .cai-msg--wait::after { content: ""; display: inline-block; width: 1.2em; text-align: left; animation: caiDots 1.2s steps(4) infinite; }
+  @keyframes caiDots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+  .cai-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+  .cai-ask textarea { box-sizing: border-box; width: 100%; min-height: 64px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; background: #fff; font-family: var(--sans); font-size: 14px; line-height: 1.5; color: #1c1d22; resize: vertical; }
+  .cai-ask textarea:focus { outline: none; border-color: #371e28; }
+  .cai-acts { display: flex; justify-content: flex-end; gap: 8px; }
+  .cai-acts[hidden] { display: none; }
+  .cai-skip { all: unset; cursor: pointer; align-self: flex-start; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); border-bottom: 1px solid rgba(28,29,34,0.25); padding-bottom: 2px; }
+  .cai-skip:hover { color: #371e28; border-color: #371e28; }
+  .cai-skip[hidden] { display: none; }
 
   .cmodal-success { text-align: center; padding: 14px 0 6px; }
   .cmodal-success-mark {
@@ -528,6 +569,103 @@ const { hideHead = false } = Astro.props;
       return lines;
     }
 
+    // ---- Ask first: the chat on Pack support and Quick question ----
+    const AI_LINES = { account_pack_support: "pack_support", account_general: "quick_question" };
+    const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+    const ai = {
+      box: document.getElementById("contact-ai"), thread: document.getElementById("cai-thread"),
+      form: document.getElementById("cai-form"), q: document.getElementById("cai-q"), send: document.getElementById("cai-send"),
+      acts: document.getElementById("cai-acts"), team: document.getElementById("cai-team"), skip: document.getElementById("cai-skip"),
+      line: "", turns: [], packs: null,
+    };
+    // The packs in their Studio, by the Studio's own rules (pack-access.js).
+    async function myPackTitles() {
+      if (ai.packs) return ai.packs;
+      try {
+        const email = (sessionUser && sessionUser.email) || "";
+        const pa = await import("../../lib/pack-access.js");
+        const [packsRes, ordersRes, brand] = await Promise.all([
+          supabase.from("packs").select("id, title, demo, access, brands").eq("status", "active"),
+          supabase.from("orders").select("pack_id, status").or(`user_id.eq.${sessionUser.id},buyer_email.ilike.${email}`),
+          pa.memberBrandsFor(supabase),
+        ]);
+        const paid = new Set((ordersRes.data || []).filter((o) => o.status === "paid" && o.pack_id).map((o) => o.pack_id));
+        ai.packs = pa.ownedPacks(packsRes.data || [], paid, brand).map((p) => p.title).filter(Boolean);
+      } catch (_) { ai.packs = []; }
+      return ai.packs;
+    }
+    function aiMsg(kind, text) {
+      const el = document.createElement("div");
+      el.className = "cai-msg cai-msg--" + kind;
+      el.textContent = text;
+      ai.thread.appendChild(el);
+      el.scrollIntoView({ block: "nearest" });
+      return el;
+    }
+    function aiReset(source) {
+      ai.line = AI_LINES[source] || "";
+      ai.turns = [];
+      if (!ai.box) return;
+      ai.thread.innerHTML = "";
+      ai.q.value = "";
+      ai.acts.hidden = true;
+      ai.skip.hidden = false;
+      ai.box.hidden = !ai.line || !WORKER;
+      // With the chat up, the message form waits until they want it.
+      form.hidden = !ai.box.hidden;
+      if (!ai.box.hidden && subEl) { ai.formSub = subEl.textContent; subEl.textContent = "Ask here first for an answer straight away. If it doesn't sort it, send it on to the team."; subEl.hidden = false; }
+    }
+    function aiToTeam() {
+      ai.box.hidden = true;
+      form.hidden = false;
+      if (subEl && ai.formSub) subEl.textContent = ai.formSub;
+      const asked = ai.turns.filter((t) => t.role === "user").map((t) => t.content).join("\n\n");
+      const msg = document.getElementById("contact-message");
+      if (asked && msg && !msg.value) msg.value = asked;
+      setTimeout(() => { const t = nameInput.value ? (extraEl.querySelector("input, select") || msg) : nameInput; t && t.focus && t.focus(); }, 40);
+    }
+    if (ai.form) {
+      ai.form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const q = ai.q.value.trim();
+        if (!q || ai.send.disabled) return;
+        ai.q.value = "";
+        ai.turns.push({ role: "user", content: q });
+        aiMsg("me", q);
+        ai.skip.hidden = true;
+        const wait = aiMsg("ai cai-msg--wait", "Thinking");
+        ai.send.disabled = true;
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) throw new Error("Sign in to use this.");
+          const packs = await myPackTitles();
+          const res = await fetch(WORKER + "/ai/help", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: "Bearer " + session.access_token },
+            body: JSON.stringify({ line: ai.line, messages: ai.turns, packs }),
+          });
+          const j = await res.json().catch(() => ({}));
+          if (!res.ok || !j.answer) throw new Error(j.error || "That didn't work.");
+          wait.remove();
+          ai.turns.push({ role: "assistant", content: j.answer });
+          aiMsg("ai", j.answer);
+          ai.acts.hidden = false;
+          // When it says the team should take it, that button leads.
+          ai.team.textContent = j.handoff ? "Send it to the team →" : "Still stuck? Send it to the team →";
+        } catch (err) {
+          wait.remove();
+          ai.turns.pop();
+          aiMsg("ai", (err && err.message ? err.message + " " : "") + "You can send it straight to the team instead.");
+          ai.acts.hidden = false;
+        } finally {
+          ai.send.disabled = false;
+        }
+      });
+      ai.q.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ai.form.requestSubmit(); } });
+      ai.team.addEventListener("click", aiToTeam);
+      ai.skip.addEventListener("click", aiToTeam);
+    }
+
     function openForm({ source, title, tag }) {
       if (!formModal) return;
       const cfg = FORMS[source] || FORMS.account_general;
@@ -544,6 +682,7 @@ const { hideHead = false } = Astro.props;
       errorEl.hidden = true;
       form.hidden = false;
       formSuccess.hidden = true;
+      aiReset(source);
       // refresh prefill in case the session resolved after first paint
       if (sessionUser) {
         const meta = sessionUser.user_metadata || {};
@@ -553,7 +692,7 @@ const { hideHead = false } = Astro.props;
       formModal.hidden = false;
       const firstExtra = extraEl && extraEl.querySelector("input, select, .cmodal-chip");
       setTimeout(() => {
-        const target = nameInput.value ? (firstExtra || document.getElementById("contact-message")) : nameInput;
+        const target = ai.box && !ai.box.hidden ? ai.q : nameInput.value ? (firstExtra || document.getElementById("contact-message")) : nameInput;
         if (target && target.focus) target.focus();
       }, 40);
     }

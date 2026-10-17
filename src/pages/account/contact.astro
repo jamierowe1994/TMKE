@@ -10,7 +10,7 @@ import HubFootBar from "../../components/account/HubFootBar.astro";
 import "../../styles/workspace.css";
 import "../../styles/account-sections.css";
 import "../../styles/reel.css";
-import { INSTAGRAM_POSTS, INSTAGRAM_HANDLE } from "../../data/instagram-feed.js";
+import InstagramStrip from "../../components/account/InstagramStrip.astro";
 const SUBJECTS = [
   ["general", "A general question"],
   ["packs", "Packs and templates"],
@@ -66,13 +66,7 @@ const SUBJECTS = [
         </form>
       </section>
 
-      {INSTAGRAM_POSTS.length > 0 && (
-        <section class="ct-ig" aria-label="Our latest Instagram posts">
-          <p class="ct-ig-h">From our Instagram{INSTAGRAM_HANDLE && <a href={`https://www.instagram.com/${INSTAGRAM_HANDLE}/`} target="_blank" rel="noopener">@{INSTAGRAM_HANDLE} &rarr;</a>}</p>
-          <div class="ws-reel ct-reel" id="ct-reel" aria-busy="true"><div class="ws-reel-track"></div></div>
-        </section>
-      )}
-      <script type="application/json" id="ct-ig" set:html={JSON.stringify(INSTAGRAM_POSTS)}></script>
+      <InstagramStrip />
       <HubFootBar />
     </main>
   </div>
@@ -109,12 +103,6 @@ const SUBJECTS = [
     .ct-done[hidden] { display: none; }
     .ct-done strong { font-family: var(--serif); font-size: 22px; font-weight: 500; color: var(--ink); }
     .ct-done span { font-size: 14px; color: rgba(28,29,34,0.64); }
-    .ct-ig { flex: none; }
-    .ct-ig-h { display: flex; justify-content: space-between; margin: 0 0 8px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
-    .ct-ig-h a { color: #371e28; text-decoration: none; letter-spacing: 0.04em; text-transform: none; font-size: 12px; }
-    .ct-reel .ws-reel-tile { width: clamp(110px, 9vw, 150px); }
-    .ct-reel .ws-reel-label { display: none; }
-    .ct-reel .ws-reel-pic { aspect-ratio: 1 / 1; }
     /* A phone has no room for one screen: it scrolls like any page. */
     @media (max-width: 860px) {
       .ct-main { height: auto; }
@@ -126,16 +114,6 @@ const SUBJECTS = [
 
   <script>
     import { supabase } from "../../lib/supabase.js";
-    import { drawReel } from "../../lib/pack-reel.js";
-
-    // Our latest Instagram posts along the foot (src/data/instagram-feed.js).
-    (async () => {
-      const reel = document.getElementById("ct-reel");
-      if (!reel) return;
-      let posts = [];
-      try { posts = JSON.parse(document.getElementById("ct-ig").textContent || "[]"); } catch (_) {}
-      await drawReel(reel, posts.filter((p) => p && p.image).map((p) => ({ img: p.image, label: "", href: p.href || "#", go: "View" })));
-    })();
 
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();

@@ -3,6 +3,8 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import HubFootBar from "../../components/account/HubFootBar.astro";
 import "../../styles/ws-system.css";
+import { getImage } from "astro:assets";
+import { TEAM, TMKE_SOCIALS } from "../../data/tmke-team.js";
 
 // ---------------------------------------------------------------------------
 // The Community (Dani, 17 Oct 2026): "the element of community is something
@@ -10,8 +12,10 @@ import "../../styles/ws-system.css";
 //
 //   Chapter 01  This fortnight -- a topic we set every two weeks; members talk
 //               under it and we join in with advice and feedback.
-//   Chapter 02  Conversations -- open talk about estate agency marketing.
-//   Chapter 03  Requests -- something to add or change. Others say "I need
+//   Chapter 02  Meet the team -- the three of us, each a pop-out with the
+//               website's bio and 20 questions (src/data/tmke-team.js).
+//   Chapter 03  Conversations -- open talk about estate agency marketing.
+//   Chapter 04  Requests -- something to add or change. Others say "I need
 //               this too", so we can see how many want what. The Help
 //               Centre's Feedback card comes here.
 //
@@ -19,6 +23,16 @@ import "../../styles/ws-system.css";
 // Members show as "Sarah H." unless they choose their full name and agency.
 // Schema and rules: supabase/community.sql.
 // ---------------------------------------------------------------------------
+
+// Meet the team: the website's portraits are 20-30 MB PNGs, so each is cut
+// down to a 3:4 WebP at build, as on the About page.
+const team = await Promise.all(TEAM.map(async (m) => ({
+  ...m,
+  pic: (await getImage({ src: m.photo, width: 600, height: 800, quality: 72, format: "webp" })).src,
+  questions: m.questions.filter((x) => x.a && x.a.trim()),
+})));
+const socials = TMKE_SOCIALS.filter((s) => s.href);
+const TEAM_TINTS = ["#7e6765", "#B9826A", "#969AB0"];
 
 const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoots & video", "Socials", "Something else"];
 ---
@@ -70,10 +84,43 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         <div data-cm-topic></div>
       </section>
 
-      <!-- ============ CHAPTER 02 — CONVERSATIONS ============ -->
+      <!-- ============ CHAPTER 02 — MEET THE TEAM ============ -->
+      <!-- The dashboard's "New in the Studio" layout (Dani, 17 Oct): our
+           socials on the left, the three of us on the right. -->
+      <section class="ws-block" aria-labelledby="cm-team-h">
+        <header class="ws-block-head">
+          <h2 class="ws-block-h" id="cm-team-h"><span class="ws-block-ch">Chapter 02</span>Meet the TMKE team</h2>
+        </header>
+        <div class="ws-wn">
+          <div class="ws-wn-col ws-wn-col--keys">
+            <p class="ws-wn-label">Explore</p>
+            <nav class="ws-wn-pills" aria-label="TMKE elsewhere">
+              {socials.map((s) => <a class="ws-wn-pill" href={s.href} target="_blank" rel="noopener">{s.label}</a>)}
+              <a class="ws-wn-pill" href="/about" target="_blank" rel="noopener">About TMKE</a>
+              <a class="ws-wn-pill" href="/account/contact">Talk to us</a>
+            </nav>
+          </div>
+          <div class="ws-wn-col">
+            <p class="ws-wn-label">Meet the team</p>
+            <div class="ws-wn-cards">
+              {team.map((m, i) => (
+                <button type="button" class="ws-wn-card cm-team-card" data-team={m.key} style={`--wn: color-mix(in srgb, ${TEAM_TINTS[i % 3]} ${i === 1 ? 30 : i === 2 ? 32 : 26}%, #fff)`}>
+                  <span class="ws-wn-art" style={`background-image:url('${m.pic}'); background-position: center 20%`}></span>
+                  <span class="ws-wn-tx">
+                    <span class="ws-wn-flag">{m.role}</span>
+                    <strong class="ws-wn-h">{m.name}</strong>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CHAPTER 03 — CONVERSATIONS ============ -->
       <section class="ws-block" aria-labelledby="cm-talk-h" data-gate="talk">
         <header class="ws-block-head">
-          <h2 class="ws-block-h" id="cm-talk-h"><span class="ws-block-ch">Chapter 02</span>Conversations</h2>
+          <h2 class="ws-block-h" id="cm-talk-h"><span class="ws-block-ch">Chapter 03</span>Conversations</h2>
           <button type="button" class="ws-block-link cm-head-btn" data-cm-new="discussion">Start one
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           </button>
@@ -84,7 +131,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       <!-- ============ CHAPTER 03 — REQUESTS ============ -->
       <section class="ws-block" aria-labelledby="cm-req-h" id="requests" data-gate="requests">
         <header class="ws-block-head">
-          <h2 class="ws-block-h" id="cm-req-h"><span class="ws-block-ch">Chapter 03</span>Requests</h2>
+          <h2 class="ws-block-h" id="cm-req-h"><span class="ws-block-ch">Chapter 04</span>Requests</h2>
           <div class="cm-sort" role="group" aria-label="Order" data-cm-sort>
             <button type="button" class="cm-sort-b is-on" data-sort="wanted" aria-pressed="true">Most wanted</button>
             <button type="button" class="cm-sort-b" data-sort="new" aria-pressed="false">Newest</button>
@@ -100,7 +147,6 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       <HubFootBar />
       </div>
     </main>
-  </div>
 
   <!-- One pop-out, the Help Centre's size, for a thread, a new post and your name. -->
   <div class="cm-modal" data-cm-modal hidden>
@@ -111,8 +157,10 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       <div data-cm-modal-body></div>
     </div>
   </div>
+  </div><!-- /.ws: the pop-out sits inside it for the hub's colours and buttons -->
 
   <script type="application/json" id="cm-cats" set:html={JSON.stringify(CATEGORIES)}></script>
+  <script type="application/json" id="cm-team" set:html={JSON.stringify(team.map(({ key, name, short, role, pic, bio, questions }) => ({ key, name, short, role, pic, bio, questions })))}></script>
 
   <style is:global>
     /* The header is the shared flat one; the three boxes sit at the right,
@@ -229,11 +277,33 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-as button { all: unset; cursor: pointer; color: var(--english-violet); font-weight: 600; border-bottom: 1px solid rgba(55,30,40,0.3); }
     .cm-err { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: #a1452f; }
 
+    /* Meet the team: the dashboard's cards, as buttons. */
+    .cm-team-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
+    .cm-team-card:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+    .cm-person { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; align-items: start; }
+    .cm-person-pic { aspect-ratio: 3 / 4; border-radius: var(--ws-r); background-size: cover; background-position: center 20%; background-color: #eae5e1; }
+    .cm-person .cm-m-h { margin-top: 2px; }
+    @media (max-width: 560px) { .cm-person { grid-template-columns: 110px minmax(0, 1fr); gap: 16px; } }
+    /* 20 questions: each a card that turns over to the answer. */
+    .cm-qs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .cm-q { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 6px; min-height: 86px; padding: 12px 14px; border-radius: var(--ws-r); border: 1px solid var(--ws-line); background: #fff; transition: background 0.2s, border-color 0.2s, color 0.2s; }
+    .cm-q:hover { border-color: var(--english-violet); }
+    .cm-q:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .cm-q-n { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); }
+    .cm-q-t { font-family: var(--sans); font-size: 14px; font-weight: 600; line-height: 1.35; color: var(--ws-ink); }
+    .cm-q-a { display: none; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.5; color: #fff; }
+    .cm-q.is-open { background: var(--english-violet); border-color: var(--english-violet); }
+    .cm-q.is-open .cm-q-n { color: rgba(255,255,255,0.6); }
+    .cm-q.is-open .cm-q-t { color: rgba(255,255,255,0.75); font-size: 12px; }
+    .cm-q.is-open .cm-q-a { display: block; }
+    @media (max-width: 560px) { .cm-qs { grid-template-columns: 1fr; } }
+
     /* The pop-out: the Help Centre's size, always. */
     .cm-modal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 24px; background: rgba(28,20,24,0.5); opacity: 0; transition: opacity 0.22s ease; }
     .cm-modal.is-in { opacity: 1; }
     .cm-modal[hidden] { display: none; }
-    .cm-modal-card { position: relative; box-sizing: border-box; width: min(560px, 100%); height: min(720px, calc(100vh - 48px)); overflow-y: auto; overscroll-behavior: contain; padding: 30px 30px 26px; background: #fff; border-radius: 6px; border-top: 4px solid var(--english-violet); transform: translateY(8px); transition: transform 0.25s var(--ws-ease, ease); }
+    .cm-modal-card [hidden] { display: none !important; }   /* flex rules would otherwise show a hidden field */
+    .cm-modal-card { position: relative; box-sizing: border-box; width: min(720px, 100%); height: min(720px, calc(100vh - 48px)); overflow-y: auto; overscroll-behavior: contain; padding: 30px 30px 26px; background: #fff; border-radius: 6px; border-top: 4px solid var(--english-violet); transform: translateY(8px); transition: transform 0.25s var(--ws-ease, ease); }
     .cm-modal.is-in .cm-modal-card { transform: none; }
     .cm-x { all: unset; cursor: pointer; position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 4px; color: var(--ws-tx); }
     .cm-x:hover { background: rgba(28,29,34,0.06); color: var(--ws-ink); }
@@ -464,7 +534,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       window.__lenis?.start?.();
       setTimeout(() => { modal.hidden = true; mBody.innerHTML = ""; }, 220);
       const u = new URL(location.href);
-      if (u.searchParams.has("post")) { u.searchParams.delete("post"); history.replaceState(null, "", u); }
+      if (u.searchParams.has("post") || u.searchParams.has("new")) { u.searchParams.delete("post"); u.searchParams.delete("new"); history.replaceState(null, "", u); }
     }
     modal.addEventListener("click", (e) => { if (e.target === modal || e.target.closest("[data-cm-close]")) closeModal(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !modal.hidden) closeModal(); });
@@ -522,6 +592,20 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         </form>`);
     }
 
+    const TEAM = JSON.parse(document.getElementById("cm-team").textContent || "[]");
+    function openPerson(key) {
+      const m = TEAM.find((x) => x.key === key);
+      if (!m) return;
+      S.inModal = true; S.openId = null;
+      const qs = m.questions || [];
+      openModal(`<div class="cm-person">
+          <span class="cm-person-pic" style="background-image:url('${esc(m.pic)}')" role="img" aria-label="${esc(m.name)}"></span>
+          <div><p class="cm-m-eyebrow">${esc(m.role)}</p><h2 class="cm-m-h" id="cm-modal-h">${esc(m.name)}</h2><p class="cm-m-body">${esc(m.bio)}</p></div>
+        </div>
+        ${qs.length ? `<p class="cm-m-sec">20 questions with ${esc(m.short)}</p>
+        <div class="cm-qs">${qs.map((x, i) => `<button type="button" class="cm-q" data-q aria-expanded="false"><span class="cm-q-n">${String(i + 1).padStart(2, "0")}</span><span class="cm-q-t">${esc(x.q)}</span><span class="cm-q-a">${esc(x.a)}</span></button>`).join("")}</div>` : ""}`);
+    }
+
     function openMe() {
       S.inModal = true; S.openId = null;
       const p = S.profile;
@@ -567,6 +651,8 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
 
     document.addEventListener("click", async (e) => {
       const t = e.target;
+      const tm = t.closest("[data-team]"); if (tm) { e.preventDefault(); openPerson(tm.dataset.team); return; }
+      const qq = t.closest("[data-q]"); if (qq) { const o = !qq.classList.contains("is-open"); qq.classList.toggle("is-open", o); qq.setAttribute("aria-expanded", String(o)); return; }
       const nw = t.closest("[data-cm-new]"); if (nw) { e.preventDefault(); openComposer(nw.dataset.cmNew); return; }
       if (t.closest("[data-cm-me]")) { e.preventDefault(); openMe(); return; }
       const op = t.closest("[data-open]"); if (op) { e.preventDefault(); const u = new URL(location.href); u.searchParams.set("post", op.dataset.open); history.replaceState(null, "", u); openThread(op.dataset.open); return; }
@@ -698,6 +784,9 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       // A notification, or the Help Centre, can open straight onto a post or the board.
       const want = new URLSearchParams(location.search).get("post");
       if (want && !S.closed) openThread(want);
+      // The menu's "Start a conversation" lands here with the form open.
+      const nu = new URLSearchParams(location.search).get("new");
+      if (nu && !want && !S.closed) openComposer(nu);
       if (location.hash === "#requests") setTimeout(() => document.getElementById("requests")?.scrollIntoView({ block: "start" }), 50);
     })();
   </script>
