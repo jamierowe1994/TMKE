@@ -504,8 +504,11 @@ import "../../styles/admin.css";
           </div>
           <div class="cm-badges">${gone ? badge("b-gray", "Deleted") : hidden ? badge("b-red", "Hidden") : badge("b-amber", "Visible")}</div>
           <div class="cm-acts">
-            ${gone ? "" : btn("report-hide", rep.id, hidden ? "Unhide" : `Hide ${what.toLowerCase()}`, hidden ? "admin-btn-ghost" : "admin-btn-danger")}
-            ${btn("resolve", rep.id, "Mark resolved", "admin-btn-primary")}
+            ${gone ? btn("resolve", rep.id, "Close report", "admin-btn-primary")
+              /* A report hides it straight away (community_reports_hide.sql);
+                 here we decide: back up, or kept down. Either closes it. */
+              : hidden ? `${btn("restore", rep.id, "Put it back", "admin-btn-ghost")}${btn("resolve", rep.id, "Keep it hidden", "admin-btn-danger")}`
+              : `${btn("report-hide", rep.id, `Hide ${what.toLowerCase()}`, "admin-btn-danger")}${btn("resolve", rep.id, "Leave it up", "admin-btn-primary")}`}
           </div>
         </div>`;
     }
@@ -915,6 +918,7 @@ import "../../styles/admin.css";
         else if (act === "delete-topic") deleteTopic(id);
         else if (act === "report-hide") reportHide(id);
         else if (act === "resolve") resolveReport(id);
+        else if (act === "restore") (async () => { await reportHide(id); await resolveReport(id); })();
         else if (act === "hide-reply") toggleReply(id);
         return;
       }

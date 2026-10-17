@@ -265,6 +265,12 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-topic--solo { grid-template-columns: minmax(0, 1fr); }
     .cm-fortnight { display: flex; flex-direction: column; gap: var(--ws-gap); }
     .cm-disc { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    /* Paragraphs a quarter closer than a blank line would put them. */
+    .cm-paras { display: flex; flex-direction: column; gap: 1.2em; white-space: normal !important; }
+    .cm-para { display: block; white-space: pre-line; }
+    /* The pinned one, once a newer discussion is up: the slate, not the wine. */
+    .cm-fold.cm-pin, .cm-topic-card.cm-pin { background: #333747; }
+    .cm-view-foot { margin-top: auto; padding-top: 4px; }
     .cm-topic-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .cm-topic-card .cm-topic-p { max-width: 75%; }
     @media (max-width: 760px) { .cm-topic-card .cm-topic-p { max-width: none; } }
@@ -388,7 +394,21 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-modal { position: fixed; inset: 0; z-index: 9000; display: grid; place-items: center; padding: 24px; background: rgba(28,20,24,0.5); opacity: 0; transition: opacity 0.22s ease; }
     .cm-modal.is-in { opacity: 1; }
     .cm-modal[hidden] { display: none; }
-    .cm-modal-card [hidden] { display: none !important; }   /* flex rules would otherwise show a hidden field */
+    .cm-modal-card [hidden] { display: none !important; }
+    /* A conversation or request: the post in its own box, the comments under
+       it scrolling with it, the box to write in fixed at the foot. */
+    .cm-modal-card.is-thread { display: flex; flex-direction: column; overflow: hidden; }
+    .cm-modal-card.is-thread > [data-cm-modal-body] { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .cm-thread { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+    .cm-m-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 14px; padding: 2px 4px 14px 0; }
+    .cm-post-box { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; background: #f4f2f1; border-radius: var(--ws-r); }
+    .cm-post-box .cm-m-h { margin: 0; }
+    .cm-post-box .cm-m-body { margin: 2px 0 0; }
+    .cm-post-box .cm-m-bar { margin: 6px 0 0; }
+    .cm-post-box .cm-view { background: #fff; }
+    .cm-m-scroll > .cm-m-sec { margin: 6px 0 0; padding-top: 0; border-top: 0; }
+    .cm-m-foot { flex: none; padding-top: 14px; border-top: 1px solid rgba(28,29,34,0.08); }
+    .cm-m-foot .cm-say textarea { min-height: 64px; }   /* flex rules would otherwise show a hidden field */
     .cm-modal-card { position: relative; box-sizing: border-box; width: min(720px, 100%); height: min(720px, calc(100vh - 48px)); overflow-y: auto; overscroll-behavior: contain; padding: 30px 30px 26px; background: #fff; border-radius: 6px; border-top: 4px solid var(--english-violet); transform: translateY(8px); transition: transform 0.25s var(--ws-ease, ease); }
     .cm-modal.is-in .cm-modal-card { transform: none; }
     .cm-x { all: unset; cursor: pointer; position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 4px; color: var(--ws-tx); }
@@ -428,6 +448,8 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     const SHOW = 6;   // rows before "Show all"
     const $ = (s, r = document) => r.querySelector(s);
     const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    // Paragraphs as blocks, a quarter closer than a blank line (Dani, 17 Oct).
+    const paras = (t) => String(t || "").trim().split(/\n\s*\n/).map((p) => `<span class="cm-para">${esc(p.trim())}</span>`).join("");
     const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
     function ago(iso) {
       const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -482,7 +504,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         <button type="button" class="cm-row-open" data-open="${p.id}">
           <span class="cm-row-t">${esc(p.title)}</span>
           ${p.body ? `<span class="cm-row-x">${esc(p.body)}</span>` : ""}
-          <span class="cm-meta"><span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(p.last_activity_at))}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+          <span class="cm-meta"><span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(p.last_activity_at))}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden while we review it</span>' : ""}</span>
         </button>
         <div class="cm-side"><span class="cm-count"><b>${p.reply_count}</b> ${p.reply_count === 1 ? "reply" : "replies"}</span></div>`;
       return el;
@@ -500,7 +522,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       el.innerHTML = `
         <button type="button" class="cm-row-open" data-open="${p.id}">
           <span class="cm-row-t">${esc(p.title)}</span>
-          <span class="cm-meta">${p.status !== "open" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span><span>${p.reply_count ? `See what members said (${p.reply_count})` : "Add a comment"}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+          <span class="cm-meta">${p.status !== "open" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span><span>${p.reply_count ? `See what members said (${p.reply_count})` : "Add a comment"}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden while we review it</span>' : ""}</span>
         </button>
         <div class="cm-side">${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span></div>`;
       return el;
@@ -583,9 +605,9 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     function replyHtml(r, child) {
       const mine = r.author_id === S.me.id;
       return `<div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}${child ? " is-child" : ""}" data-reply="${r.id}">
-        <span class="cm-meta"><span>${esc(nameOf(r.author_id))}</span>${r.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(r.created_at))}</span>${r.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
+        <span class="cm-meta"><span>${esc(nameOf(r.author_id))}</span>${r.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(r.created_at))}</span>${r.hidden ? '<span class="cm-hidden-note">Hidden while we review it</span>' : ""}</span>
         <p class="cm-reply-p">${esc(r.body)}</p>
-        <div class="cm-reply-foot">${rxBar(r.id, "reply")}<span class="cm-tools"><button type="button" class="cm-link" data-reply-to="${child ? r.parent_id : r.id}">Reply</button>${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span></div>
+        <div class="cm-reply-foot">${rxBar(r.id, "reply")}<span class="cm-tools"><button type="button" class="cm-link" data-reply-to="${child ? r.parent_id : r.id}">Reply</button>${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : r.is_staff ? "" : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span></div>
       </div>`;
     }
     function sayForm(postId, parentId, placeholder) {
@@ -650,27 +672,28 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       const eyebrow = [label, t.category].filter(Boolean).map(esc).join(" &middot; ");
       if (folded && !S.unfolded.has(t.id)) {
         return `<div class="cm-disc">
-          <button type="button" class="cm-fold" data-cm-unfold="${t.id}" aria-expanded="false">
+          <button type="button" class="cm-fold cm-pin" data-cm-unfold="${t.id}" aria-expanded="false">
             <span class="cm-fold-tx"><span class="cm-topic-when">${eyebrow}</span><span class="cm-fold-q">${esc(t.title)}</span></span>
             <span class="cm-fold-go">${n ? plural(n, "comment") + " &middot; " : ""}Open<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </button>
         </div>`;
       }
       return `<div class="cm-disc">
-        <div class="cm-topic-card">
+        <div class="cm-topic-card${folded ? " cm-pin" : ""}">
           <div class="cm-topic-top">
             <span class="cm-topic-when">${eyebrow}</span>
             ${folded ? `<button type="button" class="cm-fold-close" data-cm-unfold="${t.id}" aria-expanded="true">Close<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 10l4-4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : ""}
           </div>
           ${preview && t.publish_at ? `<span class="cm-preview">Preview: only you and the team can see this. Goes live ${esc(liveFmt(t.publish_at))}.</span>` : ""}
           <h3 class="cm-topic-t">${esc(t.title)}</h3>
-          ${t.body ? `<p class="cm-topic-p">${esc(t.body)}</p>` : ""}
-          <div class="cm-topic-foot">${rxBar(t.id, "post")}${extra || ""}</div>
+          ${t.body ? `<p class="cm-topic-p cm-paras">${paras(t.body)}</p>` : ""}
+          ${extra ? `<div class="cm-topic-foot">${extra}</div>` : ""}
         </div>
         <div class="cm-under${t.viewpoint ? "" : " cm-under--solo"}">
           ${t.viewpoint ? `<div class="cm-view">
             <span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span>
-            <p class="cm-view-p">${esc(t.viewpoint)}</p>
+            <p class="cm-view-p cm-paras">${paras(t.viewpoint)}</p>
+            <div class="cm-view-foot">${rxBar(t.id, "post")}</div>
           </div>` : ""}
           <div class="cm-cpanel">
             <p class="cm-cpanel-h">${n ? plural(n, "comment") : "No comments yet: be the first"}</p>
@@ -729,6 +752,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     const modal = $("[data-cm-modal]");
     const mBody = $("[data-cm-modal-body]");
     function openModal(html) {
+      $(".cm-modal-card").classList.remove("is-thread");
       mBody.innerHTML = html;
       modal.hidden = false;
       window.__lenis?.stop?.();
@@ -756,7 +780,10 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       }
       S.inModal = true; S.openId = id;
       const kindLabel = p.kind === "topic" ? "This fortnight's topic" : p.kind === "request" ? "Request" : "Conversation";
-      openModal(`<p class="cm-m-eyebrow">${kindLabel}</p><h2 class="cm-m-h" id="cm-modal-h">${esc(p.title)}</h2><div data-thread><p class="cm-m-sub">&nbsp;</p></div>`);
+      // The post in a box of its own, the comments under it scrolling, and
+      // the box to write in fixed at the foot (Dani, 17 Oct).
+      openModal(`<p class="cm-m-eyebrow">${kindLabel}</p><div class="cm-thread" data-thread><div class="cm-m-scroll"><div class="cm-post-box"><h2 class="cm-m-h" id="cm-modal-h">${esc(p.title)}</h2></div></div></div>`);
+      $(".cm-modal-card").classList.add("is-thread");
       await Promise.all([loadReplies([id]), loadReactions([id])]);
       if (S.openId !== id) return;
       S.openPost = p;
@@ -767,18 +794,23 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       const mine = p.author_id === S.me.id;
       const when = p.kind === "topic" && p.starts_on && p.ends_on ? `${dayFmt(p.starts_on)} – ${dayFmt(p.ends_on)}` : ago(p.created_at);
       $("[data-thread]", mBody).innerHTML = `
-        <span class="cm-meta">${p.status !== "open" && p.kind === "request" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(when)}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
-        ${p.body ? `<p class="cm-m-body">${esc(p.body)}</p>` : ""}
-        ${p.viewpoint ? `<div class="cm-view" style="margin-top:16px"><span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span><p class="cm-view-p">${esc(p.viewpoint)}</p></div>` : ""}
-        <div class="cm-m-bar">
-          ${rxBar(p.id, "post")}
-          ${p.kind === "request" ? `${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span>` : ""}
-          <span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-post="${p.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-post="${p.id}">Report</button>`}</span>
+        <div class="cm-m-scroll" data-lenis-prevent>
+          <div class="cm-post-box">
+            <h2 class="cm-m-h" id="cm-modal-h">${esc(p.title)}</h2>
+            <span class="cm-meta">${p.status !== "open" && p.kind === "request" ? `<span class="cm-status" data-s="${esc(p.status)}">${esc(STATUS[p.status] || p.status)}</span>` : ""}${p.category ? `<span>${esc(p.category)}</span>` : ""}<span>${esc(nameOf(p.author_id))}</span>${p.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(when)}</span>${p.hidden ? '<span class="cm-hidden-note">Hidden while we review it</span>' : ""}</span>
+            ${p.body ? `<p class="cm-m-body cm-paras">${paras(p.body)}</p>` : ""}
+            ${p.viewpoint ? `<div class="cm-view"><span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span><p class="cm-view-p cm-paras">${paras(p.viewpoint)}</p><div class="cm-view-foot">${rxBar(p.id, "post")}</div></div>` : ""}
+            <div class="cm-m-bar">
+              ${p.kind === "topic" ? "" : rxBar(p.id, "post")}
+              ${p.kind === "request" ? `${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span>` : ""}
+              <span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-post="${p.id}">Delete</button>` : p.is_staff ? "" : `<button type="button" class="cm-link" data-report-post="${p.id}">Report</button>`}</span>
+            </div>
+            <div data-report-slot></div>
+          </div>
+          <p class="cm-m-sec">${replies.length ? plural(replies.length, "comment") : (p.kind === "request" ? "Comments" : "Replies")}</p>
+          ${replies.length ? `<div class="cm-replies">${commentsHtml(p.id)}</div>` : `<p class="cm-m-sub">Nothing yet. ${p.kind === "request" ? "Say how you'd use it." : "Be the first to reply."}</p>`}
         </div>
-        <div data-report-slot></div>
-        <p class="cm-m-sec">${replies.length ? plural(replies.length, "comment") : (p.kind === "discussion" ? "Replies" : "Comments")}</p>
-        ${replies.length ? `<div class="cm-replies">${commentsHtml(p.id)}</div>` : `<p class="cm-m-sub">Nothing yet${p.kind === "request" ? " &mdash; add how you'd use it" : ""}.</p>`}
-        ${p.hidden ? "" : `<div style="margin-top:16px">${sayForm(p.id, null, p.kind === "request" ? "How would you use it?" : "Add your reply")}</div>`}`;
+        ${p.hidden ? "" : `<div class="cm-m-foot">${sayForm(p.id, null, p.kind === "request" ? "How would you use it?" : "Add your reply")}</div>`}`;
     }
 
     function openComposer(kind) {
@@ -985,7 +1017,12 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         e.preventDefault();
         const [what, id] = f.dataset.report.split(":");
         const { error } = await supabase.from("community_reports").insert(what === "post" ? { post_id: id, reason: f.reason.value.trim() } : { reply_id: id, reason: f.reason.value.trim() });
-        f.innerHTML = `<p class="cm-as">${error ? "That didn't send. Try again in a moment." : "Thanks. It's with us and we'll take a look."}</p>`;
+        f.innerHTML = `<p class="cm-as">${error ? "That didn't send. Try again in a moment." : "Thanks. It's hidden while we take a look."}</p>`;
+        // Reported things come down straight away (community_reports_hide.sql).
+        if (!error) setTimeout(async () => {
+          if (what === "post") { closeModal(); await refresh(); }
+          else { await refresh(); if (S.openPost && S.openId) { await loadReplies([S.openId]); renderThread(S.openPost); } }
+        }, 1400);
       }
     });
 
