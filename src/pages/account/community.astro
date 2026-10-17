@@ -264,6 +264,45 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     @media (max-width: 900px) { .cm-topic { grid-template-columns: minmax(0, 1fr); } }
     .cm-topic--solo { grid-template-columns: minmax(0, 1fr); }
     .cm-fortnight { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    .cm-disc { display: flex; flex-direction: column; gap: var(--ws-gap); }
+    .cm-topic-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: auto; padding-top: 6px; }
+    .cm-preview { align-self: flex-start; padding: 5px 9px; border-radius: 3px; background: rgba(255,255,255,0.12); font-family: var(--sans); font-size: 11.5px; line-height: 1.4; color: #fff; }
+
+    /* Reactions: the ones given, as chips with their count, then a smiley
+       that opens the five. Your own is filled. */
+    .cm-rx { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+    .cm-rx-chip, .cm-rx-add, .cm-rx-opt { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--ws-line); background: #fff; font-family: var(--sans); font-size: 12px; line-height: 1; color: var(--ws-ink); transition: border-color 0.18s, background 0.18s, transform 0.18s; }
+    .cm-rx-chip b { font-size: 11px; font-weight: 700; color: var(--ws-tx); }
+    .cm-rx-chip:hover, .cm-rx-add:hover { border-color: var(--english-violet); }
+    .cm-rx-chip.is-mine { border-color: var(--english-violet); background: #f6f1f3; }
+    .cm-rx-chip.is-mine b { color: var(--english-violet); }
+    .cm-rx-add { gap: 5px; color: var(--ws-faint); font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+    .cm-rx-add svg { width: 14px; height: 14px; }
+    .cm-rx-pick { display: inline-flex; gap: 2px; padding: 2px; border-radius: 999px; border: 1px solid var(--ws-line); background: #fff; }
+    .cm-rx-pick[hidden] { display: none; }
+    .cm-rx-opt { border: 0; padding: 0 5px; font-size: 16px; height: 26px; }
+    .cm-rx-opt:hover { transform: translateY(-2px) scale(1.15); background: transparent; }
+    .cm-rx-opt.is-mine { background: #f6f1f3; }
+    .cm-rx :is(button):focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    /* On the wine: the same, turned over. */
+    .cm-topic-card .cm-rx-chip, .cm-topic-card .cm-rx-add { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.28); color: #fff; }
+    .cm-topic-card .cm-rx-chip b { color: rgba(255,255,255,0.8); }
+    .cm-topic-card .cm-rx-chip.is-mine { background: #fff; border-color: #fff; color: var(--english-violet); }
+    .cm-topic-card .cm-rx-chip.is-mine b { color: var(--english-violet); }
+    .cm-topic-card .cm-rx-chip:hover, .cm-topic-card .cm-rx-add:hover { border-color: #fff; }
+    .cm-topic-card .cm-rx-pick { background: #fff; border-color: #fff; }
+    .cm-topic-card :is(button):focus-visible { outline-color: #fff; }
+
+    /* A comment, its reactions and Reply; replies sit indented under it. */
+    .cm-reply-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-top: 2px; }
+    .cm-thread-item { display: flex; flex-direction: column; gap: 10px; padding-bottom: 12px; border-bottom: 1px solid rgba(28,29,34,0.08); }
+    .cm-thread-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .cm-thread-item > .cm-reply { border: 0; padding-bottom: 0; }
+    .cm-kids { display: flex; flex-direction: column; gap: 10px; margin-left: clamp(14px, 2vw, 28px); padding-left: clamp(12px, 1.4vw, 18px); border-left: 2px solid rgba(55,30,40,0.14); }
+    .cm-kids .cm-reply { border: 0; padding-bottom: 0; }
+    .cm-say--reply textarea { min-height: 60px; }
+    .cm-say-btns { display: inline-flex; gap: 6px; }
+
     /* The pinned intro: white, the one outline, first. */
     .cm-intro-card { display: flex; flex-direction: column; gap: 8px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); }
     .cm-intro-t { margin: 0; font-family: var(--sans); font-size: 17px; font-weight: 600; line-height: 1.3; color: var(--ws-ink); }
@@ -472,84 +511,166 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       (S.allReqs ? all : all.slice(0, SHOW)).forEach((p) => box.appendChild(reqRow(p)));
       if (all.length > SHOW && !S.allReqs) box.insertAdjacentHTML("beforeend", `<button type="button" class="cm-more" data-more="reqs">Show all ${all.length} requests</button>`);
     }
-    function replyHtml(r, tools) {
+    // ── Reactions (Dani, 17 Oct): on posts and comments, one each ─────────────
+    const RX = [["heart", "❤️", "Love"], ["thumbs", "👍", "Like"], ["hug", "🤗", "Hug"], ["cry", "😢", "Sad"], ["laugh", "😂", "Haha"]];
+    S.rx = new Map(); S.myRx = new Map(); S.rxOn = true;
+    async function loadReactions(ids) {
+      const want = [...new Set(ids)].filter(Boolean);
+      if (!S.rxOn || !want.length) return;
+      for (let i = 0; i < want.length; i += 100) {
+        const chunk = want.slice(i, i + 100);
+        const [c, m] = await Promise.all([
+          supabase.from("community_reaction_counts").select("target_id, emoji, n").in("target_id", chunk),
+          supabase.from("community_reactions").select("target_id, emoji").eq("user_id", S.me.id).in("target_id", chunk),
+        ]);
+        // Not set up yet (community_forum.sql): no reactions, nothing broken.
+        if (c.error || m.error) { S.rxOn = false; return; }
+        chunk.forEach((id) => { S.rx.set(id, {}); S.myRx.delete(id); });
+        (c.data || []).forEach((r) => { S.rx.get(r.target_id)[r.emoji] = r.n; });
+        (m.data || []).forEach((r) => S.myRx.set(r.target_id, r.emoji));
+      }
+    }
+    function rxBar(id, kind) {
+      if (!S.rxOn) return "";
+      const c = S.rx.get(id) || {}, mine = S.myRx.get(id);
+      const chips = RX.filter(([k]) => c[k]).map(([k, e, l]) => `<button type="button" class="cm-rx-chip${mine === k ? " is-mine" : ""}" data-rx="${k}" data-rx-id="${id}" data-rx-kind="${kind}" aria-label="${l}, ${c[k]}" aria-pressed="${mine === k}"><span aria-hidden="true">${e}</span><b>${c[k]}</b></button>`).join("");
+      const pick = RX.map(([k, e, l]) => `<button type="button" class="cm-rx-opt${mine === k ? " is-mine" : ""}" data-rx="${k}" data-rx-id="${id}" data-rx-kind="${kind}" aria-label="${l}" title="${l}">${e}</button>`).join("");
+      return `<div class="cm-rx" data-rx-wrap="${id}">${chips}<button type="button" class="cm-rx-add" data-rx-open aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.6 9.6c.6.8 1.4 1.2 2.4 1.2s1.8-.4 2.4-1.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><circle cx="6" cy="6.6" r=".8" fill="currentColor"/><circle cx="10" cy="6.6" r=".8" fill="currentColor"/></svg>${mine ? "" : "React"}</button><span class="cm-rx-pick" hidden>${pick}</span></div>`;
+    }
+    async function react(id, kind, emoji) {
+      const before = S.myRx.get(id), counts = { ...(S.rx.get(id) || {}) };
+      const redraw = () => document.querySelectorAll(`[data-rx-wrap="${id}"]`).forEach((w) => { w.outerHTML = rxBar(id, kind); });
+      // Straight away on the page, then saved; put back if the save fails.
+      if (before) counts[before] = Math.max(0, (counts[before] || 1) - 1);
+      if (before !== emoji) counts[emoji] = (counts[emoji] || 0) + 1;
+      S.rx.set(id, counts);
+      if (before === emoji) S.myRx.delete(id); else S.myRx.set(id, emoji);
+      redraw();
+      const res = before === emoji
+        ? await supabase.from("community_reactions").delete().eq("target_id", id).eq("user_id", S.me.id)
+        : await supabase.from("community_reactions").upsert({ target_id: id, target_kind: kind, user_id: S.me.id, emoji }, { onConflict: "target_id,user_id" });
+      if (res.error) { await loadReactions([id]); redraw(); }
+    }
+
+    // ── Comments, and replies to a comment (one level) ──────────────────────
+    S.replies = new Map();      // post id -> its comments
+    S.openComments = new Set(); // posts whose comments are open
+    S.replyTo = null;           // the comment being replied to
+    function replyHtml(r, child) {
       const mine = r.author_id === S.me.id;
-      return `<div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}" data-reply="${r.id}">
+      return `<div class="cm-reply${r.is_staff ? " is-staff" : ""}${r.hidden ? " is-hidden" : ""}${child ? " is-child" : ""}" data-reply="${r.id}">
         <span class="cm-meta"><span>${esc(nameOf(r.author_id))}</span>${r.is_staff ? '<span class="cm-badge">TMKE</span>' : ""}<span>${esc(ago(r.created_at))}</span>${r.hidden ? '<span class="cm-hidden-note">Hidden by TMKE</span>' : ""}</span>
         <p class="cm-reply-p">${esc(r.body)}</p>
-        ${tools ? `<span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span>` : ""}
+        <div class="cm-reply-foot">${rxBar(r.id, "reply")}<span class="cm-tools"><button type="button" class="cm-link" data-reply-to="${child ? r.parent_id : r.id}">Reply</button>${mine ? `<button type="button" class="cm-link" data-del-reply="${r.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-reply="${r.id}">Report</button>`}</span></div>
       </div>`;
     }
-    // The pinned intro sits above everything; the fortnight's topic is the
-    // dated one running today (Dani, 17 Oct). Scheduled ones stay out of
-    // sight until their day (the database won't hand them over before).
+    function sayForm(postId, parentId, placeholder) {
+      return `<form class="cm-say${parentId ? " cm-say--reply" : ""}" data-say="${postId}"${parentId ? ` data-parent="${parentId}"` : ""}>
+        <textarea name="body" maxlength="5000" placeholder="${esc(placeholder)}" aria-label="${parentId ? "Your reply" : "Your comment"}" required></textarea>
+        <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)}${parentId ? "" : ` &middot; <button type="button" data-cm-me>change</button>`}</span><span class="cm-say-btns">${parentId ? `<button type="button" class="ws-btn ws-btn--ghost" data-reply-cancel>Cancel</button>` : ""}<button type="submit" class="ws-btn ws-btn--primary">${parentId ? "Reply" : "Post"}</button></span></div>
+        <p class="cm-err" data-err hidden></p>
+      </form>`;
+    }
+    function commentsHtml(postId) {
+      const reps = S.replies.get(postId) || [];
+      const ids = new Set(reps.map((r) => r.id));
+      // A reply whose comment was hidden stands on its own.
+      const tops = reps.filter((r) => !r.parent_id || !ids.has(r.parent_id));
+      return tops.map((r) => {
+        const kids = reps.filter((k) => k.parent_id === r.id);
+        const replying = S.replyTo === r.id;
+        return `<div class="cm-thread-item">${replyHtml(r, false)}${kids.length || replying ? `<div class="cm-kids">${kids.map((k) => replyHtml(k, true)).join("")}${replying ? sayForm(postId, r.id, `Reply to ${nameOf(r.author_id)}`) : ""}</div>` : ""}</div>`;
+      }).join("");
+    }
+    async function loadReplies(postIds) {
+      const want = [...new Set(postIds)].filter(Boolean);
+      if (!want.length) return;
+      let { data, error } = await supabase.from("community_replies").select("id, post_id, parent_id, body, author_id, is_staff, hidden, created_at").in("post_id", want).order("created_at", { ascending: true }).limit(1000);
+      // Before community_forum.sql there are no replies-to-comments yet.
+      if (error && /parent_id/.test(error.message || "")) ({ data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").in("post_id", want).order("created_at", { ascending: true }).limit(1000));
+      want.forEach((id) => S.replies.set(id, []));
+      (data || []).forEach((r) => S.replies.get(r.post_id).push(r));
+      await Promise.all([loadNames((data || []).map((r) => r.author_id)), loadReactions((data || []).map((r) => r.id))]);
+    }
+
+    // The pinned intro sits above everything; under it, the discussion
+    // running now (Dani, 17 Oct). Each goes live at 8am on its date; until then
+    // only staff and previewers are handed it, and they see the next one
+    // marked as a preview, so the format can be checked before members do.
+    const isLive = (p) => !p.publish_at || new Date(p.publish_at) <= new Date();
     const introTopic = () => S.topics.find((p) => p.pinned && !p.hidden) || null;
     function currentTopic() {
       const t = todayISO();
-      return S.topics.find((p) => !p.pinned && p.starts_on && p.starts_on <= t && (!p.ends_on || p.ends_on >= t)) || null;
+      const dated = S.topics.filter((p) => !p.pinned && !p.hidden && p.starts_on);
+      return dated.find((p) => isLive(p) && p.starts_on <= t && (!p.ends_on || p.ends_on >= t))
+        || [...dated].filter((p) => !isLive(p) || p.starts_on > t).sort((a, b) => a.starts_on.localeCompare(b.starts_on))[0]
+        || null;
     }
-    function paintTopic() {
-      const box = $("[data-cm-topic]");
-      if (S.closed) { box.innerHTML = none("Opening soon", "The first topic lands when the Community opens."); return; }
-      const intro = introTopic();
-      const t = currentTopic();
-      const past = S.topics.filter((p) => p !== t && !p.pinned && p.starts_on && p.starts_on <= todayISO()).slice(0, 3);
-      const pastHtml = past.length ? `<p class="cm-topic-past">Earlier: ${past.map((p) => `<button type="button" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : "";
-      const introHtml = intro ? `<article class="cm-intro-card">
-          <span class="cm-meta"><span class="cm-badge">TMKE</span><span>Pinned</span></span>
-          <h3 class="cm-intro-t">${esc(intro.title)}</h3>
-          ${intro.body ? `<p class="cm-intro-p">${esc(intro.body)}</p>` : ""}
-        </article>` : "";
-      if (!t) {
-        box.innerHTML = `<div class="cm-fortnight">${introHtml}<div class="cm-none"><p class="cm-none-h">Next topic coming up</p><p class="cm-none-p">Every fortnight we set a topic, share our view and talk it through with you. The next one is on its way.</p>${past.length ? `<p class="cm-none-p" style="margin-top:8px">Earlier topics: ${past.map((p) => `<button type="button" class="cm-none-go" style="margin:0" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : ""}</div></div>`;
-        return;
-      }
-      const when = t.starts_on && t.ends_on ? `${dayFmt(t.starts_on)} – ${dayFmt(t.ends_on)}` : "This fortnight";
-      const n = S.topicReplies.length;
-      // The topic, its intro, then our view; the comments open underneath
-      // rather than running on as one long feed.
-      box.innerHTML = `<div class="cm-fortnight">${introHtml}
+    // "Mon 19 Oct, 8am", in UK time.
+    function liveFmt(iso) {
+      const d = new Date(iso);
+      const day = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/London" }).replace(",", "");
+      const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Europe/London" }).formatToParts(d).map((x) => [x.type, x.value]));
+      return `${day}, ${parts.hour}${parts.minute !== "00" ? ":" + parts.minute : ""}${String(parts.dayPeriod || "").toLowerCase().replace(/\s|\./g, "")}`;
+    }
+    function topicBlock(t, label, extra) {
+      const reps = S.replies.get(t.id) || [];
+      const n = reps.length, open = S.openComments.has(t.id);
+      const preview = !isLive(t) || (t.starts_on && t.starts_on > todayISO());
+      return `<div class="cm-disc">
         <div class="cm-topic${t.viewpoint ? "" : " cm-topic--solo"}">
           <div class="cm-topic-card">
-            <span class="cm-topic-when">${esc(when)}</span>
+            <span class="cm-topic-when">${[label, t.category].filter(Boolean).map(esc).join(" &middot; ")}</span>
+            ${preview && t.publish_at ? `<span class="cm-preview">Preview: only you and the team can see this. Goes live ${esc(liveFmt(t.publish_at))}.</span>` : ""}
             <h3 class="cm-topic-t">${esc(t.title)}</h3>
             ${t.body ? `<p class="cm-topic-p">${esc(t.body)}</p>` : ""}
-            ${pastHtml}
+            <div class="cm-topic-foot">${rxBar(t.id, "post")}${extra || ""}</div>
           </div>
           ${t.viewpoint ? `<div class="cm-view">
             <span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span>
             <p class="cm-view-p">${esc(t.viewpoint)}</p>
           </div>` : ""}
         </div>
-        <div class="cm-comments${S.showComments ? " is-open" : ""}">
-          <button type="button" class="cm-comments-bar" data-cm-comments aria-expanded="${S.showComments ? "true" : "false"}">
+        <div class="cm-comments${open ? " is-open" : ""}">
+          <button type="button" class="cm-comments-bar" data-cm-comments="${t.id}" aria-expanded="${open}">
             <span>${n ? plural(n, "comment") : "No comments yet: be the first"}</span>
-            <span class="cm-comments-go">${S.showComments ? "Hide" : n ? "Show comments" : "Add yours"}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span class="cm-comments-go">${open ? "Hide" : n ? "Show comments" : "Add yours"}<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           </button>
-          ${S.showComments ? `<div class="cm-comments-body">
-            ${n ? `<div class="cm-replies">${S.topicReplies.map((r) => replyHtml(r, true)).join("")}</div>` : ""}
-            <form class="cm-say" data-say="${t.id}">
-              <textarea name="body" maxlength="5000" placeholder="What's working for you? What have you found?" aria-label="Your comment" required></textarea>
-              <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)} &middot; <button type="button" data-cm-me>change</button></span><button type="submit" class="ws-btn ws-btn--primary">Post</button></div>
-              <p class="cm-err" data-err hidden></p>
-            </form>
+          ${open ? `<div class="cm-comments-body">
+            ${n ? `<div class="cm-replies">${commentsHtml(t.id)}</div>` : ""}
+            ${sayForm(t.id, null, "Add your view")}
           </div>` : ""}
         </div>
       </div>`;
+    }
+    function paintTopic() {
+      const box = $("[data-cm-topic]");
+      if (S.closed) { box.innerHTML = none("Opening soon", "The first topic lands when the Community opens."); return; }
+      const intro = introTopic();
+      const t = currentTopic();
+      const past = S.topics.filter((p) => p !== t && !p.pinned && !p.hidden && p.starts_on && isLive(p) && p.ends_on && p.ends_on < todayISO()).slice(0, 3);
+      const pastHtml = past.length ? `<p class="cm-topic-past">Earlier: ${past.map((p) => `<button type="button" data-open="${p.id}">${esc(p.title)}</button>`).join(", ")}</p>` : "";
+      const parts = [];
+      if (intro) parts.push(topicBlock(intro, "Pinned"));
+      if (t) parts.push(topicBlock(t, t.starts_on && t.ends_on ? `${dayFmt(t.starts_on)} – ${dayFmt(t.ends_on)}` : "This fortnight", pastHtml));
+      else parts.push(`<div class="cm-none"><p class="cm-none-h">Next topic coming up</p><p class="cm-none-p">Every fortnight we set a topic, share our view and talk it through with you. The next one is on its way.</p></div>`);
+      box.innerHTML = `<div class="cm-fortnight">${parts.join("")}</div>`;
     }
 
     // ── Loading ─────────────────────────────────────────────────────────────
     // `viewpoint` arrives with supabase/community_fortnight.sql; until that has
     // run the page asks without it rather than failing.
-    let COLS = "id, kind, title, body, viewpoint, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
+    let COLS = "id, kind, title, body, viewpoint, publish_at, category, status, starts_on, ends_on, author_id, is_staff, hidden, pinned, need_count, reply_count, last_activity_at, created_at";
     async function loadAll() {
       if (!S.colsChecked) {
         S.colsChecked = true;
-        const probe = await supabase.from("community_posts").select("viewpoint").limit(1);
-        if (probe.error && (probe.error.code === "42703" || /viewpoint/.test(probe.error.message || ""))) COLS = COLS.replace(" viewpoint,", "");
+        for (const col of ["viewpoint", "publish_at"]) {
+          const probe = await supabase.from("community_posts").select(col).limit(1);
+          if (probe.error && (probe.error.code === "42703" || new RegExp(col).test(probe.error.message || ""))) COLS = COLS.replace(` ${col},`, "");
+        }
       }
       const [tp, tk, rq, nd] = await Promise.all([
-        supabase.from("community_posts").select(COLS).eq("kind", "topic").order("pinned", { ascending: false }).order("starts_on", { ascending: false, nullsFirst: false }).limit(12),
+        supabase.from("community_posts").select(COLS).eq("kind", "topic").order("pinned", { ascending: false }).order("starts_on", { ascending: false, nullsFirst: false }).limit(40),
         supabase.from("community_posts").select(COLS).eq("kind", "discussion").order("pinned", { ascending: false }).order("last_activity_at", { ascending: false }).limit(300),
         supabase.from("community_posts").select(COLS).eq("kind", "request").order("need_count", { ascending: false }).limit(500),
         supabase.from("community_needs").select("post_id").eq("user_id", S.me.id).limit(1000),
@@ -559,12 +680,10 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       S.topics = tp.data || []; S.talk = tk.data || []; S.reqs = rq.data || [];
       S.needs = new Set((nd.data || []).map((r) => r.post_id));
       const t = currentTopic();
-      S.topicReplies = [];
-      if (t) {
-        const { data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").eq("post_id", t.id).order("created_at", { ascending: true }).limit(1000);
-        S.topicReplies = data || [];
-      }
-      await loadNames([...S.topics, ...S.talk, ...S.reqs, ...S.topicReplies].map((p) => p.author_id));
+      const shown = [introTopic(), currentTopic()].filter(Boolean).map((p) => p.id);
+      await loadReplies(shown);
+      await loadReactions([...S.topics, ...S.talk, ...S.reqs].map((p) => p.id));
+      await loadNames([...S.topics, ...S.talk, ...S.reqs].map((p) => p.author_id));
     }
     function paintAll() { paintMe(); paintTopic(); paintTalk(); paintReqs(); }
 
@@ -600,10 +719,13 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       S.inModal = true; S.openId = id;
       const kindLabel = p.kind === "topic" ? "This fortnight's topic" : p.kind === "request" ? "Request" : "Conversation";
       openModal(`<p class="cm-m-eyebrow">${kindLabel}</p><h2 class="cm-m-h" id="cm-modal-h">${esc(p.title)}</h2><div data-thread><p class="cm-m-sub">&nbsp;</p></div>`);
-      const { data: reps } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").eq("post_id", id).order("created_at", { ascending: true }).limit(1000);
-      const replies = reps || [];
-      await loadNames(replies.map((r) => r.author_id));
+      await Promise.all([loadReplies([id]), loadReactions([id])]);
       if (S.openId !== id) return;
+      S.openPost = p;
+      renderThread(p);
+    }
+    function renderThread(p) {
+      const replies = S.replies.get(p.id) || [];
       const mine = p.author_id === S.me.id;
       const when = p.kind === "topic" && p.starts_on && p.ends_on ? `${dayFmt(p.starts_on)} – ${dayFmt(p.ends_on)}` : ago(p.created_at);
       $("[data-thread]", mBody).innerHTML = `
@@ -611,17 +733,14 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         ${p.body ? `<p class="cm-m-body">${esc(p.body)}</p>` : ""}
         ${p.viewpoint ? `<div class="cm-view" style="margin-top:16px"><span class="cm-meta"><span class="cm-badge">TMKE</span><span>Our view</span></span><p class="cm-view-p">${esc(p.viewpoint)}</p></div>` : ""}
         <div class="cm-m-bar">
+          ${rxBar(p.id, "post")}
           ${p.kind === "request" ? `${needBtn(p)}<span class="cm-count"><b>${p.need_count}</b> ${p.need_count === 1 ? "member needs this" : "members need this"}</span>` : ""}
           <span class="cm-tools">${mine ? `<button type="button" class="cm-link" data-del-post="${p.id}">Delete</button>` : `<button type="button" class="cm-link" data-report-post="${p.id}">Report</button>`}</span>
         </div>
         <div data-report-slot></div>
-        <p class="cm-m-sec">${replies.length ? plural(replies.length, "reply", "replies") : (p.kind === "discussion" ? "Replies" : "Comments")}</p>
-        ${replies.length ? `<div class="cm-replies">${replies.map((r) => replyHtml(r, true)).join("")}</div>` : `<p class="cm-m-sub">Nothing yet${p.kind === "request" ? " &mdash; add how you'd use it" : ""}.</p>`}
-        ${p.hidden ? "" : `<form class="cm-say" data-say="${p.id}" style="margin-top:16px">
-          <textarea name="body" maxlength="5000" placeholder="${p.kind === "request" ? "How would you use it?" : "Add your reply"}" aria-label="Your reply" required></textarea>
-          <div class="cm-say-row"><span class="cm-as">Posting as ${esc(S.profile.display_name)}</span><button type="submit" class="ws-btn ws-btn--primary">Post</button></div>
-          <p class="cm-err" data-err hidden></p>
-        </form>`}`;
+        <p class="cm-m-sec">${replies.length ? plural(replies.length, "comment") : (p.kind === "discussion" ? "Replies" : "Comments")}</p>
+        ${replies.length ? `<div class="cm-replies">${commentsHtml(p.id)}</div>` : `<p class="cm-m-sub">Nothing yet${p.kind === "request" ? " &mdash; add how you'd use it" : ""}.</p>`}
+        ${p.hidden ? "" : `<div style="margin-top:16px">${sayForm(p.id, null, p.kind === "request" ? "How would you use it?" : "Add your reply")}</div>`}`;
     }
 
     function openComposer(kind) {
@@ -702,7 +821,19 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
 
     document.addEventListener("click", async (e) => {
       const t = e.target;
-      if (t.closest("[data-cm-comments]")) { S.showComments = !S.showComments; paintTopic(); if (S.showComments) setTimeout(() => $(".cm-comments-body textarea")?.focus({ preventScroll: true }), 30); return; }
+      const cc = t.closest("[data-cm-comments]"); if (cc) {
+        const id = cc.dataset.cmComments;
+        if (S.openComments.has(id)) S.openComments.delete(id); else S.openComments.add(id);
+        paintTopic();
+        if (S.openComments.has(id)) setTimeout(() => document.querySelector(`[data-cm-comments="${id}"]`)?.closest(".cm-comments")?.querySelector(".cm-comments-body > .cm-say textarea")?.focus({ preventScroll: true }), 30);
+        return;
+      }
+      // Reactions: open the five, choose one, or tap your own to take it back.
+      const ro = t.closest("[data-rx-open]"); if (ro) { const pk = ro.parentElement.querySelector(".cm-rx-pick"); pk.hidden = !pk.hidden; ro.setAttribute("aria-expanded", String(!pk.hidden)); return; }
+      const rx = t.closest("[data-rx]"); if (rx) { react(rx.dataset.rxId, rx.dataset.rxKind, rx.dataset.rx); return; }
+      // Reply to a comment: the box opens under it.
+      const rt = t.closest("[data-reply-to]"); if (rt) { S.replyTo = rt.dataset.replyTo; repaintComments(rt); setTimeout(() => document.querySelector(`[data-parent="${S.replyTo}"] textarea`)?.focus({ preventScroll: true }), 30); return; }
+      if (t.closest("[data-reply-cancel]")) { const el = t.closest("[data-reply-cancel]"); S.replyTo = null; repaintComments(el); return; }
       const tm = t.closest("[data-team]"); if (tm) { e.preventDefault(); openPerson(tm.dataset.team); return; }
       const qq = t.closest("[data-q]"); if (qq) { const o = !qq.classList.contains("is-open"); qq.classList.toggle("is-open", o); qq.setAttribute("aria-expanded", String(o)); return; }
       const nw = t.closest("[data-cm-new]"); if (nw) { e.preventDefault(); openComposer(nw.dataset.cmNew); return; }
@@ -757,6 +888,11 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       $('[data-prev="full"]', f).textContent = `${fn} ${ln}`.trim() + (ag ? ` · ${ag}` : "");
     });
 
+    // Comments redraw where they are: in the pop-out, or on the page.
+    function repaintComments(el) {
+      if (el && el.closest(".cm-modal-card") && S.openPost) renderThread(S.openPost); else paintTopic();
+    }
+
     document.addEventListener("submit", async (e) => {
       const f = e.target;
       if (f.matches("[data-say]")) {
@@ -764,10 +900,14 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         const body = f.body.value.trim();
         if (!body) return;
         const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
-        const { error } = await supabase.from("community_replies").insert({ post_id: f.dataset.say, body });
+        const row = { post_id: f.dataset.say, body };
+        if (f.dataset.parent) row.parent_id = f.dataset.parent;
+        const { error } = await supabase.from("community_replies").insert(row);
         btn.disabled = false;
         if (error) { showErr(f, "That didn't post. Try again in a moment."); return; }
         f.body.value = "";
+        S.replyTo = null;
+        S.openComments.add(f.dataset.say);
         await refresh();
         if (S.openId === f.dataset.say) openThread(f.dataset.say);
         return;

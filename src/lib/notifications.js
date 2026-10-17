@@ -73,18 +73,26 @@ export async function initNotifications() {
         title: titleFor(m), body: m.body, icon: ["confirmation", "reschedule", "cancellation"].includes(m.kind) ? ICON_BOOKING : ICON_MESSAGE, tone: "booking",
         href: `/account/bookings?open=${encodeURIComponent(m.booking_source + ":" + m.booking_id)}`,
       })),
-    ...direct.map((n) => ({
-      id: n.id, at: n.created_at, unread: !n.read_at,
-      title: n.title, body: n.body, icon: /report/.test(n.kind || "") ? ICON_REPORT : /pack/.test(n.kind || "") ? ICON_PACK : ICON_MESSAGE, tone: "order",
-      href: n.href || "/account",
-    })),
+    ...direct.map((n) => {
+      // The Community's notices (a new discussion, a reply to your comment)
+      // read as messages, and a new discussion says where it leads.
+      const community = /^\/account\/community/.test(n.href || "");
+      return {
+        id: n.id, at: n.created_at, unread: !n.read_at,
+        title: n.title, body: n.body,
+        icon: community ? ICON_MESSAGE : /report/.test(n.kind || "") ? ICON_REPORT : /pack/.test(n.kind || "") ? ICON_PACK : ICON_MESSAGE, tone: "order",
+        href: n.href || "/account",
+        cta: community && /^Spill the tea/.test(n.title || "") ? "See what we're saying →" : "",
+        long: community,
+      };
+    }),
   ].sort((a, b) => new Date(b.at) - new Date(a.at)).slice(0, 10);
 
   const unread = items.filter((i) => i.unread).length;
   const html = items.length
     ? items.map((i) => `<a class="ws-notif-item${i.unread ? " is-unread" : ""}" role="menuitem" href="${esc(i.href)}"${isExternal(i.href) ? ' target="_blank" rel="noopener"' : ""} data-notif-item${i.id ? ` data-notif-id="${esc(i.id)}"` : ""}>
           <span class="ws-notif-ic ws-notif-ic--${i.tone}"><svg viewBox="0 0 24 24" aria-hidden="true">${i.icon}</svg></span>
-          <span class="ws-notif-txt"><b>${esc(i.title)}</b><i>${esc((i.body || "").slice(0, 90))}</i></span>
+          <span class="ws-notif-txt"><b>${esc(i.title)}</b><i>${esc((i.body || "").slice(0, i.long ? 160 : 90))}</i>${i.cta ? `<em class="ws-notif-cta">${esc(i.cta)}</em>` : ""}</span>
           <span class="ws-notif-time">${timeAgo(i.at)}</span>
         </a>`).join("")
     : `<div class="ws-notif-empty">You're all caught up.</div>`;

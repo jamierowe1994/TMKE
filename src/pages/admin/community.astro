@@ -48,8 +48,12 @@ import "../../styles/admin.css";
             <div class="card-title" id="cm-topic-form-title">Set the next topic</div>
           </div>
           <div class="cm-field">
-            <label for="cm-t-title">Title</label>
-            <input id="cm-t-title" name="title" maxlength="140" required placeholder="What members will talk about" />
+            <label for="cm-t-cat">Topic</label>
+            <input id="cm-t-cat" name="category" maxlength="40" placeholder="e.g. Halloween special" />
+          </div>
+          <div class="cm-field">
+            <label for="cm-t-title">The question</label>
+            <input id="cm-t-title" name="title" maxlength="140" required placeholder="e.g. What's the biggest marketing horror you've witnessed?" />
           </div>
           <div class="cm-field">
             <label for="cm-t-body">Intro</label>
@@ -428,6 +432,7 @@ import "../../styles/admin.css";
         <div class="cm-row${t.hidden ? " is-hidden-row" : ""}" data-open="${esc(t.id)}">
           <div class="cm-when">${t.starts_on ? `${esc(fmtDayShort(t.starts_on))} – ${esc(fmtDay(t.ends_on))}` : "—"}</div>
           <div>
+            ${t.category ? `<div class="cm-snippet" style="text-transform:uppercase;letter-spacing:.1em;font-size:10.5px;font-weight:700">${esc(t.category)}</div>` : ""}
             <div class="cm-title">${esc(t.title)}</div>
             ${t.body ? `<div class="cm-snippet">${esc(snippet(t.body))}</div>` : ""}
           </div>
@@ -643,12 +648,11 @@ import "../../styles/admin.css";
       return next < today() ? today() : next;    // never default a new topic into the past
     }
     // By id, not form.title: a form's own title attribute shadows an input named "title".
-    const topicFields = () => ({ title: $("cm-t-title"), body: $("cm-t-body"), viewpoint: $("cm-t-view"), pin: $("cm-t-pin"), starts_on: $("cm-t-start"), ends_on: $("cm-t-end") });
+    const topicFields = () => ({ category: $("cm-t-cat"), title: $("cm-t-title"), body: $("cm-t-body"), viewpoint: $("cm-t-view"), pin: $("cm-t-pin"), starts_on: $("cm-t-start"), ends_on: $("cm-t-end") });
     // The pinned intro has no dates and no view of its own.
     function syncPin() {
       const on = $("cm-t-pin").checked;
       document.querySelector("[data-date-fields]").hidden = on;
-      document.querySelector("[data-view-field]").hidden = on;
       $("cm-t-start").required = !on; $("cm-t-end").required = !on;
     }
     $("cm-t-pin").addEventListener("change", syncPin);
@@ -656,6 +660,7 @@ import "../../styles/admin.css";
       editingTopic = null;
       endsTouched = false;
       const f = topicFields();
+      f.category.value = "";
       f.title.value = "";
       f.body.value = "";
       f.viewpoint.value = "";
@@ -673,6 +678,7 @@ import "../../styles/admin.css";
       editingTopic = id;
       endsTouched = true;
       const f = topicFields();
+      f.category.value = t.category || "";
       f.title.value = t.title || "";
       f.body.value = t.body || "";
       f.viewpoint.value = t.viewpoint || "";
@@ -708,14 +714,15 @@ import "../../styles/admin.css";
       const starts_on = f.starts_on.value;
       const ends_on = f.ends_on.value;
       const pinned = f.pin.checked;
-      const viewpoint = pinned ? "" : f.viewpoint.value.trim();
+      const viewpoint = f.viewpoint.value.trim();
       if (title.length < 3) return setMsg("cm-topic-msg", "The title needs at least 3 characters.", true);
       if (!pinned && (!starts_on || !ends_on)) return setMsg("cm-topic-msg", "Both dates are needed.", true);
       if (!pinned && ends_on < starts_on) return setMsg("cm-topic-msg", "It can't end before it starts.", true);
       const save = $("cm-topic-save");
       save.disabled = true;
       setMsg("cm-topic-msg", "Saving…");
-      const row = pinned ? { title, body, viewpoint: "", pinned: true, starts_on: null, ends_on: null } : { title, body, viewpoint, pinned: false, starts_on, ends_on };
+      const category = f.category.value.trim() || null;
+      const row = pinned ? { category, title, body, viewpoint, pinned: true, starts_on: null, ends_on: null } : { category, title, body, viewpoint, pinned: false, starts_on, ends_on };
       const { error } = editingTopic
         ? await supabase.from("community_posts").update(row).eq("id", editingTopic)
         : await supabase.from("community_posts").insert({ kind: "topic", ...row });
