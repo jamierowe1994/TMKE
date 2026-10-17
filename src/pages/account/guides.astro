@@ -6,6 +6,9 @@ import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
 import HubFootBar from "../../components/account/HubFootBar.astro";
 import { GUIDE_TOPICS } from "../../data/guide-topics.js";
 import StudioInspo from "../../components/account/StudioInspo.astro";
+import { WHATS_NEW } from "../../data/whats-new.js";
+// The first of the Latest, always: What's New in the hub (Dani, 17 Oct).
+const HUB_NEWS_ART = (WHATS_NEW[0] && WHATS_NEW[0].media) || "";
 import { TRENDING_SAMPLE, monthLabel } from "../../data/trending-sample.js";
 
 /* A cover of its own for "This Month". It used to borrow the first topic's
@@ -119,7 +122,7 @@ import "../../styles/reel.css";
           </div>
           <div>
             <p class="lrn-wn-label">Latest</p>
-            <div class="lrn-cards lrn-cards--3" id="lrn-latest" aria-busy="true"></div>
+            <div class="lrn-cards lrn-cards--3" id="lrn-latest" aria-busy="true" data-news-art={HUB_NEWS_ART}></div>
           </div>
         </div>
         <!-- New Here (Dani, 17 Oct): four cards straight under Explore and
@@ -547,8 +550,14 @@ import "../../styles/reel.css";
       const inSeries = (g) => TRAINING_GUIDES.some((t) => t.slug === g.slug && t.topic === 'getting-started');
       const list = ALL.filter((g) => !inSeries(g))
         .map((g, i) => ({ g, t: Date.parse(g.created_at || '') || 0, i }))
-        .sort((a, b) => (b.t - a.t) || (a.i - b.i)).slice(0, 3).map((x) => x.g);
-      host.innerHTML = list.map((g) => {
+        .sort((a, b) => (b.t - a.t) || (a.i - b.i)).slice(0, 2).map((x) => x.g);
+      // Pinned first: What's New in the hub, opening its pop-out.
+      const newsArt = host.getAttribute('data-news-art') || '';
+      const pinned = `<a class="lrn-card" href="#" data-inspo="news">
+          <span class="lrn-card-art"${newsArt ? ` style="background-image:url('${esc(newsArt)}')"` : ''}></span>
+          <span class="lrn-card-tx"><span class="lrn-card-flag">Just landed</span><strong class="lrn-card-h">What\u2019s New in Your Member Hub</strong><span class="lrn-card-sum">The latest changes to your hub, in one place.</span><span class="lrn-card-meta">Hub update</span></span>
+        </a>`;
+      host.innerHTML = pinned + list.map((g) => {
         const topic = GUIDE_TOPIC_MAP[g.topic];
         const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url || (STATIC_BY_SLUG[g.slug] || {}).art || twinArt(g.slug) || '';
         const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
