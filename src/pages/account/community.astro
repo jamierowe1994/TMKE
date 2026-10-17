@@ -95,9 +95,9 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
           <div class="ws-wn-col ws-wn-col--keys">
             <p class="ws-wn-label">Explore</p>
             <nav class="ws-wn-pills" aria-label="TMKE elsewhere">
-              {socials.map((s) => <a class="ws-wn-pill" href={s.href} target="_blank" rel="noopener">{s.label}</a>)}
-              <a class="ws-wn-pill" href="/about" target="_blank" rel="noopener">About TMKE</a>
-              <a class="ws-wn-pill" href="/account/contact">Talk to us</a>
+              <!-- Our socials on one line, About and Talk to us on the next (Dani, 17 Oct). -->
+              {socials.length > 0 && <span class="ws-wn-row">{socials.map((s) => <a class="ws-wn-pill" href={s.href} target="_blank" rel="noopener">{s.label}</a>)}</span>}
+              <span class="ws-wn-row"><a class="ws-wn-pill" href="/about" target="_blank" rel="noopener">About TMKE</a><a class="ws-wn-pill" href="/account/contact">Talk to us</a></span>
             </nav>
           </div>
           <div class="ws-wn-col">
@@ -172,6 +172,10 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     .cm-brief-btn { all: unset; cursor: pointer; display: flex; align-items: center; gap: 11px; }
     .cm-brief li:has(.cm-brief-btn:hover) { border-color: rgba(28,29,34,0.3); }
     .cm-back { color: inherit; text-decoration: none; }
+    /* Chapter to chapter, 40% less than the hub's gap, as on Bookings: the
+       cards here are short rows of words, so the full gap read as empty
+       (Dani, 17 Oct). The header keeps the full gap. */
+    .ws-left > .ws-block:has(+ .ws-block) { margin-bottom: calc(var(--ws-chapter-gap, 60px) * -0.4); }
     @media (max-width: 900px) {
       .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
       .cm-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
