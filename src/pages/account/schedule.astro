@@ -510,7 +510,13 @@ import "../../styles/account-sections.css";
     /* Days you cannot act on recede by weight, not by fill. */
     .cal-day.is-other-month { border-color: rgba(28,29,34,0.07); color: rgba(28,29,34,0.35); }
     .cal-day.is-other-month .cal-day-num { color: rgba(28,29,34,0.32); }
-    .cal-day.is-past { border-color: rgba(28,29,34,0.08); }
+    /* A day that's gone (Dani, 17 Oct): greyed out in the hover's colour,
+       nothing to plan on it; one with something on it still opens to see. */
+    .cal-day.is-past { border-color: rgba(28,29,34,0.08); background: rgba(var(--violet-rgb), 0.03); cursor: default; }
+    .cal-day.is-past:hover { border-color: rgba(28,29,34,0.08); background: rgba(var(--violet-rgb), 0.03); }
+    .cal-day.is-past:not(.is-empty) { cursor: pointer; }
+    .cal-day.is-past:not(.is-empty):hover { border-color: rgba(28,29,34,0.2); }
+    .cal-day.is-past .cal-chip { opacity: 0.55; }
     .cal-day.is-past .cal-day-num { color: rgba(28,29,34,0.4); }
 
     /* Today is the one square that gets the wine, and it gets it outright. */
@@ -897,6 +903,7 @@ import "../../styles/account-sections.css";
       line-height: 1.55;
     }
 
+    .day-foot[hidden] { display: none; }
     .day-foot {
       padding: 18px 28px 24px;
       border-top: 1px solid rgba(28,29,34,0.08);
@@ -1540,6 +1547,9 @@ import "../../styles/account-sections.css";
     let dayCloseTimer = null;
     function openDay(dateStr) {
       openDayDate = dateStr;
+      // A day that's gone shows what was on it, with no way to add to it.
+      { const t = new Date(); const todayKey = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+        const foot = document.querySelector('.day-foot'); if (foot) foot.hidden = dateStr < todayKey; }
       const d = new Date(dateStr + 'T00:00:00');
       const allDayItems = items.filter((i) => occursOn(i, dateStr));
       const dayItems = allDayItems.filter(inView)
@@ -3132,6 +3142,8 @@ import "../../styles/account-sections.css";
     $grid?.addEventListener('click', (e) => {
       const cell = e.target.closest('.cal-day');
       if (!cell) return;
+      // Nothing to plan on a day that's gone; an empty one does nothing.
+      if (cell.classList.contains('is-past') && cell.classList.contains('is-empty')) return;
       openDay(cell.getAttribute('data-date'));
     });
     $dayClose?.addEventListener('click', closeDay);
