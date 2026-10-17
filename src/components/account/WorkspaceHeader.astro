@@ -90,18 +90,9 @@ const HUB_NEWS_IMG = MENU_CARDS.news || HUB_NEWS.media;
       <a href="/account/profile" class={is("brand")}>Brand Kit</a>
       <a href="/account/schedule" class={is("planner")}>Planner</a>
       <a href="/edit" class={is("library")}>Shop</a>
-      <!-- The newest pack on sale they don't have (lib/drawer-extras.js). -->
-      <a class="ws-drawer-card" data-drawer-pack href="/edit" hidden>
-        <span class="ws-drawer-card-pic"></span>
-        <span class="ws-drawer-card-tx"><em>New in The Edit</em><strong></strong></span>
-      </a>
       <span class="ws-drawer-label">Learn</span>
       <a href="/account/guides" class={is("guides")} aria-current={cur("guides")}>Training Studio</a>
       <a href="/account/blog" class={is("blog")}>Blog</a>
-      <a class="ws-drawer-card" href="/account?inspo=news">
-        <span class="ws-drawer-card-pic" style={`background-image:url('${HUB_NEWS_IMG}')`}></span>
-        <span class="ws-drawer-card-tx"><em>What&rsquo;s new to the Hub</em><strong>{HUB_NEWS.title}</strong></span>
-      </a>
       <span class="ws-drawer-label">Community</span>
       <a href="/account/community" class={is("community")} aria-current={cur("community")}>Community</a>
       <a href="/account/community?new=discussion">Start a conversation</a>
@@ -114,6 +105,8 @@ const HUB_NEWS_IMG = MENU_CARDS.news || HUB_NEWS.media;
       <span class="ws-drawer-label">Help</span>
       <a href="/account/contact" class={is("contact")} aria-current={cur("contact")}>Contact</a>
       <a href="/account/help" class={is("help")} aria-current={cur("help")}>Help Centre</a>
+      <!-- Highlights, turning on their own (lib/drawer-extras.js): the newest pack, What's New, the latest blog post, and a print or demo pack. -->
+      <div data-drawer-carousel data-news-img={HUB_NEWS_IMG} hidden></div>
     </nav>
     <a class="ws-drawer-out" href="/login" data-logout>Sign out</a>
   </aside>
@@ -291,9 +284,9 @@ const HUB_NEWS_IMG = MENU_CARDS.news || HUB_NEWS.media;
   import { supabase, signOutEverywhere} from "../../lib/supabase.js";
   import { initNotifications } from "../../lib/notifications.js";
   // The menu's bell and its new-pack card (lib/drawer-extras.js).
-  import { wireDrawerBell, fillDrawerPack } from "../../lib/drawer-extras.js";
+  import { wireDrawerBell, fillDrawerCarousel } from "../../lib/drawer-extras.js";
   wireDrawerBell();
-  fillDrawerPack(supabase);
+  fillDrawerCarousel(supabase);
   import { wireInstallButton } from "../../lib/pwa-install.js";
   import { initTour } from "../../lib/tour.js";
   import { gateWait, gateReady } from "../../lib/ready-gate.js";
