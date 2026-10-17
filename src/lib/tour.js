@@ -388,7 +388,16 @@ function frameGateLifted(ms = 15000) {
    window.scrollTo straight back where it was: the planner's steps changed
    their words and the page never moved. Dani, 17 Oct. */
 function scrollWin(w, y) {
-  try { if (w.__lenis && w.__lenis.scrollTo) { w.__lenis.scrollTo(y, { immediate: true, force: true }); return; } } catch (_) {}
+  try {
+    if (w.__lenis && w.__lenis.scrollTo) {
+      /* Lenis measures the page once, and the Planner's measured it before its
+         calendar was in: a limit of 0, so every scroll was clamped to the top.
+         Measure again first. */
+      if (w.__lenis.resize) w.__lenis.resize();
+      w.__lenis.scrollTo(y, { immediate: true, force: true });
+      if (Math.abs((w.scrollY || 0) - y) <= 2) return;
+    }
+  } catch (_) {}
   w.scrollTo(0, y);
 }
 
