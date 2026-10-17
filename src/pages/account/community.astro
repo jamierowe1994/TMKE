@@ -175,7 +175,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     /* Chapter to chapter, 40% less than the hub's gap, as on Bookings: the
        cards here are short rows of words, so the full gap read as empty
        (Dani, 17 Oct). The header keeps the full gap. */
-    .ws-left > .ws-block:has(+ .ws-block) { margin-bottom: calc(var(--ws-chapter-gap, 60px) * -0.4); }
+
     @media (max-width: 900px) {
       .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
       .cm-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -443,6 +443,12 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
 
   <script>
     import { supabase } from "../../lib/supabase.js";
+    import { isTrainingDemo } from "../../lib/demo.js";
+    import { account, TRAINING_SIGN_IN } from "../../lib/design-store.js";
+    // Who the page reads the Community as. A member: their own login. The
+    // training account (Dani, 17 Oct, for screenshots): Dani's admin login,
+    // the way its designs and planner already are (src/lib/design-store.js).
+    let db = supabase;
     import { gateReady, gateFailed } from "../../lib/ready-gate.js";
 
     const CATS = JSON.parse(document.getElementById("cm-cats").textContent || "[]");
@@ -471,7 +477,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     async function loadNames(ids) {
       const want = [...new Set(ids)].filter((id) => id && !S.names.has(id));
       if (!want.length) return;
-      const { data } = await supabase.from("community_names").select("user_id, display_name").in("user_id", want);
+      const { data } = await db.from("community_names").select("user_id, display_name").in("user_id", want);
       (data || []).forEach((r) => S.names.set(r.user_id, r.display_name || "Member"));
     }
 
@@ -479,7 +485,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     // First visit: a row from their own account (the brand kit's name, else
     // the sign-up's; the kit's company as the agency), shown as "Sarah H."
     async function ensureProfile(user) {
-      const { data, error } = await supabase.from("community_members").select("*").eq("user_id", user.id).maybeSingle();
+      const { data, error } = await db.from("community_members").select("*").eq("user_id", user.id).maybeSingle();
       if (error) throw error;
       if (data) return data;
       let kit = null;
@@ -489,7 +495,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       const parts = full.split(/\s+/).filter(Boolean);
       const first = parts.shift() || String(user.email || "").split("@")[0].replace(/[._-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()).split(" ")[0] || "Member";
       const row = { user_id: user.id, first_name: first.slice(0, 60), last_name: parts.join(" ").slice(0, 60), agency: String((kit && kit.company) || md.company || "").slice(0, 80) };
-      const ins = await supabase.from("community_members").insert(row).select("*").single();
+      const ins = await db.from("community_members").insert(row).select("*").single();
       if (ins.error) throw ins.error;
       return ins.data;
     }
@@ -572,8 +578,8 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       for (let i = 0; i < want.length; i += 100) {
         const chunk = want.slice(i, i + 100);
         const [c, m] = await Promise.all([
-          supabase.from("community_reaction_counts").select("target_id, emoji, n").in("target_id", chunk),
-          supabase.from("community_reactions").select("target_id, emoji").eq("user_id", S.me.id).in("target_id", chunk),
+          db.from("community_reaction_counts").select("target_id, emoji, n").in("target_id", chunk),
+          db.from("community_reactions").select("target_id, emoji").eq("user_id", S.me.id).in("target_id", chunk),
         ]);
         // Not set up yet (community_forum.sql): no reactions, nothing broken.
         if (c.error || m.error) { S.rxOn = false; return; }
@@ -599,8 +605,8 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       if (before === emoji) S.myRx.delete(id); else S.myRx.set(id, emoji);
       redraw();
       const res = before === emoji
-        ? await supabase.from("community_reactions").delete().eq("target_id", id).eq("user_id", S.me.id)
-        : await supabase.from("community_reactions").upsert({ target_id: id, target_kind: kind, user_id: S.me.id, emoji }, { onConflict: "target_id,user_id" });
+        ? await db.from("community_reactions").delete().eq("target_id", id).eq("user_id", S.me.id)
+        : await db.from("community_reactions").upsert({ target_id: id, target_kind: kind, user_id: S.me.id, emoji }, { onConflict: "target_id,user_id" });
       if (res.error) { await loadReactions([id]); redraw(); }
     }
 
@@ -637,9 +643,9 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     async function loadReplies(postIds) {
       const want = [...new Set(postIds)].filter(Boolean);
       if (!want.length) return;
-      let { data, error } = await supabase.from("community_replies").select("*").in("post_id", want).order("created_at", { ascending: true }).limit(1000);
+      let { data, error } = await db.from("community_replies").select("*").in("post_id", want).order("created_at", { ascending: true }).limit(1000);
       // Before community_forum.sql there are no replies-to-comments yet.
-      if (error && /parent_id/.test(error.message || "")) ({ data } = await supabase.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").in("post_id", want).order("created_at", { ascending: true }).limit(1000));
+      if (error && /parent_id/.test(error.message || "")) ({ data } = await db.from("community_replies").select("id, post_id, body, author_id, is_staff, hidden, created_at").in("post_id", want).order("created_at", { ascending: true }).limit(1000));
       want.forEach((id) => S.replies.set(id, []));
       (data || []).forEach((r) => S.replies.get(r.post_id).push(r));
       await Promise.all([loadNames((data || []).map((r) => r.author_id)), loadReactions((data || []).map((r) => r.id))]);
@@ -732,15 +738,15 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       if (!S.colsChecked) {
         S.colsChecked = true;
         for (const col of ["viewpoint", "publish_at"]) {
-          const probe = await supabase.from("community_posts").select(col).limit(1);
+          const probe = await db.from("community_posts").select(col).limit(1);
           if (probe.error && (probe.error.code === "42703" || new RegExp(col).test(probe.error.message || ""))) COLS = COLS.replace(` ${col},`, "");
         }
       }
       const [tp, tk, rq, nd] = await Promise.all([
-        supabase.from("community_posts").select(COLS).eq("kind", "topic").order("pinned", { ascending: false }).order("starts_on", { ascending: false, nullsFirst: false }).limit(40),
-        supabase.from("community_posts").select(COLS).eq("kind", "discussion").order("pinned", { ascending: false }).order("last_activity_at", { ascending: false }).limit(300),
-        supabase.from("community_posts").select(COLS).eq("kind", "request").order("need_count", { ascending: false }).limit(500),
-        supabase.from("community_needs").select("post_id").eq("user_id", S.me.id).limit(1000),
+        db.from("community_posts").select(COLS).eq("kind", "topic").order("pinned", { ascending: false }).order("starts_on", { ascending: false, nullsFirst: false }).limit(40),
+        db.from("community_posts").select(COLS).eq("kind", "discussion").order("pinned", { ascending: false }).order("last_activity_at", { ascending: false }).limit(300),
+        db.from("community_posts").select(COLS).eq("kind", "request").order("need_count", { ascending: false }).limit(500),
+        db.from("community_needs").select("post_id").eq("user_id", S.me.id).limit(1000),
       ]);
       const err = tp.error || tk.error || rq.error || nd.error;
       if (err) throw err;
@@ -780,7 +786,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
     async function openThread(id) {
       let p = allPosts().find((x) => x.id === id);
       if (!p) {
-        const { data } = await supabase.from("community_posts").select(COLS).eq("id", id).maybeSingle();
+        const { data } = await db.from("community_posts").select(COLS).eq("id", id).maybeSingle();
         if (!data) return;
         p = data; await loadNames([p.author_id]);
       }
@@ -883,12 +889,12 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       const on = S.needs.has(id);
       btn.disabled = true;
       const res = on
-        ? await supabase.from("community_needs").delete().eq("post_id", id).eq("user_id", S.me.id)
-        : await supabase.from("community_needs").insert({ post_id: id, user_id: S.me.id });
+        ? await db.from("community_needs").delete().eq("post_id", id).eq("user_id", S.me.id)
+        : await db.from("community_needs").insert({ post_id: id, user_id: S.me.id });
       btn.disabled = false;
       if (res.error && !/duplicate/i.test(res.error.message || "")) return;
       if (on) S.needs.delete(id); else S.needs.add(id);
-      const { data } = await supabase.from("community_posts").select("need_count").eq("id", id).maybeSingle();
+      const { data } = await db.from("community_posts").select("need_count").eq("id", id).maybeSingle();
       const p = S.reqs.find((x) => x.id === id);
       if (p && data) p.need_count = data.need_count;
       paintReqs();
@@ -944,7 +950,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       const dp = t.closest("[data-del-post], [data-del-reply]"); if (dp) {
         if (dp.dataset.sure !== "1") { dp.dataset.sure = "1"; dp.textContent = "Sure? Delete"; return; }
         const isPost = !!dp.dataset.delPost;
-        const { error } = await supabase.from(isPost ? "community_posts" : "community_replies").delete().eq("id", isPost ? dp.dataset.delPost : dp.dataset.delReply);
+        const { error } = await db.from(isPost ? "community_posts" : "community_replies").delete().eq("id", isPost ? dp.dataset.delPost : dp.dataset.delReply);
         if (error) { dp.textContent = "Couldn't delete"; return; }
         if (isPost) { closeModal(); } else if (S.openId) { await openThread(S.openId); }
         refresh();
@@ -984,7 +990,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
         const row = { post_id: f.dataset.say, body };
         if (f.dataset.parent) row.parent_id = f.dataset.parent;
-        const { error } = await supabase.from("community_replies").insert(row);
+        const { error } = await db.from("community_replies").insert(row);
         btn.disabled = false;
         if (error) { showErr(f, "That didn't post. Try again in a moment."); return; }
         f.body.value = "";
@@ -1000,10 +1006,10 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         const row = { kind, title: f.title.value.trim(), body: f.body.value.trim(), category: kind === "request" ? f.category.value : null };
         if (row.title.length < 3) { showErr(f, "Give it a title of a few words."); return; }
         const btn = f.querySelector('[type="submit"]'); btn.disabled = true;
-        const { data, error } = await supabase.from("community_posts").insert(row).select("id").single();
+        const { data, error } = await db.from("community_posts").insert(row).select("id").single();
         if (error) { btn.disabled = false; showErr(f, "That didn't post. Try again in a moment."); return; }
         // Asking for it counts as needing it.
-        if (kind === "request") await supabase.from("community_needs").insert({ post_id: data.id, user_id: S.me.id });
+        if (kind === "request") await db.from("community_needs").insert({ post_id: data.id, user_id: S.me.id });
         await refresh();
         openThread(data.id);
         return;
@@ -1013,7 +1019,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
         const showFull = $(".cm-pick .is-on", f)?.dataset.full === "1";
         const row = { first_name: f.first_name.value.trim(), last_name: f.last_name.value.trim(), agency: f.agency.value.trim(), show_full: showFull, updated_at: new Date().toISOString() };
         if (!row.first_name) { showErr(f, "Your first name, at least."); return; }
-        const { data, error } = await supabase.from("community_members").update(row).eq("user_id", S.me.id).select("*").single();
+        const { data, error } = await db.from("community_members").update(row).eq("user_id", S.me.id).select("*").single();
         if (error) { showErr(f, "That didn't save. Try again in a moment."); return; }
         S.profile = data; S.names.set(S.me.id, data.display_name);
         paintAll(); closeModal();
@@ -1022,7 +1028,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
       if (f.matches("[data-report]")) {
         e.preventDefault();
         const [what, id] = f.dataset.report.split(":");
-        const { error } = await supabase.from("community_reports").insert(what === "post" ? { post_id: id, reason: f.reason.value.trim() } : { reply_id: id, reason: f.reason.value.trim() });
+        const { error } = await db.from("community_reports").insert(what === "post" ? { post_id: id, reason: f.reason.value.trim() } : { reply_id: id, reason: f.reason.value.trim() });
         f.innerHTML = `<p class="cm-as">${error ? "That didn't send. Try again in a moment." : "Thanks. It's hidden while we take a look."}</p>`;
         // Reported things come down straight away (community_reports_hide.sql).
         if (!error) setTimeout(async () => {
@@ -1034,12 +1040,23 @@ const CATEGORIES = ["Studio", "Packs & templates", "Planner", "Training", "Shoot
 
     // ── In ──────────────────────────────────────────────────────────────────
     (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      let { data: { session } } = await supabase.auth.getSession();
+      let training = false;
+      if (!session && isTrainingDemo()) {
+        const a = await account();
+        const s2 = a && !a.blocked && a.db ? (await a.db.auth.getSession()).data.session : null;
+        if (s2) { db = a.db; session = s2; training = true; }
+        else {
+          document.querySelectorAll("[data-cm-topic], [data-cm-talk], [data-cm-reqs]").forEach((el) => { el.innerHTML = `<div class="cm-none"><p class="cm-none-h">Training account</p><p class="cm-none-p">${(a && a.reason) || TRAINING_SIGN_IN}</p></div>`; });
+          ["hero", "topic", "talk", "requests"].forEach((n) => gateReady(n, document.querySelector(`[data-gate="${n}"]`)));
+          return;
+        }
+      }
       if (!session) {
         if (!import.meta.env.DEV) location.replace("/login?next=" + encodeURIComponent("/account/community"));
         return;
       }
-      if (!import.meta.env.DEV) {
+      if (!import.meta.env.DEV && !training) {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (!user || error) { location.replace("/login?next=" + encodeURIComponent("/account/community")); return; }
       }
