@@ -174,6 +174,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     <button type="button" class="ed-ob-act" data-act="folder" aria-label="Add to folder" title="Add to folder"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="ed-ob-act-tx">Add to folder</span></button>
     <button type="button" class="ed-ob-act" data-act="planner" id="ed-ob-act-planner" aria-label="Add to planner" title="Add to planner"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg><span class="ed-ob-act-tx">Add to planner</span></button>
     <button type="button" class="ed-ob-act ed-ob-act--bad" data-act="delete" aria-label="Delete" title="Delete"><svg class="ed-ob-act-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg><span class="ed-ob-act-tx">Delete</span></button>
+    <button type="button" class="ed-ob-act ed-ob-act--quiet" data-act="all">Select all</button>
     <button type="button" class="ed-ob-act ed-ob-act--quiet" data-act="clear">Clear</button>
   </div>
 
@@ -215,6 +216,13 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
             <header class="ws-block-head">
               <h2 class="ws-block-h"><span class="ws-block-ch">Chapter 01</span>Your designs <span class="ed-ob-count" id="ed-ob-designs-count"></span></h2>
               <div class="ed-ob-tools">
+                <!-- All, Digital or Print (Dani, 17 Oct): print is the A-sizes
+                     and business cards, everything else digital. -->
+                <div class="ed-ob-kinds" role="group" aria-label="Show">
+                  <button type="button" class="ed-ob-kind is-on" data-kind="all" aria-pressed="true">All</button>
+                  <button type="button" class="ed-ob-kind" data-kind="digital" aria-pressed="false">Digital</button>
+                  <button type="button" class="ed-ob-kind" data-kind="print" aria-pressed="false">Print</button>
+                </div>
                 <label class="ed-ob-search">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                   <input type="search" id="ed-ob-designs-q" placeholder="Search your designs…" aria-label="Search your designs" />
@@ -5430,7 +5438,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     @media (max-width: 900px) { #ed-onboard-design-grid.is-print { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 560px) { #ed-onboard-design-grid.is-print { grid-template-columns: 1fr; } }
     #ed-ob-designs-grid .ed-onboard-card, #ed-onboard-design-grid .ed-onboard-card {
-      display: flex; flex-direction: column; gap: 4px; padding: 12px;
+      /* 40% less round the picture, so it's more picture than card (Dani, 17 Oct). */
+      display: flex; flex-direction: column; gap: 4px; padding: 7px 7px 10px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
       text-decoration: none; color: var(--ws-ink);
       transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
@@ -5441,7 +5450,16 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        a card that is a different shape shows whole rather than cropped. */
     #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover { width: 100%; aspect-ratio: var(--ob-frame, 1080 / 1440); border-radius: 4px; background-size: contain; background-repeat: no-repeat; background-position: center; background-color: #e9e6e2; margin-bottom: 8px; }
     #ed-ob-designs-grid .ed-onboard-card-body, #ed-onboard-design-grid .ed-onboard-card-body { display: flex; flex-direction: column; gap: 2px; }
-    #ed-ob-designs-grid .ed-onboard-card-title, #ed-onboard-design-grid .ed-onboard-card-title { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
+    /* "+ Create a folder"'s size, not bold, and one line: a longer name ends "…". */
+    #ed-ob-designs-grid .ed-onboard-card-title, #ed-onboard-design-grid .ed-onboard-card-title { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 400; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #ed-ob-designs-grid .ed-onboard-card-cover, #ed-onboard-design-grid .ed-onboard-card-cover { margin-bottom: 4px; }
+    #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* All / Digital / Print on the wine bar. */
+    .ed-ob-kinds { display: inline-flex; gap: 4px; }
+    .ed-ob-kind { all: unset; cursor: pointer; height: 25px; padding: 0 10px; box-sizing: border-box; display: inline-flex; align-items: center; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.85); transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .ed-ob-kind:hover { border-color: #fff; color: #fff; }
+    .ed-ob-kind.is-on { background: #fff; border-color: #fff; color: var(--english-violet); }
+    .ed-ob-kind:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
     #ed-ob-designs-grid .ed-onboard-card-cat, #ed-onboard-design-grid .ed-onboard-card-cat { font-size: var(--ws-t-meta); color: var(--ws-faint); }
 
     /* Folders, sort, selection and the action bar. */
@@ -8012,6 +8030,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     import { isDemo as demoOn, lockClicks, lock } from "../../lib/demo.js";
     import { designStore } from "../../lib/design-store.js";
     import { gateWait, gateReady } from "../../lib/ready-gate.js";
+    import { STUDIO_SIZES as STUDIO_SIZES_JS } from "../../data/studio-sizes.js";
     // The demo's locks, set up here at the top of the module so they hold on
     // every route into the editor: a template, a saved design, a prompt's
     // blank canvas or the launcher. editor.js also guards the actions
@@ -8188,12 +8207,27 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     // ---- The gallery: folders, sorting, selection and the quick actions ----
     // One list of rows is held here and every view is derived from it, so
     // filtering and sorting never cost a round trip.
-    let GAL = { rows: [], folder: null, sort: "recent", q: "", picked: new Set() };
+    let GAL = { rows: [], folder: null, sort: "recent", q: "", kind: "all", picked: new Set() };
+
+    /* Print or digital, by size: the print sizes in studio-sizes.js either way
+       round, or an older A-series design (the √2 shape, 1200px or more on its
+       short side). Studio's isPrintDesign, with the first page's size for a
+       design saved without one of its own. */
+    const PRINT_SIZES = new Set(STUDIO_SIZES_JS.filter((g) => g.family === "print").flatMap((g) => g.sizes.map((z) => `${z.w}x${z.h}`)));
+    function isPrintDesign(d) {
+      const c = (d && d.canvas) || (d && Array.isArray(d.pages) && d.pages[0] && d.pages[0].canvas) || null;
+      const w = Math.round(Number(c && c.width) || 0), h = Math.round(Number(c && c.height) || 0);
+      if (!w || !h) return false;
+      if (PRINT_SIZES.has(`${w}x${h}`) || PRINT_SIZES.has(`${h}x${w}`)) return true;
+      const r = Math.max(w, h) / Math.min(w, h);
+      return Math.abs(r - Math.SQRT2) < 0.01 && Math.min(w, h) >= 1200;
+    }
 
     const byName = (a, b) => String(a.name || "Untitled design").localeCompare(String(b.name || "Untitled design"));
     function galView() {
       let rows = GAL.rows;
       if (GAL.folder) rows = rows.filter((d) => (d.folder || "") === GAL.folder);
+      if (GAL.kind !== "all") rows = rows.filter((d) => isPrintDesign(d) === (GAL.kind === "print"));
       if (GAL.q) rows = rows.filter((d) => String(d.name || "Untitled design").toLowerCase().includes(GAL.q));
       rows = rows.slice();
       if (GAL.sort === "name") rows.sort(byName);
@@ -8279,6 +8313,11 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
 
       q?.addEventListener("input", () => { GAL.q = q.value.trim().toLowerCase(); paintGallery(); });
       sort?.addEventListener("change", () => { GAL.sort = sort.value; paintGallery(); });
+      document.querySelectorAll(".ed-ob-kind[data-kind]").forEach((b) => b.addEventListener("click", () => {
+        GAL.kind = b.dataset.kind;
+        document.querySelectorAll(".ed-ob-kind[data-kind]").forEach((x) => { const on = x === b; x.classList.toggle("is-on", on); x.setAttribute("aria-pressed", on ? "true" : "false"); });
+        paintGallery();
+      }));
 
       folders?.addEventListener("click", (e) => {
         const f = e.target.closest("[data-folder]");
@@ -8303,6 +8342,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         if (!b || b.disabled) return;
         const act = b.getAttribute("data-act");
         if (act === "clear") { GAL.picked.clear(); paintGallery(); }
+        // Every design on show (the folder, search and kind as they are).
+        else if (act === "all") { galView().forEach((d) => GAL.picked.add(d.id)); paintGallery(); paintActions(); }
         else if (act === "duplicate") duplicatePicked();
         else if (act === "folder") fileIntoFolder();
         else if (act === "delete") deletePicked();

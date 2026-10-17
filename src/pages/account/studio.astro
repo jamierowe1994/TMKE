@@ -76,6 +76,22 @@ const inspo = [
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
               </button>
           </div>
+          <!-- The dashboard's three boxes, as ways in (Dani, 17 Oct): your
+               packs (a pop-out of them), your designs, the design tools. -->
+          <ul class="ws-brief st-brief">
+            <li><button type="button" class="ws-brief-slot st-brief-btn" data-st-packs>
+              <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+              <span class="ws-brief-tx"><strong>Your packs</strong><span>see what's in each</span></span>
+            </button></li>
+            <li><a class="ws-brief-slot" href="/account/editor">
+              <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="m3 13 9 5 9-5"/></svg></span>
+              <span class="ws-brief-tx"><strong>Your designs</strong><span>every one you've saved</span></span>
+            </a></li>
+            <li><a class="ws-brief-slot" href="#tools-h" data-st-tools>
+              <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><path d="M4 20h4L20 8a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M14 6l4 4"/></svg></span>
+              <span class="ws-brief-tx"><strong>Design tools</strong><span>captions, QR codes and more</span></span>
+            </a></li>
+          </ul>
         </div>
       </section>
 
@@ -108,6 +124,12 @@ const inspo = [
       <section class="ws-block ws-rise" style="--i:2" aria-labelledby="designs-h">
         <header class="ws-block-head">
           <h2 class="ws-block-h" id="designs-h"><span class="ws-block-ch">Chapter 02</span>Your designs</h2>
+          <!-- All, Digital or Print (Dani, 17 Oct); hidden until they have designs. -->
+          <div class="st-kind3" role="group" aria-label="Show" data-st-kind hidden>
+            <button type="button" class="st-kind3-b is-on" data-kind="all" aria-pressed="true">All</button>
+            <button type="button" class="st-kind3-b" data-kind="digital" aria-pressed="false">Digital</button>
+            <button type="button" class="st-kind3-b" data-kind="print" aria-pressed="false">Print</button>
+          </div>
           <a class="ws-block-link" href="/account/editor" data-seeall hidden>See All Designs <span aria-hidden="true">→</span></a>
         </header>
         <!-- Empty until the member's own designs are in (wireDesigns). -->
@@ -186,11 +208,66 @@ const inspo = [
 
   <CaptionGenerator />
   <QrGenerator />
+
+  <!-- Your packs (Dani, 17 Oct): the ones they have along the top, ending with
+       Shop more packs; choosing one shows what it is and some of its designs. -->
+  <div class="st-pk-scrim" id="st-packs-pop" data-lenis-prevent hidden>
+    <div class="st-pk" role="dialog" aria-modal="true" aria-labelledby="st-pk-h">
+      <button type="button" class="st-pk-x" data-pk-close aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>
+      <span class="st-pk-eyebrow">Your packs</span>
+      <h2 class="st-pk-h" id="st-pk-h">What's in your packs.</h2>
+      <div class="st-pk-row" id="st-pk-row"></div>
+      <div class="st-pk-detail" id="st-pk-detail" hidden></div>
+    </div>
+  </div>
   <NewDesignModal />
   <StudioInspo />
 
   <style is:global>
-    /* The header and spacing are the shared ones (ws-system.css). */
+    /* The header and spacing are the shared ones (ws-system.css); the three
+       boxes sit at the right, level with the button, as on the dashboard. */
+    .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(24px, 3vw, 48px); align-items: end; }
+    .ws-hero--sub .ws-hero-date, .ws-hero--sub .ws-greeting, .ws-hero--sub .ws-hero-sub { grid-column: 1 / -1; }
+    .ws-hero--sub .st-cta { grid-column: 1; grid-row: 4; align-self: end; }
+    .st-brief { grid-column: 2; grid-row: 4; align-self: end; }
+    .st-brief-btn { all: unset; cursor: pointer; display: flex; align-items: center; gap: 11px; }
+    .st-brief li:has(.st-brief-btn:hover) { border-color: rgba(28,29,34,0.3); }
+    @media (max-width: 900px) {
+      .ws-left > .ws-hero.ws-hero--sub > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
+      .st-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .ws-hero--sub .st-cta { grid-row: 5; }
+    }
+    @media (max-width: 620px) { .st-brief { grid-template-columns: 1fr; } }
+    /* Packs to Your designs: closer than the other chapters (Dani, 17 Oct). */
+    .ws-left > #packs { margin-bottom: calc(var(--ws-chapter-gap, 60px) * -0.4); }
+    /* All / Digital / Print on the wine bar. */
+    .st-kind3 { display: inline-flex; gap: 4px; margin-left: auto; margin-right: 14px; }
+    .st-kind3[hidden] { display: none; }
+    .st-kind3-b { all: unset; cursor: pointer; height: 24px; padding: 0 10px; box-sizing: border-box; display: inline-flex; align-items: center; border: 1px solid rgba(255,255,255,0.4); border-radius: 4px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.85); transition: background 0.2s, color 0.2s, border-color 0.2s; }
+    .st-kind3-b:hover { border-color: #fff; color: #fff; }
+    .st-kind3-b.is-on { background: #fff; border-color: #fff; color: var(--english-violet); }
+    /* Your packs, in a pop-out: theirs along the top, then the one chosen. */
+    .st-pk-scrim { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+    .st-pk-scrim[hidden] { display: none; }
+    .st-pk { position: relative; width: min(1000px, 100%); max-height: 90vh; overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 16px; padding: 30px clamp(22px, 3vw, 34px) 30px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); font-family: var(--sans); }
+    .st-pk-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(28,29,34,0.05); cursor: pointer; display: grid; place-items: center; color: rgba(28,29,34,0.6); }
+    .st-pk-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+    .st-pk-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
+    .st-pk-h { font-family: var(--serif); font-weight: 400; font-size: clamp(24px, 3vw, 30px); line-height: 1.1; color: var(--ws-ink); margin: 10px 0 18px; }
+    .st-pk-row { display: grid; grid-auto-flow: column; grid-auto-columns: 132px; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+    .st-pk-tile { all: unset; cursor: pointer; display: flex; flex-direction: column; gap: 6px; padding: 5px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; transition: border-color 0.2s; }
+    .st-pk-tile:hover { border-color: rgba(28,29,34,0.35); }
+    .st-pk-tile.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .st-pk-tile-img { display: block; aspect-ratio: 1080 / 1440; border-radius: 2px; background: #eae5e1 center / cover no-repeat; }
+    .st-pk-tile-img--shop { display: grid; place-items: center; font-size: 28px; color: var(--english-violet); }
+    .st-pk-tile-name { font-size: 12.5px; font-weight: 600; line-height: 1.25; color: var(--ws-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .st-pk-detail { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .st-pk-detail-h { font-family: var(--serif); font-weight: 500; font-size: 20px; line-height: 1.2; color: var(--ws-ink); margin: 0; }
+    .st-pk-detail-p { font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 8px 0 14px; max-width: 70ch; }
+    .st-pk-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+    .st-pk-thumbs span { display: block; aspect-ratio: 1080 / 1440; border-radius: 2px; background: #eae5e1 center / cover no-repeat; }
+    .st-pk-open { display: inline-flex; align-items: center; gap: 6px; height: 34px; margin-top: 16px; padding: 0 16px; border-radius: 4px; background: var(--english-violet); color: #fff; text-decoration: none; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+    .st-pk-empty { font-size: 13.5px; color: rgba(28,29,34,0.6); }
     /* Chapter 04: Explore and Latest, then the strip under them. */
     .st-reel { margin-top: clamp(18px, 2.4vw, 32px); }
     .st-wn button.ws-wn-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
@@ -228,8 +305,9 @@ const inspo = [
     @media (max-width: 900px)  { .st-row { --st-across: 2.4; } }
     @media (max-width: 560px)  { .st-row { --st-across: 1.3; } }
 
+    /* 40% less round the picture: more picture than card (Dani, 17 Oct). */
     .st-pack, .st-design {
-      display: flex; flex-direction: column; gap: 4px; padding: 12px;
+      display: flex; flex-direction: column; gap: 4px; padding: 7px 7px 10px;
       border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff;
       text-decoration: none; color: var(--ws-ink);
       transition: border-color 0.25s var(--ws-ease), transform 0.25s var(--ws-ease);
@@ -284,7 +362,9 @@ const inspo = [
     .st-design--all .st-design-new,
     .st-design--all .st-plus { color: #7e6765; }
     .st-design--all:hover { border-color: color-mix(in srgb, #7e6765 45%, transparent); }
-    .st-pack-name, .st-design-name { font-family: var(--serif); font-size: var(--ws-t-body); font-weight: 400; letter-spacing: -0.01em; line-height: 1.25; }
+    /* "+ Create a folder"'s size, not bold, one line: a longer name ends "…". */
+    .st-pack-name, .st-design-name { font-family: var(--sans); font-size: var(--ws-t-body); font-weight: 400; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .st-pack-img, .st-design-img { margin-bottom: 4px !important; }
     .st-pack-count, .st-design-type { font-size: var(--ws-t-meta); color: var(--ws-faint); }
     /* The state pill on a design. Packs carry no overlay: the name sits under
        the card, and printing it twice only obscured the picture. */
@@ -563,6 +643,45 @@ const inspo = [
     gateReady('hero', document.querySelector('[data-gate="hero"]'));
     gateReady('inspo', document.querySelector('[data-gate="inspo"]'));
 
+    // ---- Your packs pop-out ----
+    (function wirePacksPop() {
+      const pop = document.getElementById('st-packs-pop');
+      const row = document.getElementById('st-pk-row'), detail = document.getElementById('st-pk-detail');
+      if (!pop || !row || !detail) return;
+      const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      async function show(p) {
+        row.querySelectorAll('[data-pk]').forEach((t) => t.classList.toggle('is-on', t.dataset.pk === p.id));
+        detail.hidden = false;
+        detail.innerHTML = `<h3 class="st-pk-detail-h">${esc(p.title)}</h3>${p.description ? `<p class="st-pk-detail-p">${esc(p.description)}</p>` : ''}<div class="st-pk-thumbs" id="st-pk-thumbs"></div><a class="st-pk-open" href="/account/editor?pack=${encodeURIComponent(p.id)}">Open pack &rarr;</a>`;
+        try {
+          const { data } = await supabase.from('templates').select('name, thumb_url, sort_order').eq('pack_id', p.id).eq('status', 'active').order('sort_order', { ascending: true }).limit(12);
+          const host = document.getElementById('st-pk-thumbs');
+          if (host) host.innerHTML = (data || []).filter((t) => t.thumb_url).map((t) => `<span title="${esc(t.name)}" style="background-image:url('${esc(t.thumb_url)}')"></span>`).join('');
+        } catch (_) {}
+      }
+      function open() {
+        const packs = window.__ST_OWNED__ || [];
+        row.innerHTML = packs.map((p) => `<button type="button" class="st-pk-tile" data-pk="${esc(p.id)}"><span class="st-pk-tile-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span><span class="st-pk-tile-name">${esc(p.title)}</span></button>`).join('')
+          + `<a class="st-pk-tile" href="/edit"><span class="st-pk-tile-img st-pk-tile-img--shop">+</span><span class="st-pk-tile-name">Shop more packs</span></a>`;
+        detail.hidden = true;
+        if (packs[0]) show(packs[0]);
+        else { detail.hidden = false; detail.innerHTML = '<p class="st-pk-empty">No packs yet. The Edit has every pack, ready to open in your Studio.</p>'; }
+        pop.hidden = false; window.__lenis?.stop?.();
+      }
+      const close = () => { if (pop.hidden) return; pop.hidden = true; window.__lenis?.start?.(); };
+      document.querySelector('[data-st-packs]')?.addEventListener('click', open);
+      row.addEventListener('click', (e) => { const t = e.target.closest('[data-pk]'); if (!t) return; const p = (window.__ST_OWNED__ || []).find((x) => x.id === t.dataset.pk); if (p) show(p); });
+      pop.addEventListener('click', (e) => { if (e.target === pop || e.target.closest('[data-pk-close]')) close(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+      // Design tools: down to Chapter 03.
+      document.querySelector('[data-st-tools]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        const t = document.getElementById('tools-h'); if (!t) return;
+        const y = t.getBoundingClientRect().top + scrollY - 20;
+        window.__lenis?.scrollTo ? window.__lenis.scrollTo(y) : scrollTo({ top: y, behavior: 'smooth' });
+      });
+    })();
+
     // Chapter 04: the packs going by, two or three of a pack together.
     (async () => {
       const reel = document.getElementById('st-reel');
@@ -665,12 +784,18 @@ const inspo = [
         const printDesigns  = designs.filter(isPrintDesign);
         const socialDesigns = designs.filter((d) => !isPrintDesign(d));
         if (seeall) seeall.hidden = true;        // it lives on the shelf now
-        if (printDesigns.length && socialDesigns.length) {
-          const startKind = mountKindToggle(row.closest('.st-rail'), 'designs', (kind) => draw(kind === 'print' ? printDesigns : socialDesigns, kind));
-          await draw(startKind === 'print' ? printDesigns : socialDesigns, startKind);
-        } else {
-          await draw(designs);
+        // All, Digital or Print in the chapter bar, starting on All (Dani, 17 Oct).
+        const kinds = document.querySelector('[data-st-kind]');
+        if (kinds) {
+          kinds.hidden = false;
+          kinds.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-kind]'); if (!b) return;
+            kinds.querySelectorAll('[data-kind]').forEach((x) => { const on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+            const k = b.dataset.kind;
+            draw(k === 'print' ? printDesigns : k === 'digital' ? socialDesigns : designs, k === 'all' ? '' : (k === 'print' ? 'print' : 'social'));
+          });
         }
+        await draw(designs);
         done();
       } catch (_) { failed(); }
     })();
@@ -708,6 +833,7 @@ const inspo = [
             const { fillPackCovers } = await import('../../lib/pack-cover.js');
             await fillPackCovers(supabase, data || []);
             const p = data && data[0];
+            window.__ST_OWNED__ = data || [];   // the demo's one pack, for the pop-out
             if (p) card = `
           <a class="st-pack" data-demo-pack href="/account/editor?pack=${encodeURIComponent(p.id)}">
             <span class="st-pack-img"${p.cover_image_url ? ` style="background-image:url('${esc(p.cover_image_url)}')"` : ''}></span>
@@ -744,6 +870,7 @@ const inspo = [
         // brand check is the database's (src/lib/pack-access.js explains why).
         const { ownedPacks } = await import('../../lib/pack-access.js');
         const owned = ownedPacks(allPacks, ownedIds, memberBrand);
+        window.__ST_OWNED__ = owned;   // for the Your packs pop-out
         if (!owned.length) { row.innerHTML = shopTile; done(); return; } // no packs → just the shop tile
         // The demo pack is marked so the "Opening a template" walk can point at
         // the one every member has, not at whichever pack happens to be first.
