@@ -99,13 +99,29 @@ import "../../styles/reel.css";
         </div>
       </section>
 
+      <!-- ============ New to the Training Studio ============
+           The dashboard's Explore and Latest (Dani, 17 Oct): the topics on the
+           left, the three newest courses and guides on the right as portrait
+           cards. Everything else is a topic away, in its pop-out. -->
       <section class="lrn-sec ws-rise" style="--i:4" aria-labelledby="cont-h">
         <header class="lrn-sec-head">
-          <h2 class="ws-eyebrow" id="cont-h">Guides</h2>
-          <button type="button" class="ws-textlink" id="lrn-clear" hidden>Clear filter ✕</button>
+          <h2 class="ws-eyebrow" id="cont-h">New to the Training Studio</h2>
+          <button type="button" class="ws-textlink" id="lrn-all">Every guide &rarr;</button>
         </header>
-        <div class="lrn-guides-grid" id="lrn-guides" aria-busy="true"></div>
-        <p class="lrn-guides-empty" id="lrn-guides-empty" hidden>No guides here yet — they'll appear as they're published.</p>
+        <div class="lrn-wn">
+          <div>
+            <p class="lrn-wn-label">Explore</p>
+            <nav class="lrn-topic-pills" aria-label="Topics">
+              {GUIDE_TOPICS.map((t) => (
+                <a class="lrn-topic" href={`?topic=${t.slug}`} data-topic={t.slug}><span set:html={t.label}></span> <span class="lrn-topic-count" data-count={t.slug}></span></a>
+              ))}
+            </nav>
+          </div>
+          <div>
+            <p class="lrn-wn-label">Latest</p>
+            <div class="lrn-doors" style="--cols:3" id="lrn-latest" aria-busy="true"></div>
+          </div>
+        </div>
       </section>
 
       <!-- ============ Featured learning paths (hidden until real paths exist) ============ -->
@@ -242,9 +258,9 @@ import "../../styles/reel.css";
 
     /* ---------- This month: the dashboard's Be inspired ---------- */
     .lrn-month { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1fr); gap: var(--ws-gap, 12px); align-items: stretch; }
-    .lrn-month-box { display: flex; flex-direction: column; gap: 10px; padding: 22px; border: 1px solid rgba(28,29,34,0.13); border-radius: var(--ws-r, 4px); background: #fff; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color 0.2s; }
+    .lrn-month-box { display: flex; flex-direction: column; gap: 10px; padding: 22px clamp(40px, 4vw, 64px) 22px 22px;   /* more room on the right, so the words take a line or two more (Dani, 17 Oct) */ border: 1px solid rgba(28,29,34,0.13); border-radius: var(--ws-r, 4px); background: #fff; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color 0.2s; }
     .lrn-month-box:hover { border-color: rgba(28,29,34,0.3); }
-    .lrn-month-eyebrow { font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
+    .lrn-month-eyebrow { margin-bottom: 20px;   /* three times the gap to the title */ font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.46); }
     /* The size of the dashboard's "Getting Around Your Hub" (Dani, 17 Oct). */
     .lrn-month-title { font-family: var(--serif); font-weight: 500; font-size: clamp(19px, 1.6vw, 24px); line-height: 1.2; letter-spacing: -0.01em; color: var(--ws-ink); }
     .lrn-month-sub { font-size: var(--ws-t-body, 13px); line-height: 1.5; color: var(--ws-tx); }
@@ -252,6 +268,11 @@ import "../../styles/reel.css";
     .lrn-month-cta em { font-style: normal; transition: transform 0.25s var(--ws-ease); }
     .lrn-month-box:hover .lrn-month-cta em { transform: translateX(3px); }
     @media (max-width: 1000px) { .lrn-month { grid-template-columns: 1fr; } }
+
+    /* ---------- New to the Training Studio: the dashboard's Explore and Latest ---------- */
+    .lrn-wn { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.7fr); gap: clamp(20px, 2.2vw, 34px); }
+    .lrn-wn-label { margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(28,29,34,0.35); font-size: var(--ws-t-label, 10.5px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-ink); }
+    @media (max-width: 1100px) { .lrn-wn { grid-template-columns: 1fr; } }
 
     /* ---------- A topic's pop-out ---------- */
     .lrn-sheet-scrim { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 22px; background: rgba(20,16,22,0.5); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
@@ -489,7 +510,29 @@ import "../../styles/reel.css";
       host.setAttribute('aria-busy', 'false');
     }
 
+    // The three newest courses and guides, as portrait cards (not the
+    // Getting Started series, which has its own row above).
+    function renderLatest() {
+      const host = document.getElementById('lrn-latest'); if (!host) return;
+      const inSeries = (g) => TRAINING_GUIDES.some((t) => t.slug === g.slug && t.topic === 'getting-started');
+      const list = ALL.filter((g) => !inSeries(g))
+        .map((g, i) => ({ g, t: Date.parse(g.created_at || '') || 0, i }))
+        .sort((a, b) => (b.t - a.t) || (a.i - b.i)).slice(0, 3).map((x) => x.g);
+      host.innerHTML = list.map((g) => {
+        const topic = GUIDE_TOPIC_MAP[g.topic];
+        const cover = g.cover_url || g.art || (STATIC_BY_SLUG[g.slug] || {}).cover_url || (STATIC_BY_SLUG[g.slug] || {}).art || twinArt(g.slug) || '';
+        const lessons = Array.isArray(g.lessons) ? g.lessons.length : 0;
+        const meta = g.kind === 'course' ? `${lessons} lesson${lessons === 1 ? '' : 's'}` : (g.est_minutes ? `~${g.est_minutes} min read` : 'Guide');
+        return `<a class="lrn-door" href="/account/guides/read?g=${encodeURIComponent(g.slug)}">
+          ${cover ? `<span class="lrn-door-pic lrn-door-pic--hover" style="background-image:url('${esc(cover)}')"></span>` : ''}
+          <span class="lrn-door-tx"><em>${g.kind === 'course' ? 'Course' : 'Guide'}${topic ? ' \u00b7 ' + topic.label.replace(/<[^>]+>/g, '') : ''}</em><strong>${esc(g.title || 'Untitled')}</strong>${g.summary ? `<span>${esc(g.summary)}</span>` : ''}<span class="lrn-door-meta">${esc(meta)}</span></span>
+        </a>`;
+      }).join('');
+      host.setAttribute('aria-busy', 'false');
+    }
+
     function renderGrid(query) {
+      if (!grid) return;
       let list = ALL.filter((g) => !g.training && !TRAINING_GUIDES.some((t) => t.slug === g.slug));
       if (activeTopic) list = list.filter((g) => g.topic === activeTopic);
       if (query) { const q = query.toLowerCase(); list = list.filter((g) => (g.title||'').toLowerCase().includes(q) || (g.summary||'').toLowerCase().includes(q)); }
@@ -498,7 +541,7 @@ import "../../styles/reel.css";
       emptyEl.hidden = list.length > 0;
       // topic tile active state + clear button
       document.querySelectorAll('.lrn-topic[data-topic]').forEach((t) => t.classList.toggle('is-active', t.dataset.topic === activeTopic));
-      clearBtn.hidden = !activeTopic;
+      if (clearBtn) clearBtn.hidden = !activeTopic;
     }
 
     function hydrateCounts() {
@@ -527,8 +570,23 @@ import "../../styles/reel.css";
     }));
     sheet?.addEventListener('click', (e) => { if (e.target === sheet || e.target.closest('[data-sheet-close]')) closeTopic(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTopic(); });
-    clearBtn?.addEventListener('click', () => { activeTopic = ''; const u = new URL(location.href); u.searchParams.delete('topic'); history.replaceState({}, '', u); renderGrid(document.querySelector('.lrn-search input')?.value || ''); });
-    document.querySelector('.lrn-search input')?.addEventListener('input', (e) => renderGrid(e.target.value));
+    // Every guide, and the header's search: both open the same pop-out.
+    function openList(title, sub, list) {
+      if (!sheet) return;
+      document.getElementById('lrn-sheet-h').textContent = title;
+      document.getElementById('lrn-sheet-sub').textContent = sub;
+      document.getElementById('lrn-sheet-grid').innerHTML = list.map(cardHtml).join('');
+      document.getElementById('lrn-sheet-empty').hidden = list.length > 0;
+      sheet.hidden = false; window.__lenis?.stop?.();
+    }
+    document.getElementById('lrn-all')?.addEventListener('click', () => openList('Every guide', 'All the courses and guides in the Training Studio.', ALL));
+    document.querySelector('.lrn-search')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = (document.querySelector('.lrn-search input')?.value || '').trim().toLowerCase();
+      if (!q) return;
+      const list = ALL.filter((g) => (g.title || '').toLowerCase().includes(q) || (g.summary || '').toLowerCase().includes(q));
+      openList(`Results for \u201C${q}\u201D`, `${list.length} guide${list.length === 1 ? '' : 's'} found.`, list);
+    });
 
     // This month: the latest published Trending month, when there is one.
     let monthTopics = TRENDING_SAMPLE_TOPICS;
@@ -581,7 +639,7 @@ import "../../styles/reel.css";
 
       try {
         const { data, error } = await supabase.from('guides')
-          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience')
+          .select('slug,title,topic,kind,summary,cover_url,lessons,est_minutes,audience,created_at')
           .eq('status', 'published').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
         if (error) throw error;
         ALL = (data && data.length) ? data : (DEV ? SAMPLE : []);
@@ -607,7 +665,7 @@ import "../../styles/reel.css";
         PROGRESS['your-first-week-on-social'] = { guide_slug:'your-first-week-on-social', completed:false, furthest:2, total:5 };
       }
 
-      hydrateCounts(); renderGrid(''); renderTraining();
+      hydrateCounts(); renderGrid(''); renderTraining(); renderLatest();
     })();
   </script>
 </BaseLayout>

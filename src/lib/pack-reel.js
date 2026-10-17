@@ -78,7 +78,7 @@ export async function drawReel(reel, tiles) {
   // `inspo`: the tile opens that StudioInspo pop-out (Learn's This month).
   const tile = (t, copy) => `<a class="ws-reel-tile" href="${esc(t.href)}"${t.inspo ? ` data-inspo="${esc(t.inspo)}"` : ""}${copy ? ' data-copy aria-hidden="true" tabindex="-1"' : ""}>
       <span class="ws-reel-label">${esc(t.label)}</span>
-      <span class="ws-reel-pic">${t.img ? `<img src="${esc(t.img)}" alt="${copy ? "" : esc(t.sub || t.label)}" decoding="async">` : ""}<span class="ws-reel-go">${esc(t.go)} &rarr;</span></span>
+      <span class="ws-reel-pic">${t.img ? `<img src="${esc(t.img)}" alt="${copy ? "" : esc(t.sub || t.label)}" decoding="async">` : ""}<span class="ws-reel-go">${esc(t.go)} &rarr;${t.desc ? `<span class="ws-reel-go-desc">${esc(t.desc)}</span>` : ""}</span></span>
       ${t.caption ? `<span class="ws-reel-cap">${esc(t.caption)}</span>` : ""}
     </a>`;
   track.innerHTML = set.map((t) => tile(t, false)).join("") + set.map((t) => tile(t, true)).join("");
@@ -100,12 +100,14 @@ export async function drawReel(reel, tiles) {
 export async function fillPostReel(supabase, reel) {
   try {
     const { data, error } = await supabase.from("blog_posts")
-      .select("slug, title, category, hero_image_url, publish_date")
+      .select("slug, title, eyebrow, category, standfirst, hero_image_url, publish_date")
       .eq("status", "published").in("audience", ["members", "both"])
       .order("publish_date", { ascending: false }).limit(24);
     if (error || !data || !data.length) { reel.setAttribute("aria-busy", "false"); return false; }
     return await drawReel(reel, data.filter((p) => p.hero_image_url).map((p) => ({
-      img: p.hero_image_url, label: p.category || "Insights", caption: p.title, sub: p.title,
+      // The piece's own tag above it (its eyebrow: "Personal Branding"), and
+      // what it's about under Read on hover (Dani, 17 Oct).
+      img: p.hero_image_url, label: p.eyebrow || p.category || "Insights", caption: p.title, sub: p.title, desc: p.standfirst || "",
       href: `/account/blog#${encodeURIComponent(p.slug)}`, go: "Read",
     })));
   } catch (_) { reel.setAttribute("aria-busy", "false"); return false; }
