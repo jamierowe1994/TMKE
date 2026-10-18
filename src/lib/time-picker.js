@@ -28,30 +28,33 @@ input[data-time] {
 .tp-pop.is-open { opacity: 1; transform: none; }
 .tp-pop[hidden] { display: none; }
 .tp-row { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: start; gap: 6px; padding: 8px 10px 4px; }
-.tp-row > .tp-head { line-height: 40px; }
+.tp-row > .tp-head { line-height: 32px; }
 .tp-row + .tp-row { padding-top: 4px; padding-bottom: 8px; }
 .tp-head { font-size: var(--ws-t-label, 10px); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
 /* The hours: a strip with a slider under it to drag along (Dani, 16 Oct), and
    it settles on a whole hour, so the minutes below line up with the first
    four hours on show. */
 .tp-hours { display: flex; gap: 2px; overflow-x: auto; scroll-behavior: smooth; cursor: grab; padding-bottom: 6px;
-  scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--violet-deep, #371e28) rgba(28,29,34,0.08);
+  scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--violet-deep, #371e28) transparent;
   -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent);
           mask-image: linear-gradient(90deg, #000 calc(100% - 16px), transparent); }
 .tp-hours > .tp-opt { scroll-snap-align: start; }
 .tp-hours::-webkit-scrollbar { height: 6px; }
-.tp-hours::-webkit-scrollbar-track { background: rgba(28,29,34,0.08); border-radius: 3px; }
+/* No grey track: only the wine bar to drag (Dani, 18 Oct). */
+.tp-hours::-webkit-scrollbar-track { background: transparent; }
 .tp-hours::-webkit-scrollbar-thumb { background: var(--violet-deep, #371e28); border-radius: 3px; }
 .tp-hours.is-dragging { cursor: grabbing; scroll-behavior: auto; scroll-snap-type: none; }
 .tp-mins { display: flex; gap: 2px; }
-.tp-mins > .tp-opt { width: 40px; }
-.tp-opt { all: unset; box-sizing: border-box; flex: none; width: 40px; height: 40px; border-radius: 5px; text-align: center; cursor: pointer;
-  font-size: 13px; font-variant-numeric: tabular-nums; color: rgba(28,29,34,0.55); transition: font-size 0.12s, color 0.12s, background 0.12s; }
-.tp-opt:hover { background: rgba(var(--violet-rgb, 55, 30, 40), 0.06); color: var(--violet-deep, #371e28); }
+.tp-mins > .tp-opt { width: 34px; }
+/* Smaller, and the choice is the same size as the rest, only bold and wine:
+   no box behind it (Dani, 18 Oct). */
+.tp-opt { all: unset; box-sizing: border-box; flex: none; width: 34px; height: 32px; border-radius: 4px; text-align: center; cursor: pointer;
+  font-size: 13px; line-height: 32px; font-variant-numeric: tabular-nums; color: rgba(28,29,34,0.55); transition: color 0.12s; }
+.tp-opt:hover { color: var(--violet-deep, #371e28); }
 .tp-opt:focus-visible { outline: 2px solid var(--violet-deep, #371e28); outline-offset: -2px; }
-.tp-opt.is-on { font-size: 19px; font-weight: 700; color: var(--violet-deep, #371e28); background: rgba(var(--violet-rgb, 55, 30, 40), 0.08); }
+.tp-opt.is-on { font-weight: 700; color: var(--violet-deep, #371e28); }
 .tp-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 8px; border-top: 1px solid rgba(28,29,34,0.08); }
-.tp-btn { all: unset; cursor: pointer; height: 28px; padding: 0 12px; border-radius: 4px; font-size: 10px; font-weight: 700;
+.tp-btn { all: unset; cursor: pointer; height: 26px; padding: 0 12px; border-radius: 4px; font-size: 10px; font-weight: 700;
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--violet-deep, #371e28); border: 1px solid rgba(var(--violet-rgb, 55, 30, 40), 0.3); }
 .tp-btn:hover { background: rgba(var(--violet-rgb, 55, 30, 40), 0.08); }
 .tp-btn--primary { background: var(--violet-deep, #371e28); border-color: var(--violet-deep, #371e28); color: #fff; }

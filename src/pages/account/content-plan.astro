@@ -194,15 +194,18 @@ import "../../styles/account-sections.css";
     .cp-clip.is-on { color: var(--english-violet); }
     .cp-clip svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     /* The description: two lines in the table, the whole of it a click away. */
-    .cp-desc { display: block; height: auto; min-height: 32px; padding: 7px 8px; text-align: left; cursor: pointer; }
-    .cp-desc-tx { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.4; white-space: normal; word-break: break-word; }
+    .cp-in.cp-desc { display: block; height: auto; min-height: 32px; padding: 7px 8px; text-align: left; cursor: pointer; }
+    .cp-desc-tx { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 18px; white-space: normal; word-break: break-word; }
     .cp-desc.is-empty { color: rgba(28,29,34,0.32); }
     .cp-table:not(.is-linked) [data-linked] { display: none; }
     .cp-in { width: 100%; box-sizing: border-box; height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 3px; background: transparent; font: inherit; font-size: var(--ws-t-meta); color: var(--ws-ink); transition: border-color 0.2s, background 0.2s; }
     .cp-in:hover { border-color: var(--ws-line); }
     .cp-in:focus { outline: none; border-color: var(--english-violet); background: #fff; }
     .cp-in::placeholder { color: rgba(28,29,34,0.32); }
-    textarea.cp-in { height: auto; min-height: 32px; padding: 7px 8px; resize: none; line-height: 1.4; overflow: hidden; display: block; }
+    /* Every two-line thing in a row shares one line height (18px) and one
+       top (7px into its box), so a title, a description and a made post's
+       links start together and end together (Dani, 18 Oct). */
+    textarea.cp-in { height: auto; min-height: 32px; padding: 7px 8px; resize: none; line-height: 18px; overflow: hidden; display: block; }
     /* Our own chevron, so the choice starts at the same 8px as everything else. */
     select.cp-in { cursor: pointer; appearance: none; -webkit-appearance: none; padding-right: 24px; text-overflow: ellipsis;
       background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%231c1d22' stroke-opacity='.55' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 7px center / 12px 12px; }
@@ -217,12 +220,14 @@ import "../../styles/account-sections.css";
 
     /* The post cell. */
     .cp-post { display: flex; flex-direction: column; gap: 5px; padding-top: 3px; }
-    .cp-post--made { flex-direction: row; align-items: flex-start; gap: 10px; }
-    /* Two lines of links, the picture (portrait, most posts are) as tall as them. */
-    .cp-post--made .cp-links { flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 1px; }
-    .cp-links-row { display: flex; gap: 12px; }
-    .cp-post--made .cp-link { text-align: left; line-height: 18px; }
-    .cp-post--made .cp-thumb { width: 32px; height: 42px; }
+    .cp-post--made { flex-direction: row; align-items: flex-start; gap: 10px; padding-top: 8px; }
+    /* Two lines of links, bold rather than underlined, and the picture
+       (portrait, as most posts are) exactly as tall as the two lines. */
+    .cp-post--made .cp-links { flex-direction: column; align-items: flex-start; gap: 0; }
+    .cp-links-row { display: flex; gap: 14px; }
+    .cp-post--made .cp-link { text-align: left; line-height: 18px; font-weight: 700; text-decoration: none; }
+    .cp-post--made .cp-link:hover { text-decoration: underline; }
+    .cp-post--made .cp-thumb { width: 27px; height: 36px; }
     .cp-post-note { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.35; padding-top: 4px; }
     .cp-thumb { flex: 0 0 auto; width: 34px; height: 34px; background: #f2efed center/cover no-repeat; border: 1px solid var(--ws-line); }
     .cp-thumb--file { display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--english-violet); }
@@ -489,7 +494,11 @@ import "../../styles/account-sections.css";
       $('cp-day-eyebrow').textContent = [...new Set(ps.map((p) => p.name).concat(hs.map((h) => h.name)))].join(' · ') || 'Nothing marked on this day';
       $('cp-day-h').textContent = dayLabel(key);
       const future = key >= todayKey;
-      const anyPost = future ? `<button type="button" class="ws-btn ws-btn--ghost cp-day-other" data-add-blank>${ps.length || hs.length ? 'Add a different post for this day' : 'Add a post for this day'}</button>` : '';
+      // Plan a post (Dani, 18 Oct): wine and full width when it's the only
+      // way in; under a prompt, the white one, as the second choice.
+      const anyPost = future ? (ps.length || hs.length
+        ? `<button type="button" class="ws-btn ws-btn--ghost cp-day-other" data-add-blank>Plan a different post for this day</button>`
+        : `<button type="button" class="ws-btn ws-btn--primary cp-day-other" data-add-blank>Plan a post for this day</button>`) : '';
       // One box for each prompt: its key date, then the prompt, then the two ways in.
       const ideas = ps.map((p, i) => `<section class="cp-idea">
           <p class="cp-idea-row"><span class="cp-idea-k">Key date</span><span class="cp-idea-v">${esc(p.name)}</span></p>

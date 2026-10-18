@@ -8756,19 +8756,21 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
           sub: "Select an item on your design to continue editing it.",
           order: ["brand", "fields", "elements", "page"],
         },
-        // Nothing on the page yet. Building tools first; rebranding last,
-        // because there is nothing yet for it to recolour.
+        // Nothing on the page yet. Your brand kit first all the same (Dani,
+        // 18 Oct): it is where your colours, fonts and logo come from, and with
+        // the Brand kit tab off the rail on social designs, last was too easy
+        // to miss. Then the building tools.
         blank: {
           title: "Start building",
           sub: "Your canvas is empty. Add your first element here.",
-          order: ["text", "photos", "elements", "background", "page", "brand"],
+          order: ["brand", "text", "photos", "elements", "background", "page"],
         },
         // Same empty canvas, but they came with a brief. The brief sits above
         // this and is the thing to read first, so the header defers to it.
         prompt: {
           title: "Build your post",
           sub: "Use the post idea above to guide your design, then add your first element.",
-          order: ["text", "photos", "elements", "background", "page", "brand"],
+          order: ["brand", "text", "photos", "elements", "background", "page"],
         },
       };
 
@@ -8786,7 +8788,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
            building tools do. */
         if (PHONE.matches) {
           order = (which === "blank" || which === "prompt")
-            ? ["text", "photos", "elements", "brand"]
+            ? ["brand", "text", "photos", "elements"]
             : ["fields", "brand", "resize", "newdesign"];
         }
         grid.innerHTML = order.map(function (key) {
@@ -9322,6 +9324,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         });
         det.hidden = false;
       }
+      // Open from the start, so it's plain the brief came with you (Dani, 18 Oct).
+      box.setAttribute("aria-expanded", "true");
       box.hidden = false;
       box.addEventListener("click", () => {
         const open = box.getAttribute("aria-expanded") === "true";
