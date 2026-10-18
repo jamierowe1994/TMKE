@@ -59,7 +59,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         </label>
         <label class="cg-field"><span>Bedrooms</span><input type="text" data-cg="beds" inputmode="numeric" placeholder="e.g. 3" /></label>
         <label class="cg-field"><span>Price / rent</span><input type="text" data-cg="price" placeholder="e.g. £325,000" /></label>
-        <label class="cg-field cg-col2"><span>Standout features <em>— optional</em></span><textarea data-cg="features" rows="4" placeholder="e.g. south-facing garden, new kitchen, off-road parking, walk to the station"></textarea></label>
+        <label class="cg-field cg-col2"><span>Standout features <em>— optional</em></span><textarea data-cg="features" rows="3" placeholder="e.g. south-facing garden, new kitchen, off-road parking, walk to the station"></textarea></label>
       </div>
       <label class="cg-check"><input type="checkbox" data-cg-tags checked /> <span>Add up to 4 hashtags</span></label>
       <button type="button" class="cg-gen" data-cg-generate="property"><span class="cg-gen-l">Generate caption</span></button>
@@ -68,7 +68,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     <!-- GENERAL -->
     <div class="cg-pane" data-cg-pane="general" hidden>
       <p class="cg-pane-intro">For anything that isn&rsquo;t a listing: tips for buyers and sellers, local news, your team, a market update. Tell us what the post is about in a line or two and we&rsquo;ll draft it.</p>
-      <label class="cg-field"><span>What's your post about?</span><textarea data-cg="topic" rows="4" placeholder="e.g. 5 tips for first-time buyers / our team volunteering at the local food bank / why spring is a great time to sell"></textarea></label>
+      <label class="cg-field cg-fill"><span>What's your post about?</span><textarea data-cg="topic" rows="4" placeholder="e.g. 5 tips for first-time buyers / our team volunteering at the local food bank / why spring is a great time to sell"></textarea></label>
       <label class="cg-check"><input type="checkbox" data-cg-tags checked /> <span>Add up to 4 hashtags</span></label>
       <button type="button" class="cg-gen" data-cg-generate="general"><span class="cg-gen-l">Generate caption</span></button>
     </div>
@@ -77,7 +77,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     <div class="cg-pane" data-cg-pane="own" hidden>
       <p class="cg-pane-intro">Already know what you want to say? Write it here, make a word or a line bold, italic or underlined, then copy it into your post.</p>
       <label class="cg-field"><span>Your caption</span></label>
-      <textarea class="cg-out" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea>
+      <textarea class="cg-out cg-own" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea>
       <div class="cg-style" role="toolbar" aria-label="Style the selected words">
         <button type="button" class="cg-style-b" data-cg-style="b" title="Bold (Ctrl/⌘ B)" aria-label="Bold"><b>B</b></button>
         <button type="button" class="cg-style-b" data-cg-style="i" title="Italic (Ctrl/⌘ I)" aria-label="Italic"><i>I</i></button>
@@ -101,7 +101,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       </div>
       <div class="cg-tags-block" data-cg-tags-block hidden>
         <span class="cg-result-label cg-tags-label">Hashtags</span>
-        <textarea class="cg-out cg-tags-out" data-cg-tags-box rows="2"></textarea>
+        <textarea class="cg-out cg-tags-out" data-cg-tags-box rows="1"></textarea>
       </div>
       <div class="cg-actions" data-cg-result-actions></div>
     </div>
@@ -143,9 +143,26 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-field { display: flex; flex-direction: column; gap: 6px; }
   .cg-field > span { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
   .cg-field > span em { font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; color: rgba(28,29,34,0.4); }
-  .cg-field input, .cg-field select, .cg-field textarea { font-family: inherit; font-size: 14.5px; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px; padding: 10px 12px; transition: border-color .2s, box-shadow .2s; }
-  /* Four lines, then it scrolls (Dani, 18 Oct: people won't write much here). */
-  .cg-field textarea { resize: none; line-height: 1.5; height: calc(4 * 1.5em + 22px); overflow-y: auto; }
+  /* Boxes nearer the tabs and buttons in size (Dani, 18 Oct): 32px, not 44. */
+  .cg-field input, .cg-field select, .cg-field textarea { box-sizing: border-box; font-family: inherit; font-size: 13.5px; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px; padding: 0 10px; transition: border-color .2s, box-shadow .2s; }
+  .cg-field input, .cg-field select { height: 32px; }
+  /* Standout features: three lines, then it scrolls. */
+  .cg-field textarea { resize: none; line-height: 1.5; padding: 7px 10px; height: calc(3 * 1.5em + 16px); overflow-y: auto; }
+  .cg-grid { gap: 10px 14px; }
+
+  /* Something else and Write my own fill the pop-out, the same size as each
+     other, rather than leave it half empty (Dani, 18 Oct). Something else's
+     box drops to two lines, still scrollable, once a caption is written. */
+  .cg-modal { display: flex; flex-direction: column; }
+  .cg-modal > * { flex: none; }
+  .cg-pane[data-cg-pane="general"]:not([hidden]), .cg-pane[data-cg-pane="own"]:not([hidden]) { display: flex; flex-direction: column; }
+  /* One height for both boxes, so the two tabs match exactly. */
+  .cg-fill textarea, .cg-out.cg-own { flex: none; height: 284px; min-height: 0; }
+  .cg-pane > .cg-gen, .cg-pane > .cg-check { align-self: flex-start; }
+  .cg-out.cg-own { line-height: 1.5; padding: 7px 10px; resize: none; }
+  .cg-pane.is-done[data-cg-pane="general"] { flex: none; }
+  .cg-pane.is-done .cg-fill { flex: none; }
+  .cg-pane.is-done .cg-fill textarea { flex: none; min-height: 0; height: calc(2 * 1.5em + 16px); }
   .cg-field input:focus, .cg-field select:focus, .cg-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
 
   .cg-check { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: rgba(28,29,34,0.7); cursor: pointer; }
@@ -164,7 +181,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-regen { appearance: none; height: 26px; padding: 0 11px; border: 1px solid rgba(28,29,34,0.13); border-radius: 4px; background: #fff; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); cursor: pointer; }
   .cg-regen:hover { border-color: var(--english-violet); color: var(--english-violet); text-decoration: none !important; }
   .cg-regen:hover { text-decoration: underline; }
-  .cg-out { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 14.5px; line-height: 1.6; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px; padding: 12px 14px; resize: vertical; }
+  .cg-out { width: 100%; box-sizing: border-box; font-family: inherit; font-size: 13.5px; line-height: 1.55; color: var(--ink); background: #fff; border: 1px solid rgba(28,29,34,0.18); border-radius: 4px; padding: 8px 12px; resize: vertical; }
   .cg-out:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
   /* B / I / U over a caption box (src/lib/unicode-style.js). */
   .cg-style { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin: 8px 0 0; }
@@ -176,7 +193,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   .cg-tags-block { margin-top: 16px; }
   .cg-tags-block[hidden] { display: none; }
   .cg-tags-label { display: block; margin-bottom: 8px; }
-  .cg-tags-out { font-weight: 600; color: var(--english-violet); }
+  /* Hashtags are one line, near enough always. */
+  .cg-tags-out { font-weight: 600; color: var(--english-violet); height: 34px; padding: 6px 12px; resize: none; overflow-y: auto; }
   .cg-actions { display: flex; gap: 10px; margin-top: 16px; }
   .cg-actions .cg-act { margin-top: 0; }
 
@@ -232,6 +250,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       scrim.querySelectorAll(".cg-tab").forEach((t) => t.classList.toggle("is-active", t.dataset.cgTab === name));
       scrim.querySelectorAll(".cg-pane").forEach((p) => { p.hidden = p.dataset.cgPane !== name; });
       resultEl.hidden = true; errEl.hidden = true;
+      scrim.querySelectorAll(".cg-pane.is-done").forEach((p) => p.classList.remove("is-done"));
     }
     scrim.querySelectorAll(".cg-tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.cgTab)));
 
@@ -367,6 +386,8 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         }
       }
       resultEl.hidden = false;
+      // What they wrote drops to two lines, so the caption has the room.
+      scrim.querySelector('[data-cg-pane="general"]').classList.toggle("is-done", !!(lastRequest && lastRequest.mode === "general"));
       resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 

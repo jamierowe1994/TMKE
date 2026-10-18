@@ -12610,22 +12610,24 @@ import { createResizeEngine } from "./resize-engine.js";
      Everything that exists to BUILD a design — the other templates, the
      elements to add, the text tool, the picture library, the layer stack — is
      not their job on a piece that was drawn for them, and each one is a way
-     to break a card that has to print. They keep the background, the brand
-     kit and the guides, because those are theirs across every design.
+     to break a card that has to print. Nor the brand kit (Dani, 18 Oct): the
+     card arrives branded for them. They keep the guides.
 
      Admin keeps the lot: somebody has to draw the thing. */
   const PRINT_MEMBER_HIDDEN = ["start", "templates", "elements", "text", "photos", "background", "layers"];
-  /* The brand kit is one of the two things Start is for — "Make it yours" —
-     so on a social design it does not also need a tab of its own. A print
-     template keeps it on the rail, because print has no Start to put it in. */
+  /* The Brand kit tab, the right way round (Dani, 18 Oct): on the rail for a
+     social design, where they bring their own colours, fonts and logo in;
+     off it for a print template, which arrives already branded for them and
+     isn't theirs to restyle. (24 Sep had it the other way.) Admin keeps it
+     on both: somebody has to draw the thing. */
   function syncBrandRail() {
     const btn = document.querySelector('.ed-rail-btn[data-tool="brand"]');
     if (!btn) return;
-    const off = !isAdminMode() && !isPrintDesign();
+    const off = !isAdminMode() && isPrintDesign();
     if (off) { if (!btn.hidden) { btn.dataset.brandHid = "1"; btn.hidden = true; } }
     else if (btn.dataset.brandHid) { btn.hidden = false; delete btn.dataset.brandHid; }
     // Only when they are sitting on a tab that has gone, not when they chose it.
-    if (off && activeToolPane === "brand" && !brandPaneByChoice) openTool("start");
+    if (off && activeToolPane === "brand" && !brandPaneByChoice) openTool("fields");
   }
   /* Admin authoring a print template can put themselves in the member's shoes
      for a moment, because "is the rail right?" is not a question you can
