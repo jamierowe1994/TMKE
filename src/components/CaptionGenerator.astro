@@ -29,6 +29,9 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       <button type="button" class="cg-tab" data-cg-tab="own" role="tab">Write my own</button>
     </div>
 
+    <!-- The three tabs share one space, as tall as the tallest (Property
+         post), so the button sits in the same place on each (Dani, 18 Oct). -->
+    <div class="cg-panes">
     <!-- PROPERTY -->
     <div class="cg-pane" data-cg-pane="property">
       <p class="cg-pane-intro">For a listing post: new to market, coming soon, an open house, a price change or a sale. Add the area and a few details and we&rsquo;ll write a caption that sells the home, in your tone of voice.</p>
@@ -75,19 +78,20 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 
     <!-- WRITE MY OWN -->
     <div class="cg-pane" data-cg-pane="own" hidden>
-      <p class="cg-pane-intro">Already know what you want to say? Write it here, make a word or a line bold, italic or underlined, then copy it into your post.</p>
-      <label class="cg-field"><span>Your caption</span></label>
-      <textarea class="cg-out cg-own" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea>
+      <p class="cg-pane-intro">Already know what to say? Write it here.<br />Tip: make a word or a line bold, italic or underlined, then copy it into your caption.</p>
+      <label class="cg-field cg-fill"><span>Your caption</span>
+        <textarea class="cg-out cg-own" data-cg="own" data-cg-styled rows="7" placeholder="Write your caption here…" aria-label="Your caption"></textarea></label>
       <div class="cg-style" role="toolbar" aria-label="Style the selected words">
         <button type="button" class="cg-style-b" data-cg-style="b" title="Bold (Ctrl/⌘ B)" aria-label="Bold"><b>B</b></button>
         <button type="button" class="cg-style-b" data-cg-style="i" title="Italic (Ctrl/⌘ I)" aria-label="Italic"><i>I</i></button>
         <button type="button" class="cg-style-b" data-cg-style="u" title="Underline (Ctrl/⌘ U)" aria-label="Underline"><u>U</u></button>
-        <span class="cg-style-note">Select words, then style them. Keeps its look in Instagram and Facebook; best for a word or a line.</span>
+        <span class="cg-style-note">Select words, then style them. Keeps its look in Instagram and Facebook.</span>
       </div>
       <div class="cg-actions">
         <button type="button" class="cg-act cg-act--primary" data-cg-useown><span>Use this caption</span></button>
       </div>
     </div>
+    </div><!-- /.cg-panes -->
 
     <!-- RESULT (shared by property + general) -->
     <div class="cg-result" hidden>
@@ -116,7 +120,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
   /* One height whichever tab is open (Dani, 17 Oct): the tallest pane's,
      and anything longer (a caption and its result) scrolls inside it. */
   /* Wider and shorter (Dani, 18 Oct: "so tall, a little out of proportion"). */
-  .cg-modal { position: relative; width: min(780px, 100%); height: min(720px, 92vh); max-height: 92vh; overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 6px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 28px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
+  .cg-modal { position: relative; width: min(780px, 100%); max-height: 92vh; overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 6px; box-shadow: 0 40px 90px -40px rgba(20,16,22,0.6); padding: 30px clamp(22px, 3vw, 34px) 37px; font-family: var(--sans); animation: cgIn .3s cubic-bezier(.2,.7,.3,1); }
   @keyframes cgIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .cg-modal { animation: none; } }
   .cg-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: rgba(28,29,34,0.05); cursor: pointer; display: grid; place-items: center; color: rgba(28,29,34,0.6); }
@@ -155,12 +159,18 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
      box drops to two lines, still scrollable, once a caption is written. */
   .cg-modal { display: flex; flex-direction: column; }
   .cg-modal > * { flex: none; }
-  .cg-pane[data-cg-pane="general"]:not([hidden]), .cg-pane[data-cg-pane="own"]:not([hidden]) { display: flex; flex-direction: column; }
-  /* One height for both boxes, so the two tabs match exactly. */
-  .cg-fill textarea, .cg-out.cg-own { flex: none; height: 284px; min-height: 0; }
+  /* The tabs stacked in one cell: the space is the tallest's, and Something
+     else and Write my own grow their box to fill it, so every tab's button
+     lands in the same place. Once a caption is written, only the open tab
+     counts, so nothing is left empty under it. */
+  .cg-panes { display: grid; }
+  .cg-panes > .cg-pane { grid-area: 1 / 1; display: flex; flex-direction: column; min-width: 0; }
+  .cg-panes > .cg-pane[hidden] { display: flex; visibility: hidden; }
+  .cg-modal.has-result .cg-panes > .cg-pane[hidden] { display: none; }
+  .cg-fill { flex: 1 1 auto; display: flex; flex-direction: column; }
+  .cg-fill textarea, .cg-fill .cg-out.cg-own { flex: 1 1 auto; height: auto; min-height: calc(3 * 1.5em + 16px); }
   .cg-pane > .cg-gen, .cg-pane > .cg-check { align-self: flex-start; }
   .cg-out.cg-own { line-height: 1.5; padding: 7px 10px; resize: none; }
-  .cg-pane.is-done[data-cg-pane="general"] { flex: none; }
   .cg-pane.is-done .cg-fill { flex: none; }
   .cg-pane.is-done .cg-fill textarea { flex: none; min-height: 0; height: calc(2 * 1.5em + 16px); }
   .cg-field input:focus, .cg-field select:focus, .cg-field textarea:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
@@ -251,6 +261,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       scrim.querySelectorAll(".cg-pane").forEach((p) => { p.hidden = p.dataset.cgPane !== name; });
       resultEl.hidden = true; errEl.hidden = true;
       scrim.querySelectorAll(".cg-pane.is-done").forEach((p) => p.classList.remove("is-done"));
+      modal.classList.remove("has-result");
     }
     scrim.querySelectorAll(".cg-tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.cgTab)));
 
@@ -388,6 +399,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       resultEl.hidden = false;
       // What they wrote drops to two lines, so the caption has the room.
       scrim.querySelector('[data-cg-pane="general"]').classList.toggle("is-done", !!(lastRequest && lastRequest.mode === "general"));
+      modal.classList.add("has-result");
       resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
 
