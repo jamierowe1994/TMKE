@@ -398,33 +398,48 @@ export const TRAINING_GUIDES = [
           p("Posts live in the <strong>Content Calendar</strong>, alongside the post ideas and key dates written for you. Open a day and choose <strong>Plan a post for this day</strong>. There are three ways to plan it, depending on whether your content is already made.") +
           cards([
             ["Use one of your designs", "Choose a design you've already saved in the Studio."],
-            ["Design from a template", "Open your packs, make the design, then plan it from the Studio when it's ready."],
+            ["Design from a template", "Make it from your packs, then plan it from the Studio."],
             ["Upload a post", "Add a file made outside the Studio, or a link to it."],
           ]) +
           p("Then add the caption, with <strong>Generate with AI</strong> if you'd like a hand, and the time it goes out. Tick <strong>Remind me on the day</strong> and we'll email you the design and caption at 8am that morning, ready to post.") +
-          p("The Planner helps you prepare and remember your posts. It doesn't publish to your social media accounts for you.") +
-          panel("Planning a month of posts",
-            p("When you'd rather plan a whole month in one sitting, use your content plan: one table for the month's posts, from the ideas in your Content Calendar. Open it from the first box at the top of your Content Calendar.")) },
+          p("The Content Calendar helps you prepare and remember your posts. It doesn't publish to your social media accounts for you.") +
+          panel("Planning a month of posts?",
+            p("We love an organised Ollie! Use your Content Planner to map out your month, decide what you're posting and when, and keep everything in one place. You can create new designs or link ones you've already made, so your content is ready when you need it.")) },
           /* The content plan gets a short guide of its own (Dani, 18 Oct); link
              it in the panel above once it's written. */
 
       { title: "Planning Your Marketing Activities",
         body_html:
-          p("The Marketing Planner is where you organise the work that happens around your social media.") +
+          p("The Marketing Planner is where you organise the work that happens around your social media. Here are just a few of the ways you can use it to plan and manage your marketing, with plenty more to explore.") +
           cards([
             ["Photography and filming", "For property photography or filming, a Content Studio session or an agent filming day, explore TMKE's services, see the brochure or book with us. Already arranged it yourself? Add it to your calendar. Anything you book with TMKE appears on its own."],
             ["Print and canvassing", "Plan when you'll create a print design, order materials or deliver them. Open your print packs or start a print design in the Studio, and keep the details alongside the activity."],
             ["Campaigns", "Choose a campaign, add its details and work through a ready-made checklist you can change to suit you. Link designs you've already made, and Plan these posts puts each one on its day in your Content Calendar. The campaign lists them, with their dates and times."],
           ]) +
-          p("For anything else, add your own checklist if there are several things to do, and attach files or links, whether that's an external design, a newsletter draft or a document you want to refer back to.") +
-          "<!--WALK:plan-filming--><!--WALK:plan-campaign--><!--WALK:plan-print-->" },
+          "<!--WALK:plan-filming--><!--WALK:plan-print--><!--WALK:plan-campaign-->" },
 
-      { title: "Requesting Reviews and Staying Organised", walk: "plan-testimonial",
+      /* Dani's copy (19 Oct). Staying organised (the sync, Save & add) moved
+         to the last part, with making the Planner work for you. */
+      { title: "Requesting Reviews", walk: "plan-testimonial",
         body_html:
-          p("A testimonial request is more than a reminder in your calendar. Choose <strong>Request a Testimonial</strong> and you'll find ready-to-use wording for email or WhatsApp in three styles: Friendly and Personal, Professional and Appreciative, or Short and Direct.") +
-          p("Choose the version that sounds most like you, add the client's name and check the message before copying it. It uses the business details and review link from your Brand Kit, whether that points to Google, Trustpilot or your own review page, so make sure the link is saved there first.") +
-          p("Prefer seeing your plans in the calendar you use every day? <strong>Sync to my calendar</strong> adds both tabs to Apple Calendar, Google Calendar or Outlook. Your activities appear alongside your other commitments, and each post arrives with its design and caption, as a reminder to post it. Updates can take a little while to appear, depending on your calendar app.") +
-          p("Not synced? When you add something, choose <strong>Save &amp; add to my calendar</strong> to put that entry in your calendar as you save it.") },
+          p("<strong>A good review is worth asking for.</strong>") +
+          p("Happy clients don't always think to leave a review, even when they've had a great experience. A simple follow-up after a successful sale or let can make all the difference.") +
+          p("Your Marketing Planner makes that easier, with ready-written email and WhatsApp messages you can personalise and send to your clients.") +
+          p("<strong>Choose how you'd like to ask</strong>") +
+          p("Not every agent communicates in the same way, so we've included three different approaches:") +
+          cards([
+            ["Friendly &amp; Personal", "A warm, conversational message that feels natural and approachable."],
+            ["Professional &amp; Appreciative", "A slightly more formal approach that thanks your client for choosing you."],
+            ["Short &amp; Direct", "A quick, straightforward request that gets straight to the point."],
+          ]) +
+          p("Each option is available as an email or WhatsApp message, so you can choose whichever suits your relationship with the client.") +
+          p("<strong>Your details, already included</strong>") +
+          p("Your Planner uses the information saved in your Brand Kit to personalise the messages with your name, business details and review link.") +
+          p("Whether you collect reviews through Google, Trustpilot or your own website, simply add the relevant link to your Brand Kit and it'll be included in your review requests.") +
+          p("All you need to do is add your client's name, check the wording and copy the message into your email or WhatsApp.") +
+          p("<strong>Plan it for later</strong>") +
+          p("You don't need to send the request immediately. Add it to your Marketing Planner for a date that suits you, such as a few days after completion. You can also set a reminder so you don't forget to follow up.") +
+          tip("The best time to ask for a review is when the experience is still fresh. Keep your message personal, thank your client for working with you and make it easy for them to leave their feedback.") },
 
       { title: "Make Your Planner Work for You",
         body_html:
@@ -432,6 +447,9 @@ export const TRAINING_GUIDES = [
           p("Look out for post ideas and key dates in your Content Calendar. If a prompt suits your audience, add it to your content plan or open it and start designing. If it doesn't, leave it. Your own marketing priorities come first.") +
           p("Select anything you've planned to review its details, make changes or check what's still outstanding. The colours, and the two tabs, show how your posts, campaigns, print and local activity fit together across the month.") +
           p("Start with the things you already know are coming up, then add the smaller tasks around them. A realistic plan you can follow is more useful than a packed calendar you never come back to.") +
+          p("<strong>In the calendar you use every day</strong>") +
+          p("<strong>Sync to my calendar</strong> adds both tabs to Apple Calendar, Google Calendar or Outlook. Your activities appear alongside your other commitments, and each post arrives with its design and caption, as a reminder to post it. Updates can take a little while to appear, depending on your calendar app.") +
+          p("Not synced? When you add something, choose <strong>Save &amp; add to my calendar</strong> to put that entry in your calendar as you save it.") +
           tip("Try planning around your next property launch or local event. Add the main activity first, then the posts, print and follow-ups that support it.") +
           p("Need ideas? Explore this month's trends, the Evergreen Content course and practical guides in the Training Studio.") },
     ],
