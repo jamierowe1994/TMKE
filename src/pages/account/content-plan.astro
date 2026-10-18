@@ -175,11 +175,24 @@ import "../../styles/account-sections.css";
     /* No scrolling box: it would clip the make menu on the last rows. Below
        960px the rows become cards instead. */
     .cp-table { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 1px solid var(--ws-line); border-bottom: 1px solid var(--ws-line); }
-    .cp-table th { text-align: left; padding: 9px 6px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); border-bottom: 1px solid var(--ws-line); }
+    /* A header's words start where its column's text does: the cell's 6px,
+       then the box's 1px border and 8px padding (Dani, 18 Oct). */
+    .cp-table th { text-align: left; padding: 9px 6px 9px 15px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); border-bottom: 1px solid var(--ws-line); }
     .cp-table td { padding: 6px; vertical-align: top; border-bottom: 1px solid var(--ws-line); }
     .cp-table tr:last-child td { border-bottom: 0; }
-    .cp-c-date { width: 114px; } .cp-c-title { width: auto; } .cp-c-format { width: 106px; } .cp-c-pillar { width: 114px; }
-    .cp-c-desc { width: 20%; } .cp-c-inspo { width: 8%; } .cp-c-post { width: 162px; } .cp-c-del { width: 26px; }
+    /* Title and description share what's left, the description a little the
+       wider (Dani, 18 Oct); the rest are fixed. */
+    .cp-c-date { width: 118px; } .cp-c-title { width: auto; } .cp-c-format { width: 112px; } .cp-c-pillar { width: 120px; }
+    .cp-c-desc { width: auto; } .cp-c-inspo { width: 56px; } .cp-c-post { width: 214px; } .cp-c-del { width: 26px; }
+    @media (min-width: 1200px) { .cp-c-title { width: 20%; } }
+    @media (min-width: 1600px) { .cp-c-title { width: 25%; } }
+    @media (min-width: 1900px) { .cp-c-title { width: 28%; } }
+    textarea.cp-title { overflow: hidden; }
+    /* Inspo: a paperclip, grey until it holds a link, then wine. */
+    .cp-clip { appearance: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-left: 4px; border: 0; border-radius: 3px; background: none; cursor: pointer; color: rgba(28,29,34,0.3); transition: color 0.2s, background 0.2s; }
+    .cp-clip:hover { background: rgba(var(--violet-rgb), 0.06); color: var(--ws-tx); }
+    .cp-clip.is-on { color: var(--english-violet); }
+    .cp-clip svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
     /* The description: two lines in the table, the whole of it a click away. */
     .cp-desc { display: block; height: auto; min-height: 32px; padding: 7px 8px; text-align: left; cursor: pointer; }
     .cp-desc-tx { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.4; white-space: normal; word-break: break-word; }
@@ -190,11 +203,12 @@ import "../../styles/account-sections.css";
     .cp-in:focus { outline: none; border-color: var(--english-violet); background: #fff; }
     .cp-in::placeholder { color: rgba(28,29,34,0.32); }
     textarea.cp-in { height: auto; min-height: 32px; padding: 7px 8px; resize: none; line-height: 1.4; overflow: hidden; display: block; }
-    select.cp-in { cursor: pointer; padding-right: 4px; }
+    /* Our own chevron, so the choice starts at the same 8px as everything else. */
+    select.cp-in { cursor: pointer; appearance: none; -webkit-appearance: none; padding-right: 24px; text-overflow: ellipsis;
+      background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%231c1d22' stroke-opacity='.55' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 7px center / 12px 12px; }
+    select.cp-in:focus { background-color: #fff; }
+    input[type="date"].cp-in::-webkit-datetime-edit, input[type="date"].cp-in::-webkit-datetime-edit-fields-wrapper { padding: 0; }
     select.cp-in:invalid, select.cp-in.is-empty { color: rgba(28,29,34,0.38); }
-    .cp-inspo { display: flex; align-items: center; gap: 2px; }
-    .cp-inspo a { flex: 0 0 auto; display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; color: var(--english-violet); text-decoration: none; font-size: 13px; }
-    .cp-inspo a[hidden] { display: none; }
     .cp-del { appearance: none; border: 0; background: none; cursor: pointer; width: 26px; height: 32px; color: rgba(28,29,34,0.35); font-size: 18px; line-height: 1; }
     .cp-del:hover { color: #a3392b; }
     tr.is-flash td { animation: cpFlash 1.4s ease-out; }
@@ -203,9 +217,12 @@ import "../../styles/account-sections.css";
 
     /* The post cell. */
     .cp-post { display: flex; flex-direction: column; gap: 5px; padding-top: 3px; }
-    .cp-post--made { flex-direction: row; align-items: flex-start; gap: 9px; }
-    .cp-post--made .cp-links { flex-direction: column; align-items: flex-start; gap: 3px; }
-    .cp-post--made .cp-link { text-align: left; }
+    .cp-post--made { flex-direction: row; align-items: flex-start; gap: 10px; }
+    /* Two lines of links, the picture (portrait, most posts are) as tall as them. */
+    .cp-post--made .cp-links { flex-direction: column; align-items: flex-start; gap: 4px; padding-top: 1px; }
+    .cp-links-row { display: flex; gap: 12px; }
+    .cp-post--made .cp-link { text-align: left; line-height: 18px; }
+    .cp-post--made .cp-thumb { width: 32px; height: 42px; }
     .cp-post-note { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.35; padding-top: 4px; }
     .cp-thumb { flex: 0 0 auto; width: 34px; height: 34px; background: #f2efed center/cover no-repeat; border: 1px solid var(--ws-line); }
     .cp-thumb--file { display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--english-violet); }
@@ -262,7 +279,10 @@ import "../../styles/account-sections.css";
     p.cp-idea-k { margin: 0; }
     .cp-idea-v { font-size: var(--ws-t-meta); line-height: 1.55; color: var(--ws-tx); }
     .cp-idea-v strong { display: block; margin-bottom: 2px; color: var(--ws-ink); font-weight: 600; }
-    .cp-idea-acts { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+    /* The prompt's button sits under its own column, level with the prompt. */
+    .cp-idea-acts { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; padding-left: 140px; }
+    .cp-day-other { width: 100%; }
+    @media (max-width: 560px) { .cp-idea-acts { padding-left: 0; } }
     @media (max-width: 560px) { .cp-idea-row { grid-template-columns: 1fr; gap: 3px; } }
     .cp-dayposts { display: grid; gap: 6px; }
     .cp-dayposts a { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); text-decoration: none; color: var(--ws-ink); font-size: var(--ws-t-meta); }
@@ -390,7 +410,7 @@ import "../../styles/account-sections.css";
       for (const it of others) {
         const d = it.details || {};
         const r = { ...blankRow(), date: it.scheduled_date, title: it.title || '', format: d.format || '', pillar: d.pillar || '',
-          description: d.description || '', inspo: d.inspo || '', prompt: d.prompt || null, item_id: it.id };
+          description: d.description || it.title || '', inspo: d.inspo || '', prompt: d.prompt || null, item_id: it.id };
         const at = rows.findIndex((x) => !hasContent(x));
         if (at >= 0) rows.splice(at, 1);
         rows.push(r);
@@ -469,20 +489,20 @@ import "../../styles/account-sections.css";
       $('cp-day-eyebrow').textContent = [...new Set(ps.map((p) => p.name).concat(hs.map((h) => h.name)))].join(' · ') || 'Nothing marked on this day';
       $('cp-day-h').textContent = dayLabel(key);
       const future = key >= todayKey;
-      const anyPost = future ? `<button type="button" class="ws-btn ws-btn--ghost" data-add-blank>Add a post for this day</button>` : '';
+      const anyPost = future ? `<button type="button" class="ws-btn ws-btn--ghost cp-day-other" data-add-blank>${ps.length || hs.length ? 'Add a different post for this day' : 'Add a post for this day'}</button>` : '';
       // One box for each prompt: its key date, then the prompt, then the two ways in.
       const ideas = ps.map((p, i) => `<section class="cp-idea">
           <p class="cp-idea-row"><span class="cp-idea-k">Key date</span><span class="cp-idea-v">${esc(p.name)}</span></p>
           <p class="cp-idea-row"><span class="cp-idea-k">Content prompt</span><span class="cp-idea-v"><strong>${esc(p.angle)}</strong>${p.brief || p.hint ? ` ${esc(p.brief || p.hint)}` : ''}</span></p>
-          ${future ? `<div class="cp-idea-acts"><button type="button" class="ws-btn ws-btn--primary" data-add-prompt="${i}">Add prompt to my plan</button>${anyPost}</div>` : ''}
+          ${future ? `<div class="cp-idea-acts"><button type="button" class="ws-btn ws-btn--primary" data-add-prompt="${i}">Add prompt to my plan</button></div>` : ''}
         </section>`).join('');
       const dates = hs.map((h, i) => `<section class="cp-idea">
           <p class="cp-idea-row"><span class="cp-idea-k">${h.kind === 'bank' ? 'Bank holiday' : 'Key date'}</span><span class="cp-idea-v">${esc(h.name)}</span></p>
-          ${future ? `<div class="cp-idea-acts"><button type="button" class="ws-btn ws-btn--primary" data-add-date="${i}">Add key date to my plan</button>${ps.length ? '' : anyPost}</div>` : ''}
+          ${future ? `<div class="cp-idea-acts"><button type="button" class="ws-btn ws-btn--primary" data-add-date="${i}">Add key date to my plan</button></div>` : ''}
         </section>`).join('');
       const planned = posts.length ? `<section class="cp-idea"><p class="cp-idea-k">On your Content Calendar</p><div class="cp-dayposts">${posts.map((it) => `<a href="/account/schedule?view=posts&focus=${esc(key)}">${esc(it.title)}<span>${postIsMade(it) ? 'Made' : 'To design'}</span></a>`).join('')}</div></section>` : '';
-      const lone = !ps.length && !hs.length && future ? `<div class="cp-idea-acts">${anyPost}</div>` : '';
-      $('cp-day-body').innerHTML = ideas + dates + planned + lone || '<p class="cp-pick-note">This day has gone.</p>';
+      // A post that isn't the prompt's: its own full-width button, under the cards.
+      $('cp-day-body').innerHTML = ideas + dates + planned + anyPost || '<p class="cp-pick-note">This day has gone.</p>';
       $('cp-day').dataset.day = key;
       showModal('cp-day');
     }
@@ -522,7 +542,7 @@ import "../../styles/account-sections.css";
         const file = !img && Array.isArray(d.files) && d.files[0];
         return `<div class="cp-post cp-post--made">
           ${img ? `<span class="cp-thumb" style="background-image:url('${esc(img)}')"></span>` : `<span class="cp-thumb cp-thumb--file">${esc(file ? String(file.name).split('.').pop().toUpperCase().slice(0, 4) : 'LINK')}</span>`}
-          <div class="cp-links"><button type="button" class="cp-link" data-do="caption">${it.caption ? 'Edit caption' : 'Add caption'}</button><button type="button" class="cp-link" data-do="menu-again">Change</button><a class="cp-link" href="/account/schedule?view=posts&focus=${esc(r.date)}">View on calendar</a></div>
+          <div class="cp-links"><span class="cp-links-row"><button type="button" class="cp-link" data-do="caption">${it.caption ? 'Edit caption' : 'Add caption'}</button><button type="button" class="cp-link" data-do="menu-again">Change</button></span><a class="cp-link" href="/account/schedule?view=posts&focus=${esc(r.date)}">View on calendar</a></div>
         </div>`;
       }
       return `<div class="cp-post"><details class="cp-menu"><summary class="ws-btn ws-btn--primary cp-make-btn">Design this post</summary><div class="cp-menu-list">
@@ -538,11 +558,11 @@ import "../../styles/account-sections.css";
       const fmt = `<option value="">Choose…</option>${FORMATS.map((f) => `<option${f === r.format ? ' selected' : ''}>${esc(f)}</option>`).join('')}`;
       return `<tr data-row="${esc(r.id)}">
         <td class="cp-c-date" data-label="Date"><input class="cp-in" type="date" data-k="date" value="${esc(r.date)}" min="${monthStart(month)}" max="${monthEnd()}" aria-label="Date" /></td>
-        <td class="cp-c-title" data-label="Title"><input class="cp-in" type="text" data-k="title" value="${esc(r.title)}" maxlength="120" placeholder="What's the post?" aria-label="Title" /></td>
+        <td class="cp-c-title" data-label="Title"><textarea class="cp-in cp-title" rows="1" data-k="title" maxlength="120" placeholder="What's the post?" aria-label="Title">${esc(r.title)}</textarea></td>
         <td class="cp-c-format" data-label="Format"><select class="cp-in${r.format ? '' : ' is-empty'}" data-k="format" aria-label="Format">${fmt}</select></td>
         <td class="cp-c-pillar" data-label="Content pillar"><select class="cp-in${r.pillar ? '' : ' is-empty'}" data-k="pillar" aria-label="Content pillar">${pillarOptions(r.pillar)}</select></td>
         <td class="cp-c-desc" data-label="Description"><button type="button" class="cp-in cp-desc${r.description ? '' : ' is-empty'}" data-desc aria-label="Description: ${esc(r.description || 'add one')}"><span class="cp-desc-tx">${esc(r.description || 'What it\u2019s about')}</span></button></td>
-        <td class="cp-c-inspo" data-label="Inspo"><div class="cp-inspo"><input class="cp-in" type="url" data-k="inspo" value="${esc(r.inspo)}" placeholder="Paste a link" aria-label="Inspiration link" /><a href="${esc(r.inspo)}" target="_blank" rel="noopener" title="Open the link" data-inspo-open${r.inspo ? '' : ' hidden'}>&#8599;</a></div></td>
+        <td class="cp-c-inspo" data-label="Inspo"><button type="button" class="cp-clip${r.inspo ? ' is-on' : ''}" data-inspo title="${r.inspo ? esc(r.inspo) : 'Add an inspiration link'}" aria-label="${r.inspo ? 'Inspiration link: ' + esc(r.inspo) : 'Add an inspiration link'}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5l-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.8 1.8 0 0 1-2.6-2.6l8.5-8.5"/></svg></button></td>
         <td class="cp-c-post" data-label="The post" data-linked>${postCell(r)}</td>
         <td class="cp-c-del"><button type="button" class="cp-del" data-del aria-label="Remove this row">&times;</button></td>
       </tr>`;
@@ -550,6 +570,7 @@ import "../../styles/account-sections.css";
     function drawRows() {
       $('cp-table').classList.toggle('is-linked', LINKED);
       $('cp-rows').innerHTML = rows.map(rowHtml).join('');
+      $('cp-rows').querySelectorAll('textarea.cp-title').forEach(grow);
       drawCount();
     }
     function redrawPost(r) {
@@ -563,7 +584,8 @@ import "../../styles/account-sections.css";
         ? `${dated.length} ${dated.length === 1 ? 'post' : 'posts'} planned for ${monthName(month)}, ${made} made`
         : `${dated.length} ${dated.length === 1 ? 'post' : 'posts'} planned for ${monthName(month)}`;
     }
-    function grow(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+    // A title grows to two lines at most (Dani, 18 Oct); one line of it, Enter or not.
+    function grow(t) { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight + 2, t.classList.contains('cp-title') ? 52 : 9999) + 'px'; }
     const rowOf = (el) => { const tr = el.closest('tr[data-row]'); return tr ? rows.find((r) => r.id === tr.dataset.row) : null; };
 
     function addToPlan(fill) {
@@ -594,9 +616,8 @@ import "../../styles/account-sections.css";
       const k = e.target.dataset && e.target.dataset.k; if (!k) return;
       const r = rowOf(e.target); if (!r) return;
       if (blocked()) { e.target.value = r[k] || ''; return; }
-      if (e.target.tagName === 'TEXTAREA') grow(e.target);
+      if (e.target.tagName === 'TEXTAREA') { if (k === 'title' && /\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*\n+\s*/g, ' '); grow(e.target); }
       if (k === 'pillar' && e.target.value === '__own') return;
-      if (k === 'inspo') { const a = e.target.parentElement.querySelector('[data-inspo-open]'); const u = normalUrl(e.target.value); a.hidden = !u; a.href = u || '#'; }
       if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', !e.target.value);
       r[k] = e.target.value;
       if (k === 'date' || k === 'title') redrawPost(r);
@@ -623,17 +644,13 @@ import "../../styles/account-sections.css";
       inp.addEventListener('keydown', (k) => { if (k.key === 'Enter') { k.preventDefault(); inp.blur(); } if (k.key === 'Escape') { inp.value = ''; inp.blur(); } });
       inp.addEventListener('blur', () => done(true), { once: true });
     });
-    $rows.addEventListener('focusout', (e) => {
-      if (e.target.dataset && e.target.dataset.k === 'inspo') {
-        const r = rowOf(e.target); const u = normalUrl(e.target.value);
-        if (r && e.target.value && u !== e.target.value) { e.target.value = u; r.inspo = u; touch(r); }
-      }
-    });
     $rows.addEventListener('click', (e) => {
       const del = e.target.closest('[data-del]');
       if (del) { removeRow(rowOf(del)); return; }
       const desc = e.target.closest('[data-desc]');
       if (desc) { openDesc(rowOf(desc)); return; }
+      const clip = e.target.closest('[data-inspo]');
+      if (clip) { openInspo(rowOf(clip)); return; }
       const act = e.target.closest('[data-do]');
       if (act) { const r = rowOf(act); act.closest('details')?.removeAttribute('open'); doPost(r, act.dataset.do); }
     });
@@ -951,6 +968,25 @@ import "../../styles/account-sections.css";
       // Closed without saving: what was uploaded goes again.
       $('cp-make').dataset.cleanup = '1';
       $('cp-make')._cleanup = () => { const p = files.map((x) => x.path).filter(Boolean); if (p.length) store.db.storage.from('calendar-assets').remove(p).catch(() => {}); };
+    }
+
+    // The inspiration link, behind the paperclip (Dani, 18 Oct).
+    function openInspo(r) {
+      if (!r || blocked()) return;
+      openMake('Inspiration', r, `<div class="cp-field"><span class="cp-label">Link</span>
+        <input type="text" inputmode="url" class="cp-box" id="cp-inspo-box" value="${esc(r.inspo)}" placeholder="Paste a link, e.g. a post you liked" /></div>
+        ${r.inspo ? `<a class="cp-link" href="${esc(r.inspo)}" target="_blank" rel="noopener">Open the link &#8599;</a>` : ''}`, true);
+      $('cp-make-save').onclick = () => {
+        const raw = $('cp-inspo-box').value.trim();
+        const u = raw ? normalUrl(raw) : '';
+        if (raw && !u) return makeErr("That doesn't look like a link.");
+        r.inspo = u;
+        const b = $rows.querySelector(`tr[data-row="${CSS.escape(r.id)}"] [data-inspo]`);
+        if (b) { b.classList.toggle('is-on', !!u); b.title = u || 'Add an inspiration link'; b.setAttribute('aria-label', u ? 'Inspiration link: ' + u : 'Add an inspiration link'); }
+        hideModal('cp-make'); touch(r);
+      };
+      $('cp-inspo-box').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('cp-make-save').click(); } });
+      setTimeout(() => $('cp-inspo-box').focus(), 50);
     }
 
     // The description, in full (Dani, 18 Oct: two lines in the table).

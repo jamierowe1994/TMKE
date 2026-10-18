@@ -5288,13 +5288,18 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
         const tagsLine = wantTags
           ? "\n\nAlso provide UP TO FOUR genuinely relevant hashtags separately (location, property, estate agency, community). Fewer than four is fine; never a long block of generic tags."
           : "\n\nDo not include any hashtags; return an empty hashtags array.";
+        /* Merge tags (Dani, 18 Oct): the member's agency and area come from
+           their brand kit in the Hub, which fills these in, or leaves a
+           [bracket] to fill when the kit doesn't say. So the AI never guesses
+           a name or a town. */
+        const mergeLine = "\n\nMERGE TAGS: never write an estate agency's name or the agent's general area yourself. Wherever the caption or a hashtag would name the agency, write {agency}; wherever it would name the agent's town or area (and no location was given above), write {area}. In hashtags use them inside the tag, e.g. #{area}Homes or #{agency}. A location given in the details above may be written as given.";
 
         // The member's own brand tone of voice (from their Brand Kit). Takes
         // priority on tone/personality, but the house rules above still hold —
         // especially the emoji limit.
         const tone = clean(body.tone, 800);
         const toneBlock = tone ? `\n\nThis client's own brand voice - match it closely for tone and personality (while still following every rule above, especially the one-emoji limit):\n${tone}` : "";
-        const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}${tagsLine}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
+        const prompt = `- ${CAPTION_RULES}${toneBlock}\n\n${brief}${tagsLine}${mergeLine}\n\nReturn ONLY minified JSON, no markdown fences, exactly: {"caption": "caption text with line breaks as \\n", "hashtags": ["#tag1", "#tag2"]}.`;
         let aiRes;
         try {
           aiRes = await fetch("https://api.anthropic.com/v1/messages", {
