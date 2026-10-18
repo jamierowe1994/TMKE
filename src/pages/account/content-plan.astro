@@ -1,0 +1,941 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import WorkspaceHeader from "../../components/account/WorkspaceHeader.astro";
+import HubFootBar from "../../components/account/HubFootBar.astro";
+import CaptionGenerator from "../../components/CaptionGenerator.astro";
+import "../../styles/workspace.css";
+import "../../styles/ws-system.css";
+import "../../styles/account-sections.css";
+---
+
+<!-- Your Content Plan (Dani, 18 Oct 2026): choose a month, see its Content
+     Calendar (ideas, key dates and posts already planned), and plan the
+     month's posts in the table underneath. A row with a date is a post on
+     the Content Calendar, made from here: a design, a template or an upload,
+     and its caption. One plan per month (supabase/content_plans.sql;
+     src/lib/content-plan.js). -->
+<BaseLayout
+  dashboard
+  title="Your Content Plan — TMKE workspace"
+  description="Plan a month of social media posts: dates, formats, content pillars and ideas, each one ready to make in the Studio."
+  hideNav
+  hideFooter
+>
+  <div class="ws">
+  <WorkspaceHeader active="planner" />
+  <main class="ws-main">
+    <div class="ws-left">
+    <section class="ws-hero ws-hero--sub cp-hero">
+      <div class="ws-hero-copy">
+        <p class="ws-hero-date"><a href="/account/schedule?view=posts" class="back-link" id="cp-back">&larr; Content Calendar</a></p>
+        <h1 class="ws-greeting" id="cp-h">Your Content Plan.</h1>
+        <p class="ws-hero-sub" id="cp-sub">Plan the month&rsquo;s posts in one place. Each one you give a date goes on your Content Calendar, ready to make.</p>
+        <div class="ws-hero-cta">
+          <a class="ws-btn ws-btn--ghost" id="cp-to-cal" href="/account/schedule?view=posts">Open your Content Calendar</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chapter 01: the month, as the Content Calendar has it. -->
+    <section class="ws-block cp-cal" aria-labelledby="cp-cal-h">
+      <header class="ws-block-head cp-strip">
+        <h2 class="ws-block-h" id="cp-cal-h"><span class="ws-block-ch">Chapter 01</span><span class="cp-month">&mdash;</span></h2>
+        <div class="cp-strip-nav">
+          <button type="button" class="cp-nav" id="cp-prev" aria-label="Previous month">&larr;</button>
+          <button type="button" class="cp-nav cp-nav--tx" id="cp-this">This month</button>
+          <button type="button" class="cp-nav" id="cp-next" aria-label="Next month">&rarr;</button>
+        </div>
+      </header>
+      <p class="cp-intro">Your month at a glance: ideas written for you, key dates, and the posts already on your Content Calendar. Click a day to add its idea to your plan.</p>
+      <div class="cp-legend" aria-hidden="true">
+        <span class="cp-leg cp-leg--post">Post ready</span>
+        <span class="cp-leg cp-leg--todo">Post to make</span>
+        <span class="cp-leg cp-leg--prompt">Idea ready</span>
+        <span class="cp-leg cp-leg--date">Key date</span>
+      </div>
+      <div class="cp-weekhead" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      <div class="cp-grid" id="cp-grid"></div>
+    </section>
+
+    <!-- Chapter 02: the plan. -->
+    <section class="ws-block cp-plan" aria-labelledby="cp-plan-h">
+      <header class="ws-block-head">
+        <h2 class="ws-block-h" id="cp-plan-h"><span class="ws-block-ch">Chapter 02</span><span id="cp-plan-name">Your plan</span></h2>
+        <span class="cp-saved" id="cp-saved" aria-live="polite"></span>
+      </header>
+      <p class="cp-intro" id="cp-plan-intro">One row for each post. Give it a date and it goes on your Content Calendar as a post to make; then make it from here, from a template, one of your designs or a file you&rsquo;ve made elsewhere.</p>
+      <p class="cp-note" id="cp-note" hidden></p>
+      <div class="cp-table-wrap">
+        <table class="cp-table" id="cp-table">
+          <thead>
+            <tr>
+              <th class="cp-c-date" scope="col">Date</th>
+              <th class="cp-c-title" scope="col">Title</th>
+              <th class="cp-c-format" scope="col">Format</th>
+              <th class="cp-c-pillar" scope="col">Content pillar</th>
+              <th class="cp-c-desc" scope="col">Description</th>
+              <th class="cp-c-inspo" scope="col">Inspo</th>
+              <th class="cp-c-post" scope="col" data-linked>The post</th>
+              <th class="cp-c-del" scope="col"><span class="cp-sr">Remove</span></th>
+            </tr>
+          </thead>
+          <tbody id="cp-rows"></tbody>
+        </table>
+      </div>
+      <div class="cp-under">
+        <button type="button" class="ws-btn ws-btn--ghost" id="cp-add">+ Add a row</button>
+        <span class="cp-count" id="cp-count"></span>
+      </div>
+    </section>
+    </div>
+
+    <HubFootBar emailSlot />
+  </main>
+  </div>
+
+  <!-- A day of the month: its idea and key dates, to add to the plan. -->
+  <div class="cp-modal" id="cp-day" hidden role="dialog" aria-modal="true" aria-labelledby="cp-day-h">
+    <div class="cp-modal-card">
+      <header class="cp-modal-head">
+        <div><p class="cp-modal-eyebrow" id="cp-day-eyebrow"></p><h2 class="cp-modal-h" id="cp-day-h"></h2></div>
+        <button type="button" class="cp-x" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="cp-modal-body" id="cp-day-body"></div>
+    </div>
+  </div>
+
+  <!-- Making a row's post: choose a design, a template, upload, or the caption. -->
+  <div class="cp-modal" id="cp-make" hidden role="dialog" aria-modal="true" aria-labelledby="cp-make-h">
+    <div class="cp-modal-card cp-modal-card--wide">
+      <header class="cp-modal-head">
+        <div><p class="cp-modal-eyebrow" id="cp-make-eyebrow"></p><h2 class="cp-modal-h" id="cp-make-h"></h2></div>
+        <button type="button" class="cp-x" data-close aria-label="Close">&times;</button>
+      </header>
+      <div class="cp-modal-body" id="cp-make-body"></div>
+      <footer class="cp-modal-foot" id="cp-make-foot" hidden>
+        <p class="cp-err" id="cp-make-err" hidden></p>
+        <button type="button" class="ws-btn ws-btn--ghost" data-close>Cancel</button>
+        <button type="button" class="ws-btn ws-btn--primary" id="cp-make-save">Save</button>
+      </footer>
+    </div>
+  </div>
+
+  <style is:global>
+    .cp-hero { --ws-hero-img: url('/assets/hub/planner.jpg'); }
+    .cp-intro { margin: 0 0 var(--ws-gap); max-width: 75%; font-size: var(--ws-t-body); line-height: 1.55; color: var(--ws-tx); }
+    @media (max-width: 900px) { .cp-intro { max-width: none; } }
+    .cp-note { margin: 0 0 var(--ws-gap); padding: 9px 12px; border: 1px solid var(--ws-line); border-left: 3px solid var(--english-violet); font-size: var(--ws-t-meta); color: var(--ws-tx); }
+    .cp-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+    /* The strip, carrying controls: the Planner's 37px. */
+    .cp-strip { padding-top: 6px; padding-bottom: 6px; padding-right: 6px; }
+    .cp-month { font-family: var(--serif); font-size: var(--ws-t-meta); letter-spacing: 0.01em; text-transform: none; }
+    .cp-strip-nav { display: flex; gap: 6px; }
+    .cp-nav { appearance: none; display: inline-flex; align-items: center; justify-content: center; height: 25px; min-width: 25px; padding: 0 9px; box-sizing: border-box; border: 1px solid rgba(255,255,255,0.28); border-radius: 3px; background: transparent; color: #fff; cursor: pointer; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; line-height: 1; transition: background 0.2s, border-color 0.2s; }
+    .cp-nav:hover { background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.5); }
+    .cp-nav--tx { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+    .cp-saved { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.78); }
+    .cp-saved.is-err { color: #ffd9cf; }
+
+    /* ---- The month ---- */
+    .cp-legend { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: var(--ws-gap); }
+    .cp-leg { flex: 1 1 auto; justify-content: center; display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 9px; box-sizing: border-box; border: 1px solid rgba(28,29,34,0.14); border-radius: 3px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); white-space: nowrap; }
+    .cp-leg::before { content: ""; width: 10px; height: 10px; border-radius: 2px; }
+    .cp-leg--post::before { background: var(--violet-deep); }
+    .cp-leg--todo::before { background: #fff; box-shadow: inset 0 0 0 2px var(--violet-deep); }
+    .cp-leg--prompt::before { background: #fff; box-shadow: inset 0 0 0 2px var(--english-violet); }
+    .cp-leg--date::before { background: #887d77; }
+    .cp-weekhead, .cp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+    .cp-weekhead span { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: var(--english-violet); padding: 6px 0; }
+    .cp-grid { grid-auto-rows: minmax(92px, auto); }
+    .cp-day { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 8px 9px 9px; border: 1px solid rgba(28,29,34,0.14); background: transparent; text-align: left; font: inherit; color: var(--ink); cursor: pointer; overflow: hidden; min-width: 0; transition: border-color 0.2s, background 0.2s; }
+    .cp-day:hover { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.03); }
+    .cp-day.is-other { visibility: hidden; pointer-events: none; }
+    .cp-day.is-past { background: rgba(var(--violet-rgb), 0.03); border-color: rgba(28,29,34,0.08); }
+    .cp-day.is-past .cp-chip { opacity: 0.55; }
+    .cp-day.is-today { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .cp-day-num { font-size: var(--ws-t-body); font-weight: 700; margin-bottom: auto; }
+    .cp-day.is-today .cp-day-num { align-self: flex-start; color: var(--paper); background: var(--english-violet); padding: 1px 6px; }
+    .cp-chip { display: block; padding: 3px 6px; font-size: var(--ws-t-label); font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; box-sizing: border-box; }
+    .cp-chip--prompt { border: 1px solid var(--english-violet); color: var(--english-violet); background: #fff; }
+    .cp-chip--date { background: rgba(136,125,119,0.13); color: #6b6058; border: 1px solid rgba(136,125,119,0.3); }
+    .cp-chip--post { background: var(--violet-deep); color: var(--paper); border: 1px solid var(--violet-deep); }
+    .cp-chip--todo { background: #fff; color: var(--violet-deep); border: 1px dashed var(--violet-deep); }
+    .cp-more { font-size: var(--ws-t-label); font-weight: 700; color: var(--violet-deep); }
+    @media (max-width: 780px) {
+      .cp-legend, .cp-weekhead { display: none; }
+      .cp-grid { grid-auto-rows: minmax(64px, auto); gap: 4px; }
+      .cp-day { padding: 5px 6px; }
+      .cp-chip { font-size: 0; height: 6px; padding: 0; }
+    }
+
+    /* ---- The plan ---- */
+    .cp-plan { margin-top: var(--ws-chapter-gap, 60px); }
+    /* No scrolling box: it would clip the make menu on the last rows. Below
+       960px the rows become cards instead. */
+    .cp-table { width: 100%; border-collapse: collapse; table-layout: fixed; border-top: 1px solid var(--ws-line); border-bottom: 1px solid var(--ws-line); }
+    .cp-table th { text-align: left; padding: 9px 6px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); border-bottom: 1px solid var(--ws-line); }
+    .cp-table td { padding: 6px; vertical-align: top; border-bottom: 1px solid var(--ws-line); }
+    .cp-table tr:last-child td { border-bottom: 0; }
+    .cp-c-date { width: 122px; } .cp-c-title { width: 16%; } .cp-c-format { width: 116px; } .cp-c-pillar { width: 124px; }
+    .cp-c-desc { width: auto; } .cp-c-inspo { width: 10%; } .cp-c-post { width: 188px; } .cp-c-del { width: 28px; }
+    .cp-table:not(.is-linked) [data-linked] { display: none; }
+    .cp-in { width: 100%; box-sizing: border-box; height: 32px; padding: 0 8px; border: 1px solid transparent; border-radius: 3px; background: transparent; font: inherit; font-size: var(--ws-t-meta); color: var(--ws-ink); transition: border-color 0.2s, background 0.2s; }
+    .cp-in:hover { border-color: var(--ws-line); }
+    .cp-in:focus { outline: none; border-color: var(--english-violet); background: #fff; }
+    .cp-in::placeholder { color: rgba(28,29,34,0.32); }
+    textarea.cp-in { height: auto; min-height: 32px; padding: 7px 8px; resize: none; line-height: 1.4; overflow: hidden; display: block; }
+    select.cp-in { cursor: pointer; padding-right: 4px; }
+    select.cp-in:invalid, select.cp-in.is-empty { color: rgba(28,29,34,0.38); }
+    .cp-inspo { display: flex; align-items: center; gap: 2px; }
+    .cp-inspo a { flex: 0 0 auto; display: inline-flex; width: 24px; height: 24px; align-items: center; justify-content: center; color: var(--english-violet); text-decoration: none; font-size: 13px; }
+    .cp-inspo a[hidden] { display: none; }
+    .cp-del { appearance: none; border: 0; background: none; cursor: pointer; width: 26px; height: 32px; color: rgba(28,29,34,0.35); font-size: 18px; line-height: 1; }
+    .cp-del:hover { color: #a3392b; }
+    tr.is-flash td { animation: cpFlash 1.4s ease-out; }
+    @keyframes cpFlash { from { background: rgba(var(--violet-rgb), 0.12); } to { background: transparent; } }
+    @media (prefers-reduced-motion: reduce) { tr.is-flash td { animation: none; } }
+
+    /* The post cell. */
+    .cp-post { display: flex; flex-direction: column; gap: 5px; padding-top: 3px; }
+    .cp-post-note { font-size: var(--ws-t-meta); color: var(--ws-faint); line-height: 1.35; padding-top: 4px; }
+    .cp-status { align-self: flex-start; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 6px; border: 1px dashed var(--violet-deep); color: var(--violet-deep); }
+    .cp-status.is-ready { border-style: solid; background: var(--violet-deep); color: var(--paper); }
+    .cp-status.is-done { border: 1px solid #2e6f4f; background: #2e6f4f; color: #fff; }
+    .cp-made { display: flex; align-items: center; gap: 7px; min-width: 0; }
+    .cp-thumb { flex: 0 0 auto; width: 34px; height: 34px; background: #f2efed center/cover no-repeat; border: 1px solid var(--ws-line); }
+    .cp-thumb--file { display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; letter-spacing: 0.06em; color: var(--english-violet); }
+    .cp-made-tx { min-width: 0; font-size: var(--ws-t-meta); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cp-links { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+    .cp-link { appearance: none; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-size: var(--ws-t-meta); font-weight: 600; color: var(--violet-deep); text-decoration: underline; text-underline-offset: 2px; }
+    .cp-link:hover { color: var(--ws-ink); }
+    .cp-make-btn { align-self: flex-start; }
+    /* The four ways to make it, in a small menu. */
+    .cp-menu { position: relative; }
+    .cp-menu > summary { list-style: none; }
+    .cp-menu > summary::-webkit-details-marker { display: none; }
+    .cp-menu-list { position: absolute; z-index: 5; top: calc(100% + 4px); right: -34px; min-width: 210px; display: grid; padding: 5px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); box-shadow: 0 10px 28px -12px rgba(28,29,34,0.35); }
+    .cp-menu-list button { appearance: none; border: 0; background: none; text-align: left; padding: 8px 9px; font: inherit; font-size: var(--ws-t-meta); color: var(--ws-ink); cursor: pointer; border-radius: 3px; }
+    .cp-menu-list button:hover { background: rgba(var(--violet-rgb), 0.07); color: var(--violet-deep); }
+    .cp-menu-list small { display: block; font-size: var(--ws-t-label); color: var(--ws-faint); }
+
+    .cp-under { display: flex; align-items: center; gap: 14px; margin-top: var(--ws-gap); }
+    .cp-count { font-size: var(--ws-t-meta); color: var(--ws-faint); }
+
+    /* On a phone the table becomes one card per row. */
+    @media (max-width: 960px) {
+      .cp-table { min-width: 0; border: 0; }
+      .cp-table thead { display: none; }
+      .cp-table, .cp-table tbody, .cp-table tr, .cp-table td { display: block; width: auto; }
+      .cp-table tr { position: relative; border: 1px solid var(--ws-line); padding: 8px 34px 8px 8px; margin-bottom: var(--ws-gap); }
+      .cp-table td { border: 0; padding: 3px 0; }
+      .cp-table td[data-label]::before { content: attr(data-label); display: block; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); padding: 2px 8px 0; }
+      .cp-table td.cp-c-del { position: absolute; top: 4px; right: 4px; padding: 0; }
+      .cp-table:not(.is-linked) td[data-linked] { display: none; }
+    }
+
+    /* ---- Pop-outs ---- */
+    .cp-modal { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(15,12,30,0.42); }
+    .cp-modal[hidden] { display: none; }
+    .cp-modal-card { width: min(520px, 100%); max-height: min(86vh, 760px); display: flex; flex-direction: column; background: #fff; border-radius: 6px; overflow: hidden; }
+    .cp-modal-card--wide { width: min(780px, 100%); }
+    .cp-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--ws-line); }
+    .cp-modal-eyebrow { margin: 0 0 4px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .cp-modal-h { margin: 0; font-family: var(--sans); font-size: 20px; font-weight: 700; color: var(--ws-ink); }
+    .cp-x { appearance: none; border: 0; background: none; font-size: 24px; line-height: 1; cursor: pointer; color: rgba(28,29,34,0.5); padding: 0 2px; }
+    .cp-x:hover { color: var(--ws-ink); }
+    .cp-modal-body { padding: 16px 20px 20px; overflow-y: auto; display: grid; gap: 12px; align-content: start; }
+    .cp-modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--ws-line); }
+    .cp-modal-foot[hidden] { display: none; }
+    .cp-err { margin: 0 auto 0 0; font-size: var(--ws-t-meta); color: #a3392b; }
+    .cp-err.is-ok { color: #2e6f4f; }
+    .cp-err[hidden] { display: none; }
+    .cp-sec-h { margin: 0; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--english-violet); }
+    .cp-idea { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--ws-line); }
+    .cp-idea-name { font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ws-faint); }
+    .cp-idea strong { font-size: var(--ws-t-body); }
+    .cp-idea p { margin: 0; font-size: var(--ws-t-meta); color: var(--ws-tx); }
+    .cp-idea .ws-btn { justify-self: start; margin-top: 4px; }
+    .cp-dayposts { display: grid; gap: 6px; }
+    .cp-dayposts a { display: flex; justify-content: space-between; gap: 10px; padding: 9px 11px; border: 1px solid var(--ws-line); text-decoration: none; color: var(--ws-ink); font-size: var(--ws-t-meta); }
+    .cp-dayposts a:hover { border-color: var(--english-violet); }
+    .cp-dayposts span { color: var(--ws-faint); white-space: nowrap; }
+    .cp-pick-note { margin: 0; font-size: var(--ws-t-meta); color: var(--ws-tx); }
+    .cp-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+    .cp-pick { appearance: none; display: grid; gap: 5px; padding: 6px; border: 1px solid var(--ws-line); background: #fff; text-align: left; cursor: pointer; font: inherit; transition: border-color 0.2s; }
+    .cp-pick:hover, .cp-pick.is-on { border-color: var(--english-violet); box-shadow: inset 0 0 0 1px var(--english-violet); }
+    .cp-pick img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; background: #f2efed; display: block; }
+    .cp-pick b { font-size: var(--ws-t-meta); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cp-pick span { font-size: var(--ws-t-label); color: var(--ws-faint); }
+    .cp-packs { display: flex; flex-wrap: wrap; gap: 6px; }
+    .cp-pack { appearance: none; height: var(--ws-btn-h); padding: 0 11px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); background: #fff; cursor: pointer; font: inherit; font-size: var(--ws-t-meta); color: var(--ws-ink); }
+    .cp-pack[aria-pressed="true"] { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
+    .cp-field { display: grid; gap: 6px; }
+    .cp-label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--english-violet); }
+    .cp-box { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--ws-line); border-radius: 3px; font: inherit; font-size: var(--ws-t-meta); color: var(--ws-ink); }
+    .cp-box:focus { outline: none; border-color: var(--english-violet); }
+    textarea.cp-box { resize: vertical; line-height: 1.5; }
+    .cp-ai { appearance: none; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border: 1px solid rgba(var(--violet-rgb), 0.3); border-radius: 3px; background: rgba(var(--violet-rgb), 0.06); color: var(--violet-deep); cursor: pointer; font: inherit; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.06em; text-transform: none; }
+    .cp-ai:hover { background: rgba(var(--violet-rgb), 0.12); border-color: var(--english-violet); }
+    .cp-drop { display: grid; place-items: center; gap: 4px; padding: 22px; border: 1px dashed rgba(28,29,34,0.3); text-align: center; font-size: var(--ws-t-meta); color: var(--ws-tx); cursor: pointer; }
+    .cp-drop.is-over { border-color: var(--english-violet); background: rgba(var(--violet-rgb), 0.04); }
+    .cp-drop strong { color: var(--violet-deep); }
+    .cp-linkrow { display: flex; gap: 6px; }
+    .cp-linkrow .cp-box { flex: 1; min-width: 0; }
+    .cp-files { display: grid; gap: 5px; }
+    .cp-file { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 7px 10px; border: 1px solid var(--ws-line); font-size: var(--ws-t-meta); }
+    .cp-file span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cp-file button { appearance: none; border: 0; background: none; cursor: pointer; color: rgba(28,29,34,0.45); font-size: 16px; }
+  </style>
+
+  <script>
+    import { isDemo as demoOn, isTrainingDemo, lock } from '../../lib/demo.js';
+    import { supabase } from '../../lib/supabase.js';
+    import { designStore } from '../../lib/design-store.js';
+    import { STUDIO_SIZES } from '../../data/studio-sizes.js';
+    import { loadPrompts, upcomingFrom } from '../../data/content-calendar.js';
+    import { PLAN_LINKED, FORMATS, PILLARS, PLAN_ROWS, monthKey, monthStart, monthName, planStore, postIsMade } from '../../lib/content-plan.js';
+
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayKey = ymd(new Date());
+    const dayLabel = (s) => new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const shortDay = (s) => new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+    const blankRow = () => ({ id: newId(), date: '', title: '', format: '', pillar: '', description: '', inspo: '', item_id: null, template: null });
+    const hasContent = (r) => !!(r.date || r.title || r.format || r.pillar || r.description || r.inspo || r.template);
+
+    // ====== State ======
+    function startMonth() {
+      const q = new URLSearchParams(location.search).get('month');
+      return q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q) ? q : monthKey(new Date());
+    }
+    let month = startMonth();
+    let store = null;          // planStore(): the account, its calendar table and its plans table
+    let plan = null;           // { id, rows, pillars } once saved
+    let rows = [];
+    let ownPillars = [];       // the member's own, from every plan they've made
+    let items = [];            // the month's posts on the calendar, and any of the plan's moved out of it
+    let holidays = [], prompts = [];
+    let readOnly = '';         // why nothing here can be saved (the demo, the training window)
+    const LINKED = PLAN_LINKED;
+
+    const monthDays = () => { const [y, m] = month.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+    const monthEnd = () => `${month}-${String(monthDays()).padStart(2, '0')}`;
+    const isPost = (it) => !it.activity || it.activity === 'social_post';
+    const itemOf = (r) => r.item_id ? items.find((i) => String(i.id) === String(r.item_id)) : null;
+
+    // ====== Loading ======
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !demoOn()) {
+        if (!import.meta.env.DEV) location.replace('/login?next=' + encodeURIComponent(location.pathname + location.search));
+        return;
+      }
+      const fe = $('footer-email'); if (fe) fe.textContent = session ? (session.user.email || '') : 'The demo';
+      store = await planStore();
+      readOnly = !store ? (demoOn() ? 'demo' : 'signed-out') : (store.blocked ? store.reason : '');
+      plan = null; items = []; ownPillars = [];
+      const from = monthStart(month), to = monthEnd();
+      const work = [
+        supabase.from('uk_holidays').select('date, name, kind').gte('date', from).lte('date', to).order('date'),
+        loadPrompts(supabase).then((P) => upcomingFrom(P.days, new Date(from + 'T00:00:00'), 200)
+          .filter((d) => ymd(d.when) <= to).map((d) => ({ ...d, date: ymd(d.when) }))).catch(() => []),
+      ];
+      if (!readOnly) {
+        work.push(
+          store.db.from(store.plans).select('*').eq('user_id', store.uid).eq('month', from).maybeSingle(),
+          store.db.from(store.plans).select('pillars').eq('user_id', store.uid),
+          store.db.from(store.table).select('*').eq('user_id', store.uid).gte('scheduled_date', from).lte('scheduled_date', to)
+            .order('scheduled_date').order('scheduled_time'),
+        );
+      }
+      const [hol, pr, planRes, pilRes, itemRes] = await Promise.all(work);
+      holidays = (hol && hol.data) || [];
+      prompts = pr || [];
+      if (planRes && planRes.error && /content_plans/.test(planRes.error.message || '')) {
+        note('Your content plans need one update before they can be saved (supabase/content_plans.sql).');
+        readOnly = 'setup';
+      }
+      plan = planRes && planRes.data ? planRes.data : null;
+      ownPillars = [...new Set(((pilRes && pilRes.data) || []).flatMap((p) => Array.isArray(p.pillars) ? p.pillars : []))]
+        .filter((p) => p && !PILLARS.includes(p));
+      items = ((itemRes && itemRes.data) || []).filter(isPost);
+      rows = plan && Array.isArray(plan.rows) ? plan.rows.map((r) => ({ ...blankRow(), ...r })) : [];
+      while (rows.length < PLAN_ROWS) rows.push(blankRow());
+      if (!readOnly && LINKED) await reconcile();
+    }
+
+    /* The calendar has the last word on a post: moved there, the row follows;
+       removed there, the row keeps its idea but loses its date. */
+    async function reconcile() {
+      const linked = rows.filter((r) => r.item_id);
+      const missing = linked.filter((r) => !itemOf(r)).map((r) => r.item_id);
+      if (missing.length) {
+        const { data } = await store.db.from(store.table).select('*').eq('user_id', store.uid).in('id', missing);
+        items = items.concat(data || []);
+      }
+      let changed = false;
+      for (const r of linked) {
+        const it = itemOf(r);
+        if (!it) { r.item_id = null; r.date = ''; changed = true; continue; }
+        if (it.scheduled_date !== r.date) { r.date = it.scheduled_date; changed = true; }
+        if (it.title && it.title !== r.title) { r.title = it.title; changed = true; }
+      }
+      if (changed && plan) await savePlanRow();
+    }
+
+    // ====== The month ======
+    function drawMonth() {
+      document.querySelector('.cp-month').textContent = new Date(month + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+      $('cp-plan-name').textContent = `Your ${monthName(month)} plan`;
+      const first = new Date(month + '-01T00:00:00');
+      const lead = (first.getDay() + 6) % 7;
+      const n = monthDays();
+      const cells = [];
+      for (let i = 0; i < lead; i++) cells.push('<span class="cp-day is-other" aria-hidden="true"></span>');
+      for (let d = 1; d <= n; d++) {
+        const key = `${month}-${String(d).padStart(2, '0')}`;
+        const ps = prompts.filter((p) => p.date === key);
+        const hs = ps.length ? [] : holidays.filter((h) => h.date === key);
+        const posts = items.filter((it) => it.scheduled_date === key && it.status !== 'cancelled');
+        const chips = [
+          ...ps.slice(0, 1).map((p) => `<span class="cp-chip cp-chip--prompt" title="${esc(p.name + ' — ' + p.angle)}">${esc(p.name)}</span>`),
+          ...hs.slice(0, 1).map((h) => `<span class="cp-chip cp-chip--date" title="${esc(h.name)}">${esc(h.name)}</span>`),
+          ...posts.slice(0, 2).map((it) => `<span class="cp-chip ${postIsMade(it) ? 'cp-chip--post' : 'cp-chip--todo'}" title="${esc(it.title)}">${esc(it.title)}</span>`),
+        ];
+        const more = Math.max(0, posts.length - 2);
+        const cls = ['cp-day', key < todayKey ? 'is-past' : '', key === todayKey ? 'is-today' : ''].filter(Boolean).join(' ');
+        cells.push(`<button type="button" class="${cls}" data-day="${key}"><span class="cp-day-num">${d}</span>${chips.join('')}${more ? `<span class="cp-more">+${more} more</span>` : ''}</button>`);
+      }
+      $('cp-grid').innerHTML = cells.join('');
+    }
+
+    function openDay(key) {
+      const ps = prompts.filter((p) => p.date === key);
+      const hs = holidays.filter((h) => h.date === key);
+      const posts = items.filter((it) => it.scheduled_date === key && it.status !== 'cancelled');
+      $('cp-day-eyebrow').textContent = ps.map((p) => p.name).concat(hs.map((h) => h.name)).join(' · ') || 'Nothing marked on this day';
+      $('cp-day-h').textContent = dayLabel(key);
+      const ideas = ps.map((p, i) => `<div class="cp-idea"><span class="cp-idea-name">${esc(p.name)}</span><strong>${esc(p.angle)}</strong>${p.brief || p.hint ? `<p>${esc(p.brief || p.hint)}</p>` : ''}<button type="button" class="ws-btn ws-btn--primary" data-add-prompt="${i}">Add to my plan</button></div>`).join('');
+      const dates = hs.map((h, i) => `<div class="cp-idea"><span class="cp-idea-name">${h.kind === 'bank' ? 'Bank holiday' : 'Key date'}</span><strong>${esc(h.name)}</strong><button type="button" class="ws-btn ws-btn--ghost" data-add-date="${i}">Add to my plan</button></div>`).join('');
+      const planned = posts.length ? `<p class="cp-sec-h">On your Content Calendar</p><div class="cp-dayposts">${posts.map((it) => `<a href="/account/schedule?view=posts&focus=${esc(key)}">${esc(it.title)}<span>${postIsMade(it) ? 'Ready' : 'To make'}${it.details && it.details.plan ? ' · in your plan' : ''}</span></a>`).join('')}</div>` : '';
+      const blank = key >= todayKey ? `<button type="button" class="ws-btn ws-btn--ghost" data-add-blank>Add a post for this day</button>` : '';
+      $('cp-day-body').innerHTML = (ideas || dates ? `<p class="cp-sec-h">${ps.length ? 'Written for you' : 'On this day'}</p>${ideas}${dates}` : '') + planned + blank;
+      $('cp-day').dataset.day = key;
+      showModal('cp-day');
+    }
+    $('cp-grid').addEventListener('click', (e) => { const b = e.target.closest('[data-day]'); if (b) openDay(b.dataset.day); });
+    $('cp-day-body').addEventListener('click', (e) => {
+      const key = $('cp-day').dataset.day;
+      const pi = e.target.closest('[data-add-prompt]'), di = e.target.closest('[data-add-date]'), bl = e.target.closest('[data-add-blank]');
+      if (!pi && !di && !bl) return;
+      let fill = { date: key };
+      if (pi) { const p = prompts.filter((x) => x.date === key)[+pi.dataset.addPrompt]; fill = { date: key, title: p.angle, description: p.brief || p.hint || '' }; }
+      if (di) { const h = holidays.filter((x) => x.date === key)[+di.dataset.addDate]; fill = { date: key, title: h.name }; }
+      if (key < todayKey) fill.date = '';
+      hideModal('cp-day');
+      addToPlan(fill);
+    });
+
+    // ====== The plan ======
+    function pillarOptions(v) {
+      const all = PILLARS.concat(ownPillars);
+      if (v && !all.includes(v)) all.push(v);
+      return `<option value="">Choose…</option>${all.map((p) => `<option${p === v ? ' selected' : ''}>${esc(p)}</option>`).join('')}<option value="__own">+ Add your own</option>`;
+    }
+    function postCell(r) {
+      if (!LINKED) return '';
+      if (!r.date || !r.title) {
+        return `<div class="cp-post"><span class="cp-post-note">${!r.date && !r.title ? 'Give it a title and a date to plan the post.' : !r.date ? 'Give it a date to put it on your Content Calendar.' : 'Give it a title to put it on your Content Calendar.'}</span>${r.template ? `<span class="cp-post-note">Template: ${esc(r.template.name)}</span>` : ''}</div>`;
+      }
+      const it = itemOf(r);
+      if (it && postIsMade(it)) {
+        const d = it.details || {};
+        const img = it.thumbnail_url || it.asset_url || '';
+        const file = !img && Array.isArray(d.files) && d.files[0];
+        const done = it.status === 'done';
+        return `<div class="cp-post">
+          <div class="cp-made">${img ? `<span class="cp-thumb" style="background-image:url('${esc(img)}')"></span>` : `<span class="cp-thumb cp-thumb--file">${esc(file ? String(file.name).split('.').pop().toUpperCase().slice(0, 4) : 'LINK')}</span>`}
+            <span class="cp-status ${done ? 'is-done' : 'is-ready'}">${done ? 'Posted' : 'Ready'}</span></div>
+          <div class="cp-links"><button type="button" class="cp-link" data-do="caption">${it.caption ? 'Caption' : 'Add caption'}</button><button type="button" class="cp-link" data-do="menu-again">Change</button><a class="cp-link" href="/account/schedule?view=posts&focus=${esc(r.date)}">On calendar</a></div>
+        </div>`;
+      }
+      const menu = `<details class="cp-menu"><summary class="ws-btn ws-btn--primary cp-make-btn">Make the post</summary><div class="cp-menu-list">
+          ${r.template ? `<button type="button" data-do="open-template">Open ${esc(r.template.name)}<small>The template you chose</small></button>` : ''}
+          <button type="button" data-do="template">${r.template ? 'Choose another template' : 'Use a template'}<small>From your packs</small></button>
+          <button type="button" data-do="design">Choose one of your designs<small>Saved in your Studio</small></button>
+          <button type="button" data-do="create">Create a new design<small>A blank canvas in the Studio</small></button>
+          <button type="button" data-do="upload">Upload a post<small>Made elsewhere, like Canva</small></button>
+        </div></details>`;
+      return `<div class="cp-post"><span class="cp-status">To make</span>${menu}
+        ${r.template ? `<span class="cp-post-note">Template: ${esc(r.template.name)}</span>` : ''}
+        <div class="cp-links"><button type="button" class="cp-link" data-do="caption">${it && it.caption ? 'Caption' : 'Add caption'}</button></div></div>`;
+    }
+    function rowHtml(r) {
+      const fmt = `<option value="">Choose…</option>${FORMATS.map((f) => `<option${f === r.format ? ' selected' : ''}>${esc(f)}</option>`).join('')}`;
+      return `<tr data-row="${esc(r.id)}">
+        <td class="cp-c-date" data-label="Date"><input class="cp-in" type="date" data-k="date" value="${esc(r.date)}" min="${monthStart(month)}" max="${monthEnd()}" aria-label="Date" /></td>
+        <td class="cp-c-title" data-label="Title"><input class="cp-in" type="text" data-k="title" value="${esc(r.title)}" maxlength="120" placeholder="What's the post?" aria-label="Title" /></td>
+        <td class="cp-c-format" data-label="Format"><select class="cp-in${r.format ? '' : ' is-empty'}" data-k="format" aria-label="Format">${fmt}</select></td>
+        <td class="cp-c-pillar" data-label="Content pillar"><select class="cp-in${r.pillar ? '' : ' is-empty'}" data-k="pillar" aria-label="Content pillar">${pillarOptions(r.pillar)}</select></td>
+        <td class="cp-c-desc" data-label="Description"><textarea class="cp-in" rows="1" data-k="description" maxlength="1000" placeholder="What it's about" aria-label="Description">${esc(r.description)}</textarea></td>
+        <td class="cp-c-inspo" data-label="Inspo"><div class="cp-inspo"><input class="cp-in" type="url" data-k="inspo" value="${esc(r.inspo)}" placeholder="Paste a link" aria-label="Inspiration link" /><a href="${esc(r.inspo)}" target="_blank" rel="noopener" title="Open the link" data-inspo-open${r.inspo ? '' : ' hidden'}>&#8599;</a></div></td>
+        <td class="cp-c-post" data-label="The post" data-linked>${postCell(r)}</td>
+        <td class="cp-c-del"><button type="button" class="cp-del" data-del aria-label="Remove this row">&times;</button></td>
+      </tr>`;
+    }
+    function drawRows() {
+      $('cp-table').classList.toggle('is-linked', LINKED);
+      $('cp-rows').innerHTML = rows.map(rowHtml).join('');
+      $('cp-rows').querySelectorAll('textarea').forEach(grow);
+      drawCount();
+    }
+    function redrawPost(r) {
+      const td = $('cp-rows').querySelector(`tr[data-row="${CSS.escape(r.id)}"] .cp-c-post`);
+      if (td) td.innerHTML = postCell(r);
+    }
+    function drawCount() {
+      const dated = rows.filter((r) => r.date && r.title);
+      const made = dated.filter((r) => postIsMade(itemOf(r))).length;
+      $('cp-count').textContent = !dated.length ? '' : LINKED
+        ? `${dated.length} ${dated.length === 1 ? 'post' : 'posts'} planned for ${monthName(month)}, ${made} made`
+        : `${dated.length} ${dated.length === 1 ? 'post' : 'posts'} planned for ${monthName(month)}`;
+    }
+    function grow(t) { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }
+    const rowOf = (el) => { const tr = el.closest('tr[data-row]'); return tr ? rows.find((r) => r.id === tr.dataset.row) : null; };
+
+    function addToPlan(fill) {
+      if (blocked()) return;
+      let r = rows.find((x) => !hasContent(x));
+      if (!r) { r = blankRow(); rows.push(r); }
+      Object.assign(r, fill);
+      drawRows();
+      touch(r);
+      const tr = $('cp-rows').querySelector(`tr[data-row="${CSS.escape(r.id)}"]`);
+      if (tr) {
+        tr.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        tr.classList.remove('is-flash'); void tr.offsetWidth; tr.classList.add('is-flash');
+        const t = tr.querySelector(fill.title ? '[data-k="format"]' : '[data-k="title"]'); if (t) setTimeout(() => t.focus({ preventScroll: true }), 300);
+      }
+    }
+
+    function blocked() {
+      if (!readOnly) return false;
+      if (readOnly === 'demo') lock('Planning is for members.', 'Members plan a month of posts here, and each one goes on their Content Calendar ready to make.');
+      else note(readOnly === 'setup' ? 'Your content plans need one update before they can be saved (supabase/content_plans.sql).' : readOnly === 'signed-out' ? "You're signed out. Sign in again to plan." : readOnly);
+      return true;
+    }
+    function note(t) { const n = $('cp-note'); n.textContent = t || ''; n.hidden = !t; }
+
+    const $rows = $('cp-rows');
+    $rows.addEventListener('input', (e) => {
+      const k = e.target.dataset && e.target.dataset.k; if (!k) return;
+      const r = rowOf(e.target); if (!r) return;
+      if (blocked()) { e.target.value = r[k] || ''; return; }
+      if (e.target.tagName === 'TEXTAREA') grow(e.target);
+      if (k === 'pillar' && e.target.value === '__own') return;
+      if (k === 'inspo') { const a = e.target.parentElement.querySelector('[data-inspo-open]'); const u = normalUrl(e.target.value); a.hidden = !u; a.href = u || '#'; }
+      if (e.target.tagName === 'SELECT') e.target.classList.toggle('is-empty', !e.target.value);
+      r[k] = e.target.value;
+      if (k === 'date' || k === 'title') redrawPost(r);
+      touch(r);
+    });
+    $rows.addEventListener('change', (e) => {
+      if (e.target.dataset.k !== 'pillar' || e.target.value !== '__own') return;
+      const r = rowOf(e.target); const sel = e.target;
+      // A pillar of their own: typed in place, kept for every plan after.
+      const inp = document.createElement('input');
+      inp.className = 'cp-in'; inp.placeholder = 'Name your pillar'; inp.maxLength = 40;
+      sel.replaceWith(inp); inp.focus();
+      const done = (keep) => {
+        const v = keep ? inp.value.trim() : '';
+        if (v && !PILLARS.includes(v) && !ownPillars.includes(v)) ownPillars.push(v);
+        if (v) { r.pillar = v; touch(r); }
+        const s = document.createElement('select');
+        s.className = 'cp-in' + (r.pillar ? '' : ' is-empty'); s.dataset.k = 'pillar'; s.setAttribute('aria-label', 'Content pillar');
+        s.innerHTML = pillarOptions(r.pillar);
+        inp.replaceWith(s);
+        // Every row's list offers it from now on.
+        $rows.querySelectorAll('select[data-k="pillar"]').forEach((o) => { const rr = rowOf(o); if (rr && o !== s) o.innerHTML = pillarOptions(rr.pillar); });
+      };
+      inp.addEventListener('keydown', (k) => { if (k.key === 'Enter') { k.preventDefault(); inp.blur(); } if (k.key === 'Escape') { inp.value = ''; inp.blur(); } });
+      inp.addEventListener('blur', () => done(true), { once: true });
+    });
+    $rows.addEventListener('focusout', (e) => {
+      if (e.target.dataset && e.target.dataset.k === 'inspo') {
+        const r = rowOf(e.target); const u = normalUrl(e.target.value);
+        if (r && e.target.value && u !== e.target.value) { e.target.value = u; r.inspo = u; touch(r); }
+      }
+    });
+    $rows.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      if (del) { removeRow(rowOf(del)); return; }
+      const act = e.target.closest('[data-do]');
+      if (act) { const r = rowOf(act); act.closest('details')?.removeAttribute('open'); doPost(r, act.dataset.do); }
+    });
+    // One menu open at a time; a click elsewhere closes it.
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('.cp-menu[open]').forEach((d) => { if (!d.contains(e.target)) d.removeAttribute('open'); });
+    });
+    $('cp-add').addEventListener('click', () => { if (blocked()) return; const r = blankRow(); rows.push(r); drawRows(); $rows.querySelector(`tr[data-row="${CSS.escape(r.id)}"] [data-k="date"]`)?.focus(); });
+
+    function normalUrl(v) {
+      let u = String(v || '').trim(); if (!u) return '';
+      if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
+      try { return new URL(u).href; } catch (_) { return ''; }
+    }
+
+    async function removeRow(r) {
+      if (!r || blocked()) return;
+      const it = itemOf(r);
+      if (it) {
+        const made = postIsMade(it);
+        if (made) {
+          if (!confirm(`Remove "${r.title}" from your plan?\n\nIts post is made and on your Content Calendar. OK removes the post from your calendar too; Cancel keeps both.`)) return;
+        } else if (!confirm(`Remove "${r.title || 'this row'}" from your plan and your Content Calendar?`)) return;
+        const { error } = await store.db.from(store.table).delete().eq('id', it.id).eq('user_id', store.uid);
+        if (error) return saved('err', "Couldn't remove its post");
+        items = items.filter((x) => x !== it);
+        drawMonth();
+      } else if (hasContent(r) && !confirm(`Remove "${r.title || 'this row'}" from your plan?`)) return;
+      rows = rows.filter((x) => x !== r);
+      if (rows.length < 1) rows.push(blankRow());
+      drawRows();
+      if (plan) queueSave();
+    }
+
+    // ====== Saving ======
+    /* Typing saves itself, a moment after the last key. Each row that changed
+       is put right on the calendar first, then the plan is written with the
+       posts' ids in it. */
+    const dirty = new Set();
+    let saveTimer = null, saving = null, again = false;
+    function touch(r) { dirty.add(r.id); queueSave(); }
+    function queueSave() { saved('wait'); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 900); }
+    async function flush() {
+      clearTimeout(saveTimer); saveTimer = null;
+      if (saving) { again = true; return saving; }
+      saving = (async () => {
+        try {
+          saved('saving');
+          if (!plan) {
+            const { data, error } = await store.db.from(store.plans)
+              .insert({ user_id: store.uid, month: monthStart(month), rows: [], pillars: [] }).select('*').single();
+            if (error) throw error;
+            plan = data;
+          }
+          if (LINKED) for (const id of [...dirty]) {
+            const r = rows.find((x) => x.id === id);
+            dirty.delete(id);
+            if (r) await syncRow(r);
+          } else dirty.clear();
+          await savePlanRow();
+          saved('ok');
+          drawMonth(); drawCount();
+        } catch (err) {
+          console.error('[content-plan]', err);
+          saved('err', /content_plans/.test(err && err.message || '') ? 'Needs supabase/content_plans.sql' : "Couldn't save");
+        } finally {
+          saving = null;
+          if (again) { again = false; flush(); }
+        }
+      })();
+      return saving;
+    }
+    async function savePlanRow() {
+      const keep = rows.filter(hasContent).map(({ id, date, title, format, pillar, description, inspo, item_id, template }) =>
+        ({ id, date: date || null, title, format, pillar, description, inspo, item_id: item_id || null, template: template || null }));
+      const mine = [...new Set(rows.map((r) => r.pillar).filter((p) => p && !PILLARS.includes(p)))];
+      const { error } = await store.db.from(store.plans).update({ rows: keep, pillars: mine }).eq('id', plan.id).eq('user_id', store.uid);
+      if (error) throw error;
+    }
+    /* A row with a date and a title is a post on the Content Calendar. */
+    async function syncRow(r) {
+      const it = itemOf(r);
+      const wants = !!(r.date && r.title);
+      const planned = { plan: { id: plan.id, row: r.id }, format: r.format || null, pillar: r.pillar || null, description: r.description || null, inspo: r.inspo || null };
+      if (wants && !it) {
+        const { data, error } = await store.db.from(store.table).insert({
+          user_id: store.uid, activity: 'social_post', title: r.title, scheduled_date: r.date, scheduled_time: '09:00',
+          platform_hint: 'instagram', status: 'scheduled', reminder: false, details: planned,
+        }).select('*').single();
+        if (error) throw error;
+        items.push(data); r.item_id = data.id;
+        redrawPost(r);
+      } else if (wants && it) {
+        const details = { ...(it.details || {}), ...planned };
+        const patch = { title: r.title, scheduled_date: r.date, details };
+        const { error } = await store.db.from(store.table).update(patch).eq('id', it.id).eq('user_id', store.uid);
+        if (error) throw error;
+        Object.assign(it, patch);
+      } else if (!wants && it) {
+        // Its date or title taken away: a post not made yet comes off the
+        // calendar; a made one stays, and so does the row's date.
+        if (postIsMade(it)) {
+          if (!r.date) r.date = it.scheduled_date;
+          if (!r.title) r.title = it.title;
+          const tr = $rows.querySelector(`tr[data-row="${CSS.escape(r.id)}"]`);
+          if (tr) { tr.querySelector('[data-k="date"]').value = r.date; tr.querySelector('[data-k="title"]').value = r.title; }
+          note(`"${r.title}" is made and on your Content Calendar, so it keeps its date and title here. Move it on the calendar, or remove the row.`);
+          redrawPost(r);
+          return;
+        }
+        const { error } = await store.db.from(store.table).delete().eq('id', it.id).eq('user_id', store.uid);
+        if (error) throw error;
+        items = items.filter((x) => x !== it); r.item_id = null;
+        redrawPost(r);
+      }
+    }
+    function saved(state, msg) {
+      const el = $('cp-saved');
+      el.classList.toggle('is-err', state === 'err');
+      el.textContent = state === 'wait' || state === 'saving' ? 'Saving…' : state === 'ok' ? 'Saved' : state === 'err' ? (msg || "Couldn't save") : '';
+    }
+    // Leaving with a change not yet written: write it now.
+    window.addEventListener('pagehide', () => { if (saveTimer) flush(); });
+
+    // ====== Making the post ======
+    /* A post to make needs its place on the calendar first: save, then act. */
+    async function ensureItem(r) {
+      if (blocked()) return null;
+      if (!r.date || !r.title) { note('Give the post a date and a title first.'); return null; }
+      dirty.add(r.id);
+      await flush();
+      return itemOf(r);
+    }
+    const blankFor = (r) => (r.format === 'Story' || r.format === 'Reel / video') ? '1080x1920' : '1';
+    const back = () => `&back=plan&month=${encodeURIComponent(month)}`;
+
+    async function doPost(r, what) {
+      if (!r) return;
+      if (what === 'template') return pickTemplate(r);
+      const it = await ensureItem(r); if (!it) return;
+      if (what === 'menu-again') return showMenuAgain(r);
+      if (what === 'create') { location.href = `/account/editor?blank=${blankFor(r)}&for=${encodeURIComponent(r.date)}&post=${encodeURIComponent(it.id)}${back()}`; return; }
+      if (what === 'open-template' && r.template) { location.href = `/account/editor?template=${encodeURIComponent(r.template.id)}&for=${encodeURIComponent(r.date)}&post=${encodeURIComponent(it.id)}${back()}`; return; }
+      if (what === 'design') return pickDesign(r, it);
+      if (what === 'upload') return openUpload(r, it);
+      if (what === 'caption') return openCaption(r, it);
+    }
+    // A made post, made again another way: the same menu, in the pop-out.
+    function showMenuAgain(r) {
+      openMake('Change the post', r, `<p class="cp-pick-note">Make it another way. What you choose replaces the post on your calendar.</p>
+        <div class="cp-menu-list" style="position:static;box-shadow:none">
+          ${r.template ? `<button type="button" data-again="open-template">Open ${esc(r.template.name)}</button>` : ''}
+          <button type="button" data-again="template">Use a template</button>
+          <button type="button" data-again="design">Choose one of your designs</button>
+          <button type="button" data-again="create">Create a new design</button>
+          <button type="button" data-again="upload">Upload a post</button>
+        </div>`);
+      $('cp-make-body').onclick = (e) => { const b = e.target.closest('[data-again]'); if (b) { hideModal('cp-make'); doPost(r, b.dataset.again); } };
+    }
+
+    function openMake(h, r, body, withFoot) {
+      $('cp-make-eyebrow').textContent = r.date ? `${shortDay(r.date)} · ${r.title}` : r.title || 'Your plan';
+      $('cp-make-h').textContent = h;
+      $('cp-make-body').innerHTML = body;
+      $('cp-make-body').onclick = null;
+      $('cp-make-foot').hidden = !withFoot;
+      makeErr('');
+      $('cp-make-save').disabled = false; $('cp-make-save').textContent = 'Save';
+      showModal('cp-make');
+    }
+    function makeErr(m, ok) { const el = $('cp-make-err'); el.hidden = !m; el.textContent = m || ''; el.classList.toggle('is-ok', !!ok); }
+
+    async function patchItem(it, patch) {
+      const { error } = await store.db.from(store.table).update(patch).eq('id', it.id).eq('user_id', store.uid);
+      if (error) throw error;
+      Object.assign(it, patch);
+    }
+
+    // Choose one of your designs: social sizes only, as the Planner's picker.
+    const PRINT_SIZES = new Set(STUDIO_SIZES.filter((g) => g.family === 'print').flatMap((g) => g.sizes.map((z) => `${z.w}x${z.h}`)));
+    function isPrint(d) {
+      const c = d && d.canvas; const w = Math.round(Number(c && c.width) || 0), h = Math.round(Number(c && c.height) || 0);
+      if (!w || !h) return false;
+      if (PRINT_SIZES.has(`${w}x${h}`) || PRINT_SIZES.has(`${h}x${w}`)) return true;
+      return Math.abs(Math.max(w, h) / Math.min(w, h) - Math.SQRT2) < 0.01 && Math.min(w, h) >= 1200;
+    }
+    let designs = null;
+    async function pickDesign(r, it) {
+      openMake('Choose one of your designs', r, `<p class="cp-pick-note">Loading your designs…</p>`);
+      if (!designs) {
+        const ds = await designStore();
+        if (!ds || ds.blocked) { $('cp-make-body').innerHTML = `<p class="cp-pick-note">${esc(ds ? ds.reason : "You're signed out. Sign in again.")}</p>`; return; }
+        const { data, error } = await ds.db.from(ds.table).select('id, name, thumb_url, canvas, updated_at').eq('user_id', ds.uid).order('updated_at', { ascending: false }).limit(60);
+        if (error) { $('cp-make-body').innerHTML = `<p class="cp-pick-note">Your designs didn't load. Try again in a moment.</p>`; return; }
+        designs = (data || []).filter((d) => !isPrint(d) && d.thumb_url);
+      }
+      $('cp-make-body').innerHTML = designs.length
+        ? `<p class="cp-pick-note">Click the one this post will be. It goes on your calendar as it is.</p><div class="cp-pick-grid">${designs.map((d) => `<button type="button" class="cp-pick" data-design="${esc(String(d.id))}"><img src="${esc(d.thumb_url)}" alt="" loading="lazy" /><b>${esc(d.name || 'Untitled design')}</b></button>`).join('')}</div>`
+        : `<p class="cp-pick-note">No saved designs yet. Use a template or create a new design instead.</p>`;
+      $('cp-make-body').onclick = async (e) => {
+        const b = e.target.closest('[data-design]'); if (!b) return;
+        const d = designs.find((x) => String(x.id) === b.dataset.design); if (!d) return;
+        try {
+          await patchItem(it, { asset_url: d.thumb_url, thumbnail_url: d.thumb_url, design_ref: String(d.id), reminder: true });
+          hideModal('cp-make'); redrawPost(r); drawMonth(); drawCount();
+        } catch (err) { $('cp-make-body').insertAdjacentHTML('afterbegin', `<p class="cp-err">${esc(err.message || "Couldn't save that.")}</p>`); }
+      };
+    }
+
+    // Use a template: from the packs they have, kept on the row to open later.
+    let packs = null;
+    async function pickTemplate(r) {
+      if (blocked()) return;
+      openMake('Use a template', r, `<p class="cp-pick-note">Loading your packs…</p>`);
+      if (!packs) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const email = (session && session.user.email) || '';
+          const { ownedPacks, memberBrandsFor } = await import('../../lib/pack-access.js');
+          const [pr, or, brand] = await Promise.all([
+            supabase.from('packs').select('*').eq('status', 'active').order('sort_order', { ascending: true }),
+            session ? supabase.from('orders').select('pack_id, status').or(`user_id.eq.${session.user.id},buyer_email.ilike.${email}`) : Promise.resolve({ data: [] }),
+            memberBrandsFor(supabase).catch(() => undefined),
+          ]);
+          if (pr.error) throw pr.error;
+          const ids = new Set(((or && or.data) || []).filter((o) => o.status === 'paid' && o.pack_id).map((o) => o.pack_id));
+          packs = ownedPacks(pr.data || [], ids, brand).filter((p) => (p.kind || 'social') !== 'print');
+        } catch (_) { $('cp-make-body').innerHTML = `<p class="cp-pick-note">Your packs didn't load. Try again in a moment.</p>`; return; }
+      }
+      if (!packs.length) { $('cp-make-body').innerHTML = `<p class="cp-pick-note">No packs yet. <a href="/edit">The Edit</a> has every pack, ready to open in your Studio.</p>`; return; }
+      $('cp-make-body').innerHTML = `<div class="cp-packs" role="group" aria-label="Your packs">${packs.map((p, i) => `<button type="button" class="cp-pack" data-pack="${esc(p.id)}" aria-pressed="${i === 0}">${esc(p.title)}</button>`).join('')}</div><div id="cp-tpls"></div>`;
+      const showPack = async (id) => {
+        $('cp-make-body').querySelectorAll('[data-pack]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pack === id)));
+        const host = $('cp-tpls'); host.innerHTML = `<p class="cp-pick-note">Loading…</p>`;
+        const { data } = await supabase.from('templates').select('id, name, thumb_url, sort_order').eq('pack_id', id).eq('status', 'active').order('sort_order', { ascending: true }).limit(80);
+        const list = (data || []).filter((t) => t.thumb_url);
+        host.innerHTML = list.length ? `<div class="cp-pick-grid">${list.map((t) => `<button type="button" class="cp-pick${r.template && r.template.id === t.id ? ' is-on' : ''}" data-tpl="${esc(t.id)}"><img src="${esc(t.thumb_url)}" alt="" loading="lazy" /><b>${esc(t.name || 'Template')}</b></button>`).join('')}</div>` : `<p class="cp-pick-note">Nothing in this pack yet.</p>`;
+        host.onclick = (e) => {
+          const b = e.target.closest('[data-tpl]'); if (!b) return;
+          const t = list.find((x) => x.id === b.dataset.tpl); if (!t) return;
+          r.template = { id: t.id, name: t.name || 'Template', thumb: t.thumb_url };
+          hideModal('cp-make'); redrawPost(r); touch(r);
+        };
+      };
+      $('cp-make-body').querySelector('.cp-packs').addEventListener('click', (e) => { const b = e.target.closest('[data-pack]'); if (b) showPack(b.dataset.pack); });
+      showPack(packs[0].id);
+    }
+
+    // Upload a post: files to calendar-assets, as the Planner's own upload.
+    const FILE_MAX = 25 * 1024 * 1024;
+    async function openUpload(r, it) {
+      let files = [], links = [];
+      openMake('Upload a post', r, `<p class="cp-pick-note">Upload the post you've made, as a PNG, JPEG or PDF: one file or several. Or add a link to it.</p>
+        <label class="cp-drop" id="cp-drop"><input type="file" multiple accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf" hidden id="cp-files" /><strong>Choose files</strong> or drop them here</label>
+        <div class="cp-linkrow"><input type="text" inputmode="url" class="cp-box" id="cp-url" placeholder="Or paste a link, e.g. to your Canva design" /><button type="button" class="ws-btn ws-btn--ghost" id="cp-url-add">Add link</button></div>
+        <div class="cp-files" id="cp-up-list"></div>`, true);
+      const draw = () => { $('cp-up-list').innerHTML = files.map((f, i) => `<div class="cp-file"><span>${esc(f.name)}${f.uploading ? ' · uploading…' : ''}</span><button type="button" data-rm="f${i}" aria-label="Remove">&times;</button></div>`).concat(links.map((u, i) => `<div class="cp-file"><span>${esc(u.replace(/^https?:\/\//, ''))}</span><button type="button" data-rm="l${i}" aria-label="Remove">&times;</button></div>`)).join(''); };
+      const up = async (list) => {
+        for (const file of list) {
+          if (!/^(image\/(png|jpeg)|application\/pdf)$/.test(file.type) && !/\.(png|jpe?g|pdf)$/i.test(file.name)) { makeErr(`${file.name} isn't a PNG, JPEG or PDF.`); continue; }
+          if (file.size > FILE_MAX) { makeErr(`${file.name} is over 25 MB. Add a link to it instead.`); continue; }
+          const safe = file.name.replace(/[^\w.\-]+/g, '-').slice(-80);
+          const path = `${store.uid}/${store.training ? 'training/' : ''}posts/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}-${safe}`;
+          const entry = { kind: 'file', name: file.name, size: file.size, mime: file.type || '', uploading: true };
+          files.push(entry); draw();
+          const { error } = await store.db.storage.from('calendar-assets').upload(path, file, { contentType: file.type || undefined, upsert: false });
+          if (error) { files = files.filter((x) => x !== entry); draw(); makeErr(`${file.name} didn't upload: ${error.message || 'try again'}.`); continue; }
+          entry.url = store.db.storage.from('calendar-assets').getPublicUrl(path).data.publicUrl; entry.path = path; entry.uploading = false; draw();
+        }
+      };
+      $('cp-files').addEventListener('change', (e) => { up([...e.target.files]); e.target.value = ''; });
+      const drop = $('cp-drop');
+      drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('is-over'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+      drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('is-over'); up([...(e.dataTransfer && e.dataTransfer.files || [])]); });
+      $('cp-url-add').addEventListener('click', () => { const u = normalUrl($('cp-url').value); if (!u) return makeErr("That doesn't look like a link."); links.push(u); $('cp-url').value = ''; makeErr(''); draw(); });
+      $('cp-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('cp-url-add').click(); } });
+      $('cp-up-list').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-rm]'); if (!b) return;
+        const i = +b.dataset.rm.slice(1);
+        if (b.dataset.rm[0] === 'l') links.splice(i, 1);
+        else { const [x] = files.splice(i, 1); if (x && x.path) store.db.storage.from('calendar-assets').remove([x.path]).catch(() => {}); }
+        draw();
+      });
+      $('cp-make-save').onclick = async () => {
+        if (files.some((x) => x.uploading)) return makeErr('Wait for the files to finish uploading.');
+        if (!files.length && !links.length) return makeErr('Upload your post, or add a link to it.');
+        const img = files.find((x) => /^image\//.test(x.mime) || /\.(png|jpe?g)$/i.test(x.name));
+        $('cp-make-save').disabled = true; $('cp-make-save').textContent = 'Saving…';
+        try {
+          await patchItem(it, {
+            details: { ...(it.details || {}), files: files.map(({ uploading, ...x }) => x), links },
+            asset_url: img ? img.url : null, thumbnail_url: img ? img.url : null, design_ref: null, reminder: true,
+          });
+          files = []; hideModal('cp-make'); redrawPost(r); drawMonth(); drawCount();
+        } catch (err) { makeErr(err.message || "Couldn't save that."); $('cp-make-save').disabled = false; $('cp-make-save').textContent = 'Save'; }
+      };
+      // Closed without saving: what was uploaded goes again.
+      $('cp-make').dataset.cleanup = '1';
+      $('cp-make')._cleanup = () => { const p = files.map((x) => x.path).filter(Boolean); if (p.length) store.db.storage.from('calendar-assets').remove(p).catch(() => {}); };
+    }
+
+    // The caption, with the AI writer, as every caption box has (Dani, 18 Oct).
+    function openCaption(r, it) {
+      openMake('Caption', r, `<div class="cp-field"><span class="cp-label">Caption <button type="button" class="cp-ai" id="cp-ai"><span aria-hidden="true">✨</span> Generate with AI</button></span>
+        <textarea class="cp-box" id="cp-caption" rows="8" maxlength="2200" placeholder="The words you'll post alongside it.">${esc(it.caption || '')}</textarea></div>`, true);
+      $('cp-ai').addEventListener('click', () => {
+        window.tmkeCaption?.open({ output: 'use', onUse: (text) => { $('cp-caption').value = text; } });
+      });
+      $('cp-make-save').onclick = async () => {
+        $('cp-make-save').disabled = true; $('cp-make-save').textContent = 'Saving…';
+        try { await patchItem(it, { caption: $('cp-caption').value.trim() || null }); hideModal('cp-make'); redrawPost(r); }
+        catch (err) { makeErr(err.message || "Couldn't save that."); $('cp-make-save').disabled = false; $('cp-make-save').textContent = 'Save'; }
+      };
+      setTimeout(() => $('cp-caption').focus(), 50);
+    }
+
+    // ====== Pop-outs ======
+    function showModal(id) { $(id).hidden = false; window.__lenis?.stop?.(); }
+    function hideModal(id) {
+      const m = $(id); if (m.hidden) return;
+      if (m._cleanup) { const c = m._cleanup; m._cleanup = null; if (m.dataset.cleanup) c(); delete m.dataset.cleanup; }
+      m.hidden = true;
+      if (document.querySelectorAll('.cp-modal:not([hidden])').length === 0) window.__lenis?.start?.();
+    }
+    document.querySelectorAll('.cp-modal').forEach((m) => {
+      m.setAttribute('data-lenis-prevent', '');
+      m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('[data-close]')) hideModal(m.id); });
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.querySelectorAll('.cp-modal:not([hidden])').forEach((m) => hideModal(m.id)); });
+
+    // ====== Months ======
+    async function go(key) {
+      if (saving || dirty.size) await flush();
+      month = key;
+      history.replaceState(null, '', `/account/content-plan?month=${month}`);
+      note('');
+      await load();
+      paint();
+    }
+    const step = (n) => { const [y, m] = month.split('-').map(Number); return monthKey(new Date(y, m - 1 + n, 1)); };
+    $('cp-prev').addEventListener('click', () => go(step(-1)));
+    $('cp-next').addEventListener('click', () => go(step(1)));
+    $('cp-this').addEventListener('click', () => go(monthKey(new Date())));
+
+    function paint() {
+      const name = monthName(month);
+      $('cp-h').textContent = `Your ${name} Content Plan.`;
+      document.title = `${name} Content Plan — TMKE workspace`;
+      const cal = `/account/schedule?view=posts&focus=${month}`;
+      $('cp-back').href = cal; $('cp-to-cal').href = cal;
+      if (!LINKED) $('cp-plan-intro').textContent = 'One row for each post you want to make this month. Once it’s planned, open it from your Content Calendar whenever you need it.';
+      saved('');
+      drawMonth(); drawRows();
+    }
+
+    // ====== Start ======
+    const release = window.__tmkeEnterHold ? window.__tmkeEnterHold() : null;
+    (async () => {
+      try { await load(); paint(); }
+      catch (err) { console.error('[content-plan]', err); note("Your plan didn't load. Refresh to try again."); }
+      finally { requestAnimationFrame(() => { document.body.classList.add('is-loaded'); release && release(); }); }
+    })();
+  </script>
+
+  <CaptionGenerator />
+</BaseLayout>

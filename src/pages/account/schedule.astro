@@ -64,6 +64,9 @@ import "../../styles/account-sections.css";
                in this browser. The Content Calendar is where TMKE's monthly
                templates will sit for subscribers later; nothing of that is
                built yet. -->
+          <!-- The month's content plan, from the Content Calendar (Dani, 18 Oct):
+               Open it if it's made, Create it if not. -->
+          <a class="cal-nav cal-plan" id="cal-plan" href="/account/content-plan" hidden>Create your content plan</a>
           <div class="cal-view" role="group" aria-label="Show">
             <button type="button" class="cal-nav cal-view-btn" data-view="all" aria-pressed="true" title="Everything you've planned">Marketing Planner</button>
             <button type="button" class="cal-nav cal-view-btn" data-view="posts" aria-pressed="false" title="Your posts, post ideas and key dates">Content Calendar</button>
@@ -84,6 +87,7 @@ import "../../styles/account-sections.css";
         <span class="cal-leg cal-leg--property" data-in="activity">Property Marketing</span>
         <span class="cal-leg cal-leg--campaigns" data-in="activity">Campaigns</span>
         <span class="cal-leg cal-leg--other" data-in="activity">Something Else</span>
+        <span class="cal-leg cal-leg--todo" data-in="posts">Post to make</span>
         <span class="cal-leg cal-leg--prompt" data-in="posts">Idea ready</span>
         <span class="cal-leg cal-leg--date">Key date</span>
       </div>
@@ -148,6 +152,7 @@ import "../../styles/account-sections.css";
       <div class="day-body post-body">
         <figure class="post-preview"><img id="post-img" alt="Your post design" /></figure>
         <div class="act-files-list post-files" id="post-files" style="--cat: var(--violet-deep)"></div>
+        <a class="post-plan" id="post-plan" href="/account/content-plan" hidden>Make it from your content plan &rarr;</a>
         <div class="post-fields">
           <label class="post-field">
             <span class="post-label">Title</span>
@@ -395,6 +400,24 @@ import "../../styles/account-sections.css";
     }
     /* The key follows the view. */
     .cal[data-cal-view="posts"] .cal-leg[data-in="activity"] { display: none; }
+    .cal[data-cal-view="all"] .cal-leg[data-in="posts"] { display: none; }
+    .cal-leg--todo::before { background: #fff; box-shadow: inset 0 0 0 2px var(--violet-deep); }
+    /* Open / Create your content plan: a link, so dashed, not a third switch. */
+    .cal-plan { margin-right: 8px; text-decoration: none; border-style: dashed; border-color: rgba(255,255,255,0.55); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
+    .cal-plan[hidden] { display: none; }
+    @media (max-width: 780px) { .cal-plan { order: 3; width: 100%; margin: 0; } }
+    /* A day's posts, in the Marketing Planner: one quiet count. */
+    .cal-chip--posts { align-self: flex-start; background: transparent; color: var(--violet-deep); border: 1px solid rgba(var(--violet-rgb), 0.35); font-weight: 700; cursor: pointer; }
+    .cal-chip--posts:hover { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.06); }
+    .cal[data-cal-view="posts"] .cal-day.is-empty:hover::after { content: "+ Plan a post"; }
+    /* A content planning session, in the day's list: it opens the plan. */
+    .day-item-plan { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-top: 4px; font-size: var(--ws-t-meta); font-weight: 600; color: var(--violet-deep); }
+    .day-item-edit { all: unset; cursor: pointer; font-weight: 500; color: rgba(28,29,34,0.6); text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+    .day-item-edit:hover { color: var(--ink); }
+    .post-plan { display: inline-block; margin: 0 0 12px; font-size: var(--ws-t-meta); font-weight: 600; color: var(--violet-deep); text-decoration: underline; text-underline-offset: 2px; }
+    .post-plan[hidden] { display: none; }
+    .act-posts-line { margin: 0; font-size: var(--ws-t-meta); line-height: 1.6; color: rgba(28,29,34,0.75); }
+    .act-posts-line button { all: unset; cursor: pointer; color: var(--violet-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
     .day-view-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
     .day-view-note button { all: unset; cursor: pointer; color: var(--violet-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
@@ -589,6 +612,8 @@ import "../../styles/account-sections.css";
       padding: 4px 8px;
     }
     .cal-chip--post.is-done       { background: #2e6f4f; border-color: #2e6f4f; }
+    /* Planned, not made yet (from a content plan). */
+    .cal-chip--post.is-todo       { background: #fff; color: var(--violet-deep); border: 1px dashed var(--violet-deep); }
     .cal-chip--post.is-sent       { background: var(--violet); border-color: var(--violet); }
     .cal-chip--post.is-cancelled  { background: rgba(28,29,34,0.35); border-color: rgba(28,29,34,0.35); text-decoration: line-through; }
     /* Every other activity: its category's colour. A run (a campaign, paid
@@ -1253,6 +1278,7 @@ import "../../styles/account-sections.css";
     import { designStore } from '../../lib/design-store.js';
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
+    import { planUrl, postIsMade, monthKey, monthName as planMonthName, plannedMonths } from '../../lib/content-plan.js';
 
     /* The three boxes in the header: posts and activities from today on, and
        the very next entry, what and when (Dani, 16 Oct). From the same
@@ -1384,8 +1410,15 @@ import "../../styles/account-sections.css";
        longer offered, opens as the Marketing Planner. */
     let calView = 'all';
     try { const v = localStorage.getItem('tmke.calendar.view'); if (v === 'posts') calView = v; } catch (_) {}
+    // ?view=posts opens on the Content Calendar (the content plan's links back).
+    { const v = new URLSearchParams(location.search).get('view'); if (v === 'posts' || v === 'all') calView = v; }
     const isPostItem = (it) => !(it && it.activity && it.activity !== 'social_post');
-    const inView = (it) => calView === 'all' || (calView === 'posts' ? isPostItem(it) : !isPostItem(it));
+    /* Each view its own (Dani, 18 Oct): the Marketing Planner is the
+       marketing, the Content Calendar the posts. A day's posts show in the
+       Marketing Planner as one quiet "3 posts", which opens the Content
+       Calendar. Ideas and awareness days are the Content Calendar's; bank
+       holidays show in both, as they shape the rest of the marketing too. */
+    const inView = (it) => calView === 'posts' ? isPostItem(it) : !isPostItem(it);
     /* The page says which one you are in (Dani, 18 Oct: "so we can distinctly
        see there's a difference"): its heading, its line and the tab's name. */
     const VIEW_HEAD = {
@@ -1411,7 +1444,11 @@ import "../../styles/account-sections.css";
     document.querySelector('.cal')?.setAttribute('data-cal-view', calView);
     document.querySelectorAll('.cal-view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === calView)));
     paintViewHead();
-    document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-view-all]')) setCalView('all'); });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest) return;
+      if (e.target.closest('[data-view-all]')) setCalView('all');
+      else if (e.target.closest('[data-view-posts]')) setCalView('posts');
+    });
 
     // ====== Date helpers ======
     function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -1489,8 +1526,9 @@ import "../../styles/account-sections.css";
           itemsByDate.get(k).push(n === 0 ? it : { ...it, __cont: true });
         }
       }
-      const holidaysByDate = bucketBy(holidays, (h) => h.date);
-      const promptsByDate  = bucketBy(calView === 'activity' ? [] : prompts,  (p) => p.date);
+      const holidaysByDate = bucketBy(calView === 'posts' ? holidays : holidays.filter((h) => h.kind === 'bank'), (h) => h.date);
+      const promptsByDate  = bucketBy(calView === 'posts' ? prompts : [],  (p) => p.date);
+      const postsByDate = calView === 'posts' ? new Map() : bucketBy(items.filter((it) => isPostItem(it) && it.status !== 'cancelled'), (it) => it.scheduled_date);
 
       $grid.innerHTML = days.map((d) => {
         const key       = ymd(d);
@@ -1503,7 +1541,8 @@ import "../../styles/account-sections.css";
         // A prompt says something to do; a holiday only says what day it is.
         // Where we have the first, the second is noise.
         const dayHols   = dayPrompts.length ? [] : (holidaysByDate.get(key) || []);
-        const isEmpty   = dayItems.length === 0 && dayHols.length === 0 && dayPrompts.length === 0;
+        const dayPosts  = (postsByDate.get(key) || []).length;
+        const isEmpty   = dayItems.length === 0 && dayHols.length === 0 && dayPrompts.length === 0 && !dayPosts;
 
         const cls = [
           'cal-day',
@@ -1538,10 +1577,12 @@ import "../../styles/account-sections.css";
           }
           const statusClass = p.status === 'done' ? 'is-done'
             : p.status === 'reminder_sent' ? 'is-sent'
-            : p.status === 'cancelled' ? 'is-cancelled' : '';
+            : p.status === 'cancelled' ? 'is-cancelled'
+            : !postIsMade(p) ? 'is-todo' : '';
           return `<span class="cal-chip cal-chip--post ${statusClass}" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</span>`;
         }).join('');
         const moreHtml = hiddenCount > 0 ? `<span class="cal-day-more">+${hiddenCount} more</span>` : '';
+        const postsMark = dayPosts ? `<span class="cal-chip cal-chip--posts" data-to-posts title="Open the Content Calendar">${dayPosts} ${dayPosts === 1 ? 'post' : 'posts'}</span>` : '';
 
         return `
           <button type="button" class="${cls}" data-date="${key}" role="gridcell">
@@ -1553,9 +1594,26 @@ import "../../styles/account-sections.css";
             ${holsHtml}
             ${postsHtml}
             ${moreHtml}
+            ${postsMark}
           </button>
         `;
       }).join('');
+      paintPlanLink();
+    }
+
+    // Open or Create, for the month on screen; asked once a month.
+    const planKnown = new Map();
+    async function paintPlanLink() {
+      const a = document.getElementById('cal-plan'); if (!a) return;
+      if (calView !== 'posts') { a.hidden = true; return; }
+      const key = monthKey(viewMonth);
+      a.href = planUrl(key);
+      a.title = `Your ${planMonthName(key)} content plan`;
+      if (!planKnown.has(key)) planKnown.set(key, plannedMonths([key]).then((s) => s.has(key)));
+      const has = await planKnown.get(key);
+      if (monthKey(viewMonth) !== key || calView !== 'posts') return;
+      a.textContent = has ? 'Open your content plan' : 'Create your content plan';
+      a.hidden = false;
     }
 
     function bucketBy(rows, keyFn) {
@@ -1575,16 +1633,20 @@ import "../../styles/account-sections.css";
       // A day that's gone shows what was on it, with no way to add to it.
       { const t = new Date(); const todayKey = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
         const foot = document.querySelector('.day-foot'); if (foot) foot.hidden = dateStr < todayKey;
-        // The Content Calendar is for what they post: no activities added from it.
-        const addAct = document.getElementById('day-plan'); if (addAct) addAct.hidden = calView === 'posts'; }
+        // Each view adds its own: activities to the Marketing Planner, posts
+        // to the Content Calendar.
+        const addAct = document.getElementById('day-plan'); if (addAct) addAct.hidden = calView === 'posts';
+        ['day-pick', 'day-new'].forEach((id) => { const b = document.getElementById(id); if (b) b.hidden = calView !== 'posts'; }); }
       const d = new Date(dateStr + 'T00:00:00');
       const allDayItems = items.filter((i) => occursOn(i, dateStr));
       const dayItems = allDayItems.filter(inView)
         .sort((a, b) => ((a.has_time === false ? '' : a.scheduled_time) || '').localeCompare((b.has_time === false ? '' : b.scheduled_time) || ''));
-      const dayPrompts = calView === 'activity' ? [] : prompts.filter((p) => p.date === dateStr);
-      const hiddenHere = allDayItems.length - dayItems.length;
-      const viewNote = hiddenHere ? `<p class="day-view-note">This is your Content Calendar: posts and key dates. ${hiddenHere} more on this day in your Marketing Planner. <button type="button" data-view-all>Show everything</button></p>` : '';
-      const dayHols  = dayPrompts.length ? [] : holidays.filter((h) => h.date === dateStr);
+      const dayPrompts = calView === 'posts' ? prompts.filter((p) => p.date === dateStr) : [];
+      const hiddenHere = allDayItems.filter((i) => !(i.status === 'cancelled' && isPostItem(i))).length - dayItems.length;
+      const viewNote = !hiddenHere ? '' : calView === 'posts'
+        ? `<p class="day-view-note">${hiddenHere} ${hiddenHere === 1 ? 'activity' : 'activities'} on this day in your Marketing Planner. <button type="button" data-view-all>Show ${hiddenHere === 1 ? 'it' : 'them'}</button></p>`
+        : `<p class="day-view-note">${hiddenHere} ${hiddenHere === 1 ? 'post' : 'posts'} on this day in your Content Calendar. <button type="button" data-view-posts>Show ${hiddenHere === 1 ? 'it' : 'them'}</button></p>`;
+      const dayHols  = dayPrompts.length ? [] : holidays.filter((h) => h.date === dateStr && (calView === 'posts' || h.kind === 'bank'));
 
       $dayEyebrow.textContent = dayPrompts.length
         ? dayPrompts.map((p) => p.name).join(' · ')
@@ -1634,8 +1696,9 @@ import "../../styles/account-sections.css";
               const when = p.has_time === false ? 'All day' : fmtTime(p.scheduled_time);
               const run = p.end_date && p.end_date > p.scheduled_date
                 ? ` · until ${new Date(p.end_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : '';
+              const planKey = p.activity === 'content_planning' ? planMonthOf(p) : '';
               return `
-              <div class="day-item day-item--act" style="--cat:${c.colour}" data-id="${escapeHtml(String(p.id))}" role="button" tabindex="0" title="${p.booking ? 'Open your bookings' : 'Open this'}">
+              <div class="day-item day-item--act" style="--cat:${c.colour}" data-id="${escapeHtml(String(p.id))}"${planKey ? ` data-plan-month="${planKey}"` : ''} role="button" tabindex="0" title="${p.booking ? 'Open your bookings' : planKey ? 'Open your content plan' : 'Open this'}">
                 <div class="day-item-body">
                   <span class="day-item-kind">${escapeHtml(a.label)}${p.details && p.details.shoot ? ' · ' + escapeHtml(p.details.shoot) : ''}${p.booking ? ' · TMKE booking' : ''}</span>
                   <h4 class="day-item-title">${escapeHtml(p.title || a.label)}</h4>
@@ -1643,12 +1706,13 @@ import "../../styles/account-sections.css";
                   ${(p.details && (p.details.address || p.details.location)) && (p.details.address || p.details.location) !== p.title ? `<span class="day-item-time">${escapeHtml(p.details.address || p.details.location)}</span>` : ''}
                   ${p.notes ? `<p class="day-item-caption">${escapeHtml(p.notes)}</p>` : ''}
                   ${list.length ? `<span class="act-progress">Checklist: ${done} of ${list.length} done</span>` : ''}
+                  ${planKey ? `<span class="day-item-plan"><span>Open your ${escapeHtml(planMonthName(planKey))} content plan &rarr;</span><button type="button" class="day-item-edit" data-edit-entry>Edit session</button></span>` : ''}
                 </div>
               </div>`;
             }
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
-            const statusLabel = ({
+            const statusLabel = (p.status === 'scheduled' && !postIsMade(p)) ? 'To make' : ({
               scheduled:     'Planned',
               reminder_sent: 'Reminder sent',
               done:          'Posted',
@@ -1664,7 +1728,7 @@ import "../../styles/account-sections.css";
               <div class="day-item" data-id="${escapeHtml(String(p.id))}" role="button" tabindex="0" title="Open this post">
                 <div class="day-item-thumb" ${thumbStyle}></div>
                 <div class="day-item-body">
-                  <span class="day-item-time">${escapeHtml(fmtTime(p.scheduled_time))} · ${escapeHtml(p.platform_hint || 'instagram')}</span>
+                  <span class="day-item-time">${escapeHtml(fmtTime(p.scheduled_time))} · ${escapeHtml(p.platform_hint || 'instagram')}${p.details && p.details.plan ? ' · from your content plan' : ''}${campaignTitle(p) ? ' · ' + escapeHtml(campaignTitle(p)) : ''}</span>
                   <h4 class="day-item-title">${escapeHtml(p.title)}</h4>
                   ${p.caption ? `<p class="day-item-caption">${escapeHtml(p.caption)}</p>` : ''}
                   <span class="day-item-status ${statusClass}">${escapeHtml(statusLabel)}</span>
@@ -1677,7 +1741,7 @@ import "../../styles/account-sections.css";
 
       const empty = (!dayHols.length && !dayItems.length && !dayPrompts.length && !hiddenHere) ? `
         <div class="day-empty">
-          Nothing planned for this day yet. Use Add to this day to plan a post, a canvassing round, a launch or anything else you're doing.
+          ${calView === 'posts' ? 'No posts planned for this day yet.' : "Nothing planned for this day yet. Add a canvassing round, a launch, a session or anything else you're doing."}
         </div>
       ` : '';
 
@@ -1733,6 +1797,10 @@ import "../../styles/account-sections.css";
         ...pf.map((x) => `<a class="act-file act-file-open" href="${escapeHtml(x.url)}" target="_blank" rel="noopener"><span class="act-file-kind">${escapeHtml(String(x.name || '').split('.').pop().slice(0, 5) || 'File')}</span><span class="act-file-name">${escapeHtml(x.name || 'File')}</span></a>`),
         ...pl.map((u) => `<a class="act-file act-file-open" href="${escapeHtml(u)}" target="_blank" rel="noopener"><span class="act-file-kind">Link</span><span class="act-file-name">${escapeHtml(u.replace(/^https?:\/\//, ''))}</span></a>`),
       ].join('');
+      { const pl = document.getElementById('post-plan');
+        pl.hidden = !(pd.plan && pd.plan.id);
+        pl.href = planUrl(monthKey(p.scheduled_date || ymd(new Date())));
+        pl.innerHTML = postIsMade(p) ? 'Open it in your content plan &rarr;' : 'Make it from your content plan &rarr;'; }
       $postTitle.value = p.title || '';
       $postDate.value = p.scheduled_date || '';
       $postTime.value = (p.scheduled_time || '09:00').slice(0, 5);
@@ -1883,7 +1951,7 @@ import "../../styles/account-sections.css";
         if (paths.length) filesDb().then((db) => db.storage.from('calendar-assets').remove(paths)).catch(() => {});
       }
       pickUploads = []; pickLinks = []; pickSaved = false;
-      pickMode = 'designs'; pickQueue = null;
+      pickMode = 'designs'; pickQueue = null; pickCampaign = null;
       $pickContinue.hidden = true; $pickSave.hidden = false;
       pickChosen = null;
       $pickSave.disabled = false;
@@ -2038,6 +2106,8 @@ import "../../styles/account-sections.css";
         files: pickUploads.map((x) => ({ kind: 'file', name: x.name, url: x.url, path: x.path, size: x.size, mime: x.mime })),
         links: pickLinks.slice(),
       };
+      // From a campaign's Plan these posts: the post is the campaign's.
+      if (pickMode === 'sequence' && pickCampaign) row.details = { ...(row.details || {}), campaign_id: String(pickCampaign) };
       let { data, error } = await acct.db.from(acct.table).insert(row).select('*').single();
       if (error && /reminder/i.test(error.message || '') && /column/i.test(error.message || '')) {
         const { reminder, ...rest } = row;
@@ -2062,9 +2132,10 @@ import "../../styles/account-sections.css";
        print design isn't a post, so it's left out. Each starts the day after
        the one before. */
     function addDays(ymdStr, n) { const t = new Date(ymdStr + 'T12:00:00'); t.setDate(t.getDate() + n); return ymd(t); }
-    function planSequence(designs, startDate) {
+    let pickCampaign = null;   // the campaign a sequence's posts belong to
+    function planSequence(designs, startDate, campaignId) {
       if (demoOn() && !isTrainingDemo()) { lock("Planning is for members.", "Members plan a campaign's posts from here."); return; }
-      pickQueue = designs; pickIndex = -1; pickMode = 'sequence';
+      pickQueue = designs; pickIndex = -1; pickMode = 'sequence'; pickCampaign = campaignId || null;
       pickDate = startDate;
       $pickEyebrow.textContent = 'Plan your posts';
       showPickModal();
@@ -2078,7 +2149,16 @@ import "../../styles/account-sections.css";
     }
 
     if ($dayPlan) $dayPlan.addEventListener('click', () => { if (openDayDate) openAct(openDayDate); });
-    document.getElementById('day-pick')?.addEventListener('click', () => { if (openDayDate) openPick(openDayDate); });
+    /* Plan a post for this day: what Social Media Post was in the Marketing
+       Planner's list -- one of your designs, a template, or an upload (Dani,
+       18 Oct). */
+    document.getElementById('day-pick')?.addEventListener('click', () => {
+      if (!openDayDate) return;
+      if (demoOn() && !isTrainingDemo()) { openPick(openDayDate); return; }
+      actDate = openDayDate; actEditing = null;
+      $actEyebrow.textContent = fmtFullDate(new Date(openDayDate + 'T00:00:00'));
+      chooseAct('social_post');
+    });
     if ($pickClose) $pickClose.addEventListener('click', closePick);
     if ($pickCancel) $pickCancel.addEventListener('click', closePick);
     if ($pickBack) $pickBack.addEventListener('click', backToPick);
@@ -2118,6 +2198,20 @@ import "../../styles/account-sections.css";
     import('../../lib/guide-audience.js').then((m) => m.guideViewer(supabase)).then((v) => { isTeg = !!(v && v.teg) || isTrainingDemo(); }).catch(() => { isTeg = isTrainingDemo(); });
 
     const isAct = (it) => it && it.activity && it.activity !== 'social_post';
+    /* The month a content planning session plans: chosen on it, or else the
+       month it's in (in the first half) or the one after (Dani, 18 Oct). */
+    function planMonthOf(it) {
+      const v = it && it.details && it.details.plan_month;
+      if (v && /^\d{4}-\d{2}$/.test(v)) return v;
+      const d = new Date(((it && it.scheduled_date) || ymd(new Date())) + 'T00:00:00');
+      return monthKey(d.getDate() <= 15 ? d : new Date(d.getFullYear(), d.getMonth() + 1, 1));
+    }
+    // A post planned from a campaign carries the campaign's name.
+    function campaignTitle(p) {
+      const id = p && p.details && p.details.campaign_id; if (!id) return '';
+      const c = items.find((x) => String(x.id) === String(id));
+      return c ? (c.title || activityOf(c.activity).label) : '';
+    }
     const catOfItem = (it) => categoryOf(activityOf(it.activity || 'social_post').category);
     const lastDay = (it) => it.end_date && it.end_date > it.scheduled_date ? it.end_date : it.scheduled_date;
     const occursOn = (it, dateStr) => it.scheduled_date <= dateStr && lastDay(it) >= dateStr;
@@ -2132,7 +2226,8 @@ import "../../styles/account-sections.css";
       $actH.textContent = 'What are you planning?';
       setActLine('');
       const cat = (c) => {
-        const list = ACTIVITIES.filter((a) => a.category === c.key && (!a.teg || isTeg));
+        // Posts are planned in the Content Calendar now (Dani, 18 Oct).
+        const list = ACTIVITIES.filter((a) => a.category === c.key && (!a.teg || isTeg) && !a.social);
         return `<section class="act-cat" style="--cat:${c.colour}"><h3>${escapeHtml(c.label)}</h3><ol>${
           list.map((a) => `<li><button type="button" class="act-pick" data-act="${a.key}">${escapeHtml(a.label)}</button></li>`).join('')
         }</ol></section>`;
@@ -2199,6 +2294,34 @@ import "../../styles/account-sections.css";
             <p class="act-kind">Upload a post</p>
             <p>Made it somewhere else, like Canva? Upload the file or add a link.</p>
             <div class="act-book-links"><button type="button" class="is-primary" data-post-route="upload">Upload a post</button></div>
+          </section>
+        </div>`;
+        $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
+        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Cancel';
+        if ($actModal.hidden) showActModal();
+        return;
+      }
+      /* Content Planning (Dani, 18 Oct): the month's content plan, opened or
+         made; or a session on this day to do it in, which opens the plan. */
+      if (a.key === 'content_planning' && !item && !(opts && opts.log)) {
+        const c0 = categoryOf(a.category);
+        const key = planMonthOf({ scheduled_date: actDate });
+        actKey = a.key;
+        $actH.textContent = a.label;
+        setActLine(a.line);
+        $actForm.style.setProperty('--cat', c0.colour);
+        const has = (await plannedMonths([key])).has(key);
+        $actForm.innerHTML = `<div class="act-book-cards">
+          <section class="act-book">
+            <p class="act-kind">Your ${escapeHtml(planMonthName(key))} content plan</p>
+            <p>Plan the month's posts in one place: dates, formats, content pillars and ideas, each one ready to make.</p>
+            <div class="act-book-links"><a class="is-primary" href="${planUrl(key)}">${has ? 'Open your content plan' : 'Create your content plan'}</a></div>
+          </section>
+          <section class="act-book act-book--log">
+            <p class="act-kind">Book time to plan it</p>
+            <p>Put a planning session on this day. When you get to it, it opens your plan.</p>
+            <div class="act-book-links"><button type="button" data-act-log="0">Add a planning session</button></div>
+            <div></div>
           </section>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
@@ -2269,6 +2392,13 @@ import "../../styles/account-sections.css";
             <input type="text" inputmode="url" spellcheck="false" class="post-input" data-files-url placeholder="Or paste a link" />
             <button type="button" class="act-files-btn" data-files-link>Add link</button>
           </div></div>`;
+        if (f.kind === 'planMonth') {
+          const from = new Date((item ? item.scheduled_date : actDate) + 'T00:00:00');
+          const pick = v || planMonthOf(item || { scheduled_date: actDate });
+          const opts = [0, 1, 2].map((n) => monthKey(new Date(from.getFullYear(), from.getMonth() + n, 1)));
+          if (!opts.includes(pick)) opts.unshift(pick);
+          return `<label class="post-field">${lab}<select class="post-input" data-f="${f.key}" data-plan-month-pick>${opts.map((k) => `<option value="${k}"${k === pick ? ' selected' : ''}>${escapeHtml(new Date(k + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }))}</option>`).join('')}</select></label>`;
+        }
         if (f.kind === 'number') return `<label class="post-field">${lab}<input type="number" min="0" class="post-input" data-f="${f.key}" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'endDate') return `<label class="post-field">${lab}<input type="date" class="post-input" data-f="end_date" value="${escapeHtml(v)}" /></label>`;
         if (f.kind === 'endTime') return `<label class="post-field">${lab}<input type="text" readonly data-time data-time-optional placeholder="Choose a time" class="post-input" data-f="end_time" value="${escapeHtml(v)}" /></label>`;
@@ -2318,6 +2448,7 @@ import "../../styles/account-sections.css";
         ${a.checklistFirst ? checklistHtml : ''}
         ${fields.filter((f) => !f.afterDates && ['printDesign', 'printDesigns', 'linkedDesigns', 'area', 'files'].includes(f.kind)).map(field).join('')}
         ${a.link ? `<a class="act-link" href="${a.link.href}">${escapeHtml(a.link.label)} &rarr;</a>` : ''}
+        ${a.key === 'content_planning' ? `<a class="act-link" data-plan-open href="${planUrl(planMonthOf(item || { scheduled_date: actDate }))}">Open your content plan &rarr;</a>` : ''}
         <label class="post-field"><span class="post-label">Notes <span class="pick-optional">— optional</span></span>
           <textarea class="post-textarea act-notes" data-f="notes" rows="2" maxlength="2000">${escapeHtml((item && item.notes) || '')}</textarea></label>
         ${fields.filter((f) => f.kind === 'campaignLink').map(field).join('')}
@@ -2334,6 +2465,10 @@ import "../../styles/account-sections.css";
       $actMycal.hidden = !item || (demoOn() && !isTrainingDemo());
       if ($actModal.hidden) showActModal();
       $actForm.scrollTop = 0;
+      // The plan link follows the month chosen.
+      $actForm.querySelector('[data-plan-month-pick]')?.addEventListener('change', (e) => {
+        const l = $actForm.querySelector('[data-plan-open]'); if (l) l.href = planUrl(e.target.value);
+      });
       linkCampaigns(item);
       // Designs, once they have loaded.
       const pickers = [...$actForm.querySelectorAll('[data-designs]')];
@@ -2365,7 +2500,7 @@ import "../../styles/account-sections.css";
             planBtn.addEventListener('click', () => {
               const chosen = pickedDesigns();
               const start = ($actForm.querySelector('[data-f="date"]') || {}).value || actDate;
-              if (chosen.length) planSequence(chosen, start);
+              if (chosen.length) planSequence(chosen, start, actEditing && actEditing.id);
             });
             syncPlan();
           }
@@ -2429,13 +2564,20 @@ import "../../styles/account-sections.css";
         pick.addEventListener('change', sync); sync();
       }
       if (back && item) {
-        const { data } = await acct.db.from(acct.table).select('id, title, activity, scheduled_date')
-          .eq('user_id', acct.uid).eq('details->>campaign_id', String(item.id)).order('scheduled_date', { ascending: true });
-        if (data && data.length) {
-          back.innerHTML = `<span class="post-label">Linked to this campaign</span><div class="act-linked">${data.map((e) =>
-            `<button type="button" class="act-files-btn" data-open-entry="${escapeHtml(String(e.id))}">${escapeHtml(activityOf(e.activity).label)} · ${escapeHtml(new Date(e.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</button>`).join('')}</div>`;
-          back.hidden = false;
-        }
+        const { data } = await acct.db.from(acct.table).select('id, title, activity, scheduled_date, scheduled_time, status')
+          .eq('user_id', acct.uid).eq('details->>campaign_id', String(item.id)).order('scheduled_date', { ascending: true }).order('scheduled_time', { ascending: true });
+        const events = (data || []).filter((e) => !isPostItem(e));
+        const posts = (data || []).filter((e) => isPostItem(e) && e.status !== 'cancelled');
+        /* Its posts, in the Content Calendar (Dani, 18 Oct): "3 posts
+           planned: Tue 4 Nov 10:00, ...", each opening its post. */
+        const when = (e) => `${new Date(e.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} ${fmtTime(e.scheduled_time)}`;
+        const html = [
+          events.length ? `<span class="post-label">Linked to this campaign</span><div class="act-linked">${events.map((e) =>
+            `<button type="button" class="act-files-btn" data-open-entry="${escapeHtml(String(e.id))}">${escapeHtml(activityOf(e.activity).label)} · ${escapeHtml(new Date(e.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))}</button>`).join('')}</div>` : '',
+          posts.length ? `<span class="post-label">In your Content Calendar</span><p class="act-posts-line">${posts.length} ${posts.length === 1 ? 'post' : 'posts'} planned: ${posts.map((e) =>
+            `<button type="button" data-open-post="${escapeHtml(String(e.id))}" data-date="${escapeHtml(e.scheduled_date)}" title="${escapeHtml(e.title || '')}">${escapeHtml(when(e))}</button>`).join(', ')}</p>` : '',
+        ].join('');
+        if (html) { back.innerHTML = html; back.hidden = false; }
       }
     }
     // Open a linked entry in place of this one.
@@ -2452,6 +2594,12 @@ import "../../styles/account-sections.css";
       if (open) { const v = $actForm.querySelector('[data-campaign-pick]').value; if (v) openLinked(v); return; }
       const ent = e.target.closest && e.target.closest('[data-open-entry]');
       if (ent) openLinked(ent.dataset.openEntry);
+      const post = e.target.closest && e.target.closest('[data-open-post]');
+      if (post) {
+        // On the Content Calendar, at its post; a month away, the page opens there.
+        if (!items.some((i) => String(i.id) === post.dataset.openPost)) { location.href = `/account/schedule?view=posts&focus=${post.dataset.date}`; return; }
+        closeAct(); setCalView('posts'); openPost(post.dataset.openPost);
+      }
     });
 
     /* Request a Testimonial (Dani, 16 Oct): pick a tone, email or WhatsApp,
@@ -2859,7 +3007,8 @@ import "../../styles/account-sections.css";
     });
     $actBack?.addEventListener('click', () => {
       if (actEditing) closeAct();
-      else if (actKey && activityOf(actKey).book && !$actSave.hidden) chooseAct(actKey);   // the log form: back to book or log
+      else if (actKey === 'social_post') closeAct();   // opened from Plan a post, not the list
+      else if (actKey && (activityOf(actKey).book || actKey === 'content_planning') && !$actSave.hidden) chooseAct(actKey);   // the log form: back to book or log
       else openAct(actDate);
     });
     $actSave?.addEventListener('click', saveAct);
@@ -3169,6 +3318,8 @@ import "../../styles/account-sections.css";
     $grid?.addEventListener('click', (e) => {
       const cell = e.target.closest('.cal-day');
       if (!cell) return;
+      // "3 posts" in the Marketing Planner opens the Content Calendar.
+      if (e.target.closest('[data-to-posts]')) { setCalView('posts'); return; }
       // Nothing to plan on a day that's gone; an empty one does nothing.
       if (cell.classList.contains('is-past') && cell.classList.contains('is-empty')) return;
       openDay(cell.getAttribute('data-date'));
@@ -3179,7 +3330,10 @@ import "../../styles/account-sections.css";
     // Click (or keyboard) a planned post in the day list to open its detail.
     $dayBody?.addEventListener('click', (e) => {
       const item = e.target.closest('.day-item');
-      if (item && item.dataset.id) openEntry(item.dataset.id);
+      if (!item || !item.dataset.id) return;
+      // A content planning session opens its plan; Edit session, the session.
+      if (item.dataset.planMonth && !e.target.closest('[data-edit-entry]')) { location.href = planUrl(item.dataset.planMonth); return; }
+      openEntry(item.dataset.id);
     });
     $dayBody?.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== ' ') return;

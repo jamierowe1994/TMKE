@@ -51,6 +51,7 @@ export const CATEGORIES = [
      printDesigns  print designs, several              (details[key])
      campaignLink  one of their campaigns       (details.campaign_id); the
                campaign lists what's linked to it
+     planMonth the month a session plans   (details.plan_month, 'YYYY-MM')
      files     uploads and links, several   (details[key]: [{ kind: "file",
                name, path, size, mime } | { kind: "link", url }]). Files go to
                the private calendar-files bucket (supabase/calendar_files.sql)
@@ -62,7 +63,10 @@ export const ACTIVITIES = [
   // Content & Social
   { key: "content_planning", category: "content", label: "Content Planning",
     line: "Take some time out to plan your social media content for the month.",
-    title: null, fields: [] },
+    // The session opens that month's content plan (/account/content-plan).
+    title: null, fields: [
+      { key: "plan_month", kind: "planMonth", label: "Planning for", afterDates: true },
+    ] },
   { key: "social_post", category: "content", label: "Social Media Post",
     line: "A post going out on your social media, with its caption and design ready.",
     reminder: true, timeRequired: true, social: true },

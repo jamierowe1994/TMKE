@@ -1388,7 +1388,7 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
       const m = new Date(now.getFullYear(), now.getMonth() + (now.getDate() >= 21 ? 1 : 0), 1);
       // Two lines on a desktop, like its neighbours: "October Content / Calendar".
       head.innerHTML = m.toLocaleDateString('en-GB', { month: 'long' }) + ' Content <br class="ws-br-desk" />Calendar';
-      card.setAttribute('href', `/account/schedule?focus=${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
+      card.setAttribute('href', `/account/schedule?view=posts&focus=${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
       const art = CAL_ART[m.getMonth()];
       const slot = card.querySelector('.ws-news-art');
       if (slot) {
@@ -1667,9 +1667,10 @@ const LEARN_SLIDES = learnSlides({ blogTitle: latestPost?.title, blogHref: lates
           const dYmd = ymd(d);
           const isToday = dYmd === todayYmd ? ' is-today' : '';
           const nameHtml = `<span class="ws-day-name">${nm}${dYmd === todayYmd ? ' <i>Today</i>' : ''}</span><span class="ws-day-num">${d.getDate()}</span>`;
-          const href = `/account/schedule?focus=${dYmd}`;
           const dateAttr = ` data-date="${dYmd}"`;
           const it = byDate[dYmd];
+          // An activity opens the Marketing Planner; a post, or no post yet, the Content Calendar.
+          const href = `/account/schedule?${it && it.activity && it.activity !== 'social_post' ? '' : 'view=posts&'}focus=${dYmd}`;
           if (it) {
             const thumb = it.thumbnail_url || it.asset_url || '';
             // The card shows the date and the picture; what the post actually

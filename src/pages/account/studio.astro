@@ -75,6 +75,8 @@ const inspo = [
               <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
               </button>
+              <!-- The month's content plan, from the Studio too (Dani, 18 Oct). -->
+              <a class="ws-btn ws-btn--ghost" href="/account/content-plan" data-plan-link>Plan your content</a>
           </div>
           <!-- The dashboard's three boxes, as ways in (Dani, 17 Oct): your
                packs (a pop-out of them), your designs, the design tools. -->
@@ -462,10 +464,23 @@ const inspo = [
         const a = e.target instanceof Element ? e.target.closest('a[href^="/account/editor"]') : null;
         if (!a) return;
         const u = new URL(a.getAttribute("href"), location.origin);
-        if (!u.searchParams.has("for")) { u.searchParams.set("for", forDay); a.setAttribute("href", u.pathname + u.search + u.hash); }
+        if (!u.searchParams.has("for")) {
+          u.searchParams.set("for", forDay);
+          // From a content plan: the post it fills in, and the way back.
+          const q = new URLSearchParams(location.search);
+          ["post", "back", "month"].forEach((k) => { if (q.get(k) && !u.searchParams.has(k)) u.searchParams.set(k, q.get(k)); });
+          a.setAttribute("href", u.pathname + u.search + u.hash);
+        }
       }, true);
     })();
     import { STUDIO_SIZES } from "../../data/studio-sizes.js";
+    /* This month's content plan: open it if it's made, make it if not. */
+    import("../../lib/content-plan.js").then(async ({ plannedMonths, monthKey, planUrl }) => {
+      const a = document.querySelector("[data-plan-link]"); if (!a) return;
+      const key = monthKey(new Date());
+      a.setAttribute("href", planUrl(key));
+      if ((await plannedMonths([key])).has(key)) a.textContent = "Open your content plan";
+    }).catch(() => {});
     if (demoOn()) {
       // The demo: the content ideas are for members.
       const locked = [];

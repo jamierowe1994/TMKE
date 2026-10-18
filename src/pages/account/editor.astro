@@ -7026,6 +7026,19 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         : { filename: "design", templateId: null };
       $title.value = summary.filename || "Design";
       $date.value = defaultDate();
+      // A post from a content plan keeps the title and caption it was planned with.
+      const planPost = new URLSearchParams(location.search).get("post");
+      if (planPost && /^[0-9a-f-]{36}$/i.test(planPost)) {
+        plannerStore().then((acct) => acct && !acct.blocked
+          ? acct.db.from(acct.table).select("title, caption, scheduled_date, scheduled_time").eq("id", planPost).eq("user_id", acct.uid).maybeSingle()
+          : null).then((res) => {
+          const it = res && res.data; if (!it) return;
+          if (it.title) $title.value = it.title;
+          if (it.caption && !$caption.value) $caption.value = it.caption;
+          if (it.scheduled_date) $date.value = it.scheduled_date;
+          if (it.scheduled_time) $time.value = String(it.scheduled_time).slice(0, 5);
+        }).catch(() => {});
+      }
       // Don't clobber a time the user may have set on a previous open.
       if (!$time.value) $time.value = "09:00";
 
@@ -7133,6 +7146,27 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
         // 3. Insert the calendar row. `reminder` opts them into the 8am
         //    morning-of email (default on via the toggle).
         const wantsReminder = $remind ? !!$remind.checked : true;
+        /* From a content plan (?post=<id>, /account/content-plan): the post
+           is already on the calendar, waiting to be made, so this design
+           fills it in rather than adding a second one. */
+        const planPost = new URLSearchParams(location.search).get("post");
+        if (planPost && /^[0-9a-f-]{36}$/i.test(planPost)) {
+          const { data: upd, error: updErr } = await acct.db.from(acct.table).update({
+            scheduled_date: dateStr, scheduled_time: timeStr, title, caption: caption || null,
+            asset_url: assetUrl, thumbnail_url: assetUrl, design_ref: designRef, platform_hint: platform,
+            reminder: wantsReminder,
+          }).eq("id", planPost).eq("user_id", acct.uid).select("id");
+          if (updErr) throw new Error(updErr.message || "Couldn't save to your calendar.");
+          if (upd && upd.length) {
+            closeModal();
+            const q = new URLSearchParams(location.search);
+            location.href = q.get("back") === "plan"
+              ? `/account/content-plan?month=${encodeURIComponent(q.get("month") || dateStr.slice(0, 7))}`
+              : `/account/schedule?scheduled=${encodeURIComponent(dateStr)}`;
+            return;
+          }
+          // Its post was removed in the meantime: plan this one as new.
+        }
         const { error: insErr } = await acct.db.from(acct.table).insert({
           user_id: acct.uid,
           scheduled_date: dateStr,
