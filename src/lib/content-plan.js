@@ -18,6 +18,34 @@ export const PLAN_LINKED = true;
 export const FORMATS = ['Single image', 'Carousel', 'Reel / video', 'Story', 'Text-only post'];
 // Dani's five (18 Oct); members add their own as well.
 export const PILLARS = ['Property', 'Personal', 'Community', 'Service', 'Educational'];
+/* The pillar each key date's prompt belongs to, by its name, for "Add
+   prompt to my plan" (Dani, 18 Oct). Prompts don't carry one; a date added
+   later that isn't here is guessed from its wording (pillarOfPrompt). */
+const PILLAR_BY_DAY = {
+  Property: ["Burns Night", "Valentine's Day", "St David's Day", "St George's Day", "National Pet Day", "May Day",
+    "World Environment Day", "Back to School", "Recycle Day", "Clocks Go Back", "First Day of Winter", "World Book Day"],
+  Educational: ["New Year's Day", "Earth Day", "World Photography Day"],
+  Personal: ["International Women's Day", "Read a Book Day", "Make Your Bed Day", "Positive Thinking Day", "Autumn Equinox",
+    "World Podcast Day", "World Smile Day", "Grandparents' Day", "World Mental Health Day", "Pumpkin Day", "Halloween",
+    "International Men's Day", "First Day of Advent", "Christmas Jumper Day", "Boxing Day", "New Year's Eve"],
+  Community: ["International Day of Charity", "World's Biggest Coffee Morning", "World Tourism Day", "Black History Month",
+    "Coffee Week", "Movember", "Bonfire Night", "Remembrance Sunday", "Armistice Day", "World Kindness Day", "Black Friday",
+    "Small Business Saturday", "St Andrew's Day", "International Volunteer Day", "Christmas Card Day", "Christmas Day"],
+  Service: ["Christmas Eve"],
+};
+const squash = (n) => String(n || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+const PILLAR_OF = new Map(Object.entries(PILLAR_BY_DAY).flatMap(([p, names]) => names.map((n) => [squash(n), p])));
+export function pillarOfPrompt(p) {
+  const known = PILLAR_OF.get(squash(p && p.name));
+  if (known) return known;
+  const t = `${p.name} ${p.angle} ${p.brief || ''}`.toLowerCase();
+  if (/market update|myth|advice|how to|mortgage|first-time|valuation|stamp duty|epc/.test(t)) return 'Educational';
+  if (/listing|propert|\bhomes?\b|house|room|garden|viewing|kerb|kitchen/.test(t)) return 'Property';
+  if (/review|testimonial|sold|thank/.test(t)) return 'Service';
+  if (/local|community|charity|independent|support/.test(t)) return 'Community';
+  return 'Personal';
+}
+
 // A plan opens with this many rows to fill.
 export const PLAN_ROWS = 8;
 

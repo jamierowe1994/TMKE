@@ -32,19 +32,21 @@ import "../../styles/account-sections.css";
           </button>
           <button type="button" class="ws-btn ws-btn--ghost" id="cal-sync">Sync to my calendar</button>
         </div>
-        <!-- The dashboard's three boxes, for the Planner (Dani, 16 Oct): posts
-             coming up, activities coming up, and the next thing to do and
-             when. Filled by wireCalBrief(); empty, never sample figures,
-             until it knows. -->
+        <!-- The dashboard's three boxes, following the view (Dani, 18 Oct).
+             Marketing Planner: activities coming up, posts coming up (to the
+             Content Calendar), and the next activity and when. Content
+             Calendar: the month's content plan (view it, or create it), posts
+             coming up, and the next post and when. Filled by paintBrief();
+             empty, never sample figures, until it knows. -->
         <ul class="ws-brief cal-brief" aria-live="polite">
-          <li><span class="ws-brief-slot">
-            <span class="ws-brief-ic ws-brief-ic--sched"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg></span>
-            <span class="ws-brief-tx"><strong id="cb-posts">&nbsp;</strong><span>coming up</span></span>
-          </span></li>
-          <li><span class="ws-brief-slot">
-            <span class="ws-brief-ic ws-brief-ic--time"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg></span>
-            <span class="ws-brief-tx"><strong id="cb-acts">&nbsp;</strong><span>coming up</span></span>
-          </span></li>
+          <li><a class="ws-brief-slot" id="cb-1" href="#">
+            <span class="ws-brief-ic ws-brief-ic--sched" id="cb-1-ic"></span>
+            <span class="ws-brief-tx"><strong id="cb-1-h">&nbsp;</strong><span id="cb-1-s">&nbsp;</span></span>
+          </a></li>
+          <li><a class="ws-brief-slot" id="cb-2" href="#">
+            <span class="ws-brief-ic ws-brief-ic--time" id="cb-2-ic"></span>
+            <span class="ws-brief-tx"><strong id="cb-2-h">&nbsp;</strong><span id="cb-2-s">&nbsp;</span></span>
+          </a></li>
           <li><a class="ws-brief-slot" id="cb-next-link">
             <span class="ws-brief-ic ws-brief-ic--due"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
             <span class="ws-brief-tx"><strong id="cb-next">&nbsp;</strong><span id="cb-next-when">next up</span></span>
@@ -64,9 +66,6 @@ import "../../styles/account-sections.css";
                in this browser. The Content Calendar is where TMKE's monthly
                templates will sit for subscribers later; nothing of that is
                built yet. -->
-          <!-- The month's content plan, from the Content Calendar (Dani, 18 Oct):
-               Open it if it's made, Create it if not. -->
-          <a class="cal-nav cal-plan" id="cal-plan" href="/account/content-plan" hidden>Create your content plan</a>
           <div class="cal-view" role="group" aria-label="Show">
             <button type="button" class="cal-nav cal-view-btn" data-view="all" aria-pressed="true" title="Everything you've planned">Marketing Planner</button>
             <button type="button" class="cal-nav cal-view-btn" data-view="posts" aria-pressed="false" title="Your posts, post ideas and key dates">Content Calendar</button>
@@ -87,7 +86,7 @@ import "../../styles/account-sections.css";
         <span class="cal-leg cal-leg--property" data-in="activity">Property Marketing</span>
         <span class="cal-leg cal-leg--campaigns" data-in="activity">Campaigns</span>
         <span class="cal-leg cal-leg--other" data-in="activity">Something Else</span>
-        <span class="cal-leg cal-leg--todo" data-in="posts">Post to make</span>
+        <span class="cal-leg cal-leg--todo" data-in="posts">Post to design</span>
         <span class="cal-leg cal-leg--prompt" data-in="posts">Idea ready</span>
         <span class="cal-leg cal-leg--date">Key date</span>
       </div>
@@ -402,10 +401,6 @@ import "../../styles/account-sections.css";
     .cal[data-cal-view="posts"] .cal-leg[data-in="activity"] { display: none; }
     .cal[data-cal-view="all"] .cal-leg[data-in="posts"] { display: none; }
     .cal-leg--todo::before { background: #fff; box-shadow: inset 0 0 0 2px var(--violet-deep); }
-    /* Open / Create your content plan: a link, so dashed, not a third switch. */
-    .cal-plan { margin-right: 8px; text-decoration: none; border-style: dashed; border-color: rgba(255,255,255,0.55); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap; }
-    .cal-plan[hidden] { display: none; }
-    @media (max-width: 780px) { .cal-plan { order: 3; width: 100%; margin: 0; } }
     /* A day's posts, in the Marketing Planner: one quiet count. */
     .cal-chip--posts { align-self: flex-start; background: transparent; color: var(--violet-deep); border: 1px solid rgba(var(--violet-rgb), 0.35); font-weight: 700; cursor: pointer; }
     .cal-chip--posts:hover { border-color: var(--violet-deep); background: rgba(var(--violet-rgb), 0.06); }
@@ -1280,20 +1275,22 @@ import "../../styles/account-sections.css";
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
     import { planUrl, postIsMade, monthKey, monthName as planMonthName, plannedMonths } from '../../lib/content-plan.js';
 
-    /* The three boxes in the header: posts and activities from today on, and
-       the very next entry, what and when (Dani, 16 Oct). From the same
-       account the calendar shows: the member's, or training's. */
-    (async function wireCalBrief() {
-      const $p = document.getElementById('cb-posts'), $a = document.getElementById('cb-acts');
-      const $n = document.getElementById('cb-next'), $w = document.getElementById('cb-next-when'), $l = document.getElementById('cb-next-link');
-      if (!$p || !$a || !$n) return;
+    /* The three boxes in the header, following the view (Dani, 18 Oct). From
+       the same account the calendar shows: the member's, or training's. Read
+       once (from today on); painted again when the view or month changes. */
+    let briefRows = null;   // null: still asking; [] when there's nothing or no account
+    const BRIEF_IC = {
+      cal: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/></svg>',
+      tick: '<svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg>',
+      plan: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="13" y2="16"/></svg>',
+    };
+    (async function readCalBrief() {
       try {
         const { plannerStore } = await import('../../lib/design-store.js');
         const acct = await plannerStore();
-        if (!acct || acct.blocked) { $p.textContent = 'No posts'; $a.textContent = 'No activities'; $n.textContent = 'Nothing planned'; $w.textContent = 'yet'; return; }
+        if (!acct || acct.blocked) { briefRows = []; return; }
         const d = new Date();
         const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const nowHm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
         // Paged: a busy diary passes the 1,000-row cap.
         const rows = [];
         for (let from = 0; ; from += 1000) {
@@ -1304,22 +1301,62 @@ import "../../styles/account-sections.css";
           rows.push(...(data || []));
           if (!data || data.length < 1000) break;
         }
-        const posts = rows.filter((it) => isPostItem(it)).length, acts = rows.length - posts;
-        $p.textContent = posts ? `${posts} post${posts === 1 ? '' : 's'}` : 'No posts';
-        $a.textContent = acts ? `${acts} ${acts === 1 ? 'activity' : 'activities'}` : 'No activities';
-        // Next: the first still ahead of now (today's earlier ones have passed).
-        const next = rows.find((it) => it.scheduled_date > today || it.has_time === false || String(it.scheduled_time || '').slice(0, 5) >= nowHm);
-        if (!next) { $n.textContent = 'Nothing planned'; $w.textContent = 'yet'; return; }
-        const what = next.title || (isPostItem(next) ? 'Post' : entryTitle(next.activity, next.details || {}));
-        const [y, m, dd] = next.scheduled_date.split('-').map(Number);
-        const day = new Date(y, m - 1, dd);
-        const dayTx = next.scheduled_date === today ? 'Today' : day.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-        const t = next.has_time === false ? '' : String(next.scheduled_time || '').slice(0, 5);
-        $n.textContent = what; $n.title = what;
-        $w.textContent = t ? `${dayTx}, ${t}` : dayTx;
-        $l.setAttribute('href', `/account/schedule?focus=${next.scheduled_date}`);
-      } catch (_) { $p.textContent = '\u2014'; $a.textContent = '\u2014'; $n.textContent = '\u2014'; }
+        briefRows = rows;
+      } catch (_) { briefRows = false; }
+      finally { paintBrief(); }
     })();
+    const briefPlan = new Map();   // month → Promise<made a plan?>
+    async function paintBrief() {
+      const $ = (id) => document.getElementById(id);
+      if (!$('cb-1')) return;
+      const set = (n, ic, h, sub, href, view) => {
+        $(`cb-${n}-ic`).innerHTML = BRIEF_IC[ic]; $(`cb-${n}-h`).textContent = h; $(`cb-${n}-s`).textContent = sub;
+        const a = $(`cb-${n}`); a.setAttribute('href', href || '#');
+        if (view) a.dataset.briefView = view; else delete a.dataset.briefView;
+      };
+      const rows = briefRows || [];
+      const posts = rows.filter((it) => isPostItem(it)), acts = rows.filter((it) => !isPostItem(it));
+      const known = briefRows !== null;
+      const count = (n, one, many, none) => !known ? ' ' : briefRows === false ? '—' : n ? `${n} ${n === 1 ? one : many}` : none;
+      const postsTx = count(posts.length, 'post', 'posts', 'No posts');
+      if (calView === 'posts') {
+        const key = monthKey(viewMonth);
+        set(1, 'plan', ' ', `for ${planMonthName(key)}`, planUrl(key));
+        set(2, 'cal', postsTx, 'coming up', '#', null);
+        if (!briefPlan.has(key)) briefPlan.set(key, plannedMonths([key]).then((x) => x.has(key)));
+        briefPlan.get(key).then((has) => {
+          if (calView !== 'posts' || monthKey(viewMonth) !== key) return;
+          $('cb-1-h').textContent = has ? 'View your content plan' : 'Create your content plan';
+        });
+      } else {
+        set(1, 'tick', count(acts.length, 'activity', 'activities', 'No activities'), 'coming up', '#', null);
+        set(2, 'cal', postsTx, 'in your Content Calendar', '#', 'posts');
+      }
+      // Next: the first still ahead of now (today's earlier ones have passed).
+      const d = new Date();
+      const today = ymd(d);
+      const nowHm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      const $n = $('cb-next'), $w = $('cb-next-when'), $l = $('cb-next-link');
+      if (!known) return;
+      if (briefRows === false) { $n.textContent = '—'; $w.textContent = 'next up'; return; }
+      const list = calView === 'posts' ? posts : acts;
+      const next = list.find((it) => it.scheduled_date > today || it.has_time === false || String(it.scheduled_time || '').slice(0, 5) >= nowHm);
+      if (!next) { $n.textContent = calView === 'posts' ? 'No post planned' : 'Nothing planned'; $n.title = ''; $w.textContent = 'yet'; $l.removeAttribute('href'); return; }
+      const what = next.title || (isPostItem(next) ? 'Post' : entryTitle(next.activity, next.details || {}));
+      const [y, m, dd] = next.scheduled_date.split('-').map(Number);
+      const dayTx = next.scheduled_date === today ? 'Today' : new Date(y, m - 1, dd).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+      const t = next.has_time === false ? '' : String(next.scheduled_time || '').slice(0, 5);
+      $n.textContent = what; $n.title = what;
+      $w.textContent = t ? `${dayTx}, ${t}` : dayTx;
+      $l.setAttribute('href', `/account/schedule?${calView === 'posts' ? 'view=posts&' : ''}focus=${next.scheduled_date}`);
+    }
+    // Posts coming up, in the Marketing Planner, opens the Content Calendar.
+    document.addEventListener('click', (e) => {
+      const a = e.target.closest && e.target.closest('#cb-1, #cb-2');
+      if (!a) return;
+      if (a.dataset.briefView) { e.preventDefault(); setCalView(a.dataset.briefView); }
+      else if (a.getAttribute('href') === '#') e.preventDefault();
+    });
     import { installTimePicker } from '../../lib/time-picker.js';
     import { bookingLocation } from '../../lib/videography-config.js';
     import { TESTIMONIAL_TONES, fillTestimonial } from '../../data/testimonial-templates.js';
@@ -1598,22 +1635,7 @@ import "../../styles/account-sections.css";
           </button>
         `;
       }).join('');
-      paintPlanLink();
-    }
-
-    // Open or Create, for the month on screen; asked once a month.
-    const planKnown = new Map();
-    async function paintPlanLink() {
-      const a = document.getElementById('cal-plan'); if (!a) return;
-      if (calView !== 'posts') { a.hidden = true; return; }
-      const key = monthKey(viewMonth);
-      a.href = planUrl(key);
-      a.title = `Your ${planMonthName(key)} content plan`;
-      if (!planKnown.has(key)) planKnown.set(key, plannedMonths([key]).then((s) => s.has(key)));
-      const has = await planKnown.get(key);
-      if (monthKey(viewMonth) !== key || calView !== 'posts') return;
-      a.textContent = has ? 'Open your content plan' : 'Create your content plan';
-      a.hidden = false;
+      paintBrief();
     }
 
     function bucketBy(rows, keyFn) {
@@ -1712,7 +1734,7 @@ import "../../styles/account-sections.css";
             }
             const thumb = p.thumbnail_url || p.asset_url || '';
             const thumbStyle = thumb ? `style="background-image:url('${escapeHtml(thumb)}')"` : '';
-            const statusLabel = (p.status === 'scheduled' && !postIsMade(p)) ? 'To make' : ({
+            const statusLabel = (p.status === 'scheduled' && !postIsMade(p)) ? 'To design' : ({
               scheduled:     'Planned',
               reminder_sent: 'Reminder sent',
               done:          'Posted',
