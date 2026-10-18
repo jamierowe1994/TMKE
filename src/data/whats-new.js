@@ -21,6 +21,17 @@ export const WHATS_NEW_COUNT = 5;
 
 export const WHATS_NEW = [
   {
+    date: "2026-10-18",
+    title: "Meet Your Marketing Planner",
+    area: "Marketing Planner",
+    where: "Marketing Planner \u2192 Marketing Planner | Content Calendar",
+    what: "The Planner is now your Marketing Planner, with two views at the top. Marketing Planner shows everything you\u2019ve planned: posts, print, events, shoots, campaigns and follow-ups. Content Calendar shows just what you\u2019re posting, with your post ideas and key dates.",
+    why: "Your marketing is more than your social media, but some days you only want to see what\u2019s going out. One view for all of it, one for your content, and nothing you\u2019ve planned is ever lost between them.",
+    tip: "Plan your month in the Marketing Planner, then switch to the Content Calendar when you sit down to create your posts.",
+    link: { href: "/account/schedule", label: "Open your Marketing Planner" },
+    media: "/images/learn/hub/areas/planner-v5.jpg",
+  },
+  {
     date: "2026-10-01",
     title: "October\u2019s See What\u2019s Working Is Here",
     area: "Studio",

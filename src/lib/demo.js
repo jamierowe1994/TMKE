@@ -299,7 +299,7 @@ export function initDemoChrome() {
   document.querySelectorAll(".ws-dropdown-head span").forEach((e) => { e.textContent = u.email || ""; });
   if (!isTrainingDemo()) {
     document.querySelectorAll(LOCKED_LINKS).forEach((a) => a.classList.add("is-demo-locked"));
-    lockClicks(LOCKED_LINKS, "Orders, bookings and managed socials are for members.", "In the demo you can use the Dashboard, the Studio, the Planner, the Shop and the Getting Started guides.");
+    lockClicks(LOCKED_LINKS, "Orders, bookings and managed socials are for members.", "In the demo you can use the Dashboard, the Studio, the Marketing Planner, the Shop and the Getting Started guides.");
   }
   /* No "You're in the demo · Join" in the training account. Everything shot in
      there is a picture of a member's hub for a course or a film, and a badge

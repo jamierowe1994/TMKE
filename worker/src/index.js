@@ -2378,13 +2378,13 @@ function calEventLines(item, site) {
   if (item.notes) desc.push(`Notes:\n${item.notes}`);
   const list = Array.isArray(item.checklist) ? item.checklist.filter((c) => c && String(c.text || "").trim()) : [];
   if (list.length) desc.push("Checklist:\n" + list.map((c) => `${c.done ? "[x]" : "[ ]"} ${c.text}`).join("\n"));
-  desc.push(`On your Marketing Calendar: ${site}/account/schedule`);
+  desc.push(`On your Marketing Planner: ${site}/account/schedule`);
   out.push(`DESCRIPTION:${calIcsText(desc.join("\n\n"))}`, `URL:${site}/account/schedule`, "END:VEVENT");
   return out;
 }
 function calIcs(items, site, feed) {
-  const head = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TMKE//Marketing Calendar//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
-  if (feed) head.push("X-WR-CALNAME:TMKE Marketing Calendar", "X-WR-TIMEZONE:Europe/London", "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H");
+  const head = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//TMKE//Marketing Planner//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+  if (feed) head.push("X-WR-CALNAME:TMKE Marketing Planner", "X-WR-TIMEZONE:Europe/London", "REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H");
   const lines = [...head, ...CAL_LONDON_TZ, ...items.flatMap((it) => calEventLines(it, site)), "END:VCALENDAR"];
   return lines.map(calIcsFold).join("\r\n") + "\r\n";
 }
@@ -5372,7 +5372,7 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
           "Dashboard (/account): their week, inspiration, the Training Studio and what's new in the Studio.",
           "The Studio (/account/studio): 'Your packs' are the template packs they have; 'Your designs' are designs they've saved (all of them at /account/editor, filterable All / Digital / Print); 'Create new design' starts one; Design tools are the Caption Generator (AI captions), the QR Code Generator, the Brand Kit and Templates.",
           "Brand Kit (/account/profile): their colours, fonts, logos, details and tone of voice, used across their designs.",
-          "Planner (/account/schedule): a marketing calendar of social posts, marketing activities, key dates and post ideas.",
+          "Marketing Planner (/account/schedule): every marketing activity and social post on its day, with key dates and post ideas. Two views: Marketing Planner (everything) and Content Calendar (just posts, post ideas and key dates).",
           "Shop, The Edit (/edit): where packs are bought.",
           "Orders (/account/orders): their orders and invoices. Bookings (/account/bookings): videography shoots and calls, with reschedule and cancel there.",
           "Your SMM (/account/social): managed social media, with monthly reports.",

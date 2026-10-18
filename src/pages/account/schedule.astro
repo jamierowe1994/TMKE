@@ -12,7 +12,7 @@ import "../../styles/account-sections.css";
 
 <BaseLayout
   dashboard
-  title="Marketing calendar — TMKE workspace"
+  title="Marketing Planner — TMKE workspace"
   description="Plan and schedule your social posts. A month-by-month diary of what's going out, with UK holidays and awareness days baked in."
   hideNav
   hideFooter
@@ -24,7 +24,7 @@ import "../../styles/account-sections.css";
     <section class="ws-hero ws-hero--sub cal-hero">
       <div class="ws-hero-copy">
         <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
-        <h1 class="ws-greeting">Your Marketing Calendar.</h1>
+        <h1 class="ws-greeting">Your Marketing Planner.</h1>
         <p class="ws-hero-sub">See what&rsquo;s planned, explore fresh post ideas and keep your content consistent all month.</p>
         <div class="ws-hero-cta cal-hero-cta">
           <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
@@ -58,11 +58,15 @@ import "../../styles/account-sections.css";
       <header class="ws-block-head cal-strip">
         <h2 class="ws-block-h" id="cal-title"><span class="ws-block-ch">Chapter 01</span><span class="cal-month">—</span></h2>
         <div class="cal-strip-nav">
-          <!-- What the calendar shows (Dani, 16 Oct). Remembered in this browser. -->
+          <!-- Two views (Dani, 18 Oct): the Marketing Planner, which is all of it
+               and never hides anything planned, and the Content Calendar, which
+               is what they post -- posts, post ideas and key dates. Remembered
+               in this browser. The Content Calendar is where TMKE's monthly
+               templates will sit for subscribers later; nothing of that is
+               built yet. -->
           <div class="cal-view" role="group" aria-label="Show">
-            <button type="button" class="cal-nav cal-view-btn" data-view="all" aria-pressed="true">Everything</button>
-            <button type="button" class="cal-nav cal-view-btn" data-view="posts" aria-pressed="false" title="Your planned social media posts, and post ideas">Posts</button>
-            <button type="button" class="cal-nav cal-view-btn" data-view="activity" aria-pressed="false" title="Everything except planned posts">Activities</button>
+            <button type="button" class="cal-nav cal-view-btn" data-view="all" aria-pressed="true" title="Everything you've planned">Marketing Planner</button>
+            <button type="button" class="cal-nav cal-view-btn" data-view="posts" aria-pressed="false" title="Your posts, post ideas and key dates">Content Calendar</button>
           </div>
           <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">&larr;</button>
           <button type="button" class="cal-nav cal-today" id="cal-today">Today</button>
@@ -222,7 +226,7 @@ import "../../styles/account-sections.css";
         <div>
           <p class="day-eyebrow">Stay updated</p>
           <h2 id="sync-h" class="day-h">Sync to My Calendar</h2>
-          <p class="act-line">Subscribe once and everything on your Marketing Calendar appears in your own calendar.<br class="sync-br" /> Add, move or remove something here and your calendar follows.</p>
+          <p class="act-line">Subscribe once and everything on your Marketing Planner appears in your own calendar.<br class="sync-br" /> Add, move or remove something here and your calendar follows.</p>
         </div>
         <button type="button" class="day-close" id="sync-close" aria-label="Close">&times;</button>
       </header>
@@ -387,8 +391,7 @@ import "../../styles/account-sections.css";
       .cal-view-btn { flex: 1 1 0; }
     }
     /* The key follows the view. */
-    .cal[data-cal-view="posts"] .cal-leg[data-in="activity"],
-    .cal[data-cal-view="activity"] .cal-leg[data-in="posts"] { display: none; }
+    .cal[data-cal-view="posts"] .cal-leg[data-in="activity"] { display: none; }
     .day-view-note { margin: 0; font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(28,29,34,0.6); }
     .day-view-note button { all: unset; cursor: pointer; color: var(--violet-deep); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 
@@ -942,6 +945,7 @@ import "../../styles/account-sections.css";
     }
     .day-new-btn--ghost:hover { background: rgba(var(--violet-rgb), 0.07); color: var(--violet-deep); box-shadow: none; }
     .day-foot button.day-new-btn { border: 0; cursor: pointer; }
+    .day-new-btn[hidden] { display: none; }
     .day-foot button.day-new-btn--ghost { border: 1px solid rgba(var(--violet-rgb), 0.35); }
 
     /* ---- Plan a post: the library, over the calendar ---- */
@@ -1368,11 +1372,12 @@ import "../../styles/account-sections.css";
     let items     = [];           // user's scheduled posts (in window)
     let holidays  = [];           // uk_holidays rows (in window)
     let prompts   = [];           // content prompts falling in the window
-    /* The view (Dani, 16 Oct): everything, social posts only (with their
-       ideas), or activities only (everything but planned posts). Bank
-       holidays and key dates show in all three. Kept in this browser. */
+    /* The view (Dani, 18 Oct): 'all' is the Marketing Planner, everything;
+       'posts' is the Content Calendar, social posts with their ideas. Key
+       dates show in both. Kept in this browser; the old Activities view, no
+       longer offered, opens as the Marketing Planner. */
     let calView = 'all';
-    try { const v = localStorage.getItem('tmke.calendar.view'); if (v === 'posts' || v === 'activity') calView = v; } catch (_) {}
+    try { const v = localStorage.getItem('tmke.calendar.view'); if (v === 'posts') calView = v; } catch (_) {}
     const isPostItem = (it) => !(it && it.activity && it.activity !== 'social_post');
     const inView = (it) => calView === 'all' || (calView === 'posts' ? isPostItem(it) : !isPostItem(it));
     function setCalView(v) {
@@ -1549,14 +1554,16 @@ import "../../styles/account-sections.css";
       openDayDate = dateStr;
       // A day that's gone shows what was on it, with no way to add to it.
       { const t = new Date(); const todayKey = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-        const foot = document.querySelector('.day-foot'); if (foot) foot.hidden = dateStr < todayKey; }
+        const foot = document.querySelector('.day-foot'); if (foot) foot.hidden = dateStr < todayKey;
+        // The Content Calendar is for what they post: no activities added from it.
+        const addAct = document.getElementById('day-plan'); if (addAct) addAct.hidden = calView === 'posts'; }
       const d = new Date(dateStr + 'T00:00:00');
       const allDayItems = items.filter((i) => occursOn(i, dateStr));
       const dayItems = allDayItems.filter(inView)
         .sort((a, b) => ((a.has_time === false ? '' : a.scheduled_time) || '').localeCompare((b.has_time === false ? '' : b.scheduled_time) || ''));
       const dayPrompts = calView === 'activity' ? [] : prompts.filter((p) => p.date === dateStr);
       const hiddenHere = allDayItems.length - dayItems.length;
-      const viewNote = hiddenHere ? `<p class="day-view-note">Showing ${calView === 'posts' ? 'posts' : 'activities'} only. ${hiddenHere} more on this day. <button type="button" data-view-all>Show everything</button></p>` : '';
+      const viewNote = hiddenHere ? `<p class="day-view-note">This is your Content Calendar: posts and key dates. ${hiddenHere} more on this day in your Marketing Planner. <button type="button" data-view-all>Show everything</button></p>` : '';
       const dayHols  = dayPrompts.length ? [] : holidays.filter((h) => h.date === dateStr);
 
       $dayEyebrow.textContent = dayPrompts.length
@@ -2713,7 +2720,7 @@ import "../../styles/account-sections.css";
       const summary = !title || title === a.label ? a.label : `${a.label}: ${title}`;
       const d = it.details || {};
       const where = d.address || d.location || d.area || '';
-      const body = [a.line, it.caption, it.notes, 'On your Marketing Calendar: https://tmke.co.uk/account/schedule'].filter(Boolean).join('\n\n');
+      const body = [a.line, it.caption, it.notes, 'On your Marketing Planner: https://tmke.co.uk/account/schedule'].filter(Boolean).join('\n\n');
       return { summary, where, body };
     }
 
@@ -2765,7 +2772,7 @@ import "../../styles/account-sections.css";
     const $syncReady = document.getElementById('sync-ready');
     function fillSync(f) {
       const https = f.feed, webcal = https.replace(/^https?:/, 'webcal:');
-      const name = encodeURIComponent('TMKE Marketing Calendar');
+      const name = encodeURIComponent('TMKE Marketing Planner');
       // Each link says which calendar it's for, so the Worker can tell which
       // ones are syncing.
       const tag = (u, app) => `${u}?app=${app}`;
@@ -2783,12 +2790,12 @@ import "../../styles/account-sections.css";
         const at = Date.parse(seen[app] || '');
         const on = isFinite(at) && Date.now() - at < week;
         el.classList.toggle('is-synced', on);
-        el.title = on ? 'Already syncing with your Marketing Calendar.' : '';
+        el.title = on ? 'Already syncing with your Marketing Planner.' : '';
       });
       $syncState.hidden = true; $syncReady.hidden = false;
     }
     async function openSync() {
-      if (demoOn() && !isTrainingDemo()) { lock("Syncing is for members.", "Members put their whole Marketing Calendar into their Apple, Outlook or Google calendar from here."); return; }
+      if (demoOn() && !isTrainingDemo()) { lock("Syncing is for members.", "Members put their whole Marketing Planner into their Apple, Outlook or Google calendar from here."); return; }
       else {
         $syncState.textContent = 'Getting your link…'; $syncState.hidden = false; $syncReady.hidden = true;
         getFeedLink().then(fillSync).catch((err) => { $syncState.textContent = err.message || "Couldn't get your link just now."; });
@@ -2859,7 +2866,7 @@ import "../../styles/account-sections.css";
     $actForm?.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-book-service]'); if (!b) return;
       // The demo and the training window never book a real shoot.
-      if (isTrainingDemo()) { actError("Training doesn't book anything. On your own Marketing Calendar, this opens the booking form with your details already filled in.", true); return; }
+      if (isTrainingDemo()) { actError("Training doesn't book anything. On your own Marketing Planner, this opens the booking form with your details already filled in.", true); return; }
       if (demoOn()) { lock("Booking is for members.", "Members book filming and photography from here, with their details already filled in."); return; }
       const member = await hubMemberForBooking();
       if (!member) { location.href = '/login?next=' + encodeURIComponent('/account/schedule'); return; }

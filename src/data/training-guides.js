@@ -99,7 +99,7 @@ export const TRAINING_GUIDES = [
           pillars([
             ["Dashboard", "Home. See what's coming up, what's been planned and quickly jump back into the things you're working on.", "dashboard"],
             ["Studio", "Create and customise your social media content. Access the packs you own, your saved designs and the Studio editor.", "studio"],
-            ["Planner", "See your content calendar, add upcoming posts and plan what you're publishing throughout the month.", "planner"],
+            ["Marketing Planner", "Plan all of your marketing on the day it happens, with a Content Calendar view of just what you're posting.", "planner"],
             ["Orders", "Find everything you've purchased from The Edit, including your packs, order details and receipts.", "orders"],
             ["Bookings", "Manage your TMKE videography bookings, follow their progress and access your finished galleries.", "bookings"],
             ["Your SMM", "Everything relating to Social Media Management, from what's included to your current package and monthly performance.", "smm"],
@@ -112,7 +112,7 @@ export const TRAINING_GUIDES = [
           p("If you're new to the Member Hub, start with these three things. They'll set up the basics and make everything else considerably easier.") +
           go([
             ["Set up your Brand Kit", "Add your logo, colours and fonts once, then let the Studio apply them to your templates automatically.", "/account/profile", "start-brand-kit"],
-            ["Plan a week", "Add a few posts to your Planner so you can see what's coming up and start building a consistent rhythm.", "/account/schedule", "start-plan"],
+            ["Plan a week", "Add a few posts to your Marketing Planner so you can see what's coming up and start building a consistent rhythm.", "/account/schedule", "start-plan"],
             ["Make a design", "Choose a template, make it your own and download your finished post. The more you use the Studio, the quicker it becomes.", "/account/editor?new=1", "start-design"],
           ]) +
           tip("Need help later? Head to the Training Studio for guides and training, or open the Help Centre from the menu if you can't find what you need.") },
@@ -187,7 +187,7 @@ export const TRAINING_GUIDES = [
               ul("<strong>Headshot:</strong> a clear, recent image you're happy to use across your marketing. Square works best, around 600&times;600.",
                  "<strong>Email:</strong> the address you want customers to contact you on.",
                  "<strong>Telephone:</strong> the number you'd normally publish across your marketing.",
-                 "<strong>Review link:</strong> where customers leave you a review, such as your Google reviews page. When you plan a testimonial request in your Planner, this is the link it sends.")],
+                 "<strong>Review link:</strong> where customers leave you a review, such as your Google reviews page. When you plan a testimonial request in your Marketing Planner, this is the link it sends.")],
           ]) },
 
       { title: "Finding Your Voice",
@@ -316,13 +316,13 @@ export const TRAINING_GUIDES = [
              before the walkthrough, so the page ends on the thing to go and
              do rather than on the thing to read later. */
           p("<strong>Your design is ready. What's next?</strong>") +
-          p("Once you're happy with your design, you can download it to your device or take it straight into your Planner.") +
+          p("Once you're happy with your design, you can download it to your device or take it straight into your Marketing Planner.") +
           cards([
             ["Download", "Download your finished design when you're ready to publish it.<br>For social media graphics, we'd generally recommend PNG for a good balance of image quality and compatibility."],
             ["Plan your post", "Once your design is ready, you can add it to your content calendar and choose when you'd like to publish it. Set a reminder and your finished content will be sent directly to your chosen device, making it easy to post to your social media when the time comes."],
           ], 2) +
           panel("Coming Up: Planning Your Marketing",
-            p("We'll cover the Planner, reminders and how to plan all of your marketing in more detail in the next course.")) +
+            p("We'll cover the Marketing Planner, reminders and how to plan all of your marketing in more detail in the next course.")) +
           "<!--WALK-->" },
 
       { title: "Saved and Ready When You Are", walk: "studio-designs",
@@ -360,11 +360,11 @@ export const TRAINING_GUIDES = [
     summary: "Plan everything your agency does to market itself, from posts and print to events and campaigns, in one calendar you can keep to.",
     est_minutes: 8, sort_order: 4, art: "https://assets.tmke.co.uk/orange-1.webp",
     lessons: [
-      { title: "Your Marketing Calendar", walk: "planner", video_url: "",
+      { title: "Your Marketing Planner", walk: "planner", video_url: "",
         body_html:
           p("Most agents plan their marketing in their head, a notebook or a spreadsheet nobody else can see. The result is usually the same: a busy week of posting, then nothing for a fortnight, and the leaflet drop that never quite happens.") +
-          p("Your Planner puts all of it in one place. Not just social media posts, but everything your agency does to market itself: print, canvassing, property shoots, open houses, local events, testimonial requests and the campaigns that tie them together. When you can see a whole month at once, it's much easier to spot the gaps, balance what you're doing and keep going.") +
-          p("Use <strong>Show me</strong> for a guided look at the Planner, then work through the parts below.") +
+          p("Your Marketing Planner puts all of it in one place. Not just social media posts, but everything your agency does to market itself: print, canvassing, property shoots, open houses, local events, testimonial requests and the campaigns that tie them together. When you can see a whole month at once, it's much easier to spot the gaps, balance what you're doing and keep going.") +
+          p("Use <strong>Show me</strong> for a guided look at the Marketing Planner, then work through the parts below.") +
           cards([
             ["See the month", "Everything you've planned, on the day it happens."],
             ["Plan more than posts", "Print, events, shoots and campaigns sit alongside your content."],
@@ -373,7 +373,7 @@ export const TRAINING_GUIDES = [
 
       { title: "Posts and Activities",
         body_html:
-          p("There are two kinds of thing in your Planner, and it helps to know the difference.") +
+          p("There are two kinds of thing in your Marketing Planner, and it helps to know the difference.") +
           cards([
             ["Posts", "A social media post on the day it goes out: the design, the caption and the platform. On the morning, we can email it to you, ready to publish."],
             ["Activities", "Everything else you do to market your agency, from ordering print to attending a networking event. Each one has the details that matter for that job."],
@@ -387,7 +387,14 @@ export const TRAINING_GUIDES = [
             ["Business & Community", "Local events, testimonial requests and marketing follow-ups."],
             ["Something Else", "Anything that doesn't fit the others."],
           ]) +
-          tip("The colours along the top of the calendar are your key. Switch between <strong>Everything</strong>, <strong>Posts</strong> and <strong>Activities</strong> to see one kind at a time.") },
+          tip("The colours along the top of the calendar are your key.") +
+          p("<strong>Two views of the same month.</strong>") +
+          p("Your marketing is more than your social media, but some days you only want to see what's going out. So there are two views at the top of the page.") +
+          cards([
+            ["Marketing Planner", "Everything you've planned: posts, print, events, shoots, campaigns and follow-ups. Nothing you've planned is ever hidden here."],
+            ["Content Calendar", "Just what you're posting: your posts, post ideas and key dates. Use it when you sit down to create your content."],
+          ], 2) +
+          p("A post appears in both. Activities only appear in the Marketing Planner.") },
 
       { title: "Adding to Your Calendar",
         body_html:
@@ -395,9 +402,9 @@ export const TRAINING_GUIDES = [
           steps([
             ["Add an activity", "Choose the group and the activity, then fill in what it needs: a supplier and quantity for print, an address for an open house, a budget for an ad. Add notes, files and a checklist as you need them."],
             ["Plan a post", "Pick one of your saved designs, add your caption and choose the platform."],
-            ["Create a post", "Start a new design in the Studio for that day. When it's finished, it comes back to the Planner."],
+            ["Create a post", "Start a new design in the Studio for that day. When it's finished, it comes back to the Marketing Planner."],
           ]) +
-          p("For a studio session, a filming day or property photography, you can book it with TMKE or simply add it as a day if it's already arranged. Anything you book with us appears in your Planner automatically.") +
+          p("For a studio session, a filming day or property photography, you can book it with TMKE or simply add it as a day if it's already arranged. Anything you book with us appears in your Marketing Planner automatically.") +
           panel("Days that have gone",
             p("Past days are greyed out. You can still open one to see what happened, but there's nothing to plan on a day that's already been.")) },
 
@@ -422,12 +429,12 @@ export const TRAINING_GUIDES = [
             ["Reminders", "On the morning of a post, we'll email you the caption and image at 8am, ready to publish. Activities can have a reminder too."],
           ]) +
           p("Planning a testimonial request? It uses the review link from your Brand Kit, so make sure that's added before you send one.") +
-          p("Prefer working from your own calendar? <strong>Sync to my calendar</strong> adds your Planner to Apple, Google or Outlook. Your calendar app updates it on its own schedule, so a change can take a little while to appear.") },
+          p("Prefer working from your own calendar? <strong>Sync to my calendar</strong> adds your Marketing Planner to Apple, Google or Outlook. Your calendar app updates it on its own schedule, so a change can take a little while to appear.") },
 
       { title: "A Rhythm You Can Keep",
         body_html:
           p("Consistency doesn't mean doing something every day. It means finding a rhythm you can realistically keep to.") +
-          p("Use the Planner to balance different types of marketing across the month: properties and results, educational posts, local content and something personal, alongside the print, events and follow-ups that keep your name in front of people.") +
+          p("Use the Marketing Planner to balance different types of marketing across the month: properties and results, educational posts, local content and something personal, alongside the print, events and follow-ups that keep your name in front of people.") +
           p("Don't worry about filling every day. Start with a manageable plan, stay consistent with it and build from there.") +
           p("Need ideas? Head to the Training Studio for this month's trends, our Evergreen Content course and practical content guides.") },
     ],

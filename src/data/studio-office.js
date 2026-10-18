@@ -60,7 +60,7 @@ export const OFFICE_SPOTS = [
   {
     id: "calendar",
     object: "The calendar",
-    name: "Planner",
+    name: "Marketing Planner",
     spot: { x: 57.5, y: 14.7, w: 13.3, h: 28 },
     steps: [
       {
