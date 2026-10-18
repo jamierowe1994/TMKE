@@ -22,6 +22,11 @@ import { areaImg } from "./hub-art.js";
 // the training environment." Selectors are the pages' own ids and classes, so a
 // page change here is the place to look when a step starts skipping.
 
+// The Planner walks' openers: a tab, then a day from today in this month.
+const PL_MP = '.cal-view-btn[data-view="all"]';
+const PL_CC = '.cal-view-btn[data-view="posts"]';
+const PL_DAY = ".cal-day:not(.is-past):not(.is-other-month)";
+
 const DASHBOARD_STEPS = [
   // The whole bar, not the tab strip: on a phone the strip is hidden and the
   // sections live in the burger, and a hidden target skips the step.
@@ -578,39 +583,127 @@ export const WALKS = {
     ],
   },
 
-  /* The Planner's two tabs (Dani, 18 Oct): each step opens the tab it's
-     about, so stepping back through the walk still lands right. */
+  /* Dani's revised Planner course (18 Oct): a short tour of the page, then a
+     focused walk for each job. Every step sets up its own pop-out from the
+     page (`open` clicks each in turn: the tab, a day from today, the button,
+     the activity), so stepping back lands right. Optional fields aren't
+     walked one by one. */
   "planner": {
-    title: "Planning Your Marketing",
+    title: "Around Your Planner",
+    lead: "Around your Planner",
     stage: "/account/schedule",
     steps: [
-      { path: "/account/schedule", target: null, placement: "center", open: '.cal-view-btn[data-view="all"]',
-        eyebrow: "Plan", title: "Your Marketing Planner",
-        body: "Everything you do to market your agency, on the day it happens. Your posts have a calendar of their own: the Content Calendar." },
-      { path: "/account/schedule", target: ".cal-view", placement: "bottom", open: '.cal-view-btn[data-view="all"]',
+      { path: "/account/schedule", target: null, placement: "center", open: PL_MP,
+        eyebrow: "Plan", title: "Your Planner",
+        body: "Your posts, campaigns, shoots, print and the rest of your marketing, together in one place." },
+      { path: "/account/schedule", target: ".cal-view", placement: "bottom", open: PL_MP,
         eyebrow: "Two tabs", title: "Marketing Planner or Content Calendar",
-        body: "Marketing Planner is your marketing activities. Content Calendar is your posts, post ideas and key dates." },
-      { path: "/account/schedule", target: ".cal-brief", placement: "bottom", open: '.cal-view-btn[data-view="all"]',
+        body: "Marketing Planner for your marketing activities. Content Calendar for your posts, post ideas and key dates." },
+      { path: "/account/schedule", target: ".cal-brief", placement: "bottom", open: PL_MP,
         eyebrow: "At a glance", title: "What's Coming Up",
-        body: "Your activities and posts coming up, and your next activity. Click the posts box to open the Content Calendar." },
-      { path: "/account/schedule", target: ".cal-legend", placement: "bottom", open: '.cal-view-btn[data-view="all"]',
-        eyebrow: "The key", title: "Each Colour Is a Group",
-        body: "The six groups of activity, each with its own colour." },
-      { path: "/account/schedule", target: "#cal-grid", placement: "top", open: '.cal-view-btn[data-view="all"]',
-        eyebrow: "The month", title: "Click a Day to Add an Activity",
-        body: "Click any day from today to add an activity. A day with posts shows how many; click it to see them." },
-      { path: "/account/schedule", target: "#cal-sync", placement: "bottom",
-        eyebrow: "Your calendar", title: "Sync to Your Calendar",
-        body: "Add both tabs to Apple, Google or Outlook. Your posts arrive with their design and caption." },
-      { path: "/account/schedule", target: ".cal-brief", placement: "bottom", open: '.cal-view-btn[data-view="posts"]',
+        body: "Your activities and posts coming up, and your next activity. The posts box opens the Content Calendar." },
+      { path: "/account/schedule", target: "#cal-sync", placement: "bottom", open: PL_MP,
+        eyebrow: "Your calendar", title: "Sync Your Calendar",
+        body: "Add both tabs to Apple Calendar, Google Calendar or Outlook, alongside your other commitments." },
+      /* The colour key is hidden at the training window's width, so the
+         colours are told here, on the month itself. */
+      { path: "/account/schedule", target: "#cal-grid", placement: "top", open: PL_MP,
+        eyebrow: "The month", title: "Choose a Day",
+        body: "Select a day to add a marketing activity; the date is filled in. Each group of activity has its own colour." },
+      { path: "/account/schedule", target: ".cal-brief", placement: "bottom", open: PL_CC,
         eyebrow: "Content Calendar", title: "Your Content Plan",
         body: "The first box opens this month's content plan, or creates it. Then your posts coming up, and the next one." },
-      { path: "/account/schedule", target: "#cal-grid", placement: "top", open: '.cal-view-btn[data-view="posts"]',
-        eyebrow: "Content Calendar", title: "Click a Day to Plan a Post",
-        body: "Plan a post from your designs, a template or a file you've made elsewhere. Days marked Idea ready have a post idea waiting." },
-      { path: "/account/schedule", target: "#cal-today", placement: "bottom",
-        eyebrow: "Moving around", title: "Between the Months",
-        body: "Move between months with the arrows. Month brings you back to this one." },
+      { path: "/account/schedule", target: ".day-panel", placement: "left", open: [PL_CC, PL_DAY],
+        eyebrow: "Your day", title: "See What's Planned",
+        body: "Open a day to see what's on it and its post idea when there is one. Select anything planned to check it or make changes." },
+    ],
+  },
+
+  "post-plan": {
+    title: "Plan Your Social Media Post",
+    lead: "Plan your social media post",
+    stage: "/account/schedule",
+    steps: [
+      { path: "/account/schedule", target: "#day-pick", placement: "top", open: [PL_CC, PL_DAY],
+        eyebrow: "Content Calendar", title: "Plan a Post for This Day",
+        body: "Open a day in your Content Calendar and choose Plan a post for this day." },
+      { path: "/account/schedule", target: "#act-form .act-book-cards", placement: "bottom", open: [PL_CC, PL_DAY, "#day-pick"],
+        eyebrow: "Choose your route", title: "Three Ways to a Post",
+        body: "Use a saved Studio design, start from a template, or upload a post made elsewhere." },
+      { path: "/account/schedule", target: "#pick-step-upload", placement: "left", open: [PL_CC, PL_DAY, "#day-pick", '[data-post-route="upload"]'],
+        eyebrow: "Made elsewhere", title: "Upload a Post",
+        body: "Add a PNG, JPEG or PDF, or a link to it, then continue to plan it." },
+      { path: "/account/schedule", target: "#pick-continue", placement: "top", open: [PL_CC, PL_DAY, "#day-pick", '[data-post-route="upload"]'],
+        eyebrow: "Finish your post", title: "Caption, Time and Reminder",
+        body: "Next, add your caption, with Generate with AI if you like, and the time. Remind me on the day emails you the design and caption at 8am." },
+    ],
+  },
+
+  "plan-filming": {
+    title: "Add a Filming Session",
+    lead: "Add a filming session",
+    stage: "/account/schedule",
+    steps: [
+      { path: "/account/schedule", target: '#act-choose .act-cat:has([data-act="property_shoot"])', placement: "left", open: [PL_MP, PL_DAY, "#day-plan"],
+        eyebrow: "Choose a session", title: "Photography and Filming",
+        body: "Property photography or filming sits in Property Marketing. Studio sessions and filming days sit in Content & Social." },
+      { path: "/account/schedule", target: "#act-form .act-book-cards", placement: "bottom", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="property_shoot"]'],
+        eyebrow: "Book or add", title: "Book It With Us, or Add It",
+        body: "Book with TMKE, see what's included or download the brochure. Already arranged? Add it yourself." },
+      { path: "/account/schedule", target: "#act-form", placement: "left", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="property_shoot"]', '[data-act-log="0"]'],
+        eyebrow: "Check your calendar", title: "Arranged It Yourself",
+        body: "Add the date, time and address, then save. A booking made with TMKE appears on its own." },
+    ],
+  },
+
+  "plan-campaign": {
+    title: "Plan a Campaign",
+    lead: "Plan a campaign",
+    stage: "/account/schedule",
+    steps: [
+      { path: "/account/schedule", target: '#act-choose .act-cat:has([data-act="story_of_sale"])', placement: "left", open: [PL_MP, PL_DAY, "#day-plan"],
+        eyebrow: "Choose your campaign", title: "Four Campaigns",
+        body: "Story of the Sale, a new listing, an open house or a seasonal campaign. Pick the one that fits." },
+      { path: "/account/schedule", target: "#act-form .act-check", placement: "left", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="property_launch"]'],
+        eyebrow: "Make it yours", title: "A Checklist to Adapt",
+        body: "Tick steps off as you go, take out what you don't need and add your own." },
+      { path: "/account/schedule", target: '#act-form [data-designs="linkedDesigns"]', placement: "left", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="property_launch"]'],
+        eyebrow: "Link your designs", title: "Designs and Posts",
+        body: "Link designs from your Studio, then Plan these posts puts each one on its day in your Content Calendar." },
+    ],
+  },
+
+  "plan-print": {
+    title: "Plan Print Marketing",
+    lead: "Plan print marketing",
+    stage: "/account/schedule",
+    steps: [
+      { path: "/account/schedule", target: '#act-choose .act-cat:has([data-act="print_design"])', placement: "left", open: [PL_MP, PL_DAY, "#day-plan"],
+        eyebrow: "Choose a print activity", title: "Print & Canvassing",
+        body: "Create a print design, order print marketing or plan a leaflet drop." },
+      { path: "/account/schedule", target: "#act-form .act-btns", placement: "bottom", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="print_design"]'],
+        eyebrow: "Your print tools", title: "Straight to Your Print Packs",
+        body: "Open your print packs, or start a new print design in the Studio." },
+      { path: "/account/schedule", target: "#act-form .act-files", placement: "left", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="print_design"]'],
+        eyebrow: "Keep it together", title: "Files, Links and Notes",
+        body: "Add the files, links, notes and checklist items you'll want to hand, then save." },
+    ],
+  },
+
+  "plan-testimonial": {
+    title: "Prepare a Testimonial Request",
+    lead: "Prepare a testimonial request",
+    stage: "/account/schedule",
+    steps: [
+      { path: "/account/schedule", target: "#act-form .act-testi-tones", placement: "bottom", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="review_request"]'],
+        eyebrow: "Choose a style", title: "Three Ways to Ask",
+        body: "Friendly and Personal, Professional and Appreciative, or Short and Direct." },
+      { path: "/account/schedule", target: "#act-form .act-testi-channel", placement: "bottom", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="review_request"]', "#act-form [data-testi-tone]"],
+        eyebrow: "Email or WhatsApp", title: "Choose How You'll Send It",
+        body: "Switch between the email and WhatsApp versions and check the wording." },
+      { path: "/account/schedule", target: "#act-form .act-testi-out", placement: "top", open: [PL_MP, PL_DAY, "#day-plan", '[data-act="review_request"]', "#act-form [data-testi-tone]"],
+        eyebrow: "Personalise and copy", title: "Ready to Send",
+        body: "Add the client's name, check the review link from your Brand Kit, then copy the message and send it yourself." },
     ],
   },
 };

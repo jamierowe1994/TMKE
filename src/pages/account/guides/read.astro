@@ -647,6 +647,8 @@ const DEFAULT_COVER = (await getImage({
           body = body.replace("<!--WALK-->", walkHtml(l.walk, i));
           inlineWalk = true;
         }
+        // More than one walk in a part: <!--WALK:id--> puts that one's box there.
+        body = body.replace(/<!--WALK:([\w-]+)-->/g, (m, id) => walkHtml(id, i));
         // A tip that closes the lesson sits under the Show me box, not above it.
         const m = body.match(/(<p class="ci-rhythm">[\s\S]*?<\/p>)\s*$/);
         if (m && !inlineWalk && l.walk && WALKS[l.walk]) { trailingTip = m[1]; body = body.slice(0, m.index); }

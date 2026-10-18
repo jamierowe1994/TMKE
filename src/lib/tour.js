@@ -1487,12 +1487,16 @@ async function render(index) {
     } while (Date.now() < until);
   }
 
+  /* `open` may be a list, clicked in turn (Dani's Planner walks, 18 Oct: a
+     day, then Add activity, then the activity), so every step sets up its own
+     pop-out from the page and stepping back still lands right. */
   if (step.open) {
-    const opener = await waitFor(step.open, stageOn() ? 6000 : 2000);
-    if (renderCancelled(ticket)) return;
-    if (opener) {
+    for (const sel of [].concat(step.open)) {
+      const opener = await waitFor(sel, stageOn() ? 6000 : 2000);
+      if (renderCancelled(ticket)) return;
+      if (!opener) break;
       try { opener.click(); } catch (_) {}
-      await new Promise((r) => setTimeout(r, 220));
+      await new Promise((r) => setTimeout(r, 260));
     }
   }
 

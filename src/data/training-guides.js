@@ -354,94 +354,79 @@ export const TRAINING_GUIDES = [
      of posts AND activities in six groups, campaigns, ideas and key dates,
      reminders and calendar sync (src/data/marketing-activities.js). The why
      lives here; the walkthrough cards say where and how. */
+  /* Dani's revised Planner course (18 Oct, "TMKE Training Wording - Revised
+     Planner Course"), brought up to date with that evening's changes: the two
+     tabs, posts planned in the Content Calendar, the content plan, the sync
+     carrying posts, Save & add to my calendar. A short tour of the page, then
+     a focused walk for each job (walkthroughs.js). */
   guide({
     slug: "training-planner",
     title: "Planning Your Marketing",
-    summary: "Plan everything your agency does to market itself, from posts and print to events and campaigns, in one calendar you can keep to.",
-    est_minutes: 8, sort_order: 4, art: "https://assets.tmke.co.uk/orange-1.webp",
+    summary: "Plan your social media, print, campaigns and everything else you do to market your agency, all in one place.",
+    est_minutes: 11, sort_order: 4, art: "https://assets.tmke.co.uk/orange-1.webp",
     lessons: [
-      { title: "Your Marketing Planner", walk: "planner", video_url: "",
+      { title: "More Than a Content Calendar", walk: "planner", video_url: "",
         body_html:
-          p("Most agents plan their marketing in their head, a notebook or a spreadsheet nobody else can see. The result is usually the same: a busy week of posting, then nothing for a fortnight, and the leaflet drop that never quite happens.") +
-          p("Your Marketing Planner puts all of it in one place. Not just social media posts, but everything your agency does to market itself: print, canvassing, property shoots, open houses, local events, testimonial requests and the campaigns that tie them together. When you can see a whole month at once, it's much easier to spot the gaps, balance what you're doing and keep going.") +
-          p("Use <strong>Show me</strong> for a guided look at the Marketing Planner, then work through the parts below.") +
-          cards([
-            ["See the month", "Everything you've planned, on the day it happens."],
-            ["Plan more than posts", "Print, events, shoots and campaigns sit alongside your content."],
-            ["Get reminded", "An email on the morning, with what you need to hand."],
-          ]) },
+          p("Your Planner is more than somewhere to schedule social media posts. It brings your wider marketing together, from creating content and arranging photography to canvassing, property campaigns, networking and requesting reviews.") +
+          p("Seeing it together makes it easier to plan ahead, keep track of what needs doing and make sure the different parts of your marketing work together. So the Planner has two tabs: the <strong>Marketing Planner</strong> for your marketing activities, and the <strong>Content Calendar</strong> for your posts. A post is something you design, write and publish; a leaflet drop or an open house is something you do on a day. Each is planned in its own way, in its own tab.") +
+          p("Click a day to get started. The Planner already knows the date you selected, so you only need to add the details that matter.") +
+          tip("You don't need to fill every day. Use the Planner to plan the marketing you can realistically deliver, not to create extra work.") },
 
-      { title: "Posts and Activities",
+      { title: "What Can You Plan?",
         body_html:
-          p("There are two kinds of thing in your Marketing Planner, and it helps to know the difference.") +
+          p("In the Marketing Planner, select a day and choose what you're planning. Activities are organised into six groups, each with its own colour, so you can recognise different types of marketing at a glance.") +
           cards([
-            ["Posts", "A social media post on the day it goes out: the design, the caption and the platform. On the morning, we can email it to you, ready to publish."],
-            ["Activities", "Everything else you do to market your agency, from ordering print to attending a networking event. Each one has the details that matter for that job."],
-          ], 2) +
-          p("<strong>Activities sit in six groups, each with its own colour:</strong>") +
-          cards([
-            ["Content & Social", "Content planning, studio sessions, filming days, emails and paid ads."],
-            ["Print & Canvassing", "Creating print designs, ordering print and leaflet drops."],
-            ["Property Marketing", "Property photography or filming, and open houses."],
-            ["Campaigns", "A Story of the Sale, a New Listing Campaign, an Open House Campaign or a Seasonal Campaign."],
-            ["Business & Community", "Local events, testimonial requests and marketing follow-ups."],
-            ["Something Else", "Anything that doesn't fit the others."],
+            ["Content & Social", "Content planning, Content Studio sessions, agent filming days, emails and paid advertising."],
+            ["Property Marketing", "Property photography or filming, open houses and property events."],
+            ["Print & Canvassing", "Creating print designs, ordering print marketing and planning leaflet drops."],
+            ["Campaigns", "Story of the Sale, new listing, open house and seasonal campaigns."],
+            ["Business & Community", "Local events, networking, testimonial requests and marketing follow-ups."],
+            ["Something Else", "Any other marketing activity, with your own title and details."],
           ]) +
-          tip("The colours along the top of the calendar are your key.") +
-          p("<strong>Two tabs: your marketing, and your posts.</strong>") +
-          p("Your social media is a big part of your marketing, but it's planned differently. A leaflet drop or an open house is something you do on a day; a post is something you design, write and publish. So each has a tab of its own at the top of the calendar.") +
-          cards([
-            ["Marketing Planner", "Your marketing activities: print, events, shoots, campaigns and follow-ups. A day with posts on it shows how many, so you can still see the whole picture."],
-            ["Content Calendar", "What you're posting: your posts, post ideas and key dates. Use it when you sit down to plan and create your content."],
-          ], 2) +
-          p("The boxes at the top of the page follow the tab you're on: activities and posts coming up in the Marketing Planner, your content plan and posts coming up in the Content Calendar.") },
+          p("Some activities only need a time and a note. Others offer useful extras, such as a checklist, linked designs, files or links. These are optional, so you can keep an entry as simple as you need.") +
+          p("The colour key sits above the calendar. Your social media posts are planned in the Content Calendar; in the Marketing Planner, a day with posts shows how many, so you can still see the whole picture.") },
 
-      { title: "Adding to Your Calendar",
+      { title: "Planning Your Social Media", walk: "post-plan",
         body_html:
-          p("Click any day from today onwards. What you can add depends on the tab you're in.") +
-          steps([
-            ["Add an activity, in the Marketing Planner", "Choose the group and the activity, then fill in what it needs: a supplier and quantity for print, an address for an open house, a budget for an ad. Add notes, files and a checklist as you need them."],
-            ["Plan a post, in the Content Calendar", "Use one of your saved designs, start from a template or upload a post you've made elsewhere, then add your caption and the time it goes out."],
-            ["Create a post, in the Content Calendar", "Start a new design in the Studio for that day. When it's finished, it comes back to your Content Calendar."],
+          p("Posts live in the <strong>Content Calendar</strong>, alongside the post ideas and key dates written for you. Open a day and choose <strong>Plan a post for this day</strong>. There are three ways to plan it, depending on whether your content is already made.") +
+          cards([
+            ["Use one of your designs", "Choose a design you've already saved in the Studio."],
+            ["Design from a template", "Open your packs, make the design, then plan it from the Studio when it's ready."],
+            ["Upload a post", "Add a file made outside the Studio, or a link to it."],
           ]) +
-          p("For a studio session, a filming day or property photography, you can book it with TMKE or simply add it as a day if it's already arranged. Anything you book with us appears in your Marketing Planner automatically.") +
-          panel("Days that have gone",
-            p("Past days are greyed out. You can still open one to see what happened, but there's nothing to plan on a day that's already been.")) },
-
-      { title: "Campaigns",
-        body_html:
-          p("Some marketing is more than one thing. A new listing, for example, might need a coming soon post, a launch, a viewing day and a just sold, all in the right order.") +
-          p("A campaign keeps those together. Choose the campaign, add its dates and work through its checklist, so nothing gets forgotten halfway through.") +
-          cards([
-            ["Story of the Sale", "Follow a property from instruction to sold."],
-            ["New Listing Campaign", "Launch a property properly, across every channel."],
-            ["Open House Campaign", "Build up to the day, then follow it up."],
-            ["Seasonal Campaign", "Make the most of a moment in the year."],
-          ], 2) +
-          tip("Link your designs to a campaign, then use <strong>Plan these posts</strong> to put each one on its day in your Content Calendar. The campaign lists them, with their dates and times, so you can see what's planned.") },
-
-      { title: "Ideas, Reminders and Your Calendar",
-        body_html:
-          p("You don't have to come up with everything yourself.") +
-          cards([
-            ["Ideas", "Days marked <strong>Idea ready</strong> in your Content Calendar have a post idea waiting, written for estate agents. Open the day and design it."],
-            ["Key dates", "Awareness days sit in your Content Calendar, so you can plan around them or simply skip them. Bank holidays show in both tabs."],
-            ["Reminders", "On the morning of a post, we'll email you the caption and image at 8am, ready to publish. Activities can have a reminder too."],
-          ]) +
-          p("Planning a testimonial request? It uses the review link from your Brand Kit, so make sure that's added before you send one.") +
-          p("Prefer working from your own calendar? <strong>Sync to my calendar</strong> adds both tabs to Apple, Google or Outlook, with each post's design and caption, so your calendar reminds you to post it. Your calendar app updates it on its own schedule, so a change can take a little while to appear.") +
-          p("Not synced? When you add something, choose <strong>Save &amp; add to my calendar</strong> to put that one entry in your calendar as you save it.") +
-          /* The content plan gets a short guide of its own (Dani, 18 Oct);
-             link it here once it's written. */
+          p("Then add the caption, with <strong>Generate with AI</strong> if you'd like a hand, and the time it goes out. Tick <strong>Remind me on the day</strong> and we'll email you the design and caption at 8am that morning, ready to post.") +
+          p("The Planner helps you prepare and remember your posts. It doesn't publish to your social media accounts for you.") +
           panel("Planning a month of posts",
-            p("When you'd rather plan a whole month of posts in one sitting, use your content plan. Open it from the first box at the top of your Content Calendar.")) },
+            p("When you'd rather plan a whole month in one sitting, use your content plan: one table for the month's posts, from the ideas in your Content Calendar. Open it from the first box at the top of your Content Calendar.")) },
+          /* The content plan gets a short guide of its own (Dani, 18 Oct); link
+             it in the panel above once it's written. */
 
-      { title: "A Rhythm You Can Keep",
+      { title: "Planning Your Marketing Activities",
         body_html:
-          p("Consistency doesn't mean doing something every day. It means finding a rhythm you can realistically keep to.") +
-          p("Use the Marketing Planner to balance different types of marketing across the month: properties and results, educational posts, local content and something personal, alongside the print, events and follow-ups that keep your name in front of people.") +
-          p("Don't worry about filling every day. Start with a manageable plan, stay consistent with it and build from there.") +
-          p("Need ideas? Head to the Training Studio for this month's trends, our Evergreen Content course and practical content guides.") },
+          p("The Marketing Planner is where you organise the work that happens around your social media.") +
+          cards([
+            ["Photography and filming", "For property photography or filming, a Content Studio session or an agent filming day, explore TMKE's services, see the brochure or book with us. Already arranged it yourself? Add it to your calendar. Anything you book with TMKE appears on its own."],
+            ["Print and canvassing", "Plan when you'll create a print design, order materials or deliver them. Open your print packs or start a print design in the Studio, and keep the details alongside the activity."],
+            ["Campaigns", "Choose a campaign, add its details and work through a ready-made checklist you can change to suit you. Link designs you've already made, and Plan these posts puts each one on its day in your Content Calendar. The campaign lists them, with their dates and times."],
+          ]) +
+          p("For anything else, add your own checklist if there are several things to do, and attach files or links, whether that's an external design, a newsletter draft or a document you want to refer back to.") +
+          "<!--WALK:plan-filming--><!--WALK:plan-campaign--><!--WALK:plan-print-->" },
+
+      { title: "Requesting Reviews and Staying Organised", walk: "plan-testimonial",
+        body_html:
+          p("A testimonial request is more than a reminder in your calendar. Choose <strong>Request a Testimonial</strong> and you'll find ready-to-use wording for email or WhatsApp in three styles: Friendly and Personal, Professional and Appreciative, or Short and Direct.") +
+          p("Choose the version that sounds most like you, add the client's name and check the message before copying it. It uses the business details and review link from your Brand Kit, whether that points to Google, Trustpilot or your own review page, so make sure the link is saved there first.") +
+          p("Prefer seeing your plans in the calendar you use every day? <strong>Sync to my calendar</strong> adds both tabs to Apple Calendar, Google Calendar or Outlook. Your activities appear alongside your other commitments, and each post arrives with its design and caption, as a reminder to post it. Updates can take a little while to appear, depending on your calendar app.") +
+          p("Not synced? When you add something, choose <strong>Save &amp; add to my calendar</strong> to put that entry in your calendar as you save it.") },
+
+      { title: "Make Your Planner Work for You",
+        body_html:
+          p("The Planner is there to help you plan, not to give you another list to keep up with.") +
+          p("Look out for post ideas and key dates in your Content Calendar. If a prompt suits your audience, add it to your content plan or open it and start designing. If it doesn't, leave it. Your own marketing priorities come first.") +
+          p("Select anything you've planned to review its details, make changes or check what's still outstanding. The colours, and the two tabs, show how your posts, campaigns, print and local activity fit together across the month.") +
+          p("Start with the things you already know are coming up, then add the smaller tasks around them. A realistic plan you can follow is more useful than a packed calendar you never come back to.") +
+          tip("Try planning around your next property launch or local event. Add the main activity first, then the posts, print and follow-ups that support it.") +
+          p("Need ideas? Explore this month's trends, the Evergreen Content course and practical guides in the Training Studio.") },
     ],
   }),
 ];
