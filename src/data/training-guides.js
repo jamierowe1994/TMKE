@@ -384,7 +384,14 @@ export const TRAINING_GUIDES = [
             ["Something Else", "Any other marketing activity, with your own title and details."],
           ]) +
           p("Some activities only need a time and a note. Others offer useful extras, such as a checklist, linked designs, files or links. These are optional, so you can keep an entry as simple as you need.") +
-          p("The colour key sits above the calendar. Your social media posts are planned in the Content Calendar; in the Marketing Planner, a day with posts shows how many, so you can still see the whole picture.") },
+          /* An example month, opening to both tabs (Dani, 18 Oct). Captured
+             from the Planner with a realistic November supplied. */
+          shotOpen("pl-key", "The Colour Key and Your Posts",
+            "Each group in its own colour, and where your posts show.",
+            "/images/learn/demo/shots/planner-key--marketing-planner@2x.webp",
+            p("The colour key sits above the calendar. Your social media posts are planned in the Content Calendar; in the Marketing Planner, a day with posts shows how many, so you can still see the whole picture. A campaign runs across its days as a thin bar.") +
+            bigShot("/images/learn/demo/shots/planner-key--content-calendar@2x.webp",
+              "The same month in the Content Calendar: your posts on their days, with post ideas and key dates. A dashed post is still to design.")) },
 
       { title: "Planning Your Social Media", walk: "post-plan",
         body_html:
