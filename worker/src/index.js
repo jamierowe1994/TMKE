@@ -2369,7 +2369,18 @@ function calEventLines(item, site) {
   const where = d.address || d.location || d.area;
   if (where) out.push(`LOCATION:${calIcsText(where)}`);
   const desc = [];
-  if (a.line) desc.push(a.line);
+  const isPost = key === "social_post";
+  /* A post, in their calendar, is a reminder to post it (Dani, 18 Oct): the
+     design (attached, and linked for apps that drop attachments), its files,
+     and the caption with its hashtags, ready to copy. */
+  const postFiles = isPost ? [
+    ...(item.asset_url ? [{ name: "Your design", url: item.asset_url }] : []),
+    ...(Array.isArray(d.files) ? d.files.filter((f) => f && f.url).map((f) => ({ name: f.name || "File", url: f.url })) : []),
+  ] : [];
+  if (a.line && !isPost) desc.push(a.line);
+  if (isPost && !postFiles.length && !(Array.isArray(d.links) && d.links.length)) desc.push("Still to design: make it from your content plan or the Studio.");
+  if (postFiles.length) desc.push(postFiles.map((f) => `${f.name}: ${f.url}`).join("\n"));
+  if (isPost && Array.isArray(d.links) && d.links.length) desc.push(d.links.map((u) => `Link: ${u}`).join("\n"));
   if (item.caption) desc.push(`Caption:\n${item.caption}`);
   const rows = Object.keys(ACTIVITY_DETAIL_LABELS)
     .filter((k) => !["address", "location", "area"].includes(k) && d[k] !== undefined && d[k] !== null && String(d[k]).trim() && String(d[k]) !== title)
@@ -2378,8 +2389,14 @@ function calEventLines(item, site) {
   if (item.notes) desc.push(`Notes:\n${item.notes}`);
   const list = Array.isArray(item.checklist) ? item.checklist.filter((c) => c && String(c.text || "").trim()) : [];
   if (list.length) desc.push("Checklist:\n" + list.map((c) => `${c.done ? "[x]" : "[ ]"} ${c.text}`).join("\n"));
-  desc.push(`On your Marketing Planner: ${site}/account/schedule`);
-  out.push(`DESCRIPTION:${calIcsText(desc.join("\n\n"))}`, `URL:${site}/account/schedule`, "END:VEVENT");
+  const back = isPost ? `${site}/account/schedule?view=posts&focus=${date}` : `${site}/account/schedule?focus=${date}`;
+  desc.push(isPost ? `On your Content Calendar: ${back}` : `On your Marketing Planner: ${back}`);
+  out.push(`DESCRIPTION:${calIcsText(desc.join("\n\n"))}`, `URL:${back}`);
+  for (const f of postFiles) {
+    const type = /\.pdf(\?|$)/i.test(f.url) ? "application/pdf" : /\.jpe?g(\?|$)/i.test(f.url) ? "image/jpeg" : "image/png";
+    out.push(`ATTACH;FMTTYPE=${type}:${f.url}`);
+  }
+  out.push("END:VEVENT");
   return out;
 }
 function calIcs(items, site, feed) {

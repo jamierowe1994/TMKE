@@ -380,7 +380,7 @@ export const TRAINING_GUIDES = [
           ], 2) +
           p("<strong>Activities sit in six groups, each with its own colour:</strong>") +
           cards([
-            ["Content & Social", "Content planning, social posts, studio sessions, filming days, emails and paid ads."],
+            ["Content & Social", "Content planning, studio sessions, filming days, emails and paid ads."],
             ["Print & Canvassing", "Creating print designs, ordering print and leaflet drops."],
             ["Property Marketing", "Property photography or filming, and open houses."],
             ["Campaigns", "A Story of the Sale, a New Listing Campaign, an Open House Campaign or a Seasonal Campaign."],
@@ -388,21 +388,21 @@ export const TRAINING_GUIDES = [
             ["Something Else", "Anything that doesn't fit the others."],
           ]) +
           tip("The colours along the top of the calendar are your key.") +
-          p("<strong>Two views of the same month.</strong>") +
-          p("Your marketing is more than your social media, but some days you only want to see what's going out. So there are two views at the top of the page.") +
+          p("<strong>Two tabs: your marketing, and your posts.</strong>") +
+          p("Your social media is a big part of your marketing, but it's planned differently. A leaflet drop or an open house is something you do on a day; a post is something you design, write and publish. So each has a tab of its own at the top of the calendar.") +
           cards([
-            ["Marketing Planner", "Everything you've planned: posts, print, events, shoots, campaigns and follow-ups. Nothing you've planned is ever hidden here."],
-            ["Content Calendar", "Just what you're posting: your posts, post ideas and key dates. Use it when you sit down to create your content."],
+            ["Marketing Planner", "Your marketing activities: print, events, shoots, campaigns and follow-ups. A day with posts on it shows how many, so you can still see the whole picture."],
+            ["Content Calendar", "What you're posting: your posts, post ideas and key dates. Use it when you sit down to plan and create your content."],
           ], 2) +
-          p("A post appears in both. Activities only appear in the Marketing Planner.") },
+          p("The boxes at the top of the page follow the tab you're on: activities and posts coming up in the Marketing Planner, your content plan and posts coming up in the Content Calendar.") },
 
       { title: "Adding to Your Calendar",
         body_html:
-          p("Click any day from today onwards and choose what you'd like to add.") +
+          p("Click any day from today onwards. What you can add depends on the tab you're in.") +
           steps([
-            ["Add an activity", "Choose the group and the activity, then fill in what it needs: a supplier and quantity for print, an address for an open house, a budget for an ad. Add notes, files and a checklist as you need them."],
-            ["Plan a post", "Pick one of your saved designs, add your caption and choose the platform."],
-            ["Create a post", "Start a new design in the Studio for that day. When it's finished, it comes back to the Marketing Planner."],
+            ["Add an activity, in the Marketing Planner", "Choose the group and the activity, then fill in what it needs: a supplier and quantity for print, an address for an open house, a budget for an ad. Add notes, files and a checklist as you need them."],
+            ["Plan a post, in the Content Calendar", "Use one of your saved designs, start from a template or upload a post you've made elsewhere, then add your caption and the time it goes out."],
+            ["Create a post, in the Content Calendar", "Start a new design in the Studio for that day. When it's finished, it comes back to your Content Calendar."],
           ]) +
           p("For a studio session, a filming day or property photography, you can book it with TMKE or simply add it as a day if it's already arranged. Anything you book with us appears in your Marketing Planner automatically.") +
           panel("Days that have gone",
@@ -418,18 +418,23 @@ export const TRAINING_GUIDES = [
             ["Open House Campaign", "Build up to the day, then follow it up."],
             ["Seasonal Campaign", "Make the most of a moment in the year."],
           ], 2) +
-          tip("Link your designs to a campaign, then use <strong>Plan these posts</strong> to put each one on its day, one after another.") },
+          tip("Link your designs to a campaign, then use <strong>Plan these posts</strong> to put each one on its day in your Content Calendar. The campaign lists them, with their dates and times, so you can see what's planned.") },
 
       { title: "Ideas, Reminders and Your Calendar",
         body_html:
           p("You don't have to come up with everything yourself.") +
           cards([
-            ["Ideas", "Days marked <strong>Idea ready</strong> have a post idea waiting, written for estate agents. Open the day and design it."],
-            ["Key dates", "Awareness days and holidays sit on their date, so you can plan around them or simply skip them."],
+            ["Ideas", "Days marked <strong>Idea ready</strong> in your Content Calendar have a post idea waiting, written for estate agents. Open the day and design it."],
+            ["Key dates", "Awareness days sit in your Content Calendar, so you can plan around them or simply skip them. Bank holidays show in both tabs."],
             ["Reminders", "On the morning of a post, we'll email you the caption and image at 8am, ready to publish. Activities can have a reminder too."],
           ]) +
           p("Planning a testimonial request? It uses the review link from your Brand Kit, so make sure that's added before you send one.") +
-          p("Prefer working from your own calendar? <strong>Sync to my calendar</strong> adds your Marketing Planner to Apple, Google or Outlook. Your calendar app updates it on its own schedule, so a change can take a little while to appear.") },
+          p("Prefer working from your own calendar? <strong>Sync to my calendar</strong> adds both tabs to Apple, Google or Outlook, with each post's design and caption, so your calendar reminds you to post it. Your calendar app updates it on its own schedule, so a change can take a little while to appear.") +
+          p("Not synced? When you add something, choose <strong>Save &amp; add to my calendar</strong> to put that one entry in your calendar as you save it.") +
+          /* The content plan gets a short guide of its own (Dani, 18 Oct);
+             link it here once it's written. */
+          panel("Planning a month of posts",
+            p("When you'd rather plan a whole month of posts in one sitting, use your content plan. Open it from the first box at the top of your Content Calendar.")) },
 
       { title: "A Rhythm You Can Keep",
         body_html:

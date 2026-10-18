@@ -71,7 +71,7 @@ import "../../styles/account-sections.css";
             <button type="button" class="cal-nav cal-view-btn" data-view="posts" aria-pressed="false" title="Your posts, post ideas and key dates">Content Calendar</button>
           </div>
           <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous month">&larr;</button>
-          <button type="button" class="cal-nav cal-today" id="cal-today">Today</button>
+          <button type="button" class="cal-nav cal-today" id="cal-today" title="Back to this month">Month</button>
           <button type="button" class="cal-nav" id="cal-next" aria-label="Next month">&rarr;</button>
         </div>
       </header>
@@ -209,6 +209,9 @@ import "../../styles/account-sections.css";
         <button type="button" class="post-btn post-btn--danger" id="act-delete" hidden>Remove</button>
         <button type="button" class="post-btn post-btn--ghost" id="act-back">Back</button>
         <button type="button" class="post-btn post-btn--ghost" id="act-mycal" data-mycal hidden>Add to my calendar</button>
+        <!-- Not synced: save it and put it in their own calendar in one go
+             (Dani, 18 Oct). Synced, their calendar takes it by itself. -->
+        <button type="button" class="post-btn post-btn--ghost" id="act-save-cal" data-mycal data-mycal-save="act" hidden>Save &amp; add to my calendar</button>
         <button type="button" class="post-btn post-btn--primary" id="act-save">Save</button>
       </footer>
     </aside>
@@ -332,6 +335,7 @@ import "../../styles/account-sections.css";
       <footer class="day-foot post-foot" id="pick-foot" hidden>
         <button type="button" class="post-btn post-btn--ghost" id="pick-cancel">Cancel</button>
         <button type="button" class="post-btn post-btn--primary" id="pick-continue" hidden>Continue</button>
+        <button type="button" class="post-btn post-btn--ghost" id="pick-save-cal" data-mycal data-mycal-save="pick" hidden>Plan &amp; add to my calendar</button>
         <button type="button" class="post-btn post-btn--primary" id="pick-save">Plan post</button>
       </footer>
     </aside>
@@ -1833,7 +1837,7 @@ import "../../styles/account-sections.css";
       $postSave.disabled = false;  $postSave.textContent = 'Save changes';
       $postEmail.disabled = false; $postEmail.textContent = 'Email it to me now';
       $postDelete.disabled = false; $postDelete.textContent = 'Remove';
-      $postMycal.hidden = demoOn() && !isTrainingDemo();
+      $postMycal.hidden = (demoOn() && !isTrainingDemo()) || calSynced;
       $postModal.hidden = false;
       document.body.style.overflow = 'hidden';
       requestAnimationFrame(() => requestAnimationFrame(() => $postModal.classList.add('is-open')));
@@ -1907,7 +1911,7 @@ import "../../styles/account-sections.css";
       $pickEyebrow.textContent = fmtFullDate(new Date(dateStr + 'T00:00:00'));
       $pickH.textContent = 'Upload a post';
       $pickDesigns.hidden = true; $pickPlan.hidden = true; $pickUpload.hidden = false;
-      $pickFoot.hidden = false; $pickContinue.hidden = false; $pickSave.hidden = true;
+      $pickFoot.hidden = false; $pickContinue.hidden = false; $pickSave.hidden = true; syncSaveCal();
       showPickModal();
     }
     function pickUpError(msg) { $pickUpErr.hidden = !msg; $pickUpErr.textContent = msg || ''; }
@@ -1977,6 +1981,7 @@ import "../../styles/account-sections.css";
       pickMode = 'designs'; pickQueue = null; pickCampaign = null;
       $pickContinue.hidden = true; $pickSave.hidden = false;
       pickChosen = null;
+      document.getElementById('pick-save-cal').hidden = true;
       $pickSave.disabled = false;
       $pickSave.textContent = 'Plan post';
       clearPickError();
@@ -2075,6 +2080,7 @@ import "../../styles/account-sections.css";
       $pickDesigns.hidden = true;
       $pickPlan.hidden = false;
       $pickFoot.hidden = false;
+      syncSaveCal();
       setTimeout(() => $pickTitle.focus(), 50);
     }
 
@@ -2083,7 +2089,7 @@ import "../../styles/account-sections.css";
       if (pickMode === 'upload') {
         $pickH.textContent = 'Upload a post';
         $pickPlan.hidden = true; $pickUpload.hidden = false;
-        $pickContinue.hidden = false; $pickSave.hidden = true; pickChosen = null;
+        $pickContinue.hidden = false; $pickSave.hidden = true; pickChosen = null; syncSaveCal();
         return;
       }
       $pickH.textContent = 'Choose a design';
@@ -2146,8 +2152,9 @@ import "../../styles/account-sections.css";
       renderCalendar();
       $pickSave.textContent = 'Planned ✓';
       showPickError('On your calendar for ' + fmtFullDate(new Date(dateStr + 'T00:00:00')) + '.', true);
-      if (pickMode === 'sequence') { pickDate = addDays(dateStr, 1); setTimeout(nextInSequence, 700); return; }
+      if (pickMode === 'sequence') { pickDate = addDays(dateStr, 1); setTimeout(nextInSequence, 700); return data; }
       setTimeout(() => { closePick(); refreshDayUnder(); }, 800);
+      return data;   // Plan & add to my calendar adds this one
     }
 
     /* Plan your posts (Dani, 16 Oct): a campaign's linked designs, one after
@@ -2258,11 +2265,10 @@ import "../../styles/account-sections.css";
       // Content & Social over Something Else, then Property Marketing over
       // Campaigns, then Print & Canvassing over Business & Community (Dani, 16 Oct).
       const col = (keys) => `<div class="act-col">${keys.map((k) => cat(categoryOf(k))).join('')}</div>`;
-      // Something Else is one button under Content & Social, wearing its grey
-      // square rather than a heading, so the three columns end level (Dani, 16 Oct).
-      const other = categoryOf('other');
-      const solo = `<section class="act-cat act-cat--solo" style="--cat:${other.colour}"><ol><li><button type="button" class="act-pick" data-act="other">${escapeHtml(other.label)}</button></li></ol></section>`;
-      $actChoose.innerHTML = `<div class="act-col">${cat(categoryOf('content'))}${solo}</div>`
+      // Something Else under Content & Social, with its own heading like
+      // every other group now Social Media Post has gone to the Content
+      // Calendar, so the columns still end level (Dani, 18 Oct).
+      $actChoose.innerHTML = `<div class="act-col">${cat(categoryOf('content'))}${cat(categoryOf('other'))}</div>`
         + `<div class="act-rest">${col(['property', 'campaigns'])}${col(['print', 'business'])}</div>`;
       $actChoose.hidden = false; $actForm.hidden = true; $actFoot.hidden = true;
       showActModal();
@@ -2320,7 +2326,7 @@ import "../../styles/account-sections.css";
           </section>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
-        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Cancel';
+        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; syncSaveCal(); $actBack.textContent = 'Cancel';
         if ($actModal.hidden) showActModal();
         return;
       }
@@ -2348,7 +2354,7 @@ import "../../styles/account-sections.css";
           </section>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
-        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Back';
+        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; syncSaveCal(); $actBack.textContent = 'Back';
         if ($actModal.hidden) showActModal();
         return;
       }
@@ -2381,7 +2387,7 @@ import "../../styles/account-sections.css";
           </section>
         </div>`;
         $actChoose.hidden = true; $actForm.hidden = false; $actFoot.hidden = false;
-        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; $actBack.textContent = 'Back';
+        $actDelete.hidden = true; $actSave.hidden = true; $actMycal.hidden = true; syncSaveCal(); $actBack.textContent = 'Back';
         if ($actModal.hidden) showActModal();
         return;
       }
@@ -2485,7 +2491,8 @@ import "../../styles/account-sections.css";
       $actDelete.hidden = !item;
       $actBack.textContent = item ? 'Cancel' : 'Back';
       $actSave.disabled = false; $actSave.textContent = item ? 'Save changes' : 'Save';
-      $actMycal.hidden = !item || (demoOn() && !isTrainingDemo());
+      $actMycal.hidden = !item || (demoOn() && !isTrainingDemo()) || calSynced;
+      syncSaveCal();
       if ($actModal.hidden) showActModal();
       $actForm.scrollTop = 0;
       // The plan link follows the month chosen.
@@ -2839,6 +2846,7 @@ import "../../styles/account-sections.css";
       renderCalendar();
       $actSave.textContent = 'Saved ✓';
       setTimeout(() => { closeAct(); refreshDayUnder(); }, 500);
+      return res.data;   // Save & add to my calendar adds this one
     }
 
     async function deleteAct() {
@@ -2914,45 +2922,103 @@ import "../../styles/account-sections.css";
       const summary = !title || title === a.label ? a.label : `${a.label}: ${title}`;
       const d = it.details || {};
       const where = d.address || d.location || d.area || '';
-      const body = [a.line, it.caption, it.notes, 'On your Marketing Planner: https://tmke.co.uk/account/schedule'].filter(Boolean).join('\n\n');
+      const isPost = !it.activity || it.activity === 'social_post';
+      const files = isPost ? [it.asset_url && `Your design: ${it.asset_url}`, ...((Array.isArray(d.files) ? d.files : []).filter((f) => f && f.url).map((f) => `${f.name || 'File'}: ${f.url}`))].filter(Boolean).join('\n') : '';
+      const body = [isPost ? '' : a.line, files, it.caption, it.notes, isPost
+        ? `On your Content Calendar: https://tmke.co.uk/account/schedule?view=posts&focus=${it.scheduled_date}`
+        : 'On your Marketing Planner: https://tmke.co.uk/account/schedule'].filter(Boolean).join('\n\n');
       return { summary, where, body };
     }
 
+    /* Synced (Dani, 18 Oct): a calendar app has checked their link in the
+       last fortnight. Then everything here reaches their calendar by itself,
+       so Add to my calendar and Save & add aren't offered. */
+    let calSynced = false;
+    const demoLocked = () => demoOn() && !isTrainingDemo();
+    function applySynced() {
+      const pm = document.getElementById('post-mycal'); if (pm && calSynced) pm.hidden = true;
+      const am = document.getElementById('act-mycal'); if (am && calSynced) am.hidden = true;
+      syncSaveCal();
+    }
+    function syncSaveCal() {
+      const a = document.getElementById('act-save-cal');
+      if (a) a.hidden = calSynced || demoLocked() || !!actEditing || $actSave.hidden;
+      const p = document.getElementById('pick-save-cal');
+      if (p) p.hidden = calSynced || demoLocked() || $pickSave.hidden || $pickPlan.hidden;
+    }
+    async function checkSynced() {
+      if (demoLocked()) return;
+      try {
+        const f = await getFeedLink();
+        const now = Date.now();
+        calSynced = Object.values(f.synced || {}).some((t) => now - Date.parse(t) < 14 * 864e5);
+      } catch (_) { calSynced = false; }
+      applySynced();
+    }
+
     const $mycalMenu = document.getElementById('mycal-menu');
-    let mycalItem = null;
-    function closeMycal() { $mycalMenu.hidden = true; mycalItem = null; }
+    let mycalItem = null, mycalSave = null, mycalBtn = null;
+    function closeMycal() { $mycalMenu.hidden = true; mycalItem = null; mycalSave = null; mycalBtn = null; }
+    /* Out to the right of its button, as wide as it, its foot level with the
+       button's: as if it were the next button along (Dani, 18 Oct). Above it,
+       when there isn't the room. */
+    function placeMycal(b) {
+      const r = b.getBoundingClientRect();
+      $mycalMenu.style.minWidth = '0';
+      $mycalMenu.style.width = Math.max(r.width, 190) + 'px';
+      const m = $mycalMenu.getBoundingClientRect();
+      if (r.right + 8 + m.width <= innerWidth - 12) {
+        $mycalMenu.style.left = (r.right + 8) + 'px';
+        $mycalMenu.style.top = Math.max(12, r.bottom - m.height) + 'px';
+      } else {
+        $mycalMenu.style.left = Math.max(12, Math.min(r.left, innerWidth - m.width - 12)) + 'px';
+        $mycalMenu.style.top = Math.max(12, r.top - m.height - 8) + 'px';
+      }
+    }
     document.addEventListener('click', (e) => {
       const b = e.target.closest && e.target.closest('[data-mycal]');
       if (b) {
-        const id = b.id === 'post-mycal' ? openPostId : actEditing && actEditing.id;
-        const it = items.find((i) => String(i.id) === String(id));
-        if (!it) return;
-        if (!$mycalMenu.hidden && mycalItem === it) { closeMycal(); return; }
-        mycalItem = it;
+        if (!$mycalMenu.hidden && mycalBtn === b) { closeMycal(); return; }
+        // Save & add: which calendar first, then it's saved and added.
+        if (b.dataset.mycalSave) { mycalItem = null; mycalSave = b.dataset.mycalSave; }
+        else {
+          const id = b.id === 'post-mycal' ? openPostId : actEditing && actEditing.id;
+          const it = items.find((i) => String(i.id) === String(id));
+          if (!it) return;
+          mycalItem = it; mycalSave = null;
+        }
+        mycalBtn = b;
         $mycalMenu.hidden = false;
-        const r = b.getBoundingClientRect(), m = $mycalMenu.getBoundingClientRect();
-        $mycalMenu.style.left = Math.max(12, Math.min(r.left, innerWidth - m.width - 12)) + 'px';
-        $mycalMenu.style.top = Math.max(12, r.top - m.height - 8) + 'px';
+        placeMycal(b);
         getFeedLink().catch(() => {});   // ready for the file, if they choose it
         return;
       }
       if (!$mycalMenu.hidden && !e.target.closest('#mycal-menu')) closeMycal();
     });
     $mycalMenu.addEventListener('click', async (e) => {
-      const b = e.target.closest('[data-mycal-to]'); if (!b || !mycalItem) return;
-      const it = mycalItem, to = b.dataset.mycalTo;
-      const w = entryWhen(it), t = entryText(it);
+      const b = e.target.closest('[data-mycal-to]'); if (!b || (!mycalItem && !mycalSave)) return;
+      const to = b.dataset.mycalTo, saving = mycalSave;
+      let it = mycalItem;
       closeMycal();
+      // A tab for Google or Outlook opened now, while it's still their click,
+      // so the browser doesn't block it while the entry saves.
+      const tab = (to === 'google' || to === 'outlookweb') ? window.open('', '_blank') : null;
+      if (saving) {
+        it = await (saving === 'act' ? saveAct() : savePick());
+        if (!it) { if (tab) tab.close(); return; }
+      }
+      const go = (url) => { if (tab) tab.location.href = url; else window.open(url, '_blank', 'noopener'); };
+      const w = entryWhen(it), t = entryText(it);
       if (to === 'google') {
         const dates = w.allDay ? `${w.ymd(w.date)}/${w.ymd(w.endDate)}` : `${w.ymd(w.date)}T${w.start.replace(':', '')}00/${w.ymd(w.date)}T${w.end.replace(':', '')}00`;
         const q = new URLSearchParams({ action: 'TEMPLATE', text: t.summary, dates, details: t.body, location: t.where, ctz: 'Europe/London' });
-        window.open('https://calendar.google.com/calendar/render?' + q.toString(), '_blank', 'noopener');
+        go('https://calendar.google.com/calendar/render?' + q.toString());
         return;
       }
       if (to === 'outlookweb') {
         const q = new URLSearchParams({ path: '/calendar/action/compose', rru: 'addevent', subject: t.summary, body: t.body, location: t.where,
           startdt: w.allDay ? w.date : `${w.date}T${w.start}:00`, enddt: w.allDay ? w.endDate : `${w.date}T${w.end}:00`, allday: w.allDay ? 'true' : 'false' });
-        window.open('https://outlook.office.com/calendar/0/deeplink/compose?' + q.toString(), '_blank', 'noopener');
+        go('https://outlook.office.com/calendar/0/deeplink/compose?' + q.toString());
         return;
       }
       // Apple and Outlook open a calendar file; on an iPhone it asks to add it.
@@ -3440,6 +3506,7 @@ import "../../styles/account-sections.css";
       try {
         await loadWindow();
         renderCalendar();
+        checkSynced();
       } finally {
         requestAnimationFrame(() => { document.body.classList.add('is-loaded'); releaseEntrance && releaseEntrance(); });
       }
