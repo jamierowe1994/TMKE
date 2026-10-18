@@ -25,7 +25,7 @@ import "../../styles/account-sections.css";
       <div class="ws-hero-copy">
         <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
         <h1 class="ws-greeting">Your Marketing Planner.</h1>
-        <p class="ws-hero-sub">See what&rsquo;s planned, explore fresh post ideas and keep your content consistent all month.</p>
+        <p class="ws-hero-sub">Plan all of your marketing, from campaigns and print to events and follow-ups, on the day it happens.</p>
         <div class="ws-hero-cta cal-hero-cta">
           <button type="button" class="ws-btn ws-btn--primary" data-new-design>Create new design
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
@@ -311,7 +311,10 @@ import "../../styles/account-sections.css";
             </label>
           </div>
           <label class="post-field">
-            <span class="post-label">Caption <span class="pick-optional">— optional</span></span>
+            <!-- Every caption box offers the AI caption writer (Dani, 18 Oct). -->
+            <span class="post-label post-label--row"><span>Caption <span class="pick-optional">— optional</span></span>
+              <button type="button" class="post-ai" id="pick-ai-caption"><span aria-hidden="true">✨</span> Generate with AI</button>
+            </span>
             <textarea id="pick-caption" class="post-textarea" rows="4" maxlength="2200" placeholder="The words you'll post alongside it."></textarea>
           </label>
           <label class="post-remind">
@@ -975,6 +978,9 @@ import "../../styles/account-sections.css";
        it here: a step that is hidden is hidden. */
     .pick-body[hidden], .pick-body--plan[hidden], #pick-foot[hidden], #pick-continue[hidden], #pick-save[hidden] { display: none; }
     #pick-step-upload { display: grid; gap: 12px; align-content: start; --cat: var(--violet-deep); }
+    /* Its own display outranked [hidden], so the upload box showed on every
+       post, not only "Upload a post" (Dani, 18 Oct). */
+    #pick-step-upload[hidden] { display: none; }
     .pick-drop { display: grid; place-items: center; gap: 4px; padding: 30px 16px; border: 1.5px dashed rgba(var(--violet-rgb), 0.35); border-radius: 8px; background: #fff; cursor: pointer; text-align: center; font-family: var(--sans); transition: border-color .2s, background .2s; }
     .pick-drop strong { font-size: var(--ws-t-body); color: var(--violet-deep); }
     .pick-drop span { font-size: var(--ws-t-meta); color: rgba(28,29,34,0.55); }
@@ -1380,8 +1386,21 @@ import "../../styles/account-sections.css";
     try { const v = localStorage.getItem('tmke.calendar.view'); if (v === 'posts') calView = v; } catch (_) {}
     const isPostItem = (it) => !(it && it.activity && it.activity !== 'social_post');
     const inView = (it) => calView === 'all' || (calView === 'posts' ? isPostItem(it) : !isPostItem(it));
+    /* The page says which one you are in (Dani, 18 Oct: "so we can distinctly
+       see there's a difference"): its heading, its line and the tab's name. */
+    const VIEW_HEAD = {
+      all:   { h: 'Your Marketing Planner.', sub: 'Plan all of your marketing, from campaigns and print to events and follow-ups, on the day it happens.', t: 'Marketing Planner' },
+      posts: { h: 'Your Content Calendar.', sub: 'See what you\u2019re posting and when, with post ideas and key dates on the days.', t: 'Content Calendar' },
+    };
+    function paintViewHead() {
+      const v = VIEW_HEAD[calView] || VIEW_HEAD.all;
+      const h = document.querySelector('.cal-hero .ws-greeting'); if (h) h.textContent = v.h;
+      const sub = document.querySelector('.cal-hero .ws-hero-sub'); if (sub) sub.textContent = v.sub;
+      document.title = v.t + ' \u2014 TMKE workspace';
+    }
     function setCalView(v) {
       calView = v;
+      paintViewHead();
       try { localStorage.setItem('tmke.calendar.view', v); } catch (_) {}
       document.querySelector('.cal')?.setAttribute('data-cal-view', v);
       document.querySelectorAll('.cal-view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
@@ -1391,6 +1410,7 @@ import "../../styles/account-sections.css";
     document.querySelectorAll('.cal-view-btn').forEach((b) => b.addEventListener('click', () => setCalView(b.dataset.view)));
     document.querySelector('.cal')?.setAttribute('data-cal-view', calView);
     document.querySelectorAll('.cal-view-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === calView)));
+    paintViewHead();
     document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-view-all]')) setCalView('all'); });
 
     // ====== Date helpers ======
@@ -3198,6 +3218,14 @@ import "../../styles/account-sections.css";
     document.getElementById('app-signout-foot')?.addEventListener('click', signOut);
 
     // AI caption → drop the result straight into the post's caption box.
+    document.getElementById('pick-ai-caption')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      const box = document.getElementById('pick-caption');
+      window.tmkeCaption?.open({
+        output: 'use',
+        onUse: (text) => { box.value = text; box.dispatchEvent(new Event('input', { bubbles: true })); },
+      });
+    });
     document.getElementById('post-ai-caption')?.addEventListener('click', () => {
       window.tmkeCaption?.open({
         output: 'use',
