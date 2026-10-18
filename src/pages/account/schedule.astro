@@ -1274,6 +1274,7 @@ import "../../styles/account-sections.css";
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { CATEGORIES, ACTIVITIES, PLATFORMS, activityOf, categoryOf, entryTitle } from '../../data/marketing-activities.js';
     import { planUrl, postIsMade, monthKey, monthName as planMonthName, plannedMonths } from '../../lib/content-plan.js';
+    import { undoToast } from '../../lib/undo-toast.js';
 
     /* The three boxes in the header, following the view (Dani, 18 Oct). From
        the same account the calendar shows: the member's, or training's. Read
@@ -2842,15 +2843,18 @@ import "../../styles/account-sections.css";
 
     async function deleteAct() {
       if (!actEditing) return;
-      if (!confirm('Remove this from your calendar? This can\'t be undone.')) return;
+      const was = { ...actEditing };
       const acct = await plannerStore();
       if (!acct || acct.blocked) return actError(acct ? acct.reason : "You're signed out — sign in again.");
       const { error } = await acct.db.from(acct.table).delete().eq('id', actEditing.id).eq('user_id', acct.uid);
       if (error) return actError(error.message || "Couldn't remove it.");
+      // Its files go only once Undo has passed.
       const gone = filePathsOf(actEditing);
-      if (gone.length) acct.db.storage.from(CAL_FILES).remove(gone).catch(() => {});
       items = items.filter((x) => String(x.id) !== String(actEditing.id));
       renderCalendar(); closeAct(); refreshDayUnder();
+      undoToast(`“${was.title || activityOf(was.activity).label}” removed from your calendar.`, () => restoreEntry(was), {
+        onExpire: () => { if (gone.length) acct.db.storage.from(CAL_FILES).remove(gone).catch(() => {}); },
+      });
     }
 
     // One door for anything in a day's list.
@@ -3165,9 +3169,23 @@ import "../../styles/account-sections.css";
       }
     }
 
+    /* Put back something just removed (Undo): the same row, id and all, so a
+       content plan still finds its post. */
+    async function restoreEntry(row) {
+      const acct = await plannerStore();
+      if (!acct || acct.blocked) throw new Error("You're signed out, so it couldn't be put back.");
+      const { booking, __cont, ...clean } = row;
+      const { data, error } = await acct.db.from(acct.table).insert(clean).select('*').single();
+      if (error) throw new Error("Couldn't put it back. Try again.");
+      items = items.filter((i) => String(i.id) !== String(data.id)).concat(data);
+      renderCalendar(); refreshDayUnder();
+    }
+
+    // Removed at once, with Undo for ten seconds (Dani, 18 Oct), not a
+    // question first that nobody reads.
     async function removePost() {
       if (!openPostId) return;
-      if (!confirm("Remove this planned post from your calendar? This can't be undone.")) return;
+      const was = items.find((i) => String(i.id) === String(openPostId));
       clearPostError();
       $postDelete.disabled = true; $postDelete.textContent = 'Removing…';
       const acct = await plannerStore();
@@ -3181,6 +3199,7 @@ import "../../styles/account-sections.css";
       renderCalendar();
       closePost();
       refreshDayUnder();
+      if (was) undoToast(`“${was.title || 'Post'}” removed from your calendar.`, () => restoreEntry(was));
     }
 
     // ====== Data loaders ======

@@ -303,6 +303,7 @@ import "../../styles/account-sections.css";
     import { STUDIO_SIZES } from '../../data/studio-sizes.js';
     import { loadPrompts, upcomingFrom, keyForDay, canvasForPrompt } from '../../data/content-calendar.js';
     import { PLAN_LINKED, FORMATS, PILLARS, PLAN_ROWS, monthKey, monthStart, monthName, planStore, postIsMade, pillarOfPrompt } from '../../lib/content-plan.js';
+    import { undoToast } from '../../lib/undo-toast.js';
 
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -648,23 +649,38 @@ import "../../styles/account-sections.css";
       try { return new URL(u).href; } catch (_) { return ''; }
     }
 
+    /* Removed at once, row and post, with Undo for ten seconds (Dani, 18 Oct:
+       an OK-or-Cancel question here cost her a made post). Undo puts both
+       back as they were, the post with its own id. */
     async function removeRow(r) {
       if (!r || blocked()) return;
       const it = itemOf(r);
+      const at = rows.indexOf(r);
+      const wasRow = { ...r }, wasItem = it ? JSON.parse(JSON.stringify(it)) : null;
       if (it) {
-        const made = postIsMade(it);
-        if (made) {
-          if (!confirm(`Remove "${r.title}" from your plan?\n\nIts post is made and on your Content Calendar. OK removes the post from your calendar too; Cancel keeps both.`)) return;
-        } else if (!confirm(`Remove "${r.title || 'this row'}" from your plan and your Content Calendar?`)) return;
         const { error } = await store.db.from(store.table).delete().eq('id', it.id).eq('user_id', store.uid);
         if (error) return saved('err', "Couldn't remove its post");
         items = items.filter((x) => x !== it);
         drawMonth();
-      } else if (hasContent(r) && !confirm(`Remove "${r.title || 'this row'}" from your plan?`)) return;
+      }
       rows = rows.filter((x) => x !== r);
       if (rows.length < 1) rows.push(blankRow());
       drawRows();
       if (plan) queueSave();
+      if (!hasContent(wasRow) && !wasItem) return;
+      undoToast(wasItem ? `“${wasRow.title || 'Post'}” removed from your plan and your Content Calendar.` : `“${wasRow.title || 'Row'}” removed from your plan.`, async () => {
+        if (wasItem) {
+          const { data, error } = await store.db.from(store.table).insert(wasItem).select('*').single();
+          if (error) throw new Error("Couldn't put it back. Try again.");
+          items.push(data);
+        }
+        // Back where it was.
+        const i = Math.max(0, Math.min(at, rows.length));
+        if (rows[i] && !hasContent(rows[i]) && !rows[i].item_id) rows.splice(i, 1, wasRow); else rows.splice(i, 0, wasRow);
+        drawRows(); drawMonth();
+        dirty.add(wasRow.id);
+        await flush();
+      });
     }
 
     // ====== Saving ======
