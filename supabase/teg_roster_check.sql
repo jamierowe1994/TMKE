@@ -44,7 +44,7 @@ create index if not exists teg_roster_changes_open on public.teg_roster_changes 
 create table if not exists public.teg_roster_runs (
   id      uuid primary key default gen_random_uuid(),
   run_at  timestamptz not null default now(),
-  by      text,                            -- an admin's email, or "monthly check"
+  run_by  text,                            -- an admin's email, or "monthly check" ("by" is reserved)
   counts  jsonb not null default '{}'
 );
 
@@ -58,3 +58,6 @@ drop policy if exists "teg_roster_changes admin read" on public.teg_roster_chang
 create policy "teg_roster_changes admin read" on public.teg_roster_changes for select to authenticated using (public.is_admin());
 drop policy if exists "teg_roster_runs admin read" on public.teg_roster_runs;
 create policy "teg_roster_runs admin read" on public.teg_roster_runs for select to authenticated using (public.is_admin());
+
+-- Have the API see the new tables straight away.
+notify pgrst, 'reload schema';

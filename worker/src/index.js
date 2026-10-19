@@ -341,6 +341,12 @@ const PACKAGE_PREFIX = { academy: "ACAD", pro: "PRO" };
    monthly run on the 1st. ----------------------------------------------------
    Only the three brands below are compared for now. */
 const ROSTER_FOCUS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts"];
+// Today in London as YYYY-MM-DD. Its own, not londonToday(): that one lives
+// inside the request handler (out of reach from here) and returns { ym, day }.
+function rosterToday() {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
 
 // Our contacts and brand profiles, and how a Team Hub person is matched to one.
 async function rosterContext(env) {
@@ -579,7 +585,7 @@ async function runRosterCheck(env, by) {
   const ctx = await rosterContext(env);
   const live = await tegRosterRows(env);
   if (live.error) return { error: live.error };
-  const today = londonToday();
+  const today = rosterToday();
   const result = rosterCompare(ctx, live.rows, today);
   const ch = await rosterChanges(env, ctx, live.rows);
   // What's still to look at: every change not yet marked done, newest first,
@@ -596,8 +602,8 @@ async function runRosterCheck(env, by) {
   const counts = { joiners: result.starters.length, leavers: result.leavers.filter((l) => l.kind === "left").length, not_on_team_hub: result.leavers.filter((l) => l.kind === "missing").length, changes: changes.length, details: result.updates.length, conflicts: result.conflicts.length };
   let lastRun = null;
   if (!ch.sql_needed) {
-    lastRun = ((await sbGet(env, "teg_roster_runs", "select=run_at,by,counts&order=run_at.desc&limit=1")) || [])[0] || null;
-    await sbPost(env, "teg_roster_runs", { by: by || null, counts }).catch(() => null);
+    lastRun = ((await sbGet(env, "teg_roster_runs", "select=run_at,run_by,counts&order=run_at.desc&limit=1")) || [])[0] || null;
+    await sbPost(env, "teg_roster_runs", { run_by: by || null, counts }).catch(() => null);
   }
   return { ok: true, source: "live", checked_at: new Date().toISOString(), total_on_team_hub: live.rows.length, ...result, changes, counts,
     baseline: !!ch.baseline, sql_needed: !!ch.sql_needed, previous_run: lastRun };
@@ -606,9 +612,9 @@ async function runRosterCheck(env, by) {
 // The 1st of each month, on the 08:00 UTC run (9am in summer): run the check
 // and say what it found.
 async function runMonthlyRosterCheck(env) {
-  if (londonToday().slice(8, 10) !== "01" || !env.TEG_API_SECRET) return;
+  if (rosterToday().slice(8, 10) !== "01" || !env.TEG_API_SECRET) return;
   const out = await runRosterCheck(env, "monthly check");
-  const month = londonToday().slice(0, 7);
+  const month = rosterToday().slice(0, 7);
   if (out.error) {
     await notifyAdmins(env, { area: "problem", event: "teg_check_failed", title: "The monthly Team Hub check didn't run", body: out.error, href: "/admin/teg?check=1", key: `teg_check_${month}` });
     return;
@@ -9366,7 +9372,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
         if (path.endsWith("/preview") && request.method === "POST") {
           const b = await request.json().catch(() => ({}));
-          return json({ ok: true, ...rosterCompare(ctx, Array.isArray(b.rows) ? b.rows : [], londonToday()) }, 200, request, env);
+          return json({ ok: true, ...rosterCompare(ctx, Array.isArray(b.rows) ? b.rows : [], rosterToday()) }, 200, request, env);
         }
 
         if (path.endsWith("/apply") && request.method === "POST") {
@@ -9412,7 +9418,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 // A leaver kept on file: their profile at that brand is marked
                 // as left (the date they left, else today). The contact stays.
                 if (!byId.get(a.contact_id)) throw new Error("contact not found");
-                const when = /^\d{4}-\d{2}-\d{2}$/.test(a.left_at || "") ? a.left_at : londonToday();
+                const when = /^\d{4}-\d{2}-\d{2}$/.test(a.left_at || "") ? a.left_at : rosterToday();
                 const brandQ = a.brand ? `&brand=eq.${encodeURIComponent(a.brand)}` : "";
                 const r = await sbPatch(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(a.contact_id)}&left_at=is.null${brandQ}`, { left_at: when, left_brand: a.brand || null });
                 if (r && r.ok === false) throw new Error("couldn't save");

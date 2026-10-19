@@ -19,17 +19,14 @@ import "../../styles/admin.css";
        live against our CRM. New joiners to add, leavers to remove, and what
        has changed since the last check. It runs itself on the 1st. -->
   <section class="ash-panel rc" id="rc">
-    <div class="rc-head">
-      <div>
-        <h2 class="rc-title">Team Hub check</h2>
-        <p class="rc-intro">Reads the Team Hub and our CRM side by side, and lists new joiners, leavers and anything that has changed, such as a status. It runs by itself on the 1st of each month, and you can run it at any time. Nothing changes, here or on the Team Hub, until you choose to.</p>
-        <p class="rc-last" id="rc-last"></p>
-      </div>
-      <div class="rc-head-acts">
-        <button type="button" class="admin-btn admin-btn-primary" id="rc-run">Run the check</button>
-        <button type="button" class="rc-link" id="teg-roster">Or compare a Team Hub export</button>
-        <input type="file" id="teg-roster-file" accept=".csv,text/csv" hidden>
-      </div>
+    <h2 class="rc-title">Team Hub check</h2>
+    <p class="rc-intro">Reads the Team Hub and our CRM side by side, and lists new joiners, leavers and anything that has changed, such as a status. It runs by itself on the 1st of each month, and you can run it at any time. Nothing changes, here or on the Team Hub, until you choose to.</p>
+    <p class="rc-last" id="rc-last"></p>
+    <!-- Starts on the panel's left edge, as the tools' buttons below do. -->
+    <div class="teg-acts rc-run-row">
+      <button type="button" class="admin-btn admin-btn-primary" id="rc-run">Run the check</button>
+      <button type="button" class="rc-link" id="teg-roster">Or compare a Team Hub export</button>
+      <input type="file" id="teg-roster-file" accept=".csv,text/csv" hidden>
     </div>
     <p class="teg-status" id="rc-status"></p>
     <div id="rc-out"></div>
@@ -131,11 +128,10 @@ import "../../styles/admin.css";
     .teg-fill b { font-weight: 700; color: var(--ink); }
     /* ---- Team Hub check ---- */
     .rc { margin-bottom: 16px; }
-    .rc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
     .rc-title { margin: 0; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; color: var(--ink); }
     .rc-intro { margin: 6px 0 0; max-width: 75%; font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.6); }
     .rc-last { margin: 8px 0 0; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); }
-    .rc-head-acts { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .rc-run-row { margin-top: 16px; gap: 16px; }
     .rc-link { appearance: none; border: 0; background: none; padding: 0; font: 600 12px var(--sans); color: var(--english-violet); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
     .rc-tools-h { margin: 0 0 12px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .rc-sec { margin-top: 26px; }
@@ -466,11 +462,11 @@ import "../../styles/admin.css";
 
     async function lastRun() {
       try {
-        const { data, error } = await supabase.from('teg_roster_runs').select('run_at, by, counts').order('run_at', { ascending: false }).limit(1);
+        const { data, error } = await supabase.from('teg_roster_runs').select('run_at, run_by, counts').order('run_at', { ascending: false }).limit(1);
         const el = document.getElementById('rc-last');
         if (error) { el.textContent = 'Run supabase/teg_roster_check.sql once so the check can remember what it saw and spot changes.'; return; }
         const r = data && data[0];
-        el.textContent = r ? `Last checked ${when(r.run_at)}${r.by === 'monthly check' ? ' (the monthly check)' : r.by ? ` by ${r.by}` : ''}.` : 'Not run yet.';
+        el.textContent = r ? `Last checked ${when(r.run_at)}${r.run_by === 'monthly check' ? ' (the monthly check)' : r.run_by ? ` by ${r.run_by}` : ''}.` : 'Not run yet.';
       } catch (_) {}
     }
 
