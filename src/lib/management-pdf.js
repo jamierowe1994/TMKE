@@ -77,6 +77,7 @@ const CSS = `
 .mg-acct small { display: block; font-size: 14px; color: #6e6268; margin-top: 1px; }
 .mg-miss { list-style: none; margin: 0; padding: 0; }
 .mg-tbl tr.sub td { border-top: 0; }
+.mg-goals td { font-size: 16px; vertical-align: top; }
 .mg-cont { font-size: 26px; font-weight: 600; color: #8a8086; letter-spacing: 0; }
 `;
 
@@ -85,6 +86,15 @@ function tile(label, value, move, dir) {
   return `<div class="mg-tile"><span>${esc(label)}</span><b>${esc(value)}</b><em class="${cls}">${move ? esc(move) : "&nbsp;"}</em></div>`;
 }
 const change = (v) => { const x = n(v); return x == null ? ["", 0] : [`${x >= 0 ? "Up" : "Down"} ${Math.abs(x)}% on last month`, Math.sign(x)]; };
+
+// The team's goals for the account: free text, a row each (Summary tab).
+function goalsSec(d) {
+  const goals = (d.goals || []).filter((g) => g && (g.goal || g.measure));
+  if (!goals.length) return "";
+  const multi = platformsOf(d).length > 1;
+  return `<div class="mg-sec"><p class="mg-sec-h">Goals</p><table class="mg-tbl mg-goals"><thead><tr>${multi ? '<th class="l">Platform</th>' : ""}<th class="l">Goal</th><th class="l">Measurement</th></tr></thead><tbody>${goals.map((g) =>
+    `<tr>${multi ? `<td class="l"><span class="mg-plat">${esc(PLATFORM_LABELS[itemPlatform(g, d)] || "")}</span></td>` : ""}<td class="l">${esc(g.goal || "")}</td><td class="l">${esc(g.measure || "")}</td></tr>`).join("")}</tbody></table></div>`;
+}
 
 function accountPage(a, pageNo, title) {
   const d = a.report.data || {}, p = d.profile || {}, rc = d.reach || {};
@@ -220,20 +230,23 @@ function otherPlatformsPage(a, pageNo, title, withSummary) {
     ${d.facebook ? facebookSec(d.facebook, month) : ""}
     ${d.linkedin ? linkedinSec(d.linkedin) : ""}
     ${read}
+    ${goalsSec(d)}
     <div class="mg-foot"><span>Internal · not for clients</span><span>${pageNo}</span></div>
   </div>`;
 }
-// An account's pages: Instagram's (with the read and plan), then Facebook
-// and LinkedIn's; or only the second, when the month has no Instagram.
+// An account's pages: Instagram's (with the read and plan), then a second
+// for Facebook, LinkedIn and the goals; or only the second, when the month
+// has no Instagram. Goals sit on the second page because the first is full.
+const hasGoals = (d) => (d.goals || []).some((g) => g && (g.goal || g.measure));
 function accountPages(a, pageNo, title) {
   const d = a.report.data || {};
   const ig = hasIg(d), other = !!(d.facebook || d.linkedin);
   const out = [];
   if (ig || !other) out.push(accountPage(a, pageNo, title));
-  if (other) out.push(otherPlatformsPage(a, pageNo + out.length, title, !ig));
+  if (other || hasGoals(d)) out.push(otherPlatformsPage(a, pageNo + out.length, title, !ig && other));
   return out;
 }
-const pagesFor = (a) => { const d = a.report.data || {}; return (hasIg(d) || !(d.facebook || d.linkedin) ? 1 : 0) + (d.facebook || d.linkedin ? 1 : 0); };
+const pagesFor = (a) => { const d = a.report.data || {}, other = !!(d.facebook || d.linkedin); return (hasIg(d) || !other ? 1 : 0) + (other || hasGoals(d) ? 1 : 0); };
 
 function coverPage({ month, year, accounts, missing, by }, title) {
   // Account and contact together: one account can be a brand among several,
@@ -275,7 +288,7 @@ export function managementPdfHtml(input) {
 // Long summaries and plans step down in size rather than run off the page.
 function fitPages(root) {
   for (const pg of root.querySelectorAll(".mg-page")) {
-    const els = [...pg.querySelectorAll(".mg-prose, .mg-prios li")];
+    const els = [...pg.querySelectorAll(".mg-prose, .mg-prios li, .mg-goals td")];
     let size = 17;
     const over = () => [...pg.children].some((c) => !c.classList.contains("mg-foot") && c.getBoundingClientRect().bottom > pg.getBoundingClientRect().top + H - 76);
     while (els.length && over() && size > 13) { size -= 0.5; els.forEach((e) => { e.style.fontSize = size + "px"; }); }

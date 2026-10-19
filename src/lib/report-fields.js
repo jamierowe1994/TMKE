@@ -40,7 +40,6 @@ export const REPORT_FIELD_GROUPS = [
       { key: "paidContent",            label: "Paid advertising (Ads breakdown)",          client: false },
       { key: "organicPaidInteractions",label: "Organic vs paid interactions",              client: false },
       { key: "topContent",             label: "Top performing content",                    client: true },
-      { key: "contentTrends",          label: "Day-by-day reach, views and interactions",  client: false },
       { key: "hashtags",               label: "Hashtag performance",                       client: true },
     ],
   },

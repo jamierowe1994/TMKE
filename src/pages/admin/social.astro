@@ -626,6 +626,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-pill.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     [data-ri-pane][hidden] { display: none; }
     .ri-tbl--thirds { table-layout: fixed; width: 100%; }
+    .ri-goals td { vertical-align: top; }
+    .ri-cm-row.ri-goal-row { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.3fr) 30px; gap: 8px; align-items: center; }
+    .ri-cm-row.ri-goal-row.is-one { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 30px; }
+    .ri-goal-row input[type=text] { width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13.5px; }
     .ri-tbl--thirds th, .ri-tbl--thirds td { width: 33.33%; }
     /* Top five hashtags, posts and reels together */
     .ri-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -2368,7 +2372,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     // The Summary tab is ours, not the client's, so editing it isn't a
     // change the client is waiting for: it's left out of the comparison
     // (and the plan too, when the client has their own on Client commentary).
-    const clientSide = (d) => { const { summary, trendSummary, ...rest } = d || {}; if (rest.client && (rest.client.priorities || []).length) delete rest.priorities; return rest; };
+    const clientSide = (d) => { const { summary, trendSummary, goals, ...rest } = d || {}; if (rest.client && (rest.client.priorities || []).length) delete rest.priorities; return rest; };
     const hasPending = (x) => !!(x && x.published_at && x.published_data && stable(clientSide(x.data)) !== stable(clientSide(x.published_data)));
     const riSorted = (r) => (r._reports || []).slice().sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
     function renderInsights(r) {
@@ -2603,6 +2607,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             ? platformsOf(d).map((k) => { const t = k === "instagram" ? d.summary : (d[k] || {}).summary; return `<div class="ri-cm-platblock">${platPill(k)}${t ? `<div class="ri-cm-prose">${esc(t)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`}</div>`; }).join("")
             : d.summary ? `<div class="ri-cm-prose">${esc(d.summary)}</div>` : `<p class="ri-cm-empty">Nothing written yet.</p>`, "", "summary")}
         ${card(`Into ${next}`, "What we plan to do, and how we see each one.", prios.length ? `<ul class="ri-cm-list">${prios.map((p) => { const [v, l] = label(p.type); return `<li>${platformsOf(d).length > 1 ? platPill(itemPlatform(p, d)) : ""}<span class="ri-cm-mark is-${v}">${l}</span><span>${p.title ? `<b class="ri-cm-t">${esc(p.title)}</b>` : ""}${esc(p.text)}</span></li>`; }).join("")}</ul>` : `<p class="ri-cm-empty">No plan written yet.</p>`, "", "priorities")}
+        ${(() => {
+          /* Goals: the team's own, free text, a row per goal (Danielle, 19
+             Oct 2026). For the management report; the client never sees them. */
+          const goals = (d.goals || []).filter((g) => g && (g.goal || g.measure));
+          const multi = platformsOf(d).length > 1;
+          return card("Goals", "What we're aiming for on each platform, and how we'll measure it. In the management report; never shown to the client.",
+            goals.length ? `<table class="ri-tbl ri-goals"><thead><tr>${multi ? "<th>Platform</th>" : ""}<th>Goal</th><th>Measurement</th></tr></thead><tbody>${goals.map((g) => `<tr>${multi ? `<td>${platPill(itemPlatform(g, d))}</td>` : ""}<td>${esc(g.goal || "")}</td><td>${esc(g.measure || "")}</td></tr>`).join("")}</tbody></table>`
+              : `<p class="ri-cm-empty">No goals yet. Add what you're aiming for, such as "Grow followers" measured as "1,200 by the end of December".</p>`, "", "goals");
+        })()}
         ${card(`Trends · ${last3.length > 1 ? `${RI_MONTHS[last3[0].month]} to ${RI_MONTHS[last3[last3.length - 1].month]}` : "last three months"}`, "What's moving across up to three months. No further back: social changes too fast.", trendBody, trendAct, last3.length >= 2 ? "trends" : "")}
         <p class="smm-modal-status" id="ri-cm-status" hidden></p>
       </div>`;
@@ -2756,13 +2769,22 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <div class="ri-cm-stack"><input type="text" data-sm-title value="${esc(p.title || "")}" placeholder="A short title, e.g. More reels" maxlength="60">
           <textarea rows="2" data-sm-text placeholder="What we'll do, and why.">${esc(p.text || "")}</textarea></div>
           <button type="button" class="ri-cm-x" data-sm-del aria-label="Remove">&times;</button></div>`;
-      const head = { summary: "What it means", priorities: `Into ${next}`, trends: "Trends" }[which];
+      const goalRow = (g = {}) => `<div class="ri-cm-row ri-goal-row${platformsOf(d).length > 1 ? "" : " is-one"}" data-sm-goal>
+          ${platSelect(d, itemPlatform(g, d), "data-goal-plat")}
+          <input type="text" data-goal-goal value="${esc(g.goal || "")}" placeholder="Goal, e.g. Grow followers" maxlength="120">
+          <input type="text" data-goal-measure value="${esc(g.measure || "")}" placeholder="Measurement, e.g. 1,200 by 31 Dec, or +10% a quarter" maxlength="160">
+          <button type="button" class="ri-cm-x" data-sm-del aria-label="Remove">&times;</button></div>`;
+      const head = { summary: "What it means", priorities: `Into ${next}`, trends: "Trends", goals: "Goals" }[which];
       const sub = {
         summary: `Our read of ${month}: what moved and why, including anything the figures can't show, like a quiet week, a shoot that slipped, or a campaign running elsewhere. Printed in the management report; the client never sees it.`,
         priorities: `What we plan for ${next}, and how we see each one. Printed in the management report; the client reads their own version on Client commentary.`,
         trends: "What's moving across up to three months, and anything behind it the numbers can't explain. Printed in the management report.",
+        goals: "What we're aiming for, and how we'll know. Write them however suits the client: a number, a percentage, a date. Printed in the management report; the client never sees them.",
       }[which];
-      const body = which === "priorities"
+      const body = which === "goals"
+        ? `<div class="smm-modal-field"><div id="ri-sm-goals">${((d.goals || []).filter((g) => g && (g.goal || g.measure)).map(goalRow).join("")) || goalRow()}</div>
+           <button type="button" class="smm-btn smm-btn--sm" id="ri-sm-goal-add">${PLUS_SVG}Add a goal</button></div>`
+        : which === "priorities"
         ? `<div class="smm-modal-field"><div id="ri-sm-prios">${(d.priorities || []).filter((p) => p && p.text).map(prioRow).join("")}</div>
            <button type="button" class="smm-btn smm-btn--sm" id="ri-sm-add">${PLUS_SVG}Add a line</button></div>`
         : which === "summary" && platformsOf(d).length > 1
@@ -2785,12 +2807,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const host = $("smm-modal-host"), scrim = $("smm-modal");
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       host.querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("ri-sm-goal-add")?.addEventListener("click", () => { const t = document.createElement("div"); t.innerHTML = goalRow().trim(); const el = t.firstChild; $("ri-sm-goals").appendChild(el); el.querySelector("[data-goal-goal]")?.focus(); });
       $("ri-sm-add")?.addEventListener("click", () => { const t = document.createElement("div"); t.innerHTML = prioRow().trim(); const el = t.firstChild; $("ri-sm-prios").appendChild(el); el.querySelector("[data-sm-title]")?.focus(); });
       host.addEventListener("click", (e) => { const x = e.target.closest("[data-sm-del]"); if (x) x.closest(".ri-cm-row").remove(); });
-      (which === "priorities" ? host.querySelector("[data-sm-title]") : ($("ri-sm-text") || host.querySelector("[data-sm-plat-text]")))?.focus();
+      (which === "goals" ? host.querySelector("[data-goal-goal]") : which === "priorities" ? host.querySelector("[data-sm-title]") : ($("ri-sm-text") || host.querySelector("[data-sm-plat-text]")))?.focus();
       $("ri-sm-save").addEventListener("click", async () => {
         const btn = $("ri-sm-save"), status = $("ri-sm-status");
-        const team = which === "priorities"
+        const team = which === "goals"
+          ? { goals: [...host.querySelectorAll("[data-sm-goal]")].map((row) => ({ platform: row.querySelector("[data-goal-plat]")?.value || platformsOf(d)[0] || "instagram", goal: row.querySelector("[data-goal-goal]").value.trim(), measure: row.querySelector("[data-goal-measure]").value.trim() })).filter((g) => g.goal || g.measure) }
+          : which === "priorities"
           ? { priorities: [...host.querySelectorAll("[data-sm-prio]")].map((row) => ({ platform: row.querySelector("[data-sm-plat]")?.value, type: row.querySelector("[data-sm-type]").value, title: row.querySelector("[data-sm-title]").value.trim(), text: row.querySelector("[data-sm-text]").value.trim() })).filter((p) => p.text).map((p) => { const o = { type: p.type, text: p.text }; if (p.title) o.title = p.title; if (p.platform) o.platform = p.platform; return o; }) }
           : which === "summary" && host.querySelector("[data-sm-plat-text]")
           ? Object.fromEntries([...host.querySelectorAll("[data-sm-plat-text]")].map((t) => { const k = t.getAttribute("data-sm-plat-text"), v = t.value.trim(); return k === "instagram" ? ["summary", v] : [k, { ...(d[k] || {}), summary: v }]; }))

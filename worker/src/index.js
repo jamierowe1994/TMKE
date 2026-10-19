@@ -11110,7 +11110,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
               // the plan, trends) as it stands now, since it's edited after
               // publishing without a republish.
               report: { id: r.id, platform: r.platform || "Instagram", month: r.month, year: r.year, published_at: r.published_at,
-                data: { ...r.published_data, summary: (r.data || {}).summary ?? r.published_data.summary, priorities: (r.data || {}).priorities ?? r.published_data.priorities, trendSummary: (r.data || {}).trendSummary ?? r.published_data.trendSummary } }, earlier };
+                data: { ...r.published_data, summary: (r.data || {}).summary ?? r.published_data.summary, priorities: (r.data || {}).priorities ?? r.published_data.priorities, trendSummary: (r.data || {}).trendSummary ?? r.published_data.trendSummary, goals: (r.data || {}).goals ?? r.published_data.goals } }, earlier };
           }).sort((a, b) => String(a.lead.business || a.lead.name || "").localeCompare(String(b.lead.business || b.lead.name || "")));
           // Active clients who aren't in it, and why: so a missing month is seen.
           const inIt = new Set(accounts.map((a) => a.lead.id));

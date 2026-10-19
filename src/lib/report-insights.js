@@ -160,34 +160,6 @@ export function renderOverview(d, r, vis) {
 }
 
 // ---- Content tab -----------------------------------------------------------
-// Days of the report's month, with each post's figures on the day it went out.
-function dailyChart(title, rows, series, r) {
-  const y = r && r.year, m = r && r.month;
-  if (y == null || m == null) return "";
-  const days = new Date(y, m + 1, 0).getDate();
-  const byDay = Array.from({ length: days }, () => series.map(() => 0));
-  let any = false;
-  for (const t of rows) {
-    const dt = /^(\d{4})-(\d{2})-(\d{2})/.exec(t.date || ""); if (!dt || +dt[1] !== y || +dt[2] - 1 !== m) continue;
-    series.forEach((s, i) => { const v = nv(t[s.key]); if (v) { byDay[+dt[3] - 1][i] += v; any = true; } });
-  }
-  if (!any) return "";
-  const W = 960, H = 240, L = 40, B = 22, T = 10, stacked = series.length > 2;
-  const max = Math.max(1, ...byDay.map((v) => (stacked ? v.reduce((a, b) => a + b, 0) : Math.max(...v))));
-  const step = Math.pow(10, Math.floor(Math.log10(max))), top = Math.ceil(max / step) * step;
-  const X = (i) => L + (i + 0.5) * (W - L) / days, Y = (v) => H - B - v / top * (H - B - T), bw = Math.max(3, (W - L) / days * 0.62);
-  let bars = "";
-  byDay.forEach((v, i) => {
-    if (stacked) { let acc = 0; v.forEach((val, k) => { if (!val) return; bars += `<rect x="${(X(i) - bw / 2).toFixed(1)}" y="${Y(acc + val).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(acc) - Y(acc + val)).toFixed(1)}" fill="${series[k].col}"/>`; acc += val; }); }
-    else v.forEach((val, k) => { if (!val) return; const w = bw / series.length; bars += `<rect x="${(X(i) - bw / 2 + k * w).toFixed(1)}" y="${Y(val).toFixed(1)}" width="${w.toFixed(1)}" height="${(Y(0) - Y(val)).toFixed(1)}" fill="${series[k].col}"/>`; });
-  });
-  const ticks = [0, top / 2, top].map((v) => `<line x1="${L}" x2="${W}" y1="${Y(v)}" y2="${Y(v)}" stroke="#e5e1e2"/><text x="${L - 6}" y="${Y(v) + 3}" text-anchor="end" font-size="11" fill="#8a8796">${Math.round(v).toLocaleString("en-GB")}</text>`).join("");
-  const xl = [1, 8, 15, 22, days].map((dd) => `<text x="${X(dd - 1)}" y="${H - 5}" text-anchor="middle" font-size="11" fill="#8a8796">${dd} ${MONTHS[m].slice(0, 3)}</text>`).join("");
-  const totals = series.map((s, i) => byDay.reduce((a, v) => a + v[i], 0));
-  const legend = series.map((s, i) => `<span><i style="background:${s.col}"></i>${esc(s.label)} (${totals[i].toLocaleString("en-GB")})</span>`).join("");
-  return { title, html: `<div class="ri-panel"><div class="ri-split-h">${esc(title)} by day</div><svg viewBox="0 0 ${W} ${H}" class="ri-chart" role="img" aria-label="${esc(title)} by day">${ticks}${bars}${xl}</svg><div class="ri-legend">${legend}</div></div>` };
-}
-
 export function renderContent(d, vis, opts, r) {
   const show = (k) => !vis || vis[k] !== false;
   const out = [];
@@ -210,24 +182,6 @@ export function renderContent(d, vis, opts, r) {
     const top6 = rows.slice(0, 6).join(""), rest = rows.slice(6).join("");
     out.push(sec("Top performing content · ranked by reach", !out.length)
       + `<div class="ri-panel ri-tblwrap">${wrap(top6)}${rest ? `<details class="ri-more"><summary>Show all</summary>${wrap(rest, false)}</details>` : ""}</div>`);
-  }
-  if (show("contentTrends")) {
-    const rows = contentRows(d);
-    const posts = rows.filter((t) => !/reel/i.test(t.type || "")), reels = rows.filter((t) => /reel/i.test(t.type || ""));
-    const RV = (withViews) => [{ key: "reach", label: "Reach", col: "#371e28" }, ...(withViews ? [{ key: "views", label: "Views", col: "#c9a9b5" }] : [])];
-    const IN = [{ key: "likes", label: "Likes", col: "#371e28" }, { key: "comments", label: "Comments", col: "#b9826a" }, { key: "saves", label: "Saves", col: "#5b7a9a" }, { key: "shares", label: "Shares", col: "#c9c3c6" }];
-    const charts = [
-      // SocialPilot's post table has no per-post views, so posts chart reach only.
-      dailyChart("Post reach", posts, [{ key: "reach", label: "Reach", col: "#3f5a75" }], r),
-      dailyChart("Post interactions", posts, IN, r),
-      dailyChart("Reel reach and views", reels, RV(true), r),
-      dailyChart("Reel interactions", reels, IN, r),
-    ].filter(Boolean);
-    // One chart at a time, full width, chosen from a row of pills (wired by
-    // the admin page: [data-ri-pill] shows the [data-ri-pane] with its index).
-    if (charts.length) out.push(sec("Day by day", !out.length)
-      + `<div class="ri-pills" role="tablist">${charts.map((c, i) => `<button type="button" class="ri-pill${i ? "" : " is-active"}" role="tab" aria-selected="${i ? "false" : "true"}" data-ri-pill="${i}">${esc(c.title)}</button>`).join("")}</div>`
-      + charts.map((c, i) => `<div data-ri-pane="${i}"${i ? " hidden" : ""}>${c.html}</div>`).join(""));
   }
   // Hashtags: the five best-reaching shown, the rest behind a toggle, posts
   // and reels apart as SocialPilot keeps them.
