@@ -7501,9 +7501,21 @@ import { createResizeEngine } from "./resize-engine.js";
   // text shadow, outline and the simple block background. Used by the export
   // pipeline so PNG/JPG output matches what the editor renders on screen.
   // Canvas font string for a run, honouring the element base + the run override.
+  /* The stack a canvas draws a font name in. A name not (yet) in the
+     catalogue -- a brand font pack still loading, or one this account isn't
+     shown -- is drawn as itself, so the browser uses the face if it has it
+     and a plain sans if not. It used to take FONTS[0], The Seasons: a print
+     card's sans title came out in a serif in its preview, larger, and ran
+     into the text under it (Dani, 19 Oct: "20 Great Reasons"). */
+  function canvasStack(name) {
+    const known = name && FONTS.find((f) => f.name === name);
+    if (known) return known.stack;
+    if (name) return '"' + String(name).replace(/"/g, "") + '", sans-serif';
+    return FONTS[0] ? FONTS[0].stack : "sans-serif";
+  }
   function runFont(el, fmt) {
     const name = (fmt && fmt.font) || el.font;
-    const stack = (FONTS.find((f) => f.name === name) || FONTS[0]).stack;
+    const stack = canvasStack(name);
     const weight = fmt.bold ? 700 : (el.weight || 400);
     const italic = (fmt.italic || el.italic) ? "italic " : "";
     return italic + weight + " " + el.size + "px " + stack;
@@ -7695,7 +7707,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   function drawTextElementToCanvas(ctx, el) {
-    const font = (FONTS.find((f) => f.name === el.font) || FONTS[0]).stack;
+    const font = canvasStack(el.font);
     /* Measured from the DOM (print): draw the lines the browser produced, at
        the baselines it put them on, and skip every computation below. */
     const measured = _domText && _domText.get(el.id);
@@ -9843,7 +9855,7 @@ import { createResizeEngine } from "./resize-engine.js";
   const _fitCtx = document.createElement("canvas").getContext("2d");
   let _refontSettle = Promise.resolve();
   function textLineCount(el, size) {
-    const font = (FONTS.find(function (f) { return f.name === el.font; }) || FONTS[0]).stack;
+    const font = canvasStack(el.font);
     _fitCtx.font = (el.italic ? "italic " : "") + (el.weight || 400) + " " + size + "px " + font;
     try { _fitCtx.letterSpacing = ((Number(el.letterSpacing) || 0)) + "px"; } catch (_) {}
     return wrapText(_fitCtx, el.text || "", el.w).length;
