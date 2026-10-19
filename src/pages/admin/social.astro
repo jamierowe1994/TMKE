@@ -625,6 +625,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-pill:hover { border-color: var(--english-violet); color: var(--ink); }
     .ri-pill.is-active { background: var(--english-violet); border-color: var(--english-violet); color: #fff; }
     [data-ri-pane][hidden] { display: none; }
+    .ri-medbar { display: block; height: 8px; border-radius: 4px; background: #3f5a75; min-width: 2px; }
     /* Top five hashtags, posts and reels together */
     .ri-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
     .ri-tag { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 12px; border-radius: 8px; background: #fff; border: 1px solid rgba(28,29,34,0.12); font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: var(--ink); }
@@ -2400,8 +2401,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // Day-by-day charts: one at a time, picked from the pills.
       panel.querySelectorAll("[data-ri-pill]").forEach((b) => b.addEventListener("click", () => {
         const i = b.getAttribute("data-ri-pill");
-        panel.querySelectorAll("[data-ri-pill]").forEach((x) => { const on = x === b; x.classList.toggle("is-active", on); x.setAttribute("aria-selected", on ? "true" : "false"); });
-        panel.querySelectorAll("[data-ri-pane]").forEach((x) => { x.hidden = x.getAttribute("data-ri-pane") !== i; });
+        // Each platform's charts switch on their own (Instagram and Facebook
+        // can both have a Day by day on the same tab).
+        const scope = b.closest(".ri-platsec") || panel;
+        scope.querySelectorAll("[data-ri-pill]").forEach((x) => { const on = x === b; x.classList.toggle("is-active", on); x.setAttribute("aria-selected", on ? "true" : "false"); });
+        scope.querySelectorAll("[data-ri-pane]").forEach((x) => { x.hidden = x.getAttribute("data-ri-pane") !== i; });
       }));
       if (isAi) wireAiChat(r);
       if (riTab === "actions" || riTab === "summary") wireCommentary(r, cur);

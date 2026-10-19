@@ -379,31 +379,81 @@ function postTable(rows, cols) {
 }
 
 // ---- Facebook ----------------------------------------------------------------
-export function renderFacebook(tab, fb, vis) {
+export function renderFacebook(tab, fb, vis, r) {
   const show = (k) => !vis || vis[k] !== false;
   fb = fb || {};
   const fp = fb.posts || {};
-  if (tab === "audience") return `<p class="ri-note" style="margin:0;">SocialPilot's Facebook report has no audience breakdown, so there's nothing to show here for Facebook.</p>`;
-  if (tab === "content") {
-    if (!show("facebookPosts")) return "";
-    const t = postTable(fb.content || [], [["Reach", (x) => nf(x.reach)], ["Eng. rate", (x) => nv(x.engagementRate) != null ? nv(x.engagementRate) + "%" : "–"], ["Reactions", (x) => nf(x.reactions)], ["Shares", (x) => nf(x.shares)], ["Video views", (x) => nv(x.videoViews) != null ? nf(x.videoViews) : "–"]]);
-    return t ? sec("Facebook posts · ranked by reach", true) + t : `<p class="ri-note" style="margin:0;">No Facebook posts in this report.</p>`;
+  if (tab === "audience") {
+    /* Fans of the Page, lifetime: SocialPilot's only Facebook audience data
+       (Danielle, 19 Oct 2026). Countries and cities, as Instagram's. */
+    const countries = fb.topCountries || [], cities = fb.topCities || [];
+    if (!countries.length && !cities.length) return `<p class="ri-note" style="margin:0;">No Facebook audience figures in this report. SocialPilot shows the Page's fans by country and city; re-read the PDF if those pages are in it.</p>`;
+    const panel = (title, rows, key, col) => {
+      if (!rows.length) return "";
+      const max = Math.max(1, ...rows.map((x) => nv(x.count) || 0));
+      return `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">${esc(title)}</div>${withMore(rows.map((x) => bar(x[key], nv(x.count), max, col)), 6, "Show all", (x) => x)}</div>`;
+    };
+    const ps = [panel("Top countries", countries, "country", "#8a8796"), panel("Top cities", cities, "city", "#371e28")].filter(Boolean);
+    return sec("Page fans · lifetime", true) + grid(ps.length, ps.join(""));
   }
+  if (tab === "content") {
+    const out = [];
+    if (show("facebookPosts")) {
+      const t = postTable(fb.content || [], [["Reach", (x) => nf(x.reach)], ["Eng. rate", (x) => nv(x.engagementRate) != null ? nv(x.engagementRate) + "%" : "–"], ["Reactions", (x) => nf(x.reactions)], ["Shares", (x) => nf(x.shares)], ["Video views", (x) => nv(x.videoViews) != null ? nf(x.videoViews) : "–"]]);
+      out.push(t ? sec("Facebook posts · ranked by reach", true) + t : `<p class="ri-note" style="margin:0;">No Facebook posts in this report.</p>`);
+    }
+    // Day by day, from SocialPilot's three daily charts (read off the chart,
+    // so a day's figure is close rather than exact).
+    const daily = Array.isArray(fb.daily) ? fb.daily : [];
+    const charts = [
+      dailySeries("Post views", daily, "postViews", "#3f5a75", r),
+      dailySeries("Page views", daily, "pageViews", "#371e28", r),
+      dailySeries("Engagement", daily, "engagement", "#b9826a", r),
+    ].filter(Boolean);
+    if (charts.length) out.push(sec("Day by day", !out.length)
+      + `<p class="ri-note" style="margin:0 0 10px;">Read from SocialPilot's daily charts, so each day is close rather than exact.</p>`
+      + `<div class="ri-pills" role="tablist">${charts.map((c, i) => `<button type="button" class="ri-pill${i ? "" : " is-active"}" role="tab" aria-selected="${i ? "false" : "true"}" data-ri-pill="${i}">${esc(c.title)}</button>`).join("")}</div>`
+      + charts.map((c, i) => `<div data-ri-pane="${i}"${i ? " hidden" : ""}>${c.html}</div>`).join(""));
+    return out.join("");
+  }
+  // Overview: the same three sections as Instagram's (Danielle, 19 Oct 2026).
   const out = [];
   const [rT, rC] = change(fb.pageReachChange), [vT, vC] = change(fb.pageViewsChange);
-  out.push(sec("Page", true) + grid(3,
+  out.push(sec("Page overview", true) + grid(3,
     kpi("Page likes", nf(fb.pageLikes), nv(fb.newFans) ? `+${nf(fb.newFans)} new this month` : "", "#2c7a4b")
     + kpi("Page reach", nf(fb.pageReach), rT || "People who saw anything from the Page", rT ? rC : "#8a8796")
     + kpi("Page views", nf(fb.pageViews), vT, vC)));
-  const [pT, pC] = change(fp.publishedChange), [wT, wC] = change(fp.viewsChange), [eT, eC] = change(fp.engagementChange), [yT, yC] = change(fp.videoPlaysChange);
-  const mix = [nv(fp.images) ? `${nf(fp.images)} images` : "", nv(fp.videos) ? `${nf(fp.videos)} videos` : ""].filter(Boolean).join(", ");
-  out.push(sec("Posts") + grid(4,
-    kpi("Published", nf(fp.published), pT || mix, pT ? pC : "#8a8796")
+  // What went out, by type: SocialPilot's Publishing Trend legend.
+  const types = [["Images", fp.images], ["Videos", fp.videos], ["Text", fp.text], ["Links", fp.links]].filter(([, v]) => nv(v) != null);
+  const [pT, pC] = change(fp.publishedChange);
+  if (types.length || nv(fp.published) != null) {
+    out.push(sec("Published this month") + grid(Math.min(5, types.length + 1),
+      types.map(([l, v]) => kpi(l, nf(v), "", "")).join("") + kpi("Total published", nf(fp.published), pT || "", pT ? pC : "#8a8796")));
+  }
+  // Content: the totals, then the median post by type in place of
+  // Instagram's posts-and-reels split (Facebook doesn't give that split).
+  const [wT, wC] = change(fp.viewsChange), [eT, eC] = change(fp.engagementChange), [yT, yC] = change(fp.videoPlaysChange);
+  out.push(sec("Content overview") + grid(4,
+    kpi("Published", nf(fp.published), "", "")
     + kpi("Post views", nf(fp.views), wT, wC)
     + kpi("Engagement", nf(fp.engagement), eT || "Reactions, comments and shares", eT ? eC : "#8a8796")
     + kpi("Video plays", nf(fp.videoPlays), yT, yC))
     + grid(3, kpi("Reactions", nf(fp.reactions), "", "") + kpi("Comments", nf(fp.comments), "", "") + kpi("Shares", nf(fp.shares), "", "")));
+  const med = (Array.isArray(fb.medianByType) ? fb.medianByType : []).filter((x) => x && (nv(x.reach) != null || nv(x.engagement) != null));
+  if (med.length) {
+    const maxR = Math.max(1, ...med.map((x) => nv(x.reach) || 0));
+    out.push(`<div class="ri-panel"><div class="ri-card-h">The typical post, by type</div><p class="ri-note" style="margin:0 0 10px;">Median reach and engagement: half that type's posts did better, half did worse.</p>
+      <table class="ri-tbl"><thead><tr><th>Type</th><th class="ri-n">Median reach</th><th class="ri-n">Median engagement</th><th></th></tr></thead><tbody>${med.map((x) => `<tr><td>${esc(x.type)}</td><td class="ri-n">${nf(x.reach)}</td><td class="ri-n">${nv(x.engagement) != null ? nv(x.engagement).toLocaleString("en-GB") : "–"}</td><td style="width:40%"><span class="ri-medbar" style="width:${Math.round((nv(x.reach) || 0) / maxR * 100)}%"></span></td></tr>`).join("")}</tbody></table></div>`);
+  }
   return out.join("");
+}
+
+// A day-by-day bar chart from one daily series ({ date, [key]: number }).
+function dailySeries(title, daily, key, col, r) {
+  const rows = (daily || []).filter((x) => x && /^\d{4}-\d{2}-\d{2}/.test(x.date || "") && nv(x[key]) != null);
+  if (!rows.length) return null;
+  const c = dailyChart(title, rows.map((x) => ({ date: x.date, v: nv(x[key]) })), [{ key: "v", label: title, col }], r);
+  return c || null;
 }
 
 // ---- LinkedIn ----------------------------------------------------------------
@@ -447,7 +497,7 @@ export function renderTab(tab, d, r, vis, opts) {
   const plats = reportPlatforms(d).filter((k) => k === "instagram" || !vis || vis[k] !== false);
   if (!plats.length || (plats.length === 1 && plats[0] === "instagram")) return ig();
   return plats.map((k, i) => {
-    const body = k === "instagram" ? ig() : k === "facebook" ? renderFacebook(tab, d.facebook, vis) : renderLinkedIn(tab, d.linkedin, vis);
+    const body = k === "instagram" ? ig() : k === "facebook" ? renderFacebook(tab, d.facebook, vis, r) : renderLinkedIn(tab, d.linkedin, vis);
     return `<section class="ri-platsec">${platHead(k, i === 0)}${body || `<p class="ri-note" style="margin:0;">Nothing for this platform on this tab.</p>`}</section>`;
   }).join("");
 }
