@@ -337,6 +337,287 @@ const PACKAGE_PREFIX = { academy: "ACAD", pro: "PRO" };
    READ ONLY, deliberately. Every action this file sends is from their own
    read list. We are a consumer of their roster, not an editor of it, and the
    day that changes it should be a decision somebody made out loud.        */
+/* ---- The Team Hub check: shared by the page (/teg/roster/*) and the
+   monthly run on the 1st. ----------------------------------------------------
+   Only the three brands below are compared for now. */
+const ROSTER_FOCUS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts"];
+
+// Our contacts and brand profiles, and how a Team Hub person is matched to one.
+async function rosterContext(env) {
+  const FOCUS = ROSTER_FOCUS;
+  const lc = (v) => String(v || "").toLowerCase().trim();
+  const digits = (v) => String(v || "").replace(/\D/g, "").replace(/^44/, "0");
+  const allBrandsOf = (t) => [...new Set([t.primary_brand, ...String(t.sub_brands || "").split(/[;,]/)].map((x) => String(x || "").trim()).filter(Boolean))];
+  const brandsOf = (t) => allBrandsOf(t).filter((b) => FOCUS.includes(b));
+  /* Our postcode is one location postcode, not their patch: Danielle
+     (1 Oct 2026) wants it from their address, only where we have none. Only
+     the postcode is ever kept; the rest of the address is never stored. */
+  const postcodeOf = (t) => { const m = String(t.home_postcode || "").toUpperCase().match(/^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})$/); return m ? `${m[1]} ${m[2]}` : null; };
+  const joined = (t) => (/^\d{4}-\d{2}-\d{2}$/.test(t.date_launched || "") ? t.date_launched : /^\d{4}-\d{2}-\d{2}$/.test(t.date_compliant || "") ? t.date_compliant : null);
+  const wanted = (t) => ({
+    job_title: String(t.job_title || "").trim() || null,
+    date_joined: joined(t),
+    postcode: postcodeOf(t),
+    area: String(t.tre_location || t.location || "").trim() || null,
+    email: lc(t.email) || null,
+    phone: String(t.mobile || "").trim() || null,
+  });
+  const contacts = (await sbGetAll(env, "contacts", "select=id,first_name,last_name,email,secondary_email,phone,company&order=id.asc")) || [];
+  const profs = (await sbGetAll(env, "agent_profiles", "select=id,contact_id,brand,email,phone,job_title,date_joined,postcode,area,left_at&order=id.asc")) || [];
+  const byId = new Map(contacts.map((c) => [c.id, c]));
+  const byEmail = new Map();
+  contacts.forEach((c) => { [c.email, c.secondary_email].forEach((e) => { if (lc(e)) byEmail.set(lc(e), c.id); }); });
+  profs.forEach((p) => { if (lc(p.email) && !byEmail.has(lc(p.email))) byEmail.set(lc(p.email), p.contact_id); });
+  const byName = new Map();
+  contacts.forEach((c) => { const k = `${lc(c.first_name)} ${lc(c.last_name)}`; if (k.trim()) byName.set(k, [...(byName.get(k) || []), c.id]); });
+  const match = (t) => {
+    const e = lc(t.email);
+    if (e && byEmail.has(e)) return { id: byEmail.get(e), by: "email" };
+    const local = e.split("@")[0];
+    if (local) {
+      const same = contacts.filter((c) => lc(c.email).split("@")[0] === local && FOCUS.includes(brandFromEmailDomain(c.email)) && lc(c.last_name) === lc(t.last_name));
+      if (same.length === 1) return { id: same[0].id, by: "email at another brand" };
+    }
+    const n = byName.get(`${lc(t.first_name)} ${lc(t.last_name)}`) || [];
+    if (n.length === 1) return { id: n[0], by: "name" };
+    return null;
+  };
+  return { FOCUS, lc, digits, allBrandsOf, brandsOf, postcodeOf, joined, wanted, contacts, profs, byId, byEmail, match };
+}
+
+/* The comparison itself. `rows` are Team Hub people in one shape whether they
+   came from the API or a CSV: first_name, last_name, email, person_type,
+   status, active, job_title, primary_brand, sub_brands, location,
+   tre_location, mobile, date_compliant, date_launched, leave_date,
+   home_postcode. */
+function rosterCompare(ctx, rows, today) {
+  const { FOCUS, lc, digits, brandsOf, wanted, contacts, profs, byId, match } = ctx;
+  const FIELD_LABEL = { job_title: "Job title", date_joined: "Joined", postcode: "Postcode", area: "Area" };
+  // A duplicate record on their side is theirs to tidy, not a person.
+  const all = rows.filter((t) => brandsOf(t).length && !/^duplicate$/i.test(String(t.status || "").trim()));
+  const leaveDue = (t) => /^\d{4}-\d{2}-\d{2}$/.test(t.leave_date || "") && t.leave_date <= today;
+  const departed = (t) => /^departed$/i.test(String(t.status || "").trim()) || t.active === false;
+  const goneBy = (t) => departed(t) || leaveDue(t);
+  const teg = all.filter((t) => !goneBy(t));
+  const leftOn = new Map();   // contact id -> what the Team Hub says about their leaving
+  all.filter(goneBy).forEach((t) => { const m = match(t); if (m) leftOn.set(m.id, { date: /^\d{4}-\d{2}-\d{2}$/.test(t.leave_date || "") ? t.leave_date : "", status: t.status || "" }); });
+  const starters = [], support = [], updates = [], mismatched = [], returners = [], conflicts = [], matchedIds = new Set();
+  const unmatched = [];
+  const nm = (t) => [t.first_name, t.last_name].filter(Boolean).join(" ");
+  // The Team Hub disagreeing with itself: a leave date gone by, still not Departed.
+  all.filter((t) => leaveDue(t) && !departed(t)).forEach((t) => conflicts.push({ name: nm(t), brand: brandsOf(t).join(", "), what: "Team Hub", ours: "", theirs: `${t.status || "No status"}, but a leave date of ${t.leave_date}`, why: match(t) ? "In our CRM: listed under leavers" : "Not in our CRM" }));
+  all.filter(goneBy).forEach((t) => { if (!match(t)) unmatched.push(t); });
+  const sameDay = (a, b) => String(a || "").slice(0, 10) === String(b || "").slice(0, 10);
+  const looseEq = (a, b) => { const x = lc(a).replace(/[^a-z0-9]/g, ""), y = lc(b).replace(/[^a-z0-9]/g, ""); return x === y || (x && y && (x.includes(y) || y.includes(x))); };
+  for (const t of teg) {
+    const name = nm(t);
+    const brands = brandsOf(t);
+    const m = match(t);
+    if (!m) {
+      unmatched.push(t);
+      // A likely duplicate under another name: same mobile, or a joint "A & B" record.
+      const ph = digits(t.mobile);
+      const twin = ph.length >= 10 ? contacts.find((c) => digits(c.phone) === ph) : null;
+      const joint = /&|\band\b/i.test(`${t.first_name} ${t.last_name}`);
+      const row = { key: lc(t.email) || name, name, first_name: String(t.first_name || "").trim(), last_name: String(t.last_name || "").trim(), email: lc(t.email), brands, job_title: t.job_title || "", status: t.status || "", type: t.person_type || "", launched: t.date_launched || "", compliant: t.date_compliant || "",
+        maybe: twin ? `Same mobile as ${[twin.first_name, twin.last_name].filter(Boolean).join(" ")} (${twin.email})` : joint ? "A joint record: check before adding" : "",
+        twin_id: twin ? twin.id : null, fields: wanted(t) };
+      (String(t.person_type).toLowerCase() === "partner" ? starters : support).push(row);
+      continue;
+    }
+    matchedIds.add(m.id);
+    const c = byId.get(m.id) || {};
+    const cname = [c.first_name, c.last_name].filter(Boolean).join(" ");
+    if (m.by !== "email") mismatched.push({ name, contact_id: m.id, teg_email: lc(t.email), our_email: lc(c.email), by: m.by });
+    for (const brand of brands) {
+      const prof = profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && !p.left_at);
+      const want = wanted(t);
+      // We marked them as left at this brand; TEG has them back. Hers to look at, not ours to undo.
+      const gone = !prof && profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && p.left_at);
+      if (gone) { returners.push({ name: cname || name, contact_id: m.id, email: lc(c.email), brand, left_at: String(gone.left_at).slice(0, 10) }); continue; }
+      if (!prof) { updates.push({ key: `${m.id}|${brand}`, contact_id: m.id, name: cname || name, brand, kind: "add_profile", fields: want, changes: Object.entries(want).filter(([, v]) => v).map(([k]) => k) }); continue; }
+      // Where both sides have a value and they disagree: flagged, never changed.
+      const differs = { job_title: (a, b) => !looseEq(a, b), date_joined: (a, b) => !sameDay(a, b), postcode: (a, b) => lc(a).replace(/\s/g, "") !== lc(b).replace(/\s/g, ""), area: (a, b) => !looseEq(a, b) };
+      for (const [k, f] of Object.entries(differs)) {
+        if (want[k] && prof[k] != null && prof[k] !== "" && f(prof[k], want[k])) conflicts.push({ name: cname || name, contact_id: m.id, brand, what: FIELD_LABEL[k], ours: String(prof[k]).slice(0, 80), theirs: String(want[k]).slice(0, 80), why: "" });
+      }
+      const fill = {};
+      for (const [k, v] of Object.entries(want)) {
+        if (!v || (prof[k] != null && prof[k] !== "")) continue;
+        if (k === "email" && lc(v) === lc(c.email)) continue;           // the contact's own: no need to repeat it
+        if (k === "phone" && digits(v) === digits(c.phone)) continue;
+        fill[k] = v;
+      }
+      if (Object.keys(fill).length) updates.push({ key: `${m.id}|${brand}`, contact_id: m.id, profile_id: prof.id, name: cname || name, brand, kind: "fill", fields: fill, changes: Object.keys(fill) });
+    }
+  }
+  /* Before anyone is called a leaver: are they on the Team Hub under
+     another email or name? Same mobile, or same surname (which is how
+     "Cat Hall" and "Mark & Lorna Kermode" turn up). */
+  const liveHint = (c) => {
+    const ph = digits(c.phone);
+    const live = unmatched.filter((t) => !goneBy(t));
+    const byPhone = ph.length >= 10 && live.find((t) => digits(t.mobile) === ph);
+    if (byPhone) return `On the Team Hub as ${nm(byPhone)} (${lc(byPhone.email)}): same mobile`;
+    const bySur = lc(c.last_name) && live.filter((t) => lc(t.last_name) === lc(c.last_name));
+    if (bySur && bySur.length) return `Same surname on the Team Hub: ${bySur.map((t) => `${nm(t)} (${lc(t.email)})`).join(", ")}`;
+    return "";
+  };
+  /* Ours, at a focus brand, not live on the Team Hub. Two kinds: the Team
+     Hub says they've left (Departed, or a leave date gone by), or they
+     aren't on it at all, which may just be a different email. */
+  const leavers = profs.filter((p) => FOCUS.includes(String(p.brand || "").trim()) && !p.left_at && !matchedIds.has(p.contact_id))
+    .map((p) => {
+      const c = byId.get(p.contact_id) || {};
+      const left = leftOn.get(p.contact_id);
+      return { key: `${p.contact_id}|${p.brand}`, contact_id: p.contact_id, name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email, email: lc(c.email), brand: p.brand, job_title: p.job_title || "",
+        kind: left ? "left" : "missing", left_at: left ? left.date : "",
+        note: left ? `${left.status || "Left"} on the Team Hub${left.date ? `, leave date ${left.date}` : ""}` : "Not on the Team Hub", live: left ? "" : liveHint(c) };
+    })
+    .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "left" ? -1 : 1) || a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));
+  leavers.forEach((l) => { if (l.live) conflicts.push({ name: l.name, contact_id: l.contact_id, brand: l.brand, what: "Possible leaver", ours: l.email, theirs: l.live, why: "Probably still live" }); });
+  return { counted: teg.length, starters, support, updates, mismatched, leavers, returners, conflicts };
+}
+
+/* The whole Team Hub, read live: only the fields below are asked for, so
+   personal emails, personal phones, dates of birth and the rest never leave
+   it. The home address is read for its postcode alone, which is all that is
+   kept or sent on. Paged, in case the roster outgrows one page. */
+async function tegRosterRows(env) {
+  const FIELDS = ["id", "first_name", "last_name", "person_type", "active", "status", "job_title", "email", "business_mobile",
+    "primary_brand_id", "sub_brands", "tre_location", "location_id", "date_compliant", "date_launched", "leave_date", "home_address"];
+  const [brands, locs] = await Promise.all([
+    tegApi(env, "dbApi", { action: "list", entity: "Brand", limit: 500, fields: ["id", "name"] }),
+    tegApi(env, "dbApi", { action: "list", entity: "Location", limit: 2000, fields: ["id", "name"] }),
+  ]);
+  const people = [];
+  for (let skip = 0; skip < 20000; skip += 1000) {
+    const r = await tegApi(env, "dbApi", { action: "list", entity: "TeamMember", sort: "created_date", limit: 1000, skip, fields: FIELDS });
+    if (!r.ok) return { error: `The Team Hub said: ${r.error}` };
+    const page = Array.isArray(r.data) ? r.data : [];
+    people.push(...page);
+    if (page.length < 1000) break;
+  }
+  const bn = new Map((Array.isArray(brands.data) ? brands.data : []).map((b) => [b.id, b.name]));
+  const ln = new Map((Array.isArray(locs.data) ? locs.data : []).map((l) => [l.id, l.name]));
+  const d10 = (v) => (/^\d{4}-\d{2}-\d{2}/.test(String(v || "")) ? String(v).slice(0, 10) : "");
+  const rows = people.map((r) => {
+    const pc = String(r.home_address || "").toUpperCase().match(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/);
+    return {
+      teg_id: r.id, first_name: String(r.first_name || "").trim(), last_name: String(r.last_name || "").trim(),
+      email: String(r.email || "").trim(), person_type: r.person_type || "", status: r.status || "", active: r.active !== false,
+      job_title: r.job_title || "", primary_brand: bn.get(r.primary_brand_id) || "",
+      sub_brands: (Array.isArray(r.sub_brands) ? r.sub_brands : []).map((id) => bn.get(id)).filter(Boolean).join(";"),
+      location: ln.get(r.location_id) || "", tre_location: r.tre_location || "", mobile: r.business_mobile || "",
+      date_compliant: d10(r.date_compliant), date_launched: d10(r.date_launched), leave_date: d10(r.leave_date),
+      home_postcode: pc ? `${pc[1]} ${pc[2]}` : "",
+    };
+  });
+  return { rows };
+}
+
+/* What has changed on the Team Hub since the last check: status, brands,
+   job title, person type, or a record that has gone. Every check keeps a
+   snapshot (teg_roster_seen); a difference is written to teg_roster_changes
+   and stays there until it's marked done. The first check only saves the
+   snapshot. Only people at our three brands, then or now, are reported. */
+async function rosterChanges(env, ctx, rows) {
+  const { lc, allBrandsOf, brandsOf, match, FOCUS } = ctx;
+  const seen = await sbGetAll(env, "teg_roster_seen", "select=*&order=teg_id.asc");
+  if (seen === null) return { sql_needed: true };
+  const prev = new Map(seen.map((x) => [x.teg_id, x]));
+  const baseline = seen.length === 0;
+  const now = new Date().toISOString();
+  const live = rows.filter((t) => t.teg_id && !/^duplicate$/i.test(String(t.status || "").trim()));
+  const snap = live.map((t) => ({ teg_id: t.teg_id, email: lc(t.email) || null, name: [t.first_name, t.last_name].filter(Boolean).join(" ") || null,
+    status: t.status || null, active: t.active !== false, person_type: t.person_type || null, brands: allBrandsOf(t).sort(), job_title: String(t.job_title || "").trim() || null, seen_at: now }));
+  const changes = [];
+  const focusIn = (bs) => (bs || []).some((b) => FOCUS.includes(b));
+  if (!baseline) {
+    const byTeg = new Map(live.map((t) => [t.teg_id, t]));
+    for (const s of snap) {
+      const p = prev.get(s.teg_id);
+      if (!p || !(focusIn(p.brands) || focusIn(s.brands))) continue;      // new people are joiners, not changes
+      const t = byTeg.get(s.teg_id);
+      const m = match(t);
+      const base = { teg_id: s.teg_id, email: s.email, name: s.name, contact_id: m ? m.id : null, brand: brandsOf(t).join(", ") || (p.brands || []).filter((b) => FOCUS.includes(b)).join(", ") };
+      const add = (field, a, b) => changes.push({ ...base, field, old_value: a == null || a === "" ? null : String(a), new_value: b == null || b === "" ? null : String(b) });
+      if ((p.status || "") !== (s.status || "")) add("Status", p.status, s.status);
+      else if (p.active !== s.active) add("Active", p.active ? "Yes" : "No", s.active ? "Yes" : "No");
+      const pb = (p.brands || []).slice().sort().join(", "), sb = s.brands.join(", ");
+      if (pb !== sb) add("Brands", pb, sb);
+      if (lc(p.job_title).replace(/[^a-z0-9]/g, "") !== lc(s.job_title).replace(/[^a-z0-9]/g, "")) add("Job title", p.job_title, s.job_title);
+      if ((p.person_type || "") !== (s.person_type || "")) add("Person type", p.person_type, s.person_type);
+    }
+    // On the last check, gone from the Team Hub altogether now.
+    const nowIds = new Set(snap.map((x) => x.teg_id));
+    for (const p of seen) {
+      if (nowIds.has(p.teg_id) || p.status === "(Removed from the Team Hub)" || !focusIn(p.brands)) continue;
+      const m = match({ email: p.email, first_name: String(p.name || "").split(" ")[0], last_name: String(p.name || "").split(" ").slice(1).join(" ") });
+      changes.push({ teg_id: p.teg_id, email: p.email, name: p.name, contact_id: m ? m.id : null, brand: (p.brands || []).filter((b) => FOCUS.includes(b)).join(", "), field: "Team Hub record", old_value: p.status || "On the Team Hub", new_value: "Removed from the Team Hub" });
+      snap.push({ ...p, status: "(Removed from the Team Hub)", seen_at: now });
+    }
+  }
+  if (changes.length) {
+    const r = await sbPost(env, "teg_roster_changes", changes.map((c) => ({ ...c, detected_at: now })));
+    if (r && !r.ok) return { sql_needed: true };
+  }
+  for (let i = 0; i < snap.length; i += 500) {
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/teg_roster_seen?on_conflict=teg_id`, {
+      method: "POST",
+      headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify(snap.slice(i, i + 500)),
+    }).catch(() => null);
+    if (!r || !r.ok) return { sql_needed: true };
+  }
+  return { baseline, found: changes.length };
+}
+
+/* One check, start to finish: read the Team Hub, compare, note what's
+   changed, keep a record of the run. Returns what the page draws. */
+async function runRosterCheck(env, by) {
+  const ctx = await rosterContext(env);
+  const live = await tegRosterRows(env);
+  if (live.error) return { error: live.error };
+  const today = londonToday();
+  const result = rosterCompare(ctx, live.rows, today);
+  const ch = await rosterChanges(env, ctx, live.rows);
+  // What's still to look at: every change not yet marked done, newest first,
+  // matched again to a contact in case one has been added since.
+  let changes = [];
+  if (!ch.sql_needed) {
+    changes = (await sbGet(env, "teg_roster_changes", "done_at=is.null&select=*&order=detected_at.desc&limit=500")) || [];
+    changes = changes.map((c) => {
+      if (c.contact_id && ctx.byId.has(c.contact_id)) return c;
+      const m = ctx.match({ email: c.email, first_name: String(c.name || "").split(" ")[0], last_name: String(c.name || "").split(" ").slice(1).join(" ") });
+      return { ...c, contact_id: m ? m.id : null };
+    });
+  }
+  const counts = { joiners: result.starters.length, leavers: result.leavers.filter((l) => l.kind === "left").length, not_on_team_hub: result.leavers.filter((l) => l.kind === "missing").length, changes: changes.length, details: result.updates.length, conflicts: result.conflicts.length };
+  let lastRun = null;
+  if (!ch.sql_needed) {
+    lastRun = ((await sbGet(env, "teg_roster_runs", "select=run_at,by,counts&order=run_at.desc&limit=1")) || [])[0] || null;
+    await sbPost(env, "teg_roster_runs", { by: by || null, counts }).catch(() => null);
+  }
+  return { ok: true, source: "live", checked_at: new Date().toISOString(), total_on_team_hub: live.rows.length, ...result, changes, counts,
+    baseline: !!ch.baseline, sql_needed: !!ch.sql_needed, previous_run: lastRun };
+}
+
+// The 1st of each month, on the 08:00 UTC run (9am in summer): run the check
+// and say what it found.
+async function runMonthlyRosterCheck(env) {
+  if (londonToday().slice(8, 10) !== "01" || !env.TEG_API_SECRET) return;
+  const out = await runRosterCheck(env, "monthly check");
+  const month = londonToday().slice(0, 7);
+  if (out.error) {
+    await notifyAdmins(env, { area: "problem", event: "teg_check_failed", title: "The monthly Team Hub check didn't run", body: out.error, href: "/admin/teg?check=1", key: `teg_check_${month}` });
+    return;
+  }
+  const c = out.counts || {};
+  const bits = [`${c.joiners || 0} new joiner${c.joiners === 1 ? "" : "s"}`, `${c.leavers || 0} leaver${c.leavers === 1 ? "" : "s"}`, `${c.changes || 0} change${c.changes === 1 ? "" : "s"}`];
+  await notifyAdmins(env, { area: "marketing", event: "teg_monthly_check", title: "Monthly Team Hub check: " + bits.join(", "), body: (c.not_on_team_hub ? `${c.not_on_team_hub} in our CRM aren't on the Team Hub at all. ` : "") + "Open it to add, remove or look at each one.", href: "/admin/teg?check=1", key: `teg_check_${month}` });
+}
+
 const TEG_API = "https://teg-team-hub.base44.app/functions";
 const TEG_READ_ACTIONS = new Set(["ping", "list", "get", "read", "search", "getValue"]);
 
@@ -4115,6 +4396,7 @@ export default {
         ctx.waitUntil(runInvoicePrompt(env));
         ctx.waitUntil(runMonthlyInvoiceCheck(env));
         ctx.waitUntil(runLateVideoInvoiceCheck(env));
+        ctx.waitUntil(runMonthlyRosterCheck(env));
         ctx.waitUntil(runCommunityTopicDue(env));
       }
     }
@@ -9056,123 +9338,35 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
            · new starters: agents (Partners); support staff listed apart
            · leavers: flagged only, nothing changed
            · details fill blanks only, never overwrite what's been typed */
+      /* ---- The Team Hub check (Danielle, 1 Oct; live from 19 Oct 2026) ----
+         Their roster against our CRM: new joiners, leavers, and what has
+         changed since the last check. Read live from the Team Hub (read-only;
+         nothing there is ever written), or from a CSV export as a fallback.
+         Nothing changes on our side either until an action is chosen. */
+      if (path.endsWith("/teg/roster/live") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const out = await runRosterCheck(env, String(user.email || "").toLowerCase());
+        return json(out, out.error ? 502 : 200, request, env);
+      }
+      if (path.endsWith("/teg/roster/changes/done") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const ids = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 500);
+        if (!ids.length) return json({ ok: true, done: 0 }, 200, request, env);
+        const r = await sbPatch(env, "teg_roster_changes", `id=in.(${ids.join(",")})&done_at=is.null`, { done_at: new Date().toISOString(), done_by: String(user.email || "").toLowerCase() });
+        return json({ ok: !!(r && r.ok), done: ids.length }, r && r.ok ? 200 : 500, request, env);
+      }
       if (path.endsWith("/teg/roster/preview") || path.endsWith("/teg/roster/apply")) {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const FOCUS = ["The Property Experts", "Prestige Property Experts", "The Letting Experts"];
-        const lc = (v) => String(v || "").toLowerCase().trim();
-        const digits = (v) => String(v || "").replace(/\D/g, "").replace(/^44/, "0");
-        const brandsOf = (t) => [...new Set([t.primary_brand, ...String(t.sub_brands || "").split(/[;,]/)].map((x) => String(x || "").trim()).filter((b) => FOCUS.includes(b)))];
-        /* Our postcode is one location postcode, not their patch: Danielle
-           (1 Oct 2026) wants it from their address, only where we have none.
-           The page sends the postcode alone, never the rest of the address. */
-        const postcodeOf = (t) => { const m = String(t.home_postcode || "").toUpperCase().match(/^([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})$/); return m ? `${m[1]} ${m[2]}` : null; };
-        const joined = (t) => (/^\d{4}-\d{2}-\d{2}$/.test(t.date_launched || "") ? t.date_launched : /^\d{4}-\d{2}-\d{2}$/.test(t.date_compliant || "") ? t.date_compliant : null);
-        const FIELD_LABEL = { job_title: "Job title", date_joined: "Joined", postcode: "Postcode", area: "Area" };
-        const wanted = (t, b) => ({
-          job_title: String(t.job_title || "").trim() || null,
-          date_joined: joined(t),
-          postcode: postcodeOf(t),
-          area: String(t.tre_location || t.location || "").trim() || null,
-          email: lc(t.email) || null,
-          phone: String(t.mobile || "").trim() || null,
-        });
-        const contacts = (await sbGetAll(env, "contacts", "select=id,first_name,last_name,email,secondary_email,phone,company&order=id.asc")) || [];
-        const profs = (await sbGetAll(env, "agent_profiles", "select=id,contact_id,brand,email,phone,job_title,date_joined,postcode,area,left_at&order=id.asc")) || [];
-        const byId = new Map(contacts.map((c) => [c.id, c]));
-        const byEmail = new Map();
-        contacts.forEach((c) => { [c.email, c.secondary_email].forEach((e) => { if (lc(e)) byEmail.set(lc(e), c.id); }); });
-        profs.forEach((p) => { if (lc(p.email) && !byEmail.has(lc(p.email))) byEmail.set(lc(p.email), p.contact_id); });
-        const byName = new Map();
-        contacts.forEach((c) => { const k = `${lc(c.first_name)} ${lc(c.last_name)}`; if (k.trim()) byName.set(k, [...(byName.get(k) || []), c.id]); });
-        const match = (t) => {
-          const e = lc(t.email);
-          if (e && byEmail.has(e)) return { id: byEmail.get(e), by: "email" };
-          const local = e.split("@")[0];
-          if (local) {
-            const same = contacts.filter((c) => lc(c.email).split("@")[0] === local && FOCUS.includes(brandFromEmailDomain(c.email)) && lc(c.last_name) === lc(t.last_name));
-            if (same.length === 1) return { id: same[0].id, by: "email at another brand" };
-          }
-          const n = byName.get(`${lc(t.first_name)} ${lc(t.last_name)}`) || [];
-          if (n.length === 1) return { id: n[0], by: "name" };
-          return null;
-        };
+        const ctx = await rosterContext(env);
+        const { FOCUS, lc, digits, byId } = ctx;
 
         if (path.endsWith("/preview") && request.method === "POST") {
           const b = await request.json().catch(() => ({}));
-          const today = londonToday();
-          const all = (Array.isArray(b.rows) ? b.rows : []).filter((t) => brandsOf(t).length);
-          // Still "Active" on the Team Hub but with a leave date gone by: a leaver.
-          const goneBy = (t) => /^\d{4}-\d{2}-\d{2}$/.test(t.leave_date || "") && t.leave_date <= today;
-          const teg = all.filter((t) => !goneBy(t));
-          const leftDate = new Map();
-          all.filter(goneBy).forEach((t) => { const m = match(t); if (m) leftDate.set(m.id, t.leave_date); });
-          const starters = [], support = [], updates = [], mismatched = [], returners = [], conflicts = [], matchedIds = new Set();
-          const unmatched = [];
-          const nm = (t) => [t.first_name, t.last_name].filter(Boolean).join(" ");
-          // The Team Hub disagreeing with itself.
-          all.filter(goneBy).forEach((t) => conflicts.push({ name: nm(t), brand: brandsOf(t).join(", "), what: "Team Hub", ours: "", theirs: `${t.status || "No status"}, but a leave date of ${t.leave_date}`, why: match(t) ? "In our CRM: listed under possible leavers" : "Not in our CRM" }));
-          all.filter(goneBy).forEach((t) => { if (!match(t)) unmatched.push(t); });
-          const sameDay = (a, b) => String(a || "").slice(0, 10) === String(b || "").slice(0, 10);
-          const looseEq = (a, b) => { const x = lc(a).replace(/[^a-z0-9]/g, ""), y = lc(b).replace(/[^a-z0-9]/g, ""); return x === y || (x && y && (x.includes(y) || y.includes(x))); };
-          for (const t of teg) {
-            const name = [t.first_name, t.last_name].filter(Boolean).join(" ");
-            const brands = brandsOf(t);
-            const m = match(t);
-            if (!m) {
-              unmatched.push(t);
-              // A likely duplicate under another name: same mobile, or a joint "A & B" record.
-              const ph = digits(t.mobile);
-              const twin = ph.length >= 10 ? contacts.find((c) => digits(c.phone) === ph) : null;
-              const joint = /&|\band\b/i.test(`${t.first_name} ${t.last_name}`);
-              const row = { key: lc(t.email) || name, name, email: lc(t.email), brands, job_title: t.job_title || "", status: t.status || "", type: t.person_type || "", launched: t.date_launched || "", compliant: t.date_compliant || "",
-                maybe: twin ? `Same mobile as ${[twin.first_name, twin.last_name].filter(Boolean).join(" ")} (${twin.email})` : joint ? "A joint record: check before adding" : "", fields: wanted(t) };
-              (String(t.person_type).toLowerCase() === "partner" ? starters : support).push(row);
-              continue;
-            }
-            matchedIds.add(m.id);
-            const c = byId.get(m.id) || {};
-            const cname = [c.first_name, c.last_name].filter(Boolean).join(" ");
-            if (m.by !== "email") mismatched.push({ name, teg_email: lc(t.email), our_email: lc(c.email), by: m.by });
-            for (const brand of brands) {
-              const prof = profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && !p.left_at);
-              const want = wanted(t, brand);
-              // We marked them as left at this brand; TEG has them back. Hers to look at, not ours to undo.
-              const gone = !prof && profs.find((p) => p.contact_id === m.id && lc(p.brand) === lc(brand) && p.left_at);
-              if (gone) { returners.push({ name: cname || name, email: lc(c.email), brand, left_at: String(gone.left_at).slice(0, 10) }); continue; }
-              if (!prof) { updates.push({ key: `${m.id}|${brand}`, contact_id: m.id, name: cname || name, brand, kind: "add_profile", fields: want, changes: Object.entries(want).filter(([, v]) => v).map(([k]) => k) }); continue; }
-              // Where both sides have a value and they disagree: flagged, never changed.
-              const differs = { job_title: (a, b) => !looseEq(a, b), date_joined: (a, b) => !sameDay(a, b), postcode: (a, b) => lc(a).replace(/\s/g, "") !== lc(b).replace(/\s/g, ""), area: (a, b) => !looseEq(a, b) };
-              for (const [k, f] of Object.entries(differs)) {
-                if (want[k] && prof[k] != null && prof[k] !== "" && f(prof[k], want[k])) conflicts.push({ name: cname || name, brand, what: FIELD_LABEL[k], ours: String(prof[k]).slice(0, 80), theirs: String(want[k]).slice(0, 80), why: "" });
-              }
-              const fill = {};
-              for (const [k, v] of Object.entries(want)) {
-                if (!v || (prof[k] != null && prof[k] !== "")) continue;
-                if (k === "email" && lc(v) === lc(c.email)) continue;           // the contact's own: no need to repeat it
-                if (k === "phone" && digits(v) === digits(c.phone)) continue;
-                fill[k] = v;
-              }
-              if (Object.keys(fill).length) updates.push({ key: `${m.id}|${brand}`, contact_id: m.id, profile_id: prof.id, name: cname || name, brand, kind: "fill", fields: fill, changes: Object.keys(fill) });
-            }
-          }
-          /* Before anyone is called a leaver: are they on the Team Hub under
-             another email or name? Same mobile, or same surname (which is how
-             "Cat Hall" and "Mark & Lorna Kermode" turn up). */
-          const liveHint = (c) => {
-            const ph = digits(c.phone);
-            const byPhone = ph.length >= 10 && unmatched.find((t) => digits(t.mobile) === ph);
-            if (byPhone) return `On the Team Hub as ${nm(byPhone)} (${lc(byPhone.email)}): same mobile`;
-            const bySur = lc(c.last_name) && unmatched.filter((t) => lc(t.last_name) === lc(c.last_name));
-            if (bySur && bySur.length) return `Same surname on the Team Hub: ${bySur.map((t) => `${nm(t)} (${lc(t.email)})`).join(", ")}`;
-            return "";
-          };
-          // Ours, at a focus brand, not on TEG's list: flagged only.
-          const leavers = profs.filter((p) => FOCUS.includes(String(p.brand || "").trim()) && !p.left_at && !matchedIds.has(p.contact_id))
-            .map((p) => { const c = byId.get(p.contact_id) || {}; return { name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email, email: lc(c.email), brand: p.brand, job_title: p.job_title || "", note: leftDate.has(p.contact_id) ? `Team Hub leave date ${leftDate.get(p.contact_id)}` : "Not on the Team Hub", live: liveHint(c) }; })
-            .sort((a, b) => a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));
-          leavers.forEach((l) => { if (l.live) conflicts.push({ name: l.name, brand: l.brand, what: "Possible leaver", ours: l.email, theirs: l.live, why: "Probably still live" }); });
-          return json({ ok: true, counted: teg.length, starters, support, updates, mismatched, leavers, returners, conflicts }, 200, request, env);
+          return json({ ok: true, ...rosterCompare(ctx, Array.isArray(b.rows) ? b.rows : [], londonToday()) }, 200, request, env);
         }
 
         if (path.endsWith("/apply") && request.method === "POST") {
@@ -9184,15 +9378,19 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 const f = a.fields || {}, brands = (a.brands || []).filter((x) => FOCUS.includes(x));
                 const email = lc(a.email);
                 if (!email || !brands.length) throw new Error("needs an email and a brand");
-                const [first, ...rest] = String(a.name || "").trim().split(/\s+/);
+                // From the pop-out: first and last name as typed; else split the full name.
+                const [first0, ...rest0] = String(a.name || "").trim().split(/\s+/);
+                const first = String(a.first_name || "").trim() || first0 || "";
+                const last = a.first_name != null ? String(a.last_name || "").trim() : rest0.join(" ");
                 const type = brands[0] === "The Letting Experts" ? "Type: Lettings" : "Type: Estate-Agent";
-                const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first || null, p_last_name: rest.join(" ") || null, p_phone: f.phone || null, p_company: brands[0], p_source: "teg_team_hub", p_tags: [...crmTags(email, [], {}), type] });
+                const cid = await sbRpc(env, "upsert_contact", { p_email: email, p_first_name: first || null, p_last_name: last || null, p_phone: f.phone || null, p_company: brands[0], p_source: "teg_team_hub", p_tags: [...crmTags(email, [], {}), type] });
                 const contactId = Array.isArray(cid) ? cid[0] : cid;
                 if (!contactId) throw new Error("couldn't create the contact");
                 for (const brand of brands) {
-                  await ensureAgentProfile(env, contactId, { first_name: first, last_name: rest.join(" "), email }, { brand, job_title: f.job_title, date_joined: f.date_joined, postcode: f.postcode, area: f.area, email: null, phone: null });
+                  await ensureAgentProfile(env, contactId, { first_name: first, last_name: last, email }, { brand, job_title: f.job_title, date_joined: f.date_joined, postcode: f.postcode, area: f.area, email: null, phone: null });
                 }
                 done.push(a.key);
+                if (a.return_id) (b.created = b.created || {})[a.key] = contactId;
               } else if (a.kind === "add_profile") {
                 const f = a.fields || {};
                 const c = byId.get(a.contact_id);
@@ -9210,10 +9408,19 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                 }
                 if (Object.keys(patch).length) { const r = await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(a.profile_id)}`, patch); if (r && r.ok === false) throw new Error("couldn't save"); }
                 done.push(a.key);
+              } else if (a.kind === "left") {
+                // A leaver kept on file: their profile at that brand is marked
+                // as left (the date they left, else today). The contact stays.
+                if (!byId.get(a.contact_id)) throw new Error("contact not found");
+                const when = /^\d{4}-\d{2}-\d{2}$/.test(a.left_at || "") ? a.left_at : londonToday();
+                const brandQ = a.brand ? `&brand=eq.${encodeURIComponent(a.brand)}` : "";
+                const r = await sbPatch(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(a.contact_id)}&left_at=is.null${brandQ}`, { left_at: when, left_brand: a.brand || null });
+                if (r && r.ok === false) throw new Error("couldn't save");
+                done.push(a.key);
               }
             } catch (e) { failed.push({ key: a.key, error: String((e && e.message) || e).slice(0, 160) }); }
           }
-          return json({ ok: true, done, failed }, 200, request, env);
+          return json({ ok: true, done, failed, created: b.created || {} }, 200, request, env);
         }
         return json({ error: "Not found" }, 404, request, env);
       }

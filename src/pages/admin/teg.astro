@@ -15,7 +15,65 @@ import "../../styles/admin.css";
     </div>
   </div>
 
+  <!-- The monthly Team Hub check (Danielle, 19 Oct 2026): the Team Hub read
+       live against our CRM. New joiners to add, leavers to remove, and what
+       has changed since the last check. It runs itself on the 1st. -->
+  <section class="ash-panel rc" id="rc">
+    <div class="rc-head">
+      <div>
+        <h2 class="rc-title">Team Hub check</h2>
+        <p class="rc-intro">Reads the Team Hub and our CRM side by side, and lists new joiners, leavers and anything that has changed, such as a status. It runs by itself on the 1st of each month, and you can run it at any time. Nothing changes, here or on the Team Hub, until you choose to.</p>
+        <p class="rc-last" id="rc-last"></p>
+      </div>
+      <div class="rc-head-acts">
+        <button type="button" class="admin-btn admin-btn-primary" id="rc-run">Run the check</button>
+        <button type="button" class="rc-link" id="teg-roster">Or compare a Team Hub export</button>
+        <input type="file" id="teg-roster-file" accept=".csv,text/csv" hidden>
+      </div>
+    </div>
+    <p class="teg-status" id="rc-status"></p>
+    <div id="rc-out"></div>
+  </section>
+
+  <!-- Add a new joiner to the CRM: what the Team Hub has, filled in. -->
+  <div class="rc-modal" id="rc-add" hidden>
+    <div class="rc-modal-back" data-rc-close></div>
+    <form class="rc-modal-card" id="rc-add-form" role="dialog" aria-modal="true" aria-labelledby="rc-add-title" novalidate>
+      <button type="button" class="rc-x" data-rc-close aria-label="Close">&times;</button>
+      <p class="rc-eyebrow">New joiner</p>
+      <h2 class="rc-modal-title" id="rc-add-title">Add to the CRM</h2>
+      <p class="rc-modal-sub">Filled in from the Team Hub. Add anything else you have, then save.</p>
+      <div class="rc-grid">
+        <label class="rc-f"><span>First name</span><input type="text" id="rc-a-first" autocomplete="off"></label>
+        <label class="rc-f"><span>Last name</span><input type="text" id="rc-a-last" autocomplete="off"></label>
+        <label class="rc-f rc-f-wide"><span>Work email</span><input type="email" id="rc-a-email" autocomplete="off" required></label>
+        <label class="rc-f"><span>Work mobile</span><input type="tel" id="rc-a-phone" autocomplete="off"></label>
+        <label class="rc-f"><span>Job title</span><input type="text" id="rc-a-job" autocomplete="off"></label>
+        <label class="rc-f"><span>Area</span><input type="text" id="rc-a-area" autocomplete="off"></label>
+        <label class="rc-f"><span>Postcode</span><input type="text" id="rc-a-pc" autocomplete="off"></label>
+        <label class="rc-f"><span>Joined</span><input type="date" id="rc-a-joined"></label>
+        <fieldset class="rc-f rc-f-wide rc-brands"><span>Brands</span><div id="rc-a-brands"></div></fieldset>
+      </div>
+      <p class="teg-status is-err" id="rc-a-err" hidden></p>
+      <div class="rc-modal-acts">
+        <button type="button" class="admin-btn admin-btn-ghost" data-rc-close>Cancel</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="rc-a-save">Add to CRM</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- A contact card, popped out: the Contacts page's own card. -->
+  <div class="rc-modal rc-card" id="rc-card" hidden>
+    <div class="rc-modal-back" data-rc-close></div>
+    <div class="rc-card-frame">
+      <button type="button" class="rc-x rc-card-x" data-rc-close aria-label="Close">&times;</button>
+      <p class="rc-card-wait" id="rc-card-wait">Opening the contact card…</p>
+      <iframe id="rc-card-if" title="Contact card" hidden></iframe>
+    </div>
+  </div>
+
   <div class="ash-panel ash-page">
+    <p class="rc-tools-h">Other TEG tools</p>
     <div class="teg-acts">
       <button type="button" class="admin-btn admin-btn-primary" id="teg-ping">Test the connection</button>
       <button type="button" class="admin-btn" id="teg-photos">What does photoApi hold?</button>
@@ -23,8 +81,6 @@ import "../../styles/admin.css";
       <button type="button" class="admin-btn" id="teg-heads-all">Check everyone</button>
       <button type="button" class="admin-btn" id="teg-imp-prev">Preview headshot import</button>
       <button type="button" class="admin-btn" id="teg-missing">Our agents without a brand photo</button>
-      <button type="button" class="admin-btn" id="teg-roster">Compare a Team Hub export</button>
-      <input type="file" id="teg-roster-file" accept=".csv,text/csv" hidden>
       <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
       <span class="teg-status" id="teg-status"></span>
     </div>
@@ -73,6 +129,59 @@ import "../../styles/admin.css";
     .teg-flag { color: #7a5405; }
     .teg-fill { display: block; color: rgba(28,29,34,0.7); }
     .teg-fill b { font-weight: 700; color: var(--ink); }
+    /* ---- Team Hub check ---- */
+    .rc { margin-bottom: 16px; }
+    .rc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+    .rc-title { margin: 0; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 600; color: var(--ink); }
+    .rc-intro { margin: 6px 0 0; max-width: 75%; font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.6); }
+    .rc-last { margin: 8px 0 0; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.5); }
+    .rc-head-acts { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .rc-link { appearance: none; border: 0; background: none; padding: 0; font: 600 12px var(--sans); color: var(--english-violet); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    .rc-tools-h { margin: 0 0 12px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .rc-sec { margin-top: 26px; }
+    .rc-sec-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 4px; }
+    .rc-sec-h h3 { margin: 0; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 600; color: var(--ink); }
+    .rc-sec-h .rc-n { font-family: var(--sans); font-size: 12px; font-weight: 700; color: rgba(28,29,34,0.45); }
+    .rc-sec-h .rc-link { margin-left: auto; }
+    .rc-sec > .teg-note { margin: 2px 0 10px; max-width: 75%; }
+    .rc-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); margin: 6px 0 0; }
+    .rc .teg-table { border-top: 1px solid rgba(28,29,34,0.12); border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .rc-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .hub-skin .rc-acts .admin-btn { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+    .rc-done { font-family: var(--sans); font-size: 12px; font-weight: 700; color: #2b6b44; white-space: nowrap; }
+    .rc-change { font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .rc-change b { font-weight: 700; }
+    .rc-change s { color: rgba(28,29,34,0.5); text-decoration-color: rgba(28,29,34,0.35); }
+    .rc-arrow { color: rgba(28,29,34,0.4); margin: 0 4px; }
+    .rc-status { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 7px; border-radius: 999px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.65); white-space: nowrap; }
+    .rc-status.is-live { background: rgba(63,148,104,0.14); color: #2b6b44; }
+    .rc-status.is-gone { background: rgba(165,53,47,0.12); color: #a5352f; }
+    .rc-status.is-wait { background: rgba(196,140,40,0.15); color: #8a5a10; }
+    .rc-namebtn { appearance: none; border: 0; background: none; padding: 0; font: 600 12.5px var(--sans); color: var(--ink); text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(28,29,34,0.25); text-underline-offset: 3px; }
+    .rc-namebtn:hover { color: var(--english-violet); text-decoration-color: currentColor; }
+    /* Pop-outs */
+    .rc-modal { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 24px 16px; }
+    .rc-modal[hidden] { display: none; }
+    .rc-modal-back { position: absolute; inset: 0; background: rgba(20,18,26,0.42); }
+    .rc-modal-card { position: relative; width: min(620px, 100%); max-height: 90vh; overflow-y: auto; background: #fff; border-radius: 12px; padding: 26px 28px 22px; box-shadow: 0 40px 90px -30px rgba(20,18,26,0.6); }
+    .rc-x { position: absolute; top: 12px; right: 14px; border: 0; background: none; font-size: 26px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; }
+    .rc-eyebrow { margin: 0; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .rc-modal-title { margin: 4px 0 0; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 600; color: var(--ink); }
+    .rc-modal-sub { margin: 6px 0 18px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
+    .rc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; }
+    @media (max-width: 560px) { .rc-grid { grid-template-columns: 1fr; } }
+    .hub-skin .rc-f { display: flex; flex-direction: column; gap: 5px; margin: 0; min-width: 0; border: 0; padding: 0; }
+    .rc-f-wide { grid-column: 1 / -1; }
+    .rc-f > span { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+    .hub-skin .rc-f input { width: 100%; box-sizing: border-box; }
+    .rc-brands > div { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+    .hub-skin .rc-brands label { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--ink); cursor: pointer; }
+    .rc-modal-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+    .rc-card-frame { position: relative; width: min(1000px, 100%); height: min(88vh, 900px); background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 40px 90px -30px rgba(20,18,26,0.6); }
+    .rc-card-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .rc-card-frame iframe[hidden] { display: none; }
+    .rc-card-x { z-index: 2; background: #fff; border-radius: 50%; width: 34px; height: 34px; top: 10px; right: 10px; }
+    .rc-card-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
 
@@ -341,73 +450,236 @@ import "../../styles/admin.css";
     const FIELD_NAMES = { job_title: 'Job title', date_joined: 'Joined', postcode: 'Postcode', area: 'Area', email: 'Brand email', phone: 'Work mobile' };
     const fillList = (f, keys) => (keys || Object.keys(f || {})).filter((k) => f[k]).map((k) => `<span class="teg-fill"><b>${FIELD_NAMES[k] || k}:</b> ${esc(f[k])}</span>`).join('');
 
+    /* ---- The Team Hub check --------------------------------------------- */
+    const rc = document.getElementById('rc-out');
+    const rcSay = (m, cls) => { const el = document.getElementById('rc-status'); el.textContent = m || ''; el.className = 'teg-status' + (cls ? ' ' + cls : ''); };
+    const when = (iso) => new Date(iso).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const day = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    const brandPills = (bs) => (bs || []).filter(Boolean).map((b) => `<span class="teg-pill">${esc(b)}</span>`).join('');
+    // Their statuses, by what they mean for us.
+    const statusPill = (st) => {
+      const v = String(st || '').trim();
+      if (!v) return '<span class="rc-status">No status</span>';
+      const tone = /^(trading|active|onboarded)$/i.test(v) ? 'is-live' : /^(departed|removed from the team hub|\(removed from the team hub\))$/i.test(v) ? 'is-gone' : /^(pre compliant|onboarding|on hold|on leave)$/i.test(v) ? 'is-wait' : '';
+      return `<span class="rc-status ${tone}">${esc(v.replace(/^\(|\)$/g, ''))}</span>`;
+    };
+
+    async function lastRun() {
+      try {
+        const { data, error } = await supabase.from('teg_roster_runs').select('run_at, by, counts').order('run_at', { ascending: false }).limit(1);
+        const el = document.getElementById('rc-last');
+        if (error) { el.textContent = 'Run supabase/teg_roster_check.sql once so the check can remember what it saw and spot changes.'; return; }
+        const r = data && data[0];
+        el.textContent = r ? `Last checked ${when(r.run_at)}${r.by === 'monthly check' ? ' (the monthly check)' : r.by ? ` by ${r.by}` : ''}.` : 'Not run yet.';
+      } catch (_) {}
+    }
+
+    let CHECK = null;          // the last result, redrawn as things are done
+    const DONE = new Map();    // row key -> what was done to it ("Added", "Removed", …)
+
+    async function runCheck() {
+      const b = document.getElementById('rc-run'); b.disabled = true;
+      rc.innerHTML = '';
+      rcSay('Reading the Team Hub and our CRM…');
+      const { body } = await post('/teg/roster/live', {});
+      b.disabled = false;
+      if (!body || body.error) { rcSay((body && body.error) || 'No answer from our Worker.', 'is-err'); return; }
+      CHECK = body; DONE.clear(); drawCheck.pick = null;
+      rcSay(`Checked ${when(body.checked_at)}: ${body.total_on_team_hub} people on the Team Hub, ${body.counted} live at The Property Experts, Prestige and The Letting Experts.`, 'is-ok');
+      lastRun();
+      drawCheck();
+    }
+    document.getElementById('rc-run').addEventListener('click', runCheck);
+
+    function drawCheck() {
+      const d = CHECK; if (!d) return;
+      const starters = d.starters || [], updates = d.updates || [], changes = d.changes || [];
+      const left = (d.leavers || []).filter((l) => l.kind === 'left'), missing = (d.leavers || []).filter((l) => l.kind !== 'left');
+      const stat = (n, label) => `<div class="teg-stat"><b>${n}</b><span>${label}</span></div>`;
+      const table = (heads, body) => `<div class="teg-tablewrap"><table class="teg-table"><thead><tr>${heads.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
+      const sec = (title, n, note, inner, extra = '') => `<section class="rc-sec"><div class="rc-sec-h"><h3>${title}</h3><span class="rc-n">${n}</span>${extra}</div>${note ? `<p class="teg-note">${note}</p>` : ''}${n ? inner : '<p class="rc-empty">None.</p>'}</section>`;
+      const nameCell = (name, cid, email) => `${cid ? `<button type="button" class="rc-namebtn" data-card="${esc(cid)}">${esc(name)}</button>` : esc(name)}${email ? `<br><span style="color:rgba(28,29,34,0.5)">${esc(email)}</span>` : ''}`;
+      const doneOr = (key, html) => DONE.has(key) ? `<span class="rc-done">${esc(DONE.get(key))}</span>` : html;
+      const cardBtn = (cid) => cid ? `<button type="button" class="admin-btn admin-btn-ghost" data-card="${esc(cid)}">Contact card</button>` : '';
+      const leaverActs = (l) => doneOr(l.key, `<div class="rc-acts">${cardBtn(l.contact_id)}<button type="button" class="admin-btn admin-btn-ghost" data-left="${esc(l.key)}">Mark as left</button><button type="button" class="admin-btn admin-btn-danger" data-remove="${esc(l.key)}">Remove from CRM</button></div>`);
+      const fmtChange = (c) => c.field === 'Status' || c.field === 'Team Hub record'
+        ? `<span class="rc-change"><b>${esc(c.field)}:</b> ${statusPill(c.old_value)}<span class="rc-arrow">&rarr;</span>${statusPill(c.new_value)}</span>`
+        : `<span class="rc-change"><b>${esc(c.field)}:</b> <s>${esc(c.old_value || 'none')}</s><span class="rc-arrow">&rarr;</span>${esc(c.new_value || 'none')}</span>`;
+      const openChanges = changes.filter((c) => !DONE.has('c:' + c.id));
+      const pick = drawCheck.pick || (drawCheck.pick = new Set(updates.map((u) => 'u:' + u.key)));
+
+      rc.innerHTML = `
+        <div class="teg-sum">
+          ${stat(starters.length, 'New joiners')}${stat(left.length, 'Leavers')}${stat(openChanges.length, 'Changes')}${stat(missing.length, 'Not on the Team Hub')}${stat(updates.length, 'Details to fill')}${stat((d.conflicts || []).length, "Doesn't agree")}
+        </div>
+        ${d.sql_needed ? `<p class="teg-note teg-flag">Changes can't be tracked yet: run supabase/teg_roster_check.sql in Supabase, then run the check again.</p>` : ''}
+
+        ${sec('New joiners', starters.length, 'Partners at our three brands on the Team Hub who aren\'t in our CRM. Add opens their details to check and fill in first. Anyone flagged under Check first may already be here under another name.',
+          table(['Name', 'Brand', 'Job title', 'Team Hub status', 'Check first', ''], starters.map((r) => `<tr>
+            <td>${nameCell(r.name, DONE.has('s:' + r.key) ? DONE.get('s:' + r.key + ':id') : null, r.email)}</td><td>${brandPills(r.brands)}</td><td>${esc(r.job_title || '—')}</td><td>${statusPill(r.status)}</td>
+            <td class="teg-flag">${esc(r.maybe)}${r.twin_id ? ` <button type="button" class="rc-link" data-card="${esc(r.twin_id)}">Open theirs</button>` : ''}</td>
+            <td>${doneOr('s:' + r.key, `<div class="rc-acts"><button type="button" class="admin-btn admin-btn-primary" data-add="${esc(r.key)}">Add to CRM</button></div>`)}</td></tr>`).join('')))}
+
+        ${sec('Leavers', left.length, 'In our CRM at these brands, and the Team Hub says they\'ve left. Remove takes them out of the CRM altogether; Mark as left keeps their card and marks them as left at that brand.',
+          table(['Name', 'Brand', 'Job title', 'Team Hub says', ''], left.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td>${esc(l.note)}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
+
+        ${sec('Changes since the last check', openChanges.length,
+          d.baseline ? 'This was the first check, so there was nothing to compare with. Today\'s statuses are saved, and changes will show from the next check.' : 'Status, brand, job title or person type, as the Team Hub has them now. Each stays here until you mark it done.',
+          table(['Name', 'Brand', 'What changed', 'Spotted', ''], openChanges.map((c) => `<tr><td>${nameCell(c.name || c.email, c.contact_id, c.contact_id ? '' : 'Not in our CRM')}</td><td>${brandPills(String(c.brand || '').split(', '))}</td><td>${fmtChange(c)}</td><td>${esc(day(c.detected_at))}</td>
+            <td><div class="rc-acts">${cardBtn(c.contact_id)}<button type="button" class="admin-btn admin-btn-ghost" data-cdone="${esc(c.id)}">Done</button></div></td></tr>`).join('')),
+          openChanges.length > 1 ? `<button type="button" class="rc-link" id="rc-cdone-all">Mark all done</button>` : '')}
+
+        ${sec('In our CRM, not on the Team Hub', missing.length, 'Not found on the Team Hub at all. That can be a leaver, or just a different email or name there, so check before removing anyone. Anyone who looks to be there under another name is noted.',
+          table(['Name', 'Brand', 'Job title', 'Still live?', ''], missing.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td class="teg-flag">${esc(l.live || '')}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
+
+        ${sec('Details to fill for people we have', updates.length, 'Blanks on their brand profile the Team Hub can fill. Only blanks: where we already hold something different, it\'s under Doesn\'t agree and left alone.',
+          `<div class="teg-pick"><button type="button" class="admin-btn admin-btn-primary" id="teg-ro-go" ${pick.size ? '' : 'disabled'}>Fill ${pick.size} selected</button> <span class="teg-status" id="teg-ro-st"></span></div>`
+          + table(['', 'Name', 'Brand', 'What fills in'], updates.map((u) => `<tr><td>${DONE.has('u:' + u.key) ? '<span class="rc-done">Filled</span>' : `<input type="checkbox" data-rk="u:${esc(u.key)}" ${pick.has('u:' + u.key) ? 'checked' : ''} aria-label="Fill ${esc(u.name)}">`}</td><td>${nameCell(u.name, u.contact_id)}</td><td>${brandPills([u.brand])}${u.kind === 'add_profile' ? '<span class="teg-pill is-add">+ new brand profile</span>' : ''}</td><td>${fillList(u.fields, u.changes)}</td></tr>`).join('')))}
+
+        ${sec("Doesn't agree", (d.conflicts || []).length, 'Where the Team Hub and our records say different things, or the Team Hub contradicts itself. Flagged only: nothing changes.',
+          table(['Name', 'Brand', 'What', 'Ours', 'Team Hub', ''], (d.conflicts || []).map((r) => `<tr><td>${nameCell(r.name, r.contact_id)}</td><td>${r.brand ? brandPills(r.brand.split(', ')) : ''}</td><td>${esc(r.what)}</td><td>${esc(r.ours || '—')}</td><td>${esc(r.theirs)}</td><td class="teg-flag">${esc(r.why)}</td></tr>`).join('')))}
+
+        ${(d.returners || []).length ? sec('Marked as left here, but live on the Team Hub', d.returners.length, '', table(['Name', 'Brand', 'We marked them left'], d.returners.map((r) => `<tr><td>${nameCell(r.name, r.contact_id, r.email)}</td><td>${brandPills([r.brand])}</td><td>${esc(r.left_at)}</td></tr>`).join(''))) : ''}
+        ${(d.mismatched || []).length ? sec('Matched under a different email', d.mismatched.length, 'Found by name, or by the same address at another brand.', table(['Name', 'Team Hub email', 'Our email', 'Matched by'], d.mismatched.map((r) => `<tr><td>${nameCell(r.name, r.contact_id)}</td><td>${esc(r.teg_email)}</td><td>${esc(r.our_email)}</td><td>${esc(r.by)}</td></tr>`).join(''))) : ''}
+        ${(d.support || []).length ? sec('Support staff not in our CRM', d.support.length, 'Listed only.', table(['Name', 'Brand', 'Email', 'Job title'], d.support.map((r) => `<tr><td>${esc(r.name)}</td><td>${brandPills(r.brands)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td></tr>`).join(''))) : ''}`;
+
+      rc.querySelectorAll('[data-rk]').forEach((c) => c.addEventListener('change', () => { c.checked ? pick.add(c.dataset.rk) : pick.delete(c.dataset.rk); const b = document.getElementById('teg-ro-go'); b.textContent = `Fill ${pick.size} selected`; b.disabled = !pick.size; }));
+      document.getElementById('teg-ro-go')?.addEventListener('click', fillSelected);
+      document.getElementById('rc-cdone-all')?.addEventListener('click', () => changesDone(openChanges.map((c) => c.id)));
+    }
+
+    // One listener for every button the check draws.
+    rc.addEventListener('click', async (e) => {
+      const t = e.target.closest('button'); if (!t || !CHECK) return;
+      if (t.dataset.card) { openCard(t.dataset.card); return; }
+      if (t.dataset.add) { openAdd((CHECK.starters || []).find((r) => r.key === t.dataset.add)); return; }
+      if (t.dataset.cdone) { changesDone([t.dataset.cdone]); return; }
+      const l = (CHECK.leavers || []).find((x) => x.key === (t.dataset.left || t.dataset.remove));
+      if (!l) return;
+      if (t.dataset.left) {
+        if (!confirm(`Mark ${l.name} as left at ${l.brand}${l.left_at ? ` on ${l.left_at}` : ' today'}? Their contact card stays.`)) return;
+        t.disabled = true;
+        const { body } = await post('/teg/roster/apply', { actions: [{ kind: 'left', key: l.key, contact_id: l.contact_id, brand: l.brand, left_at: l.left_at }] });
+        if (!body || (body.failed || []).length || !(body.done || []).length) { t.disabled = false; alert("Couldn't save that: " + ((body && body.failed && body.failed[0] && body.failed[0].error) || (body && body.error) || 'no answer')); return; }
+        DONE.set(l.key, 'Marked as left'); drawCheck();
+      } else {
+        if (!confirm(`Remove ${l.name} from the CRM?\n\nThis deletes their contact card, brand profiles, notes, tasks and automation enrolments. Their bookings, orders and email history stay. It can't be undone.`)) return;
+        t.disabled = true;
+        const { error } = await supabase.from('contacts').delete().eq('id', l.contact_id);
+        if (error) { t.disabled = false; alert("Couldn't remove them: " + error.message); return; }
+        // Every row for the same person goes with them.
+        (CHECK.leavers || []).filter((x) => x.contact_id === l.contact_id).forEach((x) => DONE.set(x.key, 'Removed'));
+        drawCheck();
+      }
+    });
+
+    async function changesDone(ids) {
+      if (!ids.length) return;
+      const { body } = await post('/teg/roster/changes/done', { ids });
+      if (!body || !body.ok) { alert("Couldn't mark that done: " + ((body && body.error) || 'no answer')); return; }
+      ids.forEach((id) => DONE.set('c:' + id, 'Done'));
+      drawCheck();
+    }
+
+    async function fillSelected(e) {
+      const pick = drawCheck.pick;
+      const actions = (CHECK.updates || []).filter((u) => pick.has('u:' + u.key) && !DONE.has('u:' + u.key)).map((u) => ({ ...u, key: 'u:' + u.key }));
+      if (!actions.length || !confirm(`Fill in details on ${actions.length} brand profile${actions.length === 1 ? '' : 's'}? Only blanks are filled. Nothing on the Team Hub changes.`)) return;
+      const b = e.target, st = document.getElementById('teg-ro-st'); b.disabled = true;
+      const failed = [];
+      for (let i = 0; i < actions.length; i += 10) {
+        st.textContent = `Saving ${Math.min(i + 10, actions.length)} of ${actions.length}…`;
+        const { body } = await post('/teg/roster/apply', { actions: actions.slice(i, i + 10) });
+        if (!body || body.error) { failed.push(...actions.slice(i, i + 10).map((a) => `${a.name}: ${(body && body.error) || 'no answer'}`)); continue; }
+        (body.done || []).forEach((k) => { DONE.set(k, 'Filled'); pick.delete(k); });
+        (body.failed || []).forEach((f) => { const a = actions.find((x) => x.key === f.key); failed.push(`${a ? a.name : f.key}: ${f.error}`); });
+      }
+      drawCheck();
+      if (failed.length) rc.insertAdjacentHTML('beforeend', `<div class="teg-raw">${esc(failed.join('\n'))}</div>`);
+    }
+
+    // ---- Add a new joiner: their Team Hub details in a form, to check first.
+    const addBox = document.getElementById('rc-add');
+    let adding = null;
+    const $v = (id) => document.getElementById(id);
+    function openAdd(r) {
+      if (!r) return;
+      adding = r;
+      const f = r.fields || {};
+      $v('rc-a-first').value = r.first_name || r.name.split(' ')[0] || '';
+      $v('rc-a-last').value = r.last_name || r.name.split(' ').slice(1).join(' ') || '';
+      $v('rc-a-email').value = r.email || '';
+      $v('rc-a-phone').value = f.phone || '';
+      $v('rc-a-job').value = f.job_title || r.job_title || '';
+      $v('rc-a-area').value = f.area || '';
+      $v('rc-a-pc').value = f.postcode || '';
+      $v('rc-a-joined').value = f.date_joined || '';
+      $v('rc-a-brands').innerHTML = ROSTER_FOCUS.map((b) => `<label><input type="checkbox" value="${esc(b)}" ${(r.brands || []).includes(b) ? 'checked' : ''}> ${esc(b)}</label>`).join('');
+      $v('rc-a-err').hidden = true;
+      addBox.hidden = false;
+      setTimeout(() => $v('rc-a-first').focus(), 30);
+    }
+    addBox.addEventListener('click', (e) => { if (e.target.closest('[data-rc-close]')) addBox.hidden = true; });
+    $v('rc-add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = (m) => { $v('rc-a-err').textContent = m; $v('rc-a-err').hidden = !m; };
+      const email = $v('rc-a-email').value.trim().toLowerCase();
+      const brands = [...$v('rc-a-brands').querySelectorAll('input:checked')].map((i) => i.value);
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { err('Add their work email.'); return; }
+      if (!brands.length) { err('Tick at least one brand.'); return; }
+      const key = 's:' + adding.key;
+      const btn = $v('rc-a-save'); btn.disabled = true; btn.textContent = 'Adding…';
+      const { body } = await post('/teg/roster/apply', { actions: [{
+        kind: 'add', key, return_id: true, email, brands,
+        first_name: $v('rc-a-first').value.trim(), last_name: $v('rc-a-last').value.trim(), name: `${$v('rc-a-first').value.trim()} ${$v('rc-a-last').value.trim()}`.trim(),
+        fields: { phone: $v('rc-a-phone').value.trim() || null, job_title: $v('rc-a-job').value.trim() || null, area: $v('rc-a-area').value.trim() || null, postcode: $v('rc-a-pc').value.trim().toUpperCase() || null, date_joined: $v('rc-a-joined').value || null },
+      }] });
+      btn.disabled = false; btn.textContent = 'Add to CRM';
+      if (!body || !(body.done || []).includes(key)) { err("Couldn't add them: " + ((body && body.failed && body.failed[0] && body.failed[0].error) || (body && body.error) || 'no answer')); return; }
+      addBox.hidden = true;
+      DONE.set(key, 'Added');
+      if (body.created && body.created[key]) DONE.set(key + ':id', body.created[key]);
+      drawCheck();
+    });
+
+    // ---- A contact card, popped out (the Contacts page's own, ?embed=1).
+    const cardBox = document.getElementById('rc-card'), cardIf = document.getElementById('rc-card-if'), cardWait = document.getElementById('rc-card-wait');
+    function openCard(id) {
+      cardWait.textContent = 'Opening the contact card…'; cardWait.hidden = false;
+      cardIf.hidden = true; cardBox.querySelector('.rc-card-x').hidden = false;
+      cardIf.src = `/admin/contacts?contact=${encodeURIComponent(id)}&embed=1`;
+      cardBox.hidden = false;
+    }
+    function closeCard() { cardBox.hidden = true; cardIf.removeAttribute('src'); }
+    cardBox.addEventListener('click', (e) => { if (e.target.closest('[data-rc-close]')) closeCard(); });
+    window.addEventListener('message', (e) => {
+      if (e.origin !== location.origin || !e.data || cardBox.hidden) return;
+      if (e.data.type === 'tmke-contact-ready') { cardWait.hidden = true; cardIf.hidden = false; cardBox.querySelector('.rc-card-x').hidden = true; }
+      else if (e.data.type === 'tmke-contact-closed') closeCard();
+      else if (e.data.type === 'tmke-contact-missing') cardWait.textContent = "That contact isn't in the CRM any more.";
+    });
+    document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if (!cardBox.hidden) closeCard(); else if (!addBox.hidden) addBox.hidden = true; });
+
+    // The export, as a fallback when the Team Hub can't be reached: the same
+    // comparison, without the changes (an export has no record ids to track).
     const rosterFile = document.getElementById('teg-roster-file');
     document.getElementById('teg-roster').addEventListener('click', () => { rosterFile.value = ''; rosterFile.click(); });
     rosterFile.addEventListener('change', async () => {
       const file = rosterFile.files && rosterFile.files[0];
       if (!file) return;
-      out.innerHTML = '';
-      say('Reading the export…');
+      rc.innerHTML = '';
+      rcSay('Reading the export…');
       let rows;
-      try { rows = parseCsv(await file.text()); } catch (err) { say("Couldn't read that file as a CSV.", 'is-err'); return; }
-      if (!rows.length || !('email' in rows[0]) || !('primary_brand' in rows[0])) { say("That doesn't look like a Team Hub export: no Email or Primary Brand column.", 'is-err'); return; }
+      try { rows = parseCsv(await file.text()); } catch (err) { rcSay("Couldn't read that file as a CSV.", 'is-err'); return; }
+      if (!rows.length || !('email' in rows[0]) || !('primary_brand' in rows[0])) { rcSay("That doesn't look like a Team Hub export: no Email or Primary Brand column.", 'is-err'); return; }
       const focus = rows.filter((t) => rosterBrands(t).length);
-      say(`Comparing ${focus.length} Team Hub people with our CRM…`);
+      rcSay(`Comparing ${focus.length} Team Hub people with our CRM…`);
       const { body } = await post('/teg/roster/preview', { rows: focus });
-      if (!body || body.error) { say((body && body.error) || 'No answer from our Worker.', 'is-err'); return; }
-      drawRoster(body, file.name);
+      if (!body || body.error) { rcSay((body && body.error) || 'No answer from our Worker.', 'is-err'); return; }
+      CHECK = { ...body, changes: [], baseline: false, from_file: true }; DONE.clear(); drawCheck.pick = null;
+      rcSay(`${body.counted} people live at our three brands in ${file.name}. Changes since the last check only show when the check reads the Team Hub itself.`, 'is-ok');
+      drawCheck();
     });
-
-    function drawRoster(d, fileName) {
-      const starters = d.starters || [], support = d.support || [], updates = d.updates || [];
-      const okStatus = (s) => !s || /^active$/i.test(s);
-      // Ticked to start: clean new agents who are live, and every blank to fill.
-      const pick = new Set([...starters.filter((r) => !r.maybe && okStatus(r.status)).map((r) => 's:' + r.key), ...updates.map((u) => 'u:' + u.key)]);
-      say(`${d.counted} people at The Property Experts, Prestige and The Letting Experts in ${fileName}.`, 'is-ok');
-      const stat = (n, label) => `<div class="teg-stat"><b>${n}</b><span>${label}</span></div>`;
-      const sec = (title, n, open, inner) => n ? `<details ${open ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${title} · ${n}</strong></summary>${inner}</details>` : '';
-      const table = (heads, body) => `<div class="teg-tablewrap"><table class="teg-table"><thead><tr>${heads.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
-      const tick = (k, label) => `<input type="checkbox" data-rk="${esc(k)}" ${pick.has(k) ? 'checked' : ''} aria-label="${esc(label)}">`;
-      const brands = (bs) => (bs || []).map((b) => `<span class="teg-pill">${esc(b)}</span>`).join('');
-      const draw = () => {
-        out.innerHTML = `
-          <div class="teg-sum">
-            ${stat(starters.length, 'New agents')}${stat(updates.length, 'Details to fill')}${stat((d.leavers || []).length, 'Possible leavers')}${stat((d.conflicts || []).length, "Doesn't agree")}${stat(support.length, 'Support staff not in CRM')}${stat((d.mismatched || []).length, 'Different email')}
-          </div>
-          <p class="teg-note">Fine &amp; Country and The Mortgage Experts are left out for now. Personal emails and phones were dropped before anything was sent, and of the home address only the postcode. Details only fill blanks: where we already hold something different, it's listed under Doesn't agree and left alone. Joined is the launch date, or the compliance date if there isn't one.</p>
-          <div class="teg-pick"><button type="button" class="admin-btn admin-btn-primary" id="teg-ro-go" ${pick.size ? '' : 'disabled'}>Apply ${pick.size} selected</button> <span class="teg-status" id="teg-ro-st"></span></div>
-          ${sec('New agents not in our CRM', starters.length, true, `<p class="teg-note">Added as a contact with a profile for each brand. Not enrolled in the new-starter funnel. Anyone flagged, or not yet Active on the Team Hub, starts unticked.</p>` + table(['', 'Name', 'Brand', 'Email', 'Details', 'Status', 'Check first'], starters.map((r) => `<tr><td>${tick('s:' + r.key, 'Add ' + r.name)}</td><td>${esc(r.name)}</td><td>${brands(r.brands)}</td><td>${esc(r.email)}</td><td>${fillList(r.fields, ['job_title', 'date_joined', 'area', 'postcode'])}</td><td>${esc(r.status || '—')}</td><td class="teg-flag">${esc(r.maybe)}</td></tr>`).join('')))}
-          ${sec('Details to fill for people we have', updates.length, true, table(['', 'Name', 'Brand', 'What fills in'], updates.map((u) => `<tr><td>${tick('u:' + u.key, 'Update ' + u.name)}</td><td>${esc(u.name)}</td><td>${brands([u.brand])}${u.kind === 'add_profile' ? '<span class="teg-pill is-add">+ new brand profile</span>' : ''}</td><td>${fillList(u.fields, u.changes)}</td></tr>`).join('')))}
-          ${sec("Doesn't agree: flagged only, nothing changes", (d.conflicts || []).length, true, `<p class="teg-note">Where the Team Hub and our records say different things, or the Team Hub contradicts itself. Possible leavers who look to be on the Team Hub under another name or email are here too.</p>` + table(['Name', 'Brand', 'What', 'Ours', 'Team Hub', ''], d.conflicts.map((r) => `<tr><td>${esc(r.name)}</td><td>${r.brand ? brands(r.brand.split(', ')) : ''}</td><td>${esc(r.what)}</td><td>${esc(r.ours || '—')}</td><td>${esc(r.theirs)}</td><td class="teg-flag">${esc(r.why)}</td></tr>`).join('')))}
-          ${sec('Possible leavers: flagged only, nothing changes', (d.leavers || []).length, true, `<p class="teg-note">On our books at these brands but not on the Team Hub. Worth checking before marking anyone as left.</p>` + table(['Name', 'Brand', 'Email', 'Job title', 'Why', 'Still live?'], d.leavers.map((r) => `<tr><td>${esc(r.name)}</td><td>${brands([r.brand])}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td><td>${esc(r.note)}</td><td class="teg-flag">${esc(r.live || '')}</td></tr>`).join('')))}
-          ${sec('Marked as left here, but on the Team Hub', (d.returners || []).length, true, table(['Name', 'Brand', 'Email', 'We marked them left'], (d.returners || []).map((r) => `<tr><td>${esc(r.name)}</td><td>${brands([r.brand])}</td><td>${esc(r.email)}</td><td>${esc(r.left_at)}</td></tr>`).join('')))}
-          ${sec('Matched, but under a different email', (d.mismatched || []).length, false, `<p class="teg-note">Found by name or by the same address at another brand. Their Team Hub email is offered as the brand email under Details to fill.</p>` + table(['Name', 'Team Hub email', 'Our email', 'Matched by'], d.mismatched.map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.teg_email)}</td><td>${esc(r.our_email)}</td><td>${esc(r.by)}</td></tr>`).join('')))}
-          ${sec('Support staff not in our CRM: listed only', support.length, false, table(['Name', 'Brand', 'Email', 'Job title'], support.map((r) => `<tr><td>${esc(r.name)}</td><td>${brands(r.brands)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td></tr>`).join('')))}`;
-        out.querySelectorAll('[data-rk]').forEach((c) => c.addEventListener('change', () => { c.checked ? pick.add(c.dataset.rk) : pick.delete(c.dataset.rk); const b = document.getElementById('teg-ro-go'); b.textContent = `Apply ${pick.size} selected`; b.disabled = !pick.size; }));
-        document.getElementById('teg-ro-go').addEventListener('click', apply);
-      };
-      const apply = async (e) => {
-        const actions = [
-          ...starters.filter((r) => pick.has('s:' + r.key)).map((r) => ({ kind: 'add', key: 's:' + r.key, name: r.name, email: r.email, brands: r.brands, fields: r.fields })),
-          ...updates.filter((u) => pick.has('u:' + u.key)).map((u) => ({ ...u, key: 'u:' + u.key })),
-        ];
-        const nA = actions.filter((a) => a.kind === 'add').length, nU = actions.length - nA;
-        if (!actions.length || !confirm(`Add ${nA} new agent${nA === 1 ? '' : 's'} and fill in details for ${nU} profile${nU === 1 ? '' : 's'}? Nothing at TEG changes.`)) return;
-        const b = e.target, st = document.getElementById('teg-ro-st'); b.disabled = true;
-        let done = 0; const failed = [];
-        for (let i = 0; i < actions.length; i += 10) {
-          st.textContent = `Saving ${Math.min(i + 10, actions.length)} of ${actions.length}…`;
-          const { body } = await post('/teg/roster/apply', { actions: actions.slice(i, i + 10) });
-          if (!body || body.error) { failed.push(...actions.slice(i, i + 10).map((a) => `${a.name}: ${(body && body.error) || 'no answer'}`)); continue; }
-          done += (body.done || []).length;
-          (body.failed || []).forEach((f) => { const a = actions.find((x) => x.key === f.key); failed.push(`${a ? a.name : f.key}: ${f.error}`); });
-        }
-        st.textContent = `Done: ${done} saved${failed.length ? `, ${failed.length} failed` : ''}. Pick the export again to see what's left.`;
-        st.className = 'teg-status ' + (failed.length ? 'is-err' : 'is-ok');
-        if (failed.length) out.insertAdjacentHTML('beforeend', `<div class="teg-raw">${esc(failed.join('\n'))}</div>`);
-      };
-      draw();
-    }
 
     document.getElementById('teg-photos').addEventListener('click', async () => {
       out.innerHTML = '';
@@ -469,6 +741,9 @@ import "../../styles/admin.css";
     (async () => {
       if (!import.meta.env.DEV) { const s = await requireAdmin(); if (!s) return; }
       if (!WORKER) say('The Worker URL is not set in this build.', 'is-err');
+      lastRun();
+      // From the monthly notification: run it straight away.
+      if (new URLSearchParams(location.search).get('check') === '1') runCheck();
     })();
   </script>
 </AdminShell>

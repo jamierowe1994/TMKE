@@ -99,6 +99,10 @@ import "../../styles/admin.css";
     </section>
   </div>
 
+  <!-- ?embed=1: this page as a pop-out on another admin page (the TEG
+       sync's Team Hub check). Only the contact card shows; set before it
+       paints, so the list never flashes up. -->
+  <script is:inline>if (new URLSearchParams(location.search).get("embed") === "1") document.documentElement.classList.add("ct-embed");</script>
   <!-- Detail drawer -->
   <div class="ct-drawer-scrim" id="ct-scrim" hidden></div>
   <aside class="ct-drawer" id="ct-drawer" hidden aria-label="Contact detail">
@@ -306,6 +310,10 @@ import "../../styles/admin.css";
     .ct-tag { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 3px; background: rgba(28,29,34,0.08); color: rgba(28,29,34,0.7); margin: 0 4px 2px 0; }
 
     .ct-drawer-scrim { position: fixed; inset: 0; background: rgba(20,18,26,0.35); z-index: 60; }
+    /* The card alone, filling a pop-out on another page (?embed=1). */
+    html.ct-embed .ash, html.ct-embed #ct-scrim, html.ct-embed #cc-banner { display: none !important; }
+    html.ct-embed, html.ct-embed body { background: #fff; }
+    html.ct-embed .ct-drawer { top: 0 !important; right: 0; bottom: 0; left: 0; width: auto; min-width: 0; max-width: none; border-radius: 0; box-shadow: none; }
     .ct-drawer-scrim[hidden] { display: none; }
     /* Floats clear of all four edges rather than sitting flush to the top: at
        440px the header was tucked under the app bar and the content had to be
@@ -531,6 +539,7 @@ import "../../styles/admin.css";
     const tagGroups = () => withPackTags(packGroup);
 
     const DEV = import.meta.env.DEV;
+    const EMBED = document.documentElement.classList.contains("ct-embed");
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const $ = (id) => document.getElementById(id);
     const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -806,7 +815,11 @@ import "../../styles/admin.css";
       ].filter((a) => a.when).sort((a, b) => new Date(b.when) - new Date(a.when));
       drawNote(notes || [], tasks || [], orders, bookings, activity);
     }
-    function closeDrawer() { $("ct-scrim").hidden = true; $("ct-drawer").hidden = true; current = null; }
+    function closeDrawer() {
+      $("ct-scrim").hidden = true; $("ct-drawer").hidden = true; current = null;
+      // In a pop-out, closing the card closes the pop-out.
+      if (EMBED) try { parent.postMessage({ type: "tmke-contact-closed" }, location.origin); } catch (_) {}
+    }
     // ---- Send one email from the file ----
     let sendTplsLoaded = false;
     async function loadSendTemplates() {
@@ -2114,7 +2127,11 @@ import "../../styles/admin.css";
       // ?contact=<id> opens that card straight away, so anything that creates a
       // contact elsewhere can hand the user to it ready to finish filling in.
       const want = new URLSearchParams(location.search).get("contact");
-      if (want && ALL.some((c) => String(c.id) === want)) openDrawer(want);
+      if (want && ALL.some((c) => String(c.id) === want)) {
+        await openDrawer(want);
+        if (EMBED) try { parent.postMessage({ type: "tmke-contact-ready" }, location.origin); } catch (_) {}
+      }
+      else if (EMBED) try { parent.postMessage({ type: "tmke-contact-missing" }, location.origin); } catch (_) {}
     })();
   </script>
 </AdminShell>
