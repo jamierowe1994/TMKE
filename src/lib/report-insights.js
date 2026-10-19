@@ -402,18 +402,6 @@ export function renderFacebook(tab, fb, vis, r) {
       const t = postTable(fb.content || [], [["Reach", (x) => nf(x.reach)], ["Eng. rate", (x) => nv(x.engagementRate) != null ? nv(x.engagementRate) + "%" : "–"], ["Reactions", (x) => nf(x.reactions)], ["Shares", (x) => nf(x.shares)], ["Video views", (x) => nv(x.videoViews) != null ? nf(x.videoViews) : "–"]]);
       out.push(t ? sec("Facebook posts · ranked by reach", true) + t : `<p class="ri-note" style="margin:0;">No Facebook posts in this report.</p>`);
     }
-    // Day by day, from SocialPilot's three daily charts (read off the chart,
-    // so a day's figure is close rather than exact).
-    const daily = Array.isArray(fb.daily) ? fb.daily : [];
-    const charts = [
-      dailySeries("Post views", daily, "postViews", "#3f5a75", r),
-      dailySeries("Page views", daily, "pageViews", "#371e28", r),
-      dailySeries("Engagement", daily, "engagement", "#b9826a", r),
-    ].filter(Boolean);
-    if (charts.length) out.push(sec("Day by day", !out.length)
-      + `<p class="ri-note" style="margin:0 0 10px;">Read from SocialPilot's daily charts, so each day is close rather than exact.</p>`
-      + `<div class="ri-pills" role="tablist">${charts.map((c, i) => `<button type="button" class="ri-pill${i ? "" : " is-active"}" role="tab" aria-selected="${i ? "false" : "true"}" data-ri-pill="${i}">${esc(c.title)}</button>`).join("")}</div>`
-      + charts.map((c, i) => `<div data-ri-pane="${i}"${i ? " hidden" : ""}>${c.html}</div>`).join(""));
     return out.join("");
   }
   // Overview: the same three sections as Instagram's (Danielle, 19 Oct 2026).
@@ -441,19 +429,10 @@ export function renderFacebook(tab, fb, vis, r) {
     + grid(3, kpi("Reactions", nf(fp.reactions), "", "") + kpi("Comments", nf(fp.comments), "", "") + kpi("Shares", nf(fp.shares), "", "")));
   const med = (Array.isArray(fb.medianByType) ? fb.medianByType : []).filter((x) => x && (nv(x.reach) != null || nv(x.engagement) != null));
   if (med.length) {
-    const maxR = Math.max(1, ...med.map((x) => nv(x.reach) || 0));
     out.push(`<div class="ri-panel"><div class="ri-card-h">The typical post, by type</div><p class="ri-note" style="margin:0 0 10px;">Median reach and engagement: half that type's posts did better, half did worse.</p>
-      <table class="ri-tbl"><thead><tr><th>Type</th><th class="ri-n">Median reach</th><th class="ri-n">Median engagement</th><th></th></tr></thead><tbody>${med.map((x) => `<tr><td>${esc(x.type)}</td><td class="ri-n">${nf(x.reach)}</td><td class="ri-n">${nv(x.engagement) != null ? nv(x.engagement).toLocaleString("en-GB") : "–"}</td><td style="width:40%"><span class="ri-medbar" style="width:${Math.round((nv(x.reach) || 0) / maxR * 100)}%"></span></td></tr>`).join("")}</tbody></table></div>`);
+      <table class="ri-tbl ri-tbl--thirds"><thead><tr><th>Type</th><th class="ri-n">Median reach</th><th class="ri-n">Median engagement</th></tr></thead><tbody>${med.map((x) => `<tr><td>${esc(x.type)}</td><td class="ri-n">${nf(x.reach)}</td><td class="ri-n">${nv(x.engagement) != null ? nv(x.engagement).toLocaleString("en-GB") : "–"}</td></tr>`).join("")}</tbody></table></div>`);
   }
   return out.join("");
-}
-
-// A day-by-day bar chart from one daily series ({ date, [key]: number }).
-function dailySeries(title, daily, key, col, r) {
-  const rows = (daily || []).filter((x) => x && /^\d{4}-\d{2}-\d{2}/.test(x.date || "") && nv(x[key]) != null);
-  if (!rows.length) return null;
-  const c = dailyChart(title, rows.map((x) => ({ date: x.date, v: nv(x[key]) })), [{ key: "v", label: title, col }], r);
-  return c || null;
 }
 
 // ---- LinkedIn ----------------------------------------------------------------
