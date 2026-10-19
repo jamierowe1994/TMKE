@@ -366,7 +366,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-board.is-list { display: block; overflow-x: visible; }
     .smm-list { max-width: 1000px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
     .smm-list-head { font-family: var(--sans); font-size: 11.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 2px 0 12px; }
-    .smm-row { display: grid; grid-template-columns: 88px minmax(140px, 1.2fr) minmax(150px, 1.3fr) 118px auto; gap: 16px; align-items: center; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 16px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .smm-row { display: grid; grid-template-columns: 120px minmax(140px, 1.2fr) minmax(150px, 1.3fr) 118px auto; gap: 16px; align-items: center; background: #fff; border: 1px solid rgba(28,29,34,0.1); border-radius: 10px; padding: 12px 16px; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
     .smm-row:hover { border-color: rgba(var(--violet-rgb),0.45); box-shadow: 0 8px 20px -16px rgba(28,29,34,0.4); }
     .smm-row-main { min-width: 0; }
     .smm-row-name { font-family: var(--sans); font-size: 14.5px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -386,10 +386,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-card:hover { border-color: rgba(var(--violet-rgb),0.45); transform: translateY(-1px); box-shadow: 0 10px 24px -18px rgba(28,29,34,0.4); }
     .smm-card.dragging { opacity: .45; }
     .smm-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .smm-card-top .smm-kind { flex: 0 1 auto; min-width: 0; }
+    .smm-row > .smm-kind { justify-self: start; }
     .smm-kind { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); }
     .smm-kind.is-discovery { background: rgba(47,158,94,0.12); color: #2c7a4b; }
     .smm-kind.is-brochure { background: rgba(227,160,8,0.14); color: #9a6a04; }
     .smm-kind.is-package { background: var(--english-violet); color: #fff; }
+    .smm-kind { display: inline-block; max-width: 100%; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
     .smm-add-btn { height: 28px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px; padding: 0 16px; background: var(--english-violet); border: 1px solid var(--english-violet); border-radius: 4px; font-family: var(--sans); font-size: 12.5px; font-weight: 700; color: #fff; cursor: pointer; transition: background .15s; white-space: nowrap; }
     .smm-add-btn:hover { background: var(--ink); border-color: var(--ink); }
     .smm-add-btn svg { width: 14px; height: 14px; }
@@ -758,8 +761,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 
     /* Right-panel tabs */
     /* The file's tabs: the full width, wine, the tabs shared out evenly (Danielle, 19 Oct 2026). */
-    .smm-tabs { display: flex; gap: 4px; padding: 4px; background: var(--english-violet, #371e28); border-radius: 10px; margin-bottom: 18px; }
-    .smm-tab { flex: 1 1 0; min-width: 0; padding: 8px 12px; border: 0; background: none; border-radius: 7px; font-family: var(--sans); font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.72); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+    /* Sized as the report's tabs (.ri-subtabs), so the two bars match. */
+    .smm-tabs { display: flex; gap: 2px; padding: 3px; background: var(--english-violet, #371e28); border-radius: 9px; margin-bottom: 18px; }
+    .smm-tab { flex: 1 1 0; min-width: 0; padding: 6px 14px; border: 0; background: none; border-radius: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,0.72); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
     .smm-tab:hover { color: #fff; background: rgba(255,255,255,0.08); }
     .smm-tab.is-active { background: #fff; color: var(--english-violet, #371e28); box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
     .smm-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -1068,11 +1072,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         }
       });
     }
+    /* A package as a pill: one line, "…" when it's still too long, the full
+       name on hover; Shot & Scheduled as S&S (Danielle, 19 Oct 2026). */
+    const pkgLabel = (name) => String(name || "").replace(/\bshot\s*(?:&|and)\s*scheduled\b/gi, "S&S");
+    const pkgPill = (name) => `<span class="smm-kind is-package" title="${esc(name)}">${esc(pkgLabel(name))}</span>`;
     function rowHtml(r) {
       const kc = r.kind === "discovery" ? " is-discovery" : r.kind === "brochure" ? " is-brochure" : "";
       const st = stageOf(r);
       const signed = STAGE_INDEX[st] >= STAGE_INDEX["contract_signed"];
-      const pill = signed && r.package_name ? `<span class="smm-kind is-package">${esc(r.package_name)}</span>` : `<span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span>`;
+      const pill = signed && r.package_name ? pkgPill(r.package_name) : `<span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span>`;
       return `<div class="smm-row" data-id="${esc(r.id)}">
         ${pill}
         <div class="smm-row-main"><div class="smm-row-name">${esc(nameOf(r))}</div>${r.business ? `<div class="smm-row-biz">${esc(r.business)}</div>` : ""}</div>
@@ -1091,7 +1099,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // to the lead type until a package is set).
       const signed = STAGE_INDEX[st] >= STAGE_INDEX["contract_signed"];
       const pill = signed && r.package_name
-        ? `<span class="smm-kind is-package">${esc(r.package_name)}</span>`
+        ? pkgPill(r.package_name)
         : `<span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span>`;
       const meeting = r.meeting_at ? `<div class="smm-card-line">${CAL_SVG}Meeting ${esc(fmtDateTime(r.meeting_at))}</div>`
         : (r.kind === "discovery" && r.call_at ? `<div class="smm-card-line">${CAL_SVG}Call ${esc(fmtDateTime(r.call_at))}</div>` : "");
