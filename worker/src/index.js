@@ -2037,7 +2037,7 @@ async function syncSmmContact(env, leadId) {
     const lead = ((await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,last_name,business,phone,account_user_id,client_status`)) || [])[0];
     if (!lead || !lead.email) return { ok: false, reason: "no_email" };
     const email = lc(lead.email);
-    const statusTag = { active: "SMM-Status: Active", paused: "SMM-Status: Paused", ended: "SMM-Status: Ended" }[lead.client_status] || null;
+    const statusTag = { active: "SMM-Status: Active", paused: "SMM-Status: Paused", ended: "SMM-Status: Ended", internal: "SMM-Status: Internal" }[lead.client_status] || null;
     const want = [statusTag || "Interest: SMM", lead.account_user_id ? "TMKE-Account-Member" : null, networkTag(email)].filter(Boolean);
     let c = null;
     if (lead.account_user_id) c = ((await sbGet(env, "contacts", `user_id=eq.${encodeURIComponent(lead.account_user_id)}&select=id,tags,lifecycle,user_id,phone,company&limit=1`)) || [])[0] || null;
@@ -10699,7 +10699,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
         const leadId = b && b.lead_id;
-        const status = ["active", "paused", "ended"].includes(b && b.status) ? b.status : null;
+        // Internal: one of us, run as a client but never invoiced (Danielle, 19 Oct).
+        const status = ["active", "paused", "ended", "internal"].includes(b && b.status) ? b.status : null;
         if (!leadId || !status) return json({ error: "Missing lead or status." }, 400, request, env);
         const rows = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=id,email,full_name,first_name,last_name,business,account_user_id`);
         const lead = rows && rows[0];
@@ -11735,7 +11736,7 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     }
     return out;
   };
-  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
+  const leads = await readAll("smm_leads", "pipeline_stage=eq.active_client&or=(client_status.is.null,client_status.neq.internal)&select=id,full_name,business,price,start_date,social_media_manager,inter_brand_invoice&order=business.asc,id.asc");
   let recurring = [], recurringReady = true;
   const rr = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?active=eq.true&select=*&order=name.asc`, { headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } });
   if (rr.ok) recurring = await rr.json(); else recurringReady = false;

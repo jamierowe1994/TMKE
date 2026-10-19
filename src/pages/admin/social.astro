@@ -155,7 +155,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <h2 class="smm-panel-title">Client status</h2>
           <p class="smm-panel-sub">Every enquiry from the waitlist to an active client, with the date of each step so far. Active clients show their package, monthly fee and whether their invoices are paid on time. Lost shows how far they got, when, and why.</p>
         </div>
-        <button type="button" class="smm-btn smm-btn--primary" id="cs-export">Export to Excel</button>
+        <button type="button" class="admin-btn admin-btn-primary" id="cs-export">Export to Excel</button>
       </div>
       <p class="cs-note" id="cs-note" hidden></p>
       <div class="cs-tabs" id="cs-tabs" role="tablist" aria-label="Stages"></div>
@@ -425,6 +425,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-status-pill.is-active, .smm-card-status.is-active { background: rgba(47,158,94,0.14); color: #2c7a4b; }
     .smm-status-pill.is-paused, .smm-card-status.is-paused { background: rgba(227,160,8,0.16); color: #9a6a04; }
     .smm-status-pill.is-ended, .smm-card-status.is-ended { background: rgba(28,29,34,0.09); color: rgba(28,29,34,0.55); }
+    .smm-status-pill.is-internal, .smm-card-status.is-internal { background: rgba(var(--violet-rgb),0.12); color: var(--english-violet); }
 
     /* Pipeline stepper */
     .smm-pipe { position: relative; display: flex; margin: 8px 0 93px; padding-top: 4px; }
@@ -840,10 +841,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     /* ---- Client status ---- */
     .cs-note { font-family: var(--sans); font-size: 12.5px; color: #8a5a10; background: rgba(196,140,40,0.08); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; }
     .cs-note[hidden] { display: none; }
-    .cs-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
-    .cs-tab { appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 110px; padding: 10px 14px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); text-align: left; transition: border-color .15s, background .15s; }
-    .cs-tab b { font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
-    .cs-tab span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.55); white-space: nowrap; }
+    /* Eight across, inside the margins; four across on a narrow screen. */
+    .cs-tabs { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; margin: 0 0 18px; }
+    @media (max-width: 1100px) { .cs-tabs { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    .cs-tab { appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; padding: 7px 10px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); text-align: left; transition: border-color .15s, background .15s; }
+    .cs-tab b { font-size: 17px; font-weight: 500; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .cs-tab span { font-size: 9.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
     .cs-tab:hover { border-color: var(--english-violet); }
     .cs-tab.is-on { background: var(--english-violet); border-color: var(--english-violet); }
     .cs-tab.is-on b, .cs-tab.is-on span { color: #fff; }
@@ -909,7 +912,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     // Legacy stages map onto the nearest current column.
     const STAGE_ALIAS = { contract_sent: "proposal_sent", brochure_downloaded: "inquiry", general_enquiry: "inquiry", discovery_call_booked: "inquiry", waitlist_joined: "waitlist" };
     const KIND_LABEL = { enquiry: "Enquiry", brochure: "Brochure", discovery: "Discovery call", manual: "Manual" };
-    const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended" };
+    const CLIENT_STATUS = { active: "Active", paused: "Paused", ended: "Ended", internal: "Internal" };
     const NEXT_LABEL = { meeting_set: "Set a meeting", proposal_sent: "Mark proposal sent", contract_signed: "Mark contract sent", onboarding: "Start onboarding", active_client: "Make active client" };
     const PLATFORMS = ["Instagram", "Facebook", "LinkedIn", "YouTube", "TikTok"];
 
@@ -1205,6 +1208,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
                 <button type="button" class="smm-btn smm-btn--sm ${cs === "active" ? "smm-btn--primary" : ""}" data-cstatus="active">Active</button>
                 <button type="button" class="smm-btn smm-btn--sm ${cs === "paused" ? "smm-btn--primary" : ""}" data-cstatus="paused">Paused</button>
                 <button type="button" class="smm-btn smm-btn--sm ${cs === "ended" ? "smm-btn--primary" : ""}" data-cstatus="ended">Ended</button>
+                <button type="button" class="smm-btn smm-btn--sm ${cs === "internal" ? "smm-btn--primary" : ""}" data-cstatus="internal" title="One of us: run as a client, never invoiced">Internal</button>
               </div>` : `<button type="button" class="smm-btn smm-btn--primary smm-btn--block" data-move="${next}">${esc(NEXT_LABEL[next])}</button>`}
               <div class="smm-file-actions" style="margin-top:10px">
                 <button type="button" class="smm-btn smm-btn--danger smm-btn--block" data-lost>Mark lost</button>
@@ -1887,6 +1891,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     }
     const csDateCell = (w) => w && w.at ? `<td class="cs-d">${w.est ? `<span class="cs-est" title="Estimated: from before stage dates were recorded">c. ${esc(csDay(w.at))}</span>` : esc(csDay(w.at))}</td>` : '<td class="cs-d">—</td>';
     function csPayments(r) {
+      if (r.client_status === "internal") return { label: "N/A", tone: "", late: 0, owed: 0 };
       const today = new Date().toISOString().slice(0, 10);
       const mine = csData.invoices.filter((v) => v.booking_id === r.id);
       const late = mine.filter((v) => v.status === "sent" && v.due_date && v.due_date < today);
@@ -1928,7 +1933,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     function csRows(tab) {
       const rows = csData.leads.filter((r) => csStageOf(r) === tab);
       const t = (r) => { const w = tab === "lost" ? { at: r.lost_at || r.updated_at } : csWhen(r, tab === "active_client" ? "active_client" : tab); return w && w.at ? new Date(w.at).getTime() : 0; };
-      return rows.sort((a, b) => t(b) - t(a));   // newest first
+      // Newest first; internal accounts (ours, never invoiced) at the bottom.
+      const internal = (r) => (r.client_status === "internal" ? 1 : 0);
+      return rows.sort((a, b) => internal(a) - internal(b) || t(b) - t(a));
     }
     function drawClientStatus() {
       if (!csData) return;
