@@ -669,15 +669,6 @@ async function tegApi(env, fn, body) {
   return { ok: true, status: res.status, data: out.data };
 }
 
-/* Their postcode lists are arrays of { code, level } -- NOT the array of
-   strings their documentation promises. Checked against the entity itself
-   (base44/entities/TeamMember.jsonc), because building to the document would
-   have failed on the first record. */
-function tegPostcodes(list) {
-  if (!Array.isArray(list)) return [];
-  return list.map((p) => (p && typeof p === "object" ? p.code : p)).filter(Boolean);
-}
-
 // Build a personalised free-videography code + create the single-use 100% promo
 // row (restricted to the agent service). Format: PACKAGE-INITIALS-MMMYY
 // (e.g. PRO-JB-AUG26); a numeric suffix is appended if that already exists so
@@ -9168,68 +9159,6 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       /* Run whenever a member arrives: has their brand changed anything they
          haven't made their own? Cheap, and it self-heals — nothing to schedule
          and nothing to push. */
-      /* What photoApi actually holds.
-
-         It is not in the repo snapshot we were given and nobody has written
-         it down, so this reads a couple of records and reports their shape:
-         every field name, and one whole record to look at. That is how we
-         find the photograph rather than guessing which key it is under. */
-      if (path.endsWith("/teg/photos") && request.method === "GET") {
-        const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        if (!env.TEG_API_SECRET) return json({ error: "No TEG_API_SECRET set on the Worker." }, 400, request, env);
-        const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get("limit") || "3", 10)));
-        const skip = Math.max(0, parseInt(url.searchParams.get("skip") || "0", 10));
-        const qs = new URLSearchParams({ limit: String(limit), skip: String(skip) });
-        const email = (url.searchParams.get("email") || "").trim();
-        if (email) qs.set("email", email);
-        let res, text;
-        try {
-          res = await fetch(`${TEG_API}/photoApi?${qs}`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
-          text = await res.text();
-        } catch (e) {
-          return json({ error: String((e && e.message) || e) }, 502, request, env);
-        }
-        let out = null;
-        try { out = JSON.parse(text); } catch (_) {}
-        if (!out) return json({ error: "Not JSON", status: res.status, body: text.slice(0, 600) }, 502, request, env);
-        const rows = Array.isArray(out.data) ? out.data : [];
-        // Every key seen across the sample, so one sparse record can't hide a field.
-        const fields = [...new Set(rows.flatMap((r) => Object.keys(r || {})))].sort();
-        // Anything that looks like it points at an image, named or valued.
-        const imageish = fields.filter((f) =>
-          /photo|image|picture|avatar|headshot|thumb|url|src/i.test(f) ||
-          rows.some((r) => typeof r[f] === "string" && /^https?:\/\/.+\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(r[f])));
-        /* check=1: open each picture and say what it really is. A field
-           name can't tell us a headshot is background-free; the file can.
-           Only the first few KB are read: enough for the format, the size,
-           and whether it can hold transparency (30 Sep 2026: TEG say the
-           background-free headshots are now in the hub). */
-        let people = null;
-        if (url.searchParams.get("check") === "1") {
-          people = [];
-          for (const r of rows) {
-            const label = r.full_name || r.name || [r.first_name, r.last_name].filter(Boolean).join(" ") || r.email || r.member_email || r.team_member_id || r.id || "—";
-            const images = [];
-            for (const f of imageish) {
-              const u = r[f];
-              if (typeof u !== "string" || !/^https?:\/\//i.test(u)) continue;
-              images.push({ field: f, url: u, ...(await sniffImage(u)) });
-            }
-            people.push({ label, email: r.email || r.member_email || null, images });
-          }
-        }
-        return json({
-          ok: out.success !== false,
-          status: res.status,
-          count: out.count ?? null, limit: out.limit ?? null,
-          skip: out.skip ?? null, has_more: out.has_more ?? null,
-          fields,
-          looks_like_an_image: imageish,
-          sample: rows[0] || null,
-          people,
-        }, 200, request, env);
-      }
 
       /* ---- TEG headshots → our brand photos ----------------------------------
          Preview (a page of twenty at a time) and import (one person at a
@@ -9483,110 +9412,6 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ ok: true, rows }, 200, request, env);
       }
 
-      /* Is the TEG connection alive? Proves the secret and the domain before
-         anybody builds anything on top of them. */
-      if (path.endsWith("/teg/ping") && request.method === "GET") {
-        const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const db = await tegApi(env, "dbApi", { action: "ping" });
-        // photoApi is a sibling function we have no documentation for yet, so
-        // we only ask whether it answers us, not what it can do.
-        let photo = { ok: false, error: "not tried" };
-        if (env.TEG_API_SECRET) {
-          try {
-            const r = await fetch(`${TEG_API}/photoApi?limit=5`, { headers: { "x-api-secret": env.TEG_API_SECRET } });
-            const t = await r.text();
-            let o = null; try { o = JSON.parse(t); } catch (_) {}
-            const rows = (o && Array.isArray(o.data)) ? o.data : [];
-            /* Report the SHAPE, not the first 300 characters. A truncated
-               string told us a record exists and nothing about what is in it,
-               which cost a round trip we did not need to spend. */
-            photo = rows.length ? {
-              ok: r.ok, status: r.status, count: o.count ?? null, has_more: o.has_more ?? null,
-              fields: [...new Set(rows.flatMap((x) => Object.keys(x || {})))].sort(),
-              looks_like_an_image: [...new Set(rows.flatMap((x) => Object.keys(x || {})))]
-                .filter((f) => /photo|image|picture|avatar|headshot|thumb/i.test(f) ||
-                  rows.some((x) => typeof x[f] === "string" && /^https?:\/\/[^\s]+\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(x[f]))),
-              sample: rows[0],
-            } : { ok: r.ok, status: r.status, body: t.slice(0, 600) };
-          } catch (e) { photo = { ok: false, error: String((e && e.message) || e) }; }
-        }
-        return json({ ok: db.ok, dbApi: db, photoApi: photo }, 200, request, env);
-      }
-
-      /* What the sync WOULD do, without doing any of it.
-
-         Their roster against ours, person by person: who we already hold, who
-         is new, which brands they would gain, what would change. Nothing is
-         written -- not here and not to them. A feed that reshapes 200 agent
-         records should be read before it is run once. */
-      if (path.endsWith("/teg/preview") && request.method === "GET") {
-        const user = await getUser(request, env);
-        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
-        const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get("limit") || "50", 10)));
-
-        const [people, brands] = await Promise.all([
-          tegApi(env, "dbApi", { action: "search", entity: "TeamMember", query: { active: true }, limit }),
-          tegApi(env, "dbApi", { action: "list", entity: "Brand", limit: 100 }),
-        ]);
-        if (!people.ok) return json({ error: `TEG said: ${people.error}` }, 502, request, env);
-
-        const brandName = new Map();
-        (Array.isArray(brands.data) ? brands.data : []).forEach((b) => { if (b && b.id) brandName.set(b.id, b.name); });
-
-        const rows = Array.isArray(people.data) ? people.data : [];
-        const emails = rows.map((r) => String(r.email || "").toLowerCase()).filter(Boolean);
-        const ours = emails.length
-          ? (await sbGet(env, "contacts",
-              `email=in.(${emails.map((e) => `"${e}"`).join(",")})&select=id,email,first_name,last_name`) || [])
-          : [];
-        const byEmail = new Map(ours.map((c) => [String(c.email || "").toLowerCase(), c]));
-        const theirIds = ours.map((c) => c.id);
-        const profiles = theirIds.length
-          ? (await sbGet(env, "agent_profiles",
-              `contact_id=in.(${theirIds.map((i) => `"${i}"`).join(",")})&select=contact_id,brand,job_title,area,left_at`) || [])
-          : [];
-        const heldBrands = new Map();
-        profiles.forEach((p) => {
-          const l = heldBrands.get(p.contact_id) || [];
-          if (p.brand) l.push(String(p.brand).trim());
-          heldBrands.set(p.contact_id, l);
-        });
-
-        const preview = rows.map((r) => {
-          const email = String(r.email || "").toLowerCase();
-          const c = byEmail.get(email) || null;
-          const want = [brandName.get(r.primary_brand_id) || null]
-            .concat((Array.isArray(r.sub_brands) ? r.sub_brands : []).map((id) => brandName.get(id) || null))
-            .filter(Boolean);
-          const have = c ? (heldBrands.get(c.id) || []) : [];
-          return {
-            name: [r.first_name, r.last_name].filter(Boolean).join(" "),
-            email: r.email || null,
-            match: c ? "in our CRM" : "NEW — no contact",
-            brands_theirs: want,
-            brands_ours: have,
-            brands_to_add: want.filter((b) => !have.includes(b)),
-            job_title: r.job_title || null,
-            postcodes: tegPostcodes(r.territory_postcodes),
-            address: r.address || null,
-            status: r.status || null,
-            leaver: r.status === "Departed" || !!r.leave_date,
-            // Their schema records THAT a photo exists, not where it is.
-            photo_provided: !!r.photo_provided,
-          };
-        });
-
-        return json({
-          ok: true,
-          counted: preview.length,
-          new_people: preview.filter((p) => p.match !== "in our CRM").length,
-          brand_rows_to_add: preview.reduce((n, p) => n + p.brands_to_add.length, 0),
-          leavers: preview.filter((p) => p.leaver).length,
-          with_photo_flag: preview.filter((p) => p.photo_provided).length,
-          preview,
-        }, 200, request, env);
-      }
 
       /* Every brand's kit, for the admin studio's brand picker.
 

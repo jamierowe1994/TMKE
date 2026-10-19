@@ -341,6 +341,10 @@ import "../../styles/admin.css";
       display: grid; place-items: center; transition: border-color 0.18s;
     }
     .teg-photo-tile:hover { border-color: var(--english-violet); }
+    .ct-pull { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 5px 10px 5px 5px; border: 1px solid var(--english-violet); border-radius: 6px; background: #fff; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); cursor: pointer; }
+    .ct-pull:hover { background: var(--english-violet); color: #fff; }
+    .ct-pull[hidden] { display: none; }
+    .ct-pull-img { width: 22px; height: 28px; border-radius: 3px; background: #f1eeee center bottom / contain no-repeat; flex: none; }
     .teg-photo-tile span { font-size: 22px; font-weight: 300; color: var(--english-violet); line-height: 1; }
     .teg-photo-tile.has-img {
       border-style: solid; border-color: rgba(var(--violet-rgb),0.25);
@@ -987,6 +991,7 @@ import "../../styles/admin.css";
                 <div class="teg-photo-side">
                   <input id="teg-photo-url" value="${val(p && p.brand_photo_url)}" placeholder="Paste a URL, or click the tile to upload" />
                   <button type="button" class="ct-linkbtn" id="teg-photo-clear"${p && p.brand_photo_url ? "" : " hidden"}>Remove photo</button>
+                  ${p && !p.brand_photo_url ? all.filter((r) => r.id !== p.id && r.brand_photo_url && !r.left_at).map((r) => `<button type="button" class="ct-pull" data-pull="${esc(r.id)}"><span class="ct-pull-img" style="background-image:url('${esc(r.brand_photo_url)}')"></span>Pull from ${esc(r.brand || "their other brand")}</button>`).join("") : ""}
                 </div>
               </div>
               <small>Full length, no background. The only photo print will use &mdash; their own headshot never goes near it. TEG&rsquo;s feed fills this in once it is connected.${p && p.brand_photo_source ? ` Set by ${esc(p.brand_photo_source === "teg" ? "the TEG feed" : "hand")}.` : ""}</small>
@@ -1130,6 +1135,17 @@ import "../../styles/admin.css";
         tegMsg("Uploaded — press Save agent details to keep it.", true);
       });
       photoUrl?.addEventListener("change", () => showPhoto(photoUrl.value.trim()));
+      /* A dual agent with a photo at one brand and none at this one: use the
+         same photo here, and save it straight away. */
+      document.querySelectorAll("[data-pull]").forEach((pb) => pb.addEventListener("click", () => {
+        const src = (c.agentProfiles || []).find((r) => String(r.id) === pb.getAttribute("data-pull"));
+        if (!src || !src.brand_photo_url || !photoUrl) return;
+        photoUrl.value = src.brand_photo_url;
+        showPhoto(src.brand_photo_url);
+        document.querySelectorAll("[data-pull]").forEach((x) => { x.hidden = true; });
+        tegMsg(`Using their ${src.brand || "other"} photo. Saving…`, true);
+        document.getElementById("teg-save")?.click();
+      }));
       photoClear?.addEventListener("click", () => { photoUrl.value = ""; showPhoto(""); });
 
       const nsCb = document.getElementById("teg-newstarter");
@@ -1441,6 +1457,9 @@ import "../../styles/admin.css";
         const other = ALL.find((x) => x.id === dropId);
         if (!confirm(`Merge "${fullName(other) || "that contact"}" into "${fullName(c) || "this contact"}"?\n\nTheir notes, tasks, tags and history move onto this card, and the other card is removed. This can't be undone.`)) return;
         b.disabled = true; b.textContent = "Merging…";
+        // Brands first: merge_contacts drops every brand of theirs when this
+        // card has any, photos included.
+        await foldBrandProfiles(c.id, dropId);
         const { error } = await supabase.rpc("merge_contacts", { p_keep: c.id, p_drop: dropId });
         if (error) { alert("Couldn't merge: " + error.message); b.disabled = false; b.textContent = "Merge in"; return; }
         await load(); openDrawer(c.id);
@@ -1756,6 +1775,43 @@ import "../../styles/admin.css";
     // ON DELETE CASCADE, so deleting the loser first would silently take its
     // notes and history with it. Everything is repointed at the survivor, then
     // the empty record goes.
+    /* Brands, when two cards become one: a row PER BRAND. A brand only the
+       other card has moves across. A brand both have stays as the survivor's,
+       but first takes from the other copy anything it is missing -- the
+       brand photo above all. Before 19 Oct the other copy was simply dropped,
+       which is how Bernadine Williams' Letting Experts photo went when her
+       two Letting Experts cards were merged. Used by both ways of merging;
+       "Merge in" then calls merge_contacts, which finds nothing left to move. */
+    const PROFILE_FILL = ["brand_photo_url", "brand_photo_source", "job_title", "date_joined", "postcode", "area", "email", "phone"];
+    async function foldBrandProfiles(keepId, loseId) {
+      try {
+        const [{ data: keepRows }, { data: loseRows }] = await Promise.all([
+          supabase.from("agent_profiles").select("*").eq("contact_id", keepId),
+          supabase.from("agent_profiles").select("*").eq("contact_id", loseId),
+        ]);
+        const byBrand = new Map((keepRows || []).map((r) => [String(r.brand || "").trim().toLowerCase(), r]));
+        const hasPrimary = (keepRows || []).some((r) => r.is_primary);
+        for (const r of (loseRows || [])) {
+          const b = String(r.brand || "").trim().toLowerCase();
+          const mine = b && byBrand.get(b);
+          if (mine) {
+            const fill = {};
+            for (const k of PROFILE_FILL) {
+              if ((mine[k] == null || mine[k] === "") && r[k] != null && r[k] !== "") fill[k] = r[k];
+            }
+            // A photo carries its own record of where it came from.
+            if (fill.brand_photo_url) { fill.brand_photo_source = r.brand_photo_source || null; if ("brand_photo_updated_at" in r) fill.brand_photo_updated_at = r.brand_photo_updated_at; }
+            if (Object.keys(fill).length) await supabase.from("agent_profiles").update(fill).eq("id", mine.id);
+            continue;
+          }
+          await supabase.from("agent_profiles")
+            .update({ contact_id: keepId, is_primary: hasPrimary ? false : undefined })
+            .eq("id", r.id);
+          if (b) byBrand.set(b, r);
+        }
+      } catch (_) { /* table may not exist here */ }
+    }
+
     let mergePair = [];        // [survivor, loser]
     const LIFECYCLE_RANK = { member: 4, customer: 3, lead: 2, past: 1 };
 
@@ -1899,24 +1955,7 @@ import "../../styles/admin.css";
            the survivor had none at all, which since dual agents means the
            loser's brands would be cascade-deleted along with their contact.
            That is how a merge quietly undoes a dual-brand setup. */
-        try {
-          const [{ data: keepRows }, { data: loseRows }] = await Promise.all([
-            supabase.from("agent_profiles").select("id, brand, is_primary").eq("contact_id", keep.id),
-            supabase.from("agent_profiles").select("id, brand").eq("contact_id", lose.id),
-          ]);
-          const held = new Set((keepRows || []).map((r) => String(r.brand || "").trim().toLowerCase()));
-          const hasPrimary = (keepRows || []).some((r) => r.is_primary);
-          for (const r of (loseRows || [])) {
-            const b = String(r.brand || "").trim().toLowerCase();
-            // A brand they already have on the surviving record wins; the
-            // duplicate's copy of it goes with the contact.
-            if (b && held.has(b)) continue;
-            await supabase.from("agent_profiles")
-              .update({ contact_id: keep.id, is_primary: hasPrimary ? false : undefined })
-              .eq("id", r.id);
-            if (b) held.add(b);
-          }
-        } catch (_) { /* table may not exist here */ }
+        await foldBrandProfiles(keep.id, lose.id);
 
         // 3. Now the other record is empty, remove it.
         say("Removing the duplicate…");
