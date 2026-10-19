@@ -1,5 +1,5 @@
-// Reads what the AI can't from a SocialPilot PDF: each post's Instagram link
-// and its thumbnail. Both are really in the file — the link as a clickable
+// Reads what the AI can't from a SocialPilot PDF: each post's link (Instagram,
+// LinkedIn or Facebook) and its thumbnail. Both are really in the file — the link as a clickable
 // annotation beside the title in the Post / Reels Performance tables, the
 // thumbnail as an embedded image at the start of the same row — so they're
 // lifted out exactly rather than described by a model.
@@ -47,19 +47,27 @@ async function imageBoxes(page, OPS) {
 
 /**
  * @param {File|Blob|ArrayBuffer} file  the SocialPilot PDF
- * @returns {Promise<Array<{ url, type, title, date, page, thumb: Blob|null }>>}
+ * @returns {Promise<Array<{ url, platform, type, title, date, page, thumb: Blob|null }>>}
  *   one entry per post/reel link, in the order the report prints them.
  */
+// Which platform a post link belongs to. LinkedIn's post tables link each row
+// to linkedin.com/feed/update/… with the thumbnail beside it, exactly as
+// Instagram's do (Danielle, 19 Oct 2026); Facebook's link to facebook.com.
+const linkPlatform = (url) => /instagram\.com\/(p|reel|tv)\//i.test(url) ? "instagram"
+  : /linkedin\.com\/(feed\/update|posts)\//i.test(url) ? "linkedin"
+  : /(facebook\.com|fb\.watch)\//i.test(url) ? "facebook" : null;
 export async function extractPostLinks(file) {
   const pdfjs = await loadPdfjs();
   const data = file instanceof ArrayBuffer ? file : await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(data) }).promise;
   const out = [];
+  // Across the whole file: LinkedIn lists a video in the post table and again
+  // in the video table, and the first is the one to keep.
+  const seen = new Set();
   for (let n = 1; n <= doc.numPages; n++) {
     const page = await doc.getPage(n);
-    const seen = new Set();
     const links = (await page.getAnnotations())
-      .filter((a) => a.subtype === "Link" && a.url && /instagram\.com\/(p|reel|tv)\//i.test(a.url))
+      .filter((a) => a.subtype === "Link" && a.url && linkPlatform(a.url))
       .filter((a) => (seen.has(a.url) ? false : (seen.add(a.url), true)))
       // Top of the page first — PDF y runs upwards.
       .sort((a, b) => b.rect[3] - a.rect[3]);
@@ -104,7 +112,7 @@ export async function extractPostLinks(file) {
         c.getContext("2d").drawImage(canvas, x, y, w, hh, 0, 0, c.width, c.height);
         thumb = await new Promise((res) => c.toBlob(res, "image/jpeg", 0.86));
       }
-      out.push({ url: l.url, type: /\/(reel|tv)\//i.test(l.url) ? "Reel" : "Post", title, date, page: n, thumb });
+      out.push({ url: l.url, platform: linkPlatform(l.url), type: /instagram\.com\/(reel|tv)\//i.test(l.url) ? "Reel" : "Post", title, date, page: n, thumb });
     }
   }
   return out;

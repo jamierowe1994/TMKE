@@ -253,11 +253,10 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
       <tbody>${fRows.map((t, i) => `<tr><td class="rk">${i + 1}</td><td class="l tt">${esc(String(t.title || "").trim())}</td><td>${esc(fDay(t.date))}</td><td>${fmt(n(t.reach))}</td><td>${n(t.engagementRate) != null ? esc(n(t.engagementRate) + "%") : "&ndash;"}</td><td>${fmt(n(t.reactions))}</td><td>${fmt(n(t.shares))}</td></tr>`).join("")}</tbody></table></div></div>`));
   }
 
-  // 3c — LinkedIn: SocialPilot's LinkedIn covers the 30 days before the
-  // report was run, so its dates are said.
+  // 3c — LinkedIn: its own dates, as SocialPilot prints them, are said.
   if (li) {
     const lp = li.posts || {};
-    const mvL = (v) => { const x = n(v); return x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)}% on the 30 days before` : ""; };
+    const mvL = (v) => { const x = n(v); return x ? `${x > 0 ? "Up" : "Down"} ${Math.abs(x)}% on the previous period` : ""; };
     const lf = [];
     const lfig = (label, val, move, means) => { if (val != null) lf.push(`<div class="rpx-fig"><p class="rpx-label">${esc(label)}</p><b>${esc(val)}</b><p class="rpx-move">${move ? esc(move) : "&nbsp;"}</p><p>${esc(means)}</p></div>`); };
     const lg = n(li.followerGrowth);

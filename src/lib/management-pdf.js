@@ -114,7 +114,7 @@ function goalsSec(d) {
    however much the team writes (Danielle, 19 Oct 2026). */
 const hasIg = (d) => { const p = (d || {}).profile; return !!(p && Object.keys(p).length) || !!((d || {}).posts && Object.keys(d.posts).length); };
 const hasGoals = (d) => (d.goals || []).some((g) => g && (g.goal || g.measure));
-const liChange = (v) => { const x = n(v); return x == null || !x ? ["", 0] : [`${x >= 0 ? "Up" : "Down"} ${Math.abs(x)}% on the 30 days before`, Math.sign(x)]; };
+const liChange = (v) => { const x = n(v); return x == null || !x ? ["", 0] : [`${x >= 0 ? "Up" : "Down"} ${Math.abs(x)}% on the previous period`, Math.sign(x)]; };
 const secHtml = (inner, plat, cls = "") => `<div class="mg-sec${cls ? " " + cls : ""}"${plat ? ` data-plat="${plat}"` : ""}>${inner}</div>`;
 function platformTop(rows, cols) {
   const top = (rows || []).filter((t) => t && (t.title || t.url)).slice().sort((x, y) => (n(y.reach) || 0) - (n(x.reach) || 0)).slice(0, 5);
@@ -194,10 +194,10 @@ function linkedinSections(li) {
     tile("Post reach", fmt(n(lp.reach)), rM, rD),
     tile("Engagement", fmt(n(lp.engagement)), eM || "Reactions and comments", eD),
     tile("Engagement rate", pc(n(lp.engagementRate)), "", 0),
-    tile("Videos", fmt(n(lv.published)), n(lv.published) ? `${fmt(n(lv.views))} views` : "", 0),
+    tile("Video views", fmt(n(lv.views)), n(lv.published) ? `${fmt(n(lv.published))} video${n(lv.published) === 1 ? "" : "s"}` : "", 0),
   ].join("");
   return [
-    secHtml(`<p class="mg-sec-h">LinkedIn <small>${esc(li.period || "the 30 days before the report")}</small></p><div class="mg-tiles">${tiles}</div>`, "linkedin"),
+    secHtml(`<p class="mg-sec-h">LinkedIn <small>${esc(li.period || "")}</small></p><div class="mg-tiles">${tiles}</div>`, "linkedin"),
     secHtml(`<p class="mg-sec-h">Top 5 LinkedIn posts <small>by reach</small></p>${platformTop(li.content, [["Reach", (t) => fmt(n(t.reach))], ["Engagement", (t) => fmt(n(t.engagement))], ["Comments", (t) => fmt(n(t.comments))]])}`),
   ];
 }

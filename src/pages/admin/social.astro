@@ -2930,15 +2930,25 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         hint.textContent = "Adding each post's link and picture…";
         const links = await linksP;
         if (links.length) {
-          if (!Array.isArray(data.content) || !data.content.length) data.content = links.map((l) => ({ title: l.title, type: l.type, date: l.date }));
+          /* Each platform's links go to its own posts: Instagram's to
+             content, LinkedIn's and Facebook's to theirs (Danielle, 19 Oct
+             2026). Only Instagram's stand in for a missing post list. */
+          const ofPlat = (k) => links.filter((l) => (l.platform || "instagram") === k);
+          const igLinks = ofPlat("instagram");
+          if (igLinks.length && (!Array.isArray(data.content) || !data.content.length)) data.content = igLinks.map((l) => ({ title: l.title, type: l.type, date: l.date }));
+          const pairs = [
+            ...(igLinks.length ? matchLinks(data.content, igLinks) : []),
+            ...(data.linkedin && Array.isArray(data.linkedin.content) ? matchLinks(data.linkedin.content, ofPlat("linkedin")) : []),
+            ...(data.facebook && Array.isArray(data.facebook.content) ? matchLinks(data.facebook.content, ofPlat("facebook")) : []),
+          ];
           let pics = 0;
-          for (const { row, link } of matchLinks(data.content, links)) {
+          for (const { row, link } of pairs) {
             if (!link) continue;
             row.url = link.url;
             if (!row.date && link.date) row.date = link.date;
             if (link.thumb && !isDemo(r)) {
-              const code = (link.url.match(/\/(?:p|reel|tv)\/([^/?#]+)/) || [])[1] || Math.random().toString(36).slice(2, 9);
-              const path = `smm-thumbs/${code}-${Date.now().toString(36)}.jpg`;
+              const code = ((link.url.match(/\/(?:p|reel|tv)\/([^/?#]+)/) || link.url.match(/(\d{12,})/) || [])[1] || Math.random().toString(36).slice(2, 9)).replace(/[^a-z0-9_-]/gi, "");
+              const path = `smm-thumbs/${link.platform || "instagram"}-${code}-${Date.now().toString(36)}.jpg`;
               const { error } = await supabase.storage.from("pack-images").upload(path, link.thumb, { cacheControl: "31536000", upsert: false, contentType: "image/jpeg" });
               if (!error) { row.thumb = supabase.storage.from("pack-images").getPublicUrl(path).data.publicUrl; pics++; }
             }

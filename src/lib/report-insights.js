@@ -283,7 +283,7 @@ export function renderTrends(accR) {
   const igHas = (accR || []).some((r) => { const d = r.data || {}; return d.profile || d.posts || d.reels; });
   return [igHas ? `<section class="ri-platsec">${platHead("instagram", true)}${renderTrendsIg(accR)}</section>` : "",
     fbT ? `<section class="ri-platsec">${platHead("facebook", !igHas)}${fbT}</section>` : "",
-    liT ? `<section class="ri-platsec">${platHead("linkedin", !igHas && !fbT)}<p class="ri-note" style="margin:0 0 10px;">Each LinkedIn month is the 30 days before that report was run.</p>${liT}</section>` : ""].join("");
+    liT ? `<section class="ri-platsec">${platHead("linkedin", !igHas && !fbT)}<p class="ri-note" style="margin:0 0 10px;">Each LinkedIn month covers the dates printed on its report.</p>${liT}</section>` : ""].join("");
 }
 function renderTrendsIg(accR) {
   if (!accR || accR.length < 2) return `<div class="ri-sec" style="margin-top:0;">Trends</div><div class="ri-panel" style="text-align:center;padding:22px;color:#8a8796;font-size:13px;">Upload at least 2 months to see month-on-month trends here.</div>`;
@@ -322,12 +322,16 @@ const platHead = (key, first) => {
 };
 const dayShort = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
 // A platform's posts as a table, best reach first: six, then the rest.
+// Facebook's and LinkedIn's posts, ranked by reach: each title links to the
+// post, with its thumbnail when the PDF had one (text-only posts have none).
 function postTable(rows, cols) {
   const ranked = rows.filter((t) => t && t.title).slice().sort((a, b) => (nv(b.reach) || 0) - (nv(a.reach) || 0));
   if (!ranked.length) return "";
-  const tr = (t, i) => `<tr><td class="ri-rank">${i + 1}</td><td class="ri-ttl"><span class="ri-ttl-t">${esc(t.title)}</span>${t.date ? `<span class="ri-ttl-d">${esc(dayShort(t.date))}</span>` : ""}</td>${cols.map(([, f]) => `<td class="ri-c">${f(t)}</td>`).join("")}</tr>`;
-  const cg = `<colgroup><col style="width:34px"><col>${cols.map(() => '<col class="ri-eq">').join("")}</colgroup>`;
-  const wrap = (inner, head = true) => `<table class="ri-tbl ri-tbl--fixed">${cg}${head ? `<thead><tr><th></th><th>Post</th>${cols.map(([h]) => `<th class="ri-c">${esc(h)}</th>`).join("")}</tr></thead>` : ""}<tbody>${inner}</tbody></table>`;
+  const pics = ranked.some((t) => t.thumb);
+  const ttl = (t) => t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer"><span class="ri-ttl-t">${esc(t.title)}</span><span class="ri-ttl-go" aria-hidden="true">↗</span></a>` : `<span class="ri-ttl-t">${esc(t.title)}</span>`;
+  const tr = (t, i) => `<tr><td class="ri-rank">${i + 1}</td>${pics ? `<td class="ri-thumbcell">${t.thumb ? `<img src="${esc(t.thumb)}" alt="" class="ri-thumb" loading="lazy">` : `<span class="ri-thumb ri-thumb--none"></span>`}</td>` : ""}<td class="ri-ttl">${ttl(t)}${t.date ? `<span class="ri-ttl-d">${esc(dayShort(t.date))}</span>` : ""}</td>${cols.map(([, f]) => `<td class="ri-c">${f(t)}</td>`).join("")}</tr>`;
+  const cg = `<colgroup><col style="width:34px">${pics ? '<col style="width:60px">' : ""}<col>${cols.map(() => '<col class="ri-eq">').join("")}</colgroup>`;
+  const wrap = (inner, head = true) => `<table class="ri-tbl ri-tbl--fixed">${cg}${head ? `<thead><tr><th></th>${pics ? "<th></th>" : ""}<th>Post</th>${cols.map(([h]) => `<th class="ri-c">${esc(h)}</th>`).join("")}</tr></thead>` : ""}<tbody>${inner}</tbody></table>`;
   const all = ranked.map(tr), top = all.slice(0, 6).join(""), rest = all.slice(6).join("");
   return `<div class="ri-panel ri-tblwrap">${wrap(top)}${rest ? `<details class="ri-more"><summary>Show all ${ranked.length}</summary>${wrap(rest, false)}</details>` : ""}</div>`;
 }
@@ -390,33 +394,58 @@ export function renderFacebook(tab, fb, vis, r) {
 }
 
 // ---- LinkedIn ----------------------------------------------------------------
-// SocialPilot reports LinkedIn over the 30 days before the report was run.
+// LinkedIn: its own dates, as SocialPilot prints them.
 export function renderLinkedIn(tab, li, vis) {
   const show = (k) => !vis || vis[k] !== false;
   li = li || {};
   const lp = li.posts || {}, lv = li.videos || {};
-  const period = li.period ? `<p class="ri-note" style="margin:0 0 10px;">${esc(li.period)}: the 30 days before SocialPilot ran the report, not the calendar month.</p>` : "";
-  if (tab === "audience") return `<p class="ri-note" style="margin:0;">SocialPilot's LinkedIn report has no audience breakdown, so there's nothing to show here for LinkedIn.</p>`;
+  const period = li.period ? `<p class="ri-note" style="margin:0 0 10px;">Covers ${esc(li.period)}.</p>` : "";
+  if (tab === "audience") {
+    /* Best days: impressions by weekday (SocialPilot's Impressions Overview),
+       with engagement beside it from the weekly chart, to read together
+       (Danielle, 19 Oct 2026). Busiest days first in the note. */
+    const days = (Array.isArray(li.byWeekday) ? li.byWeekday : []).filter((x) => x && x.day && (nv(x.impressions) != null || nv(x.engagement) != null));
+    if (!days.length) return `<p class="ri-note" style="margin:0;">No LinkedIn audience figures in this report. SocialPilot shows impressions by day of the week; re-read the PDF if that page is in it.</p>`;
+    const maxI = Math.max(1, ...days.map((x) => nv(x.impressions) || 0)), maxE = Math.max(1, ...days.map((x) => nv(x.engagement) || 0));
+    const hasE = days.some((x) => nv(x.engagement) != null);
+    const best = (k) => days.slice().sort((a, b) => (nv(b[k]) || 0) - (nv(a[k]) || 0)).slice(0, 2).map((x) => x.day);
+    const note = `Most impressions on ${best("impressions").join(" and ")}${hasE ? `; most engagement on ${best("engagement").join(" and ")}` : ""}.`;
+    const panel = (title, k, max, col) => `<div class="ri-panel" style="margin:0;"><div class="ri-card-h">${esc(title)}</div>${days.map((x) => bar(x.day, nv(x[k]), max, col)).join("")}</div>`;
+    return period + sec("Best days", !period) + `<p class="ri-note" style="margin:0 0 10px;">${esc(note)}${hasE ? " Engagement is read from SocialPilot's weekly chart, so it's close rather than exact." : ""}</p>`
+      + grid(hasE ? 2 : 1, panel("Impressions by day", "impressions", maxI, "#0a66c2") + (hasE ? panel("Engagement by day", "engagement", maxE, "#371e28") : ""));
+  }
   if (tab === "content") {
     if (!show("linkedinPosts")) return "";
+    // Every post, videos included (they're in SocialPilot's post table too), by reach.
     const t = postTable(li.content || [], [["Reach", (x) => nf(x.reach)], ["Engagement", (x) => nf(x.engagement)], ["Reactions", (x) => nf(x.reactions)], ["Comments", (x) => nf(x.comments)]]);
     return t ? period + sec("LinkedIn posts · ranked by reach", !period) + t : `<p class="ri-note" style="margin:0;">No LinkedIn posts in this report.</p>`;
   }
-  const ch = (v) => { const x = nv(v); return x ? [`${x > 0 ? "↑" : "↓"} ${Math.abs(x)}% on the 30 days before`, x > 0 ? "#2c7a4b" : "#a05a3c"] : ["", ""]; };
+  // Overview: the same three sections as Instagram's (Danielle, 19 Oct 2026).
+  const ch = (v) => { const x = nv(v); return x ? [`${x > 0 ? "↑" : "↓"} ${Math.abs(x)}% on the previous period`, x > 0 ? "#2c7a4b" : "#a05a3c"] : ["", ""]; };
   const imp = lp.impressions != null ? lp.impressions : li.impressions, impC = lp.impressions != null ? lp.impressionsChange : li.impressionsChange;
-  const [iT, iC] = ch(impC), [rT, rC] = ch(lp.reachChange), [eT, eC] = ch(lp.engagementChange), [erT, erC] = ch(lp.engagementRateChange), [pT, pC] = ch(lp.publishedChange);
+  const [iT, iC] = ch(impC), [rT, rC] = ch(lp.reachChange), [eT, eC] = ch(lp.engagementChange), [erT, erC] = ch(lp.engagementRateChange), [pT, pC] = ch(lp.publishedChange), [gT, gC] = ch(li.followerGrowthChange);
   const out = [period];
-  out.push(sec("Profile", !period) + grid(3,
-    kpi("Followers", nf(li.followers), nv(li.followerGrowth) ? `+${nf(li.followerGrowth)} new` : "", "#2c7a4b")
-    + kpi("Connections", nf(li.connections), "", "")
-    + kpi("Impressions", nf(imp), iT || "Times posts were seen", iT ? iC : "#8a8796")));
-  out.push(sec("Posts") + grid(4,
-    kpi("Published", nf(lp.published), pT, pC)
+  out.push(sec("Profile overview", !period) + grid(2,
+    kpi("Followers", nf(li.followers), nv(li.followerGrowth) ? `+${nf(li.followerGrowth)} new${gT ? ` · ${gT}` : ""}` : "", "#2c7a4b")
+    + kpi("Connections", nf(li.connections), "", "")));
+  // What went out, by type: SocialPilot's Publishing Trend legend.
+  const types = [["Text", lp.text], ["Images", lp.image], ["Videos", lp.video], ["Articles", lp.article], ["Documents", lp.document], ["Others", lp.others]].filter(([, v]) => nv(v) != null);
+  if (types.length || nv(lp.published) != null) {
+    out.push(sec("Published this month") + grid(Math.min(4, types.length + 1),
+      types.map(([l, v]) => kpi(l, nf(v), "", "")).join("") + kpi("Total published", nf(lp.published), pT, pC)));
+  }
+  // Content: every post (videos included), then posts and videos apart, as
+  // Instagram's posts and reels.
+  out.push(sec("Content overview") + grid(4,
+    kpi("Impressions", nf(imp), iT || "Times posts were seen", iT ? iC : "#8a8796")
     + kpi("Post reach", nf(lp.reach), rT, rC)
     + kpi("Engagement", nf(lp.engagement), eT || "Reactions and comments", eT ? eC : "#8a8796")
-    + kpi("Engagement rate", nv(lp.engagementRate) != null ? nv(lp.engagementRate) + "%" : "—", erT, erC))
-    + grid(3, kpi("Reactions", nf(lp.reactions), "", "") + kpi("Comments", nf(lp.comments), "", "")
-      + kpi("Videos", nf(lv.published), nv(lv.published) ? `${nf(lv.views)} views` : "", "#8a8796")));
+    + kpi("Engagement rate", nv(lp.engagementRate) != null ? nv(lp.engagementRate) + "%" : "—", erT, erC)));
+  const card = (lbl, rows, col) => `<div class="ri-panel" style="margin:0;"><div class="ri-card-h" style="color:${col};">${esc(lbl)}</div>${rows.filter(([, v]) => v != null && v !== "").map(([a, v]) => `<div class="ri-row"><span>${esc(a)}</span><b>${typeof v === "string" ? esc(v) : nf(v)}</b></div>`).join("")}</div>`;
+  const postsCard = card("All posts", [["Published", lp.published], ["Impressions", imp], ["Reach", lp.reach], ["Reactions", lp.reactions], ["Comments", lp.comments], ["Engagement", lp.engagement], ["Engagement rate", nv(lp.engagementRate) != null ? nv(lp.engagementRate) + "%" : null]], "#3f5a75");
+  const hasVid = [lv.published, lv.reach, lv.views].some((v) => nv(v) != null);
+  const vidCard = hasVid ? card("Videos", [["Published", lv.published], ["Reach", lv.reach], ["Engagement", lv.engagement], ["Views", lv.views], ["Watch time", nv(lv.watchTime) != null ? `${Math.round(nv(lv.watchTime))} min` : null]], "#371e28") : "";
+  out.push(grid(hasVid ? 2 : 1, postsCard + vidCard));
   return out.join("");
 }
 
