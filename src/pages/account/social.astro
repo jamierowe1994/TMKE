@@ -407,12 +407,14 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
     /* Chapter 02: the plan as three cards; platforms open their accounts. */
     .soc-plan-cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: var(--ws-gap); }
-    .soc-plan-cards.has-shoot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 2fr); }
+    /* Four cards for every client (the third is the shoot, or the offer of one);
+       the package gets the room its name needs, a long name wraps. */
+    .soc-plan-cards.has-shoot { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 1.7fr); }
     /* A little smaller, the name and its line 40% closer (Dani, 20 Oct). */
     .soc-pc { display: flex; flex-direction: column; gap: 6px; padding: 15px 18px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
     .soc-pc-v + .soc-pc-s { margin-top: -2.4px; }
-    .soc-pc-v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .soc-pc-link { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--english-violet); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; text-align: left; }
+    .soc-pc-v { overflow-wrap: anywhere; }
+    .soc-pc-link { display: inline; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--english-violet); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; text-align: left; }
     .soc-pc-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
     .soc-pc-v { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(18px, 1.6vw, 21px); font-weight: 600; letter-spacing: -0.01em; color: var(--ws-ink); }
     .soc-pc-s { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-tx); }
@@ -671,7 +673,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
             <div class="soc-plats" id="soc-plats">${plats.length ? plats.map(tile).join("") : '<span class="soc-pc-s">&mdash;</span>'}</div>
           </div>
         </div>`;
-      $("soc-plan").firstElementChild.classList.toggle("has-shoot", !!c.shoot);
+      $("soc-plan").firstElementChild.classList.add("has-shoot");
       fitPlats();
       renderTeam(c);
     }
@@ -679,13 +681,18 @@ import { gbpFromPence } from "../../lib/supabase.js";
        the Worker (smmShootCycle). Booked, its date; otherwise the month it's
        due, with the way to ask for it. */
     function shootCard(c) {
-      const sh = c.shoot; if (!sh) return "";
+      /* Not on Shot and Scheduled: the same card offers a filming day, so
+         every client sees four cards (Dani, 20 Oct). */
+      const sh = c.shoot;
+      if (!sh) return `<div class="soc-pc"><span class="soc-pc-k">Filming</span><strong class="soc-pc-v">Not in your plan</strong>
+        <span class="soc-pc-s"><a class="soc-pc-link" href="/videography">Book a videography day</a></span></div>`;
       const m = managerOf(c.social_media_manager);
       const who = (m && m.short) || String(c.social_media_manager || "").split(" ")[0] || "your team";
       const mon = (iso) => { try { return new Date(String(iso).slice(0, 10) + "T12:00:00").toLocaleDateString("en-GB", { month: "long" }); } catch (_) { return ""; } };
       const day = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); } catch (_) { return ""; } };
       if (sh.booked) return `<div class="soc-pc"><span class="soc-pc-k">Next shoot</span><strong class="soc-pc-v">Booked: ${esc(day(sh.booked))}</strong><span class="soc-pc-s">Your filming day with TMKE</span></div>`;
-      if (!sh.due) return "";
+      if (!sh.due) return `<div class="soc-pc"><span class="soc-pc-k">Next shoot</span><strong class="soc-pc-v">Not booked yet</strong>
+        <span class="soc-pc-s"><button type="button" class="soc-pc-link" data-book-shoot="">Message ${esc(who)} to book it in</button></span></div>`;
       return `<div class="soc-pc"><span class="soc-pc-k">Next shoot</span><strong class="soc-pc-v">Due in ${esc(mon(sh.due))}</strong>
         <span class="soc-pc-s"><button type="button" class="soc-pc-link" data-book-shoot="${esc(mon(sh.due))}">Message ${esc(who)} to book it in</button></span></div>`;
     }
@@ -930,7 +937,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
         const b = e.target.closest && e.target.closest("[data-book-shoot]"); if (!b) return;
         open.click();
         const box = $("soc-msg-body");
-        if (box && !box.value.trim()) box.value = `Hi, I'd like to book in my ${b.dataset.bookShoot} shoot. These dates work for me: `;
+        if (box && !box.value.trim()) box.value = `Hi, I'd like to book in my ${b.dataset.bookShoot ? b.dataset.bookShoot + " " : "next "}shoot. These dates work for me: `;
       });
       open.addEventListener("click", () => {
         $("soc-msg-note").hidden = true;
