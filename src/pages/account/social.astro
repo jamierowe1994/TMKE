@@ -774,7 +774,13 @@ import { gbpFromPence } from "../../lib/supabase.js";
         const same = prev && comparable(latest.data || {}, prev.data || {}, part);
         const now = num(v), then = same ? num((before.find(([kk]) => kk === k) || [])[1]) : null;
         let delta = "";
-        if (prev && then != null) {
+        // The follower total is the count on the day SocialPilot ran, so it's
+        // never set against last month (docs/smm-report-rules.md §11); the
+        // month's growth is its new followers.
+        if (part === "followers") {
+          const nu = num(combined(latest.data || {}, "newFollowers"));
+          if (nu) delta = `<span class="soc-delta">&#9650; ${esc(nu.toLocaleString("en-GB"))} new in ${esc(MONTHS[latest.month])}</span>`;
+        } else if (prev && then != null) {
           const d = now - then, pct = then ? Math.round((d / then) * 100) : null;
           delta = d === 0 ? `<span class="soc-delta">Level with ${esc(MONTHS[prev.month])}</span>`
             : `<span class="soc-delta">${d > 0 ? "&#9650;" : "&#9660;"} ${esc(Math.abs(d).toLocaleString("en-GB"))}${pct ? ` (${Math.abs(pct)}%)` : ""} on ${esc(MONTHS[prev.month])}</span>`;
