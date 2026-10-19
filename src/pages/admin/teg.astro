@@ -70,21 +70,14 @@ import "../../styles/admin.css";
   </div>
 
   <div class="ash-panel ash-page">
-    <p class="rc-tools-h">Other TEG tools</p>
+    <p class="rc-tools-h">Headshots</p>
     <div class="teg-acts">
-      <button type="button" class="admin-btn admin-btn-primary" id="teg-ping">Test the connection</button>
-      <button type="button" class="admin-btn" id="teg-photos">What does photoApi hold?</button>
-      <button type="button" class="admin-btn" id="teg-heads">Check the headshots</button>
-      <button type="button" class="admin-btn" id="teg-heads-all">Check everyone</button>
-      <button type="button" class="admin-btn" id="teg-imp-prev">Preview headshot import</button>
+      <button type="button" class="admin-btn admin-btn-primary" id="teg-imp-prev">Import TEG headshots</button>
       <button type="button" class="admin-btn" id="teg-missing">Our agents without a brand photo</button>
-      <button type="button" class="admin-btn" id="teg-dry">Dry run — show me what a sync would do</button>
       <span class="teg-status" id="teg-status"></span>
     </div>
 
-    <!-- Nothing is written by either button. The dry run reads their roster
-         and ours and reports the difference; that is all it can do. -->
-    <p class="teg-note">Neither button changes anything, on our side or theirs. The dry run reads both rosters and reports the difference.</p>
+    <p class="teg-note">The import shows everyone first, and saves nothing until you choose to import. Nothing on the Team Hub changes.</p>
 
     <div id="teg-out"></div>
   </div>
@@ -104,19 +97,8 @@ import "../../styles/admin.css";
     .teg-table th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 8px 10px; border-bottom: 1px solid var(--border, rgba(28,29,34,0.12)); white-space: nowrap; }
     .teg-table td { padding: 8px 10px; border-bottom: 1px solid rgba(28,29,34,0.06); vertical-align: top; }
     .teg-new { color: #a05a3c; font-weight: 700; }
-    .teg-pill { display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); margin: 0 3px 3px 0; }
+    .teg-pill { white-space: nowrap; display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); margin: 0 3px 3px 0; }
     .teg-pill.is-add { background: rgba(63,148,104,0.14); color: #2b6b44; }
-    /* Headshots on a checkerboard, so a background-free cut-out shows as one. */
-    .teg-heads { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; margin-top: 16px; }
-    .teg-head { border: 1px solid rgba(28,29,34,0.12); border-radius: 10px; padding: 10px; font-family: var(--sans); font-size: 12px; }
-    .teg-head b { display: block; font-size: 13px; color: var(--ink); margin-bottom: 2px; }
-    .teg-head small { color: rgba(28,29,34,0.55); display: block; margin-bottom: 8px; word-break: break-all; }
-    .teg-shot { margin-top: 8px; }
-    .teg-shot .img { height: 170px; border-radius: 6px; background-color: #fff; background-image: linear-gradient(45deg, #e6e3e3 25%, transparent 25%), linear-gradient(-45deg, #e6e3e3 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e6e3e3 75%), linear-gradient(-45deg, transparent 75%, #e6e3e3 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; display: flex; align-items: flex-end; justify-content: center; overflow: hidden; }
-    .teg-shot img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .teg-shot .meta { display: flex; justify-content: space-between; gap: 6px; margin-top: 5px; color: rgba(28,29,34,0.6); }
-    .teg-yes { color: #2b6b44; font-weight: 700; } .teg-no { color: #9a2a2a; font-weight: 700; }
-    .ash-panel .teg-fc { display: inline-flex; align-items: center; gap: 7px; font-family: var(--sans); font-size: 13px; color: var(--ink); margin: 16px 0 0; cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 500; }
     .ash-panel .teg-q { display: block; width: min(420px, 100%); height: 40px; box-sizing: border-box; padding: 0 12px; margin: 14px 0 0; border: 1px solid rgba(28,29,34,0.18); border-radius: 8px; font: 13px var(--sans); }
     .teg-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); }
     .teg-pick button[data-pick] { appearance: none; background: none; border: 0; padding: 0; font: 700 13px var(--sans); color: var(--english-violet); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
@@ -151,6 +133,9 @@ import "../../styles/admin.css";
     .rc-tab.is-on b, .rc-tab.is-on span { color: #fff; }
     .rc-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
     .rc-sec[hidden] { display: none; }
+    /* Brands and statuses stay on one line; Check first gives the room. */
+    .rc .teg-table td:has(> .teg-pill) { white-space: nowrap; }
+    .rc .teg-table td.rc-check { max-width: 280px; min-width: 180px; }
     .rc-acts-l { justify-content: flex-start; gap: 12px; margin-top: 4px; }
     .rc-progs { display: grid; gap: 3px; }
     .rc-prog { font-family: var(--sans); font-size: 12px; white-space: nowrap; padding-left: 14px; position: relative; }
@@ -211,110 +196,6 @@ import "../../styles/admin.css";
       const token = data?.session?.access_token;
       const res = await fetch(WORKER + pathname, { headers: { Authorization: 'Bearer ' + token } });
       return { status: res.status, body: await res.json().catch(() => null) };
-    }
-
-    document.getElementById('teg-ping').addEventListener('click', async () => {
-      out.innerHTML = '';
-      say('Knocking…');
-      const { body } = await call('/teg/ping');
-      if (!body) { say("No answer from our own Worker.", 'is-err'); return; }
-      const db = body.dbApi || {};
-      say(db.ok ? 'Connected — their database answered.' : 'Not connected yet.', db.ok ? 'is-ok' : 'is-err');
-      out.innerHTML = '<div class="teg-raw">' + esc(JSON.stringify(body, null, 2)) + '</div>';
-    });
-
-    /* photoApi is undocumented, so this reports its shape rather than
-       pretending we know it: every field name, the ones that look like an
-       image, and one whole record to read. */
-    // Headshots: 20 people, each picture opened to see if it is background-free.
-    document.getElementById('teg-heads').addEventListener('click', async () => {
-      out.innerHTML = '';
-      say('Opening twenty headshots…');
-      const { body } = await call('/teg/photos?limit=20&check=1');
-      if (!body || body.error) { say((body && body.error) || 'No answer.', 'is-err'); return; }
-      const people = body.people || [];
-      const shots = people.flatMap((p) => p.images.map((i) => ({ ...i, who: p.label })));
-      const byField = {};
-      shots.forEach((i) => { const f = byField[i.field] || (byField[i.field] = { total: 0, clear: 0 }); f.total++; if (i.transparent) f.clear++; });
-      say(`${body.count ?? '?'} records in photoApi; ${people.length} checked.`, 'is-ok');
-      out.innerHTML = `
-        <div class="teg-sum">
-          ${Object.entries(byField).map(([f, n]) => `<div class="teg-stat"><b>${n.clear} of ${n.total}</b><span>${esc(f)}: background-free</span></div>`).join('') || '<p class="teg-note">None of these records has a picture link.</p>'}
-        </div>
-        <p class="teg-note">Every picture field TEG returns: <strong>${esc((body.looks_like_an_image || []).join(', ') || 'none')}</strong>. The checkerboard shows through anything background-free.</p>
-        <div class="teg-heads">${people.map((p) => `<div class="teg-head"><b>${esc(p.label)}</b><small>${esc(p.email || '')}</small>
-          ${p.images.length ? p.images.map((i) => `<div class="teg-shot"><div class="img"><img src="${esc(i.url)}" alt="" loading="lazy"></div>
-            <div class="meta"><span>${esc(i.field)} · ${esc(i.format || '?')}${i.width ? ` · ${i.width}×${i.height}` : ''}</span>
-            <span class="${i.transparent ? 'teg-yes' : 'teg-no'}">${i.transparent ? 'Background-free' : i.transparent === false ? 'Has background' : (i.error ? esc(i.error) : 'Unknown')}</span></div></div>`).join('') : '<small>No picture</small>'}
-        </div>`).join('')}</div>
-        <p class="teg-note" style="margin:16px 0 6px"><strong>One whole record</strong></p>
-        <div class="teg-raw">${esc(JSON.stringify(body.sample, null, 2))}</div>`;
-    });
-
-    /* Everyone, twenty at a time (one request each, so the Worker stays well
-       inside its limits): who has a background-free headshot and who still
-       has a background, to chase TEG with. */
-    document.getElementById('teg-heads-all').addEventListener('click', async () => {
-      const btn = document.getElementById('teg-heads-all');
-      out.innerHTML = ''; btn.disabled = true;
-      const people = [], seen = new Set(); let fields = [], note = '';
-      try {
-        // TEG's count is the page's, not the whole list's, and has_more can't
-        // be relied on either (30 Sep 2026: it stopped at 20), so this keeps
-        // asking until a page comes back short, or brings nobody new.
-        for (let skip = 0; skip < 5000; skip += 20) {
-          say(`Checking headshots… ${people.length} so far`);
-          const { body } = await call(`/teg/photos?limit=20&skip=${skip}&check=1`);
-          if (!body || body.error) throw new Error((body && body.error) || 'No answer.');
-          fields = [...new Set([...fields, ...(body.looks_like_an_image || [])])];
-          const page = body.people || [];
-          const fresh = page.filter((p) => { const k = (p.email || p.label || '').toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
-          people.push(...fresh);
-          if (page.length && !fresh.length) { note = "TEG sent the same people again, so it may not support paging past this point."; break; }
-          if (page.length < 20) break;
-        }
-      } catch (err) { say(err.message, 'is-err'); btn.disabled = false; return; }
-      btn.disabled = false;
-      // Best picture per person: a background-free one if any field has it.
-      const all = people.map((p) => {
-        const clear = p.images.find((i) => i.transparent);
-        const any = p.images[0] || null;
-        return { name: p.label, email: p.email || '', brand: brandOf(p.email), state: clear ? 'clear' : any ? (any.transparent === false ? 'background' : 'unknown') : 'none', field: (clear || any || {}).field || '', url: (clear || any || {}).url || '' };
-      });
-      HEADS = { all, fields, note };
-      drawHeads();
-    });
-    // Brand from the email domain: the same list as the Worker's
-    // (TEG_DOMAIN_BRANDS in worker/src/index.js).
-    const DOMAIN_BRANDS = [
-      [/(^|\.)thepropertyexperts\.co\.uk$/i, 'The Property Experts'], [/(^|\.)prestigepropertyexperts\.co\.uk$/i, 'Prestige Property Experts'],
-      [/(^|\.)thelettings?experts\.co\.uk$/i, 'The Letting Experts'], [/(^|\.)themarketingexperts\.co\.uk$/i, 'The Marketing Experts'],
-      [/(^|\.)therecruitmentexperts\.co\.uk$/i, 'The Recruitment Experts'], [/(^|\.)themortgageexperts\.co\.uk$/i, 'The Mortgage Experts'],
-      [/(^|\.)fineandcountry\.com$/i, 'Fine & Country'],
-    ];
-    const brandOf = (email) => { const d = String(email || '').toLowerCase().split('@')[1] || ''; const hit = DOMAIN_BRANDS.find(([re]) => re.test(d)); return hit ? hit[1] : (d ? 'Other' : '—'); };
-    /* TEG's own brands first: Fine & Country won't use the print suite yet
-       (Danielle, 30 Sep 2026), so they're left out unless asked for. */
-    let HEADS = null, withFC = false;
-    function drawHeads() {
-      if (!HEADS) return;
-      const { all, fields } = HEADS;
-      const rows = all.filter((r) => withFC || r.brand !== 'Fine & Country');
-      const groups = { clear: 'Background-free', background: 'Still has a background', none: 'No picture', unknown: "Couldn't tell" };
-      const n = (k) => rows.filter((r) => r.state === k).length;
-      const fc = all.length - all.filter((r) => r.brand !== 'Fine & Country').length;
-      say(`${all.length} people checked${fc && !withFC ? `; ${fc} at Fine & Country left out` : ''}.${HEADS.note ? ' ' + HEADS.note : ''}`, HEADS.note ? 'is-err' : 'is-ok');
-      const brands = [...new Set(rows.map((r) => r.brand))].sort();
-      const csv = 'Name,Email,Brand,Headshot,Field,Link\n' + rows.map((r) => [r.name, r.email, r.brand, groups[r.state], r.field, r.url].map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-      out.innerHTML = `
-        <label class="teg-fc"><input type="checkbox" id="teg-fc" ${withFC ? 'checked' : ''}> Include Fine &amp; Country</label>
-        <div class="teg-sum">${Object.keys(groups).filter((k) => n(k)).map((k) => `<div class="teg-stat"><b>${n(k)}</b><span>${groups[k]}</span></div>`).join('')}</div>
-        <p class="teg-note">By brand: ${brands.map((b) => { const br = rows.filter((r) => r.brand === b); return `<strong>${esc(b)}</strong> ${br.filter((r) => r.state === 'clear').length} of ${br.length} background-free`; }).join(' · ')}</p>
-        <p class="teg-note">Picture fields seen: <strong>${esc(fields.join(', ') || 'none')}</strong>. A person counts as background-free if any of their pictures is.
-          <a href="data:text/csv;charset=utf-8,${encodeURIComponent(csv)}" download="TEG headshots.csv">Download the list</a></p>
-        ${['background', 'none', 'unknown', 'clear'].filter((k) => n(k)).map((k) => `<details ${k === 'background' ? 'open' : ''} style="margin-top:14px"><summary class="teg-note" style="cursor:pointer"><strong>${groups[k]} · ${n(k)}</strong></summary>
-          <div class="teg-tablewrap"><table class="teg-table"><thead><tr><th>Name</th><th>Brand</th><th>Email</th><th>Field</th></tr></thead><tbody>${rows.filter((r) => r.state === k).map((r) => `<tr><td>${esc(r.name)}</td><td>${esc(r.brand)}</td><td>${esc(r.email)}</td><td>${esc(r.field)}</td></tr>`).join('')}</tbody></table></div></details>`).join('')}`;
-      document.getElementById('teg-fc').addEventListener('change', (e) => { withFC = e.target.checked; drawHeads(); });
     }
 
     /* Headshot import. Preview first: every TEG person and what would happen
@@ -546,7 +427,7 @@ import "../../styles/admin.css";
           table(['Name', 'Brand', 'Team Hub status', 'Where they are', 'Check first', ''], starters.map((r) => `<tr>
             <td>${nameCell(r.name, DONE.has('s:' + r.key) ? DONE.get('s:' + r.key + ':id') : null, r.email)}${r.job_title ? `<br><span style="color:rgba(28,29,34,0.5)">${esc(r.job_title)}</span>` : ''}</td><td>${brandPills(r.brands)}</td><td>${statusPill(r.status)}</td>
             <td>${progressCell(r.progress)}</td>
-            <td class="teg-flag">${esc(r.maybe)}${r.twin_id ? `<div class="rc-acts rc-acts-l"><button type="button" class="rc-link" data-card="${esc(r.twin_id)}">Open theirs</button>${DONE.has('s:' + r.key) ? '' : `<button type="button" class="rc-link" data-link="${esc(r.key)}">It's them</button>`}</div>` : ''}</td>
+            <td class="teg-flag rc-check">${esc(r.maybe)}${r.twin_id ? `<div class="rc-acts rc-acts-l"><button type="button" class="rc-link" data-card="${esc(r.twin_id)}">Open theirs</button>${DONE.has('s:' + r.key) ? '' : `<button type="button" class="rc-link" data-link="${esc(r.key)}">It's them</button>`}</div>` : ''}</td>
             <td>${doneOr('s:' + r.key, `<div class="rc-acts"><button type="button" class="admin-btn admin-btn-primary" data-add="${esc(r.key)}">Add to CRM</button></div>`)}</td></tr>`).join('')))}
 
         ${sec('leavers', 'Leavers', left.length, 'In our CRM at these brands, and the Team Hub says they\'ve left. Remove takes them out of the CRM altogether; Mark as left keeps their card and marks them as left at that brand.',
@@ -720,63 +601,6 @@ import "../../styles/admin.css";
       CHECK = { ...body, changes: [], baseline: false, from_file: true }; DONE.clear(); drawCheck.pick = null;
       rcSay(`${body.counted} people live at our three brands in ${file.name}. Changes since the last check only show when the check reads the Team Hub itself.`, 'is-ok');
       drawCheck();
-    });
-
-    document.getElementById('teg-photos').addEventListener('click', async () => {
-      out.innerHTML = '';
-      say('Asking photoApi what it holds…');
-      const { body } = await call('/teg/photos?limit=5');
-      if (!body || body.error) { say((body && body.error) || "No answer.", 'is-err'); return; }
-      say(`${body.count} records there${body.has_more ? ', and more after these' : ''}.`, 'is-ok');
-      const list = (arr) => (arr || []).map((f) => `<span class="teg-pill">${esc(f)}</span>`).join('') || '—';
-      out.innerHTML = `
-        <div class="teg-sum">
-          <div class="teg-stat"><b>${esc(body.count)}</b><span>Records</span></div>
-          <div class="teg-stat"><b>${(body.fields || []).length}</b><span>Fields each</span></div>
-          <div class="teg-stat"><b>${(body.looks_like_an_image || []).length}</b><span>Image-ish fields</span></div>
-        </div>
-        <p class="teg-note" style="margin-bottom:6px"><strong>Fields that look like a picture</strong></p>
-        <div>${list(body.looks_like_an_image)}</div>
-        <p class="teg-note" style="margin:16px 0 6px"><strong>Every field</strong></p>
-        <div>${list(body.fields)}</div>
-        <p class="teg-note" style="margin:16px 0 6px"><strong>One whole record</strong></p>
-        <div class="teg-raw">${esc(JSON.stringify(body.sample, null, 2))}</div>`;
-    });
-
-    document.getElementById('teg-dry').addEventListener('click', async () => {
-      out.innerHTML = '';
-      say('Reading both rosters…');
-      const { body } = await call('/teg/preview?limit=500');
-      if (!body || !body.ok) {
-        say((body && body.error) || "That didn't run.", 'is-err');
-        if (body) out.innerHTML = '<div class="teg-raw">' + esc(JSON.stringify(body, null, 2)) + '</div>';
-        return;
-      }
-      say(`Read ${body.counted} of their people. Nothing was changed.`, 'is-ok');
-      const stat = (n, label) => `<div class="teg-stat"><b>${n}</b><span>${label}</span></div>`;
-      const rows = (body.preview || []).map((p) => `
-        <tr>
-          <td>${esc(p.name)}<br><span style="color:rgba(28,29,34,0.5)">${esc(p.email)}</span></td>
-          <td>${p.match === 'in our CRM' ? 'In our CRM' : '<span class="teg-new">New — no contact</span>'}</td>
-          <td>${(p.brands_theirs || []).map((b) => `<span class="teg-pill">${esc(b)}</span>`).join('') || '—'}</td>
-          <td>${(p.brands_to_add || []).map((b) => `<span class="teg-pill is-add">+ ${esc(b)}</span>`).join('') || '—'}</td>
-          <td>${esc(p.job_title) || '—'}</td>
-          <td>${(p.postcodes || []).join(', ') || '—'}</td>
-          <td>${p.leaver ? 'Left' : esc(p.status) || '—'}</td>
-          <td>${p.photo_provided ? 'Yes' : '—'}</td>
-        </tr>`).join('');
-      out.innerHTML = `
-        <div class="teg-sum">
-          ${stat(body.counted, 'Their people')}
-          ${stat(body.new_people, 'Not in our CRM')}
-          ${stat(body.brand_rows_to_add, 'Brand rows to add')}
-          ${stat(body.leavers, 'Marked as left')}
-          ${stat(body.with_photo_flag, 'Photo on file')}
-        </div>
-        <div class="teg-tablewrap"><table class="teg-table">
-          <thead><tr><th>Person</th><th>Match</th><th>Their brands</th><th>We would add</th><th>Job title</th><th>Postcodes</th><th>Status</th><th>Photo</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table></div>`;
     });
 
     (async () => {
