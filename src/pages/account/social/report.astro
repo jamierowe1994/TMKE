@@ -156,6 +156,7 @@ import "../../../styles/ws-system.css";
     /* A column per platform, "Across your accounts" under the first. */
     .rp-contents--cols { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 1.1em 1.6em; }
     .rp-ccol--across { grid-column: 1; }
+    .rp-cstack { display: grid; gap: 1.1em; align-content: start; min-width: 0; }
     .rp-contents-gh { margin: 0 0 0.6em; font-size: 0.7em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
     .rp-cover-card--wide { width: min(80%, 62em); }
     @media (max-width: 900px) { .rp-contents--cols { grid-template-columns: 1fr; } .rp-cover-card--wide { width: 100%; } }
@@ -292,7 +293,6 @@ import "../../../styles/ws-system.css";
     .rp-chip b { font-family: var(--serif); font-size: 1.7em; font-weight: 400; line-height: 1.05; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
     .rp-chip-c { font-size: 0.82em; font-weight: 700; color: var(--ws-tx); }
     .rp-chip-c.is-up { color: var(--english-violet, #4a2a3c); }
-    .rp-chip-p { margin-top: 0.35em; }
     /* Insights: open columns under a wine rule, not boxes, so the page
        doesn't turn into a grid of cards. As many columns as insights. */
     .rp-insights { flex: 1 1 auto; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 2.4em; align-content: center; padding: 0.6em 0 1em; }
@@ -383,7 +383,7 @@ import "../../../styles/ws-system.css";
     import { MONTHS } from "../../../lib/report-insights.js";
     import { resolveVisibility } from "../../../lib/report-fields.js";
     import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
-    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, pct2, PLATFORM_LABELS, itemPlatform } from "../../../lib/report-metrics.js";
+    import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, pct2, PLATFORM_LABELS, itemPlatform, chipLabel } from "../../../lib/report-metrics.js";
     import { downloadReportPdf } from "../../../lib/report-pdf.js";
     import { isTrainingDemo } from "../../../lib/demo.js";
     import { TRAINING_SMM } from "../../../lib/training-smm.js";
@@ -402,14 +402,18 @@ import "../../../styles/ws-system.css";
        it has nothing to say, so a month without a second month to compare
        simply has less in it. The visibility switches in admin
        (report-fields.js) still decide what a client may see. */
-    // Insight headlines of more than four words go over two lines, broken
-    // where the two halves come out closest in length, so the four read as
-    // a set (Danielle, Sep 2026). The break is dropped on phones.
-    function twoLines(t) {
-      const w = String(t || "").trim().split(/\s+/);
-      if (w.length <= 4) return esc(w.join(" "));
-      let best = 1, gap = Infinity;
-      for (let i = 1; i < w.length; i++) { const g = Math.abs(w.slice(0, i).join(" ").length - w.slice(i).join(" ").length); if (g < gap) { gap = g; best = i; } }
+    // Insight headlines go over two lines, broken where the two halves come
+    // out closest in length, so the row reads as a set (Danielle, Sep 2026).
+    // Once any in the row needs two lines, every headline of four words or
+    // more takes two as well, and the first line always keeps at least three
+    // words ("Tuesdays are your / day"), Danielle, 20 Oct 2026. The break is
+    // dropped on phones.
+    const wordsOf = (t) => String(t || "").trim().split(/\s+/).filter(Boolean);
+    function twoLines(t, row) {
+      const w = wordsOf(t);
+      if (w.length < (row ? 4 : 5)) return esc(w.join(" "));
+      let best = 3, gap = Infinity;
+      for (let i = 3; i < w.length; i++) { const g = Math.abs(w.slice(0, i).join(" ").length - w.slice(i).join(" ").length); if (g < gap) { gap = g; best = i; } }
       return `${esc(w.slice(0, best).join(" "))} <br class="rp-br">${esc(w.slice(best).join(" "))}`;
     }
 
@@ -661,14 +665,15 @@ import "../../../styles/ws-system.css";
       // Four figures chosen for this month's story (report-metrics.js): the
       // drafting picks which, the numbers are worked out here.
       const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
-      // Several platforms: each figure says which one it's from, or that it's
-      // all of them together (Danielle, 19 Oct 2026).
-      const chipsHtml = heads.length ? `<div class="rp-chips">${heads.map((c) => `<div class="rp-chip"><span class="rp-chip-l">${esc(c.label)}</span><b>${esc(c.value)}</b>${c.sub ? `<span class="rp-chip-c ${c.dir > 0 ? "is-up" : c.dir < 0 ? "is-down" : ""}">${esc(c.sub)}</span>` : ""}${multiG ? `<span class="rp-chip-p">${ppill(c.platform || "instagram")}</span>` : ""}</div>`).join("")}</div>` : "";
+      // Several platforms: each figure's label names its platform, or none
+      // for all of them together (chipLabel, Danielle, 20 Oct 2026).
+      const chipsHtml = heads.length ? `<div class="rp-chips">${heads.map((c) => `<div class="rp-chip"><span class="rp-chip-l">${esc(chipLabel(c, multiG))}</span><b>${esc(c.value)}</b>${c.sub ? `<span class="rp-chip-c ${c.dir > 0 ? "is-up" : c.dir < 0 ? "is-down" : ""}">${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
       // Two to four insights, as many as the month genuinely has.
       const insights = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
+      const twoRow = insights.some((i) => wordsOf(i.headline).length > 4);
       const insightsHtml = insights.length ? `<div class="rp-insights" style="--n:${insights.length}">${insights.map((i) => `<div class="rp-insight">
           <p class="rp-label rp-insight-k">${multiG ? ppill(itemPlatform(i, d)) : ""}${esc(INSIGHT_CATEGORIES[i.category])}${i.confidence === "emerging" ? `<span class="rp-insight-early">Early signal</span>` : ""}</p>
-          <h3 class="rp-insight-h">${twoLines(i.headline)}</h3>
+          <h3 class="rp-insight-h">${twoLines(i.headline, twoRow)}</h3>
           <p class="rp-insight-p">${esc(i.analysis)}</p>
           ${i.evidence.length ? `<p class="rp-insight-ev">${i.evidence.map(esc).join(" &middot; ")}</p>` : ""}
         </div>`).join("")}</div>` : "";
@@ -695,7 +700,7 @@ import "../../../styles/ws-system.css";
           (takes.length ? `<div class="rp-cards rp-takes rp-grow" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${multiG ? `<p class="rp-mini-pp">${ppill(itemPlatform(x, d))}</p>` : ""}${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
           + (coming.length || (d.contentPlan && d.contentPlan.doc_id) ? `<div class="rp-mini rp-coming"><div class="rp-coming-h"><p class="rp-label">Content coming up</p>${d.contentPlan && d.contentPlan.doc_id && !sampleMode ? `<button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-plan="${esc(d.contentPlan.doc_id)}">Open the content plan</button>` : ""}</div>${coming.length ? `<ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol>` : ""}</div>` : "")
           // Later this becomes "See next month's content plan".
-          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any questions about this month&rsquo;s insights and our plan for your next month&rsquo;s social content.` : `Your account manager can talk you through any questions about this month&rsquo;s insights and our plan for your next month&rsquo;s social content.`}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
+          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any questions about this month&rsquo;s insights and our plan for your next month&rsquo;s social content.` : `Your account manager can talk you through any questions about this month&rsquo;s insights and our plan for your next month&rsquo;s social content.`}</p></div><a class="ws-btn ws-btn--primary" href="/account/social?report=${encodeURIComponent(r.id)}#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
       }
       return parts;
     }
@@ -752,15 +757,21 @@ import "../../../styles/ws-system.css";
       const back = sample ? "/account/social?sample=1" : "/account/social";
       $("rp-back").href = back;
 
-      /* Contents. Several platforms: a column each, side by side, with
-         "Across your accounts" under the first, so the cover fits the screen
-         without scrolling (Danielle, 19 Oct 2026). One platform: one list. */
+      /* Contents. Two platforms: a column each, side by side, with "Across
+         your accounts" under the first; three: two columns of two, so the
+         cover fits the screen without scrolling (Danielle, 19-20 Oct 2026).
+         One platform: one list. */
       const PLAT_GROUPS = ["Instagram", "Facebook", "LinkedIn"];
       const groupsHere = PLAT_GROUPS.filter((g) => parts.some((p) => p.group === g));
       const item = (p, i) => `<li><span class="rp-cn">${String(i + 1).padStart(2, "0")}</span><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`;
       const col = (g) => `<div class="rp-ccol"><p class="rp-contents-gh">${esc(g)}</p><ol class="rp-contents-l">${parts.map((p, i) => p.group === g ? item(p, i) : "").join("")}</ol></div>`;
       const across = [...new Set(parts.map((p) => p.group).filter((g) => g && !PLAT_GROUPS.includes(g)))];
       const contents = !parts.length ? `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`
+        : groupsHere.length > 2
+        // Three platforms: two columns, Instagram over Facebook, then LinkedIn
+        // over "Across your accounts" (Danielle, 20 Oct 2026).
+        ? (() => { const blocks = [...groupsHere, ...across].map(col), half = Math.ceil(blocks.length / 2);
+            return `<div class="rp-contents rp-contents--cols" style="--cols:2">${[blocks.slice(0, half), blocks.slice(half)].map((b) => `<div class="rp-cstack">${b.join("")}</div>`).join("")}</div>`; })()
         : groupsHere.length > 1
         ? `<div class="rp-contents rp-contents--cols" style="--cols:${groupsHere.length}">${groupsHere.map(col).join("")}${across.map((g) => `<div class="rp-ccol rp-ccol--across">${col(g).replace(/^<div class="rp-ccol">|<\/div>$/g, "")}</div>`).join("")}</div>`
         : `<ol class="rp-contents rp-contents-l">${parts.map(item).join("")}</ol>`;
@@ -781,7 +792,7 @@ import "../../../styles/ws-system.css";
           <div class="rp-done-actions">
             <a class="ws-btn ws-btn--ghost" href="${back}">Back to your socials</a>
             <button type="button" class="ws-btn ws-btn--ghost" data-pdf><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download PDF</button>
-            ${sample ? "" : `<a class="ws-btn ws-btn--primary" href="/account/social#message">${mgr ? `Message ${esc(mgr.split(/\s+/)[0])}` : "Message your team"}</a>`}
+            ${sample ? "" : `<a class="ws-btn ws-btn--primary" href="/account/social?report=${encodeURIComponent(r.id)}#message">${mgr ? `Message ${esc(mgr.split(/\s+/)[0])}` : "Message your team"}</a>`}
           </div>
         </div>`;
 
@@ -801,6 +812,23 @@ import "../../../styles/ws-system.css";
         deck.style.setProperty("--rp-foot", `${footBar ? footBar.offsetHeight : 0}px`);
       };
       window.addEventListener("resize", fit);
+      /* The mouse wheel. Lenis (the site's smooth scroll) takes the wheel for
+         the window, which doesn't move here: the slide does, so the wheel did
+         nothing and only the scroll bar worked. Lenis leaves this page alone,
+         and a wheel anywhere on it scrolls the slide, unless it's over
+         something with its own scroll (Danielle, 20 Oct 2026). */
+      document.body.setAttribute("data-lenis-prevent", "");
+      document.addEventListener("wheel", (e) => {
+        if (!document.body.classList.contains("rp-fixed") || e.ctrlKey || !e.deltaY) return;
+        const slide = stage.querySelector(".rp-slide");
+        if (!slide || slide.contains(e.target)) return;
+        for (let el = e.target; el && el !== document.body && el.nodeType === 1; el = el.parentElement) {
+          const oy = getComputedStyle(el).overflowY;
+          if ((oy === "auto" || oy === "scroll") && el.scrollHeight > el.clientHeight) return;
+        }
+        e.preventDefault();
+        slide.scrollBy({ top: e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? slide.clientHeight : 1) });
+      }, { passive: false });
       const show = (i) => {
         at = Math.max(0, Math.min(LAST, i));
         stage.innerHTML = slides[at];
@@ -857,7 +885,10 @@ import "../../../styles/ws-system.css";
         if (e.key === "ArrowLeft") show(at - 1);
       });
       // Dev only: &slide=N opens on slide N, for checking one slide's layout.
-      show(DEV ? +(params.get("slide") || 0) : 0);
+      // Back from messaging the team: the finished slide, where they left.
+      const toEnd = location.hash === "#finished";
+      if (toEnd) history.replaceState(null, "", location.pathname + location.search);
+      show(toEnd ? LAST : DEV ? +(params.get("slide") || 0) : 0);
     }
 
     function notFound() { $("rp-loading").hidden = true; $("rp-empty").hidden = false; }

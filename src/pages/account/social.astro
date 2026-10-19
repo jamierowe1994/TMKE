@@ -29,7 +29,18 @@ import { gbpFromPence } from "../../lib/supabase.js";
           <div class="ws-hero-copy">
             <p class="ws-hero-date"><a href="/account" class="back-link">&larr; Workspace</a></p>
             <h1 class="ws-greeting">Your Socials.</h1>
-            <p class="ws-hero-sub">View your social media plan and see how your accounts are performing month by month.</p>
+            <p class="ws-hero-sub" id="soc-sub">View your social media plan and see how your accounts are performing month by month.</p>
+            <!-- A client's: the dashboard's arrangement (Dani, 20 Oct: "more
+                 inspiration from the dashboard"), the two things they come
+                 for, then the three boxes. Hidden until known, never sample
+                 figures. -->
+            <div class="ws-hero-cta soc-hero-cta" id="soc-hero-cta" hidden>
+              <a class="ws-btn ws-btn--primary" id="soc-hero-read" href="#soc-perf-h">Read the latest report
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </a>
+              <button type="button" class="ws-btn ws-btn--ghost" id="soc-hero-msg">Message your team</button>
+            </div>
+            <ul class="ws-brief soc-brief" id="soc-brief" hidden></ul>
           </div>
           <div class="ws-hero-photo" role="img" aria-label="A styled interior"></div>
         </section>
@@ -124,47 +135,48 @@ import { gbpFromPence } from "../../lib/supabase.js";
             <button type="button" class="ws-btn ws-btn--ghost" id="soc-sample-back">Back</button>
           </div>
 
-          <!-- Chapter 01 — what you are on -->
-          <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-plan-h">
+          <!-- Chapter 01 — the month: the latest report as a cover, its three
+               figures against the month before, the earlier months as cards. -->
+          <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-perf-h">
             <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-plan-h"><span class="ws-block-ch">Chapter 01</span>Your plan</h2>
-              <!-- Filled by renderPlan(). The strip carries the status so the
-                   card below holds only the facts. -->
+              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 01</span>Monthly performance</h2>
+            </header>
+            <div id="soc-insights"><div class="soc-card"><p class="soc-state">Your first monthly report will appear here once we&rsquo;ve published it.</p></div></div>
+          </section>
+
+          <!-- Chapter 02 — what you are on -->
+          <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-plan-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-plan-h"><span class="ws-block-ch">Chapter 02</span>Your plan</h2>
+              <!-- Filled by renderPlan(). The strip carries the status. -->
               <span class="ws-block-status" id="soc-status" hidden></span>
             </header>
-            <div class="soc-card" id="soc-plan"></div>
+            <div id="soc-plan"></div>
           </section>
 
-          <!-- Chapter 02 — what they owe, and what they have paid -->
+          <!-- Chapter 03 — what they owe, and what they have paid -->
           <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-bill-h" id="soc-bill-block" hidden>
             <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-bill-h"><span class="ws-block-ch">Chapter 02</span>Invoices</h2>
+              <h2 class="ws-block-h" id="soc-bill-h"><span class="ws-block-ch">Chapter 03</span>Invoices</h2>
               <span class="ws-block-status" id="soc-bill-status" hidden></span>
             </header>
-            <div class="soc-card" id="soc-bill"></div>
+            <div id="soc-bill"></div>
           </section>
 
-          <!-- Chapter 03 — the monthly report -->
-          <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-perf-h">
-            <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 03</span>Monthly performance</h2>
-            </header>
-            <div class="soc-card">
-              <div id="soc-insights"><p class="soc-state">Your first monthly report will appear here once we&rsquo;ve published it.</p></div>
-            </div>
-          </section>
-
-          <!-- Chapter 04 — the people behind it -->
-          <section class="ws-block ws-rise" style="--i:3" aria-labelledby="soc-team-h">
+          <!-- Chapter 04 — the person behind it, as the Community introduces
+               the team: face, name, role, and the way to reach them. -->
+          <section class="ws-block ws-rise" style="--i:4" aria-labelledby="soc-team-h">
             <header class="ws-block-head">
               <h2 class="ws-block-h" id="soc-team-h"><span class="ws-block-ch">Chapter 04</span>Your social team</h2>
             </header>
-            <div class="soc-card soc-contact">
-              <div>
-                <h3 class="soc-contact-h">Questions about your social?</h3>
-                <p class="soc-contact-p">Your TMKE social team is here to help, from content ideas to the numbers above.</p>
+            <div class="soc-team" id="soc-team">
+              <div class="soc-team-photo" id="soc-team-photo" aria-hidden="true"></div>
+              <div class="soc-team-tx">
+                <p class="soc-team-k" id="soc-team-k">Your social team</p>
+                <h3 class="soc-team-h" id="soc-team-name">Questions about your social?</h3>
+                <p class="soc-team-p" id="soc-team-p">Your TMKE social team is here to help, from content ideas to the numbers above.</p>
+                <button type="button" class="ws-btn ws-btn--primary" id="soc-msg-open">Message your team</button>
               </div>
-              <button type="button" class="ws-btn ws-btn--primary" id="soc-msg-open">Message your team</button>
             </div>
           </section>
 
@@ -611,7 +623,13 @@ import { gbpFromPence } from "../../lib/supabase.js";
         ].join("");
         you.hidden = !you.innerHTML;
       }
-      const close = () => { scrim.hidden = true; };
+      // Opened from a report: closing it (sent or not) goes back to that
+      // report's finished slide, not this page (Danielle, 20 Oct 2026).
+      const fromReport = new URLSearchParams(location.search).get("report");
+      const close = () => {
+        if (fromReport) { location.href = `/account/social/report?r=${encodeURIComponent(fromReport)}#finished`; return; }
+        scrim.hidden = true;
+      };
       open.addEventListener("click", () => {
         $("soc-msg-note").hidden = true;
         scrim.hidden = false;
@@ -620,14 +638,14 @@ import { gbpFromPence } from "../../lib/supabase.js";
       $("soc-msg-cancel").addEventListener("click", close);
       scrim.addEventListener("click", (e) => { if (e.target === scrim) close(); });
       // The report's last slide sends them here to ask about it.
-      if (location.hash === "#message") { history.replaceState(null, "", location.pathname + location.search); open.click(); }
+      if (location.hash === "#message") { history.replaceState(null, "", location.pathname); open.click(); }
 
       $("soc-msg-send").addEventListener("click", async () => {
         const btn = $("soc-msg-send"), note = $("soc-msg-note");
         const body = $("soc-msg-body").value.trim();
         const say = (m, cls) => { note.textContent = m; note.className = "soc-msg-note " + (cls || ""); note.hidden = false; };
         if (!body) { say("Write something first.", "is-err"); return; }
-        if (isTrainingDemo()) { say("This is the training account, so nothing is sent.", "is-ok"); return; }
+        if (isTrainingDemo()) { say("This is the training account, so nothing is sent.", "is-ok"); if (fromReport) setTimeout(close, 1600); return; }
         btn.disabled = true; btn.textContent = "Sending…";
         try {
           const { data: { session } } = await supabase.auth.getSession();

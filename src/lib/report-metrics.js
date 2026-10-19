@@ -211,6 +211,15 @@ export function normaliseInsight(i) {
    Facebook and LinkedIn; every insight and next-month item says which one
    it's about ("all" for one that spans them). */
 export const PLATFORM_LABELS = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", all: "All platforms" };
+
+// A headline figure's label when the report covers several platforms: the
+// platform leads it ("Instagram profile reach"), and a figure across all of
+// them keeps its plain name ("New followers"), so no pill under each figure
+// repeats the insights' pills (Danielle, 20 Oct 2026).
+export function chipLabel(c, multi) {
+  const p = c.platform || "instagram";
+  return multi && p !== "all" && PLATFORM_LABELS[p] ? `${PLATFORM_LABELS[p]} ${c.label.charAt(0).toLowerCase()}${c.label.slice(1)}` : c.label;
+}
 /** The platforms a report's data covers, in report order. */
 export function platformsOf(d) {
   d = d || {};

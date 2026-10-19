@@ -10,7 +10,7 @@
 // page whatever browser or device makes it. The numbers come from the same
 // report data as the web slides, worked out the same way.
 
-import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, PLATFORM_LABELS, itemPlatform } from "./report-metrics.js";
+import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, PLATFORM_LABELS, itemPlatform, chipLabel } from "./report-metrics.js";
 
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const n = (v) => { if (v == null || v === "") return null; const x = Number(String(v).replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : null; };
@@ -105,7 +105,6 @@ const CSS = `
 .rpx-chip { background: #e4dcdb; padding: 20px 26px; }
 .rpx-chip b { display: block; font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 52px; font-weight: 400; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 0; color: #1c1d22; }
 .rpx-chip span { display: block; font-size: 19px; font-weight: 800; color: #371e28; margin: 8px 0 0; }
-.rpx-chip-p { display: inline-block; margin: 10px 0 0; padding: 2px 10px; border-radius: 999px; background: rgba(55,30,40,0.1); color: #371e28; font-style: normal; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .rpx-ins { flex: 1; display: grid; grid-auto-rows: 1fr; gap: 36px 56px; margin-top: 44px; }
 .rpx-in { border-top: 3px solid #371e28; padding-top: 22px; }
 .rpx-in .rpx-label { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; color: #371e28; margin: 0 0 12px; }
@@ -290,7 +289,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const prev = vis.trends !== false && series.length > 1 ? series[series.length - 2] : null;
   const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
   // Several platforms: each figure says which, or that it's all of them.
-  const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(c.label)}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}${multi ? `<em class="rpx-chip-p">${esc(PLATFORM_LABELS[c.platform || "instagram"])}</em>` : ""}</div>`).join("")}</div>` : "";
+  const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(chipLabel(c, multi))}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
   const PP_COL = { instagram: "#c13584", facebook: "#1877f2", linkedin: "#0a66c2", all: "#6e6268" };
   const ppill = (k) => multi ? `<span class="rpx-pp" style="--pp:${PP_COL[k] || "#6e6268"}">${esc(PLATFORM_LABELS[k] || k)}</span>` : "";
