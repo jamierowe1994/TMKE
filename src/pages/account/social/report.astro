@@ -363,6 +363,8 @@ import "../../../styles/ws-system.css";
     import { DEMO_REPORTS } from "../../../lib/report-insights-demo.js";
     import { headlineCards, normaliseInsight, INSIGHT_CATEGORIES, lastMonthOf, numbersMoves, pct2, PLATFORM_LABELS, itemPlatform } from "../../../lib/report-metrics.js";
     import { downloadReportPdf } from "../../../lib/report-pdf.js";
+    import { isTrainingDemo } from "../../../lib/demo.js";
+    import { TRAINING_SMM } from "../../../lib/training-smm.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const DEV = import.meta.env.DEV;
@@ -807,6 +809,13 @@ import "../../../styles/ws-system.css";
           const pg = h.querySelectorAll(".rpx-page")[Number(params.get("pdfpage")) - 1]; if (pg) pg.classList.add("show");
         }
         return;
+      }
+      // The training account's own reports (src/lib/training-smm.js), read as
+      // a real client's are: not the sample, and nothing from the database.
+      if (isTrainingDemo()) {
+        const all = TRAINING_SMM.reports, want = params.get("r");
+        const r = (want && all.find((x) => String(x.id) === want)) || all[0];
+        return run(r, all, resolveVisibility(TRAINING_SMM.visibility), TRAINING_SMM.client, false);
       }
       const sampleId = params.get("sample");
       const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abby" };

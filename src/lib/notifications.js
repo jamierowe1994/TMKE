@@ -9,6 +9,8 @@
 //    directly, such as "your monthly report is ready". Read state lives on
 //    the row (read_at), so it follows them from phone to laptop.
 import { supabase } from "./supabase.js";
+import { isTrainingDemo } from "./demo.js";
+import { TRAINING_SMM } from "./training-smm.js";
 
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 const SEEN_KEY = "tmke_notif_seen";
@@ -45,12 +47,25 @@ export async function initNotifications() {
   const lists = Array.from(document.querySelectorAll(".ws-notif-list"));
   if (!lists.length) return;
 
-  let session;
-  try { session = (await supabase.auth.getSession()).data.session; } catch (_) { return; }
-  if (!session) return;
+  /* The training account's bell: its own reports, as a client's would be
+     announced (src/lib/training-smm.js), and nobody's real notifications. */
+  const training = isTrainingDemo();
+  let session = null;
+  if (!training) {
+    try { session = (await supabase.auth.getSession()).data.session; } catch (_) { return; }
+    if (!session) return;
+  }
+  const MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const trainingNotes = () => TRAINING_SMM.reports.map((r, i) => ({
+    id: null, kind: "smm_report_ready", title: `Your ${MN[r.month]} report is ready`,
+    body: "See how your Instagram, Facebook and LinkedIn did, and what we're doing next.",
+    href: `/account/social/report?r=${encodeURIComponent(r.id)}`,
+    // The latest unread, a day or two after its month ends.
+    created_at: new Date(Date.UTC(r.year, r.month + 1, 2, 9)).toISOString(), read_at: i ? "read" : null,
+  }));
 
   // Both at once; either failing leaves the other.
-  const [messages, direct] = await Promise.all([
+  const [messages, direct] = training ? [[], trainingNotes()] : await Promise.all([
     WORKER
       ? fetch(`${WORKER}/booking/mine`, { headers: { Authorization: "Bearer " + session.access_token } })
           .then((r) => (r.ok ? r.json() : {})).then((t) => t.messages || []).catch(() => [])
@@ -104,7 +119,8 @@ export async function initNotifications() {
 
   const markAll = () => {
     localStorage.setItem(SEEN_KEY, String(Date.now()));
-    supabase.rpc("member_notifications_read_all").then(() => {}, () => {});
+    // Never the signed-in person's own notifications from the training account.
+    if (!training) supabase.rpc("member_notifications_read_all").then(() => {}, () => {});
     document.querySelectorAll(".ws-notif").forEach((n) => n.classList.add("is-read"));
     document.querySelectorAll(".ws-notif-item.is-unread").forEach((i) => i.classList.remove("is-unread"));
   };

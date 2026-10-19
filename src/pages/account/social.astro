@@ -441,6 +441,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
     // existed at build time, so the sign-in check threw and the page sat on
     // "Loading your social media" for everyone (Dani, 17 Oct).
     import { isTrainingDemo } from "../../lib/demo.js";
+    import { TRAINING_SMM } from "../../lib/training-smm.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const DEV = import.meta.env.DEV;
@@ -619,6 +620,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
         const body = $("soc-msg-body").value.trim();
         const say = (m, cls) => { note.textContent = m; note.className = "soc-msg-note " + (cls || ""); note.hidden = false; };
         if (!body) { say("Write something first.", "is-err"); return; }
+        if (isTrainingDemo()) { say("This is the training account, so nothing is sent.", "is-ok"); return; }
         btn.disabled = true; btn.textContent = "Sending…";
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -652,7 +654,9 @@ import { gbpFromPence } from "../../lib/supabase.js";
       const block = $("soc-bill"), wrap = $("soc-bill-block");
       if (!block || !wrap || !WORKER) return;
       let list = [];
-      try {
+      const training = isTrainingDemo();
+      if (training) list = TRAINING_SMM.invoices || [];
+      else try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
         const res = await fetch(`${WORKER}/smm/invoices`, { headers: { Authorization: "Bearer " + session.access_token } });
@@ -695,6 +699,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
       block.querySelectorAll("[data-pdf]").forEach((b) => b.addEventListener("click", async () => {
         const label = b.textContent;
+        if (training) { b.textContent = "Not in training"; setTimeout(() => { b.textContent = label; }, 1600); return; }
         b.disabled = true; b.textContent = "Preparing…";
         try {
           const { data: { session } } = await supabase.auth.getSession();
@@ -782,6 +787,10 @@ import { gbpFromPence } from "../../lib/supabase.js";
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) $("footer-email").textContent = session.user.email || "";
       wireWaitlist(session);
+      /* The training account is a managed client: Rimberio Homes on
+         Instagram, Facebook and LinkedIn (src/lib/training-smm.js), never
+         the signed-in person's own plan, and nothing from the database. */
+      if (isTrainingDemo()) { show(TRAINING_SMM); return; }
       if (!session) {
         if (DEV || isTrainingDemo()) { showSample(); return; }
         location.replace("/login?next=" + encodeURIComponent("/account/social"));
