@@ -1,5 +1,5 @@
 // The management report: every client's published month in one A4 PDF, for
-// the team (Admin > Social > Settings > Monthly report). A working document,
+// the team (Admin > Social > Settings > Monthly management report). A working document,
 // not a presentation: a cover listing every account and who's missing, then
 // each account's figures for each platform, the top fives, and our own read
 // of the month (the Management Summary tab: what it means, into next month,
@@ -74,6 +74,14 @@ const CSS = `
 .mg-miss li { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 8px 0; border-bottom: 1px solid #eee9ea; font-size: 17px; }
 .mg-miss li > span:last-child { color: #8f3b3b; font-weight: 700; white-space: nowrap; }
 .mg-acct b { display: block; }
+/* Cover: figures in the body face at the account names' size and weight. */
+.mg-covertbl td, .mg-covertbl td.v { font-family: "Darker Grotesque", "Inter", system-ui, sans-serif; font-size: 18px; font-weight: 700; padding-top: 9px; padding-bottom: 9px; vertical-align: top; }
+.mg-covertbl td.l:nth-child(2), .mg-covertbl td.l:nth-child(3) { font-weight: 500; }
+.mg-covertbl .mg-acct b { font-size: 18px; }
+.mg-covertbl tbody.mg-grp td { border-bottom: 0; }
+.mg-covertbl tbody.mg-grp tr:last-child td { border-bottom: 1px solid #ddd6d2; }
+.mg-covertbl tbody.mg-grp:nth-of-type(even) td { background: #eae5e1; }
+.mg-goto { color: inherit; }
 .mg-acct small { display: block; font-size: 14px; color: #6e6268; margin-top: 1px; }
 .mg-miss { list-style: none; margin: 0; padding: 0; }
 .mg-tbl tr.sub td { border-top: 0; }
@@ -263,7 +271,14 @@ function coverPage({ month, year, accounts, missing, by }, title, pageOf) {
   /* A row per platform: Facebook's followers are Page likes, its views Page
      views; LinkedIn's views are impressions. Never added together. Each
      row's page is the page its figures landed on. */
-  const list = `<table class="mg-tbl"><thead><tr><th class="l">Account</th><th class="l">Platform</th><th class="l">Manager</th><th>Followers</th><th>New</th><th>Reach</th><th>Views</th><th>Interactions</th><th>Rate</th><th>Page</th></tr></thead><tbody>${accounts.map((a, i) => {
+  // "Samantha Thornicroft" as "S. Thornicroft": a narrower column, more room
+  // for the figures (Danielle, 19 Oct 2026). A single name stays as it is.
+  const mgr = (m) => { const w = String(m || "").trim().split(/\s+/).filter(Boolean); return w.length > 1 ? `${w[0][0]}. ${w.slice(1).join(" ")}` : w.join(""); };
+  // Each account is one block (a tbody): its platforms as lines within it,
+  // no rule between them; blocks alternate white and #EAE5E1. The name and
+  // the page number link to the account's page (data-goto, made into PDF
+  // links when the pages are captured).
+  const list = `<table class="mg-tbl mg-covertbl"><thead><tr><th class="l">Account</th><th class="l">Platform</th><th class="l">Manager</th><th>Followers</th><th>New</th><th>Reach</th><th>Views</th><th>Interactions</th><th>Rate</th><th>Page</th></tr></thead>${accounts.map((a, i) => {
     const d = a.report.data || {}, p = d.profile || {}, fb = d.facebook || {}, fp = fb.posts || {}, li = d.linkedin || {}, lp = li.posts || {};
     const pg = (k) => (pageOf[i] && (pageOf[i][k] || pageOf[i].first)) || "";
     const rows = [];
@@ -271,8 +286,9 @@ function coverPage({ month, year, accounts, missing, by }, title, pageOf) {
     if (d.facebook) rows.push(["Facebook", fb.pageLikes, fb.newFans, fb.pageReach, fb.pageViews, fp.engagement, "–", pg("facebook")]);
     if (d.linkedin) rows.push(["LinkedIn", li.followers, li.followerGrowth, lp.reach, lp.impressions != null ? lp.impressions : li.impressions, lp.engagement, pc(n(lp.engagementRate)), pg("linkedin")]);
     if (!rows.length) rows.push([a.report.platform || "Instagram", null, null, null, null, null, "–", pg("first")]);
-    return rows.map((r, j) => `<tr${j ? ' class="sub"' : ""}><td class="l">${j ? "" : acct(a.lead.name, a.lead.business, [])}</td><td class="l">${esc(r[0])}</td><td class="l">${j ? "" : esc(a.lead.manager || "")}</td><td class="v">${fmt(n(r[1]))}</td><td class="v">${fmt(n(r[2]))}</td><td class="v">${fmt(n(r[3]))}</td><td class="v">${fmt(n(r[4]))}</td><td class="v">${fmt(n(r[5]))}</td><td class="v">${r[6]}</td><td class="v">${r[7]}</td></tr>`).join("");
-  }).join("")}</tbody></table>`;
+    const first = pg("first");
+    return `<tbody class="mg-grp">${rows.map((r, j) => `<tr><td class="l">${j ? "" : `<span class="mg-goto" data-goto="${first}">${acct(a.lead.name, a.lead.business, [])}</span>`}</td><td class="l">${esc(r[0])}</td><td class="l">${j ? "" : esc(mgr(a.lead.manager))}</td><td class="v">${fmt(n(r[1]))}</td><td class="v">${fmt(n(r[2]))}</td><td class="v">${fmt(n(r[3]))}</td><td class="v">${fmt(n(r[4]))}</td><td class="v">${fmt(n(r[5]))}</td><td class="v">${r[6]}</td><td class="v"><span class="mg-goto" data-goto="${r[7]}">${r[7]}</span></td></tr>`).join("")}</tbody>`;
+  }).join("")}</table>`;
   const miss = `<div class="mg-sec"><p class="mg-sec-h">Not included <small>Active clients without a published ${esc(MONTHS[month])} report</small></p>${missing.length ? `<ul class="mg-miss">${missing.map((x) => `<li>${acct(x.name, x.business, [x.manager, x.platform])}<span>${esc(x.reason)}</span></li>`).join("")}</ul>` : `<p class="mg-none">Every active client is included.</p>`}</div>`;
   const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   return `<div class="mg-page mg-cover">
@@ -289,7 +305,7 @@ function coverPage({ month, year, accounts, missing, by }, title, pageOf) {
    section by section onto pages, then the cover with the page each one
    landed on. Returns the page elements in order. */
 export function layoutPages(input, host) {
-  const title = `Monthly report · ${MONTHS[input.month]} ${input.year}`;
+  const title = `Monthly management report · ${MONTHS[input.month]} ${input.year}`;
   const limit = H - 76;
   const band = `<div class="mg-band"><span>TMKE · Social media management</span><span>${esc(title)}</span></div>`;
   const newPage = (a, cont) => {
@@ -353,11 +369,16 @@ export async function downloadManagementPdf(input, { filename, onProgress } = {}
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
     const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
     const nodes = [...host.querySelectorAll(".mg-page")];
+    // Where each account name and page number sits on the cover, to make
+    // them links to that page (the pages are pictures, so links are laid on top).
+    const goto = (pg) => { const box = pg.getBoundingClientRect(); return [...pg.querySelectorAll("[data-goto]")].map((el) => { const r = el.getBoundingClientRect(); return { to: Number(el.getAttribute("data-goto")), x: r.left - box.left, y: r.top - box.top, w: r.width, h: r.height }; }).filter((l) => l.to > 1 && l.to <= nodes.length); };
     for (let i = 0; i < nodes.length; i++) {
       onProgress && onProgress(i + 1, nodes.length);
+      const links = goto(nodes[i]);
       const img = await toJpeg(nodes[i], { quality: 0.9, pixelRatio: 1.5, width: W, height: H, backgroundColor: "#ffffff", imagePlaceholder: blank, fontEmbedCSS: fontCss, cacheBust: false });
       if (i) doc.addPage("a4", "portrait");
       doc.addImage(img, "JPEG", 0, 0, pw, ph, undefined, "FAST");
+      for (const l of links) doc.link(l.x * pw / W, l.y * ph / H, l.w * pw / W, l.h * ph / H, { pageNumber: l.to });
     }
     doc.save(filename || `TMKE social media management report ${MONTHS[input.month]} ${input.year}.pdf`);
     return true;
