@@ -144,6 +144,21 @@ import "../../styles/admin.css";
     .rc .teg-table { border-top: 1px solid rgba(28,29,34,0.12); border-bottom: 1px solid rgba(28,29,34,0.12); }
     .rc-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
     .hub-skin .rc-acts .admin-btn { padding: 6px 10px; font-size: 11px; white-space: nowrap; }
+    /* The summary boxes as tabs. */
+    .rc-tab { appearance: none; background: #fff; text-align: left; cursor: pointer; font: inherit; transition: border-color 0.15s, background 0.15s; }
+    .rc-tab:hover { border-color: var(--english-violet); }
+    .rc-tab.is-on { background: var(--english-violet); border-color: var(--english-violet); }
+    .rc-tab.is-on b, .rc-tab.is-on span { color: #fff; }
+    .rc-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .rc-sec[hidden] { display: none; }
+    .rc-acts-l { justify-content: flex-start; gap: 12px; margin-top: 4px; }
+    .rc-progs { display: grid; gap: 3px; }
+    .rc-prog { font-family: var(--sans); font-size: 12px; white-space: nowrap; padding-left: 14px; position: relative; }
+    .rc-prog::before { content: ""; position: absolute; left: 0; top: 50%; width: 7px; height: 7px; margin-top: -3.5px; border-radius: 50%; }
+    .rc-prog.is-yes { color: var(--ink); }
+    .rc-prog.is-yes::before { background: #3f9468; }
+    .rc-prog.is-no { color: rgba(28,29,34,0.5); }
+    .rc-prog.is-no::before { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(28,29,34,0.3); }
     .rc-done { font-family: var(--sans); font-size: 12px; font-weight: 700; color: #2b6b44; white-space: nowrap; }
     .rc-change { font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .rc-change b { font-weight: 700; }
@@ -470,6 +485,21 @@ import "../../styles/admin.css";
       } catch (_) {}
     }
 
+    /* Where a new joiner is in their onboarding, from the Team Hub's own
+       fields: signed, compliant, training, and the start date (to come, or
+       gone by). A blank on the Team Hub shows as not yet. */
+    function progressCell(p) {
+      if (!p) return '—';
+      const today = new Date().toISOString().slice(0, 10);
+      const line = (ok, text) => `<span class="rc-prog ${ok ? 'is-yes' : 'is-no'}">${esc(text)}</span>`;
+      return `<div class="rc-progs">
+        ${line(!!p.signed, p.signed ? `Signed ${day(p.signed)}` : 'Not signed yet')}
+        ${line(!!(p.compliant || p.compliance_ok), p.compliant ? `Compliant ${day(p.compliant)}` : p.compliance_ok ? 'Compliance checked' : 'Not compliant yet')}
+        ${line(p.training === true, p.training === true ? 'Training done' : 'Training not done')}
+        ${line(!!p.start && p.start <= today, p.start ? (p.start <= today ? `Started ${day(p.start)}` : `Starts ${day(p.start)}`) : 'No start date')}
+      </div>`;
+    }
+
     let CHECK = null;          // the last result, redrawn as things are done
     const DONE = new Map();    // row key -> what was done to it ("Added", "Removed", …)
 
@@ -491,9 +521,11 @@ import "../../styles/admin.css";
       const d = CHECK; if (!d) return;
       const starters = d.starters || [], updates = d.updates || [], changes = d.changes || [];
       const left = (d.leavers || []).filter((l) => l.kind === 'left'), missing = (d.leavers || []).filter((l) => l.kind !== 'left');
-      const stat = (n, label) => `<div class="teg-stat"><b>${n}</b><span>${label}</span></div>`;
+      // The boxes are tabs: one section at a time, the report being long.
+      const TAB = drawCheck.tab || (drawCheck.tab = 'joiners');
+      const stat = (key, n, label) => `<button type="button" class="teg-stat rc-tab${TAB === key ? ' is-on' : ''}" data-tab="${key}" aria-pressed="${TAB === key}"><b>${n}</b><span>${label}</span></button>`;
       const table = (heads, body) => `<div class="teg-tablewrap"><table class="teg-table"><thead><tr>${heads.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table></div>`;
-      const sec = (title, n, note, inner, extra = '') => `<section class="rc-sec"><div class="rc-sec-h"><h3>${title}</h3><span class="rc-n">${n}</span>${extra}</div>${note ? `<p class="teg-note">${note}</p>` : ''}${n ? inner : '<p class="rc-empty">None.</p>'}</section>`;
+      const sec = (key, title, n, note, inner, extra = '') => `<section class="rc-sec" data-sec="${key}"${TAB === key ? '' : ' hidden'}><div class="rc-sec-h"><h3>${title}</h3><span class="rc-n">${n}</span>${extra}</div>${note ? `<p class="teg-note">${note}</p>` : ''}${n ? inner : '<p class="rc-empty">None.</p>'}</section>`;
       const nameCell = (name, cid, email) => `${cid ? `<button type="button" class="rc-namebtn" data-card="${esc(cid)}">${esc(name)}</button>` : esc(name)}${email ? `<br><span style="color:rgba(28,29,34,0.5)">${esc(email)}</span>` : ''}`;
       const doneOr = (key, html) => DONE.has(key) ? `<span class="rc-done">${esc(DONE.get(key))}</span>` : html;
       const cardBtn = (cid) => cid ? `<button type="button" class="admin-btn admin-btn-ghost" data-card="${esc(cid)}">Contact card</button>` : '';
@@ -505,39 +537,40 @@ import "../../styles/admin.css";
       const pick = drawCheck.pick || (drawCheck.pick = new Set(updates.map((u) => 'u:' + u.key)));
 
       rc.innerHTML = `
-        <div class="teg-sum">
-          ${stat(starters.length, 'New joiners')}${stat(left.length, 'Leavers')}${stat(openChanges.length, 'Changes')}${stat(missing.length, 'Not on the Team Hub')}${stat(updates.length, 'Details to fill')}${stat((d.conflicts || []).length, "Doesn't agree")}
+        <div class="teg-sum" role="tablist" aria-label="Team Hub check">
+          ${stat('joiners', starters.length, 'New joiners')}${stat('leavers', left.length, 'Leavers')}${stat('changes', openChanges.length, 'Changes')}${stat('missing', missing.length, 'Not on the Team Hub')}${stat('details', updates.length, 'Details to fill')}${stat('conflicts', (d.conflicts || []).length, "Doesn't agree")}${(d.returners || []).length ? stat('returners', d.returners.length, 'Left here, live there') : ''}${(d.mismatched || []).length ? stat('mismatched', d.mismatched.length, 'Different email') : ''}${(d.support || []).length ? stat('support', d.support.length, 'Support staff') : ''}
         </div>
         ${d.sql_needed ? `<p class="teg-note teg-flag">Changes can't be tracked yet: run supabase/teg_roster_check.sql in Supabase, then run the check again.</p>` : ''}
 
-        ${sec('New joiners', starters.length, 'Partners at our three brands on the Team Hub who aren\'t in our CRM. Add opens their details to check and fill in first. Anyone flagged under Check first may already be here under another name.',
-          table(['Name', 'Brand', 'Job title', 'Team Hub status', 'Check first', ''], starters.map((r) => `<tr>
-            <td>${nameCell(r.name, DONE.has('s:' + r.key) ? DONE.get('s:' + r.key + ':id') : null, r.email)}</td><td>${brandPills(r.brands)}</td><td>${esc(r.job_title || '—')}</td><td>${statusPill(r.status)}</td>
-            <td class="teg-flag">${esc(r.maybe)}${r.twin_id ? ` <button type="button" class="rc-link" data-card="${esc(r.twin_id)}">Open theirs</button>` : ''}</td>
+        ${sec('joiners', 'New joiners', starters.length, 'Partners at our three brands on the Team Hub who aren\'t in our CRM under their Team Hub email. Where they are comes from the Team Hub: its status doesn\'t record compliance or training, so those are shown on their own. If someone is already here under another email, It\'s them links the two so the next check matches them.',
+          table(['Name', 'Brand', 'Team Hub status', 'Where they are', 'Check first', ''], starters.map((r) => `<tr>
+            <td>${nameCell(r.name, DONE.has('s:' + r.key) ? DONE.get('s:' + r.key + ':id') : null, r.email)}${r.job_title ? `<br><span style="color:rgba(28,29,34,0.5)">${esc(r.job_title)}</span>` : ''}</td><td>${brandPills(r.brands)}</td><td>${statusPill(r.status)}</td>
+            <td>${progressCell(r.progress)}</td>
+            <td class="teg-flag">${esc(r.maybe)}${r.twin_id ? `<div class="rc-acts rc-acts-l"><button type="button" class="rc-link" data-card="${esc(r.twin_id)}">Open theirs</button>${DONE.has('s:' + r.key) ? '' : `<button type="button" class="rc-link" data-link="${esc(r.key)}">It's them</button>`}</div>` : ''}</td>
             <td>${doneOr('s:' + r.key, `<div class="rc-acts"><button type="button" class="admin-btn admin-btn-primary" data-add="${esc(r.key)}">Add to CRM</button></div>`)}</td></tr>`).join('')))}
 
-        ${sec('Leavers', left.length, 'In our CRM at these brands, and the Team Hub says they\'ve left. Remove takes them out of the CRM altogether; Mark as left keeps their card and marks them as left at that brand.',
-          table(['Name', 'Brand', 'Job title', 'Team Hub says', ''], left.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td>${esc(l.note)}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
+        ${sec('leavers', 'Leavers', left.length, 'In our CRM at these brands, and the Team Hub says they\'ve left. Remove takes them out of the CRM altogether; Mark as left keeps their card and marks them as left at that brand.',
+          table(['Name', 'Brand', 'Job title', 'Team Hub status', 'Leave date', ''], left.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td>${statusPill(l.teg_status)}</td><td>${l.left_at ? esc(day(l.left_at)) : '<span style="color:rgba(28,29,34,0.5)">Not set on the Team Hub</span>'}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
 
-        ${sec('Changes since the last check', openChanges.length,
+        ${sec('changes', 'Changes since the last check', openChanges.length,
           d.baseline ? 'This was the first check, so there was nothing to compare with. Today\'s statuses are saved, and changes will show from the next check.' : 'Status, brand, job title or person type, as the Team Hub has them now. Each stays here until you mark it done.',
           table(['Name', 'Brand', 'What changed', 'Spotted', ''], openChanges.map((c) => `<tr><td>${nameCell(c.name || c.email, c.contact_id, c.contact_id ? '' : 'Not in our CRM')}</td><td>${brandPills(String(c.brand || '').split(', '))}</td><td>${fmtChange(c)}</td><td>${esc(day(c.detected_at))}</td>
             <td><div class="rc-acts">${cardBtn(c.contact_id)}<button type="button" class="admin-btn admin-btn-ghost" data-cdone="${esc(c.id)}">Done</button></div></td></tr>`).join('')),
           openChanges.length > 1 ? `<button type="button" class="rc-link" id="rc-cdone-all">Mark all done</button>` : '')}
 
-        ${sec('In our CRM, not on the Team Hub', missing.length, 'Not found on the Team Hub at all. That can be a leaver, or just a different email or name there, so check before removing anyone. Anyone who looks to be there under another name is noted.',
+        ${sec('missing', 'In our CRM, not on the Team Hub', missing.length, 'Not found on the Team Hub at all. That can be a leaver, or just a different email or name there, so check before removing anyone. Anyone who looks to be there under another name is noted.',
           table(['Name', 'Brand', 'Job title', 'Still live?', ''], missing.map((l) => `<tr><td>${nameCell(l.name, l.contact_id, l.email)}</td><td>${brandPills([l.brand])}</td><td>${esc(l.job_title || '—')}</td><td class="teg-flag">${esc(l.live || '')}</td><td>${leaverActs(l)}</td></tr>`).join('')))}
 
-        ${sec('Details to fill for people we have', updates.length, 'Blanks on their brand profile the Team Hub can fill. Only blanks: where we already hold something different, it\'s under Doesn\'t agree and left alone.',
+        ${sec('details', 'Details to fill for people we have', updates.length, 'Blanks on their brand profile the Team Hub can fill. Only blanks: where we already hold something different, it\'s under Doesn\'t agree and left alone.',
           `<div class="teg-pick"><button type="button" class="admin-btn admin-btn-primary" id="teg-ro-go" ${pick.size ? '' : 'disabled'}>Fill ${pick.size} selected</button> <span class="teg-status" id="teg-ro-st"></span></div>`
           + table(['', 'Name', 'Brand', 'What fills in'], updates.map((u) => `<tr><td>${DONE.has('u:' + u.key) ? '<span class="rc-done">Filled</span>' : `<input type="checkbox" data-rk="u:${esc(u.key)}" ${pick.has('u:' + u.key) ? 'checked' : ''} aria-label="Fill ${esc(u.name)}">`}</td><td>${nameCell(u.name, u.contact_id)}</td><td>${brandPills([u.brand])}${u.kind === 'add_profile' ? '<span class="teg-pill is-add">+ new brand profile</span>' : ''}</td><td>${fillList(u.fields, u.changes)}</td></tr>`).join('')))}
 
-        ${sec("Doesn't agree", (d.conflicts || []).length, 'Where the Team Hub and our records say different things, or the Team Hub contradicts itself. Flagged only: nothing changes.',
+        ${sec('conflicts', "Doesn't agree", (d.conflicts || []).length, 'Where the Team Hub and our records say different things, or the Team Hub contradicts itself. Flagged only: nothing changes.',
           table(['Name', 'Brand', 'What', 'Ours', 'Team Hub', ''], (d.conflicts || []).map((r) => `<tr><td>${nameCell(r.name, r.contact_id)}</td><td>${r.brand ? brandPills(r.brand.split(', ')) : ''}</td><td>${esc(r.what)}</td><td>${esc(r.ours || '—')}</td><td>${esc(r.theirs)}</td><td class="teg-flag">${esc(r.why)}</td></tr>`).join('')))}
 
-        ${(d.returners || []).length ? sec('Marked as left here, but live on the Team Hub', d.returners.length, '', table(['Name', 'Brand', 'We marked them left'], d.returners.map((r) => `<tr><td>${nameCell(r.name, r.contact_id, r.email)}</td><td>${brandPills([r.brand])}</td><td>${esc(r.left_at)}</td></tr>`).join(''))) : ''}
-        ${(d.mismatched || []).length ? sec('Matched under a different email', d.mismatched.length, 'Found by name, or by the same address at another brand.', table(['Name', 'Team Hub email', 'Our email', 'Matched by'], d.mismatched.map((r) => `<tr><td>${nameCell(r.name, r.contact_id)}</td><td>${esc(r.teg_email)}</td><td>${esc(r.our_email)}</td><td>${esc(r.by)}</td></tr>`).join(''))) : ''}
-        ${(d.support || []).length ? sec('Support staff not in our CRM', d.support.length, 'Listed only.', table(['Name', 'Brand', 'Email', 'Job title'], d.support.map((r) => `<tr><td>${esc(r.name)}</td><td>${brandPills(r.brands)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td></tr>`).join(''))) : ''}`;
+        ${(d.returners || []).length ? sec('returners', 'Marked as left here, but live on the Team Hub', d.returners.length, '', table(['Name', 'Brand', 'We marked them left'], d.returners.map((r) => `<tr><td>${nameCell(r.name, r.contact_id, r.email)}</td><td>${brandPills([r.brand])}</td><td>${esc(r.left_at)}</td></tr>`).join(''))) : ''}
+        ${(d.mismatched || []).length ? sec('mismatched', 'Matched under a different email', d.mismatched.length, 'Found by name, or by the same address at another brand.', table(['Name', 'Team Hub email', 'Our email', 'Matched by'], d.mismatched.map((r) => `<tr><td>${nameCell(r.name, r.contact_id)}</td><td>${esc(r.teg_email)}</td><td>${esc(r.our_email)}</td><td>${esc(r.by)}</td></tr>`).join(''))) : ''}
+        ${(d.support || []).length ? sec('support', 'Support staff not in our CRM', d.support.length, 'Listed only.', table(['Name', 'Brand', 'Email', 'Job title'], d.support.map((r) => `<tr><td>${esc(r.name)}</td><td>${brandPills(r.brands)}</td><td>${esc(r.email)}</td><td>${esc(r.job_title)}</td></tr>`).join(''))) : ''}`;
 
       rc.querySelectorAll('[data-rk]').forEach((c) => c.addEventListener('change', () => { c.checked ? pick.add(c.dataset.rk) : pick.delete(c.dataset.rk); const b = document.getElementById('teg-ro-go'); b.textContent = `Fill ${pick.size} selected`; b.disabled = !pick.size; }));
       document.getElementById('teg-ro-go')?.addEventListener('click', fillSelected);
@@ -547,9 +580,21 @@ import "../../styles/admin.css";
     // One listener for every button the check draws.
     rc.addEventListener('click', async (e) => {
       const t = e.target.closest('button'); if (!t || !CHECK) return;
+      if (t.dataset.tab) { drawCheck.tab = t.dataset.tab; drawCheck(); return; }
       if (t.dataset.card) { openCard(t.dataset.card); return; }
       if (t.dataset.add) { openAdd((CHECK.starters || []).find((r) => r.key === t.dataset.add)); return; }
       if (t.dataset.cdone) { changesDone([t.dataset.cdone]); return; }
+      if (t.dataset.link) {
+        const r = (CHECK.starters || []).find((x) => x.key === t.dataset.link);
+        if (!r || !r.twin_id) return;
+        if (!confirm(`Link ${r.name} on the Team Hub to the contact already in our CRM?\n\nTheir Team Hub email (${r.email}) goes on that contact, and any brand they don't have yet is added, so the next check matches them. Nothing on the Team Hub changes.`)) return;
+        t.disabled = true;
+        const key = 's:' + r.key;
+        const { body } = await post('/teg/roster/apply', { actions: [{ kind: 'link', key, contact_id: r.twin_id, email: r.email, brands: r.brands, fields: r.fields }] });
+        if (!body || !(body.done || []).includes(key)) { t.disabled = false; alert("Couldn't link them: " + ((body && body.failed && body.failed[0] && body.failed[0].error) || (body && body.error) || 'no answer')); return; }
+        DONE.set(key, 'Linked'); DONE.set(key + ':id', r.twin_id); drawCheck();
+        return;
+      }
       const l = (CHECK.leavers || []).find((x) => x.key === (t.dataset.left || t.dataset.remove));
       if (!l) return;
       if (t.dataset.left) {

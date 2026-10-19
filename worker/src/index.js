@@ -425,9 +425,21 @@ function rosterCompare(ctx, rows, today) {
       const ph = digits(t.mobile);
       const twin = ph.length >= 10 ? contacts.find((c) => digits(c.phone) === ph) : null;
       const joint = /&|\band\b/i.test(`${t.first_name} ${t.last_name}`);
+      /* Already here under another email or a different first name? (Jay
+         Gorania, 19 Oct: on the CRM, but not under the Team Hub's email.)
+         Same surname, the same first initial preferred; a joint record
+         looks for each of its people. */
+      const cn = (c) => [c.first_name, c.last_name].filter(Boolean).join(" ");
+      const sur = contacts.filter((c) => lc(c.last_name) && lc(c.last_name) === lc(t.last_name));
+      const initial = lc(t.first_name).charAt(0);
+      const likely = joint ? sur : (sur.filter((c) => lc(c.first_name).charAt(0) === initial).length ? sur.filter((c) => lc(c.first_name).charAt(0) === initial) : []);
+      const maybe = twin ? `Same mobile as ${cn(twin)} (${twin.email})`
+        : likely.length === 1 ? `${joint ? "A joint record. " : ""}Possibly in our CRM as ${cn(likely[0])} (${likely[0].email})`
+        : likely.length > 1 ? `${joint ? "A joint record. " : ""}In our CRM as ${likely.map((c) => `${cn(c)} (${c.email})`).join(", ")}`
+        : joint ? "A joint record: check before adding" : "";
       const row = { key: lc(t.email) || name, name, first_name: String(t.first_name || "").trim(), last_name: String(t.last_name || "").trim(), email: lc(t.email), brands, job_title: t.job_title || "", status: t.status || "", type: t.person_type || "", launched: t.date_launched || "", compliant: t.date_compliant || "",
-        maybe: twin ? `Same mobile as ${[twin.first_name, twin.last_name].filter(Boolean).join(" ")} (${twin.email})` : joint ? "A joint record: check before adding" : "",
-        twin_id: twin ? twin.id : null, fields: wanted(t) };
+        progress: { signed: t.date_signed || "", compliant: t.date_compliant || "", compliance_ok: !!t.compliance_ok, training: t.training_done === true ? true : t.training_done === false ? false : null, start: t.date_launched || "" },
+        maybe, twin_id: twin ? twin.id : likely.length === 1 ? likely[0].id : null, fields: wanted(t) };
       (String(t.person_type).toLowerCase() === "partner" ? starters : support).push(row);
       continue;
     }
@@ -443,7 +455,9 @@ function rosterCompare(ctx, rows, today) {
       if (gone) { returners.push({ name: cname || name, contact_id: m.id, email: lc(c.email), brand, left_at: String(gone.left_at).slice(0, 10) }); continue; }
       if (!prof) { updates.push({ key: `${m.id}|${brand}`, contact_id: m.id, name: cname || name, brand, kind: "add_profile", fields: want, changes: Object.entries(want).filter(([, v]) => v).map(([k]) => k) }); continue; }
       // Where both sides have a value and they disagree: flagged, never changed.
-      const differs = { job_title: (a, b) => !looseEq(a, b), date_joined: (a, b) => !sameDay(a, b), postcode: (a, b) => lc(a).replace(/\s/g, "") !== lc(b).replace(/\s/g, ""), area: (a, b) => !looseEq(a, b) };
+      // Job titles aren't compared: ours and theirs are worded differently on
+      // purpose for too many people to be worth flagging (Danielle, 19 Oct).
+      const differs = { date_joined: (a, b) => !sameDay(a, b), postcode: (a, b) => lc(a).replace(/\s/g, "") !== lc(b).replace(/\s/g, ""), area: (a, b) => !looseEq(a, b) };
       for (const [k, f] of Object.entries(differs)) {
         if (want[k] && prof[k] != null && prof[k] !== "" && f(prof[k], want[k])) conflicts.push({ name: cname || name, contact_id: m.id, brand, what: FIELD_LABEL[k], ours: String(prof[k]).slice(0, 80), theirs: String(want[k]).slice(0, 80), why: "" });
       }
@@ -477,7 +491,7 @@ function rosterCompare(ctx, rows, today) {
       const c = byId.get(p.contact_id) || {};
       const left = leftOn.get(p.contact_id);
       return { key: `${p.contact_id}|${p.brand}`, contact_id: p.contact_id, name: [c.first_name, c.last_name].filter(Boolean).join(" ") || c.email, email: lc(c.email), brand: p.brand, job_title: p.job_title || "",
-        kind: left ? "left" : "missing", left_at: left ? left.date : "",
+        kind: left ? "left" : "missing", left_at: left ? left.date : "", teg_status: left ? (left.status || "Left") : "",
         note: left ? `${left.status || "Left"} on the Team Hub${left.date ? `, leave date ${left.date}` : ""}` : "Not on the Team Hub", live: left ? "" : liveHint(c) };
     })
     .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "left" ? -1 : 1) || a.brand.localeCompare(b.brand) || a.name.localeCompare(b.name));
@@ -491,7 +505,8 @@ function rosterCompare(ctx, rows, today) {
    kept or sent on. Paged, in case the roster outgrows one page. */
 async function tegRosterRows(env) {
   const FIELDS = ["id", "first_name", "last_name", "person_type", "active", "status", "job_title", "email", "business_mobile",
-    "primary_brand_id", "sub_brands", "tre_location", "location_id", "date_compliant", "date_launched", "leave_date", "home_address"];
+    "primary_brand_id", "sub_brands", "tre_location", "location_id", "date_signed", "date_compliant", "date_launched", "leave_date",
+    "compliance_checked_ok", "onboarding_training_complete", "home_address"];
   const [brands, locs] = await Promise.all([
     tegApi(env, "dbApi", { action: "list", entity: "Brand", limit: 500, fields: ["id", "name"] }),
     tegApi(env, "dbApi", { action: "list", entity: "Location", limit: 2000, fields: ["id", "name"] }),
@@ -515,7 +530,10 @@ async function tegRosterRows(env) {
       job_title: r.job_title || "", primary_brand: bn.get(r.primary_brand_id) || "",
       sub_brands: (Array.isArray(r.sub_brands) ? r.sub_brands : []).map((id) => bn.get(id)).filter(Boolean).join(";"),
       location: ln.get(r.location_id) || "", tre_location: r.tre_location || "", mobile: r.business_mobile || "",
-      date_compliant: d10(r.date_compliant), date_launched: d10(r.date_launched), leave_date: d10(r.leave_date),
+      date_signed: d10(r.date_signed), date_compliant: d10(r.date_compliant), date_launched: d10(r.date_launched), leave_date: d10(r.leave_date),
+      // Where an onboarding stands: the status doesn't say (their own notes:
+      // compliance and training are separate fields).
+      compliance_ok: r.compliance_checked_ok === true, training_done: r.onboarding_training_complete === true,
       home_postcode: pc ? `${pc[1]} ${pc[2]}` : "",
     };
   });
@@ -9413,6 +9431,23 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
                   if (prof[k] == null || prof[k] === "") patch[k] = v;
                 }
                 if (Object.keys(patch).length) { const r = await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(a.profile_id)}`, patch); if (r && r.ok === false) throw new Error("couldn't save"); }
+                done.push(a.key);
+              } else if (a.kind === "link") {
+                /* "It's them": a new joiner who is already here under another
+                   email. Their Team Hub email goes on their brand profile, so
+                   the next check matches them; a brand they lack is added. */
+                const c = byId.get(a.contact_id);
+                const email = lc(a.email);
+                if (!c || !email) throw new Error("contact not found");
+                const f = a.fields || {};
+                for (const brand of (a.brands || []).filter((x) => FOCUS.includes(x))) {
+                  const prof = ctx.profs.find((p) => p.contact_id === a.contact_id && lc(p.brand) === lc(brand) && !p.left_at);
+                  if (!prof) await ensureAgentProfile(env, a.contact_id, { first_name: c.first_name, last_name: c.last_name, email: c.email }, { brand, job_title: f.job_title, date_joined: f.date_joined, postcode: f.postcode, area: f.area, email: email !== lc(c.email) ? email : null, phone: null });
+                  else if (!prof.email && email !== lc(c.email)) { const r = await sbPatch(env, "agent_profiles", `id=eq.${encodeURIComponent(prof.id)}`, { email }); if (r && r.ok === false) throw new Error("couldn't save"); }
+                }
+                // And as their second email where that's free, so a profile
+                // that already holds another address still leaves a match.
+                if (email !== lc(c.email) && !lc(c.secondary_email)) await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(a.contact_id)}`, { secondary_email: email });
                 done.push(a.key);
               } else if (a.kind === "left") {
                 // A leaver kept on file: their profile at that brand is marked
