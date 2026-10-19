@@ -155,3 +155,24 @@ export function numbersMoves(d, prevData) {
   }
   return out;
 }
+
+/* The team's notes (What it means, Trends) as points (Danielle, 19 Oct 2026).
+   Written as lines starting "- ", under a platform line ("Instagram:") when
+   there's more than one platform. Returns blocks of { platform, points,
+   prose }: points are the "- " lines; anything else (notes written before
+   this, as paragraphs) is kept as prose, so old text still reads. */
+export function pointBlocks(text) {
+  const blocks = [];
+  let cur = null;
+  const open = (platform) => { cur = { platform, points: [], prose: [] }; blocks.push(cur); };
+  for (const raw of String(text || "").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const head = /^(instagram|facebook|linkedin)\s*:\s*(.*)$/i.exec(line);
+    if (head) { open(head[1].toLowerCase()); if (head[2]) cur.prose.push(head[2]); continue; }
+    if (!cur) open(null);
+    const pt = /^[-•*]\s+(.*)$/.exec(line);
+    if (pt) cur.points.push(pt[1]); else cur.prose.push(line);
+  }
+  return blocks.filter((b) => b.points.length || b.prose.length);
+}

@@ -1,13 +1,13 @@
 // The management report: every client's published month in one A4 PDF, for
 // the team (Admin > Social > Settings > Monthly report). A working document,
-// not a presentation: a cover with the month's totals and who's missing, then
-// one page per account with the profile, the content, the top five, and our
-// own read of the month (the Summary tab: what it means, into next month,
-// trends). Drawn the same way as the client PDF (report-pdf.js): each page is
+// not a presentation: a cover listing every account and who's missing, then
+// each account's figures for each platform, the top fives, and our own read
+// of the month (the Management Summary tab: what it means, into next month,
+// trends, goals), on as many pages as it takes. Drawn the same way as the client PDF (report-pdf.js): each page is
 // laid out in HTML, captured as an image and placed on an A4 page.
 
 import { fontEmbedCss } from "./report-pdf.js";
-import { lastMonthOf, numbersMoves, pct2, PLATFORM_LABELS, platformsOf, itemPlatform } from "./report-metrics.js";
+import { lastMonthOf, numbersMoves, pct2, PLATFORM_LABELS, platformsOf, itemPlatform, pointBlocks } from "./report-metrics.js";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -78,6 +78,10 @@ const CSS = `
 .mg-miss { list-style: none; margin: 0; padding: 0; }
 .mg-tbl tr.sub td { border-top: 0; }
 .mg-goals td { font-size: 16px; vertical-align: top; }
+.mg-points { margin: 0; padding: 0 0 0 20px; display: grid; gap: 5px; }
+.mg-points li { font-size: 16px; line-height: 1.45; color: #3b3a40; }
+.mg-pts-h { margin: 10px 0 4px; }
+.mg-pts-h:first-child { margin-top: 0; }
 .mg-cont { font-size: 26px; font-weight: 600; color: #8a8086; letter-spacing: 0; }
 `;
 
@@ -86,6 +90,12 @@ function tile(label, value, move, dir) {
   return `<div class="mg-tile"><span>${esc(label)}</span><b>${esc(value)}</b><em class="${cls}">${move ? esc(move) : "&nbsp;"}</em></div>`;
 }
 const change = (v) => { const x = n(v); return x == null ? ["", 0] : [`${x >= 0 ? "Up" : "Down"} ${Math.abs(x)}% on last month`, Math.sign(x)]; };
+
+// The team's notes as points (pointBlocks): a platform label where the text
+// names one, prose for anything written before points.
+function pointsHtml(text, pills) {
+  return pointBlocks(text).map((b) => `${pills && b.platform ? `<p class="mg-pts-h"><span class="mg-plat">${esc(PLATFORM_LABELS[b.platform])}</span></p>` : ""}${b.prose.map((x) => `<p class="mg-prose">${esc(x)}</p>`).join("")}${b.points.length ? `<ul class="mg-points">${b.points.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}`).join("");
+}
 
 // The team's goals for the account: free text, a row each (Summary tab).
 function goalsSec(d) {
@@ -96,9 +106,26 @@ function goalsSec(d) {
     `<tr>${multi ? `<td class="l"><span class="mg-plat">${esc(PLATFORM_LABELS[itemPlatform(g, d)] || "")}</span></td>` : ""}<td class="l">${esc(g.goal || "")}</td><td class="l">${esc(g.measure || "")}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
-function accountPage(a, pageNo, title) {
+/* ---- An account, as sections --------------------------------------------
+   Each account is a run of sections (Instagram's figures, Facebook's,
+   LinkedIn's, the team's read and plan, trends, goals), packed onto A4
+   pages by measuring them (layoutPages): a section that won't fit starts a
+   "continued" page, so nothing is shrunk to fit and nothing runs off a page
+   however much the team writes (Danielle, 19 Oct 2026). */
+const hasIg = (d) => { const p = (d || {}).profile; return !!(p && Object.keys(p).length) || !!((d || {}).posts && Object.keys(d.posts).length); };
+const hasGoals = (d) => (d.goals || []).some((g) => g && (g.goal || g.measure));
+const liChange = (v) => { const x = n(v); return x == null || !x ? ["", 0] : [`${x >= 0 ? "Up" : "Down"} ${Math.abs(x)}% on the 30 days before`, Math.sign(x)]; };
+const secHtml = (inner, plat, cls = "") => `<div class="mg-sec${cls ? " " + cls : ""}"${plat ? ` data-plat="${plat}"` : ""}>${inner}</div>`;
+function platformTop(rows, cols) {
+  const top = (rows || []).filter((t) => t && (t.title || t.url)).slice().sort((x, y) => (n(y.reach) || 0) - (n(x.reach) || 0)).slice(0, 5);
+  if (!top.length) return `<p class="mg-none">No posts in this month's data.</p>`;
+  return `<table class="mg-tbl"><thead><tr><th class="l"></th><th class="l"></th><th class="l">Post</th>${cols.map(([h]) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${top.map((t, i) =>
+    `<tr><td class="rk">${i + 1}</td><td class="th">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : "<span></span>"}</td><td class="l tt">${esc(String(t.title || "").trim() || "Untitled")}</td>${cols.map(([, f]) => `<td class="v">${f(t)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+function igSections(a) {
   const d = a.report.data || {}, p = d.profile || {}, rc = d.reach || {};
-  const month = MONTHS[a.report.month], next = MONTHS[(a.report.month + 1) % 12];
+  const month = MONTHS[a.report.month];
   const lm = numbersMoves(d, lastMonthOf(a.report, a.earlier.map((e) => ({ ...e, platform: a.report.platform })))?.data);
   const np = n(d.posts?.published), nr = n(d.reels?.published);
   const cr = sum([n(d.posts?.reach), n(d.reels?.reach)]);
@@ -117,71 +144,27 @@ function accountPage(a, pageNo, title) {
       ? tile("Non-followers", `${Math.round(nf / (nf + fo) * 100)}%`, `${fmt(nf)} of content reach`, 0)
       : tile("Link taps", fmt(n(p.linkTaps)), "From the profile", 0),
   ].join("");
-
   const row = (label, x) => `<tr><td class="l">${label}</td><td class="v">${fmt(n(x?.published))}</td><td class="v">${fmt(n(x?.reach))}</td><td class="v">${fmt(n(x?.views))}</td><td class="v">${fmt(n(x?.interactions))}</td><td class="v">${pc(n(x?.interactionRate))}</td></tr>`;
   const tot = { published: sum([np, nr]), reach: cr, views: sum([n(d.posts?.views), n(d.reels?.views)]), interactions: sum([n(d.posts?.interactions), n(d.reels?.interactions)]) };
   const contentTbl = `<table class="mg-tbl"><thead><tr><th class="l">Format</th><th>Published</th><th>Reach</th><th>Views</th><th>Interactions</th><th>Interaction rate</th></tr></thead>
     <tbody>${row("Reels", d.reels)}${row("Posts", d.posts)}<tr class="tot"><td class="l">All content</td><td class="v">${fmt(tot.published)}</td><td class="v">${fmt(tot.reach)}</td><td class="v">${fmt(tot.views)}</td><td class="v">${fmt(tot.interactions)}</td><td class="v"></td></tr></tbody></table>`;
-
   const rows = (Array.isArray(d.content) && d.content.length ? d.content : (d.topContent || [])).filter((t) => t && (t.title || t.url));
   const top5 = rows.slice().sort((x, y) => (n(y.reach) || 0) - (n(x.reach) || 0) || (n(y.interactions) || 0) - (n(x.interactions) || 0)).slice(0, 5);
   const topTbl = top5.length ? `<table class="mg-tbl"><thead><tr><th class="l"></th><th class="l"></th><th class="l">Post</th><th class="l">Type</th><th>Reach</th><th>Views</th><th>Interactions</th></tr></thead><tbody>${top5.map((t, i) => {
     const reel = /reel/i.test(t.type || "");
     return `<tr><td class="rk">${i + 1}</td><td class="th">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : "<span></span>"}</td><td class="l tt">${esc(String(t.title || "").trim() || "Untitled")}</td><td class="l"><span class="ty">${reel ? "Reel" : "Post"}</span></td><td class="v">${fmt(n(t.reach))}</td><td class="v">${reel ? fmt(n(t.views)) : "–"}</td><td class="v">${fmt(n(t.interactions))}</td></tr>`;
   }).join("")}</tbody></table>` : `<p class="mg-none">No posts in this month's data.</p>`;
-
-  // Several platforms in the month: each read and each plan item says which.
-  const plats = platformsOf(d), multiP = plats.length > 1;
-  const pfx = (k) => (multiP ? `<span class="mg-plat">${esc(PLATFORM_LABELS[k] || k)}</span>` : "");
-  const prios = (d.priorities || []).filter((x) => x && x.text);
-  const prioHtml = prios.length ? `<ul class="mg-prios">${prios.map((x) => `<li>${pfx(itemPlatform(x, d))}<span class="mg-tag ${esc(x.type || "go")}">${esc(PRIO[x.type] || PRIO.go)}</span>${x.title ? `<b>${esc(x.title)}.</b> ` : ""}${esc(x.text)}</li>`).join("")}</ul>` : `<p class="mg-none">No plan written yet.</p>`;
-
-  const series = [...a.earlier, { month: a.report.month, year: a.report.year, data: d }];
-  const tr = (label, f) => `<tr><td class="l">${label}</td>${series.map((s) => `<td class="v">${f(s.data || {})}</td>`).join("")}</tr>`;
-  const trendTbl = `<table class="mg-tbl"><thead><tr><th class="l"></th>${series.map((s) => `<th>${esc(MONTHS[s.month].slice(0, 3))}</th>`).join("")}</tr></thead><tbody>
-    ${tr("New followers", (x) => fmt(n(x.profile?.newFollowers)))}
-    ${tr("Profile reach", (x) => fmt(n(x.profile?.reach)))}
-    ${tr("Views", (x) => fmt(n(x.profile?.views)))}
-    ${tr("Interactions", (x) => fmt(n(x.profile?.interactions)))}
-    ${tr("Interaction rate", (x) => pc(n(x.profile?.interactionRate)))}
-    ${tr("Published", (x) => fmt(sum([n(x.posts?.published), n(x.reels?.published)])))}
-  </tbody></table>`;
-  const trendText = series.length < 2 ? `<p class="mg-none">The first month on record: nothing to compare with yet.</p>`
-    : d.trendSummary ? `<p class="mg-prose">${esc(d.trendSummary)}</p>` : `<p class="mg-none">Trend summary not written yet.</p>`;
-
-  const L = a.lead;
-  const who = [L.name && L.business && L.name !== L.business ? L.name : "", plats.map((k) => PLATFORM_LABELS[k]).join(", ") || a.report.platform, L.package ? `${L.package} package` : ""].filter(Boolean).join(" · ");
-  const pub = a.report.published_at ? new Date(a.report.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
-  return `<div class="mg-page">
-    <div class="mg-band"><span>TMKE · Social media management</span><span>${esc(title)}</span></div>
-    <div class="mg-title"><div><h2 class="mg-h">${esc(L.business || L.name || "Account")}</h2><p>${esc(who)}</p></div>
-      <div class="mg-meta">${L.manager ? `Account manager: <b>${esc(L.manager)}</b><br>` : ""}${pub ? `Published to client ${esc(pub)}` : ""}</div></div>
-    <div class="mg-sec"><p class="mg-sec-h">Profile overview <small>${esc(month)} ${a.report.year}</small></p><div class="mg-tiles">${tiles}</div></div>
-    <div class="mg-sec"><p class="mg-sec-h">Content overview</p>${contentTbl}</div>
-    <div class="mg-sec"><p class="mg-sec-h">Top 5 posts <small>by reach</small></p>${topTbl}</div>
-    <div class="mg-sec mg-two"><div><p class="mg-sec-h">What it means</p>${multiP
-      ? plats.map((k) => { const t = k === "instagram" ? d.summary : (d[k] || {}).summary; return t ? `<p class="mg-prose">${pfx(k)}${esc(t)}</p>` : ""; }).join("") || `<p class="mg-none">Summary not written yet.</p>`
-      : d.summary ? `<p class="mg-prose">${esc(d.summary)}</p>` : `<p class="mg-none">Summary not written yet.</p>`}</div>
-      <div><p class="mg-sec-h">Into ${esc(next)}</p>${prioHtml}</div></div>
-    <div class="mg-sec"><p class="mg-sec-h">Trends <small>${series.length > 1 ? `${esc(MONTHS[series[0].month])} to ${esc(month)}` : esc(month)}</small></p><div class="mg-trend"><div>${trendTbl}</div><div>${trendText}</div></div></div>
-    <div class="mg-foot"><span>Internal · not for clients</span><span>${pageNo}</span></div>
-  </div>`;
+  const lbl = platformsOf(d).length > 1 ? "Instagram" : "Profile overview";
+  return [
+    secHtml(`<p class="mg-sec-h">${lbl} <small>${esc(month)} ${a.report.year}</small></p><div class="mg-tiles">${tiles}</div>`, "instagram"),
+    secHtml(`<p class="mg-sec-h">Content overview</p>${contentTbl}`),
+    secHtml(`<p class="mg-sec-h">Top 5 posts <small>by reach</small></p>${topTbl}`),
+  ];
 }
 
-/* ---- Facebook and LinkedIn ------------------------------------------------
-   Their figures on a page of their own after the Instagram page (Danielle,
-   19 Oct 2026: the report was Instagram-only, and a month with no Instagram
-   left the client out). With no Instagram that month, this page is the
-   account's only page, so it carries the team's read and plan as well. */
-const hasIg = (d) => { const p = (d || {}).profile; return !!(p && Object.keys(p).length) || !!((d || {}).posts && Object.keys(d.posts).length); };
-const liChange = (v) => { const x = n(v); return x == null || !x ? ["", 0] : [`${x >= 0 ? "Up" : "Down"} ${Math.abs(x)}% on the 30 days before`, Math.sign(x)]; };
-function platformTop(rows, cols) {
-  const top = (rows || []).filter((t) => t && (t.title || t.url)).slice().sort((x, y) => (n(y.reach) || 0) - (n(x.reach) || 0)).slice(0, 5);
-  if (!top.length) return `<p class="mg-none">No posts in this month's data.</p>`;
-  return `<table class="mg-tbl"><thead><tr><th class="l"></th><th class="l"></th><th class="l">Post</th>${cols.map(([h]) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${top.map((t, i) =>
-    `<tr><td class="rk">${i + 1}</td><td class="th">${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : "<span></span>"}</td><td class="l tt">${esc(String(t.title || "").trim() || "Untitled")}</td>${cols.map(([, f]) => `<td class="v">${f(t)}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
-}
-function facebookSec(fb, month) {
+/* Facebook and LinkedIn (Danielle, 19 Oct 2026: the report was Instagram
+   only, and a month with no Instagram left the client out). */
+function facebookSections(fb, month) {
   const fp = fb.posts || {};
   const [rM, rD] = change(fb.pageReachChange), [vM, vD] = change(fb.pageViewsChange), [pM, pD] = change(fp.viewsChange), [eM, eD] = change(fp.engagementChange);
   const tiles = [
@@ -194,10 +177,12 @@ function facebookSec(fb, month) {
     tile("Reactions", fmt(n(fp.reactions)), `${fmt(n(fp.comments))} comments`, 0),
     tile("Shares", fmt(n(fp.shares)), n(fp.videoPlays) ? `${fmt(n(fp.videoPlays))} video plays` : "", 0),
   ].join("");
-  return `<div class="mg-sec"><p class="mg-sec-h">Facebook <small>${esc(month)}</small></p><div class="mg-tiles">${tiles}</div></div>
-    <div class="mg-sec"><p class="mg-sec-h">Top 5 Facebook posts <small>by reach</small></p>${platformTop(fb.content, [["Reach", (t) => fmt(n(t.reach))], ["Reactions", (t) => fmt(n(t.reactions))], ["Shares", (t) => fmt(n(t.shares))]])}</div>`;
+  return [
+    secHtml(`<p class="mg-sec-h">Facebook <small>${esc(month)}</small></p><div class="mg-tiles">${tiles}</div>`, "facebook"),
+    secHtml(`<p class="mg-sec-h">Top 5 Facebook posts <small>by reach</small></p>${platformTop(fb.content, [["Reach", (t) => fmt(n(t.reach))], ["Reactions", (t) => fmt(n(t.reactions))], ["Shares", (t) => fmt(n(t.shares))]])}`),
+  ];
 }
-function linkedinSec(li) {
+function linkedinSections(li) {
   const lp = li.posts || {}, lv = li.videos || {};
   const imp = lp.impressions != null ? lp.impressions : li.impressions, impC = lp.impressions != null ? lp.impressionsChange : li.impressionsChange;
   const [iM, iD] = liChange(impC), [rM, rD] = liChange(lp.reachChange), [eM, eD] = liChange(lp.engagementChange), [pM, pD] = liChange(lp.publishedChange);
@@ -211,58 +196,81 @@ function linkedinSec(li) {
     tile("Engagement rate", pc(n(lp.engagementRate)), "", 0),
     tile("Videos", fmt(n(lv.published)), n(lv.published) ? `${fmt(n(lv.views))} views` : "", 0),
   ].join("");
-  return `<div class="mg-sec"><p class="mg-sec-h">LinkedIn <small>${esc(li.period || "the 30 days before the report")}</small></p><div class="mg-tiles">${tiles}</div></div>
-    <div class="mg-sec"><p class="mg-sec-h">Top 5 LinkedIn posts <small>by reach</small></p>${platformTop(li.content, [["Reach", (t) => fmt(n(t.reach))], ["Engagement", (t) => fmt(n(t.engagement))], ["Comments", (t) => fmt(n(t.comments))]])}</div>`;
+  return [
+    secHtml(`<p class="mg-sec-h">LinkedIn <small>${esc(li.period || "the 30 days before the report")}</small></p><div class="mg-tiles">${tiles}</div>`, "linkedin"),
+    secHtml(`<p class="mg-sec-h">Top 5 LinkedIn posts <small>by reach</small></p>${platformTop(li.content, [["Reach", (t) => fmt(n(t.reach))], ["Engagement", (t) => fmt(n(t.engagement))], ["Comments", (t) => fmt(n(t.comments))]])}`),
+  ];
 }
-function otherPlatformsPage(a, pageNo, title, withSummary) {
-  const d = a.report.data || {}, L = a.lead;
+
+// The team's read (Management Summary tab): what it means, the plan, trends, goals.
+function readSections(a) {
+  const d = a.report.data || {};
   const month = MONTHS[a.report.month], next = MONTHS[(a.report.month + 1) % 12];
   const plats = platformsOf(d), multiP = plats.length > 1;
   const pfx = (k) => (multiP ? `<span class="mg-plat">${esc(PLATFORM_LABELS[k] || k)}</span>` : "");
   const prios = (d.priorities || []).filter((x) => x && x.text);
-  const read = withSummary ? `<div class="mg-sec mg-two"><div><p class="mg-sec-h">What it means</p>${plats.map((k) => { const t = k === "instagram" ? d.summary : (d[k] || {}).summary; return t ? `<p class="mg-prose">${pfx(k)}${esc(t)}</p>` : ""; }).join("") || `<p class="mg-none">Summary not written yet.</p>`}</div>
-      <div><p class="mg-sec-h">Into ${esc(next)}</p>${prios.length ? `<ul class="mg-prios">${prios.map((x) => `<li>${pfx(itemPlatform(x, d))}<span class="mg-tag ${esc(x.type || "go")}">${esc(PRIO[x.type] || PRIO.go)}</span>${x.title ? `<b>${esc(x.title)}.</b> ` : ""}${esc(x.text)}</li>`).join("")}</ul>` : `<p class="mg-none">No plan written yet.</p>`}</div></div>` : "";
-  const who = [L.name && L.business && L.name !== L.business ? L.name : "", plats.map((k) => PLATFORM_LABELS[k]).join(", "), L.package ? `${L.package} package` : ""].filter(Boolean).join(" · ");
-  return `<div class="mg-page">
-    <div class="mg-band"><span>TMKE · Social media management</span><span>${esc(title)}</span></div>
-    <div class="mg-title"><div><h2 class="mg-h">${esc(L.business || L.name || "Account")}${withSummary ? "" : `<span class="mg-cont"> continued</span>`}</h2><p>${esc(who)}</p></div>
-      <div class="mg-meta">${L.manager ? `Account manager: <b>${esc(L.manager)}</b>` : ""}</div></div>
-    ${d.facebook ? facebookSec(d.facebook, month) : ""}
-    ${d.linkedin ? linkedinSec(d.linkedin) : ""}
-    ${read}
-    ${goalsSec(d)}
-    <div class="mg-foot"><span>Internal · not for clients</span><span>${pageNo}</span></div>
-  </div>`;
-}
-// An account's pages: Instagram's (with the read and plan), then a second
-// for Facebook, LinkedIn and the goals; or only the second, when the month
-// has no Instagram. Goals sit on the second page because the first is full.
-const hasGoals = (d) => (d.goals || []).some((g) => g && (g.goal || g.measure));
-function accountPages(a, pageNo, title) {
-  const d = a.report.data || {};
-  const ig = hasIg(d), other = !!(d.facebook || d.linkedin);
-  const out = [];
-  if (ig || !other) out.push(accountPage(a, pageNo, title));
-  if (other || hasGoals(d)) out.push(otherPlatformsPage(a, pageNo + out.length, title, !ig && other));
+  const prioHtml = prios.length ? `<ul class="mg-prios">${prios.map((x) => `<li>${pfx(itemPlatform(x, d))}<span class="mg-tag ${esc(x.type || "go")}">${esc(PRIO[x.type] || PRIO.go)}</span>${x.title ? `<b>${esc(x.title)}.</b> ` : ""}${esc(x.text)}</li>`).join("")}</ul>` : `<p class="mg-none">No plan written yet.</p>`;
+  const means = multiP
+    ? plats.map((k) => { const t = k === "instagram" ? d.summary : (d[k] || {}).summary; return t ? `<p class="mg-pts-h">${pfx(k)}</p>${pointsHtml(t, false)}` : ""; }).join("") || `<p class="mg-none">Summary not written yet.</p>`
+    : d.summary ? pointsHtml(d.summary, false) : `<p class="mg-none">Summary not written yet.</p>`;
+  const out = [secHtml(`<div><p class="mg-sec-h">What it means</p>${means}</div><div><p class="mg-sec-h">Into ${esc(next)}</p>${prioHtml}</div>`, "", "mg-two")];
+  // Trends: Instagram's three months as a table, beside the team's points.
+  const series = [...a.earlier, { month: a.report.month, year: a.report.year, data: d }];
+  const trendText = series.length < 2 ? `<p class="mg-none">The first month on record: nothing to compare with yet.</p>`
+    : d.trendSummary ? pointsHtml(d.trendSummary, true) : `<p class="mg-none">Trend summary not written yet.</p>`;
+  const range = series.length > 1 ? `${esc(MONTHS[series[0].month])} to ${esc(month)}` : esc(month);
+  if (hasIg(d)) {
+    const tr = (label, f) => `<tr><td class="l">${label}</td>${series.map((s) => `<td class="v">${f(s.data || {})}</td>`).join("")}</tr>`;
+    const trendTbl = `<table class="mg-tbl"><thead><tr><th class="l">Instagram</th>${series.map((s) => `<th>${esc(MONTHS[s.month].slice(0, 3))}</th>`).join("")}</tr></thead><tbody>
+      ${tr("New followers", (x) => fmt(n(x.profile?.newFollowers)))}
+      ${tr("Profile reach", (x) => fmt(n(x.profile?.reach)))}
+      ${tr("Views", (x) => fmt(n(x.profile?.views)))}
+      ${tr("Interactions", (x) => fmt(n(x.profile?.interactions)))}
+      ${tr("Interaction rate", (x) => pc(n(x.profile?.interactionRate)))}
+      ${tr("Published", (x) => fmt(sum([n(x.posts?.published), n(x.reels?.published)])))}
+    </tbody></table>`;
+    out.push(secHtml(`<p class="mg-sec-h">Trends <small>${range}</small></p><div class="mg-trend"><div>${trendTbl}</div><div>${trendText}</div></div>`));
+  } else if (series.length > 1 || d.trendSummary) {
+    out.push(secHtml(`<p class="mg-sec-h">Trends <small>${range}</small></p>${trendText}`));
+  }
+  const goals = goalsSec(d);
+  if (goals) out.push(goals);
   return out;
 }
-const pagesFor = (a) => { const d = a.report.data || {}, other = !!(d.facebook || d.linkedin); return (hasIg(d) || !other ? 1 : 0) + (other || hasGoals(d) ? 1 : 0); };
 
-function coverPage({ month, year, accounts, missing, by }, title) {
+function accountSections(a) {
+  const d = a.report.data || {}, month = MONTHS[a.report.month];
+  return [
+    ...(hasIg(d) || !(d.facebook || d.linkedin) ? igSections(a) : []),
+    ...(d.facebook ? facebookSections(d.facebook, month) : []),
+    ...(d.linkedin ? linkedinSections(d.linkedin) : []),
+    ...readSections(a),
+  ];
+}
+function accountHead(a, cont) {
+  const d = a.report.data || {}, L = a.lead;
+  const plats = platformsOf(d);
+  const who = [L.name && L.business && L.name !== L.business ? L.name : "", plats.map((k) => PLATFORM_LABELS[k]).join(", ") || a.report.platform, L.package ? `${L.package} package` : ""].filter(Boolean).join(" · ");
+  const pub = a.report.published_at ? new Date(a.report.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "";
+  return `<div class="mg-title"><div><h2 class="mg-h">${esc(L.business || L.name || "Account")}${cont ? `<span class="mg-cont"> continued</span>` : ""}</h2><p>${esc(who)}</p></div>
+      <div class="mg-meta">${L.manager ? `Account manager: <b>${esc(L.manager)}</b>` : ""}${!cont && pub ? `<br>Published to client ${esc(pub)}` : ""}</div></div>`;
+}
+
+function coverPage({ month, year, accounts, missing, by }, title, pageOf) {
   // Account and contact together: one account can be a brand among several,
   // and the contact is who it's for (Danielle, Sep 2026).
   const acct = (name, business, extra) => `<span class="mg-acct"><b>${esc(business || name)}</b><small>${esc([business && name && name !== business ? name : "", ...extra].filter(Boolean).join(" · "))}</small></span>`;
   /* A row per platform: Facebook's followers are Page likes, its views Page
-     views; LinkedIn's views are impressions. Never added together. */
-  let page = 2;
-  const list = `<table class="mg-tbl"><thead><tr><th class="l">Account</th><th class="l">Platform</th><th class="l">Manager</th><th>Followers</th><th>New</th><th>Reach</th><th>Views</th><th>Interactions</th><th>Rate</th><th>Page</th></tr></thead><tbody>${accounts.map((a) => {
+     views; LinkedIn's views are impressions. Never added together. Each
+     row's page is the page its figures landed on. */
+  const list = `<table class="mg-tbl"><thead><tr><th class="l">Account</th><th class="l">Platform</th><th class="l">Manager</th><th>Followers</th><th>New</th><th>Reach</th><th>Views</th><th>Interactions</th><th>Rate</th><th>Page</th></tr></thead><tbody>${accounts.map((a, i) => {
     const d = a.report.data || {}, p = d.profile || {}, fb = d.facebook || {}, fp = fb.posts || {}, li = d.linkedin || {}, lp = li.posts || {};
-    const first = page; page += pagesFor(a);
+    const pg = (k) => (pageOf[i] && (pageOf[i][k] || pageOf[i].first)) || "";
     const rows = [];
-    if (hasIg(d)) rows.push(["Instagram", p.followers, p.newFollowers, p.reach, p.views, p.interactions, pc(n(p.interactionRate)), first]);
-    if (d.facebook) rows.push(["Facebook", fb.pageLikes, fb.newFans, fb.pageReach, fb.pageViews, fp.engagement, "–", hasIg(d) ? first + 1 : first]);
-    if (d.linkedin) rows.push(["LinkedIn", li.followers, li.followerGrowth, lp.reach, lp.impressions != null ? lp.impressions : li.impressions, lp.engagement, pc(n(lp.engagementRate)), hasIg(d) ? first + 1 : first]);
-    if (!rows.length) rows.push([a.report.platform || "Instagram", null, null, null, null, null, "–", first]);
+    if (hasIg(d)) rows.push(["Instagram", p.followers, p.newFollowers, p.reach, p.views, p.interactions, pc(n(p.interactionRate)), pg("instagram")]);
+    if (d.facebook) rows.push(["Facebook", fb.pageLikes, fb.newFans, fb.pageReach, fb.pageViews, fp.engagement, "–", pg("facebook")]);
+    if (d.linkedin) rows.push(["LinkedIn", li.followers, li.followerGrowth, lp.reach, lp.impressions != null ? lp.impressions : li.impressions, lp.engagement, pc(n(lp.engagementRate)), pg("linkedin")]);
+    if (!rows.length) rows.push([a.report.platform || "Instagram", null, null, null, null, null, "–", pg("first")]);
     return rows.map((r, j) => `<tr${j ? ' class="sub"' : ""}><td class="l">${j ? "" : acct(a.lead.name, a.lead.business, [])}</td><td class="l">${esc(r[0])}</td><td class="l">${j ? "" : esc(a.lead.manager || "")}</td><td class="v">${fmt(n(r[1]))}</td><td class="v">${fmt(n(r[2]))}</td><td class="v">${fmt(n(r[3]))}</td><td class="v">${fmt(n(r[4]))}</td><td class="v">${fmt(n(r[5]))}</td><td class="v">${r[6]}</td><td class="v">${r[7]}</td></tr>`).join("");
   }).join("")}</tbody></table>`;
   const miss = `<div class="mg-sec"><p class="mg-sec-h">Not included <small>Active clients without a published ${esc(MONTHS[month])} report</small></p>${missing.length ? `<ul class="mg-miss">${missing.map((x) => `<li>${acct(x.name, x.business, [x.manager, x.platform])}<span>${esc(x.reason)}</span></li>`).join("")}</ul>` : `<p class="mg-none">Every active client is included.</p>`}</div>`;
@@ -270,25 +278,56 @@ function coverPage({ month, year, accounts, missing, by }, title) {
   return `<div class="mg-page mg-cover">
     <div class="mg-band"><span>TMKE · Social media management</span><span>${esc(title)}</span></div>
     <div class="mg-coverhead"><p class="mg-kicker">Management report</p><h1 class="mg-h">${esc(MONTHS[month])} ${year}</h1>
-      <p class="mg-sub">Every client report published for the month, one page each. Pulled ${esc(today)}${by ? ` by ${esc(by)}` : ""}.</p></div>
+      <p class="mg-sub">Every client report published for the month. Pulled ${esc(today)}${by ? ` by ${esc(by)}` : ""}.</p></div>
     <div class="mg-sec" style="margin-top:48px"><p class="mg-sec-h">Accounts included <small>${accounts.length}</small></p>${accounts.length ? list : `<p class="mg-none">No published reports for this month.</p>`}</div>
     ${miss}
     <div class="mg-foot"><span>Internal · not for clients</span><span>1</span></div>
   </div>`;
 }
 
-/** The pages as HTML (exported for checking the layout in dev). */
-export function managementPdfHtml(input) {
+/* Lay the report out in `host` (in the page, measured): the accounts first,
+   section by section onto pages, then the cover with the page each one
+   landed on. Returns the page elements in order. */
+export function layoutPages(input, host) {
   const title = `Monthly report · ${MONTHS[input.month]} ${input.year}`;
-  let next = 2;
-  const pages = [coverPage(input, title), ...input.accounts.flatMap((a) => { const ps = accountPages(a, next, title); next += ps.length; return ps; })];
-  return { css: CSS, html: pages.join(""), count: pages.length };
+  const limit = H - 76;
+  const band = `<div class="mg-band"><span>TMKE · Social media management</span><span>${esc(title)}</span></div>`;
+  const newPage = (a, cont) => {
+    const pg = document.createElement("div");
+    pg.className = "mg-page";
+    pg.innerHTML = band + accountHead(a, cont);
+    host.appendChild(pg);
+    return pg;
+  };
+  const used = (pg) => { const top = pg.getBoundingClientRect().top; return Math.max(...[...pg.children].filter((c) => !c.classList.contains("mg-foot")).map((c) => c.getBoundingClientRect().bottom)) - top; };
+  const pages = [], pageOf = [];
+  input.accounts.forEach((a, i) => {
+    let pg = newPage(a, false), here = 0;
+    pages.push(pg);
+    const where = { first: pages.length + 1 };
+    for (const html of accountSections(a)) {
+      const t = document.createElement("div"); t.innerHTML = html.trim();
+      const sec = t.firstElementChild;
+      pg.appendChild(sec); here++;
+      if (used(pg) > limit && here > 1) { pg.removeChild(sec); pg = newPage(a, true); pages.push(pg); pg.appendChild(sec); here = 1; }
+      const plat = sec.getAttribute("data-plat");
+      if (plat && !where[plat]) where[plat] = pages.length + 1;
+    }
+    pageOf[i] = where;
+  });
+  const c = document.createElement("div"); c.innerHTML = coverPage(input, title, pageOf).trim();
+  host.insertBefore(c.firstElementChild, host.firstChild);
+  const all = [...host.querySelectorAll(".mg-page")];
+  all.forEach((pg, k) => { if (k && !pg.querySelector(".mg-foot")) pg.insertAdjacentHTML("beforeend", `<div class="mg-foot"><span>Internal · not for clients</span><span>${k + 1}</span></div>`); });
+  return all;
 }
+/** The stylesheet (for checking the layout in dev with layoutPages). */
+export const MANAGEMENT_PDF_CSS = CSS;
 
 // Long summaries and plans step down in size rather than run off the page.
 function fitPages(root) {
   for (const pg of root.querySelectorAll(".mg-page")) {
-    const els = [...pg.querySelectorAll(".mg-prose, .mg-prios li, .mg-goals td")];
+    const els = [...pg.querySelectorAll(".mg-prose, .mg-prios li, .mg-goals td, .mg-points li")];
     let size = 17;
     const over = () => [...pg.children].some((c) => !c.classList.contains("mg-foot") && c.getBoundingClientRect().bottom > pg.getBoundingClientRect().top + H - 76);
     while (els.length && over() && size > 13) { size -= 0.5; els.forEach((e) => { e.style.fontSize = size + "px"; }); }
@@ -297,9 +336,8 @@ function fitPages(root) {
 
 /** Build the PDF and save it. */
 export async function downloadManagementPdf(input, { filename, onProgress } = {}) {
-  const { css, html, count } = managementPdfHtml(input);
-  const style = document.createElement("style"); style.textContent = css;
-  const host = document.createElement("div"); host.className = "mg"; host.innerHTML = html;
+  const style = document.createElement("style"); style.textContent = CSS;
+  const host = document.createElement("div"); host.className = "mg";
   document.head.appendChild(style); document.body.appendChild(host);
   try {
     const [{ toJpeg }, { jsPDF }] = await Promise.all([
@@ -308,13 +346,15 @@ export async function downloadManagementPdf(input, { filename, onProgress } = {}
     ]);
     const fontCss = await fontEmbedCss();
     await document.fonts.ready;
-    fitPages(host);
+    // Laid out after the fonts load, as the measuring depends on them.
+    layoutPages(input, host);
+    fitPages(host);   // only a single section taller than a page needs it
     const blank = "data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
     const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4", compress: true });
     const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight();
     const nodes = [...host.querySelectorAll(".mg-page")];
     for (let i = 0; i < nodes.length; i++) {
-      onProgress && onProgress(i + 1, count);
+      onProgress && onProgress(i + 1, nodes.length);
       const img = await toJpeg(nodes[i], { quality: 0.9, pixelRatio: 1.5, width: W, height: H, backgroundColor: "#ffffff", imagePlaceholder: blank, fontEmbedCSS: fontCss, cacheBust: false });
       if (i) doc.addPage("a4", "portrait");
       doc.addImage(img, "JPEG", 0, 0, pw, ph, undefined, "FAST");
