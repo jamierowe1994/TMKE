@@ -435,6 +435,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
     import { supabase } from "../../lib/supabase.js";
     import { MONTHS } from "../../lib/report-insights.js";
     import { resolveVisibility } from "../../lib/report-fields.js";
+    import { PLATFORM_LABELS, platformsOf } from "../../lib/report-metrics.js";
     import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
     // Here, in the page's script: imported in the frontmatter above it only
     // existed at build time, so the sign-in check threw and the page sat on
@@ -506,23 +507,31 @@ import { gbpFromPence } from "../../lib/supabase.js";
       const href = (r) => isSample ? `/account/social/report?sample=${encodeURIComponent(r.id)}` : `/account/social/report?r=${encodeURIComponent(r.id)}`;
       const label = (r) => `${MONTHS[r.month]} ${r.year}`;
       const [latest, ...earlier] = reports;
-      const p = (latest.data || {}).profile || {};
-      const figs = [
-        ["Followers", p.followers, vis.followers], ["Reach", p.reach, vis.reach], ["Interactions", p.interactions, vis.interactions],
-      ].filter(([, v, on]) => on !== false && v != null && v !== "")
+      /* Which platforms a report covers, from what's in it (every report row
+         is saved as "Instagram", whatever else it holds). The three figures
+         are its first platform's: Instagram's, else Facebook's or LinkedIn's. */
+      const platLabel = (r) => platformsOf(r.data).map((k) => PLATFORM_LABELS[k]).join(", ") || r.platform || "";
+      const ld = latest.data || {}, first = platformsOf(ld)[0];
+      const p = ld.profile || {}, fb = ld.facebook || {}, li = ld.linkedin || {};
+      const figs = (first === "facebook"
+        ? [["Page likes", fb.pageLikes, vis.followers], ["Page reach", fb.pageReach, vis.reach], ["Engagement", (fb.posts || {}).engagement, vis.interactions]]
+        : first === "linkedin"
+        ? [["Followers", li.followers, vis.followers], ["Post reach", (li.posts || {}).reach, vis.reach], ["Engagement", (li.posts || {}).engagement, vis.interactions]]
+        : [["Followers", p.followers, vis.followers], ["Reach", p.reach, vis.reach], ["Interactions", p.interactions, vis.interactions]]
+      ).filter(([, v, on]) => on !== false && v != null && v !== "")
         .map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(Number(String(v).replace(/[^0-9.]/g, "")).toLocaleString("en-GB"))}</dd></div>`).join("");
       const arrow = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       wrap.innerHTML = `
         <div class="soc-rep-latest">
           <div class="soc-rep-copy">
-            <p class="soc-rep-eyebrow">Latest report${latest.platform ? ` · ${esc(latest.platform)}` : ""}</p>
+            <p class="soc-rep-eyebrow">Latest report${platLabel(latest) ? ` · ${esc(platLabel(latest))}` : ""}</p>
             <h3 class="soc-rep-h">${esc(label(latest))}</h3>
             ${figs ? `<dl class="soc-rep-figs">${figs}</dl>` : ""}
           </div>
           <a class="ws-btn ws-btn--primary" href="${href(latest)}">Read the report ${arrow}</a>
         </div>
         ${earlier.length ? `<p class="soc-rep-earlier-h">Earlier reports</p><ul class="soc-rep-list">${earlier.map((r) =>
-          `<li><a href="${href(r)}"><span>${esc(label(r))}${r.platform ? `<span class="soc-rep-plat">${esc(r.platform)}</span>` : ""}</span><span class="soc-rep-go">Read ${arrow}</span></a></li>`).join("")}</ul>` : ""}`;
+          `<li><a href="${href(r)}"><span>${esc(label(r))}${platLabel(r) ? `<span class="soc-rep-plat">${esc(platLabel(r))}</span>` : ""}</span><span class="soc-rep-go">Read ${arrow}</span></a></li>`).join("")}</ul>` : ""}`;
     }
 
     // A prospect can see the client view filled with sample numbers, and come back.

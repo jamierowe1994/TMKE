@@ -3332,7 +3332,7 @@ function emailPreviewSample(id) {
     vid_booking_client: () => ({ subject: "Booking confirmed - Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
     vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
-    smm_report_ready: () => ({ subject: "Your August social media report is ready.", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample", joinLink: "https://tmke.co.uk/join?email=alex%40example.com&next=%2Faccount%2Fsocial%2Freport%3Fr%3Dsample" }) }),
+    smm_report_ready: () => ({ subject: "Your August social media report is ready.", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", platforms: "Instagram and Facebook", link: "https://tmke.co.uk/account/social/report?r=sample", joinLink: "https://tmke.co.uk/join?email=alex%40example.com&next=%2Faccount%2Fsocial%2Freport%3Fr%3Dsample" }) }),
     smm_report_amended: () => ({ subject: "Your August social media report has been updated.", html: smmReportAmendedHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
@@ -4189,7 +4189,17 @@ function setupReminderHtml({ name, pack, link }) {
 // ---- SMM monthly report: ready / amended ---------------------------------
 // Sent when a report is published (if the admin ticks "email them") and when
 // a live report is republished with "tell them". The bell gets the same news.
-function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link, joinLink }) {
+// "Instagram", "Instagram and Facebook", "Instagram, Facebook and LinkedIn":
+// the platforms a report's data covers, for the email and the bell. Every
+// report row is saved as "Instagram", so the data is what says.
+function reportPlatformWords(d) {
+  d = d || {};
+  const has = (o) => o && typeof o === "object" && Object.keys(o).length;
+  const list = [(has(d.profile) || has(d.posts) || has(d.reels) || (Array.isArray(d.content) && d.content.length)) ? "Instagram" : null, has(d.facebook) ? "Facebook" : null, has(d.linkedin) ? "LinkedIn" : null].filter(Boolean);
+  if (!list.length) return "social media";
+  return list.length === 1 ? list[0] : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`;
+}
+function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link, joinLink, platforms }) {
   const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const first = esc(String(name || "there").trim().split(/\s+/)[0] || "there");
   const mgr = esc(String(manager || "").trim().split(/\s+/)[0] || "");
@@ -4197,7 +4207,7 @@ function smmReportReadyHtml({ name, month, monthLabel, nextMonth, manager, link,
     <h1 style="${EM_H1}">Your ${esc(month)} Social Media Report is Ready.</h1>
     <p style="${EM_P}">Hi ${first},</p>
     <p style="${EM_P}">Your social media report for ${esc(monthLabel)} is ready to view in your Member Hub.</p>
-    <p style="${EM_P}">Inside, you&rsquo;ll find a breakdown of how your Instagram performed, who your content reached, what worked best, and what we&rsquo;ll be focusing on in ${esc(nextMonth || "the month ahead")}.</p>
+    <p style="${EM_P}">Inside, you&rsquo;ll find a breakdown of how your ${esc(platforms || "Instagram")} performed, who your content reached, what worked best, and what we&rsquo;ll be focusing on in ${esc(nextMonth || "the month ahead")}.</p>
     <p style="margin:0 0 26px"><a href="${esc(link)}" style="${EM_BTN}">Read Your Report</a></p>
     <p style="${EM_P}">It only takes a couple of minutes to read. If you have any questions, just reply to this email or message ${mgr || "us"} directly from your Member Hub.</p>
     <p style="${EM_P}">The TMKE Team</p>
@@ -11084,7 +11094,10 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const leads = await get("smm_leads", `or=(pipeline_stage.eq.active_client,id.in.(${[...new Set(reps.map((r) => r.lead_id))].join(",") || "00000000-0000-0000-0000-000000000000"}))&select=id,full_name,business,email,social_media_manager,package_name,pipeline_stage,platforms`);
           const byId = new Map(leads.map((l) => [l.id, l]));
           const isNow = (r) => r.year === y && r.month === m;
-          const has = (d) => d && typeof d === "object" && d.profile && Object.keys(d.profile).length;
+          // Any platform's figures count: a month with only Facebook or LinkedIn
+          // is still that client's report (it used to need Instagram's).
+          const filled = (o) => o && typeof o === "object" && Object.keys(o).length;
+          const has = (d) => d && typeof d === "object" && (filled(d.profile) || filled(d.posts) || filled(d.facebook) || filled(d.linkedin));
           const accounts = reps.filter((r) => isNow(r) && r.published_at && has(r.published_data) && byId.has(r.lead_id)).map((r) => {
             const l = byId.get(r.lead_id);
             const earlier = reps.filter((x) => x.lead_id === r.lead_id && (x.platform || "") === (r.platform || "") && !isNow(x))
@@ -11413,11 +11426,11 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
               if (action === "publish") {
                 out.push(await patch(r.id, { published_at: now, published_by: user.email || "admin", published_data: r.data }));
                 // The bell always; the email only if the admin ticked it.
-                if (await notifyMember(env, lead.account_user_id, { kind: "smm_report_ready", title: `Your ${MN[r.month]} report is ready`, body: "See how your Instagram did, and what we're doing next.", href, meta: { report_id: r.id } })) notes.bell++;
+                if (await notifyMember(env, lead.account_user_id, { kind: "smm_report_ready", title: `Your ${MN[r.month]} report is ready`, body: `See how your ${reportPlatformWords(r.data)} did, and what we're doing next.`, href, meta: { report_id: r.id } })) notes.bell++;
                 else notes.noHub++;
                 if (b && b.email) {
                   if (!lead.email) { notes.noEmail++; continue; }
-                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report is ready.`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, month: MN[r.month], monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, link,
+                  const sent = await sendEmail(env, { to: lead.email, subject: `Your ${MN[r.month]} social media report is ready.`, html: await wrapInBrandedBase(env, smmReportReadyHtml({ name: lead.full_name, month: MN[r.month], monthLabel, nextMonth: MN[(r.month + 1) % 12], manager: lead.social_media_manager, platforms: reportPlatformWords(r.data), link,
                     // Only for someone with no hub account yet: sign up with this
                     // address and land on the report once confirmed.
                     joinLink: lead.account_user_id ? null : `${site}/join?email=${encodeURIComponent(lead.email)}&next=${encodeURIComponent(href)}` })) }).catch(() => ({ ok: false }));

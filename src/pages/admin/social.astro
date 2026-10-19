@@ -2970,7 +2970,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         // Adding a platform to a month we've already written up keeps our
         // commentary: redrafting would replace it. The Draft button is there
         // if it should take the new platform in.
-        if (hadCommentary) {
+        // A platform new to the month: ask whether the commentary should be
+        // redrafted to cover it (it replaces the current one, edits and all).
+        const before = (existing && existing.data && (existing.data.platforms || platformsIn(existing.data))) || [];
+        const fresh = added.filter((x) => !before.includes(x));
+        if (hadCommentary && fresh.length && j.report && j.report.id
+            && confirm(`${platformList(fresh)} is now in ${RI_MONTHS[month]}'s report.\n\nRedraft the client commentary and the team summary so they cover ${platformList(fresh)} too? This replaces what's written now, including your edits.\n\nCancel keeps your commentary as it is.`)) {
+          btn.textContent = "Redrafting…";
+          status.hidden = false; status.textContent = `Saved. Redrafting the commentary to cover ${platformList(fresh)} — a few seconds.`;
+          await draftCommentary(r, { id: j.report.id, data }, "both").catch(() => {});
+        } else if (hadCommentary) {
           status.hidden = false;
           status.textContent = `Added ${platformList(added)} to ${RI_MONTHS[month]}'s report. Your commentary is unchanged - redraft it from Client commentary if it should cover ${platformList(added)} too.`;
           await new Promise((res2) => setTimeout(res2, 2200));
