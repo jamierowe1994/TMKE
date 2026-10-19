@@ -3332,8 +3332,8 @@ function emailPreviewSample(id) {
     vid_booking_client: () => ({ subject: "Booking confirmed - Property Videography", html: bookingConfirmHtml({ name: "Alex Morgan", service: "Property Videography", serviceType: "property", packageLabel: "Premium", dateNice: "Tuesday, 25 August 2026", time: "10:00", addOns: ["Drone footage"], postcode: "NN14 1AA", surchargePence: 0, totalPence: 60000, manageUrl: "https://tmke.co.uk/manage?token=sample" }) }),
     vid_booking_team: () => ({ subject: "New booking - Property Videography - Alex Morgan", html: jackNotifyHtml({ name: "Alex Morgan", company: "Acme Estates", email: "alex@example.com", phone: "07700 900123", service: "Property Videography", packageLabel: "Premium", addOns: ["Drone footage"], postcode: "NN14 1AA", distanceMiles: 12, surchargePence: 0, dateNice: "Tuesday, 25 August 2026", time: "10:00", totalPence: 60000, signedName: "Jack", marketingOptIn: true }) }),
     invoice_sent: () => ({ subject: "Invoice TMKE1001 from The Marketing Experts (Nationwide) Ltd", html: invoiceEmailHtml({ company_name: "The Marketing Experts (Nationwide) Ltd", email_footer_image_url: null }, { number: "TMKE1001", bill_to_name: "Fine & Country", total_pence: 75000, due_date: "2026-08-31" }, null) }),
-    smm_report_ready: () => ({ subject: "Your August social media report is ready.", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abby Smith", platforms: "Instagram and Facebook", link: "https://tmke.co.uk/account/social/report?r=sample", joinLink: "https://tmke.co.uk/join?email=alex%40example.com&next=%2Faccount%2Fsocial%2Freport%3Fr%3Dsample" }) }),
-    smm_report_amended: () => ({ subject: "Your August social media report has been updated.", html: smmReportAmendedHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", manager: "Abby Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
+    smm_report_ready: () => ({ subject: "Your August social media report is ready.", html: smmReportReadyHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", nextMonth: "September", manager: "Abbie Smith", platforms: "Instagram and Facebook", link: "https://tmke.co.uk/account/social/report?r=sample", joinLink: "https://tmke.co.uk/join?email=alex%40example.com&next=%2Faccount%2Fsocial%2Freport%3Fr%3Dsample" }) }),
+    smm_report_amended: () => ({ subject: "Your August social media report has been updated.", html: smmReportAmendedHtml({ name: "Alex Morgan", month: "August", monthLabel: "August 2026", manager: "Abbie Smith", link: "https://tmke.co.uk/account/social/report?r=sample" }) }),
     invoice_dd_reminder: () => ({ subject: "Direct Debit invoice TMKE1002 - Acme Estates (August 2026)", html: ddReminderHtml("Acme Estates", "August 2026", { number: "TMKE1002", total_pence: 90000, due_date: "2026-08-15" }) }),
   };
   const fn = SAMPLES[id];
@@ -11079,7 +11079,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const user = await getUser(request, env);
         const allow = String(env.MGMT_REPORT_EMAILS || "").toLowerCase().split(",").map((x) => x.trim()).filter(Boolean);
         if (!user || !isAdminEmail(user) || !allow.includes(String(user.email || "").toLowerCase().trim())) {
-          return json({ error: "The monthly report is for Danielle, Sam and Abby." }, 403, request, env);
+          return json({ error: "The monthly management report is for Danielle, Sam and Abbie." }, 403, request, env);
         }
         const m = Number(url.searchParams.get("month")), y = Number(url.searchParams.get("year"));
         if (!Number.isInteger(m) || m < 0 || m > 11 || !Number.isInteger(y) || y < 2020) return json({ error: "Which month?" }, 400, request, env);
@@ -11281,7 +11281,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (only !== "client") asks.push('"trendSummary": string (FOR THE TEAM, not the client. Only if there are two or more months; otherwise null. Points, not paragraphs: ' + (multi ? 'for each platform, a line with just its name and a colon ("Instagram:", "Facebook:", "LinkedIn:"), then 2-4 points about that platform alone, ' : '2-4 points, ') + 'each point on its own line starting "- ", one plain sentence each, on what is moving across these months: what has improved and is holding, what is slipping, and whether last month\'s actions show up in this month\'s figures. Weigh all the figures together, never one statistic alone. Direct, honest, no spin.)');
         // The approved headline figures (src/lib/report-metrics.js): the AI
         // picks keys, the page computes the numbers. Keep the two in step.
-        const HEADLINE_KEYS = {
+        const IG_HEADLINE_KEYS = {
           reach: "profile reach (different people who saw the account) and its change",
           views: "total views and their change",
           interactions: "total interactions and their change",
@@ -11296,18 +11296,41 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           linkTaps: "taps on the link in their profile",
           topPost: "reach of the best-reaching post",
         };
+        /* Facebook's, LinkedIn's and all platforms added together (Danielle,
+           19 Oct 2026), offered only for the platforms the month has. Keep in
+           step with src/lib/report-metrics.js. */
+        const HEADLINE_KEYS = {
+          ...(plats.includes("instagram") ? Object.fromEntries(Object.entries(IG_HEADLINE_KEYS).map(([k, v]) => [k, `Instagram: ${v}`])) : {}),
+          ...(plats.includes("facebook") ? {
+            fb_pageLikes: "Facebook: Page likes, with the month's new likes", fb_newLikes: "Facebook: new Page likes in the month",
+            fb_pageReach: "Facebook: Page reach and its change", fb_pageViews: "Facebook: Page views and their change",
+            fb_postViews: "Facebook: post views and their change", fb_engagement: "Facebook: engagement on posts and its change",
+            fb_videoPlays: "Facebook: video plays and their change", fb_published: "Facebook: posts published",
+          } : {}),
+          ...(plats.includes("linkedin") ? {
+            li_followers: "LinkedIn: followers, with the new ones", li_newFollowers: "LinkedIn: new followers",
+            li_impressions: "LinkedIn: impressions and their change", li_reach: "LinkedIn: post reach and its change",
+            li_engagement: "LinkedIn: engagement and its change", li_engagementRate: "LinkedIn: engagement rate and its change in points",
+            li_videoViews: "LinkedIn: video views", li_published: "LinkedIn: posts published",
+          } : {}),
+          ...(multi ? {
+            all_reach: "all platforms: reach added together", all_views: "all platforms: views added together",
+            all_engagement: "all platforms: interactions and engagement added together", all_followers: "all platforms: followers added together, with the new ones",
+            all_newFollowers: "all platforms: new followers added together", all_published: "all platforms: everything published",
+          } : {}),
+        };
         const platEnum = [...plats, ...(multi ? ["all"] : [])].map((x) => `"${x}"`).join("|");
         if (only !== "trends") asks.push(`"client": { "headline": [ four keys from: ${Object.keys(HEADLINE_KEYS).join(", ")} ], "insights": [ { "platform": ${platEnum}, "category": "working"|"learning"|"watch"|"previous", "headline": string, "analysis": string, "evidence": [ string ], "confidence": "strong"|"emerging" } ], "priorities": [ { "platform": ${platEnum}, "type": "go"|"caution"|"action", "title": string, "text": string } ] }`);
         // The rules are docs/smm-report-rules.md §10-11; change them there too.
         const prompt =
-`You analyse a UK estate agent's ${plats.map((x) => PN[x]).join(" and ")} for TMKE, their social media agency.${multi ? ` Each platform has its own content, audience and results: read and write about each one separately, and NEVER add, average or compare figures across platforms. The headline figures are Instagram's.` : ""} Below are up to three months of figures for ${lead.business || lead.full_name || "the client"}, oldest to newest (the last column is ${MN[cur.month]} ${cur.year}, the month being reported), then the actions agreed in last month's report.
+`You analyse a UK estate agent's ${plats.map((x) => PN[x]).join(" and ")} for TMKE, their social media agency.${multi ? ` Each platform has its own content, audience and results: read and write about each one separately, and NEVER add, average or compare figures across platforms in what you write. Only the "all_" headline figures add platforms together, and those are worked out for you.` : ""} Below are up to three months of figures for ${lead.business || lead.full_name || "the client"}, oldest to newest (the last column is ${MN[cur.month]} ${cur.year}, the month being reported), then the actions agreed in last month's report.
 
 ${dataText}
 
 Reply with ONLY one JSON object, no prose and no markdown fences:
 { ${asks.join(", ")} }
 
-${multi ? `PLATFORMS: every insight and every priority is about ONE platform; say which in "platform", and name the platform in its headline or analysis so it reads clearly on its own ("On Facebook, ..."). Use "all" only for a point that genuinely spans every platform. The trend summary is one short paragraph per platform, each starting with the platform's name and a colon ("Instagram: ..."), separated by a blank line. Give every platform at least one insight and at least one priority.\n\n` : ""}HEADLINE ("client.headline"): the four figures that explain THIS month's story, chosen from the keys listed. Not the same four every month: pick the ones the insights rest on. The figures themselves are worked out from the data, so give keys only. Keys: ${Object.entries(HEADLINE_KEYS).map(([k, v]) => `${k} (${v})`).join("; ")}.
+${multi ? `PLATFORMS: every insight and every priority is about ONE platform; say which in "platform", and name the platform in its headline or analysis so it reads clearly on its own ("On Facebook, ..."). Use "all" only for a point that genuinely spans every platform. Give every platform at least one insight and at least one priority, and let the strongest point of the month stand out.\n\nHEADLINE WITH SEVERAL PLATFORMS: each of the four is either one platform's figure or an "all_" figure (every platform added together). Between them, the four should cover every platform the month has, or use an "all_" figure where the story is the whole picture; never all four from one platform. Each insight should rest on one of the four where it can.\n\n` : ""}HEADLINE ("client.headline"): the four figures that explain THIS month's story, chosen from the keys listed. Not the same four every month: pick the ones the insights rest on. The figures themselves are worked out from the data, so give keys only. Keys: ${Object.entries(HEADLINE_KEYS).map(([k, v]) => `${k} (${v})`).join("; ")}.
 
 INSIGHTS ("client.insights"). This is the page that makes the report worth reading. The client can already see the headline numbers; don't narrate them back, and don't write a summary.
 - Analyse ${MN[cur.month]} against the previous two months and the actions agreed last month. Test for: month-on-month changes that matter; three-month direction (rising, falling or flat across all three); content patterns (formats or kinds of post that keep outperforming); audience patterns (non-follower discovery, locations, ages); and each agreed action (did we do it, and what happened after).

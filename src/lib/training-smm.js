@@ -82,7 +82,8 @@ const AUG = {
   ],
   comingSoon: ["Open house film: Hope Cove", "September market note", "Meet the team: Kate"],
   client: {
-    headline: ["reach", "newFollowers", "interactionRate", "topPost"],
+    // One combined figure, then one from each platform; each insight rests on one.
+    headline: ["all_reach", "reach", "fb_pageReach", "li_impressions"],
     insights: [
       { platform: "instagram", category: "working", headline: "Coast path reels travelled furthest", analysis: "Your two reels that start on the coast path reached more people than any post this year, most of them not yet following you. We'll build more around the walk to the house.", evidence: ["Coast path reel: 1,680 reached", "Reels: 4,200 reached in all"], confidence: "strong" },
       { platform: "facebook", category: "working", headline: "Open house posts bring people in", analysis: "The Hope Cove open house was your best Facebook post, shared into local groups. Event posts give people a reason to act, so we'll post one for every open house.", evidence: ["Open house post: 2,140 reached", "19 shares"], confidence: "strong" },
@@ -165,12 +166,12 @@ const SEP = {
   ],
   comingSoon: ["October market note", "Bigbury barn film", "Autumn buyers' guide"],
   client: {
-    headline: ["reach", "newFollowers", "interactionRate", "reelViews"],
+    headline: ["all_newFollowers", "reach", "fb_videoPlays", "li_engagementRate"],
     insights: [
       { platform: "instagram", category: "working", headline: "Your best month for reach yet", analysis: "More people saw your Instagram in September than any month so far, and most of them weren't following you yet. Reels that open on the view did most of it, so we'll keep that going.", evidence: ["7,220 reached, up 18%", "Bigbury reel: 2,240 reached"], confidence: "strong" },
       { platform: "facebook", category: "previous", headline: "Open house posts did their job", analysis: "We said we'd post every open house as an event in August. Both September open houses were in your top two Facebook posts, and the Hope Cove film was your most-watched video.", evidence: ["Hope Cove film: 2,610 reached", "Video plays up 47%"], confidence: "strong" },
       { platform: "linkedin", category: "working", headline: "Tuesdays are your day", analysis: "Your LinkedIn posts are seen most on a Tuesday, and that's when people engage most too. We'll move your posts to Tuesday mornings.", evidence: ["Tuesday: 920 impressions", "Engagement rate 4.1%"], confidence: "emerging" },
-      { platform: "instagram", category: "watch", headline: "Single photos slipped", analysis: "Your single-photo posts reached a little fewer people than in August. We'll try carousels for sold homes to give people more to look at.", evidence: ["Posts: 2,780 reached, down from 3,100"], confidence: "emerging" },
+      { platform: "all", category: "working", headline: "120 new followers in a month", analysis: "Across Instagram, Facebook and LinkedIn, 120 people started following you in September, the most in any month so far. Most found you through reels and films of the coast.", evidence: ["Instagram 58", "Facebook 33", "LinkedIn 29"], confidence: "strong" },
     ],
     priorities: [
       { platform: "instagram", title: "More of the coast reels", text: "Into October we'll keep two reels a week that open on the view, as they brought most of your new followers." },
@@ -186,7 +187,7 @@ export const TRAINING_SMM = {
     full_name: "Alex Mercer",
     email: "alex@rimberiohomes.co.uk",
     phone: "01295 123456",
-    social_media_manager: "Abby",
+    social_media_manager: "Abbie",
     package_name: "Growth",
     price: "£750 / month",
     start_date: "2026-07-01",

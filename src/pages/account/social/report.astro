@@ -58,9 +58,13 @@ import "../../../styles/ws-system.css";
   <style is:global>
     /* The hub's own margins (.ws-main), without its gap between blocks —
        that gap was the space under "Back to your socials". */
-    .rp-main { gap: 0; padding-bottom: 18px; }
-    .rp-back { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 8px; justify-self: start; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ws-tx); text-decoration: none; }
-    .rp-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+    /* Specific enough to beat the dashboard's chapter gap, which was the
+       ~60px under "Back to your socials" (Danielle, 19 Oct 2026). */
+    body[data-dashboard] .ws-main.rp-main { gap: 0; padding-bottom: 18px; }
+    /* "Back to your socials" sits where every page's eyebrow does, in the
+       eyebrow's style; the progress line starts where a page title would. */
+    .rp-back { display: inline-flex; align-items: center; gap: 5px; margin: 0 0 clamp(16px, 2.2vh, 26px); justify-self: start; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.18em; line-height: 1.2; text-transform: uppercase; color: var(--ws-faint); text-decoration: none; }
+    .rp-back svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.2; }
     .rp-back:hover { color: var(--ws-accent); }
     .rp-state { font-family: var(--sans); font-size: var(--ws-t-body); color: var(--ws-faint); line-height: 1.6; margin: 0 0 14px; }
     .rp-empty[hidden], .rp[hidden], .rp-nav[hidden] { display: none; }
@@ -110,7 +114,15 @@ import "../../../styles/ws-system.css";
        bottom of the window, the slide takes whatever the progress bar and
        the buttons leave, and a slide that still has more than that scrolls
        inside its own card rather than moving the page. */
-    .rp:not([hidden]) { display: flex; flex-direction: column; height: calc(100dvh - var(--rp-top, 150px) - 18px); min-height: 480px; }
+    /* As the training reader (guides/read.astro): the deck and the foot bar
+       fill the window to 12px off its bottom, and the page itself doesn't
+       scroll, so there's never a scroll inside a scroll. */
+    .rp:not([hidden]) { display: flex; flex-direction: column; height: calc(100dvh - var(--rp-top, 150px) - var(--rp-foot, 36px) - 14px); min-height: 480px; }
+    @media (min-width: 721px) {
+      body.rp-fixed { overflow: hidden; }
+      body.rp-fixed .ws-main.rp-main { padding-bottom: 0 !important; }
+      body.rp-fixed .rp:not([hidden]) { margin-bottom: 2px; }
+    }
     .rp-stage { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
     .rp-stage > .rp-slide { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
     .rp-stage > .rp-done { display: flex; flex-direction: column; justify-content: center; }
@@ -135,14 +147,19 @@ import "../../../styles/ws-system.css";
     .rp-cover-title { font-family: var(--serif); font-weight: 500; font-size: 3.1em; line-height: 1.04; letter-spacing: -0.02em; color: #fff; margin: 0; }
     .rp-cover-sub { font-size: 1em; line-height: 1.6; color: rgba(255,255,255,0.84); margin: 0.8em 0 0; }
     .rp-cover-upd { display: inline-block; margin: 0.9em 0 0; padding: 0.35em 0.8em; border-radius: var(--ws-r, 4px); background: rgba(255,255,255,0.14); font-size: 0.8em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; }
-    .rp-contents { list-style: none; margin: 1.5em 0 0; padding: 1.1em 0 0; border-top: 1px solid rgba(255,255,255,0.16); display: grid; gap: 0.5em; counter-reset: rp; }
-    .rp-contents li { counter-increment: rp; display: flex; gap: 0.85em; font-size: 0.93em; color: rgba(255,255,255,0.9); }
-    .rp-contents li::before { content: counter(rp, decimal-leading-zero); font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
+    .rp-contents { margin: 1.5em 0 0; padding: 1.1em 0 0; border-top: 1px solid rgba(255,255,255,0.16); }
+    .rp-contents-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5em; }
+    ol.rp-contents.rp-contents-l { padding-top: 1.1em; }
+    .rp-contents-l li { display: flex; gap: 0.85em; font-size: 0.93em; color: rgba(255,255,255,0.9); }
+    .rp-cn { font-weight: 700; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
     .rp-contents button { all: unset; cursor: pointer; }
+    /* A column per platform, "Across your accounts" under the first. */
+    .rp-contents--cols { display: grid; grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr)); gap: 1.1em 1.6em; }
+    .rp-ccol--across { grid-column: 1; }
+    .rp-contents-gh { margin: 0 0 0.6em; font-size: 0.7em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+    .rp-cover-card--wide { width: min(80%, 62em); }
+    @media (max-width: 900px) { .rp-contents--cols { grid-template-columns: 1fr; } .rp-cover-card--wide { width: 100%; } }
     /* Platform headings in the contents when a report covers several. */
-    .rp-contents li.rp-contents-g { counter-increment: none; margin-top: 0.55em; font-size: 0.7em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.55); }
-    .rp-contents li.rp-contents-g:first-child { margin-top: 0; }
-    .rp-contents li.rp-contents-g::before { content: none; }
     .rp-contents button:hover, .rp-contents button:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
     .rp-cover-start { margin-top: 1.7em; display: flex; justify-content: flex-end; }
     .rp-cover-card .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
@@ -275,6 +292,7 @@ import "../../../styles/ws-system.css";
     .rp-chip b { font-family: var(--serif); font-size: 1.7em; font-weight: 400; line-height: 1.05; color: var(--ws-ink); font-variant-numeric: tabular-nums; }
     .rp-chip-c { font-size: 0.82em; font-weight: 700; color: var(--ws-tx); }
     .rp-chip-c.is-up { color: var(--english-violet, #4a2a3c); }
+    .rp-chip-p { margin-top: 0.35em; }
     /* Insights: open columns under a wine rule, not boxes, so the page
        doesn't turn into a grid of cards. As many columns as insights. */
     .rp-insights { flex: 1 1 auto; display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 2.4em; align-content: center; padding: 0.6em 0 1em; }
@@ -300,11 +318,15 @@ import "../../../styles/ws-system.css";
     .rp-takes.rp-grow { align-content: stretch; }
     .rp-takes.rp-grow > .rp-mini { display: flex; flex-direction: column; justify-content: center; padding: 1em 1.4em; }
     .rp-coming { margin-top: 1em; }
+    .rp-coming-h { display: flex; justify-content: space-between; align-items: center; gap: 1em; margin-bottom: 0.4em; }
+    .rp-coming-h .rp-label { margin: 0; }
     /* Questions, at the foot of the slide. Later: next month's content plan. */
-    .rp-cta { margin-top: auto; display: flex; align-items: center; justify-content: space-between; gap: 1.6em; padding: 1.3em 1.5em; border-radius: var(--ws-r, 4px); background: var(--english-violet, #4a2a3c); color: #fff; }
+    /* One line of copy, the button's foot level with the text's (Danielle,
+       19 Oct 2026). */
+    .rp-cta { margin-top: auto; display: flex; align-items: flex-end; justify-content: space-between; gap: 1.6em; padding: 1em 1.4em; border-radius: var(--ws-r, 4px); background: var(--english-violet, #4a2a3c); color: #fff; }
     .rp-takes, .rp-coming { margin-bottom: 0.8em; }
     .rp-cta-h { font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 1.2em; font-weight: 700; margin: 0 0 0.2em; color: #fff; }
-    .rp-cta-p { margin: 0; font-size: 0.93em; line-height: 1.5; color: rgba(255,255,255,0.8); max-width: 64ch; }
+    .rp-cta-p { margin: 0; font-size: 0.93em; line-height: 1.5; color: rgba(255,255,255,0.8); }
     .rp-cta .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); flex: none; }
     .rp-cta .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
     .rp-coming ol { margin: 0; padding-left: 1.3em; font-size: 0.93em; line-height: 1.8; color: var(--ws-tx); columns: 2; column-gap: 2.5em; }
@@ -521,10 +543,18 @@ import "../../../styles/ws-system.css";
         return `<tr><td class="rp-rank">${i + 1}</td><td>${t.thumb ? `<img class="rp-thumb" src="${esc(t.thumb)}" alt="" loading="lazy">` : `<span class="rp-thumb"></span>`}</td><td class="rp-top-t">${name}</td><td class="rp-c" data-l="Type"><span class="rp-top-k">${reel ? "Reel" : "Post"}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Views">${reel ? fmt(n(t.views)) : "&ndash;"}</td><td class="rp-c" data-l="Interactions">${fmt(n(t.interactions))}</td></tr>`;
       };
       const topCard = top.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top performing content</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col style="width:3.9em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th></th><th>Content</th><th class="rp-c">Type</th><th class="rp-c">Reach</th><th class="rp-c">Views</th><th class="rp-c">Interactions</th></tr></thead><tbody>${top.map(tRow).join("")}</tbody></table></div></div>` : "";
-      if (topCard || formats) parts.push({ group: multiG ? "Instagram" : null, step: "What Worked Well", html: part(
-        "What Worked This Month",
+      // Beside Facebook Posts and LinkedIn Posts it's Instagram Posts, so the
+      // three read alike (Danielle, 19 Oct 2026).
+      if (topCard || formats) parts.push({ group: multiG ? "Instagram" : null, step: multiG ? "Instagram Posts" : "What Worked Well", html: part(
+        multiG ? "Instagram Posts" : "What Worked This Month",
         "Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.",
         `<div class="rp-best${topCard && formats ? "" : " is-one"}">${topCard}${formats ? `<div class="rp-formats">${formats}</div>` : ""}</div>`) });
+
+      /* Facebook's and LinkedIn's posts as Instagram's: a thumbnail when the
+         PDF had one, the title linking to the post. */
+      const postName = (t, line) => `${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer"><span class="rp-t">${esc(t.title)}</span><span class="rp-go" aria-hidden="true">&#8599;</span></a>` : `<span class="rp-t">${esc(t.title)}</span>`}<span class="rp-top-m">${esc(line)}</span>`;
+      const thumbCell = (t) => `<td>${t.thumb ? `<img class="rp-thumb" src="${esc(t.thumb)}" alt="" loading="lazy">` : `<span class="rp-thumb"></span>`}</td>`;
+      const formatCard = (label, rows) => { const rs = rows.filter(([, v]) => v != null && v !== "" && (typeof v === "string" || n(v) != null)); return rs.length ? `<div class="rp-mini rp-format"><p class="rp-label">${esc(label)}</p><dl>${rs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(typeof v === "string" ? v : fmt(n(v)))}</dd>`).join("")}</dl></div>` : ""; };
 
       // 3b — Facebook: only when the month's SocialPilot report covered the
       // client's Facebook Page too (Danielle, 9 Oct 2026). Its own six
@@ -546,12 +576,19 @@ import "../../../styles/ws-system.css";
         const fRows = vis.facebookPosts !== false ? (fb.content || []).filter((t) => t && t.title)
           .slice().sort((a, b) => (n(b.reach) || 0) - (n(a.reach) || 0) || (n(b.reactions) || 0) - (n(a.reactions) || 0)).slice(0, 5) : [];
         const fDay = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
-        const fTop = fRows.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top Facebook posts</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th>Post</th><th class="rp-c">Reach</th><th class="rp-c">Engagement</th><th class="rp-c">Reactions</th><th class="rp-c">Shares</th></tr></thead><tbody>${fRows.map((t, i) => {
+        const fPics = fRows.some((t) => t.thumb);
+        const fTop = fRows.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top Facebook posts</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em">${fPics ? '<col style="width:3.9em">' : ""}<col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th>${fPics ? "<th></th>" : ""}<th>Post</th><th class="rp-c">Reach</th><th class="rp-c">Engagement</th><th class="rp-c">Reactions</th><th class="rp-c">Shares</th></tr></thead><tbody>${fRows.map((t, i) => {
             const line = [fDay(t.date), `${fmt(n(t.reach))} reach`, `${fmt(n(t.reactions))} reactions`].filter(Boolean).join(" · ");
-            return `<tr><td class="rp-rank">${i + 1}</td><td class="rp-top-t"><span class="rp-t">${esc(t.title)}</span><span class="rp-top-m">${esc(line)}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Engagement">${n(t.engagementRate) != null ? esc(n(t.engagementRate) + "%") : "&ndash;"}</td><td class="rp-c" data-l="Reactions">${fmt(n(t.reactions))}</td><td class="rp-c" data-l="Shares">${fmt(n(t.shares))}</td></tr>`;
+            return `<tr><td class="rp-rank">${i + 1}</td>${fPics ? thumbCell(t) : ""}<td class="rp-top-t">${postName(t, line)}</td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Engagement">${n(t.engagementRate) != null ? esc(n(t.engagementRate) + "%") : "&ndash;"}</td><td class="rp-c" data-l="Reactions">${fmt(n(t.reactions))}</td><td class="rp-c" data-l="Shares">${fmt(n(t.shares))}</td></tr>`;
           }).join("")}</tbody></table></div></div>` : "";
-        const fCard = [["Reactions", fp.reactions], ["Comments", fp.comments], ["Shares", fp.shares], ["Video plays", fp.videoPlays]].filter(([, v]) => n(v) != null);
-        const fSide = fCard.length ? `<div class="rp-mini rp-format"><p class="rp-label">Your posts</p><dl>${fCard.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${fmt(n(v))}</dd>`).join("")}</dl></div>` : "";
+        /* Images and videos apart, as Instagram's posts and reels: how many,
+           and the typical one's reach and engagement (SocialPilot's medians). */
+        const med = (type) => (Array.isArray(fb.medianByType) ? fb.medianByType : []).find((x) => x && new RegExp(`^${type}`, "i").test(x.type || "")) || {};
+        const mi = med("image"), mvd = med("video");
+        const fSide = (fi != null || n(mi.reach) != null || fv != null || n(mvd.reach) != null)
+          ? formatCard("Images", [["Images published", fp.images], ["Typical reach", mi.reach], ["Typical engagement", mi.engagement]])
+            + formatCard("Videos", [["Videos published", fp.videos], ["Typical reach", mvd.reach], ["Typical engagement", mvd.engagement], ["Video plays", fp.videoPlays]])
+          : formatCard("Your posts", [["Reactions", fp.reactions], ["Comments", fp.comments], ["Shares", fp.shares], ["Video plays", fp.videoPlays]]);
         // Two slides, as Instagram has: the figures, then the posts. On one
         // they ran past the bottom of a laptop screen.
         if (ffigs.length) parts.push({ group: "Facebook", step: "Facebook in Numbers", html: part("Facebook in Numbers",
@@ -586,13 +623,15 @@ import "../../../styles/ws-system.css";
         const lRows = vis.linkedinPosts !== false ? (li.content || []).filter((t) => t && t.title)
           .slice().sort((a, b) => (n(b.reach) || 0) - (n(a.reach) || 0) || (n(b.engagement) || 0) - (n(a.engagement) || 0)).slice(0, 5) : [];
         const lDay = (iso) => { const t = new Date(String(iso || "") + "T12:00:00"); return isNaN(t) ? "" : t.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
-        const lTop = lRows.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top LinkedIn posts</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em"><col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th><th>Post</th><th class="rp-c">Reach</th><th class="rp-c">Engagement</th><th class="rp-c">Reactions</th><th class="rp-c">Comments</th></tr></thead><tbody>${lRows.map((t, i) => {
+        const lPics = lRows.some((t) => t.thumb);
+        const lTop = lRows.length ? `<div class="rp-mini rp-topcard"><p class="rp-label">Top LinkedIn posts</p><div class="rp-tblwrap"><table class="rp-tbl"><colgroup><col style="width:1.8em">${lPics ? '<col style="width:3.9em">' : ""}<col><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"><col class="rp-eq"></colgroup><thead><tr><th></th>${lPics ? "<th></th>" : ""}<th>Post</th><th class="rp-c">Reach</th><th class="rp-c">Engagement</th><th class="rp-c">Reactions</th><th class="rp-c">Comments</th></tr></thead><tbody>${lRows.map((t, i) => {
             const line = [lDay(t.date), `${fmt(n(t.reach))} reach`, `${fmt(n(t.engagement))} engagement`].filter(Boolean).join(" · ");
-            return `<tr><td class="rp-rank">${i + 1}</td><td class="rp-top-t"><span class="rp-t">${esc(t.title)}</span><span class="rp-top-m">${esc(line)}</span></td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Engagement">${fmt(n(t.engagement))}</td><td class="rp-c" data-l="Reactions">${fmt(n(t.reactions))}</td><td class="rp-c" data-l="Comments">${fmt(n(t.comments))}</td></tr>`;
+            return `<tr><td class="rp-rank">${i + 1}</td>${lPics ? thumbCell(t) : ""}<td class="rp-top-t">${postName(t, line)}</td><td class="rp-c" data-l="Reach">${fmt(n(t.reach))}</td><td class="rp-c" data-l="Engagement">${fmt(n(t.engagement))}</td><td class="rp-c" data-l="Reactions">${fmt(n(t.reactions))}</td><td class="rp-c" data-l="Comments">${fmt(n(t.comments))}</td></tr>`;
           }).join("")}</tbody></table></div></div>` : "";
         const lv = li.videos || {};
-        const lCard = [["Posts published", lp.published], ["Reactions", lp.reactions], ["Comments", lp.comments], ...(n(lv.published) ? [["Videos published", lv.published], ["Video views", lv.views]] : [])].filter(([, v]) => n(v) != null);
-        const lSide = lCard.length ? `<div class="rp-mini rp-format"><p class="rp-label">Your posts</p><dl>${lCard.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${fmt(n(v))}</dd>`).join("")}</dl></div>` : "";
+        // Every post (videos included), then the videos on their own.
+        const lSide = formatCard("All posts", [["Posts published", lp.published], ["Post reach", lp.reach], ["Reactions", lp.reactions], ["Comments", lp.comments]])
+          + (n(lv.published) ? formatCard("Videos", [["Videos published", lv.published], ["Video reach", lv.reach], ["Video views", lv.views], ["Watch time", n(lv.watchTime) != null ? `${Math.round(n(lv.watchTime))} min` : null]]) : "");
         if (lfigs.length) parts.push({ group: "LinkedIn", step: "LinkedIn in Numbers", html: part("LinkedIn in Numbers",
           range ? `Your LinkedIn from ${range}.` : "Your LinkedIn at a glance.",
           `<div class="rp-figs rp-grow">${lfigs.join("")}</div>`) });
@@ -622,7 +661,9 @@ import "../../../styles/ws-system.css";
       // Four figures chosen for this month's story (report-metrics.js): the
       // drafting picks which, the numbers are worked out here.
       const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
-      const chipsHtml = heads.length ? `<div class="rp-chips">${heads.map((c) => `<div class="rp-chip"><span class="rp-chip-l">${esc(c.label)}</span><b>${esc(c.value)}</b>${c.sub ? `<span class="rp-chip-c ${c.dir > 0 ? "is-up" : c.dir < 0 ? "is-down" : ""}">${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
+      // Several platforms: each figure says which one it's from, or that it's
+      // all of them together (Danielle, 19 Oct 2026).
+      const chipsHtml = heads.length ? `<div class="rp-chips">${heads.map((c) => `<div class="rp-chip"><span class="rp-chip-l">${esc(c.label)}</span><b>${esc(c.value)}</b>${c.sub ? `<span class="rp-chip-c ${c.dir > 0 ? "is-up" : c.dir < 0 ? "is-down" : ""}">${esc(c.sub)}</span>` : ""}${multiG ? `<span class="rp-chip-p">${ppill(c.platform || "instagram")}</span>` : ""}</div>`).join("")}</div>` : "";
       // Two to four insights, as many as the month genuinely has.
       const insights = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
       const insightsHtml = insights.length ? `<div class="rp-insights" style="--n:${insights.length}">${insights.map((i) => `<div class="rp-insight">
@@ -637,7 +678,7 @@ import "../../../styles/ws-system.css";
         parts.push({ group: multiG ? "Across Your Accounts" : null, step: "What It Means", html: part("What It Means",
           // The four figures are Instagram's; with other platforms in the
           // report, say so rather than let them read as a total.
-          multiG && chipsHtml ? "Four Instagram figures that tell this month's story, and what we're taking from the month across your accounts." : "The four figures that tell this month's story, and what we're taking from them.",
+          multiG && chipsHtml ? "Four figures from across your accounts that tell this month's story, and what we're taking from the month." : "The four figures that tell this month's story, and what we're taking from them.",
           chipsHtml + (insightsHtml || prose)) });
       }
 
@@ -652,9 +693,9 @@ import "../../../styles/ws-system.css";
           `Into ${next}`,
           "Taking into account how the account has done recently, here's what we're bringing into the next few weeks.",
           (takes.length ? `<div class="rp-cards rp-takes rp-grow" style="--n:${Math.min(takes.length, takes.length === 4 ? 2 : 3)}">${takes.map((x) => `<div class="rp-mini">${multiG ? `<p class="rp-mini-pp">${ppill(itemPlatform(x, d))}</p>` : ""}${x.title ? `<h3 class="rp-mini-h">${esc(x.title)}</h3>` : ""}<p class="rp-mini-p">${esc(x.text)}</p></div>`).join("")}</div>` : "")
-          + (coming.length ? `<div class="rp-mini rp-coming"><p class="rp-label">Content coming up</p><ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol></div>` : "")
+          + (coming.length || (d.contentPlan && d.contentPlan.doc_id) ? `<div class="rp-mini rp-coming"><div class="rp-coming-h"><p class="rp-label">Content coming up</p>${d.contentPlan && d.contentPlan.doc_id && !sampleMode ? `<button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-plan="${esc(d.contentPlan.doc_id)}">Open the content plan</button>` : ""}</div>${coming.length ? `<ol>${coming.map((c) => `<li>${esc(c)}</li>`).join("")}</ol>` : ""}</div>` : "")
           // Later this becomes "See next month's content plan".
-          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any questions about this month&rsquo;s insights and our plan for ${MONTHS[(r.month + 1) % 12]}.` : `Your account manager can talk you through any questions about this month&rsquo;s insights and our plan for ${MONTHS[(r.month + 1) % 12]}.`}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
+          + (sampleMode ? "" : `<div class="rp-cta"><div><h3 class="rp-cta-h">Got any questions?</h3><p class="rp-cta-p">${client?.social_media_manager ? `${esc(client.social_media_manager.split(/\s+/)[0])}, your account manager, can talk you through any questions about this month&rsquo;s insights and our plan for your next month&rsquo;s social content.` : `Your account manager can talk you through any questions about this month&rsquo;s insights and our plan for your next month&rsquo;s social content.`}</p></div><a class="ws-btn ws-btn--primary" href="/account/social#message">${client?.social_media_manager ? `Message ${esc(client.social_media_manager.split(/\s+/)[0])}` : "Message your account manager"}</a></div>`)) });
       }
       return parts;
     }
@@ -711,12 +752,24 @@ import "../../../styles/ws-system.css";
       const back = sample ? "/account/social?sample=1" : "/account/social";
       $("rp-back").href = back;
 
-      const cover = `<div class="rp-slide rp-cover"><div class="rp-cover-card">
+      /* Contents. Several platforms: a column each, side by side, with
+         "Across your accounts" under the first, so the cover fits the screen
+         without scrolling (Danielle, 19 Oct 2026). One platform: one list. */
+      const PLAT_GROUPS = ["Instagram", "Facebook", "LinkedIn"];
+      const groupsHere = PLAT_GROUPS.filter((g) => parts.some((p) => p.group === g));
+      const item = (p, i) => `<li><span class="rp-cn">${String(i + 1).padStart(2, "0")}</span><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`;
+      const col = (g) => `<div class="rp-ccol"><p class="rp-contents-gh">${esc(g)}</p><ol class="rp-contents-l">${parts.map((p, i) => p.group === g ? item(p, i) : "").join("")}</ol></div>`;
+      const across = [...new Set(parts.map((p) => p.group).filter((g) => g && !PLAT_GROUPS.includes(g)))];
+      const contents = !parts.length ? `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`
+        : groupsHere.length > 1
+        ? `<div class="rp-contents rp-contents--cols" style="--cols:${groupsHere.length}">${groupsHere.map(col).join("")}${across.map((g) => `<div class="rp-ccol rp-ccol--across">${col(g).replace(/^<div class="rp-ccol">|<\/div>$/g, "")}</div>`).join("")}</div>`
+        : `<ol class="rp-contents rp-contents-l">${parts.map(item).join("")}</ol>`;
+      const cover = `<div class="rp-slide rp-cover"><div class="rp-cover-card${groupsHere.length > 2 ? " rp-cover-card--wide" : ""}">
           <p class="rp-eyebrow">Your monthly report</p>
           <h1 class="rp-cover-title">${esc(month)}</h1>
           ${who ? `<p class="rp-cover-sub">${esc(who)}</p>` : ""}
           ${r.amendment_notice_at ? `<p class="rp-cover-upd">Updated ${esc(new Date(r.amendment_notice_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }))}</p>` : ""}
-          ${parts.length ? `<ol class="rp-contents">${parts.map((p, i) => `${p.group && p.group !== (parts[i - 1] || {}).group ? `<li class="rp-contents-g">${esc(p.group)}</li>` : ""}<li><button type="button" data-go="${i + 1}">${esc(p.step)}</button></li>`).join("")}</ol>` : `<p class="rp-cover-sub">There&rsquo;s nothing to show for this month yet. Your team is still putting the numbers together.</p>`}
+          ${contents}
           ${parts.length ? `<div class="rp-cover-start"><button type="button" class="ws-btn rp-dl" data-pdf><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Download PDF</button><button type="button" class="ws-btn ws-btn--primary" data-go="1">Start
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>` : ""}
         </div></div>`;
@@ -741,7 +794,12 @@ import "../../../styles/ws-system.css";
       let at = 0;
       // Where the deck starts on the page, so it can end at the window's foot.
       const deck = $("rp");
-      const fit = () => { deck.style.setProperty("--rp-top", `${Math.round(deck.getBoundingClientRect().top + window.scrollY)}px`); };
+      const footBar = document.querySelector(".hub-foot");
+      const fit = () => {
+        document.body.classList.toggle("rp-fixed", window.matchMedia("(min-width: 721px) and (min-height: 520px)").matches);
+        deck.style.setProperty("--rp-top", `${Math.round(deck.getBoundingClientRect().top + window.scrollY)}px`);
+        deck.style.setProperty("--rp-foot", `${footBar ? footBar.offsetHeight : 0}px`);
+      };
       window.addEventListener("resize", fit);
       const show = (i) => {
         at = Math.max(0, Math.min(LAST, i));
@@ -757,6 +815,23 @@ import "../../../styles/ws-system.css";
         fit();
       };
       document.addEventListener("click", (e) => { const b = e.target.closest("[data-go]"); if (b) { e.preventDefault(); show(+b.dataset.go); } });
+      // The content plan the team uploaded (a private file: fetched signed in).
+      document.addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-plan]"); if (!b) return;
+        const label = b.textContent; b.disabled = true; b.textContent = "Opening…";
+        // Opened now, while it's still the click, so no pop-up blocker stops it.
+        const win = window.open("", "_blank");
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const res = await fetch(`${WORKER}/booking/document?id=${encodeURIComponent(b.dataset.plan)}`, { headers: { Authorization: "Bearer " + (session && session.access_token) } });
+          if (!res.ok) throw new Error();
+          const url = URL.createObjectURL(await res.blob());
+          if (win) win.location.href = url; else window.open(url, "_blank");
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+          b.textContent = label;
+        } catch (_) { if (win) win.close(); b.textContent = "Couldn't open it"; setTimeout(() => { b.textContent = label; }, 1800); }
+        finally { b.disabled = false; }
+      });
       // Download PDF: the report as its own presentation (lib/report-pdf.js),
       // in the style of TMKE's brochures, saved as a file.
       document.addEventListener("click", async (e) => {
@@ -818,7 +893,7 @@ import "../../../styles/ws-system.css";
         return run(r, all, resolveVisibility(TRAINING_SMM.visibility), TRAINING_SMM.client, false);
       }
       const sampleId = params.get("sample");
-      const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abby" };
+      const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abbie" };
       if (sampleId) {
         const r = DEMO_REPORTS.find((x) => x.id === sampleId) || DEMO_REPORTS.find((x) => x.accountId === "tmke");
         const all = DEMO_REPORTS.filter((x) => x.accountId === r.accountId);

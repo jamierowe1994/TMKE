@@ -67,6 +67,105 @@ export const HEADLINE_METRICS = {
       return { label: "Best post's reach", value: fmt(n(t.reach)), sub: String(t.title || "").replace(/\s*…$/, "…"), dir: 0 }; } },
 };
 
+/* Facebook's, LinkedIn's and all platforms together (Danielle, 19 Oct 2026):
+   with several platforms in a month, each of the four can be one platform's
+   figure or a combined one. Every metric says which platform it's from, and
+   the card shows it under the figure. Instagram's are the ones above. */
+const fbm = (d) => d.facebook || {}, lim = (d) => d.linkedin || {};
+const liImp = (li) => n((li.posts || {}).impressions ?? li.impressions);
+const plural = (x, one, many) => `${fmt(x)} ${x === 1 ? one : many}`;
+// A total across the platforms the month has: null when none of them has it.
+const total = (vals) => { const v = vals.filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) : null; };
+const ALL_PARTS = {
+  reach: (d) => [d.profile ? n(d.profile.reach) : null, d.facebook ? n(fbm(d).pageReach) : null, d.linkedin ? n((lim(d).posts || {}).reach) : null],
+  views: (d) => [d.profile ? n(d.profile.views) : null, d.facebook ? n((fbm(d).posts || {}).views) : null, d.linkedin ? liImp(lim(d)) : null],
+  engagement: (d) => [d.profile ? n(d.profile.interactions) : null, d.facebook ? n((fbm(d).posts || {}).engagement) : null, d.linkedin ? n((lim(d).posts || {}).engagement) : null],
+  followers: (d) => [d.profile ? n(d.profile.followers) : null, d.facebook ? n(fbm(d).pageLikes) : null, d.linkedin ? n(lim(d).followers) : null],
+  newFollowers: (d) => [d.profile ? n(d.profile.newFollowers) : null, d.facebook ? n(fbm(d).newFans) : null, d.linkedin ? n(lim(d).followerGrowth) : null],
+  published: (d) => [n(d.posts?.published) != null || n(d.reels?.published) != null ? (n(d.posts?.published) || 0) + (n(d.reels?.published) || 0) : null, d.facebook ? n((fbm(d).posts || {}).published) : null, d.linkedin ? n((lim(d).posts || {}).published) : null],
+};
+// This month against last, only when last month had the same platforms.
+const allCard = (label, part, { d, prev, pm }, sub) => {
+  const c = total(ALL_PARTS[part](d)); if (c == null) return null;
+  const same = prev && ALL_PARTS[part](prev).every((x, i) => (x == null) === (ALL_PARTS[part](d)[i] == null));
+  const o = same ? total(ALL_PARTS[part](prev)) : null;
+  const card = pctCard(label, c, null, o, pm);
+  if (sub && !card.sub) card.sub = sub;
+  return card;
+};
+const MORE_METRICS = {
+  all_reach: { platform: "all", label: "Reach", about: "Instagram profile reach, Facebook Page reach and LinkedIn post reach added together",
+    get: (ctx) => allCard("Reach", "reach", ctx, "Across your accounts") },
+  all_views: { platform: "all", label: "Views", about: "Instagram views, Facebook post views and LinkedIn impressions added together",
+    get: (ctx) => allCard("Views", "views", ctx, "Across your accounts") },
+  all_engagement: { platform: "all", label: "Engagement", about: "Instagram interactions and Facebook and LinkedIn engagement added together",
+    get: (ctx) => allCard("Engagement", "engagement", ctx, "Across your accounts") },
+  all_followers: { platform: "all", label: "Followers", about: "Instagram followers, Facebook Page likes and LinkedIn followers added together, with the month's new ones",
+    get: ({ d, month }) => { const c = total(ALL_PARTS.followers(d)); if (c == null) return null; const x = total(ALL_PARTS.newFollowers(d));
+      return { label: "Followers", value: fmt(c), sub: x ? `${fmt(x)} new in ${month}` : "Across your accounts", dir: x > 0 ? 1 : 0 }; } },
+  all_newFollowers: { platform: "all", label: "New followers", about: "new Instagram followers, Facebook Page likes and LinkedIn followers added together",
+    get: ({ d }) => { const x = total(ALL_PARTS.newFollowers(d)); return x == null ? null : { label: "New followers", value: `+${fmt(x)}`, sub: "Across your accounts", dir: x > 0 ? 1 : 0 }; } },
+  all_published: { platform: "all", label: "Content published", about: "everything published on every platform",
+    get: ({ d }) => { const x = total(ALL_PARTS.published(d)); return x == null ? null : { label: "Content published", value: fmt(x), sub: "Across your accounts", dir: 0 }; } },
+
+  fb_pageLikes: { platform: "facebook", label: "Page likes", about: "people who like the Facebook Page, with the month's new likes",
+    get: ({ d, month }) => { const c = n(fbm(d).pageLikes); if (c == null) return null; const x = n(fbm(d).newFans);
+      return { label: "Page likes", value: fmt(c), sub: x ? `${fmt(x)} new in ${month}` : "People who like your Page", dir: x > 0 ? 1 : 0 }; } },
+  fb_newLikes: { platform: "facebook", label: "New Page likes", about: "people who liked the Facebook Page during the month",
+    get: ({ d }) => { const x = n(fbm(d).newFans); return x == null ? null : { label: "New Page likes", value: `+${fmt(x)}`, sub: "Liked your Page", dir: x > 0 ? 1 : 0 }; } },
+  fb_pageReach: { platform: "facebook", label: "Page reach", about: "different people who saw anything from the Facebook Page",
+    get: ({ d, prev, pm }) => pctCard("Page reach", n(fbm(d).pageReach), n(fbm(d).pageReachChange), prev ? n(fbm(prev).pageReach) : null, pm) },
+  fb_pageViews: { platform: "facebook", label: "Page views", about: "visits to the Facebook Page itself",
+    get: ({ d, prev, pm }) => pctCard("Page views", n(fbm(d).pageViews), n(fbm(d).pageViewsChange), prev ? n(fbm(prev).pageViews) : null, pm) },
+  fb_postViews: { platform: "facebook", label: "Post views", about: "times the Facebook posts were seen",
+    get: ({ d, prev, pm }) => pctCard("Post views", n((fbm(d).posts || {}).views), n((fbm(d).posts || {}).viewsChange), prev ? n((fbm(prev).posts || {}).views) : null, pm) },
+  fb_engagement: { platform: "facebook", label: "Engagement", about: "reactions, comments and shares on the Facebook posts",
+    get: ({ d, prev, pm }) => pctCard("Engagement", n((fbm(d).posts || {}).engagement), n((fbm(d).posts || {}).engagementChange), prev ? n((fbm(prev).posts || {}).engagement) : null, pm) },
+  fb_videoPlays: { platform: "facebook", label: "Video plays", about: "plays of the month's Facebook videos",
+    get: ({ d, prev, pm }) => pctCard("Video plays", n((fbm(d).posts || {}).videoPlays), n((fbm(d).posts || {}).videoPlaysChange), prev ? n((fbm(prev).posts || {}).videoPlays) : null, pm) },
+  fb_published: { platform: "facebook", label: "Posts published", about: "Facebook posts published",
+    get: ({ d }) => { const fp = fbm(d).posts || {}, x = n(fp.published); if (x == null) return null; const i = n(fp.images), v = n(fp.videos);
+      return { label: "Posts published", value: fmt(x), sub: [i ? plural(i, "image", "images") : "", v ? plural(v, "video", "videos") : ""].filter(Boolean).join(", "), dir: 0 }; } },
+
+  li_followers: { platform: "linkedin", label: "Followers", about: "LinkedIn followers, with the new ones",
+    get: ({ d }) => { const c = n(lim(d).followers); if (c == null) return null; const x = n(lim(d).followerGrowth);
+      return { label: "Followers", value: fmt(c), sub: x ? `${fmt(x)} new` : "People following you", dir: x > 0 ? 1 : 0 }; } },
+  li_newFollowers: { platform: "linkedin", label: "New followers", about: "new LinkedIn followers in the period",
+    get: ({ d }) => { const x = n(lim(d).followerGrowth); return x == null ? null : { label: "New followers", value: `+${fmt(x)}`, sub: "Followed you", dir: x > 0 ? 1 : 0 }; } },
+  li_impressions: { platform: "linkedin", label: "Impressions", about: "times the LinkedIn posts were seen",
+    get: ({ d, prev, pm }) => { const li = lim(d); return pctCard("Impressions", liImp(li), n((li.posts || {}).impressions != null ? li.posts.impressionsChange : li.impressionsChange), prev ? liImp(lim(prev)) : null, pm); } },
+  li_reach: { platform: "linkedin", label: "Post reach", about: "different people who saw the LinkedIn posts",
+    get: ({ d, prev, pm }) => pctCard("Post reach", n((lim(d).posts || {}).reach), n((lim(d).posts || {}).reachChange), prev ? n((lim(prev).posts || {}).reach) : null, pm) },
+  li_engagement: { platform: "linkedin", label: "Engagement", about: "reactions and comments on the LinkedIn posts",
+    get: ({ d, prev, pm }) => pctCard("Engagement", n((lim(d).posts || {}).engagement), n((lim(d).posts || {}).engagementChange), prev ? n((lim(prev).posts || {}).engagement) : null, pm) },
+  li_engagementRate: { platform: "linkedin", label: "Engagement rate", about: "the share of people reached on LinkedIn who engaged",
+    get: ({ d, prev, pm }) => { const c = n((lim(d).posts || {}).engagementRate); if (c == null) return null; const o = prev ? n((lim(prev).posts || {}).engagementRate) : null; const x = o == null ? null : c - o;
+      return { label: "Engagement rate", value: `${pct2(c)}%`, sub: x == null ? "Of the people reached" : x ? `${x > 0 ? "Up" : "Down"} ${one(Math.abs(x))} points on ${pm}` : `Same as ${pm}`, dir: x == null ? 0 : Math.sign(x) }; } },
+  li_videoViews: { platform: "linkedin", label: "Video views", about: "views of the LinkedIn videos",
+    get: ({ d }) => { const v = lim(d).videos || {}, x = n(v.views); return x == null ? null : { label: "Video views", value: fmt(x), sub: n(v.published) ? `Across ${plural(n(v.published), "video", "videos")}` : "", dir: 0 }; } },
+  li_published: { platform: "linkedin", label: "Posts published", about: "LinkedIn posts published",
+    get: ({ d }) => { const x = n((lim(d).posts || {}).published); return x == null ? null : { label: "Posts published", value: fmt(x), sub: "On LinkedIn", dir: 0 }; } },
+};
+Object.values(HEADLINE_METRICS).forEach((m) => { m.platform = m.platform || "instagram"; });
+Object.assign(HEADLINE_METRICS, MORE_METRICS);
+
+// The four a month starts from: Instagram's for an Instagram account, the
+// combined four when there are several platforms, the platform's own otherwise.
+export function defaultHeadline(d) {
+  const ps = platformsOf(d || {});
+  if (ps.length > 1) return ["all_reach", "all_views", "all_engagement", "all_newFollowers"];
+  if (ps[0] === "facebook") return ["fb_pageReach", "fb_postViews", "fb_engagement", "fb_newLikes"];
+  if (ps[0] === "linkedin") return ["li_impressions", "li_reach", "li_engagement", "li_newFollowers"];
+  return DEFAULT_HEADLINE;
+}
+/** The metrics a month can use, by platform: only its own platforms, and
+ *  the combined ones when there's more than one. */
+export function headlineOptions(d) {
+  const ps = platformsOf(d || {});
+  const want = new Set([...ps, ...(ps.length > 1 ? ["all"] : [])]);
+  return Object.entries(HEADLINE_METRICS).filter(([, m]) => want.has(m.platform)).map(([key, m]) => ({ key, ...m }));
+}
+
 function pctCard(label, c, sp, o, pm) {
   if (c == null) return null;
   // SocialPilot's own change on the previous period wins: worked out from
@@ -77,12 +176,12 @@ function pctCard(label, c, sp, o, pm) {
 
 /** Four headline cards: the month's chosen keys, topped up from the defaults. */
 export function headlineCards(keys, ctx, vis) {
-  const want = [...(Array.isArray(keys) ? keys : []), ...DEFAULT_HEADLINE].filter((k, i, a) => HEADLINE_METRICS[k] && a.indexOf(k) === i);
+  const want = [...(Array.isArray(keys) ? keys : []), ...defaultHeadline(ctx.d), ...DEFAULT_HEADLINE].filter((k, i, a) => HEADLINE_METRICS[k] && a.indexOf(k) === i);
   const out = [];
   for (const k of want) {
     if (vis && vis[k] === false) continue;
     const c = HEADLINE_METRICS[k].get(ctx);
-    if (c) out.push({ key: k, ...c });
+    if (c) out.push({ key: k, platform: HEADLINE_METRICS[k].platform, ...c });
     if (out.length === 4) break;
   }
   return out;

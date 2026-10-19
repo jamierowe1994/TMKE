@@ -105,6 +105,7 @@ const CSS = `
 .rpx-chip { background: #e4dcdb; padding: 20px 26px; }
 .rpx-chip b { display: block; font-family: "TMKE Heading", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 52px; font-weight: 400; letter-spacing: -0.03em; line-height: 1.05; margin: 6px 0 0; color: #1c1d22; }
 .rpx-chip span { display: block; font-size: 19px; font-weight: 800; color: #371e28; margin: 8px 0 0; }
+.rpx-chip-p { display: inline-block; margin: 10px 0 0; padding: 2px 10px; border-radius: 999px; background: rgba(55,30,40,0.1); color: #371e28; font-style: normal; font-size: 14px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
 .rpx-ins { flex: 1; display: grid; grid-auto-rows: 1fr; gap: 36px 56px; margin-top: 44px; }
 .rpx-in { border-top: 3px solid #371e28; padding-top: 22px; }
 .rpx-in .rpx-label { font-size: 17px; font-weight: 800; letter-spacing: 0.06em; color: #371e28; margin: 0 0 12px; }
@@ -158,7 +159,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   // What the cover's contents call each section: one platform at a time, so
   // with several, Instagram's three say so.
   const sectionLabel = (s) => s === "In Numbers" ? (multi ? "Instagram in Numbers" : `${month} in Numbers`)
-    : multi && (s === "Who You Reached" || s === "What Worked Well") ? `Instagram: ${s}` : s;
+    : multi && s === "Who You Reached" ? `Instagram: ${s}` : multi && s === "What Worked Well" ? "Instagram Posts" : s;
   const platNames = [hasIg ? "Instagram" : null, fb ? "Facebook" : null, li ? "LinkedIn" : null].filter(Boolean);
   const secNo = (name) => String(sections.indexOf(name) + 1).padStart(2, "0");
   let pageNo = 1;
@@ -227,7 +228,7 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const tbl = top5.length ? `<p class="rpx-head" style="margin-bottom:20px">Top performing content</p><table class="rpx-tbl"><colgroup><col style="width:64px"><col style="width:116px"><col><col style="width:12%"><col style="width:12%"><col style="width:12%"><col style="width:15%"></colgroup>
       <thead><tr><th></th><th></th><th class="l">Content</th><th>Type</th><th>Reach</th><th>Views</th><th>Interactions</th></tr></thead>
       <tbody>${top5.map((t, i) => { const reel = /reel/i.test(t.type || ""); return `<tr><td class="rk">${i + 1}</td><td>${t.thumb ? `<img src="${esc(t.thumb)}" alt="">` : `<span class="ph"></span>`}</td><td class="l tt">${esc(String(t.title || "").trim())}</td><td><span class="ty">${reel ? "Reel" : "Post"}</span></td><td>${fmt(n(t.reach))}</td><td>${reel ? fmt(n(t.views)) : "&ndash;"}</td><td>${fmt(n(t.interactions))}</td></tr>`; }).join("")}</tbody></table>` : "";
-  if (hasIg) pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("What Worked Well")} · ${multi ? "Instagram" : "Content"}`, "What Worked This Month", "The posts that reached furthest, and how reels and posts did overall. Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.", glanceHtml)}<div class="rpx-main">${tbl}</div></div>`));
+  if (hasIg) pages.push(page(++pageNo, "", `<div class="rpx-body">${side(`${secNo("What Worked Well")} · ${multi ? "Instagram" : "Content"}`, multi ? "Instagram Posts" : "What Worked This Month", "The posts that reached furthest, and how reels and posts did overall. Each post's reach counts everyone who saw it, so someone who saw three posts is in all three.", glanceHtml)}<div class="rpx-main">${tbl}</div></div>`));
 
   // 3b — Facebook: its figures, then its posts, as Instagram has.
   if (fb) {
@@ -288,7 +289,8 @@ export function reportPdfHtml({ r, all, vis, client, MONTHS }) {
   const series = all.filter((x) => (x.platform || "") === (r.platform || "") && (x.year * 12 + x.month) <= (r.year * 12 + r.month) && (x.year * 12 + x.month) >= (r.year * 12 + r.month) - 2).sort((a, b) => (a.year * 12 + a.month) - (b.year * 12 + b.month));
   const prev = vis.trends !== false && series.length > 1 ? series[series.length - 2] : null;
   const heads = headlineCards(cl.headline, { d, prev: prev?.data || null, month, pm: prev ? MONTHS[prev.month] : null }, vis);
-  const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(c.label)}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}</div>`).join("")}</div>` : "";
+  // Several platforms: each figure says which, or that it's all of them.
+  const chips = heads.length ? `<div class="rpx-chips">${heads.map((c) => `<div class="rpx-chip"><p class="rpx-label">${esc(c.label)}</p><b>${esc(c.value)}</b>${c.sub ? `<span>${esc(c.sub)}</span>` : ""}${multi ? `<em class="rpx-chip-p">${esc(PLATFORM_LABELS[c.platform || "instagram"])}</em>` : ""}</div>`).join("")}</div>` : "";
   const ins = vis.summary !== false ? (cl.insights || []).map(normaliseInsight).filter(Boolean).slice(0, 4) : [];
   const PP_COL = { instagram: "#c13584", facebook: "#1877f2", linkedin: "#0a66c2", all: "#6e6268" };
   const ppill = (k) => multi ? `<span class="rpx-pp" style="--pp:${PP_COL[k] || "#6e6268"}">${esc(PLATFORM_LABELS[k] || k)}</span>` : "";
