@@ -1880,12 +1880,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     }
     // When they reached a stage: the latest log entry for it, else a field the card holds.
     function csWhen(r, stage) {
+      // Joined is the start date on their card, whenever there is one.
+      if (stage === "active_client" && r.start_date) return { at: r.start_date, est: false };
       const ev = (csData.byLead.get(r.id) || []).filter((e) => e.stage === stage || (stage === "contract_signed" && e.stage === "contract_sent"));
       const e = ev[ev.length - 1];
       if (e) return { at: e.reached_at, est: !!e.estimated };
       if (stage === "waitlist" || stage === "inquiry") return { at: r.created_at, est: false };
       if (stage === "meeting_set" && (r.meeting_at || r.call_at)) return { at: r.meeting_at || r.call_at, est: true };
-      if (stage === "active_client" && r.start_date) return { at: r.start_date, est: false };
       if (stage === csStageOf(r)) return { at: r.updated_at, est: true };
       return null;
     }
