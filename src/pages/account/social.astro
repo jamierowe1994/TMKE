@@ -353,6 +353,95 @@ import { gbpFromPence } from "../../lib/supabase.js";
     .soc-rep-list a:hover .soc-rep-go { color: var(--ws-accent); }
     .soc-rep-list a:hover .soc-rep-go svg { transform: translateX(3px); }
 
+    /* ======== A client's page, on the dashboard's pieces (Dani, 20 Oct:
+       "more inspiration from the dashboard and the training pages") ======== */
+    .soc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .soc-hero-cta { display: flex; flex-wrap: wrap; gap: 8px; }
+    .soc-hero-cta[hidden], .soc-brief[hidden] { display: none; }
+    .soc-brief { margin-top: clamp(14px, 1.8vh, 20px); width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .soc-brief .ws-brief-tx strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 700px) { .soc-brief { grid-template-columns: 1fr; } }
+
+    /* Chapter 01: the latest month, as a cover beside its figures. */
+    .soc-feature { display: grid; grid-template-columns: minmax(230px, 32%) minmax(0, 1fr); border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; background: #fff; }
+    .soc-cover { position: relative; isolation: isolate; overflow: hidden; display: flex; flex-direction: column; gap: 4px; min-height: 270px; padding: clamp(20px, 2vw, 28px); text-decoration: none; color: #fff;
+      background: radial-gradient(120% 90% at 85% 0%, #5a3a47 0%, #371e28 55%, #2a1620 100%); }
+    .soc-cover::after { content: ""; position: absolute; right: -30%; bottom: -45%; width: 80%; aspect-ratio: 1; border-radius: 50%; border: 1px solid rgba(255,255,255,0.12); z-index: -1; transition: transform 0.9s var(--ws-ease); }
+    .soc-cover:hover::after { transform: translate(-8%, -8%); }
+    .soc-cover-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.62); margin-bottom: auto; }
+    .soc-cover-month { font-family: var(--subhead); font-size: clamp(40px, 4vw, 60px); line-height: 1; letter-spacing: -0.02em; }
+    .soc-cover-year { font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0.18em; color: rgba(255,255,255,0.72); }
+    .soc-cover-ics { display: flex; gap: 6px; margin-top: 16px; }
+    .soc-cover-ic { width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.12); }
+    .soc-cover-ic svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .soc-feature-body { display: flex; flex-direction: column; gap: 6px; padding: clamp(20px, 2vw, 30px) clamp(20px, 2.4vw, 34px); min-width: 0; }
+    .soc-feature-h { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(21px, 2vw, 27px); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: var(--ws-ink); margin: 0; }
+    .soc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ws-gap); margin: 18px 0 0; }
+    .soc-stat { padding: 2px 0 2px 16px; border-left: 2px solid rgba(55,30,40,0.14); min-width: 0; }
+    .soc-stat dt { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin-bottom: 6px; }
+    .soc-stat dd { font-family: var(--serif); font-size: clamp(28px, 2.8vw, 42px); letter-spacing: -0.015em; line-height: 1; color: var(--ws-ink); margin: 0; font-variant-numeric: tabular-nums; }
+    .soc-delta { display: block; margin-top: 7px; font-family: var(--sans); font-size: var(--ws-t-meta); font-weight: 600; color: var(--ws-faint); }
+    .soc-delta.is-up { color: #2e6f4f; }
+    .soc-delta.is-down { color: #a3392b; }
+    .soc-feature-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-top: auto; padding-top: 22px; }
+    .soc-feature-note { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-faint); }
+    .soc-sub-h { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); margin: calc(var(--ws-gap) * 2) 0 var(--ws-gap); }
+    .soc-mini-cover { display: grid; place-items: center; color: #fff; background: radial-gradient(120% 90% at 85% 0%, #5a3a47 0%, #371e28 60%, #2a1620 100%); }
+    .soc-mini-cover span { font-family: var(--subhead); font-size: 24px; letter-spacing: -0.01em; }
+    @media (max-width: 860px) {
+      .soc-feature { grid-template-columns: 1fr; }
+      .soc-cover { min-height: 190px; }
+      .soc-stats { grid-template-columns: 1fr; }
+    }
+
+    /* Chapter 02: the plan as three cards; platforms open their accounts. */
+    .soc-plan-cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: var(--ws-gap); }
+    .soc-pc { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
+    .soc-pc-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .soc-pc-v { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(18px, 1.6vw, 21px); font-weight: 600; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .soc-pc-s { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-tx); }
+    .soc-plats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+    .soc-plat { display: inline-flex; align-items: center; gap: 9px; padding: 8px 12px 8px 9px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); text-decoration: none; transition: border-color 0.2s var(--ws-ease), background 0.2s var(--ws-ease); }
+    a.soc-plat:hover { border-color: #371e28; background: rgba(55,30,40,0.04); }
+    .soc-plat-ic { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #371e28; }
+    .soc-plat-ic svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .soc-plat-go { font-size: 12px; color: var(--ws-faint); }
+    @media (max-width: 900px) { .soc-plan-cards { grid-template-columns: 1fr 1fr; } .soc-pc--wide { grid-column: 1 / -1; } }
+    @media (max-width: 560px) { .soc-plan-cards { grid-template-columns: 1fr; } }
+
+    /* Chapter 03: invoices as a table, ruled top and bottom. */
+    .soc-inv-table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ws-line); border-bottom: 1px solid var(--ws-line); font-family: var(--sans); }
+    .soc-inv-table th { text-align: left; padding: 10px 12px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); border-bottom: 1px solid var(--ws-line); }
+    .soc-inv-table td { padding: 12px; border-bottom: 1px solid var(--ws-line); font-size: var(--ws-t-row); color: var(--ws-ink); vertical-align: middle; }
+    .soc-inv-table tr:last-child td { border-bottom: 0; }
+    .soc-inv-table .soc-inv-num { font-weight: 600; }
+    .soc-inv-table .soc-inv-amt { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .soc-inv-state { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: var(--ws-t-meta); font-weight: 600; }
+    tr.is-due .soc-inv-state { color: #371e28; background: rgba(55,30,40,0.08); }
+    tr.is-late .soc-inv-state { color: #a3392b; background: rgba(163,57,43,0.1); }
+    tr.is-paid td { color: var(--ws-tx); }
+    tr.is-paid .soc-inv-num, tr.is-paid .soc-inv-amt { font-weight: 500; }
+    tr.is-paid .soc-inv-state { padding: 0; color: var(--ws-faint); }
+    .soc-inv-table .soc-inv-tools { text-align: right; white-space: nowrap; }
+    .soc-inv-table .soc-inv-tools .ws-btn + .ws-btn { margin-left: 6px; }
+    @media (max-width: 640px) {
+      .soc-inv-table thead { display: none; }
+      .soc-inv-table tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 0; border-bottom: 1px solid var(--ws-line); }
+      .soc-inv-table td { padding: 0; border: 0; }
+      .soc-inv-table .soc-inv-tools { grid-column: 1 / -1; text-align: left; margin-top: 6px; }
+    }
+
+    /* Chapter 04: the account manager, as the Community introduces the team. */
+    .soc-team { display: grid; grid-template-columns: 170px minmax(0, 1fr); background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; }
+    .soc-team-photo { background: #ece6e3 center top / cover no-repeat; min-height: 190px; }
+    .soc-team-photo[hidden] { display: none; }
+    .soc-team:has(.soc-team-photo[hidden]) { grid-template-columns: 1fr; }
+    .soc-team-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: clamp(20px, 2vw, 28px) clamp(20px, 2.4vw, 32px); }
+    .soc-team-k { margin: 0; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
+    .soc-team-h { margin: 0; font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(19px, 1.8vw, 24px); font-weight: 600; letter-spacing: -0.01em; color: var(--ws-ink); }
+    .soc-team-p { margin: 0 0 10px; max-width: 75%; font-family: var(--sans); font-size: var(--ws-t-body); line-height: 1.55; color: var(--ws-tx); }
+    @media (max-width: 640px) { .soc-team { grid-template-columns: 1fr; } .soc-team-photo { min-height: 220px; } .soc-team-p { max-width: none; } }
+
     /* ---- Not a client: the two services ----
        Same vocabulary as everything else on the page — hairline outline,
        square corners, no fill, no shadow. The only colour is the chapter
@@ -461,6 +550,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
     // "Loading your social media" for everyone (Dani, 17 Oct).
     import { isTrainingDemo } from "../../lib/demo.js";
     import { TRAINING_SMM } from "../../lib/training-smm.js";
+    import { TEAM } from "../../data/tmke-team.js";
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
     const DEV = import.meta.env.DEV;
@@ -471,48 +561,87 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
     /* Where we keep each platform's address, so a chip can be the way to their
        own account rather than a label saying they have one. */
+    const PLAT_IC = {
+      instagram: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>',
+      facebook: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.5L17 11h-3V9a.5.5 0 0 1 .5-.5z"/></svg>',
+      linkedin: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="2.5"/><path d="M8 10.5V16M8 7.6v.1M11.5 16v-3.3a2 2 0 0 1 4 0V16M11.5 10.5V16"/></svg>',
+      youtube: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="3.5"/><path d="M10.5 9.5v5l4-2.5z" fill="currentColor"/></svg>',
+      tiktok: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5M14 4c.5 2.5 2.2 4 5 4.3"/></svg>',
+    };
+    const platKey = (name) => String(name || "").toLowerCase().replace(/[^a-z]/g, "");
+    const ARROW = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    /* The account manager as the Community introduces the team: their photo,
+       name and role, matched on the first name we hold ("Abbie" is Abigail). */
+    function managerOf(name) {
+      const n = String(name || "").trim().toLowerCase();
+      if (!n) return null;
+      return TEAM.find((t) => [t.short, t.name, t.key].some((x) => {
+        const v = String(x || "").toLowerCase();
+        return v === n || v.split(" ")[0] === n || (n.length >= 3 && v.slice(0, 3) === n.slice(0, 3));
+      })
+        // The name they go by, as on their photo's file ("Abbie - About Us.png").
+        || (() => { try { return decodeURIComponent(String(t.photo || "")).toLowerCase().includes(n); } catch (_) { return false; } })()) || null;
+    }
     const PLATFORM_URL = {
       instagram: "instagram_url", facebook: "facebook_url", linkedin: "linkedin_url",
       youtube: "youtube_url", tiktok: "tiktok_url",
     };
 
+    let client = null;
     function renderPlan(c) {
-      /* A platform we hold a link for becomes the way to it — one click to the
-         account we are running for them, opened alongside rather than instead
-         of the hub. One we have no address for stays a plain chip: a dead
-         link is worse than a label. */
-      const chip = (name) => {
-        const key = String(name || "").toLowerCase().replace(/[^a-z]/g, "");
-        const href = c[PLATFORM_URL[key]];
+      client = c;
+      const plats = Array.isArray(c.platforms) ? c.platforms : [];
+      /* A platform we hold a link for opens their account, alongside the
+         hub; one we have no address for is shown, not linked. */
+      const tile = (name) => {
+        const key = platKey(name), href = c[PLATFORM_URL[key]];
+        const inner = `<span class="soc-plat-ic">${PLAT_IC[key] || ""}</span><span class="soc-plat-name">${esc(name)}</span>${href ? '<span class="soc-plat-go" aria-hidden="true">&#8599;</span>' : ""}`;
         return href
-          ? `<a class="soc-chip is-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(name)}<span aria-hidden="true">&#8599;</span></a>`
-          : `<span class="soc-chip">${esc(name)}</span>`;
+          ? `<a class="soc-plat" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="Open ${esc(name)}">${inner}</a>`
+          : `<span class="soc-plat">${inner}</span>`;
       };
-      const platforms = Array.isArray(c.platforms) && c.platforms.length
-        ? c.platforms.map(chip).join("") : "&mdash;";
       const since = c.start_date ? (() => { try { return new Date(c.start_date + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }); } catch (_) { return null; } })() : null;
-      const price = c.price != null && c.price !== "" ? (() => {
-        const n = Number(c.price);
-        return Number.isFinite(n)
-          ? "£" + n.toLocaleString("en-GB", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) + " a month"
-          : String(c.price);
-      })() : null;
-      // The chapter strip carries the heading and the status now, so the card
-      // holds only the facts.
+      const price = priceOf(c);
       const status = $("soc-status");
       if (status) { status.textContent = "Active"; status.hidden = false; }
-      // Platforms go last, so the links finish the row. One platform leaves
-      // room for the start date; several need that room for themselves.
-      const many = Array.isArray(c.platforms) && c.platforms.length > 1;
-      $("soc-plan").innerHTML = `
-        <dl class="soc-plan-grid">
-          ${c.business ? `<div><dt>Account</dt><dd>${esc(c.business)}</dd></div>` : ""}
-          ${c.package_name ? `<div><dt>Package</dt><dd>${esc(c.package_name)}</dd></div>` : ""}
-          ${price ? `<div><dt>Price</dt><dd>${esc(price)}</dd></div>` : ""}
-          ${c.social_media_manager ? `<div><dt>Account manager</dt><dd>${esc(c.social_media_manager)}</dd></div>` : ""}
-          ${since && !many ? `<div><dt>Managed since</dt><dd>${esc(since)}</dd></div>` : ""}
-          <div${many ? ' class="is-wide"' : ""}><dt>Platforms</dt><dd class="soc-chips">${platforms}</dd></div>
-        </dl>`;
+      $("soc-plan").innerHTML = `<div class="soc-plan-cards">
+          <div class="soc-pc">
+            <span class="soc-pc-k">Account</span>
+            <strong class="soc-pc-v">${esc(c.business || "Your account")}</strong>
+            ${since ? `<span class="soc-pc-s">Managed since ${esc(since)}</span>` : ""}
+          </div>
+          <div class="soc-pc">
+            <span class="soc-pc-k">Package</span>
+            <strong class="soc-pc-v">${esc(c.package_name || "Social media management")}</strong>
+            ${price ? `<span class="soc-pc-s">${esc(price)}</span>` : ""}
+          </div>
+          <div class="soc-pc soc-pc--wide">
+            <span class="soc-pc-k">Platforms</span>
+            <div class="soc-plats">${plats.length ? plats.map(tile).join("") : '<span class="soc-pc-s">&mdash;</span>'}</div>
+          </div>
+        </div>`;
+      renderTeam(c);
+    }
+    function priceOf(c) {
+      if (c.price == null || c.price === "") return null;
+      const n = Number(c.price);
+      return Number.isFinite(n)
+        ? "£" + n.toLocaleString("en-GB", { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }) + " a month"
+        : String(c.price);
+    }
+    function renderTeam(c) {
+      const m = managerOf(c.social_media_manager);
+      const name = c.social_media_manager || (m && m.short) || "";
+      const first = (m && m.short) || name.split(" ")[0] || "";
+      const ph = $("soc-team-photo");
+      if (ph) { ph.style.backgroundImage = m && m.photo ? `url("${m.photo}")` : ""; ph.hidden = !(m && m.photo); }
+      if (name) {
+        $("soc-team-k").textContent = "Your account manager";
+        $("soc-team-name").textContent = (m && m.name) || name;
+        $("soc-team-p").textContent = `${(m && m.role) || "Social Media Manager"}. ${first} looks after your account day to day: your content, your posting and your monthly report. Questions about any of it, from content ideas to the numbers, go straight to ${first}.`;
+        $("soc-msg-open").textContent = `Message ${first}`;
+        $("soc-hero-msg").textContent = `Message ${first}`;
+      }
     }
 
     /* ---- Chapter 03: the reports ----
@@ -521,37 +650,104 @@ import { gbpFromPence } from "../../lib/supabase.js";
        latest month, with three headline figures to glance at, and the months
        before it underneath. */
     let isSample = false;
-    function renderReports() {
-      const wrap = $("soc-insights");
-      if (!reports.length) { wrap.innerHTML = `<p class="soc-state">Your first monthly report will appear here once we've published it.</p>`; return; }
-      const href = (r) => isSample ? `/account/social/report?sample=${encodeURIComponent(r.id)}` : `/account/social/report?r=${encodeURIComponent(r.id)}`;
-      const label = (r) => `${MONTHS[r.month]} ${r.year}`;
-      const [latest, ...earlier] = reports;
-      /* Which platforms a report covers, from what's in it (every report row
-         is saved as "Instagram", whatever else it holds). The three figures
-         are its first platform's: Instagram's, else Facebook's or LinkedIn's. */
-      const platLabel = (r) => platformsOf(r.data).map((k) => PLATFORM_LABELS[k]).join(", ") || r.platform || "";
-      const ld = latest.data || {}, first = platformsOf(ld)[0];
-      const p = ld.profile || {}, fb = ld.facebook || {}, li = ld.linkedin || {};
-      const figs = (first === "facebook"
+    const repHref = (r) => isSample ? `/account/social/report?sample=${encodeURIComponent(r.id)}` : `/account/social/report?r=${encodeURIComponent(r.id)}`;
+    const platKeysOf = (r) => platformsOf(r.data);
+    const platLabel = (r) => platKeysOf(r).map((k) => PLATFORM_LABELS[k]).join(", ") || r.platform || "";
+    const num = (v) => { const n = Number(String(v == null ? "" : v).replace(/[^0-9.-]/g, "")); return Number.isFinite(n) ? n : null; };
+    /* A report's three headline figures, for one platform: Instagram's, else
+       Facebook's or LinkedIn's, as the report itself leads. */
+    function figsOf(r, first) {
+      const d = (r && r.data) || {}, p = d.profile || {}, fb = d.facebook || {}, li = d.linkedin || {};
+      return (first === "facebook"
         ? [["Page likes", fb.pageLikes, vis.followers], ["Page reach", fb.pageReach, vis.reach], ["Engagement", (fb.posts || {}).engagement, vis.interactions]]
         : first === "linkedin"
         ? [["Followers", li.followers, vis.followers], ["Post reach", (li.posts || {}).reach, vis.reach], ["Engagement", (li.posts || {}).engagement, vis.interactions]]
         : [["Followers", p.followers, vis.followers], ["Reach", p.reach, vis.reach], ["Interactions", p.interactions, vis.interactions]]
-      ).filter(([, v, on]) => on !== false && v != null && v !== "")
-        .map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(Number(String(v).replace(/[^0-9.]/g, "")).toLocaleString("en-GB"))}</dd></div>`).join("");
-      const arrow = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      ).filter(([, v, on]) => on !== false && num(v) != null);
+    }
+    function renderReports() {
+      const wrap = $("soc-insights");
+      if (!reports.length) { wrap.innerHTML = `<div class="soc-card"><p class="soc-state">Your first monthly report will appear here once we've published it.</p></div>`; return; }
+      const [latest, ...earlier] = reports;
+      const first = platKeysOf(latest)[0];
+      const prev = earlier[0] || null;
+      const before = prev ? figsOf(prev, first) : [];
+      // Each figure, and how it moved on the month before.
+      const stats = figsOf(latest, first).map(([k, v]) => {
+        const now = num(v), was = (before.find(([kk]) => kk === k) || [])[1];
+        const then = num(was);
+        let delta = "";
+        if (prev && then != null) {
+          const d = now - then;
+          const pct = then ? Math.round((d / then) * 100) : null;
+          delta = d === 0
+            ? `<span class="soc-delta">Level with ${esc(MONTHS[prev.month])}</span>`
+            : `<span class="soc-delta ${d > 0 ? "is-up" : "is-down"}">${d > 0 ? "&#9650;" : "&#9660;"} ${esc(Math.abs(d).toLocaleString("en-GB"))}${pct != null && pct !== 0 ? ` (${Math.abs(pct)}%)` : ""} on ${esc(MONTHS[prev.month])}</span>`;
+        }
+        return `<div class="soc-stat"><dt>${esc(k)}</dt><dd>${esc(now.toLocaleString("en-GB"))}</dd>${delta}</div>`;
+      }).join("");
+      const icons = (r) => platKeysOf(r).map((k) => `<span class="soc-cover-ic" title="${esc(PLATFORM_LABELS[k] || k)}">${PLAT_IC[k] || ""}</span>`).join("");
       wrap.innerHTML = `
-        <div class="soc-rep-latest">
-          <div class="soc-rep-copy">
-            <p class="soc-rep-eyebrow">Latest report${platLabel(latest) ? ` · ${esc(platLabel(latest))}` : ""}</p>
-            <h3 class="soc-rep-h">${esc(label(latest))}</h3>
-            ${figs ? `<dl class="soc-rep-figs">${figs}</dl>` : ""}
+        <div class="soc-feature">
+          <a class="soc-cover" href="${repHref(latest)}" aria-label="Read the ${esc(MONTHS[latest.month])} ${latest.year} report">
+            <span class="soc-cover-k">Monthly report</span>
+            <span class="soc-cover-month">${esc(MONTHS[latest.month])}</span>
+            <span class="soc-cover-year">${esc(latest.year)}</span>
+            <span class="soc-cover-ics">${icons(latest)}</span>
+          </a>
+          <div class="soc-feature-body">
+            <p class="soc-rep-eyebrow">Latest report${platLabel(latest) ? ` &middot; ${esc(platLabel(latest))}` : ""}</p>
+            <h3 class="soc-feature-h">How ${esc(MONTHS[latest.month])} went</h3>
+            ${stats ? `<dl class="soc-stats">${stats}</dl>` : ""}
+            <div class="soc-feature-foot">
+              <a class="ws-btn ws-btn--primary" href="${repHref(latest)}">Read the report ${ARROW}</a>
+              ${first && platKeysOf(latest).length > 1 ? `<span class="soc-feature-note">Figures shown are ${esc(PLATFORM_LABELS[first])}'s; the report has every platform.</span>` : ""}
+            </div>
           </div>
-          <a class="ws-btn ws-btn--primary" href="${href(latest)}">Read the report ${arrow}</a>
         </div>
-        ${earlier.length ? `<p class="soc-rep-earlier-h">Earlier reports</p><ul class="soc-rep-list">${earlier.map((r) =>
-          `<li><a href="${href(r)}"><span>${esc(label(r))}${platLabel(r) ? `<span class="soc-rep-plat">${esc(platLabel(r))}</span>` : ""}</span><span class="soc-rep-go">Read ${arrow}</span></a></li>`).join("")}</ul>` : ""}`;
+        ${earlier.length ? `<p class="soc-sub-h">Earlier reports</p>
+        <div class="ws-news soc-earlier">${earlier.map((r) => `
+          <a class="ws-news-card" href="${repHref(r)}">
+            <span class="ws-news-tx">
+              <span class="ws-news-flag">Monthly report</span>
+              <span class="ws-news-h">${esc(MONTHS[r.month])} ${esc(r.year)}</span>
+              <span class="ws-news-desc">${esc(platLabel(r))}</span>
+            </span>
+            <span class="ws-news-art soc-mini-cover"><span>${esc(String(MONTHS[r.month]).slice(0, 3))}</span></span>
+          </a>`).join("")}</div>` : ""}`;
+      const read = $("soc-hero-read"); if (read) read.href = repHref(latest);
+    }
+
+    /* The header's three boxes (the dashboard's): the plan, the latest report
+       and what's owed. Painted once everything they say is known. */
+    function paintBrief(invoices) {
+      const ul = $("soc-brief"); if (!ul || !client) return;
+      const latest = reports[0];
+      const owing = (invoices || []).filter((i) => i.status !== "paid");
+      const owed = owing.reduce((t, i) => t + (i.total_pence || 0), 0);
+      const nextDue = owing.map((i) => i.due_date).filter(Boolean).sort()[0];
+      const IC = {
+        plan: '<svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>',
+        rep: '<svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V8M16 15v-6"/></svg>',
+        inv: '<svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
+      };
+      const box = (ic, cls, v, sub, href) => `<li><${href ? `a class="ws-brief-slot" href="${href}"` : 'span class="ws-brief-slot"'}>
+          <span class="ws-brief-ic ${cls}">${ic}</span>
+          <span class="ws-brief-tx"><strong>${v}</strong><span>${sub}</span></span></${href ? "a" : "span"}></li>`;
+      ul.innerHTML = [
+        box(IC.plan, "ws-brief-ic--sched", esc(client.package_name || "Your plan"), esc(priceOf(client) || "social media management"), "#soc-plan-h"),
+        latest ? box(IC.rep, "ws-brief-ic--time", `${esc(MONTHS[latest.month])} report`, "ready to read", repHref(latest))
+               : box(IC.rep, "ws-brief-ic--time", "First report", "on its way", ""),
+        (invoices && invoices.length)
+          ? (owing.length
+              ? box(IC.inv, "ws-brief-ic--due", `${esc(gbp(owed))} to pay`, nextDue ? `due ${esc(dShort(nextDue))}` : "outstanding", "#soc-bill-h")
+              : box(IC.inv, "ws-brief-ic--due", "All paid", "nothing owed", "#soc-bill-h"))
+          : box(IC.inv, "ws-brief-ic--due", "No invoices", "yet", ""),
+      ].join("");
+      ul.hidden = false;
+      $("soc-hero-cta").hidden = false;
+      const sub = $("soc-sub");
+      if (sub && client.business) sub.textContent = `${client.business}${client.package_name ? `, on the ${client.package_name} plan` : ""}. Your plan, your invoices and how your accounts did, month by month.`;
     }
 
     // A prospect can see the client view filled with sample numbers, and come back.
@@ -570,6 +766,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
       isSample = false;
       $("soc-client").hidden = true; $("soc-sample-note").hidden = true;
       const st = $("soc-status"); if (st) st.hidden = true;
+      $("soc-brief").hidden = true; $("soc-hero-cta").hidden = true;
       $("soc-noclient").hidden = false;
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
@@ -583,7 +780,8 @@ import { gbpFromPence } from "../../lib/supabase.js";
       reports = (data.reports || []).map((r) => ({ id: r.id, platform: r.platform, month: r.month, year: r.year, data: r.data }));
       renderReports();
       renumberChapters();
-      loadInvoices();
+      // The header's boxes once the invoices are known, so none changes after.
+      loadInvoices().then(paintBrief, () => paintBrief([]));
       wireMessage(data.client);
     }
 
@@ -630,6 +828,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
         if (fromReport) { location.href = `/account/social/report?r=${encodeURIComponent(fromReport)}#finished`; return; }
         scrim.hidden = true;
       };
+      $("soc-hero-msg")?.addEventListener("click", () => open.click());
       open.addEventListener("click", () => {
         $("soc-msg-note").hidden = true;
         scrim.hidden = false;
@@ -677,20 +876,20 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
     async function loadInvoices() {
       const block = $("soc-bill"), wrap = $("soc-bill-block");
-      if (!block || !wrap || !WORKER) return;
+      if (!block || !wrap || !WORKER) return [];
       let list = [];
       const training = isTrainingDemo();
       if (training) list = TRAINING_SMM.invoices || [];
       else try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (!session) return [];
         const res = await fetch(`${WORKER}/smm/invoices`, { headers: { Authorization: "Bearer " + session.access_token } });
         const j = await res.json().catch(() => null);
-        if (!j || !j.ok) return;
+        if (!j || !j.ok) return [];
         list = j.invoices || [];
-      } catch (_) { return; }
+      } catch (_) { return []; }
       // Nothing billed yet is not worth a chapter saying so.
-      if (!list.length) return;
+      if (!list.length) return [];
 
       const owing = list.filter((i) => i.status !== "paid");
       const settled = list.filter((i) => i.status === "paid");
@@ -702,25 +901,27 @@ import { gbpFromPence } from "../../lib/supabase.js";
         strip.hidden = false;
       }
 
+      /* A table, ruled top and bottom like the hub's others: what's owed
+         first, wine-marked; the paid ones read like filing. */
       const row = (i) => {
-        const overdue = i.status !== "paid" && i.due_date && new Date(i.due_date + "T23:59:59") < new Date();
-        return `<div class="soc-inv${i.status === "paid" ? " is-paid" : ""}">
-          <div class="soc-inv-main">
-            <span class="soc-inv-num">${esc(i.number || "Invoice")}</span>
-            <span class="soc-inv-when"><strong class="soc-inv-amt">${esc(gbp(i.total_pence))}</strong> &middot; ${i.status === "paid"
-              ? `Paid ${esc(dShort(i.paid_date))}`
-              : `${overdue ? "Was due" : "Due"} ${esc(dShort(i.due_date))}`}</span>
-          </div>
-          <span class="soc-inv-tools">
-            ${i.pay_url ? `<a class="ws-btn ws-btn--primary ws-btn--sm" href="${esc(i.pay_url)}">Pay now</a>` : ""}
+        const paid = i.status === "paid";
+        const overdue = !paid && i.due_date && new Date(i.due_date + "T23:59:59") < new Date();
+        const when = paid ? `Paid ${esc(dShort(i.paid_date))}` : `${overdue ? "Overdue since" : "Due"} ${esc(dShort(i.due_date))}`;
+        return `<tr class="${paid ? "is-paid" : "is-due"}${overdue ? " is-late" : ""}">
+          <td class="soc-inv-num">${esc(i.number || "Invoice")}</td>
+          <td class="soc-inv-amt">${esc(gbp(i.total_pence))}</td>
+          <td><span class="soc-inv-state">${when}</span></td>
+          <td class="soc-inv-tools">
+            ${i.pay_url && !paid ? `<a class="ws-btn ws-btn--primary ws-btn--sm" href="${esc(i.pay_url)}">Pay now</a>` : ""}
             <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-pdf="${esc(i.id)}">Download</button>
-          </span>
-        </div>`;
+          </td>
+        </tr>`;
       };
 
-      block.innerHTML =
-        (owing.length ? `<div class="soc-inv-h">Outstanding</div>${owing.map(row).join("")}` : "") +
-        (settled.length ? `<div class="soc-inv-h">Paid</div>${settled.map(row).join("")}` : "");
+      block.innerHTML = `<table class="soc-inv-table">
+          <thead><tr><th scope="col">Invoice</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col"><span class="soc-sr">Actions</span></th></tr></thead>
+          <tbody>${owing.map(row).join("")}${settled.map(row).join("")}</tbody>
+        </table>`;
 
       block.querySelectorAll("[data-pdf]").forEach((b) => b.addEventListener("click", async () => {
         const label = b.textContent;
@@ -739,6 +940,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
       wrap.hidden = false;
       renumberChapters();
+      return list;
     }
 
     /* ---- Join the waitlist ----
