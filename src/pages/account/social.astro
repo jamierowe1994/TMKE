@@ -135,23 +135,25 @@ import { gbpFromPence } from "../../lib/supabase.js";
             <button type="button" class="ws-btn ws-btn--ghost" id="soc-sample-back">Back</button>
           </div>
 
-          <!-- Chapter 01 — the month: the latest report as a cover, its three
-               figures against the month before, the earlier months as cards. -->
-          <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-perf-h">
+          <!-- Chapter 01 — what you are on -->
+          <section class="ws-block ws-rise" style="--i:1" aria-labelledby="soc-plan-h">
             <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 01</span>Monthly performance</h2>
-            </header>
-            <div id="soc-insights"><div class="soc-card"><p class="soc-state">Your first monthly report will appear here once we&rsquo;ve published it.</p></div></div>
-          </section>
-
-          <!-- Chapter 02 — what you are on -->
-          <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-plan-h">
-            <header class="ws-block-head">
-              <h2 class="ws-block-h" id="soc-plan-h"><span class="ws-block-ch">Chapter 02</span>Your plan</h2>
+              <h2 class="ws-block-h" id="soc-plan-h"><span class="ws-block-ch">Chapter 01</span>Your plan</h2>
               <!-- Filled by renderPlan(). The strip carries the status. -->
               <span class="ws-block-status" id="soc-status" hidden></span>
             </header>
             <div id="soc-plan"></div>
+          </section>
+
+          <!-- Chapter 02 — the month (Dani, 20 Oct): the latest report as its
+               own cover (the Socials picture, the wine card, as the course
+               intros), then the dashboard's Explore and Latest row: every
+               month as a pill, the latest three as cards. -->
+          <section class="ws-block ws-rise" style="--i:2" aria-labelledby="soc-perf-h">
+            <header class="ws-block-head">
+              <h2 class="ws-block-h" id="soc-perf-h"><span class="ws-block-ch">Chapter 02</span>Monthly report</h2>
+            </header>
+            <div id="soc-insights"><div class="soc-card"><p class="soc-state">Your first monthly report will appear here once we&rsquo;ve published it.</p></div></div>
           </section>
 
           <!-- Chapter 03 — what they owe, and what they have paid -->
@@ -356,11 +358,20 @@ import { gbpFromPence } from "../../lib/supabase.js";
     /* ======== A client's page, on the dashboard's pieces (Dani, 20 Oct:
        "more inspiration from the dashboard and the training pages") ======== */
     .soc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    .soc-hero-cta { display: flex; flex-wrap: wrap; gap: 8px; }
-    .soc-hero-cta[hidden], .soc-brief[hidden] { display: none; }
-    .soc-brief { margin-top: clamp(14px, 1.8vh, 20px); width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .soc-brief .ws-brief-tx strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    @media (max-width: 700px) { .soc-brief { grid-template-columns: 1fr; } }
+    /* The Planner's arrangement (Dani, 20 Oct): the words across the top,
+       the buttons bottom left, the three boxes level with them on the right. */
+    .soc-hero > .ws-hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: clamp(24px, 3vw, 48px); align-items: end; }
+    .soc-hero .ws-hero-date, .soc-hero .ws-greeting, .soc-hero .ws-hero-sub { grid-column: 1 / -1; }
+    .soc-hero .soc-hero-cta { grid-column: 1; grid-row: 4; align-self: end; display: flex; flex-wrap: wrap; gap: 8px; }
+    .soc-hero .soc-brief { grid-column: 2; grid-row: 4; align-self: end; }
+    .soc-hero-cta[hidden], .soc-brief[hidden] { display: none !important; }
+    .soc-brief .ws-brief-tx strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+    @media (max-width: 900px) {
+      .soc-hero > .ws-hero-copy { grid-template-columns: minmax(0, 1fr); }
+      .soc-hero .soc-brief { grid-column: 1; grid-row: 4; margin-top: clamp(18px, 2.4vh, 26px); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .soc-hero .soc-hero-cta { grid-row: 5; }
+    }
+    @media (max-width: 620px) { .soc-hero .soc-brief { grid-template-columns: 1fr; } }
 
     /* Chapter 01: the latest month, as a cover beside its figures. */
     .soc-feature { display: grid; grid-template-columns: minmax(230px, 32%) minmax(0, 1fr); border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; background: #fff; }
@@ -409,27 +420,58 @@ import { gbpFromPence } from "../../lib/supabase.js";
     @media (max-width: 900px) { .soc-plan-cards { grid-template-columns: 1fr 1fr; } .soc-pc--wide { grid-column: 1 / -1; } }
     @media (max-width: 560px) { .soc-plan-cards { grid-template-columns: 1fr; } }
 
-    /* Chapter 03: invoices as a table, ruled top and bottom. */
-    .soc-inv-table { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ws-line); border-bottom: 1px solid var(--ws-line); font-family: var(--sans); }
-    .soc-inv-table th { text-align: left; padding: 10px 12px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); border-bottom: 1px solid var(--ws-line); }
-    .soc-inv-table td { padding: 12px; border-bottom: 1px solid var(--ws-line); font-size: var(--ws-t-row); color: var(--ws-ink); vertical-align: middle; }
-    .soc-inv-table tr:last-child td { border-bottom: 0; }
-    .soc-inv-table .soc-inv-num { font-weight: 600; }
-    .soc-inv-table .soc-inv-amt { font-variant-numeric: tabular-nums; font-weight: 600; }
-    .soc-inv-state { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: var(--ws-t-meta); font-weight: 600; }
-    tr.is-due .soc-inv-state { color: #371e28; background: rgba(55,30,40,0.08); }
-    tr.is-late .soc-inv-state { color: #a3392b; background: rgba(163,57,43,0.1); }
-    tr.is-paid td { color: var(--ws-tx); }
-    tr.is-paid .soc-inv-num, tr.is-paid .soc-inv-amt { font-weight: 500; }
-    tr.is-paid .soc-inv-state { padding: 0; color: var(--ws-faint); }
-    .soc-inv-table .soc-inv-tools { text-align: right; white-space: nowrap; }
-    .soc-inv-table .soc-inv-tools .ws-btn + .ws-btn { margin-left: 6px; }
+    /* Chapter 03: invoices as a table, ruled top and bottom; the older ones
+       behind a drop-down. Its own names (soc-it-*): the old list's rules on
+       .soc-inv-* made table cells blocks, which broke the row lines. */
+    .soc-it { width: 100%; border-collapse: collapse; border-top: 1px solid var(--ws-line); border-bottom: 1px solid var(--ws-line); font-family: var(--sans); }
+    .soc-it th { text-align: left; padding: 10px 12px; font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); border-bottom: 1px solid var(--ws-line); }
+    .soc-it td { padding: 12px; border-top: 1px solid var(--ws-line); font-size: var(--ws-t-row); color: var(--ws-ink); vertical-align: middle; }
+    .soc-it tbody:first-of-type tr:first-child td { border-top: 0; }
+    .soc-it-older[hidden] { display: none; }
+    .soc-it .soc-it-num, .soc-it .soc-it-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
+    .soc-it-state { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; font-size: var(--ws-t-meta); font-weight: 600; }
+    .soc-it tr.is-due .soc-it-state { color: #371e28; background: rgba(55,30,40,0.08); }
+    .soc-it tr.is-late .soc-it-state { color: #a3392b; background: rgba(163,57,43,0.1); }
+    .soc-it tr.is-paid td { color: var(--ws-tx); }
+    .soc-it tr.is-paid .soc-it-num, .soc-it tr.is-paid .soc-it-amt { font-weight: 500; }
+    .soc-it tr.is-paid .soc-it-state { padding: 0; color: var(--ws-faint); }
+    .soc-it .soc-it-tools { text-align: right; white-space: nowrap; }
+    .soc-it .soc-it-tools .ws-btn + .ws-btn { margin-left: 6px; }
+    .soc-it-more { display: inline-flex; align-items: center; gap: 6px; margin-top: var(--ws-gap); padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--english-violet); }
+    .soc-it-more svg { width: 13px; height: 13px; transition: transform 0.25s var(--ws-ease); }
+    .soc-it-more[aria-expanded="true"] svg { transform: rotate(180deg); }
     @media (max-width: 640px) {
-      .soc-inv-table thead { display: none; }
-      .soc-inv-table tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 0; border-bottom: 1px solid var(--ws-line); }
-      .soc-inv-table td { padding: 0; border: 0; }
-      .soc-inv-table .soc-inv-tools { grid-column: 1 / -1; text-align: left; margin-top: 6px; }
+      .soc-it thead { display: none; }
+      .soc-it tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 12px 0; border-top: 1px solid var(--ws-line); }
+      .soc-it td { padding: 0; border: 0; }
+      .soc-it .soc-it-tools { grid-column: 1 / -1; text-align: left; margin-top: 6px; }
     }
+
+    /* Chapter 02: the latest report as its own cover (report.astro's): the
+       Socials picture with the wine card on it, like the course intros. */
+    .soc-cover-banner { position: relative; display: flex; align-items: flex-end; min-height: clamp(380px, 34vw, 520px); padding: clamp(18px, 2.4vw, 34px); border-radius: 6px; overflow: hidden; border: 1px solid var(--ws-line);
+      background: #e6e3e1 url('/assets/hub/smm.jpg') center / cover no-repeat; }
+    .soc-cover-card { width: min(52%, 700px); max-width: 100%; padding: clamp(22px, 2.4vw, 32px); background: var(--english-violet, #4a2a3c); color: #fff; border-radius: 6px; }
+    .soc-cover-eyebrow { margin: 0; font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.72); }
+    .soc-cover-title { margin: 10px 0 0; font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 2.8vw, 38px); line-height: 1.06; letter-spacing: -0.02em; color: #fff; }
+    .soc-cover-sum { margin: 10px 0 0; font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(255,255,255,0.84); max-width: 60ch; }
+    .soc-cover-card .soc-stats { margin-top: 18px; }
+    .soc-cover-card .soc-stat { border-left-color: rgba(255,255,255,0.22); }
+    .soc-cover-card .soc-stat dt { color: rgba(255,255,255,0.62); }
+    .soc-cover-card .soc-stat dd { color: #fff; font-size: clamp(24px, 2.2vw, 32px); }
+    .soc-cover-card .soc-delta { color: rgba(255,255,255,0.78); }
+    .soc-cover-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-top: 22px; }
+    .soc-cover-card .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
+    .soc-cover-card .ws-btn--primary:hover { background: var(--paper, #f4f2f1); }
+    .soc-cover-note { font-family: var(--sans); font-size: var(--ws-t-meta); color: rgba(255,255,255,0.7); }
+    .soc-cover-meta { position: absolute; right: clamp(18px, 2.4vw, 34px); bottom: clamp(18px, 2.4vw, 34px); font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,0.35); }
+    @media (max-width: 900px) { .soc-cover-card { width: 100%; } .soc-cover-meta { display: none; } .soc-cover-card .soc-stats { grid-template-columns: 1fr 1fr 1fr; } }
+    @media (max-width: 560px) { .soc-cover-card .soc-stats { grid-template-columns: 1fr; } }
+    /* Under it, the dashboard's Explore and Latest row: months as pills. */
+    .soc-reports { margin-top: clamp(22px, 2.6vw, 34px); }
+    .soc-month-pills { flex-direction: row; flex-wrap: wrap; }
+    .soc-art-month { display: grid; place-items: center; color: #fff; background: radial-gradient(120% 90% at 85% 0%, #5a3a47 0%, #371e28 60%, #2a1620 100%); }
+    .soc-art-month span { font-family: var(--subhead); font-size: 26px; }
 
     /* Chapter 04: the account manager, as the Community introduces the team. */
     .soc-team { display: grid; grid-template-columns: 170px minmax(0, 1fr); background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); overflow: hidden; }
@@ -665,6 +707,15 @@ import { gbpFromPence } from "../../lib/supabase.js";
         : [["Followers", p.followers, vis.followers], ["Reach", p.reach, vis.reach], ["Interactions", p.interactions, vis.interactions]]
       ).filter(([, v, on]) => on !== false && num(v) != null);
     }
+    /* The first line of a report's summary, for the cover. */
+    const firstLine = (r) => String(((r && r.data) || {}).summary || "").split(/\n+/).map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean)[0] || "";
+    /* A report's best post's picture, for its card. */
+    const thumbOf = (r) => {
+      const d = (r && r.data) || {};
+      const pools = [d.content, (d.facebook || {}).content, (d.linkedin || {}).content].filter(Array.isArray);
+      for (const list of pools) { const hit = list.find((x) => x && x.thumb); if (hit) return hit.thumb; }
+      return "";
+    };
     function renderReports() {
       const wrap = $("soc-insights");
       if (!reports.length) { wrap.innerHTML = `<div class="soc-card"><p class="soc-state">Your first monthly report will appear here once we've published it.</p></div>`; return; }
@@ -674,47 +725,52 @@ import { gbpFromPence } from "../../lib/supabase.js";
       const before = prev ? figsOf(prev, first) : [];
       // Each figure, and how it moved on the month before.
       const stats = figsOf(latest, first).map(([k, v]) => {
-        const now = num(v), was = (before.find(([kk]) => kk === k) || [])[1];
-        const then = num(was);
+        const now = num(v), then = num((before.find(([kk]) => kk === k) || [])[1]);
         let delta = "";
         if (prev && then != null) {
-          const d = now - then;
-          const pct = then ? Math.round((d / then) * 100) : null;
-          delta = d === 0
-            ? `<span class="soc-delta">Level with ${esc(MONTHS[prev.month])}</span>`
-            : `<span class="soc-delta ${d > 0 ? "is-up" : "is-down"}">${d > 0 ? "&#9650;" : "&#9660;"} ${esc(Math.abs(d).toLocaleString("en-GB"))}${pct != null && pct !== 0 ? ` (${Math.abs(pct)}%)` : ""} on ${esc(MONTHS[prev.month])}</span>`;
+          const d = now - then, pct = then ? Math.round((d / then) * 100) : null;
+          delta = d === 0 ? `<span class="soc-delta">Level with ${esc(MONTHS[prev.month])}</span>`
+            : `<span class="soc-delta">${d > 0 ? "&#9650;" : "&#9660;"} ${esc(Math.abs(d).toLocaleString("en-GB"))}${pct ? ` (${Math.abs(pct)}%)` : ""} on ${esc(MONTHS[prev.month])}</span>`;
         }
         return `<div class="soc-stat"><dt>${esc(k)}</dt><dd>${esc(now.toLocaleString("en-GB"))}</dd>${delta}</div>`;
       }).join("");
-      const icons = (r) => platKeysOf(r).map((k) => `<span class="soc-cover-ic" title="${esc(PLATFORM_LABELS[k] || k)}">${PLAT_IC[k] || ""}</span>`).join("");
+      const line = firstLine(latest);
+      const label = (r) => `${MONTHS[r.month]} ${r.year}`;
+      const latestThree = reports.slice(0, 3);
       wrap.innerHTML = `
-        <div class="soc-feature">
-          <a class="soc-cover" href="${repHref(latest)}" aria-label="Read the ${esc(MONTHS[latest.month])} ${latest.year} report">
-            <span class="soc-cover-k">Monthly report</span>
-            <span class="soc-cover-month">${esc(MONTHS[latest.month])}</span>
-            <span class="soc-cover-year">${esc(latest.year)}</span>
-            <span class="soc-cover-ics">${icons(latest)}</span>
-          </a>
-          <div class="soc-feature-body">
-            <p class="soc-rep-eyebrow">Latest report${platLabel(latest) ? ` &middot; ${esc(platLabel(latest))}` : ""}</p>
-            <h3 class="soc-feature-h">How ${esc(MONTHS[latest.month])} went</h3>
+        <div class="soc-cover-banner">
+          <div class="soc-cover-card">
+            <p class="soc-cover-eyebrow">Latest report${platLabel(latest) ? ` &middot; ${esc(platLabel(latest))}` : ""}</p>
+            <h3 class="soc-cover-title">How ${esc(MONTHS[latest.month])} went</h3>
+            ${line ? `<p class="soc-cover-sum">${esc(line)}</p>` : ""}
             ${stats ? `<dl class="soc-stats">${stats}</dl>` : ""}
-            <div class="soc-feature-foot">
+            <div class="soc-cover-foot">
               <a class="ws-btn ws-btn--primary" href="${repHref(latest)}">Read the report ${ARROW}</a>
-              ${first && platKeysOf(latest).length > 1 ? `<span class="soc-feature-note">Figures shown are ${esc(PLATFORM_LABELS[first])}'s; the report has every platform.</span>` : ""}
+              ${first && platKeysOf(latest).length > 1 ? `<span class="soc-cover-note">Figures are ${esc(PLATFORM_LABELS[first])}'s; the report has every platform.</span>` : ""}
             </div>
           </div>
+          <span class="soc-cover-meta">${esc(label(latest))}</span>
         </div>
-        ${earlier.length ? `<p class="soc-sub-h">Earlier reports</p>
-        <div class="ws-news soc-earlier">${earlier.map((r) => `
-          <a class="ws-news-card" href="${repHref(r)}">
-            <span class="ws-news-tx">
-              <span class="ws-news-flag">Monthly report</span>
-              <span class="ws-news-h">${esc(MONTHS[r.month])} ${esc(r.year)}</span>
-              <span class="ws-news-desc">${esc(platLabel(r))}</span>
-            </span>
-            <span class="ws-news-art soc-mini-cover"><span>${esc(String(MONTHS[r.month]).slice(0, 3))}</span></span>
-          </a>`).join("")}</div>` : ""}`;
+        ${reports.length > 1 ? `<div class="ws-wn soc-reports">
+          <div class="ws-wn-col ws-wn-col--keys">
+            <p class="ws-wn-label">All reports</p>
+            <nav class="ws-wn-pills soc-month-pills" aria-label="All reports">
+              ${reports.map((r) => `<a class="ws-wn-pill" href="${repHref(r)}">${esc(label(r))}</a>`).join("")}
+            </nav>
+          </div>
+          <div class="ws-wn-col">
+            <p class="ws-wn-label">Latest</p>
+            <div class="ws-wn-cards">${latestThree.map((r) => {
+              const pic = thumbOf(r);
+              return `<a class="ws-wn-card" href="${repHref(r)}">
+                <span class="ws-wn-art${pic ? "" : " soc-art-month"}"${pic ? ` style="background-image:url('${esc(pic)}')"` : ""}>${pic ? "" : `<span>${esc(String(MONTHS[r.month]).slice(0, 3))}</span>`}</span>
+                <span class="ws-wn-tx">
+                  <span class="ws-wn-flag">Monthly report</span>
+                  <strong class="ws-wn-h">${esc(label(r))}</strong>
+                </span>
+              </a>`; }).join("")}</div>
+          </div>
+        </div>` : ""}`;
       const read = $("soc-hero-read"); if (read) read.href = repHref(latest);
     }
 
@@ -901,27 +957,36 @@ import { gbpFromPence } from "../../lib/supabase.js";
         strip.hidden = false;
       }
 
-      /* A table, ruled top and bottom like the hub's others: what's owed
-         first, wine-marked; the paid ones read like filing. */
+      /* A table, ruled top and bottom like the hub's others (Dani, 20 Oct):
+         what's owed and the latest paid one on show, the older ones in a
+         drop-down, because after a year there are a dozen. */
       const row = (i) => {
         const paid = i.status === "paid";
         const overdue = !paid && i.due_date && new Date(i.due_date + "T23:59:59") < new Date();
         const when = paid ? `Paid ${esc(dShort(i.paid_date))}` : `${overdue ? "Overdue since" : "Due"} ${esc(dShort(i.due_date))}`;
         return `<tr class="${paid ? "is-paid" : "is-due"}${overdue ? " is-late" : ""}">
-          <td class="soc-inv-num">${esc(i.number || "Invoice")}</td>
-          <td class="soc-inv-amt">${esc(gbp(i.total_pence))}</td>
-          <td><span class="soc-inv-state">${when}</span></td>
-          <td class="soc-inv-tools">
+          <td class="soc-it-num">${esc(i.number || "Invoice")}</td>
+          <td class="soc-it-amt">${esc(gbp(i.total_pence))}</td>
+          <td><span class="soc-it-state">${when}</span></td>
+          <td class="soc-it-tools">
             ${i.pay_url && !paid ? `<a class="ws-btn ws-btn--primary ws-btn--sm" href="${esc(i.pay_url)}">Pay now</a>` : ""}
             <button type="button" class="ws-btn ws-btn--ghost ws-btn--sm" data-pdf="${esc(i.id)}">Download</button>
           </td>
         </tr>`;
       };
-
-      block.innerHTML = `<table class="soc-inv-table">
+      const shown = owing.concat(settled.slice(0, owing.length ? 1 : 2));
+      const older = settled.slice(owing.length ? 1 : 2);
+      block.innerHTML = `<table class="soc-it">
           <thead><tr><th scope="col">Invoice</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col"><span class="soc-sr">Actions</span></th></tr></thead>
-          <tbody>${owing.map(row).join("")}${settled.map(row).join("")}</tbody>
-        </table>`;
+          <tbody>${shown.map(row).join("")}</tbody>
+          ${older.length ? `<tbody class="soc-it-older" id="soc-it-older" hidden>${older.map(row).join("")}</tbody>` : ""}
+        </table>
+        ${older.length ? `<button type="button" class="soc-it-more" id="soc-it-more" aria-expanded="false" aria-controls="soc-it-older">Show older invoices (${older.length})<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>` : ""}`;
+      $("soc-it-more")?.addEventListener("click", (e) => {
+        const b = e.currentTarget, body = $("soc-it-older"), open = body.hidden;
+        body.hidden = !open; b.setAttribute("aria-expanded", String(open));
+        b.firstChild.textContent = open ? "Hide older invoices" : `Show older invoices (${older.length})`;
+      });
 
       block.querySelectorAll("[data-pdf]").forEach((b) => b.addEventListener("click", async () => {
         const label = b.textContent;
