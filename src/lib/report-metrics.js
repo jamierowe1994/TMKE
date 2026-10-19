@@ -84,6 +84,11 @@ const ALL_PARTS = {
   newFollowers: (d) => [d.profile ? n(d.profile.newFollowers) : null, d.facebook ? n(fbm(d).newFans) : null, d.linkedin ? n(lim(d).followerGrowth) : null],
   published: (d) => [n(d.posts?.published) != null || n(d.reels?.published) != null ? (n(d.posts?.published) || 0) + (n(d.reels?.published) || 0) : null, d.facebook ? n((fbm(d).posts || {}).published) : null, d.linkedin ? n((lim(d).posts || {}).published) : null],
 };
+// A figure across every platform the month has (Your Socials' cover, Dani
+// 20 Oct), and whether last month can be set against it: only when it had
+// the same platforms, or a new account would read as growth.
+export const combined = (d, part) => total(ALL_PARTS[part](d || {}));
+export const comparable = (d, prev, part) => !!prev && ALL_PARTS[part](prev).every((x, i) => (x == null) === (ALL_PARTS[part](d)[i] == null));
 // This month against last, only when last month had the same platforms.
 const allCard = (label, part, { d, prev, pm }, sub) => {
   const c = total(ALL_PARTS[part](d)); if (c == null) return null;

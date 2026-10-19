@@ -595,7 +595,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
     import { supabase } from "../../lib/supabase.js";
     import { MONTHS } from "../../lib/report-insights.js";
     import { resolveVisibility } from "../../lib/report-fields.js";
-    import { PLATFORM_LABELS, platformsOf } from "../../lib/report-metrics.js";
+    import { PLATFORM_LABELS, platformsOf, combined, comparable } from "../../lib/report-metrics.js";
     import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
     // Here, in the page's script: imported in the frontmatter above it only
     // existed at build time, so the sign-in check threw and the page sat on
@@ -739,17 +739,23 @@ import { gbpFromPence } from "../../lib/supabase.js";
     const num = (v) => { const n = Number(String(v == null ? "" : v).replace(/[^0-9.-]/g, "")); return Number.isFinite(n) ? n : null; };
     /* A report's three headline figures, for one platform: Instagram's, else
        Facebook's or LinkedIn's, as the report itself leads. */
-    function figsOf(r, first) {
-      const d = (r && r.data) || {}, p = d.profile || {}, fb = d.facebook || {}, li = d.linkedin || {};
-      return (first === "facebook"
-        ? [["Page likes", fb.pageLikes, vis.followers], ["Page reach", fb.pageReach, vis.reach], ["Engagement", (fb.posts || {}).engagement, vis.interactions]]
-        : first === "linkedin"
-        ? [["Followers", li.followers, vis.followers], ["Post reach", (li.posts || {}).reach, vis.reach], ["Engagement", (li.posts || {}).engagement, vis.interactions]]
-        : [["Followers", p.followers, vis.followers], ["Reach", p.reach, vis.reach], ["Interactions", p.interactions, vis.interactions]]
-      ).filter(([, v, on]) => on !== false && num(v) != null);
+    /* The cover's three figures: every platform added together (Dani,
+       20 Oct: "more of a hard-hitting overview"). Instagram interactions,
+       Facebook and LinkedIn engagement are all Interactions here. */
+    const FIGS = [["Followers", "followers", "followers"], ["Reach", "reach", "reach"], ["Interactions", "engagement", "interactions"]];
+    function figsOf(r) {
+      const d = (r && r.data) || {};
+      return FIGS.filter(([, , v]) => vis[v] !== false).map(([k, part]) => [k, combined(d, part), part]).filter(([, v]) => v != null);
     }
-    /* The first line of a report's summary, for the cover. */
-    const firstLine = (r) => String(((r && r.data) || {}).summary || "").split(/\n+/).map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean)[0] || "";
+    /* The cover's line: the first insight of the client commentary (what
+       the team reviewed for the client); the summary only when there are
+       none, as the report itself falls back. */
+    const firstLine = (r) => {
+      const ins = ((((r && r.data) || {}).client || {}).insights || []).find((i) => i && (i.headline || i.title));
+      if (ins) { const h = String(ins.headline || ins.title).trim(); return /[.!?]$/.test(h) ? h : h + "."; }
+      return firstSummaryLine(r);
+    };
+    const firstSummaryLine = (r) => String(((r && r.data) || {}).summary || "").split(/\n+/).map((l) => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean)[0] || "";
     /* A report's best post's picture, for its card. */
     const thumbOf = (r) => {
       const d = (r && r.data) || {};
@@ -761,12 +767,12 @@ import { gbpFromPence } from "../../lib/supabase.js";
       const wrap = $("soc-insights");
       if (!reports.length) { wrap.innerHTML = `<div class="soc-card"><p class="soc-state">Your first monthly report will appear here once we've published it.</p></div>`; return; }
       const [latest, ...earlier] = reports;
-      const first = platKeysOf(latest)[0];
       const prev = earlier[0] || null;
-      const before = prev ? figsOf(prev, first) : [];
-      // Each figure, and how it moved on the month before.
-      const stats = figsOf(latest, first).map(([k, v]) => {
-        const now = num(v), then = num((before.find(([kk]) => kk === k) || [])[1]);
+      const before = prev ? figsOf(prev) : [];
+      // Each figure, and how it moved on the month before (same platforms only).
+      const stats = figsOf(latest).map(([k, v, part]) => {
+        const same = prev && comparable(latest.data || {}, prev.data || {}, part);
+        const now = num(v), then = same ? num((before.find(([kk]) => kk === k) || [])[1]) : null;
         let delta = "";
         if (prev && then != null) {
           const d = now - then, pct = then ? Math.round((d / then) * 100) : null;
@@ -787,7 +793,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
             ${stats ? `<dl class="soc-stats">${stats}</dl>` : ""}
             <div class="soc-cover-foot">
               <a class="ws-btn ws-btn--primary" href="${repHref(latest)}">Read the report ${ARROW}</a>
-              ${first && platKeysOf(latest).length > 1 ? `<span class="soc-cover-note">Figures are ${esc(PLATFORM_LABELS[first])}'s; the report has every platform.</span>` : ""}
+              ${platKeysOf(latest).length > 1 ? `<span class="soc-cover-note">Figures are across all your accounts.</span>` : ""}
             </div>
           </div>
           <span class="soc-cover-meta">${esc(label(latest))}</span>
