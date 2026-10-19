@@ -234,8 +234,17 @@ import { createResizeEngine } from "./resize-engine.js";
   // Pin brand fonts to the top of the font list (deduped, marked as brand).
   // The stack to render a font name with: the catalogue's if we know it,
   // otherwise the name itself with a neutral fallback behind it.
+  /* A font by name, whatever its capitals. The browser matches family names
+     regardless of case, so a template saying "UniText" showed the uploaded
+     "Unitext" on screen; this list matched exactly, didn't know it, and the
+     preview was drawn in another face (Dani, 19 Oct: "20 Great Reasons"). */
+  function findFont(name) {
+    if (!name) return null;
+    const want = String(name).trim().toLowerCase();
+    return FONTS.find((f) => f.name === name) || FONTS.find((f) => String(f.name).trim().toLowerCase() === want) || null;
+  }
   function fontStackFor(name) {
-    const known = name && FONTS.find((f) => f.name === name);
+    const known = findFont(name);
     if (known) return known.stack;
     if (name) return '"' + name + '", ' + (FONTS[0] ? FONTS[0].stack : "sans-serif");
     return FONTS[0] ? FONTS[0].stack : "sans-serif";
@@ -3438,7 +3447,7 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // The CSS stack behind a font's name, for putting a run's font into a span.
   function fontStackFor(name) {
-    const f = FONTS.find(function (x) { return x.name === name; });
+    const f = findFont(name);
     return f ? f.stack : null;
   }
   /* The other way round: a browser hands back `font-family: "Playfair
@@ -7508,7 +7517,7 @@ import { createResizeEngine } from "./resize-engine.js";
      card's sans title came out in a serif in its preview, larger, and ran
      into the text under it (Dani, 19 Oct: "20 Great Reasons"). */
   function canvasStack(name) {
-    const known = name && FONTS.find((f) => f.name === name);
+    const known = findFont(name);
     if (known) return known.stack;
     if (name) return '"' + String(name).replace(/"/g, "") + '", sans-serif';
     return FONTS[0] ? FONTS[0].stack : "sans-serif";
@@ -12788,7 +12797,7 @@ import { createResizeEngine } from "./resize-engine.js";
     mount.appendChild(listWrap);
 
     function fontByName(nm) {
-      return FONTS.find(function (x) { return x.name === nm; }) || { name: nm, stack: '"' + nm + '", sans-serif' };
+      return findFont(nm) || { name: nm, stack: '"' + nm + '", sans-serif' };
     }
     function rowFor(f, preview) {
       const row = document.createElement("div");

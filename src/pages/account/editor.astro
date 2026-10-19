@@ -149,6 +149,14 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
        canvas viewport unable to scroll at all once a design was zoomed past
        the window. Set before Lenis initialises so it never starts. */
     document.documentElement.setAttribute('data-no-smooth-scroll', '');
+    /* Uploaded brand fonts: the promise every render waits on exists before
+       any script looks for it (src/lib/brand-fonts.js resolves it). Dani,
+       19 Oct: uploaded fonts must always be picked up. */
+    (function () {
+      if (window.__TMKE_BRAND_FONTS_READY__) return;
+      var r; window.__TMKE_BRAND_FONTS_READY__ = new Promise(function (res) { r = res; });
+      window.__TMKE_BRAND_FONTS_RESOLVE__ = r;
+    })();
   </script>
 
   <!-- ============ Your designs ============
@@ -5682,6 +5690,9 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
   <script>
     import { syncBrandCache } from '../../lib/brand-cache.js';
     import { supabase } from '../../lib/supabase.js';
+    import { loadBrandFonts } from '../../lib/brand-fonts.js';
+    // Uploaded brand fonts, from the start, before any design is drawn.
+    loadBrandFonts(supabase);
     import { track } from '../../lib/track.js';
     import { installTimePicker } from '../../lib/time-picker.js';
     installTimePicker();
@@ -6361,61 +6372,8 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       }
     }
 
-    // Custom brand fonts — fetched for BOTH admin and customer modes so the
-    // canvas renders templates that reference them correctly. Each row is
-    // registered with the document via Font Face API; editor.js picks them
-    // up via `window.__TMKE_BRAND_FONTS__` and adds to the picker.
-    try {
-      const { data: bf, error: bfErr } = await supabase
-        .from('brand_fonts')
-        .select('id, family, display_name, file_url, weight, style')
-        .order('family', { ascending: true });
-
-      /* Something has to be able to WAIT for these. The faces are fetched
-         from Supabase after editor.js has already run, and each one is loaded
-         fire-and-forget - so a design could be drawn, or exported, before an
-         uploaded face existed, and it fell back to another font for the rest
-         of the session. The promise lets the editor hold a render until the
-         pack is actually registered. Dani, 10 Oct. */
-      const facePromises = [];
-      if (!bfErr && bf && bf.length) {
-        /* The Seasons is NOT registered from the fonts table. The six files
-           there are the free DEMO build ("FSP DEMO - The Seasons"): 28
-           characters in each -- ! " # $ % & ' ( ) * + - / 4 < = > @ [ \\ ] ^ _
-           ` { | } ~ -- are one ornament stamped DEMO, which is how "340" came
-           out with DEMO in the middle. The licensed font comes whole from
-           Typographer on every page (BaseLayout), so the Studio uses that.
-
-           Measured before switching, 12 Oct, all 238 The Seasons text boxes in
-           the 112 live templates laid out both ways: only 3 change, and all
-           three LOSE a line and then exactly fill the box they were drawn in
-           -- "Meet the Sales Team" one line in a one-line box, Testimonial 1's
-           quote two lines in a two-line box. The licensed letters are the same
-           or slightly narrower (A C G M k m q s z), so nothing grows. The
-           templates were drawn in the licensed font; the demo build was what
-           made them wrap. Dani: "do we just swap it over now". */
-        const isDemoSeasons = (f) => /^the seasons$/i.test(String(f.family || '').trim());
-        const registered = new Set();
-        for (const f of bf) {
-          if (registered.has(f.family + '|' + f.weight + '|' + f.style)) continue;
-          registered.add(f.family + '|' + f.weight + '|' + f.style);
-          if (isDemoSeasons(f)) continue;   // the licensed font is used instead (above)
-          try {
-            const face = new FontFace(f.family, `url("${f.file_url}")`, {
-              weight: String(f.weight || 400),
-              style: f.style || 'normal',
-              display: 'swap',
-            });
-            facePromises.push(face.load().then((l) => document.fonts.add(l)).catch(() => {}));
-          } catch (_) { /* ignore individual font failures */ }
-        }
-        // Editor.js reads this on init to populate the font picker.
-        window.__TMKE_BRAND_FONTS__ = bf;
-      }
-      window.__TMKE_BRAND_FONTS_READY__ = Promise.all(facePromises);
-    } catch (_) { /* fonts are optional — keep editor usable if fetch fails */ }
-    // Always resolvable, so a waiter never hangs when there are no uploads.
-    if (!window.__TMKE_BRAND_FONTS_READY__) window.__TMKE_BRAND_FONTS_READY__ = Promise.resolve();
+    // Uploaded brand fonts load from the top of this script now
+    // (loadBrandFonts, src/lib/brand-fonts.js), not after the design.
 
     /* Designing as (docs/brand-switcher-brief.md). The Worker says which
        brands this member works for; one brand, or none, and nothing shows.

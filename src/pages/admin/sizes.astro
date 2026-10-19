@@ -110,6 +110,9 @@ const WIDE = new Set(["Landscape", "Facebook Link", "Facebook Cover", "LinkedIn 
     import { requireAdmin } from '../../lib/admin-gate.js';
     import { supabase } from '../../lib/supabase.js';
     import { escapeHtml, renderEl, fontStack, blockBoxOf } from '../../lib/design-preview.js';
+    import { loadBrandFonts } from '../../lib/brand-fonts.js';
+    // Uploaded brand fonts in, before any text is measured (Dani, 19 Oct).
+    const _brandFonts = loadBrandFonts(supabase);
 
     const SIZES = JSON.parse(document.getElementById('sz-sizes')?.textContent || '[]');
     const els = {
@@ -325,6 +328,7 @@ const WIDE = new Set(["Landscape", "Facebook Link", "Facebook Cover", "LinkedIn 
         const session = await requireAdmin();
         if (!session) return;
       }
+      await _brandFonts;
       await run();
     })();
   </script>

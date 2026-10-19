@@ -176,6 +176,9 @@ import "../../styles/admin.css";
       border: 1px solid rgba(28,29,34,0.18); border-radius: 5px; background: #fff;
     }
 
+    /* A file browsers refuse (Dani, 19 Oct: New Standard never showed). */
+    .font-broken { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: #a3392b; }
+    .font-card.is-broken .font-preview { opacity: 0.45; }
     .font-card {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -315,6 +318,8 @@ import "../../styles/admin.css";
 
     let pendingFiles = [];
     const _registered = new Set();
+    const _broken = new Set();      // ids whose file no browser will read
+    let _families = [];             // the family names already uploaded
 
     /* Read a font's cut from its filename. "TheSeasons-BoldItalic.otf" is a
        bold italic of The Seasons, and typing that in eleven times by hand is
@@ -370,8 +375,18 @@ import "../../styles/admin.css";
           style: f.style || 'normal',
           display: 'swap',
         });
-        face.load().then((loaded) => document.fonts.add(loaded)).catch(() => {});
-      } catch (_) {}
+        face.load().then((loaded) => document.fonts.add(loaded)).catch(() => { _broken.add(f.id); markBroken(f.id); });
+      } catch (_) { _broken.add(f.id); }
+    }
+    /* Uploaded fonts have to work everywhere a design is drawn (Dani, 19 Oct),
+       so a file the browser refuses says so on its card, rather than the
+       Studio quietly showing another face in its place. */
+    function markBroken(id) {
+      const card = els.grid.querySelector(`.font-card[data-id="${CSS.escape(String(id))}"]`);
+      if (!card || card.classList.contains('is-broken')) return;
+      card.classList.add('is-broken');
+      card.querySelector('.font-meta')?.insertAdjacentHTML('afterend',
+        '<p class="font-broken">Web browsers can’t read this file, so it never shows in the Studio. Replace it with a WOFF2 or TTF version.</p>');
     }
 
     function renderCard(f) {
@@ -412,6 +427,7 @@ import "../../styles/admin.css";
       }
 
       const fonts = data ?? [];
+      _families = [...new Set(fonts.map((f) => f.family))];
       fonts.forEach(registerFontFace);
       const families = new Set(fonts.map((f) => f.family)).size;
       els.count.textContent = fonts.length
@@ -437,6 +453,7 @@ import "../../styles/admin.css";
           <div class="font-family-cuts">${cuts.map(renderCard).join('')}</div>
         </section>`;
       }).join('');
+      _broken.forEach(markBroken);
     }
 
     function openModal(files) {
@@ -484,9 +501,26 @@ import "../../styles/admin.css";
 
       try {
         const fd = new FormData(els.metaForm);
-        const family = String(fd.get('family') || '').trim();
+        let family = String(fd.get('family') || '').trim();
         const displayName = String(fd.get('display_name') || '').trim();
         if (!family) throw new Error('Family name is required.');
+        /* One family, one spelling: "Unitext" and "UniText" are the same font
+           to a browser but two to the Studio's list, which is how a preview
+           came out in another face (Dani, 19 Oct). */
+        const same = _families.find((x) => x.toLowerCase() === family.toLowerCase());
+        if (same) family = same;
+
+        // Every file read by a browser first: one it refuses would be saved
+        // and then never show anywhere.
+        for (const file of pendingFiles) {
+          els.metaSave.textContent = 'Checking…';
+          try {
+            const probe = new FontFace('tmke-font-check', await file.arrayBuffer());
+            await probe.load();
+          } catch (_) {
+            throw new Error(`${file.name} can't be read by web browsers, so it would never show in the Studio. Export it as WOFF2 or TTF and upload that instead.`);
+          }
+        }
 
         const rows = [];
         for (let i = 0; i < pendingFiles.length; i++) {
