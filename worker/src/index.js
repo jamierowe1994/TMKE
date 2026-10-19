@@ -2539,6 +2539,35 @@ const ACTIVITY_DETAIL_LABELS = {
    The token is <user id>.<version>.<signature>: signed, so no table to keep.
    Resetting the link bumps the version on their account
    (app_metadata.cal_feed_v) and every older link stops working. */
+/* ---- Shot and Scheduled: the quarterly shoot (Dani, 20 Oct 2026) ----
+   The last shoot is the latest one linked to their card that has happened;
+   the next is due three months after it, unless the team set a month on the
+   card (smm_leads.next_shoot_due), which counts only while it's after the
+   last shoot. A shoot already booked shows instead. src/pages/admin/social
+   works it out the same way. */
+function isShotAndScheduled(name) {
+  return /shot\s*(and|&)\s*scheduled|social media marketing/i.test(String(name || ""));
+}
+function smmShootCycleFrom(bookings, override) {
+  const now = Date.now();
+  const live = (bookings || []).filter((b) => b && b.shoot_date && b.stage !== "cancelled" && b.kind !== "discovery");
+  const past = live.filter((b) => Date.parse(b.shoot_date) <= now).sort((a, b) => Date.parse(b.shoot_date) - Date.parse(a.shoot_date));
+  const ahead = live.filter((b) => Date.parse(b.shoot_date) > now).sort((a, b) => Date.parse(a.shoot_date) - Date.parse(b.shoot_date));
+  const last = past[0] ? past[0].shoot_date : null;
+  const booked = ahead[0] ? ahead[0].shoot_date : null;
+  let due = null;
+  if (last) { const d = new Date(last); due = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1)).toISOString().slice(0, 10); }
+  const o = override ? String(override).slice(0, 10) : null;
+  if (o && (!last || o.slice(0, 7) > String(last).slice(0, 7))) due = o;
+  return { last, booked, due, set_by_hand: !!(o && due === o) };
+}
+async function smmShootCycle(env, leadId) {
+  const bookings = (await sbGet(env, "videography_bookings", `smm_lead_id=eq.${encodeURIComponent(leadId)}&select=shoot_date,stage,kind&order=shoot_date.desc&limit=24`)) || [];
+  // Read on its own, so a database without the column yet changes nothing.
+  let override = null;
+  try { const r = await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(leadId)}&select=next_shoot_due`); override = r && r[0] ? r[0].next_shoot_due : null; } catch (_) {}
+  return smmShootCycleFrom(bookings, override);
+}
 function calFeedSecret(env) { return env.CAL_FEED_SECRET || env.SUPABASE_SERVICE_ROLE || ""; }
 /* The training account has a feed of its own: its entries, under Dani's
    login, at /calendar/feed/t/<token>.ics, with its own version and its own
@@ -11608,6 +11637,10 @@ VOICE (insights and priorities): the account manager talking to the client, "we"
         if (lead) {
           const { inter_brand_invoice, ...rest } = lead;
           client = inter_brand_invoice ? { ...rest, price: null, brand_paid: true } : rest;
+          // Shot and Scheduled: their quarterly shoot (Dani, 20 Oct).
+          if (isShotAndScheduled(lead.package_name)) {
+            try { client.shoot = await smmShootCycle(env, lead.id); } catch (_) {}
+          }
         }
         return json({ ok: true, isClient, client, reports, visibility }, 200, request, env);
       }

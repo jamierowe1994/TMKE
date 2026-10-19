@@ -407,17 +407,24 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
     /* Chapter 02: the plan as three cards; platforms open their accounts. */
     .soc-plan-cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr); gap: var(--ws-gap); }
-    .soc-pc { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
+    .soc-plan-cards.has-shoot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 2fr); }
+    /* A little smaller, the name and its line 40% closer (Dani, 20 Oct). */
+    .soc-pc { display: flex; flex-direction: column; gap: 6px; padding: 15px 18px; background: #fff; border: 1px solid var(--ws-line); border-radius: var(--ws-r); min-width: 0; }
+    .soc-pc-v + .soc-pc-s { margin-top: -2.4px; }
+    .soc-pc-v { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .soc-pc-link { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: var(--english-violet); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; text-align: left; }
     .soc-pc-k { font-family: var(--sans); font-size: var(--ws-t-label); font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ws-faint); }
     .soc-pc-v { font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: clamp(18px, 1.6vw, 21px); font-weight: 600; letter-spacing: -0.01em; color: var(--ws-ink); }
     .soc-pc-s { font-family: var(--sans); font-size: var(--ws-t-meta); color: var(--ws-tx); }
-    .soc-plats { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
-    .soc-plat { display: inline-flex; align-items: center; gap: 9px; padding: 8px 12px 8px 9px; border: 1px solid var(--ws-line); border-radius: var(--ws-r); font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); text-decoration: none; transition: border-color 0.2s var(--ws-ease), background 0.2s var(--ws-ease); }
+    /* At the foot, level with the other cards' last line; one line always,
+       scaled by fitPlats() when there are more (--ps). */
+    .soc-plats { --ps: 1; display: flex; flex-wrap: nowrap; gap: calc(8px * var(--ps)); margin-top: auto; overflow: hidden; }
+    .soc-plat { flex: none; display: inline-flex; align-items: center; gap: calc(9px * var(--ps)); padding: calc(6px * var(--ps)) calc(12px * var(--ps)) calc(6px * var(--ps)) calc(8px * var(--ps)); font-size: calc(13px * var(--ps)) !important; border: 1px solid var(--ws-line); border-radius: var(--ws-r); font-family: var(--sans); font-size: var(--ws-t-row); color: var(--ws-ink); text-decoration: none; transition: border-color 0.2s var(--ws-ease), background 0.2s var(--ws-ease); }
     a.soc-plat:hover { border-color: #371e28; background: rgba(55,30,40,0.04); }
-    .soc-plat-ic { width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #371e28; }
-    .soc-plat-ic svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+    .soc-plat-ic { width: calc(26px * var(--ps)); height: calc(26px * var(--ps)); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: #371e28; }
+    .soc-plat-ic svg { width: calc(14px * var(--ps)); height: calc(14px * var(--ps)); fill: none; stroke: #fff; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
     .soc-plat-go { font-size: 12px; color: var(--ws-faint); }
-    @media (max-width: 900px) { .soc-plan-cards { grid-template-columns: 1fr 1fr; } .soc-pc--wide { grid-column: 1 / -1; } }
+    @media (max-width: 1100px) { .soc-plan-cards, .soc-plan-cards.has-shoot { grid-template-columns: 1fr 1fr; } .soc-pc--wide { grid-column: 1 / -1; } }
     @media (max-width: 560px) { .soc-plan-cards { grid-template-columns: 1fr; } }
 
     /* Chapter 03: invoices as a table, ruled top and bottom; the older ones
@@ -458,7 +465,8 @@ import { gbpFromPence } from "../../lib/supabase.js";
     .soc-cover-card .soc-stats { margin-top: 18px; }
     .soc-cover-card .soc-stat { border-left-color: rgba(255,255,255,0.22); }
     .soc-cover-card .soc-stat dt { color: rgba(255,255,255,0.62); }
-    .soc-cover-card .soc-stat dd { color: #fff; font-size: clamp(24px, 2.2vw, 32px); }
+    /* The plan cards' size (Rimberio Homes, Growth), in the figures' own face (Dani, 20 Oct). */
+    .soc-cover-card .soc-stat dd { color: #fff; font-size: clamp(18px, 1.6vw, 21px); }
     .soc-cover-card .soc-delta { color: rgba(255,255,255,0.78); }
     .soc-cover-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-top: 22px; }
     .soc-cover-card .ws-btn--primary { background: #fff; color: var(--english-violet, #4a2a3c); }
@@ -657,13 +665,39 @@ import { gbpFromPence } from "../../lib/supabase.js";
             <strong class="soc-pc-v">${esc(c.package_name || "Social media management")}</strong>
             ${price ? `<span class="soc-pc-s">${esc(price)}</span>` : ""}
           </div>
+          ${shootCard(c)}
           <div class="soc-pc soc-pc--wide">
             <span class="soc-pc-k">Platforms</span>
-            <div class="soc-plats">${plats.length ? plats.map(tile).join("") : '<span class="soc-pc-s">&mdash;</span>'}</div>
+            <div class="soc-plats" id="soc-plats">${plats.length ? plats.map(tile).join("") : '<span class="soc-pc-s">&mdash;</span>'}</div>
           </div>
         </div>`;
+      $("soc-plan").firstElementChild.classList.toggle("has-shoot", !!c.shoot);
+      fitPlats();
       renderTeam(c);
     }
+    /* Shot and Scheduled: the quarterly shoot (Dani, 20 Oct), worked out by
+       the Worker (smmShootCycle). Booked, its date; otherwise the month it's
+       due, with the way to ask for it. */
+    function shootCard(c) {
+      const sh = c.shoot; if (!sh) return "";
+      const m = managerOf(c.social_media_manager);
+      const who = (m && m.short) || String(c.social_media_manager || "").split(" ")[0] || "your team";
+      const mon = (iso) => { try { return new Date(String(iso).slice(0, 10) + "T12:00:00").toLocaleDateString("en-GB", { month: "long" }); } catch (_) { return ""; } };
+      const day = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }); } catch (_) { return ""; } };
+      if (sh.booked) return `<div class="soc-pc"><span class="soc-pc-k">Next shoot</span><strong class="soc-pc-v">Booked: ${esc(day(sh.booked))}</strong><span class="soc-pc-s">Your filming day with TMKE</span></div>`;
+      if (!sh.due) return "";
+      return `<div class="soc-pc"><span class="soc-pc-k">Next shoot</span><strong class="soc-pc-v">Due in ${esc(mon(sh.due))}</strong>
+        <span class="soc-pc-s"><button type="button" class="soc-pc-link" data-book-shoot="${esc(mon(sh.due))}">Message ${esc(who)} to book it in</button></span></div>`;
+    }
+    /* The platforms stay on one line: more of them, and they get smaller
+       rather than wrap (Dani, 20 Oct). */
+    function fitPlats() {
+      const row = $("soc-plats"); if (!row) return;
+      let k = 1;
+      row.style.setProperty("--ps", "1");
+      while (row.scrollWidth > row.clientWidth + 1 && k > 0.6) { k = Math.round((k - 0.05) * 100) / 100; row.style.setProperty("--ps", String(k)); }
+    }
+    addEventListener("resize", () => fitPlats());
     function priceOf(c) {
       if (c.price == null || c.price === "") return null;
       const n = Number(c.price);
@@ -776,6 +810,13 @@ import { gbpFromPence } from "../../lib/supabase.js";
 
     /* The header's three boxes (the dashboard's): the plan, the latest report
        and what's owed. Painted once everything they say is known. */
+    /* "Growth plan": the package's own name, its first part only, so it
+       stays on one line (Dani, 20 Oct). */
+    function planName(name) {
+      const first = String(name || "").split(/\s[–—-]\s|[(:,+/]/)[0].trim();
+      if (!first) return "Your plan";
+      return /\b(plan|package)$/i.test(first) ? first : `${first} plan`;
+    }
     function paintBrief(invoices) {
       const ul = $("soc-brief"); if (!ul || !client) return;
       const latest = reports[0];
@@ -791,7 +832,7 @@ import { gbpFromPence } from "../../lib/supabase.js";
           <span class="ws-brief-ic ${cls}">${ic}</span>
           <span class="ws-brief-tx"><strong>${v}</strong><span>${sub}</span></span></${href ? "a" : "span"}></li>`;
       ul.innerHTML = [
-        box(IC.plan, "ws-brief-ic--sched", esc(client.package_name || "Your plan"), esc(priceOf(client) || "social media management"), "#soc-plan-h"),
+        box(IC.plan, "ws-brief-ic--sched", esc(planName(client.package_name)), esc(priceOf(client) || "social media management"), "#soc-plan-h"),
         latest ? box(IC.rep, "ws-brief-ic--time", `${esc(MONTHS[latest.month])} report`, "ready to read", repHref(latest))
                : box(IC.rep, "ws-brief-ic--time", "First report", "on its way", ""),
         (invoices && invoices.length)
@@ -885,6 +926,12 @@ import { gbpFromPence } from "../../lib/supabase.js";
         scrim.hidden = true;
       };
       $("soc-hero-msg")?.addEventListener("click", () => open.click());
+      document.addEventListener("click", (e) => {
+        const b = e.target.closest && e.target.closest("[data-book-shoot]"); if (!b) return;
+        open.click();
+        const box = $("soc-msg-body");
+        if (box && !box.value.trim()) box.value = `Hi, I'd like to book in my ${b.dataset.bookShoot} shoot. These dates work for me: `;
+      });
       open.addEventListener("click", () => {
         $("soc-msg-note").hidden = true;
         scrim.hidden = false;

@@ -188,8 +188,12 @@ export const TRAINING_SMM = {
     email: "alex@rimberiohomes.co.uk",
     phone: "01295 123456",
     social_media_manager: "Abbie",
-    package_name: "Growth",
-    price: "£750 / month",
+    /* One of the packages we sell (Dani, 20 Oct: packages are a dropdown now),
+       with its quarterly shoot, so the training account shows the next-shoot
+       note: filmed in September, the next due in December. */
+    package_name: "Shot and Scheduled",
+    price: "£455 / month",
+    shoot: { last: "2026-09-16T10:00:00", booked: null, due: "2026-12-01" },
     start_date: "2026-07-01",
     platforms: ["Instagram", "Facebook", "LinkedIn"],
     instagram_url: "instagram.com/rimberiohomes",

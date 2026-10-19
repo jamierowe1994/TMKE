@@ -772,6 +772,17 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 
     /* ---- Videography tab ---- */
     .vidx-card { border: 1px solid rgba(28,29,34,0.13); border-radius: 5px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
+    /* Shot and Scheduled's quarterly shoot (Dani, 20 Oct): last, next, and the
+       month to change it to. */
+    .vidx-cycle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0 0 16px; padding: 14px 16px; border: 1px solid rgba(28,29,34,0.13); border-left: 3px solid var(--english-violet, #371e28); border-radius: 5px; background: #fff; }
+    .vidx-cycle-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .vidx-cycle-k { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .vidx-cycle-v { font-size: 13.5px; color: var(--ink, #1c1d22); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .vidx-cycle-v input[type="month"] { height: 30px; padding: 0 8px; border: 1px solid rgba(28,29,34,0.2); border-radius: 4px; font: inherit; font-size: 13px; }
+    .vidx-cycle-tag { font-size: 11px; color: rgba(28,29,34,0.5); }
+    .vidx-cycle-reset { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; color: var(--english-violet, #371e28); text-decoration: underline; text-underline-offset: 2px; }
+    .vidx-cycle-note { font-size: 11.5px; color: rgba(28,29,34,0.55); min-height: 1em; }
+    @media (max-width: 760px) { .vidx-cycle { grid-template-columns: 1fr; } }
     .vidx-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
     .vidx-service { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
     .vidx-when { font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.6); margin: 3px 0 0; }
@@ -1186,7 +1197,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             ${showProp ? `<div class="smm-sec">
               <h3 class="smm-sec-h">Engagement &amp; billing</h3>
               <div class="smm-eng">
-                <label class="smm-eng-row"><span>Package</span><input type="text" data-ef="package_name" value="${esc(r.package_name || "")}" placeholder="e.g. Growth"></label>
+                <label class="smm-eng-row"><span>Package</span><select data-ef="package_name">${packageOptions(r.package_name)}</select></label>
                 <label class="smm-eng-row"><span>Pricing</span><input type="text" data-ef="price" value="${esc(r.price || "")}" placeholder="e.g. £750 / month"></label>
                 <label class="smm-eng-row"><span>Contracted hours / month</span><input type="number" min="0" step="0.5" data-ef="contracted_hours_per_month" value="${r.contracted_hours_per_month ?? ""}" placeholder="e.g. 6"></label>
                 <label class="smm-eng-row"><span>Start date</span><input type="date" data-ef="start_date" value="${esc(r.start_date || "")}"></label>
@@ -1377,6 +1388,59 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       catch (_) { return ""; }
     };
 
+    /* The packages, as on the packages and pricing (Dani, 20 Oct): Shot and
+       Scheduled, Social Media Management, or Bespoke. A card that still says
+       something older keeps it as an option until it's changed. */
+    const PACKAGES = ["Shot and Scheduled", "Social Media Management", "Bespoke"];
+    function packageOptions(cur) {
+      const v = String(cur || "");
+      const opts = [""].concat(PACKAGES, v && !PACKAGES.includes(v) ? [v] : []);
+      return opts.map((o) => `<option value="${esc(o)}"${o === v ? " selected" : ""}>${o ? esc(o) + (o === v && !PACKAGES.includes(v) ? " (old name)" : "") : "Choose…"}</option>`).join("");
+    }
+    /* Shot and Scheduled's quarterly shoot (Dani, 20 Oct). The same rule the
+       Worker uses for the client's page (smmShootCycleFrom): next is due three
+       months after the last shoot, unless a month is set here, which counts
+       only while it's after the last shoot; a booked shoot shows instead. */
+    const isShotAndScheduled = (name) => /shot\s*(and|&)\s*scheduled|social media marketing/i.test(String(name || ""));
+    function shootCycle(bookings, override) {
+      const now = Date.now();
+      const live = (bookings || []).filter((b) => b && b.shoot_date && b.stage !== "cancelled");
+      const past = live.filter((b) => Date.parse(b.shoot_date) <= now).sort((a, b) => Date.parse(b.shoot_date) - Date.parse(a.shoot_date));
+      const ahead = live.filter((b) => Date.parse(b.shoot_date) > now).sort((a, b) => Date.parse(a.shoot_date) - Date.parse(b.shoot_date));
+      const last = past[0] ? past[0].shoot_date : null, booked = ahead[0] ? ahead[0].shoot_date : null;
+      let due = null;
+      if (last) { const d = new Date(last); due = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1)).toISOString().slice(0, 10); }
+      const o = override ? String(override).slice(0, 10) : null;
+      if (o && (!last || o.slice(0, 7) > String(last).slice(0, 7))) due = o;
+      return { last, booked, due, byHand: !!(o && due === o) };
+    }
+    const monthYear = (iso) => { try { return new Date(String(iso).slice(0, 10) + "T12:00:00").toLocaleDateString("en-GB", { month: "long", year: "numeric" }); } catch (_) { return ""; } };
+    const dayDate = (iso) => { try { return new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }); } catch (_) { return ""; } };
+    function shootBox(r, list) {
+      if (!isShotAndScheduled(r.package_name)) return "";
+      const c = shootCycle(list, r.next_shoot_due);
+      const nextLine = c.booked
+        ? `<strong>Booked for ${esc(dayDate(c.booked))}</strong>`
+        : c.due ? `<strong>Due ${esc(monthYear(c.due))}</strong>${c.byHand ? ' <span class="vidx-cycle-tag">set by hand</span>' : ' <span class="vidx-cycle-tag">3 months after the last</span>'}`
+        : `<strong>Not worked out yet</strong> <span class="vidx-cycle-tag">set it, or it follows the first shoot</span>`;
+      return `<div class="vidx-cycle">
+          <div class="vidx-cycle-col"><span class="vidx-cycle-k">Last shoot</span><span class="vidx-cycle-v">${c.last ? esc(dayDate(c.last)) : "None yet"}</span></div>
+          <div class="vidx-cycle-col"><span class="vidx-cycle-k">Next shoot</span><span class="vidx-cycle-v">${nextLine}</span></div>
+          ${c.booked ? "" : `<div class="vidx-cycle-col vidx-cycle-edit"><span class="vidx-cycle-k">Change the month</span>
+            <span class="vidx-cycle-v"><input type="month" id="vidx-due" value="${c.due ? esc(c.due.slice(0, 7)) : ""}" />${c.byHand ? ' <button type="button" class="vidx-cycle-reset" id="vidx-due-reset">Back to automatic</button>' : ""}</span>
+            <span class="vidx-cycle-note" id="vidx-due-note"></span></div>`}
+        </div>`;
+    }
+    async function saveShootDue(r, month) {
+      const note = $("vidx-due-note");
+      const v = month ? month + "-01" : null;
+      if (note) note.textContent = "Saving…";
+      if (isDemo(r)) { r.next_shoot_due = v; if (note) note.textContent = "Saved (demo)."; loadVideography(r); return; }
+      const { error } = await supabase.from("smm_leads").update({ next_shoot_due: v }).eq("id", r.id);
+      if (error) { if (note) note.textContent = /next_shoot_due/.test(error.message || "") ? "Needs supabase/smm_next_shoot.sql running first." : "Couldn't save."; return; }
+      r.next_shoot_due = v; loadVideography(r);
+    }
+
     async function loadVideography(r) {
       const panel = $("smm-panel-videography");
       if (!panel) return;
@@ -1404,6 +1468,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         </article>`).join("");
 
       panel.innerHTML = `
+        ${shootBox(r, list)}
         <div class="smm-panel-head">
           <h4>Shoots for this client</h4>
           <button type="button" class="smm-btn" id="vidx-add">+ Book a shoot</button>
@@ -1414,6 +1479,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 `;
 
       $("vidx-add")?.addEventListener("click", () => openVidBooking(r));
+      $("vidx-due")?.addEventListener("change", (e) => saveShootDue(r, e.target.value));
+      $("vidx-due-reset")?.addEventListener("click", () => saveShootDue(r, ""));
     }
 
     // The same New booking form Jack uses, minus the parts the social manager
