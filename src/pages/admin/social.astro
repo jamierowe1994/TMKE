@@ -33,6 +33,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <div class="smm-cog-menu" id="smm-cog-menu" hidden>
             <button type="button" data-go="pipeline">Contacts</button>
             <button type="button" data-go="rates">Packages &amp; pricing</button>
+            <button type="button" data-go="status">Client status</button>
             <button type="button" data-go="mgmt" id="smm-cog-mgmt" hidden>Monthly report</button>
           </div>
         </div>
@@ -143,6 +144,24 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     </section>
 
     <!-- ===================== MONTHLY REPORT (management) ===================== -->
+    <!-- ===================== CLIENT STATUS (Sam, 19 Oct 2026) ===================== -->
+    <!-- Everyone in the pipeline by stage, with the date of each step so far,
+         active clients' package, fee and payments, and who was lost, how far
+         they got and why. Exported as a spreadsheet. Dates come from
+         smm_stage_events (supabase/smm_stage_history.sql). -->
+    <section class="smm-panel wrap" data-panel="status" hidden>
+      <div class="smm-pagehead">
+        <div>
+          <h2 class="smm-panel-title">Client status</h2>
+          <p class="smm-panel-sub">Every enquiry from the waitlist to an active client, with the date of each step so far. Active clients show their package, monthly fee and whether their invoices are paid on time. Lost shows how far they got, when, and why.</p>
+        </div>
+        <button type="button" class="smm-btn smm-btn--primary" id="cs-export">Export to Excel</button>
+      </div>
+      <p class="cs-note" id="cs-note" hidden></p>
+      <div class="cs-tabs" id="cs-tabs" role="tablist" aria-label="Stages"></div>
+      <div class="cs-body" id="cs-body"><p class="cs-empty">Loading…</p></div>
+    </section>
+
     <!-- Danielle, Sam and Abby only: the Worker checks (MGMT_REPORT_EMAILS);
          the menu item is only shown to them. -->
     <section class="smm-panel wrap" data-panel="mgmt" hidden>
@@ -818,6 +837,32 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-file-input::file-selector-button:hover { background: rgba(var(--violet-rgb),0.06); }
 
     /* Modals (meeting / add file) */
+    /* ---- Client status ---- */
+    .cs-note { font-family: var(--sans); font-size: 12.5px; color: #8a5a10; background: rgba(196,140,40,0.08); border-radius: 8px; padding: 10px 14px; margin: 0 0 14px; }
+    .cs-note[hidden] { display: none; }
+    .cs-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+    .cs-tab { appearance: none; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 110px; padding: 10px 14px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; cursor: pointer; font-family: var(--sans); text-align: left; transition: border-color .15s, background .15s; }
+    .cs-tab b { font-size: 22px; font-weight: 500; color: var(--ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .cs-tab span { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.55); white-space: nowrap; }
+    .cs-tab:hover { border-color: var(--english-violet); }
+    .cs-tab.is-on { background: var(--english-violet); border-color: var(--english-violet); }
+    .cs-tab.is-on b, .cs-tab.is-on span { color: #fff; }
+    .cs-tab.is-lost:not(.is-on) span { color: #a5352f; }
+    .cs-wrap { overflow-x: auto; }
+    .cs-table { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; border-top: 1px solid rgba(28,29,34,0.12); border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .cs-table th { text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding: 10px 12px; border-bottom: 1px solid rgba(28,29,34,0.12); white-space: nowrap; }
+    .cs-table td { padding: 10px 12px; border-bottom: 1px solid rgba(28,29,34,0.06); vertical-align: top; color: var(--ink); }
+    .cs-table tr:last-child td { border-bottom: 0; }
+    .cs-table td.cs-d { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .cs-est { color: rgba(28,29,34,0.5); font-style: italic; }
+    .cs-name { appearance: none; border: 0; background: none; padding: 0; font: 600 13px var(--sans); color: var(--ink); cursor: pointer; text-align: left; text-decoration: underline; text-decoration-color: rgba(28,29,34,0.25); text-underline-offset: 3px; }
+    .cs-name:hover { color: var(--english-violet); text-decoration-color: currentColor; }
+    .cs-sub { display: block; font-size: 12px; color: rgba(28,29,34,0.5); }
+    .cs-pill { display: inline-block; white-space: nowrap; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.65); }
+    .cs-pill.is-ok { background: rgba(63,148,104,0.14); color: #2b6b44; }
+    .cs-pill.is-late { background: rgba(165,53,47,0.12); color: #a5352f; }
+    .cs-pill.is-wait { background: rgba(196,140,40,0.15); color: #8a5a10; }
+    .cs-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); margin: 8px 0 0; }
     .smm-modal-scrim { position: fixed; top: 0; right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
     .smm-modal { background: #fff; border-radius: 14px; width: min(440px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); }
     .smm-modal.smm-modal--email { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; }
@@ -1223,7 +1268,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // Move to next stage
       body.querySelector("[data-move]")?.addEventListener("click", (e) => moveToStage(r, e.currentTarget.getAttribute("data-move")));
       // Mark lost
-      body.querySelector("[data-lost]")?.addEventListener("click", () => setStage(r, "lost"));
+      body.querySelector("[data-lost]")?.addEventListener("click", () => openLost(r, "lost"));
       // Delete card (test cleanup)
       body.querySelector("[data-delcard]")?.addEventListener("click", () => deleteCard(r));
       // Client status
@@ -1745,9 +1790,172 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       try { const token = await authToken(); await fetch(`${WORKER}/smm/status`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ lead_id: r.id, status }) }); } catch (_) {}
     }
     async function setClientStatus(r, status) {
+      // An active client ending is a client lost: ask why first.
+      if (status === "ended" && r.client_status !== "ended" && !openLost.confirmed) { openLost(r, "ended"); return; }
+      openLost.confirmed = false;
       r.client_status = status;
       await pushClientStatus(r, status);
       renderBoard(); openFile(r.id);
+    }
+
+    /* ---------- Why were they lost? ----------
+       Asked when a lead is marked lost, or an active client is set to Ended.
+       The reason is kept on the lead (lost_reason); the database stamps when
+       and from which stage (supabase/smm_stage_history.sql). */
+    const LOST_REASONS = ["Price", "Went with another agency", "Doing it themselves", "Not the right time", "Stopped replying", "Not a good fit for us", "Unhappy with the service", "Business closed or sold", "Other"];
+    function openLost(r, mode) {
+      const ended = mode === "ended";
+      $("smm-modal-host").innerHTML = `
+        <div class="smm-modal-scrim" id="smm-modal">
+          <div class="smm-modal" role="dialog" aria-modal="true" aria-label="${ended ? "Client ended" : "Mark lost"}">
+            <h3>${ended ? "Why are they leaving?" : "Why was this one lost?"}</h3>
+            <p class="smm-modal-sub">${esc(nameOf(r))}${r.business ? " · " + esc(r.business) : ""}. Shown on Client status and in its export.</p>
+            <div class="smm-modal-field"><label>Reason</label><select id="smm-lost-why"><option value="">Choose a reason</option>${LOST_REASONS.map((x) => `<option>${esc(x)}</option>`).join("")}</select></div>
+            <div class="smm-modal-field"><label>Anything to add (optional)</label><textarea id="smm-lost-note" rows="3" placeholder="e.g. Signed with a local agency at £400 a month"></textarea></div>
+            <p class="smm-modal-status" id="smm-lost-status" hidden></p>
+            <div class="smm-modal-actions">
+              <button type="button" class="smm-btn" data-mcancel>Cancel</button>
+              <button type="button" class="smm-btn smm-btn--danger" id="smm-lost-save">${ended ? "Set to Ended" : "Mark lost"}</button>
+            </div>
+          </div>
+        </div>`;
+      const scrim = $("smm-modal");
+      scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
+      $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      $("smm-lost-save").addEventListener("click", async () => {
+        const why = $("smm-lost-why").value, note = $("smm-lost-note").value.trim();
+        if (!why) { const st = $("smm-lost-status"); st.hidden = false; st.textContent = "Choose a reason."; return; }
+        const reason = note ? `${why}: ${note}` : why;
+        r.lost_reason = reason;
+        if (!isDemo(r)) {
+          // The reason first; a database without the new column still saves the rest.
+          try { await supabase.from("smm_leads").update({ lost_reason: reason }).eq("id", r.id); } catch (_) {}
+        }
+        closeModal();
+        if (ended) { openLost.confirmed = true; await setClientStatus(r, "ended"); }
+        else await setStage(r, "lost");
+      });
+    }
+
+    /* ---------- Client status (Settings) ----------
+       The pipeline as a table per stage, with dates; the boxes are tabs. */
+    const CS_TABS = [
+      { key: "waitlist", label: "Waitlist" }, { key: "inquiry", label: "Inquiry" }, { key: "meeting_set", label: "Meeting set" },
+      { key: "proposal_sent", label: "Proposal sent" }, { key: "contract_signed", label: "Contract sent" }, { key: "onboarding", label: "Onboarding" },
+      { key: "active_client", label: "Active clients" }, { key: "lost", label: "Lost" },
+    ];
+    const STAGE_LABEL = Object.fromEntries(STAGES.map((x) => [x.key, x.label]));
+    let csTab = "inquiry", csData = null;
+    const csDay = (iso) => { if (!iso) return ""; const d = new Date(String(iso).length === 10 ? iso + "T12:00:00" : iso); return isNaN(d) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); };
+    const csIso = (iso) => { if (!iso) return ""; const d = new Date(String(iso).length === 10 ? iso + "T12:00:00" : iso); return isNaN(d) ? "" : d.toISOString().slice(0, 10); };
+    // Lost = marked lost, or an active client set to Ended.
+    const csStageOf = (r) => (r.pipeline_stage === "lost" || r.client_status === "ended") ? "lost" : stageOf(r);
+    async function loadClientStatus() {
+      const note = $("cs-note");
+      const leads = all.filter((r) => !isDemo(r));
+      const ids = leads.map((r) => r.id);
+      let events = [], sqlNeeded = false;
+      for (let i = 0; i < ids.length; i += 150) {
+        const { data, error } = await supabase.from("smm_stage_events").select("lead_id, stage, reached_at, estimated").in("lead_id", ids.slice(i, i + 150)).order("reached_at", { ascending: true }).range(0, 4999);
+        if (error) { sqlNeeded = true; break; }
+        events.push(...(data || []));
+      }
+      // Payments: social media invoices for active clients, late if sent and past due.
+      const activeIds = leads.filter((r) => csStageOf(r) === "active_client").map((r) => r.id);
+      let invoices = [];
+      if (activeIds.length) {
+        const { data } = await supabase.from("invoices").select("booking_id, status, due_date, total_pence, paid_date").eq("booking_source", "smm").in("booking_id", activeIds).range(0, 4999);
+        invoices = data || [];
+      }
+      note.hidden = !sqlNeeded;
+      if (sqlNeeded) note.textContent = "Run supabase/smm_stage_history.sql in Supabase to record the date of each stage and why anyone was lost. Until then, dates come from what each card already holds.";
+      const byLead = new Map();
+      events.forEach((e) => { if (!byLead.has(e.lead_id)) byLead.set(e.lead_id, []); byLead.get(e.lead_id).push(e); });
+      csData = { leads, byLead, invoices };
+      drawClientStatus();
+    }
+    // When they reached a stage: the latest log entry for it, else a field the card holds.
+    function csWhen(r, stage) {
+      const ev = (csData.byLead.get(r.id) || []).filter((e) => e.stage === stage || (stage === "contract_signed" && e.stage === "contract_sent"));
+      const e = ev[ev.length - 1];
+      if (e) return { at: e.reached_at, est: !!e.estimated };
+      if (stage === "waitlist" || stage === "inquiry") return { at: r.created_at, est: false };
+      if (stage === "meeting_set" && (r.meeting_at || r.call_at)) return { at: r.meeting_at || r.call_at, est: true };
+      if (stage === "active_client" && r.start_date) return { at: r.start_date, est: false };
+      if (stage === csStageOf(r)) return { at: r.updated_at, est: true };
+      return null;
+    }
+    const csDateCell = (w) => w && w.at ? `<td class="cs-d">${w.est ? `<span class="cs-est" title="Estimated: from before stage dates were recorded">c. ${esc(csDay(w.at))}</span>` : esc(csDay(w.at))}</td>` : '<td class="cs-d">—</td>';
+    function csPayments(r) {
+      const today = new Date().toISOString().slice(0, 10);
+      const mine = csData.invoices.filter((v) => v.booking_id === r.id);
+      const late = mine.filter((v) => v.status === "sent" && v.due_date && v.due_date < today);
+      const owed = late.reduce((n, v) => n + (v.total_pence || 0), 0);
+      if (late.length) return { label: `${late.length} late · £${(owed / 100).toLocaleString("en-GB", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, tone: "is-late", late: late.length, owed };
+      if (!mine.length) return { label: r.direct_debit ? "Direct Debit" : "No invoices yet", tone: r.direct_debit ? "is-ok" : "", late: 0, owed: 0 };
+      return { label: r.direct_debit ? "Up to date · DD" : "Up to date", tone: "is-ok", late: 0, owed: 0 };
+    }
+    // The columns each stage shows: the steps so far, then what that stage adds.
+    const CS_STEPS = ["inquiry", "meeting_set", "proposal_sent", "contract_signed", "onboarding"];
+    function csColumns(tab) {
+      const base = [{ h: "Name", v: (r) => nameOf(r), cell: (r) => `<td><button type="button" class="cs-name" data-cs-open="${esc(r.id)}">${esc(nameOf(r))}</button></td>` },
+        { h: "Business", v: (r) => r.business || "" }, { h: "Email", v: (r) => r.email || "" }];
+      const step = (st, h) => ({ h, v: (r) => { const w = csWhen(r, st); return w && w.at ? csIso(w.at) + (w.est ? " (estimated)" : "") : ""; }, cell: (r) => csDateCell(csWhen(r, st)) });
+      if (tab === "waitlist") return [...base, step("waitlist", "Joined the waitlist")];
+      if (tab === "inquiry") return [...base, step("inquiry", "Enquired"), { h: "Came in via", v: (r) => KIND_LABEL[r.kind] || r.kind || "" }];
+      if (tab === "active_client") return [...base,
+        { h: "Joined", v: (r) => { const w = csWhen(r, "active_client"); return w && w.at ? csIso(w.at) : ""; }, cell: (r) => csDateCell(csWhen(r, "active_client")) },
+        { h: "Package", v: (r) => r.package_name || "" }, { h: "Monthly fee", v: (r) => r.price || "" },
+        { h: "Payments", v: (r) => csPayments(r).label, cell: (r) => { const p = csPayments(r); return `<td><span class="cs-pill ${p.tone}">${esc(p.label)}</span></td>`; } },
+        { h: "Status", v: (r) => CLIENT_STATUS[r.client_status] || "Active" }];
+      if (tab === "lost") return [...base,
+        { h: "First enquired", v: (r) => csIso(r.created_at), cell: (r) => `<td class="cs-d">${esc(csDay(r.created_at))}</td>` },
+        { h: "Got as far as", v: (r) => STAGE_LABEL[csFrom(r)] || "", cell: (r) => `<td><span class="cs-pill${csFrom(r) === "active_client" ? " is-wait" : ""}">${esc(STAGE_LABEL[csFrom(r)] || "Not recorded")}</span></td>` },
+        { h: "Lost on", v: (r) => csIso(r.lost_at || r.end_date || r.updated_at) + (r.lost_at || r.end_date ? "" : " (estimated)"), cell: (r) => csDateCell({ at: r.lost_at || r.end_date || r.updated_at, est: !(r.lost_at || r.end_date) }) },
+        { h: "Reason", v: (r) => r.lost_reason || "", cell: (r) => `<td>${r.lost_reason ? esc(r.lost_reason) : '<span class="cs-est">Not recorded</span>'}</td>` }];
+      // Meeting set to onboarding: every step up to and including this one.
+      const upto = CS_STEPS.slice(0, CS_STEPS.indexOf(tab) + 1);
+      const labels = { inquiry: "Enquired", meeting_set: "Meeting", proposal_sent: "Proposal sent", contract_signed: "Contract sent", onboarding: "Onboarding since" };
+      return [...base, ...upto.map((st) => step(st, labels[st]))];
+    }
+    // How far a lost lead got: as the database recorded it, else the furthest logged stage.
+    function csFrom(r) {
+      if (r.lost_from_stage) return STAGE_ALIAS[r.lost_from_stage] || r.lost_from_stage;
+      if (r.client_status === "ended") return "active_client";
+      const ev = (csData.byLead.get(r.id) || []).map((e) => STAGE_ALIAS[e.stage] || e.stage).filter((s) => STAGE_INDEX[s] != null);
+      return ev.sort((a, b) => STAGE_INDEX[b] - STAGE_INDEX[a])[0] || "";
+    }
+    function csRows(tab) {
+      const rows = csData.leads.filter((r) => csStageOf(r) === tab);
+      const t = (r) => { const w = tab === "lost" ? { at: r.lost_at || r.updated_at } : csWhen(r, tab === "active_client" ? "active_client" : tab); return w && w.at ? new Date(w.at).getTime() : 0; };
+      return rows.sort((a, b) => t(b) - t(a));   // newest first
+    }
+    function drawClientStatus() {
+      if (!csData) return;
+      $("cs-tabs").innerHTML = CS_TABS.map((t) => `<button type="button" class="cs-tab${t.key === csTab ? " is-on" : ""}${t.key === "lost" ? " is-lost" : ""}" data-cs-tab="${t.key}" aria-pressed="${t.key === csTab}"><b>${csRows(t.key).length}</b><span>${esc(t.label)}</span></button>`).join("");
+      const cols = csColumns(csTab), rows = csRows(csTab);
+      $("cs-body").innerHTML = rows.length
+        ? `<div class="cs-wrap"><table class="cs-table"><thead><tr>${cols.map((c) => `<th>${esc(c.h)}</th>`).join("")}</tr></thead><tbody>${rows.map((r) => `<tr>${cols.map((c) => c.cell ? c.cell(r) : `<td>${esc(c.v(r)) || "—"}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`
+        : `<p class="cs-empty">No one here right now.</p>`;
+    }
+    // One spreadsheet, every stage: a Stage column, then that stage's columns.
+    function exportClientStatus() {
+      if (!csData) return;
+      const cell = (v) => { const x = String(v ?? ""); return /[",\n\r]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+      const lines = [];
+      for (const t of CS_TABS) {
+        const rows = csRows(t.key); if (!rows.length) continue;
+        const cols = csColumns(t.key);
+        if (lines.length) lines.push("");
+        lines.push([t.label.toUpperCase() + ` (${rows.length})`].map(cell).join(","));
+        lines.push(cols.map((c) => cell(c.h)).join(","));
+        rows.forEach((r) => lines.push(cols.map((c) => cell(c.v(r))).join(",")));
+      }
+      const blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `TMKE social media client status ${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
     }
 
     // ---------- Meeting modal ----------
@@ -3202,6 +3410,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             pn.classList.toggle("is-active", on);
           });
           closeCog();
+          if (want === "status") loadClientStatus();
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
       }
@@ -3210,6 +3419,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       $("smm-scrolltop").addEventListener("scroll", () => { if (riSyncLock) return; riSyncLock = true; $("smm-board").scrollLeft = $("smm-scrolltop").scrollLeft; riSyncLock = false; });
       $("smm-board").addEventListener("scroll", () => { if (riSyncLock) return; riSyncLock = true; $("smm-scrolltop").scrollLeft = $("smm-board").scrollLeft; riSyncLock = false; });
       window.addEventListener("resize", syncTopScroll);
+      $("cs-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-cs-tab]"); if (!b) return; csTab = b.getAttribute("data-cs-tab"); drawClientStatus(); });
+      $("cs-body").addEventListener("click", (e) => { const b = e.target.closest("[data-cs-open]"); if (b) openFile(b.getAttribute("data-cs-open")); });
+      $("cs-export").addEventListener("click", exportClientStatus);
       $("smm-file-close").addEventListener("click", closeFile);
       $("smm-file").addEventListener("click", (e) => { if (e.target === $("smm-file")) closeFile(); });
       document.addEventListener("keydown", (e) => {
