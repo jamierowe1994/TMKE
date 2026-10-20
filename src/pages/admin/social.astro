@@ -457,6 +457,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     @media (max-width: 860px) { .smm-file-grid { grid-template-columns: 1fr; } }
     .smm-sec { border-top: 1px solid rgba(28,29,34,0.09); padding: 18px 0; }
     .smm-sec:first-child { border-top: 0; padding-top: 0; }
+    /* Paperwork and Social channels fold away once they're a client
+       (Danielle, 20 Oct 2026). */
+    .smm-fold > summary { cursor: pointer; list-style: none; justify-content: flex-start; }
+    .smm-fold > summary::-webkit-details-marker { display: none; }
+    .smm-fold > summary svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; transition: transform .18s; }
+    .smm-fold[open] > summary svg { transform: rotate(180deg); }
+    .smm-fold:not([open]) > summary { margin-bottom: 0; }
     .smm-sec-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 
     /* Contact details card */
@@ -474,7 +481,24 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-cd-input:focus { outline: none; border-bottom-color: var(--english-violet); }
     .smm-cd-input::placeholder { color: rgba(28,29,34,0.3); font-weight: 500; }
     /* CRM link row under the contact details. */
-    .smm-crm-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0; }
+    .smm-crm-row { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .smm-acct { display: grid; gap: 8px; margin: 12px 0 0; }
+    .smm-acct-l1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .smm-acct-l2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+    .smm-acct-l2 .smm-more-toggle { margin-top: 0; }
+    .smm-hubbox { display: inline-flex; align-items: center; gap: 8px; height: 30px; box-sizing: border-box; padding: 0 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 7px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); }
+    .smm-hubbox-k { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); }
+    .smm-hubbox.is-linked b { color: #2e6b40; }
+    .smm-textbtn { appearance: none; border: 0; background: none; padding: 6px 0; cursor: pointer; font-family: var(--sans); font-size: 12.5px; font-weight: 600; color: rgba(28,29,34,0.55); text-decoration: underline; text-underline-offset: 2px; }
+    .smm-textbtn:hover { color: var(--english-violet); }
+    .smm-cc { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px 16px; }
+    .smm-cc[hidden] { display: none; }
+    .smm-cc-back { position: absolute; inset: 0; background: rgba(20,18,26,0.42); }
+    .smm-cc-frame { position: relative; width: min(1000px, 100%); height: min(88vh, 900px); background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 40px 90px -30px rgba(20,18,26,0.6); }
+    .smm-cc-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+    .smm-cc-frame iframe[hidden], .smm-cc-wait[hidden], .smm-cc-x[hidden] { display: none; }
+    .smm-cc-x { position: absolute; z-index: 2; top: 10px; right: 10px; width: 34px; height: 34px; border: 0; border-radius: 50%; background: #fff; font-size: 24px; line-height: 1; color: rgba(28,29,34,0.5); cursor: pointer; }
+    .smm-cc-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
     .smm-crm-note { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); }
     .smm-btn--ghost { background: transparent; border: 1px solid rgba(var(--violet-rgb),0.3); color: var(--english-violet); text-decoration: none; }
     .smm-btn--ghost:hover { background: rgba(var(--violet-rgb),0.07); }
@@ -776,7 +800,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-tab:hover { color: #fff; background: rgba(255,255,255,0.08); }
     .smm-tab.is-active { background: #fff; color: var(--english-violet, #371e28); box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
     .smm-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-    .smm-panel-body[hidden] { display: none; }
+    .smm-panel-body[hidden], .smm-ntab[hidden] { display: none; }
+    .smm-tab-n { margin-left: 4px; }
 
     /* ---- Videography tab ---- */
     .vidx-card { border: 1px solid rgba(28,29,34,0.13); border-radius: 5px; padding: 14px 16px; margin-bottom: 10px; background: #fff; }
@@ -841,6 +866,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-act-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .smm-act-text { font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .smm-act-more { margin-top: 6px; }
+    .smm-comm-h { margin: 22px 0 10px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .smm-comm-h:first-child { margin-top: 0; }
+    .smm-hubmsg.is-unread { border-color: rgba(var(--violet-rgb),0.4); }
+    .smm-hubmsg-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+    .smm-mail-badge.is-new { background: var(--english-violet); color: #fff; }
     .smm-act-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .smm-note-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
     .smm-note-body.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden; }
@@ -1030,7 +1060,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     }
 
     let ME = "";            // the signed-in admin's email — a note belongs to whoever wrote it
-    let all = [], kindFilter = "all", q = "", showLost = false, current = null, activeTab = "notes";
+    let all = [], kindFilter = "all", q = "", showLost = false, current = null, activeTab = "notes", notesTab = "pkg";
+    const NOTE_TABS = [["pkg", "Package details"], ["notes", "Notes"], ["activity", "Client activity"], ["files", "Files"]];
 
     // ---------- Board ----------
     function visible() {
@@ -1215,14 +1246,19 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <p class="smm-cd-status" id="smm-cd-status"></p>
               <!-- A social client added here doesn't land in the CRM on its own -
                    only website enquiries do that. This closes the gap. -->
-              <div class="smm-crm-row" id="smm-crm-row"></div>
-              <div class="smm-linkrow" style="display:flex;align-items:center;gap:10px;margin:6px 0 2px;font-family:var(--sans);font-size:12.5px;flex-wrap:wrap;">
-                <span style="color:rgba(28,29,34,0.5);font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10.5px;">Member hub</span>
-                ${r.account_user_id
-                  ? `<span style="color:#2e6b40;font-weight:700;">Linked ✓</span><button type="button" data-unlinkacct style="appearance:none;cursor:pointer;background:none;color:rgba(28,29,34,0.5);border:1px solid rgba(28,29,34,0.18);border-radius:7px;padding:5px 10px;font-family:var(--sans);font-size:11px;font-weight:700;">Unlink</button>`
-                  : `<span style="color:rgba(28,29,34,0.55);">Not linked</span>${r.email ? `<button type="button" data-linkacct style="appearance:none;cursor:pointer;background:var(--english-violet);color:#fff;border:0;border-radius:7px;padding:6px 12px;font-family:var(--sans);font-size:11.5px;font-weight:700;">Link to hub account</button>` : `<span style="color:rgba(28,29,34,0.4);">add an email first</span>`}`}
+              <!-- Two lines (Danielle, 20 Oct 2026): the contact card and the
+                   member hub box, then Unlink and See more info. -->
+              <div class="smm-acct">
+                <div class="smm-acct-l1">
+                  <span class="smm-crm-row" id="smm-crm-row"></span>
+                  <span class="smm-hubbox${r.account_user_id ? " is-linked" : ""}"><span class="smm-hubbox-k">Member hub</span><b>${r.account_user_id ? "Linked ✓" : "Not linked"}</b></span>
+                  ${!r.account_user_id && r.email ? `<button type="button" class="smm-btn smm-btn--sm" data-linkacct>Link to hub account</button>` : ""}
+                </div>
+                <div class="smm-acct-l2">
+                  ${r.account_user_id ? `<button type="button" class="smm-textbtn" data-unlinkacct>Unlink</button>` : !r.email ? `<span class="smm-crm-note">Add an email to link a hub account.</span>` : ""}
+                  <button type="button" class="smm-more-toggle" data-more>See more info ${CHEV_SVG}</button>
+                </div>
               </div>
-              <button type="button" class="smm-more-toggle" data-more>See more info ${CHEV_SVG}</button>
               <div class="smm-more" hidden>
                 <div class="smm-field"><span class="smm-field-k">Type</span><span class="smm-field-v">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span></div>
                 <div class="smm-field"><span class="smm-field-k">Received</span><span class="smm-field-v">${esc(fmtDateTime(r.created_at))}</span></div>
@@ -1232,10 +1268,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
                 <div class="smm-field"><span class="smm-field-k">Account</span><span class="smm-field-v">${esc(acct)}</span></div>
               </div>
             </div>
-            ${showProp ? `<div class="smm-sec">
-              <h3 class="smm-sec-h">Paperwork</h3>
+            ${showProp ? `<details class="smm-sec smm-fold"${isActive ? "" : " open"}>
+              <summary class="smm-sec-h">Paperwork ${CHEV_SVG}</summary>
               <div class="smm-paper" id="smm-paper"><p class="smm-soon">Loading…</p></div>
-            </div>
+            </details>
             <div class="smm-sec">
               <h3 class="smm-sec-h">Engagement &amp; billing</h3>
               <div class="smm-eng">
@@ -1266,8 +1302,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               </div>
               <p class="smm-eng-status" id="smm-eng-status"></p>
             </div>
-            <div class="smm-sec">
-              <h3 class="smm-sec-h">Social channels</h3>
+            <details class="smm-sec smm-fold"${isActive ? "" : " open"}>
+              <summary class="smm-sec-h">Social channels ${CHEV_SVG}</summary>
               <div class="smm-eng">
                 <label class="smm-eng-row smm-eng-row--full"><span>Instagram</span><input type="text" data-ef="instagram_url" value="${esc(r.instagram_url || "")}" placeholder="instagram.com/…"></label>
                 <label class="smm-eng-row smm-eng-row--full"><span>Facebook</span><input type="text" data-ef="facebook_url" value="${esc(r.facebook_url || "")}" placeholder="facebook.com/…"></label>
@@ -1276,7 +1312,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
                 <label class="smm-eng-row smm-eng-row--full"><span>TikTok</span><input type="text" data-ef="tiktok_url" value="${esc(r.tiktok_url || "")}" placeholder="tiktok.com/@…"></label>
               </div>
               <p class="smm-eng-status" id="smm-chan-status"></p>
-            </div>` : ""}
+            </details>` : ""}
             <div class="smm-sec">
               <h3 class="smm-sec-h">${isActive ? "Client status" : "Actions"}</h3>
               ${isActive ? `<div class="smm-status-row">
@@ -1296,15 +1332,21 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             ${r.message ? `<div class="smm-msg">${esc(r.message)}</div>` : ""}
             <div class="smm-tabs" role="tablist">
               <button type="button" class="smm-tab ${activeTab === "notes" ? "is-active" : ""}" data-tab="notes">Notes</button>
-              <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Emails</button>
-              <button type="button" class="smm-tab ${activeTab === "files" ? "is-active" : ""}" data-tab="files">Files</button>
+              <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Communication<span class="smm-tab-n" id="smm-comm-n"></span></button>
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoicing</button>` : ""}
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "insights" ? "is-active" : ""}" data-tab="insights">Insights</button>` : ""}
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "videography" ? "is-active" : ""}" data-tab="videography">Videography</button>` : ""}
             </div>
-            <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>
+            <!-- Notes has its own bar (Danielle, 20 Oct 2026): Package details,
+                 Notes, Client activity and Files, one at a time. -->
+            <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}>
+              <div class="ri-subtabs smm-ntabs">${NOTE_TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${notesTab === k ? "is-active" : ""}" data-ntab="${k}">${l}</button>`).join("")}</div>
+              <div class="smm-ntab" data-npanel="pkg" ${notesTab === "pkg" ? "" : "hidden"}><div class="smm-pkg" id="smm-pkg"></div></div>
+              <div class="smm-ntab" data-npanel="notes" ${notesTab === "notes" ? "" : "hidden"}><div id="smm-notes-list"><p class="smm-soon">Loading…</p></div></div>
+              <div class="smm-ntab" data-npanel="activity" ${notesTab === "activity" ? "" : "hidden"}><div id="smm-activity-wrap"><p class="smm-soon">Loading…</p></div></div>
+              <div class="smm-ntab" data-npanel="files" ${notesTab === "files" ? "" : "hidden"}><div id="smm-panel-files"></div></div>
+            </div>
             <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
-            <div id="smm-panel-files" class="smm-panel-body" ${activeTab === "files" ? "" : "hidden"}></div>
             ${isActive ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
             ${isActive ? `<div id="smm-panel-insights" class="smm-panel-body" ${activeTab === "insights" ? "" : "hidden"}></div>` : ""}
             ${isActive ? `<div id="smm-panel-videography" class="smm-panel-body" ${activeTab === "videography" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>` : ""}
@@ -1369,10 +1411,17 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
         activeTab = b.getAttribute("data-tab");
         body.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("is-active", x === b));
-        ["notes", "emails", "files", "invoices", "insights", "videography"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
+        ["notes", "emails", "invoices", "insights", "videography"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
         if (activeTab === "insights") loadInsights(r);
         if (activeTab === "videography") loadVideography(r);
         if (activeTab === "notes") clampNotes();
+        if (activeTab === "emails") markCommsRead(r);
+      }));
+      body.querySelectorAll("[data-ntab]").forEach((b) => b.addEventListener("click", () => {
+        notesTab = b.getAttribute("data-ntab");
+        body.querySelectorAll("[data-ntab]").forEach((x) => x.classList.toggle("is-active", x === b));
+        body.querySelectorAll("[data-npanel]").forEach((p) => { p.hidden = p.getAttribute("data-npanel") !== notesTab; });
+        if (notesTab === "notes") clampNotes();
       }));
       // Correspondence
       loadThread(r);
@@ -1798,15 +1847,20 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       row.innerHTML = `<span class="smm-crm-note">Checking the CRM…</span>`;
       let existing = null;
       try {
+        // By email, or by the hub account it's linked to: a linked client is
+        // in the CRM even when their card's email differs from their login.
         const { data } = await supabase.from("contacts").select("id").ilike("email", email).limit(1);
         existing = data && data[0];
+        if (!existing && r.account_user_id && !isDemo(r)) {
+          const { data: byUser } = await supabase.from("contacts").select("id").eq("user_id", r.account_user_id).limit(1);
+          existing = byUser && byUser[0];
+        }
       } catch (_) { /* fall through to offering the button */ }
+      if (isDemo(r) && r.account_user_id) existing = { id: "demo" };
       row.innerHTML = existing
-        ? `<a class="smm-btn smm-btn--sm smm-btn--ghost" href="/admin/contacts?contact=${encodeURIComponent(existing.id)}">Open in contacts →</a>
-           <button type="button" class="smm-btn smm-btn--sm smm-btn--ghost" id="smm-synccontact" title="Tags, hub account, lifecycle, phone and business from this card">Update contact</button>
-           <span class="smm-crm-note">In the CRM. Linking, inviting or changing status updates it too.</span>`
-        : `<button type="button" class="smm-btn smm-btn--sm" id="smm-mkcontact">Create contact</button>
-           <span class="smm-crm-note">Not in the CRM yet.</span>`;
+        ? `<button type="button" class="smm-btn smm-btn--sm smm-btn--ghost" id="smm-viewcontact">View contact</button>`
+        : `<button type="button" class="smm-btn smm-btn--sm" id="smm-mkcontact" title="Not in the CRM yet">Create contact</button>`;
+      $("smm-viewcontact")?.addEventListener("click", () => openContactCard(existing.id));
       $("smm-mkcontact")?.addEventListener("click", () => createContact(r));
       $("smm-synccontact")?.addEventListener("click", async (e) => {
         const b = e.currentTarget; b.disabled = true; b.textContent = "Updating…";
@@ -1822,6 +1876,31 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         catch (err) { b.disabled = false; b.textContent = "Update contact"; alert(err.message || "Couldn't update that contact."); }
       });
     }
+
+    /* The contact card, popped out over the file: the Contacts page's own
+       card (?embed=1), as on TEG sync. On <body>, above the admin bars. */
+    function openContactCard(id) {
+      let box = document.getElementById("smm-cc");
+      if (!box) {
+        box = document.createElement("div");
+        box.id = "smm-cc"; box.className = "smm-cc";
+        box.innerHTML = `<div class="smm-cc-back" data-ccclose></div><div class="smm-cc-frame"><button type="button" class="smm-cc-x" data-ccclose aria-label="Close">&times;</button><p class="smm-cc-wait">Opening the contact card…</p><iframe title="Contact card" hidden></iframe></div>`;
+        document.body.appendChild(box);
+        box.addEventListener("click", (e) => { if (e.target.closest("[data-ccclose]")) closeContactCard(); });
+        window.addEventListener("message", (e) => {
+          if (e.origin !== location.origin || !e.data || box.hidden) return;
+          if (e.data.type === "tmke-contact-ready") { box.querySelector(".smm-cc-wait").hidden = true; box.querySelector("iframe").hidden = false; box.querySelector(".smm-cc-x").hidden = true; }
+          else if (e.data.type === "tmke-contact-closed") closeContactCard();
+          else if (e.data.type === "tmke-contact-missing") box.querySelector(".smm-cc-wait").textContent = "That contact isn't in the CRM any more.";
+        });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !box.hidden) closeContactCard(); });
+      }
+      const wait = box.querySelector(".smm-cc-wait"), frame = box.querySelector("iframe");
+      wait.textContent = "Opening the contact card…"; wait.hidden = false; frame.hidden = true; box.querySelector(".smm-cc-x").hidden = false;
+      frame.src = `/admin/contacts?contact=${encodeURIComponent(id)}&embed=1`;
+      box.hidden = false;
+    }
+    function closeContactCard() { const box = document.getElementById("smm-cc"); if (!box) return; box.hidden = true; box.querySelector("iframe").removeAttribute("src"); }
 
     async function createContact(r) {
       const btn = $("smm-mkcontact"); if (btn) { btn.disabled = true; btn.textContent = "Creating…"; }
@@ -2286,7 +2365,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const cat = $("smm-af-type").value || "other"; const title = $("smm-af-name").value.trim();
       const status = $("smm-af-status");
       if (!file) { status.hidden = false; status.textContent = "Choose a file first."; return; }
-      if (isDemo(r)) { r._thread.documents.push({ id: "d" + Date.now(), file_name: file.name, title: title || null, category: cat }); closeModal(); activeTab = "files"; renderThread(r, r._thread); return; }
+      if (isDemo(r)) { r._thread.documents.push({ id: "d" + Date.now(), file_name: file.name, title: title || null, category: cat }); closeModal(); renderThread(r, r._thread); return; }
       const btn = $("smm-af-add"); btn.disabled = true; btn.textContent = "Uploading…";
       try {
         const token = await authToken();
@@ -2295,7 +2374,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const res = await fetch(`${WORKER}/booking/document?${qs.toString()}`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": file.type || "application/octet-stream" }, body: file });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j.document) throw new Error(j.error || "Upload failed");
-        closeModal(); activeTab = "files"; loadThread(r);
+        closeModal(); loadThread(r);
       } catch (e) { status.hidden = false; status.textContent = e.message || "Couldn't upload — try again."; btn.disabled = false; btn.textContent = "Add file"; }
     }
 
@@ -3390,6 +3469,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       data.shoots = []; data.reports = [];
       r._thread = data;
       renderThread(r, data);
+      if (activeTab === "emails") markCommsRead(r);
       /* Shoots and reports live in their own tables, so Client activity
          reads them too (Danielle, 20 Oct 2026): a shoot booked, its content
          done, a report published. Read after the thread so a slow one never
@@ -3418,7 +3498,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         else if (m.channel === "email") {
           if (m.direction === "inbound") ev.push({ t, text: `Reply received${m.subject ? ": " + m.subject : ""}`, who: null });
           else ev.push({ t, text: `${m.is_automated ? "Automated email" : "Email"} sent${m.subject ? ": " + m.subject : ""}`, who });
-        } else if (m.channel === "note") ev.push({ t, text: "Note added", who });
+        } else if (m.channel === "hub") ev.push({ t, text: "Message from their hub", who: null });
+        else if (m.channel === "note") ev.push({ t, text: "Note added", who });
         else if (m.channel === "system") ev.push({ t, text: m.subject || m.body || "Update", who });
       }
       for (const d of (data.documents || [])) {
@@ -3448,6 +3529,27 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // Undated items go last: a NaN in the comparison scrambles the order.
       return ev.sort((a, b) => (Date.parse(b.t) || 0) - (Date.parse(a.t) || 0));
     }
+    // Unread: from the client (their hub, or an email in) and not yet seen.
+    // read_at comes with supabase/smm_communication.sql; until then there's
+    // no count rather than a count that never goes down.
+    const isUnread = (m) => m.direction === "inbound" && (m.channel === "hub" || m.channel === "email") && ("read_at" in m) && !m.read_at;
+    function setCommsCount(msgs) {
+      const el = $("smm-comm-n"); if (!el) return;
+      const n = (msgs || []).filter(isUnread).length;
+      el.textContent = n ? ` (${n})` : "";
+    }
+    // Opening Communication marks them read (the Worker, which can write).
+    async function markCommsRead(r) {
+      const msgs = (r._thread && r._thread.messages) || [];
+      if (!msgs.some(isUnread)) return;
+      const now = new Date().toISOString();
+      if (!isDemo(r)) {
+        try { const token = await authToken(); const res = await fetch(`${WORKER}/booking/thread/read`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: r.id }) }); if (!res.ok) return; } catch (_) { return; }
+      }
+      // The New badges stay for this look; the count goes.
+      msgs.forEach((m) => { if (isUnread(m)) m.read_at = now; });
+      setCommsCount(msgs);
+    }
     // ACTIVITY LOG (derived audit of everything on the account): the latest
     // five, with the rest a click away (Danielle, 20 Oct 2026). Drawn on its
     // own, so the shoots and reports arriving later don't redraw the notes.
@@ -3469,7 +3571,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       });
     }
     function renderThread(r, data, warn, loading) {
-      const pNotes = $("smm-panel-notes"), pMail = $("smm-panel-emails"), pFiles = $("smm-panel-files");
+      const pNotes = $("smm-notes-list"), pMail = $("smm-panel-emails"), pFiles = $("smm-panel-files");
       if (!pNotes) return;
       const msgs = data.messages || [], docs = data.documents || [];
       const notes = msgs.filter((m) => m.channel === "note")
@@ -3498,16 +3600,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         </div>`;
       }).join("") || `<p class="smm-mail-empty">No notes yet.</p>`);
       pNotes.innerHTML = `
-        <div class="smm-divider smm-divider--top"><span>Package details</span></div>
-        <div class="smm-pkg" id="smm-pkg"></div>
-        <div class="smm-divider"><span>Notes</span></div>
         <div class="smm-add">
           <textarea id="smm-note-input" rows="2" placeholder="Add an internal note…"></textarea>
           <div class="smm-add-row"><span></span><button type="button" class="smm-btn smm-btn--sm" id="smm-note-add">${PLUS_SVG}Add note</button></div>
         </div>
-        ${noteHtml}
-        <div class="smm-divider"><span>Client activity</span></div>
-        <div id="smm-activity-wrap"></div>`;
+        ${noteHtml}`;
       if (!loading) renderActivity(data);
       renderPackage(r);
       clampNotes();
@@ -3522,7 +3619,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <div class="smm-mail-body">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
         </div>`;
       }).join("") || `<p class="smm-mail-empty">No emails logged yet.</p>`);
+      /* Messages the client sent from their hub (Danielle, 20 Oct 2026):
+         under the emails, each with Reply, which answers by email from here.
+         Unread ones (from the hub, or emailed in) are counted on the tab. */
+      const hubMsgs = msgs.filter((m) => m.channel === "hub").sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const hubHtml = loading ? "" : (hubMsgs.map((m) => `<div class="smm-mail is-in smm-hubmsg${isUnread(m) ? " is-unread" : ""}">
+          <div class="smm-mail-head"><span class="smm-mail-who">${esc(nameOf(r) !== "—" ? nameOf(r) : (m.client_email || "Client"))}<span class="smm-mail-badge">Hub</span>${isUnread(m) ? '<span class="smm-mail-badge is-new">New</span>' : ""}</span><span class="smm-mail-when">${esc(fmtWhen(m.created_at))}</span></div>
+          <div class="smm-mail-body">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
+          <div class="smm-hubmsg-foot"><button type="button" class="smm-mini" data-hubreply="${esc(m.id)}">Reply</button></div>
+        </div>`).join("") || `<p class="smm-mail-empty">Nothing from their hub yet.</p>`);
+      setCommsCount(msgs);
       pMail.innerHTML = `
+        <h4 class="smm-comm-h">Emails</h4>
         ${mailHtml}
         <div class="smm-add" style="margin-top:14px">
           <input type="text" id="smm-mail-subj" placeholder="Subject" />
@@ -3532,7 +3640,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <p class="smm-hint">Sends from the manager mailbox and logs here.</p>
             <button type="button" class="smm-btn smm-btn--primary smm-btn--sm" id="smm-mail-send">Send email</button>
           </div>
-        </div>`;
+        </div>
+        <h4 class="smm-comm-h">Messages from their hub</h4>
+        ${hubHtml}`;
+      pMail.querySelectorAll("[data-hubreply]").forEach((b) => b.addEventListener("click", () => {
+        const m = hubMsgs.find((x) => String(x.id) === b.getAttribute("data-hubreply"));
+        const subj = $("smm-mail-subj"), body = $("smm-mail-body");
+        if (subj && !subj.value) subj.value = "Re: your message";
+        if (body) { if (m && !body.value) body.value = `\n\n> ${String(m.body || "").split("\n").join("\n> ")}`; body.focus(); body.setSelectionRange(0, 0); body.scrollIntoView({ block: "center", behavior: "smooth" }); }
+      }));
 
       // FILES (everything except invoices)
       const files = docs.filter((d) => d.category !== "invoice");
@@ -3583,7 +3699,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        button; done again when the Notes tab is opened, since a hidden tab
        has no size to measure. */
     function clampNotes() {
-      const panel = $("smm-panel-notes"); if (!panel || panel.hidden) return;
+      const panel = $("smm-notes-list"); if (!panel || !panel.offsetParent) return;
       panel.querySelectorAll(".smm-note").forEach((n) => {
         const body = n.querySelector(".smm-note-body"), more = n.querySelector(".smm-note-more");
         if (!body || !more || n.dataset.clampWired) return;
@@ -3695,6 +3811,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         { id: "e2", channel: "email", direction: "outbound", subject: "Re: Social media help", body: "Hi James, absolutely — I've attached our brochure. Shall we set up a quick discovery call this week?", created_by: "Danielle", created_at: ago(40) },
         { id: "e3", channel: "email", direction: "outbound", subject: "Your contract", body: "Great to chat today. Your agreement is attached — sign at your leisure and we'll get started.", is_automated: false, created_by: "Abbie", created_at: ago(37) },
         { id: "n3", channel: "note", body: "Contract signed 2 days after sending. Onboarding call booked.", is_pinned: false, created_by: "Abbie", created_at: ago(35) },
+        { id: "h1", channel: "hub", direction: "inbound", body: "Could we add a post about the open day on Saturday? I'll send photos tomorrow.", client_email: "james@fineandcountry.com", created_at: ago(1), read_at: null },
       ], documents: [
         { id: "doc1", file_name: "TMKE-Social-Brochure.pdf", title: "Social media brochure", category: "prep" },
         { id: "doc2", file_name: "Fine-and-Country-Agreement.pdf", title: "Signed agreement", category: "agreement" },

@@ -13084,6 +13084,24 @@ async function sendGalleryPinEmail(env, bookingId) {
         return json({ messages, documents }, 200, request, env);
       }
 
+      // ---- Admin: a client file's Communication tab was opened --------------
+      // Everything the client sent (hub messages, emails in) counts as read.
+      // Danielle, 20 Oct 2026. read_at comes with supabase/smm_communication.sql.
+      if (path.endsWith("/booking/thread/read") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String((b && b.booking_id) || "").trim();
+        if (!id) return json({ error: "Missing booking_id" }, 400, request, env);
+        const res = await fetch(`${env.SUPABASE_URL}/rest/v1/booking_messages?booking_id=eq.${encodeURIComponent(id)}&direction=eq.inbound&read_at=is.null`, {
+          method: "PATCH",
+          headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ read_at: new Date().toISOString() }),
+        });
+        if (!res.ok) return json({ error: "Couldn't mark them read: " + (await res.text()).slice(0, 160) }, 500, request, env);
+        return json({ ok: true }, 200, request, env);
+      }
+
       // ---- Admin: attach a document (raw body → R2 + row) ----
       if (path.endsWith("/booking/document") && request.method === "POST") {
         const user = await getUser(request, env);
