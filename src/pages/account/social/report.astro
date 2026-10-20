@@ -925,6 +925,12 @@ import "../../../styles/ws-system.css";
       }
       const sampleId = params.get("sample");
       const SAMPLE_CLIENT = { business: "The Marketing Experts", social_media_manager: "Abbie" };
+      // The training account's reports as a sample (?sample=training-2026-09):
+      // the team's How to… Reporting walks through it from the admin centre,
+      // and nothing about the viewer's own login or the training account
+      // changes (Dani, 20 Oct).
+      const trainingSample = sampleId && TRAINING_SMM.reports.find((x) => String(x.id) === sampleId);
+      if (trainingSample) return run(trainingSample, TRAINING_SMM.reports, resolveVisibility(TRAINING_SMM.visibility), TRAINING_SMM.client, true);
       if (sampleId) {
         const r = DEMO_REPORTS.find((x) => x.id === sampleId) || DEMO_REPORTS.find((x) => x.accountId === "tmke");
         const all = DEMO_REPORTS.filter((x) => x.accountId === r.accountId);
