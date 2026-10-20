@@ -863,6 +863,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-mail-subj { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
     .smm-mail-body { font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
     .smm-mail-empty, .smm-doc-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); padding: 4px 0 10px; }
+    /* Paperwork on the client file: the proposal from Proposal sent, the
+       signed contract from Onboarding (Danielle, 20 Oct 2026). */
+    .smm-paper { display: grid; gap: 10px; }
+    .smm-paper-k { font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--ink); margin: 0 0 6px; }
+    .smm-paper .smm-doc { margin-bottom: 5px; }
+    .smm-paper-missing { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px dashed rgba(var(--violet-rgb),0.3); border-radius: 8px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); }
     .smm-doc { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; margin-bottom: 7px; }
     .smm-doc-ico { width: 28px; height: 28px; flex: none; border-radius: 6px; background: rgba(var(--violet-rgb),0.1); color: var(--english-violet); display: inline-flex; align-items: center; justify-content: center; }
     .smm-doc-ico svg { width: 15px; height: 15px; }
@@ -1203,6 +1209,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               </div>
             </div>
             ${showProp ? `<div class="smm-sec">
+              <h3 class="smm-sec-h">Paperwork</h3>
+              <div class="smm-paper" id="smm-paper"><p class="smm-soon">Loading…</p></div>
+            </div>
+            <div class="smm-sec">
               <h3 class="smm-sec-h">Engagement &amp; billing</h3>
               <div class="smm-eng">
                 <label class="smm-eng-row"><span>Package</span><select data-ef="package_name">${packageOptions(r.package_name)}</select></label>
@@ -2113,12 +2123,41 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       closeModal(); renderBoard(); openFile(r.id);
     }
 
+    /* ---------- Paperwork ----------
+       A copy of the proposal once it's gone (Proposal sent on), and of the
+       signed contract once they're onboarding (Danielle, 20 Oct 2026). Each
+       is a file in Documents of that type; this shows it, or a button to add
+       it with the type already chosen. */
+    const PAPERWORK = [
+      { cat: "prep", from: "proposal_sent", label: "Proposal", add: "Add the proposal", name: "Proposal" },
+      { cat: "agreement", from: "onboarding", label: "Signed contract", add: "Add the signed contract", name: "Signed contract" },
+    ];
+    function renderPaperwork(r, docs, loading) {
+      const host = $("smm-paper"); if (!host) return;
+      if (loading) { host.innerHTML = '<p class="smm-soon">Loading…</p>'; return; }
+      const idx = STAGE_INDEX[stageOf(r)];
+      host.innerHTML = PAPERWORK.filter((p) => idx >= STAGE_INDEX[p.from]).map((p) => {
+        const have = docs.filter((d) => d.category === p.cat);
+        return `<div><p class="smm-paper-k">${esc(p.label)}</p>${have.length ? have.map((d) => `<div class="smm-doc">
+            <span class="smm-doc-ico">${DOC_SVG}</span>
+            <span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span>${d.created_at ? `<span class="smm-doc-cat">Added ${esc(new Date(d.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }))}</span>` : ""}</span>
+            <span class="smm-doc-tools"><button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "document")}">Download</button></span>
+          </div>`).join("") : `<div class="smm-paper-missing"><span>Not added yet</span><button type="button" class="smm-btn smm-btn--sm" data-paperadd="${p.cat}">${PLUS_SVG}${esc(p.add)}</button></div>`}</div>`;
+      }).join("");
+      host.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
+      host.querySelectorAll("[data-paperadd]").forEach((b) => b.addEventListener("click", () => {
+        const p = PAPERWORK.find((x) => x.cat === b.getAttribute("data-paperadd"));
+        openAddFile(r, { cat: p.cat, name: p.name, heading: p.add });
+      }));
+    }
+
     // ---------- Add-file modal ----------
-    function openAddFile(r) {
+    // `preset` (from Paperwork): the type chosen and a name filled in.
+    function openAddFile(r, preset) {
       $("smm-modal-host").innerHTML = `
         <div class="smm-modal-scrim" id="smm-modal">
           <div class="smm-modal" role="dialog" aria-modal="true" aria-label="Add a file">
-            <h3>Add a file</h3>
+            <h3>${esc(preset && preset.heading ? preset.heading : "Add a file")}</h3>
             <p class="smm-modal-sub">Attach it to ${esc(nameOf(r))}'s file.</p>
             <div class="smm-modal-field"><label>File</label><input type="file" id="smm-af-file" class="smm-file-input"></div>
             <div class="smm-modal-field"><label>Type</label><select id="smm-af-type">${SMM_CATS.filter((c) => c[0] !== "invoice").map((c) => `<option value="${c[0]}">${c[1]}</option>`).join("")}</select></div>
@@ -2133,6 +2172,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const scrim = $("smm-modal");
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       $("smm-modal-host").querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      if (preset) { $("smm-af-type").value = preset.cat; $("smm-af-name").value = preset.name || ""; }
       $("smm-af-add").addEventListener("click", () => uploadFile(r));
     }
     async function uploadFile(r) {
@@ -3349,6 +3389,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         <div class="smm-panel-head"><h4>Documents</h4><button type="button" class="smm-btn smm-btn--sm" id="smm-file-add">${PLUS_SVG}Add file</button></div>
         ${warn ? `<p class="smm-soon" style="margin-bottom:12px">${esc(warn)}</p>` : ""}
         ${docHtml}`;
+
+      renderPaperwork(r, docs, loading);
 
       // INVOICING (active clients only) — the full builder + raised list.
       const pInv = $("smm-panel-invoices");
