@@ -4258,6 +4258,50 @@ function smmReportAmendedHtml({ name, month, monthLabel, manager, link, joinLink
     ${joinLink ? `<p style="${EM_SMALL}">Haven&rsquo;t set up your Member Hub account yet? <a href="${esc(joinLink)}" style="color:#371e28">Sign up now</a> with this email address and your report will be waiting for you.</p>` : ""}
   </div>`;
 }
+// ── Post scheduling through Zernio (Dani, 20 Oct 2026) ─────────────────────
+// Zernio posts to the member's own social accounts. One Zernio profile per
+// member, tagged with their TMKE user id (externalId), holds the accounts they
+// connect through Zernio's sign-in links. Scheduling is the Content Calendar
+// subscription's add-on and isn't on sale yet: staff only until
+// SCHEDULE_OPEN = "1" (or a per-member entitlement) says otherwise.
+// https://zernio.com/llms.txt  ·  ZERNIO_API_KEY is a Worker secret.
+const ZERNIO_API = "https://zernio.com/api/v1";
+const ZERNIO_PLATFORMS = ["instagram", "facebook", "linkedin", "tiktok"];
+function scheduleAllowed(env, user) {
+  return !!user && (isAdminEmail(user) || env.SCHEDULE_OPEN === "1");
+}
+async function zernio(env, path, init = {}) {
+  if (!env.ZERNIO_API_KEY) return { ok: false, status: 503, data: { error: "Scheduling isn't set up (ZERNIO_API_KEY)." } };
+  const res = await fetch(`${ZERNIO_API}${path}`, {
+    ...init,
+    headers: { Authorization: `Bearer ${env.ZERNIO_API_KEY}`, "Content-Type": "application/json", ...(init.headers || {}) },
+  }).catch(() => null);
+  if (!res) return { ok: false, status: 502, data: { error: "Couldn't reach Zernio." } };
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+// The member's Zernio profile, made the first time they need one.
+async function zernioProfile(env, user) {
+  const ext = encodeURIComponent(user.id);
+  const found = await zernio(env, `/profiles?externalId=${ext}`);
+  if (found.ok && Array.isArray(found.data.profiles) && found.data.profiles[0]) return found.data.profiles[0];
+  const made = await zernio(env, "/profiles", { method: "POST", body: JSON.stringify({ name: String(user.email || user.id).slice(0, 120), externalId: user.id, timezone: "Europe/London" }) });
+  if (made.ok) return made.data.profile || made.data;
+  // Made by a request a moment ago: Zernio names the one that exists.
+  const existing = made.data && made.data.details && made.data.details.existingProfileId;
+  if (existing) { const got = await zernio(env, `/profiles/${existing}`); if (got.ok) return got.data.profile || got.data; }
+  return null;
+}
+// A calendar entry's London date and time as the instant Zernio schedules for.
+function londonToUtcIso(date, time) {
+  const [y, m, d] = String(date).split("-").map(Number);
+  const [hh, mm] = String(time || "09:00").split(":").map(Number);
+  const guess = Date.UTC(y, m - 1, d, hh, mm);
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
+  const shown = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
+  return new Date(guess - (shown - guess)).toISOString();
+}
+
 // A notification in a member's bell (member_notifications.sql). Never throws:
 // a missing table or a failed write costs the notification, not the action.
 async function notifyMember(env, userId, { kind, title, body, href, meta }) {
@@ -4575,6 +4619,101 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
       // ---- The Marketing Calendar in their own calendar ----------------------
       // The member's private link (made from their sign-in; reset on request).
+      // ── Scheduling (Zernio) ──────────────────────────────────────────────
+      // Where the member stands: their connected accounts.
+      if (path.endsWith("/schedule/status") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        if (!scheduleAllowed(env, user)) return json({ ok: true, open: false, accounts: [] }, 200, request, env);
+        if (!env.ZERNIO_API_KEY) return json({ ok: true, open: true, configured: false, accounts: [] }, 200, request, env);
+        const prof = await zernioProfile(env, user);
+        if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
+        const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
+        const accounts = (acc.ok && acc.data.accounts || []).map((a) => ({ id: a._id || a.id, platform: a.platform, username: a.username || a.displayName || a.name || "", picture: a.profilePicture || a.avatar || "" }));
+        return json({ ok: true, open: true, configured: true, accounts }, 200, request, env);
+      }
+      // Connect an account: Zernio's sign-in link for that platform, coming
+      // back to the Content Calendar afterwards.
+      if (path.endsWith("/schedule/connect") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const platform = String(b.platform || "").toLowerCase();
+        if (!ZERNIO_PLATFORMS.includes(platform)) return json({ error: "Pick Instagram, Facebook, LinkedIn or TikTok." }, 400, request, env);
+        const prof = await zernioProfile(env, user);
+        if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
+        const back = `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/account/schedule?connected=${platform}`;
+        const r = await zernio(env, `/connect/${platform}?profileId=${prof._id}&redirect_url=${encodeURIComponent(back)}`);
+        if (!r.ok || !r.data.authUrl) return json({ error: (r.data && r.data.error) || "Couldn't start the connection." }, 502, request, env);
+        return json({ ok: true, authUrl: r.data.authUrl }, 200, request, env);
+      }
+      // Disconnect one of their accounts.
+      if (path.endsWith("/schedule/disconnect") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const prof = await zernioProfile(env, user);
+        const acc = prof ? await zernio(env, `/accounts?profileId=${prof._id}`) : null;
+        const mine = acc && acc.ok && (acc.data.accounts || []).some((a) => (a._id || a.id) === b.accountId);
+        if (!mine) return json({ error: "That account isn't yours to disconnect." }, 403, request, env);
+        const r = await zernio(env, `/accounts/${encodeURIComponent(b.accountId)}`, { method: "DELETE" });
+        return json(r.ok ? { ok: true } : { error: "Couldn't disconnect it just now." }, r.ok ? 200 : 502, request, env);
+      }
+      // Schedule a calendar post to the accounts they pick, at its date and
+      // time (UK time), with its picture and caption. Kept on the entry as
+      // details.zernio so it can be cancelled or shown as scheduled.
+      if (path.endsWith("/schedule/post") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String(b.item_id || "");
+        if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: "Which post?" }, 400, request, env);
+        const rows = await sbGet(env, "calendar_items", `select=*&id=eq.${id}&user_id=eq.${user.id}`);
+        const item = rows && rows[0];
+        if (!item) return json({ error: "That post isn't on your calendar." }, 404, request, env);
+        if (!item.asset_url) return json({ error: "Add the design to this post first." }, 400, request, env);
+        const when = londonToUtcIso(item.scheduled_date, item.has_time === false ? "09:00" : item.scheduled_time);
+        if (new Date(when).getTime() < Date.now() + 5 * 60000) return json({ error: "Pick a time at least five minutes from now." }, 400, request, env);
+        const prof = await zernioProfile(env, user);
+        if (!prof) return json({ error: "Couldn't open your scheduling profile just now." }, 502, request, env);
+        const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
+        const owned = (acc.ok && acc.data.accounts || []);
+        const picked = (Array.isArray(b.accountIds) ? b.accountIds : []).map(String);
+        const targets = owned.filter((a) => picked.includes(a._id || a.id)).map((a) => ({ platform: a.platform, accountId: a._id || a.id }));
+        if (!targets.length) return json({ error: "Pick at least one of your connected accounts." }, 400, request, env);
+        const isVideo = /\.(mp4|mov|m4v|webm)(\?|$)/i.test(item.asset_url);
+        const body = { content: String(item.caption || ""), scheduledFor: when, profileId: prof._id, platforms: targets, mediaItems: [{ type: isVideo ? "video" : "image", url: item.asset_url }] };
+        const prev = item.details && item.details.zernio && item.details.zernio.post_id;
+        const r = prev
+          ? await zernio(env, `/posts/${prev}`, { method: "PUT", body: JSON.stringify(body) })
+          : await zernio(env, "/posts", { method: "POST", body: JSON.stringify(body) });
+        if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || "Zernio didn't take the post." }, 502, request, env);
+        const post = r.data.post || r.data;
+        const zern = { post_id: post._id || prev, status: post.status || "scheduled", scheduled_for: when, accounts: targets.map((t) => t.accountId), at: new Date().toISOString() };
+        await sbPatch(env, "calendar_items", `id=eq.${id}&user_id=eq.${user.id}`, { details: { ...(item.details || {}), zernio: zern } });
+        return json({ ok: true, zernio: zern }, 200, request, env);
+      }
+      // Take a scheduled post back off.
+      if (path.endsWith("/schedule/cancel") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user) return json({ error: "Sign in again." }, 401, request, env);
+        if (!scheduleAllowed(env, user)) return json({ error: "Scheduling isn't open yet." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const id = String(b.item_id || "");
+        const rows = /^[0-9a-f-]{36}$/.test(id) ? await sbGet(env, "calendar_items", `select=id,details&id=eq.${id}&user_id=eq.${user.id}`) : null;
+        const item = rows && rows[0];
+        const pid = item && item.details && item.details.zernio && item.details.zernio.post_id;
+        if (!pid) return json({ error: "That post isn't scheduled." }, 404, request, env);
+        const r = await zernio(env, `/posts/${pid}`, { method: "DELETE" });
+        if (!r.ok && r.status !== 404) return json({ error: "Couldn't cancel it just now." }, 502, request, env);
+        const { zernio: _gone, ...rest } = item.details || {};
+        await sbPatch(env, "calendar_items", `id=eq.${id}&user_id=eq.${user.id}`, { details: rest });
+        return json({ ok: true }, 200, request, env);
+      }
+
       if (path.endsWith("/calendar/feed-link") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user) return json({ error: "Sign in again." }, 401, request, env);
