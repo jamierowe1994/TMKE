@@ -111,7 +111,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <tbody>
             {marketing.packages.map((pk, i) => (
               <tr>
-                <td><strong>{pk.name || `Package ${i + 1}`}</strong><span class="smm-rate-hours">{pk.hours.videography}h film · {pk.hours.editing}h edit · {pk.hours.brief}h brief · {pk.hours.management}h management</span></td>
+                <td><strong>{pk.name || `Package ${i + 1}`}</strong><span class="smm-rate-hours">{pk.hours.videography}h film · {pk.hours.editing}h edit · {pk.hours.brief}h brief a quarter · {pk.hours.management}h management a month</span></td>
                 <td>{pk.spec}</td>
                 <td>{pk.videos}</td>
                 <td>{pk.postsPerWeek}</td>
@@ -2240,14 +2240,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        What the client's package consists of, in one place under Notes
        (Danielle, 20 Oct 2026): the tier, monthly hours, whether it includes
        video, how often the shoot is, and what comes out of it. Choosing a
-       Shot and Scheduled tier fills these from the rate card (smm-config.js);
+       Shot and Scheduled tier (Social Starter, Social Authority, Social
+       Leadership) fills these from the rate card (smm-config.js), monthly
+       hours being its management hours, which are per month;
        every field can be changed by hand, as bespoke packages will be.
        Monthly hours are the file's contracted_hours_per_month. Reference
        only: nothing bills or schedules from it. */
     const SAS_TIERS = ((PKG_SERVICES.find((x) => x.key === "social-media-marketing") || {}).packages || []).map((p, i) => ({
       key: p.key, label: p.name || `Tier ${i + 1}`, spec: p.spec,
-      fill: { video: true, shoot_frequency: `Quarterly, ${p.hours.videography} hour shoot`, outputs: `${p.videos} videos a quarter, ${p.postsPerWeek} posts a week. Amends: ${String(p.amends).toLowerCase()}` },
-      card: `${p.hours.videography}h film · ${p.hours.editing}h edit · ${p.hours.brief}h brief · ${p.hours.management}h management`,
+      fill: { video: true, hours: p.hours.management, shoot_frequency: `Quarterly, ${p.hours.videography} hour shoot`, outputs: `${p.videos} videos a quarter, ${p.postsPerWeek} posts a week. Amends: ${String(p.amends).toLowerCase()}` },
+      card: `${p.hours.videography}h film · ${p.hours.editing}h edit · ${p.hours.brief}h brief a quarter; ${p.hours.management}h management a month`,
     }));
     const SMM_TIERS = ((PKG_SERVICES.find((x) => x.key === "social-media-management") || {}).futurePackages || []).map((n) => ({ key: n, label: n }));
     function tiersFor(pkg) {
@@ -2300,7 +2302,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (tiers.length) $("pkg-tier").addEventListener("change", () => {
         showCard();
         const t = tiers.find((x) => x.key === $("pkg-tier").value);
-        if (t && t.fill) { setVideo(t.fill.video); $("pkg-freq").value = t.fill.shoot_frequency; $("pkg-out").value = t.fill.outputs; }
+        if (t && t.fill) { setVideo(t.fill.video); $("pkg-freq").value = t.fill.shoot_frequency; $("pkg-out").value = t.fill.outputs; if (t.fill.hours != null) $("pkg-hours").value = t.fill.hours; }
       });
       $("pkg-cancel").addEventListener("click", () => renderPackage(r));
       $("pkg-save").addEventListener("click", async () => {

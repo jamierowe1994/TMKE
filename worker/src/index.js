@@ -13139,7 +13139,9 @@ async function sendGalleryPinEmail(env, bookingId) {
           // Don't leave an orphaned R2 object when the DB row didn't save.
           try { await env.BUCKET.delete(key); } catch (_) {}
           console.error("booking_document insert failed", insErr);
-          return json({ error: "Couldn't save the record. If this is an invoice, re-run smm_crm.sql (adds invoice_date / paid_date).", detail: insErr }, 502, request, env);
+          const why = /category/i.test(String(insErr)) ? `The database doesn't accept "${category}" files yet: run supabase/booking_document_categories.sql.`
+            : "Couldn't save the record. If this is an invoice, re-run smm_crm.sql (adds invoice_date / paid_date).";
+          return json({ error: why, detail: insErr }, 502, request, env);
         }
         return json({ ok: true, document: row }, 200, request, env);
       }

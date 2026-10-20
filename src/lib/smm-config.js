@@ -123,26 +123,26 @@ export const SOCIAL_SERVICES = [
     unit: "month",
     openToNewClients: true,
     note: "Built for agents who are happy managing their own listings but want a consistent video presence.",
-    /* The three it splits into. Names still being decided — labelled by what
-       they contain rather than given a working title that would end up on a
-       page and stay there. */
+    /* The three it splits into, named by Danielle on 20 Oct 2026. Hours:
+       videography, editing and brief are per QUARTER (one shoot a quarter);
+       management is per MONTH. */
     packages: [
       {
-        key: "smm-1", name: null, spec: "3 hrs quarterly",
+        key: "smm-1", name: "Social Starter", spec: "3 hrs quarterly",
         videos: 24, postsPerWeek: 2, amends: "1 request",
         hours: { videography: 3, editing: 3, brief: 3, management: 12 },
         maxClientsPerSmm: 12,
         price_pence: { teg: 45500, standard: 67000, scaleable: 79500 },
       },
       {
-        key: "smm-2", name: null, spec: "5 hrs quarterly",
+        key: "smm-2", name: "Social Authority", spec: "5 hrs quarterly",
         videos: 36, postsPerWeek: 3, amends: "2 requests",
         hours: { videography: 5, editing: 5, brief: 4, management: 18 },
         maxClientsPerSmm: 9,
         price_pence: { teg: 65500, standard: 95000, scaleable: 112500 },
       },
       {
-        key: "smm-3", name: null, spec: "8 hrs quarterly",
+        key: "smm-3", name: "Social Leadership", spec: "8 hrs quarterly",
         videos: 60, postsPerWeek: 5, amends: "Unlimited",
         hours: { videography: 8, editing: 8, brief: 5, management: 25 },
         maxClientsPerSmm: 6,

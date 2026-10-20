@@ -183,6 +183,10 @@ import "../../styles/admin.css";
        the sidebar and top bar (Danielle, 20 Oct 2026). The hub skin comes
        with them for the form fields; its background doesn't. */
     .hub-skin.rc-layer { background: none; }
+    /* Centred on the page's own column, beside the admin menu, not the whole
+       screen (Danielle, 20 Oct 2026); the shade still covers everything. */
+    .rc-layer .rc-modal { left: var(--rc-left, 0px); }
+    .rc-layer .rc-modal-back { position: fixed; inset: 0; }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
 
@@ -543,7 +547,7 @@ import "../../styles/admin.css";
       $v('rc-a-joined').value = f.date_joined || '';
       $v('rc-a-brands').innerHTML = ROSTER_FOCUS.map((b) => `<label><input type="checkbox" value="${esc(b)}" ${(r.brands || []).includes(b) ? 'checked' : ''}> ${esc(b)}</label>`).join('');
       $v('rc-a-err').hidden = true;
-      addBox.hidden = false;
+      placeBesideMenu(); addBox.hidden = false;
       setTimeout(() => $v('rc-a-first').focus(), 30);
     }
     addBox.addEventListener('click', (e) => { if (e.target.closest('[data-rc-close]')) addBox.hidden = true; });
@@ -577,12 +581,20 @@ import "../../styles/admin.css";
       ['rc-add', 'rc-card'].forEach((id) => { const m = document.getElementById(id); if (m) layer.appendChild(m); });
       document.body.appendChild(layer);
     }
+    // Where the admin menu ends, so a pop-out centres on the page beside it.
+    // Measured on each opening: the menu folds away on a narrow screen.
+    function placeBesideMenu() {
+      const side = document.querySelector('.ash-side');
+      const right = side && side.offsetParent !== null ? Math.max(0, Math.round(side.getBoundingClientRect().right)) : 0;
+      document.querySelector('.rc-layer')?.style.setProperty('--rc-left', (right < window.innerWidth * 0.5 ? right : 0) + 'px');
+    }
     // ---- A contact card, popped out (the Contacts page's own, ?embed=1).
     const cardBox = document.getElementById('rc-card'), cardIf = document.getElementById('rc-card-if'), cardWait = document.getElementById('rc-card-wait');
     function openCard(id) {
       cardWait.textContent = 'Opening the contact card…'; cardWait.hidden = false;
       cardIf.hidden = true; cardBox.querySelector('.rc-card-x').hidden = false;
       cardIf.src = `/admin/contacts?contact=${encodeURIComponent(id)}&embed=1`;
+      placeBesideMenu();
       cardBox.hidden = false;
     }
     function closeCard() { cardBox.hidden = true; cardIf.removeAttribute('src'); }
