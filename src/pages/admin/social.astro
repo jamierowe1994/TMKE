@@ -842,6 +842,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-act-text { font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .smm-act-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .smm-note-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
+    .smm-note-body.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden; }
+    .smm-note-more { margin-top: 4px; padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--sans); font-size: 12px; font-weight: 700; color: var(--english-violet); text-decoration: underline; text-underline-offset: 2px; }
+    .smm-note-more[hidden] { display: none; }
+    .smm-divider--top { margin-top: 4px; }
     .smm-note-edit { width: 100%; font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); padding: 9px 11px; border: 1px solid rgba(var(--violet-rgb),0.3); border-radius: 6px; background: #fff; resize: vertical; }
     .smm-note-edit:focus { outline: none; border-color: var(--english-violet); box-shadow: 0 0 0 3px rgba(var(--violet-rgb),0.12); }
     .smm-note-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
@@ -1367,6 +1371,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         ["notes", "emails", "files", "invoices", "insights", "videography"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
         if (activeTab === "insights") loadInsights(r);
         if (activeTab === "videography") loadVideography(r);
+        if (activeTab === "notes") clampNotes();
       }));
       // Correspondence
       loadThread(r);
@@ -3427,7 +3432,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         // hiding a button is a courtesy, not a control.
         const mine = String(m.created_by || "").toLowerCase() === String(ME || "").toLowerCase();
         return `<div class="smm-note ${m.is_pinned ? "is-pinned" : ""}" data-note="${esc(m.id)}">
-          <div class="smm-note-body">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
+          <div class="smm-note-body is-clamped">${esc(m.body || "").replace(/\n/g, "<br>")}</div>
+          <button type="button" class="smm-note-more" hidden>Show more</button>
           <div class="smm-note-foot">
             <span class="smm-note-meta">${m.is_pinned ? '<span class="smm-pin-badge">Pinned</span> · ' : ""}${esc(who)} · ${esc(fmtWhen(m.created_at))}${m.edited_at ? " · edited" : ""}</span>
             <span class="smm-note-tools">
@@ -3445,16 +3451,18 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         <div class="smm-act-main"><span class="smm-act-text">${esc(a.text)}</span><span class="smm-act-meta">${a.who ? esc(a.who) + " · " : ""}${esc(fmtWhen(a.t))}</span></div>
       </div>`).join("") : `<p class="smm-mail-empty">No activity yet.</p>`);
       pNotes.innerHTML = `
+        <div class="smm-divider smm-divider--top"><span>Package details</span></div>
+        <div class="smm-pkg" id="smm-pkg"></div>
+        <div class="smm-divider"><span>Notes</span></div>
         <div class="smm-add">
           <textarea id="smm-note-input" rows="2" placeholder="Add an internal note…"></textarea>
           <div class="smm-add-row"><span></span><button type="button" class="smm-btn smm-btn--sm" id="smm-note-add">${PLUS_SVG}Add note</button></div>
         </div>
         ${noteHtml}
         <div class="smm-divider"><span>Client activity</span></div>
-        <div class="smm-activity">${actHtml}</div>
-        <div class="smm-divider"><span>Package details</span></div>
-        <div class="smm-pkg" id="smm-pkg"></div>`;
+        <div class="smm-activity">${actHtml}</div>`;
       renderPackage(r);
+      clampNotes();
 
       // EMAILS
       const mailHtml = loading ? '<p class="smm-soon">Loading…</p>' : (emails.map((m) => {
@@ -3522,6 +3530,20 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (isDemo(r)) { const m = r._thread.messages.find((x) => x.id === id); if (m) m.is_pinned = pinned; renderThread(r, r._thread); return; }
       try { const token = await authToken(); await fetch(`${WORKER}/booking/message/pin`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ id, pinned }) }); loadThread(r); } catch (_) {}
     }
+    /* Long notes stop at five lines, with Show more / Show less (Danielle,
+       20 Oct 2026). Measured, so only a note that's actually cut gets the
+       button; done again when the Notes tab is opened, since a hidden tab
+       has no size to measure. */
+    function clampNotes() {
+      const panel = $("smm-panel-notes"); if (!panel || panel.hidden) return;
+      panel.querySelectorAll(".smm-note").forEach((n) => {
+        const body = n.querySelector(".smm-note-body"), more = n.querySelector(".smm-note-more");
+        if (!body || !more || n.dataset.clampWired) return;
+        if (body.scrollHeight <= body.clientHeight + 1) { body.classList.remove("is-clamped"); return; }
+        n.dataset.clampWired = "1"; more.hidden = false;
+        more.addEventListener("click", () => { const open = body.classList.toggle("is-clamped") === false; more.textContent = open ? "Show less" : "Show more"; });
+      });
+    }
     // Edit in place: the note becomes a textarea where it sits, so you keep the
     // thread around it. Cancel restores the original wording rather than
     // re-fetching, so a mis-click costs nothing.
@@ -3531,6 +3553,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const note = ((r._thread && r._thread.messages) || []).find((m) => String(m.id) === String(id));
       if (!bodyEl || !note || wrap.querySelector(".smm-note-edit")) return;
       const original = note.body || "";
+      bodyEl.classList.remove("is-clamped"); const moreEl = wrap.querySelector(".smm-note-more"); if (moreEl) moreEl.hidden = true;
       bodyEl.innerHTML = `<textarea class="smm-note-edit" rows="3">${esc(original)}</textarea>
         <div class="smm-add-row" style="margin-top:8px"><span></span>
           <button type="button" class="smm-btn smm-btn--sm" data-savenote>Save</button>
