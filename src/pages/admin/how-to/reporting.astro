@@ -10,17 +10,28 @@
 // account. The sample management report was pulled from the same dummy data
 // by the real code. The rules behind the commentary are
 // docs/smm-report-rules.md: change them there first, then here.
+//
+// Long screenshots open in a pop-out you scroll (Dani's review, 20 Oct), as
+// the course pictures do; the management report opens as a working example.
 import AdminShell from "../../../components/admin/AdminShell.astro";
 
 const IMG = "/images/admin/how-to/reporting";
+const PDF = `${IMG}/management-report-sample-v2.pdf`;
 const PARTS = [
   ["in", "Getting the report in"],
   ["what", "What it pulls through"],
   ["commentary", "The client commentary"],
-  ["publish", "Publishing to the client"],
   ["management", "The monthly management report"],
+  ["publish", "Publishing to the client"],
   ["client", "What the client sees"],
 ];
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+// A row with a strip of the picture; the whole picture opens in the pop-out.
+const shot = (id, title, line, src, alt) => `<button type="button" class="ht-shot" data-ht-open="${id}">
+    <img class="ht-shot-img" src="${IMG}/${src}" alt="" loading="lazy">
+    <span class="ht-shot-tx"><span class="ht-shot-t">${title}</span><span class="ht-shot-b">${line}</span></span>
+    <span class="ht-shot-go">Take a look &rarr;</span>
+  </button><template id="${id}"><h3 class="ht-sheet-h">${title}</h3><img class="ht-sheet-img" src="${IMG}/${src}" alt="${esc(alt)}"></template>`;
 ---
 
 <AdminShell active="social" title="How to… Reporting" skin="hub">
@@ -38,8 +49,8 @@ const PARTS = [
         <li><b>As soon as the month ends,</b> run each client&rsquo;s SocialPilot report and download it as a PDF.</li>
         <li><b>Upload it</b> on the client&rsquo;s file: Social media › the client › Insights › Upload report.</li>
         <li><b>Check the figures</b> it read against the PDF, then save.</li>
-        <li><b>Read and rewrite the Client commentary.</b> It&rsquo;s a first draft, never the finished words.</li>
         <li><b>Check the Management Summary,</b> our own read of the month.</li>
+        <li><b>Read and rewrite the Client commentary.</b> It&rsquo;s a first draft, never the finished words.</li>
         <li><b>Publish to client.</b></li>
         <li><b>Once every client is live,</b> pull the monthly management report.</li>
       </ol>
@@ -62,10 +73,9 @@ const PARTS = [
       </div>
 
       <h3 class="ht-sub">Find the client</h3>
-      <p class="ht-p">In the admin centre, open <b>Social media</b>. The <b>Clients</b> filter at the top narrows the board to active clients. Click a client&rsquo;s card to open their file.</p>
-      <figure class="ht-fig ht-fig--wide"><img src={`${IMG}/board.webp`} alt="The Social media board filtered to clients" loading="lazy" /><figcaption>The board, filtered to clients.</figcaption></figure>
-      <p class="ht-p">An active client&rsquo;s file has six tabs. Reporting lives on <b>Insights</b>.</p>
-      <figure class="ht-fig ht-fig--wide"><img src={`${IMG}/client-file.webp`} alt="A client's file open on the Insights tab" loading="lazy" /><figcaption>Rimberio Homes&rsquo; file on the Insights tab.</figcaption></figure>
+      <p class="ht-p">In the admin centre, open <b>Social media</b>. The <b>Clients</b> filter at the top narrows the board to active clients. Click a client&rsquo;s card to open their file. An active client&rsquo;s file has six tabs, and reporting lives on <b>Insights</b>.</p>
+      <Fragment set:html={shot("ht-board", "The Social Media Board", "Filtered to clients: click a card to open the client&rsquo;s file.", "board.webp", "The Social media board filtered to clients")} />
+      <Fragment set:html={shot("ht-file", "A Client&rsquo;s File", "Rimberio Homes&rsquo; file, open on the Insights tab.", "client-file.webp", "A client's file open on the Insights tab")} />
 
       <h3 class="ht-sub">Upload the PDF</h3>
       <ol class="ht-ol">
@@ -116,11 +126,9 @@ const PARTS = [
       <p class="ht-p"><b>Overview</b>, <b>Content</b>, <b>Audience</b> and <b>Trends</b> are our working figures, straight from SocialPilot. The client doesn&rsquo;t see these tabs; their report is built from them.</p>
 
       <h3 class="ht-sub">One platform, or several</h3>
-      <p class="ht-p">Under the pills, <i class="ht-ui">In this report</i> lists the platforms the month covers. A client on several platforms gets a section for each; a client on Instagram alone gets just that.</p>
-      <div class="ht-pair">
-        <figure class="ht-fig"><img src={`${IMG}/overview-multi.webp`} alt="Overview for a client on three platforms" loading="lazy" /><figcaption>Rimberio Homes: Instagram, Facebook and LinkedIn.</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/overview-single.webp`} alt="Overview for a client on Instagram only" loading="lazy" /><figcaption>Borcelle Estates: Instagram only.</figcaption></figure>
-      </div>
+      <p class="ht-p">Under the pills, <i class="ht-ui">In this report</i> lists the platforms the month covers. A client on several platforms gets a section for each, one under the other; a client on Instagram alone gets just that. Scroll each one to the end to see the difference.</p>
+      <Fragment set:html={shot("ht-ov-multi", "Several Platforms: Rimberio Homes", "Instagram, then Facebook, then LinkedIn, on one Overview.", "overview-multi-full.webp", "Overview for a client on three platforms")} />
+      <Fragment set:html={shot("ht-ov-single", "One Platform: Borcelle Estates", "Instagram only.", "overview-single-full.webp", "Overview for a client on Instagram only")} />
 
       <h3 class="ht-sub">Content, Audience and Trends</h3>
       <ul class="ht-ul">
@@ -135,11 +143,7 @@ const PARTS = [
       </div>
 
       <h3 class="ht-sub">How the client&rsquo;s report changes with it</h3>
-      <p class="ht-p">A single-platform client gets a short report: their month in numbers, who they reached, what worked, what it means and what&rsquo;s next. A client on several platforms gets each platform&rsquo;s numbers and posts in turn, then <b>Across your accounts</b>: what it means and what&rsquo;s next for all of them together. Figures name their platform (<i class="ht-ui">Instagram profile reach</i>) unless they&rsquo;re added up across all of them.</p>
-      <div class="ht-pair">
-        <figure class="ht-fig"><img src={`${IMG}/client-numbers.webp`} alt="Instagram in Numbers, in a three-platform report" loading="lazy" /><figcaption>Several platforms: Instagram in Numbers.</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/client-single-numbers.webp`} alt="September in Numbers, in an Instagram-only report" loading="lazy" /><figcaption>One platform: September in Numbers.</figcaption></figure>
-      </div>
+      <p class="ht-p">A single-platform client gets a short report: their month in numbers, who they reached, what worked, what it means and what&rsquo;s next. A client on several platforms gets each platform&rsquo;s numbers and posts in turn, then <b>Across your accounts</b>: what it means and what&rsquo;s next for all of them together. Figures name their platform (<i class="ht-ui">Instagram profile reach</i>) unless they&rsquo;re added up across all of them, and the insight and next-month cards each carry a platform label.</p>
     </section>
 
     <!-- ── 03 ─────────────────────────────────────────────────────────── -->
@@ -151,7 +155,7 @@ const PARTS = [
         <p class="ht-why-k">Why it always needs you</p>
         <p>The draft is written from the figures, so it can only say what the figures say. You know the client: what we changed, what they asked for, what happened locally. A report makes claims about their business in our name, so nothing goes live unread.</p>
       </div>
-      <figure class="ht-fig"><img src={`${IMG}/commentary.webp`} alt="The Client commentary tab" loading="lazy" /><figcaption>Client commentary: three cards, each with a pencil to edit.</figcaption></figure>
+      <Fragment set:html={shot("ht-commentary", "The Client Commentary Tab", "Three cards, each with a pencil to edit. Scroll to see them all.", "commentary-full.webp", "The Client commentary tab")} />
 
       <h3 class="ht-sub">The three cards</h3>
       <div class="ht-cards">
@@ -193,10 +197,8 @@ const PARTS = [
 
       <h3 class="ht-sub">The Management Summary: our side</h3>
       <p class="ht-p">The <b>Management Summary</b> tab is our own read of the month, in our words: what it means, what we&rsquo;ll do next month, the client&rsquo;s goals, and the trends. The client never sees it.</p>
-      <div class="ht-pair">
-        <figure class="ht-fig"><img src={`${IMG}/management-summary.webp`} alt="The Management Summary tab" loading="lazy" /><figcaption>Management Summary</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/edit-summary.webp`} alt="Editing the Management Summary" loading="lazy" /><figcaption>Editing our read of the month</figcaption></figure>
-      </div>
+      <Fragment set:html={shot("ht-summary", "The Management Summary Tab", "What it means, Into October, Goals and Trends. Scroll to see them all.", "management-summary-full.webp", "The Management Summary tab")} />
+      <figure class="ht-fig"><img src={`${IMG}/edit-summary.webp`} alt="Editing the Management Summary" loading="lazy" /><figcaption>Editing our read of the month.</figcaption></figure>
       <div class="ht-why">
         <p class="ht-why-k">Why both matter, and in which order</p>
         <p>The two tabs feed different places:</p>
@@ -209,8 +211,76 @@ const PARTS = [
     </section>
 
     <!-- ── 04 ─────────────────────────────────────────────────────────── -->
-    <section class="ht-part" id="publish">
+    <section class="ht-part" id="management">
       <p class="ht-num">Part 04</p>
+      <h2 class="ht-h">The monthly management report</h2>
+      <p class="ht-p">One A4 PDF for the month: a cover listing every account in it, and anyone missing, then a page for each account with its figures for each platform, its top five posts, and our read of the month from the Management Summary. It&rsquo;s how we see every client&rsquo;s month in one place. It&rsquo;s marked <i class="ht-ui">Internal · not for clients</i> on every page, and only Danielle, Sam and Abbie can pull it.</p>
+
+      <h3 class="ht-sub">Pulling it</h3>
+      <ol class="ht-ol">
+        <li>On <b>Social media</b>, click <b>Settings</b>, then <b>Monthly management report</b>.</li>
+        <li>Pick the <b>Month</b>. From the 20th it starts on this month; before that, last month.</li>
+        <li>Choose the accounts (below), then click <b>Pull monthly report</b>. The PDF downloads.</li>
+      </ol>
+      <figure class="ht-fig ht-fig--menu"><img src={`${IMG}/settings-menu.webp`} alt="The Settings menu on Social media" loading="lazy" /><figcaption>Settings › Monthly management report</figcaption></figure>
+
+      <h3 class="ht-sub">Choosing the right accounts</h3>
+      <ul class="ht-ul">
+        <li><b>Accounts to include</b> lists every client whose report for the month is live. All are ticked to start with.</li>
+        <li><b>All</b> and <b>None</b> tick or clear the lot. A button with a manager&rsquo;s name (<b>Abbie&rsquo;s</b>, <b>Sam&rsquo;s</b>) ticks only that manager&rsquo;s clients.</li>
+        <li><b>Not included</b> lists every active client who isn&rsquo;t in it, and why: <i class="ht-ui">No report uploaded</i>, <i class="ht-ui">Report not published</i> or <i class="ht-ui">Report has no data</i>.</li>
+      </ul>
+      <button type="button" class="ht-shot" data-ht-open="ht-mgmt-demo">
+        <img class="ht-shot-img" src={`${IMG}/management-report.webp`} alt="" loading="lazy" />
+        <span class="ht-shot-tx"><span class="ht-shot-t">Try It: September 2026</span><span class="ht-shot-b">The page with our example clients. Tick and untick accounts, try All, None and each manager&rsquo;s button, then pull the report.</span></span>
+        <span class="ht-shot-go">Open it &rarr;</span>
+      </button>
+      <div class="ht-why">
+        <p class="ht-why-k">Why a client is missing</p>
+        <p>Only published months go in, so the report shows what clients were actually told. In the example, Aldenaire &amp; Co is missing because September is still a draft: publish it and pull the report again. Our read on each page comes from the Management Summary as it is now, so a fix there shows next time you pull it.</p>
+      </div>
+      <a class="ht-file" href={PDF} target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 18h4"/></svg>
+        <span><b>Sample management report</b><small>September 2026, pulled from the example clients. PDF</small></span>
+      </a>
+
+      <!-- The example page, working: the real panel's layout with the example
+           clients in it. Pull monthly report opens the sample PDF. -->
+      <template id="ht-mgmt-demo">
+        <h3 class="ht-sheet-h">Monthly Management Report</h3>
+        <p class="ht-sheet-note">An example with our dummy clients: nothing here changes anything real.</p>
+        <div class="mgd" data-mgd>
+          <p class="mgd-sub">Every client report published for a month, in one A4 PDF: a cover listing every account and anyone missing, then a page per account with its figures for each platform, the top five posts, and our own read of the month from the Management Summary tab. A client is in it once their report for the month has been published to them.</p>
+          <div class="mgd-controls">
+            <label class="mgd-f"><span>Month</span><select><option>September 2026</option></select></label>
+            <a class="mgd-pull" href={PDF} target="_blank" rel="noopener" data-mgd-pull>Pull monthly report</a>
+            <span class="mgd-status" data-mgd-status>2 of 2 accounts ticked, 3 pages.</span>
+          </div>
+          <div class="mgd-grid">
+            <div class="mgd-card">
+              <h4>Accounts to include</h4>
+              <div class="mgd-pick"><button type="button" data-mgd-pick="all">All</button><button type="button" data-mgd-pick="none">None</button><button type="button" data-mgd-pick="Abbie">Abbie&rsquo;s</button><button type="button" data-mgd-pick="Sam">Sam&rsquo;s</button></div>
+              <ul>
+                <li><label><input type="checkbox" checked data-mgd-acc="Abbie" /><span class="mgd-who"><b>Rimberio Homes</b><small>Alex Mercer · Abbie · Instagram, Facebook, LinkedIn</small></span></label></li>
+                <li><label><input type="checkbox" checked data-mgd-acc="Sam" /><span class="mgd-who"><b>Borcelle Estates</b><small>Jordan Hale · Sam · Instagram</small></span></label></li>
+              </ul>
+            </div>
+            <div class="mgd-card">
+              <h4>Not included</h4>
+              <ul>
+                <li><span class="mgd-who"><b>Aldenaire &amp; Co</b><small>Taylor Quinn · Sam · Instagram, Facebook</small></span><span>Report not published</span></li>
+                <li><span class="mgd-who"><b>Larana &amp; Co</b><small>Morgan Ellis · Abbie · Instagram, Facebook</small></span><span>No report uploaded</span></li>
+              </ul>
+            </div>
+          </div>
+          <p class="mgd-foot">In the example, Pull monthly report opens the sample PDF of both accounts. On the real page it downloads the PDF of whichever accounts are ticked.</p>
+        </div>
+      </template>
+    </section>
+
+    <!-- ── 05 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="publish">
+      <p class="ht-num">Part 05</p>
       <h2 class="ht-h">Publishing to the client</h2>
       <p class="ht-p">Nothing you do on Insights reaches the client until you publish it. Click <b>Publish to client</b>, tick the month, and click <b>Publish</b>.</p>
       <figure class="ht-fig ht-fig--narrow"><img src={`${IMG}/publish.webp`} alt="The Publish window" loading="lazy" /><figcaption>A live month shows when it went live, and can be taken down.</figcaption></figure>
@@ -222,7 +292,7 @@ const PARTS = [
 
       <h3 class="ht-sub">Changing a month that&rsquo;s already live</h3>
       <p class="ht-p">You can keep editing a live month. Your changes stay with us until you send them, and a yellow bar says so:</p>
-      <figure class="ht-fig"><img src={`${IMG}/republish-bar.webp`} alt="Changes not published bar" loading="lazy" /></figure>
+      <figure class="ht-fig ht-fig--narrow"><img src={`${IMG}/republish-bar.webp`} alt="Changes not published bar" loading="lazy" /></figure>
       <p class="ht-p">Click <b>Republish</b> and choose:</p>
       <ul class="ht-ul">
         <li><b>Republish quietly</b>: for typos and small fixes. The client sees the new version next time they look.</li>
@@ -230,39 +300,6 @@ const PARTS = [
       </ul>
       <figure class="ht-fig ht-fig--narrow"><img src={`${IMG}/republish.webp`} alt="The Republish window" loading="lazy" /></figure>
       <p class="ht-p">Edits on the Management Summary never bring the bar up: the client doesn&rsquo;t see that tab, so there&rsquo;s nothing to send.</p>
-    </section>
-
-    <!-- ── 05 ─────────────────────────────────────────────────────────── -->
-    <section class="ht-part" id="management">
-      <p class="ht-num">Part 05</p>
-      <h2 class="ht-h">The monthly management report</h2>
-      <p class="ht-p">One A4 PDF for the month: a cover listing every account in it, and anyone missing, then a page for each account with its figures for each platform, its top five posts, and our read of the month from the Management Summary. It&rsquo;s how we see every client&rsquo;s month in one place. It&rsquo;s marked <i class="ht-ui">Internal · not for clients</i> on every page, and only Danielle, Sam and Abbie can pull it.</p>
-
-      <h3 class="ht-sub">Pulling it</h3>
-      <ol class="ht-ol">
-        <li>On <b>Social media</b>, click <b>Settings</b>, then <b>Monthly management report</b>.</li>
-        <li>Pick the <b>Month</b>. From the 20th it starts on this month; before that, last month.</li>
-        <li>Choose the accounts (below), then click <b>Pull monthly report</b>. The PDF downloads.</li>
-      </ol>
-      <div class="ht-pair ht-pair--menu">
-        <figure class="ht-fig"><img src={`${IMG}/settings-menu.webp`} alt="The Settings menu on Social media" loading="lazy" /><figcaption>Settings › Monthly management report</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/management-report.webp`} alt="The Monthly management report page" loading="lazy" /><figcaption>The accounts in, and the ones that aren&rsquo;t.</figcaption></figure>
-      </div>
-
-      <h3 class="ht-sub">Choosing the right accounts</h3>
-      <ul class="ht-ul">
-        <li><b>Accounts to include</b> lists every client whose report for the month is live. All are ticked to start with.</li>
-        <li><b>All</b> and <b>None</b> tick or clear the lot. A button with a manager&rsquo;s name (<b>Abbie&rsquo;s</b>) ticks only that manager&rsquo;s clients.</li>
-        <li><b>Not included</b> lists every active client who isn&rsquo;t in it, and why: <i class="ht-ui">No report uploaded</i>, <i class="ht-ui">Report not published</i> or <i class="ht-ui">Report has no data</i>.</li>
-      </ul>
-      <div class="ht-why">
-        <p class="ht-why-k">Why a client is missing</p>
-        <p>Only published months go in, so the report shows what clients were actually told. Borcelle Estates is missing in the example because September is still a draft: publish it and pull the report again. Our read on each page comes from the Management Summary as it is now, so a fix there shows next time you pull it.</p>
-      </div>
-      <a class="ht-file" href={`${IMG}/management-report-sample.pdf`} target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 18h4"/></svg>
-        <span><b>Sample management report</b><small>September 2026, pulled from the dummy clients. PDF</small></span>
-      </a>
     </section>
 
     <!-- ── 06 ─────────────────────────────────────────────────────────── -->
@@ -285,17 +322,25 @@ const PARTS = [
     </section>
   </div>
 
+  <!-- One picture full size (click any figure). -->
   <div class="ht-lb" id="ht-lb" hidden><img alt="" /></div>
+  <!-- The pop-out: a long picture to scroll, or the working example. -->
+  <div class="ht-sheet" id="ht-sheet" hidden>
+    <div class="ht-sheet-card" role="dialog" aria-modal="true">
+      <button type="button" class="ht-sheet-x" id="ht-sheet-x" aria-label="Close">&times;</button>
+      <div class="ht-sheet-body" id="ht-sheet-body" data-lenis-prevent></div>
+    </div>
+  </div>
 </AdminShell>
 
-<style>
-  .ht { max-width: 1040px; padding: 8px 0 80px; color: #2a1d22; }
+<style is:global>
+  .ht { padding: 8px 0 80px; color: #2a1d22; }
   .ht-head { margin-bottom: 28px; }
   .ht-back { display: inline-block; margin-bottom: 18px; font-size: 13px; font-weight: 600; color: #371e28; text-decoration: none; }
   .ht-back:hover { text-decoration: underline; text-underline-offset: 3px; }
   .ht-eyebrow, .ht-num { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7a80; margin: 0 0 8px; }
   .ht-title { font-size: clamp(32px, 4vw, 44px); line-height: 1.05; margin: 0 0 12px; color: #371e28; font-weight: 500; }
-  .ht-lede { font-size: 16px; line-height: 1.6; max-width: 75%; margin: 0; color: #4a3d42; }
+  .ht-lede { font-size: 16px; line-height: 1.6; margin: 0; color: #4a3d42; }
   .ht-glance { background: #371e28; color: #fff; border-radius: 14px; padding: 26px 28px; margin-bottom: 44px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px 36px; }
   .ht-glance-h { grid-column: 1 / -1; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 6px; color: rgba(255,255,255,0.72); font-weight: 700; }
   .ht-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14.5px; line-height: 1.5; }
@@ -307,27 +352,25 @@ const PARTS = [
   .ht-part { border-top: 1px solid #e3dcd8; padding-top: 34px; margin-top: 44px; scroll-margin-top: 80px; }
   .ht-h { font-size: 28px; margin: 0 0 16px; color: #371e28; font-weight: 500; }
   .ht-sub { font-size: 17px; margin: 30px 0 10px; color: #371e28; font-weight: 700; font-family: inherit; }
-  .ht-p, .ht-ul, .ht-ol, .ht-check { font-size: 15px; line-height: 1.65; margin: 0 0 14px; max-width: 75%; }
+  /* Text runs the full width (Dani, 20 Oct); only lists step in. */
+  .ht-p, .ht-ul, .ht-ol, .ht-check { font-size: 15px; line-height: 1.65; margin: 0 0 14px; }
   .ht-ul, .ht-ol { padding-left: 22px; }
   .ht-ul li, .ht-ol li { margin-bottom: 6px; }
   .ht-ui { font-style: normal; background: #f3eeeb; border-radius: 4px; padding: 1px 6px; font-size: 0.93em; }
   .ht code { background: #f3eeeb; border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
-  .ht-why { background: #faf7f5; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 10px; padding: 16px 20px; margin: 18px 0; max-width: 75%; font-size: 14.5px; line-height: 1.6; }
+  .ht-why { background: #faf7f5; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 10px; padding: 16px 20px; margin: 18px 0; font-size: 14.5px; line-height: 1.6; }
   .ht-why p { margin: 0 0 8px; } .ht-why p:last-child { margin-bottom: 0; }
   .ht-why ul { margin: 0 0 8px; padding-left: 20px; }
   .ht-why-k { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #371e28; }
-  .ht-draft { background: #fff6dc; border: 1px dashed #d8b84a; border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; max-width: 75%; font-size: 14px; }
-  .ht-fig { margin: 16px 0 22px; }
+  .ht-draft { background: #fff6dc; border: 1px dashed #d8b84a; border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; font-size: 14px; }
+  .ht-fig { margin: 16px 0 22px; max-width: 760px; }
   .ht-fig img { display: block; width: 100%; height: auto; border: 1px solid #e3dcd8; border-radius: 10px; cursor: zoom-in; background: #fff; }
   .ht-fig figcaption { font-size: 13px; color: #7a6b70; margin-top: 8px; }
-  .ht-fig { max-width: 760px; }
-  .ht-fig--wide { max-width: none; }
   .ht-fig--narrow { max-width: 620px; }
-  .ht-pair .ht-fig, .ht-trio .ht-fig { max-width: none; }
+  .ht-fig--menu { max-width: 260px; }
   .ht-pair, .ht-trio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
   .ht-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ht-pair--menu { grid-template-columns: minmax(0, 0.45fr) minmax(0, 1.55fr); }
-  .ht-pair .ht-fig, .ht-trio .ht-fig { margin: 8px 0 14px; }
+  .ht-pair .ht-fig, .ht-trio .ht-fig { margin: 8px 0 14px; max-width: none; }
   .ht-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 6px 0 12px; }
   .ht-card { border: 1px solid #e3dcd8; border-radius: 12px; padding: 18px; background: #fff; font-size: 14px; line-height: 1.55; display: flex; flex-direction: column; }
   .ht-card p { margin: 0 0 10px; }
@@ -336,7 +379,7 @@ const PARTS = [
   .ht-check { list-style: none; padding: 0; }
   .ht-check li { position: relative; padding-left: 28px; margin-bottom: 8px; }
   .ht-check li::before { content: ""; position: absolute; left: 2px; top: 5px; width: 14px; height: 14px; border: 1.6px solid #371e28; border-radius: 4px; }
-  .ht-table { border-collapse: collapse; width: 100%; max-width: 75%; font-size: 14px; border-top: 1px solid #371e28; border-bottom: 1px solid #371e28; }
+  .ht-table { border-collapse: collapse; width: 100%; font-size: 14px; border-top: 1px solid #371e28; border-bottom: 1px solid #371e28; }
   .ht-table th { text-align: left; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6b70; padding: 10px 12px 8px 0; border-bottom: 1px solid #e3dcd8; }
   .ht-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid #efe8e4; vertical-align: top; line-height: 1.5; }
   .ht-table tr:last-child td { border-bottom: 0; }
@@ -345,13 +388,66 @@ const PARTS = [
   .ht-file svg { width: 28px; height: 28px; flex: none; }
   .ht-file span { display: flex; flex-direction: column; }
   .ht-file small { color: #7a6b70; font-size: 12.5px; }
-  .ht-lb { position: fixed; inset: 0; z-index: 400; background: rgba(20,18,26,0.82); display: flex; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; overflow: auto; }
+
+  /* A picture worth a proper look: one row, a strip of it, the whole thing in
+     the pop-out (as the course pictures do). */
+  .ht-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; margin: 12px 0; padding: 14px 18px 14px 14px; text-align: left; cursor: pointer; font: inherit; background: #faf7f5; border: 1px solid #e3dcd8; border-radius: 12px; color: inherit; transition: border-color .2s, transform .2s; }
+  .ht-shot:hover { border-color: #371e28; transform: translateY(-2px); }
+  .ht-shot-img { display: block; width: 148px; aspect-ratio: 16 / 9; object-fit: cover; object-position: top left; border-radius: 4px; border: 1px solid #ebe3df; background: #fff; }
+  .ht-shot-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .ht-shot-t { font-size: 14.5px; font-weight: 700; color: #371e28; }
+  .ht-shot-b { font-size: 14px; line-height: 1.55; color: #4a3d42; }
+  .ht-shot-go { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #371e28; white-space: nowrap; }
+  .ht-shot + .ht-shot { margin-top: 0; }
+
+  .ht-sheet { position: fixed; top: 0; right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 400; background: rgba(20,18,26,0.6); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .ht-sheet[hidden] { display: none; }
+  .ht-sheet-card { position: relative; width: min(1180px, 100%); max-height: calc(100vh - 48px); background: #fff; border-radius: 14px; box-shadow: 0 24px 70px rgba(20,18,26,0.35); display: flex; flex-direction: column; }
+  .ht-sheet-body { overflow-y: auto; padding: 28px 32px 32px; overscroll-behavior: contain; }
+  .ht-sheet-x { position: absolute; top: 12px; right: 14px; width: 36px; height: 36px; border: 0; border-radius: 8px; background: #f3eeeb; color: #371e28; font-size: 22px; line-height: 1; cursor: pointer; z-index: 1; }
+  .ht-sheet-x:hover { background: #e9e1dd; }
+  .ht-sheet-h { font-size: 20px; font-weight: 700; color: #371e28; margin: 0 48px 16px 0; }
+  .ht-sheet-note { font-size: 13.5px; color: #7a6b70; margin: -8px 0 18px; }
+  .ht-sheet-img { display: block; width: 100%; max-width: 820px; margin: 0 auto; height: auto; border: 1px solid #e3dcd8; border-radius: 10px; }
+
+  /* The working example of the management report page. */
+  .mgd { background: #f6f3f1; border-radius: 10px; padding: 22px 24px; }
+  .mgd-sub { font-size: 13.5px; line-height: 1.6; color: #5f5257; margin: 0 0 16px; }
+  .mgd-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 18px; }
+  .mgd-f { display: flex; align-items: center; gap: 14px; margin: 0; }
+  .mgd-f span { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.55); }
+  .mgd-f select { height: 40px; padding: 0 34px 0 14px; border: 1px solid rgba(55,30,40,0.3); border-radius: 8px; background: #fff; color: #371e28; font-family: inherit; font-size: 13px; font-weight: 700; min-width: 210px; }
+  .mgd-pull { height: 40px; display: inline-flex; align-items: center; padding: 0 18px; border-radius: 8px; background: #371e28; color: #fff; font-size: 13px; font-weight: 700; text-decoration: none; }
+  .mgd-pull:hover { background: #4a2a37; }
+  .mgd-pull.is-off { opacity: 0.45; pointer-events: none; }
+  .mgd-status { font-size: 13px; color: rgba(28,29,34,0.6); }
+  .mgd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .mgd-card { border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; padding: 16px 18px; }
+  .mgd-card h4 { margin: 0 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.6); }
+  .mgd-pick { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+  .mgd-pick button { font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 99px; border: 1px solid rgba(55,30,40,0.25); background: #fff; color: #371e28; cursor: pointer; }
+  .mgd-pick button:hover { border-color: #371e28; }
+  .mgd-card ul { list-style: none; margin: 0; padding: 0; }
+  .mgd-card li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid rgba(28,29,34,0.07); font-size: 14px; }
+  .mgd-card li:first-child { border-top: 0; }
+  .mgd-card li > span:last-child { color: rgba(28,29,34,0.55); text-align: right; }
+  .mgd-card label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+  .mgd-card label input { margin-top: 3px; accent-color: #371e28; }
+  .mgd-who { display: grid; gap: 1px; }
+  .mgd-who b { font-weight: 700; color: #1c1d22; }
+  .mgd-who small { font-size: 12.5px; color: rgba(28,29,34,0.55); }
+  .mgd-foot { font-size: 13px; color: #7a6b70; margin: 16px 0 0; }
+
+  .ht-lb { position: fixed; top: 0; right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 410; background: rgba(20,18,26,0.82); display: flex; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; overflow: auto; }
   .ht-lb[hidden] { display: none; }
   .ht-lb img { max-width: min(1400px, 100%); max-height: none; border-radius: 10px; background: #fff; margin: auto; }
   @media (max-width: 900px) {
-    .ht-glance, .ht-pair, .ht-trio, .ht-cards, .ht-pair--menu { grid-template-columns: 1fr; }
+    .ht-glance, .ht-pair, .ht-trio, .ht-cards, .mgd-grid { grid-template-columns: 1fr; }
     .ht-toc { border-left: 0; padding-left: 0; border-top: 1px solid rgba(255,255,255,0.18); padding-top: 12px; }
-    .ht-lede, .ht-p, .ht-ul, .ht-ol, .ht-check, .ht-why, .ht-draft, .ht-table { max-width: none; }
+    .ht-shot { grid-template-columns: 96px minmax(0, 1fr); }
+    .ht-shot-img { width: 96px; }
+    .ht-shot-go { grid-column: 2; }
+    .ht-sheet-body { padding: 22px 18px 24px; }
   }
 </style>
 
@@ -364,5 +460,39 @@ const PARTS = [
     big.src = (img as HTMLImageElement).src; big.alt = (img as HTMLImageElement).alt; lb.hidden = false;
   }));
   lb?.addEventListener("click", () => { lb.hidden = true; });
-  addEventListener("keydown", (e) => { if (e.key === "Escape" && lb) lb.hidden = true; });
+
+  // The pop-out: a row's picture, or the working example, to scroll through.
+  const sheet = document.getElementById("ht-sheet");
+  const body = document.getElementById("ht-sheet-body");
+  const closeSheet = () => { if (sheet && body) { sheet.hidden = true; body.innerHTML = ""; document.documentElement.style.overflow = ""; } };
+  document.querySelectorAll("[data-ht-open]").forEach((b) => b.addEventListener("click", () => {
+    const tpl = document.getElementById(b.getAttribute("data-ht-open") || "") as HTMLTemplateElement | null;
+    if (!tpl || !sheet || !body) return;
+    body.innerHTML = ""; body.appendChild(tpl.content.cloneNode(true)); body.scrollTop = 0;
+    sheet.hidden = false; document.documentElement.style.overflow = "hidden";
+    wireDemo(body);
+  }));
+  document.getElementById("ht-sheet-x")?.addEventListener("click", closeSheet);
+  sheet?.addEventListener("click", (e) => { if (e.target === sheet) closeSheet(); });
+  addEventListener("keydown", (e) => { if (e.key !== "Escape") return; if (lb && !lb.hidden) lb.hidden = true; else closeSheet(); });
+
+  // The example management report: the ticks, the pick buttons and the count
+  // behave as the real page's do.
+  function wireDemo(root: HTMLElement) {
+    const d = root.querySelector("[data-mgd]"); if (!d) return;
+    const boxes = [...d.querySelectorAll<HTMLInputElement>("[data-mgd-acc]")];
+    const st = d.querySelector("[data-mgd-status]"), pull = d.querySelector("[data-mgd-pull]");
+    const count = () => {
+      const k = boxes.filter((c) => c.checked).length;
+      if (st) st.textContent = `${k} of ${boxes.length} account${boxes.length === 1 ? "" : "s"} ticked, ${k ? k + 1 : 0} pages.`;
+      pull?.classList.toggle("is-off", !k);
+    };
+    boxes.forEach((c) => c.addEventListener("change", count));
+    d.querySelectorAll<HTMLButtonElement>("[data-mgd-pick]").forEach((b) => b.addEventListener("click", () => {
+      const v = b.getAttribute("data-mgd-pick");
+      boxes.forEach((c) => { c.checked = v === "all" ? true : v === "none" ? false : c.getAttribute("data-mgd-acc") === v; });
+      count();
+    }));
+    count();
+  }
 </script>

@@ -3514,9 +3514,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           mgData = j;
           // Who's in: ticked by default, and can be narrowed, say to one
           // account manager's clients.
+          // The platforms the month covers: the report's own column always
+          // says Instagram, whatever is in it.
+          const platsLabel = (rep) => { const ps = platformsIn(rep && rep.data); return ps.length ? ps.map((p) => PLATFORM_LABELS[p] || p).join(", ") : (rep && rep.platform) || ""; };
           const who = (x, platform) => `<span class="mg-who"><b>${esc(x.business || x.name)}</b><small>${esc([x.business && x.name && x.name !== x.business ? x.name : "", x.manager, platform].filter(Boolean).join(" · "))}</small></span>`;
           const managers = [...new Set(j.accounts.map((a) => a.lead.manager).filter(Boolean))].sort();
-          prev.innerHTML = `<div class="mg-card"><h3>Accounts to include</h3>${j.accounts.length ? `<div class="mg-pick"><button type="button" data-mgpick="all">All</button><button type="button" data-mgpick="none">None</button>${managers.map((mg) => `<button type="button" data-mgpick="m:${esc(mg)}">${esc(mg)}'s</button>`).join("")}</div><ul>${j.accounts.map((a, i) => `<li><label><input type="checkbox" data-mgacc="${i}" checked>${who(a.lead, a.report.platform)}</label></li>`).join("")}</ul>` : `<p class="mg-empty">No client has a published report for ${esc(RI_MONTHS[m])} yet.</p>`}</div>`
+          prev.innerHTML = `<div class="mg-card"><h3>Accounts to include</h3>${j.accounts.length ? `<div class="mg-pick"><button type="button" data-mgpick="all">All</button><button type="button" data-mgpick="none">None</button>${managers.map((mg) => `<button type="button" data-mgpick="m:${esc(mg)}">${esc(mg)}'s</button>`).join("")}</div><ul>${j.accounts.map((a, i) => `<li><label><input type="checkbox" data-mgacc="${i}" checked>${who(a.lead, platsLabel(a.report))}</label></li>`).join("")}</ul>` : `<p class="mg-empty">No client has a published report for ${esc(RI_MONTHS[m])} yet.</p>`}</div>`
             + `<div class="mg-card"><h3>Not included</h3>${j.missing.length ? `<ul>${j.missing.map((x) => `<li>${who(x, x.platform)}<span>${esc(x.reason)}</span></li>`).join("")}</ul>` : `<p class="mg-empty">Every active client is in.</p>`}</div>`;
           const count = () => {
             const k = prev.querySelectorAll("[data-mgacc]:checked").length;
