@@ -178,6 +178,11 @@ import "../../styles/admin.css";
     .rc-card-frame iframe[hidden] { display: none; }
     .rc-card-x { z-index: 2; background: #fff; border-radius: 50%; width: 34px; height: 34px; top: 10px; right: 10px; }
     .rc-card-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); }
+    .rc-card-wait[hidden] { display: none; }   /* display:grid above beat the hidden attribute, so it stayed over the card */
+    /* The pop-outs' layer on <body>: inside the admin content they sat under
+       the sidebar and top bar (Danielle, 20 Oct 2026). The hub skin comes
+       with them for the form fields; its background doesn't. */
+    .hub-skin.rc-layer { background: none; }
     .teg-raw { font-family: ui-monospace, monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; background: #faf9f8; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; padding: 12px; margin-top: 14px; }
   </style>
 
@@ -564,6 +569,14 @@ import "../../styles/admin.css";
       drawCheck();
     });
 
+    // The pop-outs live on <body>, above the admin sidebar and top bar: in the
+    // page content they were drawn beneath both, off-centre and cut off.
+    {
+      const layer = document.createElement('div');
+      layer.className = 'hub-skin rc-layer';
+      ['rc-add', 'rc-card'].forEach((id) => { const m = document.getElementById(id); if (m) layer.appendChild(m); });
+      document.body.appendChild(layer);
+    }
     // ---- A contact card, popped out (the Contacts page's own, ?embed=1).
     const cardBox = document.getElementById('rc-card'), cardIf = document.getElementById('rc-card-if'), cardWait = document.getElementById('rc-card-wait');
     function openCard(id) {
