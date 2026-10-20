@@ -4280,6 +4280,14 @@ async function zernio(env, path, init = {}) {
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, status: res.status, data };
 }
+// The house profile: Zernio's default one, holding TMKE's own accounts. Staff
+// test against it (Dani, 20 Oct: the free plan allows two accounts, so no
+// member connects anything until they pay).
+async function zernioHouseProfile(env) {
+  const r = await zernio(env, "/profiles");
+  const list = (r.ok && r.data.profiles) || [];
+  return list.find((p) => p.isDefault) || list[0] || null;
+}
 // The member's Zernio profile, made the first time they need one.
 async function zernioProfile(env, user) {
   const ext = encodeURIComponent(user.id);
@@ -4619,6 +4627,53 @@ Return ONLY minified JSON, no markdown: {"r":[{"id":"...","level":0,"why":"..."}
 
       // ---- The Marketing Calendar in their own calendar ----------------------
       // The member's private link (made from their sign-in; reset on request).
+      // ── Scheduling test (staff only): TMKE's own accounts ────────────────
+      // Proof that posting works, without opening it to members: post to the
+      // house profile's accounts from /admin/scheduling-test.
+      if (path.endsWith("/schedule/test") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const prof = await zernioHouseProfile(env);
+        if (!prof) return json({ error: "Couldn't reach Zernio's profiles." }, 502, request, env);
+        const [acc, posts] = await Promise.all([zernio(env, `/accounts?profileId=${prof._id}`), zernio(env, `/posts?profileId=${prof._id}&limit=20`)]);
+        const accounts = ((acc.ok && acc.data.accounts) || []).map((a) => ({ id: a._id || a.id, platform: a.platform, username: a.username || "", name: a.displayName || "", picture: a.profilePicture || "" }));
+        const list = ((posts.ok && posts.data.posts) || []).map((p) => ({ id: p._id, status: p.status, content: p.content, scheduledFor: p.scheduledFor, media: ((p.mediaItems || [])[0] || {}).url || "", platforms: (p.platforms || []).map((x) => ({ platform: x.platform, status: x.status, url: x.platformPostUrl || x.url || "", error: x.errorMessage || x.error || "" })) }));
+        return json({ ok: true, profile: { id: prof._id, name: prof.name }, accounts, posts: list }, 200, request, env);
+      }
+      if (path.endsWith("/schedule/test-post") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const prof = await zernioHouseProfile(env);
+        if (!prof) return json({ error: "Couldn't reach Zernio's profiles." }, 502, request, env);
+        const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
+        const owned = (acc.ok && acc.data.accounts) || [];
+        const picked = (Array.isArray(b.accountIds) ? b.accountIds : []).map(String);
+        const targets = owned.filter((a) => picked.includes(a._id || a.id)).map((a) => ({ platform: a.platform, accountId: a._id || a.id }));
+        if (!targets.length) return json({ error: "Pick at least one account." }, 400, request, env);
+        const media = String(b.image_url || "");
+        if (!/^https:\/\//.test(media)) return json({ error: "Pick a picture." }, 400, request, env);
+        const body = { content: String(b.caption || ""), profileId: prof._id, platforms: targets, mediaItems: [{ type: /\.(mp4|mov|m4v|webm)(\?|$)/i.test(media) ? "video" : "image", url: media }] };
+        if (b.now) body.publishNow = true;
+        else {
+          const when = londonToUtcIso(String(b.date || ""), String(b.time || ""));
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.date || "")) || new Date(when).getTime() < Date.now() + 2 * 60000) return json({ error: "Pick a time at least two minutes from now." }, 400, request, env);
+          body.scheduledFor = when;
+        }
+        const r = await zernio(env, "/posts", { method: "POST", body: JSON.stringify(body) });
+        if (!r.ok) return json({ error: (r.data && (r.data.error || r.data.message)) || `Zernio didn't take it (${r.status}).`, details: r.data }, 502, request, env);
+        const post = r.data.post || r.data;
+        return json({ ok: true, post: { id: post._id, status: post.status, scheduledFor: post.scheduledFor } }, 200, request, env);
+      }
+      if (path.endsWith("/schedule/test-cancel") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!/^[0-9a-f]{24}$/.test(String(b.post_id || ""))) return json({ error: "Which post?" }, 400, request, env);
+        const r = await zernio(env, `/posts/${b.post_id}`, { method: "DELETE" });
+        return json(r.ok ? { ok: true } : { error: (r.data && r.data.error) || "Couldn't cancel it." }, r.ok ? 200 : 502, request, env);
+      }
+
       // ── Scheduling (Zernio) ──────────────────────────────────────────────
       // Where the member stands: their connected accounts.
       if (path.endsWith("/schedule/status") && request.method === "GET") {

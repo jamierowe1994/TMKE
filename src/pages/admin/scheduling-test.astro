@@ -1,0 +1,168 @@
+---
+// Post scheduling, the proof (Dani, 20 Oct 2026): staff schedule a real post
+// to TMKE's own accounts through Zernio, so we know posting works before any
+// member can connect theirs (each connected account costs us). The accounts
+// are the ones on Zernio's default profile, connected in Zernio's dashboard;
+// the free plan allows two. Nothing here is visible to members.
+import AdminShell from "../../components/admin/AdminShell.astro";
+---
+
+<AdminShell active="social" title="Post scheduling test" skin="hub">
+  <div class="st">
+    <a class="st-back" href="/admin/social">&larr; Social media</a>
+    <p class="st-eyebrow">Staff only</p>
+    <h1 class="st-title">Post scheduling test</h1>
+    <p class="st-lede">Schedule a real post to TMKE&rsquo;s own accounts through Zernio, to check posting works before members get it. Members can&rsquo;t see this page or connect anything yet.</p>
+
+    <h2 class="st-sub">Connected accounts</h2>
+    <div class="st-card" id="st-accounts"><p class="st-muted">Loading&hellip;</p></div>
+    <p class="st-note">Accounts are connected in Zernio&rsquo;s own dashboard (zernio.com), on the Default profile. The free plan covers two; a third is charged.</p>
+
+    <h2 class="st-sub">Schedule a test post</h2>
+    <div class="st-card">
+      <p class="st-label">Picture</p>
+      <div class="st-pics" id="st-pics"></div>
+      <label class="st-field"><span>Or a picture&rsquo;s web address</span><input type="url" id="st-url" placeholder="https://…"></label>
+      <label class="st-field"><span>Caption</span><textarea id="st-caption" rows="4">Testing our new scheduling from the TMKE Member Hub.</textarea></label>
+      <div class="st-row">
+        <label class="st-field"><span>Date</span><input type="date" id="st-date"></label>
+        <label class="st-field"><span>Time (UK)</span><input type="time" id="st-time"></label>
+      </div>
+      <p class="st-label">Post to</p>
+      <div class="st-to" id="st-to"><p class="st-muted">Connect an account first.</p></div>
+      <div class="st-acts">
+        <button type="button" class="st-btn" id="st-schedule">Schedule it</button>
+        <button type="button" class="st-btn st-btn--ghost" id="st-now">Post now</button>
+        <span class="st-status" id="st-status"></span>
+      </div>
+    </div>
+
+    <h2 class="st-sub">Scheduled and recent posts</h2>
+    <div class="st-card" id="st-posts"><p class="st-muted">Loading&hellip;</p></div>
+  </div>
+</AdminShell>
+
+<style is:global>
+  .st { padding: 8px 0 80px; color: #2a1d22; max-width: 960px; }
+  .st-back { display: inline-block; margin-bottom: 18px; font-size: 13px; font-weight: 600; color: #371e28; text-decoration: none; }
+  .st-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7a80; margin: 0 0 4px; }
+  .st-title { font-size: clamp(32px, 4vw, 44px); line-height: 1.05; margin: 0 0 12px; color: #371e28; font-weight: 500; }
+  .st-lede { font-size: 15px; line-height: 1.65; margin: 0 0 8px; color: #4a3d42; }
+  .st-sub { margin: 40px 0 18px; padding: 11px 18px; background: var(--english-violet, #371e28); border-radius: 4px; color: #fff; font-family: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; line-height: 1.4; }
+  .st-card { background: #fff; border: 1px solid #e3dcd8; border-radius: 4px; padding: 18px 20px; }
+  .st-muted { margin: 0; color: #8a7a80; font-size: 14px; }
+  .st-note { font-size: 13px; color: #7a6b70; margin: 10px 0 0; }
+  .st-acc { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #efe8e4; }
+  .st-acc:first-child { border-top: 0; }
+  .st-acc img, .st-acc .ph { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: #f3eeeb; flex: none; }
+  .st-acc b { color: #371e28; }
+  .st-acc small { color: #7a6b70; display: block; }
+  .st-label { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6b70; margin: 0 0 8px; }
+  .st-pics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .st-pic { border: 2px solid transparent; border-radius: 4px; padding: 0; background: none; cursor: pointer; aspect-ratio: 3 / 4; overflow: hidden; }
+  .st-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .st-pic.on { border-color: #371e28; }
+  .st .st-field { display: flex !important; flex-direction: column !important; align-items: stretch !important; gap: 6px; margin: 0 0 14px; font-size: 13px; color: #4a3d42; flex: 1; }
+  .st-field span { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6b70; }
+  .st .st-field input, .st .st-field textarea { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 10px 12px; border: 1px solid #ddd3cf; border-radius: 4px; background: #fff; color: #2a1d22; }
+  .st-row { display: flex; gap: 14px; }
+  .st-to { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .st-to label { display: inline-flex; align-items: center; gap: 8px; border: 1px solid #e3dcd8; border-radius: 4px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+  .st-to input { accent-color: #371e28; }
+  .st-acts { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .st-btn { border: 1px solid #371e28; background: #371e28; color: #fff; border-radius: 4px; padding: 10px 16px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .st-btn:hover { background: #4a2a37; }
+  .st-btn--ghost { background: #fff; color: #371e28; }
+  .st-btn--ghost:hover { background: #f3eeeb; }
+  .st-btn[disabled] { opacity: .5; cursor: default; }
+  .st-status { font-size: 14px; color: #4a3d42; }
+  .st-status.err { color: #a33a2a; }
+  .st-post { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px 0; border-top: 1px solid #efe8e4; }
+  .st-post:first-child { border-top: 0; }
+  .st-post img { width: 54px; height: 72px; object-fit: cover; border-radius: 3px; background: #f3eeeb; }
+  .st-post b { color: #371e28; }
+  .st-post p { margin: 2px 0 0; font-size: 13px; color: #4a3d42; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .st-pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: #f3eeeb; color: #371e28; margin-right: 6px; }
+  .st-pill.scheduled { background: #f9eeda; color: #8a5a10; }
+  .st-pill.published { background: #e5f4e4; color: #2d6a2a; }
+  .st-pill.failed { background: #fbebeb; color: #a33a2a; }
+  .st-err { color: #a33a2a; font-size: 12px; }
+  @media (max-width: 700px) { .st-pics { grid-template-columns: repeat(3, minmax(0, 1fr)); } .st-row { flex-direction: column; gap: 0; } }
+</style>
+
+<script>
+  import { supabase } from "../../lib/supabase.js";
+  const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const token = async () => (await supabase.auth.getSession()).data.session?.access_token || "";
+  async function call(path, body) {
+    const res = await fetch(`${WORKER}${path}`, { method: body ? "POST" : "GET", headers: { Authorization: "Bearer " + (await token()), "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error || `Something went wrong (${res.status}).`);
+    return j;
+  }
+
+  // Pictures to test with: real templates from the Studio's packs (3:4).
+  const PICS = [
+    "https://tqqezhvjakohraiverei.supabase.co/storage/v1/object/public/calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/dc8rpu-43pz.jpg",
+    "https://tqqezhvjakohraiverei.supabase.co/storage/v1/object/public/calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/34ui8x-6w3b.jpg",
+    "https://tqqezhvjakohraiverei.supabase.co/storage/v1/object/public/calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/xmpbtj-a9jj.jpg",
+    "https://tqqezhvjakohraiverei.supabase.co/storage/v1/object/public/calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/ihoqwn-44hf.jpg",
+    "https://tqqezhvjakohraiverei.supabase.co/storage/v1/object/public/calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/8kkm2g-9jf3.jpg",
+    "https://tqqezhvjakohraiverei.supabase.co/storage/v1/object/public/calendar-assets/d1fb7525-4f2b-4ac4-86f8-47a03704dd38/templates/5te87a-5s5f.jpg",
+  ];
+  let pic = PICS[0];
+  $("st-pics").innerHTML = PICS.map((u, i) => `<button type="button" class="st-pic${i ? "" : " on"}" data-u="${u}"><img src="${u}" alt=""></button>`).join("");
+  $("st-pics").addEventListener("click", (e) => {
+    const b = (e.target as HTMLElement).closest(".st-pic") as HTMLElement | null; if (!b) return;
+    pic = b.dataset.u || ""; ($("st-url") as HTMLInputElement).value = "";
+    document.querySelectorAll(".st-pic").forEach((x) => x.classList.toggle("on", x === b));
+  });
+  // A quarter of an hour from now, UK time.
+  const soon = new Date(Date.now() + 15 * 60000);
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(soon).map((x) => [x.type, x.value]));
+  ($("st-date") as HTMLInputElement).value = `${p.year}-${p.month}-${p.day}`;
+  ($("st-time") as HTMLInputElement).value = `${p.hour}:${p.minute}`;
+
+  const fmt = (iso) => iso ? new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" }) : "";
+  async function load() {
+    try {
+      const j = await call("/schedule/test");
+      $("st-accounts").innerHTML = j.accounts.length
+        ? j.accounts.map((a) => `<div class="st-acc">${a.picture ? `<img src="${esc(a.picture)}" alt="">` : '<span class="ph"></span>'}<span><b>${esc(a.name || a.username)}</b><small>${esc(a.platform)} · @${esc(a.username)}</small></span></div>`).join("")
+        : '<p class="st-muted">Nothing connected yet.</p>';
+      $("st-to").innerHTML = j.accounts.length
+        ? j.accounts.map((a) => `<label><input type="checkbox" value="${esc(a.id)}" checked> ${esc(a.platform)} · @${esc(a.username)}</label>`).join("")
+        : '<p class="st-muted">Connect an account first.</p>';
+      $("st-posts").innerHTML = j.posts.length
+        ? j.posts.map((x) => `<div class="st-post"><img src="${esc(x.media)}" alt=""><div><span class="st-pill ${esc(x.status)}">${esc(x.status)}</span><b>${esc(fmt(x.scheduledFor))}</b><p>${esc(x.content)}</p>${x.platforms.map((pl) => `<p>${esc(pl.platform)}: ${esc(pl.status || "")}${pl.url ? ` · <a href="${esc(pl.url)}" target="_blank" rel="noopener">see it</a>` : ""}${pl.error ? ` <span class="st-err">${esc(pl.error)}</span>` : ""}</p>`).join("")}</div>${x.status === "scheduled" ? `<button type="button" class="st-btn st-btn--ghost" data-cancel="${esc(x.id)}">Cancel</button>` : "<span></span>"}</div>`).join("")
+        : '<p class="st-muted">No posts yet.</p>';
+    } catch (e) {
+      $("st-accounts").innerHTML = `<p class="st-muted">${esc((e as Error).message)}</p>`;
+      $("st-posts").innerHTML = "";
+    }
+  }
+  async function send(now) {
+    const st = $("st-status");
+    const accountIds = [...document.querySelectorAll("#st-to input:checked")].map((i) => (i as HTMLInputElement).value);
+    const url = ($("st-url") as HTMLInputElement).value.trim() || pic;
+    if (now && !confirm("This posts to TMKE's real account straight away. Post it now?")) return;
+    st.className = "st-status"; st.textContent = now ? "Posting…" : "Scheduling…";
+    ($("st-schedule") as HTMLButtonElement).disabled = ($("st-now") as HTMLButtonElement).disabled = true;
+    try {
+      const j = await call("/schedule/test-post", { image_url: url, caption: ($("st-caption") as HTMLTextAreaElement).value, date: ($("st-date") as HTMLInputElement).value, time: ($("st-time") as HTMLInputElement).value, accountIds, now });
+      st.textContent = now ? "Sent to Zernio: it'll appear on the account in a minute or two." : `Scheduled for ${fmt(j.post.scheduledFor)}.`;
+      load();
+    } catch (e) { st.className = "st-status err"; st.textContent = (e as Error).message; }
+    finally { ($("st-schedule") as HTMLButtonElement).disabled = ($("st-now") as HTMLButtonElement).disabled = false; }
+  }
+  $("st-schedule").addEventListener("click", () => send(false));
+  $("st-now").addEventListener("click", () => send(true));
+  $("st-posts").addEventListener("click", async (e) => {
+    const b = (e.target as HTMLElement).closest("[data-cancel]") as HTMLElement | null; if (!b) return;
+    if (!confirm("Cancel this scheduled post?")) return;
+    try { await call("/schedule/test-cancel", { post_id: b.dataset.cancel }); load(); } catch (err) { alert((err as Error).message); }
+  });
+  load();
+</script>
