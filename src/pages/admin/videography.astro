@@ -165,7 +165,7 @@ import "../../styles/admin.css";
     <div class="vid-panel-head">
       <div>
         <h2 class="vid-panel-title">Pricing &amp; travel settings</h2>
-        <p class="vid-panel-sub">Jack's base postcode and the travel surcharge that drives the booking quotes.</p>
+        <p class="vid-panel-sub">Jack's base details: his postcode and the travel surcharge that drive the booking quotes, and his hourly rate for pricing ad hoc work.</p>
       </div>
     </div>
     <div class="vid-conn-note">
@@ -174,9 +174,13 @@ import "../../styles/admin.css";
       radius carry no surcharge, and every mile beyond it is charged at the rate below.
     </div>
     <div class="vid-settings">
-      <div class="vid-field">
-        <label>Jack's base postcode</label>
-        <input type="text" id="vid-set-postcode" placeholder="NN14 1AA" />
+      <div class="vid-field-row">
+        <div class="vid-field">
+          <label>Jack's base postcode</label>
+          <input type="text" id="vid-set-postcode" placeholder="NN14 1AA" />
+        </div>
+        <!-- Reference only, for pricing ad hoc work (Danielle, 20 Oct 2026). -->
+        <div class="vid-field"><label>Jack's hourly rate (£)</label><input type="number" id="vid-set-hourly" min="0" step="0.01" /></div>
       </div>
       <div class="vid-field-row">
         <div class="vid-field"><label>Free radius (miles)</label><input type="number" id="vid-set-radius" min="0" /></div>
@@ -4966,6 +4970,7 @@ import "../../styles/admin.css";
       set("vid-set-radius", vidSettings.free_radius_miles ?? 40);
       set("vid-set-rate", vidSettings.surcharge_pence_per_mile ?? 55);
       set("vid-set-vat", Math.round((vidSettings.vat_rate ?? 0.2) * 100));
+      set("vid-set-hourly", vidSettings.hourly_rate_pence != null ? (vidSettings.hourly_rate_pence / 100).toFixed(2).replace(/\.00$/, "") : "");
       document.getElementById("vid-set-save")?.addEventListener("click", saveSettings);
       renderRateCard();   // again, now the travel column can show the saved figures
     }
@@ -4977,6 +4982,7 @@ import "../../styles/admin.css";
         free_radius_miles: Math.round(num("vid-set-radius", 40)),
         surcharge_pence_per_mile: Math.round(num("vid-set-rate", 55)),
         vat_rate: num("vid-set-vat", 20) / 100,
+        hourly_rate_pence: (() => { const v = parseFloat(document.getElementById("vid-set-hourly")?.value); return isNaN(v) ? null : Math.round(v * 100); })(),
         updated_at: new Date().toISOString(),
       };
       const status = document.getElementById("vid-set-status");
@@ -4984,7 +4990,7 @@ import "../../styles/admin.css";
       if (btn) { btn.disabled = true; btn.textContent = "Saving…"; }
       const { error } = await supabase.from("videography_settings").upsert(payload, { onConflict: "id" });
       if (btn) { btn.disabled = false; btn.textContent = "Save settings"; }
-      if (error) { if (status) { status.style.color = "#a05a3c"; status.textContent = "Couldn't save: " + error.message + " — run supabase/videography_booking_flow.sql?"; } return; }
+      if (error) { if (status) { status.style.color = "#a05a3c"; status.textContent = "Couldn't save: " + error.message + (/hourly_rate/.test(error.message) ? " — run supabase/videography_hourly_rate.sql" : " — run supabase/videography_booking_flow.sql?"); } return; }
       vidSettings = { ...vidSettings, ...payload };
       baseCoords = null; // re-geocode on next distance lookup
       if (status) { status.style.color = "#2c7a4b"; status.textContent = "Saved ✓"; setTimeout(() => (status.textContent = ""), 2200); }
