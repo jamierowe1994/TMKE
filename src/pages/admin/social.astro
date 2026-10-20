@@ -455,16 +455,19 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     /* File layout */
     .smm-file-grid { display: grid; grid-template-columns: 320px 1fr; gap: 34px; }
     @media (max-width: 860px) { .smm-file-grid { grid-template-columns: 1fr; } }
-    .smm-sec { border-top: 1px solid rgba(28,29,34,0.09); padding: 18px 0; }
-    .smm-sec:first-child { border-top: 0; padding-top: 0; }
+    /* Each section under a wine bar, the height of the tabs opposite, and
+       the same gap between every section (Danielle, 20 Oct 2026). */
+    .smm-sec { padding: 0; }
+    .smm-sec + .smm-sec { margin-top: 18px; }
     /* Paperwork and Social channels fold away once they're a client
        (Danielle, 20 Oct 2026). */
-    .smm-fold > summary { cursor: pointer; list-style: none; justify-content: flex-start; }
+    .smm-fold > summary { cursor: pointer; list-style: none; }
     .smm-fold > summary::-webkit-details-marker { display: none; }
     .smm-fold > summary svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; transition: transform .18s; }
     .smm-fold[open] > summary svg { transform: rotate(180deg); }
     .smm-fold:not([open]) > summary { margin-bottom: 0; }
-    .smm-sec-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .smm-sec-h { box-sizing: border-box; min-height: 35px; padding: 0 14px; border-radius: 9px; background: var(--english-violet, #371e28); font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #fff; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .smm-fold > summary.smm-sec-h { justify-content: space-between; }
 
     /* Contact details card */
     .smm-cd-card { border: 1px solid rgba(28,29,34,0.1); border-radius: 12px; padding: 6px 16px; }
@@ -482,8 +485,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-cd-input::placeholder { color: rgba(28,29,34,0.3); font-weight: 500; }
     /* CRM link row under the contact details. */
     .smm-crm-row { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .smm-acct { display: grid; gap: 8px; margin: 12px 0 0; }
-    .smm-acct-l1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .smm-acct { display: grid; gap: 6px; padding: 12px 0 8px; }   /* the last contact row's rule sits above it */
+    .smm-acct-l1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .smm-cd-card .smm-more { padding-bottom: 8px; }
     .smm-acct-l2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     .smm-acct-l2 .smm-more-toggle { margin-top: 0; }
     .smm-hubbox { display: inline-flex; align-items: center; gap: 8px; height: 30px; box-sizing: border-box; padding: 0 12px; border: 1px solid rgba(28,29,34,0.14); border-radius: 7px; font-family: var(--sans); font-size: 12.5px; color: rgba(28,29,34,0.55); }
@@ -541,6 +545,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-eng-row input, .smm-eng-row textarea, .smm-eng-row select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.14); border-radius: 8px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; resize: vertical; }
     .smm-eng-row input:focus, .smm-eng-row textarea:focus, .smm-eng-row select:focus { outline: none; border-color: var(--english-violet); }
     .smm-eng-status { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 8px 0 0; min-height: 14px; }
+    /* Save notes take no room until there's something to say: the empty
+       ones left a tall gap under TikTok and the platforms. */
+    .smm-eng-status:empty, .smm-cd-status:empty { display: none; }
     .smm-platforms { margin-top: 12px; }
     .smm-plat-label { display: block; font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.45); margin-bottom: 8px; }
     .smm-plat-grid { display: flex; flex-wrap: wrap; gap: 6px 14px; }
@@ -1243,12 +1250,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
                 ${cdEdit(EMAIL_SVG, "Email", "email", r.email)}
                 ${cdEdit(PHONE_SVG, "Phone", "phone", r.phone)}
                 ${cdEdit(BIZ_SVG, "Business", "business", r.business)}
-              </div>
-              <p class="smm-cd-status" id="smm-cd-status"></p>
               <!-- A social client added here doesn't land in the CRM on its own -
-                   only website enquiries do that. This closes the gap. -->
-              <!-- Two lines (Danielle, 20 Oct 2026): the contact card and the
-                   member hub box, then Unlink and See more info. -->
+                   only website enquiries do that. This closes the gap.
+                   Inside the card, two lines (Danielle, 20 Oct 2026): the
+                   contact card and the member hub box, then Unlink and See
+                   more info. -->
               <div class="smm-acct">
                 <div class="smm-acct-l1">
                   <span class="smm-crm-row" id="smm-crm-row"></span>
@@ -1268,6 +1274,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
                 <div class="smm-field"><span class="smm-field-k">Marketing</span><span class="smm-field-v">${r.marketing_opt_in ? "Opted in" : "Not opted in"}</span></div>
                 <div class="smm-field"><span class="smm-field-k">Account</span><span class="smm-field-v">${esc(acct)}</span></div>
               </div>
+              </div>
+              <p class="smm-cd-status" id="smm-cd-status"></p>
             </div>
             ${showProp ? `<details class="smm-sec smm-fold"${isActive ? "" : " open"}>
               <summary class="smm-sec-h">Paperwork ${CHEV_SVG}</summary>
