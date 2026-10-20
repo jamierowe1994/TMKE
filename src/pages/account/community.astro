@@ -656,12 +656,14 @@ const CATEGORIES = ["Studio", "Packs & templates", "Marketing Planner", "Trainin
     // only staff and previewers are handed it, and they see the next one
     // marked as a preview, so the format can be checked before members do.
     const isLive = (p) => !p.publish_at || new Date(p.publish_at) <= new Date();
-    const introTopic = () => S.topics.find((p) => p.pinned && !p.hidden) || null;
+    // The training account reads through Dani's admin login, but shows what a
+    // member sees (Dani, 20 Oct): no previews of discussions still to go live.
+    const introTopic = () => S.topics.find((p) => p.pinned && !p.hidden && (!S.training || isLive(p))) || null;
     function currentTopic() {
       const t = todayISO();
       const dated = S.topics.filter((p) => !p.pinned && !p.hidden && p.starts_on);
       return dated.find((p) => isLive(p) && p.starts_on <= t && (!p.ends_on || p.ends_on >= t))
-        || [...dated].filter((p) => !isLive(p) || p.starts_on > t).sort((a, b) => a.starts_on.localeCompare(b.starts_on))[0]
+        || (S.training ? null : [...dated].filter((p) => !isLive(p) || p.starts_on > t).sort((a, b) => a.starts_on.localeCompare(b.starts_on))[0])
         || null;
     }
     // "Mon 19 Oct, 8am", in UK time.
@@ -1045,7 +1047,7 @@ const CATEGORIES = ["Studio", "Packs & templates", "Marketing Planner", "Trainin
       if (!session && isTrainingDemo()) {
         const a = await account();
         const s2 = a && !a.blocked && a.db ? (await a.db.auth.getSession()).data.session : null;
-        if (s2) { db = a.db; session = s2; training = true; }
+        if (s2) { db = a.db; session = s2; training = true; S.training = true; }
         else {
           document.querySelectorAll("[data-cm-topic], [data-cm-talk], [data-cm-reqs]").forEach((el) => { el.innerHTML = `<div class="cm-none"><p class="cm-none-h">Training account</p><p class="cm-none-p">${(a && a.reason) || TRAINING_SIGN_IN}</p></div>`; });
           ["hero", "topic", "talk", "requests"].forEach((n) => gateReady(n, document.querySelector(`[data-gate="${n}"]`)));
