@@ -18,13 +18,24 @@ import AdminShell from "../../../components/admin/AdminShell.astro";
 const IMG = "/images/admin/how-to/reporting";
 const PDF = `${IMG}/management-report-sample-v2.pdf`;
 const CLIENT_PDF = `${IMG}/client-report-sample.pdf`;
+// The six parts, named as the contents boxes name them (Dani, 20 Oct).
 const PARTS = [
-  ["in", "Getting the report in"],
-  ["what", "What it pulls through"],
-  ["commentary", "The client commentary"],
+  ["in", "Pulling the report"],
+  ["what", "Report contents"],
+  ["commentary", "Client commentary"],
   ["publish", "Publishing the report"],
-  ["management", "The monthly management report"],
-  ["client", "What the client sees"],
+  ["management", "Monthly management report"],
+  ["client", "Client view"],
+];
+// The process, start to finish, as one row.
+const STEPS = [
+  ["Pull the report", "Run the client&rsquo;s SocialPilot report as soon as the month ends."],
+  ["Upload it", "On the client&rsquo;s file: Insights › Upload report."],
+  ["Check the figures", "Against the PDF, then save."],
+  ["Management Summary", "Check our own read of the month."],
+  ["Client commentary", "Read and rewrite it: it&rsquo;s a first draft."],
+  ["Publish", "To the client, and into the management report."],
+  ["Management report", "Once every client is live, pull it."],
 ];
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 // A row with a strip of the picture; the whole picture opens in the pop-out.
@@ -44,33 +55,34 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
       <p class="ht-lede">How a client&rsquo;s month gets from SocialPilot into their hub, what you check on the way, and how the month&rsquo;s reports become the management report. For the TMKE team only: clients never see this page.</p>
     </header>
 
-    <!-- Two strips, the month and the contents, each in the house bar; what's
-         under them sits on the page (Dani, 20 Oct). -->
-    <section class="ht-glance">
-      <div class="ht-glance-col">
-      <h2 class="ht-sub">The month at a glance</h2>
-      <ol class="ht-steps">
-        <li><b>As soon as the month ends,</b> run each client&rsquo;s SocialPilot report and download it as a PDF.</li>
-        <li><b>Upload it</b> on the client&rsquo;s file: Social media › the client › Insights › Upload report.</li>
-        <li><b>Check the figures</b> it read against the PDF, then save.</li>
-        <li><b>Check the Management Summary,</b> our own read of the month.</li>
-        <li><b>Read and rewrite the Client commentary.</b> It&rsquo;s a first draft, never the finished words.</li>
-        <li><b>Publish to client.</b></li>
-        <li><b>Once every client is live,</b> pull the monthly management report.</li>
+    <!-- The process as a flow, then the six parts as boxes to jump to, in one
+         white box (Dani, 20 Oct). -->
+    <section class="ht-top" aria-label="The process and contents">
+      <h2 class="ht-sub">The process</h2>
+      <ol class="ht-flow">
+        {STEPS.map(([t, b], i) => (
+          <li class="ht-flow-step">
+            <span class="ht-flow-n">{i + 1}</span>
+            <span class="ht-flow-t" set:html={t} />
+            <span class="ht-flow-b" set:html={b} />
+          </li>
+        ))}
       </ol>
-      </div>
-      <div class="ht-glance-col">
       <h2 class="ht-sub">Contents</h2>
-      <nav class="ht-toc" aria-label="Parts">
-        {PARTS.map(([id, label], i) => <a href={`#${id}`}><span>{String(i + 1).padStart(2, "0")}</span>{label}</a>)}
+      <nav class="ht-parts" aria-label="Parts">
+        {PARTS.map(([id, label], i) => (
+          <a class="ht-part-box" href={`#${id}`}>
+            <span class="ht-part-box-n">Part {String(i + 1).padStart(2, "0")}</span>
+            <span class="ht-part-box-t">{label}</span>
+          </a>
+        ))}
       </nav>
-      </div>
     </section>
 
     <!-- ── 01 ─────────────────────────────────────────────────────────── -->
     <section class="ht-part" id="in">
       <p class="ht-num">Part 01</p>
-      <h2 class="ht-h">Getting the report in</h2>
+      <h2 class="ht-h">Pulling the report</h2>
 
       <h3 class="ht-sub">From SocialPilot</h3>
       <p class="ht-p">Run the client&rsquo;s report in SocialPilot for the month just gone and download it as a PDF.</p>
@@ -128,7 +140,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
     <!-- ── 02 ─────────────────────────────────────────────────────────── -->
     <section class="ht-part" id="what">
       <p class="ht-num">Part 02</p>
-      <h2 class="ht-h">What it pulls through</h2>
+      <h2 class="ht-h">Report contents</h2>
       <p class="ht-p">Once saved, the month appears as a pill above the tabs. A dot on a pill means the client can see that month. Hover over one to see where it stands: <i class="ht-ui">Draft: the client can&rsquo;t see this yet</i>, <i class="ht-ui">Live in the client&rsquo;s hub</i>, or <i class="ht-ui">Live, with changes the client can&rsquo;t see yet</i>.</p>
       <p class="ht-p"><b>Overview</b>, <b>Content</b>, <b>Audience</b> and <b>Trends</b> are our working figures, straight from SocialPilot. The client doesn&rsquo;t see these tabs; their report is built from them.</p>
 
@@ -156,7 +168,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
     <!-- ── 03 ─────────────────────────────────────────────────────────── -->
     <section class="ht-part" id="commentary">
       <p class="ht-num">Part 03</p>
-      <h2 class="ht-h">The client commentary</h2>
+      <h2 class="ht-h">Client commentary</h2>
       <p class="ht-p">The <b>Client commentary</b> tab is what the client reads: the words in their report, in our voice, about their business. It&rsquo;s drafted for you when you save the report. Your job is to read every word and make it right.</p>
       <div class="ht-why">
         <p class="ht-why-k">Why it always needs you</p>
@@ -256,7 +268,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
     <!-- ── 05 ─────────────────────────────────────────────────────────── -->
     <section class="ht-part" id="management">
       <p class="ht-num">Part 05</p>
-      <h2 class="ht-h">The monthly management report</h2>
+      <h2 class="ht-h">Monthly management report</h2>
       <p class="ht-p">One A4 PDF for the month: a cover listing every account in it, and anyone missing, then a page for each account with its figures for each platform, its top five posts, and our read of the month from the Management Summary. It&rsquo;s how we see every client&rsquo;s month in one place. It&rsquo;s marked <i class="ht-ui">Internal · not for clients</i> on every page, and only Danielle, Sam and Abbie can pull it.</p>
 
       <h3 class="ht-sub">Pulling it</h3>
@@ -323,7 +335,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
     <!-- ── 06 ─────────────────────────────────────────────────────────── -->
     <section class="ht-part" id="client">
       <p class="ht-num">Part 06</p>
-      <h2 class="ht-h">What the client sees</h2>
+      <h2 class="ht-h">Client view</h2>
       <p class="ht-p">Clients find their reports on <b>Your SMM</b> in their hub. It opens on their plan, then the latest report as a cover: its first line is the first insight from the Client commentary, with their followers, reach and interactions added up across every platform. Under it, every month they have.</p>
       <Fragment set:html={shot("ht-socials", "Your SMM: Rimberio Homes", "Their plan, then the latest report and every month before it.", "client-your-socials.webp", "The client's Your SMM page")} />
 
@@ -366,14 +378,23 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-title, .ht-h { font-size: clamp(32px, 4vw, 44px); line-height: 1.05; margin: 0 0 12px; color: #371e28; font-weight: 500; }
   .ht-h { margin-bottom: 24px; }
   .ht-lede { font-size: 15px; line-height: 1.65; margin: 0; color: #4a3d42; }
-  .ht-glance { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 28px; align-items: start; }
-  .ht-glance .ht-sub { margin-top: 0; }
-  .ht-steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
-  .ht-steps b { color: #371e28; }
-  .ht-toc { display: grid; align-content: start; gap: 0; }
-  .ht-toc a { color: #371e28; text-decoration: none; font-size: 15px; padding: 5px 0; display: flex; gap: 12px; line-height: 1.5; }
-  .ht-toc a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .ht-toc span { color: #8a7a80; font-variant-numeric: tabular-nums; min-width: 22px; flex: none; }
+  .ht-top { background: #fff; border: 1px solid #e3dcd8; border-radius: 4px; padding: 24px 24px 26px; }
+  .ht-top .ht-sub:first-child { margin-top: 0; }
+  .ht-top .ht-sub { margin-top: 30px; }
+  /* The process: seven steps along one line. */
+  .ht-flow { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0 14px; counter-reset: none; }
+  .ht-flow-step { position: relative; display: flex; flex-direction: column; gap: 4px; padding-top: 44px; }
+  .ht-flow-step::before { content: ""; position: absolute; top: 15px; left: 34px; right: -14px; height: 1px; background: #d9cfca; }
+  .ht-flow-step:last-child::before { display: none; }
+  .ht-flow-n { position: absolute; top: 0; left: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--english-violet, #371e28); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .ht-flow-t { font-size: 15px; font-weight: 700; color: #371e28; line-height: 1.3; }
+  .ht-flow-b { font-size: 13px; line-height: 1.5; color: #5f5257; }
+  /* The contents: six boxes, evenly split. */
+  .ht-parts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .ht-part-box { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; border: 1px solid #e3dcd8; border-radius: 4px; background: #faf7f5; text-decoration: none; transition: border-color .2s, transform .2s; }
+  .ht-part-box:hover { border-color: #371e28; transform: translateY(-2px); }
+  .ht-part-box-n { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7a80; }
+  .ht-part-box-t { font-size: 15px; font-weight: 700; color: #371e28; line-height: 1.3; }
   .ht-part { border-top: 1px solid #e3dcd8; padding-top: 40px; margin-top: 56px; scroll-margin-top: 80px; }
   /* Subheadings: the house section strip, exactly (ws-system.css
      .ws-block-head / .ws-block-h, "the same device the admin centre and the
@@ -481,8 +502,11 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-lb[hidden] { display: none; }
   .ht-lb img { max-width: min(1400px, 100%); max-height: none; border-radius: 10px; background: #fff; margin: auto; }
   @media (max-width: 900px) {
-    .ht-glance, .ht-pair, .ht-trio, .ht-cards, .mgd-grid { grid-template-columns: 1fr; }
-    .ht-glance-col + .ht-glance-col { margin-top: 28px; }
+    .ht-pair, .ht-trio, .ht-cards, .mgd-grid { grid-template-columns: 1fr; }
+    .ht-flow { grid-template-columns: 1fr; gap: 14px; }
+    .ht-flow-step { padding: 4px 0 0 44px; }
+    .ht-flow-step::before { display: none; }
+    .ht-parts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ht-shot { grid-template-columns: 96px minmax(0, 1fr); }
     .ht-shot-img { width: 96px; }
     .ht-shot-go { grid-column: 2; }
