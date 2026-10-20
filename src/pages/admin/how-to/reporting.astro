@@ -44,8 +44,11 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
       <p class="ht-lede">How a client&rsquo;s month gets from SocialPilot into their hub, what you check on the way, and how the month&rsquo;s reports become the management report. For the TMKE team only: clients never see this page.</p>
     </header>
 
-    <section class="ht-glance" aria-labelledby="ht-glance-h">
-      <h2 id="ht-glance-h" class="ht-glance-h">The month at a glance</h2>
+    <!-- Two strips, the month and the contents, each in the house bar; what's
+         under them sits on the page (Dani, 20 Oct). -->
+    <section class="ht-glance">
+      <div class="ht-glance-col">
+      <h2 class="ht-sub">The month at a glance</h2>
       <ol class="ht-steps">
         <li><b>As soon as the month ends,</b> run each client&rsquo;s SocialPilot report and download it as a PDF.</li>
         <li><b>Upload it</b> on the client&rsquo;s file: Social media › the client › Insights › Upload report.</li>
@@ -55,9 +58,13 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
         <li><b>Publish to client.</b></li>
         <li><b>Once every client is live,</b> pull the monthly management report.</li>
       </ol>
+      </div>
+      <div class="ht-glance-col">
+      <h2 class="ht-sub">Contents</h2>
       <nav class="ht-toc" aria-label="Parts">
         {PARTS.map(([id, label], i) => <a href={`#${id}`}><span>{String(i + 1).padStart(2, "0")}</span>{label}</a>)}
       </nav>
+      </div>
     </section>
 
     <!-- ── 01 ─────────────────────────────────────────────────────────── -->
@@ -349,7 +356,8 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
 
 <style is:global>
   /* One rhythm for the whole page (Dani, 20 Oct): body text 15px, small
-     notes 13px, and 18px between blocks. */
+     notes 13px, and 18px between blocks. Boxes have the bars' 4px corners;
+     screenshots keep their own. */
   .ht { --ht-gap: 18px; padding: 8px 0 80px; color: #2a1d22; }
   .ht-head { margin-bottom: 32px; }
   .ht-back { display: inline-block; margin-bottom: 18px; font-size: 13px; font-weight: 600; color: #371e28; text-decoration: none; }
@@ -359,14 +367,14 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-title, .ht-h { font-size: clamp(32px, 4vw, 44px); line-height: 1.05; margin: 0 0 12px; color: #371e28; font-weight: 500; }
   .ht-h { margin-bottom: 24px; }
   .ht-lede { font-size: 15px; line-height: 1.65; margin: 0; color: #4a3d42; }
-  .ht-glance { background: #371e28; color: #fff; border-radius: 14px; padding: 26px 28px; margin-bottom: 8px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px 36px; }
-  .ht-glance-h { grid-column: 1 / -1; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 6px; color: rgba(255,255,255,0.72); font-weight: 700; }
-  .ht-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
-  .ht-steps b { color: #fff; }
-  .ht-toc { display: grid; align-content: start; gap: 2px; border-left: 1px solid rgba(255,255,255,0.18); padding-left: 24px; }
-  .ht-toc a { color: rgba(255,255,255,0.88); text-decoration: none; font-size: 15px; padding: 6px 0; display: flex; gap: 12px; }
-  .ht-toc a:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
-  .ht-toc span { color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; min-width: 22px; flex: none; }
+  .ht-glance { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 28px; align-items: start; }
+  .ht-glance .ht-sub { margin-top: 0; }
+  .ht-steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; line-height: 1.5; }
+  .ht-steps b { color: #371e28; }
+  .ht-toc { display: grid; align-content: start; gap: 0; }
+  .ht-toc a { color: #371e28; text-decoration: none; font-size: 15px; padding: 5px 0; display: flex; gap: 12px; line-height: 1.5; }
+  .ht-toc a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .ht-toc span { color: #8a7a80; font-variant-numeric: tabular-nums; min-width: 22px; flex: none; }
   .ht-part { border-top: 1px solid #e3dcd8; padding-top: 40px; margin-top: 56px; scroll-margin-top: 80px; }
   /* Subheadings: the house section strip, exactly (ws-system.css
      .ws-block-head / .ws-block-h, "the same device the admin centre and the
@@ -378,11 +386,11 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-ul li, .ht-ol li { margin-bottom: 6px; }
   .ht-ui { font-style: normal; background: #f3eeeb; border-radius: 4px; padding: 1px 6px; font-size: 0.93em; }
   .ht code { background: #f3eeeb; border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
-  .ht-why { background: #faf7f5; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 10px; padding: 16px 20px; margin: 0 0 var(--ht-gap); font-size: 15px; line-height: 1.65; }
+  .ht-why { background: #faf7f5; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 4px; padding: 16px 20px; margin: 0 0 var(--ht-gap); font-size: 15px; line-height: 1.65; }
   .ht-why p { margin: 0 0 8px; } .ht-why p:last-child { margin-bottom: 0; }
   .ht-why ul { margin: 0 0 8px; padding-left: 20px; }
   .ht-why-k { font-size: 11px !important; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #371e28; }
-  .ht-draft { background: #fff6dc; border: 1px dashed #d8b84a; border-radius: 10px; padding: 12px 16px; margin: 0 0 var(--ht-gap); font-size: 15px; }
+  .ht-draft { background: #fff6dc; border: 1px dashed #d8b84a; border-radius: 4px; padding: 12px 16px; margin: 0 0 var(--ht-gap); font-size: 15px; }
   .ht-fig { margin: 0 0 var(--ht-gap); max-width: 760px; }
   .ht-fig img { display: block; width: 100%; height: auto; border: 1px solid #e3dcd8; border-radius: 10px; cursor: zoom-in; background: #fff; }
   .ht-fig figcaption { font-size: 13px; color: #7a6b70; margin-top: 8px; }
@@ -391,7 +399,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ht-pair .ht-fig, .ht-trio .ht-fig { margin: 0; max-width: none; }
   .ht-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0 0 var(--ht-gap); }
-  .ht-card { border: 1px solid #e3dcd8; border-radius: 12px; padding: 18px; background: #fff; font-size: 15px; line-height: 1.55; display: flex; flex-direction: column; }
+  .ht-card { border: 1px solid #e3dcd8; border-radius: 4px; padding: 18px; background: #fff; font-size: 15px; line-height: 1.55; display: flex; flex-direction: column; }
   .ht-card p { margin: 0 0 10px; }
   .ht-card-k { font-weight: 700; color: #371e28; }
   .ht-card-s { margin-top: auto !important; margin-bottom: 0 !important; padding-top: 10px; border-top: 1px solid #efe8e4; color: #5f5257; font-size: 13px; }
@@ -403,7 +411,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-table th { text-align: left; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6b70; padding: 10px 12px 8px 0; border-bottom: 1px solid #e3dcd8; }
   .ht-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid #efe8e4; vertical-align: top; line-height: 1.55; }
   .ht-table tr:last-child td { border-bottom: 0; }
-  .ht-file { display: inline-flex; align-items: center; gap: 14px; border: 1px solid #e3dcd8; border-radius: 12px; padding: 14px 18px; text-decoration: none; color: #371e28; background: #fff; margin: 0 0 var(--ht-gap); font-size: 15px; }
+  .ht-file { display: inline-flex; align-items: center; gap: 14px; border: 1px solid #e3dcd8; border-radius: 4px; padding: 14px 18px; text-decoration: none; color: #371e28; background: #fff; margin: 0 0 var(--ht-gap); font-size: 15px; }
   .ht-file:hover { border-color: #371e28; }
   .ht-file svg { width: 28px; height: 28px; flex: none; }
   .ht-file span { display: flex; flex-direction: column; }
@@ -411,7 +419,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
 
   /* A picture worth a proper look: one row, a strip of it, the whole thing in
      the pop-out (as the course pictures do). */
-  .ht-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; margin: 0 0 var(--ht-gap); padding: 14px 18px 14px 14px; text-align: left; cursor: pointer; font: inherit; background: #faf7f5; border: 1px solid #e3dcd8; border-radius: 12px; color: inherit; transition: border-color .2s, transform .2s; }
+  .ht-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; margin: 0 0 var(--ht-gap); padding: 14px 18px 14px 14px; text-align: left; cursor: pointer; font: inherit; background: #faf7f5; border: 1px solid #e3dcd8; border-radius: 4px; color: inherit; transition: border-color .2s, transform .2s; }
   .ht-shot:hover { border-color: #371e28; transform: translateY(-2px); }
   .ht-shot-img { display: block; width: 148px; aspect-ratio: 16 / 9; object-fit: cover; object-position: top left; border-radius: 4px; border: 1px solid #ebe3df; background: #fff; }
   .ht-shot-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -425,15 +433,15 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
      sidebar, the same gap above and below, scrolling inside. */
   .ht-sheet { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1000; background: rgba(20,18,26,0.6); display: flex; align-items: center; justify-content: center; padding: 40px 32px; box-sizing: border-box; }
   .ht-sheet[hidden] { display: none; }
-  .ht-sheet-card { position: relative; width: min(900px, 100%); max-height: 100%; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 24px 70px rgba(20,18,26,0.35); display: flex; flex-direction: column; }
+  .ht-sheet-card { position: relative; width: min(900px, 100%); max-height: 100%; background: #fff; border-radius: 4px; overflow: hidden; box-shadow: 0 24px 70px rgba(20,18,26,0.35); display: flex; flex-direction: column; }
   .ht-sheet-card.is-wide { width: min(1240px, 100%); height: 100%; }
   .ht-sheet-card.is-mail { width: min(760px, 100%); }
   .ht-sheet-body { overflow-y: auto; padding: 28px 32px 32px; overscroll-behavior: contain; flex: 1 1 auto; min-height: 0; }
   .ht-sheet-card.is-wide .ht-sheet-body { display: flex; flex-direction: column; padding: 22px 24px 24px; }
-  .ht-frame { display: block; width: 100%; border: 1px solid #e3dcd8; border-radius: 10px; background: #fff; }
+  .ht-frame { display: block; width: 100%; border: 1px solid #e3dcd8; border-radius: 4px; background: #fff; }
   .ht-sheet-card.is-wide .ht-frame { flex: 1 1 auto; min-height: 0; }
   .ht-sheet-load { font-size: 14px; color: #7a6b70; margin: 0; }
-  .ht-sheet-x { position: absolute; top: 12px; right: 14px; width: 36px; height: 36px; border: 0; border-radius: 8px; background: #f3eeeb; color: #371e28; font-size: 22px; line-height: 1; cursor: pointer; z-index: 1; }
+  .ht-sheet-x { position: absolute; top: 12px; right: 14px; width: 36px; height: 36px; border: 0; border-radius: 4px; background: #f3eeeb; color: #371e28; font-size: 22px; line-height: 1; cursor: pointer; z-index: 1; }
   .ht-sheet-x:hover { background: #e9e1dd; }
   .ht-sheet-h { font-size: 20px; font-weight: 700; color: #371e28; margin: 0 48px 16px 0; }
   .ht-sheet-note { font-size: 13px; color: #7a6b70; margin: -8px 0 18px; }
@@ -475,7 +483,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-lb img { max-width: min(1400px, 100%); max-height: none; border-radius: 10px; background: #fff; margin: auto; }
   @media (max-width: 900px) {
     .ht-glance, .ht-pair, .ht-trio, .ht-cards, .mgd-grid { grid-template-columns: 1fr; }
-    .ht-toc { border-left: 0; padding-left: 0; border-top: 1px solid rgba(255,255,255,0.18); padding-top: 12px; }
+    .ht-glance-col + .ht-glance-col { margin-top: 28px; }
     .ht-shot { grid-template-columns: 96px minmax(0, 1fr); }
     .ht-shot-img { width: 96px; }
     .ht-shot-go { grid-column: 2; }
