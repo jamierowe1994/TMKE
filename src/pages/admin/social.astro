@@ -783,13 +783,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     /* Shot and Scheduled's quarterly shoot (Dani, 20 Oct): last, next, and the
        month to change it to. */
     .vidx-cycle { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0 0 16px; padding: 14px 16px; border: 1px solid rgba(28,29,34,0.13); border-left: 3px solid var(--english-violet, #371e28); border-radius: 5px; background: #fff; }
-    .vidx-cycle-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    /* Labels along the top, values along the foot, level with the bottom
+       of the month box (Danielle, 20 Oct 2026). The save note hangs below
+       so it never pushes its column out of line. */
+    .vidx-cycle-col { display: grid; grid-template-rows: auto 1fr; gap: 4px; min-width: 0; position: relative; }
     .vidx-cycle-k { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
-    .vidx-cycle-v { font-size: 13.5px; color: var(--ink, #1c1d22); display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+    .vidx-cycle-v { align-self: end; min-height: 30px; font-size: 13.5px; line-height: 1.3; color: var(--ink, #1c1d22); display: flex; align-items: flex-end; flex-wrap: wrap; gap: 2px 6px; }
     .vidx-cycle-v input[type="month"] { height: 30px; padding: 0 8px; border: 1px solid rgba(28,29,34,0.2); border-radius: 4px; font: inherit; font-size: 13px; }
     .vidx-cycle-tag { font-size: 11px; color: rgba(28,29,34,0.5); }
-    .vidx-cycle-reset { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; color: var(--english-violet, #371e28); text-decoration: underline; text-underline-offset: 2px; }
-    .vidx-cycle-note { font-size: 11.5px; color: rgba(28,29,34,0.55); min-height: 1em; }
+    .vidx-cycle-note { position: absolute; left: 0; top: 100%; margin-top: 2px; font-size: 11px; color: rgba(28,29,34,0.55); }
     @media (max-width: 760px) { .vidx-cycle { grid-template-columns: 1fr; } }
     .vidx-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 12px; }
     .vidx-service { font-family: var(--sans); font-size: 14px; font-weight: 700; color: var(--ink); margin: 0; }
@@ -863,6 +865,22 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-mail-subj { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 2px; }
     .smm-mail-body { font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
     .smm-mail-empty, .smm-doc-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.4); padding: 4px 0 10px; }
+    /* Package details, under Notes (Danielle, 20 Oct 2026). */
+    .smm-pkg-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; padding: 14px 16px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; background: #fff; font-family: var(--sans); }
+    .smm-pkg-row { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .smm-pkg-row--wide { grid-column: 1 / -1; }
+    .smm-pkg-k, .smm-pkg-f > span { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
+    .smm-pkg-v { font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+    .smm-pkg-none { color: rgba(28,29,34,0.38); }
+    .smm-pkg-foot { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+    .smm-pkg .smm-pkg-f { display: flex; flex-direction: column; gap: 5px; min-width: 0; margin: 0; font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink); }   /* labels: the admin skin's label rules would make it all small caps */
+    .smm-pkg-f--wide { grid-column: 1 / -1; }
+    .smm-pkg .smm-pkg-f[hidden] { display: none; }
+    .smm-pkg-f input, .smm-pkg-f select, .smm-pkg-f textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; font-family: var(--sans); font-size: 13px; color: var(--ink); background: #fff; }
+    .smm-pkg-hint { font-style: normal; font-size: 11px; color: rgba(28,29,34,0.5); min-height: 1em; }
+    .smm-pkg-status { grid-column: 1 / -1; margin: 0; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.6); min-height: 0; }
+    .smm-pkg-status:empty { display: none; }
+    @media (max-width: 640px) { .smm-pkg-card { grid-template-columns: 1fr; } }
     /* Paperwork on the client file: the proposal from Proposal sent, the
        signed contract from Onboarding (Danielle, 20 Oct 2026). */
     .smm-paper { display: grid; gap: 10px; }
@@ -939,6 +957,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     import { HEADLINE_METRICS, DEFAULT_HEADLINE, defaultHeadline, headlineOptions, INSIGHT_CATEGORIES, normaliseInsight, PLATFORM_LABELS, platformsOf, itemPlatform, pointBlocks } from "../../lib/report-metrics.js";
     import { DEMO_REPORTS } from "../../lib/report-insights-demo.js";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
+    import { SOCIAL_SERVICES as PKG_SERVICES } from "../../lib/smm-config.js";
 
     const STAGES = [
       // Ahead of Inquiry: they have asked to be told when a space opens, which
@@ -1445,7 +1464,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           <div class="vidx-cycle-col"><span class="vidx-cycle-k">Last shoot</span><span class="vidx-cycle-v">${c.last ? esc(dayDate(c.last)) : "None yet"}</span></div>
           <div class="vidx-cycle-col"><span class="vidx-cycle-k">Next shoot</span><span class="vidx-cycle-v">${nextLine}</span></div>
           ${c.booked ? "" : `<div class="vidx-cycle-col vidx-cycle-edit"><span class="vidx-cycle-k">Change the month</span>
-            <span class="vidx-cycle-v"><input type="month" id="vidx-due" value="${c.due ? esc(c.due.slice(0, 7)) : ""}" />${c.byHand ? ' <button type="button" class="vidx-cycle-reset" id="vidx-due-reset">Back to automatic</button>' : ""}</span>
+            <span class="vidx-cycle-v"><input type="month" id="vidx-due" value="${c.due ? esc(c.due.slice(0, 7)) : ""}" /></span>
             <span class="vidx-cycle-note" id="vidx-due-note"></span></div>`}
         </div>`;
     }
@@ -1498,7 +1517,6 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 
       $("vidx-add")?.addEventListener("click", () => openVidBooking(r));
       $("vidx-due")?.addEventListener("change", (e) => saveShootDue(r, e.target.value));
-      $("vidx-due-reset")?.addEventListener("click", () => saveShootDue(r, ""));
     }
 
     // The same New booking form Jack uses, minus the parts the social manager
@@ -1749,6 +1767,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const raw = value.trim();
       const v = NUMERIC_EF_FIELDS.has(field) ? (raw === "" ? null : Number(raw)) : (raw || null);
       r[field] = v;
+      if (field === "package_name" || field === "contracted_hours_per_month") renderPackage(r);
       const s = $(/_url$/.test(field) ? "smm-chan-status" : "smm-eng-status"); if (s) s.textContent = "Saving…";
       if (isDemo(r)) { if (s) s.textContent = "Saved (demo)."; return; }
       try { await supabase.from("smm_leads").update({ [field]: v }).eq("id", r.id); if (s) s.textContent = "Saved."; }
@@ -2121,6 +2140,87 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (!ok) { try { const patch = { meeting_at: r.meeting_at }; if (setStage) patch.pipeline_stage = "meeting_set"; await supabase.from("smm_leads").update(patch).eq("id", r.id); } catch (_) {} }
       }
       closeModal(); renderBoard(); openFile(r.id);
+    }
+
+    /* ---------- Package details ----------
+       What the client's package consists of, in one place under Notes
+       (Danielle, 20 Oct 2026): the tier, monthly hours, whether it includes
+       video, how often the shoot is, and what comes out of it. Choosing a
+       Shot and Scheduled tier fills these from the rate card (smm-config.js);
+       every field can be changed by hand, as bespoke packages will be.
+       Monthly hours are the file's contracted_hours_per_month. Reference
+       only: nothing bills or schedules from it. */
+    const SAS_TIERS = ((PKG_SERVICES.find((x) => x.key === "social-media-marketing") || {}).packages || []).map((p, i) => ({
+      key: p.key, label: p.name || `Tier ${i + 1}`, spec: p.spec,
+      fill: { video: true, shoot_frequency: `Quarterly, ${p.hours.videography} hour shoot`, outputs: `${p.videos} videos a quarter, ${p.postsPerWeek} posts a week. Amends: ${String(p.amends).toLowerCase()}` },
+      card: `${p.hours.videography}h film · ${p.hours.editing}h edit · ${p.hours.brief}h brief · ${p.hours.management}h management`,
+    }));
+    const SMM_TIERS = ((PKG_SERVICES.find((x) => x.key === "social-media-management") || {}).futurePackages || []).map((n) => ({ key: n, label: n }));
+    function tiersFor(pkg) {
+      if (isShotAndScheduled(pkg)) return SAS_TIERS;
+      if (/social media management/i.test(String(pkg || ""))) return SMM_TIERS;
+      return [];
+    }
+    function tierLabel(pkg, key) {
+      const t = tiersFor(pkg).find((x) => x.key === key);
+      return t ? (t.spec ? `${t.label} (${t.spec})` : t.label) : (key || "");
+    }
+    function renderPackage(r, editing) {
+      const host = $("smm-pkg"); if (!host) return;
+      const pd = r.package_details || {};
+      const pkg = r.package_name || "";
+      const tiers = tiersFor(pkg);
+      const hours = r.contracted_hours_per_month;
+      if (!editing) {
+        const row = (k, v) => `<div class="smm-pkg-row"><span class="smm-pkg-k">${k}</span><span class="smm-pkg-v">${v || '<span class="smm-pkg-none">Not set</span>'}</span></div>`;
+        const empty = !pd.tier && pd.video == null && !pd.outputs && hours == null;
+        host.innerHTML = `<div class="smm-pkg-card">
+            ${row("Package", esc(pkg))}
+            ${row("Tier", esc(tierLabel(pkg, pd.tier)))}
+            ${row("Monthly hours", hours != null ? esc(String(hours)) : "")}
+            ${row("Includes video", pd.video == null ? "" : pd.video ? "Yes" : "No")}
+            ${pd.video ? row("Shoot", esc(pd.shoot_frequency || "")) : ""}
+            ${row("What comes out of it", esc(pd.outputs || "").replace(/\n/g, "<br>")).replace('class="smm-pkg-row"', 'class="smm-pkg-row smm-pkg-row--wide"')}
+            <div class="smm-pkg-foot"><button type="button" class="smm-btn smm-btn--sm" id="smm-pkg-edit">${empty ? `${PLUS_SVG}Add the package details` : "Edit"}</button></div>
+          </div>`;
+        $("smm-pkg-edit").addEventListener("click", () => renderPackage(r, true));
+        return;
+      }
+      const tierField = tiers.length
+        ? `<select id="pkg-tier"><option value="">Choose…</option>${tiers.map((t) => `<option value="${esc(t.key)}"${pd.tier === t.key ? " selected" : ""}>${esc(t.spec ? `${t.label} (${t.spec})` : t.label)}</option>`).join("")}${pd.tier && !tiers.some((t) => t.key === pd.tier) ? `<option value="${esc(pd.tier)}" selected>${esc(pd.tier)}</option>` : ""}</select>`
+        : `<input type="text" id="pkg-tier" value="${esc(pd.tier || "")}" placeholder="${pkg ? "e.g. Bespoke: monthly shoot" : "Choose the package under Engagement first"}">`;
+      host.innerHTML = `<div class="smm-pkg-card smm-pkg-form">
+          <label class="smm-pkg-f"><span>Tier</span>${tierField}<em class="smm-pkg-hint" id="pkg-card"></em></label>
+          <label class="smm-pkg-f"><span>Monthly hours</span><input type="number" id="pkg-hours" min="0" step="0.5" value="${hours ?? ""}" placeholder="e.g. 7"></label>
+          <div class="smm-pkg-f"><span>Includes video</span><div class="pay-toggle" id="pkg-video"><button type="button" class="pay-opt${pd.video ? " is-active" : ""}" data-v="yes">Yes</button><button type="button" class="pay-opt${pd.video === false ? " is-active" : ""}" data-v="no">No</button></div></div>
+          <label class="smm-pkg-f" id="pkg-freq-row"${pd.video ? "" : " hidden"}><span>How often they shoot</span><input type="text" id="pkg-freq" value="${esc(pd.shoot_frequency || "")}" placeholder="e.g. Quarterly, 5 hour shoot"></label>
+          <label class="smm-pkg-f smm-pkg-f--wide"><span>What comes out of it</span><textarea id="pkg-out" rows="2" placeholder="e.g. 36 reels a quarter, 3 posts a week">${esc(pd.outputs || "")}</textarea></label>
+          <p class="smm-pkg-status" id="pkg-status"></p>
+          <div class="smm-pkg-foot"><button type="button" class="smm-btn smm-btn--sm" id="pkg-cancel">Cancel</button><button type="button" class="smm-btn smm-btn--primary smm-btn--sm" id="pkg-save">Save</button></div>
+        </div>`;
+      let video = pd.video == null ? null : !!pd.video;
+      const setVideo = (v) => { video = v; host.querySelectorAll("#pkg-video [data-v]").forEach((b) => b.classList.toggle("is-active", (b.dataset.v === "yes") === v)); $("pkg-freq-row").hidden = !v; };
+      host.querySelectorAll("#pkg-video [data-v]").forEach((b) => b.addEventListener("click", () => setVideo(b.dataset.v === "yes")));
+      const showCard = () => { const t = tiers.find((x) => x.key === $("pkg-tier").value); $("pkg-card").textContent = t && t.card ? `Rate card: ${t.card}` : ""; };
+      showCard();
+      if (tiers.length) $("pkg-tier").addEventListener("change", () => {
+        showCard();
+        const t = tiers.find((x) => x.key === $("pkg-tier").value);
+        if (t && t.fill) { setVideo(t.fill.video); $("pkg-freq").value = t.fill.shoot_frequency; $("pkg-out").value = t.fill.outputs; }
+      });
+      $("pkg-cancel").addEventListener("click", () => renderPackage(r));
+      $("pkg-save").addEventListener("click", async () => {
+        const st = $("pkg-status");
+        const h = $("pkg-hours").value.trim();
+        const next = { tier: $("pkg-tier").value.trim() || null, video, shoot_frequency: video ? ($("pkg-freq").value.trim() || null) : null, outputs: $("pkg-out").value.trim() || null };
+        const patch = { package_details: next, contracted_hours_per_month: h === "" ? null : Number(h) };
+        const done = () => { Object.assign(r, patch); const hrs = document.querySelector('[data-ef="contracted_hours_per_month"]'); if (hrs) hrs.value = r.contracted_hours_per_month ?? ""; renderPackage(r); };
+        if (isDemo(r)) { done(); return; }
+        st.textContent = "Saving…";
+        const { error } = await supabase.from("smm_leads").update(patch).eq("id", r.id);
+        if (error) { st.textContent = /package_details/.test(error.message || "") ? "Needs supabase/smm_package_details.sql running first." : "Couldn't save: " + error.message; return; }
+        done();
+      });
     }
 
     /* ---------- Paperwork ----------
@@ -3351,7 +3451,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         </div>
         ${noteHtml}
         <div class="smm-divider"><span>Client activity</span></div>
-        <div class="smm-activity">${actHtml}</div>`;
+        <div class="smm-activity">${actHtml}</div>
+        <div class="smm-divider"><span>Package details</span></div>
+        <div class="smm-pkg" id="smm-pkg"></div>`;
+      renderPackage(r);
 
       // EMAILS
       const mailHtml = loading ? '<p class="smm-soon">Loading…</p>' : (emails.map((m) => {
