@@ -56,6 +56,8 @@ import "../../../styles/ws-system.css";
   </div>
 
   <style is:global>
+    html.rp-embed .ws-nav, html.rp-embed .ws-drawer, html.rp-embed .rp-back, html.rp-embed .hub-foot, html.rp-embed #cc-banner { display: none !important; }
+    html.rp-embed body[data-dashboard] .ws-main.rp-main { padding-top: 18px; }
     /* The hub's own margins (.ws-main), without its gap between blocks —
        that gap was the space under "Back to your socials". */
     /* Specific enough to beat the dashboard's chapter gap, which was the
@@ -396,6 +398,10 @@ import "../../../styles/ws-system.css";
     const fmt = (v) => (v == null ? "—" : Number(v).toLocaleString("en-GB"));
     const has = (v) => v != null && v !== "";
     const params = new URLSearchParams(location.search);
+    // A sample shown inside another page (the team's How to… Reporting pop-out,
+    // Dani 20 Oct): just the report, without the hub's menu bar, the drawer,
+    // the back link or the foot bar.
+    if (params.get("sample") && window.top !== window.self) document.documentElement.classList.add("rp-embed");
 
     /* ---- The parts ----
        Each part is a function of the month's data that returns nothing when
