@@ -4268,6 +4268,8 @@ function smmReportAmendedHtml({ name, month, monthLabel, manager, link, joinLink
 const ZERNIO_API = "https://zernio.com/api/v1";
 const ZERNIO_PLATFORMS = ["instagram", "facebook", "linkedin", "tiktok"];
 function scheduleAllowed(env, user) {
+  // Staff, or a member whose plan includes it: zernioMemberMayPost is the one
+  // rule, and the daily check disconnects anyone it stops allowing.
   return !!user && (isAdminEmail(user) || env.SCHEDULE_OPEN === "1");
 }
 async function zernio(env, path, init = {}) {
@@ -4308,6 +4310,75 @@ function londonToUtcIso(date, time) {
   const p = Object.fromEntries(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(guess)).map((x) => [x.type, x.value]));
   const shown = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute);
   return new Date(guess - (shown - guess)).toISOString();
+}
+
+// Idle accounts cost us (Zernio charges per connected account), so a member's
+// accounts are disconnected after 30 days with nothing scheduled or posted,
+// and straight away once they're no longer allowed to schedule (Dani, 20 Oct). They reconnect with one button when they're back. Only
+// members' profiles (those with an externalId); never the house profile. An
+// account connected in the last 30 days is left alone, so a new connection
+// has its month too. Runs at 8am.
+const ZERNIO_NAMES = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok" };
+// Disconnect a member's accounts from Zernio and tell them why. The one way
+// accounts come off: the idle check below, and (when subscriptions exist)
+// every cancellation, ours or theirs, must call zernioDisconnectMember.
+async function zernioDisconnectAccounts(env, prof, accounts, why) {
+  const gone = [];
+  for (const a of accounts) {
+    const r = await zernio(env, `/accounts/${encodeURIComponent(a._id || a.id)}`, { method: "DELETE" });
+    if (r.ok) gone.push(ZERNIO_NAMES[a.platform] || a.platform);
+  }
+  if (gone.length && prof.externalId) {
+    const names = gone.length === 1 ? gone[0] : `${gone.slice(0, -1).join(", ")} and ${gone[gone.length - 1]}`;
+    const body = why === "ended"
+      ? "Your scheduling has ended with your subscription, so we've disconnected them. Your designs and calendar stay as they are."
+      : "Nothing has been scheduled or posted for 30 days. Connect again from your Content Calendar whenever you're ready: it's one button.";
+    await notifyMember(env, prof.externalId, { kind: "schedule_disconnected", title: `We've disconnected your ${names}`, body, href: "/account/schedule" });
+  }
+  return gone;
+}
+// Every account a member has, off, because their scheduling has ended.
+async function zernioDisconnectMember(env, userId) {
+  if (!env.ZERNIO_API_KEY || !userId) return [];
+  const found = await zernio(env, `/profiles?externalId=${encodeURIComponent(userId)}`);
+  const prof = found.ok && (found.data.profiles || [])[0];
+  if (!prof || prof.isDefault) return [];
+  const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
+  return zernioDisconnectAccounts(env, prof, (acc.ok && acc.data.accounts) || [], "ended");
+}
+// May this member schedule? Until subscriptions exist, only when it's opened
+// for everyone; then, their tier (or the TEG add-on) must include scheduling.
+async function zernioMemberMayPost(env, userId) {
+  return env.SCHEDULE_OPEN === "1";
+}
+async function runZernioIdleCheck(env) {
+  if (!env.ZERNIO_API_KEY) return;
+  const DAY = 86400000, now = Date.now(), cutoff = now - 30 * DAY;
+  const profs = await zernio(env, "/profiles");
+  const members = ((profs.ok && profs.data.profiles) || []).filter((p) => p.externalId && !p.isDefault && (p.accountCount || 0) > 0);
+  for (const prof of members) {
+    try {
+      // No longer allowed to schedule (cancelled, ended, not paid): off now.
+      // A safety net behind the cancellation itself calling zernioDisconnectMember.
+      if (!(await zernioMemberMayPost(env, prof.externalId))) {
+        const all = await zernio(env, `/accounts?profileId=${prof._id}`);
+        await zernioDisconnectAccounts(env, prof, (all.ok && all.data.accounts) || [], "ended");
+        continue;
+      }
+      const posts = await zernio(env, `/posts?profileId=${prof._id}&limit=100`);
+      if (!posts.ok) continue;
+      const list = posts.data.posts || [];
+      // Anything still to go out means they're using it.
+      if (list.some((x) => x.status === "scheduled" && new Date(x.scheduledFor).getTime() > now)) continue;
+      const last = Math.max(0, ...list.map((x) => Math.max(new Date(x.publishedAt || 0).getTime() || 0, new Date(x.scheduledFor || 0).getTime() || 0, new Date(x.createdAt || 0).getTime() || 0)));
+      if (last > cutoff) continue;
+      const acc = await zernio(env, `/accounts?profileId=${prof._id}`);
+      const accounts = (acc.ok && acc.data.accounts) || [];
+      const idle = accounts.filter((a) => new Date(a.connectedAt || a.createdAt || 0).getTime() < cutoff);
+      if (!idle.length) continue;
+      await zernioDisconnectAccounts(env, prof, idle, "idle");
+    } catch (_) { /* one member's trouble never stops the rest */ }
+  }
 }
 
 // A notification in a member's bell (member_notifications.sql). Never throws:
@@ -4504,6 +4575,7 @@ export default {
         ctx.waitUntil(runLateVideoInvoiceCheck(env));
         ctx.waitUntil(runMonthlyRosterCheck(env));
         ctx.waitUntil(runCommunityTopicDue(env));
+        ctx.waitUntil(runZernioIdleCheck(env));
       }
     }
     else {
