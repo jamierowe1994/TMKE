@@ -24,7 +24,7 @@ const PARTS = [
   ["what", "Report contents"],
   ["commentary", "Client commentary"],
   ["publish", "Publishing the report"],
-  ["management", "Monthly management report"],
+  ["management", "Management report"],
   ["client", "Client view"],
 ];
 // The process, start to finish, as one row.
@@ -44,6 +44,12 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
     <span class="ht-shot-tx"><span class="ht-shot-t">${title}</span><span class="ht-shot-b">${line}</span></span>
     <span class="ht-shot-go">Take a look &rarr;</span>
   </button><template id="${id}"><h3 class="ht-sheet-h">${title}</h3><img class="ht-sheet-img" src="${IMG}/${src}" alt="${esc(alt)}"></template>`;
+// Two pictures side by side in one pop-out, each with its caption.
+const shotPair = (id, title, line, pics) => `<button type="button" class="ht-shot" data-ht-open="${id}">
+    <img class="ht-shot-img" src="${IMG}/${pics[0][0]}" alt="" loading="lazy">
+    <span class="ht-shot-tx"><span class="ht-shot-t">${title}</span><span class="ht-shot-b">${line}</span></span>
+    <span class="ht-shot-go">Take a look &rarr;</span>
+  </button><template id="${id}"><h3 class="ht-sheet-h">${title}</h3><div class="ht-sheet-pair">${pics.map(([src, cap]) => `<figure><img class="ht-sheet-img" src="${IMG}/${src}" alt="${esc(cap)}"><figcaption>${cap}</figcaption></figure>`).join("")}</div></template>`;
 ---
 
 <AdminShell active="social" title="How to… Reporting" skin="hub">
@@ -103,10 +109,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
         <li>Pick the <b>Month</b> and <b>Year</b> the report covers.</li>
         <li>Choose the PDF under <b>SocialPilot PDF</b>.</li>
       </ol>
-      <div class="ht-pair">
-        <figure class="ht-fig"><img src={`${IMG}/upload-chosen.webp`} alt="The Upload a monthly report window with the PDF chosen" loading="lazy" /><figcaption>The PDF chosen: it starts reading straight away.</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/upload-read-v2.webp`} alt="The upload window with the report read into JSON" loading="lazy" /><figcaption>Read: the month as JSON, ready to check.</figcaption></figure>
-      </div>
+      <Fragment set:html={shotPair("ht-upload", "Upload a Monthly Report", "The window with the PDF chosen, then once it&rsquo;s been read into JSON.", [["upload-chosen.webp", "The PDF chosen: it starts reading straight away."], ["upload-read-v2.webp", "Read: the month as JSON, ready to check."]])} />
       <p class="ht-p">Two things happen at once, and take a few seconds:</p>
       <ul class="ht-ul">
         <li><b>The figures.</b> The PDF goes to Claude, which reads the pages and charts and writes the month out as JSON in the <b>Report JSON</b> box.</li>
@@ -207,9 +210,9 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
         </div>
       </div>
       <div class="ht-trio">
-        <figure class="ht-fig"><img src={`${IMG}/edit-what-it-means-v2.webp`} alt="Editing What it means" loading="lazy" /><figcaption>What it means</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/edit-into-next.webp`} alt="Editing Into October" loading="lazy" /><figcaption>Into October</figcaption></figure>
-        <figure class="ht-fig"><img src={`${IMG}/edit-coming-up-v2.webp`} alt="Editing Content coming up" loading="lazy" /><figcaption>Content coming up</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/edit-what-it-means-v3.webp`} alt="Editing What it means" loading="lazy" /><figcaption>What it means</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/edit-into-next-v2.webp`} alt="Editing Into October" loading="lazy" /><figcaption>Into October</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/edit-coming-up-v3.webp`} alt="Editing Content coming up" loading="lazy" /><figcaption>Content coming up</figcaption></figure>
       </div>
 
       <h3 class="ht-sub">What to check before publishing</h3>
@@ -264,7 +267,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
         <li><b>Email notification:</b> select <b>Email … that a new report is ready</b> to send an additional notification. If the client hasn&rsquo;t registered for their Member Hub yet, the email will invite them to create an account, where their report will be waiting.</li>
         <li><b>Taking down a report:</b> if you need to remove a published report from the client&rsquo;s view, select <b>Take down</b>. This hides the report until you&rsquo;re ready to publish it again.</li>
       </ul>
-      <button type="button" class="ht-shot" data-ht-email>
+      <button type="button" class="ht-shot ht-shot--slim" data-ht-email>
         <span class="ht-shot-img ht-shot-mail" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg></span>
         <span class="ht-shot-tx"><span class="ht-shot-t">The Email the Client Gets</span><span class="ht-shot-b">&ldquo;Your September social media report is ready.&rdquo; Exactly as it&rsquo;s sent, for our example client.</span></span>
         <span class="ht-shot-go">Take a look &rarr;</span>
@@ -424,8 +427,6 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-lede--note { margin-top: 6px; font-size: 13px; font-style: italic; color: #7a6b70; }
   .ht-p--label { margin-bottom: 8px; }
   .ht-top { background: #fff; border: 1px solid #e3dcd8; border-radius: 4px; padding: 24px 24px 26px; }
-  .ht-top .ht-sub:first-child { margin-top: 0; }
-  .ht-top .ht-sub { margin-top: 30px; }
   /* The process: seven steps along one line. */
   .ht-flow { list-style: none; margin: 4px 0 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0 14px; counter-reset: none; }
   .ht-flow-step { position: relative; display: flex; flex-direction: column; gap: 4px; padding-top: 44px; }
@@ -440,18 +441,22 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-part-box:hover { border-color: #371e28; transform: translateY(-2px); }
   .ht-part-box-n { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7a80; }
   .ht-part-box-t { font-size: 15px; font-weight: 700; color: #371e28; line-height: 1.3; }
-  .ht-part { border-top: 1px solid #e3dcd8; padding-top: 40px; margin-top: 56px; scroll-margin-top: 80px; }
+  /* A part ends 40px above its rule and starts 40px under it, the gap above
+     a subheading too (Dani, 20 Oct: equal margins). Block margins merge, so
+     the 18px under the block before sits inside these 40px. */
+  .ht-part { border-top: 1px solid #e3dcd8; padding-top: 40px; margin-top: 40px; scroll-margin-top: 80px; }
+  .ht-top { margin-bottom: var(--ht-gap); }
   /* Subheadings: the house section strip, exactly (ws-system.css
      .ws-block-head / .ws-block-h, "the same device the admin centre and the
      Hub use"): a wine bar, 10px bold capitals (Dani, 20 Oct). */
   .ht-sub { margin: 40px 0 var(--ht-gap); padding: 11px 18px; background: var(--english-violet, #371e28); border-radius: 4px; color: #fff; font-family: "Space Grotesk", "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; line-height: 1.4; }
-  .ht-h + .ht-sub { margin-top: 0; }
+  .ht-h + .ht-sub, .ht-top .ht-sub:first-child { margin-top: 0; }
   .ht-p, .ht-ul, .ht-ol, .ht-check { font-size: 15px; line-height: 1.65; margin: 0 0 var(--ht-gap); }
   .ht-ul, .ht-ol { padding-left: 22px; }
   .ht-ul li, .ht-ol li { margin-bottom: 6px; }
   .ht-ui { font-style: normal; background: #f3eeeb; border-radius: 4px; padding: 1px 6px; font-size: 0.93em; }
   .ht code { background: #f3eeeb; border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
-  .ht-why { background: #faf7f5; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 4px; padding: 16px 20px; margin: 0 0 var(--ht-gap); font-size: 15px; line-height: 1.65; }
+  .ht-why { background: #fff; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 4px; padding: 18px 22px; margin: 0 0 var(--ht-gap); font-size: 15px; line-height: 1.65; }
   .ht-why p { margin: 0 0 8px; } .ht-why p:last-child { margin-bottom: 0; }
   .ht-why ul { margin: 0 0 8px; padding-left: 20px; }
   .ht-why-k { font-size: 11px !important; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #371e28; }
@@ -459,6 +464,9 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-fig { margin: 0 0 var(--ht-gap); max-width: 760px; }
   .ht-fig img { display: block; width: 100%; height: auto; border: 1px solid #e3dcd8; border-radius: 10px; cursor: zoom-in; background: #fff; }
   .ht-fig figcaption { font-size: 13px; color: #7a6b70; margin-top: 8px; }
+  .ht-trio .ht-fig figcaption { font-weight: 700; color: #371e28; }
+  /* Three pictures side by side show at one height, from the top. */
+  .ht-trio .ht-fig img { aspect-ratio: 4 / 3; object-fit: cover; object-position: top left; }
   .ht-fig--narrow { max-width: 620px; }
   .ht-pair, .ht-trio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; margin: 0 0 var(--ht-gap); }
   .ht-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -476,7 +484,7 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
   .ht-table th { text-align: left; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6b70; padding: 10px 12px 8px 0; border-bottom: 1px solid #e3dcd8; }
   .ht-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid #efe8e4; vertical-align: top; line-height: 1.55; }
   .ht-table tr:last-child td { border-bottom: 0; }
-  .ht-file { display: inline-flex; align-items: center; gap: 14px; border: 1px solid #e3dcd8; border-radius: 4px; padding: 14px 18px; text-decoration: none; color: #371e28; background: #fff; margin: 0 0 var(--ht-gap); font-size: 15px; }
+  .ht-file { display: flex; width: fit-content; align-items: center; gap: 14px; border: 1px solid #e3dcd8; border-radius: 4px; padding: 14px 18px; text-decoration: none; color: #371e28; background: #fff; margin: 0 0 var(--ht-gap); font-size: 15px; }
   .ht-file:hover { border-color: #371e28; }
   .ht-file svg { width: 28px; height: 28px; flex: none; }
   .ht-file span { display: flex; flex-direction: column; }
@@ -484,15 +492,22 @@ const shot = (id, title, line, src, alt) => `<button type="button" class="ht-sho
 
   /* A picture worth a proper look: one row, a strip of it, the whole thing in
      the pop-out (as the course pictures do). */
-  .ht-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; margin: 0 0 var(--ht-gap); padding: 14px 18px 14px 14px; text-align: left; cursor: pointer; font: inherit; background: #faf7f5; border: 1px solid #e3dcd8; border-radius: 4px; color: inherit; transition: border-color .2s, transform .2s; }
+  .ht-shot { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; align-items: center; gap: 18px; width: 100%; margin: 0 0 var(--ht-gap); padding: 14px 18px 14px 14px; text-align: left; cursor: pointer; font: inherit; background: #fff; border: 1px solid #e3dcd8; border-radius: 4px; color: inherit; transition: border-color .2s, transform .2s; }
   .ht-shot:hover { border-color: #371e28; transform: translateY(-2px); }
   .ht-shot-img { display: block; width: 148px; aspect-ratio: 16 / 9; object-fit: cover; object-position: top left; border-radius: 4px; border: 1px solid #ebe3df; background: #fff; }
   .ht-shot-tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .ht-shot-t { font-size: 15px; font-weight: 700; color: #371e28; }
   .ht-shot-b { font-size: 15px; line-height: 1.55; color: #4a3d42; }
   .ht-shot-go { font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #371e28; white-space: nowrap; }
-  /* Rows that belong together sit a little closer. */
-  .ht-shot + template + .ht-shot { margin-top: -6px; }
+  /* A row with no picture (the email): the PDF links' height, full width. */
+  .ht-shot--slim { grid-template-columns: 28px minmax(0, 1fr) auto; padding: 14px 18px; gap: 14px; }
+  .ht-shot--slim .ht-shot-mail { width: 28px; height: 28px; aspect-ratio: auto; background: none; border: 0; }
+  .ht-shot--slim .ht-shot-mail svg { width: 28px; height: 28px; }
+  .ht-shot--slim .ht-shot-tx { gap: 0; }
+  .ht-shot--slim .ht-shot-b { font-size: 13px; color: #7a6b70; }
+  .ht-sheet-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+  .ht-sheet-pair figure { margin: 0; }
+  .ht-sheet-pair figcaption { font-size: 13px; color: #7a6b70; margin-top: 8px; }
 
   /* The pop-out: moved to the top of the page when it opens, beside the
      sidebar, the same gap above and below, scrolling inside. */
