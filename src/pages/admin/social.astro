@@ -840,6 +840,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-act:not(:last-child) .smm-act-dot::after { content: ""; position: absolute; left: 50%; top: 12px; transform: translateX(-50%); width: 1px; height: calc(100% + 8px); background: rgba(28,29,34,0.1); }
     .smm-act-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .smm-act-text { font-family: var(--sans); font-size: 13px; color: var(--ink); }
+    .smm-act-more { margin-top: 6px; }
     .smm-act-meta { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.45); }
     .smm-note-body { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
     .smm-note-body.is-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5; overflow: hidden; }
@@ -3386,8 +3387,25 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       renderThread(r, { messages: [], documents: [] }, null, true);
       let data = { messages: [], documents: [] };
       try { const token = await authToken(); const res = await fetch(`${WORKER}/booking/thread?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }); if (res.ok) data = await res.json(); } catch (_) {}
+      data.shoots = []; data.reports = [];
       r._thread = data;
       renderThread(r, data);
+      /* Shoots and reports live in their own tables, so Client activity
+         reads them too (Danielle, 20 Oct 2026): a shoot booked, its content
+         done, a report published. Read after the thread so a slow one never
+         holds the notes up. */
+      const [shoots, reports] = await Promise.all([
+        // gallery_sent_at comes with videography_edits_settled.sql; without
+        // it, the shoots still show as booked.
+        supabase.from("videography_bookings").select("id, service, shoot_date, stage, created_at, gallery_sent_at").eq("smm_lead_id", r.id)
+          .then(({ data: d, error }) => error ? supabase.from("videography_bookings").select("id, service, shoot_date, stage, created_at").eq("smm_lead_id", r.id).then(({ data: d2 }) => d2 || []) : (d || []))
+          .catch(() => []),
+        authToken().then((token) => fetch(`${WORKER}/smm/reports?lead_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }))
+          .then((res) => res.ok ? res.json() : {}).then((j) => (j.reports || []).map((x) => ({ month: x.month, year: x.year, platform: x.platform, published_at: x.published_at, published_by: x.published_by, amended_at: x.amended_at })), () => []),
+      ]);
+      if (r._thread !== data || !$("smm-panel-notes")) return;
+      data.shoots = shoots; data.reports = reports;
+      renderActivity(data);
     }
     // Build a chronological audit feed from the thread (notes, emails in/out,
     // meetings, files/invoices added, invoices marked paid).
@@ -3413,7 +3431,42 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           ev.push({ t: d.created_at, text: `File added: ${name} (${catLabel(d.category)})`, who });
         }
       }
-      return ev.sort((a, b) => new Date(b.t) - new Date(a.t));
+      // Videography: booked, and its content done (Content ready, when the
+      // social media manager is told it's in the Library).
+      for (const b of (data.shoots || [])) {
+        if (b.stage === "cancelled") continue;
+        const what = b.service || "Video shoot";
+        if (b.created_at) ev.push({ t: b.created_at, text: `Video shoot booked: ${what}${b.shoot_date ? ", " + dayDate(b.shoot_date) : ""}`, who: null, auto: true });
+        if (b.gallery_sent_at) ev.push({ t: b.gallery_sent_at, text: `Videography content done: ${what}${b.shoot_date ? " (shot " + dayDate(b.shoot_date) + ")" : ""}`, who: null, auto: true });
+      }
+      // Social media reports: published, and republished.
+      for (const x of (data.reports || [])) {
+        const label = `${RI_MONTHS[x.month] || ""} ${x.year} report`.trim();
+        if (x.published_at) ev.push({ t: x.published_at, text: `${label} published`, who: x.published_by || null, auto: true });
+        if (x.amended_at && x.amended_at !== x.published_at) ev.push({ t: x.amended_at, text: `${label} republished`, who: null, auto: true });
+      }
+      // Undated items go last: a NaN in the comparison scrambles the order.
+      return ev.sort((a, b) => (Date.parse(b.t) || 0) - (Date.parse(a.t) || 0));
+    }
+    // ACTIVITY LOG (derived audit of everything on the account): the latest
+    // five, with the rest a click away (Danielle, 20 Oct 2026). Drawn on its
+    // own, so the shoots and reports arriving later don't redraw the notes.
+    function renderActivity(data) {
+      const host = $("smm-activity-wrap"); if (!host) return;
+      const acts = buildActivity(data);
+      const rows = (list) => list.map((a) => `<div class="smm-act">
+        <span class="smm-act-dot"></span>
+        <div class="smm-act-main"><span class="smm-act-text">${esc(a.text)}</span><span class="smm-act-meta">${a.who ? esc(a.who) + " · " : a.auto ? "Automatic · " : ""}${esc(fmtWhen(a.t))}</span></div>
+      </div>`).join("");
+      host.innerHTML = acts.length
+        ? `<div class="smm-activity" id="smm-activity">${rows(acts.slice(0, 5))}</div>${acts.length > 5 ? `<button type="button" class="smm-note-more smm-act-more" id="smm-act-more">Show all ${acts.length}</button>` : ""}`
+        : `<p class="smm-mail-empty">No activity yet.</p>`;
+      $("smm-act-more")?.addEventListener("click", (e) => {
+        const all = e.currentTarget.dataset.open !== "1";
+        $("smm-activity").innerHTML = rows(all ? acts : acts.slice(0, 5));
+        e.currentTarget.dataset.open = all ? "1" : "";
+        e.currentTarget.textContent = all ? "Show the latest 5" : `Show all ${acts.length}`;
+      });
     }
     function renderThread(r, data, warn, loading) {
       const pNotes = $("smm-panel-notes"), pMail = $("smm-panel-emails"), pFiles = $("smm-panel-files");
@@ -3444,12 +3497,6 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           </div>
         </div>`;
       }).join("") || `<p class="smm-mail-empty">No notes yet.</p>`);
-      // ACTIVITY LOG (derived audit of everything on the account)
-      const acts = loading ? [] : buildActivity(data);
-      const actHtml = loading ? "" : (acts.length ? acts.map((a) => `<div class="smm-act">
-        <span class="smm-act-dot"></span>
-        <div class="smm-act-main"><span class="smm-act-text">${esc(a.text)}</span><span class="smm-act-meta">${a.who ? esc(a.who) + " · " : ""}${esc(fmtWhen(a.t))}</span></div>
-      </div>`).join("") : `<p class="smm-mail-empty">No activity yet.</p>`);
       pNotes.innerHTML = `
         <div class="smm-divider smm-divider--top"><span>Package details</span></div>
         <div class="smm-pkg" id="smm-pkg"></div>
@@ -3460,7 +3507,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         </div>
         ${noteHtml}
         <div class="smm-divider"><span>Client activity</span></div>
-        <div class="smm-activity">${actHtml}</div>`;
+        <div id="smm-activity-wrap"></div>`;
+      if (!loading) renderActivity(data);
       renderPackage(r);
       clampNotes();
 
@@ -3652,7 +3700,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         { id: "doc2", file_name: "Fine-and-Country-Agreement.pdf", title: "Signed agreement", category: "agreement" },
         { id: "doc3", file_name: "Invoice-1024.pdf", title: "Invoice #1024", category: "invoice", invoice_date: "2026-06-01", paid_date: "2026-06-09" },
         { id: "doc4", file_name: "Invoice-1041.pdf", title: "Invoice #1041", category: "invoice", invoice_date: "2026-07-01", paid_date: null },
-      ] };
+      ],
+      // Client activity's shoots and reports (read from their own tables live).
+      shoots: [{ id: "s1", service: "Shot and Scheduled quarterly shoot", shoot_date: ago(20), stage: "sent", created_at: ago(30), gallery_sent_at: ago(12) }],
+      reports: [{ month: 7, year: 2026, published_at: ago(45), published_by: "Abbie" }, { month: 8, year: 2026, published_at: ago(15), published_by: "Abbie", amended_at: ago(13) }] };
       // Two months of demo reports on the active client so the Insights tab + Trends render in preview.
       rows[6]._reports = DEMO_REPORTS.filter((x) => x.accountId === "tmke").map((x) => ({ id: x.id, platform: x.platform, month: x.month, year: x.year, data: x.data }));
       return rows;
