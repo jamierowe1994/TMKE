@@ -1,0 +1,365 @@
+---
+// How to… Reporting (Dani, 20 Oct 2026): the team's own training for the
+// monthly social media report, for Sam and Abbie. In the admin centre only
+// (Settings › How to… › Reporting), so it sits behind the admin login and no
+// client ever sees it.
+//
+// The screenshots are a local build of the Social media section with dummy
+// clients (Rimberio Homes on three platforms, Borcelle Estates on Instagram
+// alone), never a real client's figures; the client's side is the training
+// account. The sample management report was pulled from the same dummy data
+// by the real code. The rules behind the commentary are
+// docs/smm-report-rules.md: change them there first, then here.
+import AdminShell from "../../../components/admin/AdminShell.astro";
+
+const IMG = "/images/admin/how-to/reporting";
+const PARTS = [
+  ["in", "Getting the report in"],
+  ["what", "What it pulls through"],
+  ["commentary", "The client commentary"],
+  ["publish", "Publishing to the client"],
+  ["management", "The monthly management report"],
+  ["client", "What the client sees"],
+];
+---
+
+<AdminShell active="howto-reporting" title="How to… Reporting" skin="hub">
+  <div class="ht">
+    <header class="ht-head">
+      <p class="ht-eyebrow">How to&hellip;</p>
+      <h1 class="ht-title">Reporting</h1>
+      <p class="ht-lede">How a client&rsquo;s month gets from SocialPilot into their hub, what you check on the way, and how the month&rsquo;s reports become the management report. For the TMKE team only: clients never see this page.</p>
+    </header>
+
+    <section class="ht-glance" aria-labelledby="ht-glance-h">
+      <h2 id="ht-glance-h" class="ht-glance-h">The month at a glance</h2>
+      <ol class="ht-steps">
+        <li><b>As soon as the month ends,</b> run each client&rsquo;s SocialPilot report and download it as a PDF.</li>
+        <li><b>Upload it</b> on the client&rsquo;s file: Social media › the client › Insights › Upload report.</li>
+        <li><b>Check the figures</b> it read against the PDF, then save.</li>
+        <li><b>Read and rewrite the Client commentary.</b> It&rsquo;s a first draft, never the finished words.</li>
+        <li><b>Check the Management Summary,</b> our own read of the month.</li>
+        <li><b>Publish to client.</b></li>
+        <li><b>Once every client is live,</b> pull the monthly management report.</li>
+      </ol>
+      <nav class="ht-toc" aria-label="Parts">
+        {PARTS.map(([id, label], i) => <a href={`#${id}`}><span>{String(i + 1).padStart(2, "0")}</span>{label}</a>)}
+      </nav>
+    </section>
+
+    <!-- ── 01 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="in">
+      <p class="ht-num">Part 01</p>
+      <h2 class="ht-h">Getting the report in</h2>
+
+      <h3 class="ht-sub">From SocialPilot</h3>
+      <p class="ht-p">Run the client&rsquo;s report in SocialPilot for the month just gone and download it as a PDF.</p>
+      <div class="ht-draft"><b>Draft:</b> Dani to add the SocialPilot clicks here, with a screenshot of each.</div>
+      <div class="ht-why">
+        <p class="ht-why-k">Why straight after the month ends</p>
+        <p>SocialPilot&rsquo;s follower total is the count on the day you run the report, not on the last day of the month. A report run four weeks late shows four weeks of someone else&rsquo;s month. That&rsquo;s why the report never compares follower totals between months: growth is shown as the month&rsquo;s new followers.</p>
+      </div>
+
+      <h3 class="ht-sub">Find the client</h3>
+      <p class="ht-p">In the admin centre, open <b>Social media</b>. The <b>Clients</b> filter at the top narrows the board to active clients. Click a client&rsquo;s card to open their file.</p>
+      <figure class="ht-fig ht-fig--wide"><img src={`${IMG}/board.webp`} alt="The Social media board filtered to clients" loading="lazy" /><figcaption>The board, filtered to clients.</figcaption></figure>
+      <p class="ht-p">An active client&rsquo;s file has six tabs. Reporting lives on <b>Insights</b>.</p>
+      <figure class="ht-fig ht-fig--wide"><img src={`${IMG}/client-file.webp`} alt="A client's file open on the Insights tab" loading="lazy" /><figcaption>Rimberio Homes&rsquo; file on the Insights tab.</figcaption></figure>
+
+      <h3 class="ht-sub">Upload the PDF</h3>
+      <ol class="ht-ol">
+        <li>On Insights, click <b>Upload report</b>.</li>
+        <li>Pick the <b>Month</b> and <b>Year</b> the report covers.</li>
+        <li>Choose the PDF under <b>SocialPilot PDF</b>.</li>
+      </ol>
+      <div class="ht-pair">
+        <figure class="ht-fig"><img src={`${IMG}/upload-empty.webp`} alt="The Upload a monthly report window" loading="lazy" /><figcaption>Before: month, year and the PDF.</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/upload-read.webp`} alt="The upload window with the report read into JSON" loading="lazy" /><figcaption>After: the report read into JSON, ready to check.</figcaption></figure>
+      </div>
+      <p class="ht-p">Two things happen at once, and take a few seconds:</p>
+      <ul class="ht-ul">
+        <li><b>The figures.</b> The PDF goes to Claude, which reads the pages and charts and writes the month out as JSON in the <b>Report JSON</b> box.</li>
+        <li><b>The posts.</b> Each post&rsquo;s link and picture are taken from the PDF and matched to its row, so the client can see and open their best posts.</li>
+      </ul>
+      <p class="ht-p">You&rsquo;ll see <i class="ht-ui">Reading the PDF with Claude…</i>, then <i class="ht-ui">Adding each post&rsquo;s link and picture…</i>, then <i class="ht-ui">Read ✓ … Check the figures below, then save.</i></p>
+
+      <h3 class="ht-sub">What the JSON is, and what to check</h3>
+      <p class="ht-p">JSON is just the report written out as data: every figure with a name. Instagram&rsquo;s figures sit at the top (followers, reach, views, interactions, posts, reels, audience), Facebook&rsquo;s under <code>facebook</code> and LinkedIn&rsquo;s under <code>linkedin</code>. It also holds a first read of the month and a plan for next month, which become the Management Summary.</p>
+      <p class="ht-p">You don&rsquo;t need to read all of it. Before you save, check three or four headline figures against the PDF: <b>followers</b>, <b>reach</b>, <b>views</b> and <b>posts published</b>. If one is wrong, change the number in the box, or close the window and upload again.</p>
+      <div class="ht-why">
+        <p class="ht-why-k">Why check at all</p>
+        <p>Everything the client reads is built from these figures. A misread number here becomes a wrong sentence in their report. Instagram Stories pages are skipped on purpose: they only cover the last 24 hours, not the month.</p>
+      </div>
+      <p class="ht-p">Then click <b>Save report</b>. As soon as it&rsquo;s saved, the client commentary is drafted for you: <i class="ht-ui">Saved. Writing a first draft of the client commentary…</i></p>
+
+      <h3 class="ht-sub">A client on more than one platform</h3>
+      <p class="ht-p">There&rsquo;s one report per client per month, however many platforms. If the platforms come as separate PDFs, upload each one into the same month: each upload replaces only its own platform, and keeps the others and any commentary already written. If commentary already exists, it asks whether to redraft it so it covers the new platform too.</p>
+
+      <h3 class="ht-sub">If something goes wrong</h3>
+      <table class="ht-table">
+        <thead><tr><th>You see</th><th>What to do</th></tr></thead>
+        <tbody>
+          <tr><td>Couldn&rsquo;t read the PDF: try again or paste the JSON.</td><td>Upload it again. If it fails twice, tell Dani.</td></tr>
+          <tr><td>That doesn&rsquo;t look like valid JSON.</td><td>Something in the box was changed by mistake: a missing comma or quote. Upload the PDF again to start clean.</td></tr>
+          <tr><td>Couldn&rsquo;t read the AI output.</td><td>Try again: it&rsquo;s a one-off.</td></tr>
+          <tr><td>Admins only.</td><td>You&rsquo;ve been signed out. Sign in to the admin centre again.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ── 02 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="what">
+      <p class="ht-num">Part 02</p>
+      <h2 class="ht-h">What it pulls through</h2>
+      <p class="ht-p">Once saved, the month appears as a pill above the tabs. A dot on a pill means the client can see that month. Hover over one to see where it stands: <i class="ht-ui">Draft: the client can&rsquo;t see this yet</i>, <i class="ht-ui">Live in the client&rsquo;s hub</i>, or <i class="ht-ui">Live, with changes the client can&rsquo;t see yet</i>.</p>
+      <p class="ht-p"><b>Overview</b>, <b>Content</b>, <b>Audience</b> and <b>Trends</b> are our working figures, straight from SocialPilot. The client doesn&rsquo;t see these tabs; their report is built from them.</p>
+
+      <h3 class="ht-sub">One platform, or several</h3>
+      <p class="ht-p">Under the pills, <i class="ht-ui">In this report</i> lists the platforms the month covers. A client on several platforms gets a section for each; a client on Instagram alone gets just that.</p>
+      <div class="ht-pair">
+        <figure class="ht-fig"><img src={`${IMG}/overview-multi.webp`} alt="Overview for a client on three platforms" loading="lazy" /><figcaption>Rimberio Homes: Instagram, Facebook and LinkedIn.</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/overview-single.webp`} alt="Overview for a client on Instagram only" loading="lazy" /><figcaption>Borcelle Estates: Instagram only.</figcaption></figure>
+      </div>
+
+      <h3 class="ht-sub">Content, Audience and Trends</h3>
+      <ul class="ht-ul">
+        <li><b>Content</b>: every post and reel with what it reached, and the month&rsquo;s best.</li>
+        <li><b>Audience</b>: who the followers are and where they live.</li>
+        <li><b>Trends</b>: this month against the two before it. Never further back: social moves too fast for older months to say much about this one.</li>
+      </ul>
+      <div class="ht-trio">
+        <figure class="ht-fig"><img src={`${IMG}/content.webp`} alt="The Content tab" loading="lazy" /><figcaption>Content</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/audience.webp`} alt="The Audience tab" loading="lazy" /><figcaption>Audience</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/trends.webp`} alt="The Trends tab" loading="lazy" /><figcaption>Trends</figcaption></figure>
+      </div>
+
+      <h3 class="ht-sub">How the client&rsquo;s report changes with it</h3>
+      <p class="ht-p">A single-platform client gets a short report: their month in numbers, who they reached, what worked, what it means and what&rsquo;s next. A client on several platforms gets each platform&rsquo;s numbers and posts in turn, then <b>Across your accounts</b>: what it means and what&rsquo;s next for all of them together. Figures name their platform (<i class="ht-ui">Instagram profile reach</i>) unless they&rsquo;re added up across all of them.</p>
+      <div class="ht-pair">
+        <figure class="ht-fig"><img src={`${IMG}/client-numbers.webp`} alt="Instagram in Numbers, in a three-platform report" loading="lazy" /><figcaption>Several platforms: Instagram in Numbers.</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/client-single-numbers.webp`} alt="September in Numbers, in an Instagram-only report" loading="lazy" /><figcaption>One platform: September in Numbers.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- ── 03 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="commentary">
+      <p class="ht-num">Part 03</p>
+      <h2 class="ht-h">The client commentary</h2>
+      <p class="ht-p">The <b>Client commentary</b> tab is what the client reads: the words in their report, in our voice, about their business. It&rsquo;s drafted for you when you save the report. Your job is to read every word and make it right.</p>
+      <div class="ht-why">
+        <p class="ht-why-k">Why it always needs you</p>
+        <p>The draft is written from the figures, so it can only say what the figures say. You know the client: what we changed, what they asked for, what happened locally. A report makes claims about their business in our name, so nothing goes live unread.</p>
+      </div>
+      <figure class="ht-fig"><img src={`${IMG}/commentary.webp`} alt="The Client commentary tab" loading="lazy" /><figcaption>Client commentary: three cards, each with a pencil to edit.</figcaption></figure>
+
+      <h3 class="ht-sub">The three cards</h3>
+      <div class="ht-cards">
+        <div class="ht-card">
+          <p class="ht-card-k">What it means</p>
+          <p>The four headline figures, then two to four insights. Each insight has a kind (What&rsquo;s working, What we&rsquo;re learning, One to watch, From last month), a headline of seven words or fewer, a short analysis, and the figures it rests on.</p>
+          <p class="ht-card-s">The client sees it as the <b>What It Means</b> slide, and its first headline is the line on their Your Socials page.</p>
+        </div>
+        <div class="ht-card">
+          <p class="ht-card-k">Into next month</p>
+          <p>A card for each thing we&rsquo;ll do next month, and why. The mark (Do more, Improve, Fix now) is for us: the client never sees it.</p>
+          <p class="ht-card-s">The client sees them as cards on the <b>Into October</b> slide.</p>
+        </div>
+        <div class="ht-card">
+          <p class="ht-card-k">Content coming up</p>
+          <p>About six pieces of content planned for next month, and the content plan as a PDF if there is one. Typed by you: it isn&rsquo;t drafted.</p>
+          <p class="ht-card-s">The client sees it under Into next month, with <b>Open the content plan</b>.</p>
+        </div>
+      </div>
+      <div class="ht-trio">
+        <figure class="ht-fig"><img src={`${IMG}/edit-what-it-means.webp`} alt="Editing What it means" loading="lazy" /><figcaption>What it means</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/edit-into-next.webp`} alt="Editing Into October" loading="lazy" /><figcaption>Into October</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/edit-coming-up.webp`} alt="Editing Content coming up" loading="lazy" /><figcaption>Content coming up</figcaption></figure>
+      </div>
+
+      <h3 class="ht-sub">What to check as you read</h3>
+      <ul class="ht-check">
+        <li><b>Every number is in the report.</b> Nothing estimated, nothing rounded up.</li>
+        <li><b>No invented reasons.</b> Only say why something happened if we know why.</li>
+        <li><b>No promises.</b> &ldquo;We&rsquo;re posting more reels&rdquo; is ours to do; &ldquo;this will double your reach&rdquo; isn&rsquo;t ours to promise.</li>
+        <li><b>Never compare one client with another.</b></li>
+        <li><b>A first or second month</b> talks about the starting point, not growth.</li>
+        <li><b>We and your.</b> The account manager talking to the client: &ldquo;your Instagram profile&rdquo;, never the handle.</li>
+        <li><b>Into next month is what we&rsquo;ll do,</b> not what they should do. A fix says the situation plainly and what we&rsquo;re doing about it, never as a mark against them.</li>
+        <li><b>The house style:</b> British English, contractions are fine, no exclamation marks, no dashes, short paragraphs.</li>
+        <li><b>The four headline figures tell this month&rsquo;s story.</b> Change them if the story is somewhere else.</li>
+      </ul>
+      <p class="ht-p"><b>Redraft</b> writes the whole tab again from scratch, and replaces your edits, so use it before you start rewriting, not after.</p>
+
+      <h3 class="ht-sub">The Management Summary: our side</h3>
+      <p class="ht-p">The <b>Management Summary</b> tab is our own read of the month, in our words: what it means, what we&rsquo;ll do next month, the client&rsquo;s goals, and the trends. The client never sees it.</p>
+      <div class="ht-pair">
+        <figure class="ht-fig"><img src={`${IMG}/management-summary.webp`} alt="The Management Summary tab" loading="lazy" /><figcaption>Management Summary</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/edit-summary.webp`} alt="Editing the Management Summary" loading="lazy" /><figcaption>Editing our read of the month</figcaption></figure>
+      </div>
+      <div class="ht-why">
+        <p class="ht-why-k">Why both matter, and in which order</p>
+        <p>The two tabs feed different places:</p>
+        <ul>
+          <li><b>Client commentary</b> goes to the client: their report, its PDF, and their Your Socials page.</li>
+          <li><b>Management Summary</b> goes to the monthly management report, as each account&rsquo;s page, and it&rsquo;s what the client commentary is drafted from: our plan for next month becomes the client&rsquo;s Into next month.</li>
+        </ul>
+        <p>So get the Management Summary right first, then redraft and rewrite the client commentary. And if a month has no client commentary, the client is shown our summary instead, in our working words. The publish window warns you if that would happen.</p>
+      </div>
+    </section>
+
+    <!-- ── 04 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="publish">
+      <p class="ht-num">Part 04</p>
+      <h2 class="ht-h">Publishing to the client</h2>
+      <p class="ht-p">Nothing you do on Insights reaches the client until you publish it. Click <b>Publish to client</b>, tick the month, and click <b>Publish</b>.</p>
+      <figure class="ht-fig ht-fig--narrow"><img src={`${IMG}/publish.webp`} alt="The Publish window" loading="lazy" /><figcaption>A live month shows when it went live, and can be taken down.</figcaption></figure>
+      <ul class="ht-ul">
+        <li>The client always gets a notification in their hub&rsquo;s bell.</li>
+        <li>Tick <b>Email … that a new report is ready</b> to email them too.</li>
+        <li><b>Take down</b> hides a live month from the client again.</li>
+      </ul>
+
+      <h3 class="ht-sub">Changing a month that&rsquo;s already live</h3>
+      <p class="ht-p">You can keep editing a live month. Your changes stay with us until you send them, and a yellow bar says so:</p>
+      <figure class="ht-fig"><img src={`${IMG}/republish-bar.webp`} alt="Changes not published bar" loading="lazy" /></figure>
+      <p class="ht-p">Click <b>Republish</b> and choose:</p>
+      <ul class="ht-ul">
+        <li><b>Republish quietly</b>: for typos and small fixes. The client sees the new version next time they look.</li>
+        <li><b>Republish and tell them</b>: for a change they should know about. They get a bell notification and an email, and their report&rsquo;s cover says when it was updated.</li>
+      </ul>
+      <figure class="ht-fig ht-fig--narrow"><img src={`${IMG}/republish.webp`} alt="The Republish window" loading="lazy" /></figure>
+      <p class="ht-p">Edits on the Management Summary never bring the bar up: the client doesn&rsquo;t see that tab, so there&rsquo;s nothing to send.</p>
+    </section>
+
+    <!-- ── 05 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="management">
+      <p class="ht-num">Part 05</p>
+      <h2 class="ht-h">The monthly management report</h2>
+      <p class="ht-p">One A4 PDF for the month: a cover listing every account in it, and anyone missing, then a page for each account with its figures for each platform, its top five posts, and our read of the month from the Management Summary. It&rsquo;s how we see every client&rsquo;s month in one place. It&rsquo;s marked <i class="ht-ui">Internal · not for clients</i> on every page, and only Danielle, Sam and Abbie can pull it.</p>
+
+      <h3 class="ht-sub">Pulling it</h3>
+      <ol class="ht-ol">
+        <li>On <b>Social media</b>, click <b>Settings</b>, then <b>Monthly management report</b>.</li>
+        <li>Pick the <b>Month</b>. From the 20th it starts on this month; before that, last month.</li>
+        <li>Choose the accounts (below), then click <b>Pull monthly report</b>. The PDF downloads.</li>
+      </ol>
+      <div class="ht-pair ht-pair--menu">
+        <figure class="ht-fig"><img src={`${IMG}/settings-menu.webp`} alt="The Settings menu on Social media" loading="lazy" /><figcaption>Settings › Monthly management report</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/management-report.webp`} alt="The Monthly management report page" loading="lazy" /><figcaption>The accounts in, and the ones that aren&rsquo;t.</figcaption></figure>
+      </div>
+
+      <h3 class="ht-sub">Choosing the right accounts</h3>
+      <ul class="ht-ul">
+        <li><b>Accounts to include</b> lists every client whose report for the month is live. All are ticked to start with.</li>
+        <li><b>All</b> and <b>None</b> tick or clear the lot. A button with a manager&rsquo;s name (<b>Abbie&rsquo;s</b>) ticks only that manager&rsquo;s clients.</li>
+        <li><b>Not included</b> lists every active client who isn&rsquo;t in it, and why: <i class="ht-ui">No report uploaded</i>, <i class="ht-ui">Report not published</i> or <i class="ht-ui">Report has no data</i>.</li>
+      </ul>
+      <div class="ht-why">
+        <p class="ht-why-k">Why a client is missing</p>
+        <p>Only published months go in, so the report shows what clients were actually told. Borcelle Estates is missing in the example because September is still a draft: publish it and pull the report again. Our read on each page comes from the Management Summary as it is now, so a fix there shows next time you pull it.</p>
+      </div>
+      <a class="ht-file" href={`${IMG}/management-report-sample.pdf`} target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15h6M9 18h4"/></svg>
+        <span><b>Sample management report</b><small>September 2026, pulled from the dummy clients. PDF</small></span>
+      </a>
+    </section>
+
+    <!-- ── 06 ─────────────────────────────────────────────────────────── -->
+    <section class="ht-part" id="client">
+      <p class="ht-num">Part 06</p>
+      <h2 class="ht-h">What the client sees</h2>
+      <p class="ht-p">Clients find their reports on <b>Your SMM</b> in their hub. It opens on their plan, then the latest report as a cover: its first line is the first insight from the Client commentary, with their followers, reach and interactions added up across every platform. Under it, every month they have.</p>
+      <div class="ht-pair">
+        <figure class="ht-fig"><img src={`${IMG}/client-plan.webp`} alt="Your plan on the client's Your Socials page" loading="lazy" /><figcaption>Their plan</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/client-reports.webp`} alt="The latest report on the client's Your Socials page" loading="lazy" /><figcaption>The latest report, and every month before it.</figcaption></figure>
+      </div>
+      <p class="ht-p">The report is a set of slides they step through, or download as a PDF:</p>
+      <div class="ht-pair">
+        <figure class="ht-fig"><img src={`${IMG}/client-cover.webp`} alt="The report's cover" loading="lazy" /><figcaption>The cover and its contents.</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/client-posts.webp`} alt="Instagram Posts slide" loading="lazy" /><figcaption>Each platform&rsquo;s posts, with their pictures and links.</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/client-what-it-means.webp`} alt="What It Means slide" loading="lazy" /><figcaption>What It Means: your What it means card.</figcaption></figure>
+        <figure class="ht-fig"><img src={`${IMG}/client-into-next.webp`} alt="Into October slide" loading="lazy" /><figcaption>Into October: your cards and Content coming up.</figcaption></figure>
+      </div>
+      <p class="ht-p">Every report ends with <b>Message</b> and the account manager&rsquo;s name. Their message comes to us like any other, so expect questions in the days after you publish.</p>
+    </section>
+  </div>
+
+  <div class="ht-lb" id="ht-lb" hidden><img alt="" /></div>
+</AdminShell>
+
+<style>
+  .ht { max-width: 1040px; padding: 8px 0 80px; color: #2a1d22; }
+  .ht-head { margin-bottom: 28px; }
+  .ht-eyebrow, .ht-num { font-size: 11px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #8a7a80; margin: 0 0 8px; }
+  .ht-title { font-size: clamp(32px, 4vw, 44px); line-height: 1.05; margin: 0 0 12px; color: #371e28; font-weight: 500; }
+  .ht-lede { font-size: 16px; line-height: 1.6; max-width: 75%; margin: 0; color: #4a3d42; }
+  .ht-glance { background: #371e28; color: #fff; border-radius: 14px; padding: 26px 28px; margin-bottom: 44px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 10px 36px; }
+  .ht-glance-h { grid-column: 1 / -1; font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; margin: 0 0 6px; color: rgba(255,255,255,0.72); font-weight: 700; }
+  .ht-steps { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 14.5px; line-height: 1.5; }
+  .ht-steps b { color: #fff; }
+  .ht-toc { display: grid; align-content: start; gap: 2px; border-left: 1px solid rgba(255,255,255,0.18); padding-left: 24px; }
+  .ht-toc a { color: rgba(255,255,255,0.88); text-decoration: none; font-size: 14px; padding: 6px 0; display: flex; gap: 12px; }
+  .ht-toc a:hover { color: #fff; text-decoration: underline; text-underline-offset: 3px; }
+  .ht-toc span { color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; }
+  .ht-part { border-top: 1px solid #e3dcd8; padding-top: 34px; margin-top: 44px; scroll-margin-top: 80px; }
+  .ht-h { font-size: 28px; margin: 0 0 16px; color: #371e28; font-weight: 500; }
+  .ht-sub { font-size: 17px; margin: 30px 0 10px; color: #371e28; font-weight: 700; font-family: inherit; }
+  .ht-p, .ht-ul, .ht-ol, .ht-check { font-size: 15px; line-height: 1.65; margin: 0 0 14px; max-width: 75%; }
+  .ht-ul, .ht-ol { padding-left: 22px; }
+  .ht-ul li, .ht-ol li { margin-bottom: 6px; }
+  .ht-ui { font-style: normal; background: #f3eeeb; border-radius: 4px; padding: 1px 6px; font-size: 0.93em; }
+  .ht code { background: #f3eeeb; border-radius: 4px; padding: 1px 5px; font-size: 0.9em; }
+  .ht-why { background: #faf7f5; border: 1px solid #ebe3df; border-left: 3px solid #371e28; border-radius: 10px; padding: 16px 20px; margin: 18px 0; max-width: 75%; font-size: 14.5px; line-height: 1.6; }
+  .ht-why p { margin: 0 0 8px; } .ht-why p:last-child { margin-bottom: 0; }
+  .ht-why ul { margin: 0 0 8px; padding-left: 20px; }
+  .ht-why-k { font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #371e28; }
+  .ht-draft { background: #fff6dc; border: 1px dashed #d8b84a; border-radius: 10px; padding: 12px 16px; margin: 0 0 16px; max-width: 75%; font-size: 14px; }
+  .ht-fig { margin: 16px 0 22px; }
+  .ht-fig img { display: block; width: 100%; height: auto; border: 1px solid #e3dcd8; border-radius: 10px; cursor: zoom-in; background: #fff; }
+  .ht-fig figcaption { font-size: 13px; color: #7a6b70; margin-top: 8px; }
+  .ht-fig { max-width: 760px; }
+  .ht-fig--wide { max-width: none; }
+  .ht-fig--narrow { max-width: 620px; }
+  .ht-pair .ht-fig, .ht-trio .ht-fig { max-width: none; }
+  .ht-pair, .ht-trio { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+  .ht-trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ht-pair--menu { grid-template-columns: minmax(0, 0.45fr) minmax(0, 1.55fr); }
+  .ht-pair .ht-fig, .ht-trio .ht-fig { margin: 8px 0 14px; }
+  .ht-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 6px 0 12px; }
+  .ht-card { border: 1px solid #e3dcd8; border-radius: 12px; padding: 18px; background: #fff; font-size: 14px; line-height: 1.55; display: flex; flex-direction: column; }
+  .ht-card p { margin: 0 0 10px; }
+  .ht-card-k { font-weight: 700; color: #371e28; font-size: 15px; }
+  .ht-card-s { margin-top: auto !important; margin-bottom: 0 !important; padding-top: 10px; border-top: 1px solid #efe8e4; color: #5f5257; font-size: 13px; }
+  .ht-check { list-style: none; padding: 0; }
+  .ht-check li { position: relative; padding-left: 28px; margin-bottom: 8px; }
+  .ht-check li::before { content: ""; position: absolute; left: 2px; top: 5px; width: 14px; height: 14px; border: 1.6px solid #371e28; border-radius: 4px; }
+  .ht-table { border-collapse: collapse; width: 100%; max-width: 75%; font-size: 14px; border-top: 1px solid #371e28; border-bottom: 1px solid #371e28; }
+  .ht-table th { text-align: left; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #7a6b70; padding: 10px 12px 8px 0; border-bottom: 1px solid #e3dcd8; }
+  .ht-table td { padding: 10px 12px 10px 0; border-bottom: 1px solid #efe8e4; vertical-align: top; line-height: 1.5; }
+  .ht-table tr:last-child td { border-bottom: 0; }
+  .ht-file { display: inline-flex; align-items: center; gap: 14px; border: 1px solid #e3dcd8; border-radius: 12px; padding: 14px 18px; text-decoration: none; color: #371e28; background: #fff; margin-top: 6px; }
+  .ht-file:hover { border-color: #371e28; }
+  .ht-file svg { width: 28px; height: 28px; flex: none; }
+  .ht-file span { display: flex; flex-direction: column; }
+  .ht-file small { color: #7a6b70; font-size: 12.5px; }
+  .ht-lb { position: fixed; inset: 0; z-index: 400; background: rgba(20,18,26,0.82); display: flex; align-items: center; justify-content: center; padding: 24px; cursor: zoom-out; overflow: auto; }
+  .ht-lb[hidden] { display: none; }
+  .ht-lb img { max-width: min(1400px, 100%); max-height: none; border-radius: 10px; background: #fff; margin: auto; }
+  @media (max-width: 900px) {
+    .ht-glance, .ht-pair, .ht-trio, .ht-cards, .ht-pair--menu { grid-template-columns: 1fr; }
+    .ht-toc { border-left: 0; padding-left: 0; border-top: 1px solid rgba(255,255,255,0.18); padding-top: 12px; }
+    .ht-lede, .ht-p, .ht-ul, .ht-ol, .ht-check, .ht-why, .ht-draft, .ht-table { max-width: none; }
+  }
+</style>
+
+<script>
+  // Click a screenshot to see it full size; click again, or Escape, to close.
+  const lb = document.getElementById("ht-lb");
+  const big = lb?.querySelector("img");
+  document.querySelectorAll(".ht-fig img").forEach((img) => img.addEventListener("click", () => {
+    if (!lb || !big) return;
+    big.src = (img as HTMLImageElement).src; big.alt = (img as HTMLImageElement).alt; lb.hidden = false;
+  }));
+  lb?.addEventListener("click", () => { lb.hidden = true; });
+  addEventListener("keydown", (e) => { if (e.key === "Escape" && lb) lb.hidden = true; });
+</script>

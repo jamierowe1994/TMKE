@@ -73,7 +73,10 @@ const NAV = [
   { label: "System", items: [
     { key: "teg", label: "TEG sync", href: "/admin/teg", icon: I.contacts },
     { key: "editor", label: "Website editor", href: "/?edit=1", icon: I.editor },
-    { key: "settings", label: "Settings", href: "/admin/settings", icon: I.settings },
+    // Settings opens onto the team's own training (Dani, 20 Oct): How to… ›
+    // Reporting. Staff only, as everything here is.
+    { key: "settings", label: "Settings", href: "/admin/settings", icon: I.settings,
+      sub: [{ label: "How to…", items: [{ key: "howto-reporting", label: "Reporting", href: "/admin/how-to/reporting" }] }] },
   ]},
 ];
 ---
@@ -88,12 +91,37 @@ const NAV = [
         {NAV.map((group) => (
           <div class="ash-group">
             <div class="ash-group-label">{group.label}</div>
-            {group.items.map((it) => (
-              <a href={it.href} data-navkey={it.key} class:list={["ash-link", active === it.key && "is-active"]} aria-current={active === it.key ? "page" : undefined}>
-                <Fragment set:html={it.icon} />
-                <span class="ash-link-label">{it.label}</span>
-              </a>
-            ))}
+            {group.items.map((it) => {
+              const link = (
+                <a href={it.href} data-navkey={it.key} class:list={["ash-link", active === it.key && "is-active"]} aria-current={active === it.key ? "page" : undefined}>
+                  <Fragment set:html={it.icon} />
+                  <span class="ash-link-label">{it.label}</span>
+                </a>
+              );
+              if (!it.sub) return link;
+              const subKeys = it.sub.flatMap((g) => g.items.map((x) => x.key));
+              const open = active === it.key || subKeys.includes(active);
+              return (
+                <div class:list={["ash-sub", open && "is-open"]}>
+                  <div class="ash-sub-row">
+                    {link}
+                    <button type="button" class="ash-sub-toggle" aria-expanded={open ? "true" : "false"} aria-label={`Show more under ${it.label}`}>
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    </button>
+                  </div>
+                  <div class="ash-sub-list">
+                    {it.sub.map((g) => (
+                      <div class="ash-sub-group">
+                        <span class="ash-sub-label">{g.label}</span>
+                        {g.items.map((x) => (
+                          <a href={x.href} data-navkey={x.key} class:list={["ash-sub-link", active === x.key && "is-active"]} aria-current={active === x.key ? "page" : undefined}>{x.label}</a>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ))}
       </nav>
@@ -194,6 +222,13 @@ const NAV = [
 
     const ash = document.getElementById("ash");
     const COLLAPSE_KEY = "tmke-admin-collapsed";
+
+    // A menu item with more under it (Settings › How to…): the arrow opens it.
+    document.querySelectorAll(".ash-sub-toggle").forEach((b) => b.addEventListener("click", () => {
+      const sub = b.closest(".ash-sub"); if (!sub) return;
+      const open = sub.classList.toggle("is-open");
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+    }));
 
     // Collapse (desktop) / off-canvas (mobile) via the same burger.
     if (localStorage.getItem(COLLAPSE_KEY) === "1") ash?.classList.add("is-collapsed");
