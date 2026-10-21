@@ -741,7 +741,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-cm-insrow textarea, .ri-cm-insrow input, .ri-cm-insrow select { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); background: #fff; resize: vertical; }
     .ri-cm-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .ri-cm-list--client li { display: block; }
-    .smm-modal.ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; }
+    .smm-modal.ri-cm-modal { width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - var(--smm-top, 0px) - 40px); overflow-y: auto; box-sizing: border-box; }
     .smm-modal.ri-cm-modal #ri-cm-summary { min-height: 220px; font-size: 14.5px; line-height: 1.6; }
     .ri-cm-stack { display: grid; gap: 6px; }
     .ri-cm-t { display: block; font-weight: 700; margin-bottom: 2px; }
@@ -972,12 +972,15 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .cs-pill.is-late { background: rgba(165,53,47,0.12); color: #a5352f; }
     .cs-pill.is-wait { background: rgba(196,140,40,0.15); color: #8a5a10; }
     .cs-empty { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.5); margin: 8px 0 0; }
-    .smm-modal-scrim { position: fixed; top: 0; right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .smm-modal { background: #fff; border-radius: 14px; width: min(440px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); }
-    .smm-modal.smm-modal--email { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; }
+    /* Below the admin top bar, which sits above the page (and so above this):
+       a tall pop-out used to start under it, its top out of reach (Danielle,
+       21 Oct 2026). --smm-top is the bar's foot, set by the page. */
+    .smm-modal-scrim { position: fixed; top: var(--smm-top, 0px); right: 0; bottom: 0; left: var(--ash-side-w, 0); z-index: 220; background: rgba(20,18,26,0.5); display: flex; align-items: center; justify-content: center; padding: 20px; box-sizing: border-box; }
+    .smm-modal { max-height: calc(100vh - var(--smm-top, 0px) - 40px); overflow-y: auto; box-sizing: border-box; background: #fff; border-radius: 14px; width: min(440px, 100%); padding: 26px 28px 24px; box-shadow: 0 40px 100px rgba(20,18,26,0.45); }
+    .smm-modal.smm-modal--email { width: min(620px, 100%); max-height: calc(100vh - var(--smm-top, 0px) - 40px); overflow-y: auto; }
     /* The booking form carries far more than a meeting does, so it needs the
        wider shell and has to scroll on a laptop screen. */
-    .smm-modal.smm-modal--booking { width: min(620px, 100%); max-height: 88vh; overflow-y: auto; }
+    .smm-modal.smm-modal--booking { width: min(620px, 100%); max-height: calc(100vh - var(--smm-top, 0px) - 40px); overflow-y: auto; }
     .smm-modal-field textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; line-height: 1.55; color: var(--ink); background: #fff; resize: vertical; }
     .smm-modal-field textarea:focus { outline: none; border-color: var(--english-violet); }
     .smm-modal-field input[readonly] { background: rgba(28,29,34,0.04); color: rgba(28,29,34,0.6); }
@@ -1071,6 +1074,9 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
 
     let ME = "";            // the signed-in admin's email — a note belongs to whoever wrote it
     let all = [], kindFilter = "all", q = "", showLost = false, current = null, activeTab = "notes", notesTab = "pkg";
+    // Where the admin top bar ends, for the pop-outs to start below it.
+    const setSmmTop = () => { const t = document.querySelector(".ash-top"); document.documentElement.style.setProperty("--smm-top", `${t ? Math.max(0, Math.round(t.getBoundingClientRect().bottom)) : 0}px`); };
+    setSmmTop(); window.addEventListener("resize", setSmmTop);
     const NOTE_TABS = [["pkg", "Package details"], ["notes", "Notes"], ["activity", "Client activity"], ["files", "Files"]];
 
     // ---------- Board ----------
@@ -3053,10 +3059,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
          added together, grouped by platform (Danielle, 19 Oct 2026). */
       const opts = headlineOptions(cur.data);
       const groupsOf = ["all", "instagram", "facebook", "linkedin"].filter((g) => opts.some((o) => o.platform === g));
+      const onePlat = groupsOf.length === 1 ? groupsOf[0] : null;
       const optHtml = (sel) => groupsOf.length > 1
         ? groupsOf.map((g) => `<optgroup label="${esc(PLATFORM_LABELS[g])}">${opts.filter((o) => o.platform === g).map((o) => `<option value="${o.key}"${sel === o.key ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</optgroup>`).join("")
         : opts.map((o) => `<option value="${o.key}"${sel === o.key ? " selected" : ""}>${esc(o.label)}</option>`).join("");
-      const headPick = `<div class="smm-modal-field"><label>The four headline figures</label><div class="ri-cm-headpick">${[0, 1, 2, 3].map((n) => `<select data-head="${n}">${optHtml(heads[n])}</select>`).join("")}</div><p class="smm-hint">Pick the four that explain this month${groupsOf.length > 1 ? ": a platform's own figure, or all platforms added together. The client sees which under each one" : ""}. The numbers are worked out from the report.</p></div>`;
+      const headPick = `<div class="smm-modal-field"><label>The four headline figures</label><div class="ri-cm-headpick">${[0, 1, 2, 3].map((n) => `<select data-head="${n}">${optHtml(heads[n])}</select>`).join("")}</div><p class="smm-hint">Pick the four that explain this month${groupsOf.length > 1 ? ": a platform's own figure, or all platforms added together. The label tells the client which" : ""}. The numbers are worked out from the report.${onePlat ? ` This month's report only has ${esc(PLATFORM_LABELS[onePlat])}: upload another platform's SocialPilot PDF into ${esc(RI_MONTHS[cur.month])} and its figures, and all platforms added together, appear here, with a platform for each insight.` : ""}</p></div>`;
       const body = which === "insights"
         ? `${headPick}<div class="smm-modal-field"><label>Insights</label><div id="ri-cm-ins">${(cl0.insights || []).map(insRow).join("")}</div>
            <button type="button" class="smm-btn smm-btn--sm" id="ri-cm-add-ins">${PLUS_SVG}Add an insight</button></div>`
