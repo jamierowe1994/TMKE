@@ -801,9 +801,12 @@ async function ensureAgentProfile(env, contactId, contact, input) {
       await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { tags: next });
     } catch (_) {}
   }
-  const enrol = !!(isNewStarter && pkg && promoCode);
+  // Not someone who's booked or cancelled (or that the sync has just found
+  // a booking for), and only ever once.
+  const settled = !!input.skip_enrol || allRows.some((r) => r.status === "booked" || r.status === "cancelled");
+  const enrol = !!(isNewStarter && pkg && promoCode) && !settled;
   if (enrol) {
-    try { await fireTrigger(env, "new_starter_videography", { email: contact.email, first_name: contact.first_name, last_name: contact.last_name }, { package: pkg, code: promoCode }); } catch (_) {}
+    try { await fireTrigger(env, "new_starter_videography", { email: contact.email, first_name: contact.first_name, last_name: contact.last_name }, { package: pkg, code: promoCode }, null, { once: true }); } catch (_) {}
   }
   return { ...row, _enrolled: enrol };
 }
@@ -857,6 +860,44 @@ function parseISODate(s) {
 // Induction cancelled (sheet "Cancelled" = yes): void the single-use code so it
 // can't be booked/redeemed, mark do-not-contact, log a note, and pull them out of
 // the funnel. Idempotent (skips if already cancelled). Returns true if it acted.
+/* A new starter with a session booked, however it was booked: the booking
+   link, the normal booking page, by us in the admin, or TEG's sheet saying
+   so (Danielle, 21 Oct 2026). Only the booking link used to take them out
+   of the funnel. Marks them booked, tags them Videography-Booked (the
+   funnel's own exit check) and stops a running funnel. Returns true when it
+   changed anything. */
+async function markStarterBooked(env, contactId, shootIso) {
+  let changed = false;
+  try {
+    const rows = (await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=id,status`)) || [];
+    const open = rows.filter((r) => r.status !== "booked" && r.status !== "cancelled");
+    if (open.length) {
+      await sbPatch(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&status=not.in.(booked,cancelled)`, { status: "booked", ...(shootIso ? { shoot_booked_at: shootIso } : {}) });
+      changed = true;
+    }
+  } catch (_) {}
+  try {
+    const crow = await sbGet(env, "contacts", `id=eq.${encodeURIComponent(contactId)}&select=tags`);
+    const cur = (crow && crow[0] && crow[0].tags) || [];
+    if (!cur.includes("Videography-Booked")) {
+      await sbPatch(env, "contacts", `id=eq.${encodeURIComponent(contactId)}`, { tags: normalizeTags([...cur, "Videography-Booked"]) });
+      changed = true;
+    }
+  } catch (_) {}
+  try {
+    const funnels = await sbGet(env, "automations", `trigger_type=eq.new_starter_videography&select=id`);
+    const fids = (funnels || []).map((a) => a.id);
+    if (fids.length) {
+      const live = await sbGet(env, "automation_enrollments", `contact_id=eq.${encodeURIComponent(contactId)}&status=eq.active&automation_id=in.(${fids.join(",")})&select=id`);
+      if (live && live.length) {
+        await sbPatch(env, "automation_enrollments", `contact_id=eq.${encodeURIComponent(contactId)}&status=eq.active&automation_id=in.(${fids.join(",")})`, { status: "stopped" });
+        changed = true;
+      }
+    }
+  } catch (_) {}
+  return changed;
+}
+
 async function cancelAgentStarter(env, contactId) {
   const rows = await sbGet(env, "agent_profiles", `contact_id=eq.${encodeURIComponent(contactId)}&select=status,promo_code,promo_code_id`);
   const p = rows && rows[0];
@@ -947,11 +988,11 @@ async function agentSheetFieldsFor(env, emails) {
   const list = emails.filter(Boolean).map((e) => String(e).toLowerCase().replace(/[(),"]/g, ""));
   if (!list.length) return { _why: "no email" };
   // Case-insensitive: a booking typed by hand may carry capitals the sheet doesn't.
-  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=1&select=id,shoot_date,stage,archive_url,client_email`;
+  const q = `or=(${list.map((e) => `client_email.ilike.${encodeURIComponent(e)}`).join(",")})&order=created_at.desc&limit=1&select=id,shoot_date,stage,archive_url,client_email,created_at`;
   const bks = await sbGet(env, "videography_bookings", q);
   const bk = bks && bks[0];
   if (!bk) return { _why: "no booking under " + list.join(" / ") };
-  const fields = { _booking: bk.id, _stage: bk.stage };
+  const fields = { _booking: bk.id, _stage: bk.stage, _shoot: bk.shoot_date || null, _created: bk.created_at || null };
   if (bk.shoot_date) fields.booked = sheetWhenText(bk.shoot_date);
   // The Content Link is the person's folder in our storage; failing that, the
   // gallery page once the delivery has been sent. Never the Pixieset link.
@@ -988,6 +1029,7 @@ async function syncAgentSheet(env) {
     month: col("Preferred Shoot Month"), cancelled: col("Cancelled"),
   };
   let processed = 0, enrolled = 0, cancelled = 0, skipped = 0, written = 0;
+  const bookedCol = sheetColAny(headers, SHEET_BOOKED_HEADERS);
   const columns = {
     headers: headers.filter(Boolean),
     booked: (() => { const i = sheetColAny(headers, SHEET_BOOKED_HEADERS); return i >= 0 ? headers[i] : null; })(),
@@ -1035,22 +1077,38 @@ async function syncAgentSheet(env) {
       }
       const monthRaw = cell(idx.month);
       const month = parseShootMonth(monthRaw);
+      /* Booked already? A booking under either address that isn't cancelled
+         and was made since they joined (not an older, unrelated shoot), or
+         the sheet's own Shoot Booked column filled in. Then they're out of
+         the funnel and never put back in. */
+      let fields = null;
+      try { fields = await agentSheetFieldsFor(env, [email, sec]); } catch (_) {}
+      const joined = parseISODate(cell(idx.induction)) || (month ? month + "-01" : null);
+      const sinceOk = !joined || !fields || !fields._created || Date.parse(fields._created) >= Date.parse(joined) - 120 * 86400000;
+      const hasBooking = !!(fields && fields._booking && fields._stage !== "cancelled" && sinceOk);
+      const bookedCell = cell(bookedCol);
+      const sheetSaysBooked = !!bookedCell && !/^(no|n|tbc|tba|tbd|n\/a|na|-+|pending|not yet)$/i.test(bookedCell);
+      const isBooked = hasBooking || sheetSaysBooked;
       const res = await ensureAgentProfile(env, contactId, { first_name: first, last_name: last, email }, {
         brand, date_joined: parseISODate(cell(idx.induction)), postcode: cell(idx.postcode) || null,
-        is_new_starter: true, induction_month: month, package: pkg,
+        is_new_starter: true, induction_month: month, package: pkg, skip_enrol: isBooked,
       });
+      let leftFunnel = false;
+      if (isBooked) leftFunnel = await markStarterBooked(env, contactId, hasBooking ? fields._shoot : null);
       processed++; if (res._enrolled) enrolled++;
       const detail = {
         row: i + 2, email, package: pkg,
         month_raw: monthRaw || null, month, code: res.promo_code || null, enrolled: !!res._enrolled,
-        note: res._enrolled ? null : (!month
+        note: res._enrolled ? null : isBooked
+          ? `booked (${hasBooking ? "booking found" : "sheet says Shoot Booked"}) - not in the funnel${leftFunnel ? "; taken out now" : ""}`
+          : (!month
           ? ('couldn\'t read Preferred Shoot Month: "' + (monthRaw || "") + '" - no code, so no funnel')
           : "no promo code"),
       };
       // Write-back: the booked slot, and once delivered, the gallery link.
       // Reads the sheet rows already in hand, so one sync is one read.
       try {
-        const fields = await agentSheetFieldsFor(env, [email, sec]);
+        if (!fields) fields = await agentSheetFieldsFor(env, [email, sec]);
         detail.writeback = { booking: fields._booking || null, stage: fields._stage || null, booked: fields.booked || null, link: fields.link || null, why: fields._why || null };
         if (fields.booked || fields.link) {
           const w = await agentSheetWrite(env, email, { booked: fields.booked, link: fields.link }, rows);
@@ -3199,7 +3257,7 @@ function msUntilSendMoment(sendOn, hhmm) {
 // `consentSource` names the form for the consent audit trail, for the cases
 // where contactInput.source / payload.form aren't specific enough to be honest
 // about it (the newsletter endpoint serves both the footer box and signup).
-async function fireTrigger(env, triggerType, contactInput, payload, consentSource) {
+async function fireTrigger(env, triggerType, contactInput, payload, consentSource, opts) {
   if (!triggerType || !contactInput || !contactInput.email) return { ok: false, error: "missing trigger or email" };
   if (!env.SUPABASE_SERVICE_ROLE) return { ok: false, error: "SUPABASE_SERVICE_ROLE not set" };
   // Checked before the upsert, because the upsert is what changes it.
@@ -3244,6 +3302,14 @@ async function fireTrigger(env, triggerType, contactInput, payload, consentSourc
     if (tc.tag && payload && payload.tag && tc.tag !== payload.tag) continue; // simple filter
     const firstId = autoEdgeTo(a.graph, "trigger", "next");
     if (!firstId) continue;
+    // once: a funnel someone has ever been through (stopped, finished or
+    // still running) never starts again for them. The new-starter sheet sync
+    // fires every 15 minutes, and without this a starter stopped because they
+    // booked was put straight back in at the start (Danielle, 21 Oct 2026).
+    if (opts && opts.once) {
+      const before = await sbGet(env, "automation_enrollments", `automation_id=eq.${a.id}&contact_id=eq.${contactId}&select=id&limit=1`);
+      if (before && before.length) continue;
+    }
     // The partial unique index blocks a second live enrolment; a 409 here just
     // means "already enrolled" — we ignore it.
     const res = await sbPost(env, "automation_enrollments", {
