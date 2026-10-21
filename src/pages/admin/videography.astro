@@ -171,7 +171,7 @@ import "../../styles/admin.css";
     <div class="vid-conn-note">
       <strong>Jack's base postcode must be set before travel charges go live.</strong>
       Distance is measured from here to the shoot postcode; shoots within the free
-      radius carry no surcharge, and every mile beyond it is charged at the rate below.
+      radius carry no surcharge, and every mile beyond it is charged at the rate below, there and back.
     </div>
     <div class="vid-settings">
       <div class="vid-field-row">
@@ -313,6 +313,22 @@ import "../../styles/admin.css";
           <label>Property address <span class="vid-lbl-note">shown on a Fine &amp; Country invoice</span></label>
           <textarea data-f="property_address" rows="2" placeholder="Full address including postcode"></textarea>
         </div>
+
+        <!-- Travel, for a booking made here (Danielle, 21 Oct 2026): worked out
+             the way the booking page does it, from Jack's base. The first 40
+             miles each way are free; every mile over is charged there and
+             back. The charge goes on the invoice as its own line. -->
+        <div class="vid-deliver-head">
+          <h3>Travel</h3>
+          <span>Property and agent location shoots</span>
+        </div>
+        <div class="vid-field-row vid-travel-row">
+          <div class="vid-field"><label>Shoot postcode</label><input type="text" data-f="postcode" id="vid-travel-pc" placeholder="Taken from the address above if it has one" /></div>
+          <div class="vid-field vid-travel-acts"><button type="button" class="admin-btn admin-btn-primary" id="vid-travel-calc">Work out travel</button><button type="button" class="admin-btn admin-btn-ghost" id="vid-travel-clear" hidden>No travel charge</button></div>
+        </div>
+        <input type="hidden" data-f="distance_miles" />
+        <input type="hidden" data-f="surcharge_pence" />
+        <p class="vid-travel-result" id="vid-travel-result"></p>
         <div class="vid-field"><label>Notes</label><textarea data-f="notes" rows="3"></textarea></div>
 
         <!-- Who settles this booking. The data model has carried this since the
@@ -567,6 +583,13 @@ import "../../styles/admin.css";
     .vid-archive-row input { flex: 1; }
 
     /* ---- Delivery block in the booking modal ---- */
+    /* Travel on a booking made here (Danielle, 21 Oct 2026). */
+    .vid-travel-row { align-items: end; }
+    .vid-field.vid-travel-acts { flex-direction: row; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-start; }
+    .vid-travel-acts .admin-btn { padding-left: 12px; padding-right: 12px; }
+    .vid-travel-acts [hidden] { display: none; }
+    .vid-travel-result { margin: 4px 0 6px; font-family: var(--sans); font-size: 13px; line-height: 1.55; color: rgba(28,29,34,0.7); }
+    .vid-travel-result.is-err { color: #9a2a2a; }
     .vid-deliver-head {
       display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
       margin: 26px 0 2px; padding-top: 18px;
@@ -1367,7 +1390,7 @@ import "../../styles/admin.css";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
-    import { bookingLocation, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { bookingLocation, travelCharge, travelInvoiceLine, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -2704,15 +2727,24 @@ import "../../styles/admin.css";
     // own line so the client can see what they are paying for.
     function vivSeedItems(b) {
       const items = [];
-      const base = (b.total_pence != null ? b.total_pence : b.amount_pence) || 0;
+      // A booking made online has a total with travel in it; one made here
+      // has the quote, with travel kept beside it (Danielle, 21 Oct 2026).
+      const online = b.total_pence != null;
+      const base = (online ? b.total_pence : b.amount_pence) || 0;
       const surcharge = b.surcharge_pence || 0;
       // A brand invoice is billed to the office (or, for TEG, to the brand),
       // not the agent, so the line has to say who the shoot was actually for
       // or the recipient cannot place it.
       const forWhom = (isBrandInvoiced(b) || isTegInvoiced(b)) && b.client_name ? ` — ${b.client_name}` : "";
       const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ") + forWhom;
-      items.push({ description: label, amount: base > surcharge ? ((base - surcharge) / 100).toFixed(2) : (base / 100).toFixed(2) });
-      if (surcharge) items.push({ description: `Travel — ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, amount: (surcharge / 100).toFixed(2) });
+      items.push({ description: label, amount: online && base > surcharge ? ((base - surcharge) / 100).toFixed(2) : (base / 100).toFixed(2) });
+      // "Travel: 100 miles each way (200 miles there and back), less the free
+      // 40 miles each way: 120 miles at 55p a mile". An older booking charged
+      // one way keeps a plain line, so the words match its amount.
+      if (surcharge) {
+        const t = b.distance_miles ? travelCharge(Number(b.distance_miles), vidSettings) : null;
+        items.push({ description: t && t.pence === surcharge ? travelInvoiceLine(Number(b.distance_miles), vidSettings) : `Travel: ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, amount: (surcharge / 100).toFixed(2) });
+      }
       return items;
     }
 
@@ -3946,6 +3978,58 @@ import "../../styles/admin.css";
       setTimeout(() => { if (btn) btn.textContent = "Save diary"; }, 2200);
     }
 
+    /* ---------- Travel on a booking made in the admin ----------
+       Postcode from the field, or else from the property address; distance
+       from the Worker (driving miles, the same as the booking page), and the
+       charge from travelCharge: 40 miles free each way, the rest charged
+       there and back (Danielle, 21 Oct 2026). */
+    const UK_PC = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
+    function showTravel(note) {
+      const out = document.getElementById("vid-travel-result"); if (!out) return;
+      const fv = (f) => document.querySelector(`[data-f="${f}"]`)?.value || "";
+      const miles = parseFloat(fv("distance_miles")), pence = fv("surcharge_pence") === "" ? null : Number(fv("surcharge_pence"));
+      const clear = document.getElementById("vid-travel-clear");
+      if (note) { out.textContent = note; out.className = "vid-travel-result is-err"; return; }
+      out.className = "vid-travel-result";
+      if (isNaN(miles)) { out.textContent = pence === 0 ? "No travel charge on this booking." : "Not worked out yet. Add the postcode and click Work out travel."; if (clear) clear.hidden = pence === 0; return; }
+      const t = travelCharge(miles, vidSettings);
+      if (clear) clear.hidden = !pence;
+      out.innerHTML = pence
+        ? `<strong>${Math.round(t.oneWay)} miles each way</strong> (${Math.round(t.returnMiles)} there and back). Less the free ${t.radius} miles each way, that's ${t.chargeable} miles at ${t.rate}p: <strong>${gbpFromPence(pence)} + VAT</strong>, which goes on the invoice as its own line.`
+        : `<strong>${Math.round(t.oneWay)} miles each way</strong>: within the free ${t.radius} miles, so no travel charge.`;
+    }
+    async function calcTravel() {
+      const btn = document.getElementById("vid-travel-calc");
+      const pcEl = document.getElementById("vid-travel-pc");
+      let pc = (pcEl?.value || "").trim();
+      if (!pc) { const m = (document.querySelector('[data-f="property_address"]')?.value || "").match(UK_PC); if (m) { pc = `${m[1]} ${m[2]}`.toUpperCase(); if (pcEl) pcEl.value = pc; } }
+      if (!pc) { showTravel("Add the shoot postcode first, or put it in the property address."); return; }
+      if (btn) { btn.disabled = true; btn.textContent = "Working it out…"; }
+      try {
+        const res = await fetch(`${WORKER_URL}/videography/distance?to=${encodeURIComponent(pc)}`);
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok || typeof d.miles !== "number") throw new Error(d.error || "Couldn't work out the distance for that postcode.");
+        const t = travelCharge(d.miles, { free_radius_miles: d.free_radius_miles ?? vidSettings.free_radius_miles, pence_per_mile: d.pence_per_mile ?? vidSettings.surcharge_pence_per_mile });
+        document.querySelector('[data-f="distance_miles"]').value = String(d.miles);
+        document.querySelector('[data-f="surcharge_pence"]').value = String(t.pence);
+        showTravel();
+        if (d.source === "estimate") document.getElementById("vid-travel-result").insertAdjacentHTML("beforeend", " <em>Straight-line estimate: the driving distance wasn't available.</em>");
+      } catch (e) { showTravel(e.message); }
+      finally { if (btn) { btn.disabled = false; btn.textContent = "Work out travel"; } }
+    }
+    document.getElementById("vid-travel-calc")?.addEventListener("click", calcTravel);
+    document.getElementById("vid-travel-clear")?.addEventListener("click", () => {
+      document.querySelector('[data-f="distance_miles"]').value = "";
+      document.querySelector('[data-f="surcharge_pence"]').value = "0";
+      showTravel();
+    });
+    // A new postcode means the old figure no longer applies.
+    document.getElementById("vid-travel-pc")?.addEventListener("input", () => {
+      document.querySelector('[data-f="distance_miles"]').value = "";
+      document.querySelector('[data-f="surcharge_pence"]').value = "";
+      showTravel();
+    });
+
     /* ---------- Modal (add / edit booking) ---------- */
     let editingId = null;
     function openModal(id) {
@@ -3963,6 +4047,10 @@ import "../../styles/admin.css";
       set("amount_gbp", b?.amount_pence != null ? (b.amount_pence / 100).toString() : "");
       set("notes", b?.notes);
       set("property_address", b?.property_address);
+      set("postcode", b?.postcode);
+      set("distance_miles", b?.distance_miles != null ? String(b.distance_miles) : "");
+      set("surcharge_pence", b?.surcharge_pence != null ? String(b.surcharge_pence) : "");
+      showTravel();
       set("gallery_url", b?.gallery_url);
       set("gallery_email", b?.gallery_email);
       set("gallery_pin", b?._pin || "");
@@ -4252,6 +4340,9 @@ import "../../styles/admin.css";
         amount_pence: gbp ? Math.round(parseFloat(gbp) * 100) : null,
         notes: get("notes") || null,
         property_address: get("property_address") || null,
+        postcode: get("postcode") ? get("postcode").toUpperCase() : null,
+        distance_miles: get("distance_miles") === "" ? null : Number(get("distance_miles")),
+        surcharge_pence: get("surcharge_pence") === "" ? null : Math.round(Number(get("surcharge_pence"))),
         payment_route: get("payment_route") || "agent_card",
         fc_office: get("fc_office") || null,
         marketing_fee_claimed: get("marketing_fee_claimed") === "" ? null : get("marketing_fee_claimed") === "yes",
@@ -4281,6 +4372,14 @@ import "../../styles/admin.css";
           ? (bookings.find((x) => x.id === editingId)?.archived_at || new Date().toISOString())
           : null,
       };
+      // Travel re-worked on a booking made online: its total had the old
+      // travel in it, so it moves by the difference.
+      {
+        const was = bookings.find((x) => x.id === editingId);
+        if (was && was.total_pence != null && payload.surcharge_pence != null && payload.surcharge_pence !== (was.surcharge_pence || 0)) {
+          payload.total_pence = was.total_pence - (was.surcharge_pence || 0) + payload.surcharge_pence;
+        }
+      }
       const pinValue = get("gallery_pin");
       const tourUrlValue = get("tour_360_url");
       let savedId = editingId;
@@ -4950,7 +5049,7 @@ import "../../styles/admin.css";
         const radius = vidSettings.free_radius_miles ?? SURCHARGE_DEFAULTS.free_radius_miles;
         const rate = vidSettings.surcharge_pence_per_mile ?? SURCHARGE_DEFAULTS.pence_per_mile;
         const pc = vidSettings.base_postcode || SURCHARGE_DEFAULTS.base_postcode;
-        foot.textContent = `Travel: on-location shoots (property and agent) are free within ${radius} miles of ${pc}, then ${rate}p per mile. Content Studio sessions and discovery calls carry no travel charge — the studio is ours and calls are over Teams.`;
+        foot.textContent = `Travel: on-location shoots (property and agent) are free within ${radius} miles of ${pc}, then ${rate}p per mile, there and back. Content Studio sessions and discovery calls carry no travel charge — the studio is ours and calls are over Teams.`;
       }
     }
 

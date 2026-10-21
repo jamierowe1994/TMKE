@@ -131,7 +131,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
         <form class="dc-panel-form" id="vb-postcode-form">
           <label class="dc-field"><span>Postcode *</span><input name="postcode" autocomplete="postal-code" required placeholder="e.g. NN1 1AA" /></label>
           <p class="vb-surcharge-note" id="vb-surcharge-note" hidden></p>
-          <p class="vb-hmrc-note">Any distance over 40 miles is charged at 55p per mile in line with HMRC approved mileage rates.</p>
+          <p class="vb-hmrc-note">Any distance over 40 miles is charged at 55p per mile, there and back, in line with HMRC approved mileage rates.</p>
           <p class="dc-gate-error" id="vb-postcode-error" hidden></p>
           <button type="submit" class="dc-form-cta" id="vb-postcode-cta">Check distance <em>&rarr;</em></button>
         </form>
@@ -731,7 +731,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
          for the travel charge rather than straight to the day. */
       if (svc.key === "photography") {
         $("vb-options-title").textContent = "Choose your package";
-        if (sub) sub.textContent = "All prices are plus VAT. Travel beyond 40 miles is charged on top.";
+        if (sub) sub.textContent = "All prices are plus VAT. Travel beyond 40 miles is charged on top, there and back.";
         actions.hidden = true;
         wrap.innerHTML = `<div class="dc-choices">` + svc.sessions.map((s, i) => `
           <button type="button" class="dc-choice" data-i="${i}">
@@ -890,7 +890,7 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       const approx = r.source === "estimate" ? "approx " : "";
       note.hidden = false;
       note.innerHTML = surchargeP > 0
-        ? `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio. A travel surcharge of <strong>${gbp(surchargeP)} +VAT</strong> applies.`
+        ? `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio, ${Math.max(0, Math.ceil(r.miles - 40))} miles past the free 40. Charged there and back, that's <strong>${gbp(surchargeP)} +VAT</strong> for travel.`
         : `This property is ${approx}<strong>${Math.round(r.miles)} miles</strong> from TMKE's studio — <strong>within the free 40-mile radius</strong>, so there's no travel charge.`;
       pcResolvedFor = postcode;
       resetCta(btn, "Continue");   // a second press now proceeds (no auto-advance)

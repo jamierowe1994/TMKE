@@ -156,7 +156,7 @@ export const PRODUCTS = [
     pricingHeading: "Bookings and Pricing",
     pricingProse: [
       "Property packages start from £550 +VAT for the Gold package. Fine & Country agents receive the Platinum package — a premium floor plan, three 60-second reels and photography up to 60 images — from £625 +VAT. Your rate is calculated automatically based on your membership or network, so just click below for a personalised quote.",
-      "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, and we'll factor that into your quote automatically.",
+      "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, there and back, and we'll factor that into your quote automatically.",
     ],
     priceTiers: [
       // Gold (TEG brands) is the headline "from" rate; Fine & Country agents get
@@ -214,7 +214,7 @@ export const PRODUCTS = [
     pricingHeading: "Booking & Pricing",
     pricingProse: [
       "Agent videography starts from £295 +VAT. Your rate is calculated automatically based on your membership to our network — just click below for a personalised quote.",
-      "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, and we'll factor that into your quote automatically.",
+      "Jack covers a 40-mile radius of NN14, Kettering. Outside of that area? No problem — travel expenses apply for anything beyond the 40 miles, there and back, and we'll factor that into your quote automatically.",
     ],
     priceTiers: [
       { label: "Agent Edit", sub: "Video & photography", minutes: 240, prices: { direct: 29500 } },

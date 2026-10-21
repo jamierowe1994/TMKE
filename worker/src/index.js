@@ -6356,15 +6356,18 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             if (s[0].surcharge_pence_per_mile != null) perMile = s[0].surcharge_pence_per_mile;
           }
         } catch (_) {}
-        let miles = null, source = null;
+        let miles = null, source = null, driveError = null;
         if (env.GOOGLE_MAPS_API_KEY) {
           try {
             const u = `https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&region=uk&origins=${encodeURIComponent(base)}&destinations=${encodeURIComponent(to)}&key=${env.GOOGLE_MAPS_API_KEY}`;
             const d = await (await fetch(u)).json();
             const el = d && d.rows && d.rows[0] && d.rows[0].elements && d.rows[0].elements[0];
             if (el && el.status === "OK" && el.distance) { miles = el.distance.value / 1609.344; source = "drive"; }
-          } catch (_) {}
-        }
+            // Why Google said no, when it did (its status words, never the key),
+            // so a fall back to the straight-line estimate can be diagnosed.
+            else driveError = [d && d.status, el && el.status, d && d.error_message].filter(Boolean).join(": ").slice(0, 200) || "no distance";
+          } catch (e) { driveError = String((e && e.message) || e).slice(0, 120); }
+        } else driveError = "no GOOGLE_MAPS_API_KEY";
         if (miles == null) {
           try {
             const clean = (p) => encodeURIComponent(p.replace(/\s+/g, ""));
@@ -6381,8 +6384,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           } catch (_) {}
         }
         if (miles == null) return json({ error: "Couldn't resolve that postcode" }, 422, request, env);
-        const surcharge_pence = Math.max(0, Math.ceil(miles - freeRadius)) * perMile;
-        return json({ miles: Math.round(miles * 10) / 10, surcharge_pence, free_radius_miles: freeRadius, pence_per_mile: perMile, source }, 200, request, env);
+        // There and back (Danielle, 21 Oct 2026): the first freeRadius miles
+        // each way are free, every mile over is charged going and coming
+        // back. Keep in step with travelCharge in src/lib/videography-config.js.
+        const over_each_way = Math.max(0, Math.ceil(miles - freeRadius));
+        const chargeable_miles = over_each_way * 2;
+        const surcharge_pence = chargeable_miles * perMile;
+        return json({ miles: Math.round(miles * 10) / 10, return_miles: Math.round(miles * 20) / 10, over_each_way, chargeable_miles, surcharge_pence, free_radius_miles: freeRadius, pence_per_mile: perMile, source, ...(source === "estimate" && driveError ? { drive_error: driveError } : {}) }, 200, request, env);
       }
 
       // ---- Live media listing: images + videos in an assets folder, newest

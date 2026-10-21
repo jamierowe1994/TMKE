@@ -440,7 +440,7 @@ export const TERMS_BY_SERVICE = {
       CLAUSE_PAYMENT,
       CLAUSE_CANCELLATIONS,
       CLAUSE_RESCHEDULING,
-      { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the property postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering. If the shoot location changes after your booking is confirmed, your travel cost may need to be re-calculated and an updated total will be provided before the shoot takes place." },
+      { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the property postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering, both there and back. If the shoot location changes after your booking is confirmed, your travel cost may need to be re-calculated and an updated total will be provided before the shoot takes place." },
       { h: "On the day", p: [
         "Please ensure safe and timely access to the property at the agreed time, and that you have obtained the necessary permissions to film the premises and the consent of any people who may appear in the content. Delays caused by access or readiness issues may reduce the time available for the shoot.",
         "Where drone footage is included in your package, Jack holds a valid CAA licence for commercial drone operations. The ability to capture drone footage on the day is subject to weather conditions and local airspace restrictions, which may be outside of our control. In the event that drone footage cannot be captured, TMKE will discuss the options available to you at the time.",
@@ -460,7 +460,7 @@ export const TERMS_BY_SERVICE = {
       CLAUSE_PAYMENT,
       CLAUSE_CANCELLATIONS,
       CLAUSE_RESCHEDULING,
-      { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the shoot location postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering. If the shoot location changes after your booking is confirmed, your travel cost may need to be recalculated and an updated total will be provided before the shoot takes place." },
+      { h: "Travel costs", p: "Any travel costs applicable to your booking have been calculated based on the shoot location postcode provided at the time of booking and are included in your confirmed total. Travel is charged at <strong>55p per mile</strong> for any distance beyond <strong>40 miles</strong> from our base in Kettering, both there and back. If the shoot location changes after your booking is confirmed, your travel cost may need to be recalculated and an updated total will be provided before the shoot takes place." },
       { h: "On the day", p: "Please ensure you are ready and available at the agreed location and time, and that you have permission to film at the chosen location and the consent of any other people who may appear in the content. Delays caused by access or readiness may shorten the time available for your shoot." },
       CLAUSE_DELIVERY,
       CLAUSE_AMENDS,
@@ -686,7 +686,25 @@ export function gbp(pence) {
 }
 
 // Travel surcharge for a distance, given settings. Returns pence (ex-VAT).
+/* Travel is charged there and back (Danielle, 21 Oct 2026): the first 40
+   miles each way are free, and every mile over that is charged twice, once
+   going and once coming back. 56 miles away = 16 over each way = 32 miles
+   charged. Keep in step with the Worker's /videography/distance. */
+export function travelCharge(oneWayMiles, settings = SURCHARGE_DEFAULTS) {
+  const radius = settings.free_radius_miles ?? SURCHARGE_DEFAULTS.free_radius_miles;
+  const rate = settings.pence_per_mile ?? settings.surcharge_pence_per_mile ?? SURCHARGE_DEFAULTS.pence_per_mile;
+  const oneWay = Math.round((oneWayMiles || 0) * 10) / 10;
+  const overEachWay = Math.max(0, Math.ceil((oneWayMiles || 0) - radius));
+  const chargeable = overEachWay * 2;
+  return { oneWay, returnMiles: Math.round(oneWay * 2 * 10) / 10, radius, rate, overEachWay, chargeable, pence: chargeable * rate };
+}
 export function surchargePence(distanceMiles, settings = SURCHARGE_DEFAULTS) {
-  const over = Math.max(0, Math.ceil((distanceMiles || 0) - settings.free_radius_miles));
-  return over * settings.pence_per_mile;
+  return travelCharge(distanceMiles, settings).pence;
+}
+/** The invoice line: "Travel: 56 miles each way (112 miles there and back),
+ *  less the free 40 miles each way: 32 miles at 55p". */
+export function travelInvoiceLine(oneWayMiles, settings = SURCHARGE_DEFAULTS) {
+  const t = travelCharge(oneWayMiles, settings);
+  const m = (x) => `${Math.round(x)} mile${Math.round(x) === 1 ? "" : "s"}`;
+  return `Travel: ${m(t.oneWay)} each way (${m(t.returnMiles)} there and back), less the free ${t.radius} miles each way: ${m(t.chargeable)} at ${t.rate}p a mile`;
 }
