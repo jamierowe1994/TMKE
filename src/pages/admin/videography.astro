@@ -3156,6 +3156,7 @@ import "../../styles/admin.css";
             ${iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vedit="${escapeHtml(iv.id)}">Edit</button>` : ""}
             ${iv.status === "sent" || iv.status === "paid" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vresend="${escapeHtml(iv.id)}">Resend</button>` : ""}
             ${iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vpaid="${escapeHtml(iv.id)}">Paid</button>` : ""}
+            ${iv.status === "draft" ? `<button type="button" class="admin-btn admin-btn-primary" data-vjack="${escapeHtml(iv.id)}" title="Jack gets it by email to approve or reject">Send to Jack to approve</button>` : ""}
             ${iv.status === "draft" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vdel="${escapeHtml(iv.id)}">Delete</button>` : ""}
             ${iv.status !== "draft" && iv.status !== "paid" && iv.status !== "void" ? `<button type="button" class="admin-btn admin-btn-ghost" data-vvoid="${escapeHtml(iv.id)}">Void</button>` : ""}
           </span>
@@ -3190,6 +3191,21 @@ import "../../styles/admin.css";
           vivStatus(`${num} voided. Accounts have been emailed.`);
           loadInvoices(b);
         } catch (err) { vivStatus("Couldn't void it: " + err.message, true); btn.disabled = false; }
+      }));
+      /* A draft to Jack to approve (Danielle, 21 Oct 2026): the same email the
+         morning run sends two days before a shoot. Approve sends it to the
+         client; Reject comes back to Danielle with his notes. Also how a
+         rejected one goes back to him once it's fixed. */
+      host.querySelectorAll("[data-vjack]").forEach((btn) => btn.addEventListener("click", async () => {
+        btn.disabled = true; btn.textContent = "Sending…";
+        try {
+          const token = await authToken();
+          const res = await fetch(`${WORKER_URL}/invoicing/approval/request`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: btn.getAttribute("data-vjack") }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(d.error || res.status);
+          vivStatus(d.test ? "Sent for approval. Test mode: the email came to you, not Jack." : "Sent to Jack to approve. Once he does, it goes to the client.");
+          btn.textContent = "Sent to Jack";
+        } catch (err) { vivStatus("Couldn't send it to Jack: " + err.message, true); btn.disabled = false; btn.textContent = "Send to Jack to approve"; }
       }));
       host.querySelectorAll("[data-vresend]").forEach((btn) => btn.addEventListener("click", () => resendInvoice(b, btn.getAttribute("data-vresend"), btn)));
       host.querySelectorAll("[data-vedit]").forEach((btn) => btn.addEventListener("click", () => editInvoice(b, btn.getAttribute("data-vedit"))));

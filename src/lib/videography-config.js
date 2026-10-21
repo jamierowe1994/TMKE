@@ -708,3 +708,63 @@ export function travelInvoiceLine(oneWayMiles, settings = SURCHARGE_DEFAULTS) {
   const m = (x) => `${Math.round(x)} mile${Math.round(x) === 1 ? "" : "s"}`;
   return `Travel: ${m(t.oneWay)} each way (${m(t.returnMiles)} there and back), less the free ${t.radius} miles each way: ${m(t.chargeable)} at ${t.rate}p a mile`;
 }
+
+/* ---- A shoot's invoice, drafted from its booking ----
+   What the admin's invoice builder fills in for a booking (videography.astro,
+   renderInvoiceCard + vivSeedItems), written once here so the morning run
+   can draft the same invoice two days before the shoot for Jack to approve
+   (Danielle, 21 Oct 2026). Keep the two in step.
+   - Client by card: billed to their company or name, their email, card
+     payment on.
+   - Fine & Country: billed to the office, to the address the fee
+     confirmation went to, no card; the agent and property in the notes.
+   - TEG brand: billed to the brand at its address, to TEG accounts, no card.
+   - Social media package: nothing to invoice (returns null).
+   Returns the fields createInvoiceDraft takes. */
+export function bookingInvoiceDraft(b, { accountsCc = null, settings = SURCHARGE_DEFAULTS } = {}) {
+  if (!b || b.payment_route === "smm_package") return null;
+  const brand = b.payment_route === "brand_invoice";
+  const teg = b.payment_route === "brand_invoice_teg";
+  const officeName = (FC_OFFICES.find((o) => o.key === b.fc_office) || {}).label || "";
+  const tegName = tegBrandLabel(b.teg_brand);
+  const billTo = brand ? (officeName || b.client_company || b.client_name || "")
+    : teg ? (tegName || b.client_company || b.client_name || "")
+    : (b.client_company || b.client_name || "");
+  const shootDate = b.shoot_date ? new Date(b.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }) : "";
+  const reasonName = b.teg_reason === "other" ? (b.teg_reason_other || "the reason given") : tegReasonLabel(b.teg_reason);
+  const tegNotes = {
+    induction: `Invoice raised for ${b.client_name || "the new starter"}'s induction shoot, as part of the induction package.`,
+    event: `Invoice raised for brand event coverage${b.client_name ? ` — ${b.client_name}` : ""}${shootDate ? `, ${shootDate}` : ""}.`,
+    marketing: `Invoice raised for brand marketing content${b.client_name ? ` — ${b.client_name}` : ""}.`,
+  };
+  const notes = brand
+    ? [`Invoice raised for ${b.client_name || "the agent"}.`, b.property_address || b.location || "", shootDate ? `Shoot date: ${shootDate}` : ""].filter(Boolean).join("\n")
+    : teg ? (tegNotes[b.teg_reason] || `Invoice raised for ${reasonName}${b.client_name ? ` — ${b.client_name}` : ""}.`)
+    : "Thank you for your business - TMKE";
+  // The lines: what was booked, and travel as its own line. A booking made
+  // online has a total with travel in it; one made in the admin has the
+  // quote, with travel beside it.
+  const online = b.total_pence != null;
+  const base = (online ? b.total_pence : b.amount_pence) || 0;
+  const surcharge = b.surcharge_pence || 0;
+  const forWhom = (brand || teg) && b.client_name ? ` — ${b.client_name}` : "";
+  const label = [b.service || "Videography", b.package ? `(${b.package})` : ""].filter(Boolean).join(" ") + forWhom;
+  const items = [{ description: label, qty: 1, unit_pence: online && base > surcharge ? base - surcharge : base }];
+  if (surcharge) {
+    const t = b.distance_miles ? travelCharge(Number(b.distance_miles), settings) : null;
+    items.push({ description: t && t.pence === surcharge ? travelInvoiceLine(Number(b.distance_miles), settings) : `Travel: ${b.distance_miles ? Math.round(b.distance_miles) + " miles" : "mileage"}`, qty: 1, unit_pence: surcharge });
+  }
+  return {
+    booking_id: b.id, booking_source: "videography",
+    bill_to_name: billTo,
+    bill_to_email: brand ? (b.fc_confirm_email || "") : teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || ""),
+    bill_to_address: teg ? tegBrandAddress(b.teg_brand) : "",
+    client_name: b.client_company || b.client_name || "",
+    cc_email: accountsCc || "hello@tmke.co.uk",
+    line_items: items, notes,
+    pay_by_card: !brand && !teg,
+    terms_days: 10, release_on_payment: true,
+    // Brand invoices can't go without an email to send them to.
+    _missing: [!billTo && "who it's billed to", !(brand ? b.fc_confirm_email : teg ? TEG_ACCOUNTS_EMAIL : b.client_email) && "an email to send it to", !base && "a price"].filter(Boolean),
+  };
+}

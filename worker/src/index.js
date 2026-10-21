@@ -19,7 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
-import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, packageBrief, STUDIO_LOCATION } from "../../src/lib/videography-config.js";
+import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, packageBrief, STUDIO_LOCATION, bookingInvoiceDraft } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -110,6 +110,481 @@ function invoiceEmailHtml(settings, inv, customBodyText, payUrl, bk) {
   return `<div style="${EM_WRAP}"><p style="${EM_P}">${br(bodyText)}</p>${pay}${footer}</div>`;
 }
 
+/* Create a draft invoice: number, VAT and totals worked out here, the
+   accounts CC by default. The admin's POST /invoicing/invoices and the
+   automatic invoicing (recurring, social media, videography) both use it,
+   so an invoice is made the same way whoever makes it (Danielle, 21 Oct
+   2026). b: the same fields the route takes. by: who's raising it. */
+async function createInvoiceDraft(env, b, by) {
+  b = b || {};
+  const items = (Array.isArray(b.line_items) ? b.line_items : [])
+    .map((it) => ({ description: String((it && it.description) || "").trim(), qty: it && it.qty != null ? Number(it.qty) : 1, unit_pence: Math.round(Number((it && it.unit_pence) || 0)) }))
+    .filter((it) => it.description || it.unit_pence);
+  if (!items.length) return { ok: false, error: "Add at least one line item.", code: 400 };
+  const billName = String((b && b.bill_to_name) || "").trim();
+  if (!billName) return { ok: false, error: "A recipient name is required.", code: 400 };
+
+  // Videography raises invoices through this same endpoint from the
+  // client file, and won't have a client name to send. Rather than make
+  // every caller remember, look it up from the booking - which is the
+  // only place that knows, and differs by strand: shoots live in
+  // videography_bookings, social clients in smm_leads.
+  let clientName = String((b && b.client_name) || "").trim();
+  if (!clientName && b && b.booking_id) {
+    try {
+if ((b.booking_source || "videography") === "smm") {
+  const l = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(b.booking_id)}&select=business,full_name,first_name,last_name&limit=1`))?.[0];
+  if (l) clientName = l.business || l.full_name || `${l.first_name || ""} ${l.last_name || ""}`.trim();
+} else {
+  const bk = (await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(b.booking_id)}&select=company,client_name&limit=1`))?.[0];
+  if (bk) clientName = bk.company || bk.client_name || "";
+}
+    } catch (_) { /* a missing name must not stop the invoice */ }
+  }
+
+  const srows = await sbGet(env, "invoice_settings", "id=eq.1&select=*");
+  const st = (srows && srows[0]) || {};
+  const vatRate = st.vat_rate != null ? Number(st.vat_rate) : 20;
+  const nextNum = st.next_number || 1001;
+  const number = `${st.invoice_prefix || "TMKE"}${nextNum}`;
+  const subtotal = items.reduce((sum, it) => sum + it.unit_pence * (it.qty || 1), 0);
+  const vat = Math.round(subtotal * vatRate / 100);
+  const total = subtotal + vat;
+
+  const template = (b && (b.template === "banded" || b.template === "minimal")) ? b.template : null;
+  const row = {
+    number, booking_id: (b && b.booking_id) || null, booking_source: (b && b.booking_source) || "videography",
+    recipient_id: (b && b.recipient_id) || null,
+    bill_to_name: billName, bill_to_email: (b && b.bill_to_email) || null, bill_to_address: (b && b.bill_to_address) || null,
+    // Who the work was FOR. The payer can be a finance department
+    // settling for several clients at once, so this is what makes a line
+    // identifiable to both accounts teams.
+    client_name: clientName || null,
+    line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
+    status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
+    notes: (b && b.notes) || null, template,
+    pay_by_card: !!(b && b.pay_by_card),
+    // Per-invoice override; null means fall back to the global setting.
+    terms_days: (b && b.terms_days != null && b.terms_days !== "") ? Math.max(0, Math.round(Number(b.terms_days))) : null,
+    release_on_payment: !!(b && b.release_on_payment),
+    // Per-invoice CC — the builder pre-fills the accounts default but the
+    // sender can edit/clear it. Only fall back to the default if the field
+    // wasn't sent at all (so a deliberate clear = no CC).
+    cc_email: (b && b.cc_email !== undefined) ? (String(b.cc_email || "").trim() || null) : (st.accounts_cc_email || null),
+    created_by: by || null,
+  };
+  // Tied to a recurring invoice on the monthly checklist, for a month:
+  // the sure link, rather than guessing from the address it went to.
+  if (b && b.recurring_id) row.recurring_id = String(b.recurring_id);
+  if (b && /^\d{4}-\d{2}$/.test(String(b.billing_month || ""))) row.billing_month = b.billing_month;
+  let res = await sbPost(env, "invoices", row, "return=representation");
+  if (!res.ok && row.recurring_id) {
+    // supabase/invoice_month_notes.sql not run yet: save without the link.
+    const t0 = await res.clone().text().catch(() => "");
+    if (/recurring_id/.test(t0)) { delete row.recurring_id; res = await sbPost(env, "invoices", row, "return=representation"); }
+  }
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    // The per-invoice template column is optional (supabase/invoicing_template_choice.sql).
+    // If it isn't there yet, save without it rather than failing the whole invoice.
+    if (/template/.test(errText) && row.template != null) {
+const { template: _t, ...rowNoTpl } = row;
+res = await sbPost(env, "invoices", rowNoTpl, "return=representation");
+    }
+    // Same tolerance for the card-payment column
+    // (supabase/invoicing_stripe.sql). Save the invoice rather than lose it.
+    if (!res.ok && /pay_by_card/.test(errText)) {
+const { pay_by_card: _p, ...rowNoPay } = row;
+res = await sbPost(env, "invoices", rowNoPay, "return=representation");
+    }
+    // Same tolerance for supabase/invoicing_terms.sql.
+    if (!res.ok && /terms_days|release_on_payment/.test(errText)) {
+const { terms_days: _t2, release_on_payment: _r, ...rowNoTerms } = row;
+res = await sbPost(env, "invoices", rowNoTerms, "return=representation");
+    }
+    // And for supabase/invoices_client_name.sql. Losing the client name
+    // is a smaller harm than losing the invoice.
+    if (!res.ok && /client_name/.test(errText)) {
+const { client_name: _c, ...rowNoClient } = row;
+res = await sbPost(env, "invoices", rowNoClient, "return=representation");
+console.error("invoices: client_name column missing - run supabase/invoices_client_name.sql");
+    }
+    if (!res.ok) return { ok: false, error: "Couldn't save the invoice." + (errText ? " " + errText.slice(0, 180) : ""), code: 502 };
+  }
+  let inv = null; try { const j = await res.json(); inv = Array.isArray(j) ? j[0] : j; } catch (_) {}
+  if (!inv || !inv.id) return { ok: false, error: "Couldn't save the invoice.", code: 502 };
+  await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?id=eq.1`, {
+    method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ next_number: nextNum + 1 }),
+  });
+  return { ok: true, invoice: inv };
+}
+
+/* Send an invoice: render the PDF, keep it, email it to the client with
+   accounts copied and a blind copy to us, mark it sent and log it on the
+   booking. Used by the admin's Send button and by the automatic invoicing
+   once an invoice is approved (Danielle, 21 Oct 2026). b: { id, cc,
+   email_subject, email_body }. by: who sent it, for the audit note. */
+async function sendInvoiceNow(env, b, by) {
+  b = b || {};
+  const id = String((b && b.id) || "").trim();
+  if (!id) return { ok: false, error: "Missing invoice id.", code: 400 };
+  const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
+  const inv = rows && rows[0];
+  if (!inv) return { ok: false, error: "Invoice not found.", code: 404 };
+  if (!inv.bill_to_email) return { ok: false, error: "This invoice has no recipient email - add one first.", code: 400 };
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+  // The person raising the invoice can pick the style; fall back to the saved default.
+  const stForPdf = { ...st, template: inv.template || st.template };
+
+  // Videography invoices carry booking_id, so the covering email can say
+  // whose shoot it was and where - which a Fine & Country office needs,
+  // because it is settling somebody else's bill.
+  let bk = null;
+  if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
+    const brows = await sbGet(env, "videography_bookings",
+`id=eq.${encodeURIComponent(inv.booking_id)}&select=client_name,service,payment_route,property_address,location,teg_reason,teg_reason_other`);
+    bk = (brows && brows[0]) || null;
+  }
+  const forBrand = bk && (bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg");
+  const agentName = (bk && bk.client_name) || "";
+
+  let pdf;
+  try { pdf = await renderInvoicePdf(env, stForPdf, inv); }
+  catch (err) { return { ok: false, error: "Couldn't render the PDF: " + (err && err.message ? err.message : err), code: 502 }; }
+
+  // Keep a copy in R2 (deterministic key by number).
+  const pdfKey = `invoices/${(inv.number || inv.id)}.pdf`;
+  try { await env.BUCKET.put(pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } }); } catch (_) {}
+
+  // The sender can edit the subject, body and CC on the review step before
+  // sending; fall back to the invoice's stored values / defaults otherwise.
+  const coName = st.company_name || "The Marketing Experts (Nationwide) Ltd";
+  // "Property videography invoice TMKE1022 - Jane Smith from ..." so the
+  // office can tell at a glance which shoot it is being billed for.
+  const autoSubject = forBrand
+    ? `${bk.service || "Videography"} invoice ${inv.number}${agentName ? ` - ${agentName}` : ""} from ${coName}`
+    : `Invoice ${inv.number} from ${coName}`;
+  const subject = (b && typeof b.email_subject === "string" && b.email_subject.trim()) ? b.email_subject.trim() : autoSubject;
+  const cc = (b && b.cc !== undefined) ? (String(b.cc || "").trim() || null) : (inv.cc_email || null);
+
+  // Covering email with the PDF attached; accounts dept CC'd. If the email
+  // doesn't actually go, don't mark it sent — tell the caller so they retry.
+  // A pay link only if this invoice opted in AND Stripe is actually
+  // configured - emailing a button that 503s would be worse than no button.
+  const wantsCard = !!inv.pay_by_card && inv.status !== "paid";
+  const payUrl = (wantsCard && env.STRIPE_SECRET_KEY) ? await invoicePayUrl(env, inv.id) : null;
+
+  const mail = invoiceMailTo(inv.bill_to_email, cc);
+  // We always get a copy of what went out. Blind, so the client sees only
+  // their own address - "did that invoice actually send" should be
+  // answerable from our own inbox, not only from the audit trail.
+  const already = `${mail.to || ""},${mail.cc || ""}`.toLowerCase();
+  const copyTo = String(env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "").trim();
+  const bcc = copyTo && !already.includes(copyTo.toLowerCase()) ? copyTo : null;
+  const emailed = await sendEmail(env, {
+    to: mail.to,
+    cc: mail.cc,
+    bcc,
+    subject,
+    html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl, bk)),
+    attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
+  });
+  if (!emailed.ok) return { ok: false, error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")", code: 502 };
+
+  // Mark sent (don't downgrade an already-paid invoice). Persist any edited CC.
+  const newStatus = inv.status === "paid" ? "paid" : "sent";
+  const sentAt = new Date().toISOString();
+  const patchInvoice = async (body) => fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify(body),
+  });
+  // sent_at only exists once supabase/invoicing_sent_audit.sql has run, and
+  // PostgREST refuses the whole patch for one unknown column - so the
+  // invoice is still marked sent either way.
+  let pr = await patchInvoice({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc, sent_at: sentAt });
+  if (!pr.ok) await patchInvoice({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc });
+
+  // A footprint on the account: which invoice, to whom, when, by whom.
+  // Without this, "was TMKE1046 ever sent?" has no answer anywhere.
+  if (inv.booking_id) {
+    const when = new Date(sentAt).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const parts = [`Invoice ${inv.number} emailed to ${inv.bill_to_email}`];
+    if (cc) parts.push(`copied to ${cc}`);
+    if (bcc) parts.push(`copied to ${bcc}`);
+    await logBookingMessage(env, {
+booking_id: inv.booking_id,
+booking_source: inv.booking_source || "videography",
+client_email: inv.bill_to_email,
+channel: "note",
+kind: "audit",
+subject: `Invoice ${inv.number} sent`,
+body: `${parts.join(", ")} on ${when}. Sent by ${by || "an admin"}. ${money(inv.total_pence || 0).replace("&mdash;", "-")} total.`,
+is_automated: true,
+created_by: by || "admin",
+    });
+  }
+  return { ok: true, status: newStatus, sent_to: inv.bill_to_email, sent_at: sentAt, copied_to: bcc };
+}
+
+/* ===================== Automatic invoicing =====================
+   Danielle, 21 Oct 2026 (supabase/invoicing_automation.sql). Each morning:
+   recurring invoices go out on their day; a shoot's invoice is drafted two
+   days ahead and put to Jack to approve; approvals nobody has answered are
+   chased. invoice_settings.automation_mode: off | test | live. In test,
+   drafts are made but every email comes to Danielle, labelled with who it
+   would have gone to, and nothing reaches a client. */
+const invEsc = (x) => String(x ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const INV_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function invToday(offsetDays = 0) {
+  const d = new Date(Date.now() + offsetDays * 86400000);
+  const p = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+  const g = (t) => p.find((x) => x.type === t).value;
+  return { ymd: `${g("year")}-${g("month")}-${g("day")}`, ym: `${g("year")}-${g("month")}`, day: Number(g("day")) };
+}
+function invMonthLabel(ym) { const [y, m] = String(ym).split("-").map(Number); return `${INV_MONTHS[m - 1]} ${y}`; }
+function invAddDays(ymd, n) { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function invDanielle(env) { return String(env.ACCOUNTS_NOTIFY || DD_DEFAULT_RECIPIENT).trim(); }
+function invJack(env) { return String(env.JACK_NOTIFY || env.JACK_UPN || "").trim(); }
+function invSite(env) { return String(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, ""); }
+// The first time a key is written it returns true; after that, false. So
+// the morning run never raises or asks twice.
+async function invLogOnce(env, key, detail) {
+  try { const r = await sbPost(env, "invoice_automation_log", { key, detail: detail || null }); return !!(r && r.ok); } catch (_) { return false; }
+}
+async function invLogForget(env, key) {
+  try { await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_automation_log?key=eq.${encodeURIComponent(key)}`, { method: "DELETE", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}` } }); } catch (_) {}
+}
+// Is a recurring invoice due in this month? By its frequency, counted from
+// its first month, and not after its last.
+function invRecurringDue(row, ym) {
+  const start = row.start_month || ym;
+  if (ym < start) return false;
+  if (row.end_month && ym > row.end_month) return false;
+  const [y0, m0] = start.split("-").map(Number), [y1, m1] = ym.split("-").map(Number);
+  const gap = (y1 - y0) * 12 + (m1 - m0);
+  const every = { monthly: 1, quarterly: 3, "6monthly": 6, yearly: 12 }[row.frequency || "monthly"];
+  if (row.frequency === "oneoff") return gap === 0;
+  return gap % (every || 1) === 0;
+}
+
+// Approve and Reject links: an HMAC over the approval's id, as the card
+// payment link does, so a link can't be guessed or pointed at another.
+async function invApprovalSign(env, id) {
+  const secret = unsubSecret(env);
+  if (!secret || !id) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`invapprove:${id}`));
+  return `${_b64urlStr(String(id))}.${_b64url(mac)}`;
+}
+async function invApprovalVerify(env, token) {
+  try {
+    const raw = String(token || ""), dot = raw.indexOf(".");
+    if (dot < 1) return null;
+    const id = atob(raw.slice(0, dot).replace(/-/g, "+").replace(/_/g, "/"));
+    const expect = await invApprovalSign(env, id);
+    if (!expect || raw.length !== expect.length) return null;
+    let diff = 0;
+    for (let i = 0; i < raw.length; i++) diff |= raw.charCodeAt(i) ^ expect.charCodeAt(i);
+    return diff === 0 ? id : null;
+  } catch (_) { return null; }
+}
+function invLinesHtml(inv) {
+  const rows = (inv.line_items || []).map((it) => `<tr><td style="padding:4px 14px 4px 0">${invEsc(it.description || "")}</td><td style="padding:4px 0;text-align:right;white-space:nowrap">${gbpW((it.unit_pence || 0) * (it.qty || 1))}</td></tr>`).join("");
+  return `<table style="border-collapse:collapse;font-size:12px;margin:10px 0 14px;width:100%">${rows}
+    <tr><td style="padding:6px 14px 2px 0;border-top:1px solid #e3dcd8">VAT</td><td style="padding:6px 0 2px;border-top:1px solid #e3dcd8;text-align:right">${gbpW(inv.vat_pence || 0)}</td></tr>
+    <tr><td style="padding:2px 14px 2px 0"><strong>Total</strong></td><td style="padding:2px 0;text-align:right"><strong>${gbpW(inv.total_pence || 0)}</strong></td></tr></table>`;
+}
+
+/* Put an invoice to someone to approve: a row in invoice_approvals, and an
+   email with the PDF and Approve / Reject buttons. In test mode the email
+   comes to Danielle instead. Any earlier request for the same invoice is
+   superseded, so only the newest links work. */
+async function requestInvoiceApproval(env, inv, { kind, approver, bookingId, about, mode }) {
+  if (!inv || !approver) return { ok: false, error: "Nobody to approve it." };
+  const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
+  const before = (await sbGet(env, "invoice_approvals", `invoice_id=eq.${inv.id}&select=id,status`)) || [];
+  await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_approvals?invoice_id=eq.${inv.id}&status=eq.pending`, { method: "PATCH", headers: hdr, body: JSON.stringify({ status: "superseded" }) });
+  const res = await sbPost(env, "invoice_approvals", { invoice_id: inv.id, kind, booking_id: bookingId || null, approver_email: approver, round: before.length + 1 }, "return=representation");
+  if (!res || !res.ok) return { ok: false, error: "Couldn't record the approval: " + (res ? (await res.text()).slice(0, 160) : "no answer") };
+  const row = (await res.json())[0];
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
+  let pdf = null;
+  try { pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv); } catch (_) {}
+  const t = await invApprovalSign(env, row.id);
+  const base = `${unsubBase(env)}/invoicing/approval?t=${encodeURIComponent(t)}`;
+  const test = mode !== "live";
+  const first = String(approver).split("@")[0].split(/[._-]/)[0].replace(/^./, (m) => m.toUpperCase());
+  const html = `<div style="${EM_WRAP}">
+    ${test ? `<p style="${EM_P};padding:10px 12px;background:#fff5d6;border-radius:4px"><strong>Test mode.</strong> This would have gone to ${invEsc(approver)}. Approving won't send anything to the client.</p>` : ""}
+    <p style="${EM_P}">Hi ${invEsc(first)},</p>
+    <p style="${EM_P}">Invoice <strong>${invEsc(inv.number)}</strong>${about ? ` for ${invEsc(about)}` : ""} is ready to go to <strong>${invEsc(inv.bill_to_name || "")}</strong>${inv.bill_to_email ? ` (${invEsc(inv.bill_to_email)})` : ""}. Please check it's right: the PDF is attached.</p>
+    ${invLinesHtml(inv)}
+    <p style="${EM_P}"><a href="${base}&a=approve" style="${EM_BTN}">Approve and send</a>&nbsp;&nbsp;<a href="${base}&a=reject" style="${EM_BTN};background:#ffffff;color:#371e28;border:1px solid #371e28">Reject</a></p>
+    <p style="${EM_SMALL}">Approve sends it straight to ${invEsc(inv.bill_to_name || "them")}, with accounts copied. Reject lets you say what needs changing, and it goes back to Danielle to fix.</p>
+  </div>`;
+  const sent = await sendEmail(env, {
+    to: test ? invDanielle(env) : approver,
+    subject: `${test ? "[Test] " : ""}Approve invoice ${inv.number}${about ? `: ${about}` : ""}`,
+    html: await wrapInBrandedBase(env, html),
+    attachments: pdf ? [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }] : undefined,
+  });
+  return { ok: !!sent.ok, approval: row, error: sent.ok ? null : sent.error };
+}
+
+/* Approve or reject. Approve sends the invoice (live) and moves a shoot to
+   Invoiced; reject tells Danielle with the notes. Returns what to show the
+   person who clicked. */
+async function decideInvoiceApproval(env, approvalId, action, notes) {
+  const ap = (await sbGet(env, "invoice_approvals", `id=eq.${encodeURIComponent(approvalId)}&select=*`))?.[0];
+  if (!ap) return { title: "That link doesn't work any more", msg: "It may have been replaced by a newer one. Check your latest email." };
+  const when = (x) => new Date(x).toLocaleString("en-GB", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+  if (ap.status === "superseded") return { title: "There's a newer version of this invoice", msg: "This one was replaced. Use the link in your latest email." };
+  if (ap.status !== "pending") return { title: `Already ${ap.status}`, msg: `This invoice was ${ap.status}${ap.decided_at ? ` on ${when(ap.decided_at)}` : ""}. Nothing more to do.` };
+  const inv = (await sbGet(env, "invoices", `id=eq.${ap.invoice_id}&select=*`))?.[0];
+  if (!inv || inv.status === "void") return { title: "This invoice has been cancelled", msg: "Nothing more to do." };
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0] || {};
+  const live = (st.automation_mode || "test") === "live";
+  const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
+  const mark = (body) => fetch(`${env.SUPABASE_URL}/rest/v1/invoice_approvals?id=eq.${ap.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ ...body, decided_at: new Date().toISOString(), decided_by: ap.approver_email }) });
+  const adminLink = ap.booking_id ? `${invSite(env)}/admin/videography?booking=${ap.booking_id}` : `${invSite(env)}/admin/invoicing?tab=invoices`;
+  if (action === "approve") {
+    if (live) {
+      if (inv.status === "draft") {
+        const sent = await sendInvoiceNow(env, { id: inv.id }, `${ap.approver_email} (approved)`);
+        if (!sent.ok) {
+          await sendEmail(env, { to: invDanielle(env), subject: `Invoice ${inv.number} was approved but didn't send`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">${invEsc(ap.approver_email)} approved invoice ${invEsc(inv.number)}, but it didn't send: ${invEsc(sent.error || "unknown error")}.</p><p style="${EM_P}"><a href="${adminLink}" style="${EM_BTN}">Open it</a></p></div>`) });
+          return { title: "Approved, but it didn't send", msg: `${invEsc(sent.error || "Something went wrong")}. Danielle has been told and will send it.` };
+        }
+      }
+    }
+    await mark({ status: "approved" });
+    if (ap.booking_id) {
+      await fetch(`${env.SUPABASE_URL}/rest/v1/videography_bookings?id=eq.${ap.booking_id}&stage=eq.booked`, { method: "PATCH", headers: hdr, body: JSON.stringify({ stage: "invoiced" }) });
+      await logBookingMessage(env, { booking_id: ap.booking_id, booking_source: "videography", channel: "note", kind: "audit", subject: `Invoice ${inv.number} approved`, body: `Approved by ${ap.approver_email}${live ? " and sent" : " (test mode: not sent)"}.`, is_automated: true, created_by: "system" });
+    }
+    if (!live) await sendEmail(env, { to: invDanielle(env), subject: `[Test] Invoice ${inv.number} approved`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">${invEsc(ap.approver_email)} approved invoice ${invEsc(inv.number)}. In test mode it hasn't gone to ${invEsc(inv.bill_to_name || "the client")}: it's a draft you can send from the admin.</p><p style="${EM_P}"><a href="${adminLink}" style="${EM_BTN}">Open it</a></p></div>`) });
+    return { title: "Approved", msg: live ? `Invoice ${invEsc(inv.number)} has gone to ${invEsc(inv.bill_to_name || "the client")}, with accounts copied.` : `Test mode: invoice ${invEsc(inv.number)} hasn't been sent to the client.` };
+  }
+  // Reject
+  await mark({ status: "rejected", notes: notes || null });
+  if (ap.booking_id) await logBookingMessage(env, { booking_id: ap.booking_id, booking_source: "videography", channel: "note", kind: "audit", subject: `Invoice ${inv.number} rejected`, body: `Rejected by ${ap.approver_email}: ${notes || "no reason given"}.`, is_automated: true, created_by: "system" });
+  await sendEmail(env, {
+    to: invDanielle(env),
+    subject: `Invoice ${inv.number} needs changing`,
+    html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">
+      <p style="${EM_P}">${invEsc(ap.approver_email)} rejected invoice <strong>${invEsc(inv.number)}</strong> for ${invEsc(inv.bill_to_name || "")}.</p>
+      <p style="${EM_P};padding:11px 14px;background:#f4f2f1;border-left:3px solid #371e28;border-radius:4px">${invEsc(notes || "No reason given.").replace(/\n/g, "<br>")}</p>
+      <p style="${EM_P}">Make the changes, then click <strong>Send to Jack again</strong> on the invoice. It comes back to him to approve.</p>
+      <p style="${EM_P}"><a href="${adminLink}" style="${EM_BTN}">Open it</a></p></div>`),
+  });
+  return { title: "Sent back to Danielle", msg: "Thanks. She'll make the changes and it'll come back to you to approve." };
+}
+
+function invApprovalPage(title, inner) {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
+    <body style="margin:0;background:#f4f2f1;font-family:Verdana,Geneva,sans-serif;color:#371e28">
+      <div style="max-width:560px;margin:10vh auto;padding:0 24px">
+        <h1 style="font-size:22px;font-weight:400;line-height:1.5;margin:0 0 14px">${title}</h1>${inner}
+      </div></body></html>`;
+}
+
+/* The morning run (08:00). */
+async function runInvoiceAutomation(env) {
+  const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0];
+  const mode = (st && st.automation_mode) || "off";
+  if (!st || mode === "off") return { ok: true, mode };
+  const today = invToday(), lines = [];
+  const test = mode !== "live";
+
+  // 1. Recurring invoices on their day.
+  try {
+    const rows = (await sbGet(env, "recurring_invoices", "active=eq.true&auto_send=eq.true&select=*")) || [];
+    for (const r of rows) {
+      if (!r.day_of_month || today.day < r.day_of_month || !invRecurringDue(r, today.ym)) continue;
+      const key = `recurring:${r.id}:${today.ym}`;
+      const had = (await sbGet(env, "invoices", `recurring_id=eq.${r.id}&billing_month=eq.${today.ym}&status=neq.void&select=id&limit=1`)) || [];
+      if (had.length) { await invLogOnce(env, key, "already raised by hand"); continue; }
+      if (!(await invLogOnce(env, key, "raising"))) continue;
+      const month = invMonthLabel(today.ym);
+      const fill = (d) => String(d || "").replace(/\(Month YYYY\)|\{month\}/gi, (m) => m.startsWith("(") ? `(${month})` : month);
+      const items = Array.isArray(r.line_items) && r.line_items.length
+        ? r.line_items.map((it) => ({ description: fill(it.description), qty: it.qty || 1, unit_pence: it.unit_pence || 0 }))
+        : [{ description: `${r.name} (${month})`, qty: 1, unit_pence: r.amount_pence || 0 }];
+      const made = await createInvoiceDraft(env, {
+        bill_to_name: r.bill_to_name || r.name, bill_to_email: r.bill_to_email || r.match_email, bill_to_address: r.bill_to_address || null,
+        cc_email: r.cc_email != null ? r.cc_email : undefined, line_items: items, notes: r.notes || null,
+        terms_days: r.terms_days, pay_by_card: !!r.pay_by_card, recurring_id: r.id, billing_month: today.ym,
+        issued_date: today.ymd, due_date: invAddDays(today.ymd, r.terms_days != null ? r.terms_days : (st.payment_terms_days || 7)),
+      }, "automatic (recurring)");
+      if (!made.ok) { await invLogForget(env, key); lines.push(`<li>Couldn't raise <strong>${invEsc(r.name)}</strong> for ${month}: ${invEsc(made.error)}. It'll try again tomorrow.</li>`); continue; }
+      const inv = made.invoice;
+      if (test) {
+        let pdf = null; try { pdf = await renderInvoicePdf(env, st, inv); } catch (_) {}
+        await sendEmail(env, { to: invDanielle(env), subject: `[Test] Invoice ${inv.number} would have gone to ${inv.bill_to_name}`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}"><strong>Test mode.</strong> Invoice ${invEsc(inv.number)} for ${invEsc(r.name)} (${month}) would have gone to ${invEsc(inv.bill_to_email || "")}${inv.cc_email ? `, copying ${invEsc(inv.cc_email)}` : ""}. It's saved as a draft: send it from the admin if it's right.</p>${invLinesHtml(inv)}</div>`), attachments: pdf ? [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }] : undefined });
+        lines.push(`<li><strong>${invEsc(r.name)}</strong>: ${invEsc(inv.number)} drafted (test mode, not sent).</li>`);
+      } else {
+        const sent = await sendInvoiceNow(env, { id: inv.id }, "automatic (recurring)");
+        lines.push(sent.ok ? `<li><strong>${invEsc(r.name)}</strong>: ${invEsc(inv.number)} sent to ${invEsc(inv.bill_to_email || "")}.</li>` : `<li><strong>${invEsc(r.name)}</strong>: ${invEsc(inv.number)} drafted but didn't send: ${invEsc(sent.error)}.</li>`);
+      }
+    }
+  } catch (e) { lines.push(`<li>Recurring invoices didn't run: ${invEsc(String(e && e.message || e))}</li>`); }
+
+  // 2. Shoots in the next two days: draft the invoice and ask Jack.
+  try {
+    const from = new Date().toISOString(), to = new Date(Date.now() + 3 * 86400000).toISOString();
+    const shoots = (await sbGet(env, "videography_bookings", `shoot_date=gte.${from}&shoot_date=lte.${to}&select=*`)) || [];
+    const vs = (await sbGet(env, "videography_settings", "id=eq.1&select=free_radius_miles,surcharge_pence_per_mile"))?.[0] || {};
+    const limit = invAddDays(today.ymd, 2);
+    for (const b of shoots) {
+      const day = invToday((Date.parse(b.shoot_date) - Date.now()) / 86400000).ymd;
+      if (day > limit || ["cancelled", "delivered"].includes(b.stage) || b.payment_route === "smm_package" || b.paid_at) continue;
+      const have = (await sbGet(env, "invoices", `booking_id=eq.${b.id}&status=neq.void&select=id&limit=1`)) || [];
+      if (have.length) continue;
+      const who = b.client_name || b.client_company || "a client";
+      const when = new Date(b.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
+      if (b.payment_route === "brand_invoice" && !b.brand_fee_confirmed) {
+        if (await invLogOnce(env, `video:${b.id}:fee`, "waiting on fee")) lines.push(`<li><strong>${invEsc(who)}</strong>, ${when}: not drafted yet. Fine &amp; Country haven't confirmed the marketing fee is held. <a href="${invSite(env)}/admin/videography?booking=${b.id}">Open the booking</a></li>`);
+        continue;
+      }
+      if (!(await invLogOnce(env, `video:${b.id}:drafted`, "drafting"))) continue;
+      const draft = bookingInvoiceDraft(b, { accountsCc: st.accounts_cc_email, settings: { free_radius_miles: vs.free_radius_miles, surcharge_pence_per_mile: vs.surcharge_pence_per_mile } });
+      if (!draft) continue;
+      const missing = draft._missing; delete draft._missing;
+      const made = await createInvoiceDraft(env, { ...draft, issued_date: today.ymd, due_date: invAddDays(today.ymd, 10) }, "automatic (videography)");
+      if (!made.ok) { await invLogForget(env, `video:${b.id}:drafted`); lines.push(`<li>Couldn't draft the invoice for <strong>${invEsc(who)}</strong>, ${when}: ${invEsc(made.error)}.</li>`); continue; }
+      const inv = made.invoice;
+      if (missing.length) { lines.push(`<li><strong>${invEsc(who)}</strong>, ${when}: ${invEsc(inv.number)} drafted, but it needs ${invEsc(missing.join(" and "))} before Jack can approve it. <a href="${invSite(env)}/admin/videography?booking=${b.id}">Open the booking</a>, then click Send to Jack.</li>`); continue; }
+      const asked = await requestInvoiceApproval(env, inv, { kind: "videography", approver: invJack(env), bookingId: b.id, about: `${who}'s shoot on ${when}`, mode });
+      lines.push(asked.ok ? `<li><strong>${invEsc(who)}</strong>, ${when}: ${invEsc(inv.number)} drafted and sent to Jack to approve${test ? " (test mode: to you)" : ""}.</li>` : `<li><strong>${invEsc(who)}</strong>: ${invEsc(inv.number)} drafted, but the approval email didn't send: ${invEsc(asked.error || "")}.</li>`);
+    }
+  } catch (e) { lines.push(`<li>Shoot invoices didn't run: ${invEsc(String(e && e.message || e))}</li>`); }
+
+  // 3. Approvals nobody has answered: a reminder after a day, you after two.
+  try {
+    const pend = (await sbGet(env, "invoice_approvals", "status=eq.pending&select=*")) || [];
+    const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
+    for (const ap of pend) {
+      const age = (Date.now() - Date.parse(ap.requested_at)) / 3600000;
+      const inv = (await sbGet(env, "invoices", `id=eq.${ap.invoice_id}&select=*`))?.[0];
+      if (!inv) continue;
+      if (age >= 44 && !ap.escalated_at) {
+        lines.push(`<li>${invEsc(ap.approver_email)} hasn't answered invoice ${invEsc(inv.number)} for ${invEsc(inv.bill_to_name || "")} in two days.</li>`);
+        await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_approvals?id=eq.${ap.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ escalated_at: new Date().toISOString() }) });
+      } else if (age >= 20 && !ap.reminded_at) {
+        const again = await requestInvoiceApproval(env, inv, { kind: ap.kind, approver: ap.approver_email, bookingId: ap.booking_id, about: "reminder", mode });
+        if (again.ok && again.approval) await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_approvals?id=eq.${again.approval.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ reminded_at: new Date().toISOString(), requested_at: ap.requested_at }) });
+      }
+    }
+  } catch (_) {}
+
+  if (lines.length) {
+    await sendEmail(env, { to: invDanielle(env), subject: `${test ? "[Test] " : ""}Invoicing today: ${lines.length} item${lines.length === 1 ? "" : "s"}`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Here's what the automatic invoicing did this morning${test ? ", in test mode, so nothing went to a client" : ""}.</p><ul style="${EM_P};padding-left:18px">${lines.join("")}</ul><p style="${EM_P}"><a href="${invSite(env)}/admin/invoicing?tab=approvals" style="${EM_BTN}">Open invoicing</a></p></div>`) });
+  }
+  return { ok: true, mode, lines: lines.length };
+}
+
 // ---- Direct Debit "ghost" invoices --------------------------------------
 const DD_DEFAULT_RECIPIENT = "danielle@tmke.co.uk";
 // TESTING SWITCH: while true, EVERY invoice email (client send, DD ghost, void)
@@ -140,11 +615,11 @@ function ddReminderHtml(client, monthLabel, inv) {
   return `<div style="${EM_WRAP}">
     <p style="margin:0 0 14px">This is an automated reminder for the books - <strong>no action needed with the client</strong> (they pay by Direct Debit through QuickBooks).</p>
     <table style="border-collapse:collapse;margin:0 0 14px;font-size:12px">
-      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${esc(client)}</strong></td></tr>
-      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${esc(monthLabel)}</td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Client</td><td style="padding:2px 0"><strong>${invEsc(client)}</strong></td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Period</td><td style="padding:2px 0">${invEsc(monthLabel)}</td></tr>
       <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Amount</td><td style="padding:2px 0"><strong>${money(inv.total_pence)}</strong></td></tr>
-      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Invoice</td><td style="padding:2px 0">${esc(inv.number)}</td></tr>
-      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">DD collection</td><td style="padding:2px 0">${esc(inv.due_date || "")}</td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">Invoice</td><td style="padding:2px 0">${invEsc(inv.number)}</td></tr>
+      <tr><td style="padding:2px 18px 2px 0;color:#7a6b70">DD collection</td><td style="padding:2px 0">${invEsc(inv.due_date || "")}</td></tr>
     </table>
     <p style="margin:0">The full invoice PDF is attached. It'll be marked paid once the Direct Debit is confirmed.</p>
   </div>`;
@@ -4634,6 +5109,7 @@ export default {
       if (event.cron === "0 8 * * *") {
         ctx.waitUntil(runVideographyChasers(env));
         ctx.waitUntil(runInvoiceChasers(env));
+        ctx.waitUntil(runInvoiceAutomation(env));
         ctx.waitUntil(runStallCheck(env));
         ctx.waitUntil(runEmptyFunnelCheck(env));
         ctx.waitUntil(runInvoicePrompt(env));
@@ -8754,6 +9230,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
     const publicNoAuth = path.endsWith("/videography/edit-request/context")
       || path.endsWith("/videography/edit-request")
       || path.endsWith("/assets/review-grid")
+      // Approve / Reject an invoice from the email: the signed link is the
+      // proof, and Jack and Abbie shouldn't have to sign in (Danielle, 21 Oct).
+      || path.endsWith("/invoicing/approval")
       || (path.endsWith("/download") && url.searchParams.get("sig"));   // proof is in the link
     if (!publicNoAuth) {
       const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
@@ -10301,7 +10780,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank", "font_family", "font_size", "email_footer_image_url"];
+        const allowed = ["company_name", "company_address", "company_reg_no", "vat_number", "vat_rate", "bank_name", "account_name", "sort_code", "account_number", "payment_terms_days", "invoice_prefix", "next_number", "accounts_cc_email", "footer_note", "template", "accent_color", "logo_url", "show_bank", "font_family", "font_size", "email_footer_image_url", "automation_mode"];
         const row = { id: 1 };
         for (const k of allowed) if (b && k in b) row[k] = b[k];
         await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?on_conflict=id`, {
@@ -10401,108 +10880,84 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       }
 
       // ---- Admin: send an invoice (render PDF → email + CC accounts → sent) ---
+      // ---- Approve or reject an invoice from the email (no sign-in) ----------
+      // The link opens a page with the button: nothing happens on the click
+      // through alone, because mail scanners open every link in an email
+      // (Microsoft's do, for nearly every message) and would approve it.
+      if (path.endsWith("/invoicing/approval") && request.method === "GET") {
+        const t = url.searchParams.get("t") || "", a = url.searchParams.get("a") === "reject" ? "reject" : "approve";
+        const id = await invApprovalVerify(env, t);
+        const page = (title, inner) => new Response(invApprovalPage(title, inner), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+        if (!id) return page("That link doesn't work", `<p style="font-size:13px;line-height:1.6">It may have been copied wrongly. Use the buttons in the email.</p>`);
+        const ap = (await sbGet(env, "invoice_approvals", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0];
+        const inv = ap ? (await sbGet(env, "invoices", `id=eq.${ap.invoice_id}&select=*`))?.[0] : null;
+        if (!ap || !inv) return page("That link doesn't work any more", `<p style="font-size:13px;line-height:1.6">Check your latest email.</p>`);
+        if (ap.status !== "pending") { const r = await decideInvoiceApproval(env, id, a, ""); return page(r.title, `<p style="font-size:13px;line-height:1.6">${r.msg}</p>`); }
+        const summary = `<p style="font-size:13px;line-height:1.6">Invoice <strong>${invEsc(inv.number)}</strong> to <strong>${invEsc(inv.bill_to_name || "")}</strong>${inv.bill_to_email ? ` (${invEsc(inv.bill_to_email)})` : ""}, ${gbpW(inv.total_pence || 0)} including VAT.</p>${invLinesHtml(inv)}`;
+        const btn = "display:inline-block;padding:11px 20px;border-radius:4px;border:0;background:#371e28;color:#fff;font:600 12px Verdana,Geneva,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer";
+        const form = a === "approve"
+          ? `<form method="post" action="${url.pathname}"><input type="hidden" name="t" value="${invEsc(t)}"><input type="hidden" name="a" value="approve"><button type="submit" style="${btn}">Approve and send</button></form>
+             <p style="font-size:12px;line-height:1.6;margin-top:14px">Something wrong? <a href="${url.pathname}?t=${encodeURIComponent(t)}&a=reject" style="color:#371e28">Reject it instead</a>.</p>`
+          : `<form method="post" action="${url.pathname}"><input type="hidden" name="t" value="${invEsc(t)}"><input type="hidden" name="a" value="reject">
+               <label style="display:block;font-size:12px;font-weight:700;margin:0 0 6px">What needs changing?</label>
+               <textarea name="notes" rows="5" required style="width:100%;box-sizing:border-box;padding:10px;border:1px solid #c9bfba;border-radius:4px;font:13px Verdana,Geneva,sans-serif" placeholder="e.g. The travel should be 60 miles each way, and it's for the Stratford office."></textarea>
+               <p style="margin-top:12px"><button type="submit" style="${btn}">Reject and send back</button></p></form>`;
+        return page(a === "approve" ? "Approve this invoice?" : "Reject this invoice", summary + form);
+      }
+      if (path.endsWith("/invoicing/approval") && request.method === "POST") {
+        const f = await request.formData().catch(() => null);
+        const t = f ? String(f.get("t") || "") : "", a = f && f.get("a") === "reject" ? "reject" : "approve";
+        const notes = f ? String(f.get("notes") || "").trim().slice(0, 2000) : "";
+        const id = await invApprovalVerify(env, t);
+        if (!id) return new Response(invApprovalPage("That link doesn't work", ""), { status: 400, headers: { "Content-Type": "text/html; charset=utf-8" } });
+        const r = await decideInvoiceApproval(env, id, a, notes);
+        return new Response(invApprovalPage(r.title, `<p style="font-size:13px;line-height:1.6">${r.msg}</p>`), { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+      // ---- Admin: send an invoice (back) to someone to approve --------------
+      // "Send to Jack again" after a rejection, or the first time for a draft
+      // the morning run couldn't send (no email, fee not confirmed).
+      if (path.endsWith("/invoicing/approval/request") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const inv = (await sbGet(env, "invoices", `id=eq.${encodeURIComponent(String(b.invoice_id || ""))}&select=*`))?.[0];
+        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
+        if (inv.status !== "draft") return json({ error: "Only a draft can go for approval: this one has been sent." }, 400, request, env);
+        if (!inv.bill_to_email) return json({ error: "Add an email to send it to first." }, 400, request, env);
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0] || {};
+        let about = "";
+        if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
+          const bk = (await sbGet(env, "videography_bookings", `id=eq.${inv.booking_id}&select=client_name,client_company,shoot_date`))?.[0];
+          if (bk) about = `${bk.client_name || bk.client_company || "the client"}'s shoot${bk.shoot_date ? ` on ${new Date(bk.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })}` : ""}`;
+        }
+        const r = await requestInvoiceApproval(env, inv, { kind: b.kind || "videography", approver: String(b.approver || "").trim() || invJack(env), bookingId: inv.booking_id || null, about, mode: st.automation_mode || "test" });
+        if (!r.ok) return json({ error: r.error || "Couldn't send it." }, 502, request, env);
+        return json({ ok: true, approval: r.approval, test: (st.automation_mode || "test") !== "live" }, 200, request, env);
+      }
+      // ---- Admin: approvals, newest first (the Approvals tab) ---------------
+      if (path.endsWith("/invoicing/approvals") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const aps = (await sbGet(env, "invoice_approvals", "select=*&order=requested_at.desc&limit=200")) || [];
+        const ids = [...new Set(aps.map((x) => x.invoice_id))];
+        const invs = ids.length ? (await sbGet(env, "invoices", `id=in.(${ids.join(",")})&select=id,number,bill_to_name,bill_to_email,total_pence,status,booking_id`)) || [] : [];
+        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0] || {};
+        return json({ ok: true, mode: st.automation_mode || "off", approvals: aps.map((x) => ({ ...x, invoice: invs.find((i) => i.id === x.invoice_id) || null })) }, 200, request, env);
+      }
+      // ---- Admin: run this morning's automatic invoicing now ----------------
+      if (path.endsWith("/invoicing/automation/run") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!(await isManagement(env, user))) return json(MGMT_ONLY, 403, request, env);
+        return json(await runInvoiceAutomation(env), 200, request, env);
+      }
       if (path.endsWith("/invoicing/invoices/send") && request.method === "POST") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const id = String((b && b.id) || "").trim();
-        if (!id) return json({ error: "Missing invoice id." }, 400, request, env);
-        const rows = await sbGet(env, "invoices", `id=eq.${encodeURIComponent(id)}&select=*`);
-        const inv = rows && rows[0];
-        if (!inv) return json({ error: "Invoice not found." }, 404, request, env);
-        if (!inv.bill_to_email) return json({ error: "This invoice has no recipient email - add one first." }, 400, request, env);
-        const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=*"))?.[0] || {};
-        // The person raising the invoice can pick the style; fall back to the saved default.
-        const stForPdf = { ...st, template: inv.template || st.template };
-
-        // Videography invoices carry booking_id, so the covering email can say
-        // whose shoot it was and where - which a Fine & Country office needs,
-        // because it is settling somebody else's bill.
-        let bk = null;
-        if (inv.booking_id && (inv.booking_source || "videography") === "videography") {
-          const brows = await sbGet(env, "videography_bookings",
-            `id=eq.${encodeURIComponent(inv.booking_id)}&select=client_name,service,payment_route,property_address,location,teg_reason,teg_reason_other`);
-          bk = (brows && brows[0]) || null;
-        }
-        const forBrand = bk && (bk.payment_route === "brand_invoice" || bk.payment_route === "brand_invoice_teg");
-        const agentName = (bk && bk.client_name) || "";
-
-        let pdf;
-        try { pdf = await renderInvoicePdf(env, stForPdf, inv); }
-        catch (err) { return json({ error: "Couldn't render the PDF: " + (err && err.message ? err.message : err) }, 502, request, env); }
-
-        // Keep a copy in R2 (deterministic key by number).
-        const pdfKey = `invoices/${(inv.number || inv.id)}.pdf`;
-        try { await env.BUCKET.put(pdfKey, pdf, { httpMetadata: { contentType: "application/pdf" } }); } catch (_) {}
-
-        // The sender can edit the subject, body and CC on the review step before
-        // sending; fall back to the invoice's stored values / defaults otherwise.
-        const coName = st.company_name || "The Marketing Experts (Nationwide) Ltd";
-        // "Property videography invoice TMKE1022 - Jane Smith from ..." so the
-        // office can tell at a glance which shoot it is being billed for.
-        const autoSubject = forBrand
-          ? `${bk.service || "Videography"} invoice ${inv.number}${agentName ? ` - ${agentName}` : ""} from ${coName}`
-          : `Invoice ${inv.number} from ${coName}`;
-        const subject = (b && typeof b.email_subject === "string" && b.email_subject.trim()) ? b.email_subject.trim() : autoSubject;
-        const cc = (b && b.cc !== undefined) ? (String(b.cc || "").trim() || null) : (inv.cc_email || null);
-
-        // Covering email with the PDF attached; accounts dept CC'd. If the email
-        // doesn't actually go, don't mark it sent — tell the caller so they retry.
-        // A pay link only if this invoice opted in AND Stripe is actually
-        // configured - emailing a button that 503s would be worse than no button.
-        const wantsCard = !!inv.pay_by_card && inv.status !== "paid";
-        const payUrl = (wantsCard && env.STRIPE_SECRET_KEY) ? await invoicePayUrl(env, inv.id) : null;
-
-        const mail = invoiceMailTo(inv.bill_to_email, cc);
-        // We always get a copy of what went out. Blind, so the client sees only
-        // their own address - "did that invoice actually send" should be
-        // answerable from our own inbox, not only from the audit trail.
-        const already = `${mail.to || ""},${mail.cc || ""}`.toLowerCase();
-        const copyTo = String(env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "").trim();
-        const bcc = copyTo && !already.includes(copyTo.toLowerCase()) ? copyTo : null;
-        const emailed = await sendEmail(env, {
-          to: mail.to,
-          cc: mail.cc,
-          bcc,
-          subject,
-          html: await wrapInBrandedBase(env, invoiceEmailHtml(st, inv, b && b.email_body, payUrl, bk)),
-          attachments: [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }],
-        });
-        if (!emailed.ok) return json({ error: "The invoice was saved but the email didn't send: " + (emailed.error || "unknown error") + " (recipient: " + inv.bill_to_email + (cc ? ", cc: " + cc : "") + ")" }, 502, request, env);
-
-        // Mark sent (don't downgrade an already-paid invoice). Persist any edited CC.
-        const newStatus = inv.status === "paid" ? "paid" : "sent";
-        const sentAt = new Date().toISOString();
-        const patchInvoice = async (body) => fetch(`${env.SUPABASE_URL}/rest/v1/invoices?id=eq.${encodeURIComponent(id)}`, {
-          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify(body),
-        });
-        // sent_at only exists once supabase/invoicing_sent_audit.sql has run, and
-        // PostgREST refuses the whole patch for one unknown column - so the
-        // invoice is still marked sent either way.
-        let pr = await patchInvoice({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc, sent_at: sentAt });
-        if (!pr.ok) await patchInvoice({ status: newStatus, sent_to: inv.bill_to_email, cc_email: cc });
-
-        // A footprint on the account: which invoice, to whom, when, by whom.
-        // Without this, "was TMKE1046 ever sent?" has no answer anywhere.
-        if (inv.booking_id) {
-          const when = new Date(sentAt).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
-          const parts = [`Invoice ${inv.number} emailed to ${inv.bill_to_email}`];
-          if (cc) parts.push(`copied to ${cc}`);
-          if (bcc) parts.push(`copied to ${bcc}`);
-          await logBookingMessage(env, {
-            booking_id: inv.booking_id,
-            booking_source: inv.booking_source || "videography",
-            client_email: inv.bill_to_email,
-            channel: "note",
-            kind: "audit",
-            subject: `Invoice ${inv.number} sent`,
-            body: `${parts.join(", ")} on ${when}. Sent by ${user.email || "an admin"}. ${money(inv.total_pence || 0).replace("&mdash;", "-")} total.`,
-            is_automated: true,
-            created_by: user.email || "admin",
-          });
-        }
-        return json({ ok: true, status: newStatus, sent_to: inv.bill_to_email, sent_at: sentAt, copied_to: bcc }, 200, request, env);
+        const sent = await sendInvoiceNow(env, b, user.email || "an admin");
+        if (!sent.ok) return json({ error: sent.error }, sent.code || 502, request, env);
+        return json(sent, 200, request, env);
       }
 
       // ---- A link to the PDF of an invoice (admins) ----
@@ -10706,107 +11161,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const b = await request.json().catch(() => ({}));
-        const items = (Array.isArray(b.line_items) ? b.line_items : [])
-          .map((it) => ({ description: String((it && it.description) || "").trim(), qty: it && it.qty != null ? Number(it.qty) : 1, unit_pence: Math.round(Number((it && it.unit_pence) || 0)) }))
-          .filter((it) => it.description || it.unit_pence);
-        if (!items.length) return json({ error: "Add at least one line item." }, 400, request, env);
-        const billName = String((b && b.bill_to_name) || "").trim();
-        if (!billName) return json({ error: "A recipient name is required." }, 400, request, env);
-
-        // Videography raises invoices through this same endpoint from the
-        // client file, and won't have a client name to send. Rather than make
-        // every caller remember, look it up from the booking - which is the
-        // only place that knows, and differs by strand: shoots live in
-        // videography_bookings, social clients in smm_leads.
-        let clientName = String((b && b.client_name) || "").trim();
-        if (!clientName && b && b.booking_id) {
-          try {
-            if ((b.booking_source || "videography") === "smm") {
-              const l = (await sbGet(env, "smm_leads", `id=eq.${encodeURIComponent(b.booking_id)}&select=business,full_name,first_name,last_name&limit=1`))?.[0];
-              if (l) clientName = l.business || l.full_name || `${l.first_name || ""} ${l.last_name || ""}`.trim();
-            } else {
-              const bk = (await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(b.booking_id)}&select=company,client_name&limit=1`))?.[0];
-              if (bk) clientName = bk.company || bk.client_name || "";
-            }
-          } catch (_) { /* a missing name must not stop the invoice */ }
-        }
-
-        const srows = await sbGet(env, "invoice_settings", "id=eq.1&select=*");
-        const st = (srows && srows[0]) || {};
-        const vatRate = st.vat_rate != null ? Number(st.vat_rate) : 20;
-        const nextNum = st.next_number || 1001;
-        const number = `${st.invoice_prefix || "TMKE"}${nextNum}`;
-        const subtotal = items.reduce((sum, it) => sum + it.unit_pence * (it.qty || 1), 0);
-        const vat = Math.round(subtotal * vatRate / 100);
-        const total = subtotal + vat;
-
-        const template = (b && (b.template === "banded" || b.template === "minimal")) ? b.template : null;
-        const row = {
-          number, booking_id: (b && b.booking_id) || null, booking_source: (b && b.booking_source) || "videography",
-          recipient_id: (b && b.recipient_id) || null,
-          bill_to_name: billName, bill_to_email: (b && b.bill_to_email) || null, bill_to_address: (b && b.bill_to_address) || null,
-          // Who the work was FOR. The payer can be a finance department
-          // settling for several clients at once, so this is what makes a line
-          // identifiable to both accounts teams.
-          client_name: clientName || null,
-          line_items: items, subtotal_pence: subtotal, vat_pence: vat, total_pence: total,
-          status: "draft", issued_date: (b && b.issued_date) || null, due_date: (b && b.due_date) || null,
-          notes: (b && b.notes) || null, template,
-          pay_by_card: !!(b && b.pay_by_card),
-          // Per-invoice override; null means fall back to the global setting.
-          terms_days: (b && b.terms_days != null && b.terms_days !== "") ? Math.max(0, Math.round(Number(b.terms_days))) : null,
-          release_on_payment: !!(b && b.release_on_payment),
-          // Per-invoice CC — the builder pre-fills the accounts default but the
-          // sender can edit/clear it. Only fall back to the default if the field
-          // wasn't sent at all (so a deliberate clear = no CC).
-          cc_email: (b && b.cc_email !== undefined) ? (String(b.cc_email || "").trim() || null) : (st.accounts_cc_email || null),
-          created_by: user.email || null,
-        };
-        // Tied to a recurring invoice on the monthly checklist, for a month:
-        // the sure link, rather than guessing from the address it went to.
-        if (b && b.recurring_id) row.recurring_id = String(b.recurring_id);
-        if (b && /^\d{4}-\d{2}$/.test(String(b.billing_month || ""))) row.billing_month = b.billing_month;
-        let res = await sbPost(env, "invoices", row, "return=representation");
-        if (!res.ok && row.recurring_id) {
-          // supabase/invoice_month_notes.sql not run yet: save without the link.
-          const t0 = await res.clone().text().catch(() => "");
-          if (/recurring_id/.test(t0)) { delete row.recurring_id; res = await sbPost(env, "invoices", row, "return=representation"); }
-        }
-        if (!res.ok) {
-          const errText = await res.text().catch(() => "");
-          // The per-invoice template column is optional (supabase/invoicing_template_choice.sql).
-          // If it isn't there yet, save without it rather than failing the whole invoice.
-          if (/template/.test(errText) && row.template != null) {
-            const { template: _t, ...rowNoTpl } = row;
-            res = await sbPost(env, "invoices", rowNoTpl, "return=representation");
-          }
-          // Same tolerance for the card-payment column
-          // (supabase/invoicing_stripe.sql). Save the invoice rather than lose it.
-          if (!res.ok && /pay_by_card/.test(errText)) {
-            const { pay_by_card: _p, ...rowNoPay } = row;
-            res = await sbPost(env, "invoices", rowNoPay, "return=representation");
-          }
-          // Same tolerance for supabase/invoicing_terms.sql.
-          if (!res.ok && /terms_days|release_on_payment/.test(errText)) {
-            const { terms_days: _t2, release_on_payment: _r, ...rowNoTerms } = row;
-            res = await sbPost(env, "invoices", rowNoTerms, "return=representation");
-          }
-          // And for supabase/invoices_client_name.sql. Losing the client name
-          // is a smaller harm than losing the invoice.
-          if (!res.ok && /client_name/.test(errText)) {
-            const { client_name: _c, ...rowNoClient } = row;
-            res = await sbPost(env, "invoices", rowNoClient, "return=representation");
-            console.error("invoices: client_name column missing - run supabase/invoices_client_name.sql");
-          }
-          if (!res.ok) return json({ error: "Couldn't save the invoice." + (errText ? " " + errText.slice(0, 180) : "") }, 502, request, env);
-        }
-        let inv = null; try { const j = await res.json(); inv = Array.isArray(j) ? j[0] : j; } catch (_) {}
-        if (!inv || !inv.id) return json({ error: "Couldn't save the invoice." }, 502, request, env);
-        await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_settings?id=eq.1`, {
-          method: "PATCH", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" },
-          body: JSON.stringify({ next_number: nextNum + 1 }),
-        });
-        return json({ ok: true, invoice: inv }, 200, request, env);
+        const made = await createInvoiceDraft(env, b, user.email || null);
+        if (!made.ok) return json({ error: made.error }, made.code || 502, request, env);
+        return json({ ok: true, invoice: made.invoice }, 200, request, env);
       }
       if (path.endsWith("/invoicing/invoices") && request.method === "PATCH") {
         const user = await getUser(request, env);
@@ -10987,13 +11344,29 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           match_email: String(b.match_email || "").trim().toLowerCase(), match_text: String(b.match_text || "").trim() || null,
           start_month: /^\d{4}-\d{2}$/.test(String(b.start_month || "")) ? b.start_month : null,
         };
+        // Automatic sending (Danielle, 21 Oct 2026): sent only when these
+        // come, so an older form saving the basic fields leaves them alone.
+        if (b.auto !== undefined) {
+          const a = b.auto || {}, t = (x) => String(x || "").trim() || null;
+          Object.assign(row, {
+            auto_send: !!a.auto_send,
+            day_of_month: a.day_of_month ? Math.min(28, Math.max(1, Math.round(Number(a.day_of_month)))) : null,
+            frequency: ["monthly", "quarterly", "6monthly", "yearly", "oneoff"].includes(a.frequency) ? a.frequency : "monthly",
+            end_month: /^\d{4}-\d{2}$/.test(String(a.end_month || "")) ? a.end_month : null,
+            bill_to_name: t(a.bill_to_name), bill_to_email: t(a.bill_to_email), cc_email: t(a.cc_email), bill_to_address: t(a.bill_to_address),
+            terms_days: a.terms_days !== "" && a.terms_days != null ? Math.max(0, Math.round(Number(a.terms_days))) : null,
+            line_items: t(a.line) ? [{ description: t(a.line), qty: 1, unit_pence: row.amount_pence || 0 }] : null,
+          });
+          if (row.auto_send && !row.day_of_month) return json({ error: "Say which day of the month it goes out." }, 400, request, env);
+          if (row.auto_send && !row.amount_pence) return json({ error: "Add the amount before it can send itself." }, 400, request, env);
+        }
         if (!row.name || !row.match_email) return json({ error: "A name and the address the invoice goes to, please." }, 400, request, env);
         const r = b.id
           ? await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices?id=eq.${encodeURIComponent(b.id)}`, { method: "PATCH", headers: hdr, body: JSON.stringify(row) })
           : await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_invoices`, { method: "POST", headers: hdr, body: JSON.stringify(row) });
         if (!r.ok) {
           const t = await r.text().catch(() => "");
-          return json({ error: /recurring_invoices/.test(t) ? "Run supabase/recurring_invoices.sql first." : "Couldn't save it." }, 502, request, env);
+          return json({ error: /auto_send|day_of_month|line_items|bill_to_|frequency|end_month|terms_days/.test(t) ? "Run supabase/invoicing_automation.sql first." : /recurring_invoices/.test(t) ? "Run supabase/recurring_invoices.sql first." : "Couldn't save it." }, 502, request, env);
         }
         return json({ ok: true }, 200, request, env);
       }
@@ -12192,7 +12565,10 @@ async function monthlyInvoiceChecklist(env, fromYm, n = 6) {
     const mine = invs.filter((iv) => iv.recurring_id === r.id || (!iv.recurring_id && !iv.booking_id && String(iv.bill_to_email || "").toLowerCase().trim() === want
       && (!text || JSON.stringify([iv.line_items || [], iv.notes || ""]).toLowerCase().includes(text))));
     rows.push({ kind: "recurring", id: r.id, client: r.name, contact: r.contact_name || "", amount_pence: r.amount_pence ?? null,
-      match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "", cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
+      match_email: r.match_email, match_text: r.match_text || "", start_month: r.start_month || "",
+      // What the automatic invoicing needs (supabase/invoicing_automation.sql).
+      auto: { auto_send: !!r.auto_send, day_of_month: r.day_of_month ?? null, frequency: r.frequency || "monthly", end_month: r.end_month || "", bill_to_name: r.bill_to_name || "", bill_to_email: r.bill_to_email || "", cc_email: r.cc_email || "", bill_to_address: r.bill_to_address || "", line: (Array.isArray(r.line_items) && r.line_items[0] && r.line_items[0].description) || "", terms_days: r.terms_days ?? null },
+      cells: cellsFor(mine, r.start_month || null, "recurring", r.id) });
   }
   // Videography: where each shoot's invoice is. The rule: invoiced two days
   // before the shoot; past that and not sent, we're late (Danielle, 30 Sep
@@ -12282,6 +12658,9 @@ async function runMonthlyInvoiceCheck(env) {
 }
 
 async function runInvoicePrompt(env) {
+  // Automatic invoicing in live mode drafts these and asks Jack itself, so
+  // the "invoices to raise" list would only repeat it.
+  try { const st0 = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0]; if (st0 && st0.automation_mode === "live") return; } catch (_) {}
   const inTwoDays = new Date();
   inTwoDays.setDate(inTwoDays.getDate() + 2);
   const day = inTwoDays.toISOString().slice(0, 10);

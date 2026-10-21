@@ -20,6 +20,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       <button type="button" class="inv-tab" data-tab="invoices">Invoices</button>
       <button type="button" class="inv-tab" data-tab="monthly">Monthly checklist</button>
       <button type="button" class="inv-tab" data-tab="report">Month end</button>
+      <button type="button" class="inv-tab" data-tab="approvals">Approvals</button>
       <button type="button" class="inv-tab" data-tab="settings">Settings</button>
       <button type="button" class="inv-tab" data-tab="template">Template</button>
       <button type="button" class="inv-tab" data-tab="book">Address book</button>
@@ -167,6 +168,30 @@ import AdminShell from "../../components/admin/AdminShell.astro";
               <label class="inv-field"><span>Words always on it (optional)</span><input name="match_text" placeholder="e.g. Hub" /></label>
               <label class="inv-field"><span>First month</span><input name="start_month" type="month" /></label>
             </div>
+            <!-- Sent automatically (Danielle, 21 Oct 2026): on its day, until
+                 it's stopped, with nothing to press. -->
+            <fieldset class="mc-auto">
+              <label class="mc-auto-on"><input type="checkbox" name="auto_send" /> <span>Send it automatically</span></label>
+              <p class="inv-intro">On its day it's raised and emailed to them, with accounts copied, every time it's due until you stop it. You get an email saying what went out.</p>
+              <div class="inv-row">
+                <label class="inv-field"><span>Day of the month it goes out</span><input name="day_of_month" type="number" min="1" max="28" placeholder="e.g. 5" /></label>
+                <label class="inv-field"><span>How often</span><select name="frequency"><option value="monthly">Every month</option><option value="quarterly">Every 3 months</option><option value="6monthly">Every 6 months</option><option value="yearly">Every year</option><option value="oneoff">Once only</option></select></label>
+              </div>
+              <div class="inv-row">
+                <label class="inv-field"><span>Invoice to (company)</span><input name="bill_to_name" placeholder="e.g. Prestige Property Experts" /></label>
+                <label class="inv-field"><span>Last month (blank to run until stopped)</span><input name="end_month" type="month" /></label>
+              </div>
+              <div class="inv-row">
+                <label class="inv-field"><span>Invoice email (if not the one above)</span><input name="bill_to_email" type="email" placeholder="accounts@…" /></label>
+                <label class="inv-field"><span>CC</span><input name="cc_email" placeholder="Comma-separated" /></label>
+              </div>
+              <label class="inv-field"><span>What goes on the invoice</span><input name="line" placeholder="e.g. Marketing assets and hub (Month YYYY)" /></label>
+              <div class="inv-row">
+                <label class="inv-field"><span>Invoice address</span><textarea name="bill_to_address" rows="2"></textarea></label>
+                <label class="inv-field"><span>Payment terms (days)</span><input name="terms_days" type="number" min="0" placeholder="Your usual terms" /></label>
+              </div>
+              <p class="inv-intro">Write (Month YYYY) where the month should go: it becomes, for example, (November 2026).</p>
+            </fieldset>
             <datalist id="mc-emails"></datalist>
             <p class="inv-msg" id="mc-form-msg" hidden></p>
             <div class="mc-form-acts"><button type="submit" class="inv-save" id="mc-form-btn">Add to the checklist</button><button type="button" class="inv-ghost" id="mc-form-cancel" hidden>Cancel</button></div>
@@ -174,6 +199,22 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           <div class="mc-modal" id="mc-modal" hidden></div>
         </div>
       </div>
+    </section>
+
+    <!-- Approvals: what the automatic invoicing is waiting on (Danielle, 21 Oct 2026) -->
+    <section class="inv-panel" data-panel="approvals" hidden>
+      <div class="ap-head">
+        <div>
+          <h3 class="mc-h" style="margin-top:0">Automatic invoicing</h3>
+          <p class="inv-intro">Each morning, recurring invoices go out on their day, and a shoot's invoice is drafted two days before and sent to Jack to approve. Approve sends it to the client; Reject comes back to you with his notes.</p>
+        </div>
+        <div class="ap-mode">
+          <label class="inv-field"><span>Mode</span><select id="ap-mode"><option value="off">Off</option><option value="test">Test: everything comes to you</option><option value="live">Live: sends to clients</option></select></label>
+          <button type="button" class="inv-ghost" id="ap-run">Run it now</button>
+        </div>
+      </div>
+      <p class="inv-msg" id="ap-msg" hidden></p>
+      <div class="mc-wrap"><table class="mc-tbl ap-tbl" id="ap-tbl"></table></div>
     </section>
 
     <!-- Month end: what accounts has to confirm -->
@@ -432,6 +473,19 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .mc-key { font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.55); margin: 0 0 22px; }
     /* Section headings in the card title's style ("Monthly checklist"). */
     .mc-h { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted, #887d77); margin: 8px 0 8px; }
+    /* Automatic invoicing (Danielle, 21 Oct 2026) */
+    .mc-auto { border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; padding: 14px 16px 6px; margin: 14px 0 6px; }
+    .hub-skin .mc-auto-on, .mc-auto-on { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; text-transform: none; letter-spacing: 0; margin: 0 0 6px; cursor: pointer; }
+    .mc-auto-on input { width: 16px; height: 16px; accent-color: var(--english-violet); }
+    .ap-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+    .ap-head > div:first-child { flex: 1 1 420px; }
+    .ap-mode { display: flex; align-items: flex-end; gap: 10px; }
+    .ap-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; background: rgba(28,29,34,0.07); color: rgba(28,29,34,0.6); }
+    .ap-pill.is-pending { background: #fff1c9; color: #7a5a05; }
+    .ap-pill.is-approved { background: rgba(46,107,64,0.12); color: #2e6b40; }
+    .ap-pill.is-rejected { background: rgba(160,50,40,0.1); color: #a3372b; }
+    .ap-notes { margin-top: 4px; font-size: 12px; color: rgba(28,29,34,0.65); max-width: 320px; }
+    .ap-open { font-size: 12px; font-weight: 700; color: var(--english-violet); }
     #mc-form-h { margin-top: 44px; padding-top: 28px; border-top: 1px solid rgba(28,29,34,0.08); }
     /* Intro text on this full-width page runs to about three quarters of it
        before wrapping, rather than a narrow column. */
@@ -664,6 +718,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       if (tab === "invoices") loadInvoices();
       if (tab === "report") loadReport();
       if (tab === "monthly") loadMonthly();
+      if (tab === "approvals") loadApprovals();
     });
 
     function msg(id, text, ok) { const m = $(id); m.textContent = text; m.className = "inv-msg " + (ok ? "is-ok" : "is-err"); m.hidden = false; }
@@ -1510,6 +1565,10 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       mcEditing = r.id;
       f.name.value = r.client; f.contact_name.value = r.contact || ""; f.match_email.value = r.match_email || "";
       f.amount.value = r.amount_pence != null ? (r.amount_pence / 100).toFixed(2) : ""; f.match_text.value = r.match_text || ""; f.start_month.value = r.start_month || "";
+      const a = r.auto || {};
+      f.auto_send.checked = !!a.auto_send; f.day_of_month.value = a.day_of_month ?? ""; f.frequency.value = a.frequency || "monthly"; f.end_month.value = a.end_month || "";
+      f.bill_to_name.value = a.bill_to_name || ""; f.bill_to_email.value = a.bill_to_email || ""; f.cc_email.value = a.cc_email || ""; f.bill_to_address.value = a.bill_to_address || "";
+      f.line.value = a.line || ""; f.terms_days.value = a.terms_days ?? "";
       $("mc-form-h").textContent = "Edit a recurring invoice"; $("mc-form-btn").textContent = "Save changes"; $("mc-form-cancel").hidden = false;
       f.scrollIntoView({ behavior: "smooth", block: "center" });
     }
@@ -1526,9 +1585,50 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         await api("/invoicing/recurring", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
           id: mcEditing || undefined, name: f.get("name"), contact_name: f.get("contact_name"), match_email: f.get("match_email"), match_text: f.get("match_text"),
           amount_pence: amt ? Math.round(Number(amt) * 100) : null, start_month: f.get("start_month") || null,
+          auto: { auto_send: !!f.get("auto_send"), day_of_month: f.get("day_of_month"), frequency: f.get("frequency"), end_month: f.get("end_month"),
+            bill_to_name: f.get("bill_to_name"), bill_to_email: f.get("bill_to_email"), cc_email: f.get("cc_email"), bill_to_address: f.get("bill_to_address"),
+            line: f.get("line"), terms_days: f.get("terms_days") },
         }) });
         mcEditDone(); msg("mc-form-msg", was ? "Saved." : "Added.", true); loadMonthly(); loadRecurringOptions();
       } catch (err) { msg("mc-form-msg", err.message, false); }
+    });
+
+    /* ---- Approvals (automatic invoicing) ---- */
+    const AP_STATUS = { pending: "Waiting", approved: "Approved", rejected: "Rejected", superseded: "Replaced" };
+    async function loadApprovals() {
+      const tbl = $("ap-tbl"); tbl.innerHTML = `<tr><td class="inv-empty">Loading…</td></tr>`;
+      try {
+        const d = await api("/invoicing/approvals");
+        $("ap-mode").value = d.mode || "off";
+        const rows = (d.approvals || []).filter((x) => x.status !== "superseded");
+        if (!rows.length) { tbl.innerHTML = `<tr><td class="inv-empty">Nothing yet. Invoices put to someone to approve show here.</td></tr>`; return; }
+        const when = (x) => x ? new Date(x).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+        tbl.innerHTML = `<thead><tr><th>Invoice</th><th>To</th><th class="mc-num">Total</th><th>Approver</th><th>Asked</th><th>Status</th><th></th></tr></thead><tbody>${rows.map((x) => {
+          const inv = x.invoice || {};
+          const again = x.status === "rejected" && inv.status === "draft";
+          return `<tr><td><strong>${esc(inv.number || "")}</strong></td><td>${esc(inv.bill_to_name || "")}</td><td class="mc-num">${inv.total_pence != null ? "£" + (inv.total_pence / 100).toFixed(2) : ""}</td>
+            <td>${esc(String(x.approver_email || "").split("@")[0])}</td><td>${when(x.requested_at)}${x.round > 1 ? ` · round ${x.round}` : ""}</td>
+            <td><span class="ap-pill is-${x.status}">${AP_STATUS[x.status] || x.status}</span>${x.notes ? `<div class="ap-notes">${esc(x.notes)}</div>` : ""}</td>
+            <td>${again ? `<button type="button" class="inv-save ap-again" data-again="${esc(x.invoice_id)}">Send to Jack again</button>` : inv.booking_id ? `<a class="ap-open" href="/admin/videography?booking=${esc(inv.booking_id)}">Open</a>` : ""}</td></tr>`;
+        }).join("")}</tbody>`;
+        tbl.querySelectorAll("[data-again]").forEach((b) => b.addEventListener("click", async () => {
+          b.disabled = true; b.textContent = "Sending…";
+          try { const r = await api("/invoicing/approval/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: b.dataset.again }) }); msg("ap-msg", r.test ? "Sent for approval (test mode: it came to you)." : "Sent to Jack to approve.", true); loadApprovals(); }
+          catch (err) { msg("ap-msg", err.message, false); b.disabled = false; b.textContent = "Send to Jack again"; }
+        }));
+      } catch (err) { tbl.innerHTML = `<tr><td class="inv-empty">${esc(/invoice_approvals|automation_mode/.test(err.message) ? "Run supabase/invoicing_automation.sql first." : err.message)}</td></tr>`; }
+    }
+    $("ap-mode").addEventListener("change", async (e) => {
+      const v = e.target.value;
+      if (v === "live" && !confirm("Live: recurring invoices will go to clients on their day, and approved shoot invoices will go to clients straight away. Carry on?")) { loadApprovals(); return; }
+      try { await api("/invoicing/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ automation_mode: v }) }); msg("ap-msg", v === "off" ? "Automatic invoicing is off." : v === "test" ? "Test mode: drafts are made and every email comes to you." : "Live: invoices go to clients.", true); }
+      catch (err) { msg("ap-msg", /automation_mode/.test(err.message) ? "Run supabase/invoicing_automation.sql first." : err.message, false); }
+    });
+    $("ap-run").addEventListener("click", async (e) => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = "Running…";
+      try { const r = await api("/invoicing/automation/run", { method: "POST" }); msg("ap-msg", r.mode === "off" ? "It's off: switch it to Test or Live first." : r.lines ? `Done: ${r.lines} thing${r.lines === 1 ? "" : "s"} happened, and you've been emailed what.` : "Done: nothing was due today.", true); loadApprovals(); }
+      catch (err) { msg("ap-msg", err.message, false); }
+      finally { b.disabled = false; b.textContent = "Run it now"; }
     });
 
     document.addEventListener("ash:ready", (e) => {
