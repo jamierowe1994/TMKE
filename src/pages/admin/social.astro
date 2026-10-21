@@ -875,6 +875,29 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-act-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
     .smm-act-text { font-family: var(--sans); font-size: 13px; color: var(--ink); }
     .smm-act-more { margin-top: 6px; }
+    /* Onboarding checklist (Danielle, 21 Oct 2026). */
+    .smm-onb-intro { font-family: var(--sans); font-size: 13px; line-height: 1.55; color: rgba(28,29,34,0.65); margin: 0 0 14px; }
+    .smm-onb-complete { color: #2e6b40; font-weight: 600; }
+    .smm-onb-list { display: grid; gap: 6px; }
+    .smm-onb-row { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.1); border-radius: 8px; background: #fff; }
+    .smm-onb-row.is-done { background: rgba(var(--violet-rgb),0.035); }
+    .smm-onb-tick { width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--english-violet); cursor: pointer; }
+    .smm-onb-mark { width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: var(--english-violet); color: #fff; }
+    .smm-onb-mark.is-open { background: none; border: 1.5px dashed rgba(28,29,34,0.3); box-sizing: border-box; }
+    .smm-onb-ask .smm-onb-mark:empty { background: none; border: 1.5px dashed rgba(28,29,34,0.3); box-sizing: border-box; }
+    .smm-onb-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+    .smm-onb-label { font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--ink); }
+    .smm-onb-hint { font-family: var(--sans); font-size: 12.5px; line-height: 1.5; color: rgba(28,29,34,0.6); margin: 0; }
+    .smm-onb-by { font-family: var(--sans); font-size: 11px; color: rgba(28,29,34,0.42); }
+    .smm-onb-yn { margin-top: 6px; align-self: flex-start; }
+    .smm-onb-note, .smm-onb-topic textarea { width: 100%; box-sizing: border-box; margin-top: 6px; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 6px; font-family: var(--sans); font-size: 13px; line-height: 1.5; color: var(--ink); background: #fff; resize: vertical; }
+    .smm-onb-topic { padding: 12px 0; border-top: 1px solid rgba(28,29,34,0.08); }
+    .smm-onb-topic:first-of-type { border-top: 0; padding-top: 0; }
+    .smm-onb-topic-h { margin: 0 0 3px; font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: var(--ink); }
+    .smm-onb-c { font-weight: 500; opacity: 0.6; margin-left: 4px; }
+    .smm-onb-part[hidden] { display: none; }
+    .smm-onb-status { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 10px 0 0; }
+    .smm-onb-status:empty { display: none; }
     .smm-comm-h { margin: 22px 0 10px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
     .smm-comm-h:first-child { margin-top: 0; }
     .smm-hubmsg.is-unread { border-color: rgba(var(--violet-rgb),0.4); }
@@ -1236,7 +1259,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const isActive = st === "active_client";
       const cs = r.client_status || "active";
       const next = idx < n - 1 ? STAGES[idx + 1].key : null;
-      const showProp = idx >= STAGE_INDEX["proposal_sent"]; // social channels + engagement (+ Direct Debit) from Proposal sent on
+      const showProp = idx >= STAGE_INDEX["proposal_sent"];
+      // The onboarding checklist, from Onboarding on (Danielle, 21 Oct 2026).
+      const showOnb = idx >= STAGE_INDEX["onboarding"];
+      if (["onboarding", "invoices", "videography"].includes(activeTab) && !showOnb) activeTab = "notes";
+      if (activeTab === "insights" && !isActive) activeTab = "notes"; // social channels + engagement (+ Direct Debit) from Proposal sent on
       const plats = Array.isArray(r.platforms) ? r.platforms : [];
       const pipe = `<div class="smm-pipe"><div class="smm-pipe-track"><div class="smm-pipe-fill" style="width:${(idx / (n - 1)) * 100}%"></div></div>${STAGES.map((s, i) => {
         const cls = (i <= idx ? " is-done" : "") + (i === idx ? " is-current" : "") + (i === 0 ? " smm-pipe-step--first" : "") + (i === n - 1 ? " smm-pipe-step--last" : "");
@@ -1350,9 +1377,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <div class="smm-tabs" role="tablist">
               <button type="button" class="smm-tab ${activeTab === "notes" ? "is-active" : ""}" data-tab="notes">Notes</button>
               <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Communication<span class="smm-tab-n" id="smm-comm-n"></span></button>
-              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoicing</button>` : ""}
+              ${showOnb ? `<button type="button" class="smm-tab ${activeTab === "onboarding" ? "is-active" : ""}" data-tab="onboarding">Onboarding<span class="smm-tab-n" id="smm-onb-n"></span></button>` : ""}
+              ${showOnb ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoicing</button>` : ""}
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "insights" ? "is-active" : ""}" data-tab="insights">Insights</button>` : ""}
-              ${isActive ? `<button type="button" class="smm-tab ${activeTab === "videography" ? "is-active" : ""}" data-tab="videography">Videography</button>` : ""}
+              ${showOnb ? `<button type="button" class="smm-tab ${activeTab === "videography" ? "is-active" : ""}" data-tab="videography">Videography</button>` : ""}
             </div>
             <!-- Notes has its own bar (Danielle, 20 Oct 2026): Package details,
                  Notes, Client activity and Files, one at a time. -->
@@ -1364,9 +1392,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
               <div class="smm-ntab" data-npanel="files" ${notesTab === "files" ? "" : "hidden"}><div id="smm-panel-files"></div></div>
             </div>
             <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
-            ${isActive ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
+            ${showOnb ? `<div id="smm-panel-onboarding" class="smm-panel-body" ${activeTab === "onboarding" ? "" : "hidden"}></div>` : ""}
+            ${showOnb ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
             ${isActive ? `<div id="smm-panel-insights" class="smm-panel-body" ${activeTab === "insights" ? "" : "hidden"}></div>` : ""}
-            ${isActive ? `<div id="smm-panel-videography" class="smm-panel-body" ${activeTab === "videography" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>` : ""}
+            ${showOnb ? `<div id="smm-panel-videography" class="smm-panel-body" ${activeTab === "videography" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>` : ""}
             <p class="smm-thread-status" id="smm-thread-status" hidden></p>
           </div>
         </div>`;
@@ -1428,7 +1457,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       body.querySelectorAll("[data-tab]").forEach((b) => b.addEventListener("click", () => {
         activeTab = b.getAttribute("data-tab");
         body.querySelectorAll("[data-tab]").forEach((x) => x.classList.toggle("is-active", x === b));
-        ["notes", "emails", "invoices", "insights", "videography"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
+        ["notes", "emails", "onboarding", "invoices", "insights", "videography"].forEach((t) => { const p = $("smm-panel-" + t); if (p) p.hidden = t !== activeTab; });
         if (activeTab === "insights") loadInsights(r);
         if (activeTab === "videography") loadVideography(r);
         if (activeTab === "notes") clampNotes();
@@ -1999,6 +2028,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       // A lost card reads as Inquiry to stageOf, so dragging it back into
       // Inquiry has to count as a move.
       if (stageKey === (r.pipeline_stage === "lost" ? "lost" : stageOf(r))) return;
+      if (stageKey === "active_client" && STAGE_INDEX[stageOf(r)] >= STAGE_INDEX["onboarding"]) {
+        const c = onbCount(r);
+        if (c.open && !confirm(ONB_COPY.activeConfirm(c.open))) return;
+      }
       setStage(r, stageKey);
     }
     async function deleteCard(r) {
@@ -2325,6 +2358,163 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (error) { st.textContent = /package_details/.test(error.message || "") ? "Needs supabase/smm_package_details.sql running first." : "Couldn't save: " + error.message; return; }
         done();
       });
+    }
+
+    /* ---------- Onboarding checklist ----------
+       What Abbie works through once a contract is signed, in two parts
+       (Danielle, 21 Oct 2026). Practical: everything done and the system set
+       up properly. Items that can be read from the file (contract on file,
+       start date, hub linked...) tick themselves; the rest are ticked by
+       hand, and two Yes/No questions decide which further items apply.
+       Strategy: six topics written down before posting starts. Stored in
+       smm_leads.onboarding (supabase/smm_onboarding.sql). Wording in
+       ONB_COPY, written to docs/tmke-copy-voice.md. */
+    // Written to docs/tmke-copy-voice.md (copywriter brief, 21 Oct 2026).
+    // **x** is bold: the exact names of buttons, tabs and fields.
+    const ONB_COPY = {
+      practicalIntro: "This is everything that needs to be in place before we start posting, and anything without a tick box ticks itself once the right details are on the client's file.",
+      complete: "Every practical item is done, so this client is set up. Once the strategy's written, you're ready to click **Make active client**.",
+      strategyIntro: "We write this down before we start posting, because it's what every month's content and report is measured against.",
+      activeConfirm: (n) => `There ${n === 1 ? "is still 1 onboarding item" : `are still ${n} onboarding items`} open for this client. Do you want to make them an active client anyway? Click OK to carry on, or Cancel to go back and finish them.`,
+      tickedBy: (who, when) => `Ticked by ${who}, ${when}`,
+      autoDone: "Ticked automatically", autoOpen: "Ticks itself when this is on the file",
+      groups: { paper: "Paperwork and billing", access: "Accounts and access", work: "How we'll work together", optimise: "Profile optimisation" },
+      items: {
+        contract: { label: "Signed contract on file", todo: "Upload the signed contract to **Paperwork** on the left, with the file type set to **Contract**.", done: "Done. There's a Contract file in **Paperwork**." },
+        proposal: { label: "Proposal on file", todo: "Upload the proposal we sent them to **Paperwork**, with the file type set to **Proposal**, so anyone picking up the account can see what was offered.", done: "Done. There's a Proposal file in **Paperwork**." },
+        package: { label: "Package details filled in", todo: "Add their package and tier in the **Package details** tab under **Notes**, so everyone working on the account knows what the client is paying for.", done: "Done. The package and tier are in **Package details**." },
+        start: { label: "Start date set", todo: "Add the date we start working for them in **Start date**, in **Engagement & billing**.", done: "Done. The **Start date** is set in **Engagement & billing**." },
+        billing: { label: "Billing set up", todo: "Set **Direct debit customer?** to **Yes** in **Engagement & billing**, or raise their first invoice in the **Invoicing** tab.", done: (r) => r.direct_debit ? "Done. They're set up as a direct debit customer." : "Done. Their first invoice has been raised in **Invoicing**." },
+        manager: { label: "Account manager named", todo: "Choose who's looking after this client in **Social media manager**, in **Engagement & billing**.", done: "Done. Their social media manager is named in **Engagement & billing**." },
+        hub: { label: "Linked to their Member Hub", todo: "Link this file to the client's Member Hub with **Link to hub account**, so they can see their reports and invoices there.", done: "Done. **Member hub** shows **Linked**." },
+        channels: { label: "Platforms and links recorded", todo: "Tick each platform in **Platforms we manage** and add its link in **Social channels**.", done: "Done. Every platform in **Platforms we manage** has its link in **Social channels**." },
+        access: { label: "Access to every platform", todo: "Get admin or manager access to every account we run for them, such as their Instagram, Facebook Page and LinkedIn page, because we can't post or see their insights without it." },
+        socialpilot: { label: "Connected to SocialPilot", todo: "Add each platform to SocialPilot, so we can schedule their posts and run their monthly reports from it." },
+        assets: { label: "Brand assets received", todo: "Collect their logo, brand colours, fonts and any photography or video they'd like us to use, and save them in the **Files** tab under **Notes**." },
+        call: { label: "Onboarding call held", todo: "Hold the first call to agree how we'll work together, then note the date and anything agreed in the box below.", notePlaceholder: "e.g. Call on 14 Nov with Sarah. Posts go out Mon, Wed, Fri. She'll send new listings by email each Monday." },
+        approvalQ: { label: "Do they want to approve every post before it goes out?", todo: "If they do, we need content ready further ahead, so they have time to review it before it's due to go out." },
+        approval: { label: "Approval process agreed", todo: "Agree how they'll approve posts, for example by email or in a shared calendar, and how long they have to reply before we post anyway.", notePlaceholder: "e.g. Monday email with the week's posts. Two working days to reply, then we post." },
+        shoot: { label: "First shoot booked", todo: "Book their first shoot in the **Videography** tab.", done: "Done. A shoot is booked in **Videography**." },
+        optimiseQ: { label: "Is profile optimisation included in their start-up package?", todo: "If it is, we update their bios, images, pinned posts, highlights and links before we start, so anyone who finds them through our posts sees a profile that's up to date." },
+        bios: { label: "Bios updated on each platform", todo: "Update the bio on each platform, so it says who they are, the areas they cover and how to get in touch." },
+        images: { label: "Profile and cover images updated", todo: "Update the profile picture and cover image on each platform, using their current logo and branding." },
+        pinned: { label: "Pinned posts set", todo: "Pin the posts new visitors should see first, on each platform that lets you pin." },
+        highlights: { label: "Instagram highlights set up", todo: "Set up their Instagram highlights, grouping the stories people look for most, such as new listings, recent sales and reviews." },
+        links: { label: "Links checked", todo: "Check that the website and booking links in each bio open the right page." },
+      },
+      topics: {
+        competitors: { label: "Competitor analysis", hint: "Which local agents are they up against on social media? Note what those agents do well and where the gaps are that we can fill.", placeholder: "e.g. Two main rivals in Harrogate. Smith & Co post listings daily but no video. Hart Homes share good market updates but rarely reply to comments." },
+        audience: { label: "Target audience", hint: "Who we're trying to reach, such as sellers, landlords, buyers or tenants, and what matters to each of them.", placeholder: "e.g. Homeowners aged 35 to 60 in Harrogate thinking of selling in the next year, plus local landlords with one or two properties." },
+        groups: { label: "Groups", hint: "The local and community groups we'll share their content in, such as Facebook groups for the towns and villages they cover. Add a link to each and any posting rules the group has.", placeholder: "e.g. Harrogate Community Noticeboard (Facebook, business posts on Fridays only), Knaresborough Residents (Facebook, no listings, local news only)." },
+        pillars: { label: "Content pillars", hint: "The main themes their content will come back to each month, and roughly how much of the month each one takes up.", placeholder: "e.g. Local market updates, new listings and sales, meet the team, area guides, client reviews." },
+        tone: { label: "Tone", hint: "How they want to come across, and any words, phrases or topics to use or avoid.", placeholder: "e.g. Friendly and local, never pushy. Say \"home\" rather than \"property\". No emojis on LinkedIn." },
+        goals: { label: "Goals", hint: "What they want social media to achieve in the first few months, with numbers where you can. These are the starting goals, and you can track them each month in the **Goals** table on the report's **Summary** tab.", placeholder: "e.g. Grow Instagram from 800 to 1,200 followers by March, and get five valuation enquiries a month through social." },
+      },
+    };
+    // Escaped text with **bold** names.
+    const onbMd = (t) => esc(t || "").replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+    const CHANNEL_FIELD = { Instagram: "instagram_url", Facebook: "facebook_url", LinkedIn: "linkedin_url", YouTube: "youtube_url", TikTok: "tiktok_url" };
+    const onbState = (r) => { const o = r.onboarding && typeof r.onboarding === "object" ? r.onboarding : {}; return { done: o.done || {}, ask: o.ask || {}, notes: o.notes || {}, strategy: o.strategy || {} }; };
+    const onbCtx = (r) => {
+      const t = r._thread || {};
+      return { docs: t.documents || r._lastDocs || [], shoots: t.shoots || [], invoices: r._onbInvoices || 0, loaded: !!r._thread };
+    };
+    // kind: auto (read from the file), manual (ticked), ask (Yes/No).
+    const ONB_ITEMS = [
+      { g: "paper", key: "contract", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "agreement") },
+      { g: "paper", key: "proposal", kind: "auto", test: (r, c) => c.docs.some((d) => d.category === "prep") },
+      { g: "paper", key: "package", kind: "auto", test: (r) => !!(r.package_name && (r.package_details || {}).tier) },
+      { g: "paper", key: "start", kind: "auto", test: (r) => !!r.start_date },
+      { g: "paper", key: "billing", kind: "auto", test: (r, c) => !!r.direct_debit || c.invoices > 0 || c.docs.some((d) => d.category === "invoice") },
+      { g: "paper", key: "manager", kind: "auto", test: (r) => !!String(r.social_media_manager || "").trim() },
+      { g: "access", key: "hub", kind: "auto", test: (r) => !!r.account_user_id },
+      { g: "access", key: "channels", kind: "auto", test: (r) => { const ps = Array.isArray(r.platforms) ? r.platforms : []; return ps.length > 0 && ps.every((p) => !CHANNEL_FIELD[p] || String(r[CHANNEL_FIELD[p]] || "").trim()); } },
+      { g: "access", key: "access", kind: "manual" },
+      { g: "access", key: "socialpilot", kind: "manual" },
+      { g: "access", key: "assets", kind: "manual" },
+      { g: "work", key: "call", kind: "manual", note: "call" },
+      { g: "work", key: "approvalQ", kind: "ask", ask: "approval" },
+      { g: "work", key: "approval", kind: "manual", note: "approval", when: (r, o) => o.ask.approval === "yes" },
+      { g: "work", key: "shoot", kind: "auto", when: (r) => !!(r.package_details || {}).video, test: (r, c) => c.shoots.some((b) => b.stage !== "cancelled") },
+      { g: "optimise", key: "optimiseQ", kind: "ask", ask: "optimise" },
+      { g: "optimise", key: "bios", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
+      { g: "optimise", key: "images", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
+      { g: "optimise", key: "pinned", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
+      { g: "optimise", key: "highlights", kind: "manual", when: (r, o) => o.ask.optimise === "yes" && (Array.isArray(r.platforms) ? r.platforms : []).includes("Instagram") },
+      { g: "optimise", key: "links", kind: "manual", when: (r, o) => o.ask.optimise === "yes" },
+    ];
+    const ONB_GROUPS = ["paper", "access", "work", "optimise"];
+    const ONB_TOPICS = ["competitors", "audience", "groups", "pillars", "tone", "goals"];
+    const onbDone = (r, it, o, c) => it.kind === "auto" ? !!it.test(r, c) : it.kind === "ask" ? !!o.ask[it.ask] : !!o.done[it.key];
+    function onbCount(r) {
+      const o = onbState(r), c = onbCtx(r);
+      const items = ONB_ITEMS.filter((it) => !it.when || it.when(r, o));
+      const done = items.filter((it) => onbDone(r, it, o, c)).length;
+      const written = ONB_TOPICS.filter((k) => String(o.strategy[k] || "").trim()).length;
+      return { total: items.length, done, open: items.length - done, written };
+    }
+    let onbPart = "practical";
+    async function saveOnb(r, st) {
+      const el = $("smm-onb-status");
+      if (isDemo(r)) { if (el) el.textContent = "Saved (demo)."; return; }
+      if (el) el.textContent = "Saving…";
+      const { error } = await supabase.from("smm_leads").update({ onboarding: r.onboarding }).eq("id", r.id);
+      if (el) el.textContent = error ? (/onboarding/.test(error.message || "") ? "Needs supabase/smm_onboarding.sql running first." : "Couldn't save: " + error.message) : "Saved.";
+    }
+    function renderOnboarding(r) {
+      const host = $("smm-panel-onboarding");
+      const c0 = onbCount(r);
+      const n = $("smm-onb-n"); if (n) n.textContent = ` (${c0.done}/${c0.total})`;
+      if (!host) return;
+      // Invoices raised in the Invoicing tab count as billing set up: read once.
+      if (r._onbInvoices == null && !isDemo(r) && WORKER) {
+        r._onbInvoices = 0;
+        authToken().then((token) => fetch(`${WORKER}/invoicing/invoices?booking_id=${encodeURIComponent(r.id)}`, { headers: { Authorization: "Bearer " + token } }))
+          .then((res) => res.ok ? res.json() : {}).then((j) => { r._onbInvoices = ((j && j.invoices) || []).filter((v) => v.status !== "void").length; if (r._onbInvoices) renderOnboarding(r); }).catch(() => {});
+      }
+      const o = onbState(r), c = onbCtx(r), C = ONB_COPY;
+      const when = (x) => { try { return new Date(x).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); } catch (_) { return ""; } };
+      // "abigail.saunders@…" reads as Abigail.
+      const who = (x) => String(x || "").split("@")[0].split(/[._-]/)[0].toLowerCase().replace(/^./, (m) => m.toUpperCase());
+      const row = (it) => {
+        const t = C.items[it.key] || { label: it.key, todo: "" };
+        const done = onbDone(r, it, o, c);
+        const hint = it.kind === "auto" && done && t.done ? (typeof t.done === "function" ? t.done(r) : t.done) : t.todo;
+        if (it.kind === "ask") return `<div class="smm-onb-row smm-onb-ask${done ? " is-done" : ""}"><span class="smm-onb-mark">${done ? "✓" : ""}</span><div class="smm-onb-main"><span class="smm-onb-label">${esc(t.label)}</span><span class="smm-onb-hint">${onbMd(hint)}</span><div class="pay-toggle smm-onb-yn"><button type="button" class="pay-opt${o.ask[it.ask] === "yes" ? " is-active" : ""}" data-onbask="${it.ask}" data-v="yes">Yes</button><button type="button" class="pay-opt${o.ask[it.ask] === "no" ? " is-active" : ""}" data-onbask="${it.ask}" data-v="no">No</button></div></div></div>`;
+        const by = it.kind === "manual" && o.done[it.key] ? `<span class="smm-onb-by">${esc(C.tickedBy(who(o.done[it.key].by), when(o.done[it.key].at)))}</span>` : it.kind === "auto" ? `<span class="smm-onb-by">${esc(done ? C.autoDone : C.autoOpen)}</span>` : "";
+        const box = it.kind === "manual"
+          ? `<input type="checkbox" class="smm-onb-tick" data-onbtick="${it.key}"${done ? " checked" : ""} aria-label="${esc(t.label)}">`
+          : `<span class="smm-onb-mark${done ? "" : " is-open"}">${done ? "✓" : ""}</span>`;
+        const note = it.note ? `<textarea class="smm-onb-note" rows="2" data-onbnote="${it.note}" placeholder="${esc(t.notePlaceholder || "")}">${esc(o.notes[it.note] || "")}</textarea>` : "";
+        return `<div class="smm-onb-row${done ? " is-done" : ""}${it.kind === "auto" ? " is-auto" : ""}">${box}<div class="smm-onb-main"><span class="smm-onb-label">${esc(t.label)}</span><span class="smm-onb-hint">${onbMd(hint)}</span>${by}${note}</div></div>`;
+      };
+      const items = ONB_ITEMS.filter((it) => !it.when || it.when(r, o));
+      const practical = `${c0.open ? `<p class="smm-onb-intro">${onbMd(C.practicalIntro)}</p>` : `<p class="smm-onb-intro smm-onb-complete">${onbMd(C.complete)}</p>`}
+        ${ONB_GROUPS.map((g) => { const its = items.filter((it) => it.g === g); return its.length ? `<h4 class="smm-comm-h">${esc(C.groups[g])}</h4><div class="smm-onb-list">${its.map(row).join("")}</div>` : ""; }).join("")}`;
+      const strategy = `<p class="smm-onb-intro">${onbMd(C.strategyIntro)}</p>
+        ${ONB_TOPICS.map((k) => { const t = C.topics[k]; return `<div class="smm-onb-topic"><h4 class="smm-onb-topic-h">${esc(t.label)}</h4><p class="smm-onb-hint">${onbMd(t.hint)}</p><textarea rows="4" data-onbtopic="${k}" placeholder="${esc(t.placeholder)}">${esc(o.strategy[k] || "")}</textarea></div>`; }).join("")}`;
+      host.innerHTML = `
+        <div class="ri-subtabs smm-onb-parts"><button type="button" class="ri-subtab${onbPart === "practical" ? " is-active" : ""}" data-onbpart="practical">Practical <span class="smm-onb-c">${c0.done} of ${c0.total}</span></button><button type="button" class="ri-subtab${onbPart === "strategy" ? " is-active" : ""}" data-onbpart="strategy">Strategy <span class="smm-onb-c">${c0.written} of ${ONB_TOPICS.length}</span></button></div>
+        ${c.loaded ? "" : `<p class="smm-soon">Loading…</p>`}
+        <div class="smm-onb-part" ${onbPart === "practical" ? "" : "hidden"}>${practical}</div>
+        <div class="smm-onb-part" ${onbPart === "strategy" ? "" : "hidden"}>${strategy}</div>
+        <p class="smm-onb-status" id="smm-onb-status"></p>`;
+      const set = (fn) => { const cur = onbState(r); fn(cur); r.onboarding = cur; };
+      host.querySelectorAll("[data-onbpart]").forEach((b) => b.addEventListener("click", () => { onbPart = b.dataset.onbpart; renderOnboarding(r); }));
+      host.querySelectorAll("[data-onbtick]").forEach((b) => b.addEventListener("change", () => {
+        set((cur) => { if (b.checked) cur.done[b.dataset.onbtick] = { at: new Date().toISOString(), by: ME || "you" }; else delete cur.done[b.dataset.onbtick]; });
+        renderOnboarding(r); saveOnb(r);
+      }));
+      host.querySelectorAll("[data-onbask]").forEach((b) => b.addEventListener("click", () => {
+        set((cur) => { cur.ask[b.dataset.onbask] = b.dataset.v; });
+        renderOnboarding(r); saveOnb(r);
+      }));
+      host.querySelectorAll("[data-onbnote]").forEach((t) => t.addEventListener("change", () => { set((cur) => { cur.notes[t.dataset.onbnote] = t.value.trim(); }); saveOnb(r); }));
+      host.querySelectorAll("[data-onbtopic]").forEach((t) => t.addEventListener("change", () => {
+        set((cur) => { cur.strategy[t.dataset.onbtopic] = t.value.trim(); });
+        const k = onbCount(r); const cEl = host.querySelector('[data-onbpart="strategy"] .smm-onb-c'); if (cEl) cEl.textContent = `${k.written} of ${ONB_TOPICS.length}`;
+        saveOnb(r);
+      }));
     }
 
     /* ---------- Paperwork ----------
@@ -3506,6 +3696,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       if (r._thread !== data || !$("smm-panel-notes")) return;
       data.shoots = shoots; data.reports = reports;
       renderActivity(data);
+      renderOnboarding(r);
     }
     // Build a chronological audit feed from the thread (notes, emails in/out,
     // meetings, files/invoices added, invoices marked paid).
@@ -3686,6 +3877,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         ${docHtml}`;
 
       renderPaperwork(r, docs, loading);
+      if (!loading) renderOnboarding(r);
 
       // INVOICING (active clients only) — the full builder + raised list.
       const pInv = $("smm-panel-invoices");
