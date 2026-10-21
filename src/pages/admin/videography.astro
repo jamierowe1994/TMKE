@@ -355,6 +355,7 @@ import "../../styles/admin.css";
             <div class="vid-field">
               <label>Office holding the fee</label>
               <select data-f="fc_office" id="vid-fc-office"><option value="">— Select —</option></select>
+              <span class="vid-lbl-note" id="vid-fc-office-note"></span>
             </div>
             <div class="vid-field">
               <label>Agent said a fee was charged</label>
@@ -1390,7 +1391,7 @@ import "../../styles/admin.css";
     import { renderInvoiceHtml } from "../../lib/invoice-render.js";
     import { supabase, gbpFromPence } from "../../lib/supabase.js";
     import { defaultEmailSubject, defaultEmailBody, payLine } from "../../lib/invoice-email.js";
-    import { bookingLocation, travelCharge, travelInvoiceLine, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
+    import { bookingLocation, bookingInvoiceDraft, travelCharge, travelInvoiceLine, SERVICES, SURCHARGE_DEFAULTS, VAT_RATE, RATE_CARD, PHOTOGRAPHY, photoInclusions, photoCostPence, packageBrief, briefTimes, FC_OFFICES, TEG_BRANDS, TEG_REASONS, SMM_REASON, reasonsForRoute, isPackageCovered, TEG_ACCOUNTS_EMAIL, tegBrandLabel, tegBrandAddress, tegReasonLabel, STUDIO_LOCATION, archiveFoldersFor } from "../../lib/videography-config.js";
 
     // Deployed Cloudflare Worker URL (worker/). Set PUBLIC_R2_WORKER_URL in env.
     const WORKER_URL = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
@@ -2916,7 +2917,10 @@ import "../../styles/admin.css";
         event: `Invoice raised for brand event coverage${b.client_name ? ` — ${b.client_name}` : ""}${shootDate ? `, ${shootDate}` : ""}.`,
         marketing: `Invoice raised for brand marketing content${b.client_name ? ` — ${b.client_name}` : ""}.`,
       };
-      const defaultNotes = brand
+      // Who it goes to, the copies and the notes: the same as the automatic
+      // invoicing drafts (bookingInvoiceDraft, Danielle's sheet, 21 Oct 2026).
+      const auto = bookingInvoiceDraft(b, { accountsCc: invSettings && invSettings.accounts_cc_email }) || {};
+      const defaultNotes = auto.notes ? auto.notes : brand
         ? [`Invoice raised for ${b.client_name || "the agent"}.`,
            b.property_address || b.location || "",
            shootDate ? `Shoot date: ${shootDate}` : ""].filter(Boolean).join("\n")
@@ -2934,14 +2938,14 @@ import "../../styles/admin.css";
         </p>
         <div class="vid-inv-row">
           <label class="vid-field"><span>Bill to</span><input id="viv-name" value="${escapeHtml(billTo)}" /></label>
-          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(brand ? "" : teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || ""))}" placeholder="${brand ? "The office's accounts address" : ""}" /></label>
+          <label class="vid-field"><span>Email</span><input id="viv-email" type="email" value="${escapeHtml(auto.bill_to_email || (teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || "")))}" /></label>
         </div>
         <!-- On a brand invoice "Bill to" is the office's finance department,
              which settles for several agents at once - so without naming the
              client neither accounts team can tell one shoot's invoice from
              another. Prefilled from the booking; editable before it goes. -->
         <label class="vid-field"><span>Client</span><input id="viv-client" value="${escapeHtml(b.client_company || b.client_name || "")}" placeholder="Who the shoot was for" /></label>
-        <label class="vid-field"><span>CC</span><input id="viv-cc" value="${escapeHtml((invSettings && invSettings.accounts_cc_email) || "hello@tmke.co.uk")}" placeholder="Comma-separated" /></label>
+        <label class="vid-field"><span>CC</span><input id="viv-cc" value="${escapeHtml(auto.cc_email || (invSettings && invSettings.accounts_cc_email) || "hello@tmke.co.uk")}" placeholder="Comma-separated" /></label>
         <div class="vid-inv-row">
           <label class="vid-field"><span>Issued</span><input id="viv-issued" type="date" value="${today}" /></label>
           <label class="vid-field"><span>Due</span><input id="viv-due" type="date" value="${due.toISOString().slice(0, 10)}" /></label>
@@ -4045,6 +4049,29 @@ import "../../styles/admin.css";
       document.querySelector('[data-f="surcharge_pence"]').value = "";
       showTravel();
     });
+
+    /* Fine & Country office from the TEG Team Hub (Danielle, 21 Oct 2026):
+       once a shoot is invoiced to Fine & Country and the agent says their
+       client was charged a marketing fee, look up which office they sit
+       under and fill it in, unless someone already has. */
+    async function fillFcOffice() {
+      const fv = (f) => document.querySelector(`[data-f="${f}"]`)?.value || "";
+      const officeEl = document.getElementById("vid-fc-office");
+      if (!officeEl || officeEl.value || fv("payment_route") !== "brand_invoice" || fv("marketing_fee_claimed") !== "yes") return;
+      const email = fv("client_email").trim(); if (!email) return;
+      const note = document.getElementById("vid-fc-office-note");
+      if (note) note.textContent = "Checking the Team Hub…";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/videography/fc-office?email=${encodeURIComponent(email)}`, { headers: { Authorization: "Bearer " + token } });
+        const d = await res.json().catch(() => ({}));
+        if (d.key && !officeEl.value) { officeEl.value = d.key; officeEl.dispatchEvent(new Event("change", { bubbles: true })); }
+        if (note) note.textContent = d.key ? `Filled in from the Team Hub (${[d.location, d.company].filter(Boolean).join(", ")}).`
+          : (d.location || d.company) ? `The Team Hub has them at ${[d.location, d.company].filter(Boolean).join(", ")}: choose the office.` : "Not found on the Team Hub: choose the office.";
+      } catch (_) { if (note) note.textContent = ""; }
+    }
+    document.querySelector('[data-f="marketing_fee_claimed"]')?.addEventListener("change", fillFcOffice);
+    document.getElementById("vid-route")?.addEventListener("change", fillFcOffice);
 
     /* ---------- Modal (add / edit booking) ---------- */
     let editingId = null;

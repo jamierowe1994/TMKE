@@ -721,6 +721,14 @@ export function travelInvoiceLine(oneWayMiles, settings = SURCHARGE_DEFAULTS) {
    - TEG brand: billed to the brand at its address, to TEG accounts, no card.
    - Social media package: nothing to invoice (returns null).
    Returns the fields createInvoiceDraft takes. */
+/* Who a shoot's invoice goes to, by how it's paid for: Danielle's
+   "Invoicing Automation" sheet, 21 Oct 2026. Accounts at Newman see every
+   one, card or not, so they can put it into QuickBooks. */
+export const VIDEO_INVOICE_ROUTES = {
+  agent_card:        { cc: "accounts@newman.uk.com, paula@newman.uk.com, Rosie-Anne@newman.uk.com", bcc: "hello@tmke.co.uk", template: "minimal", terms: 10 },
+  brand_invoice:     { to: "Paula@newman.uk.com", cc: "accountspayable@newman.uk.com, Rosie-Anne@newman.uk.com", bcc: "hello@tmke.co.uk", template: "minimal", terms: 10 },
+  brand_invoice_teg: { to: "Paula@newman.uk.com", cc: "accountspayable@newman.uk.com, Rosie-Anne@newman.uk.com", bcc: "hello@tmke.co.uk", template: "minimal", terms: 10 },
+};
 export function bookingInvoiceDraft(b, { accountsCc = null, settings = SURCHARGE_DEFAULTS } = {}) {
   if (!b || b.payment_route === "smm_package") return null;
   const brand = b.payment_route === "brand_invoice";
@@ -731,16 +739,10 @@ export function bookingInvoiceDraft(b, { accountsCc = null, settings = SURCHARGE
     : teg ? (tegName || b.client_company || b.client_name || "")
     : (b.client_company || b.client_name || "");
   const shootDate = b.shoot_date ? new Date(b.shoot_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/London" }) : "";
-  const reasonName = b.teg_reason === "other" ? (b.teg_reason_other || "the reason given") : tegReasonLabel(b.teg_reason);
-  const tegNotes = {
-    induction: `Invoice raised for ${b.client_name || "the new starter"}'s induction shoot, as part of the induction package.`,
-    event: `Invoice raised for brand event coverage${b.client_name ? ` — ${b.client_name}` : ""}${shootDate ? `, ${shootDate}` : ""}.`,
-    marketing: `Invoice raised for brand marketing content${b.client_name ? ` — ${b.client_name}` : ""}.`,
-  };
-  const notes = brand
-    ? [`Invoice raised for ${b.client_name || "the agent"}.`, b.property_address || b.location || "", shootDate ? `Shoot date: ${shootDate}` : ""].filter(Boolean).join("\n")
-    : teg ? (tegNotes[b.teg_reason] || `Invoice raised for ${reasonName}${b.client_name ? ` — ${b.client_name}` : ""}.`)
-    : "Thank you for your business - TMKE";
+  // "Shoot location - shoot date", then the thanks (the sheet's notes).
+  const where = String(b.property_address || b.location || "").replace(/\s*\n\s*/g, ", ").trim();
+  const notes = [[where, shootDate].filter(Boolean).join(" - "), "Thank you for your business - TMKE"].filter(Boolean).join("\n");
+  const route = VIDEO_INVOICE_ROUTES[b.payment_route] || VIDEO_INVOICE_ROUTES.agent_card;
   // The lines: what was booked, and travel as its own line. A booking made
   // online has a total with travel in it; one made in the admin has the
   // quote, with travel beside it.
@@ -757,14 +759,15 @@ export function bookingInvoiceDraft(b, { accountsCc = null, settings = SURCHARGE
   return {
     booking_id: b.id, booking_source: "videography",
     bill_to_name: billTo,
-    bill_to_email: brand ? (b.fc_confirm_email || "") : teg ? TEG_ACCOUNTS_EMAIL : (b.client_email || ""),
+    bill_to_email: route.to || b.client_email || "",
     bill_to_address: teg ? tegBrandAddress(b.teg_brand) : "",
     client_name: b.client_company || b.client_name || "",
-    cc_email: accountsCc || "hello@tmke.co.uk",
+    cc_email: route.cc || accountsCc || "hello@tmke.co.uk",
+    bcc_email: route.bcc || null,
+    template: route.template || null,
     line_items: items, notes,
     pay_by_card: !brand && !teg,
-    terms_days: 10, release_on_payment: true,
-    // Brand invoices can't go without an email to send them to.
-    _missing: [!billTo && "who it's billed to", !(brand ? b.fc_confirm_email : teg ? TEG_ACCOUNTS_EMAIL : b.client_email) && "an email to send it to", !base && "a price"].filter(Boolean),
+    terms_days: route.terms || 10, release_on_payment: true,
+    _missing: [!billTo && "who it's billed to", !(route.to || b.client_email) && "an email to send it to", !base && "a price"].filter(Boolean),
   };
 }

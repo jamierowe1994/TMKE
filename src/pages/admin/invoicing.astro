@@ -214,6 +214,9 @@ import AdminShell from "../../components/admin/AdminShell.astro";
         </div>
       </div>
       <p class="inv-msg" id="ap-msg" hidden></p>
+      <!-- Numbers an invoice needs each month before it can go: the TPE hub's
+           agents, typed in until the Team Hub can be counted on for it. -->
+      <div class="ap-numbers" id="ap-numbers" hidden></div>
       <div class="mc-wrap"><table class="mc-tbl ap-tbl" id="ap-tbl"></table></div>
     </section>
 
@@ -485,6 +488,13 @@ import AdminShell from "../../components/admin/AdminShell.astro";
     .ap-pill.is-approved { background: rgba(46,107,64,0.12); color: #2e6b40; }
     .ap-pill.is-rejected { background: rgba(160,50,40,0.1); color: #a3372b; }
     .ap-notes { margin-top: 4px; font-size: 12px; color: rgba(28,29,34,0.65); max-width: 320px; }
+    .ap-numbers { border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; padding: 14px 16px; margin: 0 0 18px; background: #fff; }
+    .ap-numbers .mc-h { margin-top: 0; }
+    .ap-num-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid rgba(28,29,34,0.07); font-size: 13px; }
+    .ap-num-name { flex: 1 1 320px; display: flex; flex-direction: column; gap: 2px; }
+    .ap-num-name em { font-style: normal; font-size: 12px; color: rgba(28,29,34,0.55); }
+    .ap-num-row input { width: 90px; padding: 7px 9px; border: 1px solid rgba(28,29,34,0.18); border-radius: 6px; font: inherit; }
+    .ap-num-done { font-size: 11.5px; color: #2e6b40; }
     .ap-open { font-size: 12px; font-weight: 700; color: var(--english-violet); }
     #mc-form-h { margin-top: 44px; padding-top: 28px; border-top: 1px solid rgba(28,29,34,0.08); }
     /* Intro text on this full-width page runs to about three quarters of it
@@ -1600,6 +1610,7 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       try {
         const d = await api("/invoicing/approvals");
         $("ap-mode").value = d.mode || "off";
+        drawNumbers(d.numbers || []);
         const rows = (d.approvals || []).filter((x) => x.status !== "superseded");
         if (!rows.length) { tbl.innerHTML = `<tr><td class="inv-empty">Nothing yet. Invoices put to someone to approve show here.</td></tr>`; return; }
         const when = (x) => x ? new Date(x).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
@@ -1617,6 +1628,24 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           catch (err) { msg("ap-msg", err.message, false); b.disabled = false; b.textContent = "Send to Jack again"; }
         }));
       } catch (err) { tbl.innerHTML = `<tr><td class="inv-empty">${esc(/invoice_approvals|automation_mode/.test(err.message) ? "Run supabase/invoicing_automation.sql first." : err.message)}</td></tr>`; }
+    }
+    function drawNumbers(nums) {
+      const host = $("ap-numbers");
+      if (!nums.length) { host.hidden = true; return; }
+      host.hidden = false;
+      host.innerHTML = `<h3 class="mc-h">Numbers needed</h3><p class="inv-intro">These invoices need a number from you each month before they can go out. Fill it in any time before the day it goes.</p>` +
+        nums.map((n) => `<div class="ap-num-row"><span class="ap-num-name"><strong>${esc(n.name)}</strong> · ${esc(n.month_label)}<em>${esc(n.label)}${n.unit_pence ? `, £${(n.unit_pence / 100).toFixed(2)} each` : ""}. Goes out on the ${n.day}${[11, 12, 13].includes(n.day % 100) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n.day % 10] || "th")}.</em></span>
+          <input type="number" min="0" step="1" value="${n.qty ?? ""}" data-numfor="${esc(n.recurring_id)}" data-month="${esc(n.month)}" aria-label="${esc(n.label)}" />
+          <button type="button" class="inv-save" data-numsave="${esc(n.recurring_id)}|${esc(n.month)}">${n.qty != null ? "Update" : "Save"}</button>
+          <span class="ap-num-done">${n.qty != null ? `Saved${n.entered_by ? ` by ${esc(String(n.entered_by).split("@")[0])}` : ""}` : ""}</span></div>`).join("");
+      host.querySelectorAll("[data-numsave]").forEach((b) => b.addEventListener("click", async () => {
+        const [rid, month] = b.dataset.numsave.split("|");
+        const inp = host.querySelector(`[data-numfor="${rid}"][data-month="${month}"]`);
+        if (inp.value === "") { msg("ap-msg", "Type the number first.", false); return; }
+        b.disabled = true;
+        try { await api("/invoicing/recurring/quantity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ recurring_id: rid, month, qty: Number(inp.value) }) }); msg("ap-msg", "Saved. It goes out on its day with that number.", true); loadApprovals(); }
+        catch (err) { msg("ap-msg", /recurring_quantities/.test(err.message) ? "Run supabase/invoicing_automation_2.sql first." : err.message, false); b.disabled = false; }
+      }));
     }
     $("ap-mode").addEventListener("change", async (e) => {
       const v = e.target.value;

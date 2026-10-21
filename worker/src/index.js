@@ -176,6 +176,8 @@ if ((b.booking_source || "videography") === "smm") {
   // Tied to a recurring invoice on the monthly checklist, for a month:
   // the sure link, rather than guessing from the address it went to.
   if (b && b.recurring_id) row.recurring_id = String(b.recurring_id);
+  // The automatic invoices carry their own blind copy (hello@, the sheet).
+  if (b && b.bcc_email) row.bcc_email = String(b.bcc_email).trim();
   if (b && /^\d{4}-\d{2}$/.test(String(b.billing_month || ""))) row.billing_month = b.billing_month;
   let res = await sbPost(env, "invoices", row, "return=representation");
   if (!res.ok && row.recurring_id) {
@@ -190,6 +192,11 @@ if ((b.booking_source || "videography") === "smm") {
     if (/template/.test(errText) && row.template != null) {
 const { template: _t, ...rowNoTpl } = row;
 res = await sbPost(env, "invoices", rowNoTpl, "return=representation");
+    }
+    // And the blind-copy column (supabase/invoicing_automation_2.sql).
+    if (!res.ok && /bcc_email/.test(errText) && row.bcc_email) {
+      const { bcc_email: _b, ...rowNoBcc } = row;
+      res = await sbPost(env, "invoices", rowNoBcc, "return=representation");
     }
     // Same tolerance for the card-payment column
     // (supabase/invoicing_stripe.sql). Save the invoice rather than lose it.
@@ -280,7 +287,7 @@ async function sendInvoiceNow(env, b, by) {
   // their own address - "did that invoice actually send" should be
   // answerable from our own inbox, not only from the audit trail.
   const already = `${mail.to || ""},${mail.cc || ""}`.toLowerCase();
-  const copyTo = String(env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "").trim();
+  const copyTo = String(inv.bcc_email || env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "").trim();
   const bcc = copyTo && !already.includes(copyTo.toLowerCase()) ? copyTo : null;
   const emailed = await sendEmail(env, {
     to: mail.to,
@@ -342,6 +349,7 @@ function invToday(offsetDays = 0) {
   const g = (t) => p.find((x) => x.type === t).value;
   return { ymd: `${g("year")}-${g("month")}-${g("day")}`, ym: `${g("year")}-${g("month")}`, day: Number(g("day")) };
 }
+function invOrd(n) { const v = n % 100; return n + (v >= 11 && v <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th"); }
 function invMonthLabel(ym) { const [y, m] = String(ym).split("-").map(Number); return `${INV_MONTHS[m - 1]} ${y}`; }
 function invAddDays(ymd, n) { const d = new Date(ymd + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function invDanielle(env) { return String(env.ACCOUNTS_NOTIFY || DD_DEFAULT_RECIPIENT).trim(); }
@@ -401,7 +409,7 @@ function invLinesHtml(inv) {
    email with the PDF and Approve / Reject buttons. In test mode the email
    comes to Danielle instead. Any earlier request for the same invoice is
    superseded, so only the newest links work. */
-async function requestInvoiceApproval(env, inv, { kind, approver, bookingId, about, mode }) {
+async function requestInvoiceApproval(env, inv, { kind, approver, bookingId, about, mode, warning }) {
   if (!inv || !approver) return { ok: false, error: "Nobody to approve it." };
   const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
   const before = (await sbGet(env, "invoice_approvals", `invoice_id=eq.${inv.id}&select=id,status`)) || [];
@@ -418,6 +426,7 @@ async function requestInvoiceApproval(env, inv, { kind, approver, bookingId, abo
   const first = String(approver).split("@")[0].split(/[._-]/)[0].replace(/^./, (m) => m.toUpperCase());
   const html = `<div style="${EM_WRAP}">
     ${test ? `<p style="${EM_P};padding:10px 12px;background:#fff5d6;border-radius:4px"><strong>Test mode.</strong> This would have gone to ${invEsc(approver)}. Approving won't send anything to the client.</p>` : ""}
+    ${warning ? `<p style="${EM_P};padding:11px 14px;background:#fbe9e7;border-left:3px solid #a3372b;border-radius:4px"><strong>Important:</strong> ${invEsc(warning)}</p>` : ""}
     <p style="${EM_P}">Hi ${invEsc(first)},</p>
     <p style="${EM_P}">Invoice <strong>${invEsc(inv.number)}</strong>${about ? ` for ${invEsc(about)}` : ""} is ready to go to <strong>${invEsc(inv.bill_to_name || "")}</strong>${inv.bill_to_email ? ` (${invEsc(inv.bill_to_email)})` : ""}. Please check it's right: the PDF is attached.</p>
     ${invLinesHtml(inv)}
@@ -498,30 +507,49 @@ async function runInvoiceAutomation(env) {
   const today = invToday(), lines = [];
   const test = mode !== "live";
 
-  // 1. Recurring invoices on their day.
+  // 1. Recurring invoices on their day. Social media ones are drafted and put
+  // to Abbie; internal ones go straight out; one with a monthly number (the
+  // TPE hub's agents) waits until the number's in.
+  const needNumbers = [];
   try {
     const rows = (await sbGet(env, "recurring_invoices", "active=eq.true&auto_send=eq.true&select=*")) || [];
     for (const r of rows) {
-      if (!r.day_of_month || today.day < r.day_of_month || !invRecurringDue(r, today.ym)) continue;
+      if (!r.day_of_month || !invRecurringDue(r, today.ym)) continue;
+      const month = invMonthLabel(today.ym);
+      let qty = null;
+      if (r.quantity_label) {
+        const q = (await sbGet(env, "recurring_quantities", `recurring_id=eq.${r.id}&month=eq.${today.ym}&select=qty`))?.[0];
+        qty = q ? Number(q.qty) : null;
+        // Asked for from five days before its day, until it's in.
+        if (qty == null) { if (today.day >= r.day_of_month - 5) needNumbers.push(r); continue; }
+      }
+      if (today.day < r.day_of_month) continue;
       const key = `recurring:${r.id}:${today.ym}`;
       const had = (await sbGet(env, "invoices", `recurring_id=eq.${r.id}&billing_month=eq.${today.ym}&status=neq.void&select=id&limit=1`)) || [];
       if (had.length) { await invLogOnce(env, key, "already raised by hand"); continue; }
       if (!(await invLogOnce(env, key, "raising"))) continue;
-      const month = invMonthLabel(today.ym);
-      const fill = (d) => String(d || "").replace(/\(Month YYYY\)|\{month\}/gi, (m) => m.startsWith("(") ? `(${month})` : month);
+      const fill = (d) => String(d || "").replace(/\{month year\}|\{month\}|Month YYYY/g, month).replace(/\{qty\}|\{number of agents\}/gi, qty != null ? String(qty) : "");
       const items = Array.isArray(r.line_items) && r.line_items.length
-        ? r.line_items.map((it) => ({ description: fill(it.description), qty: it.qty || 1, unit_pence: it.unit_pence || 0 }))
-        : [{ description: `${r.name} (${month})`, qty: 1, unit_pence: r.amount_pence || 0 }];
+        ? r.line_items.map((it) => ({ description: fill(it.description), qty: qty != null ? qty : (it.qty || 1), unit_pence: it.unit_pence || r.amount_pence || 0 }))
+        : [{ description: `${r.name} (${month})`, qty: qty != null ? qty : 1, unit_pence: r.amount_pence || 0 }];
+      // Due on its day of the month (the 28th), or after its terms.
+      let due = invAddDays(today.ymd, r.terms_days != null ? r.terms_days : (st.payment_terms_days || 7));
+      if (r.due_day) { const dd = String(Math.min(28, r.due_day)).padStart(2, "0"); due = `${today.ym}-${dd}`; if (due <= today.ymd) { const [y, m] = today.ym.split("-").map(Number); due = `${m === 12 ? y + 1 : y}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}-${dd}`; } }
       const made = await createInvoiceDraft(env, {
         bill_to_name: r.bill_to_name || r.name, bill_to_email: r.bill_to_email || r.match_email, bill_to_address: r.bill_to_address || null,
-        cc_email: r.cc_email != null ? r.cc_email : undefined, line_items: items, notes: r.notes || null,
-        terms_days: r.terms_days, pay_by_card: !!r.pay_by_card, recurring_id: r.id, billing_month: today.ym,
-        issued_date: today.ymd, due_date: invAddDays(today.ymd, r.terms_days != null ? r.terms_days : (st.payment_terms_days || 7)),
+        cc_email: r.cc_email != null ? r.cc_email : undefined, bcc_email: r.bcc_email || null, template: r.template || null,
+        line_items: items, notes: r.notes || null, terms_days: r.terms_days, pay_by_card: !!r.pay_by_card,
+        recurring_id: r.id, billing_month: today.ym, issued_date: today.ymd, due_date: due,
+        // A social media client's: on their file, and in their hub.
+        ...(r.lead_id ? { booking_id: r.lead_id, booking_source: "smm", client_name: r.contact_name || null } : {}),
       }, "automatic (recurring)");
       if (!made.ok) { await invLogForget(env, key); lines.push(`<li>Couldn't raise <strong>${invEsc(r.name)}</strong> for ${month}: ${invEsc(made.error)}. It'll try again tomorrow.</li>`); continue; }
       const inv = made.invoice;
-      if (test) {
-        let pdf = null; try { pdf = await renderInvoicePdf(env, st, inv); } catch (_) {}
+      if (r.approver_email) {
+        const asked = await requestInvoiceApproval(env, inv, { kind: r.kind === "social" ? "social" : "recurring", approver: r.approver_email, bookingId: null, about: `${r.bill_to_name || r.name}, ${month}`, mode });
+        lines.push(asked.ok ? `<li><strong>${invEsc(r.name)}</strong>: ${invEsc(inv.number)} drafted and sent to ${invEsc(String(r.approver_email).split("@")[0].split(/[._]/)[0])} to approve${test ? " (test mode: to you)" : ""}.</li>` : `<li><strong>${invEsc(r.name)}</strong>: ${invEsc(inv.number)} drafted, but the approval email didn't send: ${invEsc(asked.error || "")}.</li>`);
+      } else if (test) {
+        let pdf = null; try { pdf = await renderInvoicePdf(env, { ...st, template: inv.template || st.template }, inv); } catch (_) {}
         await sendEmail(env, { to: invDanielle(env), subject: `[Test] Invoice ${inv.number} would have gone to ${inv.bill_to_name}`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}"><strong>Test mode.</strong> Invoice ${invEsc(inv.number)} for ${invEsc(r.name)} (${month}) would have gone to ${invEsc(inv.bill_to_email || "")}${inv.cc_email ? `, copying ${invEsc(inv.cc_email)}` : ""}. It's saved as a draft: send it from the admin if it's right.</p>${invLinesHtml(inv)}</div>`), attachments: pdf ? [{ filename: `Invoice-${inv.number}.pdf`, content: bufToBase64(pdf), contentType: "application/pdf" }] : undefined });
         lines.push(`<li><strong>${invEsc(r.name)}</strong>: ${invEsc(inv.number)} drafted (test mode, not sent).</li>`);
       } else {
@@ -530,34 +558,50 @@ async function runInvoiceAutomation(env) {
       }
     }
   } catch (e) { lines.push(`<li>Recurring invoices didn't run: ${invEsc(String(e && e.message || e))}</li>`); }
+  for (const r of needNumbers) {
+    lines.push(`<li><strong>${invEsc(r.name)}</strong> needs this month's ${invEsc(String(r.quantity_label).toLowerCase())} before it can go out (it goes on the ${invOrd(r.day_of_month)}). <a href="${invSite(env)}/admin/invoicing?tab=approvals">Fill it in</a></li>`);
+  }
 
-  // 2. Shoots in the next two days: draft the invoice and ask Jack.
+  // 2. Shoots. Four days before a Fine & Country one, Paula is asked whether
+  // the seller's marketing fee has come in; two days before every shoot, the
+  // invoice is drafted and put to Jack. A Fine & Country fee that still isn't
+  // confirmed doesn't stop it: Jack's email says to check before approving.
   try {
-    const from = new Date().toISOString(), to = new Date(Date.now() + 3 * 86400000).toISOString();
+    const from = new Date().toISOString(), to = new Date(Date.now() + 5 * 86400000).toISOString();
     const shoots = (await sbGet(env, "videography_bookings", `shoot_date=gte.${from}&shoot_date=lte.${to}&select=*`)) || [];
     const vs = (await sbGet(env, "videography_settings", "id=eq.1&select=free_radius_miles,surcharge_pence_per_mile"))?.[0] || {};
-    const limit = invAddDays(today.ymd, 2);
+    const fourDays = invAddDays(today.ymd, 4), twoDays = invAddDays(today.ymd, 2);
     for (const b of shoots) {
       const day = invToday((Date.parse(b.shoot_date) - Date.now()) / 86400000).ymd;
-      if (day > limit || ["cancelled", "delivered"].includes(b.stage) || b.payment_route === "smm_package" || b.paid_at) continue;
-      const have = (await sbGet(env, "invoices", `booking_id=eq.${b.id}&status=neq.void&select=id&limit=1`)) || [];
-      if (have.length) continue;
+      if (["cancelled", "delivered"].includes(b.stage) || b.payment_route === "smm_package" || b.paid_at) continue;
       const who = b.client_name || b.client_company || "a client";
       const when = new Date(b.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" });
-      if (b.payment_route === "brand_invoice" && !b.brand_fee_confirmed) {
-        if (await invLogOnce(env, `video:${b.id}:fee`, "waiting on fee")) lines.push(`<li><strong>${invEsc(who)}</strong>, ${when}: not drafted yet. Fine &amp; Country haven't confirmed the marketing fee is held. <a href="${invSite(env)}/admin/videography?booking=${b.id}">Open the booking</a></li>`);
-        continue;
+      const fc = b.payment_route === "brand_invoice";
+      // 2a. The Fine & Country fee check, four days out.
+      if (fc && !b.brand_fee_confirmed && day <= fourDays && !b.fc_fee_asked_at) {
+        if (await invLogOnce(env, `video:${b.id}:feeask`, "asking")) {
+          const asked = await askFcFee(env, b, mode);
+          lines.push(asked.ok ? `<li><strong>${invEsc(who)}</strong>, ${when}: Fine &amp; Country asked to confirm the marketing fee${test ? " (test mode: to you)" : ""}.</li>` : `<li><strong>${invEsc(who)}</strong>: couldn't ask Fine &amp; Country about the fee: ${invEsc(asked.error || "")}.</li>`);
+        }
       }
+      // 2b. The invoice, two days out.
+      if (day > twoDays) continue;
+      const have = (await sbGet(env, "invoices", `booking_id=eq.${b.id}&status=neq.void&select=id&limit=1`)) || [];
+      if (have.length) continue;
       if (!(await invLogOnce(env, `video:${b.id}:drafted`, "drafting"))) continue;
       const draft = bookingInvoiceDraft(b, { accountsCc: st.accounts_cc_email, settings: { free_radius_miles: vs.free_radius_miles, surcharge_pence_per_mile: vs.surcharge_pence_per_mile } });
       if (!draft) continue;
       const missing = draft._missing; delete draft._missing;
-      const made = await createInvoiceDraft(env, { ...draft, issued_date: today.ymd, due_date: invAddDays(today.ymd, 10) }, "automatic (videography)");
+      const made = await createInvoiceDraft(env, { ...draft, issued_date: today.ymd, due_date: invAddDays(today.ymd, draft.terms_days || 10) }, "automatic (videography)");
       if (!made.ok) { await invLogForget(env, `video:${b.id}:drafted`); lines.push(`<li>Couldn't draft the invoice for <strong>${invEsc(who)}</strong>, ${when}: ${invEsc(made.error)}.</li>`); continue; }
       const inv = made.invoice;
-      if (missing.length) { lines.push(`<li><strong>${invEsc(who)}</strong>, ${when}: ${invEsc(inv.number)} drafted, but it needs ${invEsc(missing.join(" and "))} before Jack can approve it. <a href="${invSite(env)}/admin/videography?booking=${b.id}">Open the booking</a>, then click Send to Jack.</li>`); continue; }
-      const asked = await requestInvoiceApproval(env, inv, { kind: "videography", approver: invJack(env), bookingId: b.id, about: `${who}'s shoot on ${when}`, mode });
-      lines.push(asked.ok ? `<li><strong>${invEsc(who)}</strong>, ${when}: ${invEsc(inv.number)} drafted and sent to Jack to approve${test ? " (test mode: to you)" : ""}.</li>` : `<li><strong>${invEsc(who)}</strong>: ${invEsc(inv.number)} drafted, but the approval email didn't send: ${invEsc(asked.error || "")}.</li>`);
+      if (missing.length) { lines.push(`<li><strong>${invEsc(who)}</strong>, ${when}: ${invEsc(inv.number)} drafted, but it needs ${invEsc(missing.join(" and "))} before Jack can approve it. <a href="${invSite(env)}/admin/videography?booking=${b.id}">Open the booking</a>, then click Send to Jack to approve.</li>`); continue; }
+      const feeOpen = fc && !b.brand_fee_confirmed;
+      const warning = feeOpen ? (b.fc_fee_answer === "no"
+        ? "Fine & Country have said the marketing fee has NOT been received. Don't approve this invoice until it has: reject it with a note instead."
+        : "Before you approve this invoice, please confirm with the Fine & Country office that the marketing fee has been received.") : "";
+      const asked = await requestInvoiceApproval(env, inv, { kind: "videography", approver: invJack(env), bookingId: b.id, about: `${who}'s shoot on ${when}`, mode, warning });
+      lines.push(asked.ok ? `<li><strong>${invEsc(who)}</strong>, ${when}: ${invEsc(inv.number)} drafted and sent to Jack to approve${feeOpen ? ", with a note to check the Fine &amp; Country fee first" : ""}${test ? " (test mode: to you)" : ""}.</li>` : `<li><strong>${invEsc(who)}</strong>: ${invEsc(inv.number)} drafted, but the approval email didn't send: ${invEsc(asked.error || "")}.</li>`);
     }
   } catch (e) { lines.push(`<li>Shoot invoices didn't run: ${invEsc(String(e && e.message || e))}</li>`); }
 
@@ -583,6 +627,90 @@ async function runInvoiceAutomation(env) {
     await sendEmail(env, { to: invDanielle(env), subject: `${test ? "[Test] " : ""}Invoicing today: ${lines.length} item${lines.length === 1 ? "" : "s"}`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Here's what the automatic invoicing did this morning${test ? ", in test mode, so nothing went to a client" : ""}.</p><ul style="${EM_P};padding-left:18px">${lines.join("")}</ul><p style="${EM_P}"><a href="${invSite(env)}/admin/invoicing?tab=approvals" style="${EM_BTN}">Open invoicing</a></p></div>`) });
   }
   return { ok: true, mode, lines: lines.length };
+}
+
+/* ---- Fine & Country: the marketing fee check (Danielle, 21 Oct 2026) ----
+   A Fine & Country shoot is paid from the marketing fee the agent's client
+   was charged, so four days before it Paula is asked whether that fee has
+   come in, with Yes and No buttons (no sign-in) and Danielle copied. Yes
+   ticks the booking's fee confirmation; No tells Danielle and Jack. */
+async function invSignFor(env, prefix, id) {
+  const secret = unsubSecret(env);
+  if (!secret || !id) return null;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const mac = await crypto.subtle.sign("HMAC", key, enc.encode(`${prefix}:${id}`));
+  return `${_b64urlStr(String(id))}.${_b64url(mac)}`;
+}
+async function invVerifyFor(env, prefix, token) {
+  try {
+    const raw = String(token || ""), dot = raw.indexOf(".");
+    if (dot < 1) return null;
+    const id = atob(raw.slice(0, dot).replace(/-/g, "+").replace(/_/g, "/"));
+    const expect = await invSignFor(env, prefix, id);
+    if (!expect || raw.length !== expect.length) return null;
+    let diff = 0;
+    for (let i = 0; i < raw.length; i++) diff |= raw.charCodeAt(i) ^ expect.charCodeAt(i);
+    return diff === 0 ? id : null;
+  } catch (_) { return null; }
+}
+
+/* Which Fine & Country office an agent sits under, from the TEG Team Hub
+   (read-only): their Location, or failing that their Company, matched to
+   our offices by name. Returns { key, location, company }. */
+async function tegFcOffice(env, email) {
+  const out = { key: null, location: "", company: "" };
+  if (!email || !env.TEG_API_SECRET) return out;
+  const p = await tegApi(env, "dbApi", { action: "read", entity: "TeamMember", field: "email", value: String(email).trim() });
+  // read answers { count, records, record } (TEG API_DOCUMENTATION.md).
+  const d = p.ok ? p.data : null;
+  const person = d ? (d.record || (Array.isArray(d.records) && d.records[0]) || (Array.isArray(d) ? d[0] : null)) : null;
+  if (!person) return out;
+  const [loc, co] = await Promise.all([
+    person.location_id ? tegApi(env, "dbApi", { action: "get", entity: "Location", id: person.location_id }) : null,
+    person.company_id ? tegApi(env, "dbApi", { action: "get", entity: "Company", id: person.company_id }) : null,
+  ]);
+  out.location = (loc && loc.ok && loc.data && loc.data.name) || "";
+  out.company = (co && co.ok && co.data && co.data.name) || "";
+  const hay = `${out.location} ${out.company}`.toLowerCase();
+  for (const [key, label] of Object.entries(FC_OFFICE_LABELS)) {
+    const word = label.replace(/^Fine & Country\s*/i, "").toLowerCase();
+    if (word && hay.includes(word)) { out.key = key; break; }
+  }
+  return out;
+}
+
+async function askFcFee(env, b, mode) {
+  const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
+  let office = b.fc_office;
+  if (!office && b.client_email) {
+    try { const f = await tegFcOffice(env, b.client_email); if (f.key) { office = f.key; await fetch(`${env.SUPABASE_URL}/rest/v1/videography_bookings?id=eq.${b.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ fc_office: office }) }); } } catch (_) {}
+  }
+  const officeName = FC_OFFICE_LABELS[office] || "their Fine & Country office";
+  const paula = "Paula@newman.uk.com";
+  const test = mode !== "live";
+  const t = await invSignFor(env, "fcfee", b.id);
+  const base = `${unsubBase(env)}/videography/fc-fee?t=${encodeURIComponent(t)}`;
+  const when = b.shoot_date ? new Date(b.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" }) : "a date to confirm";
+  const where = String(b.property_address || b.location || "").replace(/\s*\n\s*/g, ", ");
+  const agent = b.client_name || "An agent";
+  const html = `<div style="${EM_WRAP}">
+    ${test ? `<p style="${EM_P};padding:10px 12px;background:#fff5d6;border-radius:4px"><strong>Test mode.</strong> This would have gone to ${paula}, copying you.</p>` : ""}
+    <p style="${EM_P}">Hi Paula,</p>
+    <p style="${EM_P}">${invEsc(agent)} from ${invEsc(officeName)} has booked a ${invEsc(b.service || "videography")} shoot with us on <strong>${invEsc(when)}</strong>${where ? ` at ${invEsc(where)}` : ""}. Their client has been charged a marketing fee, and the shoot is to be paid from it.</p>
+    <p style="${EM_P}">Can you confirm you've received the marketing fee?</p>
+    <p style="${EM_P}"><a href="${base}&a=yes" style="${EM_BTN}">Yes, it's been received</a>&nbsp;&nbsp;<a href="${base}&a=no" style="${EM_BTN};background:#ffffff;color:#371e28;border:1px solid #371e28">No, not yet</a></p>
+    <p style="${EM_SMALL}">Or just reply to this email: Danielle is copied in.</p></div>`;
+  const sent = await sendEmail(env, {
+    to: test ? invDanielle(env) : paula, cc: test ? null : invDanielle(env),
+    subject: `${test ? "[Test] " : ""}Marketing fee check: ${agent}, ${officeName}, ${when}`,
+    html: await wrapInBrandedBase(env, html),
+  });
+  if (sent.ok) {
+    await fetch(`${env.SUPABASE_URL}/rest/v1/videography_bookings?id=eq.${b.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ fc_fee_asked_at: new Date().toISOString(), fc_confirm_email: paula, fc_confirm_sent_at: new Date().toISOString() }) });
+    await logBookingMessage(env, { booking_id: b.id, booking_source: "videography", channel: "note", kind: "audit", subject: "Marketing fee check sent", body: `Asked ${test ? "(test mode: Danielle)" : paula} to confirm the Fine & Country marketing fee for ${agent} has been received.`, is_automated: true, created_by: "system" });
+  }
+  return { ok: !!sent.ok, error: sent.ok ? null : sent.error };
 }
 
 // ---- Direct Debit "ghost" invoices --------------------------------------
@@ -9233,6 +9361,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       // Approve / Reject an invoice from the email: the signed link is the
       // proof, and Jack and Abbie shouldn't have to sign in (Danielle, 21 Oct).
       || path.endsWith("/invoicing/approval")
+      || path.endsWith("/videography/fc-fee")
       || (path.endsWith("/download") && url.searchParams.get("sig"));   // proof is in the link
     if (!publicNoAuth) {
       const hot = path.endsWith("/part") || path.endsWith("/complete") || path.endsWith("/abort");
@@ -10880,6 +11009,55 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       }
 
       // ---- Admin: send an invoice (render PDF → email + CC accounts → sent) ---
+      // ---- Fine & Country: Paula's answer to the marketing fee check --------
+      // As with invoice approval, the page has the button: opening the link
+      // alone changes nothing (mail scanners open every link).
+      if (path.endsWith("/videography/fc-fee") && (request.method === "GET" || request.method === "POST")) {
+        const page = (title, inner, status = 200) => new Response(invApprovalPage(title, inner), { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
+        const f = request.method === "POST" ? await request.formData().catch(() => null) : null;
+        const t = f ? String(f.get("t") || "") : (url.searchParams.get("t") || "");
+        const a = (f ? f.get("a") : url.searchParams.get("a")) === "no" ? "no" : "yes";
+        const id = await invVerifyFor(env, "fcfee", t);
+        if (!id) return page("That link doesn't work", `<p style="font-size:13px;line-height:1.6">Use the buttons in the email, or reply to it.</p>`, 400);
+        const bk = (await sbGet(env, "videography_bookings", `id=eq.${encodeURIComponent(id)}&select=*`))?.[0];
+        if (!bk) return page("That shoot isn't there any more", "");
+        const when = bk.shoot_date ? new Date(bk.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" }) : "";
+        const what = `${invEsc(bk.client_name || "The agent")}'s shoot${when ? ` on ${invEsc(when)}` : ""}${bk.fc_office ? `, ${invEsc(FC_OFFICE_LABELS[bk.fc_office] || "")}` : ""}`;
+        if (request.method === "GET") {
+          if (bk.fc_fee_answer) return page("Thanks, we've got your answer", `<p style="font-size:13px;line-height:1.6">${what}: you said the marketing fee ${bk.fc_fee_answer === "yes" ? "has" : "hasn't"} been received. If that's changed, reply to the email.</p>`);
+          const btn = "display:inline-block;padding:11px 20px;border-radius:4px;border:0;background:#371e28;color:#fff;font:600 12px Verdana,Geneva,sans-serif;letter-spacing:.06em;text-transform:uppercase;cursor:pointer";
+          return page(a === "yes" ? "Confirm the marketing fee has been received?" : "The marketing fee hasn't been received?",
+            `<p style="font-size:13px;line-height:1.6">${what}.</p><form method="post" action="${url.pathname}"><input type="hidden" name="t" value="${invEsc(t)}"><input type="hidden" name="a" value="${a}"><button type="submit" style="${btn}">${a === "yes" ? "Yes, it's been received" : "No, not yet"}</button></form>`);
+        }
+        const now = new Date().toISOString();
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
+        const patch = a === "yes"
+          ? { fc_fee_answer: "yes", fc_fee_answered_at: now, fc_fee_answered_by: bk.fc_confirm_email || "Fine & Country", brand_fee_confirmed: true, brand_fee_confirmed_at: now, brand_fee_confirmed_by: `${bk.fc_confirm_email || "Fine & Country"} (by email)` }
+          : { fc_fee_answer: "no", fc_fee_answered_at: now, fc_fee_answered_by: bk.fc_confirm_email || "Fine & Country" };
+        await fetch(`${env.SUPABASE_URL}/rest/v1/videography_bookings?id=eq.${bk.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify(patch) });
+        await logBookingMessage(env, { booking_id: bk.id, booking_source: "videography", channel: "note", kind: "audit", subject: a === "yes" ? "Marketing fee confirmed" : "Marketing fee NOT received", body: `Fine & Country answered the fee check: ${a === "yes" ? "received" : "not received yet"}.`, is_automated: true, created_by: "system" });
+        if (a === "no") {
+          await sendEmail(env, { to: invDanielle(env), cc: invJack(env) || null, subject: `Marketing fee not received: ${bk.client_name || "a Fine & Country shoot"}`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Fine &amp; Country say the marketing fee for ${what} <strong>hasn't been received</strong>. Don't invoice them for it until it has.</p><p style="${EM_P}"><a href="${invSite(env)}/admin/videography?booking=${bk.id}" style="${EM_BTN}">Open the booking</a></p></div>`) });
+        }
+        return page("Thank you", `<p style="font-size:13px;line-height:1.6">${what}: ${a === "yes" ? "marked as received. We'll send the invoice for it." : "we've let Danielle and Jack know it hasn't come in yet."}</p>`);
+      }
+      // ---- Admin: which F&C office an agent sits under (TEG Team Hub) -------
+      if (path.endsWith("/videography/fc-office") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const f = await tegFcOffice(env, url.searchParams.get("email") || "");
+        return json({ ok: true, ...f, label: f.key ? FC_OFFICE_LABELS[f.key] : null }, 200, request, env);
+      }
+      // ---- Admin: a monthly number for a recurring invoice (TPE agents) -----
+      if (path.endsWith("/invoicing/recurring/quantity") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        const qty = Number(b.qty);
+        if (!b.recurring_id || !/^\d{4}-\d{2}$/.test(String(b.month || "")) || !(qty >= 0)) return json({ error: "Which invoice, which month and the number, please." }, 400, request, env);
+        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_quantities?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: b.recurring_id, month: b.month, qty, entered_by: user.email || null, entered_at: new Date().toISOString() }) });
+        return r.ok ? json({ ok: true }, 200, request, env) : json({ error: "Couldn't save it: " + (await r.text()).slice(0, 160) }, 502, request, env);
+      }
       // ---- Approve or reject an invoice from the email (no sign-in) ----------
       // The link opens a page with the button: nothing happens on the click
       // through alone, because mail scanners open every link in an email
@@ -10942,7 +11120,18 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const ids = [...new Set(aps.map((x) => x.invoice_id))];
         const invs = ids.length ? (await sbGet(env, "invoices", `id=in.(${ids.join(",")})&select=id,number,bill_to_name,bill_to_email,total_pence,status,booking_id`)) || [] : [];
         const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0] || {};
-        return json({ ok: true, mode: st.automation_mode || "off", approvals: aps.map((x) => ({ ...x, invoice: invs.find((i) => i.id === x.invoice_id) || null })) }, 200, request, env);
+        // Monthly numbers still to fill in (this month and next), for the
+        // invoices that need one (the TPE hub's agents).
+        let numbers = [];
+        try {
+          const qs = (await sbGet(env, "recurring_invoices", "active=eq.true&quantity_label=not.is.null&select=id,name,quantity_label,day_of_month,amount_pence")) || [];
+          const t0 = invToday(), months = [t0.ym, invToday(32 - t0.day).ym];
+          for (const r of qs) for (const m of months) {
+            const q = (await sbGet(env, "recurring_quantities", `recurring_id=eq.${r.id}&month=eq.${m}&select=qty,entered_by,entered_at`))?.[0] || null;
+            numbers.push({ recurring_id: r.id, name: r.name, label: r.quantity_label, day: r.day_of_month, unit_pence: r.amount_pence, month: m, month_label: invMonthLabel(m), qty: q ? Number(q.qty) : null, entered_by: q ? q.entered_by : null });
+          }
+        } catch (_) {}
+        return json({ ok: true, mode: st.automation_mode || "off", numbers, approvals: aps.map((x) => ({ ...x, invoice: invs.find((i) => i.id === x.invoice_id) || null })) }, 200, request, env);
       }
       // ---- Admin: run this morning's automatic invoicing now ----------------
       if (path.endsWith("/invoicing/automation/run") && request.method === "POST") {
