@@ -10348,6 +10348,8 @@ import { createResizeEngine } from "./resize-engine.js";
   }
   // Admin, on a print template: its preview is hand-made, so saving keeps it.
   function keepsHandMadePreview() { return isAdminMode() && isPrintDesign(); }
+  // The design's caption prompt, for the AI caption writer to start from.
+  window.__TMKE_CAPTION_PROMPT__ = function () { return (state.canvas && state.canvas.captionPrompt) || ""; };
   window.__TMKE_IS_PRINT__ = function () { try { return isPrintDesign(); } catch (_) { return false; } };
   window.__TMKE_SIZE_FAMILY__ = function (w, h) { try { return sizeFamily(w, h); } catch (_) { return null; } };
   // Page one of the design as it stands on screen, for Regenerate previews.
@@ -12453,7 +12455,8 @@ import { createResizeEngine } from "./resize-engine.js";
     box.className = "ed-caption-prompt";
     const h = document.createElement("span");
     h.className = "ed-caption-prompt-h";
-    h.textContent = admin ? "Caption prompt (optional)" : "Your caption";
+    // A steer on what to talk about, not the caption itself (Dani, 22 Oct).
+    h.textContent = admin ? "Caption prompt (optional)" : "Caption prompt";
     box.appendChild(h);
     if (admin) {
       const ta = document.createElement("textarea");
@@ -12468,7 +12471,7 @@ import { createResizeEngine } from "./resize-engine.js";
       box.appendChild(ta);
       const note = document.createElement("p");
       note.className = "ed-caption-prompt-note";
-      note.textContent = "For a design where the caption does the work. Members see it here, in this box. Leave it empty and they won't see a box at all.";
+      note.textContent = "For a design where the caption does the work. Members see it here, in this box, and it's filled in for them when they write the caption with AI. Leave it empty and they won't see a box at all.";
       box.appendChild(note);
     } else {
       const p = document.createElement("p");

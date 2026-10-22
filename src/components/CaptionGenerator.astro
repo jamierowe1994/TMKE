@@ -3,7 +3,7 @@
 //   • Studio (standalone tool)      → output "copy"  (Copy buttons)
 //   • Planner post panel            → output "use"   (drops caption into the post)
 // Open it from anywhere with:
-//   window.tmkeCaption.open({ output: "copy" | "use", onUse: (text) => {...} })
+//   window.tmkeCaption.open({ output: "copy" | "use", onUse: (text) => {...}, topic?: "a design's caption prompt" })
 // It talks to the Worker's /ai/caption endpoint (key stays server-side).
 const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
 ---
@@ -247,7 +247,14 @@ const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
       if (ownLbl) ownLbl.textContent = opts.output === "use" ? "Use this caption" : "Copy caption";
       const toneNote = scrim.querySelector("[data-cg-tone]");
       if (toneNote) toneNote.hidden = !brandTone();
-      switchTab("property");
+      /* A design with a caption prompt (its Edit panel) opens on General with
+         the prompt already in "What's your post about?" (Dani, 22 Oct). */
+      const topic = String(opts.topic || "").trim();
+      if (topic) {
+        switchTab("general");
+        const box = scrim.querySelector('[data-cg-pane="general"] [data-cg="topic"]');
+        if (box) box.value = topic;
+      } else switchTab("property");
       scrim.hidden = false;
       document.body.style.overflow = "hidden";
       window.__lenis?.stop?.();
