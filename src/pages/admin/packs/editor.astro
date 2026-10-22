@@ -643,6 +643,10 @@ import "../../../styles/admin.css";
       font-size: 11px;
       line-height: 1.3;
     }
+    .tpl-pick-note {
+      display: block; margin-top: 3px;
+      font-size: 10px; opacity: 0.85;
+    }
     .tpl-pick-cat {
       font-size: 9px;
       font-weight: 700; letter-spacing: 0.18em;
@@ -997,6 +1001,8 @@ import "../../../styles/admin.css";
     let originallyInThisPack = new Set();
     let tplSearchTerm = "";
     let tplShowSelectedOnly = false;
+    /** @type {Map<string,string>} pack id -> title, to say which pack a design is in */
+    let packTitles = new Map();
 
     function setCover(url) {
       if (url) {
@@ -1086,6 +1092,10 @@ import "../../../styles/admin.css";
         return;
       }
       allTemplates = data || [];
+      try {
+        const { data: pk } = await supabase.from("packs").select("id, title");
+        packTitles = new Map((pk || []).map((p) => [p.id, p.title || "another pack"]));
+      } catch (_) {}
 
       // If editing, seed selection from any templates already linked to this pack,
       // in their saved preview order (sort_order).
@@ -1123,9 +1133,9 @@ import "../../../styles/admin.css";
     function renderTemplatePool() {
       const q = tplSearchTerm.toLowerCase();
       const visible = allTemplates.filter((t) => {
-        // Hide anything locked to ANOTHER pack — only show designs free to add
-        // (or already in this pack).
-        if (t.pack_id && t.pack_id !== editingId && !selectedTplIds.has(t.id)) return false;
+        // Every design shows. One already in ANOTHER pack is added as a copy
+        // when the pack saves, so the pack it is in keeps it (Dani, 22 Oct:
+        // the Halloween designs, for a free pack, are in The Autumn Edit).
         if (tplShowSelectedOnly && !selectedTplIds.has(t.id)) return false;
         if (!q) return true;
         return (
@@ -1146,6 +1156,8 @@ import "../../../styles/admin.css";
             <span class="tpl-pick-name">
               ${t.category ? `<span class="tpl-pick-cat">${escapeHtml(t.category)}</span>` : ""}
               ${escapeHtml(t.name || "(untitled)")}
+              ${inOtherPack(t) ? `<span class="tpl-pick-note">In ${escapeHtml(packTitles.get(t.pack_id) || "another pack")}${isSel ? " · adds a copy" : ""}</span>` : ""}
+              ${t.status === "draft" ? `<span class="tpl-pick-note">Draft · members won't see it</span>` : ""}
             </span>
           </div>`;
       }).join("");
@@ -1155,14 +1167,12 @@ import "../../../styles/admin.css";
       renderSelectedOrder();
     }
 
+    // In a pack other than this one: choosing it adds a copy on save.
+    const inOtherPack = (t) => !!(t && t.pack_id && t.pack_id !== editingId);
+
     function toggleTpl(id) {
       const t = allTemplates.find((x) => x.id === id);
       if (!t) return;
-      // Can't grab a template that's already in another pack
-      if (t.pack_id && t.pack_id !== editingId && !selectedTplIds.has(id)) {
-        alert("This template is already in another pack. Open that pack and remove it first.");
-        return;
-      }
       if (selectedTplIds.has(id)) {
         selectedTplIds.delete(id);
         selectedOrder = selectedOrder.filter((x) => x !== id);
@@ -1448,8 +1458,37 @@ import "../../../styles/admin.css";
         // Sync templates ↔ pack
         //   1. Templates newly selected → set pack_id = savedPackId
         //   2. Templates that used to belong to this pack but aren't selected now → clear pack_id
-        const toAttach = Array.from(selectedTplIds).filter((id) => !originallyInThisPack.has(id));
         const toDetach = Array.from(originallyInThisPack).filter((id) => !selectedTplIds.has(id));
+
+        // A design from another pack comes in as a copy, so that pack keeps
+        // its own. The copy is the whole design (every page, every size) with
+        // the original's name and status, and takes its place in the order.
+        const toCopy = Array.from(selectedTplIds).filter((id) => {
+          const t = allTemplates.find((x) => x.id === id);
+          return t && t.pack_id && t.pack_id !== savedPackId && !originallyInThisPack.has(id);
+        });
+        if (toCopy.length) {
+          const FULL = "id, name, category, thumb_url, render_url, canvas, elements, pages, " +
+                       "size_variants, status, kind, block_variant, block_box";
+          const { data: src, error: srcErr } = await supabase.from("templates").select(FULL).in("id", toCopy);
+          if (srcErr) throw new Error(`Pack saved but couldn't copy designs from other packs: ${srcErr.message}`);
+          const rows = (src || []).map((t) => {
+            const row = { ...t, id: "tmpl-" + Math.random().toString(36).slice(2, 8), pack_id: savedPackId };
+            Object.keys(row).forEach((k) => { if (row[k] === undefined) delete row[k]; });
+            return row;
+          });
+          const { error: copyErr } = await supabase.from("templates").insert(rows);
+          if (copyErr) throw new Error(`Pack saved but couldn't copy designs from other packs: ${copyErr.message}`);
+          (src || []).forEach((t, i) => {
+            selectedTplIds.delete(t.id);
+            selectedTplIds.add(rows[i].id);
+            selectedOrder = selectedOrder.map((x) => (x === t.id ? rows[i].id : x));
+          });
+        }
+        // The rest are loose designs: they move into this pack. (The copies
+        // are in it already.)
+        const toAttach = Array.from(selectedTplIds).filter((id) =>
+          !originallyInThisPack.has(id) && allTemplates.some((x) => x.id === id));
 
         if (toAttach.length) {
           const { error: attachErr } = await supabase
