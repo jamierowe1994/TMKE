@@ -524,6 +524,12 @@ async function runInvoiceAutomation(env) {
         if (qty == null) { if (today.day >= r.day_of_month - 5) needNumbers.push(r); continue; }
       }
       if (today.day < r.day_of_month) continue;
+      // A social media client only when Abbie ticked them for this month
+      // (Social media > Settings > Monthly invoices).
+      if (r.kind === "social") {
+        const tick = (await sbGet(env, "recurring_month_approvals", `recurring_id=eq.${r.id}&month=eq.${today.ym}&approved=eq.true&select=recurring_id`)) || [];
+        if (!tick.length) continue;
+      }
       const key = `recurring:${r.id}:${today.ym}`;
       const had = (await sbGet(env, "invoices", `recurring_id=eq.${r.id}&billing_month=eq.${today.ym}&status=neq.void&select=id&limit=1`)) || [];
       if (had.length) { await invLogOnce(env, key, "already raised by hand"); continue; }
@@ -619,6 +625,31 @@ async function runInvoiceAutomation(env) {
       } else if (age >= 20 && !ap.reminded_at) {
         const again = await requestInvoiceApproval(env, inv, { kind: ap.kind, approver: ap.approver_email, bookingId: ap.booking_id, about: "reminder", mode });
         if (again.ok && again.approval) await fetch(`${env.SUPABASE_URL}/rest/v1/invoice_approvals?id=eq.${again.approval.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ reminded_at: new Date().toISOString(), requested_at: ap.requested_at }) });
+      }
+    }
+  } catch (_) {}
+
+  // 4. Abbie's monthly list: asked on the 1st; on the 4th, if the month
+  // isn't confirmed, reminded, and Danielle told so she can chase.
+  try {
+    const social = (await sbGet(env, "recurring_invoices", "active=eq.true&auto_send=eq.true&kind=eq.social&select=id&limit=1")) || [];
+    if (social.length && today.day <= 4) {
+      const done = (await sbGet(env, "social_invoice_months", `month=eq.${today.ym}&select=month`)) || [];
+      if (!done.length) {
+        const month = invMonthLabel(today.ym), mName = INV_MONTHS[Number(today.ym.slice(5, 7)) - 1];
+        const link = `${invSite(env)}/admin/social?go=invoices`;
+        const abbie = String(env.SMM_NOTIFY || "").trim();
+        const tag = test ? "[Test] " : "";
+        const note = (who) => test ? `<p style="${EM_P};padding:10px 12px;background:#fff5d6;border-radius:4px"><strong>Test mode.</strong> This would have gone to ${invEsc(who)}.</p>` : "";
+        if (await invLogOnce(env, `social-ask:${today.ym}`, "asked")) {
+          await sendEmail(env, { to: test ? invDanielle(env) : abbie, subject: `${tag}Choose this month's social media invoices.`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">${note(abbie)}<p style="${EM_P}">Hi Abbie,</p><p style="${EM_P}">It's time to choose which social media clients to invoice for ${invEsc(month)}. Tick each client who should be invoiced, then click <strong>Confirm ${invEsc(mName)}</strong>.</p><p style="${EM_P}">Please do it by the 5th: that's when the invoices go out.</p><p style="${EM_P}"><a href="${link}" style="${EM_BTN}">Choose the invoices</a></p></div>`) });
+          lines.push(`<li>Abbie was asked to choose ${invEsc(month)}'s social media invoices.</li>`);
+        }
+        if (today.day >= 4 && await invLogOnce(env, `social-remind:${today.ym}`, "reminded")) {
+          await sendEmail(env, { to: test ? invDanielle(env) : abbie, subject: `${tag}Reminder: choose this month's social media invoices today.`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}">${note(abbie)}<p style="${EM_P}">Hi Abbie,</p><p style="${EM_P}">${invEsc(month)}'s social media invoices haven't been confirmed yet. They go out tomorrow, the 5th, so please tick the clients to invoice and click <strong>Confirm ${invEsc(mName)}</strong> today.</p><p style="${EM_P}"><a href="${link}" style="${EM_BTN}">Choose the invoices</a></p></div>`) });
+          await sendEmail(env, { to: invDanielle(env), subject: `${tag}Abbie hasn't confirmed ${month}'s social media invoices.`, html: await wrapInBrandedBase(env, `<div style="${EM_WRAP}"><p style="${EM_P}">Hi Danielle,</p><p style="${EM_P}">${invEsc(month)}'s social media invoices still need Abbie's go-ahead, and they go out tomorrow. Anyone she hasn't ticked won't be invoiced this month.</p><p style="${EM_P}"><a href="${link}" style="${EM_BTN}">Open the list</a></p></div>`) });
+          lines.push(`<li>${invEsc(month)}'s social media invoices aren't confirmed yet: Abbie has been reminded.</li>`);
+        }
       }
     }
   } catch (_) {}
@@ -11057,6 +11088,43 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         if (!b.recurring_id || !/^\d{4}-\d{2}$/.test(String(b.month || "")) || !(qty >= 0)) return json({ error: "Which invoice, which month and the number, please." }, 400, request, env);
         const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_quantities?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: b.recurring_id, month: b.month, qty, entered_by: user.email || null, entered_at: new Date().toISOString() }) });
         return r.ok ? json({ ok: true }, 200, request, env) : json({ error: "Couldn't save it: " + (await r.text()).slice(0, 160) }, 502, request, env);
+      }
+      // ---- Admin: Abbie's monthly social media invoice list ------------------
+      // Every social media client on the invoice schedule, this month and
+      // next: ticked to invoice, and what's been raised (Danielle, 22 Oct).
+      if (path.endsWith("/smm/monthly-invoices") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const t0 = invToday(), months = [t0.ym, invToday(32 - t0.day).ym];
+        const rows = (await sbGet(env, "recurring_invoices", "active=eq.true&kind=eq.social&select=id,name,contact_name,bill_to_name,amount_pence,pay_by_card,lead_id,day_of_month,auto_send&order=name.asc")) || [];
+        const ids = rows.map((r) => r.id);
+        const ticks = ids.length ? (await sbGet(env, "recurring_month_approvals", `recurring_id=in.(${ids.join(",")})&month=in.(${months.join(",")})&select=recurring_id,month,approved,updated_by`)) || [] : [];
+        const invs = ids.length ? (await sbGet(env, "invoices", `recurring_id=in.(${ids.join(",")})&billing_month=in.(${months.join(",")})&status=neq.void&select=recurring_id,billing_month,number,status`)) || [] : [];
+        const conf = (await sbGet(env, "social_invoice_months", `month=in.(${months.join(",")})&select=*`)) || [];
+        return json({ ok: true, months: months.map((m) => ({ month: m, label: invMonthLabel(m), confirmed: conf.find((c) => c.month === m) || null })),
+          rows: rows.map((r) => ({ ...r, cells: Object.fromEntries(months.map((m) => [m, {
+            ticked: !!ticks.find((x) => x.recurring_id === r.id && x.month === m && x.approved),
+            invoice: invs.find((x) => x.recurring_id === r.id && x.billing_month === m) || null,
+          }])) })) }, 200, request, env);
+      }
+      if (path.endsWith("/smm/monthly-invoices") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!b.recurring_id || !/^\d{4}-\d{2}$/.test(String(b.month || ""))) return json({ error: "Which client and month?" }, 400, request, env);
+        const r = await fetch(`${env.SUPABASE_URL}/rest/v1/recurring_month_approvals?on_conflict=recurring_id,month`, { method: "POST", headers: { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ recurring_id: b.recurring_id, month: b.month, approved: !!b.approved, updated_by: user.email || null, updated_at: new Date().toISOString() }) });
+        return r.ok ? json({ ok: true }, 200, request, env) : json({ error: /recurring_month_approvals/.test(await r.text()) ? "Run supabase/invoicing_automation_3.sql first." : "Couldn't save that." }, 502, request, env);
+      }
+      if (path.endsWith("/smm/monthly-invoices/confirm") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const b = await request.json().catch(() => ({}));
+        if (!/^\d{4}-\d{2}$/.test(String(b.month || ""))) return json({ error: "Which month?" }, 400, request, env);
+        const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" };
+        const r = b.undo
+          ? await fetch(`${env.SUPABASE_URL}/rest/v1/social_invoice_months?month=eq.${b.month}`, { method: "DELETE", headers: hdr })
+          : await fetch(`${env.SUPABASE_URL}/rest/v1/social_invoice_months?on_conflict=month`, { method: "POST", headers: hdr, body: JSON.stringify({ month: b.month, confirmed_by: user.email || null, confirmed_at: new Date().toISOString() }) });
+        return r.ok ? json({ ok: true }, 200, request, env) : json({ error: "Couldn't save that." }, 502, request, env);
       }
       // ---- Approve or reject an invoice from the email (no sign-in) ----------
       // The link opens a page with the button: nothing happens on the click

@@ -34,6 +34,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <button type="button" data-go="pipeline">Contacts</button>
             <button type="button" data-go="rates">Packages &amp; pricing</button>
             <button type="button" data-go="status">Client status</button>
+            <button type="button" data-go="invoices">Monthly invoices</button>
             <button type="button" data-go="mgmt" id="smm-cog-mgmt" hidden>Monthly management report</button>
             <!-- The team's own training (Dani, 20 Oct): How to… under Settings. -->
             <div class="smm-cog-sep" role="separator"></div>
@@ -168,6 +169,21 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       <div class="cs-body" id="cs-body"><p class="cs-empty">Loading…</p></div>
     </section>
 
+    <!-- ===================== MONTHLY INVOICES (Danielle, 22 Oct 2026) ===================== -->
+    <!-- Abbie ticks which social media clients to invoice, this month and next,
+         and confirms the month. Emailed on the 1st, reminded on the 4th; the
+         ticked ones go out on the 5th. -->
+    <section class="smm-panel wrap" data-panel="invoices" hidden>
+      <div class="smm-pagehead">
+        <div>
+          <h2 class="smm-panel-title">Monthly invoices</h2>
+          <p class="smm-panel-sub">Tick each social media client who should be invoiced, then click Confirm for that month. Invoices go out on the 5th, and anyone not ticked isn't invoiced that month. You can tick next month in advance.</p>
+        </div>
+      </div>
+      <p class="cs-note" id="mi-note" hidden></p>
+      <div class="mi-wrap" id="mi-body"><p class="cs-empty">Loading…</p></div>
+    </section>
+
     <!-- Danielle, Sam and Abby only: the Worker checks (MGMT_REPORT_EMAILS);
          the menu item is only shown to them. -->
     <section class="smm-panel wrap" data-panel="mgmt" hidden>
@@ -232,6 +248,19 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        its own cap instead. */
     .smm-panel-sub { margin: 4px 0 0; }
     .smm-panel[data-panel="rates"] .smm-panel-sub { max-width: 88ch; }
+    /* Monthly invoices (Danielle, 22 Oct 2026) */
+    .mi-wrap { overflow-x: auto; }
+    .mi-tbl { width: 100%; border-collapse: collapse; font-family: var(--sans); font-size: 13px; border-top: 1px solid rgba(28,29,34,0.14); border-bottom: 1px solid rgba(28,29,34,0.14); }
+    .mi-tbl th, .mi-tbl td { padding: 10px 12px; text-align: left; border-bottom: 1px solid rgba(28,29,34,0.07); vertical-align: middle; }
+    .mi-tbl th { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.55); vertical-align: bottom; }
+    .mi-tbl .mi-num { text-align: right; white-space: nowrap; }
+    .mi-month { min-width: 190px; }
+    .mi-mname { display: block; margin-bottom: 6px; color: var(--ink); }
+    .mi-conf { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; letter-spacing: 0; text-transform: none; font-weight: 600; color: #2e6b40; }
+    .mi-undo { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-size: 11px; color: rgba(28,29,34,0.55); text-decoration: underline; }
+    .hub-skin .mi-tick, .mi-tick { display: inline-flex; align-items: center; gap: 7px; margin: 0; font-size: 13px; font-weight: 500; text-transform: none; letter-spacing: 0; cursor: pointer; }
+    .mi-tick input { width: 16px; height: 16px; accent-color: var(--english-violet); }
+    .mi-sent { font-size: 12px; font-weight: 600; color: rgba(28,29,34,0.6); }
     .smm-panel[data-panel="rates"] .smm-pagehead { margin-bottom: 24px; }
     .smm-panel-sub code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; background: rgba(28,29,34,0.06); padding: 1px 5px; border-radius: 3px; }
 
@@ -2105,6 +2134,57 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         if (ended) { openLost.confirmed = true; await setClientStatus(r, "ended"); }
         else await setStage(r, "lost");
       });
+    }
+
+    /* ---------- Monthly invoices (Settings) ----------
+       Abbie's list (Danielle, 22 Oct 2026): every social media client on the
+       invoice schedule with their fee, a tick per month for this month and
+       next, and Confirm per month. The Worker sends the ticked ones on the 5th. */
+    const gbpP = (p) => p == null ? "" : "£" + (p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0 });
+    async function loadMonthlyInvoices() {
+      const host = $("mi-body"), note = $("mi-note");
+      host.innerHTML = `<p class="cs-empty">Loading…</p>`; note.hidden = true;
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER}/smm/monthly-invoices`, { headers: { Authorization: "Bearer " + token } });
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(d.error || "Couldn't load the list.");
+        const months = d.months || [], rows = d.rows || [];
+        if (!rows.length) { host.innerHTML = `<p class="cs-empty">No social media clients are set up for automatic invoicing yet.</p>`; return; }
+        const who = (e) => String(e || "").split("@")[0].split(/[._]/)[0].replace(/^./, (m) => m.toUpperCase());
+        const when = (x) => new Date(x).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+        host.innerHTML = `<table class="mi-tbl"><thead><tr><th>Client</th><th>Billed to</th><th class="mi-num">Monthly fee</th>${months.map((m) => `<th class="mi-month">
+            <span class="mi-mname">${esc(m.label)}</span>
+            ${m.confirmed ? `<span class="mi-conf">Confirmed by ${esc(who(m.confirmed.confirmed_by))}, ${when(m.confirmed.confirmed_at)} <button type="button" class="mi-undo" data-miundo="${m.month}">Undo</button></span>`
+              : `<button type="button" class="smm-btn smm-btn--primary smm-btn--sm" data-miconfirm="${m.month}">Confirm ${esc(m.label.split(" ")[0])}</button>`}</th>`).join("")}</tr></thead>
+          <tbody>${rows.map((r) => `<tr><td><strong>${esc(r.contact_name || r.name)}</strong></td><td>${esc(r.bill_to_name || "")}</td><td class="mi-num">${gbpP(r.amount_pence)}</td>${months.map((m) => {
+            const c = (r.cells || {})[m.month] || {};
+            if (c.invoice) return `<td class="mi-cell is-sent"><span class="mi-sent">${esc(c.invoice.number)} ${c.invoice.status === "draft" ? "drafted" : esc(c.invoice.status)}</span></td>`;
+            return `<td class="mi-cell"><label class="mi-tick"><input type="checkbox" data-mitick="${esc(r.id)}" data-month="${m.month}"${c.ticked ? " checked" : ""}> Invoice</label></td>`;
+          }).join("")}</tr>`).join("")}</tbody></table>`;
+        host.querySelectorAll("[data-mitick]").forEach((cb) => cb.addEventListener("change", async () => {
+          cb.disabled = true;
+          try {
+            const token = await authToken();
+            const r = await fetch(`${WORKER}/smm/monthly-invoices`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ recurring_id: cb.dataset.mitick, month: cb.dataset.month, approved: cb.checked }) });
+            const j = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(j.error || "Couldn't save that.");
+          } catch (err) { cb.checked = !cb.checked; note.hidden = false; note.textContent = err.message; }
+          finally { cb.disabled = false; }
+        }));
+        host.querySelectorAll("[data-miconfirm], [data-miundo]").forEach((b) => b.addEventListener("click", async () => {
+          const month = b.dataset.miconfirm || b.dataset.miundo, undo = !!b.dataset.miundo;
+          const ticked = host.querySelectorAll(`[data-mitick][data-month="${month}"]:checked`).length;
+          if (!undo && !confirm(`Confirm ${ticked} client${ticked === 1 ? "" : "s"} to invoice? Anyone not ticked won't be invoiced that month.`)) return;
+          b.disabled = true;
+          try {
+            const token = await authToken();
+            const r = await fetch(`${WORKER}/smm/monthly-invoices/confirm`, { method: "POST", headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" }, body: JSON.stringify({ month, undo }) });
+            if (!r.ok) throw new Error("Couldn't save that.");
+            loadMonthlyInvoices();
+          } catch (err) { note.hidden = false; note.textContent = err.message; b.disabled = false; }
+        }));
+      } catch (err) { host.innerHTML = `<p class="cs-empty">${esc(err.message)}</p>`; }
     }
 
     /* ---------- Client status (Settings) ----------
@@ -4162,8 +4242,12 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
           });
           closeCog();
           if (want === "status") loadClientStatus();
+          if (want === "invoices") loadMonthlyInvoices();
           window.scrollTo({ top: 0, behavior: "smooth" });
         });
+        // A link straight to a Settings page (Abbie's email: ?go=invoices).
+        const goWant = new URLSearchParams(location.search).get("go");
+        if (goWant) cogMenu.querySelector(`[data-go="${CSS.escape(goWant)}"]`)?.click();
       }
       // Keep the top scrollbar and the board in sync (either can be dragged).
       let riSyncLock = false;
