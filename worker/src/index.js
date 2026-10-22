@@ -441,7 +441,8 @@ async function decideInvoiceApproval(env, approvalId, action, notes) {
   const inv = (await sbGet(env, "invoices", `id=eq.${ap.invoice_id}&select=*`))?.[0];
   if (!inv || inv.status === "void") return { title: "This invoice has been cancelled", msg: "Nothing more to do." };
   const st = (await sbGet(env, "invoice_settings", "id=eq.1&select=automation_mode"))?.[0] || {};
-  const live = (st.automation_mode || "test") === "live";
+  // A manual request (Send to Jack to approve) is always real.
+  const live = (st.automation_mode || "test") === "live" || /-manual$/.test(String(ap.kind || ""));
   const hdr = { apikey: env.SUPABASE_SERVICE_ROLE, Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE}`, "Content-Type": "application/json", Prefer: "return=minimal" };
   const mark = (body) => fetch(`${env.SUPABASE_URL}/rest/v1/invoice_approvals?id=eq.${ap.id}`, { method: "PATCH", headers: hdr, body: JSON.stringify({ ...body, decided_at: new Date().toISOString(), decided_by: ap.approver_email }) });
   const adminLink = ap.booking_id ? `${invSite(env)}/admin/videography?booking=${ap.booking_id}` : `${invSite(env)}/admin/invoicing?tab=invoices`;
@@ -11180,9 +11181,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         }
         // Back to whoever it went to last (Abbie for social media), else Jack.
         const last = (await sbGet(env, "invoice_approvals", `invoice_id=eq.${inv.id}&select=approver_email,kind&order=requested_at.desc&limit=1`))?.[0];
-        const r = await requestInvoiceApproval(env, inv, { kind: b.kind || (last && last.kind) || "videography", approver: String(b.approver || "").trim() || (last && last.approver_email) || invJack(env), bookingId: (inv.booking_source || "videography") === "videography" ? (inv.booking_id || null) : null, about, mode: st.automation_mode || "test" });
+        // Sent by a person, so it's real whatever the automatic invoicing's
+        // mode (Danielle, 22 Oct 2026): it goes to Jack, and approving it sends
+        // it to the client. "-manual" on the kind tells the approval so.
+        const kind = String(b.kind || (last && last.kind) || "videography").replace(/-manual$/, "") + "-manual";
+        const r = await requestInvoiceApproval(env, inv, { kind, approver: String(b.approver || "").trim() || (last && last.approver_email) || invJack(env), bookingId: (inv.booking_source || "videography") === "videography" ? (inv.booking_id || null) : null, about, mode: "live" });
         if (!r.ok) return json({ error: r.error || "Couldn't send it." }, 502, request, env);
-        return json({ ok: true, approval: r.approval, test: (st.automation_mode || "test") !== "live" }, 200, request, env);
+        return json({ ok: true, approval: r.approval, test: false }, 200, request, env);
       }
       // ---- Admin: approvals, newest first (the Approvals tab) ---------------
       if (path.endsWith("/invoicing/approvals") && request.method === "GET") {
