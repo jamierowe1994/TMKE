@@ -9,8 +9,10 @@
 // slide-in pop-out the website uses (shared booking-wizard.css) and clicks
 // through step by step (day → time → details → terms → success).
 //
-// CONFIRMED (client sign-off): the two bookable dates = last Tuesday & Wednesday
-// of the induction month, half-day slots at 10:00 and 14:00, ~3-hour sessions.
+// Studio days come from the Worker (/new-starter/days): from October 2026 the
+// last Tuesday of the shoot month with three two-hour sessions, and the
+// Wednesday after as well when more starters are still to book than the
+// Tuesday has room for (Danielle, 22 Oct 2026). Taken sessions show as taken.
 // Still placeholder: the studio still image (STUDIO_IMG) and the terms wording
 // (working draft — see NEW_STARTER_TERMS / the note below).
 import BaseLayout from "../../layouts/BaseLayout.astro";
@@ -75,14 +77,14 @@ const termsHtml =
         <!-- 1. Day -->
         <section class="dc-step" id="ns-step-day" hidden>
           <h2 class="dc-step-title">Choose your <em>day.</em></h2>
-          <p class="dc-step-sub" id="ns-days-sub">These are your two studio days — the last Tuesday and Wednesday of the month.</p>
+          <p class="dc-step-sub" id="ns-days-sub">Finding this month's studio days…</p>
           <div class="dc-choices" id="ns-days"></div>
         </section>
 
         <!-- 2. Time -->
         <section class="dc-step" id="ns-step-time" hidden>
           <h2 class="dc-step-title">Pick a <em>time.</em></h2>
-          <p class="dc-step-sub">Each session is a half day — choose a morning or an afternoon.</p>
+          <p class="dc-step-sub" id="ns-slots-sub">Each session is two hours in the Content Studio with Jack. Choose the time that suits you.</p>
           <div class="dc-slots-grid" id="ns-slots"></div>
         </section>
 
@@ -174,6 +176,10 @@ const termsHtml =
     .ns-signin-note, .ns-success-sub { font-family: var(--sans); font-size: 13.5px; line-height: 1.55; color: rgba(28,29,34,0.62); margin: 0 0 4px; }
     .ns-terms-intro { font-family: var(--sans); font-size: 14px; line-height: 1.6; color: rgba(28,29,34,0.8); margin: 0 0 8px; }
     #ns-days .dc-choice-title { font-family: var(--serif); font-size: 22px; color: var(--ink); }
+    /* Studio-day sessions: the time range on one line, a taken one dimmed. */
+    #ns-slots { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+    #ns-slots .dc-slot:disabled, #ns-days .dc-choice:disabled { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+    #ns-slots .dc-slot span { display: block; margin-top: 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
   </style>
 
   <script>
@@ -192,33 +198,20 @@ const termsHtml =
     if (params.get("phone")) f.phone.value = params.get("phone");
     if (f.name.value) { const first = f.name.value.trim().split(/\s+/)[0]; $("ns-cat").textContent = `Hi ${first} — welcome to The Experts Group`; }
 
-    // Shoot days = the last Tuesday & Wednesday of the shoot month (a consecutive
-    // pair, anchored on the last Wednesday). The month comes from the personalised
-    // link (?month=YYYY-MM, the agent's preferred shoot month); defaults to now.
-    function lastTueWed(y, m0) {
-      // Anchor on the LAST TUESDAY of the month; the Wednesday is simply the next
-      // day. When the last Tuesday is the month's final day, the Wednesday rolls
-      // over to the 1st of the next month — the two shoot days stay adjacent, and
-      // that's fine because inductions always start on the first Tuesday, so a
-      // Wed-on-the-1st shoot never clashes with the induction week.
-      const d = new Date(y, m0 + 1, 0);                    // last day of that month
-      while (d.getDay() !== 2) d.setDate(d.getDate() - 1); // walk back to Tuesday (2)
-      const tue = new Date(d);
-      const wed = new Date(d); wed.setDate(wed.getDate() + 1); // next day = Wednesday
-      const iso = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-      return [iso(tue), iso(wed)];
-    }
+    // The shoot month comes from the personalised link (?month=YYYY-MM, the
+    // agent's preferred shoot month); without one, the Worker uses this month.
     const mMatch = (params.get("month") || "").match(/^(\d{4})-(\d{2})$/);
-    const shootMonth = mMatch ? new Date(+mMatch[1], +mMatch[2] - 1, 1) : new Date();
-    // Months that break the pattern (mirrored in the Worker, which enforces it).
-    // September 2026: one day, 9:30 and 2:30, around Jack's noon shoot.
-    const OVERRIDES = { "2026-09": { dates: ["2026-09-29"], slots: [["09:30", "Morning · 9:30am"], ["14:30", "Afternoon · 2:30pm"]] } };
-    const monthKey = `${shootMonth.getFullYear()}-${String(shootMonth.getMonth() + 1).padStart(2, "0")}`;
-    const override = OVERRIDES[monthKey] || null;
-    const NEW_STARTER_DATES = override ? override.dates : lastTueWed(shootMonth.getFullYear(), shootMonth.getMonth());
-    // Half-day sessions — a morning and an afternoon slot on each day.
-    const SLOTS = override ? override.slots : [["10:00", "Morning · 10:00am"], ["14:00", "Afternoon · 2:00pm"]];
-    if (NEW_STARTER_DATES.length === 1) { const sub = document.getElementById("ns-days-sub"); if (sub) sub.textContent = "This month there is one studio day."; }
+    let DAYS = null;   // [{ date, sessions: [{ start, minutes, label, taken }] }]
+    async function loadDays() {
+      try {
+        const r = await fetch(`${WORKER}/new-starter/days${mMatch ? `?month=${mMatch[0]}` : ""}`);
+        const d = await r.json();
+        if (!r.ok || !Array.isArray(d.days)) throw new Error();
+        DAYS = d.days;
+      } catch (_) { DAYS = []; }
+      renderDays();
+    }
+    loadDays();
 
     const fmtDay = (iso) => { const d = new Date(iso + "T00:00:00"); return { dow: d.toLocaleDateString("en-GB", { weekday: "long" }), day: d.toLocaleDateString("en-GB", { day: "numeric", month: "long" }), full: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" }) }; };
     const hm = (min) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
@@ -244,20 +237,36 @@ const termsHtml =
     $("ns-back").addEventListener("click", () => { const p = history.pop(); if (p) showStep(p, false); });
 
     // ---- Step 1: days ----
-    $("ns-days").innerHTML = NEW_STARTER_DATES.map((iso) => { const d = fmtDay(iso); return `<button type="button" class="dc-choice" data-date="${iso}"><span class="dc-choice-meta">${d.dow}</span><span class="dc-choice-title">${d.day}</span></button>`; }).join("");
+    function renderDays() {
+      const sub = $("ns-days-sub");
+      if (!DAYS.length) {
+        sub.textContent = "We couldn't load the studio days just now. Please refresh the page, or reply to your booking email and we'll book you in.";
+        $("ns-days").innerHTML = "";
+        return;
+      }
+      sub.textContent = DAYS.length === 1
+        ? "This month there's one studio day, on the last Tuesday. Choose it to see the session times."
+        : "This month there are two studio days, the last Tuesday and the Wednesday after. Choose the one that suits you.";
+      $("ns-days").innerHTML = DAYS.map(({ date, sessions }) => {
+        const d = fmtDay(date), full = sessions.every((x) => x.taken);
+        return `<button type="button" class="dc-choice" data-date="${date}"${full ? " disabled" : ""}><span class="dc-choice-meta">${d.dow}${full ? " · Fully booked" : ""}</span><span class="dc-choice-title">${d.day}</span></button>`;
+      }).join("");
+    }
     $("ns-days").addEventListener("click", (e) => {
-      const b = e.target.closest(".dc-choice"); if (!b) return;
+      const b = e.target.closest(".dc-choice"); if (!b || b.disabled) return;
       state.date = b.getAttribute("data-date"); state.time = null;
       document.querySelectorAll("#ns-days .dc-choice").forEach((x) => x.classList.toggle("is-active", x === b));
       renderSlots(); showStep("time", true);
     });
 
-    // ---- Step 2: times (half-day sessions) ----
+    // ---- Step 2: times (that day's sessions; taken ones can't be chosen) ----
     function renderSlots() {
-      $("ns-slots").innerHTML = SLOTS.map(([t, label]) => `<button type="button" class="dc-slot" data-time="${t}">${label}</button>`).join("");
+      const day = (DAYS || []).find((x) => x.date === state.date);
+      $("ns-slots").innerHTML = (day ? day.sessions : []).map((x) =>
+        `<button type="button" class="dc-slot" data-time="${x.start}"${x.taken ? " disabled" : ""}>${x.label}${x.taken ? "<span>Taken</span>" : ""}</button>`).join("");
     }
     $("ns-slots").addEventListener("click", (e) => {
-      const b = e.target.closest(".dc-slot"); if (!b) return;
+      const b = e.target.closest(".dc-slot"); if (!b || b.disabled) return;
       state.time = b.getAttribute("data-time");
       document.querySelectorAll("#ns-slots .dc-slot").forEach((x) => x.classList.toggle("is-active", x === b));
       showStep("details", true);
@@ -315,6 +324,8 @@ const termsHtml =
           }),
         });
         const d = await res.json().catch(() => ({}));
+        // Someone else took the session first: refresh the times on offer.
+        if (res.status === 409) loadDays().then(renderSlots);
         if (!res.ok) throw new Error(d.error || "Sorry — we couldn't complete your booking just then. Please try again.");
         const dd = fmtDay(state.date);
         $("ns-success-msg").innerHTML = `<strong>${dd.full}, ${state.time}</strong>`;

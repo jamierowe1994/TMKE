@@ -1443,6 +1443,151 @@ const NEW_STARTER_OVERRIDES = {
   "2026-09": { dates: ["2026-09-29"], slots: [["09:30", 150], ["14:30", 180]] },
 };
 
+/* New-starter Studio Days (Danielle, 22 Oct 2026). From October 2026 a month
+   has one studio day, the last Tuesday, with three sessions. When more
+   starters are still to book than that Tuesday has sessions left, the
+   Wednesday after opens too, with the same three. Starters who have booked
+   (or cancelled, or left) don't count.
+
+   Once the Wednesday is open it stays open while it has a booking or its
+   block in Jack's calendar, so it never disappears from under someone who saw
+   it. Deleting the Wednesday's block in his calendar, with nobody booked on
+   it, closes it again (unless the rule opens it again).
+
+   Every studio day is blocked in Jack's calendar as a busy all-day event, so
+   regular bookings, which all read his calendar, can't land on it. The
+   15-minute sheet sync keeps the blocks in place for this month and the next
+   two (newStarterEnsureBlocks). [start, minutes] */
+const NEW_STARTER_SESSIONS = [["09:30", 120], ["12:30", 120], ["15:30", 120]];
+const NEW_STARTER_BLOCK_SUBJECT = "New-starter Studio Day (booked out)";
+
+function nsLastTuesday(month) {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m, 0));
+  while (d.getUTCDay() !== 2) d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+const nsNextDay = (iso) => new Date(Date.parse(`${iso}T12:00:00Z`) + 86400000).toISOString().slice(0, 10);
+const nsTime12 = (hm) => { const [h, m] = hm.split(":").map(Number); return `${h % 12 || 12}${m ? ":" + String(m).padStart(2, "0") : ""}${h < 12 ? "am" : "pm"}`; };
+
+/* Jack's calendar across some days: which minutes are busy on each (London
+   clock), and which days carry our block. The block itself isn't counted as
+   busy, or it would take every session it exists to protect. */
+async function nsCalendar(env, dates) {
+  const out = { busy: {}, blocks: {} };
+  if (!dates.length) return out;
+  const sorted = dates.slice().sort();
+  const from = new Date(Date.parse(`${sorted[0]}T00:00:00Z`) - 3600000).toISOString().slice(0, 19);
+  const to = new Date(Date.parse(`${sorted[sorted.length - 1]}T00:00:00Z`) + 86400000 + 3600000).toISOString().slice(0, 19);
+  const r = await graph(env, "GET", `/users/${encodeURIComponent(env.JACK_UPN)}/calendarView?startDateTime=${from}Z&endDateTime=${to}Z&$select=id,subject,start,end,showAs,isAllDay&$top=200`);
+  for (const ev of (r && r.value) || []) {
+    const s = ev.start && ev.start.dateTime, e = ev.end && ev.end.dateTime;
+    if (!s || !e) continue;
+    if (ev.subject === NEW_STARTER_BLOCK_SUBJECT) { out.blocks[s.slice(0, 10)] = ev.id; continue; }
+    if (ev.showAs === "free") continue;
+    // All-day events come back as that day's midnights; timed ones in UTC.
+    const a = ev.isAllDay ? { ymd: s.slice(0, 10), min: 0 } : londonParts(s.replace(/\.\d+$/, "") + "Z");
+    const b = ev.isAllDay ? { ymd: e.slice(0, 10), min: 0 } : londonParts(e.replace(/\.\d+$/, "") + "Z");
+    for (const d of dates) {
+      if (a.ymd > d || b.ymd < d || (b.ymd === d && b.min === 0 && a.ymd < d)) continue;
+      const lo = a.ymd < d ? 0 : a.min, hi = b.ymd > d ? 1440 : b.min;
+      if (hi > lo) (out.busy[d] = out.busy[d] || []).push([lo, hi]);
+    }
+  }
+  return out;
+}
+
+/* The studio days for a shoot month ("YYYY-MM"): which days, their sessions,
+   and which sessions are taken (by a booking on the board, or by anything
+   else in Jack's calendar). */
+async function newStarterPlan(env, month) {
+  const ov = NEW_STARTER_OVERRIDES[month];
+  const tue = ov ? ov.dates[0] : nsLastTuesday(month);
+  const wed = ov ? null : nsNextDay(tue);
+  const candidates = ov ? ov.dates.slice() : [tue, wed];
+  const sessionsFor = () => (ov ? ov.slots : NEW_STARTER_SESSIONS);
+
+  let cal = { busy: {}, blocks: {} };
+  try { cal = await nsCalendar(env, candidates); } catch (_) {}
+  const rows = await boardRows(env, candidates[0], candidates[candidates.length - 1]);
+  const dayOf = (d) => {
+    const blocks = diaryBlocksFrom(rows, d, "content-studio", null);
+    const sessions = sessionsFor().map(([start, minutes]) => {
+      const s = hmToMin(start);
+      const why = blocks.day ? blocks.reason
+        : overlapsAny(blocks.ranges || [], s, s + minutes) ? "studio_booking"
+        : overlapsAny(cal.busy[d] || [], s, s + minutes) ? "jack_calendar" : null;
+      return { start, minutes, label: `${nsTime12(start)} to ${nsTime12(minToHm(s + minutes))}`, taken: !!why, why };
+    });
+    const booked = rows.some((r) => r.stage !== "cancelled" && /new-starter/i.test(String(r.service || ""))
+      && (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd) === d);
+    return { date: d, sessions, booked };
+  };
+
+  // Starters for this month still to book, counted once each however many
+  // brands they're on.
+  let waiting = 0;
+  try {
+    const ap = (await sbGet(env, "agent_profiles",
+      `is_new_starter=is.true&induction_month=eq.${month}&promo_code=not.is.null&left_at=is.null&or=(status.is.null,status.not.in.(booked,cancelled,complete))&select=contact_id`)) || [];
+    waiting = new Set(ap.map((r) => r.contact_id)).size;
+  } catch (_) {}
+
+  const tueDay = dayOf(tue);
+  const days = [tueDay];
+  if (ov) ov.dates.slice(1).forEach((d) => days.push(dayOf(d)));
+  else {
+    const free = tueDay.sessions.filter((x) => !x.taken).length;
+    const wedDay = dayOf(wed);
+    const open = waiting > free || wedDay.booked || !!cal.blocks[wed];
+    if (open) days.push(wedDay);
+  }
+  return { month, days, waiting, blocks: cal.blocks };
+}
+
+/* Keep each studio day blocked in Jack's calendar, for this month and the
+   next two. Tells the admins once if a regular booking was already on one. */
+async function newStarterEnsureBlocks(env) {
+  const now = londonParts(new Date().toISOString()).ymd;
+  const [y, m] = now.split("-").map(Number);
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(Date.UTC(y, m - 1 + i, 1));
+    const month = d.toISOString().slice(0, 7);
+    let plan;
+    try { plan = await newStarterPlan(env, month); } catch (_) { continue; }
+    for (const day of plan.days) {
+      if (day.date < now) continue;
+      if (!plan.blocks[day.date]) {
+        try {
+          await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/events`, {
+            subject: NEW_STARTER_BLOCK_SUBJECT,
+            body: { contentType: "text", content: "Kept free for new starters' Studio Day sessions, so regular shoots can't be booked over it. Their sessions are added as they book.\n\nAdded by the TMKE booking system." },
+            start: { dateTime: `${day.date}T00:00:00`, timeZone: "Europe/London" },
+            end: { dateTime: `${nsNextDay(day.date)}T00:00:00`, timeZone: "Europe/London" },
+            isAllDay: true, showAs: "busy", isReminderOn: false,
+          });
+        } catch (_) {}
+      }
+      // A regular shoot already on the day: say so once, so it can be moved.
+      const clash = (await boardRows(env, day.date, day.date)).some((r) => {
+        if (!r.shoot_date || r.stage === "cancelled" || r.service_type === "discovery") return false;
+        const ymd = r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd;
+        return ymd === day.date && !/new-starter/i.test(String(r.service || ""));
+      });
+      if (clash) {
+        try {
+          await notifyAdmins(env, {
+            area: "videography", event: "studio_day_clash", key: `studio_day_clash:${day.date}`,
+            title: "A shoot is booked on a new-starter Studio Day",
+            body: `${new Date(`${day.date}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })} is kept for new starters, but a regular shoot is already booked that day.`,
+            href: "/admin/videography",
+          });
+        } catch (_) {}
+      }
+    }
+  }
+}
+
 // ── TEG new-starter Google Sheet → CRM sync ────────────────────────────────
 // The TEG-owned sheet is the single entry point: adding a Pro/Academy row auto-
 // creates the contact + agent_profile + code and enrols them into the funnel.
@@ -5279,7 +5424,9 @@ export default {
       // Poll the TEG new-starter sheet ~every 15 min (the 5-min tick, gated to
       // :00/:15/:30/:45) so new Pro/Academy rows enrol into the funnel.
       let mins = 0; try { mins = new Date(event.scheduledTime).getUTCMinutes(); } catch (_) {}
-      if (mins % 15 === 0) ctx.waitUntil(syncAgentSheet(env));
+      // Then keep the new-starter Studio Days blocked in Jack's calendar, the
+      // Wednesday included once the new rows open it.
+      if (mins % 15 === 0) ctx.waitUntil(syncAgentSheet(env).catch(() => {}).then(() => newStarterEnsureBlocks(env)));
     }
   },
 
@@ -7338,20 +7485,43 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
       // Reuses the normal booking machinery (account, Jack's calendar, code
       // redemption, confirmation email) but takes no payment and marks the row
       // bill_to='TPE'. Also flips the agent's TEG record to 'booked'.
+      // ---- New-starter Studio Days for a shoot month (the booking page) ----
+      // Which days are open, their sessions, and which are taken. See
+      // newStarterPlan. Public: the page is reached from an emailed link.
+      if (path.endsWith("/new-starter/days") && request.method === "GET") {
+        let month = url.searchParams.get("month") || "";
+        if (!/^\d{4}-\d{2}$/.test(month)) month = londonParts(new Date().toISOString()).ymd.slice(0, 7);
+        try {
+          const plan = await newStarterPlan(env, month);
+          // Staff see why each session is taken; the page only needs taken.
+          const u = await getUser(request, env).catch(() => null);
+          if (u && isAdminEmail(u)) return json({ month, waiting: plan.waiting, blocks: Object.keys(plan.blocks), days: plan.days }, 200, request, env);
+          return json({ month, days: plan.days.map((d) => ({ date: d.date, sessions: d.sessions.map(({ start, minutes, label, taken }) => ({ start, minutes, label, taken })) })) }, 200, request, env);
+        } catch (e) {
+          return json({ error: "The studio days couldn't be loaded." }, 502, request, env);
+        }
+      }
+
       if (path.endsWith("/new-starter/book") && request.method === "POST") {
         const b = await request.json().catch(() => ({}));
         const { date, start, name, phone, notes, password, code } = b || {};
         const em = String((b && b.email) || "").trim().toLowerCase();
         if (!date || !start || !name || !em) return json({ error: "Missing booking details." }, 400, request, env);
         if (!password || String(password).length < 8) return json({ error: "A password of at least 8 characters is required." }, 400, request, env);
-        // Half-day = 3 hours, except where the day is squeezed around another
-        // shoot (kept in step with NEW_STARTER_OVERRIDES on the booking page).
-        const ov = NEW_STARTER_OVERRIDES[String(date).slice(0, 7)];
-        if (ov && !ov.dates.includes(date)) return json({ error: "That date isn't a studio day this month - please pick from the dates shown." }, 400, request, env);
-        const ovSlot = ov && ov.slots.find((x) => x[0] === start);
-        if (ov && !ovSlot) return json({ error: "That time isn't available on this studio day - please pick from the times shown." }, 400, request, env);
-        const dur = ovSlot ? ovSlot[1] : 180;
+        // The day and session must be one the booking page offers this month,
+        // and still free (newStarterPlan reads the board and Jack's calendar,
+        // leaving out the day's own block).
+        let plan;
+        try { plan = await newStarterPlan(env, String(date).slice(0, 7)); }
+        catch (_) { return json({ error: "We couldn't check the studio diary just then. Please try again." }, 502, request, env); }
+        const day = plan.days.find((d) => d.date === date);
+        if (!day) return json({ error: "That date isn't a studio day this month. Please pick from the dates shown." }, 400, request, env);
+        const session = day.sessions.find((x) => x.start === start);
+        if (!session) return json({ error: "That time isn't a session on this studio day. Please pick from the times shown." }, 400, request, env);
+        if (session.taken) return json({ error: "That session has just been taken. Please choose another." }, 409, request, env);
+        const dur = session.minutes;
         const endHm = minToHm(hmToMin(start) + dur);
+        const durWords = dur % 60 ? `${Math.floor(dur / 60)} and a half hours` : `${dur / 60} hours`;
 
         // 0) The single-use code must exist and still be live. It's voided when an
         // induction is cancelled, so this blocks a cancelled starter from booking.
@@ -7363,18 +7533,6 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             return json({ error: "This booking code is no longer valid. If you think this is a mistake, please contact us." }, 403, request, env);
           }
         }
-
-        // 1) Re-check Jack's calendar is free for the slot.
-        try {
-          const check = await graph(env, "POST", `/users/${encodeURIComponent(env.JACK_UPN)}/calendar/getSchedule`, {
-            schedules: [env.JACK_UPN],
-            startTime: { dateTime: `${date}T${start}:00`, timeZone: "Europe/London" },
-            endTime: { dateTime: `${date}T${endHm}:00`, timeZone: "Europe/London" },
-            availabilityViewInterval: 30,
-          });
-          const view = (check.value && check.value[0] && check.value[0].availabilityView) || "";
-          if (view && /[^0]/.test(view)) return json({ error: "That slot was just taken - please choose another." }, 409, request, env);
-        } catch (_) {}
 
         // 2) Account: existing → verify their password and link; new → create.
         let accountUserId = null, accountCreated = false;
@@ -7414,7 +7572,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         // 4) Block Jack's calendar (studio session).
         const rescheduleToken = (crypto.randomUUID && crypto.randomUUID()) || `${date}-${start}-${Date.now()}`;
         const invite = shootInvite({ serviceType: "content-studio", service: "New-Starter Studio Day", name, email: em, phone,
-          lead: "New-starter Studio Day: 3 hours, billed to The Property Experts.", notes: notes || "",
+          lead: `New-starter Studio Day: ${durWords}, billed to The Property Experts.`, notes: notes || "",
           manageUrl: `${(env.SITE_URL || "https://tmke.co.uk").replace(/\/+$/, "")}/manage?token=${encodeURIComponent(rescheduleToken)}` });
         let ev = {};
         try {
@@ -7480,13 +7638,13 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           <div style="font-size:24px;font-weight:800;letter-spacing:0.14em;color:#371e28;margin:0 0 18px;">TMKE</div>
           <p style="${EM_P}">Hi ${first},</p>
           <p style="${EM_P}">Your <strong>Studio Day</strong> is booked. Here are the details:</p>
-          <p style="${EM_P}"><strong>${dateNice}</strong> at <strong>${start}</strong> (about 3 hours)</p>
+          <p style="${EM_P}"><strong>${dateNice}</strong> at <strong>${start}</strong> (${durWords})</p>
           <p style="${EM_P}">at the <strong>TMKE Content Studio</strong>. We'll confirm the full address and how to prepare in a reminder before the day.</p>
           <p style="${EM_P}">There's nothing for you to pay - your session is part of your induction package.</p>
           <p style="${EM_SMALL}">Need to change it? Just reply to this email.</p>
         </div>`;
         try { await sendEmail(env, { to: em, subject: "Your Studio Day is booked - TMKE", html: await wrapInBrandedBase(env, cHtml) }); } catch (_) {}
-        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking - ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> - ${dateNice} at ${start} (3 hrs), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> - £295 + VAT.</p>` });
+        try { await sendEmail(env, { to: env.JACK_NOTIFY || env.JACK_UPN, subject: `New Studio Day booking - ${name}`, html: `<p>New-starter Studio Day booked.</p><p><strong>${name}</strong> - ${dateNice} at ${start} (${durWords}), TMKE Content Studio.</p><p>${em}${phone ? " · " + phone : ""}</p><p>Bill to <strong>TPE</strong> - £295 + VAT.</p>` });
         try {
           await notifyAdmins(env, {
             area: "videography", event: "studio_day_booked",
@@ -10783,6 +10941,7 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
         const summary = await syncAgentSheet(env);
+        try { await newStarterEnsureBlocks(env); } catch (_) {}
         return json(summary, summary.ok ? 200 : 502, request, env);
       }
 
