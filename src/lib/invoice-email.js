@@ -109,8 +109,8 @@ export function invoiceEmail(inv, settings, ctx = {}) {
   // TPE Marketing Hub: a recurring invoice with a monthly number of agents
   if (rec && rec.quantity_label) {
     const line = (inv.line_items || [])[0] || {};
-    return out(`Invoice ${n}: Marketing Hub for ${month}.`,
-      [`Please find attached invoice ${n} for ${inv.bill_to_name}'s Marketing Hub in ${month}. It's charged at ${gbp(line.unit_pence)} per agent, for ${line.qty || 0} agents.`, "", ...amt]);
+    return out(`Invoice ${n}: TPE Marketing Hub for ${month}.`,
+      [`Please find attached invoice ${n} for the TPE Marketing Hub in ${month}. It's charged at ${gbp(line.unit_pence)} per agent, for ${line.qty || 0} agents.`, "", ...amt]);
   }
   // Agent assets (the other recurring invoices)
   if (rec) {
