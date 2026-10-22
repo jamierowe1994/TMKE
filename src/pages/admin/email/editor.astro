@@ -194,6 +194,21 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     </div>
   </div>
 
+  <!-- Pick an image from the Studio: a template's thumbnail or a pack's
+       cover, so a post or pack can go in an email without downloading it
+       and uploading it again (Danielle, 22 Oct 2026). -->
+  <div class="eb-modal" id="eb-modal-studio" hidden>
+    <div class="eb-modal-card eb-modal-card--wide eb-st-card" data-lenis-prevent>
+      <div class="eb-modal-head"><h3>Choose from the Studio</h3><button type="button" class="eb-modal-x" data-close>✕</button></div>
+      <p class="eb-st-intro">Pick a template or a pack cover to use its image in this email. It's the template as it was last saved in the Studio.</p>
+      <div class="eb-st-bar">
+        <input type="search" id="eb-st-q" placeholder="Search by name" autocomplete="off" />
+        <select id="eb-st-pack"><option value="">All packs</option></select>
+      </div>
+      <div class="eb-st-grid" id="eb-st-grid"><p class="eb-note">Loading the Studio…</p></div>
+    </div>
+  </div>
+
   <p class="eb-toast" id="eb-toast" hidden></p>
 
   <style is:global>
@@ -434,6 +449,20 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-resp-dev { flex:0 0 auto; }
     .eb-resp-dev .eb-dev { padding:5px 10px; font-size:13px; letter-spacing:0; }
     .eb-upl { display:flex; align-items:center; gap:10px; margin:-4px 0 12px; flex-wrap:wrap; }
+    .eb-upl .eb-mini-btn + .eb-mini-btn { margin-left:-2px; }
+    /* Choose from the Studio */
+    .eb-st-card { width:880px; }
+    .eb-st-intro { font-family:var(--sans); font-size:13px; line-height:1.55; color:rgba(28,29,34,0.65); margin:-8px 0 14px; }
+    .eb-st-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+    .eb-st-bar input { flex:1; min-width:200px; font-family:var(--sans); font-size:13px; padding:9px 12px; border:1px solid var(--eb-line); border-radius:8px; }
+    .eb-st-bar input:focus { outline:none; border-color:var(--english-violet); }
+    .eb-st-bar select { min-width:200px; }
+    .eb-st-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:14px; }
+    .eb-st-item { display:flex; flex-direction:column; gap:6px; padding:0; border:0; background:none; cursor:pointer; text-align:left; }
+    .eb-st-item img { width:100%; aspect-ratio:4/5; object-fit:cover; border-radius:8px; border:1px solid var(--eb-line); background:#f4f2f5; transition:border-color .15s, box-shadow .15s; }
+    .eb-st-item:hover img, .eb-st-item:focus-visible img { border-color:var(--english-violet); box-shadow:0 0 0 2px var(--english-violet); }
+    .eb-st-item span { font-family:var(--sans); font-size:11.5px; line-height:1.35; color:var(--ink); }
+    .eb-st-item em { font-style:normal; font-size:10px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--english-violet); }
     .eb-upl .eb-note { margin:0; }
 
     /* HTML pane */
@@ -1225,14 +1254,67 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     // POSTs to the Worker → R2 and hands back a URL. Same flow everywhere:
     // image blocks, block backgrounds, column backgrounds.
     function uploadControl(key, label){
-      return `<div class="eb-upl"><button type="button" class="eb-mini-btn" data-upload="${key}">⬆ ${esc(label||"Upload from file")}</button><input type="file" data-upload-input="${key}" accept="image/*" hidden /><span class="eb-note" data-upload-status="${key}"></span></div>`;
+      return `<div class="eb-upl"><button type="button" class="eb-mini-btn" data-upload="${key}">⬆ ${esc(label||"Upload from file")}</button><button type="button" class="eb-mini-btn" data-studio-pick="${key}">Choose from the Studio</button><input type="file" data-upload-input="${key}" accept="image/*" hidden /><span class="eb-note" data-upload-status="${key}"></span></div>`;
     }
+
+    /* Choose from the Studio: templates with a saved thumbnail, and pack
+       covers, loaded once. Their images are public storage URLs, so they
+       work in an email as they are. */
+    let studioItems = null, studioPick = null;
+    async function loadStudioItems(){
+      if (studioItems) return studioItems;
+      const [t, p] = await Promise.all([
+        supabase.from("templates").select("id,name,thumb_url,pack_id,status,updated_at").not("thumb_url","is",null).neq("status","archived").order("updated_at",{ ascending:false }).range(0, 1999),
+        supabase.from("packs").select("id,title,cover_image_url").order("title"),
+      ]);
+      const packs = (p.data || []);
+      const packName = Object.fromEntries(packs.map((x)=>[x.id, x.title]));
+      studioItems = {
+        packs,
+        items: [
+          ...packs.filter((x)=>x.cover_image_url).map((x)=>({ name: x.title, url: x.cover_image_url, pack: x.id, cover: true })),
+          ...(t.data || []).map((x)=>({ name: x.name || "Untitled", url: x.thumb_url, pack: x.pack_id || "", packName: packName[x.pack_id] || "" })),
+        ],
+        error: t.error ? t.error.message : null,
+      };
+      const sel = $("#eb-st-pack");
+      sel.innerHTML = `<option value="">All packs</option>` + packs.map((x)=>`<option value="${esc(x.id)}">${esc(x.title)}</option>`).join("");
+      return studioItems;
+    }
+    function renderStudioGrid(){
+      const grid = $("#eb-st-grid");
+      if (!studioItems) return;
+      const q = ($("#eb-st-q").value || "").trim().toLowerCase(), pk = $("#eb-st-pack").value;
+      const list = studioItems.items.filter((x)=>(!pk || x.pack === pk) && (!q || (x.name + " " + (x.packName||"")).toLowerCase().includes(q)));
+      grid.innerHTML = list.length
+        ? list.slice(0, 300).map((x, i)=>`<button type="button" class="eb-st-item" data-st="${i}"><img src="${esc(x.url)}" alt="" loading="lazy" /><span>${x.cover ? "<em>Pack cover</em><br>" : ""}${esc(x.name)}</span></button>`).join("")
+        : `<p class="eb-note">${studioItems.error ? "The Studio couldn't be loaded: " + esc(studioItems.error) : "Nothing matches that. Try another name or pack."}</p>`;
+      grid.querySelectorAll("[data-st]").forEach((b)=>b.addEventListener("click", ()=>{
+        const it = list[Number(b.dataset.st)];
+        closeModal($("#eb-modal-studio"));
+        if (studioPick && it) studioPick(it.url);
+      }));
+    }
+    async function openStudioPicker(onPick){
+      studioPick = onPick;
+      openModal("#eb-modal-studio");
+      document.querySelector(".eb-st-card").scrollTop = 0;
+      try { await loadStudioItems(); } catch(e){ $("#eb-st-grid").innerHTML = `<p class="eb-note">The Studio couldn't be loaded.</p>`; return; }
+      renderStudioGrid();
+      $("#eb-st-q").focus();
+    }
+    $("#eb-st-q").addEventListener("input", renderStudioGrid);
+    $("#eb-st-pack").addEventListener("change", renderStudioGrid);
     function wireUpload(scope, key, onDone){
       const btn = scope.querySelector(`[data-upload="${key}"]`);
       const inp = scope.querySelector(`[data-upload-input="${key}"]`);
       const stat = scope.querySelector(`[data-upload-status="${key}"]`);
       if(!btn || !inp) return;
       btn.addEventListener("click", ()=>inp.click());
+      scope.querySelector(`[data-studio-pick="${key}"]`)?.addEventListener("click", ()=>openStudioPicker((url)=>{
+        if(stat) stat.textContent = "Added from the Studio ✓";
+        onDone(url);
+      }));
       inp.addEventListener("change", async ()=>{
         const file = inp.files && inp.files[0]; if(!file) return;
         if(!WORKER_URL){ if(stat) stat.textContent = "Set PUBLIC_R2_WORKER_URL to upload."; return; }
