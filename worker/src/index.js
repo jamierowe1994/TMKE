@@ -11108,7 +11108,9 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const bk = (await sbGet(env, "videography_bookings", `id=eq.${inv.booking_id}&select=client_name,client_company,shoot_date`))?.[0];
           if (bk) about = `${bk.client_name || bk.client_company || "the client"}'s shoot${bk.shoot_date ? ` on ${new Date(bk.shoot_date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "Europe/London" })}` : ""}`;
         }
-        const r = await requestInvoiceApproval(env, inv, { kind: b.kind || "videography", approver: String(b.approver || "").trim() || invJack(env), bookingId: inv.booking_id || null, about, mode: st.automation_mode || "test" });
+        // Back to whoever it went to last (Abbie for social media), else Jack.
+        const last = (await sbGet(env, "invoice_approvals", `invoice_id=eq.${inv.id}&select=approver_email,kind&order=requested_at.desc&limit=1`))?.[0];
+        const r = await requestInvoiceApproval(env, inv, { kind: b.kind || (last && last.kind) || "videography", approver: String(b.approver || "").trim() || (last && last.approver_email) || invJack(env), bookingId: (inv.booking_source || "videography") === "videography" ? (inv.booking_id || null) : null, about, mode: st.automation_mode || "test" });
         if (!r.ok) return json({ error: r.error || "Couldn't send it." }, 502, request, env);
         return json({ ok: true, approval: r.approval, test: (st.automation_mode || "test") !== "live" }, 200, request, env);
       }

@@ -1620,12 +1620,12 @@ import AdminShell from "../../components/admin/AdminShell.astro";
           return `<tr><td><strong>${esc(inv.number || "")}</strong></td><td>${esc(inv.bill_to_name || "")}</td><td class="mc-num">${inv.total_pence != null ? "£" + (inv.total_pence / 100).toFixed(2) : ""}</td>
             <td>${esc(String(x.approver_email || "").split("@")[0])}</td><td>${when(x.requested_at)}${x.round > 1 ? ` · round ${x.round}` : ""}</td>
             <td><span class="ap-pill is-${x.status}">${AP_STATUS[x.status] || x.status}</span>${x.notes ? `<div class="ap-notes">${esc(x.notes)}</div>` : ""}</td>
-            <td>${again ? `<button type="button" class="inv-save ap-again" data-again="${esc(x.invoice_id)}">Send to Jack again</button>` : inv.booking_id ? `<a class="ap-open" href="/admin/videography?booking=${esc(inv.booking_id)}">Open</a>` : ""}</td></tr>`;
+            <td>${again ? `<button type="button" class="inv-save ap-again" data-again="${esc(x.invoice_id)}">Send to ${esc(String(x.approver_email || "").split("@")[0].split(/[._]/)[0].replace(/^./, (m) => m.toUpperCase()) || "Jack")} again</button>` : inv.booking_id ? `<a class="ap-open" href="/admin/videography?booking=${esc(inv.booking_id)}">Open</a>` : ""}</td></tr>`;
         }).join("")}</tbody>`;
         tbl.querySelectorAll("[data-again]").forEach((b) => b.addEventListener("click", async () => {
           b.disabled = true; b.textContent = "Sending…";
-          try { const r = await api("/invoicing/approval/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: b.dataset.again }) }); msg("ap-msg", r.test ? "Sent for approval (test mode: it came to you)." : "Sent to Jack to approve.", true); loadApprovals(); }
-          catch (err) { msg("ap-msg", err.message, false); b.disabled = false; b.textContent = "Send to Jack again"; }
+          try { const r = await api("/invoicing/approval/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ invoice_id: b.dataset.again }) }); msg("ap-msg", r.test ? "Sent for approval (test mode: it came to you)." : "Sent back for approval.", true); loadApprovals(); }
+          catch (err) { msg("ap-msg", err.message, false); b.disabled = false; b.textContent = "Try again"; }
         }));
       } catch (err) { tbl.innerHTML = `<tr><td class="inv-empty">${esc(/invoice_approvals|automation_mode/.test(err.message) ? "Run supabase/invoicing_automation.sql first." : err.message)}</td></tr>`; }
     }
