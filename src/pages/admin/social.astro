@@ -764,6 +764,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .ri-cm-insrow { display: grid; gap: 6px; padding: 12px; margin-bottom: 10px; border: 1px solid rgba(28,29,34,0.12); border-radius: 8px; }
     .ri-cm-insrow-top { display: grid; grid-template-columns: 170px 1fr 130px 30px; gap: 8px; }
     .ri-cm-headpick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .ri-cm-headslot { display: grid; gap: 6px; min-width: 0; }
     .ri-cm-headpick select { width: 100%; padding: 8px 10px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 13px; background: #fff; }
     .ri-cm-plan { margin: 12px 0 0; font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.7); display: flex; align-items: center; gap: 8px; }
     .ri-cm-heads { margin: 0 0 10px; font-family: var(--sans); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: var(--english-violet); }
@@ -3351,7 +3352,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const optHtml = (sel) => groupsOf.length > 1
         ? groupsOf.map((g) => `<optgroup label="${esc(PLATFORM_LABELS[g])}">${opts.filter((o) => o.platform === g).map((o) => `<option value="${o.key}"${sel === o.key ? " selected" : ""}>${esc(o.label)}</option>`).join("")}</optgroup>`).join("")
         : opts.map((o) => `<option value="${o.key}"${sel === o.key ? " selected" : ""}>${esc(o.label)}</option>`).join("");
-      const headPick = `<div class="smm-modal-field"><label>The four headline figures</label><div class="ri-cm-headpick">${[0, 1, 2, 3].map((n) => `<select data-head="${n}">${optHtml(heads[n])}</select>`).join("")}</div><p class="smm-hint">Pick the four that explain this month${groupsOf.length > 1 ? ": a platform's own figure, or all platforms added together. The label tells the client which" : ""}. The numbers are worked out from the report.${onePlat ? ` This month's report only has ${esc(PLATFORM_LABELS[onePlat])}: upload another platform's SocialPilot PDF into ${esc(RI_MONTHS[cur.month])} and its figures, and all platforms added together, appear here, with a platform for each insight.` : ""}</p></div>`;
+      /* Several platforms: two boxes per figure (Danielle, 22 Oct 2026): which
+         platform (or all of them added together), then which figure. */
+      const platOf = (key) => (opts.find((o) => o.key === key) || {}).platform || groupsOf[0];
+      const metricOpts = (plat, sel) => opts.filter((o) => o.platform === plat).map((o) => `<option value="${o.key}"${sel === o.key ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+      const slot = (n) => groupsOf.length > 1
+        ? `<div class="ri-cm-headslot"><select data-headplat="${n}" aria-label="Platform">${groupsOf.map((g) => `<option value="${g}"${platOf(heads[n]) === g ? " selected" : ""}>${esc(PLATFORM_LABELS[g])}</option>`).join("")}</select><select data-head="${n}" aria-label="Figure">${metricOpts(platOf(heads[n]), heads[n])}</select></div>`
+        : `<select data-head="${n}">${optHtml(heads[n])}</select>`;
+      const headPick = `<div class="smm-modal-field"><label>The four headline figures</label><div class="ri-cm-headpick">${[0, 1, 2, 3].map(slot).join("")}</div><p class="smm-hint">Pick the four that explain this month${groupsOf.length > 1 ? ": a platform's own figure, or all platforms added together. The label tells the client which" : ""}. The numbers are worked out from the report.${onePlat ? ` This month's report only has ${esc(PLATFORM_LABELS[onePlat])}: upload another platform's SocialPilot PDF into ${esc(RI_MONTHS[cur.month])} and its figures, and all platforms added together, appear here, with a platform for each insight.` : ""}</p></div>`;
       const body = which === "insights"
         ? `${headPick}<div class="smm-modal-field"><label>Insights</label><div id="ri-cm-ins">${(cl0.insights || []).map(insRow).join("")}</div>
            <button type="button" class="smm-btn smm-btn--sm" id="ri-cm-add-ins">${PLUS_SVG}Add an insight</button></div>`
@@ -3385,6 +3393,16 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const host = $("smm-modal-host"), scrim = $("smm-modal");
       scrim.addEventListener("click", (e) => { if (e.target === scrim) closeModal(); });
       host.querySelector("[data-mcancel]").addEventListener("click", closeModal);
+      // A figure's platform changed: its figures are that platform's, keeping
+      // the same kind where there is one (Reach stays a reach).
+      host.querySelectorAll("[data-headplat]").forEach((ps) => ps.addEventListener("change", () => {
+        const n = ps.dataset.headplat, m = host.querySelector(`[data-head="${n}"]`);
+        const was = (m.options[m.selectedIndex] || {}).text ? m.options[m.selectedIndex].text.toLowerCase() : "";
+        m.innerHTML = metricOpts(ps.value, null);
+        const kind = ["new followers", "followers", "page likes", "reach", "impressions", "views", "video", "engagement rate", "engagement", "interaction", "published"].find((w) => was.includes(w));
+        const match = kind && [...m.options].find((o) => o.text.toLowerCase().includes(kind) || (kind === "views" && o.text.toLowerCase().includes("impressions")) || (kind === "impressions" && o.text.toLowerCase().includes("views")));
+        if (match) m.value = match.value;
+      }));
       const add = (id, html) => { const t = document.createElement("div"); t.innerHTML = html.trim(); const el = t.firstChild; $(id).appendChild(el); el.querySelector("[data-cm-title], [data-cm-text]")?.focus(); };
       $("ri-cm-add-prio")?.addEventListener("click", () => add("ri-cm-prios", prioRow()));
       $("ri-cm-add-ins")?.addEventListener("click", () => { if (host.querySelectorAll("[data-cm-ins]").length >= 4) return; const t = document.createElement("div"); t.innerHTML = insRow().trim(); const el = t.firstChild; $("ri-cm-ins").appendChild(el); el.querySelector('[data-in="headline"]')?.focus(); });
