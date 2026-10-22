@@ -12356,6 +12356,8 @@ import { createResizeEngine } from "./resize-engine.js";
     wrap.innerHTML = "";
     if (bg) wrap.appendChild(backgroundFieldRow(admin));
     if (!items.length && !bg) {
+      const cp = captionPromptBox(admin);
+      if (cp) wrap.appendChild(cp);
       if (empty) {
         empty.hidden = false;
         empty.textContent = admin
@@ -12417,6 +12419,9 @@ import { createResizeEngine } from "./resize-engine.js";
       wrap.appendChild(row);
     });
 
+    const cp = captionPromptBox(admin);
+    if (cp) wrap.appendChild(cp);
+
     /* What the author has taken off the list, and the way to put it back.
        Removing something with no route back is a trap, not a control. */
     if (admin) {
@@ -12435,6 +12440,43 @@ import { createResizeEngine } from "./resize-engine.js";
         wrap.appendChild(back);
       }
     }
+  }
+
+  /* The caption prompt (Dani, 22 Oct): on a design that is mostly a title,
+     the caption does the work, so the author can leave the member a prompt
+     for it. Kept on the canvas, so a member's saved design carries it too.
+     The author writes it here; a member sees it only when there is one. */
+  function captionPromptBox(admin) {
+    const text = (state.canvas && state.canvas.captionPrompt) || "";
+    if (!admin && !text.trim()) return null;
+    const box = document.createElement("div");
+    box.className = "ed-caption-prompt";
+    const h = document.createElement("span");
+    h.className = "ed-caption-prompt-h";
+    h.textContent = admin ? "Caption prompt (optional)" : "Your caption";
+    box.appendChild(h);
+    if (admin) {
+      const ta = document.createElement("textarea");
+      ta.rows = 3;
+      ta.value = text;
+      ta.placeholder = "e.g. Tell sellers the one thing that worries them most at this time of year, and how you take it off their plate.";
+      ta.addEventListener("change", function () {
+        const v = ta.value.trim();
+        if (v) state.canvas.captionPrompt = v; else delete state.canvas.captionPrompt;
+        pushHistory();
+      });
+      box.appendChild(ta);
+      const note = document.createElement("p");
+      note.className = "ed-caption-prompt-note";
+      note.textContent = "For a design where the caption does the work. Members see it here, in this box. Leave it empty and they won't see a box at all.";
+      box.appendChild(note);
+    } else {
+      const p = document.createElement("p");
+      p.className = "ed-caption-prompt-tx";
+      p.textContent = text;
+      box.appendChild(p);
+    }
+    return box;
   }
 
   // The background, as a row like any other.
