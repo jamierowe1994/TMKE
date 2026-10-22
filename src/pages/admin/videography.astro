@@ -114,6 +114,7 @@ import "../../styles/admin.css";
         <div class="vid-rule"><dt>One location shoot a day</dt><dd>Jack has to travel to property, agent and photography shoots, so only one can go in a day. A day with a location shoot is closed to every other booking, studio sessions included.</dd></div>
         <div class="vid-rule"><dt>Studio days stay at the studio</dt><dd>A day with Content Studio sessions booked takes no location shoots, because Jack is at the studio. You can still book more studio sessions around the ones already booked, since they&rsquo;re meant to run back to back.</dd></div>
         <div class="vid-rule"><dt>Editing days</dt><dd>The two days after a property or agent shoot are editing days. So is the day after a TEG new-starter Studio Day, but only if it had sessions booked, and one day is enough because those sessions are shorter and at our own studio. On an editing day, only new-starter Studio Day sessions and discovery calls can be booked. Photography has no editing days because its editing takes an afternoon.</dd></div>
+        <div class="vid-rule"><dt>Editing stacks up</dt><dd>A day with anything booked on it does no editing, so the editing waits for the next clear days. Back-to-back shoots push their editing back: property shoots on the 3rd and 4th make the 5th to the 8th editing days.</dd></div>
         <div class="vid-rule"><dt>Discovery calls</dt><dd>These are Teams calls, so an editing day doesn&rsquo;t stop them.</dd></div>
         <div class="vid-rule"><dt>New-starter Studio Days</dt><dd>These fall on the last Tuesday of the starter&rsquo;s shoot month. There are three two-hour sessions, at 9:30am, 12:30pm and 3:30pm.</dd></div>
         <div class="vid-rule"><dt>A second Studio Day when needed</dt><dd>If more starters are still to book than the Tuesday has sessions left, the Wednesday after opens as a second Studio Day with the same three sessions. Starters who&rsquo;ve booked, cancelled or left aren&rsquo;t counted. Once the Wednesday has a booking, it stays open.</dd></div>
@@ -1087,7 +1088,12 @@ import "../../styles/admin.css";
     /* Seven equal columns, and every week row the height of the tallest, so
        the grid reads as a calendar whatever the days hold. The weekday
        header is the one auto-height row. */
-    .vid-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: minmax(110px, 1fr); gap: 8px; }
+    .vid-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: minmax(92px, 1fr); gap: 8px; }
+    /* The folded reason: a small label that opens the week. */
+    .vid-cal-why { align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: auto; padding: 2px 7px; border: 1px solid rgba(28,29,34,0.14); border-radius: 999px; background: #fff; font-family: var(--sans); font-size: 10px; font-weight: 600; letter-spacing: 0.02em; color: rgba(28,29,34,0.68); cursor: pointer; }
+    .vid-cal-why:hover { border-color: var(--english-violet); color: var(--english-violet); }
+    .vid-cal-why.n-starter { border-color: rgba(176,134,52,0.5); color: #7a5a1c; }
+    .vid-cal-day.is-open .vid-cal-why { margin-top: 0; }
     .vid-cal-dow { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); padding: 0 2px 4px; }
     .vid-cal-day {
       min-width: 0; background: #fff; border: 1px solid var(--border, rgba(28,29,34,0.1));
@@ -1761,6 +1767,10 @@ import "../../styles/admin.css";
     const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
     const calDiary = {};   // "from_to" -> "loading" | { days, calError } | { error }
+    const calOpenWeeks = new Set();   // Mondays of the weeks showing their reasons
+    // The folded label: the day's main reason, most decisive first.
+    const CAL_NOTE_ORDER = ["starter", "shoot", "off", "editing", "busy", "studio"];
+    const CAL_NOTE_LABEL = { starter: "Studio Day", shoot: "Out filming", off: "Not working", editing: "Editing", busy: "Busy", studio: "Studio only" };
     async function loadDiary(key, from, to) {
       calDiary[key] = "loading";
       try {
@@ -1799,8 +1809,15 @@ import "../../styles/admin.css";
       if (noteEl) noteEl.textContent = diary === "loading" ? "Checking Jack's diary…" : (diary && diary.calError) || (diary && diary.error) || "";
       const byDate = {}; ((diary && diary.days) || []).forEach((d) => { byDate[d.date] = d; });
 
+      // The reasons sit folded away: each day shows a short label, and
+      // clicking it opens that whole week to read them (Danielle, 22 Oct).
+      // Folded weeks share one height; an open week grows to fit.
+      const rowSizes = [];
       for (let i = 0; i < 42; i++) {
         const day = new Date(start); day.setDate(start.getDate() + i);
+        const week = Math.floor(i / 7), weekKey = ymd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + week * 7));
+        const open = calOpenWeeks.has(weekKey);
+        if (i % 7 === 0) rowSizes.push(open ? "auto" : "minmax(92px, 1fr)");
         const out = day.getMonth() !== calMonth.getMonth();
         const events = bookings.filter((b) => b.shoot_date && sameDay(new Date(b.shoot_date), day) && b.stage !== "cancelled");
         const dd = byDate[ymd(day)];
@@ -1808,16 +1825,24 @@ import "../../styles/admin.css";
         const weekend = day.getDay() === 0 || day.getDay() === 6;
         const notes = ((dd && dd.notes) || []).filter((n) => !(weekend && n.kind === "off"));
         const tone = notes.some((n) => n.kind === "starter") ? " is-starter" : dd && dd.closed ? " is-closed" : notes.length ? " is-partial" : "";
-        html += `<div class="vid-cal-day${out ? " is-out" : ""}${sameDay(day, today) ? " is-today" : ""}${tone}">
+        const lead = CAL_NOTE_ORDER.find((k) => notes.some((n) => n.kind === k));
+        html += `<div class="vid-cal-day${out ? " is-out" : ""}${sameDay(day, today) ? " is-today" : ""}${tone}${open ? " is-open" : ""}">
           <span class="vid-cal-num">${day.getDate()}</span>
           ${events.map((b) => `<button type="button" class="vid-cal-ev" data-calopen="${escapeHtml(b.id)}">
             <strong>${escapeHtml(new Date(b.shoot_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}</strong>
             ${escapeHtml(b.client_name || "Booking")}
           </button>`).join("")}
-          ${notes.map((n) => `<span class="vid-cal-note n-${escapeHtml(n.kind)}">${escapeHtml(n.text)}</span>`).join("")}
+          ${lead ? `<button type="button" class="vid-cal-why n-${lead}" data-calweek="${weekKey}" aria-expanded="${open}">${CAL_NOTE_LABEL[lead]}<span aria-hidden="true">${open ? "▴" : "▾"}</span></button>` : ""}
+          ${open ? notes.map((n) => `<span class="vid-cal-note n-${escapeHtml(n.kind)}">${escapeHtml(n.text)}</span>`).join("") : ""}
         </div>`;
       }
       grid.innerHTML = html;
+      grid.style.gridTemplateRows = `auto ${rowSizes.join(" ")}`;
+      grid.querySelectorAll("[data-calweek]").forEach((btn) => btn.addEventListener("click", () => {
+        const k = btn.getAttribute("data-calweek");
+        if (calOpenWeeks.has(k)) calOpenWeeks.delete(k); else calOpenWeeks.add(k);
+        renderCalendar();
+      }));
       grid.querySelectorAll("[data-calopen]").forEach((btn) =>
         btn.addEventListener("click", () => openCandidate(btn.getAttribute("data-calopen"))));
     }

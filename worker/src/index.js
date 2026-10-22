@@ -2609,10 +2609,10 @@ function londonParts(iso) {
   return { ymd: `${p.year}-${p.month}-${p.day}`, min: Number(p.hour) * 60 + Number(p.minute) };
 }
 async function boardRows(env, fromDate, toDate) {
-  const from = new Date(`${fromDate}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - OFF_LOCATION_BUFFER_DAYS - 1);
+  const from = new Date(`${fromDate}T00:00:00Z`); from.setUTCDate(from.getUTCDate() - EDITING_LOOKBACK_DAYS);
   const to = new Date(`${toDate}T00:00:00Z`); to.setUTCDate(to.getUTCDate() + 2);
   return (await sbGet(env, "videography_bookings",
-    `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token`)) || [];
+    `shoot_date=gte.${from.toISOString()}&shoot_date=lt.${to.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,client_name`)) || [];
 }
 // skip: the reschedule token of a booking being moved, so it doesn't block itself.
 async function diaryBlocks(env, date, service, skip) {
@@ -2643,17 +2643,50 @@ function diaryBlocksFrom(rows, date, service, skip) {
       }
       return { day: true, reason: onLocation && OFF_LOCATION_SERVICES.includes(kind) ? "off_location_taken" : "day_taken" };
     }
-    if (editingBlocks && day < date && BUFFERED_SERVICES.includes(kind)) {
-      const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
-      if (gap <= OFF_LOCATION_BUFFER_DAYS) return { day: true, reason: "off_location_buffer" };
-    }
-    // The editing day after a new-starter Studio Day.
-    if (editingBlocks && day < date && /new-starter/i.test(String(r.service || ""))) {
-      const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
-      if (gap <= STUDIO_DAY_BUFFER_DAYS) return { day: true, reason: "studio_day_buffer" };
-    }
+  }
+  if (editingBlocks) {
+    const ed = editingDaysFrom(rows, date, skip)[date];
+    if (ed) return { day: true, reason: ed.every((x) => x.studioDay) ? "studio_day_buffer" : "off_location_buffer" };
   }
   return { day: false, ranges };
+}
+
+/* Editing days, queued (Danielle, 22 Oct 2026). Each property or agent shoot
+   needs OFF_LOCATION_BUFFER_DAYS of editing, and a new-starter Studio Day
+   with sessions STUDIO_DAY_BUFFER_DAYS. The editing waits for the next days
+   with nothing booked (a day with a booking does no editing), so shoots back
+   to back stack their editing up after the last one: property shoots on the
+   3rd and 4th make the 5th to the 8th editing days. Oldest first.
+   Returns { "YYYY-MM-DD": [{ client, day, studioDay }] } up to `until`,
+   each day listing the shoots still being edited. */
+const EDITING_LOOKBACK_DAYS = 21;
+function editingDaysFrom(rows, until, skip) {
+  const dayOf = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
+  const busy = new Set(), adds = {};
+  for (const r of rows) {
+    if (skip && r.reschedule_token === skip) continue;
+    if (!r.shoot_date || r.stage === "cancelled" || r.stage === "discovery_call_booked" || r.service_type === "discovery") continue;
+    const d = dayOf(r);
+    busy.add(d);
+    if (/new-starter/i.test(String(r.service || ""))) {
+      adds[d] = adds[d] || [];
+      if (!adds[d].some((x) => x.studioDay)) adds[d].push({ client: null, day: d, studioDay: true, left: STUDIO_DAY_BUFFER_DAYS });
+    } else if (BUFFERED_SERVICES.includes(bookingKindOf(r))) {
+      (adds[d] = adds[d] || []).push({ client: r.client_name || null, day: d, studioDay: false, left: OFF_LOCATION_BUFFER_DAYS });
+    }
+  }
+  const first = Object.keys(adds).sort()[0];
+  const out = {};
+  if (!first) return out;
+  const queue = [];
+  for (let d = first; d <= until; d = nsNextDay(d)) {
+    if (adds[d]) queue.push(...adds[d]);
+    if (busy.has(d) || !queue.length) continue;
+    out[d] = queue.map(({ client, day, studioDay }) => ({ client, day, studioDay }));
+    queue[0].left -= 1;
+    if (queue[0].left <= 0) queue.shift();
+  }
+  return out;
 }
 const overlapsAny = (ranges, s, e) => ranges.some(([a, b]) => s < b && e > a);
 
@@ -7143,13 +7176,14 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
 
         const avail = (await sbGet(env, "videography_availability", "select=*")) || [];
         const byWd = {}; avail.forEach((r) => { byWd[r.weekday] = rowHours(r); });
-        const lo = new Date(`${from}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - OFF_LOCATION_BUFFER_DAYS - 1);
+        const lo = new Date(`${from}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - EDITING_LOOKBACK_DAYS);
         const hi = new Date(`${to}T00:00:00Z`); hi.setUTCDate(hi.getUTCDate() + 2);
         const rows = (await sbGet(env, "videography_bookings",
           `shoot_date=gte.${lo.toISOString()}&shoot_date=lt.${hi.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,ms_event_id,client_name`)) || [];
         const live = rows.filter((r) => r.shoot_date && r.stage !== "cancelled" && r.stage !== "discovery_call_booked" && r.service_type !== "discovery");
         const dayOfRow = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
         const ourEvents = new Set(rows.map((r) => r.ms_event_id).filter(Boolean));
+        const editing = editingDaysFrom(rows, to, null);
 
         // Jack's calendar, less the events our own bookings put there and the
         // Studio Day blocks (shown as Studio Days instead).
@@ -7198,24 +7232,12 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           const studio = today.filter((r) => bookingKindOf(r) === "content-studio" && !/new-starter/i.test(String(r.service || "")));
           if (onLocation.length) { notes.push({ kind: "shoot", text: "Out on a shoot." }); closed = true; }
           else if (studio.length && !starter[d]) notes.push({ kind: "studio", text: "Studio sessions booked: studio bookings only." });
-          if (!onLocation.length) {
-            const gapTo = (r) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${dayOfRow(r)}T00:00:00Z`)) / 86400000);
-            const after = live.filter((r) => {
-              const g = gapTo(r);
-              if (/new-starter/i.test(String(r.service || ""))) return g >= 1 && g <= STUDIO_DAY_BUFFER_DAYS;
-              return BUFFERED_SERVICES.includes(bookingKindOf(r)) && g >= 1 && g <= OFF_LOCATION_BUFFER_DAYS;
-            });
-            // One mention per Studio Day, however many starters were on it.
+          if (editing[d]) {
             const seen = new Set();
-            const named = after.filter((r) => {
-              const k = /new-starter/i.test(String(r.service || "")) ? `sd:${dayOfRow(r)}` : r;
-              if (seen.has(k)) return false; seen.add(k); return true;
-            });
-            if (named.length) {
-              const who = named.map((r) => /new-starter/i.test(String(r.service || "")) ? `the Studio Day (${dayLong(dayOfRow(r))})` : `${r.client_name || "a client"} (${dayLong(dayOfRow(r))})`).join(" and ");
-              notes.push({ kind: "editing", text: `Editing after ${who}.` });
-              if (!starter[d]) closed = true;
-            }
+            const who = editing[d].filter((x) => { const k = x.studioDay ? `sd:${x.day}` : `${x.client}:${x.day}`; if (seen.has(k)) return false; seen.add(k); return true; })
+              .map((x) => x.studioDay ? `the Studio Day (${dayLong(x.day)})` : `${x.client || "a client"} (${dayLong(x.day)})`).join(" and ");
+            notes.push({ kind: "editing", text: `Editing after ${who}.` });
+            if (!starter[d]) closed = true;
           }
           if (!hours.length) { notes.push({ kind: "off", text: `Jack doesn't work ${DOW[new Date(`${d}T12:00:00Z`).getUTCDay()]}s.` }); closed = true; }
           else if (busy[d] && busy[d].length) {
