@@ -872,6 +872,20 @@ import "../../styles/admin.css";
       return rows;
     }
 
+    /* A free-to-members pack shows its window where a price would be, e.g.
+       "Free · 24 Oct to 31 Oct" (supabase/pack_free_window.sql). */
+    function priceLabel(p) {
+      if (p.access !== "members") return gbpFromPence(p.price_pence);
+      const day = (iso, last) => new Date(Date.parse(iso) - (last ? 1 : 0))
+        .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Europe/London" });
+      const from = p.available_from ? day(p.available_from) : "";
+      const until = p.available_until ? day(p.available_until, true) : "";
+      if (from && until) return `Free · ${from} to ${until}`;
+      if (until) return `Free until ${until}`;
+      if (from) return `Free from ${from}`;
+      return "Free to members";
+    }
+
     function packCardHtml(p) {
       const cover = p.cover_image_url
         ? `style="background-image:url('${escapeHtml(p.cover_image_url)}')"`
@@ -903,7 +917,7 @@ import "../../styles/admin.css";
             </div>
             <div class="pack-meta">${escapeHtml(p.category || "—")}</div>
             ${statusPill}
-            <div class="pack-price">${gbpFromPence(p.price_pence)}</div>
+            <div class="pack-price">${escapeHtml(priceLabel(p))}</div>
             <div class="pack-actions">${giftBtn} ${editBtn} ${archiveOrRestore}</div>
           </article>
         `;
@@ -917,7 +931,7 @@ import "../../styles/admin.css";
           <div class="pack-body">
             <div class="pack-meta">
               <span>${escapeHtml(p.category || "—")}</span>
-              <span class="pack-price">${gbpFromPence(p.price_pence)}</span>
+              <span class="pack-price">${escapeHtml(priceLabel(p))}</span>
             </div>
             <h3 class="pack-title">${escapeHtml(p.title)}</h3>
             <p class="pack-desc">${escapeHtml(p.description || "")}</p>

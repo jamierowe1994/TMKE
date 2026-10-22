@@ -33,8 +33,9 @@ export async function getStaticPaths() {
     .select("*")
     .in("status", ["active", "draft"]);
   if (error || !packs) return import.meta.env.DEV ? devSamplePaths() : [];
-  // The demo pack has no page of its own.
-  const forSale = packs.filter((p) => p.demo !== true);
+  // The demo pack has no page of its own, and nor does a pack nobody buys: a
+  // free-to-members pack (Halloween, say) is for the Studio, never the website.
+  const forSale = packs.filter((p) => p.demo !== true && (p.access || "buy") === "buy");
   packs.length = 0; forSale.forEach((p) => packs.push(p));
   if (!packs.length && import.meta.env.DEV) return devSamplePaths();
 

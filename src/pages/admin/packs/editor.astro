@@ -41,13 +41,28 @@ import "../../../styles/admin.css";
                 <option value="print">Print — boards, brochures, cards</option>
               </select>
             </label>
-            <label class="editor-field" id="pk-access-field" hidden>
+            <label class="editor-field" id="pk-access-field">
               <span>Who gets it</span>
               <select name="access" id="pk-access">
                 <option value="buy">Anyone who buys it</option>
                 <option value="members">Every member, free</option>
                 <option value="brands">Only the brands below</option>
               </select>
+            </label>
+          </div>
+          <!-- A free pack for a limited time, e.g. Halloween for the week before
+               (supabase/pack_free_window.sql). Members only, never on the
+               website, and it goes when the end date passes. -->
+          <div class="editor-row pk-window" id="pk-window" hidden>
+            <label class="editor-field">
+              <span>Free from</span>
+              <input type="date" name="free_from" />
+              <small>Members see it from the start of this day. Leave empty for straight away.</small>
+            </label>
+            <label class="editor-field">
+              <span>Free until</span>
+              <input type="date" name="free_until" />
+              <small>The last day they see it. It goes at midnight. Leave empty to keep it.</small>
             </label>
           </div>
           <div class="editor-field pk-brands-wrap" id="pk-brands-wrap" hidden>
@@ -318,8 +333,10 @@ import "../../../styles/admin.css";
        way rather than sitting there greyed and confusing. */
     /* Print: only Status survives in this card, so it becomes "Publishing". */
     #pk-pricing.is-free .editor-field:has(input[name="price_gbp"]),
-    #pk-pricing.is-free .editor-field:has(select[name="category"]),
+    #pk-pricing.is-print .editor-field:has(select[name="category"]),
     #pk-pricing.is-free .editor-field:has(input[name="preview_reveal_count"]) { display: none; }
+    .pk-window[hidden] { display: none; }
+    .pk-window { margin-top: 18px; }
     #pk-access-field[hidden] { display: none; }
 
     .editor-card {
@@ -877,23 +894,29 @@ import "../../../styles/admin.css";
       const access = form.elements.access ? form.elements.access.value : "buy";
       const isPrint = kind === "print";
 
-      // A print pack lands on "only these brands"; a social pack is bought.
-      if (form.elements.access && !isPrint && access !== "buy") form.elements.access.value = "buy";
+      // A print pack lands on "only these brands". A social pack is bought,
+      // or free to every member (Dani, 22 Oct: a Halloween pack for the week
+      // before Halloween); it is never for a brand.
+      if (form.elements.access && !isPrint && access === "brands") form.elements.access.value = "buy";
       if (form.elements.access && isPrint && access === "buy") form.elements.access.value = "brands";
       const acc = form.elements.access ? form.elements.access.value : "buy";
+      const brandsOpt = form.elements.access?.querySelector('option[value="brands"]');
+      if (brandsOpt) { brandsOpt.hidden = !isPrint; brandsOpt.disabled = !isPrint; }
 
-      const accessField = document.getElementById("pk-access-field");
-      if (accessField) accessField.hidden = !isPrint;
       const brandsWrap = document.getElementById("pk-brands-wrap");
       if (brandsWrap) brandsWrap.hidden = !(isPrint && acc === "brands");
+      const windowRow = document.getElementById("pk-window");
+      if (windowRow) windowRow.hidden = acc !== "members";
 
-      // Price, category and public preview are questions about a shop.
+      // Price and public preview are questions about a shop; category too,
+      // for print, which is never in it.
+      const free = isPrint || acc !== "buy";
       const pricing = document.getElementById("pk-pricing");
-      if (pricing) pricing.classList.toggle("is-free", isPrint);
+      if (pricing) { pricing.classList.toggle("is-free", free); pricing.classList.toggle("is-print", isPrint); }
       const title = document.getElementById("pk-pricing-title");
-      if (title) title.textContent = isPrint ? "Publishing" : "Pricing & classification";
+      if (title) title.textContent = free ? "Publishing" : "Pricing & classification";
       const price = form.elements.price_gbp;
-      if (price) { price.required = !isPrint; price.disabled = isPrint; }
+      if (price) { price.required = !free; price.disabled = free; }
     }
 
     // Arriving from the Print tab: start as a print pack for brands.
@@ -1273,6 +1296,8 @@ import "../../../styles/admin.css";
       form.elements.category.value = data.category || "";
       form.elements.kind.value = data.kind || "social";
       form.elements.access.value = data.access || "buy";
+      form.elements.free_from.value = londonYmd(data.available_from);
+      form.elements.free_until.value = londonYmd(data.available_until, true);
       setBrands(Array.isArray(data.brands) ? data.brands : []);
       syncKind();
       form.elements.status.value = data.status || "active";
@@ -1306,6 +1331,28 @@ import "../../../styles/admin.css";
     }
     function hideError() { errorEl.hidden = true; }
 
+    /* Dates on this form are London days. available_from is the midnight that
+       starts "Free from"; available_until the midnight that ends "Free until". */
+    let hadWindow = false;
+    function londonMidnightIso(ymd, addDays = 0) {
+      const [y, m, d] = ymd.split("-").map(Number);
+      const day = new Date(Date.UTC(y, m - 1, d + addDays));
+      // London is UTC or UTC+1: take whichever offset puts the moment at 00:00 there.
+      for (const off of [0, 1]) {
+        const at = new Date(day.getTime() - off * 3600000);
+        const hm = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/London" });
+        if (hm === "00:00") return at.toISOString();
+      }
+      return day.toISOString();
+    }
+    function londonYmd(iso, lastDay = false) {
+      if (!iso) return "";
+      hadWindow = true;
+      const t = Date.parse(iso) - (lastDay ? 1 : 0);
+      if (isNaN(t)) return "";
+      return new Date(t).toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    }
+
     async function nextTopSortOrder() {
       const { data, error } = await supabase
         .from("packs")
@@ -1335,7 +1382,7 @@ import "../../../styles/admin.css";
         if (!title) throw new Error("Title is required.");
         if (!slug) throw new Error("Slug is required.");
         if (!/^[a-z0-9-]+$/.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
-        if (String(fd.get("kind") || "social") !== "print" && (Number.isNaN(priceGbp) || priceGbp < 0)) {
+        if (String(fd.get("kind") || "social") !== "print" && String(fd.get("access") || "buy") === "buy" && (Number.isNaN(priceGbp) || priceGbp < 0)) {
           throw new Error("Price must be 0 or more.");
         }
 
@@ -1348,6 +1395,11 @@ import "../../../styles/admin.css";
         if (access === "brands" && !brands.length) {
           throw new Error("Pick at least one brand, or change who gets it.");
         }
+        const freeFrom = access === "members" ? String(fd.get("free_from") || "") : "";
+        const freeUntil = access === "members" ? String(fd.get("free_until") || "") : "";
+        if (freeFrom && freeUntil && freeUntil < freeFrom) {
+          throw new Error("Free until can't be before Free from.");
+        }
 
         const payload = {
           title,
@@ -1356,7 +1408,7 @@ import "../../../styles/admin.css";
           access,
           brands,
           // Nothing to charge for a pack nobody buys.
-          price_pence: kind === "print" ? 0 : Math.round(priceGbp * 100),
+          price_pence: kind === "print" || access !== "buy" ? 0 : Math.round(priceGbp * 100),
           category: String(fd.get("category") || "") || null,
           status: String(fd.get("status") || "active"),
           description: String(fd.get("description") || "").trim() || null,
@@ -1365,6 +1417,13 @@ import "../../../styles/admin.css";
           preview_images: galleryUrls,
           preview_reveal_count: previewCount,
         };
+
+        // The window, as London midnights. Only sent when it means something,
+        // so other packs still save before supabase/pack_free_window.sql runs.
+        if (access === "members" || hadWindow) {
+          payload.available_from = freeFrom ? londonMidnightIso(freeFrom) : null;
+          payload.available_until = freeUntil ? londonMidnightIso(freeUntil, 1) : null;
+        }
 
         let result;
         if (editingId) {

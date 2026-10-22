@@ -37,15 +37,36 @@
  * TPE, but Prestige is their main one, then they should be able to see TPE's
  * packs as well." The database already allowed it (member_brands()); this
  * page-side check only ever asked for the main brand. */
-export function visibleToMember(packs, memberBrand) {
+export function visibleToMember(packs, memberBrand, now = new Date()) {
   const norm = (v) => (v == null ? '' : String(v).trim().toLowerCase());
   const mine = new Set((Array.isArray(memberBrand) ? memberBrand : [memberBrand]).map(norm).filter(Boolean));
   return (packs || []).filter((p) => {
-    if (!p || p.access !== 'brands') return !!p;
+    if (!p || !openNow(p, now)) return false;
+    if (p.access !== 'brands') return true;
     if (memberBrand === undefined) return true;            // could not ask
     if (!mine.size) return false;                          // asked: no brand
     return (Array.isArray(p.brands) ? p.brands : []).some((b) => mine.has(norm(b)));
   });
+}
+
+/* A pack free for a limited time (supabase/pack_free_window.sql): members see
+ * it from available_from until available_until. The database holds the same
+ * rule; this copy is for staff, whom the database lets see everything, and
+ * for the moments before the SQL has run (no columns, so always open). */
+export function openNow(p, now = new Date()) {
+  const t = now.getTime();
+  const from = p && p.available_from ? Date.parse(p.available_from) : NaN;
+  const until = p && p.available_until ? Date.parse(p.available_until) : NaN;
+  return !(from > t) && !(until <= t);
+}
+
+/* "Free until Sat 31 Oct" for a pack with an end date, else ''. The date
+ * shown is the last day it is open: available_until is the midnight after. */
+export function freeUntilLabel(p) {
+  if (!p || p.access !== 'members' || !p.available_until) return '';
+  const end = new Date(Date.parse(p.available_until) - 1);
+  if (isNaN(end)) return '';
+  return 'Free until ' + end.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' });
 }
 
 /* Every brand this account is in, from the database: an array (empty when

@@ -379,8 +379,9 @@ const FALLBACK_THUMBS = templates.slice(0, 8).map((t) => t.thumb);
       const { data: { session } } = await supabase.auth.getSession();
       // The newest active pack filed under "In Season" — the category the pack
       // editor already has. Flick the category and this card follows.
-      let { data } = await supabase.from("packs").select(PACK_COLS).eq("status", "active").eq("category", "In Season").order("created_at", { ascending: false }).limit(1).maybeSingle();
-      if (!data) ({ data } = await supabase.from("packs").select(PACK_COLS).eq("status", "active").order("created_at", { ascending: false }).limit(1).maybeSingle());
+      // Packs in The Edit only: a free-to-members pack is not one to sell.
+      let { data } = await supabase.from("packs").select(PACK_COLS).eq("status", "active").eq("access", "buy").eq("category", "In Season").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!data) ({ data } = await supabase.from("packs").select(PACK_COLS).eq("status", "active").eq("access", "buy").order("created_at", { ascending: false }).limit(1).maybeSingle());
       pack = data || null;
       if (pack) {
         const [{ data: t }, ordersRes] = await Promise.all([

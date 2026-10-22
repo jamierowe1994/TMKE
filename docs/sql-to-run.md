@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] supabase/pack_free_window.sql — free packs for a limited time, e.g. Halloween (22 Oct)
 
 ## Done
 

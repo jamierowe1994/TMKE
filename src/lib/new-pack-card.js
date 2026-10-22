@@ -38,11 +38,13 @@ export function pickNewPackDay({ packs, weekDates, emptyDates, todayYmd, now = n
 
   return {
     date: day,
-    flag: "New",
+    flag: pack.access === "members" ? "Free" : "New",
     title: `${pack.title} has just dropped.`,
     hint: oneLiner(pack.description) || "A new pack of editable templates, ready to make yours.",
-    cta: "Discover the pack",
-    href: `/edit/${encodeURIComponent(pack.slug)}`,
+    // A pack nobody buys has no page in The Edit: open it in the Studio.
+    ...((pack.access || "buy") === "buy"
+      ? { cta: "Discover the pack", href: `/edit/${encodeURIComponent(pack.slug)}` }
+      : { cta: "Open the pack", href: `/account/editor?pack=${encodeURIComponent(pack.id)}` }),
   };
 }
 
@@ -53,7 +55,10 @@ export function pickNewPackDay({ packs, weekDates, emptyDates, todayYmd, now = n
 export function launchedAt(p) {
   const raw = p.launched_at || p.created_at;
   const d = raw ? new Date(raw) : null;
-  return d && !isNaN(d) ? d : null;
+  if (!d || isNaN(d)) return null;
+  // A pack free from a later date is new from that date, not from when it was saved.
+  const from = p.available_from ? new Date(p.available_from) : null;
+  return from && !isNaN(from) && from > d ? from : d;
 }
 
 // One sentence, short enough for a day card.
