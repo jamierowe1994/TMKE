@@ -851,6 +851,19 @@ import "../../styles/admin.css";
       background: var(--english-violet); border-radius: 6px 6px 0 0;
     }
     .vid-tabpane { display: none; padding-top: 24px; }
+    /* Booking details tab (Danielle, 22 Oct 2026) */
+    .vid-details-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .vid-details-sum { margin: 0; font-family: var(--sans); font-size: 13px; font-weight: 600; }
+    .vid-details-sum.is-done { color: #2e6b40; }
+    .vid-details-sum.is-open { color: #9a6a04; }
+    .vid-details-list { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; border-top: 1px solid rgba(28,29,34,0.1); }
+    .vid-details-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid rgba(28,29,34,0.07); font-family: var(--sans); font-size: 13px; }
+    .vid-details-row:last-child { grid-column: 1 / -1; grid-template-columns: 150px 1fr; }
+    .vid-details-row dt { color: rgba(28,29,34,0.55); font-weight: 600; }
+    .vid-details-row dd { margin: 0; color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+    .vid-details-missing { color: #9a6a04; font-weight: 600; }
+    .vid-details-none { color: rgba(28,29,34,0.35); }
+    @media (max-width: 760px) { .vid-details-list { grid-template-columns: 1fr; } }
     /* .vid-loading is the page's full-height loading/empty state, with 40px of
        padding above and below its one line. Inside a tab pane - where most of
        these read "no notes yet" - that is just a hole. */
@@ -1902,6 +1915,7 @@ import "../../styles/admin.css";
              long way past sections that are usually empty. -->
         ${renderCandTabs(b)}
         <div class="vid-tabpanes">
+          <div class="vid-tabpane" data-tab="details">${renderBookingDetails(b)}</div>
           <div class="vid-tabpane is-active" data-tab="stage">
             ${renderTimeline(b)}
             ${renderBrandGate(b)}
@@ -1922,6 +1936,7 @@ import "../../styles/admin.css";
         </div>`;
       el.querySelectorAll(".vid-tab").forEach((btn) =>
         btn.addEventListener("click", () => showCandTab(btn.getAttribute("data-tab"))));
+      el.querySelector("[data-details-edit]")?.addEventListener("click", () => el.querySelector('[data-act="edit"]')?.click());
       el.querySelector("#vid-gate-confirm")?.addEventListener("change", (e) => saveBrandConfirm(b, e.target.checked));
       el.querySelector("#vid-fc-send")?.addEventListener("click", () => sendFcConfirm(b));
       el.querySelector("#vid-edits-done")?.addEventListener("change", (e) => saveEditsSettled(b, e.target.checked));
@@ -1982,6 +1997,50 @@ import "../../styles/admin.css";
       loadThread(b);
     }
 
+    /* Booking details (Danielle, 22 Oct 2026): what's in the first part of
+       Edit booking, to read at a glance, with anything not filled in
+       flagged, so it's easy to check a booking is complete. Read-only: Edit
+       booking is still where it changes. */
+    function renderBookingDetails(b) {
+      const brandLabel = (() => { const o = document.querySelector(`[data-f="brand"] option[value="${CSS.escape(b.brand || "")}"]`); return b.brand ? (o ? o.textContent : b.brand) : ""; })();
+      const routeLabel = (() => { const o = document.querySelector(`#vid-route option[value="${CSS.escape(b.payment_route || "agent_card")}"]`); return o ? o.textContent : ""; })();
+      const when = b.shoot_date ? new Date(b.shoot_date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+      let travel = "";
+      if (b.distance_miles != null && b.distance_miles !== "") {
+        const t = travelCharge(Number(b.distance_miles), vidSettings);
+        travel = `${Math.round(t.oneWay)} miles each way (${Math.round(t.returnMiles)} there and back). ${b.surcharge_pence ? `Charge ${gbpFromPence(b.surcharge_pence)} + VAT` : "No travel charge"}`;
+      } else if (b.surcharge_pence === 0) travel = "No travel charge";
+      const isStudio = String(b.service_type || "") === "content-studio";
+      // [label, value, needed?] — needed ones show "Not filled in" when empty.
+      const rows = [
+        ["Client name", b.client_name, true],
+        ["Email", b.client_email, true],
+        ["Phone", b.client_phone, false],
+        ["Company", b.client_company, false],
+        ["Brand / price tier", brandLabel, true],
+        ["Service", b.service, true],
+        ["Shoot date", when, true],
+        ["Shoot location", b.location, true],
+        ["Quote", b.amount_pence != null ? gbpFromPence(b.amount_pence) : (b.total_pence != null ? gbpFromPence(b.total_pence) : ""), true],
+        ["Property address", b.property_address, !isStudio],
+        ["Shoot postcode", b.postcode, !isStudio],
+        ["Travel", travel, !isStudio],
+        ["Who pays", routeLabel, true],
+        ["Notes", b.notes, false],
+      ];
+      const missing = rows.filter(([, v, need]) => need && !String(v || "").trim()).length;
+      return `<div class="vid-details">
+        <div class="vid-details-head">
+          <p class="vid-details-sum ${missing ? "is-open" : "is-done"}">${missing ? `${missing} detail${missing === 1 ? "" : "s"} still to fill in.` : "Everything's filled in."}</p>
+          <button type="button" class="admin-btn admin-btn-ghost" data-details-edit>Edit booking</button>
+        </div>
+        <dl class="vid-details-list">${rows.map(([k, v, need]) => {
+          const val = String(v || "").trim();
+          return `<div class="vid-details-row"><dt>${escapeHtml(k)}</dt><dd>${val ? escapeHtml(val).replace(/\n/g, "<br>") : need ? '<span class="vid-details-missing">Not filled in</span>' : '<span class="vid-details-none">—</span>'}</dd></div>`;
+        }).join("")}</dl>
+      </div>`;
+    }
+
     /* The tabs on the booking card. The first one is always the stage itself -
        progress bar, whatever gate applies, and the work this stage is asking
        for. The rest are the standing sections.
@@ -1991,6 +2050,7 @@ import "../../styles/admin.css";
        actionHost), and the same goes for delivery from Editing to Sent. Showing
        a tab as well would open onto an empty pane. */
     const CAND_TABS = [
+      ["details",  "Booking details"],
       ["stage",    "Progress"],
       ["delivery", "Delivery"],
       ["invoice",  "Invoice"],
@@ -2009,7 +2069,8 @@ import "../../styles/admin.css";
     function renderCandTabs(b) {
       return `<div class="vid-tabs" role="tablist">${CAND_TABS
         .filter(([key]) => candTabShown(b, key))
-        .map(([key, label], i) => `<button type="button" role="tab" class="vid-tab${i === 0 ? " is-active" : ""}" data-tab="${key}">${escapeHtml(label)}</button>`)
+        // Progress is still where the page opens; Booking details sits before it.
+        .map(([key, label]) => `<button type="button" role="tab" class="vid-tab${key === "stage" ? " is-active" : ""}" data-tab="${key}">${escapeHtml(label)}</button>`)
         .join("")}</div>`;
     }
     function showCandTab(key) {
