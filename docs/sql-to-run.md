@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] [supabase/booking_document_strategy.sql](../supabase/booking_document_strategy.sql) — lets a social media client's onboarding take an uploaded strategy document (Strategy > Upload a document). Added 22 Oct 2026.
+Nothing waiting.
 
 ## Done
 
+- [x] supabase/booking_document_strategy.sql — strategy document uploads (22 Oct)
 - [x] supabase/invoicing_automation_3.sql — Abbie's monthly invoice list (22 Oct)
 - [x] supabase/invoicing_automation_2.sql — the invoice schedule from your sheet (21 Oct)
 - [x] supabase/invoicing_automation.sql — automatic invoicing (21 Oct)
