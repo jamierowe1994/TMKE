@@ -57,7 +57,7 @@ import "../../../styles/admin.css";
             <label class="editor-field">
               <span>Free from</span>
               <input type="date" name="free_from" />
-              <small>Members see it from the start of this day. Leave empty for straight away.</small>
+              <small>It goes live at 8am on this day, and members get a bell notice. Leave empty for straight away.</small>
             </label>
             <label class="editor-field">
               <span>Free until</span>
@@ -94,6 +94,7 @@ import "../../../styles/admin.css";
           <label class="editor-field">
             <span>Description</span>
             <textarea name="description" rows="3" maxlength="500" placeholder="One short paragraph shown on the storefront card."></textarea>
+            <small id="pk-desc-bell" hidden>On a free pack this is also the bell notice members get when it goes live: the first line is its heading, the second line the smaller text under it.</small>
           </label>
 
           <label class="editor-field">
@@ -911,6 +912,8 @@ import "../../../styles/admin.css";
       if (brandsWrap) brandsWrap.hidden = !(isPrint && acc === "brands");
       const windowRow = document.getElementById("pk-window");
       if (windowRow) windowRow.hidden = acc !== "members";
+      const descBell = document.getElementById("pk-desc-bell");
+      if (descBell) descBell.hidden = acc !== "members";
 
       // Price and public preview are questions about a shop; category too,
       // for print, which is never in it.
@@ -1306,6 +1309,7 @@ import "../../../styles/admin.css";
       form.elements.category.value = data.category || "";
       form.elements.kind.value = data.kind || "social";
       form.elements.access.value = data.access || "buy";
+      wasFree = data.access === "members";
       form.elements.free_from.value = londonYmd(data.available_from);
       form.elements.free_until.value = londonYmd(data.available_until, true);
       setBrands(Array.isArray(data.brands) ? data.brands : []);
@@ -1341,19 +1345,53 @@ import "../../../styles/admin.css";
     }
     function hideError() { errorEl.hidden = true; }
 
-    /* Dates on this form are London days. available_from is the midnight that
-       starts "Free from"; available_until the midnight that ends "Free until". */
+    /* Dates on this form are London days. available_from is 8am on "Free
+       from" (Dani, 22 Oct: a free pack always goes live at 8am, with a bell
+       notice); available_until the midnight that ends "Free until". */
     let hadWindow = false;
-    function londonMidnightIso(ymd, addDays = 0) {
+    let wasFree = false;   // loaded as a free pack: switching it back cancels its notice
+    function londonAtIso(ymd, addDays = 0, hour = 0) {
       const [y, m, d] = ymd.split("-").map(Number);
-      const day = new Date(Date.UTC(y, m - 1, d + addDays));
-      // London is UTC or UTC+1: take whichever offset puts the moment at 00:00 there.
+      const day = new Date(Date.UTC(y, m - 1, d + addDays, hour));
+      const want = String(hour).padStart(2, "0") + ":00";
+      // London is UTC or UTC+1: take whichever offset puts the moment at that hour there.
       for (const off of [0, 1]) {
         const at = new Date(day.getTime() - off * 3600000);
         const hm = at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: "Europe/London" });
-        if (hm === "00:00") return at.toISOString();
+        if (hm === want) return at.toISOString();
       }
       return day.toISOString();
+    }
+
+    /* The bell notice for a free pack (supabase/member_broadcasts.sql): one
+       Hub notice per pack, found by the link it opens. Booked for the moment
+       the pack goes live, from the description's first line (the heading) and
+       second (the smaller text). Re-saving moves a booked one; a pack that is
+       no longer free, live or described has its booked notice cancelled. One
+       already in their bells is left alone. Says what it did, for the toast. */
+    async function syncFreePackNotice(packId, packTitle, access, status, description, fromIso) {
+      const href = `/account/editor?pack=${encodeURIComponent(packId)}`;
+      const { data: rows, error } = await supabase.from("member_broadcasts")
+        .select("id, status").eq("href", href).in("status", ["scheduled", "sending", "sent"]);
+      if (error) return "The bell notice couldn't be booked: " + error.message;
+      const booked = (rows || []).find((r) => r.status === "scheduled");
+      const lines = String(description || "").split(/\n+/).map((l) => l.trim()).filter(Boolean);
+      if (access !== "members" || status !== "active" || !lines.length) {
+        if (booked) await supabase.from("member_broadcasts").update({ status: "cancelled" }).eq("id", booked.id).eq("status", "scheduled");
+        return booked ? "Its booked bell notice is cancelled." : "";
+      }
+      if (!booked && (rows || []).length) return "";
+      const at = fromIso && Date.parse(fromIso) > Date.now() ? fromIso : new Date().toISOString();
+      const row = {
+        title: lines[0].slice(0, 80),
+        body: lines.slice(1).join(" ").slice(0, 200) || null,
+        href, link_label: packTitle, send_at: at, status: "scheduled",
+      };
+      const res = booked
+        ? await supabase.from("member_broadcasts").update(row).eq("id", booked.id).eq("status", "scheduled")
+        : await supabase.from("member_broadcasts").insert(row);
+      if (res.error) return "The bell notice couldn't be booked: " + res.error.message;
+      return "Bell notice booked for " + new Date(at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Europe/London" }) + ".";
     }
     function londonYmd(iso, lastDay = false) {
       if (!iso) return "";
@@ -1431,8 +1469,8 @@ import "../../../styles/admin.css";
         // The window, as London midnights. Only sent when it means something,
         // so other packs still save before supabase/pack_free_window.sql runs.
         if (access === "members" || hadWindow) {
-          payload.available_from = freeFrom ? londonMidnightIso(freeFrom) : null;
-          payload.available_until = freeUntil ? londonMidnightIso(freeUntil, 1) : null;
+          payload.available_from = freeFrom ? londonAtIso(freeFrom, 0, 8) : null;
+          payload.available_until = freeUntil ? londonAtIso(freeUntil, 1) : null;
         }
 
         let result;
@@ -1519,10 +1557,19 @@ import "../../../styles/admin.css";
           if (oErr) console.error("[order]", selectedOrder[i], oErr);
         }
 
+        // A free pack's bell notice, booked for when it goes live.
+        let bellMsg = "";
+        if (savedPackId && (access === "members" || wasFree)) {
+          try {
+            bellMsg = await syncFreePackNotice(savedPackId, title, access, payload.status,
+              payload.description, payload.available_from || null);
+          } catch (_) {}
+        }
+
         // The pack's page on the shop is built at deploy time: rebuild so a new,
         // renamed or newly live pack gets its page instead of a 404.
         saveBtn.textContent = "Updating the site…";
-        const msg = await rebuildSite(supabase);
+        const msg = [await rebuildSite(supabase), bellMsg].filter(Boolean).join(" ");
         try { if (msg) sessionStorage.setItem("tmke.admin.packsNote", msg); } catch (_) {}
         location.href = "/admin/packs";
       } catch (err) {
