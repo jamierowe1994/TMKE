@@ -19,7 +19,7 @@
 // bundle into the Worker.)
 import { renderTemplate, mergeContextFor, defaultBrand } from "../../src/lib/email-render.js";
 import { EMAIL_STYLE_DEFAULTS, emailStyleStrings, styleEmailContent } from "../../src/lib/email-styles.js";
-import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, packageBrief, STUDIO_LOCATION, bookingInvoiceDraft } from "../../src/lib/videography-config.js";
+import { OFF_LOCATION_SERVICES, OFF_LOCATION_BUFFER_DAYS, BUFFERED_SERVICES, STUDIO_DAY_BUFFER_DAYS, packageBrief, STUDIO_LOCATION, bookingInvoiceDraft } from "../../src/lib/videography-config.js";
 // Invoice PDF: reuse the same pure renderer the admin preview uses, then print
 // it to a real A4 PDF with Browser Rendering (headless Chrome).
 import { renderInvoiceHtml, money } from "../../src/lib/invoice-render.js";
@@ -2636,6 +2636,11 @@ function diaryBlocksFrom(rows, date, service, skip) {
     if (onLocation && day < date && BUFFERED_SERVICES.includes(kind)) {
       const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
       if (gap <= OFF_LOCATION_BUFFER_DAYS) return { day: true, reason: "off_location_buffer" };
+    }
+    // The editing day after a new-starter Studio Day.
+    if (onLocation && day < date && /new-starter/i.test(String(r.service || ""))) {
+      const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
+      if (gap <= STUDIO_DAY_BUFFER_DAYS) return { day: true, reason: "studio_day_buffer" };
     }
   }
   return { day: false, ranges };
@@ -7184,13 +7189,20 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
           if (onLocation.length) { notes.push({ kind: "shoot", text: "Out on a shoot." }); closed = true; }
           else if (studio.length && !starter[d]) notes.push({ kind: "studio", text: "Studio sessions booked: studio bookings only." });
           if (!onLocation.length) {
+            const gapTo = (r) => Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${dayOfRow(r)}T00:00:00Z`)) / 86400000);
             const after = live.filter((r) => {
-              if (!BUFFERED_SERVICES.includes(bookingKindOf(r))) return false;
-              const gap = Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${dayOfRow(r)}T00:00:00Z`)) / 86400000);
-              return gap >= 1 && gap <= OFF_LOCATION_BUFFER_DAYS;
+              const g = gapTo(r);
+              if (/new-starter/i.test(String(r.service || ""))) return g >= 1 && g <= STUDIO_DAY_BUFFER_DAYS;
+              return BUFFERED_SERVICES.includes(bookingKindOf(r)) && g >= 1 && g <= OFF_LOCATION_BUFFER_DAYS;
             });
-            if (after.length) {
-              const who = after.map((r) => `${r.client_name || "a client"} (${dayLong(dayOfRow(r))})`).join(" and ");
+            // One mention per Studio Day, however many starters were on it.
+            const seen = new Set();
+            const named = after.filter((r) => {
+              const k = /new-starter/i.test(String(r.service || "")) ? `sd:${dayOfRow(r)}` : r;
+              if (seen.has(k)) return false; seen.add(k); return true;
+            });
+            if (named.length) {
+              const who = named.map((r) => /new-starter/i.test(String(r.service || "")) ? `the Studio Day (${dayLong(dayOfRow(r))})` : `${r.client_name || "a client"} (${dayLong(dayOfRow(r))})`).join(" and ");
               notes.push({ kind: "editing", text: `Editing after ${who}: studio bookings only.` });
             }
           }

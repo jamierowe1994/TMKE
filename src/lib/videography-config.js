@@ -492,6 +492,11 @@ export const OFF_LOCATION_BUFFER_DAYS = 2;
 // Which shoots take the clear days after them. Photography doesn't: its
 // editing is an afternoon (1.5-2.5 hrs), not a day and a half.
 export const BUFFERED_SERVICES = ["property", "agent"];
+// A TEG new-starter Studio Day takes one editing day after it (Danielle, 22
+// Oct 2026): the sessions are shorter and at our own studio, so one day, not
+// two. Like the days after a location shoot, that day takes no location
+// shoots; the studio can still be booked. Only when the day had sessions.
+export const STUDIO_DAY_BUFFER_DAYS = 1;
 export const isOffLocation = (serviceKey) => OFF_LOCATION_SERVICES.includes(serviceKey);
 
 // ---- Fine & Country offices -------------------------------------------------
