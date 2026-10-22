@@ -1511,7 +1511,7 @@ async function newStarterPlan(env, month) {
   try { cal = await nsCalendar(env, candidates); } catch (_) {}
   const rows = await boardRows(env, candidates[0], candidates[candidates.length - 1]);
   const dayOf = (d) => {
-    const blocks = diaryBlocksFrom(rows, d, "content-studio", null);
+    const blocks = diaryBlocksFrom(rows, d, "new-starter", null);
     const sessions = sessionsFor().map(([start, minutes]) => {
       const s = hmToMin(start);
       const why = blocks.day ? blocks.reason
@@ -2614,6 +2614,10 @@ async function diaryBlocks(env, date, service, skip) {
 }
 function diaryBlocksFrom(rows, date, service, skip) {
   const onLocation = OFF_LOCATION_SERVICES.includes(service);
+  // Editing days close the diary to everything except new-starter Studio Day
+  // sessions (Danielle, 22 Oct 2026); before that they only stopped location
+  // shoots. A discovery call is a Teams call, so it isn't stopped either.
+  const editingBlocks = service !== "new-starter" && service !== "discovery";
   const ranges = [];
   for (const r of rows) {
     if (skip && r.reschedule_token === skip) continue;
@@ -2633,12 +2637,12 @@ function diaryBlocksFrom(rows, date, service, skip) {
       }
       return { day: true, reason: onLocation && OFF_LOCATION_SERVICES.includes(kind) ? "off_location_taken" : "day_taken" };
     }
-    if (onLocation && day < date && BUFFERED_SERVICES.includes(kind)) {
+    if (editingBlocks && day < date && BUFFERED_SERVICES.includes(kind)) {
       const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
       if (gap <= OFF_LOCATION_BUFFER_DAYS) return { day: true, reason: "off_location_buffer" };
     }
     // The editing day after a new-starter Studio Day.
-    if (onLocation && day < date && /new-starter/i.test(String(r.service || ""))) {
+    if (editingBlocks && day < date && /new-starter/i.test(String(r.service || ""))) {
       const gap = Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${day}T00:00:00Z`)) / 86400000);
       if (gap <= STUDIO_DAY_BUFFER_DAYS) return { day: true, reason: "studio_day_buffer" };
     }
@@ -7203,7 +7207,8 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
             });
             if (named.length) {
               const who = named.map((r) => /new-starter/i.test(String(r.service || "")) ? `the Studio Day (${dayLong(dayOfRow(r))})` : `${r.client_name || "a client"} (${dayLong(dayOfRow(r))})`).join(" and ");
-              notes.push({ kind: "editing", text: `Editing after ${who}: studio bookings only.` });
+              notes.push({ kind: "editing", text: `Editing after ${who}.` });
+              if (!starter[d]) closed = true;
             }
           }
           if (!hours.length) { notes.push({ kind: "off", text: `Jack doesn't work ${DOW[new Date(`${d}T12:00:00Z`).getUTCDay()]}s.` }); closed = true; }

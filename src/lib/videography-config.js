@@ -494,8 +494,9 @@ export const OFF_LOCATION_BUFFER_DAYS = 2;
 export const BUFFERED_SERVICES = ["property", "agent"];
 // A TEG new-starter Studio Day takes one editing day after it (Danielle, 22
 // Oct 2026): the sessions are shorter and at our own studio, so one day, not
-// two. Like the days after a location shoot, that day takes no location
-// shoots; the studio can still be booked. Only when the day had sessions.
+// two. Only when the day had sessions. Editing days, after a Studio Day or
+// a location shoot, take no bookings at all except new-starter Studio Day
+// sessions (Danielle, 22 Oct 2026); see diaryBlocksFrom in the Worker.
 export const STUDIO_DAY_BUFFER_DAYS = 1;
 export const isOffLocation = (serviceKey) => OFF_LOCATION_SERVICES.includes(serviceKey);
 

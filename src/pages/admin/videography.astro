@@ -1064,10 +1064,13 @@ import "../../styles/admin.css";
     /* Calendar view of the diary. */
     .vid-cal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
     .vid-cal-month { font-family: var(--serif); font-size: 20px; color: var(--ink); }
-    .vid-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+    /* Seven equal columns, and every week row the height of the tallest, so
+       the grid reads as a calendar whatever the days hold. The weekday
+       header is the one auto-height row. */
+    .vid-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: auto; grid-auto-rows: minmax(110px, 1fr); gap: 8px; }
     .vid-cal-dow { font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.45); padding: 0 2px 4px; }
     .vid-cal-day {
-      min-height: 92px; background: #fff; border: 1px solid var(--border, rgba(28,29,34,0.1));
+      min-width: 0; background: #fff; border: 1px solid var(--border, rgba(28,29,34,0.1));
       border-radius: 5px; padding: 7px 8px; display: flex; flex-direction: column; gap: 5px;
     }
     .vid-cal-day.is-out { background: transparent; border-style: dashed; opacity: 0.5; }
@@ -1083,7 +1086,8 @@ import "../../styles/admin.css";
        a new-starter Studio Day in gold, a closed day grey, a partly open day
        hatched, each with its reasons written underneath. */
     .vid-cal-day.is-closed { background: rgba(28,29,34,0.06); }
-    .vid-cal-day.is-partial { background: repeating-linear-gradient(135deg, #fff 0 7px, rgba(28,29,34,0.045) 7px 14px); }
+    /* Faint, on white: the stripes are a hint, the note is what to read. */
+    .vid-cal-day.is-partial { background: repeating-linear-gradient(135deg, transparent 0 9px, rgba(28,29,34,0.03) 9px 18px) #fff; }
     .vid-cal-day.is-starter { background: rgba(224,185,106,0.2); border-color: rgba(176,134,52,0.45); }
     .vid-cal-note { font-family: var(--sans); font-size: 10.5px; line-height: 1.35; color: rgba(28,29,34,0.62); }
     .vid-cal-note.n-starter { color: #7a5a1c; font-weight: 600; }
@@ -1092,7 +1096,7 @@ import "../../styles/admin.css";
     .vid-cal-key i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(28,29,34,0.15); }
     .vid-cal-key .k-starter { background: rgba(224,185,106,0.35); border-color: rgba(176,134,52,0.45); }
     .vid-cal-key .k-closed { background: rgba(28,29,34,0.1); }
-    .vid-cal-key .k-partial { background: repeating-linear-gradient(135deg, #fff 0 3px, rgba(28,29,34,0.12) 3px 6px); }
+    .vid-cal-key .k-partial { background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(28,29,34,0.08) 3px 6px) #fff; }
     .vid-cal-key-note { color: #a33; }
     .vid-cal-ev strong { display: block; font-weight: 700; }
     .vid-col { background: transparent; border-left: 0; border-right: 0; border-bottom: 0; min-width: 0; display: flex; flex-direction: column; }
