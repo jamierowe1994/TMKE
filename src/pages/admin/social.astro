@@ -925,6 +925,13 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-onb-topic-h { margin: 0 0 3px; font-family: var(--sans); font-size: 13.5px; font-weight: 700; color: var(--ink); }
     .smm-onb-c { font-weight: 500; opacity: 0.6; margin-left: 4px; }
     .smm-onb-part[hidden] { display: none; }
+    .smm-onb-files .smm-btn { margin-top: 4px; }
+    /* After onboarding: kept under Package details, folded away. */
+    .smm-onb-done { margin-top: 18px; border-top: 1px solid rgba(28,29,34,0.1); padding-top: 12px; }
+    .smm-onb-done > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.55); margin-bottom: 12px; }
+    .smm-onb-done > summary::-webkit-details-marker { display: none; }
+    .smm-onb-done > summary svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; transition: transform .18s; }
+    .smm-onb-done[open] > summary svg { transform: rotate(180deg); }
     .smm-onb-status { font-family: var(--sans); font-size: 11.5px; color: rgba(28,29,34,0.45); margin: 10px 0 0; }
     .smm-onb-status:empty { display: none; }
     .smm-comm-h { margin: 22px 0 10px; font-family: var(--sans); font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(28,29,34,0.5); }
@@ -1109,7 +1116,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     const USER_SVG = '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 
     const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || "").replace(/\/+$/, "");
-    const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["content_plan", "Content plan"], ["insights_report", "Insights report"], ["delivery", "Deliverables"], ["invoice", "Invoice"], ["other", "Other"]];
+    const SMM_CATS = [["agreement", "Contract"], ["prep", "Proposal"], ["strategy", "Strategy"], ["content_plan", "Content plan"], ["insights_report", "Insights report"], ["delivery", "Deliverables"], ["invoice", "Invoice"], ["other", "Other"]];
     const catLabel = (c) => (SMM_CATS.find((x) => x[0] === c) || [, "Document"])[1];
     const isDemo = (r) => String(r.id).startsWith("demo");
     async function authToken() {
@@ -1291,7 +1298,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const showProp = idx >= STAGE_INDEX["proposal_sent"];
       // The onboarding checklist, from Onboarding on (Danielle, 21 Oct 2026).
       const showOnb = idx >= STAGE_INDEX["onboarding"];
+      // Its own tab only while they're onboarding; after that it's kept for
+      // reference under Notes > Package details (Danielle, 22 Oct 2026).
+      const onbTab = st === "onboarding";
       if (["onboarding", "invoices", "videography"].includes(activeTab) && !showOnb) activeTab = "notes";
+      if (activeTab === "onboarding" && !onbTab) activeTab = "notes";
       if (activeTab === "insights" && !isActive) activeTab = "notes"; // social channels + engagement (+ Direct Debit) from Proposal sent on
       const plats = Array.isArray(r.platforms) ? r.platforms : [];
       const pipe = `<div class="smm-pipe"><div class="smm-pipe-track"><div class="smm-pipe-fill" style="width:${(idx / (n - 1)) * 100}%"></div></div>${STAGES.map((s, i) => {
@@ -1406,7 +1417,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <div class="smm-tabs" role="tablist">
               <button type="button" class="smm-tab ${activeTab === "notes" ? "is-active" : ""}" data-tab="notes">Notes</button>
               <button type="button" class="smm-tab ${activeTab === "emails" ? "is-active" : ""}" data-tab="emails">Communication<span class="smm-tab-n" id="smm-comm-n"></span></button>
-              ${showOnb ? `<button type="button" class="smm-tab ${activeTab === "onboarding" ? "is-active" : ""}" data-tab="onboarding">Onboarding<span class="smm-tab-n" id="smm-onb-n"></span></button>` : ""}
+              ${onbTab ? `<button type="button" class="smm-tab ${activeTab === "onboarding" ? "is-active" : ""}" data-tab="onboarding">Onboarding<span class="smm-tab-n" id="smm-onb-n"></span></button>` : ""}
               ${showOnb ? `<button type="button" class="smm-tab ${activeTab === "invoices" ? "is-active" : ""}" data-tab="invoices">Invoicing</button>` : ""}
               ${isActive ? `<button type="button" class="smm-tab ${activeTab === "insights" ? "is-active" : ""}" data-tab="insights">Insights</button>` : ""}
               ${showOnb ? `<button type="button" class="smm-tab ${activeTab === "videography" ? "is-active" : ""}" data-tab="videography">Videography</button>` : ""}
@@ -1415,13 +1426,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
                  Notes, Client activity and Files, one at a time. -->
             <div id="smm-panel-notes" class="smm-panel-body" ${activeTab === "notes" ? "" : "hidden"}>
               <div class="ri-subtabs smm-ntabs">${NOTE_TABS.map(([k, l]) => `<button type="button" class="ri-subtab ${notesTab === k ? "is-active" : ""}" data-ntab="${k}">${l}</button>`).join("")}</div>
-              <div class="smm-ntab" data-npanel="pkg" ${notesTab === "pkg" ? "" : "hidden"}><div class="smm-pkg" id="smm-pkg"></div></div>
+              <div class="smm-ntab" data-npanel="pkg" ${notesTab === "pkg" ? "" : "hidden"}><div class="smm-pkg" id="smm-pkg"></div>
+                ${showOnb && !onbTab ? `<details class="smm-onb-done"><summary>Onboarding ${CHEV_SVG}</summary><div id="smm-panel-onboarding"></div></details>` : ""}</div>
               <div class="smm-ntab" data-npanel="notes" ${notesTab === "notes" ? "" : "hidden"}><div id="smm-notes-list"><p class="smm-soon">Loading…</p></div></div>
               <div class="smm-ntab" data-npanel="activity" ${notesTab === "activity" ? "" : "hidden"}><div id="smm-activity-wrap"><p class="smm-soon">Loading…</p></div></div>
               <div class="smm-ntab" data-npanel="files" ${notesTab === "files" ? "" : "hidden"}><div id="smm-panel-files"></div></div>
             </div>
             <div id="smm-panel-emails" class="smm-panel-body" ${activeTab === "emails" ? "" : "hidden"}></div>
-            ${showOnb ? `<div id="smm-panel-onboarding" class="smm-panel-body" ${activeTab === "onboarding" ? "" : "hidden"}></div>` : ""}
+            ${onbTab ? `<div id="smm-panel-onboarding" class="smm-panel-body" ${activeTab === "onboarding" ? "" : "hidden"}></div>` : ""}
             ${showOnb ? `<div id="smm-panel-invoices" class="smm-panel-body" ${activeTab === "invoices" ? "" : "hidden"}></div>` : ""}
             ${isActive ? `<div id="smm-panel-insights" class="smm-panel-body" ${activeTab === "insights" ? "" : "hidden"}></div>` : ""}
             ${showOnb ? `<div id="smm-panel-videography" class="smm-panel-body" ${activeTab === "videography" ? "" : "hidden"}><p class="smm-soon">Loading…</p></div>` : ""}
@@ -2455,6 +2467,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       practicalIntro: "This is everything that needs to be in place before we start posting, and anything without a tick box ticks itself once the right details are on the client's file.",
       complete: "Every practical item is done, so this client is set up. Once the strategy's written, you're ready to click **Make active client**.",
       strategyIntro: "We write this down before we start posting, because it's what every month's content and report is measured against.",
+      strategyDoc: { label: "Strategy document", hint: "If the strategy's in a presentation or document, upload it here. It's also kept in **Files** under **Notes**.", add: "Upload a document" },
       activeConfirm: (n) => `There ${n === 1 ? "is still 1 onboarding item" : `are still ${n} onboarding items`} open for this client. Do you want to make them an active client anyway? Click OK to carry on, or Cancel to go back and finish them.`,
       tickedBy: (who, when) => `Ticked by ${who}, ${when}`,
       autoDone: "Ticked automatically", autoOpen: "Ticks itself when this is on the file",
@@ -2572,7 +2585,10 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const practical = `${c0.open ? `<p class="smm-onb-intro">${onbMd(C.practicalIntro)}</p>` : `<p class="smm-onb-intro smm-onb-complete">${onbMd(C.complete)}</p>`}
         ${ONB_GROUPS.map((g) => { const its = items.filter((it) => it.g === g); return its.length ? `<h4 class="smm-comm-h">${esc(C.groups[g])}</h4><div class="smm-onb-list">${its.map(row).join("")}</div>` : ""; }).join("")}`;
       const strategy = `<p class="smm-onb-intro">${onbMd(C.strategyIntro)}</p>
-        ${ONB_TOPICS.map((k) => { const t = C.topics[k]; return `<div class="smm-onb-topic"><h4 class="smm-onb-topic-h">${esc(t.label)}</h4><p class="smm-onb-hint">${onbMd(t.hint)}</p><textarea rows="4" data-onbtopic="${k}" placeholder="${esc(t.placeholder)}">${esc(o.strategy[k] || "")}</textarea></div>`; }).join("")}`;
+        ${ONB_TOPICS.map((k) => { const t = C.topics[k]; return `<div class="smm-onb-topic"><h4 class="smm-onb-topic-h">${esc(t.label)}</h4><p class="smm-onb-hint">${onbMd(t.hint)}</p><textarea rows="4" data-onbtopic="${k}" placeholder="${esc(t.placeholder)}">${esc(o.strategy[k] || "")}</textarea></div>`; }).join("")}
+        <div class="smm-onb-topic smm-onb-files"><h4 class="smm-onb-topic-h">${esc(C.strategyDoc.label)}</h4><p class="smm-onb-hint">${onbMd(C.strategyDoc.hint)}</p>
+          ${c.docs.filter((d) => d.category === "strategy").map((d) => `<div class="smm-doc"><span class="smm-doc-ico">${DOC_SVG}</span><span class="smm-doc-main"><span class="smm-doc-name">${esc(d.title || d.file_name)}</span></span><span class="smm-doc-tools"><button type="button" class="smm-mini" data-docdl="${esc(d.id)}" data-docname="${esc(d.file_name || "strategy")}">Download</button></span></div>`).join("")}
+          <button type="button" class="smm-btn smm-btn--sm" data-onbupload>${PLUS_SVG}${esc(C.strategyDoc.add)}</button></div>`;
       host.innerHTML = `
         <div class="ri-subtabs smm-onb-parts"><button type="button" class="ri-subtab${onbPart === "practical" ? " is-active" : ""}" data-onbpart="practical">Practical <span class="smm-onb-c">${c0.done} of ${c0.total}</span></button><button type="button" class="ri-subtab${onbPart === "strategy" ? " is-active" : ""}" data-onbpart="strategy">Strategy <span class="smm-onb-c">${c0.written} of ${ONB_TOPICS.length}</span></button></div>
         ${c.loaded ? "" : `<p class="smm-soon">Loading…</p>`}
@@ -2581,6 +2597,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         <p class="smm-onb-status" id="smm-onb-status"></p>`;
       const set = (fn) => { const cur = onbState(r); fn(cur); r.onboarding = cur; };
       host.querySelectorAll("[data-onbpart]").forEach((b) => b.addEventListener("click", () => { onbPart = b.dataset.onbpart; renderOnboarding(r); }));
+      host.querySelectorAll("[data-docdl]").forEach((b) => b.addEventListener("click", () => downloadDoc(b.getAttribute("data-docdl"), b.getAttribute("data-docname"))));
+      host.querySelector("[data-onbupload]")?.addEventListener("click", () => openAddFile(r, { cat: "strategy", name: "Strategy", heading: C.strategyDoc.add }));
       host.querySelectorAll("[data-onbtick]").forEach((b) => b.addEventListener("change", () => {
         set((cur) => { if (b.checked) cur.done[b.dataset.onbtick] = { at: new Date().toISOString(), by: ME || "you" }; else delete cur.done[b.dataset.onbtick]; });
         renderOnboarding(r); saveOnb(r);

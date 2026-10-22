@@ -14087,7 +14087,7 @@ async function sendGalleryPinEmail(env, bookingId) {
         const q = url.searchParams;
         const bookingId = (q.get("booking_id") || "").trim();
         const source = q.get("source") === "smm" ? "smm" : "videography";
-        const category = ["agreement", "prep", "invoice", "delivery", "content_plan", "insights_report", "other"].includes(q.get("category")) ? q.get("category") : "other";
+        const category = ["agreement", "prep", "strategy", "invoice", "delivery", "content_plan", "insights_report", "other"].includes(q.get("category")) ? q.get("category") : "other";
         const fileName = (q.get("file_name") || "document").replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 120);
         const title = q.get("title") || null;
         const invoiceDate = /^\d{4}-\d{2}-\d{2}$/.test(q.get("invoice_date") || "") ? q.get("invoice_date") : null;
