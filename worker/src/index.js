@@ -211,6 +211,7 @@ async function invoiceEmailCtx(env, inv) {
    booking. Used by the admin's Send button and by the automatic invoicing
    once an invoice is approved (Danielle, 21 Oct 2026). b: { id, cc,
    email_subject, email_body }. by: who sent it, for the audit note. */
+const SMM_INVOICE_BCC = "abigail.saunders@themarketingexperts.co.uk";
 async function sendInvoiceNow(env, b, by) {
   b = b || {};
   const id = String((b && b.id) || "").trim();
@@ -252,9 +253,14 @@ async function sendInvoiceNow(env, b, by) {
   // We always get a copy of what went out. Blind, so the client sees only
   // their own address - "did that invoice actually send" should be
   // answerable from our own inbox, not only from the audit trail.
+  // Social media invoices also go blind to Abbie, who manages the accounts
+  // (Danielle, 22 Oct 2026), unless she's already on the email.
   const already = `${mail.to || ""},${mail.cc || ""}`.toLowerCase();
-  const copyTo = String(inv.bcc_email || env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "").trim();
-  const bcc = copyTo && !already.includes(copyTo.toLowerCase()) ? copyTo : null;
+  const isSocial = (ctx.recurring && ctx.recurring.kind === "social") || inv.booking_source === "smm";
+  const copies = [inv.bcc_email || env.ACCOUNTS_NOTIFY || env.MAIL_SENDER || "", isSocial ? SMM_INVOICE_BCC : ""]
+    .flatMap((x) => String(x).split(/[;,]/)).map((x) => x.trim()).filter(Boolean)
+    .filter((x, i, all) => !already.includes(x.toLowerCase()) && all.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
+  const bcc = copies.length ? copies.join(", ") : null;
   const emailed = await sendEmail(env, {
     to: mail.to,
     cc: mail.cc,

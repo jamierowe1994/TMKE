@@ -103,6 +103,26 @@ import "../../styles/admin.css";
       <p class="vid-loading" id="vid-diary-loading">Loading diary…</p>
     </div>
     <button type="button" class="admin-btn admin-btn-primary vid-diary-save" id="vid-diary-save" hidden>Save diary</button>
+
+    <!-- The rules the booking flow applies on top of the hours above
+         (diaryBlocksFrom and newStarterPlan in the Worker). Keep in step. -->
+    <section class="vid-rules" aria-labelledby="vid-rules-h">
+      <div class="vid-rules-h" id="vid-rules-h">Why a day might be closed</div>
+      <p class="vid-rules-intro">The booking page and the admin calendar start from the weekly hours above, then the system applies a few rules on top of them automatically. If a day shows as closed or only partly open, one of these rules is the reason:</p>
+      <dl class="vid-rules-list">
+        <div class="vid-rule"><dt>Jack's calendar and the bookings board</dt><dd>Anything in Jack&rsquo;s Microsoft 365 calendar is taken off his bookable hours. Anything on the bookings board is taken off too, including bookings added by hand in admin, because those never reach his calendar.</dd></div>
+        <div class="vid-rule"><dt>One location shoot a day</dt><dd>Jack has to travel to property, agent and photography shoots, so only one can go in a day. A day with a location shoot is closed to every other booking, studio sessions included.</dd></div>
+        <div class="vid-rule"><dt>Studio days stay at the studio</dt><dd>A day with Content Studio sessions booked takes no location shoots, because Jack is at the studio. You can still book more studio sessions around the ones already booked, since they&rsquo;re meant to run back to back.</dd></div>
+        <div class="vid-rule"><dt>Editing days</dt><dd>The two days after a property or agent shoot are editing days. So is the day after a TEG new-starter Studio Day, but only if it had sessions booked, and one day is enough because those sessions are shorter and at our own studio. On an editing day, only new-starter Studio Day sessions and discovery calls can be booked. Photography has no editing days because its editing takes an afternoon.</dd></div>
+        <div class="vid-rule"><dt>Discovery calls</dt><dd>These are Teams calls, so an editing day doesn&rsquo;t stop them.</dd></div>
+        <div class="vid-rule"><dt>New-starter Studio Days</dt><dd>These fall on the last Tuesday of the starter&rsquo;s shoot month. There are three two-hour sessions, at 9:30am, 12:30pm and 3:30pm.</dd></div>
+        <div class="vid-rule"><dt>A second Studio Day when needed</dt><dd>If more starters are still to book than the Tuesday has sessions left, the Wednesday after opens as a second Studio Day with the same three sessions. Starters who&rsquo;ve booked, cancelled or left aren&rsquo;t counted. Once the Wednesday has a booking, it stays open.</dd></div>
+        <div class="vid-rule"><dt>Blocked in Jack's calendar</dt><dd>Each Studio Day is blocked all day in Jack&rsquo;s calendar as “New-starter Studio Day (booked out)”, so regular bookings can&rsquo;t land on it. The system checks every 15 minutes and keeps these blocks in place for this month and the next two.</dd></div>
+        <div class="vid-rule"><dt>Closing an unused Wednesday</dt><dd>If nobody is booked on the Wednesday, deleting its block from Jack&rsquo;s calendar closes that day again. It only opens again if more starters arrive and it&rsquo;s needed.</dd></div>
+        <div class="vid-rule"><dt>Shoots already on a Studio Day</dt><dd>If a regular shoot was already booked on a day that becomes a Studio Day, the admin bell flags it once so you can move it.</dd></div>
+      </dl>
+      <p class="vid-rules-intro">To see all of this at a glance, open <strong>Calendar view</strong>: Studio Days are gold, closed days are grey and partly open days are hatched, with the reason written in each day.</p>
+    </section>
   </section>
 
   <!-- ===================== DELIVER (uploads → client) ===================== -->
@@ -1188,6 +1208,18 @@ import "../../styles/admin.css";
     .vid-hour:hover { border-color: var(--english-violet); }
     .vid-hour.is-on { background: var(--english-violet); color: var(--paper); border-color: var(--english-violet); }
     .vid-diary-save { margin-top: 14px; }
+    /* The booking rules, under the hours. House wine strip for the heading. */
+    .vid-rules { margin-top: 36px; max-width: 75%; }
+    @media (max-width: 900px) { .vid-rules { max-width: none; } }
+    .vid-rules-h { background: var(--english-violet); color: #fff; border-radius: 4px; padding: 11px 18px; font-family: "Space Grotesk", var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; }
+    .vid-rules-intro { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.75); margin: 16px 0 6px; }
+    .vid-rules-intro strong { color: var(--ink); }
+    .vid-rules-list { margin: 0; border-top: 1px solid rgba(28,29,34,0.12); border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .vid-rule { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 6px 24px; padding: 12px 0; border-top: 1px solid rgba(28,29,34,0.06); }
+    .vid-rule:first-child { border-top: 0; }
+    @media (max-width: 700px) { .vid-rule { grid-template-columns: 1fr; } }
+    .vid-rule dt { font-family: var(--sans); font-size: 13px; font-weight: 700; color: var(--ink); }
+    .vid-rule dd { margin: 0; font-family: var(--sans); font-size: 13px; line-height: 1.6; color: rgba(28,29,34,0.72); }
 
     /* ---- Deliver ---- */
     .vid-deliver-pick { max-width: 440px; margin-bottom: 20px; }
