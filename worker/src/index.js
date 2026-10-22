@@ -7104,6 +7104,112 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ days, service, duration }, 200, request, env);
       }
 
+      /* ---- The admin calendar's view of the diary (Danielle, 22 Oct 2026) ----
+         For each day in a range, why it isn't fully open to new bookings, in
+         the same terms the booking flow uses (diaryBlocksFrom, Jack's hours,
+         his 365 calendar, the new-starter Studio Days), so the calendar shows
+         what a client would find. Staff only. Each day:
+           { date, closed, notes: [{ kind, text }] }
+         kind: starter | shoot | editing | studio | off | busy
+         closed: nothing at all can be booked that day. */
+      if (path.endsWith("/videography/diary") && request.method === "GET") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        const from = url.searchParams.get("from") || "", to = url.searchParams.get("to") || "";
+        const ymdOk = (x) => /^\d{4}-\d{2}-\d{2}$/.test(x);
+        if (!ymdOk(from) || !ymdOk(to) || to < from) return json({ error: "from and to are YYYY-MM-DD" }, 400, request, env);
+        const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+        if (span > 62) return json({ error: "62 days at most" }, 400, request, env);
+        const dates = [];
+        for (let i = 0; i <= span; i++) dates.push(new Date(Date.parse(`${from}T00:00:00Z`) + i * 86400000).toISOString().slice(0, 10));
+        const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const t12 = (min) => nsTime12(minToHm(Math.max(0, Math.min(1439, min))));
+        const dayLong = (d) => new Date(`${d}T12:00:00Z`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+
+        const avail = (await sbGet(env, "videography_availability", "select=*")) || [];
+        const byWd = {}; avail.forEach((r) => { byWd[r.weekday] = rowHours(r); });
+        const lo = new Date(`${from}T00:00:00Z`); lo.setUTCDate(lo.getUTCDate() - OFF_LOCATION_BUFFER_DAYS - 1);
+        const hi = new Date(`${to}T00:00:00Z`); hi.setUTCDate(hi.getUTCDate() + 2);
+        const rows = (await sbGet(env, "videography_bookings",
+          `shoot_date=gte.${lo.toISOString()}&shoot_date=lt.${hi.toISOString()}&select=shoot_date,service_type,service,stage,kind,duration_min,reschedule_token,ms_event_id,client_name`)) || [];
+        const live = rows.filter((r) => r.shoot_date && r.stage !== "cancelled" && r.stage !== "discovery_call_booked" && r.service_type !== "discovery");
+        const dayOfRow = (r) => (r.kind === "booking" ? String(r.shoot_date).slice(0, 10) : londonParts(r.shoot_date).ymd);
+        const ourEvents = new Set(rows.map((r) => r.ms_event_id).filter(Boolean));
+
+        // Jack's calendar, less the events our own bookings put there and the
+        // Studio Day blocks (shown as Studio Days instead).
+        const busy = {};
+        let calError = null;
+        try {
+          let next = `/users/${encodeURIComponent(env.JACK_UPN)}/calendarView?startDateTime=${from}T00:00:00Z&endDateTime=${nsNextDay(to)}T01:00:00Z&$select=id,subject,start,end,showAs,isAllDay&$top=250`;
+          for (let page = 0; next && page < 4; page++) {
+            const r = await graph(env, "GET", next);
+            next = r && r["@odata.nextLink"] ? r["@odata.nextLink"].replace("https://graph.microsoft.com/v1.0", "") : null;
+            for (const ev of (r && r.value) || []) {
+              if (ourEvents.has(ev.id) || ev.subject === NEW_STARTER_BLOCK_SUBJECT || ev.showAs === "free") continue;
+              const s0 = ev.start && ev.start.dateTime, e0 = ev.end && ev.end.dateTime;
+              if (!s0 || !e0) continue;
+              const a = ev.isAllDay ? { ymd: s0.slice(0, 10), min: 0 } : londonParts(s0.replace(/\.\d+$/, "") + "Z");
+              const b = ev.isAllDay ? { ymd: e0.slice(0, 10), min: 0 } : londonParts(e0.replace(/\.\d+$/, "") + "Z");
+              for (const d of dates) {
+                if (a.ymd > d || b.ymd < d || (b.ymd === d && b.min === 0 && a.ymd < d)) continue;
+                const x = a.ymd < d ? 0 : a.min, y = b.ymd > d ? 1440 : b.min;
+                if (y > x) (busy[d] = busy[d] || []).push([x, y]);
+              }
+            }
+          }
+        } catch (e) { calError = "Jack's calendar couldn't be read, so his own appointments aren't shown."; }
+
+        // New-starter Studio Days for each month the range touches.
+        const starter = {};
+        for (const m of [...new Set(dates.map((d) => d.slice(0, 7)))]) {
+          try {
+            const plan = await newStarterPlan(env, m);
+            plan.days.forEach((d) => { starter[d.date] = d.sessions; });
+          } catch (_) {}
+        }
+
+        const days = dates.map((d) => {
+          const notes = [];
+          let closed = false;
+          const hours = byWd[new Date(`${d}T12:00:00Z`).getUTCDay()] || [];
+          if (starter[d]) {
+            const free = starter[d].filter((x) => !x.taken).length;
+            notes.push({ kind: "starter", text: `TEG new-starter Studio Day: ${free ? `${free} of ${starter[d].length} sessions free` : "every session taken"}.` });
+            closed = true;
+          }
+          const today = live.filter((r) => dayOfRow(r) === d);
+          const onLocation = today.filter((r) => { const k = bookingKindOf(r); return k && k !== "content-studio"; });
+          const studio = today.filter((r) => bookingKindOf(r) === "content-studio" && !/new-starter/i.test(String(r.service || "")));
+          if (onLocation.length) { notes.push({ kind: "shoot", text: "Out on a shoot." }); closed = true; }
+          else if (studio.length && !starter[d]) notes.push({ kind: "studio", text: "Studio sessions booked: studio bookings only." });
+          if (!onLocation.length) {
+            const after = live.filter((r) => {
+              if (!BUFFERED_SERVICES.includes(bookingKindOf(r))) return false;
+              const gap = Math.round((Date.parse(`${d}T00:00:00Z`) - Date.parse(`${dayOfRow(r)}T00:00:00Z`)) / 86400000);
+              return gap >= 1 && gap <= OFF_LOCATION_BUFFER_DAYS;
+            });
+            if (after.length) {
+              const who = after.map((r) => `${r.client_name || "a client"} (${dayLong(dayOfRow(r))})`).join(" and ");
+              notes.push({ kind: "editing", text: `Editing after ${who}: studio bookings only.` });
+            }
+          }
+          if (!hours.length) { notes.push({ kind: "off", text: `Jack doesn't work ${DOW[new Date(`${d}T12:00:00Z`).getUTCDay()]}s.` }); closed = true; }
+          else if (busy[d] && busy[d].length) {
+            const open0 = Math.min(...hours) * 60, open1 = (Math.max(...hours) + 1) * 60;
+            const merged = busy[d].map(([x, y]) => [Math.max(x, open0), Math.min(y, open1)]).filter(([x, y]) => y > x).sort((p, q) => p[0] - q[0])
+              .reduce((acc, r) => { const last = acc[acc.length - 1]; if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1]); else acc.push(r.slice()); return acc; }, []);
+            if (merged.length) {
+              const whole = merged.length === 1 && merged[0][0] <= open0 && merged[0][1] >= open1;
+              notes.push({ kind: "busy", text: whole ? "Busy all day in Jack's calendar." : `Busy in Jack's calendar ${merged.map(([x, y]) => `${t12(x)} to ${t12(y)}`).join(", ")}.` });
+              if (whole) closed = true;
+            }
+          }
+          return { date: d, closed, notes };
+        });
+        return json({ days, calError }, 200, request, env);
+      }
+
       if (path.endsWith("/ms/config") && request.method === "GET") {
         const rows = (await sbGet(env, "videography_availability", `select=weekday,hours,is_available,start_time,end_time`)) || [];
         const weekdays = {};

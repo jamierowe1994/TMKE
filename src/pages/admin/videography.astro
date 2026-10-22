@@ -65,6 +65,12 @@ import "../../styles/admin.css";
         <span class="vid-cal-month" id="vid-cal-month"></span>
         <button type="button" class="admin-btn admin-btn-ghost" id="vid-cal-next">&rarr;</button>
       </div>
+      <div class="vid-cal-key" aria-label="Key">
+        <span><i class="k-starter"></i>TEG new-starter Studio Day</span>
+        <span><i class="k-closed"></i>Closed to new bookings</span>
+        <span><i class="k-partial"></i>Partly open (studio only, or Jack busy for part of the day)</span>
+        <span class="vid-cal-key-note" id="vid-cal-note"></span>
+      </div>
       <div class="vid-cal-grid" id="vid-cal-grid"></div>
     </div>
     <p class="vid-loading" id="vid-clients-empty" hidden>No clients yet — add a booking to get started.</p>
@@ -1073,6 +1079,21 @@ import "../../styles/admin.css";
       border: 0; border-radius: 3px; padding: 4px 6px; cursor: pointer; width: 100%;
     }
     .vid-cal-ev:hover { background: rgba(var(--violet-rgb), 0.18); }
+    /* Why a day isn't fully open to new bookings (from /videography/diary):
+       a new-starter Studio Day in gold, a closed day grey, a partly open day
+       hatched, each with its reasons written underneath. */
+    .vid-cal-day.is-closed { background: rgba(28,29,34,0.06); }
+    .vid-cal-day.is-partial { background: repeating-linear-gradient(135deg, #fff 0 7px, rgba(28,29,34,0.045) 7px 14px); }
+    .vid-cal-day.is-starter { background: rgba(224,185,106,0.2); border-color: rgba(176,134,52,0.45); }
+    .vid-cal-note { font-family: var(--sans); font-size: 10.5px; line-height: 1.35; color: rgba(28,29,34,0.62); }
+    .vid-cal-note.n-starter { color: #7a5a1c; font-weight: 600; }
+    .vid-cal-key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin: 0 0 12px; font-family: var(--sans); font-size: 12px; color: rgba(28,29,34,0.7); }
+    .vid-cal-key span { display: inline-flex; align-items: center; gap: 7px; }
+    .vid-cal-key i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(28,29,34,0.15); }
+    .vid-cal-key .k-starter { background: rgba(224,185,106,0.35); border-color: rgba(176,134,52,0.45); }
+    .vid-cal-key .k-closed { background: rgba(28,29,34,0.1); }
+    .vid-cal-key .k-partial { background: repeating-linear-gradient(135deg, #fff 0 3px, rgba(28,29,34,0.12) 3px 6px); }
+    .vid-cal-key-note { color: #a33; }
     .vid-cal-ev strong { display: block; font-weight: 700; }
     .vid-col { background: transparent; border-left: 0; border-right: 0; border-bottom: 0; min-width: 0; display: flex; flex-direction: column; }
     .vid-col-head {
@@ -1703,6 +1724,18 @@ import "../../styles/admin.css";
     const startOfMonth = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
     const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
+    const calDiary = {};   // "from_to" -> "loading" | { days, calError } | { error }
+    async function loadDiary(key, from, to) {
+      calDiary[key] = "loading";
+      try {
+        const token = await authToken();
+        const res = await fetch(`${WORKER_URL}/videography/diary?from=${from}&to=${to}`, { headers: { Authorization: "Bearer " + token } });
+        const d = await res.json().catch(() => ({}));
+        calDiary[key] = res.ok ? d : { error: d.error || "Jack's diary couldn't be loaded." };
+      } catch (_) { calDiary[key] = { error: "Jack's diary couldn't be loaded." }; }
+      if (!document.getElementById("vid-cal")?.hidden) renderCalendar();
+    }
+
     function renderCalendar() {
       const grid = document.getElementById("vid-cal-grid");
       const label = document.getElementById("vid-cal-month");
@@ -1719,16 +1752,33 @@ import "../../styles/admin.css";
       const dows = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
       let html = dows.map((d) => `<div class="vid-cal-dow">${d}</div>`).join("");
 
+      // Why each day isn't fully open (Studio Days, shoots, editing days,
+      // studio sessions, Jack's hours and calendar), loaded per grid.
+      const ymd = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+      const end = new Date(start); end.setDate(start.getDate() + 41);
+      const key = `${ymd(start)}_${ymd(end)}`;
+      const diary = calDiary[key];
+      if (!diary) loadDiary(key, ymd(start), ymd(end));
+      const noteEl = document.getElementById("vid-cal-note");
+      if (noteEl) noteEl.textContent = diary === "loading" ? "Checking Jack's diary…" : (diary && diary.calError) || (diary && diary.error) || "";
+      const byDate = {}; ((diary && diary.days) || []).forEach((d) => { byDate[d.date] = d; });
+
       for (let i = 0; i < 42; i++) {
         const day = new Date(start); day.setDate(start.getDate() + i);
         const out = day.getMonth() !== calMonth.getMonth();
         const events = bookings.filter((b) => b.shoot_date && sameDay(new Date(b.shoot_date), day) && b.stage !== "cancelled");
-        html += `<div class="vid-cal-day${out ? " is-out" : ""}${sameDay(day, today) ? " is-today" : ""}">
+        const dd = byDate[ymd(day)];
+        // Weekends are greyed without saying so every week.
+        const weekend = day.getDay() === 0 || day.getDay() === 6;
+        const notes = ((dd && dd.notes) || []).filter((n) => !(weekend && n.kind === "off"));
+        const tone = notes.some((n) => n.kind === "starter") ? " is-starter" : dd && dd.closed ? " is-closed" : notes.length ? " is-partial" : "";
+        html += `<div class="vid-cal-day${out ? " is-out" : ""}${sameDay(day, today) ? " is-today" : ""}${tone}">
           <span class="vid-cal-num">${day.getDate()}</span>
           ${events.map((b) => `<button type="button" class="vid-cal-ev" data-calopen="${escapeHtml(b.id)}">
             <strong>${escapeHtml(new Date(b.shoot_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }))}</strong>
             ${escapeHtml(b.client_name || "Booking")}
           </button>`).join("")}
+          ${notes.map((n) => `<span class="vid-cal-note n-${escapeHtml(n.kind)}">${escapeHtml(n.text)}</span>`).join("")}
         </div>`;
       }
       grid.innerHTML = html;
