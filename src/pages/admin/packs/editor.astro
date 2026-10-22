@@ -1474,6 +1474,10 @@ import "../../../styles/admin.css";
           if (srcErr) throw new Error(`Pack saved but couldn't copy designs from other packs: ${srcErr.message}`);
           const rows = (src || []).map((t) => {
             const row = { ...t, id: "tmpl-" + Math.random().toString(36).slice(2, 8), pack_id: savedPackId };
+            // Names run "Design - Pack - Static": the middle part becomes this
+            // pack, e.g. "Selling to Sold - Happy Halloween - Static" (Dani, 22 Oct).
+            const parts = String(t.name || "").split(" - ");
+            if (parts.length >= 3) { parts[1] = title; row.name = parts.join(" - "); }
             Object.keys(row).forEach((k) => { if (row[k] === undefined) delete row[k]; });
             return row;
           });
