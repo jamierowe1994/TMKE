@@ -658,12 +658,16 @@ const CATEGORIES = ["Studio", "Packs & templates", "Marketing Planner", "Trainin
     const isLive = (p) => !p.publish_at || new Date(p.publish_at) <= new Date();
     // The training account reads through Dani's admin login, but shows what a
     // member sees (Dani, 20 Oct): no previews of discussions still to go live.
-    const introTopic = () => S.topics.find((p) => p.pinned && !p.hidden && (!S.training || isLive(p))) || null;
+    // Everyone, staff included, sees only what's live (Dani, 22 Oct: a preview
+    // of the next discussion read as a second post). Staff can look ahead with
+    // ?preview=1.
+    const PREVIEW = new URLSearchParams(location.search).get("preview") === "1";
+    const introTopic = () => S.topics.find((p) => p.pinned && !p.hidden && (PREVIEW || isLive(p))) || null;
     function currentTopic() {
       const t = todayISO();
       const dated = S.topics.filter((p) => !p.pinned && !p.hidden && p.starts_on);
       return dated.find((p) => isLive(p) && p.starts_on <= t && (!p.ends_on || p.ends_on >= t))
-        || (S.training ? null : [...dated].filter((p) => !isLive(p) || p.starts_on > t).sort((a, b) => a.starts_on.localeCompare(b.starts_on))[0])
+        || (S.training || !PREVIEW ? null : [...dated].filter((p) => !isLive(p) || p.starts_on > t).sort((a, b) => a.starts_on.localeCompare(b.starts_on))[0])
         || null;
     }
     // "Mon 19 Oct, 8am", in UK time.
