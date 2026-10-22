@@ -1084,6 +1084,14 @@ import AdminShell from "../../components/admin/AdminShell.astro";
       $("cim-body").value = defaultEmailBody(inv, currentSettings);
       $("cim-msg").hidden = true;
       $("ci-email-modal").hidden = false;
+      // The right email for this invoice (social media, a brand's, a shoot's…),
+      // the same words the automatic invoicing sends. Only if nobody's typed yet.
+      const s0 = $("cim-subject").value, b0 = $("cim-body").value;
+      if (inv.id) api(`/invoicing/email-draft?id=${encodeURIComponent(inv.id)}`).then((d) => {
+        if (cimInvoiceId !== inv.id) return;
+        if ($("cim-subject").value === s0 && d.subject) $("cim-subject").value = d.subject;
+        if ($("cim-body").value === b0 && d.body) $("cim-body").value = d.body;
+      }).catch(() => {});
     }
     function closeEmailModal() { $("ci-email-modal").hidden = true; cimInvoiceId = null; }
     $("cim-cancel").addEventListener("click", closeEmailModal);

@@ -3165,10 +3165,20 @@ import "../../styles/admin.css";
       const pay = document.getElementById("vim-pay");
       pay.textContent = payLine(inv);
       pay.className = "vim-pay" + (inv.pay_by_card ? " is-on" : "");
-      document.getElementById("vim-subject").value = defaultEmailSubject(inv, invSettings || {});
-      document.getElementById("vim-body").value = defaultEmailBody(inv, invSettings || {});
+      const subjEl = document.getElementById("vim-subject"), bodyEl = document.getElementById("vim-body");
+      subjEl.value = defaultEmailSubject(inv, invSettings || {});
+      bodyEl.value = defaultEmailBody(inv, invSettings || {});
       document.getElementById("vim-msg").hidden = true;
       document.getElementById("vid-email-modal").hidden = false;
+      // The shoot's own email (card client, TEG or Fine & Country), the same
+      // words the automatic invoicing sends. Only if nobody's typed yet.
+      const s0 = subjEl.value, b0 = bodyEl.value;
+      if (inv.id) authToken().then((token) => fetch(`${WORKER_URL}/invoicing/email-draft?id=${encodeURIComponent(inv.id)}`, { headers: { Authorization: "Bearer " + token } }))
+        .then((r) => r.ok ? r.json() : null).then((d) => {
+          if (!d) return;
+          if (subjEl.value === s0 && d.subject) subjEl.value = d.subject;
+          if (bodyEl.value === b0 && d.body) bodyEl.value = d.body;
+        }).catch(() => {});
     }
     function closeInvoiceEmail() {
       document.getElementById("vid-email-modal").hidden = true;
