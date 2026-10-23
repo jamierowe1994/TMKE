@@ -5306,6 +5306,32 @@ async function listAccounts(env) {
 // scheduled runs out, a reminder in Danielle's and Sam's admin bells to set
 // the next. Daily at 08:00; once per due date (the once-only key), so a date
 // that passes unset is said once, not every morning.
+/* Social media clients with a leaving date (Danielle, 23 Oct 2026): on the
+   day, the lead becomes lost, or the client Ended, as was chosen when the
+   date was set. lost_at is stamped with the date itself. Runs at 07:00 and
+   08:00; the second finds nothing because the first cleared the date. */
+async function runSmmLeavingDue(env) {
+  try {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    const due = (await sbGet(env, "smm_leads", `leaving_on=lte.${today}&leaving_as=not.is.null&select=id,full_name,business,leaving_on,leaving_as,lost_reason`)) || [];
+    for (const l of due) {
+      const patch = { leaving_on: null, leaving_as: null, lost_at: `${l.leaving_on}T00:00:00Z` };
+      if (l.leaving_as === "ended") patch.client_status = "ended"; else patch.pipeline_stage = "lost";
+      const res = await sbPatch(env, "smm_leads", `id=eq.${encodeURIComponent(l.id)}&leaving_on=eq.${l.leaving_on}`, patch);
+      if (res && res.ok === false) continue;
+      try { await syncSmmContact(env, l.id); } catch (_) {}
+      try {
+        await notifyAdmins(env, {
+          area: "social", event: "smm_left", key: `smm_left:${l.id}:${l.leaving_on}`,
+          title: `${l.full_name || l.business || "A client"} is now ${l.leaving_as === "ended" ? "Ended" : "lost"}`,
+          body: [l.business, l.lost_reason].filter(Boolean).join(" · ") || null,
+          href: "/admin/social",
+        });
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
 async function runCommunityTopicDue(env) {
   try {
     const rows = await sbGet(env, "community_posts", "kind=eq.topic&hidden=is.false&pinned=is.false&ends_on=not.is.null&select=ends_on&order=ends_on.desc&limit=1");
@@ -5446,6 +5472,7 @@ export default {
   async scheduled(event, env, ctx) {
     if (event && (event.cron === "0 7 * * *" || event.cron === "0 8 * * *")) {
       ctx.waitUntil(runReminders(env));
+      ctx.waitUntil(runSmmLeavingDue(env));
       ctx.waitUntil(runDdMonthly(env));
       // Only on the 08:00 run, so the day-after reminder and the expiry warning
       // go out once a day rather than twice.

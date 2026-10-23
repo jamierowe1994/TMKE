@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] [supabase/smm_leaving_date.sql](../supabase/smm_leaving_date.sql) — a leaving date when a social media client is marked lost or Ended, so the change happens on that day. Added 23 Oct 2026.
 
 ## Done
 

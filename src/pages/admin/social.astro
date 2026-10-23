@@ -468,6 +468,11 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-status-pill.is-paused, .smm-card-status.is-paused { background: rgba(227,160,8,0.16); color: #9a6a04; }
     .smm-status-pill.is-ended, .smm-card-status.is-ended { background: rgba(28,29,34,0.09); color: rgba(28,29,34,0.55); }
     .smm-status-pill.is-internal, .smm-card-status.is-internal { background: rgba(var(--violet-rgb),0.12); color: var(--english-violet); }
+    /* A date set to become lost / ended: still as they are until then. */
+    .smm-status-pill.is-leaving, .smm-card-status.is-leaving { background: rgba(196,84,60,0.12); color: #a2412c; }
+    .smm-status-pill.is-leaving { display: inline-flex; align-items: center; gap: 6px; }
+    .smm-leaving-x { background: none; border: 0; padding: 0; font-size: 13px; line-height: 1; color: inherit; cursor: pointer; opacity: 0.7; }
+    .smm-leaving-x:hover { opacity: 1; }
 
     /* Pipeline stepper */
     .smm-pipe { position: relative; display: flex; margin: 8px 0 93px; padding-top: 4px; }
@@ -1047,6 +1052,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
     .smm-modal h3 { font-family: var(--serif); font-weight: 500; font-size: 21px; color: var(--ink); margin: 0 0 4px; }
     .smm-modal p.smm-modal-sub { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.55); margin: 0 0 18px; }
     .smm-modal-field { margin-bottom: 14px; }
+    .smm-modal-hint { display: block; margin-top: 6px; font-family: var(--sans); font-size: 12px; line-height: 1.5; color: rgba(28,29,34,0.55); }
     .smm-modal-field > label { display: block; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(28,29,34,0.5); margin-bottom: 6px; }
     .smm-modal-field input[type=text], .smm-modal-field input[type=date], .smm-modal-field input[type=time], .smm-modal-field input[type=email], .smm-modal-field input[type=tel], .smm-modal-field input[type=datetime-local], .smm-modal-field select { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid rgba(28,29,34,0.16); border-radius: 8px; font-family: var(--sans); font-size: 14px; color: var(--ink); background: #fff; }
     .smm-modal-field input:focus, .smm-modal-field select:focus { outline: none; border-color: var(--english-violet); }
@@ -1260,7 +1266,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         : `<span class="smm-kind${kc}">${esc(KIND_LABEL[r.kind] || r.kind || "Lead")}</span>`;
       const meeting = r.meeting_at ? `<div class="smm-card-line">${CAL_SVG}Meeting ${esc(fmtDateTime(r.meeting_at))}</div>`
         : (r.kind === "discovery" && r.call_at ? `<div class="smm-card-line">${CAL_SVG}Call ${esc(fmtDateTime(r.call_at))}</div>` : "");
-      const cstatus = st === "active_client" && r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
+      const cstatus = r.leaving_on && r.pipeline_stage !== "lost" ? `<span class="smm-card-status is-leaving">${esc(leavingLabel(r))}</span>`
+        : st === "active_client" && r.client_status && r.client_status !== "active" ? `<span class="smm-card-status is-${r.client_status}">${esc(CLIENT_STATUS[r.client_status] || r.client_status)}</span>` : "";
       return `<div class="smm-card" draggable="true" data-id="${esc(r.id)}">
         <div class="smm-card-top">${pill}<span class="smm-card-when">${esc(fmtWhen(r.created_at))}</span></div>
         <div class="smm-card-name">${esc(nameOf(r))}</div>
@@ -1313,7 +1320,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       const acct = r.account_created ? "Created at submission" : (r.account_user_id ? "Existing account" : "None");
       $("smm-file-body").innerHTML = `
         <header class="smm-file-head">
-          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}${r.pipeline_stage === "lost" ? `<span class="smm-status-pill is-ended">Lost</span>` : ""}</h2>
+          <h2 class="smm-file-name"><span class="smm-name-text">${esc(nameOf(r))}</span><button type="button" class="smm-name-edit" data-editname title="Edit name">${PENCIL_SVG}</button>${isActive ? `<span class="smm-status-pill is-${cs}">${esc(CLIENT_STATUS[cs])}</span>` : ""}${r.pipeline_stage === "lost" ? `<span class="smm-status-pill is-ended">Lost</span>` : ""}${r.leaving_on && r.pipeline_stage !== "lost" ? `<span class="smm-status-pill is-leaving" title="${esc(r.lost_reason || "")}">${esc(leavingLabel(r))}<button type="button" class="smm-leaving-x" data-cancel-leaving aria-label="Cancel the date">&times;</button></span>` : ""}</h2>
           <p class="smm-file-sub">${esc(r.business || KIND_LABEL[r.kind] || "Lead")}</p>
         </header>
         ${pipe}
@@ -1483,6 +1490,7 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
       body.querySelector("[data-move]")?.addEventListener("click", (e) => moveToStage(r, e.currentTarget.getAttribute("data-move")));
       // Mark lost
       body.querySelector("[data-lost]")?.addEventListener("click", () => openLost(r, "lost"));
+      body.querySelector("[data-cancel-leaving]")?.addEventListener("click", () => cancelLeaving(r));
       // Delete card (test cleanup)
       body.querySelector("[data-delcard]")?.addEventListener("click", () => deleteCard(r));
       // Client status
@@ -2114,6 +2122,14 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
        Asked when a lead is marked lost, or an active client is set to Ended.
        The reason is kept on the lead (lost_reason); the database stamps when
        and from which stage (supabase/smm_stage_history.sql). */
+    const todayIso = () => new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    const leavingLabel = (r) => r.leaving_on ? `${r.leaving_as === "ended" ? "Leaving" : "Lost from"} ${new Date(r.leaving_on + "T12:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "";
+    async function cancelLeaving(r) {
+      if (!confirm(`Cancel ${nameOf(r)}'s ${r.leaving_as === "ended" ? "leaving" : "lost"} date? They'll stay as they are.`)) return;
+      if (!isDemo(r)) { try { await supabase.from("smm_leads").update({ leaving_on: null, leaving_as: null, lost_reason: null }).eq("id", r.id); } catch (_) {} }
+      r.leaving_on = null; r.leaving_as = null; r.lost_reason = null;
+      renderBoard(); openFile(r.id);
+    }
     const LOST_REASONS = ["Price", "Went with another agency", "Doing it themselves", "Not the right time", "Stopped replying", "Not a good fit for us", "Unhappy with the service", "Business closed or sold", "Other"];
     function openLost(r, mode) {
       const ended = mode === "ended";
@@ -2124,6 +2140,8 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
             <p class="smm-modal-sub">${esc(nameOf(r))}${r.business ? " · " + esc(r.business) : ""}. Shown on Client status and in its export.</p>
             <div class="smm-modal-field"><label>Reason</label><select id="smm-lost-why"><option value="">Choose a reason</option>${LOST_REASONS.map((x) => `<option>${esc(x)}</option>`).join("")}</select></div>
             <div class="smm-modal-field"><label>Anything to add (optional)</label><textarea id="smm-lost-note" rows="3" placeholder="e.g. Signed with a local agency at £400 a month"></textarea></div>
+            <div class="smm-modal-field"><label>${ended ? "Leaving on" : "Lost from"}</label><input type="date" id="smm-lost-on" value="${todayIso()}" />
+              <span class="smm-modal-hint">Leave it as today to change it now. Pick a later date and they stay as they are until then; the change happens that morning.</span></div>
             <p class="smm-modal-status" id="smm-lost-status" hidden></p>
             <div class="smm-modal-actions">
               <button type="button" class="smm-btn" data-mcancel>Cancel</button>
@@ -2138,11 +2156,28 @@ const marketing = SOCIAL_SERVICES.find((s) => s.key === "social-media-marketing"
         const why = $("smm-lost-why").value, note = $("smm-lost-note").value.trim();
         if (!why) { const st = $("smm-lost-status"); st.hidden = false; st.textContent = "Choose a reason."; return; }
         const reason = note ? `${why}: ${note}` : why;
+        const on = $("smm-lost-on").value || todayIso();
         r.lost_reason = reason;
+        // A later date: keep the reason and the date, change nothing yet. The
+        // Worker's morning run makes the change on the day (runSmmLeavingDue).
+        if (on > todayIso()) {
+          if (!isDemo(r)) {
+            const { error } = await supabase.from("smm_leads").update({ lost_reason: reason, leaving_on: on, leaving_as: ended ? "ended" : "lost" }).eq("id", r.id);
+            if (error) { const st = $("smm-lost-status"); st.hidden = false; st.textContent = "Couldn't save the date. The leaving-date SQL may not have been run yet."; return; }
+          }
+          r.leaving_on = on; r.leaving_as = ended ? "ended" : "lost";
+          closeModal(); renderBoard(); openFile(r.id);
+          return;
+        }
         if (!isDemo(r)) {
           // The reason first; a database without the new column still saves the rest.
-          try { await supabase.from("smm_leads").update({ lost_reason: reason }).eq("id", r.id); } catch (_) {}
+          // A date in the past is when it happened, so it's the date shown.
+          const patch = { lost_reason: reason };
+          if (on < todayIso()) patch.lost_at = `${on}T12:00:00Z`;
+          try { await supabase.from("smm_leads").update(patch).eq("id", r.id); } catch (_) {}
+          try { await supabase.from("smm_leads").update({ leaving_on: null, leaving_as: null }).eq("id", r.id); } catch (_) {}
         }
+        r.leaving_on = null; r.leaving_as = null;
         closeModal();
         if (ended) { openLost.confirmed = true; await setClientStatus(r, "ended"); }
         else await setStage(r, "lost");
