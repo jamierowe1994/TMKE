@@ -3,17 +3,18 @@
 // "add tag" dropdown and the Automations If/else tag picker). Single source of
 // truth so the two never drift. No free-text: tags are picked from this list.
 // ============================================================================
-// Grouped the way people look for them (Danielle, 23 Oct 2026): who they are
-// to us, then each service with its interest, call and client tags together.
+// Grouped and ordered the way people look for them (Danielle, 23 Oct 2026):
+// who they are to us, then packs, then each service with its interest, call
+// and client tags together.
 // Only tags something actually sets: Portal-User and Region: Videography-
 // Radius were dropped (23 Oct 2026) because nothing ever added them.
 export const TAG_GROUPS = [
   ["Consent and membership", ["Marketing-Opt-In", "Marketing-Not-Opted-In", "Unsubscribed", "Newsletter-Subscriber", "TMKE-Account-Member"]],
-  ["Social media", ["Interest: SMM", "Discovery-Call-Booked: SMM", "SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
-  ["Packs", ["Pack-Purchased"]],
-  ["Videography", ["Interest: Videography", "Discovery-Call-Booked: Videography", "Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
   ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
   ["Business type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
+  ["Packs", ["Pack-Purchased"]],
+  ["Videography", ["Interest: Videography", "Discovery-Call-Booked: Videography", "Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
+  ["Social media management", ["Interest: SMM", "Discovery-Call-Booked: SMM", "SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
 ];
 
 // What some tags mean, for the pickers. The tag itself is what's stored and
