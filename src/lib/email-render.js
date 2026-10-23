@@ -685,24 +685,32 @@ function renderLogo(block, brand) {
   return `<div style="text-align:${align};">${wrapped}</div>`;
 }
 
-// Inline SVG icons so the social block works even in clients that strip remote
-// images. currentColor is set on the link, so the glyphs inherit white.
-const SOCIAL_ICON_SVG = {
-  linkedin: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></svg>',
-  twitter: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>',
-  instagram: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg>',
-  facebook: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>',
-  youtube: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></svg>',
-  website: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
-};
 const SOCIAL_ORDER = ['linkedin', 'instagram', 'facebook', 'twitter', 'youtube', 'website'];
 
-// Resize a social icon's inline SVG (base markup is 14×14, stroke-width 2) and
-// set its line thickness.
-function sizedSocialIcon(k, px, stroke) {
-  return (SOCIAL_ICON_SVG[k] || '')
-    .replace('width="14" height="14"', `width="${px}" height="${px}"`)
-    .replace('stroke-width="2"', `stroke-width="${stroke}"`);
+// Social icons are PNGs (public/images/email/social-v1, 144px, transparent):
+// Gmail and Outlook strip inline SVG, so a sent email showed empty chips or
+// nothing at all (Dani, 23 Oct). Drawn in the colours the editor offers for
+// icons; any other colour takes the nearest. A new set gets a new folder:
+// Cloudflare keeps the old for hours.
+const SOCIAL_PNG_BASE = 'https://tmke.co.uk/images/email/social-v1/';
+const SOCIAL_PNG_COLOURS = ['ffffff', 'f4f2f1', '371e28', '1c1d22', '94a3b8'];
+const SOCIAL_LABEL = { linkedin: 'LinkedIn', instagram: 'Instagram', facebook: 'Facebook', twitter: 'X', youtube: 'YouTube', website: 'Website' };
+function nearestSocialColour(hex) {
+  let h = String(hex || '').trim().replace(/^#/, '').toLowerCase();
+  if (/^[0-9a-f]{3}$/.test(h)) h = h.split('').map((c) => c + c).join('');
+  if (!/^[0-9a-f]{6}$/.test(h)) return 'ffffff';
+  const rgb = (x) => [0, 2, 4].map((i) => parseInt(x.slice(i, i + 2), 16));
+  const [r, g, b] = rgb(h);
+  let best = 'ffffff', bestD = Infinity;
+  SOCIAL_PNG_COLOURS.forEach((c) => {
+    const [cr, cg, cb] = rgb(c);
+    const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2;
+    if (d < bestD) { bestD = d; best = c; }
+  });
+  return best;
+}
+function socialIconImg(k, px, colour) {
+  return `<img src="${SOCIAL_PNG_BASE}${k}-${nearestSocialColour(colour)}.png" width="${px}" height="${px}" alt="${SOCIAL_LABEL[k] || k}" style="display:inline-block;width:${px}px;height:${px}px;border:0;outline:none;vertical-align:middle;" />`;
 }
 
 function renderSocial(block, brand) {
@@ -717,10 +725,6 @@ function renderSocial(block, brand) {
   if (!Number.isFinite(size) || size <= 0) size = bare ? 24 : 34;
   size = Math.max(14, Math.min(72, size));
   const glyph = bare ? Math.round(size) : Math.max(10, Math.round(size * 0.46));
-  // Line thickness (default 1.5 — thinner than the old fixed 2).
-  let stroke = Number(block.iconStroke);
-  if (!Number.isFinite(stroke) || stroke <= 0) stroke = 1.5;
-  stroke = Math.max(0.5, Math.min(3, stroke));
   // Gap between adjacent icons (applied as half on each side).
   let gap = Number(block.iconGap);
   if (!Number.isFinite(gap) || gap < 0) gap = 12;
@@ -729,11 +733,11 @@ function renderSocial(block, brand) {
   const items = SOCIAL_ORDER
     .filter((k) => show[k] !== false && brand[k])
     .map((k) => {
-      const svg = sizedSocialIcon(k, glyph, stroke);
+      const icon = socialIconImg(k, glyph, iconColor);
       const box = bare
         ? `margin:0 ${side}px;line-height:1;vertical-align:middle;`
         : `width:${size}px;height:${size}px;line-height:${size}px;text-align:center;border-radius:${Math.round(size / 2)}px;background:${escapeHtml(chipBg)};margin:0 ${side}px;`;
-      return `<a href="${escapeHtml(brand[k])}" style="display:inline-block;text-decoration:none;color:${escapeHtml(iconColor)};${box}">${svg}</a>`;
+      return `<a href="${escapeHtml(brand[k])}" style="display:inline-block;text-decoration:none;color:${escapeHtml(iconColor)};${box}">${icon}</a>`;
     })
     .join('');
   if (!items) return '';
