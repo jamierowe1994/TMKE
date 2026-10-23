@@ -5,12 +5,13 @@
 // ============================================================================
 // Grouped the way people look for them (Danielle, 23 Oct 2026): who they are
 // to us, then each service with its interest, call and client tags together.
-// Portal-User was dropped: nothing has ever set it.
+// Only tags something actually sets: Portal-User and Region: Videography-
+// Radius were dropped (23 Oct 2026) because nothing ever added them.
 export const TAG_GROUPS = [
   ["Consent and membership", ["Marketing-Opt-In", "Marketing-Not-Opted-In", "Unsubscribed", "Newsletter-Subscriber", "TMKE-Account-Member"]],
   ["Social media", ["Interest: SMM", "Discovery-Call-Booked: SMM", "SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
   ["Packs", ["Pack-Purchased"]],
-  ["Videography", ["Interest: Videography", "Discovery-Call-Booked: Videography", "Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography", "Region: Videography-Radius"]],
+  ["Videography", ["Interest: Videography", "Discovery-Call-Booked: Videography", "Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
   ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
   ["Business type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
 ];
