@@ -428,7 +428,15 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-item-title { font-family:var(--sans); font-size:12px; font-weight:700; color:var(--ink); }
     .eb-item-title small { font-weight:500; color:rgba(28,29,34,0.45); margin-left:4px; }
     .eb-item-ctl { display:flex; align-items:center; gap:6px; font-family:var(--sans); font-size:10px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:rgba(28,29,34,0.45); }
-    .eb-item-ctl select { font-size:12px; padding:5px 7px; }
+    /* The per-column Align: the builder's own dropdown, compact (Dani, 23 Oct). */
+    .eb-item-ctl select {
+      font-family:var(--sans); font-size:12px; font-weight:500; letter-spacing:0; text-transform:none;
+      padding:5px 26px 5px 10px; width:auto; min-width:0;
+      border:1px solid var(--eb-line); border-radius:7px; background-color:#fff; color:var(--ink);
+      background-position:right 8px center; background-size:12px 12px;
+    }
+    .eb-item-ctl select:hover { border-color:var(--english-violet); }
+    .eb-item-ctl select:focus { outline:none; border-color:var(--english-violet); box-shadow:0 0 0 3px rgba(55,30,40,0.08); }
     .eb-colour-row { display:flex; align-items:center; gap:8px; }
     .eb-colour-row input[type="color"] { width:38px; height:32px; padding:2px; flex:0 0 auto; }
     .eb-colour-row input[type="text"] { flex:1; min-width:0; }
@@ -446,6 +454,15 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     .eb-card-foot { display:flex; gap:6px; flex-wrap:wrap; padding-bottom:10px; }
     .eb-resp-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:11px; }
     .eb-resp-head .eb-f-sub { margin-bottom:0; }
+    /* A card that folds away, closed to start, so a long one (the columns'
+       backgrounds) doesn't push the rest of the panel out of reach. */
+    details.eb-resp { padding-bottom:13px; }
+    details.eb-resp[open] { padding-bottom:4px; }
+    details.eb-resp > summary { list-style:none; cursor:pointer; margin-bottom:0; }
+    details.eb-resp > summary::-webkit-details-marker { display:none; }
+    details.eb-resp[open] > summary { margin-bottom:11px; }
+    .eb-fold-chev { width:14px; height:14px; color:var(--english-violet); transition:transform 0.15s; }
+    details.eb-resp[open] .eb-fold-chev { transform:rotate(180deg); }
     .eb-resp-dev { flex:0 0 auto; }
     .eb-resp-dev .eb-dev { padding:5px 10px; font-size:13px; letter-spacing:0; }
     .eb-upl { display:flex; align-items:center; gap:10px; margin:-4px 0 12px; flex-wrap:wrap; }
@@ -505,6 +522,7 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
       BLOCK_TYPES, makeBlock, MERGE_FIELDS, SAMPLE_RECIPIENT, COLUMN_LAYOUTS,
       FONT_STACKS, headingInlineStyle, textInlineStyle, buttonInlineStyle, imageInlineStyle, effectiveBlock,
       spacingDefaults, resolvePad, resolveMargin, normalizeRichHtml, resolveParaGap,
+      columnGapPx,
     } from "../../../lib/email-render.js";
 
     const DEV = import.meta.env.DEV;
@@ -656,6 +674,9 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
           const colBgImage = Array.isArray(b.colBgImage)?b.colBgImage:[];
           const colVAlign = Array.isArray(b.colVAlign)?b.colVAlign:[];
           const radius = b.colRadius!=null && b.colRadius!=="" ? Math.max(0,Number(b.colRadius)) : 6;
+          // The space between columns, for the device on screen (1 tight to 5 wide).
+          const gap = columnGapPx(effectiveBlock(b, canvasDevice).colGap);
+          const share = Math.round(gap * (layout.w.length - 1) / layout.w.length * 100) / 100;
           const colsHtml = layout.w.map((w,i)=>{
             const children = Array.isArray(cols[i])?cols[i]:[];
             const inner = children.length ? children.map(blockCard).join("") : `<div class="cv-col-empty">Drop a block here</div>`;
@@ -663,9 +684,9 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
             const bg = hasBg ? `${colBg[i]?`background-color:${esc(colBg[i])};`:""}${colBgImage[i]?`background-image:url('${esc(colBgImage[i])}');background-size:cover;background-position:center center;background-repeat:no-repeat;`:""}border-radius:${radius}px;border-style:solid;border-color:transparent;` : `border-radius:${radius}px;`;
             const va = ["middle","bottom"].includes(colVAlign[i]) ? colVAlign[i] : "top";
             const vaCss = va==="top" ? "" : `display:flex;flex-direction:column;justify-content:${va==="middle"?"center":"flex-end"};`;
-            return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - 6px);max-width:${w}%;${vaCss}${bg}">${inner}</div>`;
+            return `<div class="cv-col" data-colof="${b.id}" data-coli="${i}" style="flex:0 0 calc(${w}% - ${share}px);max-width:${w}%;${vaCss}${bg}">${inner}</div>`;
           }).join("");
-          return `<div class="cv-cols${b.stackMobile!==false?" cv-cols-stack":""}">${colsHtml}</div>`;
+          return `<div class="cv-cols${b.stackMobile!==false?" cv-cols-stack":""}" style="gap:${gap}px;">${colsHtml}</div>`;
         }
         case "spacer":
           return `<div class="cv-spacer" style="height:${Math.max(4,Math.min(160,Number(b.height)||24))}px;">Spacer · ${Math.max(4,Math.min(160,Number(b.height)||24))}px</div>`;
@@ -956,6 +977,27 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
     function card(title, inner, device){
       return `<div class="eb-resp"><div class="eb-resp-head"><span class="eb-f-sub">${title}</span>${device?deviceToggleMini(device):""}</div>${inner}</div>`;
     }
+    /* One setting for the gap between every column, 1 (tight) to 5 (wide), so
+       the columns stay evenly spaced (Dani, 23 Oct). Mobile can differ; when
+       the columns stack on a phone it is the gap under each one. */
+    function colGapField(b, device){
+      const isM = device==="mobile";
+      const cur = isM ? ((b.mobile&&b.mobile.colGap!=null)?String(b.mobile.colGap):"") : String(b.colGap!=null&&b.colGap!==""?b.colGap:3);
+      const names = { 1:"Tight", 2:"Close", 3:"Standard", 4:"Roomy", 5:"Wide" };
+      const opts = (isM?`<option value=""${cur===""?" selected":""}>Same as desktop</option>`:"")
+        + [1,2,3,4,5].map(n=>`<option value="${n}"${cur===String(n)?" selected":""}>${n} \u00b7 ${names[n]} (${columnGapPx(n)}px)</option>`).join("");
+      const hint = isM && b.stackMobile!==false ? `<small class="eb-hint">Stacked on a phone, this is the gap under each column.</small>` : "";
+      return `<label class="eb-f"><span>Space</span><select data-field="${isM?"mobile.colGap":"colGap"}">${opts}</select></label>${hint}`;
+    }
+    // Folding cards remember being open across the panel's re-renders.
+    const openFolds = new Set();
+    function foldCard(key, title, inner){
+      return `<details class="eb-resp" data-fold="${key}"${openFolds.has(key)?" open":""}><summary class="eb-resp-head"><span class="eb-f-sub">${title}</span><svg class="eb-fold-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>${inner}</details>`;
+    }
+    document.addEventListener("toggle", (e)=>{
+      const d = e.target;
+      if (d && d.matches && d.matches("details[data-fold]")) { if (d.open) openFolds.add(d.dataset.fold); else openFolds.delete(d.dataset.fold); }
+    }, true);
     function respWrap(device, inner){ return card("Size &amp; spacing", inner, device); }
     function imageRespFields(b, device){
       return respWrap(device, `<div class="eb-f2">${dField(b,device,"width","Width (px)",'type="number" min="20" max="1200"',"auto")}${dField(b,device,"height","Height (px)",'type="number" min="10" max="1200"',"auto")}</div>${dAlign(b,device)}${spacingGrids(b,device)}`);
@@ -1137,7 +1179,8 @@ const brandFonts = [{ key: "", label: "Default" }, ...FONT_STACKS];
           return `${card("Layout", `<label class="eb-f"><span>Layout</span><select data-field="layout">${COLUMN_LAYOUTS.map(l=>`<option value="${l.key}"${l.key===lay?" selected":""}>${esc(l.label)}</option>`).join("")}</select></label>
             <label class="eb-f"><span>Corner radius (px)</span><input type="number" min="0" max="40" data-field="colRadius" value="${b.colRadius!=null?b.colRadius:""}" placeholder="6" /></label>
             <label class="eb-check"><input type="checkbox" data-field="stackMobile"${b.stackMobile!==false?" checked":""}/> Stack columns on mobile</label>`)}
-            ${card("Columns", bgRows)}
+            ${card("Space between columns", colGapField(b, device), device)}
+            ${foldCard("colbg", "Column backgrounds", bgRows)}
             ${spacingBox(b, device)}`;
         }
         case "products": {

@@ -346,7 +346,7 @@ export function effectiveBlock(block, device) {
   if (device !== 'mobile' || !block || !block.mobile) return block;
   const m = block.mobile;
   const out = { ...block };
-  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize', 'iconGap'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
+  ['size', 'lineHeight', 'letterSpacing', 'align', 'width', 'height', 'thickness', 'iconSize', 'iconGap', 'colGap'].forEach((k) => { if (m[k] != null && m[k] !== '') out[k] = m[k]; });
   // Padding and margin are per-device: a mobile override merges OVER the
   // desktop values, so setting just the top on mobile leaves the other three
   // inherited rather than zeroed. mergeDefined (not a spread) is what makes
@@ -427,6 +427,32 @@ function socialResponsiveCss(block) {
   if (svgDecls.length) rules.push(`${sel} svg{${svgDecls.join(';')};}`);
   return rules.join('\n    ');
 }
+// Columns: the space between them is one setting, 1 (tight) to 5 (wide), for
+// the whole row (Dani, 23 Oct), never a margin per column. It is split so
+// every gap is the same and every column loses the same width: with N columns
+// and a gap of G, column i takes G*i/N on its left and G*(N-1-i)/N on its
+// right. (The old fixed 8px/4px left four columns at 12, 8 and 12px apart.)
+// Stacked on a phone, it is the gap under each column instead.
+export const COLUMN_GAPS = { 1: 4, 2: 8, 3: 12, 4: 18, 5: 24 };
+export function columnGapPx(level) {
+  const n = Math.round(Number(level));
+  return COLUMN_GAPS[n >= 1 && n <= 5 ? n : 3];
+}
+export function columnCellPads(n, gap) {
+  const r2 = (x) => Math.round(x * 100) / 100;
+  return Array.from({ length: n }, (_, i) => ({ l: r2((gap * i) / n), r: r2((gap * (n - 1 - i)) / n) }));
+}
+function columnsResponsiveCss(block) {
+  const m = block.mobile || {};
+  if (m.colGap == null || m.colGap === '') return '';
+  const layout = (COLUMN_LAYOUTS.find((l) => l.key === block.layout)) || COLUMN_LAYOUTS[1];
+  const n = layout.w.length;
+  const gap = columnGapPx(m.colGap);
+  if (block.stackMobile !== false) {
+    return layout.w.map((_, i) => `.eb-col.eb-cg-${block.id}-${i}{padding:0 0 ${i === n - 1 ? 0 : gap}px 0 !important;}`).join('\n    ');
+  }
+  return columnCellPads(n, gap).map((p, i) => `.eb-cg-${block.id}-${i}{padding:0 ${p.r}px 0 ${p.l}px !important;}`).join('\n    ');
+}
 function blockResponsiveCss(block) {
   if (!block) return '';
   const parts = [];
@@ -454,6 +480,7 @@ function blockResponsiveCss(block) {
     case 'image': typeCss = imageResponsiveCss(block); break;
     case 'divider': typeCss = dividerResponsiveCss(block); break;
     case 'social': typeCss = socialResponsiveCss(block); break;
+    case 'columns': typeCss = columnsResponsiveCss(block); break;
     default: typeCss = ''; break;
   }
   if (typeCss) parts.push(typeCss);
@@ -926,14 +953,12 @@ function renderColumns(block, brand, ctx) {
   // query collapses to full width; "keep side by side" → no class, so they stay
   // as table cells even on a phone.
   const stack = block.stackMobile !== false;
+  const pads = columnCellPads(widths.length, columnGapPx(block.colGap));
   const tds = widths.map((w, i) => {
     // Vertical alignment of the column's content within the (image-sized) row.
     const va = ['middle', 'bottom'].includes(colVAlign[i]) ? colVAlign[i] : 'top';
-    // Equal-width columns must lose an EQUAL amount of horizontal padding, or
-    // the cell's content (e.g. a full-width image) renders narrower. Outer
-    // columns stay flush to the edges with a single full gutter (8px); middle
-    // columns split the gutter (4px each side) so every cell loses 8px total.
-    const pad = widths.length === 1 ? '0' : i === 0 ? '0 8px 0 0' : i === widths.length - 1 ? '0 0 0 8px' : '0 4px';
+    // The gap between columns, split evenly (columnCellPads above).
+    const pad = `0 ${pads[i].r}px 0 ${pads[i].l}px`;
     const children = Array.isArray(cols[i]) ? cols[i] : [];
     // Each child block is rendered with its own outer margin so column content
     // stacks with consistent spacing.
@@ -950,7 +975,8 @@ function renderColumns(block, brand, ctx) {
         + `border-radius:${radius}px;padding:14px;`
       : '';
     const inner = hasBg ? `<div style="${bgCss}">${content}</div>` : content;
-    return `<td${stack ? ' class="eb-col"' : ''} valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
+    const cls = [stack ? 'eb-col' : '', block.id ? `eb-cg-${block.id}-${i}` : ''].filter(Boolean).join(' ');
+    return `<td${cls ? ` class="${cls}"` : ''} valign="${va}" width="${w}%" style="width:${w}%;padding:${pad};vertical-align:${va};font-family:Helvetica,Arial,sans-serif;">${inner}</td>`;
   }).join('');
   return `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr>${tds}</tr></table>`;
 }
