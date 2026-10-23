@@ -9101,16 +9101,32 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         const firstId = autoEdgeTo(auto.graph, "trigger", "next");
         if (!firstId) return json({ error: "Add a first step to the funnel before enrolling anyone." }, 400, request, env);
         const list = `{${tags.map((t) => `"${String(t).replace(/"/g, "")}"`).join(",")}}`;
-        const matched = (await sbGet(env, "contacts", `tags=ov.${encodeURIComponent(list)}&select=id`)) || [];
-        let enrolled = 0;
-        for (const ct of matched) {
-          const res = await sbPost(env, "automation_enrollments", {
+        // Read in pages: every REST read stops at 1,000 rows without saying so,
+        // which would leave everyone after the first 1,000 out (Danielle, 23 Oct).
+        const pageAll = async (table, q) => {
+          const out = [];
+          for (let off = 0; off < 100000; off += 1000) {
+            const rows = (await sbGet(env, table, `${q}&order=id.asc&limit=1000&offset=${off}`)) || [];
+            out.push(...rows);
+            if (rows.length < 1000) break;
+          }
+          return out;
+        };
+        const matched = await pageAll("contacts", `tags=ov.${encodeURIComponent(list)}&select=id`);
+        // Already running through it: left alone, as the one-by-one inserts
+        // did when the live-enrolment index refused them.
+        const live = new Set((await pageAll("automation_enrollments", `automation_id=eq.${auto.id}&status=in.(active,waiting)&select=id,contact_id`)).map((r) => r.contact_id));
+        const fresh = matched.filter((ct) => !live.has(ct.id));
+        let enrolled = 0, failed = 0;
+        for (let i = 0; i < fresh.length; i += 500) {
+          const batch = fresh.slice(i, i + 500).map((ct) => ({
             automation_id: auto.id, contact_id: ct.id, status: "active",
             current_node_id: firstId, next_run_at: nowISO(), context: { audience: tags },
-          });
-          if (res && res.ok) enrolled++;
+          }));
+          const res = await sbPost(env, "automation_enrollments", batch);
+          if (res && res.ok) enrolled += batch.length; else failed += batch.length;
         }
-        return json({ ok: true, matched: matched.length, enrolled, already: matched.length - enrolled }, 200, request, env);
+        return json({ ok: true, matched: matched.length, enrolled, already: matched.length - fresh.length, failed }, 200, request, env);
       }
 
       // ---- Email: send one published template to one contact, now -----------

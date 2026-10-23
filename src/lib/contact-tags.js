@@ -3,18 +3,16 @@
 // "add tag" dropdown and the Automations If/else tag picker). Single source of
 // truth so the two never drift. No free-text: tags are picked from this list.
 // ============================================================================
+// Grouped the way people look for them (Danielle, 23 Oct 2026): who they are
+// to us, then each service with its interest, call and client tags together.
+// Portal-User was dropped: nothing has ever set it.
 export const TAG_GROUPS = [
-  ["Consent", ["Marketing-Opt-In", "Marketing-Not-Opted-In", "Unsubscribed"]],
-  ["Newsletter", ["Newsletter-Subscriber"]],
-  ["Interest", ["Interest: SMM", "Interest: Videography"]],
-  ["Discovery calls", ["Discovery-Call-Booked: SMM", "Discovery-Call-Booked: Videography"]],
-  ["Purchases", ["Pack-Purchased"]],
-  ["Videography", ["Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography"]],
-  ["SMM client", ["SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
-  ["Account", ["TMKE-Account-Member", "Portal-User"]],
+  ["Consent and membership", ["Marketing-Opt-In", "Marketing-Not-Opted-In", "Unsubscribed", "Newsletter-Subscriber", "TMKE-Account-Member"]],
+  ["Social media", ["Interest: SMM", "Discovery-Call-Booked: SMM", "SMM-Status: Active", "SMM-Status: Paused", "SMM-Status: Ended"]],
+  ["Packs", ["Pack-Purchased"]],
+  ["Videography", ["Interest: Videography", "Discovery-Call-Booked: Videography", "Videography-Client", "Videography-Booked", "Videography-New-Starter: Pro", "Videography-New-Starter: Academy", "Videography-Product: Content-Studio", "Videography-Product: Property-Videography", "Videography-Product: Agent-Videography", "Region: Videography-Radius"]],
   ["Network", ["Network: TEG", "Network: Fine-and-Country", "Network: External"]],
-  ["Type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
-  ["Region", ["Region: Videography-Radius"]],
+  ["Business type", ["Type: Estate-Agent", "Type: Lettings", "Type: Financial-Services"]],
 ];
 
 // What some tags mean, for the pickers. The tag itself is what's stored and
@@ -32,6 +30,7 @@ export const TAG_NOTES = {
   "Unsubscribed": "opted out - never send marketing",
   "Newsletter-Subscriber": "subscribed to the newsletter itself",
   "Pack-Purchased": "has bought any pack",
+  "TMKE-Account-Member": "has a TMKE account",
 };
 export function tagLabel(tag) {
   const note = TAG_NOTES[tag];
@@ -56,11 +55,13 @@ export async function loadPackTagGroup(supabase) {
     return null;
   }
 }
-// The framework groups, with the pack-name group after Purchases when it's loaded.
+// The framework groups, with each pack's own tag added to Packs (after
+// "bought any pack") when they're loaded.
 export function withPackTags(packGroup) {
   if (!packGroup) return TAG_GROUPS;
-  const at = TAG_GROUPS.findIndex(([g]) => g === "Purchases");
+  const at = TAG_GROUPS.findIndex(([g]) => g === "Packs");
+  if (at < 0) return [...TAG_GROUPS, packGroup];
   const out = TAG_GROUPS.slice();
-  out.splice(at < 0 ? out.length : at + 1, 0, packGroup);
+  out[at] = ["Packs", [...TAG_GROUPS[at][1], ...packGroup[1]]];
   return out;
 }
