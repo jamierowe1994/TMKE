@@ -14732,7 +14732,10 @@ import { createResizeEngine } from "./resize-engine.js";
   // One tile in the uploads grid. `b.dataset.src` is the live source: it starts
   // as the data URL and is swapped to the stored URL once the upload lands, so
   // click/drag always use whatever is current.
-  function addUploadTile(src) {
+  // `first`: a new upload goes at the top of the grid, where the list already
+  // puts it (Dani, 24 Oct: they were landing at the bottom). The library loads
+  // newest first, so on open each tile is appended in order.
+  function addUploadTile(src, first) {
     const b = document.createElement("button");
     b.type = "button";
     b.className = "ed-upload-tile";
@@ -14767,7 +14770,7 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     });
     b.appendChild(x);
-    uploadGridEl.appendChild(b);
+    if (first) uploadGridEl.prepend(b); else uploadGridEl.appendChild(b);
     return b;
   }
 
@@ -14779,7 +14782,7 @@ import { createResizeEngine } from "./resize-engine.js";
         // On the front: the uploads list is newest first, so what you just
         // added is the first thing every picture chooser offers.
         state.uploads.unshift(src);
-        const tile = addUploadTile(src);
+        const tile = addUploadTile(src, true);
         // Persist it so it's still here next time (signed-in members only).
         if (typeof window.__TMKE_UPLOAD_SAVE__ !== "function") return;
         let url = null;
