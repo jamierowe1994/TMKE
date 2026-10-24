@@ -467,6 +467,8 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     let HAS_BLOCKS = true;
     // The packs that are print packs, and which half of the studio is on show.
     let PRINT_PACKS = new Set();
+    // Pack titles by id, so each card can say which pack it's in (Danielle, 24 Oct).
+    let PACK_TITLES = {};
     const VIEW = new URLSearchParams(location.search).get('view') === 'print' ? 'print' : 'social';
 
     /* A template is print if it lives in a print pack, or if it is drawn at a
@@ -526,7 +528,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
             <div class="tpl-thumb" style="aspect-ratio:${arW}/${arH}">${renderPreview(t)}${statusBadge}</div>
             <div class="tpl-body">
               <div class="tpl-name">${escapeHtml(t.name)}</div>
-              <div class="tpl-meta">${t.kind === 'block' ? escapeHtml(VARIANT_LABEL[t.block_variant] || 'Contact block') : escapeHtml(t.category || '—')} · #${t.sort_order ?? 0}</div>
+              <div class="tpl-meta">${t.kind === 'block' ? escapeHtml(VARIANT_LABEL[t.block_variant] || 'Contact block') : [t.category, t.pack_id ? (PACK_TITLES[t.pack_id] || 'Pack') : 'Not in a pack'].filter(Boolean).map(escapeHtml).join(' · ')} · #${t.sort_order ?? 0}</div>
             </div>
           </a>
           <div class="tpl-actions">
@@ -653,6 +655,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       } catch (_) { }
       // Which packs are print, so the Print tab knows what belongs to it.
       PRINT_PACKS = new Set(packs.filter((p) => p.kind === 'print').map((p) => p.id));
+      PACK_TITLES = Object.fromEntries(packs.map((p) => [p.id, p.title || 'Untitled pack']));
       const frag = packs.map((p) =>
         `<option value="${escapeHtml(p.id)}">${escapeHtml(p.title || 'Untitled pack')}</option>`).join('');
       els.pack.innerHTML = '<option value="">All packs</option>' + frag +
