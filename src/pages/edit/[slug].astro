@@ -185,12 +185,19 @@ function gbp(pence) {
         ) : null}
       </div>
 
+      {(pack.story_heading || pack.story_body) && (
+        <div class="pd-story">
+          {pack.story_heading && <h2 class="pd-story-h">{pack.story_heading}</h2>}
+          {pack.story_body && String(pack.story_body).split(/\n\s*\n/).map((para) => <p>{para.trim()}</p>)}
+        </div>
+      )}
+
       {mockups.length > 0 && (
         <div class="pd-mocks" aria-label="The pack in use">
           <div class={`pd-mocks-grid n${mockups.length}`}>
             {mockups.map((src, i) => (
               <figure class="pd-mock" data-zoom data-set="mock" data-full={sized(src, 1600)} data-name={pack.title} tabindex="0" role="button" aria-label={`Enlarge image ${i + 1}`}>
-                <img src={sized(src, 700)} alt="" loading="lazy" />
+                <img src={sized(src, 1100)} alt="" loading="lazy" />
               </figure>
             ))}
           </div>
@@ -224,10 +231,17 @@ function gbp(pence) {
               <div><dt>Payment</dt><dd>Once, {gbp(pack.price_pence)} + VAT</dd></div>
             </dl>
           </details>
-          <details>
-            <summary>How it works</summary>
-            <p class="pd-note">Once you've paid, the pack is unlocked in your TMKE Studio. Open any template there to change the photos, words and colours to suit your business, then download it ready to post. It's yours to keep.</p>
-          </details>
+        </div>
+
+        <!-- Open, not folded: the left column runs long with the mockups, so
+             the panel has room, and these are the same on every pack. -->
+        <div class="pd-section">
+          <div class="pd-section-h">How it works</div>
+          <p class="pd-note">You pay once, plus VAT, with no subscription, and the pack is yours to keep. Once you've paid, the pack is unlocked in your TMKE Studio, inside your TMKE account. There you can change the photos, words and colours to suit your business, then download the finished design ready to post. Each template comes at a set size{sizes[0] ? `, such as ${sizes[0]}` : ""}, and you can resize it in the Studio for other formats, like a story.</p>
+        </div>
+        <div class="pd-section">
+          <div class="pd-section-h">The TMKE Studio</div>
+          <p class="pd-note">The TMKE Studio is our design studio. It runs in your web browser, so there's nothing to install. It's where every pack you buy lives. You add your brand once, with your logo, colours and fonts, and use it across your designs. It's built for property marketing, so the templates are made for the posts agents actually need.</p>
         </div>
       </div></aside>
     </section>
@@ -442,14 +456,30 @@ function gbp(pence) {
     .pd-spec div:first-child { border-top: 0; }
     .pd-spec dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding-top: 2px; }
     .pd-spec dd { margin: 0; font-family: var(--sans); font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
-    .pd-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0 0 14px; }
+    .pd-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0; }
+    .pd-section { padding: 22px 0 4px; }
+    .pd-section-h {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); margin-bottom: 8px;
+    }
 
-    /* The mockups, under the strip: four small, a row. */
-    .pd-mocks { padding: 14px 0 48px 0; }
-    .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-    .pd-mocks-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .pd-mocks-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 360px); }
+    /* The pack's story, centred in the left column (not the screen), at the
+       size of the Buy button's text (Danielle, 24 Oct). */
+    .pd-story { max-width: 540px; margin: 0 auto; padding: 64px 32px 60px; text-align: center; }
+    .pd-story-h {
+      font-family: var(--serif); font-weight: 400; font-size: 19px; line-height: 1.35;
+      letter-spacing: -0.01em; color: var(--ink); margin: 0 0 16px; text-wrap: balance;
+    }
+    .pd-story p {
+      font-family: var(--serif); font-size: 11.5px; line-height: 1.9; letter-spacing: 0.02em;
+      color: rgba(28,29,34,0.72); margin: 0 0 12px; text-wrap: pretty;
+    }
+    .pd-story p:last-child { margin-bottom: 0; }
+
+    /* The mockups: two by two, large, edge to edge (Studio Blanche). */
+    .pd-mocks { padding: 0 0 14px 0; }
+    .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 1fr); }
     .pd-mock { margin: 0; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; cursor: zoom-in; }
     .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
     .pd-mock:hover img { transform: scale(1.03); }
@@ -463,8 +493,9 @@ function gbp(pence) {
       .pd-reel-item { width: calc((100cqw - 14px) / 1.5); }
       .pd-panel { order: 2; border-left: 0; }
       .pd-panel-in { position: static; padding: 22px 16px 10px; }
-      .pd-mocks { order: 3; padding: 18px 16px 36px; }
-      .pd-mocks-grid, .pd-mocks-grid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+      .pd-story { order: 3; padding: 36px 20px 32px; }
+      .pd-mocks { order: 4; padding: 0 0 28px; }
+      .pd-mocks-grid { gap: 8px; }
     }
 
     /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
@@ -735,34 +766,52 @@ function gbp(pence) {
 
     // The strip moves one template along, waits two seconds, and moves again
     // (as Moyo Studio's does), rather than drifting. Three copies of the set
-    // sit in the track, so after a full set it jumps back unseen. Paused while
-    // the pointer or keyboard is on it; still for reduced motion.
+    // sit in the track, so after a full set it jumps back unseen.
+    // It only waits while the pointer is actually over it (asked fresh at each
+    // step, so scrolling away can't leave it stuck), and it doesn't step while
+    // it's off screen. Still for reduced motion. (Danielle, 24 Oct: it stopped
+    // after scrolling down and didn't start again.)
     (function () {
       var reel = document.querySelector('.pd-reel');
       var track = reel && reel.querySelector('.pd-reel-track');
       if (!track) return;
       var n = Number(track.getAttribute('data-count')) || 0;
       if (n < 2 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-      var i = 0, paused = false, SLIDE = 900, WAIT = 2000;
+      var i = 0, onScreen = true, SLIDE = 900, WAIT = 2000;
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(function (es) { onScreen = es[0].isIntersecting; }).observe(reel);
+      }
       function stepWidth() {
         var a = track.children[0], b = track.children[1];
         return b.getBoundingClientRect().left - a.getBoundingClientRect().left;
       }
-      function step() {
-        if (paused || document.hidden) return;
-        i += 1;
-        track.style.transition = 'transform ' + SLIDE + 'ms cubic-bezier(.65,0,.35,1)';
+      function place(animate) {
+        track.style.transition = animate ? 'transform ' + SLIDE + 'ms cubic-bezier(.65,0,.35,1)' : 'none';
         track.style.transform = 'translateX(' + (-i * stepWidth()) + 'px)';
-        if (i >= n) setTimeout(function () {
-          track.style.transition = 'none'; i = 0; track.style.transform = 'translateX(0)';
-        }, SLIDE + 30);
       }
-      setInterval(step, SLIDE + WAIT);
-      reel.addEventListener('mouseenter', function () { paused = true; });
-      reel.addEventListener('mouseleave', function () { paused = false; });
-      reel.addEventListener('focusin', function () { paused = true; });
-      reel.addEventListener('focusout', function () { paused = false; });
-      window.addEventListener('resize', function () { track.style.transition = 'none'; track.style.transform = 'translateX(' + (-i * stepWidth()) + 'px)'; });
+      function tick() {
+        var held = document.hidden || !onScreen || reel.matches(':hover');
+        if (!held) {
+          i += 1;
+          place(true);
+          if (i >= n) setTimeout(function () { i = 0; place(false); }, SLIDE + 30);
+        }
+        setTimeout(tick, held ? 500 : SLIDE + WAIT);
+      }
+      setTimeout(tick, SLIDE + WAIT);
+      window.addEventListener('resize', function () { place(false); });
+    })();
+
+    // The panel stays in view while you scroll the left column. When it's
+    // taller than the window it settles with its foot at the bottom instead,
+    // so the end of it can still be read.
+    (function () {
+      var el = document.querySelector('.pd-panel-in');
+      if (!el) return;
+      function fit() { el.style.top = Math.min(78, window.innerHeight - el.offsetHeight - 16) + 'px'; }
+      fit();
+      window.addEventListener('resize', fit);
+      document.querySelectorAll('.pd-acc details').forEach(function (d) { d.addEventListener('toggle', fit); });
     })();
 
     // "You might also like" / "Recently viewed": this browser remembers the

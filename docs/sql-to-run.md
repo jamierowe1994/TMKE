@@ -4,7 +4,7 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-Nothing waiting.
+- [ ] [supabase/pack_story.sql](../supabase/pack_story.sql) — the centred story text under the sliding templates on each pack page, with The Autumn Edit's filled in. Added 24 Oct 2026.
 
 ## Done
 

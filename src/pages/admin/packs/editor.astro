@@ -98,6 +98,16 @@ import "../../../styles/admin.css";
           </label>
 
           <label class="editor-field">
+            <span>Story heading</span>
+            <input type="text" name="story_heading" maxlength="160" placeholder="The Autumn Edit takes its cues from the season itself." />
+          </label>
+          <label class="editor-field">
+            <span>Story</span>
+            <textarea name="story_body" rows="4" maxlength="1200" placeholder="The idea behind the pack, in a few sentences."></textarea>
+            <small>Shown centred under the sliding templates on the pack's shop page, heading first. Leave both empty to show nothing there.</small>
+          </label>
+
+          <label class="editor-field">
             <span>Contents (one bullet per line)</span>
             <textarea name="contents" rows="6" placeholder="20 Instagram post templates&#10;6 reel cover designs&#10;Story templates"></textarea>
             <small>These render as the bullet list on the customer-facing pack detail.</small>
@@ -986,6 +996,7 @@ import "../../../styles/admin.css";
     const pickerSelected = new Set();
 
     let editingId = null;
+    let storyColumns = false;  // packs has story_heading / story_body (pack_story.sql)
     let slugTouched = false;
     /** @type {string[]} */
     let galleryUrls = [];
@@ -1316,6 +1327,9 @@ import "../../../styles/admin.css";
       syncKind();
       form.elements.status.value = data.status || "active";
       form.elements.description.value = data.description || "";
+      form.elements.story_heading.value = data.story_heading || "";
+      form.elements.story_body.value = data.story_body || "";
+      storyColumns = "story_heading" in data;
       form.elements.contents.value = (data.contents || []).join("\n");
       previewInput.value = data.preview_reveal_count ?? 3;
       previewMirror.textContent = String(previewInput.value);
@@ -1465,6 +1479,12 @@ import "../../../styles/admin.css";
           preview_images: galleryUrls,
           preview_reveal_count: previewCount,
         };
+        // The story, once supabase/pack_story.sql has added its columns (or
+        // when one has been typed), so packs still save before it runs.
+        {
+          const sh = String(fd.get("story_heading") || "").trim(), sb = String(fd.get("story_body") || "").trim();
+          if (storyColumns || sh || sb) { payload.story_heading = sh || null; payload.story_body = sb || null; }
+        }
 
         // The window, as London midnights. Only sent when it means something,
         // so other packs still save before supabase/pack_free_window.sql runs.
