@@ -4,10 +4,11 @@ Run these in the Supabase SQL editor, in order, top to bottom. Each one is safe 
 
 ## Waiting
 
-- [ ] [supabase/pack_story.sql](../supabase/pack_story.sql) — the centred story text under the sliding templates on each pack page, with The Autumn Edit's filled in. Added 24 Oct 2026.
+Nothing waiting.
 
 ## Done
 
+- [x] supabase/pack_story.sql — pack story text (24 Oct)
 - [x] supabase/smm_leaving_date.sql — leaving dates for social media clients (23 Oct)
 - [x] supabase/pack_free_window.sql — free packs for a limited time, e.g. Halloween (22 Oct)
 - [x] supabase/booking_document_strategy.sql — strategy document uploads (22 Oct)
