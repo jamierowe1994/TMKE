@@ -6745,7 +6745,9 @@ import { createResizeEngine } from "./resize-engine.js";
 
      Both look at the page as drawn without its screens: the photo and
      everything else on it, so a screen already over the photo can't hide it. */
-  let screenPickId = null;
+  // What the next click on the canvas is for: { screenId } to place that
+  // screen, or { imageId } to make a new screen over a photo (a mockup).
+  let screenPick = null;
 
   async function screenPhotoRaster(maxEdge) {
     const cw = state.canvas.width, ch = state.canvas.height;
@@ -6963,6 +6965,20 @@ import { createResizeEngine } from "./resize-engine.js";
     return cornersFromLines(lines, q, w, h);
   }
 
+  /* The screen a find lands in: the one you were on, or for a photo in a
+     mockup (Dani, 24 Oct) a new screen over it, made only once the corners
+     are found, so a miss leaves nothing behind to tidy up. */
+  function screenFor(target) {
+    if (target.type === "screen") return target;
+    addElement({
+      type: "screen", x: target.x, y: target.y, w: target.w, h: target.h, rotation: 0, opacity: 1,
+      corners: SCREEN_CORNERS.map(([x, y]) => ({ x: x, y: y })), guide: "#00c2a8",
+      src: null, imgNaturalW: 0, imgNaturalH: 0,
+      imgScale: 1, imgOffsetX: 0, imgOffsetY: 0, imgRotation: 0, imgFit: "cover",
+    });
+    return state.elements[state.elements.length - 1];
+  }
+
   // Put the screen's corners on four canvas points, TL TR BR BL.
   function setScreenQuad(el, pts) {
     const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
@@ -6976,21 +6992,22 @@ import { createResizeEngine } from "./resize-engine.js";
   }
 
   function startScreenPick(el) {
-    screenPickId = el.id;
+    screenPick = el.type === "screen" ? { screenId: el.id } : { imageId: el.id };
     canvasEl.classList.add("is-picking-screen");
     toast("Click on the blank screen in the photo. Escape to cancel.");
   }
   function endScreenPick() {
-    screenPickId = null;
+    screenPick = null;
     canvasEl.classList.remove("is-picking-screen");
   }
   // The click that finds the screen is not a click on the canvas: it selects
   // nothing and moves nothing, so it is taken before anything else sees it.
   canvasEl.addEventListener("pointerdown", async function (ev) {
-    if (!screenPickId) return;
+    if (!screenPick) return;
     ev.preventDefault();
     ev.stopPropagation();
-    const el = state.elements.find((e) => e && e.id === screenPickId);
+    const pickId = screenPick.screenId || screenPick.imageId;
+    const el = state.elements.find((e) => e && e.id === pickId);
     endScreenPick();
     if (!el) return;
     const rect = canvasEl.getBoundingClientRect();
@@ -7002,13 +7019,13 @@ import { createResizeEngine } from "./resize-engine.js";
       const sy = Math.min(r.height - 1, Math.max(0, Math.round(cy * scale)));
       const found = findScreenAtPoint(img, r.width, r.height, sx, sy);
       if (found.error) { toast(found.error); return; }
-      setScreenQuad(el, found.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })));
+      setScreenQuad(screenFor(el), found.corners.map((p) => ({ x: p.x / scale, y: p.y / scale })));
       toast("Corners set. Drag any of them to fine-tune.");
     } catch (_) {
       toast("Couldn't read the photo here. Try Find it with Claude.");
     }
   }, true);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && screenPickId) { endScreenPick(); toast("Cancelled"); } });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && screenPick) { endScreenPick(); toast("Cancelled"); } });
 
   async function findScreenWithClaude(el, what, btn) {
     if (typeof window.__TMKE_FIND_SCREEN__ !== "function") { toast("Finding the screen isn't available here."); return; }
@@ -7023,7 +7040,7 @@ import { createResizeEngine } from "./resize-engine.js";
       let q = out.corners;
       if (!screenIsConvex(q)) { toast("Claude's corners crossed over. Try again, or describe it differently."); return; }
       q = snapQuadToEdges(q, img, r.width, r.height);
-      setScreenQuad(el, q.map((p) => ({ x: p.x / scale, y: p.y / scale })));
+      setScreenQuad(screenFor(el), q.map((p) => ({ x: p.x / scale, y: p.y / scale })));
       toast("Corners set. Drag any of them to fine-tune.");
     } catch (_) {
       toast("Couldn't reach Claude. Try again.");
@@ -9147,6 +9164,21 @@ import { createResizeEngine } from "./resize-engine.js";
       }
     }
 
+    /* A photo in a mockup (a design made on the Mockups tab): the way to turn
+       it into one, by finding the screen in it (Dani, 24 Oct). */
+    if (el.type === "image" && el.src && !el.svgKey && isAdminMode() && state.canvas && state.canvas.mockup) {
+      html.push(
+        '<div class="ed-props-section"><h4>Make it a mockup</h4>' +
+          '<p class="ed-props-hint">Put a screen on this photo for the artwork to go in. You can drag its corners afterwards.</p>' +
+          '<button class="ed-btn-ghost" id="ed-mk-pick" style="background:rgba(28,29,34,0.06);width:100%">Click the screen</button>' +
+          '<p class="ed-props-hint">For a plain screen: black, white or a solid colour. Click it, then click anywhere on that screen in the photo.</p>' +
+          '<div class="ed-props-field" style="margin-top:10px"><label>Or describe it</label>' +
+            '<input type="text" id="ed-mk-what" value="the laptop screen" maxlength="120"></div>' +
+          '<button class="ed-btn-ghost" id="ed-mk-claude" style="background:rgba(28,29,34,0.06);width:100%">Find it with Claude</button>' +
+          '<p class="ed-props-hint">For anything else: a screen showing a picture, a book cover, a poster. It takes a few seconds.</p>' +
+        '</div>');
+    }
+
     if (el.type === "image") {
       // SVG shapes/icons (added via the More-shapes / Social-icons
       // grids) are recolourable — their `svgKey` references SVG_SHAPES
@@ -9566,6 +9598,13 @@ import { createResizeEngine } from "./resize-engine.js";
         if (a === "duplicate") duplicateSelected();
         else if (a === "delete") deleteSelected();
       });
+    });
+
+    // ---- Make it a mockup (a photo in a mockup) --------------------------
+    body.querySelector("#ed-mk-pick")?.addEventListener("click", () => startScreenPick(el));
+    body.querySelector("#ed-mk-claude")?.addEventListener("click", (e) => {
+      const what = (body.querySelector("#ed-mk-what")?.value || "").trim();
+      findScreenWithClaude(el, what, e.currentTarget);
     });
 
     // ---- Screen controls -------------------------------------------------

@@ -469,7 +469,19 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
     let PRINT_PACKS = new Set();
     // Pack titles by id, so each card can say which pack it's in (Danielle, 24 Oct).
     let PACK_TITLES = {};
-    const VIEW = new URLSearchParams(location.search).get('view') === 'print' ? 'print' : 'social';
+    const VIEW_Q = new URLSearchParams(location.search).get('view');
+    const VIEW = VIEW_Q === 'print' ? 'print' : VIEW_Q === 'mockups' ? 'mockups' : 'social';
+    // A mockup is a design marked canvas.mockup: it lives on the Mockups tab only.
+    const isMockup = (t) => !!(t && t.canvas && t.canvas.mockup);
+    /* The page is built once, without its ?view=, so the tab is lit and the
+       button named here. (Print was never lit for the same reason.) */
+    document.querySelectorAll('.studio-tab').forEach((t) =>
+      t.classList.toggle('is-on', t.dataset.tab === (VIEW === 'print' ? 'print' : VIEW === 'mockups' ? 'mockups' : 'templates')));
+    if (VIEW === 'mockups') {
+      const nb = document.getElementById('new-btn'), sb = document.getElementById('tpl-search');
+      if (nb) nb.textContent = '+ Create a mockup';
+      if (sb) sb.placeholder = 'Search mockups…';
+    }
 
     /* A template is print if it lives in a print pack, or if it is drawn at a
        print size — because it has to be findable BEFORE it is put in a pack,
@@ -679,7 +691,9 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       // so they'd only be noise here.
       list = list.filter((t) => t.kind !== 'block');
       // Print and social are different trades; each tab shows its own.
-      list = list.filter((t) => (VIEW === 'print') === isPrint(t));
+      list = VIEW === 'mockups'
+        ? list.filter(isMockup)
+        : list.filter((t) => !isMockup(t) && (VIEW === 'print') === isPrint(t));
 
       // Status filter (the sort-only options leave the status set untouched).
       if (f === 'draft') list = list.filter((t) => t.status === 'draft');
@@ -695,8 +709,10 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
       list.sort((a, b) => (f === 'oldest' ? ts(a) - ts(b) : ts(b) - ts(a)));
 
       els.empty.hidden = ALL.length !== 0;
+      const noMockups = VIEW === 'mockups' && !ALL.some(isMockup);
       els.grid.innerHTML = list.length
         ? list.map(renderCard).join('')
+        : noMockups ? `<p class="tpl-loading">No mockups yet. Click <strong>+ Create a mockup</strong>, put your photo on the canvas, select it and choose how to find the screen.</p>`
         : (ALL.length ? `<p class="tpl-loading">No templates match ${escapeHtml(describeView(q))}.</p>` : '');
     }
 
@@ -868,23 +884,24 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
        for: an A5 flyer begins as an A5, not as an Instagram post resized
        afterwards (Dani, 16 Oct, after Sam's A5 flyer). */
     function askNewTemplate() {
+      const MOCK = VIEW === 'mockups';
       return new Promise((resolve) => {
         const first = STUDIO_SIZES[0].sizes[0];
         let chosen = { w: first.w, h: first.h };
         const scrim = document.createElement('div');
         scrim.className = 'tpl-ask-scrim';
         scrim.innerHTML = `
-          <div class="tpl-ask tpl-ask--new" role="dialog" aria-modal="true" aria-label="New template">
-            <div class="tpl-ask-eyebrow">New template</div>
-            <label class="tpl-ask-label" for="tpl-new-name">Template name</label>
-            <input type="text" class="tpl-ask-input" id="tpl-new-name" placeholder="e.g. Just Listed — Editorial" />
+          <div class="tpl-ask tpl-ask--new" role="dialog" aria-modal="true" aria-label="${MOCK ? 'New mockup' : 'New template'}">
+            <div class="tpl-ask-eyebrow">${MOCK ? 'New mockup' : 'New template'}</div>
+            <label class="tpl-ask-label" for="tpl-new-name">${MOCK ? 'Mockup name' : 'Template name'}</label>
+            <input type="text" class="tpl-ask-input" id="tpl-new-name" placeholder="${MOCK ? 'e.g. Laptop on a leather chair' : 'e.g. Just Listed — Editorial'}" />
             ${STUDIO_SIZES.map((g) => `<div class="tpl-size-group">
               <div class="tpl-ask-label">${escapeHtml(g.label)}</div>
               <div class="tpl-size-opts">${g.sizes.map((z) => `<button type="button" class="tpl-size-opt" data-w="${z.w}" data-h="${z.h}" aria-pressed="${z === first}">${escapeHtml(z.name)}<small>${escapeHtml(z.mm || `${z.w} × ${z.h}`)}</small></button>`).join('')}</div>
             </div>`).join('')}
             <div class="tpl-ask-actions">
               <button type="button" class="tpl-ask-cancel">Cancel</button>
-              <button type="button" class="tpl-ask-ok">Create template</button>
+              <button type="button" class="tpl-ask-ok">${MOCK ? 'Create mockup' : 'Create template'}</button>
             </div>
           </div>`;
         document.body.appendChild(scrim);
@@ -920,7 +937,7 @@ const VIEW = Astro.url.searchParams.get("view") === "print" ? "print" : "social"
         name: name.trim(),
         category: null,
         thumb_url: null,
-        canvas: { width: picked.w, height: picked.h, background: '#f4f2f1' },
+        canvas: { width: picked.w, height: picked.h, background: '#f4f2f1', ...(VIEW === 'mockups' ? { mockup: true } : {}) },
         elements: [],
         status: 'draft',
         sort_order: 9000,
