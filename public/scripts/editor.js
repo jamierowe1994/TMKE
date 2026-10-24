@@ -4125,6 +4125,10 @@ import { createResizeEngine } from "./resize-engine.js";
         img.crossOrigin = "anonymous";
         img.className = "sc-img";
         plane.appendChild(img);
+        // Glare and dim, inside the plane so they take its perspective.
+        const dim = document.createElement("div"); dim.className = "sc-dim";
+        const glare = document.createElement("div"); glare.className = "sc-glare";
+        plane.appendChild(dim); plane.appendChild(glare);
         node.appendChild(plane);
         if (el.imgNaturalW && el.imgNaturalH) applyScreenTransform(node, el);
         img.addEventListener("load", function () {
@@ -4751,8 +4755,8 @@ import { createResizeEngine } from "./resize-engine.js";
         pin.className = "ed-screen-pin";
         pin.style.setProperty("--sc-guide", el.guide || "#00c2a8");
         pin.dataset.corner = String(i);
-        pin.style.left = (pt.x - 8) + "px";
-        pin.style.top = (pt.y - 8) + "px";
+        pin.style.left = (pt.x - 9) + "px";
+        pin.style.top = (pt.y - 9) + "px";
         handlesEl.appendChild(pin);
         pin.addEventListener("pointerdown", (ev) => startCornerDrag(ev, el, i));
       });
@@ -5250,11 +5254,48 @@ import { createResizeEngine } from "./resize-engine.js";
     if (e.key === "Escape" && artworkEditId) setArtworkEdit(null);
   });
 
+  /* The magnifier while a corner is dragged (Dani, 24 Oct). It shows the
+     page as drawn without its screens, so nothing of the guide is in the
+     way, four times over, with a cross on the point the corner is at. */
+  const LOUPE = 132, LOUPE_ZOOM = 4;
+  function startLoupe() {
+    const box = document.createElement("canvas");
+    box.className = "ed-screen-loupe";
+    box.width = LOUPE * 2; box.height = LOUPE * 2;
+    box.style.display = "none";
+    document.body.appendChild(box);
+    const loupe = { box, raster: null, scale: 1, last: null };
+    screenPhotoRaster(2400).then(({ canvas, scale }) => { loupe.raster = canvas; loupe.scale = scale; if (loupe.last) moveLoupe(loupe, loupe.last.p, loupe.last.cx, loupe.last.cy); }).catch(() => {});
+    return loupe;
+  }
+  function moveLoupe(loupe, p, clientX, clientY) {
+    loupe.last = { p, cx: clientX, cy: clientY };
+    if (!loupe.raster) return;
+    const b = loupe.box, ctx = b.getContext("2d");
+    // What shows: LOUPE screen pixels' worth of the page, around the point.
+    const span = (LOUPE / LOUPE_ZOOM) / state.zoom * loupe.scale;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, b.width, b.height);
+    ctx.drawImage(loupe.raster, p.x * loupe.scale - span / 2, p.y * loupe.scale - span / 2, span, span, 0, 0, b.width, b.height);
+    ctx.strokeStyle = "rgba(255,255,255,0.95)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(b.width / 2, 0); ctx.lineTo(b.width / 2, b.height); ctx.moveTo(0, b.height / 2); ctx.lineTo(b.width, b.height / 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(0,194,168,1)"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(b.width / 2, 0); ctx.lineTo(b.width / 2, b.height); ctx.moveTo(0, b.height / 2); ctx.lineTo(b.width, b.height / 2); ctx.stroke();
+    // Up and to the left of the pointer, where the hand isn't; flipped near an edge.
+    let x = clientX - LOUPE - 28, y = clientY - LOUPE - 28;
+    if (x < 8) x = clientX + 28;
+    if (y < 8) y = clientY + 28;
+    b.style.left = x + "px"; b.style.top = y + "px";
+    b.style.display = "block";
+  }
+
   function startCornerDrag(ev, el, index) {
     ev.preventDefault();
     ev.stopPropagation();
     const startX = ev.clientX, startY = ev.clientY;
     const origin = screenPoints(el);
+    const loupe = startLoupe();
+    moveLoupe(loupe, origin[index], ev.clientX, ev.clientY);
 
     function onMove(e) {
       const dx = (e.clientX - startX) / state.zoom;
@@ -5272,10 +5313,12 @@ import { createResizeEngine } from "./resize-engine.js";
       el.corners = pts.map((p) => ({ x: (p.x - minX) / w, y: (p.y - minY) / h }));
       partialRenderElement(el);
       renderHandles();
+      moveLoupe(loupe, pts[index], e.clientX, e.clientY);
     }
     function onUp() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      loupe.box.remove();
       normaliseScreen(el);
       pushHistory();
       fullRender();
@@ -6649,6 +6692,27 @@ import { createResizeEngine } from "./resize-engine.js";
     return pts;
   }
 
+  /* Glare and dim (Dani, 24 Oct): what makes a screen look like it's in the
+     room rather than pasted on. Each is 0 to 100. Dim lays black over the
+     artwork, up to 60%. Glare is a soft sheen from the top left, up to 55%
+     white at its brightest, gone by just past the middle. Both live in the
+     screen's own plane, so they take its perspective, and the export draws
+     the same gradient (screenGlareStops) through the same projection. */
+  const GLARE_ANGLE = 125;
+  function screenGlareStops(el) {
+    const a = Math.max(0, Math.min(100, Number(el.screenGlare) || 0)) / 100 * 0.55;
+    return [[0, a], [0.38, a * 0.35], [0.62, 0]];
+  }
+  function screenGlareCss(el) {
+    if (!(Number(el.screenGlare) > 0)) return "none";
+    return "linear-gradient(" + GLARE_ANGLE + "deg," + screenGlareStops(el).map(([t, a]) =>
+      "rgba(255,255,255," + a.toFixed(3) + ") " + (t * 100) + "%").join(",") + ")";
+  }
+  function screenDimCss(el) {
+    const d = Math.max(0, Math.min(100, Number(el.screenDim) || 0)) / 100 * 0.6;
+    return d > 0 ? "rgba(0,0,0," + d.toFixed(3) + ")" : "none";
+  }
+
   /* The artwork's own placement inside the screen.
 
      It used to be stretched to the quad, which only looks right when the
@@ -6698,6 +6762,9 @@ import { createResizeEngine } from "./resize-engine.js";
     plane.style.height = el.h + "px";
     plane.style.transformOrigin = "0 0";
     plane.style.transform = screenMatrixCss(el, el.w, el.h);
+    const dimEl = node.querySelector(".sc-dim"), glareEl = node.querySelector(".sc-glare");
+    if (dimEl) dimEl.style.background = screenDimCss(el);
+    if (glareEl) glareEl.style.background = screenGlareCss(el);
     if (!img) return;
     const fit = screenImageFit(el);
     /* Placed with explicit left/top rather than a percentage translate.
@@ -7122,6 +7189,33 @@ import { createResizeEngine } from "./resize-engine.js";
     }
   }, true);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && screenPick) { endScreenPick(); toast("Cancelled"); } });
+
+  /* Claude's suggestion for glare and dim (Dani, 24 Oct): it sees the page
+     with this screen's artwork in, bare of any glare or dim, and judges the
+     light in the photo. The sliders take its numbers and stay yours. */
+  async function suggestScreenLight(el, btn) {
+    if (typeof window.__TMKE_SCREEN_LIGHT__ !== "function") { toast("This isn't available here."); return; }
+    const label = btn ? btn.textContent : "";
+    if (btn) { btn.disabled = true; btn.textContent = "Looking…"; }
+    try {
+      const page = { canvas: state.canvas, elements: state.elements.map((e) => (e === el ? Object.assign({}, e, { screenGlare: 0, screenDim: 0 }) : e)) };
+      const full = await _renderDesignToCanvas({ page });
+      const k = Math.min(1, 1600 / Math.max(full.width, full.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(full.width * k); c.height = Math.round(full.height * k);
+      c.getContext("2d").drawImage(full, 0, 0, c.width, c.height);
+      const pts = screenPoints(el).map((p) => ({ x: Math.round(p.x * k), y: Math.round(p.y * k) }));
+      const out = await window.__TMKE_SCREEN_LIGHT__({ image: c.toDataURL("image/jpeg", 0.88), width: c.width, height: c.height, corners: pts });
+      if (!out || out.error) { toast(out && out.error ? out.error : "Claude didn't answer. Try again."); return; }
+      el.screenGlare = Math.round(out.glare); el.screenDim = Math.round(out.dim);
+      pushHistory(); fullRender(); renderProps();
+      toast("Glare " + el.screenGlare + ", dim " + el.screenDim + (out.note ? ": " + out.note : "."), 6000);
+    } catch (_) {
+      toast("Couldn't reach Claude. Try again.");
+    } finally {
+      if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = label; }
+    }
+  }
 
   async function findScreenWithClaude(el, what, btn) {
     if (typeof window.__TMKE_FIND_SCREEN__ !== "function") { toast("Finding the screen isn't available here."); return; }
@@ -8804,6 +8898,30 @@ import { createResizeEngine } from "./resize-engine.js";
         drawTexturedTriangle(ctx, img, sA, sC, sD, dA, dC, dD);
       }
     }
+    // Dim, then glare, inside the same clip, as on the canvas.
+    const dimCss = screenDimCss(el);
+    if (dimCss !== "none") { ctx.fillStyle = dimCss; ctx.fillRect(0, 0, el.w, el.h); }
+    if (Number(el.screenGlare) > 0) {
+      // Drawn flat in the plane exactly as CSS lays the gradient out, then
+      // carried onto the quad with the artwork's mesh.
+      const pw = Math.max(1, Math.round(el.w)), ph = Math.max(1, Math.round(el.h));
+      const g = document.createElement("canvas"); g.width = pw; g.height = ph;
+      const gx = g.getContext("2d"), th = GLARE_ANGLE * Math.PI / 180;
+      const dx = Math.sin(th), dy = -Math.cos(th), L = Math.abs(pw * dx) + Math.abs(ph * dy);
+      const grad = gx.createLinearGradient(pw / 2 - dx * L / 2, ph / 2 - dy * L / 2, pw / 2 + dx * L / 2, ph / 2 + dy * L / 2);
+      screenGlareStops(el).forEach(([t, a]) => grad.addColorStop(t, "rgba(255,255,255," + a + ")"));
+      gx.fillStyle = grad; gx.fillRect(0, 0, pw, ph);
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
+          const sA = { x: u0 * pw, y: v0 * ph }, sB = { x: u1 * pw, y: v0 * ph }, sC = { x: u1 * pw, y: v1 * ph }, sD = { x: u0 * pw, y: v1 * ph };
+          const dA = screenProject(m, u0, v0), dB = screenProject(m, u1, v0);
+          const dC = screenProject(m, u1, v1), dD = screenProject(m, u0, v1);
+          drawTexturedTriangle(ctx, g, sA, sB, sC, dA, dB, dC);
+          drawTexturedTriangle(ctx, g, sA, sC, sD, dA, dC, dD);
+        }
+      }
+    }
     ctx.restore();
   }
 
@@ -9399,6 +9517,16 @@ import { createResizeEngine } from "./resize-engine.js";
             '<div class="ed-props-field" style="margin-top:10px"><label>Or pick one</label>' +
               '<div data-mount="sc-bg-pick"></div></div>' +
           '</div>');
+        html.push(
+          '<div class="ed-props-section"><h4>Light on the screen</h4>' +
+            '<p class="ed-props-hint">A little glare and shade is what makes a screen look like it is in the room, not pasted on.</p>' +
+            '<div data-mount="sc-glare"></div>' +
+            '<div data-mount="sc-dim"></div>' +
+            (isAdminMode()
+              ? '<button class="ed-btn-ghost" id="ed-sc-light" style="background:rgba(28,29,34,0.06);width:100%;margin-top:10px">Suggest with Claude</button>' +
+                '<p class="ed-props-hint">Claude looks at the light in your photo and sets both. You can adjust them after.</p>'
+              : '') +
+          '</div>');
       }
     }
 
@@ -9769,6 +9897,13 @@ import { createResizeEngine } from "./resize-engine.js";
           function (hex) { el.bgFill = hex; pushHistory(); fullRender(); }
         ));
       }
+      const glareMount = body.querySelector('[data-mount="sc-glare"]');
+      if (glareMount) glareMount.appendChild(sliderNumberRow("Glare", "", 0, 100, 1,
+        () => Number(el.screenGlare) || 0, (v) => { el.screenGlare = v; }, live));
+      const dimMount = body.querySelector('[data-mount="sc-dim"]');
+      if (dimMount) dimMount.appendChild(sliderNumberRow("Dim", "", 0, 100, 1,
+        () => Number(el.screenDim) || 0, (v) => { el.screenDim = v; }, live));
+      body.querySelector("#ed-sc-light")?.addEventListener("click", (e) => suggestScreenLight(el, e.currentTarget));
       body.querySelector("#ed-sc-reset")?.addEventListener("click", () => resetScreenCorners(el));
       body.querySelector("#ed-sc-pick")?.addEventListener("click", () => startScreenPick(el));
       body.querySelector("#ed-sc-claude")?.addEventListener("click", (e) => {

@@ -10862,6 +10862,66 @@ Return ONLY minified JSON, no markdown: {"answer": "your reply, with line breaks
         return json({ ok: true, found: true, corners, note: r.note || "" }, 200, request, env);
       }
 
+      /* Glare and dim for a screen in a mockup (Dani, 24 Oct): Claude sees the
+         photo with the artwork in, bare, and the screen's corners, and
+         suggests how much of each would make it sit in the photo's light. */
+      if (path.endsWith("/studio/screen-light") && request.method === "POST") {
+        const user = await getUser(request, env);
+        if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);
+        if (!env.ANTHROPIC_API_KEY) return json({ error: "AI isn't configured." }, 503, request, env);
+        const b = await request.json().catch(() => ({}));
+        const m = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(String(b.image || ""));
+        const W = Math.round(Number(b.width)), H = Math.round(Number(b.height));
+        const pts = Array.isArray(b.corners) ? b.corners.slice(0, 4).map((p) => `(${Math.round(Number(p.x))}, ${Math.round(Number(p.y))})`).join(", ") : "";
+        if (!m || !(W > 0 && H > 0)) return json({ error: "Send the mockup as an image and its size." }, 400, request, env);
+        const schema = {
+          type: "object",
+          properties: { glare: { type: "number" }, dim: { type: "number" }, note: { type: "string" } },
+          required: ["glare", "dim", "note"],
+          additionalProperties: false,
+        };
+        const prompt =
+          `This is a ${W} x ${H} pixel mockup: a photo with a design placed onto a screen in it` +
+          (pts ? `, at the corners ${pts} (top left, top right, bottom right, bottom left)` : "") + ".\n\n" +
+          "The design was dropped in flat, at full brightness. Judge the light in the rest of the photo (how bright it is, where the light comes from, whether it's moody or bright, colour or black and white) " +
+          "and say how much glare and how much dim the screen needs to look like a real screen in that room rather than pasted on.\n" +
+          "- glare, 0 to 100: a soft white sheen from the top left of the screen. 0 is none; 20 is a subtle reflection; 50 is a strong one, as from a bright window.\n" +
+          "- dim, 0 to 100: black laid over the design. 0 leaves it at full brightness; 20 suits a softly lit room; 40 or more only suits a dark or moody photo.\n" +
+          "Most good mockups sit low on both. In note, say in one short sentence why.";
+        let res, out;
+        try {
+          res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-opus-5-5",
+              max_tokens: 16000,
+              fallbacks: "default",
+              output_config: { effort: "medium", format: { type: "json_schema", schema } },
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: m[1], data: m[2] } },
+                { type: "text", text: prompt },
+              ] }],
+            }),
+          });
+          out = await res.json().catch(() => null);
+        } catch (e) {
+          return json({ error: "Couldn't reach Claude: " + (e.message || e) }, 502, request, env);
+        }
+        if (!res.ok || !out) {
+          const why = (out && out.error && out.error.message) || "";
+          if (/credit balance/i.test(why)) return json({ error: "The Claude API credit has run out. Top it up at console.anthropic.com, under Billing." }, 502, request, env);
+          return json({ error: why || ("Claude said " + res.status) }, 502, request, env);
+        }
+        if (out.stop_reason === "refusal") return json({ error: "Claude declined to look at this photo." }, 422, request, env);
+        const text = (out.content || []).filter((c) => c.type === "text").map((c) => c.text).join("");
+        let r = null;
+        try { r = JSON.parse(text); } catch (_) {}
+        if (!r) return json({ error: "Claude's answer couldn't be read." }, 502, request, env);
+        const clamp = (v) => Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+        return json({ ok: true, glare: clamp(r.glare), dim: clamp(r.dim), note: String(r.note || "").slice(0, 200) }, 200, request, env);
+      }
+
       if (path.endsWith("/studio/brand-kits") && request.method === "GET") {
         const user = await getUser(request, env);
         if (!user || !isAdminEmail(user)) return json({ error: "Admins only." }, 403, request, env);

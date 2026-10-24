@@ -2458,12 +2458,12 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-element.is-thin.is-locked:not(.is-selected):not(.is-multiselected)::after,
     .ed-element.is-thin.is-hidden:not(.is-selected):not(.is-multiselected)::after { content: none; }
 
+    /* No line round a screen (Dani, 24 Oct): it sat exactly on the edge you
+       are lining the corners up against and hid it. A light tint shows the
+       area; the corner pins show the corners. */
     .ed-element[data-type="screen"] {
       --sc-guide: #00c2a8;
-      background: color-mix(in srgb, var(--sc-guide) 22%, transparent);
-      outline: 2px dashed var(--sc-guide);
-      outline-offset: -2px;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.85);
+      background: color-mix(in srgb, var(--sc-guide) 20%, transparent);
     }
     .ed-element[data-type="screen"].is-filled {
       background: var(--sc-bg, transparent); outline: none; box-shadow: none;
@@ -2497,9 +2497,7 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
     .ed-screen-outline {
       --sc-guide: #00c2a8;
       position: absolute; pointer-events: none;
-      background: color-mix(in srgb, var(--sc-guide) 14%, transparent);
-      outline: 2px solid var(--sc-guide); outline-offset: -2px;
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.8);
+      background: color-mix(in srgb, var(--sc-guide) 10%, transparent);
     }
     /* White core, guide-coloured ring: reads against a dark screen and a light
        desk without needing to know which it is sitting on. */
@@ -2570,13 +2568,29 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       cursor: move;
       outline: 2px solid var(--sc-guide); outline-offset: 2px;
     }
+    /* A ring, open in the middle, with a dot on the exact point: you see the
+       photo through it, so the corner can go right on the screen's corner. */
     .ed-screen-pin {
       --sc-guide: #00c2a8;
-      position: absolute; width: 16px; height: 16px; border-radius: 50%;
-      background: #fff; border: 3px solid var(--sc-guide);
-      box-shadow: 0 0 0 1px rgba(20,18,26,0.45), 0 1px 4px rgba(20,18,26,0.45);
+      position: absolute; width: 18px; height: 18px; border-radius: 50%; box-sizing: border-box;
+      background: transparent; border: 2px solid var(--sc-guide);
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.85), inset 0 0 0 1px rgba(255,255,255,0.85);
       cursor: grab; pointer-events: auto; z-index: 2;
     }
+    .ed-screen-pin::after {
+      content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 3px; margin: -1.5px 0 0 -1.5px;
+      border-radius: 50%; background: var(--sc-guide); box-shadow: 0 0 0 1px rgba(255,255,255,0.9);
+    }
+    /* While a corner is dragged: the photo under it, four times over, with
+       the guide off, so the edge can be seen and hit. */
+    .ed-screen-loupe {
+      position: fixed; z-index: 400; width: 132px; height: 132px; border-radius: 50%;
+      border: 3px solid #fff; box-shadow: 0 4px 18px rgba(20,18,26,0.4);
+      pointer-events: none; overflow: hidden; background: #000;
+    }
+    /* Glare and dim over the artwork, inside the screen's perspective. */
+    .ed-element[data-type="screen"] .sc-dim,
+    .ed-element[data-type="screen"] .sc-glare { position: absolute; inset: 0; pointer-events: none; }
     .ed-screen-pin:active { cursor: grabbing; }
 
     /* A frame is just an .ed-element with data-type="frame". Its outer
@@ -5872,6 +5886,20 @@ const googleFonts = googleFontsPicked.concat(GOOGLE_FONTS_ALL.filter((f) => !pic
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return { error: 'Sign in again, then try.' };
       const r = await fetch(WORKER + '/studio/find-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+        body: JSON.stringify(payload),
+      });
+      return await r.json().catch(() => ({ error: 'Claude\'s answer couldn\'t be read.' }));
+    };
+
+    // Glare and dim for a screen, suggested by Claude (worker /studio/screen-light).
+    window.__TMKE_SCREEN_LIGHT__ = async (payload) => {
+      const WORKER = (import.meta.env.PUBLIC_R2_WORKER_URL || '').replace(/\/+$/, '');
+      if (!WORKER) return { error: "The Worker isn't configured here." };
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return { error: 'Sign in again, then try.' };
+      const r = await fetch(WORKER + '/studio/screen-light', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
         body: JSON.stringify(payload),
