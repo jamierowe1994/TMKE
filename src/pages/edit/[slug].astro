@@ -23,7 +23,7 @@ export async function getStaticPaths() {
       contents: ["New instruction & coming-soon layouts", "Open-house and viewing announcements", "Price change & just-sold posts"],
       cover_image_url: TPL(13), preview_images: [TPL(13), TPL(1), TPL(5), TPL(8), TPL(2)],
     };
-    return [{ params: { slug: pack.slug }, props: { pack, templates } }];
+    return [{ params: { slug: pack.slug }, props: { pack, templates, cards: [] } }];
   };
 
   if (!isConfigured) return import.meta.env.DEV ? devSamplePaths() : [];
@@ -43,7 +43,7 @@ export async function getStaticPaths() {
   const packIds = packs.map((p) => p.id);
   const { data: templates } = await supabase
     .from("templates")
-    .select("id, name, category, thumb_url, render_url, pack_id, sort_order")
+    .select("id, name, category, thumb_url, render_url, pack_id, sort_order, canvas")
     .in("pack_id", packIds)
     .eq("status", "active")
     .order("sort_order", { ascending: true });
@@ -55,16 +55,29 @@ export async function getStaticPaths() {
     tplByPack.set(t.pack_id, list);
   });
 
+  // Every pack for sale as a small card, for "You might also like" and
+  // "Recently viewed" at the foot of each page.
+  const cards = packs.filter((p) => p.status === "active").map((p) => {
+    const tpls = tplByPack.get(p.id) || [];
+    const imgs = Array.isArray(p.preview_images) ? p.preview_images.filter(Boolean) : [];
+    return {
+      slug: p.slug, title: p.title, price_pence: p.price_pence, category: p.category || "", kind: p.kind || "social",
+      cover: p.cover_image_url || imgs[0] || (tpls[0] && (tpls[0].render_url || tpls[0].thumb_url)) || null,
+      count: tpls.length,
+    };
+  });
+
   return packs.map((pack) => ({
     params: { slug: pack.slug },
     props: {
       pack,
       templates: tplByPack.get(pack.id) || [],
+      cards,
     },
   }));
 }
 
-const { pack, templates } = Astro.props;
+const { pack, templates, cards = [] } = Astro.props;
 // Open previews, then locked teasers, then the unlock CTA.
 // NB the six is only a DEFAULT: a pack with its own preview_reveal_count set in
 // admin still wins. If a live pack shows three, that's its setting, not this line.
@@ -92,6 +105,25 @@ const galleryImgs = (Array.isArray(pack.preview_images) ? pack.preview_images : 
   .filter((u) => typeof u === "string" && u.trim());
 const heroImages = galleryImgs.length ? galleryImgs : (coverSrc ? [coverSrc] : []);
 const heroMain = heroImages[0] || null;
+
+// The sliding strip at the top (Danielle, 24 Oct 2026, after Moyo Studio):
+// the open previews, so nothing locked is shown, topped up with the pack's
+// mockups when a pack opens fewer than five. Each one opens its preview.
+const reelItems = [
+  ...previewTpls.filter((t) => t.thumb_url || t.render_url).map((t, i) => ({ src: t.thumb_url || t.render_url, name: t.name, zoom: `tpl:${i}` })),
+  ...(previewTpls.length < 5 ? galleryImgs.map((src, i) => ({ src, name: pack.title, zoom: `mock:${i}` })) : []),
+];
+// Mockups: the pack's own imagery, four at most.
+const mockups = galleryImgs.slice(0, 4);
+
+// The sizes the templates come in, from their canvases ("1080 × 1440 px").
+const sizes = [...new Set(templates.map((t) => t.canvas && t.canvas.width && t.canvas.height ? `${t.canvas.width} × ${t.canvas.height} px` : null).filter(Boolean))];
+
+// Related packs: the same kind first, then the same category, then the rest.
+const related = cards.filter((c) => c.slug !== pack.slug)
+  .map((c) => ({ c, score: (c.kind === (pack.kind || "social") ? 2 : 0) + (c.category && c.category === pack.category ? 1 : 0) }))
+  .sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.c);
+const pad2 = (n) => String(n).padStart(2, "0");
 
 // Pack images are uploaded full size (previews up to 21 MB PNGs), so the page
 // never loads them as they are: Supabase resizes on the fly to the width the
@@ -122,130 +154,168 @@ function gbp(pence) {
   ogImage={pack.cover_image_url || undefined}
 >
   <article class="pack-detail">
-    <!-- ============================== HERO -->
-    <header class="pack-hero wrap">
-      <a href="/edit" class="pack-back">&larr; The Edit</a>
-
-      <div class="pack-hero-grid">
-        <div class="pack-cover">
-          <div class="pack-cover-frame">
-            {heroMain ? (
-              <img class="pack-cover-img" id="pack-hero-img" src={sized(heroMain, 1400)} alt={pack.title} fetchpriority="high" />
-            ) : (
-              <div class="pack-cover-empty">No cover image yet.</div>
-            )}
+    <!-- ============================== HERO
+         A strip of the pack's templates sliding past on the left (after Moyo
+         Studio), and a small, quiet buying panel on the right (after Studio
+         Blanche). Danielle, 24 Oct 2026. -->
+    <section class="pd-hero">
+      <div class="pd-reel" aria-label={`Templates from ${pack.title}`}>
+        {reelItems.length > 0 ? (
+          <div class="pd-reel-track" style={`--pd-dur:${Math.max(30, reelItems.length * 7)}s`}>
+            {[...reelItems, ...reelItems].map((it, i) => (
+              <button
+                type="button"
+                class="pd-reel-item"
+                data-zoomto={it.zoom}
+                aria-label={i < reelItems.length ? `Enlarge ${it.name}` : undefined}
+                aria-hidden={i >= reelItems.length ? "true" : undefined}
+                tabindex={i >= reelItems.length ? "-1" : undefined}
+              >
+                <img src={sized(it.src, 640)} alt="" loading={i < 6 ? "eager" : "lazy"} />
+              </button>
+            ))}
           </div>
-          {heroImages.length > 1 && (
-            <div class="pack-hero-thumbs" aria-label="Pack images">
-              {heroImages.map((src, i) => (
-                <button
-                  type="button"
-                  class={`pack-hero-thumb${i === 0 ? " is-active" : ""}`}
-                  data-hero-src={sized(src, 1400)}
-                  aria-label={`Show image ${i + 1} of ${heroImages.length}`}
-                >
-                  <img src={sized(src, 320)} alt="" loading={i < 4 ? "eager" : "lazy"} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div class="pack-info">
-          {pack.category && <div class="pack-cat">{pack.category}</div>}
-          <h1 class="pack-title">{pack.title}</h1>
-          {pack.description && <p class="pack-stand">{pack.description}</p>}
-
-          <div class="pack-pricerow">
-            <span class="pack-price">{gbp(pack.price_pence)}</span>
-            <span class="pack-vat">+VAT · one-time payment</span>
-          </div>
-
-          <button type="button" class="btn btn--solid pack-buy" data-buy={pack.id}>
-            Buy this pack <span class="btn-arrow">&rarr;</span>
-          </button>
-
-          {contents.length > 0 && (
-            <div class="pack-contents">
-              <div class="eyebrow">What's inside</div>
-              <ul>
-                {contents.map((line) => <li>{line}</li>)}
-              </ul>
-            </div>
-          )}
-        </div>
+        ) : heroMain ? (
+          <img class="pd-reel-single" src={sized(heroMain, 1400)} alt={pack.title} />
+        ) : null}
       </div>
-    </header>
+
+      <aside class="pd-panel">
+        <a href="/edit" class="pd-back">&larr; The Edit</a>
+        {pack.category && <div class="pd-cat">{pack.category}</div>}
+        <h1 class="pd-title">{pack.title}</h1>
+        <div class="pd-price">{gbp(pack.price_pence)} <span>+VAT · one-time payment</span></div>
+        {pack.description && <p class="pd-desc">{pack.description}</p>}
+
+        <button type="button" class="pd-buy" data-buy={pack.id}>Buy this pack · {gbp(pack.price_pence)}</button>
+        <a href="#pack-previews" class="pd-see">See inside the pack &darr;</a>
+
+        <div class="pd-acc">
+          {contents.length > 0 && (
+            <details>
+              <summary>What's inside</summary>
+              <ul class="pd-list">{contents.map((line) => <li>{line}</li>)}</ul>
+            </details>
+          )}
+          <details>
+            <summary>Details</summary>
+            <dl class="pd-spec">
+              <div><dt>Templates</dt><dd>{templates.length} editable</dd></div>
+              {sizes.length > 0 && <div><dt>Size</dt><dd>{sizes.join(" / ")}</dd></div>}
+              <div><dt>Edited in</dt><dd>The TMKE Studio, in your browser</dd></div>
+              <div><dt>Payment</dt><dd>Once, {gbp(pack.price_pence)} + VAT</dd></div>
+            </dl>
+          </details>
+          <details>
+            <summary>How it works</summary>
+            <p class="pd-note">Once you've paid, the pack is unlocked in your TMKE Studio. Open any template there to change the photos, words and colours to suit your business, then download it ready to post. It's yours to keep.</p>
+          </details>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ============================== MOCKUPS -->
+    {mockups.length > 0 && (
+      <section class="pd-mocks wrap" aria-label="The pack in use">
+        <div class={`pd-mocks-grid n${mockups.length}`}>
+          {mockups.map((src, i) => (
+            <figure class="pd-mock" data-zoom data-set="mock" data-full={sized(src, 1600)} data-name={pack.title} tabindex="0" role="button" aria-label={`Enlarge image ${i + 1}`}>
+              <img src={sized(src, 900)} alt="" loading="lazy" />
+            </figure>
+          ))}
+        </div>
+      </section>
+    )}
 
     <!-- ============================== PREVIEWS -->
-    <section class="pack-previews wrap" id="pack-previews">
-      <header class="pack-previews-head">
-        <div>
-          <div class="eyebrow">Inside this pack</div>
-          <h2>{templates.length} editable templates</h2>
-        </div>
-        <p class="pack-previews-hint">
-          {lockedCount > 0
-            ? `Showing ${previewTpls.length} previews · ${lockedCount} more unlock when you buy.`
-            : `All ${templates.length} templates included.`}
-        </p>
-      </header>
-
-      <div class="pack-tpl-grid">
-        {previewTpls.map((t, i) => (
-          <figure
-            class="pack-tpl pack-tpl--open"
-            data-zoom={(t.render_url || t.thumb_url) ? "" : undefined}
-            data-full={sized(t.render_url || t.thumb_url, 1600) || undefined}
-            data-name={t.name}
-            tabindex={(t.render_url || t.thumb_url) ? "0" : undefined}
-            role={(t.render_url || t.thumb_url) ? "button" : undefined}
-            aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
-          >
-            {(t.thumb_url || t.render_url)
-              ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
-              : <div class="pack-tpl-empty"></div>}
-            <figcaption>
-              {t.category && <span class="pack-tpl-cat">{t.category}</span>}
-              <span class="pack-tpl-name">{t.name}</span>
-            </figcaption>
-          </figure>
-        ))}
-
-        {lockedTpls.map((t, i) => (
-          <figure
-            class:list={["pack-tpl", "pack-tpl--locked", i >= LOCKED_ON_MOBILE && "pack-tpl--locked-xtra"]}
-            aria-label="Locked — buy the pack to unlock"
-          >
-            {(t.thumb_url || t.render_url)
-              ? <img src={sized(t.thumb_url || t.render_url, 500)} alt="" loading="lazy" />
-              : <div class="pack-tpl-empty"></div>}
-            <div class="pack-tpl-lock-overlay">
-              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            </div>
-            <figcaption>
-              {t.category && <span class="pack-tpl-cat">{t.category}</span>}
-              <span class="pack-tpl-name">Locked</span>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-
-      {lockedCount > 0 && (
-        <div class="pack-unlock-cta">
+    <section class="pack-previews" id="pack-previews">
+      <div class="wrap">
+        <header class="pack-previews-head">
           <div>
-            <h3>Unlock the full pack.</h3>
-            <p>Pay once. Edit everything inside the TMKE studio. Yours forever.</p>
+            <div class="pd-eyebrow">Inside this pack</div>
+            <h2>{templates.length} editable templates</h2>
           </div>
-          <button type="button" class="btn btn--solid" data-buy={pack.id}>
-            Buy {pack.title} — {gbp(pack.price_pence)} +VAT <span class="btn-arrow">&rarr;</span>
-          </button>
+          <p class="pack-previews-hint">
+            {lockedCount > 0
+              ? `${pad2(1)}–${pad2(previewTpls.length)} of ${templates.length} shown · the rest unlock when you buy`
+              : `All ${templates.length} templates shown`}
+          </p>
+        </header>
+
+        <div class="pack-tpl-grid">
+          {previewTpls.map((t, i) => (
+            <figure
+              class="pack-tpl pack-tpl--open"
+              data-zoom={(t.render_url || t.thumb_url) ? "" : undefined}
+              data-set="tpl"
+              data-full={sized(t.render_url || t.thumb_url, 1600) || undefined}
+              data-name={t.name}
+              tabindex={(t.render_url || t.thumb_url) ? "0" : undefined}
+              role={(t.render_url || t.thumb_url) ? "button" : undefined}
+              aria-label={(t.render_url || t.thumb_url) ? `Enlarge ${t.name}` : undefined}
+            >
+              {(t.thumb_url || t.render_url)
+                ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
+                : <div class="pack-tpl-empty"></div>}
+              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span><span class="pack-tpl-name">{t.name}</span></figcaption>
+            </figure>
+          ))}
+
+          {lockedTpls.map((t, i) => (
+            <figure
+              class:list={["pack-tpl", "pack-tpl--locked", i >= LOCKED_ON_MOBILE && "pack-tpl--locked-xtra"]}
+              aria-label="Locked: buy the pack to unlock"
+            >
+              {(t.thumb_url || t.render_url)
+                ? <img src={sized(t.thumb_url || t.render_url, 500)} alt="" loading="lazy" />
+                : <div class="pack-tpl-empty"></div>}
+              <div class="pack-tpl-lock-overlay">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              </div>
+              <figcaption><span class="pack-tpl-num">{pad2(previewTpls.length + i + 1)}</span><span class="pack-tpl-name">Locked</span></figcaption>
+            </figure>
+          ))}
         </div>
-      )}
+
+        {lockedCount > 0 && (
+          <div class="pack-unlock-cta">
+            <div>
+              <div class="pack-unlock-h">Unlock the full pack.</div>
+              <p>Pay once. Edit everything inside the TMKE Studio. Yours to keep.</p>
+            </div>
+            <button type="button" class="pd-buy pd-buy--light" data-buy={pack.id}>Buy {pack.title} · {gbp(pack.price_pence)} +VAT</button>
+          </div>
+        )}
+      </div>
     </section>
+
+    <!-- ============================== MORE PACKS
+         Related packs, and the packs you've looked at recently (kept in this
+         browser only), after Studio Blanche. -->
+    {cards.length > 1 && (
+      <section class="pd-more wrap" id="pd-more">
+        <div class="pd-tabs" role="tablist">
+          <button type="button" class="pd-tab is-on" role="tab" aria-selected="true" data-tab="related">You might also like</button>
+          <button type="button" class="pd-tab" role="tab" aria-selected="false" data-tab="recent" hidden>Recently viewed</button>
+        </div>
+        <div class="pd-cards" data-panel="related">
+          {related.map((c) => (
+            <a class="pd-card" href={`/edit/${c.slug}`}>
+              <span class="pd-card-img">{c.cover && <img src={sized(c.cover, 600)} alt="" loading="lazy" />}</span>
+              <span class="pd-card-cat">{c.category}</span>
+              <span class="pd-card-title">{c.title}</span>
+              <span class="pd-card-price">{gbp(c.price_pence)} <small>+VAT</small></span>
+            </a>
+          ))}
+        </div>
+        <div class="pd-cards" data-panel="recent" hidden></div>
+        <script type="application/json" id="pd-cards-data" set:html={JSON.stringify(cards.map((c) => ({ ...c, cover: c.cover ? sized(c.cover, 600) : null, price: gbp(c.price_pence) })))}></script>
+        <span id="pd-current" data-slug={pack.slug} hidden></span>
+      </section>
+    )}
   </article>
 
   <!-- Lightbox — click any preview to bring it up large, then flip through the
@@ -266,186 +336,178 @@ function gbp(pence) {
   </div>
 
   <style>
-    .pack-detail { color: var(--ink); }
+    /* Padding, not a margin on the hero: a margin collapsed through the
+       article and let the wine page colour show behind the nav. */
+    .pack-detail { color: var(--ink); padding-top: 78px; background: var(--paper); }
 
     .wrap {
       max-width: 1280px;
       margin: 0 auto;
       padding: 0 36px;
     }
+    @media (max-width: 720px) { .wrap { padding: 0 16px; } }
 
-    /* 140px cleared the nav twice over and pushed the cover + thumbs off the first
-       screen. 92px clears it once, with air — so the images land whole and the copy
-       is what you scroll to. */
-    .pack-hero { padding-top: 92px; padding-bottom: 48px; }
-    .pack-back {
-      display: inline-block;
-      font-family: var(--sans); font-size: 12px;
-      font-weight: 700; letter-spacing: 0.22em;
-      text-transform: uppercase;
-      color: rgba(28,29,34,0.55);
-      margin-bottom: 56px;
-      transition: color 0.25s;
-    }
-    .pack-back:hover { color: var(--english-violet); }
-
-    .pack-hero-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 52px;
-      align-items: start;
-    }
-    @media (max-width: 980px) {
-      .pack-hero-grid { grid-template-columns: 1fr; gap: 28px; }
-      /* Once the two columns stack, a full-width 4:5 cover is a whole screen
-         of picture before a word of copy. So the cover keeps a sensible size
-         and the thumbnails move up beside it in a column — image and picker
-         on one row, then the copy. */
-      .pack-cover { display: grid; grid-template-columns: minmax(0, 380px) 92px; gap: 14px; align-items: start; }
-      .pack-hero-thumbs { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: 1fr; gap: 10px; margin-top: 0; }
-    }
     /* The page's bottom is the wine footer. On a touch screen the rubber-band
        past it revealed white; paint the root the same wine and stop the
        overscroll where the browser lets us. */
     html { background: var(--english-violet); overscroll-behavior-y: none; }
 
-    .pack-cover { max-width: 100%; }
-    .pack-cover-frame {
-      aspect-ratio: 4 / 5;
-      background: rgba(var(--violet-rgb), 0.08);
-      overflow: hidden;
-      border-radius: 2px;
-      border: 1px solid #fff;
-      box-shadow: 0 2px 14px -6px rgba(28,29,34,0.22);
-    }
-    .pack-cover-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    /* Picker strip under the main image. Each thumb is a SIXTH of the hero's
-       width — half what a third would be — so three of them sit under the
-       left half of the picture and read as thumbnails at a glance. Stretched
-       edge-to-edge they were nearly the size of the image itself. */
-    .pack-hero-thumbs {
+    /* ---- HERO: sliding strip | buying panel ---- */
+    .pd-hero {
       display: grid;
-      grid-auto-flow: column;
-      grid-auto-columns: calc((100% - 2 * 12px) / 6);
-      justify-content: start;
-      gap: 12px;
-      margin-top: 22px;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      border-top: 1px solid rgba(28,29,34,0.08);
+      border-bottom: 1px solid rgba(28,29,34,0.08);
     }
-    .pack-hero-thumb {
-      aspect-ratio: 4 / 5; padding: 0;
-      border: 1px solid #fff; border-radius: 2px;
-      box-shadow: 0 1px 8px -4px rgba(28,29,34,0.2);
-      overflow: hidden; background: none; cursor: pointer;
-      opacity: 0.66; transition: opacity 0.2s, box-shadow 0.2s;
+    .pd-reel {
+      position: relative; overflow: hidden; min-height: 480px;
+      background: #e7e0dc;
     }
-    .pack-hero-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pack-hero-thumb:hover { opacity: 1; }
-    .pack-hero-thumb.is-active {
-      opacity: 1;
-      box-shadow: 0 0 0 2px var(--english-violet), 0 1px 8px -4px rgba(28,29,34,0.2);
+    /* Kept compact on purpose: the templates are seen, not supersized. */
+    .pd-reel-track {
+      position: absolute; left: 0; top: 50%;
+      height: clamp(300px, 26vw, 380px);
+      display: flex; gap: 18px; width: max-content;
+      transform: translate(0, -50%);
+      animation: pd-slide var(--pd-dur, 40s) linear infinite;
     }
-    .pack-cover-empty {
-      width: 100%; height: 100%;
-      display: flex; align-items: center; justify-content: center;
-      font-family: var(--sans); font-size: 12px;
+    .pd-reel:hover .pd-reel-track, .pd-reel:focus-within .pd-reel-track { animation-play-state: paused; }
+    @keyframes pd-slide {
+      from { transform: translate(0, -50%); }
+      to   { transform: translate(calc(-50% - 9px), -50%); }
+    }
+    .pd-reel-item {
+      height: 100%; aspect-ratio: 3 / 4; flex: none;
+      padding: 0; border: 0; background: #fff; cursor: zoom-in;
+      box-shadow: 0 18px 40px -24px rgba(28,29,34,0.45);
+      transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
+    }
+    .pd-reel-item:hover { transform: translateY(-4px); }
+    .pd-reel-item:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+    .pd-reel-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pd-reel-single { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    @media (prefers-reduced-motion: reduce) {
+      .pd-reel { overflow-x: auto; }
+      .pd-reel-track { animation: none; padding: 0 24px; }
+    }
+
+    .pd-panel {
+      padding: 26px max(36px, calc((100vw - 1280px) / 2 + 36px)) 30px 40px;
+      display: flex; flex-direction: column; gap: 10px;
+      background: var(--paper);
+    }
+    .pd-back {
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
       letter-spacing: 0.22em; text-transform: uppercase;
-      color: rgba(28,29,34,0.4);
-    }
-
-    .pack-info { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
-    .pack-cat {
-      font-family: var(--sans); font-size: 11px;
-      font-weight: 700; letter-spacing: 0.24em;
-      text-transform: uppercase;
-      color: var(--english-violet);
-    }
-    .pack-title {
-      font-family: var(--serif); font-weight: 400;
-      font-size: clamp(30px, 3.4vw, 44px);
-      line-height: 1.06; letter-spacing: -0.02em;
-      color: var(--ink); margin: 0;
-    }
-    .pack-stand {
-      font-family: var(--sans); font-style: normal;
-      font-size: 15px;
-      line-height: 1.6;
-      color: rgba(28,29,34,0.65);
-      margin: 4px 0 10px; max-width: 52ch;
-    }
-    /* Stacked (≤980px) the copy column had its laptop measure on a page a
-       third narrower than a laptop, which left the right half empty. After
-       the rule above on purpose: same specificity, order decides. */
-    @media (max-width: 980px) { .pack-stand { max-width: 68ch; } }
-
-    .pack-pricerow {
-      display: flex; align-items: baseline; gap: 12px;
-      padding: 16px 0;
-      border-top: 1px solid rgba(28,29,34,0.12);
-      border-bottom: 1px solid rgba(28,29,34,0.12);
-      margin: 10px 0;
-    }
-    .pack-price {
-      font-family: var(--serif); font-weight: 500;
-      font-size: 30px;
-      color: var(--ink);
-    }
-    .pack-vat {
-      font-family: var(--sans); font-size: 11px;
-      font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
-      color: rgba(28,29,34,0.5);
-    }
-    .pack-buy {
+      color: rgba(28,29,34,0.5); margin-bottom: 18px; transition: color 0.25s;
       align-self: flex-start;
-      padding: 15px 26px;
-      font-family: var(--sans); font-size: 12px; font-weight: 700;
-      letter-spacing: 0.22em; text-transform: uppercase;
+    }
+    .pd-back:hover { color: var(--english-violet); }
+    .pd-cat, .pd-eyebrow {
+      font-family: var(--sans); font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.24em; text-transform: uppercase; color: var(--english-violet);
+    }
+    .pd-title {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(26px, 2.2vw, 32px); line-height: 1.08; letter-spacing: -0.02em;
+      margin: 0; color: var(--ink); text-wrap: balance;
+    }
+    .pd-price {
+      font-family: var(--serif); font-size: 18px; color: var(--ink);
+      display: flex; align-items: baseline; gap: 10px;
+    }
+    .pd-price span {
+      font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: rgba(28,29,34,0.5);
+    }
+    .pd-desc {
+      font-family: var(--sans); font-size: 14px; line-height: 1.6;
+      color: rgba(28,29,34,0.68); margin: 4px 0 6px;
+    }
+    .pd-buy {
+      width: 100%; padding: 14px 18px; margin-top: 6px;
+      border: 1px solid var(--english-violet); background: var(--english-violet); color: var(--paper);
+      font-family: var(--sans); font-size: 11.5px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; cursor: pointer;
+      transition: background 0.25s, border-color 0.25s;
+    }
+    .pd-buy:hover { background: #4d2b39; border-color: #4d2b39; }
+    .pd-buy--light { width: auto; padding: 14px 24px; margin: 0; background: var(--paper); color: var(--english-violet); border-color: var(--paper); }
+    .pd-buy--light:hover { background: #e7dcd8; border-color: #e7dcd8; }
+    .pd-see {
+      align-self: center; font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+      color: rgba(28,29,34,0.6); text-decoration: underline; text-underline-offset: 3px;
+      margin: 2px 0 8px;
+    }
+    .pd-see:hover { color: var(--english-violet); }
+
+    /* Accordions: small and ruled, like the reference. */
+    .pd-acc { border-top: 1px solid rgba(28,29,34,0.12); }
+    .pd-acc details { border-bottom: 1px solid rgba(28,29,34,0.12); }
+    .pd-acc summary {
+      list-style: none; cursor: pointer; padding: 13px 0;
+      display: flex; justify-content: space-between; align-items: center;
+      font-family: var(--sans); font-size: 11px; font-weight: 700;
+      letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink);
+    }
+    .pd-acc summary::-webkit-details-marker { display: none; }
+    .pd-acc summary::after { content: "+"; font-size: 15px; font-weight: 400; letter-spacing: 0; color: rgba(28,29,34,0.5); }
+    .pd-acc details[open] summary::after { content: "\2212"; }
+    .pd-acc summary:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 2px; }
+    .pd-list { list-style: none; padding: 0 0 14px; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+    .pd-list li {
+      position: relative; padding-left: 18px;
+      font-family: var(--sans); font-size: 13.5px; line-height: 1.5; color: rgba(28,29,34,0.75);
+    }
+    .pd-list li::before { content: "\2192"; position: absolute; left: 0; color: var(--english-violet); }
+    .pd-spec { margin: 0; padding: 0 0 12px; }
+    .pd-spec div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; padding: 7px 0; border-top: 1px solid rgba(28,29,34,0.06); }
+    .pd-spec div:first-child { border-top: 0; }
+    .pd-spec dt { font-family: var(--sans); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,29,34,0.5); padding-top: 2px; }
+    .pd-spec dd { margin: 0; font-family: var(--sans); font-size: 13.5px; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .pd-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0 0 14px; }
+
+    @media (max-width: 960px) {
+      .pd-hero { grid-template-columns: 1fr; }
+      .pd-reel { min-height: 330px; }
+      .pd-reel-track { height: 270px; }
+      .pd-panel { padding: 22px 16px 26px; }
     }
 
-    .pack-contents {
-      margin-top: 24px;
-      padding-top: 24px;
-      border-top: 1px solid rgba(28,29,34,0.12);
-    }
-    .pack-contents .eyebrow { margin-bottom: 12px; }
-    .pack-contents ul {
-      list-style: none; padding: 0; margin: 0;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .pack-contents li {
-      font-family: var(--sans); font-size: 13.5px;
-      line-height: 1.55;
-      color: rgba(28,29,34,0.78);
-      padding-left: 22px;
-      position: relative;
-    }
-    .pack-contents li::before {
-      content: "→";
-      font-family: var(--sans); font-style: normal;
-      color: var(--english-violet);
-      position: absolute; left: 0;
-    }
+    /* ---- MOCKUPS ---- */
+    .pd-mocks { padding-top: 56px; padding-bottom: 8px; }
+    .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .pd-mocks-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .pd-mocks-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 640px); }
+    @media (max-width: 720px) { .pd-mocks-grid, .pd-mocks-grid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+    .pd-mock { margin: 0; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; cursor: zoom-in; }
+    .pd-mock img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+    .pd-mock:hover img { transform: scale(1.03); }
+    .pd-mock:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
 
     /* PREVIEWS */
-    /* 200px of dead space sat under the templates before the footer. */
-    .pack-previews { padding: 40px 36px 72px; }
+    /* A dark band, as the reference's collection grid sits on. */
+    .pack-previews { background: #241319; color: var(--paper); padding: 52px 0 64px; margin-top: 56px; }
     .pack-previews-head {
       display: flex; justify-content: space-between; align-items: end;
       gap: 24px; flex-wrap: wrap;
-      padding-top: 24px;
-      border-top: 1px solid rgba(28,29,34,0.1);
-      margin-bottom: 36px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(240,238,235,0.14);
+      margin-bottom: 28px;
     }
-    .pack-previews-head .eyebrow { margin-bottom: 8px; }
+    .pack-previews-head .pd-eyebrow { margin-bottom: 8px; color: #c9b3ab; }
     .pack-previews-head h2 {
       font-family: var(--serif); font-weight: 400;
-      font-size: clamp(22px, 2.4vw, 30px);
+      font-size: clamp(22px, 2.2vw, 28px);
       letter-spacing: -0.018em;
-      margin: 0; color: var(--ink);
+      margin: 0; color: var(--paper);
     }
     .pack-previews-hint {
       font-family: var(--sans); font-style: normal;
-      font-size: 13px; line-height: 1.5; color: rgba(28,29,34,0.6);
-      margin: 0; white-space: nowrap; text-align: right;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+      line-height: 1.5; color: rgba(240,238,235,0.55);
+      margin: 0; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums;
     }
     @media (max-width: 720px) {
       .pack-previews-hint { white-space: normal; text-align: left; }
@@ -469,10 +531,7 @@ function gbp(pence) {
     .pack-tpl {
       position: relative;
       margin: 0;
-      background: rgba(var(--violet-rgb),0.06);
-      border-radius: 2px;
-      border: 1px solid #fff;
-      box-shadow: 0 1px 8px -5px rgba(28,29,34,0.2);
+      background: transparent;
       overflow: hidden;
       transition: transform 0.35s cubic-bezier(.2,.7,.2,1);
     }
@@ -538,10 +597,14 @@ function gbp(pence) {
       object-fit: cover; display: block;
     }
     .pack-tpl-empty { width: 100%; aspect-ratio: 3/4; background: rgba(28,29,34,0.06); }
+    /* Numbered, under each one: "01  Pumpkin picking season". */
     .pack-tpl figcaption {
-      padding: 8px 10px 10px;
-      background: var(--paper);
-      display: flex; flex-direction: column; gap: 2px;
+      padding: 9px 0 0;
+      display: flex; gap: 8px; align-items: baseline;
+    }
+    .pack-tpl-num {
+      flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700;
+      letter-spacing: 0.14em; color: rgba(240,238,235,0.45); font-variant-numeric: tabular-nums;
     }
     .pack-tpl-cat {
       font-family: var(--sans); font-size: 9.5px;
@@ -552,8 +615,8 @@ function gbp(pence) {
     /* Standard-copy title in Darker Grotesque, bold — keeps the caption compact
        so the template thumbnail is the star (was an oversized serif). */
     .pack-tpl-name {
-      font-family: var(--sans); font-weight: 700; font-size: 13px;
-      line-height: 1.3; color: var(--ink);
+      font-family: var(--sans); font-weight: 600; font-size: 12.5px;
+      line-height: 1.3; color: rgba(240,238,235,0.85);
     }
 
     .pack-tpl--locked img { filter: blur(14px) saturate(0.7); transform: scale(1.08); }
@@ -577,7 +640,7 @@ function gbp(pence) {
       backdrop-filter: blur(8px);
     }
     .pack-tpl--locked .pack-tpl-name {
-      color: rgba(28,29,34,0.5);
+      color: rgba(240,238,235,0.45);
       font-style: normal;
     }
 
@@ -586,40 +649,48 @@ function gbp(pence) {
       grid-template-columns: 1fr auto;
       align-items: end;
       gap: 32px;
-      margin-top: 48px;
-      padding: 26px 40px;
-      background: var(--ink);
+      margin-top: 40px;
+      padding: 24px 0 0;
+      border-top: 1px solid rgba(240,238,235,0.14);
       color: var(--paper);
-      border-radius: 3px;
     }
     @media (max-width: 720px) {
-      .pack-unlock-cta { grid-template-columns: 1fr; align-items: start; padding: 24px; }
+      .pack-unlock-cta { grid-template-columns: 1fr; align-items: start; }
     }
-    /* Was italic The Seasons for both lines, which read as a different site. Brand
-       type: Helios for the heading, upright Darker Grotesque for the copy.
-       Helios spelled out rather than var(--serif): global.css rebinds --serif to
-       --subhead ON h3/h4, so var(--serif) inside an h3 quietly resolves back to
-       The Seasons — the exact thing we're moving away from. */
-    .pack-unlock-cta h3 {
-      font-family: "Helios", "Helvetica Neue", Helvetica, Arial, sans-serif;
-      font-style: normal; font-weight: 400;
-      font-size: clamp(24px, 2.6vw, 32px);
-      letter-spacing: -0.018em;
+    .pack-unlock-h {
+      font-family: var(--serif); font-weight: 400;
+      font-size: clamp(20px, 2vw, 26px); letter-spacing: -0.018em;
       color: var(--paper); margin: 0 0 6px;
     }
     .pack-unlock-cta p {
       font-family: var(--sans); font-style: normal;
-      font-size: 15px; line-height: 1.5; color: rgba(240,238,235,0.72);
+      font-size: 14px; line-height: 1.5; color: rgba(240,238,235,0.68);
       margin: 0;
     }
-    .pack-unlock-cta .btn {
-      background: var(--paper); color: var(--ink);
-      border-color: var(--paper);
+
+    /* ---- MORE PACKS: related and recently viewed ---- */
+    .pd-more { padding-top: 52px; padding-bottom: 72px; }
+    .pd-tabs { display: flex; gap: 26px; border-bottom: 1px solid rgba(28,29,34,0.12); margin-bottom: 24px; }
+    .pd-tab {
+      background: none; border: 0; padding: 0 0 12px; margin-bottom: -1px; cursor: pointer;
+      border-bottom: 1px solid transparent;
+      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase; color: rgba(28,29,34,0.45);
     }
-    .pack-unlock-cta .btn:hover {
-      background: #c9bcb7; color: var(--ink);
-      border-color: #c9bcb7;
-    }
+    .pd-tab[hidden] { display: none; }
+    .pd-tab.is-on { color: var(--ink); border-bottom-color: var(--ink); }
+    .pd-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
+    .pd-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+    .pd-cards[hidden] { display: none; }
+    @media (max-width: 860px) { .pd-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } }
+    .pd-card { display: flex; flex-direction: column; gap: 4px; color: var(--ink); }
+    .pd-card-img { display: block; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; margin-bottom: 8px; }
+    .pd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
+    .pd-card:hover .pd-card-img img { transform: scale(1.03); }
+    .pd-card-cat { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); }
+    .pd-card-title { font-family: var(--serif); font-size: 16px; letter-spacing: -0.01em; }
+    .pd-card-price { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.65); }
+    .pd-card-price small { font-size: 10px; letter-spacing: 0.12em; }
   </style>
 
   <script is:inline>
@@ -632,22 +703,6 @@ function gbp(pence) {
       });
     });
 
-    // Hero gallery — click a thumbnail to swap it into the big frame above.
-    (function () {
-      var main = document.getElementById('pack-hero-img');
-      var thumbs = document.querySelectorAll('.pack-hero-thumb');
-      if (!main || !thumbs.length) return;
-      thumbs.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          var src = btn.getAttribute('data-hero-src');
-          if (!src) return;
-          main.src = src;
-          thumbs.forEach(function (b) { b.classList.remove('is-active'); });
-          btn.classList.add('is-active');
-        });
-      });
-    })();
-
     // Click a preview to open it large, then flip through the rest with the
     // arrows (or ← →) — no need to close and re-open each one.
     (function () {
@@ -659,12 +714,17 @@ function gbp(pence) {
       var nextBtn = document.getElementById('pack-lightbox-next');
       if (!lb || !img) return;
 
-      // The ordered set of previews you can flip between.
-      var items = Array.prototype.slice.call(document.querySelectorAll('[data-zoom]')).map(function (el) {
-        return { full: el.getAttribute('data-full'), name: el.getAttribute('data-name') || '' };
+      // Two sets you can flip through: the templates, and the mockups. The
+      // sliding strip opens whichever one it shows ("tpl:2", "mock:0").
+      var sets = { tpl: [], mock: [] };
+      document.querySelectorAll('[data-zoom]').forEach(function (el) {
+        var set = sets[el.getAttribute('data-set')] || sets.tpl;
+        el.setAttribute('data-zoom-i', String(set.length));
+        set.push({ full: el.getAttribute('data-full'), name: el.getAttribute('data-name') || '' });
       });
+      var items = [];
       var idx = 0;
-      var multiple = items.length > 1;
+      var multiple = false;
 
       function render() {
         var it = items[idx];
@@ -672,7 +732,12 @@ function gbp(pence) {
         img.src = it.full; img.alt = it.name; cap.textContent = it.name;
         if (count) count.textContent = multiple ? (idx + 1) + ' / ' + items.length : '';
       }
-      function open(i) {
+      function open(i, setName) {
+        items = sets[setName] || sets.tpl;
+        if (!items.length) return;
+        multiple = items.length > 1;
+        if (prevBtn) prevBtn.hidden = !multiple;
+        if (nextBtn) nextBtn.hidden = !multiple;
         idx = (i + items.length) % items.length;
         render();
         lb.hidden = false; document.documentElement.style.overflow = 'hidden';
@@ -680,13 +745,17 @@ function gbp(pence) {
       function close() { lb.hidden = true; img.removeAttribute('src'); document.documentElement.style.overflow = ''; }
       function go(d) { idx = (idx + d + items.length) % items.length; render(); }
 
-      if (prevBtn) prevBtn.hidden = !multiple;
-      if (nextBtn) nextBtn.hidden = !multiple;
-
-      document.querySelectorAll('[data-zoom]').forEach(function (el, i) {
-        el.addEventListener('click', function () { open(i); });
+      document.querySelectorAll('[data-zoom]').forEach(function (el) {
+        var i = Number(el.getAttribute('data-zoom-i')), set = el.getAttribute('data-set') || 'tpl';
+        el.addEventListener('click', function () { open(i, set); });
         el.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(i); }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(i, set); }
+        });
+      });
+      document.querySelectorAll('[data-zoomto]').forEach(function (el) {
+        el.addEventListener('click', function () {
+          var parts = String(el.getAttribute('data-zoomto')).split(':');
+          open(Number(parts[1]) || 0, parts[0]);
         });
       });
       if (prevBtn) prevBtn.addEventListener('click', function (e) { e.stopPropagation(); go(-1); });
@@ -697,6 +766,41 @@ function gbp(pence) {
         if (e.key === 'Escape') close();
         else if (e.key === 'ArrowLeft' && multiple) go(-1);
         else if (e.key === 'ArrowRight' && multiple) go(1);
+      });
+    })();
+
+    // "You might also like" / "Recently viewed": this browser remembers the
+    // packs it has opened (nothing leaves the device), newest first.
+    (function () {
+      var cur = document.getElementById('pd-current');
+      var dataEl = document.getElementById('pd-cards-data');
+      if (!cur || !dataEl) return;
+      var slug = cur.getAttribute('data-slug');
+      var KEY = 'tmke-recent-packs';
+      var seen = [];
+      try { seen = JSON.parse(localStorage.getItem(KEY) || '[]'); if (!Array.isArray(seen)) seen = []; } catch (e) { seen = []; }
+      try { localStorage.setItem(KEY, JSON.stringify([slug].concat(seen.filter(function (s) { return s !== slug; })).slice(0, 8))); } catch (e) {}
+      var cards = [];
+      try { cards = JSON.parse(dataEl.textContent || '[]'); } catch (e) {}
+      var bySlug = {}; cards.forEach(function (c) { bySlug[c.slug] = c; });
+      var recent = seen.filter(function (s) { return s !== slug && bySlug[s]; }).slice(0, 4).map(function (s) { return bySlug[s]; });
+      if (!recent.length) return;
+      var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); };
+      var panel = document.querySelector('[data-panel="recent"]');
+      panel.innerHTML = recent.map(function (c) {
+        return '<a class="pd-card" href="/edit/' + encodeURIComponent(c.slug) + '">' +
+          '<span class="pd-card-img">' + (c.cover ? '<img src="' + esc(c.cover) + '" alt="" loading="lazy" />' : '') + '</span>' +
+          '<span class="pd-card-cat">' + esc(c.category) + '</span>' +
+          '<span class="pd-card-title">' + esc(c.title) + '</span>' +
+          '<span class="pd-card-price">' + esc(c.price) + ' <small>+VAT</small></span></a>';
+      }).join('');
+      var tabs = document.querySelectorAll('.pd-tab');
+      document.querySelector('.pd-tab[data-tab="recent"]').hidden = false;
+      tabs.forEach(function (t) {
+        t.addEventListener('click', function () {
+          tabs.forEach(function (x) { var on = x === t; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+          document.querySelectorAll('.pd-cards[data-panel]').forEach(function (p) { p.hidden = p.getAttribute('data-panel') !== t.getAttribute('data-tab'); });
+        });
       });
     })();
   </script>
