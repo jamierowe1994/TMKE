@@ -124,6 +124,9 @@ const related = cards.filter((c) => c.slug !== pack.slug)
   .map((c) => ({ c, score: (c.kind === (pack.kind || "social") ? 2 : 0) + (c.category && c.category === pack.category ? 1 : 0) }))
   .sort((a, b) => b.score - a.score).slice(0, 4).map((x) => x.c);
 const pad2 = (n) => String(n).padStart(2, "0");
+// "Coming Soon - Property - Static" -> "Coming Soon": the caption names the
+// design; the category and format are the Studio's filing.
+const shortName = (n) => String(n || "").split(" - ")[0].trim() || n;
 
 // Pack images are uploaded full size (previews up to 21 MB PNGs), so the page
 // never loads them as they are: Supabase resizes on the fly to the width the
@@ -231,17 +234,11 @@ function gbp(pence) {
 
     <!-- ============================== PREVIEWS -->
     <section class="pack-previews" id="pack-previews">
-      <div class="wrap">
+      <div class="pp-wrap">
         <header class="pack-previews-head">
-          <div>
-            <div class="pd-eyebrow">Inside this pack</div>
-            <h2>{templates.length} editable templates</h2>
-          </div>
-          <p class="pack-previews-hint">
-            {lockedCount > 0
-              ? `${pad2(1)}–${pad2(previewTpls.length)} of ${templates.length} shown · the rest unlock when you buy`
-              : `All ${templates.length} templates shown`}
-          </p>
+          <h2 class="pp-h">Inside this pack</h2>
+          <span class="pp-count">{pad2(1)}–{pad2(previewTpls.length)} of {templates.length}{sizes[0] ? ` · ${sizes[0].replace(" px", "")}` : ""}</span>
+          <button type="button" class="pp-btn" data-buy={pack.id}>{lockedCount > 0 ? `Unlock all ${templates.length}` : "Buy this pack"}</button>
         </header>
 
         <div class="pack-tpl-grid">
@@ -259,7 +256,7 @@ function gbp(pence) {
               {(t.thumb_url || t.render_url)
                 ? <img src={sized(t.thumb_url || t.render_url, 700)} alt={t.name} loading={i < 4 ? "eager" : "lazy"} />
                 : <div class="pack-tpl-empty"></div>}
-              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span><span class="pack-tpl-name">{t.name}</span></figcaption>
+              <figcaption><span class="pack-tpl-num">{pad2(i + 1)}</span><span class="pack-tpl-name">{shortName(t.name)}</span></figcaption>
             </figure>
           ))}
 
@@ -282,15 +279,6 @@ function gbp(pence) {
           ))}
         </div>
 
-        {lockedCount > 0 && (
-          <div class="pack-unlock-cta">
-            <div>
-              <div class="pack-unlock-h">Unlock the full pack.</div>
-              <p>Pay once. Edit everything inside the TMKE Studio. Yours to keep.</p>
-            </div>
-            <button type="button" class="pd-buy pd-buy--light" data-buy={pack.id}>Buy {pack.title} · {gbp(pack.price_pence)} +VAT</button>
-          </div>
-        )}
       </div>
     </section>
 
@@ -298,18 +286,16 @@ function gbp(pence) {
          Related packs, and the packs you've looked at recently (kept in this
          browser only), after Studio Blanche. -->
     {cards.length > 1 && (
-      <section class="pd-more wrap" id="pd-more">
+      <section class="pd-more" id="pd-more">
         <div class="pd-tabs" role="tablist">
           <button type="button" class="pd-tab is-on" role="tab" aria-selected="true" data-tab="related">You might also like</button>
           <button type="button" class="pd-tab" role="tab" aria-selected="false" data-tab="recent" hidden>Recently viewed</button>
         </div>
-        <div class="pd-cards" data-panel="related">
+        <div class="pd-cards" data-panel="related" style={`--n:${Math.max(1, related.length)}`}>
           {related.map((c) => (
             <a class="pd-card" href={`/edit/${c.slug}`}>
               <span class="pd-card-img">{c.cover && <img src={sized(c.cover, 600)} alt="" loading="lazy" />}</span>
-              <span class="pd-card-cat">{c.category}</span>
-              <span class="pd-card-title">{c.title}</span>
-              <span class="pd-card-price">{gbp(c.price_pence)} <small>+VAT</small></span>
+              <span class="pd-card-text"><span class="pd-card-title">{c.title}</span><span class="pd-card-price">{gbp(c.price_pence)} +VAT</span></span>
             </a>
           ))}
         </div>
@@ -365,19 +351,18 @@ function gbp(pence) {
     .pd-left { min-width: 0; }
     /* Just over three templates in view on a dark band (Moyo Studio). The
        item width comes from the band's own width, so it holds at any size. */
+    /* No band behind them (Danielle, 24 Oct): the templates start at the top
+       and run off the edge, a little under three in view. */
     .pd-reel {
       position: relative; overflow: hidden;
-      background: #4a3a40;
-      padding: 44px 0;
       container-type: inline-size;
     }
-    .pd-reel-track { display: flex; gap: 18px; width: max-content; will-change: transform; }
+    .pd-reel-track { display: flex; gap: 14px; width: max-content; will-change: transform; }
     .pd-reel-item {
-      width: calc((100cqw - 3 * 18px) / 3.3); aspect-ratio: 3 / 4; flex: none;
+      width: calc((100cqw - 2 * 14px) / 2.75); aspect-ratio: 3 / 4; flex: none;
       padding: 0; border: 0; background: #fff; cursor: zoom-in;
-      box-shadow: 0 22px 44px -26px rgba(0,0,0,0.6);
     }
-    .pd-reel-item:focus-visible { outline: 2px solid var(--paper); outline-offset: 3px; }
+    .pd-reel-item:focus-visible { outline: 2px solid var(--english-violet); outline-offset: -2px; }
     .pd-reel-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pd-reel-single { display: block; width: 100%; max-height: 520px; object-fit: cover; }
     @media (prefers-reduced-motion: reduce) { .pd-reel { overflow-x: auto; } }
@@ -460,8 +445,8 @@ function gbp(pence) {
     .pd-note { font-family: var(--sans); font-size: 13.5px; line-height: 1.6; color: rgba(28,29,34,0.72); margin: 0 0 14px; }
 
     /* The mockups, under the strip: four small, a row. */
-    .pd-mocks { padding: 28px 44px 44px max(36px, calc((100vw - 1280px) / 2 + 36px)); }
-    .pd-mocks-grid { display: grid; gap: 12px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .pd-mocks { padding: 14px 0 48px 0; }
+    .pd-mocks-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
     .pd-mocks-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .pd-mocks-grid.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .pd-mocks-grid.n1 { grid-template-columns: minmax(0, 360px); }
@@ -474,44 +459,45 @@ function gbp(pence) {
     @media (max-width: 960px) {
       .pd-hero { grid-template-columns: 1fr; }
       .pd-left { display: contents; }
-      .pd-reel { order: 1; padding: 28px 0; }
-      .pd-reel-item { width: calc((100cqw - 18px) / 1.6); }
+      .pd-reel { order: 1; }
+      .pd-reel-item { width: calc((100cqw - 14px) / 1.5); }
       .pd-panel { order: 2; border-left: 0; }
       .pd-panel-in { position: static; padding: 22px 16px 10px; }
       .pd-mocks { order: 3; padding: 18px 16px 36px; }
       .pd-mocks-grid, .pd-mocks-grid.n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     }
 
-    /* A dark band, as the reference's collection grid sits on. */
-    .pack-previews { background: #241319; color: var(--paper); padding: 52px 0 64px; }
+    /* The whole pack on the wine (Danielle, 24 Oct), headed the way Moyo
+       Studio heads its collection: a small label, the count, one button. */
+    .pack-previews { background: var(--english-violet); color: var(--paper); padding: 64px 0 80px; }
+    .pp-wrap { max-width: 1560px; margin: 0 auto; padding: 0 36px; }
+    @media (max-width: 720px) { .pp-wrap { padding: 0 16px; } }
     .pack-previews-head {
-      display: flex; justify-content: space-between; align-items: end;
-      gap: 24px; flex-wrap: wrap;
-      padding-bottom: 18px;
-      border-bottom: 1px solid rgba(240,238,235,0.14);
-      margin-bottom: 28px;
+      display: flex; align-items: center; gap: 18px 56px; flex-wrap: wrap;
+      padding-bottom: 26px; margin-bottom: 36px;
+      border-bottom: 1px solid rgba(240,238,235,0.18);
     }
-    .pack-previews-head .pd-eyebrow { margin-bottom: 8px; color: #c9b3ab; }
-    .pack-previews-head h2 {
-      font-family: var(--serif); font-weight: 400;
-      font-size: clamp(22px, 2.2vw, 28px);
-      letter-spacing: -0.018em;
-      margin: 0; color: var(--paper);
+    .pp-h {
+      font-family: var(--sans); font-size: 13px; font-weight: 600;
+      letter-spacing: 0.24em; text-transform: uppercase; color: var(--paper); margin: 0;
     }
-    .pack-previews-hint {
-      font-family: var(--sans); font-style: normal;
-      font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
-      line-height: 1.5; color: rgba(240,238,235,0.55);
-      margin: 0; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums;
+    .pp-count {
+      font-family: var(--serif); font-size: 13px; letter-spacing: 0.04em;
+      color: rgba(240,238,235,0.55); font-variant-numeric: tabular-nums;
     }
-    @media (max-width: 720px) {
-      .pack-previews-hint { white-space: normal; text-align: left; }
+    .pp-btn {
+      margin-left: auto; background: transparent; color: var(--paper);
+      border: 1px solid rgba(240,238,235,0.75); padding: 13px 26px; cursor: pointer;
+      font-family: var(--sans); font-size: 12px; font-weight: 700;
+      letter-spacing: 0.22em; text-transform: uppercase; transition: background 0.25s, color 0.25s;
     }
+    .pp-btn:hover { background: var(--paper); color: var(--english-violet); }
+    @media (max-width: 720px) { .pp-btn { margin-left: 0; width: 100%; } }
 
     .pack-tpl-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 14px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 36px 20px;
     }
     /* Five across between laptop and phone: four made each tile a quarter of
        the screen, which read as big rather than as a grid of previews. */
@@ -594,12 +580,12 @@ function gbp(pence) {
     .pack-tpl-empty { width: 100%; aspect-ratio: 3/4; background: rgba(28,29,34,0.06); }
     /* Numbered, under each one: "01  Pumpkin picking season". */
     .pack-tpl figcaption {
-      padding: 9px 0 0;
-      display: flex; gap: 8px; align-items: baseline;
+      padding: 14px 0 0;
+      display: flex; gap: 10px; align-items: baseline;
     }
     .pack-tpl-num {
-      flex: none; font-family: var(--sans); font-size: 10px; font-weight: 700;
-      letter-spacing: 0.14em; color: rgba(240,238,235,0.45); font-variant-numeric: tabular-nums;
+      flex: none; font-family: var(--serif); font-size: 12px;
+      letter-spacing: 0.06em; color: rgba(240,238,235,0.5); font-variant-numeric: tabular-nums;
     }
     .pack-tpl-cat {
       font-family: var(--sans); font-size: 9.5px;
@@ -610,8 +596,9 @@ function gbp(pence) {
     /* Standard-copy title in Darker Grotesque, bold — keeps the caption compact
        so the template thumbnail is the star (was an oversized serif). */
     .pack-tpl-name {
-      font-family: var(--sans); font-weight: 600; font-size: 12.5px;
-      line-height: 1.3; color: rgba(240,238,235,0.85);
+      font-family: var(--serif); font-weight: 400; font-size: 12px;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      line-height: 1.35; color: rgba(240,238,235,0.75);
     }
 
     .pack-tpl--locked img { filter: blur(14px) saturate(0.7); transform: scale(1.08); }
@@ -639,53 +626,35 @@ function gbp(pence) {
       font-style: normal;
     }
 
-    .pack-unlock-cta {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: end;
-      gap: 32px;
-      margin-top: 40px;
-      padding: 24px 0 0;
-      border-top: 1px solid rgba(240,238,235,0.14);
-      color: var(--paper);
-    }
-    @media (max-width: 720px) {
-      .pack-unlock-cta { grid-template-columns: 1fr; align-items: start; }
-    }
-    .pack-unlock-h {
-      font-family: var(--serif); font-weight: 400;
-      font-size: clamp(20px, 2vw, 26px); letter-spacing: -0.018em;
-      color: var(--paper); margin: 0 0 6px;
-    }
-    .pack-unlock-cta p {
-      font-family: var(--sans); font-style: normal;
-      font-size: 14px; line-height: 1.5; color: rgba(240,238,235,0.68);
-      margin: 0;
-    }
-
-    /* ---- MORE PACKS: related and recently viewed ---- */
-    .pd-more { padding-top: 52px; padding-bottom: 72px; }
-    .pd-tabs { display: flex; gap: 26px; border-bottom: 1px solid rgba(28,29,34,0.12); margin-bottom: 24px; }
+    /* ---- MORE PACKS: related and recently viewed ----
+       Studio Blanche's way: two centred tabs, then the packs' images edge to
+       edge, a quiet line of text under each. Fewer than four sit centred at
+       the same size rather than stretching. */
+    .pd-more { padding: 64px 0 0; }
+    .pd-tabs { display: flex; justify-content: center; gap: 40px; margin-bottom: 36px; }
     .pd-tab {
-      background: none; border: 0; padding: 0 0 12px; margin-bottom: -1px; cursor: pointer;
+      background: none; border: 0; padding: 0 0 6px; cursor: pointer;
       border-bottom: 1px solid transparent;
-      font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.2em;
-      text-transform: uppercase; color: rgba(28,29,34,0.45);
+      font-family: var(--serif); font-size: 15px; font-weight: 400; letter-spacing: 0.06em;
+      text-transform: uppercase; color: rgba(28,29,34,0.5);
     }
     .pd-tab[hidden] { display: none; }
     .pd-tab.is-on { color: var(--ink); border-bottom-color: var(--ink); }
     .pd-tab:focus-visible { outline: 2px solid var(--english-violet); outline-offset: 3px; }
-    .pd-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+    .pd-cards {
+      display: grid; gap: 6px;
+      grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
+      width: calc(100% * min(var(--n, 4), 4) / 4); margin: 0 auto;
+    }
     .pd-cards[hidden] { display: none; }
-    @media (max-width: 860px) { .pd-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } }
-    .pd-card { display: flex; flex-direction: column; gap: 4px; color: var(--ink); }
-    .pd-card-img { display: block; aspect-ratio: 4 / 5; overflow: hidden; background: #e7e0dc; margin-bottom: 8px; }
-    .pd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.6s cubic-bezier(.2,.7,.2,1); }
-    .pd-card:hover .pd-card-img img { transform: scale(1.03); }
-    .pd-card-cat { font-family: var(--sans); font-size: 9.5px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: var(--english-violet); }
-    .pd-card-title { font-family: var(--serif); font-size: 16px; letter-spacing: -0.01em; }
-    .pd-card-price { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.65); }
-    .pd-card-price small { font-size: 10px; letter-spacing: 0.12em; }
+    @media (max-width: 860px) { .pd-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; } }
+    .pd-card { display: block; color: var(--ink); }
+    .pd-card-img { display: block; aspect-ratio: 3 / 4; overflow: hidden; background: #e7e0dc; }
+    .pd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.8s cubic-bezier(.2,.7,.2,1); }
+    .pd-card:hover .pd-card-img img { transform: scale(1.025); }
+    .pd-card-text { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px 30px; }
+    .pd-card-title { font-family: var(--serif); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
+    .pd-card-price { font-family: var(--sans); font-size: 13px; color: rgba(28,29,34,0.6); white-space: nowrap; }
   </style>
 
   <script is:inline>
@@ -814,12 +783,11 @@ function gbp(pence) {
       if (!recent.length) return;
       var esc = function (t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); };
       var panel = document.querySelector('[data-panel="recent"]');
+      panel.style.setProperty('--n', String(recent.length));
       panel.innerHTML = recent.map(function (c) {
         return '<a class="pd-card" href="/edit/' + encodeURIComponent(c.slug) + '">' +
           '<span class="pd-card-img">' + (c.cover ? '<img src="' + esc(c.cover) + '" alt="" loading="lazy" />' : '') + '</span>' +
-          '<span class="pd-card-cat">' + esc(c.category) + '</span>' +
-          '<span class="pd-card-title">' + esc(c.title) + '</span>' +
-          '<span class="pd-card-price">' + esc(c.price) + ' <small>+VAT</small></span></a>';
+          '<span class="pd-card-text"><span class="pd-card-title">' + esc(c.title) + '</span><span class="pd-card-price">' + esc(c.price) + ' +VAT</span></span></a>';
       }).join('');
       var tabs = document.querySelectorAll('.pd-tab');
       document.querySelector('.pd-tab[data-tab="recent"]').hidden = false;
